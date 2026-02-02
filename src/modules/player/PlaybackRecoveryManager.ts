@@ -432,39 +432,44 @@ export class PlaybackRecoveryManager {
 
         const audioTracks = this._mapAudioTracks(decision.availableAudioStreams ?? []);
         const subtitleMode = getSubtitleMode();
-        const subtitleTracks = this._mapSubtitleTracks(decision.availableSubtitleStreams ?? []);
+        const subtitlesEnabled = subtitleMode !== 'off';
+        const subtitleTracks = subtitlesEnabled
+            ? this._mapSubtitleTracks(decision.availableSubtitleStreams ?? [])
+            : [];
         const itemKey = this._getCurrentItemKey();
         const preferredSubtitleTrackId = subtitleMode !== 'off'
             ? this._resolvePreferredSubtitleId(itemKey, subtitleTracks)
             : null;
-        const allowBurnIn = subtitleModeAllowsBurnIn(subtitleMode);
-        const subtitleContext: NonNullable<StreamDescriptor['subtitleContext']> = {
-            serverUri: this.deps.getServerUri(),
-            authHeaders: this.deps.getAuthHeaders(),
-            itemKey: program.item.ratingKey,
-            mediaIndex: decision.mediaIndex,
-            partIndex: decision.partIndex,
-            partKey: decision.partKey,
-            sessionId: decision.sessionId,
-            onUnavailable: this.deps.notifySubtitleUnavailable,
-            onDeactivate: ({ trackId, reason }): boolean => {
-                if (!allowBurnIn) {
-                    return false;
-                }
-                // Best-effort: try burn-in subtitles when extraction fails (Full mode only).
-                this.deps.notifyToast?.('Subtitles failed to load. Trying burn-in…', 'info');
-                void this.attemptBurnInSubtitleForCurrentProgram(trackId, `subtitle_extract_failed:${reason}`)
-                    .then((ok) => {
-                        if (!ok) {
+        const subtitleContext: StreamDescriptor['subtitleContext'] | undefined = subtitlesEnabled
+            ? {
+                serverUri: this.deps.getServerUri(),
+                authHeaders: this.deps.getAuthHeaders(),
+                itemKey: program.item.ratingKey,
+                mediaIndex: decision.mediaIndex,
+                partIndex: decision.partIndex,
+                partKey: decision.partKey,
+                sessionId: decision.sessionId,
+                onUnavailable: this.deps.notifySubtitleUnavailable,
+                onDeactivate: ({ trackId, reason }): boolean => {
+                    const allowBurnIn = subtitleModeAllowsBurnIn(getSubtitleMode());
+                    if (!allowBurnIn) {
+                        return false;
+                    }
+                    // Best-effort: try burn-in subtitles when extraction fails (Full mode only).
+                    this.deps.notifyToast?.('Subtitles failed to load. Trying burn-in…', 'info');
+                    void this.attemptBurnInSubtitleForCurrentProgram(trackId, `subtitle_extract_failed:${reason}`)
+                        .then((ok) => {
+                            if (!ok) {
+                                this.deps.notifyToast?.('Subtitles unavailable for this item', 'warning');
+                            }
+                        })
+                        .catch(() => {
                             this.deps.notifyToast?.('Subtitles unavailable for this item', 'warning');
-                        }
-                    })
-                    .catch(() => {
-                        this.deps.notifyToast?.('Subtitles unavailable for this item', 'warning');
-                    });
-                return true;
-            },
-        };
+                        });
+                    return true;
+                },
+            }
+            : undefined;
 
         return {
             url: decision.playbackUrl,
@@ -474,8 +479,8 @@ export class PlaybackRecoveryManager {
             mediaMetadata: metadata,
             subtitleTracks,
             audioTracks,
-            subtitleContext,
             ...(preferredSubtitleTrackId !== undefined ? { preferredSubtitleTrackId } : {}),
+            ...(subtitleContext ? { subtitleContext } : {}),
             durationMs: program.item.durationMs,
             isLive: false,
         };

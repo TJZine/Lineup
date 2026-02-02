@@ -34,7 +34,7 @@ Common issues and how to fix them.
 
 ### Subtitles are missing or “unavailable”
 
-See the dedicated guide: `docs/user-guide/subtitles.md`.
+See the dedicated guide: [Subtitles](subtitles.md).
 
 ### "Playback Failed" error
 

@@ -280,7 +280,7 @@ export class SettingsScreen {
                             value: index,
                         })),
                         disabled: !subtitlesEnabled,
-                        disabledReason: 'Set Subtitle Mode to Standard or Full first',
+                        disabledReason: 'Enable Subtitle Mode first',
                         onChange: (value: number): void => {
                             this._saveSubtitleLanguageValue(value);
                         },
@@ -291,7 +291,7 @@ export class SettingsScreen {
                         description: 'Apply a single subtitle choice to all channels',
                         value: useGlobalSubtitlePreference,
                         disabled: !subtitlesEnabled,
-                        disabledReason: 'Set Subtitle Mode to Standard or Full first',
+                        disabledReason: 'Enable Subtitle Mode first',
                         onChange: (value: boolean): void => {
                             this._saveBoolSetting(
                                 SETTINGS_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE,
@@ -305,7 +305,7 @@ export class SettingsScreen {
                         description: 'Auto-select forced (partial) subtitles over full subtitles',
                         value: preferForcedSubtitles,
                         disabled: !subtitlesEnabled,
-                        disabledReason: 'Set Subtitle Mode to Standard or Full first',
+                        disabledReason: 'Enable Subtitle Mode first',
                         onChange: (value: boolean): void => {
                             this._saveBoolSetting(
                                 SETTINGS_STORAGE_KEYS.SUBTITLE_PREFER_FORCED,

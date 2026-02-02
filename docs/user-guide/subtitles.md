@@ -36,5 +36,4 @@ Try in order:
 
 Enable **Settings → Developer → Subtitle Debug Logging**, reproduce the problem, and capture the TV/app logs.
 
-For engineering notes on what Retune tries (and what usually fails on webOS), see `docs/development/subtitles.md`.
-
+For engineering notes on what Retune tries (and what usually fails on webOS), see [docs/development/subtitles.md](../development/subtitles.md).
