@@ -603,7 +603,13 @@ Hello`;
                 return 1 as unknown as ReturnType<typeof window.setTimeout>;
             });
             const tracks: SubtitleTrack[] = [
-                createMockSubtitleTrack({ id: 'en', fetchableViaKey: false }),
+                createMockSubtitleTrack({
+                    id: 'en',
+                    codec: 'webvtt',
+                    format: 'webvtt',
+                    fetchableViaKey: true,
+                    key: '/library/streams/1',
+                }),
             ];
 
             manager.loadTracks(tracks, {

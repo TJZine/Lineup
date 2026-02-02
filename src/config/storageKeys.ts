@@ -27,6 +27,14 @@ export const RETUNE_STORAGE_KEYS = {
     NOW_PLAYING_STREAM_DEBUG: 'retune_now_playing_stream_debug',
     NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW: 'retune_now_playing_stream_debug_auto_show',
     SUBTITLES_ENABLED: 'retune_subtitles_enabled',
+    /**
+     * Subtitle handling mode:
+     * - off: no automatic subtitle loading/selection
+     * - direct: only show subtitles that can be fetched directly (best performance)
+     * - standard: allow server extraction for text subtitles (recommended)
+     * - full: allow burn-in (image/styled) subtitles via transcoding
+     */
+    SUBTITLE_MODE: 'retune_subtitle_mode',
     SUBTITLE_LANGUAGE: 'retune_subtitle_language',
     SUBTITLE_PREFERENCE_GLOBAL: 'retune_subtitle_pref_global',
     SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE: 'retune_subtitle_pref_global_override',

@@ -12,6 +12,8 @@ import type { SettingsSectionConfig, SettingsItemConfig, SettingsSelectConfig, S
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from '../now-playing-info';
 import { readStoredBoolean, safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from '../../../utils/storage';
 import { ThemeManager } from '../theme';
+import { getSubtitleMode, setSubtitleMode, type SubtitleMode } from '../../../shared/subtitle-mode';
+import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
 
 const SUBTITLE_LANGUAGE_OPTIONS: Array<{ label: string; code: string | null }> = [
     { label: 'Auto (Plex)', code: null },
@@ -25,6 +27,13 @@ const SUBTITLE_LANGUAGE_OPTIONS: Array<{ label: string; code: string | null }> =
     { label: 'Japanese', code: 'ja' },
     { label: 'Korean', code: 'ko' },
     { label: 'Chinese', code: 'zh' },
+];
+
+const SUBTITLE_MODE_OPTIONS: Array<{ label: string; mode: SubtitleMode }> = [
+    { label: 'Off', mode: 'off' },
+    { label: 'Direct only (fastest)', mode: 'direct' },
+    { label: 'Standard (Recommended)', mode: 'standard' },
+    { label: 'Full (Burn-in)', mode: 'full' },
 ];
 
 type ToggleMetadata = {
@@ -60,10 +69,6 @@ const TOGGLE_METADATA: Record<string, ToggleMetadata> = {
         storageKey: SETTINGS_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING,
         defaultValue: DEFAULT_SETTINGS.developer.subtitleDebugLogging,
     },
-    'settings-subtitles-enabled': {
-        storageKey: SETTINGS_STORAGE_KEYS.SUBTITLES_ENABLED,
-        defaultValue: DEFAULT_SETTINGS.subtitles.enabled,
-    },
     'settings-subtitles-global': {
         storageKey: SETTINGS_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE,
         defaultValue: DEFAULT_SETTINGS.subtitles.useGlobalPreference,
@@ -71,14 +76,6 @@ const TOGGLE_METADATA: Record<string, ToggleMetadata> = {
     'settings-subtitles-prefer-forced': {
         storageKey: SETTINGS_STORAGE_KEYS.SUBTITLE_PREFER_FORCED,
         defaultValue: DEFAULT_SETTINGS.subtitles.preferForced,
-    },
-    'settings-subtitles-external-only': {
-        storageKey: SETTINGS_STORAGE_KEYS.SUBTITLE_FILTER_EXTERNAL_ONLY,
-        defaultValue: DEFAULT_SETTINGS.subtitles.externalOnly,
-    },
-    'settings-subtitles-allow-burn-in': {
-        storageKey: SETTINGS_STORAGE_KEYS.SUBTITLE_ALLOW_BURN_IN,
-        defaultValue: DEFAULT_SETTINGS.subtitles.allowBurnIn,
     },
     'settings-guide-category-colors': {
         storageKey: SETTINGS_STORAGE_KEYS.GUIDE_CATEGORY_COLORS,
@@ -94,6 +91,10 @@ const SELECT_METADATA: Record<string, SelectMetadata> = {
     'settings-now-playing-timeout': {
         storageKey: SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS,
         defaultValue: DEFAULT_SETTINGS.display.nowPlayingInfoAutoHideMs,
+    },
+    'settings-subtitle-mode': {
+        storageKey: SETTINGS_STORAGE_KEYS.SUBTITLE_MODE,
+        defaultValue: 2, // Standard (Recommended)
     },
     'settings-subtitle-language': {
         storageKey: SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE,
@@ -112,7 +113,7 @@ const SELECT_METADATA: Record<string, SelectMetadata> = {
 export class SettingsScreen {
     private _container: HTMLElement;
     private _getNavigation: () => INavigationManager | null;
-    private _onSubtitlesEnabledChange: ((enabled: boolean) => void) | null = null;
+    private _onSubtitleModeChange: ((mode: SubtitleMode) => void) | null = null;
     private _onGuideSettingChange: ((key: 'categoryColors' | 'libraryTabs', enabled: boolean) => void) | null = null;
     private _focusableIds: string[] = [];
     private _toggleElements: Map<string, ReturnType<typeof createSettingsToggle>> = new Map();
@@ -133,12 +134,12 @@ export class SettingsScreen {
     constructor(
         container: HTMLElement,
         getNavigation: () => INavigationManager | null,
-        onSubtitlesEnabledChange?: (enabled: boolean) => void,
+        onSubtitleModeChange?: (mode: SubtitleMode) => void,
         onGuideSettingChange?: (key: 'categoryColors' | 'libraryTabs', enabled: boolean) => void
     ) {
         this._container = container;
         this._getNavigation = getNavigation;
-        this._onSubtitlesEnabledChange = onSubtitlesEnabledChange ?? null;
+        this._onSubtitleModeChange = onSubtitleModeChange ?? null;
         this._onGuideSettingChange = onGuideSettingChange ?? null;
         this._buildUI();
     }
@@ -216,10 +217,9 @@ export class SettingsScreen {
             DEFAULT_SETTINGS.playback.keepPlayingInSettings
         );
         const hdr10FallbackValue = this._readHdr10FallbackSelectValue();
-        const subtitlesEnabled = this._loadBoolSetting(
-            SETTINGS_STORAGE_KEYS.SUBTITLES_ENABLED,
-            DEFAULT_SETTINGS.subtitles.enabled
-        );
+        const subtitleModeValue = this._loadSubtitleModeValue();
+        const subtitleMode = this._valueToSubtitleMode(subtitleModeValue);
+        const subtitlesEnabled = subtitleMode !== 'off';
         const useGlobalSubtitlePreference = this._loadBoolSetting(
             SETTINGS_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE,
             DEFAULT_SETTINGS.subtitles.useGlobalPreference
@@ -227,14 +227,6 @@ export class SettingsScreen {
         const preferForcedSubtitles = this._loadBoolSetting(
             SETTINGS_STORAGE_KEYS.SUBTITLE_PREFER_FORCED,
             DEFAULT_SETTINGS.subtitles.preferForced
-        );
-        const subtitleExternalOnly = this._loadBoolSetting(
-            SETTINGS_STORAGE_KEYS.SUBTITLE_FILTER_EXTERNAL_ONLY,
-            DEFAULT_SETTINGS.subtitles.externalOnly
-        );
-        const subtitleAllowBurnIn = this._loadBoolSetting(
-            SETTINGS_STORAGE_KEYS.SUBTITLE_ALLOW_BURN_IN,
-            DEFAULT_SETTINGS.subtitles.allowBurnIn
         );
         const subtitleLanguageValue = this._loadSubtitleLanguageValue();
 
@@ -263,14 +255,19 @@ export class SettingsScreen {
                             this._saveBoolSetting(SETTINGS_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK, value),
                     },
                     {
-                        id: 'settings-subtitles-enabled',
-                        label: 'Subtitles (beta)',
-                        description: 'Enable text-based subtitle tracks',
-                        value: subtitlesEnabled,
-                        onChange: (value: boolean): void => {
-                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.SUBTITLES_ENABLED, value);
-                            this._updateSubtitleDependentControls(value);
-                            this._onSubtitlesEnabledChange?.(value);
+                        id: 'settings-subtitle-mode',
+                        label: 'Subtitle Mode',
+                        description: 'Standard is recommended. Full may require transcoding (burn-in).',
+                        value: subtitleModeValue,
+                        options: SUBTITLE_MODE_OPTIONS.map((option, index) => ({
+                            label: option.label,
+                            value: index,
+                        })),
+                        onChange: (value: number): void => {
+                            const mode = this._valueToSubtitleMode(value);
+                            this._saveSubtitleMode(mode);
+                            this._updateSubtitleDependentControls(mode);
+                            this._onSubtitleModeChange?.(mode);
                         },
                     },
                     {
@@ -283,7 +280,7 @@ export class SettingsScreen {
                             value: index,
                         })),
                         disabled: !subtitlesEnabled,
-                        disabledReason: 'Enable Subtitles (beta) first',
+                        disabledReason: 'Set Subtitle Mode to Standard or Full first',
                         onChange: (value: number): void => {
                             this._saveSubtitleLanguageValue(value);
                         },
@@ -294,7 +291,7 @@ export class SettingsScreen {
                         description: 'Apply a single subtitle choice to all channels',
                         value: useGlobalSubtitlePreference,
                         disabled: !subtitlesEnabled,
-                        disabledReason: 'Enable Subtitles (beta) first',
+                        disabledReason: 'Set Subtitle Mode to Standard or Full first',
                         onChange: (value: boolean): void => {
                             this._saveBoolSetting(
                                 SETTINGS_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE,
@@ -308,38 +305,10 @@ export class SettingsScreen {
                         description: 'Auto-select forced (partial) subtitles over full subtitles',
                         value: preferForcedSubtitles,
                         disabled: !subtitlesEnabled,
-                        disabledReason: 'Enable Subtitles (beta) first',
+                        disabledReason: 'Set Subtitle Mode to Standard or Full first',
                         onChange: (value: boolean): void => {
                             this._saveBoolSetting(
                                 SETTINGS_STORAGE_KEYS.SUBTITLE_PREFER_FORCED,
-                                value
-                            );
-                        },
-                    },
-                    {
-                        id: 'settings-subtitles-external-only',
-                        label: 'External (Direct) Only',
-                        description: 'Only show subtitles that can be fetched directly (best performance)',
-                        value: subtitleExternalOnly,
-                        disabled: !subtitlesEnabled,
-                        disabledReason: 'Enable Subtitles (beta) first',
-                        onChange: (value: boolean): void => {
-                            this._saveBoolSetting(
-                                SETTINGS_STORAGE_KEYS.SUBTITLE_FILTER_EXTERNAL_ONLY,
-                                value
-                            );
-                        },
-                    },
-                    {
-                        id: 'settings-subtitles-allow-burn-in',
-                        label: 'Allow Burn-in Subtitles',
-                        description: 'Enable image/styled subtitles by transcoding and burning into video',
-                        value: subtitleAllowBurnIn,
-                        disabled: !subtitlesEnabled,
-                        disabledReason: 'Enable Subtitles (beta) first',
-                        onChange: (value: boolean): void => {
-                            this._saveBoolSetting(
-                                SETTINGS_STORAGE_KEYS.SUBTITLE_ALLOW_BURN_IN,
                                 value
                             );
                         },
@@ -670,6 +639,33 @@ export class SettingsScreen {
         safeLocalStorageSet(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE, option.code);
     }
 
+    private _subtitleModeToValue(mode: SubtitleMode): number {
+        const index = SUBTITLE_MODE_OPTIONS.findIndex((o) => o.mode === mode);
+        return index >= 0 ? index : 2;
+    }
+
+    private _valueToSubtitleMode(value: number): SubtitleMode {
+        const option = SUBTITLE_MODE_OPTIONS[value];
+        if (!option) return 'standard';
+        return option.mode;
+    }
+
+    private _loadSubtitleModeValue(): number {
+        // getSubtitleMode() performs legacy migration + persistence.
+        const mode = getSubtitleMode();
+        return this._subtitleModeToValue(mode);
+    }
+
+    private _saveSubtitleMode(mode: SubtitleMode): void {
+        setSubtitleMode(mode);
+        // Best-effort legacy compatibility: keep old gating key in sync so older builds behave.
+        try {
+            safeLocalStorageSet(RETUNE_STORAGE_KEYS.SUBTITLES_ENABLED, mode === 'off' ? '0' : '1');
+        } catch {
+            // ignore
+        }
+    }
+
     private _readHdr10FallbackSelectValue(): 0 | 1 | 2 {
         const force = this._loadBoolSetting(
             SETTINGS_STORAGE_KEYS.FORCE_HDR10_FALLBACK,
@@ -715,6 +711,8 @@ export class SettingsScreen {
             if (!select) continue;
             const value = id === 'settings-now-playing-timeout'
                 ? this._loadClampedNowPlayingAutoHide()
+                : id === 'settings-subtitle-mode'
+                    ? this._loadSubtitleModeValue()
                 : id === 'settings-subtitle-language'
                     ? this._loadSubtitleLanguageValue()
                     : id === 'settings-hdr10-fallback-mode'
@@ -728,24 +726,18 @@ export class SettingsScreen {
             const themeValue = this._themeToValue(ThemeManager.getInstance().getTheme());
             themeSelect.update(themeValue);
         }
-        const subtitlesEnabled = this._loadBoolSetting(
-            SETTINGS_STORAGE_KEYS.SUBTITLES_ENABLED,
-            DEFAULT_SETTINGS.subtitles.enabled
-        );
-        this._updateSubtitleDependentControls(subtitlesEnabled);
+        const mode = this._valueToSubtitleMode(this._loadSubtitleModeValue());
+        this._updateSubtitleDependentControls(mode);
     }
 
-    private _updateSubtitleDependentControls(subtitlesEnabled: boolean): void {
+    private _updateSubtitleDependentControls(mode: SubtitleMode): void {
+        const subtitlesEnabled = mode !== 'off';
         const subtitleLanguage = this._selectElements.get('settings-subtitle-language');
         subtitleLanguage?.setDisabled(!subtitlesEnabled);
         const subtitleGlobal = this._toggleElements.get('settings-subtitles-global');
         subtitleGlobal?.setDisabled(!subtitlesEnabled);
         const subtitlePreferForced = this._toggleElements.get('settings-subtitles-prefer-forced');
         subtitlePreferForced?.setDisabled(!subtitlesEnabled);
-        const subtitleExternalOnly = this._toggleElements.get('settings-subtitles-external-only');
-        subtitleExternalOnly?.setDisabled(!subtitlesEnabled);
-        const subtitleAllowBurnIn = this._toggleElements.get('settings-subtitles-allow-burn-in');
-        subtitleAllowBurnIn?.setDisabled(!subtitlesEnabled);
         if (this._container.classList.contains('visible') && this._focusableIds.length > 0) {
             this._unregisterFocusables();
             this._registerFocusables();

@@ -18,6 +18,7 @@ import type { AudioTrack, SubtitleTrack } from './types';
 import { TEXT_SUBTITLE_FORMATS } from './constants';
 import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
 import { isStoredTrue, safeLocalStorageGet } from '../../utils/storage';
+import { getSubtitleMode, subtitleModeAllowsBurnIn, subtitleModeIsDirectOnly } from '../../shared/subtitle-mode';
 
 export interface PlaybackRecoveryDeps {
     getVideoPlayer: () => IVideoPlayer | null;
@@ -38,6 +39,7 @@ export interface PlaybackRecoveryDeps {
     getPreferredSubtitleLanguage: () => string | null;
     getPlexPreferredSubtitleLanguage?: () => string | null;
     notifySubtitleUnavailable: () => void;
+    notifyToast?: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
 
     handleGlobalError: (error: AppError, context: string) => void;
 }
@@ -57,14 +59,6 @@ export class PlaybackRecoveryManager {
 
     constructor(private readonly deps: PlaybackRecoveryDeps) { }
 
-    private _isSubtitlesEnabled(): boolean {
-        try {
-            return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.SUBTITLES_ENABLED));
-        } catch {
-            return false;
-        }
-    }
-
     private _useGlobalSubtitlePreference(): boolean {
         try {
             return isStoredTrue(
@@ -79,16 +73,6 @@ export class PlaybackRecoveryManager {
         try {
             return isStoredTrue(
                 safeLocalStorageGet(RETUNE_STORAGE_KEYS.SUBTITLE_PREFER_FORCED)
-            );
-        } catch {
-            return false;
-        }
-    }
-
-    private _isExternalOnlyFilterEnabled(): boolean {
-        try {
-            return isStoredTrue(
-                safeLocalStorageGet(RETUNE_STORAGE_KEYS.SUBTITLE_FILTER_EXTERNAL_ONLY)
             );
         } catch {
             return false;
@@ -156,7 +140,9 @@ export class PlaybackRecoveryManager {
         itemKey: string | null,
         tracks: SubtitleTrack[]
     ): string | null {
-        const externalOnly = this._isExternalOnlyFilterEnabled();
+        const mode = getSubtitleMode();
+        if (mode === 'off') return null;
+        const externalOnly = subtitleModeIsDirectOnly(mode);
         const eligible = tracks.filter((t) => {
             if (!t.isTextCandidate || !(t.fetchableViaKey || Boolean(t.id))) {
                 return false;
@@ -206,10 +192,6 @@ export class PlaybackRecoveryManager {
             const preferred = this._findSubtitleByLanguage(eligible, defaultLanguage);
             if (preferred) return preferred.id;
         }
-
-        const english = this._findSubtitleByLanguage(eligible, 'en') ??
-            this._findSubtitleByLanguage(eligible, 'english');
-        if (english) return english.id;
 
         return null;
     }
@@ -449,23 +431,40 @@ export class PlaybackRecoveryManager {
         }
 
         const audioTracks = this._mapAudioTracks(decision.availableAudioStreams ?? []);
-        const subtitlesEnabled = this._isSubtitlesEnabled();
-        const subtitleTracks = subtitlesEnabled
-            ? this._mapSubtitleTracks(decision.availableSubtitleStreams ?? [])
-            : [];
+        const subtitleMode = getSubtitleMode();
+        const subtitleTracks = this._mapSubtitleTracks(decision.availableSubtitleStreams ?? []);
         const itemKey = this._getCurrentItemKey();
-        const preferredSubtitleTrackId = subtitlesEnabled
+        const preferredSubtitleTrackId = subtitleMode !== 'off'
             ? this._resolvePreferredSubtitleId(itemKey, subtitleTracks)
             : null;
-        const subtitleContext = subtitlesEnabled
-            ? {
-                serverUri: this.deps.getServerUri(),
-                authHeaders: this.deps.getAuthHeaders(),
-                itemKey: program.item.ratingKey,
-                sessionId: decision.sessionId,
-                onUnavailable: this.deps.notifySubtitleUnavailable,
-            }
-            : null;
+        const allowBurnIn = subtitleModeAllowsBurnIn(subtitleMode);
+        const subtitleContext: NonNullable<StreamDescriptor['subtitleContext']> = {
+            serverUri: this.deps.getServerUri(),
+            authHeaders: this.deps.getAuthHeaders(),
+            itemKey: program.item.ratingKey,
+            mediaIndex: decision.mediaIndex,
+            partIndex: decision.partIndex,
+            partKey: decision.partKey,
+            sessionId: decision.sessionId,
+            onUnavailable: this.deps.notifySubtitleUnavailable,
+            onDeactivate: ({ trackId, reason }): boolean => {
+                if (!allowBurnIn) {
+                    return false;
+                }
+                // Best-effort: try burn-in subtitles when extraction fails (Full mode only).
+                this.deps.notifyToast?.('Subtitles failed to load. Trying burn-in…', 'info');
+                void this.attemptBurnInSubtitleForCurrentProgram(trackId, `subtitle_extract_failed:${reason}`)
+                    .then((ok) => {
+                        if (!ok) {
+                            this.deps.notifyToast?.('Subtitles unavailable for this item', 'warning');
+                        }
+                    })
+                    .catch(() => {
+                        this.deps.notifyToast?.('Subtitles unavailable for this item', 'warning');
+                    });
+                return true;
+            },
+        };
 
         return {
             url: decision.playbackUrl,
@@ -475,7 +474,7 @@ export class PlaybackRecoveryManager {
             mediaMetadata: metadata,
             subtitleTracks,
             audioTracks,
-            ...(subtitleContext ? { subtitleContext } : {}),
+            subtitleContext,
             ...(preferredSubtitleTrackId !== undefined ? { preferredSubtitleTrackId } : {}),
             durationMs: program.item.durationMs,
             isLive: false,

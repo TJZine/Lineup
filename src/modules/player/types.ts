@@ -201,10 +201,21 @@ export interface StreamDescriptor {
         authHeaders: Record<string, string>;
         /** ratingKey for the media item (used for PMS subtitle transcode fallback) */
         itemKey?: string;
+        /** Selected media version index (used for PMS subtitle transcode fallback) */
+        mediaIndex?: number;
+        /** Selected part index (used for PMS subtitle transcode fallback) */
+        partIndex?: number;
+        /** Plex part key (diagnostics / future-proofing) */
+        partKey?: string;
         /** Playback session identifier (used for PMS subtitle transcode fallback) */
         sessionId?: string;
         onUnavailable?: () => void;
-        onDeactivate?: (reason: string) => void;
+        /**
+         * Called when the selected subtitle track is deactivated due to failure.
+         * Return true if the failure was handled (e.g., a recovery path was triggered) to suppress
+         * the generic "unavailable" toast.
+         */
+        onDeactivate?: (args: { trackId: string; reason: string }) => boolean;
     };
     /** Preferred subtitle track ID (default selection) */
     preferredSubtitleTrackId?: string | null;

@@ -15,11 +15,11 @@ import type { ScheduledProgram } from '../../scheduler/scheduler';
 import type { SubtitleTrack } from '../../player/types';
 import { BURN_IN_SUBTITLE_FORMATS } from '../../player/constants';
 import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
+import { getSubtitleMode, setSubtitleMode, subtitleModeAllowsBurnIn, subtitleModeIsDirectOnly } from '../../../shared/subtitle-mode';
 import type { ToastType } from '../toast/types';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
 import {
     isStoredTrue,
-    readStoredBoolean,
     safeLocalStorageGet,
     safeLocalStorageRemove,
     safeLocalStorageSet,
@@ -103,15 +103,14 @@ export class PlaybackOptionsCoordinator {
 
     private buildViewModel(): PlaybackOptionsViewModel {
         const player = this.deps.getVideoPlayer();
-        const subtitlesEnabled = this.isSubtitlesEnabled();
-        const externalOnly = this.isExternalOnlyFilterEnabled();
-        const allowBurnIn = this.isBurnInAllowed();
+        const subtitleMode = getSubtitleMode();
+        const externalOnly = subtitleModeIsDirectOnly(subtitleMode);
+        const allowBurnIn = subtitleModeAllowsBurnIn(subtitleMode);
         const subtitleTracks = player?.getAvailableSubtitles() ?? [];
-        const enabledSubtitleTracks = subtitlesEnabled ? subtitleTracks : [];
+        const enabledSubtitleTracks = subtitleTracks;
         const audioTracks = player?.getAvailableAudio() ?? [];
         const state = player?.getState();
-        // Force activeSubtitleId to null when subtitles are disabled
-        const effectiveActiveSubtitleId = subtitlesEnabled ? state?.activeSubtitleId ?? null : null;
+        const effectiveActiveSubtitleId = state?.activeSubtitleId ?? null;
         const activeAudioId = state?.activeAudioId ?? null;
 
         const subtitleOptions: PlaybackOptionsItem[] = [
@@ -131,15 +130,15 @@ export class PlaybackOptionsCoordinator {
         const visibleTextTracks = externalOnly
             ? textTracks.filter((track) => track.fetchableViaKey)
             : textTracks;
-        const burnInTracks = externalOnly
-            ? []
-            : enabledSubtitleTracks.filter((track) => this.isBurnInTrack(track));
+        const burnInTracks = allowBurnIn && !externalOnly
+            ? enabledSubtitleTracks.filter((track) => this.isBurnInTrack(track))
+            : [];
 
         for (const track of visibleTextTracks) {
             subtitleOptions.push({
                 id: `playback-subtitle-${track.id}`,
                 label: track.label,
-                meta: track.fetchableViaKey ? 'Direct (key-backed)' : 'Server-extracted',
+                meta: track.fetchableViaKey ? 'Direct' : 'Extract',
                 selected: effectiveActiveSubtitleId === track.id,
                 onSelect: (): void => {
                     this.handleSubtitleSelect(track.id);
@@ -148,32 +147,23 @@ export class PlaybackOptionsCoordinator {
         }
 
         for (const track of burnInTracks) {
-            const burnInDisabled = !allowBurnIn;
             subtitleOptions.push({
                 id: `playback-subtitle-${track.id}`,
                 label: track.label,
-                meta: burnInDisabled ? 'Burn-in (disabled in settings)' : 'Burn-in (transcode)',
+                meta: 'Burn-in',
                 selected: effectiveActiveSubtitleId === track.id,
                 onSelect: (): void => {
                     this.handleSubtitleSelect(track.id);
                 },
-                ...(burnInDisabled
-                    ? {
-                        blocked: true,
-                        onBlockedSelect: (): void => {
-                            this.notifyBurnInDisabled();
-                        },
-                    }
-                    : {}),
             });
         }
 
         const hasAnyTracks = subtitleTracks.length > 0;
         const hasVisibleTracks = visibleTextTracks.length > 0 || burnInTracks.length > 0;
         const subtitleEmptyMessage = !hasAnyTracks
-            ? 'No compatible subtitles available'
-            : (subtitlesEnabled && !hasVisibleTracks
-                ? 'No compatible subtitles available'
+            ? 'No subtitles available'
+            : (!hasVisibleTracks
+                ? (externalOnly ? 'No direct subtitles available' : 'No compatible subtitles available')
                 : undefined);
 
         const audioOptions = audioTracks.map((track) => ({
@@ -190,7 +180,7 @@ export class PlaybackOptionsCoordinator {
             subtitles: {
                 title: 'Subtitles',
                 options: subtitleOptions,
-                helperText: 'Direct subtitles are fastest. Some tracks require server extraction. Image/styled tracks require burn-in (transcoding).',
+                helperText: 'Direct is fastest. Extract uses the server. Burn-in transcodes the video.',
                 ...(subtitleEmptyMessage ? { emptyMessage: subtitleEmptyMessage } : {}),
             },
             audio: {
@@ -278,6 +268,13 @@ export class PlaybackOptionsCoordinator {
     private handleSubtitleSelect(trackId: string | null): void {
         const player = this.deps.getVideoPlayer();
         if (!player) return;
+        if (trackId) {
+            const mode = getSubtitleMode();
+            if (mode === 'off') {
+                // Selecting a subtitle should implicitly enable subtitle handling.
+                setSubtitleMode('standard');
+            }
+        }
         const track = trackId
             ? player.getAvailableSubtitles().find((t) => t.id === trackId) ?? null
             : null;
@@ -287,10 +284,6 @@ export class PlaybackOptionsCoordinator {
         this.persistSubtitlePreference(track);
         this.refreshIfOpen();
         this.closeModalAndReturnFocus();
-    }
-
-    private notifyBurnInDisabled(): void {
-        this.deps.notifyToast?.('Burn-in subtitles are disabled in Settings', 'warning');
     }
 
     private handleAudioSelect(trackId: string): void {
@@ -312,13 +305,6 @@ export class PlaybackOptionsCoordinator {
         }
     }
 
-    private isSubtitlesEnabled(): boolean {
-        try {
-            return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.SUBTITLES_ENABLED));
-        } catch {
-            return false;
-        }
-    }
 
     private useGlobalSubtitlePreference(): boolean {
         try {
@@ -327,24 +313,6 @@ export class PlaybackOptionsCoordinator {
             );
         } catch {
             return false;
-        }
-    }
-
-    private isExternalOnlyFilterEnabled(): boolean {
-        try {
-            return isStoredTrue(
-                safeLocalStorageGet(RETUNE_STORAGE_KEYS.SUBTITLE_FILTER_EXTERNAL_ONLY)
-            );
-        } catch {
-            return false;
-        }
-    }
-
-    private isBurnInAllowed(): boolean {
-        try {
-            return readStoredBoolean(RETUNE_STORAGE_KEYS.SUBTITLE_ALLOW_BURN_IN, true);
-        } catch {
-            return true;
         }
     }
 

@@ -636,8 +636,8 @@ export class App {
                     const screen = new SettingsScreen(
                         this._settingsContainer!,
                         () => this._orchestrator?.getNavigation() ?? null,
-                        (enabled): void => {
-                            if (enabled) return;
+                        (mode): void => {
+                            if (mode !== 'off') return;
                             void this._orchestrator?.setSubtitleTrack(null).catch(() => undefined);
                         },
                         (key, enabled): void => {

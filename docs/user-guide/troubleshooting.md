@@ -32,6 +32,10 @@ Common issues and how to fix them.
 - **Network**: Check your Wi-Fi signal strength.
 - **Server**: Your Plex server might be struggling to transcode. Retune tries to Direct Play, but sometimes transcoding is unavoidable (e.g., unsupported subtitles).
 
+### Subtitles are missing or “unavailable”
+
+See the dedicated guide: `docs/user-guide/subtitles.md`.
+
 ### "Playback Failed" error
 
 - **File Moved**: Use "Scan Library Files" in Plex to ensure the file still exists.

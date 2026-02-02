@@ -52,18 +52,20 @@ export interface DeveloperSettings {
  * Subtitle settings configuration.
  */
 export interface SubtitleSettings {
-    /** Enable subtitle track support */
-    enabled: boolean;
+    /**
+     * Subtitle handling mode.
+     * - off: do not automatically load/select subtitles
+     * - direct: only show subtitles that can be fetched directly (best performance)
+     * - standard: allow server extraction for text subtitles (recommended)
+     * - full: allow burn-in (image/styled) subtitles via transcoding
+     */
+    mode: 'off' | 'direct' | 'standard' | 'full';
     /** Use global subtitle preference override */
     useGlobalPreference: boolean;
     /** Preferred subtitle language code (app override) */
     language: string | null;
     /** Prefer forced subtitles over full subtitles when auto-selecting */
     preferForced: boolean;
-    /** Only show external (direct) subtitle tracks */
-    externalOnly: boolean;
-    /** Allow burn-in subtitle tracks */
-    allowBurnIn: boolean;
 }
 
 /**

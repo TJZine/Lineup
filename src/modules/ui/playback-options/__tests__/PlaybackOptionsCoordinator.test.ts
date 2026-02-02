@@ -96,9 +96,8 @@ describe('PlaybackOptionsCoordinator', () => {
         }
     });
 
-    it('filters to external-only subtitles when enabled', () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLES_ENABLED, '1');
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_FILTER_EXTERNAL_ONLY, '1');
+    it('filters to direct-only subtitles when Subtitle Mode is Direct', () => {
+        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'direct');
 
         const player = createPlayer([
             makeTextTrack({ id: 'direct', fetchableViaKey: true, key: '/library/streams/1' }),
@@ -141,12 +140,10 @@ describe('PlaybackOptionsCoordinator', () => {
         expect(prep.preferredFocusId).toBe('playback-audio-audio-1');
     });
 
-    it('marks burn-in tracks disabled when burn-in is off', () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLES_ENABLED, '1');
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_ALLOW_BURN_IN, '0');
+    it('shows burn-in tracks only in Full mode', () => {
+        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
         const player = createPlayer([makeBurnInTrack({ id: 'burn' })]);
-        const notifyToast = jest.fn();
 
         const coordinator = new PlaybackOptionsCoordinator({
             playbackOptionsModalId: 'playback-options',
@@ -154,21 +151,15 @@ describe('PlaybackOptionsCoordinator', () => {
             getPlaybackOptionsModal: (): null => null,
             getVideoPlayer: (): IVideoPlayer => player,
             getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
-            notifyToast,
         });
 
         const viewModel = getViewModel(coordinator);
         const burnOption = viewModel.subtitles.options.find((option) => option.id === 'playback-subtitle-burn');
 
-        expect(burnOption?.blocked).toBe(true);
-        expect(burnOption?.meta).toBe('Burn-in (disabled in settings)');
-        burnOption?.onBlockedSelect?.();
-        expect(notifyToast).toHaveBeenCalledWith('Burn-in subtitles are disabled in Settings', 'warning');
+        expect(burnOption?.meta).toBe('Burn-in');
     });
 
-    it('labels direct vs server-extracted text tracks', () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLES_ENABLED, '1');
-
+    it('labels direct vs extracted text tracks', () => {
         const player = createPlayer([
             makeTextTrack({ id: 'direct', fetchableViaKey: true, key: '/library/streams/1' }),
             makeTextTrack({ id: 'server', fetchableViaKey: false }),
@@ -186,12 +177,11 @@ describe('PlaybackOptionsCoordinator', () => {
         const direct = viewModel.subtitles.options.find((option) => option.id === 'playback-subtitle-direct');
         const server = viewModel.subtitles.options.find((option) => option.id === 'playback-subtitle-server');
 
-        expect(direct?.meta).toBe('Direct (key-backed)');
-        expect(server?.meta).toBe('Server-extracted');
+        expect(direct?.meta).toBe('Direct');
+        expect(server?.meta).toBe('Extract');
     });
 
     it('persists subtitle preference per item when global override is off', () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLES_ENABLED, '1');
         localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE, '0');
 
         const player = createPlayer([

@@ -19,9 +19,12 @@ interface SubtitleTrackContext {
     serverUri: string | null;
     authHeaders: Record<string, string>;
     itemKey?: string;
+    mediaIndex?: number;
+    partIndex?: number;
+    partKey?: string;
     sessionId?: string;
     onUnavailable?: () => void;
-    onDeactivate?: (reason: string) => void;
+    onDeactivate?: (args: { trackId: string; reason: string }) => boolean;
 }
 
 /**
@@ -153,6 +156,17 @@ export class SubtitleManager {
 
             // Create track element for text-based subtitles (key-based or ID-based fetch)
             if (track.isTextCandidate && (track.fetchableViaKey || track.id)) {
+                const codec = (track.codec || track.format || '').toLowerCase();
+                // HTMLTrackElement expects WebVTT. Avoid attaching non-VTT sources (e.g. SRT),
+                // and rely on the fetch+convert fallback when the user selects the track.
+                if (codec !== 'vtt' && codec !== 'webvtt') {
+                    this._logSubtitleDebug('subtitle_track_deferred', () => ({
+                        id: track.id,
+                        codec: codec || null,
+                        reason: 'non_vtt_requires_conversion',
+                    }));
+                    continue;
+                }
                 const directUrl = this._buildDirectTrackUrl(track);
                 if (!directUrl) {
                     this._logSubtitleDebug('subtitle_track_error', () => ({
@@ -542,54 +556,51 @@ export class SubtitleManager {
             for (const attempt of attempts) {
                 lastAttempt = attempt.name;
                 lastAttemptUrl = attempt.url.toString();
-                const response = await fetch(attempt.url.toString(), {
-                    headers: attempt.headers,
-                    signal: controller.signal,
-                });
+                raw = await this._fetchSubtitleTextWithFallbacks(
+                    attempt.url,
+                    attempt.headers,
+                    controller.signal,
+                    loadToken,
+                    track.id
+                );
                 if (loadToken !== this._loadToken) return null;
-                if (!response.ok) {
-                    this._logSubtitleDebug('subtitle_fetch_error', () => ({
-                        id: track.id,
-                        status: response.status,
-                        attempt: attempt.name,
-                        url: redactSensitiveTokens(attempt.url.toString()),
-                    }));
-                    continue;
-                }
-                raw = await response.text();
-                if (loadToken !== this._loadToken) return null;
-                break;
+                if (raw) break;
             }
 
             // Some PMS setups return 501 for keyless subtitle streams via /library/streams/{id}.
             // As a last resort, ask PMS to extract/transcode the selected subtitle stream.
             if (!raw) {
-                const transcodeUrl = this._buildSubtitleTranscodeUrl(track, tokenFromHeaders);
-                if (transcodeUrl) {
-                    lastAttempt = 'transcode_subtitles';
-                    lastAttemptUrl = transcodeUrl.toString();
-                    try {
-                        raw = await this._fetchSubtitleTextWithFallbacks(
-                            transcodeUrl,
-                            baseAcceptHeader,
-                            controller.signal,
-                            loadToken,
-                            track.id
-                        );
-                        if (!raw) {
-                            return null;
+                const paths = this._getSubtitleTranscodePaths();
+                const formats: Array<'srt' | 'vtt'> = ['srt', 'vtt'];
+                for (const path of paths) {
+                    for (const format of formats) {
+                        const transcodeUrl = this._buildSubtitleTranscodeUrl(track, tokenFromHeaders, path, format);
+                        if (!transcodeUrl) continue;
+                        lastAttempt = `universal_subtitles_${format}`;
+                        lastAttemptUrl = transcodeUrl.toString();
+                        try {
+                            raw = await this._fetchSubtitleTextWithFallbacks(
+                                transcodeUrl,
+                                baseAcceptHeader,
+                                controller.signal,
+                                loadToken,
+                                track.id
+                            );
+                            if (raw) {
+                                break;
+                            }
+                        } catch (error) {
+                            if (loadToken !== this._loadToken) return null;
+                            const message = error instanceof Error ? error.message : String(error);
+                            this._logSubtitleDebug('subtitle_fetch_error', () => ({
+                                id: track.id,
+                                error: message,
+                                attempt: 'subtitle_text_fetch_exception',
+                                url: redactSensitiveTokens(transcodeUrl.toString()),
+                            }));
                         }
-                    } catch (error) {
-                        if (loadToken !== this._loadToken) return null;
-                        const message = error instanceof Error ? error.message : String(error);
-                        this._logSubtitleDebug('subtitle_fetch_error', () => ({
-                            id: track.id,
-                            error: message,
-                            attempt: 'transcode_subtitles_exception',
-                            url: redactSensitiveTokens(transcodeUrl.toString()),
-                        }));
-                        return null;
                     }
+                    if (raw) break;
                 }
             }
 
@@ -682,7 +693,7 @@ export class SubtitleManager {
                     this._logSubtitleDebug('subtitle_fetch_error', () => ({
                         id: trackId,
                         status: response.status,
-                        attempt: (`transcode_subtitles${suffix}`) as string,
+                        attempt: (`subtitle_text_fetch_status${suffix}`) as string,
                         url: redactSensitiveTokens(entry.url.toString()),
                         ...(contentType ? { contentType } : {}),
                         ...(bodySample ? { bodySample } : {}),
@@ -699,7 +710,7 @@ export class SubtitleManager {
                 this._logSubtitleDebug('subtitle_fetch_error', () => ({
                     id: trackId,
                     error: message,
-                    attempt: (`transcode_subtitles_fetch_failed${suffix}`) as string,
+                    attempt: (`subtitle_text_fetch_failed${suffix}`) as string,
                     url: redactSensitiveTokens(entry.url.toString()),
                 }));
 
@@ -769,7 +780,7 @@ export class SubtitleManager {
                     }
                     this._logSubtitleDebug('subtitle_fetch_error', () => ({
                         id: trackId,
-                        attempt: 'transcode_subtitles_xhr_error',
+                        attempt: 'subtitle_text_xhr_error',
                         status: xhrRef.status,
                         readyState: xhrRef.readyState,
                         url: redactSensitiveTokens(url),
@@ -783,7 +794,7 @@ export class SubtitleManager {
                     }
                     this._logSubtitleDebug('subtitle_fetch_error', () => ({
                         id: trackId,
-                        attempt: 'transcode_subtitles_xhr_timeout',
+                        attempt: 'subtitle_text_xhr_timeout',
                         status: xhrRef.status,
                         readyState: xhrRef.readyState,
                         url: redactSensitiveTokens(url),
@@ -806,7 +817,7 @@ export class SubtitleManager {
                         this._logSubtitleDebug('subtitle_fetch_error', () => ({
                             id: trackId,
                             status: xhrRef.status,
-                            attempt: 'transcode_subtitles_xhr_status',
+                            attempt: 'subtitle_text_xhr_status',
                             url: redactSensitiveTokens(url),
                             ...(bodySample ? { bodySample } : {}),
                         }));
@@ -822,7 +833,7 @@ export class SubtitleManager {
                 const message = e instanceof Error ? e.message : String(e);
                 this._logSubtitleDebug('subtitle_fetch_error', () => ({
                     id: trackId,
-                    attempt: 'transcode_subtitles_xhr_exception',
+                    attempt: 'subtitle_text_xhr_exception',
                     error: message,
                     url: redactSensitiveTokens(url),
                 }));
@@ -860,23 +871,27 @@ export class SubtitleManager {
         }
     }
 
-    private _buildSubtitleTranscodeUrl(track: SubtitleTrack, token: string | null): URL | null {
+    private _buildSubtitleTranscodeUrl(
+        track: SubtitleTrack,
+        token: string | null,
+        path: string,
+        format: 'srt' | 'vtt'
+    ): URL | null {
         try {
             const ctx = this._subtitleContext;
             const baseUri = ctx?.serverUri ?? null;
-            const itemKey = ctx?.itemKey ?? null;
-            if (!baseUri || !itemKey) return null;
+            if (!baseUri || !path) return null;
 
             const url = new URL('/video/:/transcode/universal/subtitles', baseUri);
 
             // Minimal required request shape (best-effort). PMS may accept additional identity params.
-            url.searchParams.set('path', `/library/metadata/${itemKey}`);
-            url.searchParams.set('mediaIndex', '0');
-            url.searchParams.set('partIndex', '0');
+            url.searchParams.set('path', path);
+            url.searchParams.set('mediaIndex', String(ctx?.mediaIndex ?? 0));
+            url.searchParams.set('partIndex', String(ctx?.partIndex ?? 0));
             url.searchParams.set('subtitleStreamID', track.id);
             // Ask PMS for SRT (or plain text) and run conversion locally.
             // This avoids relying on PMS WebVTT conversion behavior and has been more robust in practice.
-            url.searchParams.set('format', 'srt');
+            url.searchParams.set('format', format);
             url.searchParams.set('download', '1');
 
             if (ctx?.sessionId) {
@@ -912,6 +927,26 @@ export class SubtitleManager {
         }
     }
 
+    private _getSubtitleTranscodePaths(): string[] {
+        // Plex docs/examples for universal start use /library/metadata/{ratingKey}. For universal subtitles,
+        // behavior varies across server/profile combos, so try both metadata-path and (if present) part key.
+        const ctx = this._subtitleContext;
+        const itemKey = ctx?.itemKey ?? null;
+        if (!itemKey) return [];
+        const paths: string[] = [`/library/metadata/${itemKey}`];
+        const partKey = typeof ctx?.partKey === 'string' ? ctx.partKey : null;
+        if (partKey && partKey.trim().length > 0) {
+            const trimmed = partKey.trim();
+            // Keep relative Plex paths. If it somehow becomes absolute, strip origin later by URL().
+            if (trimmed.startsWith('/')) {
+                if (!paths.includes(trimmed)) {
+                    paths.push(trimmed);
+                }
+            }
+        }
+        return paths;
+    }
+
     private _replaceTrackElement(track: SubtitleTrack, src: string, loadToken: number): void {
         if (!this._videoElement || loadToken !== this._loadToken) return;
         const existing = this._trackElements.get(track.id);
@@ -937,21 +972,26 @@ export class SubtitleManager {
         }
     }
 
-    private _notifySubtitleDeactivated(reason: string): void {
-        const handler = this._subtitleContext?.onDeactivate;
-        if (handler) {
-            handler(reason);
-        }
-    }
-
     private _handleFallbackFailure(track: SubtitleTrack, reason: string): void {
         const isSelected = this._activeTrackId === track.id;
         if (!isSelected) {
             return;
         }
         this.setActiveTrack(null);
-        this._notifySubtitleUnavailable();
-        this._notifySubtitleDeactivated(reason);
+        const handled = this._notifySubtitleDeactivated(track.id, reason);
+        if (!handled) {
+            this._notifySubtitleUnavailable();
+        }
+    }
+
+    private _notifySubtitleDeactivated(trackId: string, reason: string): boolean {
+        const handler = this._subtitleContext?.onDeactivate;
+        if (!handler) return false;
+        try {
+            return handler({ trackId, reason }) === true;
+        } catch {
+            return false;
+        }
     }
 
     private _applyTrackModeShowing(trackId: string): void {
