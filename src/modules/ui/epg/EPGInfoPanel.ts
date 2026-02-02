@@ -8,6 +8,8 @@ import { EPG_CLASSES } from './constants';
 import { formatTime, formatDuration } from './utils';
 import type { IEPGInfoPanel } from './interfaces';
 import type { ScheduledProgram } from './types';
+import type { PlexMediaItem } from '../../plex/library';
+import { extractHdrLabelFromPlexMedia } from '../../plex/stream/hdr';
 
 /**
  * EPG Info Panel class.
@@ -25,7 +27,13 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private currentProgram: ScheduledProgram | null = null;
     private thumbResolver:
         ((pathOrUrl: string | null, width?: number, height?: number) => string | null) | null = null;
+    private fetchItemDetails:
+        ((ratingKey: string, options?: { signal?: AbortSignal | null }) => Promise<PlexMediaItem | null>) | null = null;
     private qualityBadges: HTMLElement[] = [];
+    private hdrCache = new Map<string, string>();
+    private hdrFetchToken = 0;
+    private hdrFetchController: AbortController | null = null;
+    private hdrFetchTimer: ReturnType<typeof setTimeout> | null = null;
 
     /**
      * Set the thumb URL resolver callback.
@@ -37,6 +45,15 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         resolver: ((pathOrUrl: string | null, width?: number, height?: number) => string | null) | null
     ): void {
         this.thumbResolver = resolver;
+    }
+
+    /**
+     * Set callback to fetch Plex item details (used for HDR/DV badge fallback).
+     */
+    setFetchItemDetails(
+        fetcher: ((ratingKey: string, options?: { signal?: AbortSignal | null }) => Promise<PlexMediaItem | null>) | null
+    ): void {
+        this.fetchItemDetails = fetcher;
     }
 
     /**
@@ -110,6 +127,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
      * Destroy the info panel and clean up resources.
      */
     destroy(): void {
+        this.clearHdrFetch();
         if (this.containerElement) {
             this.containerElement.remove();
             this.containerElement = null;
@@ -122,8 +140,10 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.descriptionElement = null;
         this.currentProgram = null;
         this.thumbResolver = null;
+        this.fetchItemDetails = null;
         this.isVisible = false;
         this.qualityBadges = [];
+        this.hdrCache.clear();
     }
 
     /**
@@ -144,6 +164,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.containerElement.style.visibility = 'hidden';
         this.containerElement.style.opacity = '0';
         this.isVisible = false;
+        this.clearHdrFetch();
     }
 
     /**
@@ -245,30 +266,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             description.style.display = 'none';
         }
 
-        // Update quality badges
-        const qualityBadges = this.qualityBadges;
-        const mediaInfo = item.mediaInfo;
-        const badgeValues: string[] = [];
-
-        if (mediaInfo?.resolution) badgeValues.push(mediaInfo.resolution);
-        if (mediaInfo?.hdr) badgeValues.push(mediaInfo.hdr);
-        if (mediaInfo?.audioCodec) {
-            badgeValues.push(this.formatAudioCodec(mediaInfo.audioCodec));
-        }
-        const audioDetail = this.formatAudioDetail(mediaInfo);
-        if (audioDetail) badgeValues.push(audioDetail);
-
-        for (let i = 0; i < qualityBadges.length; i++) {
-            const badge = qualityBadges[i];
-            const value = badgeValues[i];
-            if (badge && value) {
-                badge.textContent = value;
-                badge.style.display = 'inline-flex';
-            } else if (badge) {
-                badge.textContent = '';
-                badge.style.display = 'none';
-            }
-        }
+        this.updateQualityBadges(program);
     }
 
     /**
@@ -289,6 +287,85 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             const summary = item.summary?.trim() ?? '';
             description.textContent = summary;
             description.style.display = summary ? 'block' : 'none';
+        }
+    }
+
+    private updateQualityBadges(program: ScheduledProgram, overrideHdr?: string | null): void {
+        const qualityBadges = this.qualityBadges;
+        const mediaInfo = program.item.mediaInfo;
+        const badgeValues: string[] = [];
+
+        if (mediaInfo?.resolution) badgeValues.push(mediaInfo.resolution);
+        const hdrValue = mediaInfo?.hdr || overrideHdr || null;
+        if (hdrValue) badgeValues.push(hdrValue);
+        if (mediaInfo?.audioCodec) {
+            badgeValues.push(this.formatAudioCodec(mediaInfo.audioCodec));
+        }
+        const audioDetail = this.formatAudioDetail(mediaInfo);
+        if (audioDetail) badgeValues.push(audioDetail);
+
+        for (let i = 0; i < qualityBadges.length; i++) {
+            const badge = qualityBadges[i];
+            const value = badgeValues[i];
+            if (badge && value) {
+                badge.textContent = value;
+                badge.style.display = 'inline-flex';
+            } else if (badge) {
+                badge.textContent = '';
+                badge.style.display = 'none';
+            }
+        }
+
+        if (!mediaInfo?.hdr && !overrideHdr) {
+            this.maybeFetchHdr(program);
+        } else {
+            this.clearHdrFetch();
+        }
+    }
+
+    private maybeFetchHdr(program: ScheduledProgram): void {
+        const ratingKey = program.item.ratingKey;
+        if (!ratingKey || !this.fetchItemDetails) {
+            return;
+        }
+
+        const cached = this.hdrCache.get(ratingKey);
+        if (cached) {
+            this.updateQualityBadges(program, cached);
+            return;
+        }
+
+        this.clearHdrFetch();
+        const fetchToken = ++this.hdrFetchToken;
+        this.hdrFetchController = new AbortController();
+        this.hdrFetchTimer = setTimeout(() => {
+            this.hdrFetchTimer = null;
+            void this.fetchItemDetails?.(ratingKey, { signal: this.hdrFetchController?.signal ?? null })
+                .then((item) => {
+                    if (fetchToken !== this.hdrFetchToken) return;
+                    const hdr = extractHdrLabelFromPlexMedia(item);
+                    if (!hdr) return;
+                    this.hdrCache.set(ratingKey, hdr);
+                    const current = this.currentProgram;
+                    if (!current || current.item.ratingKey !== ratingKey) return;
+                    this.updateQualityBadges(current, hdr);
+                })
+                .catch((error) => {
+                    if (error instanceof DOMException && error.name === 'AbortError') {
+                        return;
+                    }
+                });
+        }, 200);
+    }
+
+    private clearHdrFetch(): void {
+        if (this.hdrFetchTimer !== null) {
+            clearTimeout(this.hdrFetchTimer);
+            this.hdrFetchTimer = null;
+        }
+        if (this.hdrFetchController) {
+            this.hdrFetchController.abort();
+            this.hdrFetchController = null;
         }
     }
 

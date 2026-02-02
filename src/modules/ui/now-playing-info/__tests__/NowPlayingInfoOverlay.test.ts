@@ -96,6 +96,7 @@ describe('NowPlayingInfoOverlay', () => {
             actorMoreCount: 2,
         });
         const actorsRow = container.querySelector('.now-playing-info-actors') as HTMLElement;
+        const castLine = container.querySelector('.now-playing-info-cast') as HTMLElement;
         const actorItems = Array.from(
             container.querySelectorAll('.now-playing-info-actor')
         ) as HTMLElement[];
@@ -106,6 +107,7 @@ describe('NowPlayingInfoOverlay', () => {
         expect(images[0]?.getAttribute('src')).toBe('https://example.com/a.jpg');
         expect(actorItems[1]?.classList.contains('fallback')).toBe(true);
         expect(actorItems[1]?.textContent).toBe('AB');
+        expect(castLine.textContent).toBe('Cast: Actor A • Actor B');
     });
 
     it('should render +N when space is available', () => {
@@ -117,14 +119,24 @@ describe('NowPlayingInfoOverlay', () => {
             actorMoreCount: 2,
         });
         const more = container.querySelector('.now-playing-info-actor-more') as HTMLElement;
+        const castLine = container.querySelector('.now-playing-info-cast') as HTMLElement;
         expect(actorsRow.style.display).toBe('flex');
         expect(more.textContent).toBe('+2');
+        expect(castLine.textContent).toBe('Cast: Actor A +2');
     });
 
     it('should hide actor headshots when missing', () => {
         overlay.show(baseViewModel);
         const actorsRow = container.querySelector('.now-playing-info-actors') as HTMLElement;
+        const castLine = container.querySelector('.now-playing-info-cast') as HTMLElement;
         expect(actorsRow.style.display).toBe('none');
+        expect(castLine.style.display).toBe('none');
+    });
+
+    it('should not render debug or playback detail blocks', () => {
+        overlay.show(baseViewModel);
+        expect(container.querySelector('.now-playing-info-debug')).toBeNull();
+        expect(container.querySelector('.now-playing-info-playback-details')).toBeNull();
     });
 
     it('should hide poster when no URL is provided', () => {

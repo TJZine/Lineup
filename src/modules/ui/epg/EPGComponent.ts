@@ -125,6 +125,9 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             if (this.config.resolveThumbUrl) {
                 this.infoPanel.setThumbResolver(this.config.resolveThumbUrl);
             }
+            if (this.config.fetchItemDetails) {
+                this.infoPanel.setFetchItemDetails(this.config.fetchItemDetails);
+            }
         }
 
         // Create time indicator

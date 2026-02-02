@@ -5,6 +5,7 @@
  */
 
 export interface HdrStreamLike {
+    streamType?: number;
     title?: string | null;
     displayTitle?: string | null;
     extendedDisplayTitle?: string | null;
@@ -13,6 +14,20 @@ export interface HdrStreamLike {
     colorTrc?: string | null;
     doviPresent?: boolean | null;
     doviProfile?: string | null;
+}
+
+export function extractHdrLabelFromPlexMedia(
+    item: { media?: Array<{ parts?: Array<{ streams?: HdrStreamLike[] }> }> } | null | undefined
+): string | undefined {
+    const media = item?.media?.[0];
+    const part = media?.parts?.[0];
+    const streams = part?.streams ?? [];
+    const videoStream = streams.find((stream) => stream?.streamType === 1);
+    if (!videoStream) {
+        return undefined;
+    }
+    const raw = videoStream.hdr?.trim();
+    return raw || detectHdrLabel(videoStream);
 }
 
 export function detectHdrLabel(stream?: HdrStreamLike | null): string | undefined {
