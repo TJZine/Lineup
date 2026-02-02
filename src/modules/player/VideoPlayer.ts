@@ -342,16 +342,19 @@ export class VideoPlayer implements IVideoPlayer {
         const subtitleContext = descriptor.subtitleContext
             ? {
                 ...descriptor.subtitleContext,
-                onDeactivate: (reason: string): void => {
+                onDeactivate: (args: { trackId: string; reason: string }): boolean => {
+                    let handled = false;
                     try {
-                        descriptor.subtitleContext?.onDeactivate?.(reason);
+                        handled = descriptor.subtitleContext?.onDeactivate?.(args) === true;
                     } catch (error) {
                         this._logSubtitleDebug('subtitle_onDeactivate_error', () => ({
-                            reason,
+                            trackId: args.trackId,
+                            reason: args.reason,
                             error: String(error),
                         }));
                     }
-                    this._handleSubtitleDeactivated(reason);
+                    this._handleSubtitleDeactivated(args.reason);
+                    return handled;
                 },
             }
             : undefined;

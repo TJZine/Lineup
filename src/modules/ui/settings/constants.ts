@@ -33,18 +33,14 @@ export const SETTINGS_STORAGE_KEYS = {
     NOW_PLAYING_INFO_AUTO_HIDE_MS: RETUNE_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS,
     /** Audio setup completed flag */
     AUDIO_SETUP_COMPLETE: RETUNE_STORAGE_KEYS.AUDIO_SETUP_COMPLETE,
-    /** Subtitle feature flag (beta) */
-    SUBTITLES_ENABLED: RETUNE_STORAGE_KEYS.SUBTITLES_ENABLED,
+    /** Subtitle mode (replaces legacy SUBTITLES_ENABLED/external-only/burn-in toggles) */
+    SUBTITLE_MODE: RETUNE_STORAGE_KEYS.SUBTITLE_MODE,
     /** Use global subtitle preference override */
     SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE: RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE,
     /** Preferred subtitle language (app override) */
     SUBTITLE_LANGUAGE: RETUNE_STORAGE_KEYS.SUBTITLE_LANGUAGE,
     /** Prefer forced subtitles over full subtitles */
     SUBTITLE_PREFER_FORCED: RETUNE_STORAGE_KEYS.SUBTITLE_PREFER_FORCED,
-    /** Only show external (direct) subtitle tracks */
-    SUBTITLE_FILTER_EXTERNAL_ONLY: RETUNE_STORAGE_KEYS.SUBTITLE_FILTER_EXTERNAL_ONLY,
-    /** Allow burn-in subtitles (PGS/ASS/etc) */
-    SUBTITLE_ALLOW_BURN_IN: RETUNE_STORAGE_KEYS.SUBTITLE_ALLOW_BURN_IN,
     /** Guide category colors enabled */
     GUIDE_CATEGORY_COLORS: RETUNE_STORAGE_KEYS.GUIDE_CATEGORY_COLORS,
     /** Guide library tabs enabled */
@@ -74,12 +70,10 @@ export const DEFAULT_SETTINGS: SettingsConfig = {
         showFps: false,
     },
     subtitles: {
-        enabled: false,
+        mode: 'standard',
         useGlobalPreference: false,
         language: null,
         preferForced: false,
-        externalOnly: false,
-        allowBurnIn: true,
     },
 };
 

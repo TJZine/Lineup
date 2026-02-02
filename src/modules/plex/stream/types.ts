@@ -180,6 +180,12 @@ export interface StreamDecision {
     subtitleDelivery: 'embed' | 'sidecar' | 'burn' | 'none';
     /** Plex session ID for tracking */
     sessionId: string;
+    /** Selected media version index */
+    mediaIndex: number;
+    /** Selected part index */
+    partIndex: number;
+    /** Plex part key (useful for diagnostics and future subtitle extraction fallbacks) */
+    partKey: string;
     /** Selected audio stream */
     selectedAudioStream: PlexStream | null;
     /** Selected subtitle stream */

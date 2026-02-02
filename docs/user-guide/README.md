@@ -6,6 +6,7 @@ Detailed documentation for using and configuring Retune.
 |-------|-------------|
 | [📺 Channels](channels.md) | Creating, editing, and managing your virtual channels |
 | [📝 EPG Guide](epg.md) | Using the Electronic Program Guide grid |
+| [💬 Subtitles](subtitles.md) | Subtitle modes, selection, and troubleshooting |
 | [🎮 Remote Control](remote-keys.md) | Full button mapping reference |
 | [❓ Troubleshooting](troubleshooting.md) | Solutions for common problems |
 

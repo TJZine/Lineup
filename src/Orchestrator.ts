@@ -662,6 +662,10 @@ export class AppOrchestrator implements IAppOrchestrator {
                     this._nowPlayingHandler({ message: 'Subtitles unavailable for this item', type: 'warning' });
                 }
             },
+            notifyToast: (message, type): void => {
+                if (!this._nowPlayingHandler) return;
+                this._nowPlayingHandler(type ? { message, type } : message);
+            },
             handleGlobalError: (error: AppError, context: string): void =>
                 this.handleGlobalError(error, context),
         });

@@ -26,8 +26,21 @@ const makeDecision = (overrides: Partial<StreamDecision> = {}): StreamDecision =
     ({
         playbackUrl: 'http://test/stream.m3u8',
         protocol: 'hls',
+        isDirectPlay: false,
+        isTranscoding: true,
         container: 'mpegts',
+        videoCodec: 'h264',
+        audioCodec: 'aac',
+        subtitleDelivery: 'none',
         sessionId: 'sess-1',
+        mediaIndex: 0,
+        partIndex: 0,
+        partKey: '/library/parts/1/1/file.mkv',
+        selectedAudioStream: null,
+        selectedSubtitleStream: null,
+        width: 1920,
+        height: 1080,
+        bitrate: 8000,
         availableSubtitleStreams: [],
         availableAudioStreams: [],
         ...overrides,
@@ -137,7 +150,7 @@ describe('PlaybackRecoveryManager', () => {
     });
 
     afterEach(() => {
-        localStorage.removeItem(RETUNE_STORAGE_KEYS.SUBTITLES_ENABLED);
+        localStorage.removeItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE);
         localStorage.removeItem(RETUNE_STORAGE_KEYS.SUBTITLE_PREFER_FORCED);
         localStorage.removeItem(RETUNE_STORAGE_KEYS.SUBTITLE_FILTER_EXTERNAL_ONLY);
     });
@@ -244,7 +257,7 @@ describe('PlaybackRecoveryManager', () => {
     });
 
     it('prefers stored per-item subtitle preference when available', async () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLES_ENABLED, '1');
+        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'standard');
         localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE, '0');
         localStorage.setItem(
             `${RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_BY_ITEM_PREFIX}item-1`,
@@ -261,8 +274,7 @@ describe('PlaybackRecoveryManager', () => {
     });
 
     it('filters out keyless subtitles when external-only is enabled', async () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLES_ENABLED, '1');
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_FILTER_EXTERNAL_ONLY, '1');
+        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'direct');
 
         const keylessStream: PlexStream = {
             id: 'sub-keyless',
@@ -304,7 +316,7 @@ describe('PlaybackRecoveryManager', () => {
     });
 
     it('prefers forced subtitles when preference is enabled', async () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLES_ENABLED, '1');
+        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'standard');
         localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_PREFER_FORCED, '1');
 
         const resolver: IPlexStreamResolver = {
@@ -323,7 +335,7 @@ describe('PlaybackRecoveryManager', () => {
     });
 
     it('prefers full subtitles when preference is disabled', async () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLES_ENABLED, '1');
+        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'standard');
         localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_PREFER_FORCED, '0');
 
         const resolver: IPlexStreamResolver = {
