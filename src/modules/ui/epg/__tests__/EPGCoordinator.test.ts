@@ -515,6 +515,6 @@ describe('EPGCoordinator', () => {
         expect(primeSpy).toHaveBeenCalled();
         expect(epg.scrollToChannel).toHaveBeenCalledWith(0);
         expect(epg.focusChannel).toHaveBeenCalledWith(0);
-        expect(refreshSpy).toHaveBeenCalledWith({ reason: 'library-filter' });
+        expect(refreshSpy).toHaveBeenCalledWith({ reason: 'library-filter', debounceMs: 0 });
     });
 });

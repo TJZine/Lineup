@@ -12,6 +12,10 @@ export interface MiniGuideChannelViewModel {
     channelNumber: number;
     channelName: string;
     /**
+     * Optional status hint for loading visuals.
+     */
+    status?: 'loading' | 'ready' | 'unavailable';
+    /**
      * Uses 'Loading...' while resolving; 'Unavailable' on error.
      */
     nowTitle: string;

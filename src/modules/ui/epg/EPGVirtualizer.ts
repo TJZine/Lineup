@@ -492,7 +492,11 @@ export class EPGVirtualizer {
 
         // Remove from DOM but don't destroy
         element.remove();
-        element.classList.remove(EPG_CLASSES.CELL_FOCUSED, EPG_CLASSES.CELL_CURRENT);
+        element.classList.remove(
+            EPG_CLASSES.CELL_FOCUSED,
+            EPG_CLASSES.CELL_CURRENT,
+            EPG_CLASSES.CELL_LOADING
+        );
 
         // Add to pool with unique key
         const poolKey = `pool-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -532,7 +536,12 @@ export class EPGVirtualizer {
         element.style.top = '';
 
         // Remove state classes
-        element.classList.remove(EPG_CLASSES.CELL_FOCUSED, EPG_CLASSES.CELL_CURRENT, EPG_CLASSES.CELL_PAST);
+        element.classList.remove(
+            EPG_CLASSES.CELL_FOCUSED,
+            EPG_CLASSES.CELL_CURRENT,
+            EPG_CLASSES.CELL_PAST,
+            EPG_CLASSES.CELL_LOADING
+        );
         element.removeAttribute('data-key');
     }
 
@@ -581,12 +590,14 @@ export class EPGVirtualizer {
                 cellData.program.scheduledStartTime,
                 cellData.program.scheduledEndTime
             );
+            element.classList.remove(EPG_CLASSES.CELL_LOADING);
         } else {
             if (title) title.textContent = cellData.placeholder.label;
             if (time) time.textContent = formatTimeRange(
                 cellData.placeholder.scheduledStartTime,
                 cellData.placeholder.scheduledEndTime
             );
+            element.classList.add(EPG_CLASSES.CELL_LOADING);
         }
         this.updateShowLine(element, cellData);
 
@@ -704,12 +715,14 @@ export class EPGVirtualizer {
                 cellData.program.scheduledStartTime,
                 cellData.program.scheduledEndTime
             );
+            element.classList.remove(EPG_CLASSES.CELL_LOADING);
         } else {
             if (title) title.textContent = cellData.placeholder.label;
             if (time) time.textContent = formatTimeRange(
                 cellData.placeholder.scheduledStartTime,
                 cellData.placeholder.scheduledEndTime
             );
+            element.classList.add(EPG_CLASSES.CELL_LOADING);
         }
         this.updateShowLine(element, cellData);
     }

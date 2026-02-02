@@ -71,6 +71,14 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
             if (!rowVm || !rowElements) {
                 continue;
             }
+            const isLoading = rowVm.status === 'loading' || rowVm.nowTitle === 'Loading...';
+            if (rowElements.row) {
+                if (isLoading) {
+                    rowElements.row.classList.add(MINI_GUIDE_CLASSES.CHANNEL_ROW_LOADING);
+                } else {
+                    rowElements.row.classList.remove(MINI_GUIDE_CLASSES.CHANNEL_ROW_LOADING);
+                }
+            }
             if (rowElements.number) {
                 rowElements.number.textContent = String(rowVm.channelNumber);
             }
