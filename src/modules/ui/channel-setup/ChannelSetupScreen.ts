@@ -85,7 +85,7 @@ export class ChannelSetupScreen {
     private _reviewError: string | null = null;
     private _lastPreviewKey: string | null = null;
     private _pendingPreviewKey: string | null = null;
-    private _previewPanelHeightPx: number | null = null;
+    private _strategyScrollTop = 0;
     private _previewPanelId = 'setup-preview-panel';
     private _maxPreviewWarnings = 5;
 
@@ -138,14 +138,6 @@ export class ChannelSetupScreen {
 
     private _toDomId(raw: string): string {
         return raw.replace(/[^a-zA-Z0-9_-]/g, '_');
-    }
-
-    private _clampPreviewHeight(measuredHeight: number): number {
-        const minHeight = 180;
-        const viewportHeight = window.innerHeight || 720;
-        const maxHeight = Math.max(minHeight, Math.floor(viewportHeight * 0.35));
-        const clamped = Math.min(Math.max(measuredHeight, minHeight), maxHeight);
-        return clamped;
     }
 
     constructor(container: HTMLElement, orchestrator: AppOrchestrator) {
@@ -288,7 +280,7 @@ export class ChannelSetupScreen {
         this._reviewError = null;
         this._lastPreviewKey = null;
         this._pendingPreviewKey = null;
-        this._previewPanelHeightPx = null;
+        this._strategyScrollTop = 0;
         this._errorEl.textContent = '';
     }
 
@@ -447,14 +439,25 @@ export class ChannelSetupScreen {
         this._stepEl.textContent = 'Step 2 of 3';
         this._statusEl.textContent = 'Choose channel types to build.';
 
-        const scroll = document.createElement('div');
-        scroll.className = 'setup-scroll';
+        const split = document.createElement('div');
+        split.className = 'setup-split';
+
+        const left = document.createElement('div');
+        left.className = 'setup-split-left';
+
+        const right = document.createElement('div');
+        right.className = 'setup-split-right';
 
         const list = document.createElement('div');
         list.className = 'setup-list';
         list.classList.add('setup-accordion-list');
 
         const focusableButtons: HTMLButtonElement[] = [];
+
+        left.scrollTop = this._strategyScrollTop;
+        left.addEventListener('scroll', () => {
+            this._strategyScrollTop = left.scrollTop;
+        });
 
         const createAccordionSection = (options: {
             key: string;
@@ -500,7 +503,13 @@ export class ChannelSetupScreen {
 
             header.addEventListener('click', () => {
                 this._preferredFocusId = header.id;
-                this._strategyAccordions[options.stateKey] = !expanded;
+                const wasExpanded = this._strategyAccordions[options.stateKey];
+                (Object.keys(this._strategyAccordions) as StrategyAccordionKey[]).forEach((key) => {
+                    this._strategyAccordions[key] = false;
+                });
+                if (!wasExpanded) {
+                    this._strategyAccordions[options.stateKey] = true;
+                }
                 this._renderStep();
             });
 
@@ -743,17 +752,9 @@ export class ChannelSetupScreen {
             buttons: [maxButton, minItemsButton],
         });
 
-        scroll.appendChild(list);
-
         const previewPanel = document.createElement('div');
         previewPanel.id = this._previewPanelId;
         previewPanel.className = 'setup-preview';
-        if (this._previewPanelHeightPx !== null) {
-            const height = `${this._previewPanelHeightPx}px`;
-            previewPanel.style.minHeight = height;
-            previewPanel.style.maxHeight = height;
-            previewPanel.style.overflowY = 'auto';
-        }
 
         const previewTitle = document.createElement('div');
         previewTitle.className = 'setup-preview-title';
@@ -819,21 +820,11 @@ export class ChannelSetupScreen {
             previewPanel.appendChild(empty);
         }
 
-        scroll.appendChild(previewPanel);
-        this._contentEl.appendChild(scroll);
-        if (this._preview) {
-            requestAnimationFrame(() => {
-                if (this._step !== 2) return;
-                const measuredHeight = previewPanel.getBoundingClientRect().height;
-                if (Number.isFinite(measuredHeight)) {
-                    this._previewPanelHeightPx = this._clampPreviewHeight(measuredHeight);
-                    const height = `${this._previewPanelHeightPx}px`;
-                    previewPanel.style.minHeight = height;
-                    previewPanel.style.maxHeight = height;
-                    previewPanel.style.overflowY = 'auto';
-                }
-            });
-        }
+        left.appendChild(list);
+        right.appendChild(previewPanel);
+        split.appendChild(left);
+        split.appendChild(right);
+        this._contentEl.appendChild(split);
 
         const actions = document.createElement('div');
         actions.className = 'button-row';
@@ -1228,17 +1219,6 @@ export class ChannelSetupScreen {
     private async _refreshPreview(): Promise<void> {
         if (this._step !== 2) return;
         const token = this._visibilityToken;
-        const panel = this._contentEl.querySelector<HTMLElement>(`#${this._previewPanelId}`);
-        if (panel) {
-            const measuredHeight = panel.getBoundingClientRect().height;
-            if (Number.isFinite(measuredHeight)) {
-                this._previewPanelHeightPx = this._clampPreviewHeight(measuredHeight);
-                const height = `${this._previewPanelHeightPx}px`;
-                panel.style.minHeight = height;
-                panel.style.maxHeight = height;
-                panel.style.overflowY = 'auto';
-            }
-        }
         const serverId = this._getSelectedServerId();
         if (!serverId) {
             this._previewError = 'No server selected.';
@@ -1406,6 +1386,13 @@ export class ChannelSetupScreen {
                 id: button.id,
                 element: button,
                 neighbors: {},
+                onFocus: () => {
+                    try {
+                        button.scrollIntoView({ block: 'nearest' });
+                    } catch {
+                        button.scrollIntoView();
+                    }
+                },
             };
             if (mode === 'linear') {
                 const up = index > 0 ? focusableButtons[index - 1] : undefined;

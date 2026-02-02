@@ -17,38 +17,46 @@
 }
 
 .screen-panel {
-  width: min(920px, 90%);
+  width: min(1440px, 92vw);
+  --onboarding-scale: 1;
   background: var(--panel-inner-glow), var(--panel-surface);
   border: var(--panel-border);
   border-radius: var(--panel-radius);
   padding: var(--space-8) var(--space-8);
 }
 
+@media (min-width: 2560px) {
+  .screen-panel {
+    width: min(1840px, 70vw);
+    --onboarding-scale: 1.35;
+  }
+}
+
 .screen-title {
-  font-size: 34px;
+  font-size: calc(34px * var(--onboarding-scale));
   font-weight: 700;
   margin: 0 0 6px 0;
 }
 
 .screen-subtitle {
   margin: 0 0 14px 0;
-  font-size: 18px;
+  font-size: calc(18px * var(--onboarding-scale));
   color: var(--color-text-secondary);
 }
 
 .screen-status {
-  font-size: 18px;
+  font-size: calc(18px * var(--onboarding-scale));
   margin: 10px 0 4px 0;
 }
 
 .screen-detail {
-  font-size: 16px;
+  font-size: calc(16px * var(--onboarding-scale));
   color: var(--color-text-secondary);
 }
 
 .screen-error {
   margin-top: 10px;
-  font-size: 16px;
+  font-size: calc(16px * var(--onboarding-scale));
   color: #ffb1b1;
 }
 
@@ -88,9 +96,9 @@
   padding: 12px 18px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.1);
-  font-size: 56px;
+  font-size: calc(56px * var(--onboarding-scale));
   font-weight: 700;
-  letter-spacing: 6px;
+  letter-spacing: calc(6px * var(--onboarding-scale));
   text-align: center;
 }
 
@@ -105,8 +113,8 @@
   appearance: none;
   border: none;
   border-radius: 10px;
-  padding: 12px 18px;
-  font-size: 18px;
+  padding: calc(12px * var(--onboarding-scale)) calc(18px * var(--onboarding-scale));
+  font-size: calc(18px * var(--onboarding-scale));
   font-weight: 600;
   color: #ffffff;
   background: var(--color-primary);
@@ -133,9 +141,15 @@
   flex-direction: column;
   gap: 12px;
   margin-top: 16px;
-  max-height: 320px;
+  max-height: min(55vh, 620px);
   overflow-y: auto;
   padding-right: 4px;
+}
+
+@media (min-width: 2560px) {
+  .server-list {
+    max-height: min(45vh, 900px);
+  }
 }
 
 .server-row {
@@ -157,7 +171,7 @@
 }
 
 .server-name {
-  font-size: 22px;
+  font-size: calc(22px * var(--onboarding-scale));
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -165,7 +179,7 @@
 }
 
 .server-meta {
-  font-size: 15px;
+  font-size: calc(15px * var(--onboarding-scale));
   color: rgba(255, 255, 255, 0.6);
 }
 
@@ -212,9 +226,6 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: 320px;
-  overflow-y: auto;
-  padding-right: 4px;
 }
 
 .setup-grid-2col {

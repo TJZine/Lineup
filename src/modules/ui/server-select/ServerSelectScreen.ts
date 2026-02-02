@@ -323,6 +323,13 @@ export class ServerSelectScreen {
                     neighbors: {
                         up: i === 0 ? 'btn-server-refresh' : `btn-server-select-${i - 1}`,
                     },
+                    onFocus: () => {
+                        try {
+                            selectButton.scrollIntoView({ block: 'nearest' });
+                        } catch {
+                            selectButton.scrollIntoView();
+                        }
+                    },
                 };
                 if (i < servers.length - 1) {
                     element.neighbors!.down = `btn-server-select-${i + 1}`;
