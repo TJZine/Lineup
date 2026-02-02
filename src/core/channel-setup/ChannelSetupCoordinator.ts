@@ -45,7 +45,7 @@ export interface ChannelSetupCoordinatorDeps {
 
     // EPG hooks (do not inject the whole epg coordinator object)
     primeEpgChannels: () => void;
-    refreshEpgSchedules: () => Promise<void>;
+    refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }) => Promise<void>;
 
     // Channel manager storage configuration already exists in Orchestrator; we do not move it in this slice.
     // Rerun flag storage remains in-memory in this coordinator (not in localStorage).
@@ -323,7 +323,7 @@ export class ChannelSetupCoordinator {
             reportProgress('refresh_epg', 'Refreshing guide...', 'Loading schedules', 0, null);
             this.deps.primeEpgChannels();
             const refreshStart = Date.now();
-            await this.deps.refreshEpgSchedules();
+            await this.deps.refreshEpgSchedules({ reason: 'channel-setup', debounceMs: 0 });
             refreshEpgMs += Date.now() - refreshStart;
 
         } catch (e) {

@@ -71,7 +71,10 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
             if (!rowVm || !rowElements) {
                 continue;
             }
-            const isLoading = rowVm.status === 'loading' || rowVm.nowTitle === 'Loading...';
+            const hasStatus = rowVm.status !== undefined && rowVm.status !== null;
+            const isLoading = hasStatus
+                ? rowVm.status === 'loading'
+                : rowVm.nowTitle === 'Loading...';
             if (rowElements.row) {
                 if (isLoading) {
                     rowElements.row.classList.add(MINI_GUIDE_CLASSES.CHANNEL_ROW_LOADING);

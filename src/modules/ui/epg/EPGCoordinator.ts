@@ -446,6 +446,11 @@ export class EPGCoordinator {
         this._epgScheduleRangeKeyByChannel.clear();
     }
 
+    private _clearScheduleCaches(): void {
+        this._epgScheduleRangeKeyByChannel.clear();
+        this._epgScheduleCache.clear();
+    }
+
     private _pruneInFlightSchedules(
         keepIds: Set<string>,
         rangeKey: string,
@@ -499,6 +504,10 @@ export class EPGCoordinator {
 
         const refreshId = ++this._epgScheduleLoadToken;
         const rangeKey = this._getScheduleRangeKey(startTime, endTime);
+        const forceRefresh = reason === 'channel-setup';
+        if (forceRefresh) {
+            this._clearScheduleCaches();
+        }
         const shuffler = new ShuffleGenerator();
 
         const liveChannelId = channelManager.getCurrentChannel()?.id ?? null;
@@ -525,7 +534,7 @@ export class EPGCoordinator {
         }
 
         const neededIds = new Set(prioritized.map((channel) => channel.id));
-        const abortAll = reason === 'library-filter';
+        const abortAll = reason === 'library-filter' || forceRefresh;
         const { kept: inFlightKept, aborted: inFlightAborted } = this._pruneInFlightSchedules(
             neededIds,
             rangeKey,
@@ -573,7 +582,7 @@ export class EPGCoordinator {
         }
 
         const runForChannel = async (channel: ChannelConfig): Promise<void> => {
-            if (this._isScheduleLoadedForRange(channel.id, rangeKey)) {
+            if (!forceRefresh && this._isScheduleLoadedForRange(channel.id, rangeKey)) {
                 alreadyLoaded += 1;
                 return;
             }
@@ -588,7 +597,7 @@ export class EPGCoordinator {
                 }
             }
 
-            const cached = this._getCachedSchedule(channel.id, rangeKey);
+            const cached = forceRefresh ? null : this._getCachedSchedule(channel.id, rangeKey);
             if (cached) {
                 applySchedule(channel.id, cached);
                 cacheHits += 1;

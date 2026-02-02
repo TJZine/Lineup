@@ -354,6 +354,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
                     if (error instanceof DOMException && error.name === 'AbortError') {
                         return;
                     }
+                    console.warn('[EPGInfoPanel] HDR fetch failed:', error);
                 });
         }, 200);
     }

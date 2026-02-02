@@ -454,7 +454,6 @@ export class ChannelSetupScreen {
 
         const focusableButtons: HTMLButtonElement[] = [];
 
-        left.scrollTop = this._strategyScrollTop;
         left.addEventListener('scroll', () => {
             this._strategyScrollTop = left.scrollTop;
         });
@@ -825,6 +824,9 @@ export class ChannelSetupScreen {
         split.appendChild(left);
         split.appendChild(right);
         this._contentEl.appendChild(split);
+        requestAnimationFrame(() => {
+            left.scrollTop = this._strategyScrollTop;
+        });
 
         const actions = document.createElement('div');
         actions.className = 'button-row';
