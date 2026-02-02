@@ -536,7 +536,8 @@ export class AppOrchestrator implements IAppOrchestrator {
             },
             handleGlobalError: (error: AppError, context: string): void => this.handleGlobalError(error, context),
             primeEpgChannels: (): void => this._epgCoordinator?.primeEpgChannels(),
-            refreshEpgSchedules: (): Promise<void> => this._epgCoordinator?.refreshEpgSchedules() ?? Promise.resolve(),
+            refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }): Promise<void> =>
+                this._epgCoordinator?.refreshEpgSchedules(options) ?? Promise.resolve(),
         });
         this._channelSetup.cleanupStaleChannelBuildKeys();
 

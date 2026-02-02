@@ -9,6 +9,7 @@ export const MINI_GUIDE_CLASSES = {
     PANEL: 'mini-guide-panel',
     CHANNEL_ROW: 'mini-guide-row',
     CHANNEL_ROW_FOCUSED: 'focused',
+    CHANNEL_ROW_LOADING: 'loading',
     CHANNEL_NUMBER: 'mini-guide-channel-num',
     CHANNEL_NAME: 'mini-guide-channel-name',
     PROGRAM_NOW: 'mini-guide-now',

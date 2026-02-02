@@ -262,5 +262,81 @@ describe('EPGInfoPanel', () => {
 
             expect(texts).toEqual(['4K', 'HDR10+', 'DD+', '5.1']);
         });
+
+        it('lazy-fetches HDR when mediaInfo is missing it', async () => {
+            jest.useFakeTimers();
+            const fetchItemDetails = jest.fn().mockResolvedValue({
+                ratingKey: 'test-1',
+                key: '/library/metadata/1',
+                type: 'movie',
+                title: 'Test Movie',
+                sortTitle: 'Test Movie',
+                summary: '',
+                year: 2024,
+                durationMs: 7200000,
+                addedAt: new Date(),
+                updatedAt: new Date(),
+                thumb: null,
+                art: null,
+                media: [
+                    {
+                        id: 'media-1',
+                        duration: 7200000,
+                        bitrate: 12000,
+                        width: 3840,
+                        height: 2160,
+                        aspectRatio: 1.78,
+                        videoCodec: 'hevc',
+                        audioCodec: 'eac3',
+                        audioChannels: 6,
+                        container: 'mkv',
+                        videoResolution: '4K',
+                        parts: [
+                            {
+                                id: 'part-1',
+                                key: '/library/parts/1/file.mkv',
+                                duration: 7200000,
+                                file: 'file.mkv',
+                                size: 123,
+                                container: 'mkv',
+                                streams: [
+                                    {
+                                        id: 'stream-1',
+                                        streamType: 1,
+                                        codec: 'hevc',
+                                        hdr: 'Dolby Vision',
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            });
+            panel.setFetchItemDetails(fetchItemDetails);
+
+            const program = createMockProgram(null, {
+                mediaInfo: {
+                    resolution: '4K',
+                    audioCodec: 'eac3',
+                    audioChannels: 6,
+                },
+            });
+            panel.show(program);
+
+            expect(fetchItemDetails).not.toHaveBeenCalled();
+            jest.advanceTimersByTime(220);
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(fetchItemDetails).toHaveBeenCalledWith('test-1', { signal: expect.any(AbortSignal) });
+            const badges = Array.from(
+                container.querySelectorAll('.epg-info-quality-badge')
+            ) as HTMLElement[];
+            const visibleBadges = badges.filter((badge) => badge.style.display !== 'none');
+            const texts = visibleBadges.map((badge) => badge.textContent);
+            expect(texts).toEqual(['4K', 'Dolby Vision', 'DD+', '5.1']);
+
+            jest.useRealTimers();
+        });
     });
 });

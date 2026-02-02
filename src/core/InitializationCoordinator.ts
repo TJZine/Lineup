@@ -616,13 +616,21 @@ export class InitializationCoordinator implements IInitializationCoordinator {
         this._callbacks.updateModuleStatus('epg-ui', 'initializing');
         const init = async (): Promise<void> => {
             // Wire thumb resolver callback to convert relative Plex paths to absolute URLs
-            const epgConfigWithResolver = {
-                ...this._config.epgConfig,
-                resolveThumbUrl: (
-                    pathOrUrl: string | null,
-                    width?: number,
-                    height?: number
-                ): string | null => {
+                const epgConfigWithResolver = {
+                    ...this._config.epgConfig,
+                    fetchItemDetails: (
+                        ratingKey: string,
+                        options?: { signal?: AbortSignal | null }
+                    ): Promise<import('../modules/plex/library').PlexMediaItem | null> =>
+                        this._deps.plexLibrary?.getItem(
+                            ratingKey,
+                            { signal: options?.signal ?? null }
+                        ) ?? Promise.resolve(null),
+                    resolveThumbUrl: (
+                        pathOrUrl: string | null,
+                        width?: number,
+                        height?: number
+                    ): string | null => {
                     if (!pathOrUrl) return null;
                     if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
                         return pathOrUrl;

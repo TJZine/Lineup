@@ -227,7 +227,7 @@ describe('NowPlayingInfoCoordinator', () => {
         coordinator.handleModalClose(modalId);
     });
 
-    it('details metadata renders cast + studio line', async () => {
+    it('details metadata renders studio line when cast comes from headshots', async () => {
         const plexLibrary = makePlexLibrary({
             getItem: jest.fn().mockResolvedValue({
                 ratingKey: 'rk1',
@@ -250,7 +250,6 @@ describe('NowPlayingInfoCoordinator', () => {
         const lastUpdate = updates[updates.length - 1]?.[0] as { metaLines?: string[] };
         expect(lastUpdate.metaLines).toEqual([
             'Sci-Fi • Action • Adventure • Studio One',
-            'Cast: Actor A • Actor B • Actor C +1',
         ]);
         coordinator.handleModalClose(modalId);
     });
@@ -288,6 +287,7 @@ describe('NowPlayingInfoCoordinator', () => {
             { name: 'Actor B', url: 'http://image/actor/b' },
             { name: 'Actor C', url: 'http://image/actor/c' },
             { name: 'Actor D', url: 'http://image/actor/d' },
+            { name: 'Actor E', url: 'http://image/actor/e' },
         ]);
         expect(lastUpdate.actorTotalCount).toBe(5);
         coordinator.handleModalClose(modalId);

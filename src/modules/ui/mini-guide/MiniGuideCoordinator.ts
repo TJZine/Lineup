@@ -32,7 +32,6 @@ export interface MiniGuideCoordinatorDeps {
 
 export class MiniGuideCoordinator {
     private _autoHideTimer: number | null = null;
-    private _abortController: AbortController | null = null;
     private _focusedIndex = CENTER_INDEX;
     private _allChannels: ChannelConfig[] = [];
     private _windowStartIndex = 0;
@@ -40,6 +39,8 @@ export class MiniGuideCoordinator {
     private _viewModel: MiniGuideViewModel | null = null;
     private _showToken = 0;
     private _playingChannelId: string | null = null;
+    private _channelResolves = new Map<string, AbortController>();
+    private _windowChannelIndices = new Map<string, number[]>();
     private readonly _shuffler = new ShuffleGenerator();
 
     constructor(private readonly deps: MiniGuideCoordinatorDeps) { }
@@ -63,7 +64,7 @@ export class MiniGuideCoordinator {
         this._channels = this._buildWindowChannels(this._windowStartIndex);
         this._focusedIndex = CENTER_INDEX;
 
-        this._abortInFlight();
+        this._abortAllResolves();
         const token = this._showToken;
         const fastViewModel = this._buildFastViewModel(current);
         this._viewModel = fastViewModel;
@@ -73,14 +74,11 @@ export class MiniGuideCoordinator {
         overlay.show();
         this._scheduleAutoHide();
 
-        const abortController = new AbortController();
-        this._abortController = abortController;
-
-        this._startResolveForWindow(current, abortController, token);
+        this._startResolveForWindow(current, token);
     }
 
     hide(): void {
-        this._abortInFlight();
+        this._abortAllResolves();
         this._clearAutoHideTimer();
         this._viewModel = null;
         this.deps.getOverlay()?.hide();
@@ -146,16 +144,13 @@ export class MiniGuideCoordinator {
         const current = this._allChannels.find((channel) => channel.id === this._playingChannelId) ?? null;
         this._channels = this._buildWindowChannels(this._windowStartIndex);
 
-        this._abortInFlight();
         const token = this._showToken;
         const fastViewModel = this._buildFastViewModel(current);
         this._viewModel = fastViewModel;
         overlay.setViewModel(fastViewModel);
         overlay.setFocusedIndex(this._focusedIndex);
 
-        const abortController = new AbortController();
-        this._abortController = abortController;
-        this._startResolveForWindow(current, abortController, token);
+        this._startResolveForWindow(current, token);
     }
 
     private _buildWindowChannels(startIndex: number): ChannelConfig[] {
@@ -170,25 +165,37 @@ export class MiniGuideCoordinator {
 
     private _startResolveForWindow(
         current: ChannelConfig | null,
-        abortController: AbortController,
         token: number
     ): void {
-        const pendingResolves = new Map<string, { channel: ChannelConfig; indices: number[] }>();
+        const pendingResolves = new Map<string, ChannelConfig>();
+        this._windowChannelIndices.clear();
         for (let i = 0; i < ROW_COUNT; i += 1) {
             const channel = this._channels[i]!;
+            const indices = this._windowChannelIndices.get(channel.id) ?? [];
+            indices.push(i);
+            this._windowChannelIndices.set(channel.id, indices);
             if (current && channel.id === current.id) {
                 continue;
             }
-            const existing = pendingResolves.get(channel.id);
-            if (existing) {
-                existing.indices.push(i);
-            } else {
-                pendingResolves.set(channel.id, { channel, indices: [i] });
+            if (!pendingResolves.has(channel.id)) {
+                pendingResolves.set(channel.id, channel);
             }
         }
 
-        for (const entry of pendingResolves.values()) {
-            void this._resolveChannel(entry.channel, entry.indices, abortController, token);
+        const keepIds = new Set(pendingResolves.keys());
+        this._pruneResolves(keepIds);
+
+        for (const [channelId, channel] of pendingResolves) {
+            const existing = this._channelResolves.get(channelId);
+            if (existing && !existing.signal.aborted) {
+                continue;
+            }
+            if (existing) {
+                this._channelResolves.delete(channelId);
+            }
+            const controller = new AbortController();
+            this._channelResolves.set(channelId, controller);
+            void this._resolveChannel(channel, controller, token);
         }
     }
 
@@ -200,9 +207,19 @@ export class MiniGuideCoordinator {
                 rows.push(this._buildCurrentRow(channel, current));
                 continue;
             }
+            const cached = this._getCachedRow(channel.id);
+            if (cached && cached.status === 'ready') {
+                rows.push(cached);
+                continue;
+            }
             rows.push(this._buildLoadingRow(channel));
         }
         return { channels: rows };
+    }
+
+    private _getCachedRow(channelId: string): MiniGuideChannelViewModel | null {
+        if (!this._viewModel) return null;
+        return this._viewModel.channels.find((row) => row.channelId === channelId) ?? null;
     }
 
     private _buildCurrentRow(channel: ChannelConfig, current: ChannelConfig): MiniGuideChannelViewModel {
@@ -235,6 +252,7 @@ export class MiniGuideCoordinator {
             channelId: channel.id,
             channelNumber: channel.number,
             channelName: displayName,
+            status: 'loading',
             nowTitle: 'Loading...',
             nextTitle: null,
             nowProgress: 0,
@@ -250,6 +268,7 @@ export class MiniGuideCoordinator {
             channelId: channel.id,
             channelNumber: channel.number,
             channelName: displayName,
+            status: 'unavailable',
             nowTitle: 'Unavailable',
             nextTitle: null,
             nowProgress: 0,
@@ -258,7 +277,6 @@ export class MiniGuideCoordinator {
 
     private async _resolveChannel(
         channel: ChannelConfig,
-        indices: number[],
         controller: AbortController,
         token: number
     ): Promise<void> {
@@ -273,17 +291,36 @@ export class MiniGuideCoordinator {
             if (controller.signal.aborted || token !== this._showToken) {
                 return;
             }
+            const active = this._channelResolves.get(channel.id);
+            if (!active || active !== controller) {
+                return;
+            }
             const row = this._buildResolvedRow(channel, resolved, Date.now());
-            for (const index of indices) {
-                this._updateRow(index, row, token);
+            const indices = this._windowChannelIndices.get(channel.id);
+            if (indices) {
+                for (const index of indices) {
+                    this._updateRow(index, row, token);
+                }
             }
         } catch {
             if (controller.signal.aborted || token !== this._showToken) {
                 return;
             }
+            const active = this._channelResolves.get(channel.id);
+            if (!active || active !== controller) {
+                return;
+            }
             const row = this._buildUnavailableRow(channel);
-            for (const index of indices) {
-                this._updateRow(index, row, token);
+            const indices = this._windowChannelIndices.get(channel.id);
+            if (indices) {
+                for (const index of indices) {
+                    this._updateRow(index, row, token);
+                }
+            }
+        } finally {
+            const active = this._channelResolves.get(channel.id);
+            if (active && active === controller) {
+                this._channelResolves.delete(channel.id);
             }
         }
     }
@@ -324,6 +361,7 @@ export class MiniGuideCoordinator {
             channelId: channel.id,
             channelNumber: channel.number,
             channelName: displayName,
+            status: 'ready',
             nowTitle,
             nextTitle,
             nowProgress,
@@ -368,12 +406,21 @@ export class MiniGuideCoordinator {
         }
     }
 
-    private _abortInFlight(): void {
-        if (this._abortController) {
-            this._abortController.abort();
+    private _abortAllResolves(): void {
+        for (const controller of this._channelResolves.values()) {
+            controller.abort();
         }
-        this._abortController = null;
+        this._channelResolves.clear();
         this._showToken += 1;
+    }
+
+    private _pruneResolves(keepIds: Set<string>): void {
+        for (const [channelId, controller] of this._channelResolves) {
+            if (!keepIds.has(channelId)) {
+                controller.abort();
+                this._channelResolves.delete(channelId);
+            }
+        }
     }
 }
 

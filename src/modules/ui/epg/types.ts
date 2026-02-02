@@ -50,6 +50,11 @@ export interface EPGConfig {
     }) => void;
     /** Optional callback to resolve relative Plex thumb paths to absolute URLs, with optional size hints. */
     resolveThumbUrl?: (pathOrUrl: string | null, width?: number, height?: number) => string | null;
+    /** Optional callback to fetch Plex item details for focused programs (used for HDR/DV badges). */
+    fetchItemDetails?: (
+        ratingKey: string,
+        options?: { signal?: AbortSignal | null }
+    ) => Promise<import('../../plex/library').PlexMediaItem | null>;
     /** Optional callback to detect if video is currently playing */
     isVideoPlaying?: () => boolean;
 }

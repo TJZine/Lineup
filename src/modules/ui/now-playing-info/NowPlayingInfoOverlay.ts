@@ -50,13 +50,12 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
           <div class="${NOW_PLAYING_INFO_CLASSES.BADGES}"></div>
           <div class="${NOW_PLAYING_INFO_CLASSES.PLAYBACK}">
             <div class="${NOW_PLAYING_INFO_CLASSES.PLAYBACK_SUMMARY}"></div>
-            <div class="${NOW_PLAYING_INFO_CLASSES.PLAYBACK_DETAILS}"></div>
           </div>
           <div class="${NOW_PLAYING_INFO_CLASSES.META}"></div>
           <div class="${NOW_PLAYING_INFO_CLASSES.ACTORS}"></div>
+          <div class="${NOW_PLAYING_INFO_CLASSES.CAST}"></div>
           <div class="${NOW_PLAYING_INFO_CLASSES.DESCRIPTION}"></div>
           <div class="${NOW_PLAYING_INFO_CLASSES.CONTEXT}"></div>
-          <pre class="${NOW_PLAYING_INFO_CLASSES.DEBUG}"></pre>
           <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS}">
             <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_BAR}">
               <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_FILL}"></div>
@@ -152,7 +151,15 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         this.actorResizeObserver?.disconnect();
         this.actorResizeObserver = new ResizeObserver(() => {
             if (!this.isVisibleFlag || !this.lastActorState) return;
-            this.renderActorRow(actors, this.lastActorState.headshots, this.lastActorState.totalCount);
+            const castEl = this.containerElement?.querySelector(
+                `.${NOW_PLAYING_INFO_CLASSES.CAST}`
+            ) as HTMLElement | null;
+            this.renderActorRow(
+                actors,
+                this.lastActorState.headshots,
+                this.lastActorState.totalCount,
+                castEl
+            );
         });
         this.actorResizeObserver.observe(actors);
     }
@@ -216,8 +223,14 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         const actors = this.containerElement.querySelector(
             `.${NOW_PLAYING_INFO_CLASSES.ACTORS}`
         ) as HTMLElement | null;
+        const cast = this.containerElement.querySelector(
+            `.${NOW_PLAYING_INFO_CLASSES.CAST}`
+        ) as HTMLElement | null;
         if (actors) {
-            this.updateActorRow(actors, viewModel);
+            this.updateActorRow(actors, cast, viewModel);
+        } else if (cast) {
+            cast.textContent = '';
+            cast.style.display = 'none';
         }
 
         const meta = this.containerElement.querySelector(
@@ -245,22 +258,10 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         const playbackSummary = this.containerElement.querySelector(
             `.${NOW_PLAYING_INFO_CLASSES.PLAYBACK_SUMMARY}`
         ) as HTMLElement | null;
-        const playbackDetails = this.containerElement.querySelector(
-            `.${NOW_PLAYING_INFO_CLASSES.PLAYBACK_DETAILS}`
-        ) as HTMLElement | null;
-        if (playback && playbackSummary && playbackDetails) {
+        if (playback && playbackSummary) {
             const summaryText = viewModel.playbackSummary ?? '';
-            const detailLines = viewModel.playbackDetails ?? [];
             playbackSummary.textContent = summaryText;
-            playbackDetails.textContent = '';
-            if (detailLines.length > 0) {
-                for (const line of detailLines) {
-                    const row = document.createElement('div');
-                    row.textContent = line;
-                    playbackDetails.appendChild(row);
-                }
-            }
-            const shouldShow = summaryText.length > 0 || detailLines.length > 0;
+            const shouldShow = summaryText.length > 0;
             playback.style.display = shouldShow ? 'flex' : 'none';
         }
 
@@ -278,14 +279,6 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
             })();
             context.textContent = channelPrefix;
             context.style.display = channelPrefix ? 'block' : 'none';
-        }
-
-        const debugEl = this.containerElement.querySelector(
-            `.${NOW_PLAYING_INFO_CLASSES.DEBUG}`
-        ) as HTMLPreElement | null;
-        if (debugEl) {
-            debugEl.textContent = viewModel.debugText || '';
-            debugEl.style.display = viewModel.debugText ? 'block' : 'none';
         }
 
         const progress = this.containerElement.querySelector(
@@ -329,7 +322,11 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         }
     }
 
-    private updateActorRow(actors: HTMLElement, viewModel: NowPlayingInfoViewModel): void {
+    private updateActorRow(
+        actors: HTMLElement,
+        castLine: HTMLElement | null,
+        viewModel: NowPlayingInfoViewModel
+    ): void {
         const headshots = viewModel.actorHeadshots ?? [];
         const totalCount =
             viewModel.actorTotalCount ??
@@ -339,10 +336,14 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
             actors.textContent = '';
             actors.dataset.signature = '';
             actors.style.display = 'none';
+            if (castLine) {
+                castLine.textContent = '';
+                castLine.style.display = 'none';
+            }
             return;
         }
         this.lastActorState = { headshots, totalCount };
-        this.renderActorRow(actors, headshots, totalCount);
+        this.renderActorRow(actors, headshots, totalCount, castLine);
     }
 
     private scheduleActorReflow(): void {
@@ -358,14 +359,23 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
                 `.${NOW_PLAYING_INFO_CLASSES.ACTORS}`
             ) as HTMLElement | null;
             if (!actorsEl) return;
-            this.renderActorRow(actorsEl, this.lastActorState.headshots, this.lastActorState.totalCount);
+            const castEl = this.containerElement.querySelector(
+                `.${NOW_PLAYING_INFO_CLASSES.CAST}`
+            ) as HTMLElement | null;
+            this.renderActorRow(
+                actorsEl,
+                this.lastActorState.headshots,
+                this.lastActorState.totalCount,
+                castEl
+            );
         });
     }
 
     private renderActorRow(
         actors: HTMLElement,
         headshots: Array<{ name: string; url: string | null }>,
-        totalCount: number
+        totalCount: number,
+        castLine: HTMLElement | null
     ): void {
         const displayCount = computeActorDisplayCount(actors, headshots.length, totalCount);
         const visibleHeadshots = headshots.slice(0, displayCount);
@@ -405,6 +415,21 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
             actors.dataset.signature = signature;
         }
         actors.style.display = visibleHeadshots.length > 0 ? 'flex' : 'none';
+
+        if (castLine) {
+            if (visibleHeadshots.length === 0) {
+                castLine.textContent = '';
+                castLine.style.display = 'none';
+            } else {
+                const names = visibleHeadshots.map((entry) => entry.name);
+                let line = `Cast: ${names.join(' • ')}`;
+                if (effectiveMoreCount > 0) {
+                    line += ` +${effectiveMoreCount}`;
+                }
+                castLine.textContent = line;
+                castLine.style.display = 'block';
+            }
+        }
     }
 }
 

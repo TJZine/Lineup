@@ -13,8 +13,9 @@ import type { NowPlayingInfoConfig } from './types';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from './constants';
 import { safeLocalStorageGet } from '../../../utils/storage';
 import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
-import { buildPlaybackSummary, type PlaybackInfoSnapshotLike } from '../../../utils/playbackSummary';
+import { type PlaybackInfoSnapshotLike } from '../../../utils/playbackSummary';
 import { formatAudioCodec } from '../../../utils/mediaFormat';
+import { extractHdrLabelFromPlexMedia } from '../../plex/stream/hdr';
 
 export interface NowPlayingInfoCoordinatorDeps {
     nowPlayingModalId: string;
@@ -262,11 +263,10 @@ export class NowPlayingInfoCoordinator {
             }
         }
 
-        const debugText = this.deps.buildDebugText() ?? null;
-        const badges = this.buildQualityBadges(item);
+        const badges = this.buildQualityBadges(item, details);
         const metaLines = this.buildMetaLines(item, details);
         const actorHeadshots = this.buildActorHeadshots(details);
-        const playback = buildPlaybackSummary(this.deps.getPlaybackInfoSnapshot());
+        const playbackSummary = this.buildPlaybackModeSummary(this.deps.getPlaybackInfoSnapshot());
 
         const baseViewModel: NowPlayingInfoViewModel = {
             title,
@@ -276,13 +276,11 @@ export class NowPlayingInfoCoordinator {
             posterUrl,
             ...(badges.length > 0 ? { badges } : {}),
             ...(metaLines.length > 0 ? { metaLines } : {}),
-            ...(playback.summary ? { playbackSummary: playback.summary } : {}),
-            ...(playback.details.length > 0 ? { playbackDetails: playback.details } : {}),
+            ...(playbackSummary ? { playbackSummary } : {}),
             ...(actorHeadshots.headshots.length > 0 ? { actorHeadshots: actorHeadshots.headshots } : {}),
             ...(actorHeadshots.headshots.length > 0 ? { actorTotalCount: actorHeadshots.totalCount } : {}),
             ...(channelName ? { channelName } : {}),
             ...(typeof channelNumber === 'number' ? { channelNumber } : {}),
-            ...(debugText ? { debugText } : {}),
         };
 
         const upNext = this.buildUpNext();
@@ -377,15 +375,7 @@ export class NowPlayingInfoCoordinator {
             }
         }
 
-        if (actors.length > 0) {
-            const shown = actors.slice(0, 3);
-            let castLine = `Cast: ${shown.join(' • ')}`;
-            const remaining = actors.length - shown.length;
-            if (remaining > 0) {
-                castLine += ` +${remaining}`;
-            }
-            metaLines.push(castLine);
-        } else if (directors.length > 0) {
+        if (actors.length === 0 && directors.length > 0) {
             const shown = directors.slice(0, 2);
             const label = shown.length > 1 ? 'Directors' : 'Director';
             metaLines.push(`${label}: ${shown.join(' • ')}`);
@@ -407,10 +397,14 @@ export class NowPlayingInfoCoordinator {
 
         const config = this.deps.getNowPlayingInfoConfig();
         const thumbSize = config?.actorThumbSize ?? NOW_PLAYING_INFO_DEFAULTS.actorThumbSize;
-        const maxCountRaw = config?.actorHeadshotCount ?? NOW_PLAYING_INFO_DEFAULTS.actorHeadshotCount;
-        const maxCount = Number.isFinite(maxCountRaw)
-            ? Math.max(1, Math.min(6, Math.floor(maxCountRaw)))
-            : NOW_PLAYING_INFO_DEFAULTS.actorHeadshotCount;
+        const maxCountRaw = config?.actorHeadshotCount;
+        const defaultCount =
+            typeof window !== 'undefined' && window.innerWidth >= 2560
+                ? 7
+                : 5;
+        const maxCount = typeof maxCountRaw === 'number' && Number.isFinite(maxCountRaw)
+            ? Math.max(1, Math.min(10, Math.floor(maxCountRaw)))
+            : defaultCount;
         const plexLibrary = this.deps.getPlexLibrary();
 
         const headshots = roles.slice(0, maxCount).map((role) => {
@@ -501,20 +495,32 @@ export class NowPlayingInfoCoordinator {
         return `${hours}h ${minutes}m`;
     }
 
-    private buildQualityBadges(item: ScheduledProgram['item']): string[] {
+    private buildQualityBadges(
+        item: ScheduledProgram['item'],
+        details: PlexMediaItem | null
+    ): string[] {
         const mediaInfo = item.mediaInfo;
-        if (!mediaInfo) return [];
 
         const badges: string[] = [];
-        if (mediaInfo.resolution) badges.push(mediaInfo.resolution);
-        if (mediaInfo.hdr) badges.push(mediaInfo.hdr);
-        if (mediaInfo.audioCodec) {
+        if (mediaInfo?.resolution) badges.push(mediaInfo.resolution);
+        const hdr = mediaInfo?.hdr ?? extractHdrLabelFromPlexMedia(details);
+        if (hdr) badges.push(hdr);
+        if (mediaInfo?.audioCodec) {
             const audioCodec = formatAudioCodec(mediaInfo.audioCodec);
             if (audioCodec) badges.push(audioCodec);
         }
         const audioDetail = this.formatAudioDetail(mediaInfo);
         if (audioDetail) badges.push(audioDetail);
         return badges;
+    }
+
+    private buildPlaybackModeSummary(snapshot: PlaybackInfoSnapshotLike | null | undefined): string | null {
+        const stream = snapshot?.stream;
+        if (!stream) return null;
+        const mode = stream.isDirectPlay
+            ? 'Direct Play'
+            : (stream.isTranscoding ? 'Transcode' : 'Stream');
+        return `Playback: ${mode}`;
     }
 
     private formatAudioDetail(

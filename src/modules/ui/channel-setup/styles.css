@@ -141,3 +141,32 @@
     font-style: italic;
     margin-top: 4px;
 }
+
+.setup-split {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 16px;
+    flex: 1;
+    min-height: 0;
+}
+
+.setup-split-left {
+    overflow-y: auto;
+    min-height: 0;
+    padding-right: 4px;
+}
+
+.setup-split-right {
+    min-height: 0;
+}
+
+.setup-split-right .setup-preview {
+    height: 100%;
+    overflow-y: auto;
+}
+
+@media (min-width: 2560px) {
+    .setup-split {
+        grid-template-columns: 1fr 420px;
+    }
+}
