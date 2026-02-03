@@ -22,7 +22,7 @@ export type DvHdr10BaseLayerContext = {
     extendedDisplayTitle?: string | null;
 };
 
-type DvHdr10BaseLayerResult = {
+export type DvHdr10BaseLayerResult = {
     profileInfo: DvProfileInfo;
     hasHdr10BaseLayer: boolean;
     isKnownNoHdr10BaseLayer: boolean;

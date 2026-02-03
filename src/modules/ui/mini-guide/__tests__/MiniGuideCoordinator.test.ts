@@ -276,6 +276,27 @@ describe('MiniGuideCoordinator', () => {
         expect(firstVm.channels[2].nowTitle).toBe('Series Title • S02E03 • Episode Name');
     });
 
+    it('formats episode titles without season/episode metadata', () => {
+        const singleChannel = makeChannel('ch1', 1);
+        const scheduler = {
+            getState: jest.fn().mockReturnValue({ isActive: true, channelId: 'ch1' }),
+            getCurrentProgram: jest.fn().mockReturnValue(
+                makeEpisodeProgram('Series Title', 'Episode Name')
+            ),
+            getNextProgram: jest.fn().mockReturnValue(makeProgram('Next Up')),
+        } as unknown as IChannelScheduler;
+        const { coordinator, overlay } = setup({
+            channels: [singleChannel],
+            currentChannel: singleChannel,
+            scheduler,
+        });
+
+        coordinator.show();
+
+        const firstVm = (overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
+        expect(firstVm.channels[2].nowTitle).toBe('Series Title • Episode Name');
+    });
+
     it('dedupes resolve for duplicate non-current channels', () => {
         const channelA = makeChannel('ch1', 1);
         const channelB = makeChannel('ch2', 2);

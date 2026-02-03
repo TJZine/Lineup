@@ -259,7 +259,7 @@ export class NavigationCoordinator {
 
         const isNowPlayingModalOpen = this.deps.isNowPlayingModalOpen();
         if (isNowPlayingModalOpen && event.button === 'back') {
-            this._logSuppressedInput('modal_open', event);
+            this._logInputNotHandled('modal_open', event);
             return;
         }
         if (isNowPlayingModalOpen && event.button === 'ok') {
@@ -284,7 +284,7 @@ export class NavigationCoordinator {
         const shouldRouteToEpg = !modalOpen && !!epg?.isVisible();
 
         if (modalOpen && (event.button === 'up' || event.button === 'down' || event.button === 'left' || event.button === 'right')) {
-            this._logSuppressedInput('modal_open', event);
+            this._logInputNotHandled('modal_open', event);
         }
 
         if (epg && shouldRouteToEpg) {
@@ -337,7 +337,7 @@ export class NavigationCoordinator {
         const miniGuideVisible = this.deps.isMiniGuideVisible();
         if (currentScreen === 'player' && miniGuideVisible && !modalOpen && !shouldRouteToEpg) {
             if (navigation?.isInputBlocked()) {
-                this._logSuppressedInput('input_blocked', event);
+                this._logInputNotHandled('input_blocked', event);
                 this._stopMiniGuideRepeat('inputBlocked');
                 event.handled = true;
                 event.originalEvent.preventDefault();
@@ -408,7 +408,7 @@ export class NavigationCoordinator {
         }
 
         if (currentScreen !== 'player' && (event.button === 'up' || event.button === 'down' || event.button === 'ok')) {
-            this._logSuppressedInput('screen_not_player', event);
+            this._logInputNotHandled('screen_not_player', event);
         }
 
         if (event.button === 'down') {
@@ -660,14 +660,10 @@ export class NavigationCoordinator {
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        try {
-            return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DEBUG_LOGGING));
-        } catch {
-            return false;
-        }
+        return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DEBUG_LOGGING));
     }
 
-    private _logSuppressedInput(
+    private _logInputNotHandled(
         reason: 'modal_open' | 'screen_not_player' | 'input_blocked',
         event: KeyEvent
     ): void {
@@ -690,7 +686,7 @@ export class NavigationCoordinator {
             this._suppressedLogTimestamps.clear();
         }
         this._suppressedLogTimestamps.set(key, now);
-        console.warn('[NavigationCoordinator] Input suppressed:', {
+        console.warn('[NavigationCoordinator] Input not handled:', {
             reason,
             button: event.button,
             screen: state?.currentScreen ?? null,
