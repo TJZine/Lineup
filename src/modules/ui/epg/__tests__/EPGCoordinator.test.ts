@@ -242,6 +242,19 @@ describe('EPGCoordinator', () => {
         expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
     });
 
+    it('primeEpgChannels applies layout mode and now watching settings from storage', () => {
+        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LAYOUT_MODE, 'classic');
+        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, '0');
+
+        const { deps, epg } = makeDeps();
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.primeEpgChannels();
+
+        expect(epg.setLayoutMode).toHaveBeenCalledWith('classic');
+        expect(epg.setNowWatchingBannerEnabled).toHaveBeenCalledWith(false);
+    });
+
     it('primeEpgChannels clears filter when only one library remains', () => {
         localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
         localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
