@@ -21,14 +21,14 @@ import type { IPlexStreamResolver } from '../modules/plex/stream';
 import type { IChannelManager } from '../modules/scheduler/channel-manager';
 import type { IChannelScheduler } from '../modules/scheduler/scheduler';
 import type { IVideoPlayer } from '../modules/player';
-import type { IEPGComponent } from '../modules/ui/epg';
+import { formatTimeRange, type IEPGComponent } from '../modules/ui/epg';
 import type { INowPlayingInfoOverlay } from '../modules/ui/now-playing-info';
 import type { IPlayerOsdOverlay } from '../modules/ui/player-osd';
 import type { IMiniGuideOverlay } from '../modules/ui/mini-guide';
 import type { IChannelTransitionOverlay } from '../modules/ui/channel-transition';
 import type { IPlaybackOptionsModal } from '../modules/ui/playback-options';
 import type { IDisposable } from '../utils/interfaces';
-import { isStoredTrue, safeLocalStorageGet } from '../utils/storage';
+import { isStoredTrue, readStoredBoolean, safeLocalStorageGet } from '../utils/storage';
 import { RETUNE_STORAGE_KEYS } from '../config/storageKeys';
 import type { OrchestratorConfig, ModuleStatus } from '../Orchestrator';
 
@@ -616,21 +616,30 @@ export class InitializationCoordinator implements IInitializationCoordinator {
         this._callbacks.updateModuleStatus('epg-ui', 'initializing');
         const init = async (): Promise<void> => {
             // Wire thumb resolver callback to convert relative Plex paths to absolute URLs
-                const epgConfigWithResolver = {
-                    ...this._config.epgConfig,
-                    fetchItemDetails: (
-                        ratingKey: string,
-                        options?: { signal?: AbortSignal | null }
-                    ): Promise<import('../modules/plex/library').PlexMediaItem | null> =>
-                        this._deps.plexLibrary?.getItem(
-                            ratingKey,
-                            { signal: options?.signal ?? null }
-                        ) ?? Promise.resolve(null),
-                    resolveThumbUrl: (
-                        pathOrUrl: string | null,
-                        width?: number,
-                        height?: number
-                    ): string | null => {
+            const storedLayoutMode = safeLocalStorageGet(RETUNE_STORAGE_KEYS.EPG_LAYOUT_MODE);
+            const layoutMode: 'overlay' | 'classic' =
+                storedLayoutMode === 'classic' ? 'classic' : 'overlay';
+            const showNowWatchingBanner = readStoredBoolean(
+                RETUNE_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED,
+                true
+            );
+            const epgConfigWithResolver = {
+                ...this._config.epgConfig,
+                layoutMode,
+                showNowWatchingBanner,
+                fetchItemDetails: (
+                    ratingKey: string,
+                    options?: { signal?: AbortSignal | null }
+                ): Promise<import('../modules/plex/library').PlexMediaItem | null> =>
+                    this._deps.plexLibrary?.getItem(
+                        ratingKey,
+                        { signal: options?.signal ?? null }
+                    ) ?? Promise.resolve(null),
+                resolveThumbUrl: (
+                    pathOrUrl: string | null,
+                    width?: number,
+                    height?: number
+                ): string | null => {
                     if (!pathOrUrl) return null;
                     if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
                         return pathOrUrl;
@@ -643,6 +652,46 @@ export class InitializationCoordinator implements IInitializationCoordinator {
                     return this._callbacks.buildPlexResourceUrl(pathOrUrl);
                 },
                 isVideoPlaying: (): boolean => this._deps.videoPlayer?.isPlaying?.() ?? false,
+                getCurrentChannelInfo: (): {
+                    channelNumber: number;
+                    channelName: string;
+                    programTitle: string;
+                    timeLabel: string;
+                } | null => {
+                    const channel = this._deps.channelManager?.getCurrentChannel();
+                    const scheduler = this._deps.scheduler;
+                    if (!channel || !scheduler) return null;
+                    let program;
+                    try {
+                        program = scheduler.getCurrentProgram();
+                    } catch {
+                        return null;
+                    }
+                    if (!program) return null;
+                    const programTitle =
+                        program.item?.title ?? program.item?.fullTitle ?? 'Unknown';
+                    const startTime = program.scheduledStartTime;
+                    const endTime = program.scheduledEndTime;
+                    const hasValidTimes =
+                        Number.isFinite(startTime) &&
+                        Number.isFinite(endTime) &&
+                        endTime >= startTime;
+                    return {
+                        channelNumber: channel.number,
+                        channelName: channel.name,
+                        programTitle,
+                        timeLabel: hasValidTimes ? formatTimeRange(startTime, endTime) : '',
+                    };
+                },
+                onLayoutModeChange: (mode: 'overlay' | 'classic'): void => {
+                    const videoContainer = document.getElementById('video-container');
+                    if (!videoContainer) return;
+                    if (mode === 'classic') {
+                        videoContainer.classList.add('epg-pip-active');
+                    } else {
+                        videoContainer.classList.remove('epg-pip-active');
+                    }
+                },
             };
             this._deps.epg!.initialize(epgConfigWithResolver);
             this._callbacks.updateModuleStatus(

@@ -27,6 +27,7 @@ import {
     type NavigationConfig,
     type Screen,
 } from './modules/navigation';
+import type { GuideSettingChange } from './modules/ui/settings/types';
 import { NavigationCoordinator } from './modules/navigation/NavigationCoordinator';
 import {
     PlexAuth,
@@ -269,7 +270,7 @@ export interface IAppOrchestrator {
     openEPG(): void;
     closeEPG(): void;
     toggleEPG(): void;
-    onGuideSettingChange(key: 'categoryColors' | 'libraryTabs', enabled: boolean): void;
+    onGuideSettingChange(change: GuideSettingChange): void;
     requestAuthPin(): Promise<PlexPinRequest>;
     pollForPin(pinId: number): Promise<PlexPinRequest>;
     cancelPin(pinId: number): Promise<void>;
@@ -1303,18 +1304,28 @@ export class AppOrchestrator implements IAppOrchestrator {
         this._epgCoordinator?.toggleEPG();
     }
 
-    onGuideSettingChange(key: 'categoryColors' | 'libraryTabs', _enabled: boolean): void {
+    onGuideSettingChange(change: GuideSettingChange): void {
         const epg = this._epg;
         const epgCoordinator = this._epgCoordinator;
         if (!epg || !epgCoordinator) return;
         if (!epg.isVisible()) return;
 
-        if (key === 'libraryTabs') {
+        if (change.key === 'layoutMode') {
+            epg.setLayoutMode(change.mode);
+            return;
+        }
+
+        if (change.key === 'nowWatchingBanner') {
+            epg.setNowWatchingBannerEnabled(change.enabled);
+            return;
+        }
+
+        if (change.key === 'libraryTabs') {
             epg.clearSchedules();
         }
 
         epgCoordinator.primeEpgChannels();
-        if (key === 'libraryTabs') {
+        if (change.key === 'libraryTabs') {
             void epgCoordinator.refreshEpgSchedules({ reason: 'guide-settings' });
         }
     }

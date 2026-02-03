@@ -48,6 +48,8 @@ export const RETUNE_STORAGE_KEYS = {
     GUIDE_CATEGORY_COLORS: 'retune_guide_category_colors',
     EPG_LIBRARY_TABS_ENABLED: 'retune_epg_library_tabs_enabled',
     EPG_LIBRARY_FILTER: 'retune_epg_library_filter',
+    EPG_LAYOUT_MODE: 'retune_epg_layout_mode',
+    EPG_NOW_WATCHING_ENABLED: 'retune_epg_now_watching_enabled',
 
     // Developer / Debug
     DEBUG_LOGGING: 'retune_debug_transcode',

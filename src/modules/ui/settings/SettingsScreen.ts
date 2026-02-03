@@ -8,7 +8,13 @@ import type { INavigationManager, FocusableElement, KeyEvent } from '../../navig
 import { createSettingsToggle } from './SettingsToggle';
 import { createSettingsSelect } from './SettingsSelect';
 import { SETTINGS_STORAGE_KEYS, DEFAULT_SETTINGS } from './constants';
-import type { SettingsSectionConfig, SettingsItemConfig, SettingsSelectConfig, SettingsSectionId } from './types';
+import type {
+    SettingsSectionConfig,
+    SettingsItemConfig,
+    SettingsSelectConfig,
+    SettingsSectionId,
+    GuideSettingChange,
+} from './types';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from '../now-playing-info';
 import { readStoredBoolean, safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from '../../../utils/storage';
 import { ThemeManager } from '../theme';
@@ -85,6 +91,10 @@ const TOGGLE_METADATA: Record<string, ToggleMetadata> = {
         storageKey: SETTINGS_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED,
         defaultValue: true,
     },
+    'settings-epg-now-watching': {
+        storageKey: SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED,
+        defaultValue: true,
+    },
 };
 
 const SELECT_METADATA: Record<string, SelectMetadata> = {
@@ -104,6 +114,10 @@ const SELECT_METADATA: Record<string, SelectMetadata> = {
         storageKey: SETTINGS_STORAGE_KEYS.SMART_HDR10_FALLBACK,
         defaultValue: 0,
     },
+    'settings-epg-layout-mode': {
+        storageKey: SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE,
+        defaultValue: 0,
+    },
 };
 
 /**
@@ -114,7 +128,7 @@ export class SettingsScreen {
     private _container: HTMLElement;
     private _getNavigation: () => INavigationManager | null;
     private _onSubtitleModeChange: ((mode: SubtitleMode) => void) | null = null;
-    private _onGuideSettingChange: ((key: 'categoryColors' | 'libraryTabs', enabled: boolean) => void) | null = null;
+    private _onGuideSettingChange: ((change: GuideSettingChange) => void) | null = null;
     private _focusableIds: string[] = [];
     private _toggleElements: Map<string, ReturnType<typeof createSettingsToggle>> = new Map();
     private _selectElements: Map<string, ReturnType<typeof createSettingsSelect>> = new Map();
@@ -135,7 +149,7 @@ export class SettingsScreen {
         container: HTMLElement,
         getNavigation: () => INavigationManager | null,
         onSubtitleModeChange?: (mode: SubtitleMode) => void,
-        onGuideSettingChange?: (key: 'categoryColors' | 'libraryTabs', enabled: boolean) => void
+        onGuideSettingChange?: (change: GuideSettingChange) => void
     ) {
         this._container = container;
         this._getNavigation = getNavigation;
@@ -220,6 +234,7 @@ export class SettingsScreen {
         const subtitleModeValue = this._loadSubtitleModeValue();
         const subtitleMode = this._valueToSubtitleMode(subtitleModeValue);
         const subtitlesEnabled = subtitleMode !== 'off';
+        const epgLayoutModeValue = this._loadEpgLayoutModeValue();
         const useGlobalSubtitlePreference = this._loadBoolSetting(
             SETTINGS_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE,
             DEFAULT_SETTINGS.subtitles.useGlobalPreference
@@ -354,7 +369,7 @@ export class SettingsScreen {
                         value: this._loadBoolSetting(SETTINGS_STORAGE_KEYS.GUIDE_CATEGORY_COLORS, true),
                         onChange: (value: boolean): void => {
                             this._saveBoolSetting(SETTINGS_STORAGE_KEYS.GUIDE_CATEGORY_COLORS, value);
-                            this._onGuideSettingChange?.('categoryColors', value);
+                            this._onGuideSettingChange?.({ key: 'categoryColors', enabled: value });
                         },
                     },
                     {
@@ -364,7 +379,32 @@ export class SettingsScreen {
                         value: this._loadBoolSetting(SETTINGS_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, true),
                         onChange: (value: boolean): void => {
                             this._saveBoolSetting(SETTINGS_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, value);
-                            this._onGuideSettingChange?.('libraryTabs', value);
+                            this._onGuideSettingChange?.({ key: 'libraryTabs', enabled: value });
+                        },
+                    },
+                    {
+                        id: 'settings-epg-now-watching',
+                        label: 'Now Watching Banner',
+                        description: 'Show current channel/program above the guide',
+                        value: this._loadBoolSetting(SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, true),
+                        onChange: (value: boolean): void => {
+                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, value);
+                            this._onGuideSettingChange?.({ key: 'nowWatchingBanner', enabled: value });
+                        },
+                    },
+                    {
+                        id: 'settings-epg-layout-mode',
+                        label: 'Guide Layout',
+                        description: 'Overlay keeps full-screen video; Classic shows PIP',
+                        value: epgLayoutModeValue,
+                        options: [
+                            { label: 'Overlay', value: 0 },
+                            { label: 'Classic (PIP)', value: 1 },
+                        ],
+                        onChange: (value: number): void => {
+                            const mode = value === 1 ? 'classic' : 'overlay';
+                            this._saveEpgLayoutModeValue(value);
+                            this._onGuideSettingChange?.({ key: 'layoutMode', mode });
                         },
                     },
                     {
@@ -602,6 +642,11 @@ export class SettingsScreen {
         return Number.isFinite(parsed) ? parsed : defaultValue;
     }
 
+    private _loadEpgLayoutModeValue(): number {
+        const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE);
+        return raw === 'classic' ? 1 : 0;
+    }
+
     private _loadSubtitleLanguageValue(): number {
         const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE);
         if (raw === null) return 0;
@@ -628,6 +673,11 @@ export class SettingsScreen {
 
     private _saveNumberSetting(key: string, value: number): void {
         safeLocalStorageSet(key, String(value));
+    }
+
+    private _saveEpgLayoutModeValue(value: number): void {
+        const mode = value === 1 ? 'classic' : 'overlay';
+        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, mode);
     }
 
     private _saveSubtitleLanguageValue(value: number): void {
@@ -717,6 +767,8 @@ export class SettingsScreen {
                     ? this._loadSubtitleLanguageValue()
                     : id === 'settings-hdr10-fallback-mode'
                         ? this._readHdr10FallbackSelectValue()
+                        : id === 'settings-epg-layout-mode'
+                            ? this._loadEpgLayoutModeValue()
                     : this._loadNumberSetting(meta.storageKey, meta.defaultValue);
             select.update(value);
             meta.onRefresh?.(value);

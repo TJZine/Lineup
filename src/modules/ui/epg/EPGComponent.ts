@@ -61,6 +61,10 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private gridElement: HTMLElement | null = null;
     private programAreaElement: HTMLElement | null = null;
     private timeIndicatorElement: HTMLElement | null = null;
+    private nowWatchingBannerElement: HTMLElement | null = null;
+    private nowWatchingChannelElement: HTMLElement | null = null;
+    private nowWatchingProgramElement: HTMLElement | null = null;
+    private nowWatchingTimeElement: HTMLElement | null = null;
     private hasRenderedOnce: boolean = false;
     private lastVisibleRangeKey: string | null = null;
     private _isSelectInProgress: boolean = false;
@@ -69,6 +73,9 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private _pendingInfoPanelKey: string | null = null;
     private _libraryTabs: EPGLibraryTabs | null = null;
     private _isLibraryTabsFocused = false;
+    private _lastNowWatchingTuple: [string, string, string] | null = null;
+    private _appliedLayoutMode: 'overlay' | 'classic' | null = null;
+    private _appliedPipMode: 'overlay' | 'classic' | null = null;
 
     // Timers
     private timeUpdateInterval: ReturnType<typeof setInterval> | null = null;
@@ -79,6 +86,12 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this.refreshCurrentTime();
             this.renderGrid();
         }
+    };
+    private _onTimeTick = (): void => {
+        this.refreshCurrentTime();
+        this.updateNowWatchingBanner();
+        this.syncPeekMode();
+        this.applyLayoutMode();
     };
 
     // Throttled render function for 60fps performance
@@ -169,12 +182,17 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this.containerElement.innerHTML = '';
             this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_VISIBLE);
             this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_PEEK);
+            this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_CLASSIC);
         }
 
         this.containerElement = null;
         this.gridElement = null;
         this.programAreaElement = null;
         this.timeIndicatorElement = null;
+        this.nowWatchingBannerElement = null;
+        this.nowWatchingChannelElement = null;
+        this.nowWatchingProgramElement = null;
+        this.nowWatchingTimeElement = null;
 
         this.state = {
             isInitialized: false,
@@ -192,6 +210,12 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.hasRenderedOnce = false;
         this._isSelectInProgress = false;
         this._placeholderAutoFocusKeys.clear();
+        this._lastNowWatchingTuple = null;
+        this._appliedLayoutMode = null;
+        if (this._appliedPipMode === 'classic') {
+            this.config.onLayoutModeChange?.('overlay');
+        }
+        this._appliedPipMode = null;
 
         this.errorBoundary.destroy();
         this.removeAllListeners();
@@ -229,6 +253,11 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         this.containerElement.className = EPG_CLASSES.CONTAINER;
         this.containerElement.innerHTML = `
+      <div class="${EPG_CLASSES.NOW_WATCHING_BANNER}" aria-live="polite">
+        <span class="${EPG_CLASSES.NOW_WATCHING_CHANNEL}"></span>
+        <span class="${EPG_CLASSES.NOW_WATCHING_PROGRAM}"></span>
+        <span class="${EPG_CLASSES.NOW_WATCHING_TIME}"></span>
+      </div>
       <div class="${EPG_CLASSES.GRID}">
         <div class="${EPG_CLASSES.PROGRAM_AREA}"></div>
       </div>
@@ -244,6 +273,21 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         this.gridElement = this.containerElement.querySelector(`.${EPG_CLASSES.GRID}`);
         this.programAreaElement = this.containerElement.querySelector(`.${EPG_CLASSES.PROGRAM_AREA}`);
+        this.nowWatchingBannerElement = this.containerElement.querySelector(
+            `.${EPG_CLASSES.NOW_WATCHING_BANNER}`
+        );
+        this.nowWatchingChannelElement = this.containerElement.querySelector(
+            `.${EPG_CLASSES.NOW_WATCHING_CHANNEL}`
+        );
+        this.nowWatchingProgramElement = this.containerElement.querySelector(
+            `.${EPG_CLASSES.NOW_WATCHING_PROGRAM}`
+        );
+        this.nowWatchingTimeElement = this.containerElement.querySelector(
+            `.${EPG_CLASSES.NOW_WATCHING_TIME}`
+        );
+        if (this.nowWatchingBannerElement) {
+            this.nowWatchingBannerElement.hidden = true;
+        }
     }
 
     /**
@@ -292,7 +336,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         if (this.timeUpdateInterval) return;
 
         this.timeUpdateInterval = setInterval(() => {
-            this.refreshCurrentTime();
+            this._onTimeTick();
         }, EPG_CONSTANTS.TIME_INDICATOR_UPDATE_MS);
     }
 
@@ -319,6 +363,25 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
     }
 
+    private applyLayoutMode(): void {
+        if (!this.containerElement) return;
+        const mode = this.config.layoutMode ?? 'overlay';
+        if (mode !== this._appliedLayoutMode) {
+            this._appliedLayoutMode = mode;
+            if (mode === 'classic') {
+                this.containerElement.classList.add(EPG_CLASSES.CONTAINER_CLASSIC);
+            } else {
+                this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_CLASSIC);
+            }
+        }
+
+        const pipMode: 'overlay' | 'classic' =
+            mode === 'classic' && this.config.isVideoPlaying?.() === true ? 'classic' : 'overlay';
+        if (pipMode === this._appliedPipMode) return;
+        this._appliedPipMode = pipMode;
+        this.config.onLayoutModeChange?.(pipMode);
+    }
+
     /**
      * Show the EPG overlay.
      */
@@ -329,6 +392,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.state.isVisible = true;
         this.lastVisibleRangeKey = null;
         this.syncPeekMode();
+        this.applyLayoutMode();
+        this.updateNowWatchingBanner();
 
         // Start time indicator updates (paused when hidden)
         this.startTimeUpdateInterval();
@@ -388,6 +453,13 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.state.isVisible = false;
         this.syncPeekMode();
         this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_PEEK);
+        const wasClassic = this._appliedPipMode === 'classic';
+        this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_CLASSIC);
+        this._appliedLayoutMode = 'overlay';
+        this._appliedPipMode = 'overlay';
+        if (wasClassic) {
+            this.config.onLayoutModeChange?.('overlay');
+        }
 
         // Stop time updates when hidden (CPU optimization)
         this.stopTimeUpdateInterval();
@@ -462,6 +534,20 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         if (this.state.isVisible) {
             // Re-render visible rows only (virtualized pool), not all channels.
             this.channelList.updateChannels(this.state.channels);
+        }
+    }
+
+    setLayoutMode(mode: 'overlay' | 'classic'): void {
+        this.config.layoutMode = mode;
+        if (this.state.isVisible) {
+            this.applyLayoutMode();
+        }
+    }
+
+    setNowWatchingBannerEnabled(enabled: boolean): void {
+        this.config.showNowWatchingBanner = enabled;
+        if (this.state.isVisible) {
+            this.updateNowWatchingBanner();
         }
     }
 
@@ -574,6 +660,59 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.state.currentTime = Date.now();
         this.updateTimeIndicatorPosition();
         this.virtualizer.updateTemporalClasses(this.state.currentTime);
+    }
+
+    private updateNowWatchingBanner(): void {
+        const banner = this.nowWatchingBannerElement;
+        if (!banner) return;
+
+        if (!this.config.showNowWatchingBanner || !this.config.getCurrentChannelInfo) {
+            if (!banner.hidden) {
+                banner.hidden = true;
+                this._lastNowWatchingTuple = null;
+            }
+            return;
+        }
+
+        const info = this.config.getCurrentChannelInfo();
+        if (!info) {
+            if (!banner.hidden) {
+                banner.hidden = true;
+                this._lastNowWatchingTuple = null;
+            }
+            return;
+        }
+
+        const channelName = typeof info.channelName === 'string' ? info.channelName.trim() : '';
+        const channelText = channelName ? `${info.channelNumber} • ${channelName}` : String(info.channelNumber);
+        const programText = typeof info.programTitle === 'string' ? info.programTitle : '';
+        const rawTimeText = typeof info.timeLabel === 'string' ? info.timeLabel : '';
+        const timeText = rawTimeText.includes('Invalid') ? '' : rawTimeText;
+        const nextTuple: [string, string, string] = [channelText, programText, timeText];
+
+        if (
+            this._lastNowWatchingTuple &&
+            this._lastNowWatchingTuple[0] === channelText &&
+            this._lastNowWatchingTuple[1] === programText &&
+            this._lastNowWatchingTuple[2] === timeText
+        ) {
+            if (banner.hidden) {
+                banner.hidden = false;
+            }
+            return;
+        }
+
+        if (this.nowWatchingChannelElement) {
+            this.nowWatchingChannelElement.textContent = channelText;
+        }
+        if (this.nowWatchingProgramElement) {
+            this.nowWatchingProgramElement.textContent = programText;
+        }
+        if (this.nowWatchingTimeElement) {
+            this.nowWatchingTimeElement.textContent = timeText;
+        }
+        banner.hidden = false;
+        this._lastNowWatchingTuple = nextTuple;
     }
 
     /**

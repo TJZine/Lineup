@@ -186,6 +186,12 @@ export class EPGCoordinator {
             epg.setLibraryTabs([], null);
         }
 
+        const storedLayoutMode = safeLocalStorageGet(RETUNE_STORAGE_KEYS.EPG_LAYOUT_MODE);
+        const layoutMode = storedLayoutMode === 'classic' ? 'classic' : 'overlay';
+        const nowWatchingEnabled = readStoredBoolean(RETUNE_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, true);
+        epg.setLayoutMode(layoutMode);
+        epg.setNowWatchingBannerEnabled(nowWatchingEnabled);
+
         const visible = this._getVisibleChannels(all, selectedId, shouldFilter);
         epg.loadChannels(visible);
     }

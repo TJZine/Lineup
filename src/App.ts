@@ -640,8 +640,8 @@ export class App {
                             if (mode !== 'off') return;
                             void this._orchestrator?.setSubtitleTrack(null).catch(() => undefined);
                         },
-                        (key, enabled): void => {
-                            this._orchestrator?.onGuideSettingChange(key, enabled);
+                        (change): void => {
+                            this._orchestrator?.onGuideSettingChange(change);
                         }
                     );
                     this._settingsScreen = screen;

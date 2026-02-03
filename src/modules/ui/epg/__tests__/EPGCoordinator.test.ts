@@ -66,6 +66,8 @@ const makeDeps = (
         focusNow: jest.fn(),
         loadChannels: jest.fn(),
         setCategoryColorsEnabled: jest.fn(),
+        setLayoutMode: jest.fn(),
+        setNowWatchingBannerEnabled: jest.fn(),
         setLibraryTabs: jest.fn(),
         loadScheduleForChannel: jest.fn(),
         clearSchedules: jest.fn(),
@@ -496,6 +498,8 @@ describe('EPGCoordinator', () => {
             scrollToChannel: jest.fn(),
             focusChannel: jest.fn(),
             setCategoryColorsEnabled: jest.fn(),
+            setLayoutMode: jest.fn(),
+            setNowWatchingBannerEnabled: jest.fn(),
             setLibraryTabs: jest.fn(),
             loadChannels: jest.fn(),
         } as unknown as IEPGComponent;

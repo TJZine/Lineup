@@ -1,0 +1,96 @@
+/**
+ * @jest-environment jsdom
+ */
+
+import { SettingsScreen } from '../SettingsScreen';
+import { SETTINGS_STORAGE_KEYS } from '../constants';
+import type { GuideSettingChange } from '../types';
+
+type StubFocusable = {
+    id: string;
+    neighbors: { up?: string; down?: string; left?: string; right?: string };
+    onSelect?: () => void;
+};
+
+const createNavigationStub = (): {
+    focusables: Map<string, StubFocusable>;
+    registerFocusable: jest.Mock;
+    unregisterFocusable: jest.Mock;
+    setFocus: jest.Mock;
+    getFocusedElement: jest.Mock;
+    on: jest.Mock;
+    off: jest.Mock;
+} => {
+    const focusables = new Map<string, StubFocusable>();
+    let focusedId: string | null = null;
+
+    return {
+        focusables,
+        registerFocusable: jest.fn((element: StubFocusable) => {
+            focusables.set(element.id, element);
+        }),
+        unregisterFocusable: jest.fn((id: string) => {
+            focusables.delete(id);
+        }),
+        setFocus: jest.fn((id: string) => {
+            focusedId = id;
+        }),
+        getFocusedElement: jest.fn(() => (focusedId ? ({ id: focusedId } as HTMLElement) : null)),
+        on: jest.fn(),
+        off: jest.fn(),
+    };
+};
+
+describe('SettingsScreen (Guide settings)', () => {
+    beforeEach(() => {
+        localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE);
+        localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED);
+    });
+
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    const createScreen = (onGuideSettingChange: (change: GuideSettingChange) => void): {
+        container: HTMLElement;
+        nav: ReturnType<typeof createNavigationStub>;
+        screen: SettingsScreen;
+    } => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const nav = createNavigationStub();
+        const screen = new SettingsScreen(
+            container,
+            () => nav as unknown as never,
+            undefined,
+            onGuideSettingChange
+        );
+        return { container, nav, screen };
+    };
+
+    it('writes layout mode and emits change', () => {
+        const onGuideSettingChange = jest.fn();
+        const { container, screen } = createScreen(onGuideSettingChange);
+
+        screen.show();
+
+        const layoutSelect = container.querySelector('#settings-epg-layout-mode') as HTMLButtonElement;
+        layoutSelect.click();
+
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('classic');
+        expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'layoutMode', mode: 'classic' });
+    });
+
+    it('writes now watching toggle and emits change', () => {
+        const onGuideSettingChange = jest.fn();
+        const { container, screen } = createScreen(onGuideSettingChange);
+
+        screen.show();
+
+        const toggle = container.querySelector('#settings-epg-now-watching') as HTMLButtonElement;
+        toggle.click();
+
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED)).toBe('0');
+        expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'nowWatchingBanner', enabled: false });
+    });
+});
