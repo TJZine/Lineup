@@ -263,6 +263,43 @@ describe('EPGInfoPanel', () => {
             expect(texts).toEqual(['4K', 'HDR10+', 'DD+', '5.1']);
         });
 
+        it('renders content rating as the first badge when available', () => {
+            const program = createMockProgram(null, {
+                contentRating: 'PG-13',
+                mediaInfo: {
+                    resolution: '4K',
+                    hdr: 'HDR10+',
+                    audioCodec: 'eac3',
+                    audioChannels: 6,
+                },
+            });
+            panel.show(program);
+
+            const badges = Array.from(
+                container.querySelectorAll('.epg-info-quality-badge')
+            ) as HTMLElement[];
+            const visibleBadges = badges.filter((badge) => badge.style.display !== 'none');
+            const texts = visibleBadges.map((badge) => badge.textContent);
+
+            expect(texts).toEqual(['PG-13', '4K', 'HDR10+', 'DD+', '5.1']);
+        });
+
+        it('normalizes region-prefixed ratings for badge display', () => {
+            const program = createMockProgram(null, {
+                contentRating: 'GB/12A',
+                mediaInfo: { resolution: '1080p' },
+            });
+            panel.show(program);
+
+            const badges = Array.from(
+                container.querySelectorAll('.epg-info-quality-badge')
+            ) as HTMLElement[];
+            const visibleBadges = badges.filter((badge) => badge.style.display !== 'none');
+            const texts = visibleBadges.map((badge) => badge.textContent);
+
+            expect(texts).toEqual(['12A', '1080p']);
+        });
+
         it('lazy-fetches HDR when mediaInfo is missing it', async () => {
             jest.useFakeTimers();
             const fetchItemDetails = jest.fn().mockResolvedValue({

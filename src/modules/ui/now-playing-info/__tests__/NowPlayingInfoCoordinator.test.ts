@@ -222,8 +222,68 @@ describe('NowPlayingInfoCoordinator', () => {
 
         const viewModel = (overlay.show as jest.Mock).mock.calls[0]?.[0] as {
             metaLines?: string[];
+            subtitle?: string;
+            badges?: string[];
         };
         expect(viewModel.metaLines).toEqual(['Action • Drama', 'Director: Director One']);
+        // Ratings are rendered as badges; subtitle focuses on runtime/identity.
+        expect(viewModel.subtitle).toBe('1m');
+        expect(viewModel.badges).toEqual(['PG']);
+        coordinator.handleModalClose(modalId);
+    });
+
+    it('handleModalOpen includes episode content rating as a badge', () => {
+        const program = makeProgram({
+            item: {
+                ...makeProgram().item,
+                type: 'episode',
+                title: 'Episode Name',
+                fullTitle: 'Show Name - S01E02 - Episode Name',
+                year: 0,
+                seasonNumber: 1,
+                episodeNumber: 2,
+                contentRating: 'TV-MA',
+            } as unknown as ScheduledProgram['item'],
+        });
+        const scheduler = makeScheduler({
+            getCurrentProgram: jest.fn().mockReturnValue(program),
+        });
+        const { coordinator, overlay } = setup({
+            getScheduler: () => scheduler,
+        });
+
+        coordinator.handleModalOpen(modalId);
+
+        const viewModel = (overlay.show as jest.Mock).mock.calls[0]?.[0] as {
+            subtitle?: string;
+            badges?: string[];
+        };
+        expect(viewModel.subtitle).toBe('S01E02 • Episode Name');
+        expect(viewModel.badges).toEqual(['TV-MA']);
+        coordinator.handleModalClose(modalId);
+    });
+
+    it('normalizes region-prefixed ratings for badge display', () => {
+        const program = makeProgram({
+            item: {
+                ...makeProgram().item,
+                type: 'movie',
+                contentRating: 'GB/12A',
+            } as unknown as ScheduledProgram['item'],
+        });
+        const scheduler = makeScheduler({
+            getCurrentProgram: jest.fn().mockReturnValue(program),
+        });
+        const { coordinator, overlay } = setup({
+            getScheduler: () => scheduler,
+        });
+
+        coordinator.handleModalOpen(modalId);
+
+        const viewModel = (overlay.show as jest.Mock).mock.calls[0]?.[0] as {
+            badges?: string[];
+        };
+        expect(viewModel.badges).toEqual(['12A']);
         coordinator.handleModalClose(modalId);
     });
 

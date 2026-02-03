@@ -10,6 +10,7 @@ import type { IEPGInfoPanel } from './interfaces';
 import type { ScheduledProgram } from './types';
 import type { PlexMediaItem } from '../../plex/library';
 import { extractHdrLabelFromPlexMedia } from '../../plex/stream/hdr';
+import { formatContentRatingBadge } from '../../../utils/contentRating';
 
 /**
  * EPG Info Panel class.
@@ -94,7 +95,8 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         ) as HTMLElement | null;
         if (qualityContainer) {
             this.qualityBadges = [];
-            for (let i = 0; i < 4; i++) {
+            // Rating + up to 4 media quality badges (resolution/HDR/audio codec/channels).
+            for (let i = 0; i < 5; i++) {
                 const badge = document.createElement('span');
                 badge.className = EPG_CLASSES.INFO_QUALITY_BADGE;
                 badge.style.display = 'none';
@@ -302,6 +304,8 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         const mediaInfo = program.item.mediaInfo;
         const badgeValues: string[] = [];
 
+        const contentRating = formatContentRatingBadge(program.item.contentRating ?? null) ?? '';
+        if (contentRating) badgeValues.push(contentRating);
         if (mediaInfo?.resolution) badgeValues.push(mediaInfo.resolution);
         const hdrValue = mediaInfo?.hdr || overrideHdr || null;
         if (hdrValue) badgeValues.push(hdrValue);
