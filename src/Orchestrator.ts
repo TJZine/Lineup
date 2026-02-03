@@ -1290,7 +1290,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         if (current === 'server-select') {
             // Attempt to go back; if stack is empty, force player
             if (!this._navigation.goBack()) {
-                this._navigation.goTo('player');
+                this._navigation.replaceScreen('player');
             }
         } else {
             this.openServerSelect();

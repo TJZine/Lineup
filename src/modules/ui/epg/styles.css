@@ -24,6 +24,20 @@
 
 .epg-container.layout-classic.peek {
   background: rgba(0, 0, 0, 0.98);
+  --pip-safe-right: clamp(280px, 30vw, 520px);
+  --pip-safe-top: clamp(60px, 8vh, 140px);
+}
+
+.epg-container.layout-classic.peek .epg-grid,
+.epg-container.layout-classic.peek .epg-info-panel,
+.epg-container.layout-classic.peek .epg-now-watching-banner,
+.epg-container.layout-classic.peek .epg-legend {
+  padding-right: var(--pip-safe-right);
+}
+
+.epg-container.layout-classic.peek .epg-grid,
+.epg-container.layout-classic.peek .epg-now-watching-banner {
+  padding-top: var(--pip-safe-top);
 }
 
 .epg-container.peek {
@@ -597,7 +611,7 @@
 .epg-info-poster {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
   background: rgba(0, 0, 0, 0.35);
   border-radius: 0;

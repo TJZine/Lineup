@@ -557,6 +557,8 @@ export class PlaybackRecoveryManager {
         }
 
         const itemKey = program.item.ratingKey;
+        const debugEnabled = this._isDebugLoggingEnabled();
+        let abortedBecauseProgramChanged = false;
         const attemptKey = `${itemKey}::${trackId}`;
         if (this._burnInAttemptedForItemKey.has(attemptKey)) {
             return false;
@@ -575,6 +577,13 @@ export class PlaybackRecoveryManager {
         this._streamRecoveryInProgress = true;
 
         try {
+            if (debugEnabled) {
+                console.warn('[PlaybackRecovery] Burn-in recovery start:', {
+                    itemKey,
+                    trackId,
+                    reason,
+                });
+            }
             console.warn('[PlaybackRecovery] Reloading for burn-in subtitles:', {
                 reason,
                 itemKey,
@@ -601,6 +610,15 @@ export class PlaybackRecoveryManager {
                 ...(activeAudioId ? { audioStreamId: activeAudioId } : {}),
             });
             if (this.deps.getCurrentProgramForPlayback() !== program) {
+                abortedBecauseProgramChanged = true;
+                if (debugEnabled) {
+                    console.warn('[PlaybackRecovery] Burn-in recovery aborted:', {
+                        itemKey,
+                        trackId,
+                        reason,
+                        abortedBecauseProgramChanged,
+                    });
+                }
                 return false;
             }
             this.deps.setCurrentStreamDecision(decision);
@@ -614,12 +632,36 @@ export class PlaybackRecoveryManager {
             await player.play();
             this.resetPlaybackFailureGuard();
             this._burnInAttemptedForItemKey.add(attemptKey);
+            if (debugEnabled) {
+                console.warn('[PlaybackRecovery] Burn-in recovery complete:', {
+                    itemKey,
+                    trackId,
+                    reason,
+                    abortedBecauseProgramChanged,
+                });
+            }
             return true;
         } catch (error) {
             console.error('[PlaybackRecovery] Burn-in reload failed:', error);
+            if (debugEnabled) {
+                console.warn('[PlaybackRecovery] Burn-in recovery failed:', {
+                    itemKey,
+                    trackId,
+                    reason,
+                    abortedBecauseProgramChanged,
+                });
+            }
             return false;
         } finally {
             this._streamRecoveryInProgress = false;
+        }
+    }
+
+    private _isDebugLoggingEnabled(): boolean {
+        try {
+            return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DEBUG_LOGGING));
+        } catch {
+            return false;
         }
     }
 }

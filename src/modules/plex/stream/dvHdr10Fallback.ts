@@ -12,6 +12,23 @@ export type DvProfileInfo = {
     hasHdr10BaseLayer: boolean;
 };
 
+export type DvHdr10BaseLayerContext = {
+    doviProfile?: string | null;
+    codecProfileString?: string | null;
+    hdr?: string | null;
+    dynamicRange?: string | null;
+    colorTrc?: string | null;
+    displayTitle?: string | null;
+    extendedDisplayTitle?: string | null;
+};
+
+type DvHdr10BaseLayerResult = {
+    profileInfo: DvProfileInfo;
+    hasHdr10BaseLayer: boolean;
+    isKnownNoHdr10BaseLayer: boolean;
+    debugWhy: string;
+};
+
 const LETTERBOX_ASPECT_RATIOS: Array<{ name: string; min: number; max: number }> = [
     { name: '2.39:1 (Scope)', min: 2.35, max: 2.45 },
     { name: '2.76:1 (Ultra Panavision)', min: 2.70, max: 2.80 },
@@ -89,6 +106,122 @@ export function hasHdr10BaseLayer(
     return false;
 }
 
+function hasHdr10Indicator(...values: Array<string | null | undefined>): boolean {
+    for (const value of values) {
+        if (typeof value !== 'string') continue;
+        if (/\bhdr10\b/i.test(value)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function normalizeColorTrc(value: string | null | undefined): string {
+    return (value ?? '').trim().toLowerCase();
+}
+
+export function inferHdr10BaseLayer(context: DvHdr10BaseLayerContext): DvHdr10BaseLayerResult {
+    const profileInfo = parseDolbyVisionProfileString(
+        context.doviProfile ?? null,
+        context.codecProfileString ?? null
+    );
+
+    if (profileInfo.profileId === null) {
+        return {
+            profileInfo,
+            hasHdr10BaseLayer: false,
+            isKnownNoHdr10BaseLayer: false,
+            debugWhy: 'unknown_profile',
+        };
+    }
+
+    if (profileInfo.profileId === 5) {
+        return {
+            profileInfo,
+            hasHdr10BaseLayer: false,
+            isKnownNoHdr10BaseLayer: true,
+            debugWhy: 'profile_5',
+        };
+    }
+
+    if (profileInfo.profileId === 7) {
+        return {
+            profileInfo,
+            hasHdr10BaseLayer: true,
+            isKnownNoHdr10BaseLayer: false,
+            debugWhy: 'profile_7',
+        };
+    }
+
+    if (profileInfo.profileId === 8) {
+        const colorTrc = normalizeColorTrc(context.colorTrc);
+        if (colorTrc === 'arib-std-b67') {
+            return {
+                profileInfo,
+                hasHdr10BaseLayer: false,
+                isKnownNoHdr10BaseLayer: true,
+                debugWhy: 'profile_8_hlg',
+            };
+        }
+
+        if (profileInfo.hasHdr10BaseLayer) {
+            return {
+                profileInfo,
+                hasHdr10BaseLayer: true,
+                isKnownNoHdr10BaseLayer: false,
+                debugWhy: 'profile_8_level_1',
+            };
+        }
+
+        if (profileInfo.levelId === 2 || profileInfo.levelId === 4) {
+            return {
+                profileInfo,
+                hasHdr10BaseLayer: false,
+                isKnownNoHdr10BaseLayer: true,
+                debugWhy: `profile_8_level_${profileInfo.levelId}`,
+            };
+        }
+
+        if (colorTrc === 'smpte2084') {
+            return {
+                profileInfo,
+                hasHdr10BaseLayer: true,
+                isKnownNoHdr10BaseLayer: false,
+                debugWhy: 'profile_8_pq',
+            };
+        }
+
+        const hasHdr10Title = hasHdr10Indicator(
+            context.displayTitle,
+            context.extendedDisplayTitle,
+            context.hdr,
+            context.dynamicRange
+        );
+        if (hasHdr10Title) {
+            return {
+                profileInfo,
+                hasHdr10BaseLayer: true,
+                isKnownNoHdr10BaseLayer: false,
+                debugWhy: 'profile_8_title_hdr10',
+            };
+        }
+
+        return {
+            profileInfo,
+            hasHdr10BaseLayer: false,
+            isKnownNoHdr10BaseLayer: false,
+            debugWhy: 'profile_8_unknown',
+        };
+    }
+
+    return {
+        profileInfo,
+        hasHdr10BaseLayer: profileInfo.hasHdr10BaseLayer,
+        isKnownNoHdr10BaseLayer: false,
+        debugWhy: 'default',
+    };
+}
+
 export type Hdr10FallbackMode = 'off' | 'smart' | 'force';
 
 export function computeHdr10FallbackMode(settings: {
@@ -106,6 +239,11 @@ export function shouldApplyHdr10Fallback(args: {
     isDolbyVision: boolean;
     doviProfile?: string | null;
     codecProfileString?: string | null;
+    hdr?: string | null;
+    dynamicRange?: string | null;
+    colorTrc?: string | null;
+    displayTitle?: string | null;
+    extendedDisplayTitle?: string | null;
     aspectRatio?: number | null;
     width?: number | null;
     height?: number | null;
@@ -118,7 +256,15 @@ export function shouldApplyHdr10Fallback(args: {
 
     if (!args.isDolbyVision) return { apply: false, reason: 'none', debugWhy: 'not_dolby_vision' };
 
-    const dv = parseDolbyVisionProfileString(args.doviProfile ?? null, args.codecProfileString ?? null);
+    const dv = inferHdr10BaseLayer({
+        doviProfile: args.doviProfile ?? null,
+        codecProfileString: args.codecProfileString ?? null,
+        hdr: args.hdr ?? null,
+        dynamicRange: args.dynamicRange ?? null,
+        colorTrc: args.colorTrc ?? null,
+        displayTitle: args.displayTitle ?? null,
+        extendedDisplayTitle: args.extendedDisplayTitle ?? null,
+    });
 
     // Never apply to known non-HDR10 base-layer profiles (e.g., 5, 8.2, 8.4).
     if (!dv.hasHdr10BaseLayer) {

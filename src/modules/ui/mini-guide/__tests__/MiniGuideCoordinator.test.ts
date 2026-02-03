@@ -36,6 +36,26 @@ const makeItem = (title: string, durationMs: number, index: number): ResolvedCon
     scheduledIndex: index,
 });
 
+const makeEpisodeItem = (
+    showTitle: string,
+    episodeTitle: string,
+    seasonNumber: number | undefined,
+    episodeNumber: number | undefined,
+    index: number
+): ResolvedContentItem => ({
+    ratingKey: `rk-${showTitle}-${episodeTitle}`,
+    type: 'episode',
+    title: episodeTitle,
+    fullTitle: `${showTitle} - ${episodeTitle}`,
+    showTitle,
+    durationMs: 60_000,
+    thumb: null,
+    year: 2024,
+    scheduledIndex: index,
+    ...(typeof seasonNumber === 'number' ? { seasonNumber } : {}),
+    ...(typeof episodeNumber === 'number' ? { episodeNumber } : {}),
+});
+
 const makeResolvedContent = (channelId: string): ResolvedChannelContent => ({
     channelId,
     resolvedAt: 0,
@@ -49,6 +69,23 @@ const makeResolvedContent = (channelId: string): ResolvedChannelContent => ({
 
 const makeProgram = (title: string): ScheduledProgram => ({
     item: makeItem(title, 60_000, 0),
+    scheduledStartTime: 0,
+    scheduledEndTime: 60_000,
+    elapsedMs: 10_000,
+    remainingMs: 50_000,
+    scheduleIndex: 0,
+    loopNumber: 0,
+    streamDescriptor: null,
+    isCurrent: true,
+});
+
+const makeEpisodeProgram = (
+    showTitle: string,
+    episodeTitle: string,
+    seasonNumber?: number,
+    episodeNumber?: number
+): ScheduledProgram => ({
+    item: makeEpisodeItem(showTitle, episodeTitle, seasonNumber, episodeNumber, 0),
     scheduledStartTime: 0,
     scheduledEndTime: 60_000,
     elapsedMs: 10_000,
@@ -216,6 +253,27 @@ describe('MiniGuideCoordinator', () => {
         expect(firstVm.channels[2].nowTitle).toBe('Current-Now');
         expect(firstVm.channels[3].nowTitle).toBe('Current-Now');
         expect(firstVm.channels[4].nowTitle).toBe('Current-Now');
+    });
+
+    it('formats episode titles with series context in the mini guide', () => {
+        const singleChannel = makeChannel('ch1', 1);
+        const scheduler = {
+            getState: jest.fn().mockReturnValue({ isActive: true, channelId: 'ch1' }),
+            getCurrentProgram: jest.fn().mockReturnValue(
+                makeEpisodeProgram('Series Title', 'Episode Name', 2, 3)
+            ),
+            getNextProgram: jest.fn().mockReturnValue(makeProgram('Next Up')),
+        } as unknown as IChannelScheduler;
+        const { coordinator, overlay } = setup({
+            channels: [singleChannel],
+            currentChannel: singleChannel,
+            scheduler,
+        });
+
+        coordinator.show();
+
+        const firstVm = (overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
+        expect(firstVm.channels[2].nowTitle).toBe('Series Title • S02E03 • Episode Name');
     });
 
     it('dedupes resolve for duplicate non-current channels', () => {

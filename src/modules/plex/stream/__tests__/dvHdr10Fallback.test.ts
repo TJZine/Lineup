@@ -1,6 +1,7 @@
 import {
     computeHdr10FallbackMode,
     hasHdr10BaseLayer,
+    inferHdr10BaseLayer,
     isLetterboxAspectRatio,
     parseDolbyVisionProfileString,
     shouldApplyHdr10Fallback,
@@ -60,6 +61,62 @@ describe('dvHdr10Fallback', () => {
         it('returns false for outside flat boundaries', () => {
             expect(isLetterboxAspectRatio(1.81)).toBe(false);
             expect(isLetterboxAspectRatio(1.89)).toBe(false);
+        });
+    });
+
+    describe('inferHdr10BaseLayer', () => {
+        it('treats profile 8 with PQ (smpte2084) as HDR10 base layer', () => {
+            const result = inferHdr10BaseLayer({
+                doviProfile: '8',
+                colorTrc: 'smpte2084',
+            });
+            expect(result.hasHdr10BaseLayer).toBe(true);
+            expect(result.isKnownNoHdr10BaseLayer).toBe(false);
+        });
+
+        it('treats profile 8 with HLG as not HDR10 base layer', () => {
+            const result = inferHdr10BaseLayer({
+                doviProfile: '8',
+                colorTrc: 'arib-std-b67',
+            });
+            expect(result.hasHdr10BaseLayer).toBe(false);
+            expect(result.isKnownNoHdr10BaseLayer).toBe(true);
+        });
+
+        it('treats profile 5 as not HDR10 base layer', () => {
+            const result = inferHdr10BaseLayer({
+                doviProfile: '5',
+                colorTrc: 'smpte2084',
+            });
+            expect(result.hasHdr10BaseLayer).toBe(false);
+            expect(result.isKnownNoHdr10BaseLayer).toBe(true);
+        });
+
+        it('treats profile 8.2 as known without HDR10 base layer', () => {
+            const result = inferHdr10BaseLayer({
+                doviProfile: '8.2',
+            });
+            expect(result.hasHdr10BaseLayer).toBe(false);
+            expect(result.isKnownNoHdr10BaseLayer).toBe(true);
+        });
+
+        it('uses HDR10 title hints for profile 8 when available', () => {
+            const result = inferHdr10BaseLayer({
+                doviProfile: '8',
+                displayTitle: 'HDR10',
+            });
+            expect(result.hasHdr10BaseLayer).toBe(true);
+            expect(result.isKnownNoHdr10BaseLayer).toBe(false);
+        });
+
+        it('does not override HLG with HDR10 title hints', () => {
+            const result = inferHdr10BaseLayer({
+                doviProfile: '8',
+                colorTrc: 'arib-std-b67',
+                hdr: 'HDR10',
+            });
+            expect(result.hasHdr10BaseLayer).toBe(false);
+            expect(result.isKnownNoHdr10BaseLayer).toBe(true);
         });
     });
 

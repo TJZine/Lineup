@@ -346,8 +346,8 @@ export class MiniGuideCoordinator {
         now: ScheduledProgram | null,
         next: ScheduledProgram | null
     ): MiniGuideChannelViewModel {
-        const nowTitle = now?.item?.title ?? 'Unavailable';
-        const nextTitle = next?.item?.title ?? null;
+        const nowTitle = this._formatMiniGuideTitle(now) ?? 'Unavailable';
+        const nextTitle = this._formatMiniGuideTitle(next);
         const displayName = getChannelNameForDisplay({
             name: channel.name,
             sourceLibraryName: channel.sourceLibraryName ?? null,
@@ -366,6 +366,38 @@ export class MiniGuideCoordinator {
             nextTitle,
             nowProgress,
         };
+    }
+
+    private _formatMiniGuideTitle(program: ScheduledProgram | null): string | null {
+        if (!program) return null;
+        const item = program.item;
+        if (item.type !== 'episode') {
+            return item.title ?? null;
+        }
+
+        const showTitle = item.showTitle ?? '';
+        const episodeTitle = item.title ?? '';
+        const hasSeason = typeof item.seasonNumber === 'number' && item.seasonNumber > 0;
+        const hasEpisode = typeof item.episodeNumber === 'number' && item.episodeNumber > 0;
+        const hasSeasonEpisode = hasSeason && hasEpisode;
+        const seasonText = hasSeasonEpisode
+            ? `S${String(item.seasonNumber).padStart(2, '0')}E${String(item.episodeNumber).padStart(2, '0')}`
+            : null;
+
+        if (showTitle && episodeTitle) {
+            if (hasSeasonEpisode && seasonText) {
+                return `${showTitle} • ${seasonText} • ${episodeTitle}`;
+            }
+            if (showTitle !== episodeTitle) {
+                return `${showTitle} • ${episodeTitle}`;
+            }
+        }
+
+        if (item.fullTitle) {
+            return item.fullTitle;
+        }
+
+        return episodeTitle || showTitle || null;
     }
 
     private _updateRow(index: number, row: MiniGuideChannelViewModel, token: number): void {

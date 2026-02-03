@@ -11,7 +11,7 @@ import type { IPlexAuth } from '../plex/auth';
 import { NOW_PLAYING_INFO_MODAL_ID } from '../ui/now-playing-info';
 import type { PlaybackOptionsSectionId } from '../ui/playback-options/types';
 import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
-import { readStoredBoolean } from '../../utils/storage';
+import { isStoredTrue, readStoredBoolean, safeLocalStorageGet } from '../../utils/storage';
 
 const EPG_REPEAT_INITIAL_DELAY_MS = 250;
 const EPG_REPEAT_TIER_1_MS = 800;
@@ -74,6 +74,7 @@ export class NavigationCoordinator {
     private _miniGuideRepeatTimer: ReturnType<typeof setTimeout> | null = null;
     private _miniGuideRepeatButton: 'up' | 'down' | null = null;
     private _miniGuideRepeatStartMs = 0;
+    private _suppressedLogTimestamps: Map<string, number> = new Map();
 
     constructor(private readonly deps: NavigationCoordinatorDeps) { }
 
@@ -258,6 +259,7 @@ export class NavigationCoordinator {
 
         const isNowPlayingModalOpen = this.deps.isNowPlayingModalOpen();
         if (isNowPlayingModalOpen && event.button === 'back') {
+            this._logSuppressedInput('modal_open', event);
             return;
         }
         if (isNowPlayingModalOpen && event.button === 'ok') {
@@ -280,6 +282,10 @@ export class NavigationCoordinator {
         const navigation = this.deps.getNavigation();
         const modalOpen = navigation?.isModalOpen() ?? false;
         const shouldRouteToEpg = !modalOpen && !!epg?.isVisible();
+
+        if (modalOpen && (event.button === 'up' || event.button === 'down' || event.button === 'left' || event.button === 'right')) {
+            this._logSuppressedInput('modal_open', event);
+        }
 
         if (epg && shouldRouteToEpg) {
             switch (event.button) {
@@ -331,6 +337,7 @@ export class NavigationCoordinator {
         const miniGuideVisible = this.deps.isMiniGuideVisible();
         if (currentScreen === 'player' && miniGuideVisible && !modalOpen && !shouldRouteToEpg) {
             if (navigation?.isInputBlocked()) {
+                this._logSuppressedInput('input_blocked', event);
                 this._stopMiniGuideRepeat('inputBlocked');
                 event.handled = true;
                 event.originalEvent.preventDefault();
@@ -398,6 +405,10 @@ export class NavigationCoordinator {
                 }
                 return;
             }
+        }
+
+        if (currentScreen !== 'player' && (event.button === 'up' || event.button === 'down' || event.button === 'ok')) {
+            this._logSuppressedInput('screen_not_player', event);
         }
 
         if (event.button === 'down') {
@@ -646,5 +657,45 @@ export class NavigationCoordinator {
 
     private _shouldKeepPlayingInSettings(): boolean {
         return readStoredBoolean(RETUNE_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS, false);
+    }
+
+    private _isDebugLoggingEnabled(): boolean {
+        try {
+            return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DEBUG_LOGGING));
+        } catch {
+            return false;
+        }
+    }
+
+    private _logSuppressedInput(
+        reason: 'modal_open' | 'screen_not_player' | 'input_blocked',
+        event: KeyEvent
+    ): void {
+        if (!this._isDebugLoggingEnabled()) return;
+        const navigation = this.deps.getNavigation();
+        const state = navigation?.getState();
+        const key = [
+            reason,
+            event.button,
+            state?.currentScreen ?? 'unknown',
+            (state?.modalStack ?? []).join(','),
+            navigation?.isInputBlocked() ? 'blocked' : 'open',
+        ].join('|');
+        const now = Date.now();
+        const last = this._suppressedLogTimestamps.get(key) ?? 0;
+        if (now - last < 1000) {
+            return;
+        }
+        if (this._suppressedLogTimestamps.size > 50) {
+            this._suppressedLogTimestamps.clear();
+        }
+        this._suppressedLogTimestamps.set(key, now);
+        console.warn('[NavigationCoordinator] Input suppressed:', {
+            reason,
+            button: event.button,
+            screen: state?.currentScreen ?? null,
+            modalStack: state?.modalStack ?? [],
+            inputBlocked: navigation?.isInputBlocked() ?? null,
+        });
     }
 }

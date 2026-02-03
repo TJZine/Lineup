@@ -31,7 +31,22 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
 
     const state = document.createElement('span');
     state.className = 'setup-toggle-state';
-    state.textContent = resolveOptionLabel(config.options, config.value);
+
+    const leftArrow = document.createElement('span');
+    leftArrow.className = 'setup-toggle-arrow left';
+    leftArrow.textContent = '◀';
+
+    const valueEl = document.createElement('span');
+    valueEl.className = 'setup-toggle-value';
+    valueEl.textContent = resolveOptionLabel(config.options, config.value);
+
+    const rightArrow = document.createElement('span');
+    rightArrow.className = 'setup-toggle-arrow right';
+    rightArrow.textContent = '▶';
+
+    state.appendChild(leftArrow);
+    state.appendChild(valueEl);
+    state.appendChild(rightArrow);
 
     button.appendChild(label);
     button.appendChild(meta);
@@ -39,14 +54,14 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
 
     button.addEventListener('click', () => {
         if (config.disabled) return;
-        const nextValue = getNextValue(config.options, config.value);
+        const nextValue = getNextValueClamped(config.options, config.value);
         update(nextValue);
         config.onChange(nextValue);
     });
 
     function update(value: number): void {
         config.value = value;
-        state.textContent = resolveOptionLabel(config.options, value);
+        valueEl.textContent = resolveOptionLabel(config.options, value);
     }
 
     function setDisabled(disabled: boolean): void {
@@ -86,13 +101,6 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
 function resolveOptionLabel(options: SettingsSelectConfig['options'], value: number): string {
     const match = options.find((option) => option.value === value);
     return match ? match.label : String(value);
-}
-
-function getNextValue(options: SettingsSelectConfig['options'], value: number): number {
-    if (options.length === 0) return value;
-    const currentIndex = options.findIndex((option) => option.value === value);
-    const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % options.length : 0;
-    return options[nextIndex]?.value ?? value;
 }
 
 function getPrevValue(options: SettingsSelectConfig['options'], value: number): number {

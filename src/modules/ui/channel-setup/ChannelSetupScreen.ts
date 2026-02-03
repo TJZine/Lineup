@@ -88,6 +88,7 @@ export class ChannelSetupScreen {
     private _strategyScrollTop = 0;
     private _previewPanelId = 'setup-preview-panel';
     private _maxPreviewWarnings = 5;
+    private _recordApplied = false;
 
     private static _defaultStrategyAccordions(): Record<StrategyAccordionKey, boolean> {
         return {
@@ -281,6 +282,7 @@ export class ChannelSetupScreen {
         this._lastPreviewKey = null;
         this._pendingPreviewKey = null;
         this._strategyScrollTop = 0;
+        this._recordApplied = false;
         this._errorEl.textContent = '';
     }
 
@@ -303,6 +305,7 @@ export class ChannelSetupScreen {
             } else {
                 this._selectedLibraryIds = new Set(this._libraries.map((lib) => lib.id));
             }
+            this._recordApplied = true;
             if (token !== this._visibilityToken) {
                 return;
             }
@@ -877,6 +880,14 @@ export class ChannelSetupScreen {
         this._statusEl.textContent = 'Review changes before building.';
         this._detailEl.textContent = '';
         this._errorEl.textContent = this._reviewError ?? '';
+
+        if (!this._recordApplied) {
+            const loading = document.createElement('div');
+            loading.className = 'setup-preview-loading';
+            loading.textContent = 'Preparing your review...';
+            this._contentEl.appendChild(loading);
+            return;
+        }
 
         if (!this._review && !this._isReviewLoading && !this._reviewError) {
             this._loadReview().catch(console.error);

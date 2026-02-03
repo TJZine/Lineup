@@ -29,6 +29,8 @@ import {
     CURSOR_HIDE_DELAY_MS,
     CHANNEL_INPUT_CONFIG,
 } from './constants';
+import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
+import { isStoredTrue, safeLocalStorageGet } from '../../utils/storage';
 
 /**
  * Channel number input state.
@@ -84,6 +86,7 @@ export class NavigationManager
     private _dpadRepeatDelayTimer: number | null = null;
     private _dpadRepeatIntervalTimer: number | null = null;
     private _activeDpadButton: 'up' | 'down' | 'left' | 'right' | null = null;
+    private _suppressedLogTimestamps: Map<string, number> = new Map();
     private _channelInput: ChannelNumberInput = {
         digits: '',
         timeoutMs: CHANNEL_INPUT_CONFIG.TIMEOUT_MS,
@@ -389,11 +392,13 @@ export class NavigationManager
                     const isNeighborInModal = modalFocusables.indexOf(neighborId) !== -1;
                     if (!isNeighborInModal) {
                         // Block navigation outside modal
+                        this._logInputSuppressed('modal_open', direction);
                         return false;
                     }
                 } else {
                     // Modal has no registered focusables - block ALL directional navigation
                     // per spec: "MUST NOT allow navigation outside modal when open"
+                    this._logInputSuppressed('modal_open', direction);
                     return false;
                 }
             }
@@ -635,11 +640,47 @@ export class NavigationManager
         this._focusManager.focus(currentId);
     }
 
+    private _isDebugLoggingEnabled(): boolean {
+        try {
+            return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DEBUG_LOGGING));
+        } catch {
+            return false;
+        }
+    }
+
+    private _logInputSuppressed(reason: string, button?: RemoteButton): void {
+        if (!this._isDebugLoggingEnabled()) return;
+        const key = [
+            reason,
+            button ?? 'none',
+            this._state.currentScreen,
+            this._state.modalStack.join(','),
+            this._state.isInputBlocked ? 'blocked' : 'open',
+        ].join('|');
+        const now = Date.now();
+        const last = this._suppressedLogTimestamps.get(key) ?? 0;
+        if (now - last < 1000) {
+            return;
+        }
+        if (this._suppressedLogTimestamps.size > 50) {
+            this._suppressedLogTimestamps.clear();
+        }
+        this._suppressedLogTimestamps.set(key, now);
+        console.warn('[NavigationManager] Input suppressed:', {
+            reason,
+            button: button ?? null,
+            screen: this._state.currentScreen,
+            modalStack: [...this._state.modalStack],
+            inputBlocked: this._state.isInputBlocked,
+        });
+    }
+
     /**
      * Handle key events from remote handler.
      */
     private _handleKeyEvent(keyEvent: KeyEvent): void {
         if (this._state.isInputBlocked) {
+            this._logInputSuppressed('input_blocked', keyEvent.button);
             return;
         }
 

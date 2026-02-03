@@ -186,7 +186,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         if (!this.containerElement) return;
 
         this.currentProgram = program;
-        this.updateContentFast(program);
+        this.updateContentFast(program, { allowHdrFetch: false });
         this.containerElement.style.visibility = 'visible';
         this.containerElement.style.opacity = '1';
         this.isVisible = true;
@@ -210,7 +210,10 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     /**
      * Update the content of the info panel (fast path).
      */
-    private updateContentFast(program: ScheduledProgram): void {
+    private updateContentFast(
+        program: ScheduledProgram,
+        options?: { allowHdrFetch?: boolean }
+    ): void {
         if (!this.containerElement) return;
 
         const { item } = program;
@@ -266,7 +269,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             description.style.display = 'none';
         }
 
-        this.updateQualityBadges(program);
+        this.updateQualityBadges(program, undefined, options);
     }
 
     /**
@@ -275,7 +278,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private updateContentFull(program: ScheduledProgram): void {
         if (!this.containerElement) return;
 
-        this.updateContentFast(program);
+        this.updateContentFast(program, { allowHdrFetch: true });
 
         const { item } = program;
 
@@ -290,7 +293,11 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         }
     }
 
-    private updateQualityBadges(program: ScheduledProgram, overrideHdr?: string | null): void {
+    private updateQualityBadges(
+        program: ScheduledProgram,
+        overrideHdr?: string | null,
+        options?: { allowHdrFetch?: boolean }
+    ): void {
         const qualityBadges = this.qualityBadges;
         const mediaInfo = program.item.mediaInfo;
         const badgeValues: string[] = [];
@@ -316,8 +323,13 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             }
         }
 
+        const allowHdrFetch = options?.allowHdrFetch ?? true;
         if (!mediaInfo?.hdr && !overrideHdr) {
-            this.maybeFetchHdr(program);
+            if (allowHdrFetch) {
+                this.maybeFetchHdr(program);
+            } else {
+                this.clearHdrFetch();
+            }
         } else {
             this.clearHdrFetch();
         }

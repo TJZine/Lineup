@@ -571,7 +571,7 @@ export class SettingsScreen {
     /**
      * Register all toggles as focusable elements.
      */
-    private _registerFocusables(): void {
+    private _registerFocusables(preferredFocusId?: string | null): void {
         const nav = this._getNavigation();
         if (!nav) return;
 
@@ -597,19 +597,27 @@ export class SettingsScreen {
             if (upId) neighbors.up = upId;
             if (downId) neighbors.down = downId;
 
+            const isSelect = this._selectElements.has(id);
+            const onSelect = isSelect
+                ? (): void => { }
+                : (): void => {
+                    element.click();
+                };
             const focusable: FocusableElement = {
                 id,
                 element,
                 neighbors,
-                onSelect: () => element.click(),
+                onSelect,
             };
             nav.registerFocusable(focusable);
         }
 
         // Preserve current focus if still enabled, otherwise focus the first available
-        const preferredId = currentFocusId && focusableIds.includes(currentFocusId)
-            ? currentFocusId
-            : focusableIds[0];
+        const preferredId = preferredFocusId && focusableIds.includes(preferredFocusId)
+            ? preferredFocusId
+            : currentFocusId && focusableIds.includes(currentFocusId)
+                ? currentFocusId
+                : focusableIds[0];
         if (preferredId) {
             nav.setFocus(preferredId);
         }
@@ -790,9 +798,11 @@ export class SettingsScreen {
         subtitleGlobal?.setDisabled(!subtitlesEnabled);
         const subtitlePreferForced = this._toggleElements.get('settings-subtitles-prefer-forced');
         subtitlePreferForced?.setDisabled(!subtitlesEnabled);
+        const nav = this._getNavigation();
+        const focusedId = nav?.getFocusedElement()?.id ?? null;
         if (this._container.classList.contains('visible') && this._focusableIds.length > 0) {
             this._unregisterFocusables();
-            this._registerFocusables();
+            this._registerFocusables(focusedId);
         }
     }
 

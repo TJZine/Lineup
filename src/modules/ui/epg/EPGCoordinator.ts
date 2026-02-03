@@ -39,13 +39,16 @@ export interface EPGCoordinatorDeps {
 }
 
 const EPG_SCHEDULE_CACHE_TTL_MS = 2 * 60_000;
-const EPG_SCHEDULE_CACHE_MAX_ENTRIES = 60;
+const EPG_SCHEDULE_CACHE_STALE_TTL_MS = 10 * 60_000;
+const EPG_SCHEDULE_CACHE_MIN_ENTRIES = 60;
+const EPG_SCHEDULE_CACHE_MAX_ENTRIES = 240;
 
 export class EPGCoordinator {
     private _epgScheduleLoadToken = 0;
     private _epgScheduleInFlight = new Map<string, { controller: AbortController; rangeKey: string }>();
     private _epgScheduleRangeKeyByChannel = new Map<string, { rangeKey: string; loadedAt: number }>();
     private _epgScheduleCache = new Map<string, { rangeKey: string; schedule: ScheduleWindow; loadedAt: number }>();
+    private _epgScheduleCacheMaxEntries = EPG_SCHEDULE_CACHE_MIN_ENTRIES;
     private _visibleRangeTimer: ReturnType<typeof setTimeout> | null = null;
     private _pendingVisibleRange: {
         channelStart: number;
@@ -127,6 +130,7 @@ export class EPGCoordinator {
         if (!epg) return;
 
         const show = (): void => {
+            this._preseedCurrentChannelSchedule();
             const preserveFocus = this.deps.getPreserveFocusOnOpen();
             epg.show({ preserveFocus });
             if (!preserveFocus) {
@@ -240,15 +244,47 @@ export class EPGCoordinator {
 
         try {
             const window = scheduler.getScheduleWindow(range.startTime, range.endTime);
-            epg.loadScheduleForChannel(current.id, {
-                ...window,
-                programs: [...window.programs],
-            });
+            epg.loadScheduleForChannel(current.id, this._cloneScheduleWindow(window));
             const rangeKey = this._getScheduleRangeKey(range.startTime, range.endTime);
             this._markScheduleLoaded(current.id, rangeKey);
-            this._storeScheduleCache(current.id, rangeKey, { ...window, programs: [...window.programs] });
+            this._storeScheduleCache(current.id, rangeKey, this._cloneScheduleWindow(window));
         } catch (error) {
             console.warn('[Orchestrator] Failed to refresh live EPG schedule:', error);
+        }
+    }
+
+    private _preseedCurrentChannelSchedule(): void {
+        const epg = this.deps.getEpg();
+        const channelManager = this.deps.getChannelManager();
+        const scheduler = this.deps.getScheduler();
+        if (!epg || !channelManager || !scheduler) return;
+        if (this.deps.getEpgUiStatus() !== 'ready') return;
+
+        const range = this._getEpgScheduleRangeMs();
+        if (!range) return;
+
+        const current = channelManager.getCurrentChannel();
+        if (!current) return;
+
+        const all = channelManager.getAllChannels();
+        const { selectedId, shouldFilter } = this._getLibraryFilterState(all);
+        const visible = this._getVisibleChannels(all, selectedId, shouldFilter);
+        if (!visible.some((c) => c.id === current.id)) return;
+
+        const state = scheduler.getState();
+        if (!state.isActive || state.channelId !== current.id) {
+            return;
+        }
+
+        try {
+            const window = scheduler.getScheduleWindow(range.startTime, range.endTime);
+            const schedule = this._cloneScheduleWindow(window);
+            epg.loadScheduleForChannel(current.id, schedule);
+            const rangeKey = this._getScheduleRangeKey(range.startTime, range.endTime);
+            this._markScheduleLoaded(current.id, rangeKey);
+            this._storeScheduleCache(current.id, rangeKey, schedule);
+        } catch (error) {
+            console.warn('[Orchestrator] Failed to preseed EPG schedule:', error);
         }
     }
 
@@ -394,9 +430,29 @@ export class EPGCoordinator {
         return `${channelId}::${rangeKey}`;
     }
 
+    private _cloneScheduleWindow(window: ScheduleWindow): ScheduleWindow {
+        return { ...window, programs: [...window.programs] };
+    }
+
+    private _computeScheduleCacheLimit(channelCount: number): number {
+        const scaled = Math.ceil(channelCount * 1.25);
+        const clamped = Math.min(
+            EPG_SCHEDULE_CACHE_MAX_ENTRIES,
+            Math.max(EPG_SCHEDULE_CACHE_MIN_ENTRIES, scaled)
+        );
+        return clamped;
+    }
+
+    private _getChannelOverscanCount(channelCount: number): number {
+        if (channelCount >= 200) return 10;
+        if (channelCount >= 120) return 8;
+        if (channelCount >= 80) return 7;
+        return 6;
+    }
+
     private _pruneScheduleCache(nowMs: number): void {
         for (const [key, entry] of this._epgScheduleCache) {
-            if (nowMs - entry.loadedAt > EPG_SCHEDULE_CACHE_TTL_MS) {
+            if (nowMs - entry.loadedAt > EPG_SCHEDULE_CACHE_STALE_TTL_MS) {
                 this._epgScheduleCache.delete(key);
             }
         }
@@ -405,23 +461,27 @@ export class EPGCoordinator {
                 this._epgScheduleRangeKeyByChannel.delete(channelId);
             }
         }
-        while (this._epgScheduleCache.size > EPG_SCHEDULE_CACHE_MAX_ENTRIES) {
+        while (this._epgScheduleCache.size > this._epgScheduleCacheMaxEntries) {
             const oldestKey = this._epgScheduleCache.keys().next().value;
             if (oldestKey === undefined) break;
             this._epgScheduleCache.delete(oldestKey);
         }
     }
 
-    private _getCachedSchedule(channelId: string, rangeKey: string): ScheduleWindow | null {
+    private _getCachedSchedule(
+        channelId: string,
+        rangeKey: string
+    ): { schedule: ScheduleWindow; isStale: boolean } | null {
         const key = this._getScheduleCacheKey(channelId, rangeKey);
         const entry = this._epgScheduleCache.get(key);
         if (!entry) return null;
         const now = Date.now();
-        if (now - entry.loadedAt > EPG_SCHEDULE_CACHE_TTL_MS) {
+        const ageMs = now - entry.loadedAt;
+        if (ageMs > EPG_SCHEDULE_CACHE_STALE_TTL_MS) {
             this._epgScheduleCache.delete(key);
             return null;
         }
-        return entry.schedule;
+        return { schedule: entry.schedule, isStale: ageMs > EPG_SCHEDULE_CACHE_TTL_MS };
     }
 
     private _storeScheduleCache(channelId: string, rangeKey: string, schedule: ScheduleWindow): void {
@@ -503,9 +563,9 @@ export class EPGCoordinator {
         const channels = this._getVisibleChannels(all, selectedId, shouldFilter);
         if (channels.length === 0) return;
 
-        const buffer = 6;
-        const startIndex = Math.max(0, range.channelStart - buffer);
-        const endIndex = Math.min(channels.length, range.channelEnd + buffer);
+        const overscan = this._getChannelOverscanCount(channels.length);
+        const startIndex = Math.max(0, range.channelStart - overscan);
+        const endIndex = Math.min(channels.length, range.channelEnd + overscan);
         const rangeChannels = channels.slice(startIndex, endIndex);
 
         const refreshId = ++this._epgScheduleLoadToken;
@@ -515,6 +575,7 @@ export class EPGCoordinator {
             this._clearScheduleCaches();
         }
         const shuffler = new ShuffleGenerator();
+        this._epgScheduleCacheMaxEntries = this._computeScheduleCacheLimit(channels.length);
 
         const liveChannelId = channelManager.getCurrentChannel()?.id ?? null;
         const epgState = epg.getState();
@@ -549,13 +610,21 @@ export class EPGCoordinator {
         this._pruneScheduleCache(Date.now());
 
         let cacheHits = 0;
+        let staleCacheHits = 0;
         let cacheMisses = 0;
         let inFlightSkipped = 0;
         let alreadyLoaded = 0;
         let liveScheduleHits = 0;
 
-        const applySchedule = (channelId: string, schedule: ScheduleWindow): void => {
+        const applySchedule = (
+            channelId: string,
+            schedule: ScheduleWindow,
+            options?: { updateCache?: boolean }
+        ): void => {
             epg.loadScheduleForChannel(channelId, schedule);
+            if (options?.updateCache === false) {
+                return;
+            }
             this._markScheduleLoaded(channelId, rangeKey);
             this._storeScheduleCache(channelId, rangeKey, schedule);
         };
@@ -577,11 +646,13 @@ export class EPGCoordinator {
                     start: startIndex,
                     end: endIndex,
                 },
+                overscan,
                 inFlight: {
                     kept: inFlightKept,
                     aborted: inFlightAborted,
                 },
                 cacheSize: this._epgScheduleCache.size,
+                cacheMaxEntries: this._epgScheduleCacheMaxEntries,
             };
             console.warn('[EPGCoordinator] refreshEpgSchedulesForRange', payload);
             appendEpgDebugLog('EPG.refreshEpgSchedulesForRange', payload);
@@ -597,7 +668,7 @@ export class EPGCoordinator {
                 const state = scheduler.getState();
                 if (state.isActive && state.channelId === channel.id) {
                     const window = scheduler.getScheduleWindow(startTime, endTime);
-                    applySchedule(channel.id, { ...window, programs: [...window.programs] });
+                    applySchedule(channel.id, this._cloneScheduleWindow(window));
                     liveScheduleHits += 1;
                     return;
                 }
@@ -605,9 +676,15 @@ export class EPGCoordinator {
 
             const cached = forceRefresh ? null : this._getCachedSchedule(channel.id, rangeKey);
             if (cached) {
-                applySchedule(channel.id, cached);
-                cacheHits += 1;
-                return;
+                const cachedSchedule = this._cloneScheduleWindow(cached.schedule);
+                if (cached.isStale) {
+                    applySchedule(channel.id, cachedSchedule, { updateCache: false });
+                    staleCacheHits += 1;
+                } else {
+                    applySchedule(channel.id, cachedSchedule);
+                    cacheHits += 1;
+                    return;
+                }
             }
 
             const existing = this._epgScheduleInFlight.get(channel.id);
@@ -679,17 +756,31 @@ export class EPGCoordinator {
                 refreshId,
                 rangeKey,
                 cacheHits,
+                staleCacheHits,
                 cacheMisses,
                 inFlightSkipped,
                 alreadyLoaded,
                 liveScheduleHits,
                 cacheSize: this._epgScheduleCache.size,
+                cacheMaxEntries: this._epgScheduleCacheMaxEntries,
             };
             console.warn('[EPGCoordinator] refreshEpgSchedulesForRange results', payload);
             appendEpgDebugLog('EPG.refreshEpgSchedulesForRange.results', payload);
         }
 
-        if (refreshId === this._epgScheduleLoadToken && epg.isVisible() && !epg.getFocusedProgram()) {
+        const focusedProgram = epg.getFocusedProgram();
+        const focusedCell = epg.getState().focusedCell;
+        const focusedIsPlaceholder = focusedCell?.kind === 'placeholder';
+        const focusedIsInvalidProgram = focusedProgram
+            ? focusedProgram.scheduleIndex === -1 ||
+              focusedProgram.item.ratingKey.includes('-placeholder-')
+            : false;
+
+        if (
+            refreshId === this._epgScheduleLoadToken &&
+            epg.isVisible() &&
+            (!focusedProgram || focusedIsPlaceholder || focusedIsInvalidProgram)
+        ) {
             epg.focusNow();
         }
     }
