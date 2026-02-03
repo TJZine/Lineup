@@ -57,6 +57,19 @@ export interface EPGConfig {
     ) => Promise<import('../../plex/library').PlexMediaItem | null>;
     /** Optional callback to detect if video is currently playing */
     isVideoPlaying?: () => boolean;
+    /** Optional layout mode (overlay/classic) */
+    layoutMode?: 'overlay' | 'classic';
+    /** Optional toggle for now watching banner */
+    showNowWatchingBanner?: boolean;
+    /** Optional callback to fetch current channel + program info */
+    getCurrentChannelInfo?: () => {
+        channelNumber: number;
+        channelName: string;
+        programTitle: string;
+        timeLabel: string;
+    } | null;
+    /** Optional callback when layout mode changes */
+    onLayoutModeChange?: (mode: 'overlay' | 'classic') => void;
 }
 
 /**

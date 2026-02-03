@@ -133,6 +133,10 @@ export type SettingsItemConfig = SettingsToggleConfig | SettingsSelectConfig;
 
 export type SettingsSectionId = 'audio_subtitles' | 'playback_hdr' | 'appearance' | 'developer';
 
+export type GuideSettingChange =
+    | { key: 'categoryColors' | 'libraryTabs' | 'nowWatchingBanner'; enabled: boolean }
+    | { key: 'layoutMode'; mode: 'overlay' | 'classic' };
+
 /**
  * Settings section configuration.
  */

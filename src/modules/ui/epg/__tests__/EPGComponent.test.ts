@@ -15,7 +15,7 @@ describe('EPGComponent', () => {
     let container: HTMLElement;
     let gridAnchorTime = 0;
 
-    const createEpgInstance = (overrides: { containerId?: string; isVideoPlaying?: () => boolean } = {}): {
+    const createEpgInstance = (overrides: Partial<EPGConfig> = {}): {
         epg: EPGComponent;
         container: HTMLElement;
     } => {
@@ -36,11 +36,8 @@ describe('EPGComponent', () => {
             showCurrentTimeIndicator: true,
             autoScrollToNow: false,
             resolveThumbUrl: (url) => url,
+            ...overrides,
         };
-
-        if (overrides.isVideoPlaying) {
-            config.isVideoPlaying = overrides.isVideoPlaying;
-        }
 
         instance.initialize(config);
 
@@ -305,6 +302,178 @@ describe('EPGComponent', () => {
                 localEpg.show();
                 localEpg.hide();
                 expect(localContainer.classList.contains(EPG_CLASSES.CONTAINER_PEEK)).toBe(false);
+            } finally {
+                localEpg.destroy();
+                localContainer.remove();
+            }
+        });
+    });
+
+    describe('now watching banner', () => {
+        it('shows banner when enabled and info available', () => {
+            const { epg: localEpg, container: localContainer } = createEpgInstance({
+                containerId: 'epg-container-now-watching',
+                getCurrentChannelInfo: () => ({
+                    channelNumber: 7,
+                    channelName: 'News',
+                    programTitle: 'Morning Report',
+                    timeLabel: '8:00 - 9:00',
+                }),
+            });
+
+            try {
+                localEpg.show();
+                const banner = localContainer.querySelector(`.${EPG_CLASSES.NOW_WATCHING_BANNER}`) as HTMLElement;
+                const channel = localContainer.querySelector(`.${EPG_CLASSES.NOW_WATCHING_CHANNEL}`) as HTMLElement;
+                const program = localContainer.querySelector(`.${EPG_CLASSES.NOW_WATCHING_PROGRAM}`) as HTMLElement;
+                const time = localContainer.querySelector(`.${EPG_CLASSES.NOW_WATCHING_TIME}`) as HTMLElement;
+
+                expect(banner.hidden).toBe(false);
+                expect(channel.textContent).toBe('7 • News');
+                expect(program.textContent).toBe('Morning Report');
+                expect(time.textContent).toBe('8:00 - 9:00');
+            } finally {
+                localEpg.destroy();
+                localContainer.remove();
+            }
+        });
+
+        it('hides banner when disabled', () => {
+            const { epg: localEpg, container: localContainer } = createEpgInstance({
+                containerId: 'epg-container-now-watching-disabled',
+                showNowWatchingBanner: false,
+                getCurrentChannelInfo: () => ({
+                    channelNumber: 5,
+                    channelName: 'Sports',
+                    programTitle: 'Highlights',
+                    timeLabel: '10:00 - 11:00',
+                }),
+            });
+
+            try {
+                localEpg.show();
+                const banner = localContainer.querySelector(`.${EPG_CLASSES.NOW_WATCHING_BANNER}`) as HTMLElement;
+                expect(banner.hidden).toBe(true);
+            } finally {
+                localEpg.destroy();
+                localContainer.remove();
+            }
+        });
+
+        it('hides banner when info is unavailable', () => {
+            const { epg: localEpg, container: localContainer } = createEpgInstance({
+                containerId: 'epg-container-now-watching-null',
+                getCurrentChannelInfo: () => null,
+            });
+
+            try {
+                localEpg.show();
+                const banner = localContainer.querySelector(`.${EPG_CLASSES.NOW_WATCHING_BANNER}`) as HTMLElement;
+                expect(banner.hidden).toBe(true);
+            } finally {
+                localEpg.destroy();
+                localContainer.remove();
+            }
+        });
+
+        it('sanitizes invalid time labels', () => {
+            const { epg: localEpg, container: localContainer } = createEpgInstance({
+                containerId: 'epg-container-now-watching-invalid-time',
+                getCurrentChannelInfo: () => ({
+                    channelNumber: 12,
+                    channelName: 'Retro',
+                    programTitle: 'Classic Block',
+                    timeLabel: 'Invalid Date - Invalid Date',
+                }),
+            });
+
+            try {
+                localEpg.show();
+                const banner = localContainer.querySelector(`.${EPG_CLASSES.NOW_WATCHING_BANNER}`) as HTMLElement;
+                const time = localContainer.querySelector(`.${EPG_CLASSES.NOW_WATCHING_TIME}`) as HTMLElement;
+                expect(banner.hidden).toBe(false);
+                expect(time.textContent).toBe('');
+            } finally {
+                localEpg.destroy();
+                localContainer.remove();
+            }
+        });
+    });
+
+    describe('layout mode', () => {
+        it('applies classic layout class and signals on show/hide', () => {
+            const onLayoutModeChange = jest.fn();
+            const { epg: localEpg, container: localContainer } = createEpgInstance({
+                containerId: 'epg-container-classic',
+                layoutMode: 'classic',
+                isVideoPlaying: () => true,
+                onLayoutModeChange,
+            });
+
+            try {
+                localEpg.show();
+                expect(localContainer.classList.contains(EPG_CLASSES.CONTAINER_CLASSIC)).toBe(true);
+                expect(onLayoutModeChange).toHaveBeenCalledWith('classic');
+
+                localEpg.hide();
+                expect(localContainer.classList.contains(EPG_CLASSES.CONTAINER_CLASSIC)).toBe(false);
+                expect(onLayoutModeChange).toHaveBeenCalledWith('overlay');
+            } finally {
+                localEpg.destroy();
+                localContainer.remove();
+            }
+        });
+
+        it('does not re-emit layout mode when showing twice', () => {
+            const onLayoutModeChange = jest.fn();
+            const { epg: localEpg, container: localContainer } = createEpgInstance({
+                containerId: 'epg-container-classic-repeat',
+                layoutMode: 'classic',
+                isVideoPlaying: () => true,
+                onLayoutModeChange,
+            });
+
+            try {
+                localEpg.show();
+                localEpg.show();
+                expect(onLayoutModeChange).toHaveBeenCalledTimes(1);
+                expect(onLayoutModeChange).toHaveBeenCalledWith('classic');
+                expect(localContainer.classList.contains(EPG_CLASSES.CONTAINER_CLASSIC)).toBe(true);
+            } finally {
+                localEpg.destroy();
+                localContainer.remove();
+            }
+        });
+
+        it('does not activate PIP when classic layout but video not playing', () => {
+            const onLayoutModeChange = jest.fn();
+            const { epg: localEpg, container: localContainer } = createEpgInstance({
+                containerId: 'epg-container-classic-no-playback',
+                layoutMode: 'classic',
+                isVideoPlaying: () => false,
+                onLayoutModeChange,
+            });
+
+            try {
+                localEpg.show();
+                expect(localContainer.classList.contains(EPG_CLASSES.CONTAINER_CLASSIC)).toBe(true);
+                expect(onLayoutModeChange).not.toHaveBeenCalledWith('classic');
+            } finally {
+                localEpg.destroy();
+                localContainer.remove();
+            }
+        });
+
+        it('updates layout class when setLayoutMode is called while visible', () => {
+            const { epg: localEpg, container: localContainer } = createEpgInstance({
+                containerId: 'epg-container-layout-setter',
+            });
+
+            try {
+                localEpg.show();
+                expect(localContainer.classList.contains(EPG_CLASSES.CONTAINER_CLASSIC)).toBe(false);
+                localEpg.setLayoutMode('classic');
+                expect(localContainer.classList.contains(EPG_CLASSES.CONTAINER_CLASSIC)).toBe(true);
             } finally {
                 localEpg.destroy();
                 localContainer.remove();

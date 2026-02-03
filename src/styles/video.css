@@ -1,0 +1,22 @@
+.video-container {
+  position: absolute;
+  inset: 0;
+}
+
+.video-container.epg-pip-active {
+  z-index: 999;
+}
+
+.video-container.epg-pip-active #retune-video-player {
+  transform-origin: top right;
+  transform: translate3d(-5vw, 5vh, 0) scale(0.28);
+  will-change: transform;
+  outline: 1px solid rgba(255, 255, 255, 0.08);
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .video-container.epg-pip-active #retune-video-player {
+    transition: none;
+  }
+}

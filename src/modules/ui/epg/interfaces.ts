@@ -65,6 +65,18 @@ export interface IEPGComponent {
     setCategoryColorsEnabled(enabled: boolean): void;
 
     /**
+     * Set EPG layout mode.
+     * @param mode - overlay or classic
+     */
+    setLayoutMode(mode: 'overlay' | 'classic'): void;
+
+    /**
+     * Enable or disable the now watching banner.
+     * @param enabled - Banner toggle
+     */
+    setNowWatchingBannerEnabled(enabled: boolean): void;
+
+    /**
      * Update library filter tabs.
      * @param libraries - Available libraries
      * @param selectedId - Selected library ID

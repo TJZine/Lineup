@@ -412,6 +412,8 @@ const mockEpg = {
     handleBack: jest.fn().mockReturnValue(true),
     loadChannels: jest.fn(),
     setCategoryColorsEnabled: jest.fn(),
+    setLayoutMode: jest.fn(),
+    setNowWatchingBannerEnabled: jest.fn(),
     setLibraryTabs: jest.fn(),
     setGridAnchorTime: jest.fn(),
     loadScheduleForChannel: jest.fn(),
@@ -1217,6 +1219,22 @@ describe('AppOrchestrator', () => {
                 originalEvent: { preventDefault: jest.fn() },
             });
             expect(mockEpg.handleBack).not.toHaveBeenCalled();
+        });
+
+        it('should forward layout mode changes when EPG is visible', () => {
+            mockEpg.isVisible.mockReturnValue(true);
+
+            orchestrator.onGuideSettingChange({ key: 'layoutMode', mode: 'classic' });
+
+            expect(mockEpg.setLayoutMode).toHaveBeenCalledWith('classic');
+        });
+
+        it('should forward now watching banner changes when EPG is visible', () => {
+            mockEpg.isVisible.mockReturnValue(true);
+
+            orchestrator.onGuideSettingChange({ key: 'nowWatchingBanner', enabled: false });
+
+            expect(mockEpg.setNowWatchingBannerEnabled).toHaveBeenCalledWith(false);
         });
     });
 

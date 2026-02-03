@@ -7,6 +7,7 @@
 import { App } from './App';
 import './styles/tokens.css';
 import './styles/themes.css';
+import './styles/video.css';
 import './modules/ui/epg/styles.css';
 import './modules/ui/now-playing-info/styles.css';
 import './modules/ui/player-osd/styles.css';

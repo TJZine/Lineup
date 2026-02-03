@@ -43,6 +43,7 @@ export const EPG_CLASSES = {
     CONTAINER: 'epg-container',
     CONTAINER_VISIBLE: 'visible',
     CONTAINER_PEEK: 'peek',
+    CONTAINER_CLASSIC: 'layout-classic',
     GRID: 'epg-grid',
     CHANNEL_LIST: 'epg-channel-list',
     CHANNEL_ROW: 'epg-channel-row',
@@ -74,6 +75,10 @@ export const EPG_CLASSES = {
     INFO_QUALITY: 'epg-info-quality',
     INFO_QUALITY_BADGE: 'epg-info-quality-badge',
     CHANNEL_LIST_WRAP_FLASH: 'wrap-flash',
+    NOW_WATCHING_BANNER: 'epg-now-watching-banner',
+    NOW_WATCHING_CHANNEL: 'epg-now-watching-channel',
+    NOW_WATCHING_PROGRAM: 'epg-now-watching-program',
+    NOW_WATCHING_TIME: 'epg-now-watching-time',
 } as const;
 
 /**
@@ -103,4 +108,6 @@ export const DEFAULT_EPG_CONFIG = {
     rowHeight: EPG_CONSTANTS.ROW_HEIGHT,
     showCurrentTimeIndicator: true,
     autoScrollToNow: true,
+    layoutMode: 'overlay',
+    showNowWatchingBanner: true,
 } as const;
