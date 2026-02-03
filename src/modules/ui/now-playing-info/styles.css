@@ -98,6 +98,9 @@
   letter-spacing: 0.3px;
   text-transform: uppercase;
   white-space: nowrap;
+  max-width: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .now-playing-info-playback {

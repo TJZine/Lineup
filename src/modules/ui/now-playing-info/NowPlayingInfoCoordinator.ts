@@ -16,6 +16,7 @@ import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
 import { type PlaybackInfoSnapshotLike } from '../../../utils/playbackSummary';
 import { formatAudioCodec } from '../../../utils/mediaFormat';
 import { extractHdrLabelFromPlexMedia } from '../../plex/stream/hdr';
+import { formatContentRatingBadge } from '../../../utils/contentRating';
 
 export interface NowPlayingInfoCoordinatorDeps {
     nowPlayingModalId: string;
@@ -217,6 +218,7 @@ export class NowPlayingInfoCoordinator {
 
         let title = item.title;
         let subtitle = '';
+        const contentRating = formatContentRatingBadge(details?.contentRating ?? item.contentRating ?? null) ?? '';
 
         if (item.type === 'episode') {
             const showTitle =
@@ -232,16 +234,9 @@ export class NowPlayingInfoCoordinator {
         } else {
             const year = details?.year ?? item.year;
             title = year > 0 ? `${item.title} (${year})` : item.title;
-            const contentRating = details?.contentRating ?? item.contentRating ?? '';
             const runtimeMs = details?.durationMs ?? item.durationMs;
             const runtime = runtimeMs > 0 ? this.formatDuration(runtimeMs) : '';
-            if (contentRating && runtime) {
-                subtitle = `${contentRating} • ${runtime}`;
-            } else if (contentRating) {
-                subtitle = contentRating;
-            } else if (runtime) {
-                subtitle = runtime;
-            }
+            subtitle = runtime;
         }
 
         const summary = details?.summary ?? '';
@@ -263,7 +258,7 @@ export class NowPlayingInfoCoordinator {
             }
         }
 
-        const badges = this.buildQualityBadges(item, details);
+        const badges = this.buildQualityBadges(item, details, contentRating);
         const metaLines = this.buildMetaLines(item, details);
         const actorHeadshots = this.buildActorHeadshots(details);
         const playbackSummary = this.buildPlaybackModeSummary(this.deps.getPlaybackInfoSnapshot());
@@ -497,11 +492,13 @@ export class NowPlayingInfoCoordinator {
 
     private buildQualityBadges(
         item: ScheduledProgram['item'],
-        details: PlexMediaItem | null
+        details: PlexMediaItem | null,
+        contentRating: string
     ): string[] {
         const mediaInfo = item.mediaInfo;
 
         const badges: string[] = [];
+        if (contentRating) badges.push(contentRating);
         if (mediaInfo?.resolution) badges.push(mediaInfo.resolution);
         const hdr = mediaInfo?.hdr ?? extractHdrLabelFromPlexMedia(details);
         if (hdr) badges.push(hdr);

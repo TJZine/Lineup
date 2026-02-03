@@ -15,7 +15,8 @@ describe('NowPlayingInfoOverlay', () => {
 
     const baseViewModel: NowPlayingInfoViewModel = {
         title: 'Test Movie',
-        subtitle: 'PG-13 • 2h 10m',
+        subtitle: '2h 10m',
+        badges: ['PG-13'],
         description: 'A test description of the movie.',
         channelNumber: 12,
         channelName: 'Test Channel',
@@ -56,7 +57,7 @@ describe('NowPlayingInfoOverlay', () => {
     it('should populate text fields', () => {
         overlay.show(baseViewModel);
         expect(container.querySelector('.now-playing-info-title')?.textContent).toBe('Test Movie');
-        expect(container.querySelector('.now-playing-info-subtitle')?.textContent).toBe('PG-13 • 2h 10m');
+        expect(container.querySelector('.now-playing-info-subtitle')?.textContent).toBe('2h 10m');
         expect(container.querySelector('.now-playing-info-description')?.textContent).toBe('A test description of the movie.');
         expect(container.querySelector('.now-playing-info-context')?.textContent).toBe('12 Test Channel');
     });

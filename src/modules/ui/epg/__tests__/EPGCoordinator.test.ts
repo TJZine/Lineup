@@ -299,6 +299,58 @@ describe('EPGCoordinator', () => {
         expect(epg.loadChannels).toHaveBeenCalled();
     });
 
+    it('preseeds current channel schedule when scheduler is active and channel is visible', () => {
+        const { deps, epg } = makeDeps();
+        const coordinator = new EPGCoordinator(deps);
+
+        (coordinator as unknown as { _preseedCurrentChannelSchedule: () => void })
+            ._preseedCurrentChannelSchedule();
+
+        expect(epg.loadScheduleForChannel).toHaveBeenCalledWith('c0', expect.any(Object));
+    });
+
+    it('does not preseed when scheduler is inactive', () => {
+        const scheduler: IChannelScheduler = {
+            getState: () => ({ isActive: false, channelId: 'c0' }),
+            getScheduleWindow: jest.fn(),
+        } as unknown as IChannelScheduler;
+        const { deps, epg } = makeDeps({
+            getScheduler: () => scheduler,
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        (coordinator as unknown as { _preseedCurrentChannelSchedule: () => void })
+            ._preseedCurrentChannelSchedule();
+
+        expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
+    });
+
+    it('does not preseed when current channel is filtered out', () => {
+        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib2');
+
+        const channels: ChannelConfig[] = [
+            { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
+            { ...makeChannel('c2', 2), sourceLibraryId: 'lib2', sourceLibraryName: 'TV' },
+        ];
+        const base = makeDeps().deps.getChannelManager()!;
+        const { deps, epg } = makeDeps({
+            getChannelManager: () =>
+                ({
+                    ...base,
+                    getAllChannels: () => channels,
+                    getCurrentChannel: () => channels[0],
+                    resolveChannelContent: base.resolveChannelContent,
+                } as IChannelManager),
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        (coordinator as unknown as { _preseedCurrentChannelSchedule: () => void })
+            ._preseedCurrentChannelSchedule();
+
+        expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
+    });
+
     it('refreshEpgSchedules loads visible range and focuses when visible with no focus', async () => {
         const manyChannels = Array.from({ length: 105 }, (_, i) => makeChannel(`c${i}`, i + 1));
         const base = makeDeps().deps.getChannelManager()!;
@@ -317,7 +369,7 @@ describe('EPGCoordinator', () => {
 
         await coordinator.refreshEpgSchedules();
 
-        expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBeLessThanOrEqual(9);
+        expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBeLessThanOrEqual(10);
         expect(epg.focusNow).toHaveBeenCalled();
     });
 

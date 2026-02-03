@@ -93,4 +93,41 @@ describe('SettingsScreen (Guide settings)', () => {
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED)).toBe('0');
         expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'nowWatchingBanner', enabled: false });
     });
+
+    it('does not change select value on OK', () => {
+        const onGuideSettingChange = jest.fn();
+        const { nav, screen } = createScreen(onGuideSettingChange);
+
+        screen.show();
+        nav.setFocus('settings-epg-layout-mode');
+
+        const focusable = nav.focusables.get('settings-epg-layout-mode');
+        focusable?.onSelect?.();
+
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBeNull();
+        expect(onGuideSettingChange).not.toHaveBeenCalled();
+    });
+
+    it('cycles select with left/right keys and clamps at edges', () => {
+        const onGuideSettingChange = jest.fn();
+        const { nav, screen } = createScreen(onGuideSettingChange);
+
+        screen.show();
+        nav.setFocus('settings-epg-layout-mode');
+
+        const keyHandler = nav.on.mock.calls.find((call) => call[0] === 'keyPress')?.[1];
+        expect(typeof keyHandler).toBe('function');
+
+        keyHandler?.({ handled: false, button: 'right' });
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('classic');
+
+        keyHandler?.({ handled: false, button: 'right' });
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('classic');
+
+        keyHandler?.({ handled: false, button: 'left' });
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('overlay');
+
+        keyHandler?.({ handled: false, button: 'left' });
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('overlay');
+    });
 });

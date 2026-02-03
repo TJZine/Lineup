@@ -35,7 +35,12 @@ import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
 import { isStoredTrue, readStoredBoolean, safeLocalStorageGet } from '../../../utils/storage';
 import { redactSensitiveTokens } from '../../../utils/redact';
 import { detectHdrLabel } from './hdr';
-import { computeHdr10FallbackMode, parseDolbyVisionProfileString, shouldApplyHdr10Fallback } from './dvHdr10Fallback';
+import {
+    computeHdr10FallbackMode,
+    inferHdr10BaseLayer,
+    parseDolbyVisionProfileString,
+    shouldApplyHdr10Fallback,
+} from './dvHdr10Fallback';
 
 // Re-export types for consumers
 export { PlexStreamErrorCode } from './types';
@@ -543,20 +548,31 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 videoStream?.doviProfile ?? null,
                 videoStream?.profile ?? null
             );
-            const dvProfileRaw = (dvProfileInfo.raw ?? '').trim();
-            // Force HLS for DV MKV with profiles lacking HDR10 base layer (5, 8.2, 8.4).
+            const hdr10BaseLayerInfo = inferHdr10BaseLayer({
+                doviProfile: videoStream?.doviProfile ?? null,
+                codecProfileString: videoStream?.profile ?? null,
+                hdr: videoStream?.hdr ?? null,
+                dynamicRange: videoStream?.dynamicRange ?? null,
+                colorTrc: videoStream?.colorTrc ?? null,
+                displayTitle: videoStream?.displayTitle ?? null,
+                extendedDisplayTitle: videoStream?.extendedDisplayTitle ?? null,
+            });
+            // Force HLS for DV MKV with profiles lacking HDR10 base layer (e.g., 5, 8.2/8.4, HLG).
             // This is unconditional—distinct from user-controlled HDR10 fallback mode.
-            const forceHlsForDvNoHdr10BaseLayer = isDolbyVision && sourceContainer === 'mkv' && (
-                dvProfileInfo.profileId === 5 ||
-                (dvProfileInfo.profileId === 8 &&
-                    (dvProfileRaw.startsWith('8.2') || dvProfileRaw.startsWith('8.4')))
-            );
+            const forceHlsForDvNoHdr10BaseLayer = isDolbyVision
+                && sourceContainer === 'mkv'
+                && hdr10BaseLayerInfo.isKnownNoHdr10BaseLayer;
             const fallback = shouldApplyHdr10Fallback({
                 mode: hdr10FallbackMode,
                 container: media.container,
                 isDolbyVision,
                 doviProfile: videoStream?.doviProfile ?? null,
                 codecProfileString: videoStream?.profile ?? null,
+                hdr: videoStream?.hdr ?? null,
+                dynamicRange: videoStream?.dynamicRange ?? null,
+                colorTrc: videoStream?.colorTrc ?? null,
+                displayTitle: videoStream?.displayTitle ?? null,
+                extendedDisplayTitle: videoStream?.extendedDisplayTitle ?? null,
                 aspectRatio: typeof media.aspectRatio === 'number' ? media.aspectRatio : null,
                 width: media.width,
                 height: media.height,
@@ -762,7 +778,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                         raw: dvProfileInfo.raw,
                         profileId: dvProfileInfo.profileId,
                         levelId: dvProfileInfo.levelId,
-                        hasHdr10BaseLayer: dvProfileInfo.hasHdr10BaseLayer,
+                        hasHdr10BaseLayer: hdr10BaseLayerInfo.hasHdr10BaseLayer,
+                        hdr10DebugWhy: hdr10BaseLayerInfo.debugWhy,
                     },
                     forceHlsForDvNoHdr10BaseLayer,
                 });

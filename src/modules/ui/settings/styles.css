@@ -108,6 +108,22 @@
   display: none;
 }
 
+.setup-toggle-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.setup-toggle-arrow {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.setup-toggle-value {
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
 /* Toggle disabled state */
 .setup-toggle.disabled {
   opacity: 0.5;
@@ -117,4 +133,8 @@
 .setup-toggle.disabled .setup-toggle-meta {
   color: rgba(255, 255, 255, 0.4);
   font-style: italic;
+}
+
+.setup-toggle.disabled .setup-toggle-arrow {
+  opacity: 0.35;
 }
