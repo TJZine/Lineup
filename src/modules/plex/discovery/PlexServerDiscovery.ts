@@ -615,16 +615,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         if (!selectedServerKey || !serverHealthKey) {
             throw new Error('Storage keys must be non-empty strings');
         }
-        this._migrateLegacyStorageKey(
-            this._selectedServerKey,
-            selectedServerKey,
-            PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY
-        );
-        this._migrateLegacyStorageKey(
-            this._serverHealthKey,
-            serverHealthKey,
-            PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY
-        );
         this._selectedServerKey = selectedServerKey;
         this._serverHealthKey = serverHealthKey;
         this._pendingServerId = undefined;
@@ -670,26 +660,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return servers;
     }
 
-    private _migrateLegacyStorageKey(
-        previousKey: string,
-        nextKey: string,
-        legacyKey: string
-    ): void {
-        if (previousKey !== legacyKey || nextKey === legacyKey) {
-            return;
-        }
-        try {
-            if (localStorage.getItem(nextKey) !== null) {
-                return;
-            }
-            const legacyValue = localStorage.getItem(legacyKey);
-            if (legacyValue !== null) {
-                localStorage.setItem(nextKey, legacyValue);
-            }
-        } catch {
-            // Ignore storage errors
-        }
-    }
 
     private async _parseResourcesResponse(response: Response): Promise<PlexApiResource[]> {
         const contentType =

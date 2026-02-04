@@ -14,7 +14,6 @@ export type {
     PlexPinRequest,
     PlexAuthToken,
     PlexAuthData,
-    PlexAuthDataV1,
     PlexAuthDataV2,
     PlexHomeUser,
     PlexAuthEvents,

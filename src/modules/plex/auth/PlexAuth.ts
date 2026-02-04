@@ -14,7 +14,6 @@ import {
     PlexAuthEvents,
     PlexAuthToken,
     PlexAuthData,
-    PlexAuthDataV1,
     PlexHomeUser,
     PlexPinRequest,
     PlexAuthState,
@@ -663,10 +662,6 @@ export class PlexAuth implements IPlexAuth {
             return null;
         }
 
-        if (parsed.version === 1) {
-            return this._migrateStoredAuthV1(parsed.data as PlexAuthDataV1);
-        }
-
         if (parsed.version !== PLEX_AUTH_CONSTANTS.STORAGE_VERSION) {
             return null;
         }
@@ -745,25 +740,6 @@ export class PlexAuth implements IPlexAuth {
             out[activeUserId] = { serverId: null, serverUri: null };
         }
         return out;
-    }
-
-    private _migrateStoredAuthV1(data: PlexAuthDataV1 | null | undefined): PlexAuthData | null {
-        if (!data) return null;
-        const token = this._normalizeTokenDates(data.token);
-        if (!token) return null;
-        const selectedServerByUserId: Record<string, { serverId: string | null; serverUri: string | null }> = {
-            [token.userId]: {
-                serverId: data.selectedServerId ?? null,
-                serverUri: data.selectedServerUri ?? null,
-            },
-        };
-        return {
-            accountToken: token,
-            activeToken: token,
-            activeUserId: token.userId,
-            selectedServerByUserId,
-            deviceKey: data.deviceKey ?? null,
-        };
     }
 
     private _sleep(ms: number): Promise<void> {

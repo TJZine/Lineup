@@ -456,43 +456,6 @@ describe('PlexAuth', () => {
         });
     });
 
-    describe('migration', () => {
-        it('should migrate v1 stored auth to v2 shape', async () => {
-            const storedData = {
-                version: 1,
-                data: {
-                    token: {
-                        token: 'legacy-token',
-                        userId: 'legacy-user',
-                        username: 'legacy',
-                        email: 'legacy@example.com',
-                        thumb: '',
-                        expiresAt: null,
-                        issuedAt: new Date().toISOString(),
-                    },
-                    selectedServerId: 'server1',
-                    selectedServerUri: 'https://192.168.1.1:32400',
-                },
-            };
-            mockLocalStorage.setItem(
-                PLEX_AUTH_CONSTANTS.STORAGE_KEY,
-                JSON.stringify(storedData)
-            );
-
-            const auth = new PlexAuth(mockConfig);
-            const result = await auth.getStoredCredentials();
-
-            expect(result).not.toBeNull();
-            if (result) {
-                expect(result.accountToken.token).toBe('legacy-token');
-                expect(result.activeToken.token).toBe('legacy-token');
-                expect(result.activeUserId).toBe('legacy-user');
-                expect(result.selectedServerByUserId['legacy-user']).toBeDefined();
-                expect(result.selectedServerByUserId['legacy-user']?.serverId).toBe('server1');
-            }
-        });
-    });
-
     describe('Plex Home', () => {
         it('should parse home users from XML response', async () => {
             const auth = new PlexAuth(mockConfig);

@@ -123,21 +123,6 @@ export interface PlexAuthToken {
 }
 
 /**
- * Legacy (v1) authentication data including selected server.
- * This was the root object persisted for auth state.
- */
-export interface PlexAuthDataV1 {
-    /** User authentication token and profile */
-    token: PlexAuthToken;
-    /** Currently selected Plex server machine ID */
-    selectedServerId: string | null;
-    /** Active connection URI for the selected server */
-    selectedServerUri: string | null;
-    /** Device key metadata for JWT flow (optional) */
-    deviceKey?: PlexDeviceKey | null;
-}
-
-/**
  * Authentication data v2 (Plex Home support).
  * This is the root object persisted for auth state.
  */
@@ -186,7 +171,7 @@ export interface StoredAuthData {
     /** Storage format version */
     version: number;
     /** Auth data payload */
-    data: PlexAuthData | PlexAuthDataV1;
+    data: PlexAuthData;
 }
 
 // ============================================
