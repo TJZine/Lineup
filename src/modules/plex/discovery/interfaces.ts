@@ -38,6 +38,11 @@ export interface IPlexServerDiscovery {
      */
     initialize(): Promise<void>;
 
+    /**
+     * Update storage keys for selected server and server health persistence.
+     */
+    setStorageKeys(selectedServerKey: string, serverHealthKey: string): void;
+
     // Connection Testing
 
     /**

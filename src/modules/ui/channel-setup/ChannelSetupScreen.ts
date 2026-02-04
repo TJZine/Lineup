@@ -12,7 +12,6 @@ import {
     type ChannelSetupReview,
     type ChannelSetupRecord,
 } from '../../../Orchestrator';
-import { PLEX_DISCOVERY_CONSTANTS } from '../../plex/discovery/constants';
 import type { PlexLibraryType } from '../../plex/library';
 import type { FocusableElement, KeyEvent } from '../../navigation';
 import { safeLocalStorageGet } from '../../../utils/storage';
@@ -1374,7 +1373,7 @@ export class ChannelSetupScreen {
     }
 
     private _getSelectedServerId(): string | null {
-        const stored = safeLocalStorageGet(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY);
+        const stored = safeLocalStorageGet(this._orchestrator.getSelectedServerStorageKey());
         if (stored) {
             return stored;
         }

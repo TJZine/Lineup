@@ -69,6 +69,14 @@ export interface SubtitleSettings {
 }
 
 /**
+ * Account settings configuration.
+ */
+export interface AccountSettings {
+    /** Show profile picker on startup when Plex Home has multiple users */
+    showProfilePickerOnStartup: boolean;
+}
+
+/**
  * Complete settings configuration.
  */
 export interface SettingsConfig {
@@ -77,6 +85,7 @@ export interface SettingsConfig {
     display: DisplaySettings;
     developer: DeveloperSettings;
     subtitles: SubtitleSettings;
+    account: AccountSettings;
 }
 
 /**
@@ -131,7 +140,7 @@ export interface SettingsSelectConfig {
 
 export type SettingsItemConfig = SettingsToggleConfig | SettingsSelectConfig;
 
-export type SettingsSectionId = 'audio_subtitles' | 'playback_hdr' | 'appearance' | 'developer';
+export type SettingsSectionId = 'audio_subtitles' | 'playback_hdr' | 'appearance' | 'account' | 'developer';
 
 export type GuideSettingChange =
     | { key: 'categoryColors' | 'libraryTabs' | 'nowWatchingBanner'; enabled: boolean }

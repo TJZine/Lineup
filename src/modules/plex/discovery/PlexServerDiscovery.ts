@@ -36,6 +36,8 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     private _emitter: EventEmitter<PlexServerDiscoveryEvents>;
     private _getAuthHeaders: () => Record<string, string>;
     private _mixedContentConfig: MixedContentConfig;
+    private _selectedServerKey: string;
+    private _serverHealthKey: string;
     private _pendingServerId: string | undefined;
     private _discoveryPromise: Promise<PlexServer[]> | null = null;
 
@@ -47,6 +49,8 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         this._getAuthHeaders = config.getAuthHeaders;
         this._emitter = new EventEmitter<PlexServerDiscoveryEvents>();
         this._mixedContentConfig = { ...DEFAULT_MIXED_CONTENT_CONFIG };
+        this._selectedServerKey = PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY;
+        this._serverHealthKey = PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY;
         this._state = {
             servers: [],
             selectedServer: null,
@@ -437,7 +441,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         // Persist to localStorage
         try {
             localStorage.setItem(
-                PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY,
+                this._selectedServerKey,
                 serverId
             );
         } catch {
@@ -539,7 +543,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         this._state.selectedConnection = null;
         this._pendingServerId = undefined;
         try {
-            localStorage.removeItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY);
+            localStorage.removeItem(this._selectedServerKey);
         } catch {
             // localStorage may be unavailable, continue anyway
         }
@@ -607,6 +611,20 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         await this._restoreSelectionAsync();
     }
 
+    public setStorageKeys(selectedServerKey: string, serverHealthKey: string): void {
+        if (!selectedServerKey || !serverHealthKey) {
+            throw new Error('Storage keys must be non-empty strings');
+        }
+        this._selectedServerKey = selectedServerKey;
+        this._serverHealthKey = serverHealthKey;
+        this._pendingServerId = undefined;
+        this._state.selectedServer = null;
+        this._state.selectedConnection = null;
+        this._state.lastRefreshAt = null;
+        this._state.servers = [];
+        this._restoreSelection();
+    }
+
     // ============================================
     // Private Helpers
     // ============================================
@@ -641,6 +659,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
         return servers;
     }
+
 
     private async _parseResourcesResponse(response: Response): Promise<PlexApiResource[]> {
         const contentType =
@@ -847,7 +866,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         details?: { connection?: PlexConnection; latency?: number }
     ): void {
         try {
-            const raw = localStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY);
+            const raw = localStorage.getItem(this._serverHealthKey);
             let healthMap: Record<string, { type?: string; latencyMs?: number }> = {};
             if (raw) {
                 try {
@@ -874,7 +893,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             };
 
             healthMap[serverId] = record;
-            localStorage.setItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY, JSON.stringify(healthMap));
+            localStorage.setItem(this._serverHealthKey, JSON.stringify(healthMap));
         } catch {
             // ignore
         }
@@ -921,7 +940,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     private _restoreSelection(): void {
         try {
             const savedServerId = localStorage.getItem(
-                PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY
+                this._selectedServerKey
             );
             // Just note that there's a saved selection; actual restoration
             // happens in initialize() when we have server data

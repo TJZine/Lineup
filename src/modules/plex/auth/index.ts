@@ -14,6 +14,8 @@ export type {
     PlexPinRequest,
     PlexAuthToken,
     PlexAuthData,
+    PlexAuthDataV2,
+    PlexHomeUser,
     PlexAuthEvents,
 } from './interfaces';
 export { PLEX_AUTH_CONSTANTS, AUTH_ERROR_MESSAGES } from './constants';

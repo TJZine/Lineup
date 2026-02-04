@@ -34,12 +34,14 @@ import {
     type IPlexAuth,
     type PlexAuthConfig,
     type PlexPinRequest,
+    type PlexHomeUser,
 } from './modules/plex/auth';
 import {
     PlexServerDiscovery,
     type IPlexServerDiscovery,
     type PlexServer,
 } from './modules/plex/discovery';
+import { PLEX_DISCOVERY_CONSTANTS } from './modules/plex/discovery/constants';
 import {
     PlexLibrary,
     type IPlexLibrary,
@@ -274,10 +276,16 @@ export interface IAppOrchestrator {
     requestAuthPin(): Promise<PlexPinRequest>;
     pollForPin(pinId: number): Promise<PlexPinRequest>;
     cancelPin(pinId: number): Promise<void>;
+    getHomeUsers(): Promise<PlexHomeUser[]>;
+    switchHomeUser(userId: string, pin?: string): Promise<void>;
+    useMainAccountProfile(): Promise<void>;
+    signOutPlex(): Promise<void>;
     discoverServers(forceRefresh?: boolean): Promise<PlexServer[]>;
     selectServer(serverId: string): Promise<boolean>;
     clearSelectedServer(): void;
     getSelectedServerId(): string | null;
+    getSelectedServerStorageKey(): string;
+    getServerHealthStorageKey(): string;
     getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibraryType[]>;
     getChannelSetupRecord(serverId: string): ChannelSetupRecord | null;
     getSetupPreview(config: ChannelSetupConfig, options?: { signal?: AbortSignal }): Promise<ChannelSetupPreview>;
@@ -395,6 +403,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 return {};
             },
         });
+        this._configureDiscoveryStorageKeysForActiveUser();
 
         // PlexLibrary needs config with accessors
         const plexLibraryConfig: PlexLibraryConfig = {
@@ -804,6 +813,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 handleGlobalError: this.handleGlobalError.bind(this),
                 setReady: (ready: boolean): void => { this._ready = ready; },
                 setupEventWiring: this._setupEventWiring.bind(this),
+                configureDiscoveryStorage: this._configureDiscoveryStorageKeysForActiveUser.bind(this),
                 configureChannelManagerStorage: this._configureChannelManagerStorageForSelectedServer.bind(this),
                 getSelectedServerId: this._getSelectedServerId.bind(this),
                 shouldRunAudioSetup: this._shouldRunAudioSetup.bind(this),
@@ -850,6 +860,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         if (this._initCoordinator) {
             this._initCoordinator.clearAuthResume();
             this._initCoordinator.clearServerResume();
+            this._initCoordinator.clearProfileResume();
         }
 
         if (this._pendingDayRolloverTimer !== null) {
@@ -939,6 +950,14 @@ export class AppOrchestrator implements IAppOrchestrator {
 
     getSelectedServerId(): string | null {
         return this._getSelectedServerId();
+    }
+
+    getSelectedServerStorageKey(): string {
+        return this._getSelectedServerStorageKey();
+    }
+
+    getServerHealthStorageKey(): string {
+        return this._getServerHealthStorageKey();
     }
 
     /**
@@ -1122,6 +1141,56 @@ export class AppOrchestrator implements IAppOrchestrator {
         await this._plexAuth.cancelPin(pinId);
     }
 
+    async getHomeUsers(): Promise<PlexHomeUser[]> {
+        if (!this._plexAuth) {
+            throw new Error('PlexAuth not initialized');
+        }
+        return this._plexAuth.getHomeUsers();
+    }
+
+    async switchHomeUser(userId: string, pin?: string): Promise<void> {
+        if (!this._plexAuth || !this._plexDiscovery) {
+            throw new Error('PlexAuth not initialized');
+        }
+
+        await this._plexAuth.switchHomeUser(userId, { pin: pin ?? null });
+        this._configureDiscoveryStorageKeysForActiveUser();
+
+        if (this._initCoordinator) {
+            await this._initCoordinator.runStartup(3);
+        } else {
+            await this._plexDiscovery.initialize();
+        }
+    }
+
+    async useMainAccountProfile(): Promise<void> {
+        if (!this._plexAuth || !this._plexDiscovery) {
+            throw new Error('PlexAuth not initialized');
+        }
+
+        await this._plexAuth.logoutActiveUser();
+        this._configureDiscoveryStorageKeysForActiveUser();
+
+        if (this._initCoordinator) {
+            await this._initCoordinator.runStartup(3);
+        } else {
+            await this._plexDiscovery.initialize();
+        }
+    }
+
+    async signOutPlex(): Promise<void> {
+        if (!this._plexAuth) {
+            throw new Error('PlexAuth not initialized');
+        }
+        await this._plexAuth.clearCredentials();
+        this._plexDiscovery?.clearSelection();
+        if (this._initCoordinator) {
+            await this._initCoordinator.runStartup(2);
+        } else {
+            this._navigation?.goTo('auth');
+        }
+    }
+
     /**
      * Discover Plex servers (optionally forcing refresh).
      */
@@ -1148,6 +1217,10 @@ export class AppOrchestrator implements IAppOrchestrator {
         }
         const ok = await this._plexDiscovery.selectServer(serverId);
         if (ok) {
+            await this._persistSelectedServerForActiveUser(
+                serverId,
+                this._plexDiscovery.getServerUri()
+            );
             // If we're already running (or resuming from the server-select screen),
             // re-run the channel/player/EPG phases to swap to the selected server.
             if (this._initCoordinator) {
@@ -1180,6 +1253,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             throw new Error('PlexServerDiscovery not initialized');
         }
         this._plexDiscovery.clearSelection();
+        void this._persistSelectedServerForActiveUser(null, null);
     }
 
     async getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibraryType[]> {
@@ -1502,6 +1576,39 @@ export class AppOrchestrator implements IAppOrchestrator {
         return server ? server.id : null;
     }
 
+    private _getActiveUserId(): string | null {
+        if (!this._plexAuth) {
+            return null;
+        }
+        return this._plexAuth.getActiveUserId() ?? this._plexAuth.getAccountUserId() ?? null;
+    }
+
+    private _getSelectedServerStorageKey(): string {
+        const userId = this._getActiveUserId();
+        if (!userId) {
+            return PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY;
+        }
+        return `${PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY}:${userId}`;
+    }
+
+    private _getServerHealthStorageKey(): string {
+        const userId = this._getActiveUserId();
+        if (!userId) {
+            return PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY;
+        }
+        return `${PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY}:${userId}`;
+    }
+
+    private _configureDiscoveryStorageKeysForActiveUser(): void {
+        if (!this._plexDiscovery) {
+            return;
+        }
+        this._plexDiscovery.setStorageKeys(
+            this._getSelectedServerStorageKey(),
+            this._getServerHealthStorageKey()
+        );
+    }
+
     private _seedSubtitleLanguageFromPlexUser(): void {
         const existing = safeLocalStorageGet(RETUNE_STORAGE_KEYS.SUBTITLE_LANGUAGE);
         if (typeof existing === 'string' && existing.trim().length > 0) {
@@ -1519,11 +1626,19 @@ export class AppOrchestrator implements IAppOrchestrator {
     }
 
     private _getPerServerChannelsStorageKey(serverId: string): string {
-        return `${STORAGE_KEYS.CHANNELS_SERVER}:${serverId}`;
+        const userId = this._getActiveUserId();
+        if (!userId) {
+            return `${STORAGE_KEYS.CHANNELS_SERVER}:${serverId}`;
+        }
+        return `${STORAGE_KEYS.CHANNELS_SERVER}:${serverId}:${userId}`;
     }
 
     private _getPerServerCurrentChannelKey(serverId: string): string {
-        return `${STORAGE_KEYS.CURRENT_CHANNEL}:${serverId}`;
+        const userId = this._getActiveUserId();
+        if (!userId) {
+            return `${STORAGE_KEYS.CURRENT_CHANNEL}:${serverId}`;
+        }
+        return `${STORAGE_KEYS.CURRENT_CHANNEL}:${serverId}:${userId}`;
     }
 
     private async _configureChannelManagerStorageForSelectedServer(): Promise<void> {
@@ -1540,6 +1655,34 @@ export class AppOrchestrator implements IAppOrchestrator {
         const serverCurrentKey = this._getPerServerCurrentChannelKey(serverId);
 
         this._channelManager.setStorageKeys(serverChannelsKey, serverCurrentKey);
+    }
+
+    private async _persistSelectedServerForActiveUser(
+        serverId: string | null,
+        serverUri: string | null
+    ): Promise<void> {
+        if (!this._plexAuth) {
+            return;
+        }
+        const stored = await this._plexAuth.getStoredCredentials();
+        if (!stored) {
+            return;
+        }
+        const activeUserId = this._plexAuth.getActiveUserId() ?? stored.activeUserId;
+        if (!activeUserId) {
+            return;
+        }
+        const selectedServerByUserId = {
+            ...(stored.selectedServerByUserId ?? {}),
+        };
+        selectedServerByUserId[activeUserId] = { serverId, serverUri };
+        await this._plexAuth.storeCredentials({
+            accountToken: stored.accountToken,
+            activeToken: stored.activeToken,
+            activeUserId,
+            selectedServerByUserId,
+            deviceKey: stored.deviceKey ?? null,
+        });
     }
 
 

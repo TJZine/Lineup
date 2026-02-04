@@ -144,6 +144,7 @@ export interface KeyEvent {
 export type Screen =
     | 'splash'
     | 'auth'
+    | 'profile-select'
     | 'server-select'
     | 'audio-setup'
     | 'channel-setup'

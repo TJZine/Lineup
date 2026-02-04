@@ -103,6 +103,13 @@
   margin-top: 10px;
 }
 
+.settings-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 18px;
+  justify-content: flex-start;
+}
+
 /* Ensure the HTML `hidden` attribute actually collapses the accordion body. */
 .settings-section-items[hidden] {
   display: none;
