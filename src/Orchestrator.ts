@@ -1156,10 +1156,10 @@ export class AppOrchestrator implements IAppOrchestrator {
         await this._plexAuth.switchHomeUser(userId, { pin: pin ?? null });
         this._configureDiscoveryStorageKeysForActiveUser();
 
-        await this._plexDiscovery.initialize();
-
-        if (this._initCoordinator && this._ready) {
+        if (this._initCoordinator) {
             await this._initCoordinator.runStartup(3);
+        } else {
+            await this._plexDiscovery.initialize();
         }
     }
 
@@ -1171,10 +1171,10 @@ export class AppOrchestrator implements IAppOrchestrator {
         await this._plexAuth.logoutActiveUser();
         this._configureDiscoveryStorageKeysForActiveUser();
 
-        await this._plexDiscovery.initialize();
-
-        if (this._initCoordinator && this._ready) {
+        if (this._initCoordinator) {
             await this._initCoordinator.runStartup(3);
+        } else {
+            await this._plexDiscovery.initialize();
         }
     }
 
@@ -1184,7 +1184,11 @@ export class AppOrchestrator implements IAppOrchestrator {
         }
         await this._plexAuth.clearCredentials();
         this._plexDiscovery?.clearSelection();
-        this._navigation?.goTo('auth');
+        if (this._initCoordinator) {
+            await this._initCoordinator.runStartup(2);
+        } else {
+            this._navigation?.goTo('auth');
+        }
     }
 
     /**

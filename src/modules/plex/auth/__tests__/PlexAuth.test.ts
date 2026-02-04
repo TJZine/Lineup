@@ -483,6 +483,32 @@ describe('PlexAuth', () => {
             expect(users[1]).toMatchObject({ id: '2', title: 'Kid', restricted: true });
         });
 
+        it('should parse home users from XML response with single-quoted attributes', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const xml = `
+                <MediaContainer size='2'>
+                  <User id='1' title='Admin' admin='1' protected='1' thumb='https://plex.tv/u1.png' />
+                  <User id='2' title='Kid' admin='0' protected='0' restricted='1' />
+                </MediaContainer>
+            `;
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: () => 'application/xml' },
+                json: async () => ({}),
+                text: async () => xml,
+            });
+
+            const users = await auth.getHomeUsers();
+
+            expect(users).toHaveLength(2);
+            expect(users[0]).toMatchObject({ id: '1', title: 'Admin', admin: true, protected: true });
+            expect(users[1]).toMatchObject({ id: '2', title: 'Kid', restricted: true });
+        });
+
         it('should parse home users from JSON returned as text with non-JSON content-type', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');

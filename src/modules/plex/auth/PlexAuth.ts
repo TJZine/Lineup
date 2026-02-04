@@ -44,6 +44,7 @@ export { AppErrorCode, PlexApiError } from './helpers';
 export class PlexAuth implements IPlexAuth {
     private _state: PlexAuthState;
     private _emitter: EventEmitter<PlexAuthEvents>;
+    private _credentialsEpoch = 0;
 
     /**
      * Create a new PlexAuth instance.
@@ -288,6 +289,7 @@ export class PlexAuth implements IPlexAuth {
      * Clear credentials from localStorage.
      */
     public async clearCredentials(): Promise<void> {
+        this._credentialsEpoch += 1;
         try {
             localStorage.removeItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY);
         } catch (error) {
@@ -428,7 +430,9 @@ export class PlexAuth implements IPlexAuth {
             );
         }
 
-        const headers = buildRequestHeaders(this._state.config, this._state.accountToken.token);
+        const epoch = this._credentialsEpoch;
+        const accountToken = this._state.accountToken;
+        const headers = buildRequestHeaders(this._state.config, accountToken.token);
         const pinValue = options?.pin && options.pin.trim().length > 0 ? options.pin.trim() : null;
 
         const buildUrl = (base: string): string => {
@@ -463,7 +467,7 @@ export class PlexAuth implements IPlexAuth {
 
                 if (response.status === 401) {
                     if (pinValue) {
-                        const stillValid = await this.validateToken(this._state.accountToken.token);
+                        const stillValid = await this.validateToken(accountToken.token);
                         if (stillValid) {
                             throw new PlexApiError(
                                 AppErrorCode.AUTH_FAILED,
@@ -482,7 +486,7 @@ export class PlexAuth implements IPlexAuth {
                 }
                 if (response.status === 403) {
                     if (pinValue) {
-                        const stillValid = await this.validateToken(this._state.accountToken.token);
+                        const stillValid = await this.validateToken(accountToken.token);
                         if (stillValid) {
                             throw new PlexApiError(
                                 AppErrorCode.AUTH_FAILED,
@@ -540,6 +544,19 @@ export class PlexAuth implements IPlexAuth {
         const parsed = parseSwitchResponse(payload.json ?? payload.text ?? null);
         const userToken = await this._fetchUserProfile(parsed.authToken);
 
+        if (
+            this._credentialsEpoch !== epoch ||
+            this._state.accountToken === null ||
+            this._state.accountToken.token !== accountToken.token
+        ) {
+            throw new PlexApiError(
+                AppErrorCode.AUTH_REQUIRED,
+                'Authentication changed during profile switch',
+                undefined,
+                false
+            );
+        }
+
         const fromUserId = this._state.activeToken?.userId ?? null;
         this._state.activeToken = userToken;
         this._state.isValidated = true;
@@ -553,7 +570,7 @@ export class PlexAuth implements IPlexAuth {
         }
 
         await this.storeCredentials({
-            accountToken: this._state.accountToken,
+            accountToken: accountToken,
             activeToken: userToken,
             activeUserId: userToken.userId,
             selectedServerByUserId,

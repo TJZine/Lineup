@@ -368,7 +368,7 @@ function parseHomeUsersXmlFallback(payload: string): PlexHomeUser[] {
 
     for (const raw of matches) {
         const attrs: Record<string, string> = {};
-        const attrRegex = /(\w+)="([^"]*)"/g;
+        const attrRegex = /(\w+)=["']([^"']*)["']/g;
         let match: RegExpExecArray | null = null;
         while ((match = attrRegex.exec(raw)) !== null) {
             const key = match[1];

@@ -19,7 +19,6 @@ export type {
     PersistentState,
     UserPreferences,
     ChannelConfig,
-    PlexAuthData,
     LifecycleEventMap,
     LifecycleAppError,
     AppLifecycleState,

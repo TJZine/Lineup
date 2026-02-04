@@ -59,27 +59,6 @@ export interface ChannelConfig {
 }
 
 /**
- * Minimal Plex authentication data for persistence.
- * Full type defined in plex-auth module.
- */
-export interface PlexAuthData {
-    /** Authentication token */
-    token: {
-        token: string;
-        userId: string;
-        username: string;
-        email: string;
-        thumb: string;
-        expiresAt: Date | null;
-        issuedAt: Date;
-    };
-    /** Selected server machine ID */
-    selectedServerId: string | null;
-    /** Active connection URI */
-    selectedServerUri: string | null;
-}
-
-/**
  * Persistent state saved to localStorage.
  * Includes version for migrations.
  */
@@ -90,7 +69,7 @@ export interface PersistentState {
      * Plex authentication data
      * @deprecated Always null; authentication is managed by the PlexAuth module.
      */
-    plexAuth: PlexAuthData | null;
+    plexAuth: null;
     /** Channel configurations */
     channelConfigs: ChannelConfig[];
     /** Current channel index */
