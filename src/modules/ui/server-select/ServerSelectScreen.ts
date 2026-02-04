@@ -8,7 +8,6 @@ import { AppOrchestrator } from '../../../Orchestrator';
 import type { PlexServer } from '../../plex/discovery/types';
 import { PlexApiError } from '../../plex/auth';
 import type { FocusableElement } from '../../navigation';
-import { PLEX_DISCOVERY_CONSTANTS } from '../../plex/discovery/constants';
 import { safeLocalStorageGet } from '../../../utils/storage';
 
 const FOCUS_RESTORE_DELAY_MS = 50;
@@ -139,7 +138,7 @@ export class ServerSelectScreen {
             let autoSelectError: unknown | null = null;
 
             if (options.autoSelect) {
-                const savedId = safeLocalStorageGet(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY);
+                const savedId = safeLocalStorageGet(this._orchestrator.getSelectedServerStorageKey());
                 if (savedId && servers.some(s => s.id === savedId)) {
                     try {
                         const success = await this._orchestrator.selectServer(savedId);
@@ -220,7 +219,7 @@ export class ServerSelectScreen {
     }
 
     private _renderServers(servers: PlexServer[]): void {
-        const rawHealth = safeLocalStorageGet(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY);
+        const rawHealth = safeLocalStorageGet(this._orchestrator.getServerHealthStorageKey());
         let healthMap: Record<string, { status?: string; type?: string; latencyMs?: number; testedAt?: number } | undefined> = {};
         let parsedHealth: unknown = {};
         if (rawHealth) {
@@ -236,7 +235,7 @@ export class ServerSelectScreen {
             healthMap = parsedHealth as Record<string, { status?: string; type?: string; latencyMs?: number; testedAt?: number } | undefined>;
         } else if (rawHealth) {
             try {
-                localStorage.removeItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY);
+                localStorage.removeItem(this._orchestrator.getServerHealthStorageKey());
             } catch {
                 // ignore storage errors
             }

@@ -21,6 +21,7 @@ import type { ChannelTransitionConfig } from './modules/ui/channel-transition';
 import type { PlaybackOptionsConfig } from './modules/ui/playback-options';
 import type { PlexAuthConfig } from './modules/plex/auth';
 import { AuthScreen } from './modules/ui/auth';
+import { ProfileSelectScreen } from './modules/ui/profile-select';
 import { ServerSelectScreen } from './modules/ui/server-select';
 import { SplashScreen } from './modules/ui/splash';
 import { AudioSetupScreen } from './modules/ui/audio-setup';
@@ -116,9 +117,11 @@ export class App {
     private _toastHideTimer: number | null = null;
     private _lastToastAt: number = 0;
     private _authContainer: HTMLElement | null = null;
+    private _profileSelectContainer: HTMLElement | null = null;
     private _serverSelectContainer: HTMLElement | null = null;
     private _channelSetupContainer: HTMLElement | null = null;
     private _authScreen: AuthScreen | null = null;
+    private _profileSelectScreen: ProfileSelectScreen | null = null;
     private _serverSelectScreen: ServerSelectScreen | null = null;
     private _channelSetupScreen: ChannelSetupScreen | null = null;
     private _channelSetupScreenLoad: Promise<ChannelSetupScreen> | null = null;
@@ -317,6 +320,13 @@ export class App {
         root.appendChild(authContainer);
         this._authContainer = authContainer;
 
+        // Profile select container (Plex Home)
+        const profileSelectContainer = document.createElement('div');
+        profileSelectContainer.id = 'profile-select-container';
+        profileSelectContainer.className = 'screen';
+        root.appendChild(profileSelectContainer);
+        this._profileSelectContainer = profileSelectContainer;
+
         // Server select container (minimal screen)
         const serverSelectContainer = document.createElement('div');
         serverSelectContainer.id = 'server-select-container';
@@ -427,10 +437,16 @@ export class App {
         if (this._splashContainer) {
             this._splashScreen = new SplashScreen(this._splashContainer);
         }
-        if (!this._authContainer || !this._serverSelectContainer || !this._channelSetupContainer) {
+        if (
+            !this._authContainer ||
+            !this._profileSelectContainer ||
+            !this._serverSelectContainer ||
+            !this._channelSetupContainer
+        ) {
             return;
         }
         this._authScreen = new AuthScreen(this._authContainer, this._orchestrator);
+        this._profileSelectScreen = new ProfileSelectScreen(this._profileSelectContainer, this._orchestrator);
         this._serverSelectScreen = new ServerSelectScreen(
             this._serverSelectContainer,
             this._orchestrator
@@ -482,6 +498,7 @@ export class App {
             this._orchestrator &&
             this._orchestrator.isReady() &&
             screen !== 'auth' &&
+            screen !== 'profile-select' &&
             screen !== 'server-select' &&
             screen !== 'audio-setup' &&
             screen !== 'channel-setup' &&
@@ -489,6 +506,7 @@ export class App {
         ) {
             this._splashScreen?.hide();
             this._authScreen?.hide();
+            this._profileSelectScreen?.hide();
             this._serverSelectScreen?.hide();
             this._audioSetupScreen?.hide();
             this._channelSetupScreen?.hide();
@@ -498,6 +516,7 @@ export class App {
         }
         const showSplash = screen === 'splash';
         const showAuth = screen === 'auth';
+        const showProfileSelect = screen === 'profile-select';
         const showServerSelect = screen === 'server-select';
         const showAudioSetup = screen === 'audio-setup';
         const showChannelSetup = screen === 'channel-setup';
@@ -516,6 +535,14 @@ export class App {
                 this._authScreen.show();
             } else {
                 this._authScreen.hide();
+            }
+        }
+
+        if (this._profileSelectScreen) {
+            if (showProfileSelect) {
+                this._profileSelectScreen.show();
+            } else {
+                this._profileSelectScreen.hide();
             }
         }
 

@@ -12,11 +12,17 @@ export const PLEX_AUTH_CONSTANTS = {
     /** Base URL for plex.tv API */
     PLEX_TV_BASE_URL: 'https://plex.tv/api/v2',
 
+    /** Base URL for plex.tv API v1 */
+    PLEX_TV_BASE_URL_V1: 'https://plex.tv/api',
+
     /** PIN endpoint path */
     PIN_ENDPOINT: '/pins',
 
     /** User profile endpoint path */
     USER_ENDPOINT: '/user',
+
+    /** Plex Home users endpoint path */
+    HOME_USERS_ENDPOINT: '/home/users',
 
     /** localStorage key for auth data */
     STORAGE_KEY: 'retune_plex_auth',
@@ -43,7 +49,7 @@ export const PLEX_AUTH_CONSTANTS = {
     RETRY_DELAY_MS: 1000,
 
     /** Storage version for future migrations */
-    STORAGE_VERSION: 1,
+    STORAGE_VERSION: 2,
 } as const;
 
 /**

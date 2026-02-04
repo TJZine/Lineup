@@ -95,6 +95,10 @@ const TOGGLE_METADATA: Record<string, ToggleMetadata> = {
         storageKey: SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED,
         defaultValue: true,
     },
+    'settings-profile-picker-startup': {
+        storageKey: SETTINGS_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP,
+        defaultValue: DEFAULT_SETTINGS.account.showProfilePickerOnStartup,
+    },
 };
 
 const SELECT_METADATA: Record<string, SelectMetadata> = {
@@ -141,8 +145,10 @@ export class SettingsScreen {
         audio_subtitles: true,
         playback_hdr: false,
         appearance: false,
+        account: false,
         developer: false,
     };
+    private _switchProfileButton: HTMLButtonElement | null = null;
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
 
     constructor(
@@ -192,6 +198,23 @@ export class SettingsScreen {
         for (const section of sections) {
             panel.appendChild(this._createSection(section));
         }
+
+        const actions = document.createElement('div');
+        actions.className = 'settings-actions';
+
+        const switchProfileButton = document.createElement('button');
+        switchProfileButton.id = 'settings-switch-profile';
+        switchProfileButton.className = 'screen-button';
+        switchProfileButton.textContent = 'Switch Profile';
+        switchProfileButton.addEventListener('click', () => {
+            const nav = this._getNavigation();
+            nav?.replaceScreen('profile-select');
+        });
+        actions.appendChild(switchProfileButton);
+        this._switchProfileButton = switchProfileButton;
+        this._focusableOrder.push(switchProfileButton.id);
+
+        panel.appendChild(actions);
 
         this._container.appendChild(panel);
     }
@@ -244,6 +267,10 @@ export class SettingsScreen {
             DEFAULT_SETTINGS.subtitles.preferForced
         );
         const subtitleLanguageValue = this._loadSubtitleLanguageValue();
+        const showProfilePickerOnStartup = this._loadBoolSetting(
+            SETTINGS_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP,
+            DEFAULT_SETTINGS.account.showProfilePickerOnStartup
+        );
 
         return [
             {
@@ -433,6 +460,24 @@ export class SettingsScreen {
                         })),
                         onChange: (value: number): void => {
                             this._saveNumberSetting(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, value);
+                        },
+                    },
+                ],
+            },
+            {
+                id: 'account',
+                title: '👤 Account',
+                items: [
+                    {
+                        id: 'settings-profile-picker-startup',
+                        label: 'Show Profile Picker on Startup',
+                        description: 'When enabled, prompt for a Plex Home profile on launch',
+                        value: showProfilePickerOnStartup,
+                        onChange: (value: boolean): void => {
+                            this._saveBoolSetting(
+                                SETTINGS_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP,
+                                value
+                            );
                         },
                     },
                 ],
@@ -810,6 +855,9 @@ export class SettingsScreen {
         if (this._sectionHeaders.has(id)) {
             return true;
         }
+        if (this._switchProfileButton && id === this._switchProfileButton.id) {
+            return true;
+        }
         const toggle = this._toggleElements.get(id);
         if (toggle) {
             return !toggle.isDisabled();
@@ -871,6 +919,9 @@ export class SettingsScreen {
     private _getFocusableElement(id: string): HTMLButtonElement | null {
         const header = this._sectionHeaders.get(id);
         if (header) return header;
+        if (this._switchProfileButton && id === this._switchProfileButton.id) {
+            return this._switchProfileButton;
+        }
         const toggle = this._toggleElements.get(id);
         if (toggle) return toggle.element;
         const select = this._selectElements.get(id);
@@ -890,6 +941,7 @@ export class SettingsScreen {
         this._sectionHeaders.clear();
         this._sectionBodies.clear();
         this._focusableOrder = [];
+        this._switchProfileButton = null;
         this._container.innerHTML = '';
     }
 }

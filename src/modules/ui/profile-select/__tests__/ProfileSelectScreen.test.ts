@@ -1,0 +1,146 @@
+/**
+ * @jest-environment jsdom
+ */
+
+import { ProfileSelectScreen } from '../ProfileSelectScreen';
+
+type NavigationStub = {
+    registerFocusable: jest.Mock;
+    unregisterFocusable: jest.Mock;
+    setFocus: jest.Mock;
+    openModal: jest.Mock;
+    closeModal: jest.Mock;
+    getCurrentScreen: jest.Mock;
+    on: jest.Mock;
+    off: jest.Mock;
+    goTo: jest.Mock;
+    replaceScreen: jest.Mock;
+    __handlers: Record<string, ((event: unknown) => void) | undefined>;
+};
+
+const createNavigationStub = (): NavigationStub => ({
+    registerFocusable: jest.fn(),
+    unregisterFocusable: jest.fn(),
+    setFocus: jest.fn(),
+    openModal: jest.fn(),
+    closeModal: jest.fn(),
+    getCurrentScreen: jest.fn().mockReturnValue('profile-select'),
+    __handlers: {},
+    on: jest.fn(function (this: NavigationStub, event: string, handler: (payload: unknown) => void) {
+        this.__handlers[event] = handler;
+    }),
+    off: jest.fn(function (this: NavigationStub, event: string, _handler: (payload: unknown) => void) {
+        delete this.__handlers[event];
+    }),
+    goTo: jest.fn(),
+    replaceScreen: jest.fn(),
+});
+
+type OrchestratorStub = {
+    getNavigation: () => NavigationStub;
+    getHomeUsers: () => Promise<unknown[]>;
+    switchHomeUser: jest.Mock;
+    useMainAccountProfile: jest.Mock;
+    signOutPlex: jest.Mock;
+};
+
+const createOrchestratorStub = (users: Array<{
+    id: string;
+    title: string;
+    thumb: string | null;
+    admin: boolean;
+    protected: boolean;
+    restricted?: boolean;
+}>): OrchestratorStub => {
+    const navigation = createNavigationStub();
+    return {
+        getNavigation: () => navigation,
+        getHomeUsers: jest.fn().mockResolvedValue(users),
+        switchHomeUser: jest.fn().mockResolvedValue(undefined),
+        useMainAccountProfile: jest.fn().mockResolvedValue(undefined),
+        signOutPlex: jest.fn().mockResolvedValue(undefined),
+    };
+};
+
+describe('ProfileSelectScreen', () => {
+    afterEach(() => {
+        document.body.innerHTML = '';
+        jest.clearAllMocks();
+    });
+
+    it('renders users', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(container, orchestrator as never);
+        screen.show();
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const rows = container.querySelectorAll('.profile-row');
+        expect(rows.length).toBe(2);
+        expect(container.textContent).toContain('Admin');
+        expect(container.textContent).toContain('Kid');
+    });
+
+    it('opens PIN modal for protected users', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(container, orchestrator as never);
+        screen.show();
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const protectedButton = container.querySelector('#btn-profile-1') as HTMLButtonElement;
+        protectedButton.click();
+
+        const modal = container.querySelector('.profile-pin-modal') as HTMLElement;
+        expect(modal.style.display).toBe('flex');
+    });
+
+    it('PIN entry ignores repeat events and submits exactly 4 digits', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const nav = orchestrator.getNavigation();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(container, orchestrator as never);
+        screen.show();
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        // Open PIN modal for protected user.
+        (container.querySelector('#btn-profile-1') as HTMLButtonElement).click();
+
+        const keyPress = nav.__handlers['keyPress'];
+        expect(typeof keyPress).toBe('function');
+
+        // Repeat for '1' should be ignored.
+        keyPress!({ button: 'num1', isRepeat: true, isLongPress: false, handled: false });
+        keyPress!({ button: 'num1', isRepeat: false, isLongPress: false, handled: false });
+        keyPress!({ button: 'num2', isRepeat: false, isLongPress: false, handled: false });
+        keyPress!({ button: 'num3', isRepeat: false, isLongPress: false, handled: false });
+        keyPress!({ button: 'num4', isRepeat: false, isLongPress: false, handled: false });
+
+        // Allow async submit to complete.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(orchestrator.switchHomeUser).toHaveBeenCalledTimes(1);
+        expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', '1234');
+    });
+});

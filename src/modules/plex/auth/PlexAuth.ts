@@ -14,6 +14,8 @@ import {
     PlexAuthEvents,
     PlexAuthToken,
     PlexAuthData,
+    PlexAuthDataV1,
+    PlexHomeUser,
     PlexPinRequest,
     PlexAuthState,
     StoredAuthData,
@@ -23,9 +25,13 @@ import {
     PlexApiError,
     getOrCreateClientId,
     buildRequestHeaders,
+    readPlexResponse,
     parsePinResponse,
     parseUserResponse,
+    parseHomeUsers,
+    parseSwitchResponse,
     fetchWithRetry,
+    fetchWithTimeout,
 } from './helpers';
 
 // Re-export for consumers
@@ -55,7 +61,8 @@ export class PlexAuth implements IPlexAuth {
         this._emitter = new EventEmitter<PlexAuthEvents>();
         this._state = {
             config: configWithClientId,
-            currentToken: null,
+            accountToken: null,
+            activeToken: null,
             isValidated: false,
             pendingPin: null,
         };
@@ -109,9 +116,12 @@ export class PlexAuth implements IPlexAuth {
         if (pin.authToken !== null) {
             const userToken = await this._fetchUserProfile(pin.authToken);
             await this.storeCredentials({
-                token: userToken,
-                selectedServerId: null,
-                selectedServerUri: null,
+                accountToken: userToken,
+                activeToken: userToken,
+                activeUserId: userToken.userId,
+                selectedServerByUserId: {
+                    [userToken.userId]: { serverId: null, serverUri: null },
+                },
             });
         }
         return pin;
@@ -206,7 +216,19 @@ export class PlexAuth implements IPlexAuth {
             if (response.status === 200) {
                 const data = await response.json();
                 const userToken = parseUserResponse(data, token);
-                this._state.currentToken = userToken;
+                const isAccountToken = this._state.accountToken?.token === token;
+                const isActiveToken = this._state.activeToken?.token === token;
+                if (isAccountToken) {
+                    this._state.accountToken = userToken;
+                    if (isActiveToken || !this._state.activeToken) {
+                        this._state.activeToken = userToken;
+                    }
+                } else {
+                    this._state.activeToken = userToken;
+                    if (!this._state.accountToken) {
+                        this._state.accountToken = userToken;
+                    }
+                }
                 this._state.isValidated = true;
                 return true;
             }
@@ -257,7 +279,8 @@ export class PlexAuth implements IPlexAuth {
             // Storage can be blocked or quota-limited; keep the token in-memory for this session.
             console.warn('[PlexAuth] Failed to persist credentials to localStorage:', error);
         }
-        this._state.currentToken = auth.token;
+        this._state.accountToken = auth.accountToken;
+        this._state.activeToken = auth.activeToken;
         this._state.isValidated = true;
         this._emitter.emit('authChange', true);
     }
@@ -271,7 +294,8 @@ export class PlexAuth implements IPlexAuth {
         } catch (error) {
             console.warn('[PlexAuth] Failed to clear credentials from localStorage:', error);
         }
-        this._state.currentToken = null;
+        this._state.accountToken = null;
+        this._state.activeToken = null;
         this._state.isValidated = false;
         this._state.pendingPin = null;
         this._emitter.emit('authChange', false);
@@ -283,12 +307,12 @@ export class PlexAuth implements IPlexAuth {
 
     /** Check if currently authenticated. */
     public isAuthenticated(): boolean {
-        return this._state.currentToken !== null;
+        return this._state.activeToken !== null;
     }
 
     /** Get current user token. */
     public getCurrentUser(): PlexAuthToken | null {
-        return this._state.currentToken;
+        return this._state.activeToken;
     }
 
     /**
@@ -296,13 +320,283 @@ export class PlexAuth implements IPlexAuth {
      * @returns Object containing all required Plex headers
      */
     public getAuthHeaders(): Record<string, string> {
-        const token = this._state.currentToken
-            ? this._state.currentToken.token
+        const token = this._state.activeToken
+            ? this._state.activeToken.token
             : undefined;
         return buildRequestHeaders(this._state.config, token, {
             platformVersion: this._state.config.platformVersion,
             deviceName: this._state.config.deviceName,
         });
+    }
+
+    public async getHomeUsers(options?: { signal?: AbortSignal | null }): Promise<PlexHomeUser[]> {
+        if (!this._state.accountToken) {
+            throw new PlexApiError(
+                AppErrorCode.AUTH_REQUIRED,
+                'Plex account token not available',
+                undefined,
+                false
+            );
+        }
+
+        const headers = buildRequestHeaders(this._state.config, this._state.accountToken.token);
+        const endpoints = [
+            PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL + PLEX_AUTH_CONSTANTS.HOME_USERS_ENDPOINT,
+            PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL_V1 + PLEX_AUTH_CONSTANTS.HOME_USERS_ENDPOINT,
+        ];
+
+        let lastError: unknown = null;
+        for (const url of endpoints) {
+            try {
+                const init: RequestInit = {
+                    method: 'GET',
+                    headers: headers,
+                };
+                const response = await fetchWithTimeout(
+                    url,
+                    init,
+                    PLEX_AUTH_CONSTANTS.REQUEST_TIMEOUT_MS,
+                    options?.signal ?? null
+                );
+
+                if (response.status === 401) {
+                    throw new PlexApiError(
+                        AppErrorCode.AUTH_REQUIRED,
+                        'Unauthorized: account authentication required',
+                        401,
+                        false
+                    );
+                }
+                if (response.status === 403) {
+                    throw new PlexApiError(
+                        AppErrorCode.AUTH_INVALID,
+                        'Forbidden: account access denied',
+                        403,
+                        false
+                    );
+                }
+                if (response.status === 404 || response.status === 405) {
+                    lastError = null;
+                    continue;
+                }
+                if (!response.ok) {
+                    throw new PlexApiError(
+                        AppErrorCode.SERVER_UNREACHABLE,
+                        `Failed to fetch Plex Home users (status ${response.status})`,
+                        response.status,
+                        response.status >= 500
+                    );
+                }
+
+                const payload = await readPlexResponse(response);
+                return parseHomeUsers(payload.json ?? payload.text ?? null);
+            } catch (error) {
+                if (error instanceof PlexApiError) {
+                    // For auth errors, bail immediately.
+                    if (error.code === AppErrorCode.AUTH_REQUIRED || error.code === AppErrorCode.AUTH_INVALID) {
+                        throw error;
+                    }
+                }
+                lastError = error;
+            }
+        }
+
+        if (lastError) {
+            if (lastError instanceof PlexApiError) {
+                throw lastError;
+            }
+            throw new PlexApiError(
+                AppErrorCode.SERVER_UNREACHABLE,
+                'Failed to fetch Plex Home users',
+                undefined,
+                true
+            );
+        }
+
+        return [];
+    }
+
+    public async switchHomeUser(
+        userId: string,
+        options?: { pin?: string | null; signal?: AbortSignal | null }
+    ): Promise<void> {
+        if (!this._state.accountToken) {
+            throw new PlexApiError(
+                AppErrorCode.AUTH_REQUIRED,
+                'Plex account token not available',
+                undefined,
+                false
+            );
+        }
+
+        const headers = buildRequestHeaders(this._state.config, this._state.accountToken.token);
+        const pinValue = options?.pin && options.pin.trim().length > 0 ? options.pin.trim() : null;
+
+        const buildUrl = (base: string): string => {
+            const url = new URL(
+                `${base}${PLEX_AUTH_CONSTANTS.HOME_USERS_ENDPOINT}/${encodeURIComponent(userId)}/switch`
+            );
+            if (pinValue) {
+                url.searchParams.set('pin', pinValue);
+            }
+            return url.toString();
+        };
+
+        const endpoints = [
+            buildUrl(PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL),
+            buildUrl(PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL_V1),
+        ];
+
+        let lastError: unknown = null;
+        let response: Response | null = null;
+        for (const url of endpoints) {
+            try {
+                const init: RequestInit = {
+                    method: 'POST',
+                    headers: headers,
+                };
+                response = await fetchWithTimeout(
+                    url,
+                    init,
+                    PLEX_AUTH_CONSTANTS.REQUEST_TIMEOUT_MS,
+                    options?.signal ?? null
+                );
+
+                if (response.status === 401) {
+                    if (pinValue) {
+                        const stillValid = await this.validateToken(this._state.accountToken.token);
+                        if (stillValid) {
+                            throw new PlexApiError(
+                                AppErrorCode.AUTH_FAILED,
+                                'Incorrect PIN',
+                                401,
+                                false
+                            );
+                        }
+                    }
+                    throw new PlexApiError(
+                        AppErrorCode.AUTH_REQUIRED,
+                        'Unauthorized: account authentication required',
+                        401,
+                        false
+                    );
+                }
+                if (response.status === 403) {
+                    if (pinValue) {
+                        const stillValid = await this.validateToken(this._state.accountToken.token);
+                        if (stillValid) {
+                            throw new PlexApiError(
+                                AppErrorCode.AUTH_FAILED,
+                                'Incorrect PIN',
+                                403,
+                                false
+                            );
+                        }
+                    }
+                    throw new PlexApiError(
+                        AppErrorCode.AUTH_INVALID,
+                        'Forbidden: account access denied',
+                        403,
+                        false
+                    );
+                }
+                if (response.status === 404 || response.status === 405) {
+                    lastError = null;
+                    response = null;
+                    continue;
+                }
+                if (!response.ok) {
+                    throw new PlexApiError(
+                        AppErrorCode.SERVER_UNREACHABLE,
+                        `Failed to switch Plex Home user (status ${response.status})`,
+                        response.status,
+                        response.status >= 500
+                    );
+                }
+
+                break;
+            } catch (error) {
+                if (error instanceof PlexApiError) {
+                    if (error.code === AppErrorCode.AUTH_REQUIRED || error.code === AppErrorCode.AUTH_INVALID) {
+                        throw error;
+                    }
+                }
+                lastError = error;
+            }
+        }
+
+        if (!response) {
+            if (lastError instanceof PlexApiError) {
+                throw lastError;
+            }
+            throw new PlexApiError(
+                AppErrorCode.RESOURCE_NOT_FOUND,
+                'Plex Home switching not supported',
+                undefined,
+                false
+            );
+        }
+
+        const payload = await readPlexResponse(response);
+        const parsed = parseSwitchResponse(payload.json ?? payload.text ?? null);
+        const userToken = await this._fetchUserProfile(parsed.authToken);
+
+        const fromUserId = this._state.activeToken?.userId ?? null;
+        this._state.activeToken = userToken;
+        this._state.isValidated = true;
+
+        const stored = await this.getStoredCredentials();
+        const selectedServerByUserId = {
+            ...(stored?.selectedServerByUserId ?? {}),
+        };
+        if (!selectedServerByUserId[userToken.userId]) {
+            selectedServerByUserId[userToken.userId] = { serverId: null, serverUri: null };
+        }
+
+        await this.storeCredentials({
+            accountToken: this._state.accountToken,
+            activeToken: userToken,
+            activeUserId: userToken.userId,
+            selectedServerByUserId,
+            deviceKey: stored?.deviceKey ?? null,
+        });
+
+        if (fromUserId !== userToken.userId) {
+            this._emitter.emit('profileChange', { fromUserId, toUserId: userToken.userId });
+        }
+    }
+
+    public getActiveUserId(): string | null {
+        return this._state.activeToken?.userId ?? null;
+    }
+
+    public getAccountUserId(): string | null {
+        return this._state.accountToken?.userId ?? null;
+    }
+
+    public async logoutActiveUser(): Promise<void> {
+        if (!this._state.accountToken) {
+            return;
+        }
+        const fromUserId = this._state.activeToken?.userId ?? null;
+        const toUserId = this._state.accountToken.userId;
+        const stored = await this.getStoredCredentials();
+        const selectedServerByUserId = {
+            ...(stored?.selectedServerByUserId ?? {}),
+        };
+        if (!selectedServerByUserId[toUserId]) {
+            selectedServerByUserId[toUserId] = { serverId: null, serverUri: null };
+        }
+        await this.storeCredentials({
+            accountToken: this._state.accountToken,
+            activeToken: this._state.accountToken,
+            activeUserId: toUserId,
+            selectedServerByUserId,
+            deviceKey: stored?.deviceKey ?? null,
+        });
+        if (fromUserId !== toUserId) {
+            this._emitter.emit('profileChange', { fromUserId, toUserId });
+        }
     }
 
     // ========================================
@@ -318,8 +612,16 @@ export class PlexAuth implements IPlexAuth {
     public on(
         event: 'authChange',
         handler: (isAuthenticated: boolean) => void
+    ): IDisposable;
+    public on(
+        event: 'profileChange',
+        handler: (payload: { fromUserId: string | null; toUserId: string }) => void
+    ): IDisposable;
+    public on(
+        event: 'authChange' | 'profileChange',
+        handler: ((isAuthenticated: boolean) => void) | ((payload: { fromUserId: string | null; toUserId: string }) => void)
     ): IDisposable {
-        return this._emitter.on(event, handler);
+        return this._emitter.on(event, handler as (payload: unknown) => void);
     }
 
     // ========================================
@@ -343,7 +645,8 @@ export class PlexAuth implements IPlexAuth {
             const data = this._parseStoredAuthData(parsed);
             if (!data) return;
 
-            this._state.currentToken = data.token;
+            this._state.accountToken = data.accountToken;
+            this._state.activeToken = data.activeToken;
             this._state.isValidated = false;
         } catch {
             // Ignore parse errors
@@ -356,29 +659,111 @@ export class PlexAuth implements IPlexAuth {
      * @returns PlexAuthData with proper Date objects, or null if invalid
      */
     private _parseStoredAuthData(parsed: StoredAuthData): PlexAuthData | null {
+        if (!parsed || typeof parsed !== 'object') {
+            return null;
+        }
+
+        if (parsed.version === 1) {
+            return this._migrateStoredAuthV1(parsed.data as PlexAuthDataV1);
+        }
+
         if (parsed.version !== PLEX_AUTH_CONSTANTS.STORAGE_VERSION) {
             return null;
         }
 
-        const data = parsed.data;
+        const data = parsed.data as PlexAuthData;
+        if (!data || typeof data !== 'object') {
+            return null;
+        }
 
-        // Validate and convert issuedAt
-        const issuedAt = new Date(data.token.issuedAt);
+        const accountToken = this._normalizeTokenDates(data.accountToken);
+        const activeToken = this._normalizeTokenDates(data.activeToken);
+        if (!accountToken || !activeToken) {
+            return null;
+        }
+
+        const activeUserId = typeof data.activeUserId === 'string' && data.activeUserId.length > 0
+            ? data.activeUserId
+            : activeToken.userId;
+
+        const selectedServerByUserId = this._normalizeSelectedServerMap(
+            data.selectedServerByUserId,
+            activeUserId
+        );
+
+        return {
+            accountToken,
+            activeToken,
+            selectedServerByUserId,
+            activeUserId,
+            deviceKey: data.deviceKey ?? null,
+        };
+    }
+
+    private _normalizeTokenDates(token: PlexAuthToken | null | undefined): PlexAuthToken | null {
+        if (!token) return null;
+        const issuedAt = new Date(token.issuedAt);
         if (isNaN(issuedAt.getTime())) {
             return null;
         }
-        data.token.issuedAt = issuedAt;
-
-        // Validate and convert expiresAt if present
-        if (data.token.expiresAt !== null) {
-            const expiresAt = new Date(data.token.expiresAt);
-            if (isNaN(expiresAt.getTime())) {
+        let expiresAt: Date | null = null;
+        if (token.expiresAt !== null && typeof token.expiresAt !== 'undefined') {
+            const converted = new Date(token.expiresAt);
+            if (isNaN(converted.getTime())) {
                 return null;
             }
-            data.token.expiresAt = expiresAt;
+            expiresAt = converted;
         }
 
-        return data;
+        return {
+            ...token,
+            issuedAt,
+            expiresAt,
+        };
+    }
+
+    private _normalizeSelectedServerMap(
+        map: PlexAuthData['selectedServerByUserId'] | null | undefined,
+        activeUserId: string
+    ): Record<string, { serverId: string | null; serverUri: string | null }> {
+        const out: Record<string, { serverId: string | null; serverUri: string | null }> = {};
+        if (map && typeof map === 'object') {
+            for (const [userId, value] of Object.entries(map)) {
+                if (!userId) continue;
+                if (!value || typeof value !== 'object') {
+                    out[userId] = { serverId: null, serverUri: null };
+                    continue;
+                }
+                const record = value as { serverId?: unknown; serverUri?: unknown };
+                out[userId] = {
+                    serverId: typeof record.serverId === 'string' ? record.serverId : null,
+                    serverUri: typeof record.serverUri === 'string' ? record.serverUri : null,
+                };
+            }
+        }
+        if (!out[activeUserId]) {
+            out[activeUserId] = { serverId: null, serverUri: null };
+        }
+        return out;
+    }
+
+    private _migrateStoredAuthV1(data: PlexAuthDataV1 | null | undefined): PlexAuthData | null {
+        if (!data) return null;
+        const token = this._normalizeTokenDates(data.token);
+        if (!token) return null;
+        const selectedServerByUserId: Record<string, { serverId: string | null; serverUri: string | null }> = {
+            [token.userId]: {
+                serverId: data.selectedServerId ?? null,
+                serverUri: data.selectedServerUri ?? null,
+            },
+        };
+        return {
+            accountToken: token,
+            activeToken: token,
+            activeUserId: token.userId,
+            selectedServerByUserId,
+            deviceKey: data.deviceKey ?? null,
+        };
     }
 
     private _sleep(ms: number): Promise<void> {

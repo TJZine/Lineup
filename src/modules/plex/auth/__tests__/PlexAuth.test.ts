@@ -54,6 +54,37 @@ function mockFetchFailure(error: Error): void {
     (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockRejectedValue(error);
 }
 
+function createAuthToken(
+    token: string,
+    userId: string = 'user1'
+): PlexAuthToken {
+    return {
+        token,
+        userId,
+        username: 'testuser',
+        email: 'test@example.com',
+        thumb: '',
+        expiresAt: null,
+        issuedAt: new Date(),
+    };
+}
+
+function createAuthData(token: PlexAuthToken): {
+    accountToken: PlexAuthToken;
+    activeToken: PlexAuthToken;
+    activeUserId: string;
+    selectedServerByUserId: Record<string, { serverId: string | null; serverUri: string | null }>;
+} {
+    return {
+        accountToken: token,
+        activeToken: token,
+        activeUserId: token.userId,
+        selectedServerByUserId: {
+            [token.userId]: { serverId: null, serverUri: null },
+        },
+    };
+}
+
 describe('PlexAuth', () => {
     const mockConfig: PlexAuthConfig = {
         clientIdentifier: 'test-client-id',
@@ -179,6 +210,13 @@ describe('PlexAuth', () => {
             await auth.checkPinStatus(12345);
 
             expect(storeCredentialsSpy).toHaveBeenCalledTimes(1);
+            expect(storeCredentialsSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    accountToken: expect.objectContaining({ userId: '99999' }),
+                    activeToken: expect.objectContaining({ userId: '99999' }),
+                    activeUserId: '99999',
+                })
+            );
             expect(auth.isAuthenticated()).toBe(true);
         });
     });
@@ -258,20 +296,8 @@ describe('PlexAuth', () => {
 
         it('should include X-Plex-Token when authenticated', async () => {
             const auth = new PlexAuth(mockConfig);
-            const testToken: PlexAuthToken = {
-                token: 'my-secret-token',
-                userId: 'user123',
-                username: 'testuser',
-                email: 'test@example.com',
-                thumb: '',
-                expiresAt: null,
-                issuedAt: new Date(),
-            };
-            await auth.storeCredentials({
-                token: testToken,
-                selectedServerId: null,
-                selectedServerUri: null,
-            });
+            const testToken = createAuthToken('my-secret-token', 'user123');
+            await auth.storeCredentials(createAuthData(testToken));
 
             const headers = auth.getAuthHeaders();
 
@@ -285,7 +311,7 @@ describe('PlexAuth', () => {
             const storedData = {
                 version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
                 data: {
-                    token: {
+                    accountToken: {
                         token: 'stored-token',
                         userId: 'user1',
                         username: 'storeduser',
@@ -294,8 +320,19 @@ describe('PlexAuth', () => {
                         expiresAt: null,
                         issuedAt: new Date().toISOString(),
                     },
-                    selectedServerId: null,
-                    selectedServerUri: null,
+                    activeToken: {
+                        token: 'stored-token',
+                        userId: 'user1',
+                        username: 'storeduser',
+                        email: 'stored@example.com',
+                        thumb: '',
+                        expiresAt: null,
+                        issuedAt: new Date().toISOString(),
+                    },
+                    activeUserId: 'user1',
+                    selectedServerByUserId: {
+                        user1: { serverId: null, serverUri: null },
+                    },
                 },
             };
             mockLocalStorage.setItem(
@@ -316,21 +353,9 @@ describe('PlexAuth', () => {
 
         it('should clear localStorage on clearCredentials', async () => {
             const auth = new PlexAuth(mockConfig);
-            const testToken: PlexAuthToken = {
-                token: 'token-to-clear',
-                userId: 'user1',
-                username: 'testuser',
-                email: 'test@example.com',
-                thumb: '',
-                expiresAt: null,
-                issuedAt: new Date(),
-            };
+            const testToken = createAuthToken('token-to-clear');
 
-            await auth.storeCredentials({
-                token: testToken,
-                selectedServerId: null,
-                selectedServerUri: null,
-            });
+            await auth.storeCredentials(createAuthData(testToken));
             expect(auth.isAuthenticated()).toBe(true);
 
             await auth.clearCredentials();
@@ -347,21 +372,9 @@ describe('PlexAuth', () => {
             const handler = jest.fn();
             auth.on('authChange', handler);
 
-            const testToken: PlexAuthToken = {
-                token: 'event-test-token',
-                userId: 'user1',
-                username: 'testuser',
-                email: 'test@example.com',
-                thumb: '',
-                expiresAt: null,
-                issuedAt: new Date(),
-            };
+            const testToken = createAuthToken('event-test-token');
 
-            await auth.storeCredentials({
-                token: testToken,
-                selectedServerId: null,
-                selectedServerUri: null,
-            });
+            await auth.storeCredentials(createAuthData(testToken));
             await auth.clearCredentials();
 
             expect(handler).toHaveBeenCalledTimes(2);
@@ -376,20 +389,8 @@ describe('PlexAuth', () => {
 
             disposable.dispose();
 
-            const testToken: PlexAuthToken = {
-                token: 'unsubscribe-test',
-                userId: 'user1',
-                username: 'testuser',
-                email: 'test@example.com',
-                thumb: '',
-                expiresAt: null,
-                issuedAt: new Date(),
-            };
-            await auth.storeCredentials({
-                token: testToken,
-                selectedServerId: null,
-                selectedServerUri: null,
-            });
+            const testToken = createAuthToken('unsubscribe-test');
+            await auth.storeCredentials(createAuthData(testToken));
 
             expect(handler).not.toHaveBeenCalled();
         });
@@ -409,7 +410,7 @@ describe('PlexAuth', () => {
             const storedData = {
                 version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
                 data: {
-                    token: {
+                    accountToken: {
                         token: 'test-token',
                         userId: 'user1',
                         username: 'testuser',
@@ -417,6 +418,57 @@ describe('PlexAuth', () => {
                         thumb: 'https://example.com/thumb.jpg',
                         expiresAt: now.toISOString(),
                         issuedAt: now.toISOString(),
+                    },
+                    activeToken: {
+                        token: 'test-token',
+                        userId: 'user1',
+                        username: 'testuser',
+                        email: 'test@example.com',
+                        thumb: 'https://example.com/thumb.jpg',
+                        expiresAt: now.toISOString(),
+                        issuedAt: now.toISOString(),
+                    },
+                    activeUserId: 'user1',
+                    selectedServerByUserId: {
+                        user1: {
+                            serverId: 'server1',
+                            serverUri: 'https://192.168.1.1:32400',
+                        },
+                    },
+                },
+            };
+            mockLocalStorage.setItem(
+                PLEX_AUTH_CONSTANTS.STORAGE_KEY,
+                JSON.stringify(storedData)
+            );
+
+            const auth = new PlexAuth(mockConfig);
+            const result = await auth.getStoredCredentials();
+
+            expect(result).not.toBeNull();
+            if (result !== null) {
+                expect(result.activeToken.token).toBe('test-token');
+                expect(result.activeToken.issuedAt).toBeInstanceOf(Date);
+                expect(result.activeToken.expiresAt).toBeInstanceOf(Date);
+                expect(result.selectedServerByUserId.user1).toBeDefined();
+                expect(result.selectedServerByUserId.user1?.serverId).toBe('server1');
+            }
+        });
+    });
+
+    describe('migration', () => {
+        it('should migrate v1 stored auth to v2 shape', async () => {
+            const storedData = {
+                version: 1,
+                data: {
+                    token: {
+                        token: 'legacy-token',
+                        userId: 'legacy-user',
+                        username: 'legacy',
+                        email: 'legacy@example.com',
+                        thumb: '',
+                        expiresAt: null,
+                        issuedAt: new Date().toISOString(),
                     },
                     selectedServerId: 'server1',
                     selectedServerUri: 'https://192.168.1.1:32400',
@@ -431,12 +483,167 @@ describe('PlexAuth', () => {
             const result = await auth.getStoredCredentials();
 
             expect(result).not.toBeNull();
-            if (result !== null) {
-                expect(result.token.token).toBe('test-token');
-                expect(result.token.issuedAt).toBeInstanceOf(Date);
-                expect(result.token.expiresAt).toBeInstanceOf(Date);
-                expect(result.selectedServerId).toBe('server1');
+            if (result) {
+                expect(result.accountToken.token).toBe('legacy-token');
+                expect(result.activeToken.token).toBe('legacy-token');
+                expect(result.activeUserId).toBe('legacy-user');
+                expect(result.selectedServerByUserId['legacy-user']).toBeDefined();
+                expect(result.selectedServerByUserId['legacy-user']?.serverId).toBe('server1');
             }
+        });
+    });
+
+    describe('Plex Home', () => {
+        it('should parse home users from XML response', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const xml = `
+                <MediaContainer size="2">
+                  <User id="1" title="Admin" admin="1" protected="1" thumb="https://plex.tv/u1.png" />
+                  <User id="2" title="Kid" admin="0" protected="0" restricted="1" />
+                </MediaContainer>
+            `;
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: () => 'application/xml' },
+                json: async () => ({}),
+                text: async () => xml,
+            });
+
+            const users = await auth.getHomeUsers();
+
+            expect(users).toHaveLength(2);
+            expect(users[0]).toMatchObject({ id: '1', title: 'Admin', admin: true, protected: true });
+            expect(users[1]).toMatchObject({ id: '2', title: 'Kid', restricted: true });
+        });
+
+        it('should parse home users from JSON returned as text with non-JSON content-type', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const jsonText = JSON.stringify({
+                MediaContainer: {
+                    User: [
+                        { id: 1, title: 'Admin', admin: 1, protected: 0, thumb: '' },
+                        { id: 2, title: 'Kid', admin: 0, protected: 1, restricted: 1 },
+                    ],
+                },
+            });
+
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: () => 'application/xml' },
+                json: async () => ({}),
+                text: async () => jsonText,
+            });
+
+            const users = await auth.getHomeUsers();
+
+            expect(users).toHaveLength(2);
+            expect(users[0]).toMatchObject({ id: '1', title: 'Admin', admin: true, protected: false });
+            expect(users[1]).toMatchObject({ id: '2', title: 'Kid', protected: true, restricted: true });
+        });
+
+        it('should build switch URL with pin query param', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ authToken: 'switched-token' }),
+                    text: async () => JSON.stringify({ authToken: 'switched-token' }),
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({
+                        id: 2,
+                        username: 'kid',
+                        email: 'kid@example.com',
+                        thumb: '',
+                    }),
+                    text: async () => JSON.stringify({ id: 2 }),
+                });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await auth.switchHomeUser('2', { pin: '1234' });
+
+            const firstUrl = String(fetchMock.mock.calls[0][0]);
+            expect(firstUrl).toBe('https://plex.tv/api/v2/home/users/2/switch?pin=1234');
+        });
+
+        it('should throw not-supported when both home switch endpoints return 404', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 404,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({}),
+                    text: async () => '{}',
+                })
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 404,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({}),
+                    text: async () => '{}',
+                });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await expect(auth.switchHomeUser('2')).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it('should update active token and emit profileChange on switch', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const handler = jest.fn();
+            auth.on('profileChange', handler);
+
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ authToken: 'child-token' }),
+                    text: async () => JSON.stringify({ authToken: 'child-token' }),
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({
+                        id: 99,
+                        username: 'child',
+                        email: 'child@example.com',
+                        thumb: '',
+                    }),
+                    text: async () => JSON.stringify({ id: 99 }),
+                });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await auth.switchHomeUser('99');
+
+            const currentUser = auth.getCurrentUser();
+            expect(currentUser?.userId).toBe('99');
+            expect(currentUser?.token).toBe('child-token');
+            expect(handler).toHaveBeenCalledWith({ fromUserId: 'admin', toUserId: '99' });
         });
     });
 

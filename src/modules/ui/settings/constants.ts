@@ -49,6 +49,8 @@ export const SETTINGS_STORAGE_KEYS = {
     EPG_LAYOUT_MODE: RETUNE_STORAGE_KEYS.EPG_LAYOUT_MODE,
     /** EPG now watching banner enabled */
     EPG_NOW_WATCHING_ENABLED: RETUNE_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED,
+    /** Show profile picker on startup */
+    SHOW_PROFILE_PICKER_ON_STARTUP: RETUNE_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP,
 } as const;
 
 /**
@@ -78,6 +80,9 @@ export const DEFAULT_SETTINGS: SettingsConfig = {
         useGlobalPreference: false,
         language: null,
         preferForced: false,
+    },
+    account: {
+        showProfilePickerOnStartup: false,
     },
 };
 

@@ -84,6 +84,7 @@ export interface InitializationCallbacks {
     setupEventWiring: () => void;
 
     // Server/storage operations (kept in Orchestrator)
+    configureDiscoveryStorage: () => void;
     configureChannelManagerStorage: () => Promise<void>;
     getSelectedServerId: () => string | null;
     shouldRunAudioSetup: () => boolean;
@@ -127,6 +128,11 @@ export interface IInitializationCoordinator {
      * Clear server resume listener (cleanup).
      */
     clearServerResume(): void;
+
+    /**
+     * Clear profile resume listener (cleanup).
+     */
+    clearProfileResume(): void;
 }
 
 // ============================================
@@ -149,6 +155,7 @@ export class InitializationCoordinator implements IInitializationCoordinator {
     // Resume listeners
     private _authResumeDisposable: IDisposable | null = null;
     private _serverResumeDisposable: IDisposable | null = null;
+    private _profileResumeDisposable: IDisposable | null = null;
 
     // EPG init promise (prevents duplicate initialization)
     private _epgInitPromise: Promise<void> | null = null;
@@ -280,6 +287,7 @@ export class InitializationCoordinator implements IInitializationCoordinator {
 
                 this.clearAuthResume();
                 this.clearServerResume();
+                this.clearProfileResume();
 
                 if (this._startupQueuedPhase === null) {
                     break;
@@ -293,6 +301,7 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             // Avoid leaving stale resume listeners after a fatal startup error.
             this.clearAuthResume();
             this.clearServerResume();
+            this.clearProfileResume();
             this._callbacks.handleGlobalError(
                 {
                     code: AppErrorCode.INITIALIZATION_FAILED,
@@ -344,6 +353,13 @@ export class InitializationCoordinator implements IInitializationCoordinator {
         if (this._serverResumeDisposable) {
             this._serverResumeDisposable.dispose();
             this._serverResumeDisposable = null;
+        }
+    }
+
+    clearProfileResume(): void {
+        if (this._profileResumeDisposable) {
+            this._profileResumeDisposable.dispose();
+            this._profileResumeDisposable = null;
         }
     }
 
@@ -411,18 +427,30 @@ export class InitializationCoordinator implements IInitializationCoordinator {
         const storedCredentials = await this._deps.plexAuth.getStoredCredentials();
         if (storedCredentials) {
             try {
-                const isValid = await this._deps.plexAuth.validateToken(
-                    storedCredentials.token.token
+                const activeValid = await this._deps.plexAuth.validateToken(
+                    storedCredentials.activeToken.token
                 );
 
-                if (isValid) {
+                if (activeValid) {
                     const currentToken =
-                        this._deps.plexAuth.getCurrentUser() ?? storedCredentials.token;
+                        this._deps.plexAuth.getCurrentUser() ?? storedCredentials.activeToken;
+                    const accountToken = storedCredentials.accountToken.token === currentToken.token
+                        ? currentToken
+                        : storedCredentials.accountToken;
+                    const selectedServerByUserId = {
+                        ...(storedCredentials.selectedServerByUserId ?? {}),
+                    };
+                    if (!selectedServerByUserId[currentToken.userId]) {
+                        selectedServerByUserId[currentToken.userId] = { serverId: null, serverUri: null };
+                    }
                     await this._deps.plexAuth.storeCredentials({
-                        token: currentToken,
-                        selectedServerId: null,
-                        selectedServerUri: null,
+                        accountToken,
+                        activeToken: currentToken,
+                        activeUserId: currentToken.userId,
+                        selectedServerByUserId,
+                        deviceKey: storedCredentials.deviceKey ?? null,
                     });
+                    this._callbacks.configureDiscoveryStorage();
                     this._callbacks.seedSubtitleLanguageFromPlexUser?.();
                     this._callbacks.updateModuleStatus(
                         'plex-auth',
@@ -434,10 +462,72 @@ export class InitializationCoordinator implements IInitializationCoordinator {
                     if (this._deps.lifecycle) {
                         this._deps.lifecycle.setPhase('loading_data');
                     }
+
+                    const currentScreen = this._deps.navigation.getCurrentScreen();
+                    const isAuthScreen = currentScreen === 'auth';
+                    const showPickerOnStartup = readStoredBoolean(
+                        RETUNE_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP,
+                        false
+                    );
+                    if (isAuthScreen || showPickerOnStartup) {
+                        try {
+                            const users = await this._deps.plexAuth.getHomeUsers();
+                            if (users.length > 1) {
+                                this._registerProfileResume();
+                                this._deps.navigation.goTo('profile-select');
+                                return false;
+                            }
+                        } catch (error) {
+                            const code = (error as { code?: string }).code;
+                            if (
+                                code === AppErrorCode.AUTH_REQUIRED ||
+                                code === AppErrorCode.AUTH_INVALID
+                            ) {
+                                this._callbacks.updateModuleStatus('plex-auth', 'pending');
+                                this._registerAuthResume();
+                                this._deps.navigation.goTo('auth');
+                                return false;
+                            }
+                            console.warn('[InitializationCoordinator] Failed to load Plex Home users.');
+                        }
+                    }
+
                     return true;
                 }
-            } catch (error) {
-                console.error('Token validation failed:', error);
+
+                const accountValid = await this._deps.plexAuth.validateToken(
+                    storedCredentials.accountToken.token
+                );
+                if (accountValid) {
+                    const selectedServerByUserId = {
+                        ...(storedCredentials.selectedServerByUserId ?? {}),
+                    };
+                    if (!selectedServerByUserId[storedCredentials.activeUserId]) {
+                        selectedServerByUserId[storedCredentials.activeUserId] = {
+                            serverId: null,
+                            serverUri: null,
+                        };
+                    }
+                    await this._deps.plexAuth.storeCredentials({
+                        accountToken: storedCredentials.accountToken,
+                        activeToken: storedCredentials.activeToken,
+                        activeUserId: storedCredentials.activeUserId,
+                        selectedServerByUserId,
+                        deviceKey: storedCredentials.deviceKey ?? null,
+                    });
+
+                    this._callbacks.updateModuleStatus(
+                        'plex-auth',
+                        'ready',
+                        undefined,
+                        Date.now() - startTime
+                    );
+                    this._registerProfileResume();
+                    this._deps.navigation.goTo('profile-select');
+                    return false;
+                }
+            } catch {
+                console.error('[InitializationCoordinator] Token validation failed.');
             }
         }
 
@@ -829,6 +919,27 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             });
         });
         this._serverResumeDisposable = disposable;
+    }
+
+    /**
+     * Register listener for profile change events to resume startup.
+     */
+    private _registerProfileResume(): void {
+        if (!this._deps.plexAuth) {
+            return;
+        }
+
+        this.clearProfileResume();
+        const disposable = this._deps.plexAuth.on('profileChange', () => {
+            this.clearProfileResume();
+            // Critical: ensure discovery storage keys are updated for the new activeUserId
+            // before Phase 3 runs and restores server selection from localStorage.
+            this._callbacks.configureDiscoveryStorage();
+            this.runStartup(3).catch((error) => {
+                console.error('[InitializationCoordinator] Profile resume failed:', error);
+            });
+        });
+        this._profileResumeDisposable = disposable;
     }
 
     private _isDebugLoggingEnabled(): boolean {

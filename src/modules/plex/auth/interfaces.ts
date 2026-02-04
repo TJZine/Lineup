@@ -85,6 +85,18 @@ export interface PlexPinRequest {
 // ============================================
 
 /**
+ * Plex Home user profile.
+ */
+export interface PlexHomeUser {
+    id: string;
+    title: string;
+    thumb: string | null;
+    admin: boolean;
+    protected: boolean;
+    restricted?: boolean;
+}
+
+/**
  * Authenticated Plex user token and profile.
  * Stored in localStorage for session persistence.
  */
@@ -111,10 +123,10 @@ export interface PlexAuthToken {
 }
 
 /**
- * Complete authentication data including selected server.
- * This is the root object persisted for auth state.
+ * Legacy (v1) authentication data including selected server.
+ * This was the root object persisted for auth state.
  */
-export interface PlexAuthData {
+export interface PlexAuthDataV1 {
     /** User authentication token and profile */
     token: PlexAuthToken;
     /** Currently selected Plex server machine ID */
@@ -124,6 +136,28 @@ export interface PlexAuthData {
     /** Device key metadata for JWT flow (optional) */
     deviceKey?: PlexDeviceKey | null;
 }
+
+/**
+ * Authentication data v2 (Plex Home support).
+ * This is the root object persisted for auth state.
+ */
+export interface PlexAuthDataV2 {
+    /** Token used for plex.tv Home endpoints (account/admin) */
+    accountToken: PlexAuthToken;
+    /** Token used for PMS/library/stream requests (active profile) */
+    activeToken: PlexAuthToken;
+    /** Last-selected server per profile */
+    selectedServerByUserId: Record<string, { serverId: string | null; serverUri: string | null }>;
+    /** Convenience: active user id */
+    activeUserId: string;
+    /** Device key metadata for JWT flow (optional) */
+    deviceKey?: PlexDeviceKey | null;
+}
+
+/**
+ * Current authentication data shape.
+ */
+export type PlexAuthData = PlexAuthDataV2;
 
 // ============================================
 // Internal State Types
@@ -135,8 +169,10 @@ export interface PlexAuthData {
 export interface PlexAuthState {
     /** Configuration passed to constructor */
     config: PlexAuthConfig;
-    /** Current authenticated token (null if not authenticated) */
-    currentToken: PlexAuthToken | null;
+    /** Account token (null if not authenticated) */
+    accountToken: PlexAuthToken | null;
+    /** Active profile token (null if not authenticated) */
+    activeToken: PlexAuthToken | null;
     /** Whether token has been validated with server */
     isValidated: boolean;
     /** PIN currently being polled (null if none) */
@@ -150,7 +186,7 @@ export interface StoredAuthData {
     /** Storage format version */
     version: number;
     /** Auth data payload */
-    data: PlexAuthData;
+    data: PlexAuthData | PlexAuthDataV1;
 }
 
 // ============================================
@@ -163,6 +199,8 @@ export interface StoredAuthData {
 export interface PlexAuthEvents extends Record<string, unknown> {
     /** Emitted when authentication state changes */
     authChange: boolean;
+    /** Emitted when active profile changes */
+    profileChange: { fromUserId: string | null; toUserId: string };
 }
 
 // ============================================
@@ -215,6 +253,34 @@ export interface IPlexAuth {
     validateToken(token: string): Promise<boolean>;
 
     /**
+     * Get Plex Home users (fast user switching).
+     * @param options - Optional AbortSignal
+     */
+    getHomeUsers(options?: { signal?: AbortSignal | null }): Promise<PlexHomeUser[]>;
+
+    /**
+     * Switch to a Plex Home user (PIN optional unless protected).
+     * @param userId - Plex user id
+     * @param options - Optional PIN and AbortSignal
+     */
+    switchHomeUser(userId: string, options?: { pin?: string | null; signal?: AbortSignal | null }): Promise<void>;
+
+    /**
+     * Get active user id (active token).
+     */
+    getActiveUserId(): string | null;
+
+    /**
+     * Get account user id (account token).
+     */
+    getAccountUserId(): string | null;
+
+    /**
+     * Reset active profile to main account token.
+     */
+    logoutActiveUser(): Promise<void>;
+
+    /**
      * Get stored credentials from localStorage.
      * @returns Stored auth data or null if none
      */
@@ -260,4 +326,8 @@ export interface IPlexAuth {
      * @returns Disposable to remove handler
      */
     on(event: 'authChange', handler: (isAuthenticated: boolean) => void): IDisposable;
+    on(
+        event: 'profileChange',
+        handler: (payload: { fromUserId: string | null; toUserId: string }) => void
+    ): IDisposable;
 }
