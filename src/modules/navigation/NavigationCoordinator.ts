@@ -281,7 +281,8 @@ export class NavigationCoordinator {
         const epg = this.deps.getEpg();
         const navigation = this.deps.getNavigation();
         const modalOpen = navigation?.isModalOpen() ?? false;
-        const shouldRouteToEpg = !modalOpen && !!epg?.isVisible();
+        const miniGuideVisible = this.deps.isMiniGuideVisible();
+        const shouldRouteToEpg = !modalOpen && !!epg?.isVisible() && !miniGuideVisible;
 
         if (modalOpen && (event.button === 'up' || event.button === 'down' || event.button === 'left' || event.button === 'right')) {
             this._logInputNotHandled('modal_open', event);
@@ -328,13 +329,22 @@ export class NavigationCoordinator {
                     event.handled = true;
                     event.originalEvent.preventDefault();
                     return;
+                case 'channelUp':
+                case 'channelDown':
+                    event.handled = true;
+                    event.originalEvent.preventDefault();
+                    this._stopEpgRepeat('channelPage');
+                    if (event.isRepeat) {
+                        return;
+                    }
+                    epg.handlePage(event.button === 'channelUp' ? 'up' : 'down');
+                    return;
                 default:
                     break;
             }
         }
 
         const currentScreen = navigation?.getCurrentScreen();
-        const miniGuideVisible = this.deps.isMiniGuideVisible();
         if (currentScreen === 'player' && miniGuideVisible && !modalOpen && !shouldRouteToEpg) {
             if (navigation?.isInputBlocked()) {
                 this._logInputNotHandled('input_blocked', event);
@@ -468,14 +478,18 @@ export class NavigationCoordinator {
                 this.deps.toggleNowPlayingInfoOverlay();
                 break;
             case 'channelUp':
-                this.deps.setLastChannelChangeSourceRemote();
-                // Treat channel-up as decrement (reverse wrap) to match user expectation.
-                this.deps.switchToPreviousChannel();
+                if (currentScreen === 'player' && !modalOpen && !shouldRouteToEpg) {
+                    this.deps.setLastChannelChangeSourceRemote();
+                    // Treat channel-up as decrement (reverse wrap) to match user expectation.
+                    this.deps.switchToPreviousChannel();
+                }
                 break;
             case 'channelDown':
-                this.deps.setLastChannelChangeSourceRemote();
-                // Treat channel-down as increment (forward wrap) to match user expectation.
-                this.deps.switchToNextChannel();
+                if (currentScreen === 'player' && !modalOpen && !shouldRouteToEpg) {
+                    this.deps.setLastChannelChangeSourceRemote();
+                    // Treat channel-down as increment (forward wrap) to match user expectation.
+                    this.deps.switchToNextChannel();
+                }
                 break;
             case 'info':
             case 'blue': {

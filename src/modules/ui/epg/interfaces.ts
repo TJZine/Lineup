@@ -140,6 +140,13 @@ export interface IEPGComponent {
     handleNavigation(direction: 'up' | 'down' | 'left' | 'right'): boolean;
 
     /**
+     * Page up/down by a screenful of channels while preserving time focus.
+     * @param direction - Page direction
+     * @returns true if paging was handled, false otherwise
+     */
+    handlePage(direction: 'up' | 'down'): boolean;
+
+    /**
      * Handle OK/Select button press.
      * @returns true if handled
      */

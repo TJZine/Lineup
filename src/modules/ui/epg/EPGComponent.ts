@@ -264,6 +264,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
       <div class="${EPG_CLASSES.LEGEND}" aria-hidden="true">
         <div class="epg-legend-item"><span class="epg-legend-key">PLAY</span><span class="epg-legend-text">Jump to Now</span></div>
         <div class="epg-legend-item"><span class="epg-legend-key">OK</span><span class="epg-legend-text">Select</span></div>
+        <div class="epg-legend-item"><span class="epg-legend-key">CH +/-</span><span class="epg-legend-text">Page</span></div>
         <div class="epg-legend-item"><span class="epg-legend-key">BACK</span><span class="epg-legend-text">Close</span></div>
         <div class="epg-legend-item"><span class="epg-legend-swatch green"></span><span class="epg-legend-text">Guide</span></div>
         <div class="epg-legend-item"><span class="epg-legend-swatch yellow"></span><span class="epg-legend-text">Settings</span></div>
@@ -1116,6 +1117,39 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             default:
                 return false;
         }
+    }
+
+    /**
+     * Page up/down by a screenful of channels while preserving time focus.
+     */
+    handlePage(direction: 'up' | 'down'): boolean {
+        if (!this.isVisible()) return false;
+        if (!this.config) return false;
+        if (this.state.channels.length === 0) return false;
+
+        const focused = this.state.focusedCell;
+        const baseChannelIndex = focused
+            ? focused.channelIndex
+            : this.state.scrollPosition.channelOffset;
+        const focusedTimeMs = focused?.focusTimeMs;
+        const baseTimeMs = Number.isFinite(focusedTimeMs)
+            ? (focusedTimeMs as number)
+            : Number.isFinite(this.state.focusTimeMs)
+                ? (this.state.focusTimeMs as number)
+                : this.state.gridAnchorTime + (this.state.scrollPosition.timeOffset * 60000);
+
+        const pageSize = Math.max(1, this.config.visibleChannels);
+        const delta = direction === 'down' ? pageSize : -pageSize;
+        const targetChannelIndex = Math.max(
+            0,
+            Math.min(baseChannelIndex + delta, this.state.channels.length - 1)
+        );
+        if (targetChannelIndex === baseChannelIndex) {
+            return false;
+        }
+
+        this.focusProgramAtTime(targetChannelIndex, baseTimeMs);
+        return true;
     }
 
     /**

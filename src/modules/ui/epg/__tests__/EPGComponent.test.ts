@@ -188,6 +188,40 @@ describe('EPGComponent', () => {
         });
     });
 
+    describe('paging', () => {
+        it('pages down by visible channels and updates focus', () => {
+            const channels = Array.from({ length: 10 }, (_, index) => createMockChannel(index));
+            epg.loadChannels(channels);
+            channels.forEach((channel) => {
+                epg.loadScheduleForChannel(channel.id, createMockSchedule(channel.id, 2));
+            });
+
+            epg.show();
+            epg.focusProgram(0, 0);
+
+            const handled = epg.handlePage('down');
+
+            expect(handled).toBe(true);
+            expect(epg.getState().focusedCell?.channelIndex).toBe(5);
+        });
+
+        it('returns false when paging up at the top channel', () => {
+            const channels = Array.from({ length: 10 }, (_, index) => createMockChannel(index));
+            epg.loadChannels(channels);
+            channels.forEach((channel) => {
+                epg.loadScheduleForChannel(channel.id, createMockSchedule(channel.id, 2));
+            });
+
+            epg.show();
+            epg.focusProgram(0, 0);
+
+            const handled = epg.handlePage('up');
+
+            expect(handled).toBe(false);
+            expect(epg.getState().focusedCell?.channelIndex).toBe(0);
+        });
+    });
+
     describe('visibility', () => {
         it('should show and hide correctly', () => {
             expect(epg.isVisible()).toBe(false);
