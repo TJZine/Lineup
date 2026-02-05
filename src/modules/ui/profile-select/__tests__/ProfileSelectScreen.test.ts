@@ -64,6 +64,7 @@ const createOrchestratorStub = (users: Array<{
 
 describe('ProfileSelectScreen', () => {
     afterEach(() => {
+        jest.useRealTimers();
         document.body.innerHTML = '';
         jest.clearAllMocks();
     });
@@ -138,6 +139,26 @@ describe('ProfileSelectScreen', () => {
         );
     });
 
+    it('does not render an unused PIN OK button', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(container, orchestrator as never);
+        screen.show();
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const protectedButton = container.querySelector('#btn-profile-1') as HTMLButtonElement;
+        protectedButton.click();
+
+        expect(container.querySelector('#btn-profile-pin-ok')).toBeNull();
+    });
+
     it('sets initial focus to 5 on PIN modal open', async () => {
         const users = [
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
@@ -184,6 +205,33 @@ describe('ProfileSelectScreen', () => {
 
         expect(orchestrator.switchHomeUser).toHaveBeenCalledTimes(1);
         expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', '1234');
+    });
+
+    it('keeps just-filled class only on the newest slot', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(container, orchestrator as never);
+        screen.show();
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        jest.useFakeTimers();
+
+        (container.querySelector('#btn-profile-1') as HTMLButtonElement).click();
+        (container.querySelector('#btn-profile-pin-1') as HTMLButtonElement).click();
+        (container.querySelector('#btn-profile-pin-2') as HTMLButtonElement).click();
+
+        const slots = Array.from(container.querySelectorAll('.profile-pin-slot')) as HTMLElement[];
+        expect(slots[0]?.classList.contains('just-filled')).toBe(false);
+        expect(slots[1]?.classList.contains('just-filled')).toBe(true);
+
+        jest.advanceTimersByTime(200);
+        expect(slots[1]?.classList.contains('just-filled')).toBe(false);
     });
 
     it('PIN entry ignores repeat events and submits exactly 4 digits', async () => {

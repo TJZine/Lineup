@@ -273,6 +273,8 @@ export class AuthScreen {
         this._activeCode = null;
         this._expiresAt = null;
         this._renderPin('----');
+        this._qrWrapEl.style.display = 'none';
+        this._detailEl.style.color = '';
         this._setStatus('Cancelled.', 'Request a new PIN to continue.');
         this._setButtons({ request: true, cancel: false, retry: false });
     }
@@ -428,6 +430,9 @@ export class AuthScreen {
         this._activePinId = null;
         this._activeCode = null;
         this._expiresAt = null;
+        this._renderPin('----');
+        this._qrWrapEl.style.display = 'none';
+        this._detailEl.style.color = '';
         this._setStatus('Code expired.', 'Request a new PIN to continue.');
         this._setButtons({ request: true, cancel: false, retry: false });
     }

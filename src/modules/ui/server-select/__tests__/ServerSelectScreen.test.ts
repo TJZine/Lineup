@@ -105,6 +105,37 @@ describe('ServerSelectScreen', () => {
         expect(button.disabled).toBe(true);
     });
 
+    it('keeps reconnect enabled when saved server auto-select fails', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([
+            { id: 'srv-1', name: 'Server One', owned: true },
+        ]);
+        orchestrator.selectServer.mockResolvedValue(false);
+
+        localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
+        localStorage.setItem(
+            orchestrator.getServerHealthStorageKey(),
+            JSON.stringify({
+                'srv-1': { status: 'ok', latencyMs: 50, testedAt: Date.now() },
+            })
+        );
+
+        const screen = new ServerSelectScreen(container, orchestrator as never);
+        screen.show();
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const activeRow = container.querySelector('.server-row.active') as HTMLElement;
+        const button = activeRow.querySelector('button') as HTMLButtonElement;
+        const status = container.querySelector('.screen-status') as HTMLElement;
+        expect(button.textContent).toBe('Reconnect');
+        expect(button.disabled).toBe(false);
+        expect(status.textContent).toContain('Saved server unavailable.');
+    });
+
     it('renders empty state and removes down neighbors when list is empty', async () => {
         const orchestrator = createOrchestratorStub();
         const nav = orchestrator.getNavigation();

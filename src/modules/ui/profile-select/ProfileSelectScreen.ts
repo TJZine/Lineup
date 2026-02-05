@@ -14,6 +14,21 @@ const PIN_LENGTH = 4;
 const PIN_MODAL_ID = 'profile-pin';
 
 export class ProfileSelectScreen {
+    private static readonly PIN_MODAL_FOCUSABLE_IDS = [
+        'btn-profile-pin-1',
+        'btn-profile-pin-2',
+        'btn-profile-pin-3',
+        'btn-profile-pin-4',
+        'btn-profile-pin-5',
+        'btn-profile-pin-6',
+        'btn-profile-pin-7',
+        'btn-profile-pin-8',
+        'btn-profile-pin-9',
+        'btn-profile-pin-backspace',
+        'btn-profile-pin-0',
+        'btn-profile-pin-cancel',
+    ] as const;
+
     private _container: HTMLElement;
     private _orchestrator: AppOrchestrator;
     private _statusEl: HTMLElement;
@@ -32,7 +47,6 @@ export class ProfileSelectScreen {
     private _pinErrorEl: HTMLElement;
     private _pinSlotsWrapEl: HTMLElement;
     private _pinSlots: HTMLElement[] = [];
-    private _pinCancelButton: HTMLButtonElement;
     private _pinDigits: string = '';
     private _pinTargetUser: PlexHomeUser | null = null;
     private _isPinOpen: boolean = false;
@@ -181,15 +195,6 @@ export class ProfileSelectScreen {
         });
         numpad.appendChild(zeroButton);
 
-        const okButton = document.createElement('button');
-        okButton.id = 'btn-profile-pin-ok';
-        okButton.className = 'profile-numpad-button';
-        okButton.textContent = 'OK';
-        okButton.setAttribute('aria-label', 'Submit');
-        okButton.disabled = true;
-        okButton.tabIndex = -1;
-        numpad.appendChild(okButton);
-
         modalCard.appendChild(numpad);
 
         const pinError = document.createElement('div');
@@ -209,7 +214,6 @@ export class ProfileSelectScreen {
             this._closePinModal();
         });
         modalCard.appendChild(cancelButton);
-        this._pinCancelButton = cancelButton;
 
         modal.appendChild(modalCard);
         this._container.appendChild(modal);
@@ -472,6 +476,7 @@ export class ProfileSelectScreen {
         const filledIndex = this._pinDigits.length - 1;
         const slot = this._pinSlots[filledIndex];
         if (slot) {
+            this._pinSlots.forEach((pinSlot) => pinSlot.classList.remove('just-filled'));
             slot.classList.add('just-filled');
             if (this._pinJustFilledTimeoutId !== null) {
                 clearTimeout(this._pinJustFilledTimeoutId);
@@ -525,20 +530,7 @@ export class ProfileSelectScreen {
         if (!nav) {
             return [];
         }
-        const focusableIds = [
-            'btn-profile-pin-1',
-            'btn-profile-pin-2',
-            'btn-profile-pin-3',
-            'btn-profile-pin-4',
-            'btn-profile-pin-5',
-            'btn-profile-pin-6',
-            'btn-profile-pin-7',
-            'btn-profile-pin-8',
-            'btn-profile-pin-9',
-            'btn-profile-pin-backspace',
-            'btn-profile-pin-0',
-            this._pinCancelButton.id,
-        ];
+        const focusableIds = ProfileSelectScreen.PIN_MODAL_FOCUSABLE_IDS.slice();
 
         const neighbors: Record<string, FocusableElement['neighbors']> = {
             'btn-profile-pin-1': { right: 'btn-profile-pin-2', down: 'btn-profile-pin-4' },
@@ -600,21 +592,9 @@ export class ProfileSelectScreen {
 
     private _unregisterPinModalFocusables(nav: ReturnType<AppOrchestrator['getNavigation']>): void {
         if (!nav) return;
-        const ids = [
-            'btn-profile-pin-1',
-            'btn-profile-pin-2',
-            'btn-profile-pin-3',
-            'btn-profile-pin-4',
-            'btn-profile-pin-5',
-            'btn-profile-pin-6',
-            'btn-profile-pin-7',
-            'btn-profile-pin-8',
-            'btn-profile-pin-9',
-            'btn-profile-pin-backspace',
-            'btn-profile-pin-0',
-            'btn-profile-pin-cancel',
-        ];
-        ids.forEach((id) => nav.unregisterFocusable(id));
+        ProfileSelectScreen.PIN_MODAL_FOCUSABLE_IDS.forEach((id) => {
+            nav.unregisterFocusable(id);
+        });
     }
 
     private _registerFocusables(): void {

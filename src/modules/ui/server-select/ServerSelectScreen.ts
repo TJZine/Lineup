@@ -149,6 +149,7 @@ export class ServerSelectScreen {
         try {
             const servers = await this._orchestrator.discoverServers(options.forceRefresh);
             let autoSelectError: unknown | null = null;
+            let savedServerUnavailable = false;
             const savedId = safeLocalStorageGet(this._orchestrator.getSelectedServerStorageKey());
 
             if (options.autoSelect) {
@@ -159,17 +160,20 @@ export class ServerSelectScreen {
                             this._setStatus('Connected…', 'Continuing startup…');
                             return;
                         }
+                        savedServerUnavailable = true;
+                        autoSelectError = new Error('Unable to use the saved server.');
                     } catch (error) {
+                        savedServerUnavailable = true;
                         autoSelectError = error;
                     }
                 }
             }
 
             // Fallback to rendering list
-            this._renderServers(servers, savedId);
+            this._renderServers(servers, savedId, { savedServerUnavailable });
             if (servers.length === 0) {
                 this._setStatus('No servers found.', 'Ensure your Plex server is reachable.');
-            } else if (autoSelectError) {
+            } else if (savedServerUnavailable) {
                 this._handleError(autoSelectError, 'Unable to use the saved server.');
                 this._setStatus('Saved server unavailable.', 'Select a server from the list.');
             } else {
@@ -232,7 +236,12 @@ export class ServerSelectScreen {
         this._renderServers([], null);
     }
 
-    private _renderServers(servers: PlexServer[], savedId: string | null): void {
+    private _renderServers(
+        servers: PlexServer[],
+        savedId: string | null,
+        options?: { savedServerUnavailable?: boolean }
+    ): void {
+        const savedServerUnavailable = options?.savedServerUnavailable === true;
         const rawHealth = safeLocalStorageGet(this._orchestrator.getServerHealthStorageKey());
         let healthMap: Record<string, { status?: string; type?: string; latencyMs?: number; testedAt?: number } | undefined> = {};
         let parsedHealth: unknown = {};
@@ -267,18 +276,40 @@ export class ServerSelectScreen {
         if (servers.length === 0) {
             const empty = document.createElement('div');
             empty.className = 'server-empty-state';
-            empty.innerHTML = `
-    <div class="server-empty-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24" width="64" height="64" stroke="currentColor" fill="none" stroke-width="2">
-        <path d="M4 17h16"/>
-        <path d="M6 17a6 6 0 0 1 12 0"/>
-        <path d="M12 7v4"/>
-        <path d="M10 9h4"/>
-      </svg>
-    </div>
-    <div class="server-empty-title">No servers found</div>
-    <div class="server-empty-description">Ensure your Plex Media Server is running and reachable on your network.</div>
-  `;
+            const icon = document.createElement('div');
+            icon.className = 'server-empty-icon';
+            icon.setAttribute('aria-hidden', 'true');
+
+            const svgNs = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(svgNs, 'svg');
+            svg.setAttribute('viewBox', '0 0 24 24');
+            svg.setAttribute('width', '64');
+            svg.setAttribute('height', '64');
+            svg.setAttribute('stroke', 'currentColor');
+            svg.setAttribute('fill', 'none');
+            svg.setAttribute('stroke-width', '2');
+
+            const p1 = document.createElementNS(svgNs, 'path');
+            p1.setAttribute('d', 'M4 17h16');
+            const p2 = document.createElementNS(svgNs, 'path');
+            p2.setAttribute('d', 'M6 17a6 6 0 0 1 12 0');
+            const p3 = document.createElementNS(svgNs, 'path');
+            p3.setAttribute('d', 'M12 7v4');
+            const p4 = document.createElementNS(svgNs, 'path');
+            p4.setAttribute('d', 'M10 9h4');
+            svg.append(p1, p2, p3, p4);
+            icon.appendChild(svg);
+
+            const title = document.createElement('div');
+            title.className = 'server-empty-title';
+            title.textContent = 'No servers found';
+
+            const description = document.createElement('div');
+            description.className = 'server-empty-description';
+            description.textContent =
+                'Ensure your Plex Media Server is running and reachable on your network.';
+
+            empty.replaceChildren(icon, title, description);
             this._listEl.appendChild(empty);
             this._updateStaticButtonNeighbors(false);
             return;
@@ -352,7 +383,7 @@ export class ServerSelectScreen {
 
             if (savedId && server.id === savedId) {
                 row.classList.add('active');
-                if (normalizedStatus === 'ok') {
+                if (normalizedStatus === 'ok' && !savedServerUnavailable) {
                     selectButton.textContent = 'Connected';
                     selectButton.disabled = true;
                 } else {

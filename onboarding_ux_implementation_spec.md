@@ -42,7 +42,7 @@
 
 **Target UI:**
 
-```
+```text
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                                                                            │
 │                        Sign in to Plex                                     │
@@ -100,7 +100,7 @@
 
 **Target UI:**
 
-```
+```text
 PIN Characters:
 ┌──────────────────────────────────────────────────────────────┐
 │                                                              │
@@ -161,7 +161,7 @@ PIN Characters:
 
 **Target UI:**
 
-```
+```text
 Countdown Display:
 ┌──────────────────────────────────────────────────────────────┐
 │                                                              │
@@ -213,7 +213,7 @@ Countdown Display:
 
 **Target UI:**
 
-```
+```text
 Error Display (inline, non-modal):
 ┌──────────────────────────────────────────────────────────────┐
 │                                                              │
@@ -261,7 +261,7 @@ Error Display (inline, non-modal):
 
 **Target UI:**
 
-```
+```text
 PIN Entry Modal with Numpad:
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                                                                            │
@@ -342,7 +342,7 @@ PIN Entry Modal with Numpad:
 
 **Target UI Animation:**
 
-```
+```text
 PIN Dot Animation:
 ┌──────────────────────────────────────────────────────────────┐
 │ Empty state:      ○ ○ ○ ○                                    │
@@ -418,7 +418,7 @@ PIN Dot Animation:
 
 **Target UI:**
 
-```
+```text
 Server Row with Latency:
 ┌────────────────────────────────────────────────────────────────────────────┐
 │  Plex Media Server                                                         │
@@ -446,7 +446,7 @@ Latency thresholds:
 
 **Target UI:**
 
-```
+```text
 Active Server Indication:
 ┌────────────────────────────────────────────────────────────────────────────┐
 │  ✓ Plex Media Server                                  [ Connected ]        │
@@ -484,7 +484,7 @@ Active Server Indication:
 
 **Target UI:**
 
-```
+```text
 Empty State:
 ┌────────────────────────────────────────────────────────────┐
 │   [server SVG]                                             │
@@ -542,4 +542,3 @@ Empty State:
 **Next:** Continue with Part 2: `onboarding_ux_implementation_spec_part2.md`
 
 *Updated: 2026-02-05 (reviewed against current repo code; Plex QR auto-fill URL remains unverified).*
-

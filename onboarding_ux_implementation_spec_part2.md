@@ -7,12 +7,12 @@
 
 ## Table of Contents (Part 2)
 
-4. [Audio Setup Screen Enhancements](#4-audio-setup-screen-enhancements)
-5. [Channel Setup Screen Enhancements](#5-channel-setup-screen-enhancements)
-6. [Cross-Cutting Enhancements](#6-cross-cutting-enhancements)
-7. [Deferred Items](#7-deferred-items)
-8. [Summary: Implementation Priorities (Updated)](#8-summary-implementation-priorities-updated)
-9. [Suggestions / Open Questions](#9-suggestions--open-questions)
+1. [Audio Setup Screen Enhancements](#4-audio-setup-screen-enhancements)
+2. [Channel Setup Screen Enhancements](#5-channel-setup-screen-enhancements)
+3. [Cross-Cutting Enhancements](#6-cross-cutting-enhancements)
+4. [Deferred Items](#7-deferred-items)
+5. [Summary: Implementation Priorities (Updated)](#8-summary-implementation-priorities-updated)
+6. [Suggestions / Open Questions](#9-suggestions--open-questions)
 
 ---
 
@@ -26,7 +26,7 @@
 
 **Target UI:**
 
-```
+```text
 Audio Choice Cards:
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                                                                            │
@@ -72,7 +72,7 @@ Audio Choice Cards:
 
 **Target UI:**
 
-```
+```text
 Direct Play Audio Fallback with Tooltip:
 ┌────────────────────────────────────────────────────────────────────────────┐
 │  Direct Play Audio Fallback                                   [ On ]       │
@@ -126,7 +126,7 @@ Direct Play Audio Fallback with Tooltip:
 
 **Target UI:**
 
-```
+```text
 Library Selection (Step 1):
 ┌────────────────────────────────────────────────────────────────────────────┐
 │  ┌────────────────────────┐  ┌────────────────────────┐                   │
@@ -177,7 +177,7 @@ Library Selection (Step 1):
 
 **Target UI:**
 
-```
+```text
 ┌────────────────────────────────────────────┐
 │  [Icon]  Library Title                     │
 │          Movies • 1,234 titles       [Off] │
@@ -190,7 +190,7 @@ Library Selection (Step 1):
 
 **Target UI:**
 
-```
+```text
 Top of Library List:
 ┌────────────────────────────────────────────────────────────────────────────┐
 │      [ Select All ]  [ Clear All ]                                         │
@@ -266,7 +266,7 @@ Top of Library List:
 
 **Slider Target UI (if implemented):**
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────┐
 │ Max Channels                                                  │
 │ ◀  ═══════════●══════════════════════════  ▶            50    │
@@ -283,7 +283,7 @@ Top of Library List:
 
 **Target UI:** show transient deltas next to changed values.
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────┐
 │ ESTIMATE                                                     │
 │ Total planned         45  (+5)                               │
@@ -376,22 +376,22 @@ The following items have been deferred for future consideration (updated):
 
 ### Phase 2 (High Value)
 
-4. Profile avatar sizing + PIN entry animations (Profile Select)
-5. Audio setup SVG icons + optional tooltip polish (Audio Setup)
-6. Channel setup: library icons + item counts (Channel Setup)
+1. Profile avatar sizing + PIN entry animations (Profile Select)
+2. Audio setup SVG icons + optional tooltip polish (Audio Setup)
+3. Channel setup: library icons + item counts (Channel Setup)
 
 ### Phase 3 (Usability)
 
-7. Channel setup: Select All / Clear All (Channel Setup)
-8. Channel setup: selected state checkmark polish (Channel Setup)
-9. Channel setup: strategy description copy refresh (Channel Setup)
+1. Channel setup: Select All / Clear All (Channel Setup)
+2. Channel setup: selected state checkmark polish (Channel Setup)
+3. Channel setup: strategy description copy refresh (Channel Setup)
 
 ### Phase 4 (Polish)
 
-10. Channel setup: estimate deltas (Channel Setup)
-11. Numeric controls: left/right adjust (or slider) improvements (Channel Setup)
-12. Cross-cutting: step indicator (only if consistent) (All onboarding screens)
-13. Cross-cutting: error box standardization rollout (All onboarding screens)
+1. Channel setup: estimate deltas (Channel Setup)
+2. Numeric controls: left/right adjust (or slider) improvements (Channel Setup)
+3. Cross-cutting: step indicator (only if consistent) (All onboarding screens)
+4. Cross-cutting: error box standardization rollout (All onboarding screens)
 
 ---
 
@@ -402,9 +402,8 @@ The following items have been deferred for future consideration (updated):
 3. **Icon strategy:** consider a tiny repo-local icon helper (inline SVG strings) to avoid duplicating SVG markup.
 4. **Accessibility (TV):** ensure new controls (numpad, bulk actions) have deterministic neighbor graphs and visible focus; avoid new modal traps.
 5. **Testing gaps:** add/extend unit tests for numpad focus trap/neighbor mapping and Auth timer expiration behavior.
-6. **Copy consistency:** unify terminology/casing across screens (“Retry discovery”, “Sign in”, etc).
+6. **Copy consistency:** unify terminology/casing across screens (“Retry discovery”, “Sign in”, etc.).
 
 ---
 
 *Updated: 2026-02-05 (reviewed against current repo code; no official Plex QR auto-fill URL found via Context7 sources—treat as TODO for live verification).*
-
