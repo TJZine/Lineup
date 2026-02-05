@@ -109,6 +109,83 @@ describe('ProfileSelectScreen', () => {
         expect(modal.style.display).toBe('flex');
     });
 
+    it('opens PIN modal with full focusable list', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const nav = orchestrator.getNavigation();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(container, orchestrator as never);
+        screen.show();
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const protectedButton = container.querySelector('#btn-profile-1') as HTMLButtonElement;
+        protectedButton.click();
+
+        expect(nav.openModal).toHaveBeenCalledWith(
+            'profile-pin',
+            expect.arrayContaining([
+                'btn-profile-pin-5',
+                'btn-profile-pin-backspace',
+                'btn-profile-pin-0',
+                'btn-profile-pin-cancel',
+            ])
+        );
+    });
+
+    it('sets initial focus to 5 on PIN modal open', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const nav = orchestrator.getNavigation();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(container, orchestrator as never);
+        screen.show();
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const protectedButton = container.querySelector('#btn-profile-1') as HTMLButtonElement;
+        protectedButton.click();
+
+        expect(nav.setFocus).toHaveBeenCalledWith('btn-profile-pin-5');
+    });
+
+    it('numpad digit clicks enter PIN and submit after 4 digits', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(container, orchestrator as never);
+        screen.show();
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        (container.querySelector('#btn-profile-1') as HTMLButtonElement).click();
+
+        (container.querySelector('#btn-profile-pin-1') as HTMLButtonElement).click();
+        (container.querySelector('#btn-profile-pin-2') as HTMLButtonElement).click();
+        (container.querySelector('#btn-profile-pin-3') as HTMLButtonElement).click();
+        (container.querySelector('#btn-profile-pin-4') as HTMLButtonElement).click();
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(orchestrator.switchHomeUser).toHaveBeenCalledTimes(1);
+        expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', '1234');
+    });
+
     it('PIN entry ignores repeat events and submits exactly 4 digits', async () => {
         const users = [
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },

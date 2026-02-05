@@ -5,23 +5,36 @@
  */
 
 import { AppOrchestrator } from '../../../Orchestrator';
-import { PlexApiError, type PlexPinRequest } from '../../plex/auth';
+import { AppErrorCode, PlexApiError, type PlexPinRequest } from '../../plex/auth';
+
+type QrCodeModule = {
+    toCanvas: (
+        canvas: HTMLCanvasElement,
+        text: string,
+        options?: { width?: number; margin?: number; color?: { dark?: string; light?: string } }
+    ) => Promise<void>;
+};
 
 
 
 export class AuthScreen {
     private _container: HTMLElement;
     private _orchestrator: AppOrchestrator;
-    private _pinEl: HTMLElement;
+    private _pinLiveEl: HTMLElement;
+    private _pinBoxesEl: HTMLElement;
+    private _qrWrapEl: HTMLElement;
+    private _qrCanvasEl: HTMLCanvasElement;
     private _statusEl: HTMLElement;
     private _detailEl: HTMLElement;
-    private _errorEl: HTMLElement;
+    private _errorBoxEl: HTMLElement;
+    private _errorTitleEl: HTMLElement;
+    private _errorMessageEl: HTMLElement;
     private _requestButton: HTMLButtonElement;
     private _cancelButton: HTMLButtonElement;
     private _retryButton: HTMLButtonElement;
     private _pollToken: number = 0;
-    private _elapsedTimer: number | null = null;
-    private _pollStartedAt: number | null = null;
+    private _expiryTimer: number | null = null;
+    private _expiresAt: Date | null = null;
     private _activePinId: number | null = null;
     private _activeCode: string | null = null;
     private _retryFocusableRegistered: boolean = false;
@@ -50,16 +63,38 @@ export class AuthScreen {
 
         const subtitle = document.createElement('p');
         subtitle.className = 'screen-subtitle';
-        subtitle.textContent = 'Go to https://plex.tv/link and enter the code below.';
+        subtitle.textContent = 'Scan the QR code or visit plex.tv/link';
         panel.appendChild(subtitle);
 
-        const pin = document.createElement('div');
-        pin.className = 'pin-code';
-        pin.textContent = '----';
-        pin.setAttribute('aria-live', 'polite');
-        pin.setAttribute('aria-label', 'PIN code');
-        panel.appendChild(pin);
-        this._pinEl = pin;
+        const qrWrap = document.createElement('div');
+        qrWrap.className = 'auth-qr';
+        qrWrap.style.display = 'none';
+
+        const qrCard = document.createElement('div');
+        qrCard.className = 'auth-qr-card';
+
+        const qrCanvas = document.createElement('canvas');
+        qrCanvas.className = 'auth-qr-canvas';
+        qrCanvas.width = 160;
+        qrCanvas.height = 160;
+        qrCard.appendChild(qrCanvas);
+        qrWrap.appendChild(qrCard);
+        panel.appendChild(qrWrap);
+        this._qrWrapEl = qrWrap;
+        this._qrCanvasEl = qrCanvas;
+
+        const pinLive = document.createElement('div');
+        pinLive.className = 'sr-only';
+        pinLive.setAttribute('aria-live', 'polite');
+        pinLive.setAttribute('aria-atomic', 'true');
+        panel.appendChild(pinLive);
+        this._pinLiveEl = pinLive;
+
+        const pinBoxes = document.createElement('div');
+        pinBoxes.className = 'auth-pin-container';
+        pinBoxes.setAttribute('aria-hidden', 'true');
+        panel.appendChild(pinBoxes);
+        this._pinBoxesEl = pinBoxes;
 
         const status = document.createElement('div');
         status.className = 'screen-status';
@@ -71,17 +106,27 @@ export class AuthScreen {
         const detail = document.createElement('div');
         detail.className = 'screen-detail';
         detail.textContent = '';
-        detail.setAttribute('aria-live', 'polite');
         panel.appendChild(detail);
         this._detailEl = detail;
 
-        const error = document.createElement('div');
-        error.className = 'screen-error';
-        error.textContent = '';
-        error.setAttribute('role', 'alert');
-        error.setAttribute('aria-live', 'assertive');
-        panel.appendChild(error);
-        this._errorEl = error;
+        const errorBox = document.createElement('div');
+        errorBox.className = 'inline-error-box';
+        errorBox.style.display = 'none';
+        errorBox.setAttribute('role', 'alert');
+        errorBox.setAttribute('aria-live', 'assertive');
+
+        const errorTitle = document.createElement('div');
+        errorTitle.className = 'inline-error-title';
+        errorBox.appendChild(errorTitle);
+        this._errorTitleEl = errorTitle;
+
+        const errorMessage = document.createElement('div');
+        errorMessage.className = 'inline-error-message';
+        errorBox.appendChild(errorMessage);
+        this._errorMessageEl = errorMessage;
+
+        panel.appendChild(errorBox);
+        this._errorBoxEl = errorBox;
 
         const buttonRow = document.createElement('div');
         buttonRow.className = 'button-row';
@@ -142,7 +187,7 @@ export class AuthScreen {
     }
 
     hide(): void {
-        this._stopElapsedTimer();
+        this._stopExpiryTimer();
         this._pollToken += 1;
         this._unregisterFocusables();
         this._container.style.display = 'none';
@@ -155,11 +200,14 @@ export class AuthScreen {
         this._setButtons({ request: false, cancel: true, retry: false });
         this._setStatus('Requesting PIN…', '');
         this._renderPin('----');
+        this._qrWrapEl.style.display = 'none';
+        this._detailEl.textContent = '';
+        this._detailEl.style.color = '';
 
         if (this._activePinId !== null) {
             // Cancel any in-flight poll and best-effort cancel server-side PIN.
             this._pollToken += 1;
-            this._stopElapsedTimer();
+            this._stopExpiryTimer();
             try {
                 await this._orchestrator.cancelPin(this._activePinId);
             } catch (error) {
@@ -168,12 +216,16 @@ export class AuthScreen {
         }
         this._activePinId = null;
         this._activeCode = null;
+        this._expiresAt = null;
 
         try {
             const pin = await this._orchestrator.requestAuthPin();
             this._activePinId = pin.id;
             this._activeCode = pin.code;
+            this._expiresAt = pin.expiresAt;
             this._renderPin(pin.code);
+            void this._renderQrBestEffort();
+            this._startExpiryTimer();
             this._startPolling(pin);
         } catch (error) {
             this._handleError(error, 'Failed to request PIN.');
@@ -184,16 +236,14 @@ export class AuthScreen {
     private async _startPolling(pin: PlexPinRequest): Promise<void> {
         this._pollToken += 1;
         const token = this._pollToken;
-        this._pollStartedAt = Date.now();
-        this._startElapsedTimer();
-        this._setStatus('Waiting for sign-in…', 'Polling in progress.');
+        this._setStatus('Waiting for sign-in…', '');
 
         try {
             const result = await this._orchestrator.pollForPin(pin.id);
             if (token !== this._pollToken) {
                 return;
             }
-            this._stopElapsedTimer();
+            this._stopExpiryTimer();
             this._setStatus('Signed in.', 'Continuing startup…');
             if (result.authToken) {
                 this._renderPin(this._activeCode || pin.code);
@@ -203,7 +253,7 @@ export class AuthScreen {
             if (token !== this._pollToken) {
                 return;
             }
-            this._stopElapsedTimer();
+            this._stopExpiryTimer();
             this._handleError(error, 'PIN polling failed.');
             this._setButtons({ request: true, cancel: false, retry: true });
         }
@@ -211,7 +261,7 @@ export class AuthScreen {
 
     private async _handleCancel(): Promise<void> {
         this._pollToken += 1;
-        this._stopElapsedTimer();
+        this._stopExpiryTimer();
         if (this._activePinId !== null) {
             try {
                 await this._orchestrator.cancelPin(this._activePinId);
@@ -221,6 +271,7 @@ export class AuthScreen {
         }
         this._activePinId = null;
         this._activeCode = null;
+        this._expiresAt = null;
         this._renderPin('----');
         this._setStatus('Cancelled.', 'Request a new PIN to continue.');
         this._setButtons({ request: true, cancel: false, retry: false });
@@ -276,44 +327,138 @@ export class AuthScreen {
             }
             this._cancelHasRetryNeighbor = shouldHaveRetryNeighbor;
         }
+
+        if (state.retry) {
+            nav.setFocus('btn-auth-retry');
+        }
     }
 
     private _renderPin(code: string): void {
-        this._pinEl.textContent = code;
+        this._pinLiveEl.textContent = `PIN code: ${code}`;
+        this._pinBoxesEl.replaceChildren();
+        for (const ch of code) {
+            const box = document.createElement('div');
+            box.className = 'auth-pin-character';
+            box.textContent = ch;
+            box.setAttribute('aria-hidden', 'true');
+            this._pinBoxesEl.appendChild(box);
+        }
     }
 
     private _clearError(): void {
-        this._errorEl.textContent = '';
+        this._errorBoxEl.style.display = 'none';
+        this._errorTitleEl.textContent = '';
+        this._errorMessageEl.textContent = '';
     }
 
     private _handleError(error: unknown, fallback: string): void {
-        if (error instanceof PlexApiError) {
-            this._errorEl.textContent = `${error.code}: ${error.message}`;
+        const code = this._getAppErrorCode(error);
+        if (
+            code === AppErrorCode.SERVER_UNREACHABLE ||
+            code === AppErrorCode.NETWORK_TIMEOUT ||
+            code === AppErrorCode.NETWORK_UNAVAILABLE ||
+            code === AppErrorCode.NETWORK_OFFLINE
+        ) {
+            this._showError('Connection error', 'Check your internet connection and try again.');
+            return;
+        }
+        if (code === AppErrorCode.AUTH_RATE_LIMITED || code === AppErrorCode.RATE_LIMITED) {
+            this._showError('Too many attempts', 'Please wait a moment and try again.');
             return;
         }
         const message = error instanceof Error ? error.message : fallback;
-        this._errorEl.textContent = message;
+        this._showError('Something went wrong', message || fallback);
     }
 
-    private _startElapsedTimer(): void {
-        this._stopElapsedTimer();
-        this._elapsedTimer = window.setInterval(() => {
-            if (this._pollStartedAt === null) {
-                return;
-            }
-            const elapsed = Date.now() - this._pollStartedAt;
-            const seconds = Math.floor(elapsed / 1000);
-            const minutes = Math.floor(seconds / 60);
-            const remainingSeconds = seconds % 60;
-            const formatted = `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
-            this._detailEl.textContent = `Polling… ${formatted} elapsed.`;
+    private _showError(title: string, message: string): void {
+        this._errorBoxEl.style.display = 'flex';
+        this._errorTitleEl.textContent = title;
+        this._errorMessageEl.textContent = message;
+    }
+
+    private _startExpiryTimer(): void {
+        this._stopExpiryTimer();
+        if (!this._updateExpiryDetail()) {
+            return;
+        }
+        this._expiryTimer = window.setInterval(() => {
+            this._updateExpiryDetail();
         }, 1000);
     }
 
-    private _stopElapsedTimer(): void {
-        if (this._elapsedTimer !== null) {
-            clearInterval(this._elapsedTimer);
-            this._elapsedTimer = null;
+    private _updateExpiryDetail(): boolean {
+        if (!this._expiresAt) {
+            return false;
+        }
+        const remainingMs = Math.max(0, this._expiresAt.getTime() - Date.now());
+        const totalSeconds = Math.floor(remainingMs / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        const formatted = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+        if (remainingMs <= 0) {
+            void this._handleExpiredPin();
+            return false;
+        }
+
+        this._detailEl.textContent = `Expires in ${formatted}`;
+        this._detailEl.style.color = remainingMs <= 120000 ? 'var(--color-warning)' : '';
+        return true;
+    }
+
+    private _stopExpiryTimer(): void {
+        if (this._expiryTimer !== null) {
+            clearInterval(this._expiryTimer);
+            this._expiryTimer = null;
+        }
+    }
+
+    private async _handleExpiredPin(): Promise<void> {
+        this._stopExpiryTimer();
+        this._pollToken += 1;
+
+        if (this._activePinId !== null) {
+            try {
+                await this._orchestrator.cancelPin(this._activePinId);
+            } catch {
+                // best effort
+            }
+        }
+
+        this._activePinId = null;
+        this._activeCode = null;
+        this._expiresAt = null;
+        this._setStatus('Code expired.', 'Request a new PIN to continue.');
+        this._setButtons({ request: true, cancel: false, retry: false });
+    }
+
+    private _getAppErrorCode(error: unknown): AppErrorCode | null {
+        if (error instanceof PlexApiError) {
+            const plexCode = error.code;
+            if (Object.values(AppErrorCode).includes(plexCode as AppErrorCode)) {
+                return plexCode as AppErrorCode;
+            }
+        }
+        if (error && typeof error === 'object' && 'code' in error) {
+            const code = (error as { code?: unknown }).code;
+            if (typeof code === 'string' && Object.values(AppErrorCode).includes(code as AppErrorCode)) {
+                return code as AppErrorCode;
+            }
+        }
+        return null;
+    }
+
+    private async _renderQrBestEffort(): Promise<void> {
+        try {
+            const mod = (await import('qrcode')) as unknown as QrCodeModule;
+            await mod.toCanvas(this._qrCanvasEl, 'https://plex.tv/link', {
+                width: 160,
+                margin: 1,
+                color: { dark: '#000000', light: '#ffffff' },
+            });
+            this._qrWrapEl.style.display = 'flex';
+        } catch {
+            this._qrWrapEl.style.display = 'none';
         }
     }
 

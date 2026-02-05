@@ -26,7 +26,48 @@
     border: 1px solid var(--color-status-warning-border, rgba(255, 165, 0, 0.3));
 }
 
+.server-status-pill.latency-slow {
+    background-color: var(--color-status-warning-bg, rgba(255, 165, 0, 0.2));
+    color: var(--color-status-warning, #fbbf24);
+    border: 1px solid var(--color-status-warning-border, rgba(255, 165, 0, 0.3));
+}
+
+.server-status-pill.latency-very-slow {
+    background-color: rgba(255, 165, 0, 0.28);
+    color: #f59e0b;
+    border: 1px solid rgba(255, 165, 0, 0.45);
+}
+
 .server-status-pill.unknown {
     background-color: var(--color-surface-hover);
     color: var(--color-text-muted);
+}
+
+.server-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 40px 20px;
+    gap: 16px;
+}
+
+.server-empty-icon {
+    width: 64px;
+    height: 64px;
+    color: var(--color-text-muted);
+    opacity: 0.6;
+}
+
+.server-empty-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.server-empty-description {
+    font-size: 16px;
+    color: var(--color-text-secondary);
+    max-width: 360px;
+    line-height: 1.5;
 }
