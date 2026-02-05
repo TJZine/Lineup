@@ -76,6 +76,32 @@ describe('ServerSelectScreen', () => {
         expect(pill.classList.contains('latency-slow')).toBe(true);
     });
 
+    it('applies very-slow class for >=500ms latency', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([
+            { id: 'srv-1', name: 'Server One', owned: true },
+        ]);
+
+        localStorage.setItem(
+            orchestrator.getServerHealthStorageKey(),
+            JSON.stringify({
+                'srv-1': { status: 'ok', latencyMs: 500, testedAt: Date.now() },
+            })
+        );
+
+        const screen = new ServerSelectScreen(container, orchestrator as never);
+        screen.show({ allowAutoConnect: false });
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const pill = container.querySelector('.server-status-pill') as HTMLElement;
+        expect(pill.textContent).toContain('Very Slow • 500ms');
+        expect(pill.classList.contains('latency-very-slow')).toBe(true);
+    });
+
     it('marks saved server row as active and disables connect when ok', async () => {
         const orchestrator = createOrchestratorStub();
         const container = document.createElement('div');
@@ -103,6 +129,17 @@ describe('ServerSelectScreen', () => {
         const button = activeRow.querySelector('button') as HTMLButtonElement;
         expect(button.textContent).toBe('Connected');
         expect(button.disabled).toBe(true);
+
+        const registeredIds = orchestrator.getNavigation().registerFocusable.mock.calls
+            .map((call) => (call[0] as { id?: string })?.id)
+            .filter((id): id is string => typeof id === 'string');
+        expect(registeredIds).not.toContain('btn-server-select-0');
+
+        const findLastNeighbors = (id: string): { down?: string } | undefined => {
+            const calls = orchestrator.getNavigation().registerFocusable.mock.calls.filter((call) => call[0]?.id === id);
+            return calls.length ? (calls[calls.length - 1][0].neighbors as { down?: string }) : undefined;
+        };
+        expect(findLastNeighbors('btn-server-refresh')?.down).toBeUndefined();
     });
 
     it('keeps reconnect enabled when saved server auto-select fails', async () => {

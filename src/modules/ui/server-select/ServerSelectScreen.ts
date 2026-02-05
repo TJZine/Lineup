@@ -311,9 +311,11 @@ export class ServerSelectScreen {
 
             empty.replaceChildren(icon, title, description);
             this._listEl.appendChild(empty);
-            this._updateStaticButtonNeighbors(false);
+            this._updateStaticButtonNeighbors(null);
             return;
         }
+
+        const enabledServerButtons: HTMLButtonElement[] = [];
 
         for (let i = 0; i < servers.length; i++) {
             const server = servers[i];
@@ -392,33 +394,42 @@ export class ServerSelectScreen {
             }
 
             this._listEl.appendChild(row);
-
-            // Register dynamic focusable manually since we are already showing
-            const nav = this._orchestrator.getNavigation();
-            if (nav) {
-                const element: FocusableElement = {
-                    id: selectButton.id,
-                    element: selectButton,
-                    neighbors: {
-                        up: i === 0 ? 'btn-server-refresh' : `btn-server-select-${i - 1}`,
-                    },
-                    onFocus: () => {
-                        try {
-                            selectButton.scrollIntoView({ block: 'nearest' });
-                        } catch {
-                            selectButton.scrollIntoView();
-                        }
-                    },
-                };
-                if (i < servers.length - 1) {
-                    element.neighbors!.down = `btn-server-select-${i + 1}`;
-                }
-                nav.registerFocusable(element);
+            if (!selectButton.disabled) {
+                enabledServerButtons.push(selectButton);
             }
         }
 
-        // Update neighbors for static buttons now that list is populated
-        this._updateStaticButtonNeighbors(servers.length > 0);
+        const navForButtons = this._orchestrator.getNavigation();
+        if (navForButtons) {
+            for (let i = 0; i < enabledServerButtons.length; i++) {
+                const button = enabledServerButtons[i];
+                if (!button) continue;
+                const neighbors: FocusableElement['neighbors'] = {};
+                const upButtonId = i === 0 ? 'btn-server-refresh' : enabledServerButtons[i - 1]?.id;
+                const downButtonId = enabledServerButtons[i + 1]?.id;
+                if (upButtonId) {
+                    neighbors.up = upButtonId;
+                }
+                if (downButtonId) {
+                    neighbors.down = downButtonId;
+                }
+                navForButtons.registerFocusable({
+                    id: button.id,
+                    element: button,
+                    neighbors,
+                    onFocus: () => {
+                        try {
+                            button.scrollIntoView({ block: 'nearest' });
+                        } catch {
+                            button.scrollIntoView();
+                        }
+                    },
+                });
+            }
+        }
+
+        // Update neighbors for static buttons now that list is populated.
+        this._updateStaticButtonNeighbors(enabledServerButtons[0]?.id ?? null);
 
     }
 
@@ -557,9 +568,14 @@ export class ServerSelectScreen {
         buttons.forEach(btn => nav.unregisterFocusable(btn.id));
     }
 
-    private _updateStaticButtonNeighbors(hasListItems: boolean): void {
+    private _updateStaticButtonNeighbors(firstListFocusableId: string | null): void {
         const nav = this._orchestrator.getNavigation();
         if (!nav) return;
+
+        nav.unregisterFocusable('btn-server-refresh');
+        nav.unregisterFocusable('btn-server-setup');
+        nav.unregisterFocusable('btn-server-switch-profile');
+        nav.unregisterFocusable('btn-server-forget');
 
         // Re-register to update neighbors
         const refreshParams: FocusableElement = {
@@ -569,8 +585,8 @@ export class ServerSelectScreen {
                 right: 'btn-server-setup',
             },
         };
-        if (hasListItems) {
-            refreshParams.neighbors!.down = 'btn-server-select-0';
+        if (firstListFocusableId) {
+            refreshParams.neighbors.down = firstListFocusableId;
         }
         nav.registerFocusable(refreshParams);
 
@@ -582,8 +598,8 @@ export class ServerSelectScreen {
                 right: 'btn-server-switch-profile',
             },
         };
-        if (hasListItems) {
-            setupParams.neighbors!.down = 'btn-server-select-0';
+        if (firstListFocusableId) {
+            setupParams.neighbors.down = firstListFocusableId;
         }
         nav.registerFocusable(setupParams);
 
@@ -595,8 +611,8 @@ export class ServerSelectScreen {
                 right: 'btn-server-forget',
             },
         };
-        if (hasListItems) {
-            switchProfileParams.neighbors!.down = 'btn-server-select-0';
+        if (firstListFocusableId) {
+            switchProfileParams.neighbors.down = firstListFocusableId;
         }
         nav.registerFocusable(switchProfileParams);
 
@@ -607,8 +623,8 @@ export class ServerSelectScreen {
                 left: 'btn-server-switch-profile',
             },
         };
-        if (hasListItems) {
-            clearParams.neighbors!.down = 'btn-server-select-0';
+        if (firstListFocusableId) {
+            clearParams.neighbors.down = firstListFocusableId;
         }
         nav.registerFocusable(clearParams);
     }

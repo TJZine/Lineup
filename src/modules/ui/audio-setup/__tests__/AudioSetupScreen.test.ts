@@ -47,6 +47,7 @@ describe('AudioSetupScreen', () => {
 
     afterEach(() => {
         document.body.innerHTML = '';
+        jest.useRealTimers();
     });
 
     it('defaults to TV speakers when DTS passthrough not enabled', () => {
@@ -118,5 +119,85 @@ describe('AudioSetupScreen', () => {
 
         const fallback = nav.focusables.get('audio-direct-play-fallback');
         expect(fallback?.neighbors.up).toBe('audio-choice-external');
+    });
+
+    it('renders SVG icons for audio choices', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationStub();
+        const screen = new AudioSetupScreen(container, () => nav as unknown as never, jest.fn());
+
+        screen.show();
+
+        expect(container.querySelector('#audio-choice-external svg')).not.toBeNull();
+        expect(container.querySelector('#audio-choice-tv-speakers svg')).not.toBeNull();
+        expect(container.textContent).not.toContain('🔊');
+        expect(container.textContent).not.toContain('📺');
+    });
+
+    it('shows tooltip after focus delay and hides immediately when focus moves away', () => {
+        jest.useFakeTimers();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationStub();
+        const screen = new AudioSetupScreen(container, () => nav as unknown as never, jest.fn());
+
+        screen.show();
+
+        const tooltip = container.querySelector('#audio-direct-play-tooltip') as HTMLElement | null;
+        expect(tooltip).not.toBeNull();
+        expect(tooltip?.classList.contains('hidden')).toBe(true);
+
+        nav.setFocus('audio-direct-play-fallback');
+        expect(tooltip?.classList.contains('hidden')).toBe(true);
+
+        jest.advanceTimersByTime(300);
+        expect(tooltip?.classList.contains('hidden')).toBe(false);
+
+        nav.setFocus('audio-setup-continue');
+        expect(tooltip?.classList.contains('hidden')).toBe(true);
+        jest.useRealTimers();
+    });
+
+    it('clears tooltip timer on hide and destroy', () => {
+        jest.useFakeTimers();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationStub();
+        const screen = new AudioSetupScreen(container, () => nav as unknown as never, jest.fn());
+        screen.show();
+
+        const tooltip = container.querySelector('#audio-direct-play-tooltip') as HTMLElement | null;
+        nav.setFocus('audio-direct-play-fallback');
+        screen.hide();
+        jest.advanceTimersByTime(301);
+        expect(tooltip?.classList.contains('hidden')).toBe(true);
+
+        screen.show();
+        nav.setFocus('audio-direct-play-fallback');
+        screen.destroy();
+        expect(() => jest.advanceTimersByTime(301)).not.toThrow();
+        expect(container.innerHTML).toBe('');
+        jest.useRealTimers();
+    });
+
+    it('shows current-settings continue text until user explicitly chooses', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationStub();
+        const screen = new AudioSetupScreen(container, () => nav as unknown as never, jest.fn());
+
+        screen.show();
+
+        const continueBtn = container.querySelector('#audio-setup-continue') as HTMLButtonElement | null;
+        expect(continueBtn?.textContent).toContain('current settings');
+
+        const externalButton = container.querySelector('#audio-choice-external') as HTMLButtonElement | null;
+        externalButton?.click();
+        expect(continueBtn?.textContent).toBe('Continue');
     });
 });

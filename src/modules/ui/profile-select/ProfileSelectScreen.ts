@@ -552,25 +552,35 @@ export class ProfileSelectScreen {
                 down: 'btn-profile-pin-8',
             },
             'btn-profile-pin-6': { up: 'btn-profile-pin-3', left: 'btn-profile-pin-5', down: 'btn-profile-pin-9' },
-            'btn-profile-pin-7': { up: 'btn-profile-pin-4', right: 'btn-profile-pin-8', down: 'btn-profile-pin-cancel' },
+            'btn-profile-pin-7': {
+                up: 'btn-profile-pin-4',
+                right: 'btn-profile-pin-8',
+                down: 'btn-profile-pin-backspace',
+            },
             'btn-profile-pin-8': {
                 up: 'btn-profile-pin-5',
                 left: 'btn-profile-pin-7',
                 right: 'btn-profile-pin-9',
+                down: 'btn-profile-pin-0',
+            },
+            'btn-profile-pin-9': {
+                up: 'btn-profile-pin-6',
+                left: 'btn-profile-pin-8',
                 down: 'btn-profile-pin-cancel',
             },
-            'btn-profile-pin-9': { up: 'btn-profile-pin-6', left: 'btn-profile-pin-8', down: 'btn-profile-pin-cancel' },
             'btn-profile-pin-backspace': {
                 up: 'btn-profile-pin-7',
                 right: 'btn-profile-pin-0',
-                down: 'btn-profile-pin-cancel',
             },
             'btn-profile-pin-0': {
                 up: 'btn-profile-pin-8',
                 left: 'btn-profile-pin-backspace',
-                down: 'btn-profile-pin-cancel',
+                right: 'btn-profile-pin-cancel',
             },
-            'btn-profile-pin-cancel': { up: 'btn-profile-pin-8' },
+            'btn-profile-pin-cancel': {
+                up: 'btn-profile-pin-9',
+                left: 'btn-profile-pin-0',
+            },
         };
 
         focusableIds.forEach((id) => {

@@ -413,6 +413,15 @@ export class NavigationManager
      * @param element - The focusable element to register
      */
     public registerFocusable(element: FocusableElement): void {
+        const existingElement = this._focusManager.getElement(element.id);
+        const existingHandler = this._clickHandlers.get(element.id);
+        if (existingHandler) {
+            if (existingElement) {
+                existingElement.element.removeEventListener('click', existingHandler);
+            }
+            this._clickHandlers.delete(element.id);
+        }
+
         this._focusManager.registerFocusable(element);
 
         // Create and store click handler for cleanup

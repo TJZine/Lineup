@@ -189,6 +189,15 @@ export class AuthScreen {
     hide(): void {
         this._stopExpiryTimer();
         this._pollToken += 1;
+        const activePinId = this._activePinId;
+        this._activePinId = null;
+        this._activeCode = null;
+        this._expiresAt = null;
+        if (activePinId !== null) {
+            void Promise.resolve(this._orchestrator.cancelPin(activePinId)).catch(() => {
+                // Best-effort cancellation while hiding screen.
+            });
+        }
         this._unregisterFocusables();
         this._container.style.display = 'none';
         this._container.classList.remove('visible');

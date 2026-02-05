@@ -266,6 +266,18 @@ describe('NavigationManager', () => {
             nav.setFocus('btn2');
             expect(handler).toHaveBeenCalledWith({ from: 'btn1', to: 'btn2' });
         });
+
+        it('re-registering the same focusable id does not duplicate click handlers', () => {
+            const el = createMockElement('btn1');
+            elements.push(el);
+            const onSelect = jest.fn();
+
+            nav.registerFocusable({ id: 'btn1', element: el, neighbors: {}, onSelect });
+            nav.registerFocusable({ id: 'btn1', element: el, neighbors: {}, onSelect });
+
+            el.click();
+            expect(onSelect).toHaveBeenCalledTimes(1);
+        });
     });
 
     describe('key handling', () => {
