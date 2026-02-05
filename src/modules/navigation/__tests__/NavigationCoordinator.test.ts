@@ -70,6 +70,7 @@ const setup = (overrides: Partial<NavigationCoordinatorDeps> = {}): {
     const epg: IEPGComponent = {
         isVisible: jest.fn().mockReturnValue(false),
         handleNavigation: jest.fn().mockReturnValue(false),
+        handlePage: jest.fn().mockReturnValue(false),
         handleSelect: jest.fn().mockReturnValue(false),
         handleBack: jest.fn().mockReturnValue(false),
         focusNow: jest.fn(),
@@ -295,6 +296,22 @@ describe('NavigationCoordinator', () => {
         expect(deps.switchToNextChannel).not.toHaveBeenCalled();
     });
 
+    it('prefers mini-guide paging over EPG when both are visible', () => {
+        const { handlers, deps, epg, navigation } = setup({
+            isMiniGuideVisible: jest.fn().mockReturnValue(true),
+        });
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+        (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
+
+        const event = makeKeyEvent('channelUp');
+        handlers.keyPress?.(event);
+
+        expect(deps.handleMiniGuidePage).toHaveBeenCalledWith('up');
+        expect(epg.handlePage).not.toHaveBeenCalled();
+        expect(event.handled).toBe(true);
+        expect(event.originalEvent.preventDefault).toHaveBeenCalled();
+    });
+
     it('right hides mini-guide then opens full guide', () => {
         const { handlers, deps } = setup({
             isMiniGuideVisible: jest.fn().mockReturnValue(true),
@@ -410,6 +427,44 @@ describe('NavigationCoordinator', () => {
 
         expect(event.handled).toBe(true);
         expect(event.originalEvent.preventDefault).toHaveBeenCalled();
+    });
+
+    it('pages EPG on channel up/down when guide visible and no modal', () => {
+        const { handlers, epg, deps, navigation } = setup();
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+        (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
+
+        const upEvent = makeKeyEvent('channelUp');
+        handlers.keyPress?.(upEvent);
+        expect(epg.handlePage).toHaveBeenCalledWith('up');
+        expect(deps.switchToPreviousChannel).not.toHaveBeenCalled();
+        expect(upEvent.handled).toBe(true);
+        expect(upEvent.originalEvent.preventDefault).toHaveBeenCalled();
+
+        const downEvent = makeKeyEvent('channelDown');
+        handlers.keyPress?.(downEvent);
+        expect(epg.handlePage).toHaveBeenCalledWith('down');
+        expect(deps.switchToNextChannel).not.toHaveBeenCalled();
+        expect(downEvent.handled).toBe(true);
+        expect(downEvent.originalEvent.preventDefault).toHaveBeenCalled();
+    });
+
+    it('does not page EPG or switch channels when modal is open', () => {
+        const { handlers, epg, deps, navigation } = setup();
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+        (navigation.isModalOpen as jest.Mock).mockReturnValue(true);
+
+        const upEvent = makeKeyEvent('channelUp');
+        handlers.keyPress?.(upEvent);
+        expect(epg.handlePage).not.toHaveBeenCalled();
+        expect(deps.switchToPreviousChannel).not.toHaveBeenCalled();
+        expect(upEvent.handled).not.toBe(true);
+
+        const downEvent = makeKeyEvent('channelDown');
+        handlers.keyPress?.(downEvent);
+        expect(epg.handlePage).not.toHaveBeenCalled();
+        expect(deps.switchToNextChannel).not.toHaveBeenCalled();
+        expect(downEvent.handled).not.toBe(true);
     });
 
     it('handles channel up/down with remote source', () => {

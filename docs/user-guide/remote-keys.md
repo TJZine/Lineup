@@ -12,8 +12,8 @@ Retune is designed for the standard LG Magic Remote, but works with basic IR rem
 | **Guide** | 'G' | Open Electronic Program Guide | Global |
 | **Info** | 'I' | Show Program Info overlay | Player |
 | **Play / Pause** | Space | Toggle Playback | Player |
-| **CH +** | Page Up | Next Channel | Player / EPG |
-| **CH -** | Page Down | Previous Channel | Player / EPG |
+| **CH +** | Page Up | Next Channel (Player) / Page Up (EPG) | Player / EPG |
+| **CH -** | Page Down | Previous Channel (Player) / Page Down (EPG) | Player / EPG |
 | **Red Button** | F1 | *(Reserved)* | - |
 | **Green Button** | F2 | Open EPG (fallback) | Global |
 | **Yellow Button** | F3 | Open Settings | Global |

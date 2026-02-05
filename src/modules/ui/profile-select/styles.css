@@ -20,8 +20,8 @@
     border-radius: 12px;
     padding: 14px 16px;
     display: grid;
-    grid-template-columns: 56px 1fr;
-    gap: 14px;
+    grid-template-columns: 80px 1fr;
+    gap: 16px;
     align-items: center;
     background: rgba(255, 255, 255, 0.08);
     color: inherit;
@@ -36,15 +36,15 @@
 }
 
 .profile-avatar {
-    width: 56px;
-    height: 56px;
+    width: 80px;
+    height: 80px;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.12);
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 700;
-    font-size: 20px;
+    font-size: 28px;
     overflow: hidden;
 }
 
@@ -160,8 +160,85 @@
     background: #ffffff;
 }
 
+.profile-pin-slot.just-filled {
+    animation: pin-dot-pop 150ms ease-out;
+}
+
+.profile-pin-slots.error {
+    animation: pin-shake 300ms ease-out;
+}
+
 .profile-pin-error {
     min-height: 20px;
     font-size: 14px;
     color: #ffb1b1;
+}
+
+.profile-numpad {
+    display: grid;
+    grid-template-columns: repeat(3, 80px);
+    grid-template-rows: repeat(4, 64px);
+    gap: 10px;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.profile-numpad-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.profile-numpad-button.focused,
+.profile-numpad-button:focus {
+    outline: var(--focus-ring-width) solid var(--focus-color);
+    outline-offset: var(--focus-ring-offset);
+    background: rgba(255, 255, 255, 0.12);
+}
+
+@keyframes pin-dot-pop {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.3);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes pin-shake {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+    20% {
+        transform: translateX(-8px);
+    }
+    40% {
+        transform: translateX(8px);
+    }
+    60% {
+        transform: translateX(-4px);
+    }
+    80% {
+        transform: translateX(4px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .profile-pin-slot.just-filled {
+        animation: none;
+    }
+
+    .profile-pin-slots.error {
+        animation: none;
+    }
 }

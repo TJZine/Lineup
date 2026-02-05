@@ -21,6 +21,7 @@ export class ServerSelectScreen {
     private _listEl: HTMLElement;
     private _refreshButton: HTMLButtonElement;
     private _setupButton: HTMLButtonElement;
+    private _switchProfileButton: HTMLButtonElement;
     private _clearButton: HTMLButtonElement;
     private _isLoading: boolean = false;
     private _restoreFocusTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -90,6 +91,17 @@ export class ServerSelectScreen {
         buttonRow.appendChild(setupButton);
         this._setupButton = setupButton;
 
+        const switchProfileButton = document.createElement('button');
+        switchProfileButton.id = 'btn-server-switch-profile';
+        switchProfileButton.className = 'screen-button secondary';
+        switchProfileButton.textContent = 'Switch Profile';
+        switchProfileButton.addEventListener('click', () => {
+            const nav = this._orchestrator.getNavigation();
+            nav?.replaceScreen('profile-select');
+        });
+        buttonRow.appendChild(switchProfileButton);
+        this._switchProfileButton = switchProfileButton;
+
         const clearButton = document.createElement('button');
         clearButton.id = 'btn-server-forget';
         clearButton.className = 'screen-button secondary';
@@ -131,14 +143,16 @@ export class ServerSelectScreen {
         // Disable controls
         this._refreshButton.disabled = true;
         this._setupButton.disabled = true;
+        this._switchProfileButton.disabled = true;
         this._clearButton.disabled = true;
 
         try {
             const servers = await this._orchestrator.discoverServers(options.forceRefresh);
             let autoSelectError: unknown | null = null;
+            let savedServerUnavailable = false;
+            const savedId = safeLocalStorageGet(this._orchestrator.getSelectedServerStorageKey());
 
             if (options.autoSelect) {
-                const savedId = safeLocalStorageGet(this._orchestrator.getSelectedServerStorageKey());
                 if (savedId && servers.some(s => s.id === savedId)) {
                     try {
                         const success = await this._orchestrator.selectServer(savedId);
@@ -146,17 +160,20 @@ export class ServerSelectScreen {
                             this._setStatus('Connected…', 'Continuing startup…');
                             return;
                         }
+                        savedServerUnavailable = true;
+                        autoSelectError = new Error('Unable to use the saved server.');
                     } catch (error) {
+                        savedServerUnavailable = true;
                         autoSelectError = error;
                     }
                 }
             }
 
             // Fallback to rendering list
-            this._renderServers(servers);
+            this._renderServers(servers, savedId, { savedServerUnavailable });
             if (servers.length === 0) {
                 this._setStatus('No servers found.', 'Ensure your Plex server is reachable.');
-            } else if (autoSelectError) {
+            } else if (savedServerUnavailable) {
                 this._handleError(autoSelectError, 'Unable to use the saved server.');
                 this._setStatus('Saved server unavailable.', 'Select a server from the list.');
             } else {
@@ -165,12 +182,13 @@ export class ServerSelectScreen {
         } catch (error) {
             this._handleError(error, 'Failed to discover servers.');
             this._setStatus('Discovery failed.', '');
-            this._renderServers([]);
+            this._renderServers([], null);
         } finally {
             this._isLoading = false;
             this._statusEl.classList.remove('panel-spinner');
             this._refreshButton.disabled = false;
             this._setupButton.disabled = false;
+            this._switchProfileButton.disabled = false;
             this._clearButton.disabled = false;
             this._restoreFocus();
         }
@@ -215,10 +233,15 @@ export class ServerSelectScreen {
         this._clearError();
         this._orchestrator.clearSelectedServer();
         this._setStatus('Selection cleared.', 'Pick a server to continue.');
-        this._renderServers([]);
+        this._renderServers([], null);
     }
 
-    private _renderServers(servers: PlexServer[]): void {
+    private _renderServers(
+        servers: PlexServer[],
+        savedId: string | null,
+        options?: { savedServerUnavailable?: boolean }
+    ): void {
+        const savedServerUnavailable = options?.savedServerUnavailable === true;
         const rawHealth = safeLocalStorageGet(this._orchestrator.getServerHealthStorageKey());
         let healthMap: Record<string, { status?: string; type?: string; latencyMs?: number; testedAt?: number } | undefined> = {};
         let parsedHealth: unknown = {};
@@ -252,9 +275,43 @@ export class ServerSelectScreen {
 
         if (servers.length === 0) {
             const empty = document.createElement('div');
-            empty.className = 'server-meta';
-            empty.textContent = 'No servers available.';
+            empty.className = 'server-empty-state';
+            const icon = document.createElement('div');
+            icon.className = 'server-empty-icon';
+            icon.setAttribute('aria-hidden', 'true');
+
+            const svgNs = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(svgNs, 'svg');
+            svg.setAttribute('viewBox', '0 0 24 24');
+            svg.setAttribute('width', '64');
+            svg.setAttribute('height', '64');
+            svg.setAttribute('stroke', 'currentColor');
+            svg.setAttribute('fill', 'none');
+            svg.setAttribute('stroke-width', '2');
+
+            const p1 = document.createElementNS(svgNs, 'path');
+            p1.setAttribute('d', 'M4 17h16');
+            const p2 = document.createElementNS(svgNs, 'path');
+            p2.setAttribute('d', 'M6 17a6 6 0 0 1 12 0');
+            const p3 = document.createElementNS(svgNs, 'path');
+            p3.setAttribute('d', 'M12 7v4');
+            const p4 = document.createElementNS(svgNs, 'path');
+            p4.setAttribute('d', 'M10 9h4');
+            svg.append(p1, p2, p3, p4);
+            icon.appendChild(svg);
+
+            const title = document.createElement('div');
+            title.className = 'server-empty-title';
+            title.textContent = 'No servers found';
+
+            const description = document.createElement('div');
+            description.className = 'server-empty-description';
+            description.textContent =
+                'Ensure your Plex Media Server is running and reachable on your network.';
+
+            empty.replaceChildren(icon, title, description);
             this._listEl.appendChild(empty);
+            this._updateStaticButtonNeighbors(false);
             return;
         }
 
@@ -308,8 +365,31 @@ export class ServerSelectScreen {
             else if (normalizedStatus === 'unreachable') statusText = 'Unreachable';
             else if (normalizedStatus === 'auth_required') statusText = 'Auth Required';
 
-            pill.textContent = statusText;
+            if (normalizedStatus === 'ok' && typeof health?.latencyMs === 'number' && Number.isFinite(health.latencyMs)) {
+                const ms = Math.round(health.latencyMs);
+                let label = 'OK';
+                if (ms >= 500) {
+                    label = 'Very Slow';
+                    pill.classList.add('latency-very-slow');
+                } else if (ms >= 100) {
+                    label = 'Slow';
+                    pill.classList.add('latency-slow');
+                }
+                pill.textContent = `${label} • ${ms}ms`;
+            } else {
+                pill.textContent = statusText;
+            }
             main.appendChild(pill);
+
+            if (savedId && server.id === savedId) {
+                row.classList.add('active');
+                if (normalizedStatus === 'ok' && !savedServerUnavailable) {
+                    selectButton.textContent = 'Connected';
+                    selectButton.disabled = true;
+                } else {
+                    selectButton.textContent = 'Reconnect';
+                }
+            }
 
             this._listEl.appendChild(row);
 
@@ -432,6 +512,16 @@ export class ServerSelectScreen {
             element: this._setupButton,
             neighbors: {
                 left: 'btn-server-refresh',
+                right: 'btn-server-switch-profile',
+                // down will be linked dynamically when list renders
+            },
+        });
+
+        nav.registerFocusable({
+            id: 'btn-server-switch-profile',
+            element: this._switchProfileButton,
+            neighbors: {
+                left: 'btn-server-setup',
                 right: 'btn-server-forget',
                 // down will be linked dynamically when list renders
             },
@@ -441,7 +531,7 @@ export class ServerSelectScreen {
             id: 'btn-server-forget',
             element: this._clearButton,
             neighbors: {
-                left: 'btn-server-setup',
+                left: 'btn-server-switch-profile',
                 // down will be linked dynamically when list renders
             },
         });
@@ -456,6 +546,7 @@ export class ServerSelectScreen {
 
         nav.unregisterFocusable('btn-server-refresh');
         nav.unregisterFocusable('btn-server-setup');
+        nav.unregisterFocusable('btn-server-switch-profile');
         nav.unregisterFocusable('btn-server-forget');
 
         // Clear potential list items
@@ -488,7 +579,7 @@ export class ServerSelectScreen {
             element: this._setupButton,
             neighbors: {
                 left: 'btn-server-refresh',
-                right: 'btn-server-forget',
+                right: 'btn-server-switch-profile',
             },
         };
         if (hasListItems) {
@@ -496,11 +587,24 @@ export class ServerSelectScreen {
         }
         nav.registerFocusable(setupParams);
 
+        const switchProfileParams: FocusableElement = {
+            id: 'btn-server-switch-profile',
+            element: this._switchProfileButton,
+            neighbors: {
+                left: 'btn-server-setup',
+                right: 'btn-server-forget',
+            },
+        };
+        if (hasListItems) {
+            switchProfileParams.neighbors!.down = 'btn-server-select-0';
+        }
+        nav.registerFocusable(switchProfileParams);
+
         const clearParams: FocusableElement = {
             id: 'btn-server-forget',
             element: this._clearButton,
             neighbors: {
-                left: 'btn-server-setup',
+                left: 'btn-server-switch-profile',
             },
         };
         if (hasListItems) {
