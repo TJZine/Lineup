@@ -26,9 +26,3 @@ export const TEXT_SUBTITLE_FORMATS: readonly string[] = [
     'webvtt',
     'subrip',
 ] as const;
-
-/**
- * Subtitle formats that can be delivered as sidecar (alias for TEXT_SUBTITLE_FORMATS).
- * @deprecated Use TEXT_SUBTITLE_FORMATS instead
- */
-export const SIDECAR_SUBTITLE_FORMATS = TEXT_SUBTITLE_FORMATS;

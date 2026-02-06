@@ -27,7 +27,7 @@ import {
     SUPPORTED_AUDIO_CODECS,
     MAX_RESOLUTION,
     BURN_IN_SUBTITLE_FORMATS,
-    SIDECAR_SUBTITLE_FORMATS,
+    TEXT_SUBTITLE_FORMATS,
     DEFAULT_HLS_OPTIONS,
 } from './constants';
 import { generateUUID } from './utils';
@@ -1794,7 +1794,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         // Text-based subtitles can be sidecar for direct play
-        if (SIDECAR_SUBTITLE_FORMATS.includes(format) && !isTranscoding) {
+        if (TEXT_SUBTITLE_FORMATS.includes(format) && !isTranscoding) {
             return 'sidecar';
         }
 

@@ -92,8 +92,8 @@ export const RETRYABLE_ERROR_CODES: readonly string[] = [
 // Subtitle Formats
 // ============================================
 
-// Re-export from shared module for backward compatibility
-export { BURN_IN_SUBTITLE_FORMATS, TEXT_SUBTITLE_FORMATS as SIDECAR_SUBTITLE_FORMATS } from '../../../shared/subtitle-formats';
+// Re-export from shared module
+export { BURN_IN_SUBTITLE_FORMATS, TEXT_SUBTITLE_FORMATS } from '../../../shared/subtitle-formats';
 
 // ============================================
 // Client Profile
