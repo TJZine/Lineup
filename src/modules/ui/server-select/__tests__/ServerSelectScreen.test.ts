@@ -202,4 +202,53 @@ describe('ServerSelectScreen', () => {
         expect(setupNeighbors?.down).toBeUndefined();
         expect(forgetNeighbors?.down).toBeUndefined();
     });
+
+    it('does not unregister static focusables when updating static neighbors', async () => {
+        const orchestrator = createOrchestratorStub();
+        const nav = orchestrator.getNavigation();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([
+            { id: 'srv-1', name: 'Server One', owned: true },
+            { id: 'srv-2', name: 'Server Two', owned: true },
+        ]);
+
+        const screen = new ServerSelectScreen(container, orchestrator as never);
+        screen.show({ allowAutoConnect: false });
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const unregisteredIds = nav.unregisterFocusable.mock.calls.map((call) => call[0] as string | undefined);
+        expect(unregisteredIds).not.toContain('btn-server-refresh');
+        expect(unregisteredIds).not.toContain('btn-server-setup');
+        expect(unregisteredIds).not.toContain('btn-server-switch-profile');
+        expect(unregisteredIds).not.toContain('btn-server-forget');
+    });
+
+    it('restores focus to refresh after clearing saved server', async () => {
+        const orchestrator = createOrchestratorStub();
+        const nav = orchestrator.getNavigation();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([
+            { id: 'srv-1', name: 'Server One', owned: true },
+        ]);
+
+        const screen = new ServerSelectScreen(container, orchestrator as never);
+        screen.show({ allowAutoConnect: false });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        jest.useFakeTimers();
+        nav.setFocus.mockClear();
+
+        const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
+        expect(clearBtn).not.toBeNull();
+        clearBtn?.click();
+
+        jest.advanceTimersByTime(60);
+        expect(nav.setFocus).toHaveBeenCalledWith('btn-server-refresh');
+        jest.useRealTimers();
+    });
 });

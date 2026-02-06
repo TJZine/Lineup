@@ -234,6 +234,7 @@ export class ServerSelectScreen {
         this._orchestrator.clearSelectedServer();
         this._setStatus('Selection cleared.', 'Pick a server to continue.');
         this._renderServers([], null);
+        this._restoreFocus();
     }
 
     private _renderServers(
@@ -509,43 +510,7 @@ export class ServerSelectScreen {
         const nav = this._orchestrator.getNavigation();
         if (!nav) return;
 
-        nav.registerFocusable({
-            id: 'btn-server-refresh',
-            element: this._refreshButton,
-            neighbors: {
-                right: 'btn-server-setup',
-                // down will be linked dynamically when list renders
-            },
-        });
-
-        nav.registerFocusable({
-            id: 'btn-server-setup',
-            element: this._setupButton,
-            neighbors: {
-                left: 'btn-server-refresh',
-                right: 'btn-server-switch-profile',
-                // down will be linked dynamically when list renders
-            },
-        });
-
-        nav.registerFocusable({
-            id: 'btn-server-switch-profile',
-            element: this._switchProfileButton,
-            neighbors: {
-                left: 'btn-server-setup',
-                right: 'btn-server-forget',
-                // down will be linked dynamically when list renders
-            },
-        });
-
-        nav.registerFocusable({
-            id: 'btn-server-forget',
-            element: this._clearButton,
-            neighbors: {
-                left: 'btn-server-switch-profile',
-                // down will be linked dynamically when list renders
-            },
-        });
+        this._registerStaticButtons(null);
 
         // Set initial focus
         nav.setFocus('btn-server-refresh');
@@ -572,60 +537,59 @@ export class ServerSelectScreen {
         const nav = this._orchestrator.getNavigation();
         if (!nav) return;
 
-        nav.unregisterFocusable('btn-server-refresh');
-        nav.unregisterFocusable('btn-server-setup');
-        nav.unregisterFocusable('btn-server-switch-profile');
-        nav.unregisterFocusable('btn-server-forget');
+        this._registerStaticButtons(firstListFocusableId);
+    }
 
-        // Re-register to update neighbors
-        const refreshParams: FocusableElement = {
-            id: 'btn-server-refresh',
-            element: this._refreshButton,
-            neighbors: {
+    private _registerStaticButtons(firstListFocusableId: string | null): void {
+        const nav = this._orchestrator.getNavigation();
+        if (!nav) return;
+
+        const staticButtons: Array<{
+            id: string;
+            element: HTMLButtonElement;
+            left?: string;
+            right?: string;
+        }> = [
+            {
+                id: 'btn-server-refresh',
+                element: this._refreshButton,
                 right: 'btn-server-setup',
             },
-        };
-        if (firstListFocusableId) {
-            refreshParams.neighbors.down = firstListFocusableId;
-        }
-        nav.registerFocusable(refreshParams);
-
-        const setupParams: FocusableElement = {
-            id: 'btn-server-setup',
-            element: this._setupButton,
-            neighbors: {
+            {
+                id: 'btn-server-setup',
+                element: this._setupButton,
                 left: 'btn-server-refresh',
                 right: 'btn-server-switch-profile',
             },
-        };
-        if (firstListFocusableId) {
-            setupParams.neighbors.down = firstListFocusableId;
-        }
-        nav.registerFocusable(setupParams);
-
-        const switchProfileParams: FocusableElement = {
-            id: 'btn-server-switch-profile',
-            element: this._switchProfileButton,
-            neighbors: {
+            {
+                id: 'btn-server-switch-profile',
+                element: this._switchProfileButton,
                 left: 'btn-server-setup',
                 right: 'btn-server-forget',
             },
-        };
-        if (firstListFocusableId) {
-            switchProfileParams.neighbors.down = firstListFocusableId;
-        }
-        nav.registerFocusable(switchProfileParams);
-
-        const clearParams: FocusableElement = {
-            id: 'btn-server-forget',
-            element: this._clearButton,
-            neighbors: {
+            {
+                id: 'btn-server-forget',
+                element: this._clearButton,
                 left: 'btn-server-switch-profile',
             },
-        };
-        if (firstListFocusableId) {
-            clearParams.neighbors.down = firstListFocusableId;
+        ];
+
+        for (const button of staticButtons) {
+            const neighbors: FocusableElement['neighbors'] = {};
+            if (button.left) {
+                neighbors.left = button.left;
+            }
+            if (button.right) {
+                neighbors.right = button.right;
+            }
+            if (firstListFocusableId) {
+                neighbors.down = firstListFocusableId;
+            }
+            nav.registerFocusable({
+                id: button.id,
+                element: button.element,
+                neighbors,
+            });
         }
-        nav.registerFocusable(clearParams);
     }
 }

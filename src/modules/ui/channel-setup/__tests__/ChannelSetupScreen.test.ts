@@ -136,7 +136,8 @@ describe('ChannelSetupScreen', () => {
         screenAny._renderLibraryStep();
 
         const meta = container.querySelector('#setup-lib-movies .setup-toggle-meta') as HTMLElement | null;
-        expect(meta?.textContent).toContain('Movies • 1,234 titles');
+        const formattedCount = new Intl.NumberFormat().format(1234);
+        expect(meta?.textContent).toContain(`Movies • ${formattedCount} titles`);
     });
 
     it('renders select-all and clear-all bulk action buttons', () => {
