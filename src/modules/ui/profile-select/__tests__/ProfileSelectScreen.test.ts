@@ -3,6 +3,7 @@
  */
 
 import { ProfileSelectScreen } from '../ProfileSelectScreen';
+import { AppErrorCode, PlexApiError } from '../../../plex/auth';
 
 type NavigationStub = {
     registerFocusable: jest.Mock;
@@ -63,6 +64,21 @@ const createOrchestratorStub = (users: Array<{
 };
 
 describe('ProfileSelectScreen', () => {
+    const expectedPinFocusableIds = [
+        'btn-profile-pin-1',
+        'btn-profile-pin-2',
+        'btn-profile-pin-3',
+        'btn-profile-pin-4',
+        'btn-profile-pin-5',
+        'btn-profile-pin-6',
+        'btn-profile-pin-7',
+        'btn-profile-pin-8',
+        'btn-profile-pin-9',
+        'btn-profile-pin-backspace',
+        'btn-profile-pin-0',
+        'btn-profile-pin-cancel',
+    ];
+
     afterEach(() => {
         jest.useRealTimers();
         document.body.innerHTML = '';
@@ -128,15 +144,38 @@ describe('ProfileSelectScreen', () => {
         const protectedButton = container.querySelector('#btn-profile-1') as HTMLButtonElement;
         protectedButton.click();
 
-        expect(nav.openModal).toHaveBeenCalledWith(
-            'profile-pin',
-            expect.arrayContaining([
-                'btn-profile-pin-5',
-                'btn-profile-pin-backspace',
-                'btn-profile-pin-0',
-                'btn-profile-pin-cancel',
-            ])
-        );
+        expect(nav.openModal).toHaveBeenCalledWith('profile-pin', expectedPinFocusableIds);
+    });
+
+    it('wires PIN modal neighbors so row-4 controls are reachable', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const nav = orchestrator.getNavigation();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(container, orchestrator as never);
+        screen.show();
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const protectedButton = container.querySelector('#btn-profile-1') as HTMLButtonElement;
+        protectedButton.click();
+
+        const pinCalls = nav.registerFocusable.mock.calls
+            .map((call) => call[0] as { id: string; neighbors?: { up?: string; down?: string; left?: string; right?: string } })
+            .filter((call) => expectedPinFocusableIds.includes(call.id));
+        const neighborsById = new Map(pinCalls.map((call) => [call.id, call.neighbors ?? {}]));
+
+        expect(neighborsById.get('btn-profile-pin-7')?.down).toBe('btn-profile-pin-backspace');
+        expect(neighborsById.get('btn-profile-pin-8')?.down).toBe('btn-profile-pin-0');
+        expect(neighborsById.get('btn-profile-pin-9')?.down).toBe('btn-profile-pin-cancel');
+        expect(neighborsById.get('btn-profile-pin-backspace')?.up).toBe('btn-profile-pin-7');
+        expect(neighborsById.get('btn-profile-pin-0')?.up).toBe('btn-profile-pin-8');
+        expect(neighborsById.get('btn-profile-pin-cancel')?.up).toBe('btn-profile-pin-9');
     });
 
     it('does not render an unused PIN OK button', async () => {
@@ -267,5 +306,39 @@ describe('ProfileSelectScreen', () => {
 
         expect(orchestrator.switchHomeUser).toHaveBeenCalledTimes(1);
         expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', '1234');
+    });
+
+    it('shows wrong PIN error styling and clears it after timeout', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        orchestrator.switchHomeUser.mockRejectedValue(
+            new PlexApiError(AppErrorCode.AUTH_FAILED, 'invalid pin')
+        );
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const screen = new ProfileSelectScreen(container, orchestrator as never);
+        screen.show();
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        jest.useFakeTimers();
+        (container.querySelector('#btn-profile-1') as HTMLButtonElement).click();
+
+        (container.querySelector('#btn-profile-pin-1') as HTMLButtonElement).click();
+        (container.querySelector('#btn-profile-pin-2') as HTMLButtonElement).click();
+        (container.querySelector('#btn-profile-pin-3') as HTMLButtonElement).click();
+        (container.querySelector('#btn-profile-pin-4') as HTMLButtonElement).click();
+        await Promise.resolve();
+
+        const slotsWrap = container.querySelector('.profile-pin-slots') as HTMLElement;
+        const pinError = container.querySelector('#profile-pin-desc') as HTMLElement;
+        expect(pinError.textContent).toContain('PIN');
+        expect(slotsWrap.classList.contains('error')).toBe(true);
+
+        jest.advanceTimersByTime(351);
+        expect(slotsWrap.classList.contains('error')).toBe(false);
     });
 });

@@ -234,6 +234,7 @@ export class ServerSelectScreen {
         this._orchestrator.clearSelectedServer();
         this._setStatus('Selection cleared.', 'Pick a server to continue.');
         this._renderServers([], null);
+        this._restoreFocus();
     }
 
     private _renderServers(
@@ -311,9 +312,11 @@ export class ServerSelectScreen {
 
             empty.replaceChildren(icon, title, description);
             this._listEl.appendChild(empty);
-            this._updateStaticButtonNeighbors(false);
+            this._updateStaticButtonNeighbors(null);
             return;
         }
+
+        const enabledServerButtons: HTMLButtonElement[] = [];
 
         for (let i = 0; i < servers.length; i++) {
             const server = servers[i];
@@ -392,33 +395,42 @@ export class ServerSelectScreen {
             }
 
             this._listEl.appendChild(row);
-
-            // Register dynamic focusable manually since we are already showing
-            const nav = this._orchestrator.getNavigation();
-            if (nav) {
-                const element: FocusableElement = {
-                    id: selectButton.id,
-                    element: selectButton,
-                    neighbors: {
-                        up: i === 0 ? 'btn-server-refresh' : `btn-server-select-${i - 1}`,
-                    },
-                    onFocus: () => {
-                        try {
-                            selectButton.scrollIntoView({ block: 'nearest' });
-                        } catch {
-                            selectButton.scrollIntoView();
-                        }
-                    },
-                };
-                if (i < servers.length - 1) {
-                    element.neighbors!.down = `btn-server-select-${i + 1}`;
-                }
-                nav.registerFocusable(element);
+            if (!selectButton.disabled) {
+                enabledServerButtons.push(selectButton);
             }
         }
 
-        // Update neighbors for static buttons now that list is populated
-        this._updateStaticButtonNeighbors(servers.length > 0);
+        const navForButtons = this._orchestrator.getNavigation();
+        if (navForButtons) {
+            for (let i = 0; i < enabledServerButtons.length; i++) {
+                const button = enabledServerButtons[i];
+                if (!button) continue;
+                const neighbors: FocusableElement['neighbors'] = {};
+                const upButtonId = i === 0 ? 'btn-server-refresh' : enabledServerButtons[i - 1]?.id;
+                const downButtonId = enabledServerButtons[i + 1]?.id;
+                if (upButtonId) {
+                    neighbors.up = upButtonId;
+                }
+                if (downButtonId) {
+                    neighbors.down = downButtonId;
+                }
+                navForButtons.registerFocusable({
+                    id: button.id,
+                    element: button,
+                    neighbors,
+                    onFocus: () => {
+                        try {
+                            button.scrollIntoView({ block: 'nearest' });
+                        } catch {
+                            button.scrollIntoView();
+                        }
+                    },
+                });
+            }
+        }
+
+        // Update neighbors for static buttons now that list is populated.
+        this._updateStaticButtonNeighbors(enabledServerButtons[0]?.id ?? null);
 
     }
 
@@ -498,43 +510,7 @@ export class ServerSelectScreen {
         const nav = this._orchestrator.getNavigation();
         if (!nav) return;
 
-        nav.registerFocusable({
-            id: 'btn-server-refresh',
-            element: this._refreshButton,
-            neighbors: {
-                right: 'btn-server-setup',
-                // down will be linked dynamically when list renders
-            },
-        });
-
-        nav.registerFocusable({
-            id: 'btn-server-setup',
-            element: this._setupButton,
-            neighbors: {
-                left: 'btn-server-refresh',
-                right: 'btn-server-switch-profile',
-                // down will be linked dynamically when list renders
-            },
-        });
-
-        nav.registerFocusable({
-            id: 'btn-server-switch-profile',
-            element: this._switchProfileButton,
-            neighbors: {
-                left: 'btn-server-setup',
-                right: 'btn-server-forget',
-                // down will be linked dynamically when list renders
-            },
-        });
-
-        nav.registerFocusable({
-            id: 'btn-server-forget',
-            element: this._clearButton,
-            neighbors: {
-                left: 'btn-server-switch-profile',
-                // down will be linked dynamically when list renders
-            },
-        });
+        this._registerStaticButtons(null);
 
         // Set initial focus
         nav.setFocus('btn-server-refresh');
@@ -557,59 +533,63 @@ export class ServerSelectScreen {
         buttons.forEach(btn => nav.unregisterFocusable(btn.id));
     }
 
-    private _updateStaticButtonNeighbors(hasListItems: boolean): void {
+    private _updateStaticButtonNeighbors(firstListFocusableId: string | null): void {
         const nav = this._orchestrator.getNavigation();
         if (!nav) return;
 
-        // Re-register to update neighbors
-        const refreshParams: FocusableElement = {
-            id: 'btn-server-refresh',
-            element: this._refreshButton,
-            neighbors: {
+        this._registerStaticButtons(firstListFocusableId);
+    }
+
+    private _registerStaticButtons(firstListFocusableId: string | null): void {
+        const nav = this._orchestrator.getNavigation();
+        if (!nav) return;
+
+        const staticButtons: Array<{
+            id: string;
+            element: HTMLButtonElement;
+            left?: string;
+            right?: string;
+        }> = [
+            {
+                id: 'btn-server-refresh',
+                element: this._refreshButton,
                 right: 'btn-server-setup',
             },
-        };
-        if (hasListItems) {
-            refreshParams.neighbors!.down = 'btn-server-select-0';
-        }
-        nav.registerFocusable(refreshParams);
-
-        const setupParams: FocusableElement = {
-            id: 'btn-server-setup',
-            element: this._setupButton,
-            neighbors: {
+            {
+                id: 'btn-server-setup',
+                element: this._setupButton,
                 left: 'btn-server-refresh',
                 right: 'btn-server-switch-profile',
             },
-        };
-        if (hasListItems) {
-            setupParams.neighbors!.down = 'btn-server-select-0';
-        }
-        nav.registerFocusable(setupParams);
-
-        const switchProfileParams: FocusableElement = {
-            id: 'btn-server-switch-profile',
-            element: this._switchProfileButton,
-            neighbors: {
+            {
+                id: 'btn-server-switch-profile',
+                element: this._switchProfileButton,
                 left: 'btn-server-setup',
                 right: 'btn-server-forget',
             },
-        };
-        if (hasListItems) {
-            switchProfileParams.neighbors!.down = 'btn-server-select-0';
-        }
-        nav.registerFocusable(switchProfileParams);
-
-        const clearParams: FocusableElement = {
-            id: 'btn-server-forget',
-            element: this._clearButton,
-            neighbors: {
+            {
+                id: 'btn-server-forget',
+                element: this._clearButton,
                 left: 'btn-server-switch-profile',
             },
-        };
-        if (hasListItems) {
-            clearParams.neighbors!.down = 'btn-server-select-0';
+        ];
+
+        for (const button of staticButtons) {
+            const neighbors: FocusableElement['neighbors'] = {};
+            if (button.left) {
+                neighbors.left = button.left;
+            }
+            if (button.right) {
+                neighbors.right = button.right;
+            }
+            if (firstListFocusableId) {
+                neighbors.down = firstListFocusableId;
+            }
+            nav.registerFocusable({
+                id: button.id,
+                element: button.element,
+                neighbors,
+            });
         }
-        nav.registerFocusable(clearParams);
     }
 }

@@ -34,6 +34,26 @@ interface SetupStrategyState {
 
 type SetupStep = 1 | 2 | 3;
 type StrategyAccordionKey = 'contentSources' | 'advancedSources' | 'buildOptions' | 'limits';
+type EstimateKey = keyof ChannelSetupPreview['estimates'];
+
+const MOVIE_SVG = `
+<svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" aria-hidden="true">
+  <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+  <path d="M8 3v4"></path>
+  <path d="M16 3v4"></path>
+  <path d="M8 19v2"></path>
+  <path d="M16 19v2"></path>
+</svg>
+`;
+
+const SHOW_SVG = `
+<svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" aria-hidden="true">
+  <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+  <path d="M8 21h8"></path>
+  <path d="M12 17v4"></path>
+  <path d="M6 7h12"></path>
+</svg>
+`;
 
 export class ChannelSetupScreen {
     private _container: HTMLElement;
@@ -84,6 +104,9 @@ export class ChannelSetupScreen {
     private _reviewError: string | null = null;
     private _lastPreviewKey: string | null = null;
     private _pendingPreviewKey: string | null = null;
+    private _previewDeltas: Partial<Record<EstimateKey, number>> = {};
+    private _previewDeltaTimeoutId: number | null = null;
+    private _previewDeltaExpiresAtMs: number = 0;
     private _strategyScrollTop = 0;
     private _previewPanelId = 'setup-preview-panel';
     private _maxPreviewWarnings = 5;
@@ -138,6 +161,14 @@ export class ChannelSetupScreen {
 
     private _toDomId(raw: string): string {
         return raw.replace(/[^a-zA-Z0-9_-]/g, '_');
+    }
+
+    private _formatCount(value: number): string {
+        try {
+            return new Intl.NumberFormat().format(value);
+        } catch {
+            return String(value);
+        }
     }
 
     constructor(container: HTMLElement, orchestrator: AppOrchestrator) {
@@ -247,6 +278,7 @@ export class ChannelSetupScreen {
             nav?.off('keyPress', this._navKeyHandler);
             this._navKeyHandler = null;
         }
+        this._clearPreviewDeltas();
         this._unregisterFocusables();
         this._container.style.display = 'none';
         this._container.classList.remove('visible');
@@ -263,6 +295,7 @@ export class ChannelSetupScreen {
         this._buildAbortController = null;
         this._previewAbortController = null;
         this._reviewAbortController = null;
+        this._clearPreviewDeltas();
         this._step = 1;
         this._isLoading = false;
         this._isBuilding = false;
@@ -351,6 +384,43 @@ export class ChannelSetupScreen {
         const scroll = document.createElement('div');
         scroll.className = 'setup-scroll';
 
+        const bulkActions = document.createElement('div');
+        bulkActions.className = 'setup-bulk-actions';
+
+        const firstLibraryId = this._libraries[0] ? `setup-lib-${this._toDomId(this._libraries[0].id)}` : null;
+
+        const selectAllButton = document.createElement('button');
+        selectAllButton.id = 'setup-select-all';
+        selectAllButton.className = 'screen-button secondary';
+        selectAllButton.textContent = 'Select All';
+        selectAllButton.disabled = this._libraries.length === 0;
+        selectAllButton.addEventListener('click', () => {
+            this._selectedLibraryIds = new Set(this._libraries.map((library) => library.id));
+            this._preferredFocusId = firstLibraryId ?? selectAllButton.id;
+            this._review = null;
+            this._reviewError = null;
+            this._replaceConfirm = false;
+            this._renderStep();
+        });
+        bulkActions.appendChild(selectAllButton);
+
+        const clearAllButton = document.createElement('button');
+        clearAllButton.id = 'setup-clear-all';
+        clearAllButton.className = 'screen-button secondary';
+        clearAllButton.textContent = 'Clear All';
+        clearAllButton.disabled = this._libraries.length === 0;
+        clearAllButton.addEventListener('click', () => {
+            this._selectedLibraryIds = new Set();
+            this._preferredFocusId = firstLibraryId ?? clearAllButton.id;
+            this._review = null;
+            this._reviewError = null;
+            this._replaceConfirm = false;
+            this._renderStep();
+        });
+        bulkActions.appendChild(clearAllButton);
+
+        scroll.appendChild(bulkActions);
+
         const list = document.createElement('div');
         list.className = 'setup-grid-2col';
 
@@ -367,6 +437,12 @@ export class ChannelSetupScreen {
             const button = document.createElement('button');
             button.id = `setup-lib-${this._toDomId(library.id)}`;
             button.className = `setup-toggle${isSelected ? ' selected' : ''}`;
+            button.classList.add('library-toggle');
+
+            const icon = document.createElement('span');
+            icon.className = 'setup-toggle-icon';
+            icon.setAttribute('aria-hidden', 'true');
+            icon.innerHTML = library.type === 'movie' ? MOVIE_SVG : SHOW_SVG;
 
             const label = document.createElement('span');
             label.className = 'setup-toggle-label';
@@ -374,12 +450,31 @@ export class ChannelSetupScreen {
 
             const meta = document.createElement('span');
             meta.className = 'setup-toggle-meta';
-            meta.textContent = library.type === 'movie' ? 'Movies' : 'Shows';
+            const typeLabel = library.type === 'movie' ? 'Movies' : 'Shows';
+            const countText = typeof library.contentCount === 'number' && Number.isFinite(library.contentCount)
+                ? `${typeLabel} • ${this._formatCount(library.contentCount)} titles`
+                : typeLabel;
+            meta.textContent = countText;
 
             const state = document.createElement('span');
             state.className = 'setup-toggle-state';
-            state.textContent = isSelected ? 'Selected' : 'Off';
+            if (isSelected) {
+                const stateIcon = document.createElement('span');
+                stateIcon.className = 'setup-toggle-state-icon';
+                stateIcon.setAttribute('aria-hidden', 'true');
+                stateIcon.textContent = '✓';
 
+                const srOnly = document.createElement('span');
+                srOnly.className = 'sr-only';
+                srOnly.textContent = 'Selected';
+
+                state.appendChild(stateIcon);
+                state.appendChild(srOnly);
+            } else {
+                state.textContent = 'Off';
+            }
+
+            button.appendChild(icon);
             button.appendChild(label);
             button.appendChild(meta);
             button.appendChild(state);
@@ -432,7 +527,48 @@ export class ChannelSetupScreen {
         this._contentEl.appendChild(actions);
 
         const listButtons = Array.from(list.querySelectorAll<HTMLButtonElement>('button'));
-        this._registerFocusables([...listButtons, backButton, nextButton], 'spatial');
+        const navigationButtons: HTMLElement[] = [selectAllButton, clearAllButton, ...listButtons, backButton, nextButton];
+        this._registerFocusables(navigationButtons, 'spatial');
+        const nav = this._orchestrator.getNavigation();
+        if (nav && !selectAllButton.disabled && !clearAllButton.disabled) {
+            const downNeighbor = listButtons[0]?.id;
+            const selectAllNeighbors: FocusableElement['neighbors'] = {
+                right: clearAllButton.id,
+            };
+            if (downNeighbor) {
+                selectAllNeighbors.down = downNeighbor;
+            }
+            const clearAllNeighbors: FocusableElement['neighbors'] = {
+                left: selectAllButton.id,
+            };
+            if (downNeighbor) {
+                clearAllNeighbors.down = downNeighbor;
+            }
+            nav.registerFocusable({
+                id: selectAllButton.id,
+                element: selectAllButton,
+                neighbors: selectAllNeighbors,
+                onFocus: () => {
+                    try {
+                        selectAllButton.scrollIntoView({ block: 'nearest' });
+                    } catch {
+                        selectAllButton.scrollIntoView();
+                    }
+                },
+            });
+            nav.registerFocusable({
+                id: clearAllButton.id,
+                element: clearAllButton,
+                neighbors: clearAllNeighbors,
+                onFocus: () => {
+                    try {
+                        clearAllButton.scrollIntoView({ block: 'nearest' });
+                    } catch {
+                        clearAllButton.scrollIntoView();
+                    }
+                },
+            });
+        }
 
         this._detailEl.textContent = `Selected ${this._selectedLibraryIds.size} of ${this._libraries.length}.`;
     }
@@ -603,8 +739,8 @@ export class ChannelSetupScreen {
             { key: 'libraryFallback', label: 'Library fallback', detail: 'One channel per library if no collections.' },
             { key: 'playlists', label: 'Playlists', detail: 'Channels from Plex playlists.' },
             { key: 'recentlyAdded', label: 'Recently added', detail: 'Per library, newest first.' },
-            { key: 'genres', label: 'Genres', detail: 'Filter channels by genre.' },
-            { key: 'directors', label: 'Directors', detail: 'Filter channels by director.' },
+            { key: 'genres', label: 'Genres', detail: 'Filter channels by genre (slower on large libraries).' },
+            { key: 'directors', label: 'Directors', detail: 'Filter channels by director (slower on large libraries).' },
             { key: 'decades', label: 'Decades', detail: 'Channels by decade (1980s, 1990s...).' },
             { key: 'studios', label: 'Studios', detail: 'Channels by studio (Movies/TV).' },
             { key: 'actors', label: 'Actors', detail: 'Channels by actor (Movies/TV).' },
@@ -773,16 +909,16 @@ export class ChannelSetupScreen {
 
             const rows = document.createElement('div');
             rows.className = 'setup-preview-rows';
-            rows.appendChild(this._buildPreviewRow('Total planned', estimates.total));
-            rows.appendChild(this._buildPreviewRow('Collections', estimates.collections));
-            rows.appendChild(this._buildPreviewRow('Library fallback', estimates.libraryFallback));
-            rows.appendChild(this._buildPreviewRow('Recently added', estimates.recentlyAdded));
-            rows.appendChild(this._buildPreviewRow('Playlists', estimates.playlists));
-            rows.appendChild(this._buildPreviewRow('Genres', estimates.genres));
-            rows.appendChild(this._buildPreviewRow('Directors', estimates.directors));
-            rows.appendChild(this._buildPreviewRow('Decades', estimates.decades));
-            rows.appendChild(this._buildPreviewRow('Studios', estimates.studios));
-            rows.appendChild(this._buildPreviewRow('Actors', estimates.actors));
+            rows.appendChild(this._buildPreviewRow('Total planned', estimates.total, 'total'));
+            rows.appendChild(this._buildPreviewRow('Collections', estimates.collections, 'collections'));
+            rows.appendChild(this._buildPreviewRow('Library fallback', estimates.libraryFallback, 'libraryFallback'));
+            rows.appendChild(this._buildPreviewRow('Recently added', estimates.recentlyAdded, 'recentlyAdded'));
+            rows.appendChild(this._buildPreviewRow('Playlists', estimates.playlists, 'playlists'));
+            rows.appendChild(this._buildPreviewRow('Genres', estimates.genres, 'genres'));
+            rows.appendChild(this._buildPreviewRow('Directors', estimates.directors, 'directors'));
+            rows.appendChild(this._buildPreviewRow('Decades', estimates.decades, 'decades'));
+            rows.appendChild(this._buildPreviewRow('Studios', estimates.studios, 'studios'));
+            rows.appendChild(this._buildPreviewRow('Actors', estimates.actors, 'actors'));
             previewPanel.appendChild(rows);
 
             // Show "Updating..." indicator while loading with existing preview
@@ -1186,6 +1322,49 @@ export class ChannelSetupScreen {
         }
     }
 
+    private _clearPreviewDeltas(): void {
+        if (this._previewDeltaTimeoutId !== null) {
+            window.clearTimeout(this._previewDeltaTimeoutId);
+            this._previewDeltaTimeoutId = null;
+        }
+        this._previewDeltas = {};
+        this._previewDeltaExpiresAtMs = 0;
+    }
+
+    private _setPreviewDeltas(
+        prev: ChannelSetupPreview['estimates'],
+        next: ChannelSetupPreview['estimates']
+    ): void {
+        const keys = Object.keys(next) as EstimateKey[];
+        const deltas: Partial<Record<EstimateKey, number>> = {};
+        for (const key of keys) {
+            const a = prev[key];
+            const b = next[key];
+            if (typeof a === 'number' && typeof b === 'number') {
+                const delta = b - a;
+                if (delta !== 0) {
+                    deltas[key] = delta;
+                }
+            }
+        }
+
+        this._previewDeltas = deltas;
+        this._previewDeltaExpiresAtMs = Date.now() + 3000;
+        if (this._previewDeltaTimeoutId !== null) {
+            window.clearTimeout(this._previewDeltaTimeoutId);
+            this._previewDeltaTimeoutId = null;
+        }
+
+        if (Object.keys(deltas).length > 0) {
+            this._previewDeltaTimeoutId = window.setTimeout(() => {
+                this._clearPreviewDeltas();
+                if (this._step === 2) {
+                    this._renderStep();
+                }
+            }, 3000);
+        }
+    }
+
     private _buildConfig(serverId: string): ChannelSetupConfig {
         return {
             serverId,
@@ -1235,6 +1414,7 @@ export class ChannelSetupScreen {
         if (!serverId) {
             this._previewError = 'No server selected.';
             this._preview = null;
+            this._clearPreviewDeltas();
             this._isPreviewLoading = false;
             this._pendingPreviewKey = null;
             this._renderStep();
@@ -1261,8 +1441,14 @@ export class ChannelSetupScreen {
                 signal: this._previewAbortController.signal,
             });
             if (token !== this._visibilityToken) return;
+            const prevEstimates = this._preview?.estimates ?? null;
             this._preview = preview;
             this._lastPreviewKey = key;
+            if (prevEstimates) {
+                this._setPreviewDeltas(prevEstimates, preview.estimates);
+            } else {
+                this._clearPreviewDeltas();
+            }
         } catch (error) {
             if (token !== this._visibilityToken) return;
             if (error && typeof error === 'object' && 'name' in error && (error as { name?: unknown }).name === 'AbortError') {
@@ -1270,6 +1456,7 @@ export class ChannelSetupScreen {
             }
             this._previewError = error instanceof Error ? error.message : 'Unable to estimate channels.';
             this._preview = null;
+            this._clearPreviewDeltas();
         } finally {
             if (token === this._visibilityToken) {
                 this._isPreviewLoading = false;
@@ -1315,7 +1502,7 @@ export class ChannelSetupScreen {
         }
     }
 
-    private _buildPreviewRow(label: string, value: number | string): HTMLElement {
+    private _buildPreviewRow(label: string, value: number | string, deltaKey?: EstimateKey): HTMLElement {
         const row = document.createElement('div');
         row.className = 'setup-preview-row';
         const labelEl = document.createElement('span');
@@ -1323,7 +1510,19 @@ export class ChannelSetupScreen {
         labelEl.textContent = label;
         const valueEl = document.createElement('span');
         valueEl.className = 'setup-preview-value';
-        valueEl.textContent = String(value);
+        const main = document.createElement('span');
+        main.textContent = String(value);
+        valueEl.appendChild(main);
+
+        const now = Date.now();
+        const delta = deltaKey ? this._previewDeltas[deltaKey] : undefined;
+        if (typeof value === 'number' && typeof delta === 'number' && now <= this._previewDeltaExpiresAtMs) {
+            const deltaEl = document.createElement('span');
+            deltaEl.className = `setup-preview-delta ${delta > 0 ? 'positive' : 'negative'}`;
+            deltaEl.textContent = `(${delta > 0 ? '+' : ''}${delta})`;
+            valueEl.appendChild(deltaEl);
+        }
+
         row.appendChild(labelEl);
         row.appendChild(valueEl);
         return row;
@@ -1370,6 +1569,7 @@ export class ChannelSetupScreen {
         this._previewError = null;
         this._lastPreviewKey = null;
         this._pendingPreviewKey = null;
+        this._clearPreviewDeltas();
     }
 
     private _getSelectedServerId(): string | null {

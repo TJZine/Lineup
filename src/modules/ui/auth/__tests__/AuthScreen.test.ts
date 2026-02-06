@@ -9,7 +9,7 @@ jest.mock('qrcode', () => ({
 }));
 
 describe('AuthScreen', () => {
-    it('hide() should stop expiry timer and invalidate polling token', () => {
+    it('hide() should stop expiry timer, invalidate polling token, and best-effort cancel active pin', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -22,14 +22,20 @@ describe('AuthScreen', () => {
 
         const screen = new AuthScreen(container, orchestrator as unknown as never);
 
-        const screenAny = screen as unknown as { _pollToken: number; _expiryTimer: number | null };
+        const screenAny = screen as unknown as {
+            _pollToken: number;
+            _expiryTimer: number | null;
+            _activePinId: number | null;
+        };
         screenAny._pollToken = 41;
         screenAny._expiryTimer = window.setInterval(() => undefined, 1000);
+        screenAny._activePinId = 88;
 
         screen.hide();
 
         expect(screenAny._expiryTimer).toBeNull();
         expect(screenAny._pollToken).toBe(42);
+        expect(orchestrator.cancelPin).toHaveBeenCalledWith(88);
 
         container.remove();
     });
@@ -99,6 +105,7 @@ describe('AuthScreen', () => {
 
         const detail = container.querySelector('.screen-detail') as HTMLElement;
         expect(detail.textContent).toContain('Expires in');
+        expect(detail.getAttribute('aria-live')).toBeNull();
 
         jest.useRealTimers();
         container.remove();
@@ -192,5 +199,35 @@ describe('AuthScreen', () => {
         expect(qr.style.display).toBe('none');
         expect(status.textContent).toContain('Code expired.');
         expect(detail.style.color).toBe('');
+    });
+
+    it('expired PIN state leaves only Request PIN as the primary available action', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = {
+            requestAuthPin: jest.fn(),
+            pollForPin: jest.fn(),
+            cancelPin: jest.fn().mockResolvedValue(undefined),
+            getNavigation: jest.fn(() => null),
+        } as unknown as { [key: string]: unknown };
+
+        const screen = new AuthScreen(container, orchestrator as unknown as never);
+        const screenAny = screen as unknown as {
+            _activePinId: number | null;
+            _expiresAt: Date | null;
+            _handleExpiredPin: () => Promise<void>;
+        };
+        screenAny._activePinId = 77;
+        screenAny._expiresAt = new Date(Date.now() - 1);
+
+        await screenAny._handleExpiredPin();
+
+        const request = container.querySelector('#btn-auth-request') as HTMLButtonElement;
+        const cancel = container.querySelector('#btn-auth-cancel') as HTMLButtonElement;
+        const retry = container.querySelector('#btn-auth-retry') as HTMLButtonElement;
+        expect(request.disabled).toBe(false);
+        expect(cancel.disabled).toBe(true);
+        expect(retry.style.display).toBe('none');
     });
 });

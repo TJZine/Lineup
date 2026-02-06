@@ -15,21 +15,38 @@ interface AudioChoice {
     id: 'external' | 'tv-speakers';
     label: string;
     description: string;
-    icon: string;
+    iconSvg: string;
 }
+
+const SOUND_BAR_SVG = `
+<svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" aria-hidden="true">
+  <rect x="2" y="8" width="20" height="8" rx="2"></rect>
+  <circle cx="7" cy="12" r="2"></circle>
+  <circle cx="17" cy="12" r="2"></circle>
+  <path d="M11 10h2v4h-2z"></path>
+</svg>
+`;
+
+const TV_SVG = `
+<svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" aria-hidden="true">
+  <rect x="2" y="4" width="20" height="14" rx="2"></rect>
+  <path d="M8 21h8"></path>
+  <path d="M12 18v3"></path>
+</svg>
+`;
 
 const AUDIO_CHOICES: AudioChoice[] = [
     {
         id: 'external',
         label: 'Yes, I have a soundbar or receiver',
         description: 'Connected via HDMI eARC',
-        icon: '🔊',
+        iconSvg: SOUND_BAR_SVG,
     },
     {
         id: 'tv-speakers',
         label: 'No, using TV speakers',
         description: '',
-        icon: '📺',
+        iconSvg: TV_SVG,
     },
 ];
 
@@ -46,6 +63,10 @@ export class AudioSetupScreen {
     private _lastFocusedChoiceId: string = 'audio-choice-tv-speakers';
     private _fallbackFocusable: FocusableElement | null = null;
     private _directPlayFallbackEnabled: boolean;
+    private _tooltipEl: HTMLElement | null = null;
+    private _tooltipTimeoutId: number | null = null;
+    private _isTooltipVisible: boolean = false;
+    private _didUserExplicitlyChoose: boolean = false;
 
     constructor(
         container: HTMLElement,
@@ -99,9 +120,15 @@ export class AudioSetupScreen {
             button.className = 'setup-toggle';
             button.addEventListener('click', () => this._selectChoice(choice.id));
 
+            const iconWrap = document.createElement('span');
+            iconWrap.className = 'audio-choice-icon';
+            iconWrap.setAttribute('aria-hidden', 'true');
+            iconWrap.innerHTML = choice.iconSvg;
+
             const icon = document.createElement('span');
             icon.className = 'setup-toggle-label';
-            icon.textContent = `${choice.icon} ${choice.label}`;
+            icon.appendChild(iconWrap);
+            icon.appendChild(document.createTextNode(choice.label));
 
             const desc = document.createElement('span');
             desc.className = 'setup-toggle-meta';
@@ -141,6 +168,15 @@ export class AudioSetupScreen {
         fallbackButton.appendChild(fallbackState);
         panel.appendChild(fallbackButton);
 
+        const tooltip = document.createElement('div');
+        tooltip.className = 'audio-tooltip hidden';
+        tooltip.id = 'audio-direct-play-tooltip';
+        tooltip.textContent =
+            "If your audio system doesn't support a movie's audio format, this allows playing a compatible " +
+            'track instead of transcoding. Recommended: On for most users.';
+        panel.appendChild(tooltip);
+        this._tooltipEl = tooltip;
+
         // Hint
         const hint = document.createElement('p');
         hint.className = 'screen-detail';
@@ -166,6 +202,7 @@ export class AudioSetupScreen {
      * Select an audio choice.
      */
     private _selectChoice(choiceId: AudioChoice['id']): void {
+        this._didUserExplicitlyChoose = true;
         this._selectedChoice = choiceId;
         this._setLastFocusedChoiceId(`audio-choice-${choiceId}`);
 
@@ -185,6 +222,7 @@ export class AudioSetupScreen {
         const continueBtn = this._container.querySelector('#audio-setup-continue') as HTMLButtonElement | null;
         if (continueBtn) {
             continueBtn.disabled = false;
+            continueBtn.textContent = 'Continue';
         }
     }
 
@@ -235,6 +273,8 @@ export class AudioSetupScreen {
      */
     public hide(): void {
         this._container.classList.remove('visible');
+        this._clearTooltipTimer();
+        this._setTooltipVisible(false);
         this._unregisterFocusables();
     }
 
@@ -261,7 +301,11 @@ export class AudioSetupScreen {
                 id: externalBtn.id,
                 element: externalBtn,
                 neighbors,
-                onFocus: () => this._setLastFocusedChoiceId(externalBtn.id),
+                onFocus: () => {
+                    this._setLastFocusedChoiceId(externalBtn.id);
+                    this._clearTooltipTimer();
+                    this._setTooltipVisible(false);
+                },
                 onSelect: () => externalBtn.click(),
             });
         }
@@ -274,7 +318,11 @@ export class AudioSetupScreen {
                 id: tvBtn.id,
                 element: tvBtn,
                 neighbors,
-                onFocus: () => this._setLastFocusedChoiceId(tvBtn.id),
+                onFocus: () => {
+                    this._setLastFocusedChoiceId(tvBtn.id);
+                    this._clearTooltipTimer();
+                    this._setTooltipVisible(false);
+                },
                 onSelect: () => tvBtn.click(),
             });
         }
@@ -287,6 +335,10 @@ export class AudioSetupScreen {
                 id: fallbackBtn.id,
                 element: fallbackBtn,
                 neighbors,
+                onFocus: () => {
+                    this._setTooltipVisible(false);
+                    this._scheduleTooltipShow();
+                },
                 onSelect: () => fallbackBtn.click(),
             };
             this._fallbackFocusable = fallbackFocusable;
@@ -300,6 +352,10 @@ export class AudioSetupScreen {
                 id: continueBtn.id,
                 element: continueBtn,
                 neighbors,
+                onFocus: () => {
+                    this._clearTooltipTimer();
+                    this._setTooltipVisible(false);
+                },
                 onSelect: () => continueBtn.click(),
             });
         }
@@ -329,8 +385,34 @@ export class AudioSetupScreen {
         }
     }
 
+    private _clearTooltipTimer(): void {
+        if (this._tooltipTimeoutId !== null) {
+            window.clearTimeout(this._tooltipTimeoutId);
+            this._tooltipTimeoutId = null;
+        }
+    }
+
+    private _setTooltipVisible(visible: boolean): void {
+        if (!this._tooltipEl || this._isTooltipVisible === visible) return;
+        this._isTooltipVisible = visible;
+        this._tooltipEl.classList.toggle('hidden', !visible);
+    }
+
+    private _scheduleTooltipShow(): void {
+        this._clearTooltipTimer();
+        this._tooltipTimeoutId = window.setTimeout(() => {
+            this._setTooltipVisible(true);
+        }, 300);
+    }
+
     private _ensureInitialSelectionAndState(): void {
         if (this._selectedChoice) {
+            const continueBtnExisting = this._container.querySelector('#audio-setup-continue') as HTMLButtonElement | null;
+            if (continueBtnExisting) {
+                continueBtnExisting.textContent = this._didUserExplicitlyChoose
+                    ? 'Continue'
+                    : 'Continue with current settings';
+            }
             return;
         }
         const dtsEnabled = readStoredBoolean(
@@ -349,6 +431,7 @@ export class AudioSetupScreen {
         const continueBtn = this._container.querySelector('#audio-setup-continue') as HTMLButtonElement | null;
         if (continueBtn) {
             continueBtn.disabled = false;
+            continueBtn.textContent = this._didUserExplicitlyChoose ? 'Continue' : 'Continue with current settings';
         }
     }
 
@@ -371,6 +454,9 @@ export class AudioSetupScreen {
      * Destroy the component.
      */
     public destroy(): void {
+        this._clearTooltipTimer();
+        this._setTooltipVisible(false);
+        this._tooltipEl = null;
         this._unregisterFocusables();
         this._container.innerHTML = '';
     }

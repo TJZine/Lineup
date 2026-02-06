@@ -76,6 +76,32 @@ describe('ServerSelectScreen', () => {
         expect(pill.classList.contains('latency-slow')).toBe(true);
     });
 
+    it('applies very-slow class for >=500ms latency', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([
+            { id: 'srv-1', name: 'Server One', owned: true },
+        ]);
+
+        localStorage.setItem(
+            orchestrator.getServerHealthStorageKey(),
+            JSON.stringify({
+                'srv-1': { status: 'ok', latencyMs: 500, testedAt: Date.now() },
+            })
+        );
+
+        const screen = new ServerSelectScreen(container, orchestrator as never);
+        screen.show({ allowAutoConnect: false });
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const pill = container.querySelector('.server-status-pill') as HTMLElement;
+        expect(pill.textContent).toContain('Very Slow • 500ms');
+        expect(pill.classList.contains('latency-very-slow')).toBe(true);
+    });
+
     it('marks saved server row as active and disables connect when ok', async () => {
         const orchestrator = createOrchestratorStub();
         const container = document.createElement('div');
@@ -103,6 +129,17 @@ describe('ServerSelectScreen', () => {
         const button = activeRow.querySelector('button') as HTMLButtonElement;
         expect(button.textContent).toBe('Connected');
         expect(button.disabled).toBe(true);
+
+        const registeredIds = orchestrator.getNavigation().registerFocusable.mock.calls
+            .map((call) => (call[0] as { id?: string })?.id)
+            .filter((id): id is string => typeof id === 'string');
+        expect(registeredIds).not.toContain('btn-server-select-0');
+
+        const findLastNeighbors = (id: string): { down?: string } | undefined => {
+            const calls = orchestrator.getNavigation().registerFocusable.mock.calls.filter((call) => call[0]?.id === id);
+            return calls.length ? (calls[calls.length - 1][0].neighbors as { down?: string }) : undefined;
+        };
+        expect(findLastNeighbors('btn-server-refresh')?.down).toBeUndefined();
     });
 
     it('keeps reconnect enabled when saved server auto-select fails', async () => {
@@ -164,5 +201,54 @@ describe('ServerSelectScreen', () => {
         expect(refreshNeighbors?.down).toBeUndefined();
         expect(setupNeighbors?.down).toBeUndefined();
         expect(forgetNeighbors?.down).toBeUndefined();
+    });
+
+    it('does not unregister static focusables when updating static neighbors', async () => {
+        const orchestrator = createOrchestratorStub();
+        const nav = orchestrator.getNavigation();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([
+            { id: 'srv-1', name: 'Server One', owned: true },
+            { id: 'srv-2', name: 'Server Two', owned: true },
+        ]);
+
+        const screen = new ServerSelectScreen(container, orchestrator as never);
+        screen.show({ allowAutoConnect: false });
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const unregisteredIds = nav.unregisterFocusable.mock.calls.map((call) => call[0] as string | undefined);
+        expect(unregisteredIds).not.toContain('btn-server-refresh');
+        expect(unregisteredIds).not.toContain('btn-server-setup');
+        expect(unregisteredIds).not.toContain('btn-server-switch-profile');
+        expect(unregisteredIds).not.toContain('btn-server-forget');
+    });
+
+    it('restores focus to refresh after clearing saved server', async () => {
+        const orchestrator = createOrchestratorStub();
+        const nav = orchestrator.getNavigation();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([
+            { id: 'srv-1', name: 'Server One', owned: true },
+        ]);
+
+        const screen = new ServerSelectScreen(container, orchestrator as never);
+        screen.show({ allowAutoConnect: false });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        jest.useFakeTimers();
+        nav.setFocus.mockClear();
+
+        const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
+        expect(clearBtn).not.toBeNull();
+        clearBtn?.click();
+
+        jest.advanceTimersByTime(60);
+        expect(nav.setFocus).toHaveBeenCalledWith('btn-server-refresh');
+        jest.useRealTimers();
     });
 });
