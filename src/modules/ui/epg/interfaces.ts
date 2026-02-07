@@ -71,6 +71,12 @@ export interface IEPGComponent {
     setLayoutMode(mode: 'overlay' | 'classic'): void;
 
     /**
+     * Set visible timeline hours.
+     * @param hours - Number of hours to display at once
+     */
+    setVisibleHours(hours: number): void;
+
+    /**
      * Enable or disable the now watching banner.
      * @param enabled - Banner toggle
      */

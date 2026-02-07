@@ -59,8 +59,8 @@ describe('EPGInfoPanel', () => {
             const program = createMockProgram('/library/metadata/123/thumb');
             panel.show(program);
 
-            expect(resolver).toHaveBeenCalledWith('/library/metadata/123/thumb', 140, 210);
-            expect(resolver).toHaveBeenCalledWith('/library/metadata/123/thumb', 280, 420);
+            expect(resolver).toHaveBeenCalledWith('/library/metadata/123/thumb', 160, 240);
+            expect(resolver).toHaveBeenCalledWith('/library/metadata/123/thumb', 320, 480);
             const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
             expect(poster.src).toBe('https://server/library/thumb?token=xxx');
             expect(poster.style.display).toBe('block');
@@ -85,7 +85,7 @@ describe('EPGInfoPanel', () => {
             const program = createMockProgram(null);
             panel.show(program);
 
-            expect(resolver).toHaveBeenCalledWith(null, 140, 210);
+            expect(resolver).toHaveBeenCalledWith(null, 160, 240);
             const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
             expect(poster.style.display).toBe('none');
         });
@@ -102,7 +102,7 @@ describe('EPGInfoPanel', () => {
             });
             panel.show(program);
 
-            expect(resolver).toHaveBeenCalledWith('/library/metadata/123/thumb', 140, 210);
+            expect(resolver).toHaveBeenCalledWith('/library/metadata/123/thumb', 160, 240);
             const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
             expect(poster.src).toBe('https://server/library/thumb?token=xxx');
             expect(poster.alt).toBe('Episode Title');
@@ -158,7 +158,7 @@ describe('EPGInfoPanel', () => {
             const program = createMockProgram('https://plex.tv/photo/abc123');
             panel.show(program);
 
-            expect(resolver).toHaveBeenCalledWith('https://plex.tv/photo/abc123', 140, 210);
+            expect(resolver).toHaveBeenCalledWith('https://plex.tv/photo/abc123', 160, 240);
             const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
             expect(poster.src).toBe('https://plex.tv/photo/abc123');
             expect(poster.style.display).toBe('block');

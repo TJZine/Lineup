@@ -122,6 +122,10 @@ const SELECT_METADATA: Record<string, SelectMetadata> = {
         storageKey: SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE,
         defaultValue: 0,
     },
+    'settings-epg-density': {
+        storageKey: SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY,
+        defaultValue: 0,
+    },
 };
 
 /**
@@ -258,6 +262,7 @@ export class SettingsScreen {
         const subtitleMode = this._valueToSubtitleMode(subtitleModeValue);
         const subtitlesEnabled = subtitleMode !== 'off';
         const epgLayoutModeValue = this._loadEpgLayoutModeValue();
+        const epgGuideDensityValue = this._loadEpgGuideDensityValue();
         const useGlobalSubtitlePreference = this._loadBoolSetting(
             SETTINGS_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE,
             DEFAULT_SETTINGS.subtitles.useGlobalPreference
@@ -417,6 +422,21 @@ export class SettingsScreen {
                         onChange: (value: boolean): void => {
                             this._saveBoolSetting(SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, value);
                             this._onGuideSettingChange?.({ key: 'nowWatchingBanner', enabled: value });
+                        },
+                    },
+                    {
+                        id: 'settings-epg-density',
+                        label: 'Guide Density',
+                        description: 'Detailed shows 2 hours, Wide shows 3 hours',
+                        value: epgGuideDensityValue,
+                        options: [
+                            { label: 'Detailed (2h)', value: 0 },
+                            { label: 'Wide (3h)', value: 1 },
+                        ],
+                        onChange: (value: number): void => {
+                            const density = value === 1 ? 'wide' : 'detailed';
+                            this._saveEpgGuideDensityValue(value);
+                            this._onGuideSettingChange?.({ key: 'guideDensity', density });
                         },
                     },
                     {
@@ -700,6 +720,11 @@ export class SettingsScreen {
         return raw === 'classic' ? 1 : 0;
     }
 
+    private _loadEpgGuideDensityValue(): number {
+        const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY);
+        return raw === 'wide' ? 1 : 0;
+    }
+
     private _loadSubtitleLanguageValue(): number {
         const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE);
         if (raw === null) return 0;
@@ -731,6 +756,11 @@ export class SettingsScreen {
     private _saveEpgLayoutModeValue(value: number): void {
         const mode = value === 1 ? 'classic' : 'overlay';
         safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, mode);
+    }
+
+    private _saveEpgGuideDensityValue(value: number): void {
+        const density = value === 1 ? 'wide' : 'detailed';
+        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY, density);
     }
 
     private _saveSubtitleLanguageValue(value: number): void {
@@ -820,6 +850,8 @@ export class SettingsScreen {
                     ? this._loadSubtitleLanguageValue()
                     : id === 'settings-hdr10-fallback-mode'
                         ? this._readHdr10FallbackSelectValue()
+                        : id === 'settings-epg-density'
+                            ? this._loadEpgGuideDensityValue()
                         : id === 'settings-epg-layout-mode'
                             ? this._loadEpgLayoutModeValue()
                     : this._loadNumberSetting(meta.storageKey, meta.defaultValue);

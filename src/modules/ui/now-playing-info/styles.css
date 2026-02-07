@@ -262,6 +262,11 @@
   .now-playing-info-panel {
     max-width: 1500px;
   }
+
+  .now-playing-info-up-next {
+    font-size: var(--text-base);
+    font-weight: 600;
+  }
 }
 
 @keyframes now-playing-info-enter {

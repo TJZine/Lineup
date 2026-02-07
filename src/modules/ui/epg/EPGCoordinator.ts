@@ -42,6 +42,9 @@ const EPG_SCHEDULE_CACHE_TTL_MS = 2 * 60_000;
 const EPG_SCHEDULE_CACHE_STALE_TTL_MS = 10 * 60_000;
 const EPG_SCHEDULE_CACHE_MIN_ENTRIES = 60;
 const EPG_SCHEDULE_CACHE_MAX_ENTRIES = 240;
+const DEFAULT_GUIDE_DENSITY: 'detailed' | 'wide' = 'detailed';
+const DETAILED_VISIBLE_HOURS = 2;
+const WIDE_VISIBLE_HOURS = 3;
 
 export class EPGCoordinator {
     private _epgScheduleLoadToken = 0;
@@ -84,6 +87,69 @@ export class EPGCoordinator {
         return Array.from(map.entries())
             .map(([id, name]) => ({ id, name }))
             .sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    private _readGuideDensity(): 'detailed' | 'wide' {
+        const raw = safeLocalStorageGet(RETUNE_STORAGE_KEYS.EPG_GUIDE_DENSITY);
+        return raw === 'wide' ? 'wide' : DEFAULT_GUIDE_DENSITY;
+    }
+
+    private _getBaseVisibleHours(): number {
+        return this._readGuideDensity() === 'wide' ? WIDE_VISIBLE_HOURS : DETAILED_VISIBLE_HOURS;
+    }
+
+    private _inferLibraryType(
+        channels: ChannelConfig[],
+        selectedId: string
+    ): 'movie' | 'show' | null {
+        let movieVotes = 0;
+        let showVotes = 0;
+
+        for (const channel of channels) {
+            const belongsToLibrary =
+                channel.sourceLibraryId === selectedId ||
+                (channel.contentSource.type === 'library' && channel.contentSource.libraryId === selectedId);
+            if (!belongsToLibrary) {
+                continue;
+            }
+
+            if (channel.contentSource.type === 'library') {
+                if (channel.contentSource.libraryType === 'movie') {
+                    movieVotes++;
+                } else {
+                    showVotes++;
+                }
+                continue;
+            }
+
+            if (channel.contentSource.type === 'show') {
+                showVotes++;
+            }
+        }
+
+        if (movieVotes === 0 && showVotes === 0) {
+            return null;
+        }
+        return movieVotes > showVotes ? 'movie' : 'show';
+    }
+
+    private _getVisibleHoursForCurrentFilter(
+        channels: ChannelConfig[],
+        selectedId: string | null,
+        shouldFilter: boolean
+    ): number {
+        if (!shouldFilter || !selectedId) {
+            return this._getBaseVisibleHours();
+        }
+
+        const libraryType = this._inferLibraryType(channels, selectedId);
+        if (libraryType === 'movie') {
+            return WIDE_VISIBLE_HOURS;
+        }
+        if (libraryType === 'show') {
+            return DETAILED_VISIBLE_HOURS;
+        }
+        return this._getBaseVisibleHours();
     }
 
     private _getVisibleChannels(all: ChannelConfig[], selectedId: string | null, shouldFilter: boolean): ChannelConfig[] {
@@ -195,6 +261,7 @@ export class EPGCoordinator {
         const nowWatchingEnabled = readStoredBoolean(RETUNE_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, true);
         epg.setLayoutMode(layoutMode);
         epg.setNowWatchingBannerEnabled(nowWatchingEnabled);
+        epg.setVisibleHours(this._getVisibleHoursForCurrentFilter(all, selectedId, shouldFilter));
 
         const visible = this._getVisibleChannels(all, selectedId, shouldFilter);
         epg.loadChannels(visible);
@@ -294,7 +361,7 @@ export class EPGCoordinator {
         timeStartMs: number;
         timeEndMs: number;
     }, options?: { reason?: string; debounceMs?: number }): Promise<void> {
-        const debounceMs = Math.max(0, options?.debounceMs ?? 120);
+        const debounceMs = Math.max(0, options?.debounceMs ?? 80);
         const reason = options?.reason ?? 'visible-range';
         if (debounceMs === 0) {
             await this._refreshEpgSchedulesForRange(range, reason);
@@ -450,6 +517,17 @@ export class EPGCoordinator {
         return 6;
     }
 
+    private _getScheduleLoadConcurrency(channelCount: number, prefetchCount: number): number {
+        if (prefetchCount <= 0) {
+            return 1;
+        }
+        let target = 4;
+        if (channelCount >= 180) target = 8;
+        else if (channelCount >= 120) target = 7;
+        else if (channelCount >= 80) target = 6;
+        return Math.max(1, Math.min(target, prefetchCount));
+    }
+
     private _pruneScheduleCache(nowMs: number): void {
         for (const [key, entry] of this._epgScheduleCache) {
             if (nowMs - entry.loadedAt > EPG_SCHEDULE_CACHE_STALE_TTL_MS) {
@@ -570,7 +648,7 @@ export class EPGCoordinator {
 
         const refreshId = ++this._epgScheduleLoadToken;
         const rangeKey = this._getScheduleRangeKey(startTime, endTime);
-        const forceRefresh = reason === 'channel-setup';
+        const forceRefresh = reason === 'channel-setup' || reason === 'server-swap';
         if (forceRefresh) {
             this._clearScheduleCaches();
         }
@@ -615,6 +693,7 @@ export class EPGCoordinator {
         let inFlightSkipped = 0;
         let alreadyLoaded = 0;
         let liveScheduleHits = 0;
+        const concurrency = this._getScheduleLoadConcurrency(channels.length, prioritized.length);
 
         const applySchedule = (
             channelId: string,
@@ -651,6 +730,7 @@ export class EPGCoordinator {
                     kept: inFlightKept,
                     aborted: inFlightAborted,
                 },
+                concurrency,
                 cacheSize: this._epgScheduleCache.size,
                 cacheMaxEntries: this._epgScheduleCacheMaxEntries,
             };
@@ -740,7 +820,6 @@ export class EPGCoordinator {
             }
         };
 
-        const concurrency = 4;
         let cursor = 0;
         const workers = Array.from({ length: concurrency }, async () => {
             while (true) {
@@ -761,6 +840,7 @@ export class EPGCoordinator {
                 inFlightSkipped,
                 alreadyLoaded,
                 liveScheduleHits,
+                concurrency,
                 cacheSize: this._epgScheduleCache.size,
                 cacheMaxEntries: this._epgScheduleCacheMaxEntries,
             };

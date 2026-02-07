@@ -13,7 +13,7 @@ export const EPG_CONSTANTS = {
     /** Grid time slot granularity (minutes) */
     TIME_SLOT_MINUTES: 30,
     /** Hours visible at once */
-    VISIBLE_HOURS: 3,
+    VISIBLE_HOURS: 2,
     /** Total hours in schedule */
     TOTAL_HOURS: 24,
     /** Pixels per minute (width scaling) */

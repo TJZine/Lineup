@@ -105,6 +105,24 @@ describe('ProfileSelectScreen', () => {
         expect(container.textContent).toContain('Kid');
     });
 
+    it('stays on profile screen when only one profile is available', async () => {
+        const users = [{ id: '1', title: 'Admin', thumb: null, admin: true, protected: false }];
+        const orchestrator = createOrchestratorStub(users);
+        const nav = orchestrator.getNavigation();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(container, orchestrator as never);
+        screen.show();
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const rows = container.querySelectorAll('.profile-row');
+        expect(rows.length).toBe(1);
+        expect(container.textContent).toContain('Only one profile is available for this account.');
+        expect(nav.goTo).not.toHaveBeenCalled();
+    });
+
     it('opens PIN modal for protected users', async () => {
         const users = [
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },

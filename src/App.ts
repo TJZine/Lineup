@@ -74,7 +74,7 @@ const DEFAULT_EPG_CONFIG: EPGConfig = {
     containerId: 'epg-container',
     visibleChannels: 5,
     timeSlotMinutes: 30,
-    visibleHours: 3,
+    visibleHours: 2,
     totalHours: 24,
     pixelsPerMinute: 4,
     rowHeight: 96,

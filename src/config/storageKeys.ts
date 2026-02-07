@@ -49,6 +49,7 @@ export const RETUNE_STORAGE_KEYS = {
     EPG_LIBRARY_TABS_ENABLED: 'retune_epg_library_tabs_enabled',
     EPG_LIBRARY_FILTER: 'retune_epg_library_filter',
     EPG_LAYOUT_MODE: 'retune_epg_layout_mode',
+    EPG_GUIDE_DENSITY: 'retune_epg_guide_density',
     EPG_NOW_WATCHING_ENABLED: 'retune_epg_now_watching_enabled',
     /** Show Plex Home profile picker on startup */
     SHOW_PROFILE_PICKER_ON_STARTUP: 'retune_show_profile_picker_on_startup',

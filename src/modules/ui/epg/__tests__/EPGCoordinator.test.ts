@@ -67,6 +67,7 @@ const makeDeps = (
         loadChannels: jest.fn(),
         setCategoryColorsEnabled: jest.fn(),
         setLayoutMode: jest.fn(),
+        setVisibleHours: jest.fn(),
         setNowWatchingBannerEnabled: jest.fn(),
         setLibraryTabs: jest.fn(),
         loadScheduleForChannel: jest.fn(),
@@ -216,6 +217,102 @@ describe('EPGCoordinator', () => {
         coordinator.primeEpgChannels();
 
         expect(epg.loadChannels).toHaveBeenCalledWith([allChannels[0], allChannels[2]]);
+    });
+
+    it('primeEpgChannels sets 2h as default guide density when no library filter is active', () => {
+        const { deps, epg } = makeDeps();
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.primeEpgChannels();
+
+        expect(epg.setVisibleHours).toHaveBeenCalledWith(2);
+    });
+
+    it('primeEpgChannels forces 3h for movie library filters even when default density is detailed', () => {
+        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'movie-lib');
+
+        const allChannels: ChannelConfig[] = [
+            {
+                ...makeChannel('movie-1', 1),
+                sourceLibraryId: 'movie-lib',
+                sourceLibraryName: 'Movies',
+                contentSource: {
+                    type: 'library',
+                    libraryId: 'movie-lib',
+                    libraryType: 'movie',
+                    includeWatched: true,
+                },
+            },
+            {
+                ...makeChannel('show-1', 2),
+                sourceLibraryId: 'show-lib',
+                sourceLibraryName: 'TV Shows',
+                contentSource: {
+                    type: 'library',
+                    libraryId: 'show-lib',
+                    libraryType: 'show',
+                    includeWatched: true,
+                },
+            },
+        ];
+
+        const { deps, epg } = makeDeps({
+            getChannelManager: () =>
+                ({
+                    ...makeDeps().channelManager,
+                    getAllChannels: () => allChannels,
+                } as IChannelManager),
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.primeEpgChannels();
+
+        expect(epg.setVisibleHours).toHaveBeenCalledWith(3);
+    });
+
+    it('primeEpgChannels forces 2h for show library filters even when density is wide', () => {
+        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
+        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'show-lib');
+
+        const allChannels: ChannelConfig[] = [
+            {
+                ...makeChannel('show-1', 1),
+                sourceLibraryId: 'show-lib',
+                sourceLibraryName: 'TV Shows',
+                contentSource: {
+                    type: 'library',
+                    libraryId: 'show-lib',
+                    libraryType: 'show',
+                    includeWatched: true,
+                },
+            },
+            {
+                ...makeChannel('movie-1', 2),
+                sourceLibraryId: 'movie-lib',
+                sourceLibraryName: 'Movies',
+                contentSource: {
+                    type: 'library',
+                    libraryId: 'movie-lib',
+                    libraryType: 'movie',
+                    includeWatched: true,
+                },
+            },
+        ];
+
+        const { deps, epg } = makeDeps({
+            getChannelManager: () =>
+                ({
+                    ...makeDeps().channelManager,
+                    getAllChannels: () => allChannels,
+                } as IChannelManager),
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.primeEpgChannels();
+
+        expect(epg.setVisibleHours).toHaveBeenCalledWith(2);
     });
 
     it('primeEpgChannels clears filter when tabs are disabled', () => {
@@ -398,6 +495,23 @@ describe('EPGCoordinator', () => {
         expect(epg.setGridAnchorTime).toHaveBeenCalled();
     });
 
+    it('server-swap refresh bypasses loaded-range short-circuit after schedules were previously loaded', async () => {
+        const { deps, epg } = makeDeps();
+        const coordinator = new EPGCoordinator(deps);
+        const range = { channelStart: 0, channelEnd: 3, timeStartMs: 0, timeEndMs: 0 };
+
+        await coordinator.refreshEpgSchedulesForRange(range, { debounceMs: 0, reason: 'visible-range' });
+        expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBeGreaterThan(0);
+
+        (epg.loadScheduleForChannel as jest.Mock).mockClear();
+        await coordinator.refreshEpgSchedulesForRange(range, { debounceMs: 0, reason: 'visible-range' });
+        expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBe(0);
+
+        (epg.loadScheduleForChannel as jest.Mock).mockClear();
+        await coordinator.refreshEpgSchedulesForRange(range, { debounceMs: 0, reason: 'server-swap' });
+        expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBeGreaterThan(0);
+    });
+
     it('refreshEpgSchedules uses filtered channels', async () => {
         localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
         localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
@@ -518,6 +632,7 @@ describe('EPGCoordinator', () => {
             }),
             clearSchedules: jest.fn(),
             setCategoryColorsEnabled: jest.fn(),
+            setVisibleHours: jest.fn(),
             setLibraryTabs: jest.fn(),
             scrollToChannel: jest.fn(),
             focusChannel: jest.fn(),
@@ -564,6 +679,7 @@ describe('EPGCoordinator', () => {
             focusChannel: jest.fn(),
             setCategoryColorsEnabled: jest.fn(),
             setLayoutMode: jest.fn(),
+            setVisibleHours: jest.fn(),
             setNowWatchingBannerEnabled: jest.fn(),
             setLibraryTabs: jest.fn(),
             loadChannels: jest.fn(),

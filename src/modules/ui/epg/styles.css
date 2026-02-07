@@ -1,10 +1,10 @@
 /* EPG Container */
 .epg-container {
   position: absolute;
-  top: 5%;
-  left: 5%;
-  width: 90%;
-  height: 90%;
+  top: 3%;
+  left: 4%;
+  width: 92%;
+  height: 94%;
   background: rgba(0, 0, 0, 0.95);
   z-index: 900;
   display: none;
@@ -586,7 +586,7 @@
 .epg-info-panel {
   height: var(--epg-info-panel-height);
   background: linear-gradient(to top, var(--panel-surface-2), var(--panel-surface));
-  --epg-info-panel-padding-y: 16px;
+  --epg-info-panel-padding-y: 20px;
   --epg-info-panel-padding-x: 24px;
   padding: var(--epg-info-panel-padding-y) var(--epg-info-panel-padding-x);
   display: flex;
@@ -622,7 +622,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .epg-info-title {
@@ -664,11 +664,11 @@
   line-height: 1.4;
   color: rgba(255, 255, 255, 0.9);
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-height: calc(20px * 1.4 * 3);
+  max-height: calc(20px * 1.4 * 4);
 }
 
 .epg-info-quality {

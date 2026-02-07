@@ -47,6 +47,8 @@ export const SETTINGS_STORAGE_KEYS = {
     EPG_LIBRARY_TABS_ENABLED: RETUNE_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED,
     /** EPG layout mode (overlay/classic) */
     EPG_LAYOUT_MODE: RETUNE_STORAGE_KEYS.EPG_LAYOUT_MODE,
+    /** EPG guide density (detailed/wide) */
+    EPG_GUIDE_DENSITY: RETUNE_STORAGE_KEYS.EPG_GUIDE_DENSITY,
     /** EPG now watching banner enabled */
     EPG_NOW_WATCHING_ENABLED: RETUNE_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED,
     /** Show profile picker on startup */

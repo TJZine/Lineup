@@ -1153,6 +1153,9 @@ export class AppOrchestrator implements IAppOrchestrator {
             throw new Error('PlexAuth not initialized');
         }
 
+        // Profile-switch startup is resumed explicitly below; avoid duplicate
+        // queued startup runs from a stale profile-resume listener.
+        this._initCoordinator?.clearProfileResume();
         await this._plexAuth.switchHomeUser(userId, { pin: pin ?? null });
         this._configureDiscoveryStorageKeysForActiveUser();
 
@@ -1168,6 +1171,9 @@ export class AppOrchestrator implements IAppOrchestrator {
             throw new Error('PlexAuth not initialized');
         }
 
+        // Same as switchHomeUser: avoid duplicate startup runs when an old
+        // profile-resume listener is still registered.
+        this._initCoordinator?.clearProfileResume();
         await this._plexAuth.logoutActiveUser();
         this._configureDiscoveryStorageKeysForActiveUser();
 
@@ -1399,7 +1405,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         }
 
         epgCoordinator.primeEpgChannels();
-        if (change.key === 'libraryTabs') {
+        if (change.key === 'libraryTabs' || change.key === 'guideDensity') {
             void epgCoordinator.refreshEpgSchedules({ reason: 'guide-settings' });
         }
     }

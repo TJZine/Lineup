@@ -446,6 +446,7 @@ const mockEpg = {
     loadChannels: jest.fn(),
     setCategoryColorsEnabled: jest.fn(),
     setLayoutMode: jest.fn(),
+    setVisibleHours: jest.fn(),
     setNowWatchingBannerEnabled: jest.fn(),
     setLibraryTabs: jest.fn(),
     setGridAnchorTime: jest.fn(),
@@ -700,6 +701,54 @@ describe('AppOrchestrator', () => {
             expect(mockEpg.clearSchedules).toHaveBeenCalled();
             expect(epgCoordinator.primeEpgChannels).toHaveBeenCalled();
             expect(epgCoordinator.refreshEpgSchedules).toHaveBeenCalledWith({ reason: 'server-swap' });
+        });
+    });
+
+    describe('profile switching', () => {
+        it('clears profile resume listener before explicit switchHomeUser startup', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            const initCoordinator = {
+                clearProfileResume: jest.fn(),
+                runStartup: jest.fn().mockResolvedValue(undefined),
+            };
+            const mutable = orchestrator as unknown as {
+                _initCoordinator?: typeof initCoordinator;
+            };
+            mutable._initCoordinator = initCoordinator;
+
+            await orchestrator.switchHomeUser('user-2', '1234');
+
+            expect(initCoordinator.clearProfileResume).toHaveBeenCalledTimes(1);
+            expect(mockPlexAuth.switchHomeUser).toHaveBeenCalledWith('user-2', { pin: '1234' });
+            expect(initCoordinator.runStartup).toHaveBeenCalledWith(3);
+            const clearOrder = initCoordinator.clearProfileResume.mock.invocationCallOrder[0];
+            const switchInvocations = mockPlexAuth.switchHomeUser.mock.invocationCallOrder;
+            const switchOrder = switchInvocations[switchInvocations.length - 1];
+            expect(clearOrder).toBeDefined();
+            expect(switchOrder).toBeDefined();
+            if (clearOrder !== undefined && switchOrder !== undefined) {
+                expect(clearOrder).toBeLessThan(switchOrder);
+            }
+        });
+
+        it('clears profile resume listener before explicit useMainAccountProfile startup', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            const initCoordinator = {
+                clearProfileResume: jest.fn(),
+                runStartup: jest.fn().mockResolvedValue(undefined),
+            };
+            const mutable = orchestrator as unknown as {
+                _initCoordinator?: typeof initCoordinator;
+            };
+            mutable._initCoordinator = initCoordinator;
+
+            await orchestrator.useMainAccountProfile();
+
+            expect(initCoordinator.clearProfileResume).toHaveBeenCalledTimes(1);
+            expect(mockPlexAuth.logoutActiveUser).toHaveBeenCalledTimes(1);
+            expect(initCoordinator.runStartup).toHaveBeenCalledWith(3);
         });
     });
 
@@ -1220,6 +1269,30 @@ describe('AppOrchestrator', () => {
             orchestrator.onGuideSettingChange({ key: 'nowWatchingBanner', enabled: false });
 
             expect(mockEpg.setNowWatchingBannerEnabled).toHaveBeenCalledWith(false);
+        });
+
+        it('refreshes schedules when guide density changes while EPG is visible', async () => {
+            mockLocalStorage.getItem.mockImplementation((key: string) =>
+                key === 'retune_epg_guide_density' ? 'wide' : null
+            );
+            mockEpg.isVisible.mockReturnValue(true);
+            const mutable = orchestrator as unknown as {
+                _epgCoordinator?: { refreshEpgSchedules: (options?: { reason?: string }) => Promise<void> };
+            };
+            const refreshSpy = jest
+                .spyOn(
+                    mutable._epgCoordinator as {
+                        refreshEpgSchedules: (options?: { reason?: string }) => Promise<void>;
+                    },
+                    'refreshEpgSchedules'
+                )
+                .mockResolvedValue(undefined);
+
+            await orchestrator.start();
+            orchestrator.onGuideSettingChange({ key: 'guideDensity', density: 'wide' });
+
+            expect(mockEpg.setVisibleHours).toHaveBeenCalledWith(3);
+            expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
         });
     });
 
