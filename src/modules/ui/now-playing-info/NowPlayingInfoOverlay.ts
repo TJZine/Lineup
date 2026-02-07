@@ -352,13 +352,19 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
             `.${NOW_PLAYING_INFO_CLASSES.ACTORS}`
         ) as HTMLElement | null;
         if (!actors) return;
-        if (actors.clientWidth > 0) return;
-        requestAnimationFrame(() => {
+
+        const renderIfReady = (attempt: number): void => {
             if (!this.containerElement || !this.isVisibleFlag || !this.lastActorState) return;
             const actorsEl = this.containerElement.querySelector(
                 `.${NOW_PLAYING_INFO_CLASSES.ACTORS}`
             ) as HTMLElement | null;
             if (!actorsEl) return;
+            if (actorsEl.clientWidth <= 0) {
+                if (attempt < 5) {
+                    requestAnimationFrame(() => renderIfReady(attempt + 1));
+                }
+                return;
+            }
             const castEl = this.containerElement.querySelector(
                 `.${NOW_PLAYING_INFO_CLASSES.CAST}`
             ) as HTMLElement | null;
@@ -368,7 +374,13 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
                 this.lastActorState.totalCount,
                 castEl
             );
-        });
+        };
+
+        if (actors.clientWidth > 0) {
+            renderIfReady(0);
+            return;
+        }
+        requestAnimationFrame(() => renderIfReady(1));
     }
 
     private renderActorRow(

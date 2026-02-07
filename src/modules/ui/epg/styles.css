@@ -53,7 +53,6 @@
 .epg-container.visible {
   display: flex;
   animation: epg-container-enter 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  will-change: transform, opacity;
 }
 
 @keyframes epg-container-enter {

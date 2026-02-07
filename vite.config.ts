@@ -1,4 +1,4 @@
-import { defineConfig, type PluginOption } from 'vite';
+import { defineConfig, normalizePath, type PluginOption } from 'vite';
 import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig(({ command }) => {
@@ -30,15 +30,16 @@ export default defineConfig(({ command }) => {
             rollupOptions: {
                 output: {
                     manualChunks(id): string | undefined {
-                        if (id.includes('node_modules')) return 'vendor';
+                        const normalizedId = normalizePath(id);
+                        if (normalizedId.includes('node_modules')) return 'vendor';
                         if (
-                            id.includes('/src/modules/ui/epg/') ||
-                            id.includes('/src/modules/plex/') ||
-                            id.includes('/src/modules/player/') ||
-                            id.includes('/src/modules/scheduler/') ||
-                            id.includes('/src/modules/navigation/') ||
-                            id.includes('/src/modules/lifecycle/') ||
-                            id.includes('/src/core/')
+                            normalizedId.includes('/src/modules/ui/epg/') ||
+                            normalizedId.includes('/src/modules/plex/') ||
+                            normalizedId.includes('/src/modules/player/') ||
+                            normalizedId.includes('/src/modules/scheduler/') ||
+                            normalizedId.includes('/src/modules/navigation/') ||
+                            normalizedId.includes('/src/modules/lifecycle/') ||
+                            normalizedId.includes('/src/core/')
                         ) {
                             // Keep tightly-coupled runtime systems together to avoid circular chunk warnings.
                             return 'engine';

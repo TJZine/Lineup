@@ -1016,29 +1016,25 @@ export class ChannelSetupScreen {
         this._detailEl.textContent = '';
         this._errorEl.textContent = this._reviewError ?? '';
 
-        if (!this._recordApplied) {
-            this._renderBuildReviewLoading();
-            return;
-        }
-
-        if (!this._review && !this._isReviewLoading && !this._reviewError) {
-            this._loadReview().catch(console.error);
-            this._renderBuildReviewLoading();
-            return;
-        }
-
-        if (this._isReviewLoading) {
-            this._renderBuildReviewLoading();
-            return;
-        }
-
         const scroll = document.createElement('div');
         scroll.className = 'setup-scroll';
 
         const reviewContainer = document.createElement('div');
         reviewContainer.className = 'setup-review';
 
-        if (this._review) {
+        let showLoadingState = false;
+        if (!this._recordApplied) {
+            showLoadingState = true;
+        } else if (!this._review && !this._isReviewLoading && !this._reviewError) {
+            this._loadReview().catch(console.error);
+            showLoadingState = true;
+        } else if (this._isReviewLoading) {
+            showLoadingState = true;
+        }
+
+        if (showLoadingState) {
+            this._renderBuildReviewLoading(reviewContainer);
+        } else if (this._review) {
             const modeLine = document.createElement('div');
             modeLine.className = 'setup-summary';
             modeLine.textContent = `Build mode: ${this._buildMode.charAt(0).toUpperCase()}${this._buildMode.slice(1)}`;
@@ -1136,12 +1132,12 @@ export class ChannelSetupScreen {
         this._registerFocusables([...listButtons, backButton, confirmButton]);
     }
 
-    private _renderBuildReviewLoading(): void {
+    private _renderBuildReviewLoading(container: HTMLElement = this._contentEl): void {
         const loading = document.createElement('div');
         loading.className = 'setup-preview-loading';
         loading.classList.add('panel-spinner');
         loading.textContent = 'Preparing your review...';
-        this._contentEl.appendChild(loading);
+        container.appendChild(loading);
     }
 
     private _renderBuildProgress(): void {

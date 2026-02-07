@@ -139,7 +139,10 @@ describe('ChannelSetupScreen', () => {
         screenAny._renderBuildReview();
 
         expect(container.querySelector('.setup-preview-loading')).not.toBeNull();
-        expect(container.querySelector('#setup-confirm')).toBeNull();
+        expect(container.querySelector('#setup-back')).not.toBeNull();
+        const confirmButton = container.querySelector('#setup-confirm') as HTMLButtonElement | null;
+        expect(confirmButton).not.toBeNull();
+        expect(confirmButton?.disabled).toBe(true);
     });
 
     it('renders library meta with formatted content counts', () => {

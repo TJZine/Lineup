@@ -24,24 +24,48 @@ import './modules/ui/channel-setup/styles.css';
 import './styles/shell.css';
 
 type ConsoleNoiseMethod = 'debug' | 'info' | 'log' | 'warn';
+type DebugLoggingChangeDetail = { enabled?: boolean };
+
+const DEBUG_LOGGING_CHANGED_EVENT = 'retune:debug-logging-changed';
+const CONSOLE_NOISE_METHODS: ConsoleNoiseMethod[] = ['debug', 'info', 'log', 'warn'];
+/* eslint-disable no-console -- preserve originals so runtime setting changes can restore methods */
+const ORIGINAL_CONSOLE_METHODS: Record<ConsoleNoiseMethod, (...args: unknown[]) => void> = {
+    debug: console.debug.bind(console),
+    info: console.info.bind(console),
+    log: console.log.bind(console),
+    warn: console.warn.bind(console),
+};
+/* eslint-enable no-console */
 
 /**
  * In lean production builds, silence noisy console output unless debug logging is explicitly enabled.
  * Keep console.error intact for real failure diagnostics.
  */
 function configureLoggingPolicy(): void {
-    if (__RETUNE_DEV_BUILD__) return;
-    if (isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DEBUG_LOGGING))) return;
-
-    const methodsToSuppress: ConsoleNoiseMethod[] = ['debug', 'info', 'log', 'warn'];
-    const noop = (): void => undefined;
-    for (const method of methodsToSuppress) {
+    const debugEnabled = isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DEBUG_LOGGING));
+    const shouldSuppressNoise = !__RETUNE_DEV_BUILD__ && !debugEnabled;
+    const noop = (..._args: unknown[]): void => undefined;
+    for (const method of CONSOLE_NOISE_METHODS) {
         // eslint-disable-next-line no-console
-        console[method] = noop;
+        console[method] = shouldSuppressNoise ? noop : ORIGINAL_CONSOLE_METHODS[method];
     }
 }
 
 configureLoggingPolicy();
+window.addEventListener(DEBUG_LOGGING_CHANGED_EVENT, (event: Event) => {
+    const detail = (event as CustomEvent<DebugLoggingChangeDetail>).detail;
+    if (typeof detail?.enabled !== 'boolean') {
+        configureLoggingPolicy();
+        return;
+    }
+
+    const shouldSuppressNoise = !__RETUNE_DEV_BUILD__ && !detail.enabled;
+    const noop = (..._args: unknown[]): void => undefined;
+    for (const method of CONSOLE_NOISE_METHODS) {
+        // eslint-disable-next-line no-console
+        console[method] = shouldSuppressNoise ? noop : ORIGINAL_CONSOLE_METHODS[method];
+    }
+});
 
 // ============================================
 // Global Error Handling

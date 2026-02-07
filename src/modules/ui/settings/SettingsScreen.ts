@@ -41,6 +41,7 @@ const SUBTITLE_MODE_OPTIONS: Array<{ label: string; mode: SubtitleMode }> = [
     { label: 'Standard (Recommended)', mode: 'standard' },
     { label: 'Full (Burn-in)', mode: 'full' },
 ];
+const DEBUG_LOGGING_CHANGED_EVENT = 'retune:debug-logging-changed';
 
 type ToggleMetadata = {
     storageKey: string;
@@ -509,10 +510,12 @@ export class SettingsScreen {
                     {
                         id: 'settings-debug-logging',
                         label: 'Debug Logging',
-                        description: 'Enable verbose console output',
+                        description: 'Enable verbose console output (applies immediately)',
                         value: this._loadBoolSetting(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING, DEFAULT_SETTINGS.developer.debugLogging),
-                        onChange: (value: boolean) =>
-                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING, value),
+                        onChange: (value: boolean): void => {
+                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING, value);
+                            this._notifyDebugLoggingChanged(value);
+                        },
                     },
                     {
                         id: 'settings-subtitle-debug-logging',
@@ -753,6 +756,14 @@ export class SettingsScreen {
         safeLocalStorageSet(key, String(value));
     }
 
+    private _notifyDebugLoggingChanged(enabled: boolean): void {
+        window.dispatchEvent(
+            new CustomEvent<{ enabled: boolean }>(DEBUG_LOGGING_CHANGED_EVENT, {
+                detail: { enabled },
+            })
+        );
+    }
+
     private _saveEpgLayoutModeValue(value: number): void {
         const mode = value === 1 ? 'classic' : 'overlay';
         safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, mode);
@@ -832,6 +843,14 @@ export class SettingsScreen {
 
 
     private _refreshValues(): void {
+        const selectLoaders: Record<string, () => number> = {
+            'settings-now-playing-timeout': () => this._loadClampedNowPlayingAutoHide(),
+            'settings-subtitle-mode': () => this._loadSubtitleModeValue(),
+            'settings-subtitle-language': () => this._loadSubtitleLanguageValue(),
+            'settings-hdr10-fallback-mode': () => this._readHdr10FallbackSelectValue(),
+            'settings-epg-density': () => this._loadEpgGuideDensityValue(),
+            'settings-epg-layout-mode': () => this._loadEpgLayoutModeValue(),
+        };
         for (const [id, meta] of this._toggleMetadata.entries()) {
             const toggle = this._toggleElements.get(id);
             if (!toggle) continue;
@@ -842,19 +861,10 @@ export class SettingsScreen {
         for (const [id, meta] of this._selectMetadata.entries()) {
             const select = this._selectElements.get(id);
             if (!select) continue;
-            const value = id === 'settings-now-playing-timeout'
-                ? this._loadClampedNowPlayingAutoHide()
-                : id === 'settings-subtitle-mode'
-                    ? this._loadSubtitleModeValue()
-                : id === 'settings-subtitle-language'
-                    ? this._loadSubtitleLanguageValue()
-                    : id === 'settings-hdr10-fallback-mode'
-                        ? this._readHdr10FallbackSelectValue()
-                        : id === 'settings-epg-density'
-                            ? this._loadEpgGuideDensityValue()
-                        : id === 'settings-epg-layout-mode'
-                            ? this._loadEpgLayoutModeValue()
-                    : this._loadNumberSetting(meta.storageKey, meta.defaultValue);
+            const loader = selectLoaders[id];
+            const value = loader
+                ? loader()
+                : this._loadNumberSetting(meta.storageKey, meta.defaultValue);
             select.update(value);
             meta.onRefresh?.(value);
         }
