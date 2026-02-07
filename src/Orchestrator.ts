@@ -620,8 +620,13 @@ export class AppOrchestrator implements IAppOrchestrator {
                 referenceTimeMs: number
             ): ScheduleConfig => this._buildDailyScheduleConfig(channel, items, referenceTimeMs),
             switchToChannel: (channelId: string): Promise<void> => this.switchToChannel(channelId),
-            getAutoHideMs: (): number =>
-                this._config?.playerConfig.hideControlsAfterMs ?? 3000,
+            getAutoHideMs: (): number => {
+                const configured = this._config?.miniGuideConfig?.autoHideMs;
+                if (typeof configured === 'number' && Number.isFinite(configured) && configured > 0) {
+                    return Math.max(1000, Math.floor(configured));
+                }
+                return 8_000;
+            },
         });
 
         this._channelTransitionCoordinator = new ChannelTransitionCoordinator({

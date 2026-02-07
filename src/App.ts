@@ -24,7 +24,6 @@ import { AuthScreen } from './modules/ui/auth';
 import { ProfileSelectScreen } from './modules/ui/profile-select';
 import { ServerSelectScreen } from './modules/ui/server-select';
 import { SplashScreen } from './modules/ui/splash';
-import { AudioSetupScreen } from './modules/ui/audio-setup';
 import { ThemeManager } from './modules/ui/theme';
 import { normalizeToastInput, type ToastInput, type ToastType } from './modules/ui/toast/types';
 import { STORAGE_KEYS } from './types';
@@ -37,6 +36,7 @@ import {
 } from './utils/storage';
 import type { ChannelSetupScreen } from './modules/ui/channel-setup/ChannelSetupScreen';
 import type { SettingsScreen } from './modules/ui/settings/SettingsScreen';
+import type { AudioSetupScreen } from './modules/ui/audio-setup/AudioSetupScreen';
 
 // ============================================
 // Configuration Defaults
@@ -93,6 +93,7 @@ const DEFAULT_PLAYER_OSD_CONFIG: PlayerOsdConfig = {
 
 const DEFAULT_MINI_GUIDE_CONFIG: MiniGuideConfig = {
     containerId: 'mini-guide-container',
+    autoHideMs: 8_000,
 };
 
 const DEFAULT_CHANNEL_TRANSITION_CONFIG: ChannelTransitionConfig = {
@@ -128,6 +129,7 @@ export class App {
     private _channelSetupPrefetchTimerId: number | null = null;
     private _audioSetupContainer: HTMLElement | null = null;
     private _audioSetupScreen: AudioSetupScreen | null = null;
+    private _audioSetupScreenLoad: Promise<AudioSetupScreen> | null = null;
     private _settingsContainer: HTMLElement | null = null;
     private _settingsScreen: SettingsScreen | null = null;
     private _settingsScreenLoad: Promise<SettingsScreen> | null = null;
@@ -451,14 +453,8 @@ export class App {
             this._serverSelectContainer,
             this._orchestrator
         );
-        // Channel setup + Settings are intentionally lazy-loaded to reduce initial JS parse/compile cost on webOS.
-        if (this._audioSetupContainer && this._orchestrator) {
-            this._audioSetupScreen = new AudioSetupScreen(
-                this._audioSetupContainer,
-                () => this._orchestrator?.getNavigation() ?? null,
-                () => this._onAudioSetupComplete()
-            );
-        }
+        // Audio setup, Channel setup, and Settings are intentionally lazy-loaded to
+        // reduce initial JS parse/compile cost on webOS.
     }
 
     private _onAudioSetupComplete(): void {
@@ -561,12 +557,10 @@ export class App {
             }
         }
 
-        if (this._audioSetupScreen) {
-            if (showAudioSetup) {
-                this._audioSetupScreen.show();
-            } else {
-                this._audioSetupScreen.hide();
-            }
+        if (showAudioSetup) {
+            void this._showAudioSetupScreen();
+        } else {
+            this._audioSetupScreen?.hide();
         }
 
         if (showChannelSetup) {
@@ -650,6 +644,36 @@ export class App {
         const screen = await this._ensureChannelSetupScreen();
         if (!screen) return;
         if (this._orchestrator?.getCurrentScreen() !== 'channel-setup') return;
+        screen.show();
+    }
+
+    private async _ensureAudioSetupScreen(): Promise<AudioSetupScreen | null> {
+        if (this._audioSetupScreen) return this._audioSetupScreen;
+        if (!this._orchestrator || !this._audioSetupContainer) return null;
+
+        if (!this._audioSetupScreenLoad) {
+            this._audioSetupScreenLoad = import('./modules/ui/audio-setup')
+                .then(({ AudioSetupScreen }) => {
+                    const screen = new AudioSetupScreen(
+                        this._audioSetupContainer!,
+                        () => this._orchestrator?.getNavigation() ?? null,
+                        () => this._onAudioSetupComplete()
+                    );
+                    this._audioSetupScreen = screen;
+                    return screen;
+                })
+                .finally(() => {
+                    this._audioSetupScreenLoad = null;
+                });
+        }
+
+        return this._audioSetupScreenLoad;
+    }
+
+    private async _showAudioSetupScreen(): Promise<void> {
+        const screen = await this._ensureAudioSetupScreen();
+        if (!screen) return;
+        if (this._orchestrator?.getCurrentScreen() !== 'audio-setup') return;
         screen.show();
     }
 

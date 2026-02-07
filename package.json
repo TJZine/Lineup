@@ -12,8 +12,11 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "build": "vite build",
-        "build:analyze": "ANALYZE=1 vite build",
+        "build": "npm run build:dev",
+        "build:lean": "RETUNE_BUILD_PROFILE=lean vite build",
+        "build:dev": "RETUNE_BUILD_PROFILE=dev vite build",
+        "build:analyze": "RETUNE_BUILD_PROFILE=lean ANALYZE=1 vite build",
+        "build:analyze:dev": "RETUNE_BUILD_PROFILE=dev ANALYZE=1 vite build",
         "preview": "vite preview --port 5173",
         "build:ts": "tsc",
         "lint": "eslint src",
@@ -24,7 +27,7 @@
         "typecheck": "tsc --noEmit",
         "verify": "npm run typecheck && npm run lint && npm test && npm run build",
         "verify:quick": "npm run typecheck && npm test",
-        "package:webos": "npm run build && ares-package dist/"
+        "package:webos": "npm run build:lean && ares-package dist/"
     },
     "devDependencies": {
         "@types/jest": "^29.5.12",

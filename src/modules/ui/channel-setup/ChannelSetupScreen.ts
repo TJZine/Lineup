@@ -1017,15 +1017,19 @@ export class ChannelSetupScreen {
         this._errorEl.textContent = this._reviewError ?? '';
 
         if (!this._recordApplied) {
-            const loading = document.createElement('div');
-            loading.className = 'setup-preview-loading';
-            loading.textContent = 'Preparing your review...';
-            this._contentEl.appendChild(loading);
+            this._renderBuildReviewLoading();
             return;
         }
 
         if (!this._review && !this._isReviewLoading && !this._reviewError) {
             this._loadReview().catch(console.error);
+            this._renderBuildReviewLoading();
+            return;
+        }
+
+        if (this._isReviewLoading) {
+            this._renderBuildReviewLoading();
+            return;
         }
 
         const scroll = document.createElement('div');
@@ -1034,13 +1038,7 @@ export class ChannelSetupScreen {
         const reviewContainer = document.createElement('div');
         reviewContainer.className = 'setup-review';
 
-        if (this._isReviewLoading) {
-            const loading = document.createElement('div');
-            loading.className = 'setup-preview-loading';
-            loading.classList.add('panel-spinner');
-            loading.textContent = 'Preparing your review...';
-            reviewContainer.appendChild(loading);
-        } else if (this._review) {
+        if (this._review) {
             const modeLine = document.createElement('div');
             modeLine.className = 'setup-summary';
             modeLine.textContent = `Build mode: ${this._buildMode.charAt(0).toUpperCase()}${this._buildMode.slice(1)}`;
@@ -1136,6 +1134,14 @@ export class ChannelSetupScreen {
 
         const listButtons = Array.from(reviewContainer.querySelectorAll<HTMLButtonElement>('button'));
         this._registerFocusables([...listButtons, backButton, confirmButton]);
+    }
+
+    private _renderBuildReviewLoading(): void {
+        const loading = document.createElement('div');
+        loading.className = 'setup-preview-loading';
+        loading.classList.add('panel-spinner');
+        loading.textContent = 'Preparing your review...';
+        this._contentEl.appendChild(loading);
     }
 
     private _renderBuildProgress(): void {

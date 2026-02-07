@@ -83,9 +83,9 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
 
     show(viewModel: NowPlayingInfoViewModel): void {
         if (!this.containerElement) return;
+        this.updateContent(viewModel);
         this.containerElement.classList.add('visible');
         this.isVisibleFlag = true;
-        this.updateContent(viewModel);
         if (typeof ResizeObserver === 'undefined') {
             this.scheduleActorReflow();
         }

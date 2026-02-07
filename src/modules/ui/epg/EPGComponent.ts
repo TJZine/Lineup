@@ -416,6 +416,13 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         // Auto-focus current program if available.
         if (this.config.autoScrollToNow && !shouldPreserveFocus) {
             this.focusNow();
+        } else if (shouldPreserveFocus) {
+            const focusedCell = this.state.focusedCell;
+            if (focusedCell?.kind === 'program') {
+                this._scheduleInfoPanelUpdate(focusedCell.program);
+            } else {
+                this.infoPanel.hide();
+            }
         }
 
         if (this.isDebugEnabled()) {

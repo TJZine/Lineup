@@ -119,6 +119,29 @@ describe('ChannelSetupScreen', () => {
         expect(screenAny._loadReview).toHaveBeenCalled();
     });
 
+    it('shows only loading state while kicking off review fetch', () => {
+        const { container, screen } = makeScreen();
+        const screenAny = screen as unknown as {
+            _recordApplied: boolean;
+            _review: unknown;
+            _isReviewLoading: boolean;
+            _reviewError: string | null;
+            _loadReview: jest.Mock;
+            _renderBuildReview: () => void;
+        };
+
+        screenAny._recordApplied = true;
+        screenAny._review = null;
+        screenAny._isReviewLoading = false;
+        screenAny._reviewError = null;
+        screenAny._loadReview = jest.fn().mockResolvedValue(undefined);
+
+        screenAny._renderBuildReview();
+
+        expect(container.querySelector('.setup-preview-loading')).not.toBeNull();
+        expect(container.querySelector('#setup-confirm')).toBeNull();
+    });
+
     it('renders library meta with formatted content counts', () => {
         const { container, screen } = makeScreen();
         const screenAny = screen as unknown as {

@@ -577,7 +577,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 width: media.width,
                 height: media.height,
             });
-            const forceHdr10Fallback = fallback.apply;
+            const applyHdr10Fallback = fallback.apply;
+            const forceTranscodeForHdr10Fallback = applyHdr10Fallback && fallback.reason === 'force';
             const debugEnabled = ((): boolean => {
                 try {
                     return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DEBUG_LOGGING));
@@ -594,7 +595,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 if (!directDecision.canDirect) {
                     reasons.push(...directDecision.reasons);
                 }
-                if (forceHdr10Fallback) {
+                if (applyHdr10Fallback) {
                     reasons.push(`hdr10_fallback_${fallback.reason}`);
                 }
                 if (forceHlsForDvNoHdr10BaseLayer) {
@@ -612,7 +613,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                     });
                 }
             }
-            if (debugEnabled && forceHdr10Fallback) {
+            if (debugEnabled && applyHdr10Fallback) {
                 console.warn('[PlexStreamResolver] HDR10 fallback applied:', {
                     itemKey: request.itemKey,
                     mode: hdr10FallbackMode,
@@ -635,11 +636,16 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
             const allowDirectPlay = canDirect &&
                 request.directPlay !== false &&
-                !forceHdr10Fallback &&
+                !forceTranscodeForHdr10Fallback &&
                 !forceHlsForDvNoHdr10BaseLayer;
             if (allowDirectPlay) {
                 // Direct play
-                playbackUrl = this._buildDirectPlayUrl(part.key, sessionId, directPlayAudioStreamId);
+                playbackUrl = this._buildDirectPlayUrl(
+                    part.key,
+                    sessionId,
+                    directPlayAudioStreamId,
+                    applyHdr10Fallback
+                );
                 protocol = 'http';
                 container = media.container;
                 videoCodec = media.videoCodec;
@@ -660,7 +666,10 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                     options.subtitleStreamId = subtitleStream.id;
                     options.subtitleMode = 'burn';
                 }
-                if (forceHdr10Fallback) {
+                // Smart fallback should not force transcoding by itself. If we are already on
+                // HLS (due to incompatibility/forced transcode), hide DV capabilities to
+                // encourage the HDR10 base-layer path.
+                if (applyHdr10Fallback) {
                     options.hideDolbyVision = true;
                 }
                 playbackUrl = this.getTranscodeUrl(request.itemKey, options);
@@ -679,7 +688,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                     partIndex?: number;
                     hideDolbyVision?: boolean;
                 } = { sessionId, maxBitrate, mediaIndex, partIndex };
-                if (forceHdr10Fallback) {
+                if (applyHdr10Fallback) {
                     req.hideDolbyVision = true;
                 }
                 if (typeof options.audioStreamId === 'string') {
@@ -745,7 +754,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                             ? []
                             : [
                                 ...(request.directPlay === false ? ['direct_play_disabled_by_request'] : []),
-                                ...(forceHdr10Fallback ? [`hdr10_fallback_${fallback.reason}`] : []),
+                                ...(applyHdr10Fallback && !allowDirectPlay ? [`hdr10_fallback_${fallback.reason}`] : []),
                                 ...(forceHlsForDvNoHdr10BaseLayer ? ['dv_profile_no_hdr10_base_layer'] : []),
                                 ...directDecision.reasons,
                             ],
@@ -1073,88 +1082,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
         // Explicitly declare capabilities to improve Direct Stream decisions (audio-only transcode, no video transcode).
         // Keep this conservative and adaptive to avoid requesting streams the device can't decode.
-        const is4K = typeof window !== 'undefined' && window.screen.width >= 3840;
-        const h264Level = is4K ? '51' : '42'; // Level 5.1 (4K) vs 4.2 (1080p)
-
-        const videoEl = typeof document !== 'undefined' ? document.createElement('video') : null;
-        const canPlay = (mime: string): boolean => {
-            try {
-                return !!videoEl && videoEl.canPlayType(mime) !== '';
-            } catch {
-                return false;
-            }
-        };
-
-        const chromeMajor = this._getChromeMajor();
-        const isWebOs = this._isWebOs();
-
-        // HEVC detection (common for 4K MKV libraries).
-        const supportsHevc =
-            canPlay('video/mp4; codecs="hvc1.1.6.L93.B0"') ||
-            canPlay('video/mp4; codecs="hev1.1.6.L93.B0"') ||
-            // Fallback: webOS 23+ (Chromium 94+) should support HEVC decode.
-            (isWebOs && chromeMajor !== null && chromeMajor >= 94);
-
-        const supportsDolbyVision =
-            canPlay('video/mp4; codecs="dvh1.05.06"') ||
-            canPlay('video/mp4; codecs="dvh1.08.06"') ||
-            // Jellyfin research: LG webOS 2020+ should support profile 8 but may not report it.
-            (isWebOs && chromeMajor !== null && chromeMajor >= 94);
-
-        const supportsVp9 =
-            canPlay('video/webm; codecs="vp9"') ||
-            canPlay('video/mp4; codecs="vp09.00.10.08"');
-
-        const supportsAv1 =
-            canPlay('video/mp4; codecs="av01.0.05M.08"') ||
-            canPlay('video/webm; codecs="av01.0.05M.08"');
-
-        const videoDecoders: string[] = [`h264{profile:high&level:${h264Level}}`];
-        if (supportsHevc) {
-            // Plex commonly uses HEVC "level" style values like 120 (1080p) / 150 (4K).
-            const hevcLevel = is4K ? '150' : '120';
-            videoDecoders.push(`hevc{profile:main&level:${hevcLevel}}`);
-            if (supportsDolbyVision && options.hideDolbyVision !== true) {
-                videoDecoders.push('hevc{profile:dvhe.05}');
-                videoDecoders.push('hevc{profile:dvhe.08}');
-            }
-        }
-        if (supportsVp9) {
-            videoDecoders.push('vp9');
-        }
-        if (supportsAv1) {
-            videoDecoders.push('av1');
-        }
-
         params.set(
             'X-Plex-Client-Capabilities',
-            ((): string => {
-                const audioDecoders: string[] = [
-                    'mp3',
-                    'aac{bitrate:800000}',
-                    'ac3{bitrate:800000}',
-                    'eac3{bitrate:800000}',
-                ];
-
-                // If user explicitly enabled DTS passthrough and we're on a modern webOS stack,
-                // advertise DTS-HD MA as well (Plex often labels it as `dca-ma`).
-                const dtsEnabled = ((): boolean => {
-                    try {
-                        return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DTS_PASSTHROUGH));
-                    } catch {
-                        return false;
-                    }
-                })();
-                if (dtsEnabled) {
-                    audioDecoders.push('dts{bitrate:1536000}');
-                    audioDecoders.push('dca{bitrate:1536000}');
-                    if (isWebOs && chromeMajor !== null && chromeMajor >= 108) {
-                        audioDecoders.push('dca-ma{bitrate:1536000}');
-                    }
-                }
-
-                return `protocols=http-live-streaming,http-mp4-streaming,http-streaming-video;videoDecoders=${videoDecoders.join(',')};audioDecoders=${audioDecoders.join(',')}`;
-            })()
+            this._buildClientCapabilities({
+                hideDolbyVision: options.hideDolbyVision === true,
+            })
         );
 
         // Add client params (video element requests cannot include headers, so use query params)
@@ -1455,7 +1387,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     private _buildDirectPlayUrl(
         partKey: string,
         sessionId: string,
-        audioStreamId?: string
+        audioStreamId?: string,
+        hideDolbyVision?: boolean
     ): string {
         const serverUri = this._config.getServerUri();
         if (!serverUri) {
@@ -1467,7 +1400,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         const baseUri = this._selectBaseUriForMixedContent(serverUri);
-        return this._buildUrlWithToken(baseUri, partKey, sessionId, audioStreamId);
+        return this._buildUrlWithToken(baseUri, partKey, sessionId, audioStreamId, hideDolbyVision);
     }
 
     /**
@@ -1477,7 +1410,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         baseUri: string,
         partKey: string,
         sessionId: string,
-        audioStreamId?: string
+        audioStreamId?: string,
+        hideDolbyVision?: boolean
     ): string {
         const headers = this._config.getAuthHeaders();
         const token = headers['X-Plex-Token'];
@@ -1507,8 +1441,97 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             url.searchParams.set(key, value);
         }
 
+        // Include explicit capabilities on direct-play requests too, so PMS can prefer HDR10
+        // over DV when fallback mode asks us to hide Dolby Vision decoders.
+        url.searchParams.set(
+            'X-Plex-Client-Capabilities',
+            this._buildClientCapabilities({ hideDolbyVision: hideDolbyVision === true })
+        );
         this._applyDefaultIdentityParams(url.searchParams);
         return url.toString();
+    }
+
+    private _buildClientCapabilities(options?: { hideDolbyVision?: boolean }): string {
+        const is4K = typeof window !== 'undefined' &&
+            typeof window.screen?.width === 'number' &&
+            window.screen.width >= 3840;
+        const h264Level = is4K ? '51' : '42'; // Level 5.1 (4K) vs 4.2 (1080p)
+
+        const videoEl = typeof document !== 'undefined' ? document.createElement('video') : null;
+        const canPlay = (mime: string): boolean => {
+            try {
+                return !!videoEl && videoEl.canPlayType(mime) !== '';
+            } catch {
+                return false;
+            }
+        };
+
+        const chromeMajor = this._getChromeMajor();
+        const isWebOs = this._isWebOs();
+
+        // HEVC detection (common for 4K MKV libraries).
+        const supportsHevc =
+            canPlay('video/mp4; codecs="hvc1.1.6.L93.B0"') ||
+            canPlay('video/mp4; codecs="hev1.1.6.L93.B0"') ||
+            // Fallback: webOS 23+ (Chromium 94+) should support HEVC decode.
+            (isWebOs && chromeMajor !== null && chromeMajor >= 94);
+
+        const supportsDolbyVision =
+            canPlay('video/mp4; codecs="dvh1.05.06"') ||
+            canPlay('video/mp4; codecs="dvh1.08.06"') ||
+            // Jellyfin research: LG webOS 2020+ should support profile 8 but may not report it.
+            (isWebOs && chromeMajor !== null && chromeMajor >= 94);
+
+        const supportsVp9 =
+            canPlay('video/webm; codecs="vp9"') ||
+            canPlay('video/mp4; codecs="vp09.00.10.08"');
+
+        const supportsAv1 =
+            canPlay('video/mp4; codecs="av01.0.05M.08"') ||
+            canPlay('video/webm; codecs="av01.0.05M.08"');
+
+        const videoDecoders: string[] = [`h264{profile:high&level:${h264Level}}`];
+        if (supportsHevc) {
+            // Plex commonly uses HEVC "level" style values like 120 (1080p) / 150 (4K).
+            const hevcLevel = is4K ? '150' : '120';
+            videoDecoders.push(`hevc{profile:main&level:${hevcLevel}}`);
+            if (supportsDolbyVision && options?.hideDolbyVision !== true) {
+                videoDecoders.push('hevc{profile:dvhe.05}');
+                videoDecoders.push('hevc{profile:dvhe.08}');
+            }
+        }
+        if (supportsVp9) {
+            videoDecoders.push('vp9');
+        }
+        if (supportsAv1) {
+            videoDecoders.push('av1');
+        }
+
+        const audioDecoders: string[] = [
+            'mp3',
+            'aac{bitrate:800000}',
+            'ac3{bitrate:800000}',
+            'eac3{bitrate:800000}',
+        ];
+
+        // If user explicitly enabled DTS passthrough and we're on a modern webOS stack,
+        // advertise DTS-HD MA as well (Plex often labels it as `dca-ma`).
+        const dtsEnabled = ((): boolean => {
+            try {
+                return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DTS_PASSTHROUGH));
+            } catch {
+                return false;
+            }
+        })();
+        if (dtsEnabled) {
+            audioDecoders.push('dts{bitrate:1536000}');
+            audioDecoders.push('dca{bitrate:1536000}');
+            if (isWebOs && chromeMajor !== null && chromeMajor >= 108) {
+                audioDecoders.push('dca-ma{bitrate:1536000}');
+            }
+        }
+
+        return `protocols=http-live-streaming,http-mp4-streaming,http-streaming-video;videoDecoders=${videoDecoders.join(',')};audioDecoders=${audioDecoders.join(',')}`;
     }
 
     private _selectBaseUriForMixedContent(serverUri: string): string {

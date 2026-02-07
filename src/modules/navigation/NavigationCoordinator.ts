@@ -459,14 +459,11 @@ export class NavigationCoordinator {
                     event.originalEvent.preventDefault();
                     return;
                 }
-                const state = navigation.getState();
-                const canGoBack = state.screenStack.length > 0;
-                if (!canGoBack) {
-                    navigation.openModal('exit-confirm');
-                    event.handled = true;
-                    event.originalEvent.preventDefault();
-                    return;
-                }
+                // Player back should not traverse setup/server screen history.
+                navigation.openModal('exit-confirm');
+                event.handled = true;
+                event.originalEvent.preventDefault();
+                return;
             }
         }
 

@@ -72,7 +72,6 @@ export class MiniGuideCoordinator {
         overlay.setViewModel(fastViewModel);
         overlay.setFocusedIndex(this._focusedIndex);
         overlay.show();
-        this._scheduleAutoHide();
 
         this._startResolveForWindow(current, token);
     }

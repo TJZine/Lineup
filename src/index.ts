@@ -5,6 +5,8 @@
  */
 
 import { App } from './App';
+import { RETUNE_STORAGE_KEYS } from './config/storageKeys';
+import { isStoredTrue, safeLocalStorageGet } from './utils/storage';
 import './styles/tokens.css';
 import './styles/themes.css';
 import './styles/video.css';
@@ -20,6 +22,26 @@ import './modules/ui/server-select/styles.css';
 import './modules/ui/audio-setup/styles.css';
 import './modules/ui/channel-setup/styles.css';
 import './styles/shell.css';
+
+type ConsoleNoiseMethod = 'debug' | 'info' | 'log' | 'warn';
+
+/**
+ * In lean production builds, silence noisy console output unless debug logging is explicitly enabled.
+ * Keep console.error intact for real failure diagnostics.
+ */
+function configureLoggingPolicy(): void {
+    if (__RETUNE_DEV_BUILD__) return;
+    if (isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DEBUG_LOGGING))) return;
+
+    const methodsToSuppress: ConsoleNoiseMethod[] = ['debug', 'info', 'log', 'warn'];
+    const noop = (): void => undefined;
+    for (const method of methodsToSuppress) {
+        // eslint-disable-next-line no-console
+        console[method] = noop;
+    }
+}
+
+configureLoggingPolicy();
 
 // ============================================
 // Global Error Handling
