@@ -81,6 +81,7 @@
 ### Other Nice-to-Haves
 
 - [ ] Memory diagnostics per module (`ModuleStatus.memoryUsageMB`) for testing and debugging
+- [ ] Endpoint cleanup pass: capture live webOS + desktop traces for Plex Home profile fetch + subtitle extraction, pick canonical endpoint/path variants, and remove fallback branches that never succeed
 - [ ] EPG guide focus rule: preserve guide focus unless last change was channel up/down; decide number-entry behavior
 - [ ] EPG: Custom per-category colors (buildStrategy) via Settings (persist per-category color map; apply by updating CSS variables, still allow per-channel `channel.color` to override)
 - [ ] AbortController-based channel switching (abort previous resolve when user rapidly switches channels)

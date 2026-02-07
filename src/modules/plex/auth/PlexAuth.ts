@@ -341,13 +341,20 @@ export class PlexAuth implements IPlexAuth {
         }
 
         const headers = buildRequestHeaders(this._state.config, this._state.accountToken.token);
+        // TODO(plex-home-endpoints): Confirm the canonical plex.tv Home endpoint for our auth flow.
+        // After collecting live traces on webOS + desktop, remove the endpoint branch that never succeeds.
         const endpoints = [
             PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL + PLEX_AUTH_CONSTANTS.HOME_USERS_ENDPOINT,
             PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL_V1 + PLEX_AUTH_CONSTANTS.HOME_USERS_ENDPOINT,
         ];
 
         let lastError: unknown = null;
-        for (const url of endpoints) {
+        let sawSuccessfulResponse = false;
+        for (let index = 0; index < endpoints.length; index++) {
+            const url = endpoints[index];
+            if (!url) {
+                continue;
+            }
             try {
                 const init: RequestInit = {
                     method: 'GET',
@@ -390,7 +397,18 @@ export class PlexAuth implements IPlexAuth {
                 }
 
                 const payload = await readPlexResponse(response);
-                return parseHomeUsers(payload.json ?? payload.text ?? null);
+                const users = parseHomeUsers(payload.json ?? payload.text ?? null);
+                sawSuccessfulResponse = true;
+                if (users.length > 0) {
+                    return users;
+                }
+
+                // Some plex.tv variants return a 200 body on v2 that lacks Home users.
+                // Try v1 before concluding there are no profiles.
+                if (index < endpoints.length - 1) {
+                    continue;
+                }
+                return [];
             } catch (error) {
                 if (error instanceof PlexApiError) {
                     // For auth errors, bail immediately.
@@ -400,6 +418,10 @@ export class PlexAuth implements IPlexAuth {
                 }
                 lastError = error;
             }
+        }
+
+        if (sawSuccessfulResponse) {
+            return [];
         }
 
         if (lastError) {
