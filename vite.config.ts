@@ -31,7 +31,7 @@ export default defineConfig(({ command }) => {
                 output: {
                     manualChunks(id): string | undefined {
                         const normalizedId = normalizePath(id);
-                        if (normalizedId.includes('node_modules')) return 'vendor';
+                        if (normalizedId.includes('/node_modules/')) return 'vendor';
                         if (
                             normalizedId.includes('/src/modules/ui/epg/') ||
                             normalizedId.includes('/src/modules/plex/') ||

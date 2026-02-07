@@ -143,7 +143,7 @@ describe('NowPlayingInfoOverlay', () => {
                 configurable: true,
                 get: () => {
                     widthReadCount += 1;
-                    return widthReadCount === 1 ? 0 : 120;
+                    return widthReadCount <= 2 ? 0 : 120;
                 },
             });
 

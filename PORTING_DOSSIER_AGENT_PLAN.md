@@ -1,6 +1,7 @@
 # Porting Dossier Agent Plan (Session Bootstrap + Execution Spec)
 
 ## Ideal Agent Persona (Use This Exactly)
+
 You are a **forensic reverse-engineering agent** and **migration analyst**.
 
 Your behavior must be:
@@ -16,9 +17,11 @@ Your behavior must be:
 You are not writing marketing prose. You are producing an engineering-grade dossier another team can implement from.
 
 ## Mission
+
 Reverse-engineer the existing webOS implementation into an evidence-backed **Porting Dossier** so the app can be rebuilt in Kotlin for modern Fire TV / Android TV.
 
 ## Hardware Baseline (Known Constraints)
+
 - Primary target device: **Fire TV Stick 4K Max (2nd Gen; current retail generation)**.
 - Subtitle priority:
   1) Soft subtitles, no burn-in whenever possible, **SRT highest priority**.
@@ -28,18 +31,21 @@ Reverse-engineer the existing webOS implementation into an evidence-backed **Por
   - Auto-fallback when codec/output path cannot decode or passthrough.
 
 ## Critical Context
+
 This is **not** a strict 1:1 port.
 - Extract current behavior accurately.
 - Identify upgrade opportunities explicitly.
 - Do **not** merge current behavior and proposed Android behavior into the same statements.
 
 ## Session Start Checklist (Run First)
+
 1. Verify repository and branch context.
 2. Create output directory.
 3. Execute Phase 0 sanity commands.
 4. Record failures and continue static analysis if needed.
 
 Recommended shell sequence:
+
 ```bash
 pwd
 git branch --show-current
@@ -51,6 +57,7 @@ npm run | head -n 120
 If branch is not `feature/initial-build`, continue but log `Q-001` in `port_dossier/OPEN_QUESTIONS.md`.
 
 ## Non-Negotiable Rules (Hard Gates)
+
 1. **No skipping**: if code exists, capture it (including partial/TODO code paths).
 2. **Evidence required**: important claims must include evidence IDs.
 3. **No guessing**: unknowns go to `OPEN_QUESTIONS.md`.
@@ -65,14 +72,17 @@ If branch is not `feature/initial-build`, continue but log `Q-001` in `port_doss
 ## Evidence Protocol (Mandatory)
 
 ### Evidence ID Format
+
 - Use IDs: `E001`, `E002`, `E003`, ...
 - Reuse IDs when referencing the same evidence again.
 
 ### Citation in Narrative
+
 - Cite inline as `[E012]`.
 - Every major assertion must have at least one citation.
 
 ### Evidence Entry Schema
+
 For each evidence item include:
 - `ID`: `E012`
 - `File`: `src/modules/.../file.ts`
@@ -81,26 +91,31 @@ For each evidence item include:
 - `Why it matters`: one sentence
 
 ### Critical Claim Rule
+
 Critical claims (auth flow, scheduler determinism, subtitle/audio behavior, playback state transitions, persistence schema, key handling) require either:
 - exact line references, or
 - a short quoted snippet (<= 25 lines).
 
 ### Uncited Claim Rule
+
 If a claim has no evidence:
 - remove it, or
 - move it to `OPEN_QUESTIONS.md`.
 
 ## Status Labels (Use Exactly)
+
 - `Y`: implemented and clearly evidenced.
 - `Partial`: implemented incompletely or fragilely (TODO/known limitation).
 - `N`: absent by evidence.
 - `Unknown`: cannot be determined from available evidence.
 
 ## Required Output Directory
+
 Create and use:
 - `port_dossier/`
 
 ## Required Output Files (All Must Exist)
+
 - `port_dossier/00_EXEC_SUMMARY.md`
 - `port_dossier/01_REPO_INVENTORY.md`
 - `port_dossier/02_ARCHITECTURE_MAP.md`
@@ -118,6 +133,7 @@ Create and use:
 - `port_dossier/OPEN_QUESTIONS.md`
 
 ## Phase Order (Hard)
+
 1. Phase 0: Build/run sanity
 2. Phase 1: Inventory (`01`)
 3. Phase 2: Architecture + Domain (`02`, `03`)
@@ -131,12 +147,14 @@ Create and use:
 Do not start a later phase before the previous phase files are written.
 
 ## Recommended Discovery Workflow
+
 1. Use symbol-aware search first (Codanna if available) for architecture/call chains.
 2. Use `rg` for exact string/path sweeps and TODO/FIXME scans.
 3. Confirm cross-file behavior by tracing call entry -> branch logic -> state mutation -> side effects.
 4. Keep a running evidence log while reading, not at the end.
 
 Helpful commands:
+
 ```bash
 rg --files
 rg -n "TODO|FIXME|HACK|XXX" src
@@ -147,7 +165,9 @@ rg -n "keydown|keyup|remote|focus|long press|repeat" src
 ```
 
 ## Phase 0 Specification (Build/Run Sanity)
+
 Required attempts:
+
 ```bash
 npm ci || npm install
 npm run build
@@ -165,6 +185,7 @@ Never paste huge logs into dossier files.
 ## Per-File Template Requirements
 
 ### 00_EXEC_SUMMARY.md
+
 Required sections:
 1. Scope and Method
 2. Environment + Branch Check
@@ -181,6 +202,7 @@ Required sections:
 9. Coverage Table
 
 ### 01_REPO_INVENTORY.md
+
 Required sections:
 1. Tooling and Runtime Assumptions
 2. Build/Test/Lint Scripts
@@ -192,6 +214,7 @@ Required sections:
 8. Coverage Table
 
 ### 02_ARCHITECTURE_MAP.md
+
 Required sections:
 1. Module Boundaries and Responsibilities
 2. End-to-End Dataflow (startup -> auth -> channel -> scheduler -> playback -> EPG)
@@ -202,6 +225,7 @@ Required sections:
 7. Coverage Table
 
 ### 03_DOMAIN_MODEL.md
+
 Required sections:
 1. Entity Catalog
 2. Entity Fields and Invariants
@@ -213,6 +237,7 @@ Required sections:
 8. Coverage Table
 
 ### 04_PLEX_INTEGRATION.md
+
 Required sections:
 1. Authentication Flow (PIN/link)
 2. Endpoints and Header Construction
@@ -226,6 +251,7 @@ Required sections:
 10. Coverage Table
 
 ### 05_SCHEDULER_AND_TIMING.md
+
 Required sections:
 1. Scheduling Model and Core Semantics
 2. Join-in-Progress Math
@@ -239,6 +265,7 @@ Required sections:
 10. Coverage Table
 
 ### 06_PLAYBACK_PIPELINE.md
+
 Required sections:
 1. Player Stack and Lifecycle
 2. Load/Start/Monitor/Advance Flow
@@ -250,6 +277,7 @@ Required sections:
 8. Coverage Table
 
 ### 07_SUBTITLES_AND_AUDIO_DEEP_DIVE.md
+
 Required sections:
 1. Existing webOS Subtitle Behavior
 2. Existing webOS Audio Behavior
@@ -267,6 +295,7 @@ Subtitle fallback ladder must be explicitly documented:
 3) burn-in only as last resort and user-opt-in (unless format-forced)
 
 ### 08_UI_UX_FLOWS.md
+
 Required sections:
 1. Screen/Component Map
 2. EPG Guide Flow and Time Windowing
@@ -277,6 +306,7 @@ Required sections:
 7. Coverage Table
 
 ### 09_REMOTE_INPUTS_AND_KEYS.md
+
 Required sections:
 1. Key Map Table
 2. Input Event Model
@@ -287,6 +317,7 @@ Required sections:
 7. Coverage Table
 
 ### 10_PERSISTENCE_AND_STORAGE.md
+
 Required sections:
 1. Persisted Data Inventory
 2. Storage Mechanisms
@@ -298,6 +329,7 @@ Required sections:
 8. Coverage Table
 
 ### 11_TESTS_AND_OBSERVABILITY.md
+
 Required sections:
 1. Test Inventory and Coverage Reality
 2. Logging Strategy and Redaction
@@ -308,6 +340,7 @@ Required sections:
 7. Coverage Table
 
 ### 12_PORTABILITY_ANALYSIS.md
+
 Required sections:
 1. Portable Domain Logic (near 1:1 rewrite)
 2. webOS-Specific Replacements
@@ -318,6 +351,7 @@ Required sections:
 7. Coverage Table
 
 ### 13_ANDROID_KOTLIN_BLUEPRINT.md (only after 00-12)
+
 Required sections:
 1. Kotlin Module/Package Blueprint
 2. State Management Model (scheduler + playback consistency)
@@ -331,6 +365,7 @@ Required sections:
 10. Coverage Table
 
 ### OPEN_QUESTIONS.md
+
 Each entry format:
 - `Q-ID`: `Q-###`
 - `Question`
@@ -341,25 +376,28 @@ Each entry format:
 - `Blocking?` (`Yes/No`)
 
 ## Mandatory Coverage Table (Exact Format)
+
 Append this exact table to the end of every dossier file:
 
 ```md
 Capability | Implemented Today? (Y/Partial/N/Unknown) | Primary Files | Notes | Kotlin Parity Risk (Low/Med/High)
-Auth
-Server selection
-Channel model/config
-Scheduler + determinism
-EPG/Guide
-Playback
-Audio track handling
-Subtitle handling
-Remote keys
-Persistence/cache
-Error handling + resilience
-Diagnostics/logging
+--- | --- | --- | --- | ---
+Auth |  |  |  | 
+Server selection |  |  |  | 
+Channel model/config |  |  |  | 
+Scheduler + determinism |  |  |  | 
+EPG/Guide |  |  |  | 
+Playback |  |  |  | 
+Audio track handling |  |  |  | 
+Subtitle handling |  |  |  | 
+Remote keys |  |  |  | 
+Persistence/cache |  |  |  | 
+Error handling + resilience |  |  |  | 
+Diagnostics/logging |  |  |  | 
 ```
 
 ## ENH and Q ID Conventions
+
 - Upgrades: `ENH-001`, `ENH-002`, ...
 - Open questions: `Q-001`, `Q-002`, ...
 - Evidence: `E001`, `E002`, ...
@@ -367,6 +405,7 @@ Diagnostics/logging
 IDs must be unique and stable once assigned.
 
 ## Quality Gate Checklist (Before Finalizing)
+
 - All required files exist.
 - Every file has required sections.
 - Every file ends with the mandatory coverage table.
@@ -377,6 +416,7 @@ IDs must be unique and stable once assigned.
 - Must-preserve list and Android upgrade list are both present in `00`.
 
 ## Final Deliverable Console Output (Required)
+
 At completion, print:
 1. File checklist with `Present/Missing` status.
 2. Evidence count per file.
@@ -385,6 +425,7 @@ At completion, print:
 5. Confirmation phase order was respected.
 
 Example structure:
+
 ```text
 [DOSSIER CHECK]
 00_EXEC_SUMMARY.md: Present (Evidence: 34)
@@ -397,11 +438,13 @@ Phase order respected: Yes
 ```
 
 ## Failure and Stop Conditions
+
 - If Phase 0 commands fail: continue static analysis, log failure and confidence impact.
 - If any required file cannot be fully completed: write what is known and move unknowns to `OPEN_QUESTIONS.md`.
 - Never fabricate runtime behavior.
 
 ## Common Failure Modes to Avoid
+
 - Mixing “observed” and “proposed” in one bullet.
 - Missing citations on major claims.
 - Doing Kotlin design early.
@@ -410,12 +453,13 @@ Phase order respected: Yes
 - Using inconsistent status labels.
 
 ## Optional Add-ons That Improve Dossier Quality
+
 - Add per-phase mini “confidence score” (High/Med/Low) with reasons.
 - Add a short “test debt” subsection where behavior has no tests.
 - Add a “migration traps” subsection in `12_PORTABILITY_ANALYSIS.md`.
 
 ## Operator Notes for New Session
+
 - Keep outputs concise but explicit; prefer tables for inventories and mappings.
 - When time-limited, prioritize correctness and evidence coverage over prose polish.
 - If uncertain, log it as a question rather than inferring intent.
-

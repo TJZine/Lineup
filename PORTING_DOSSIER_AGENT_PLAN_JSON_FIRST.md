@@ -1,6 +1,7 @@
 # Porting Dossier Agent Plan (JSON-First, Machine-Checkable Variant)
 
 ## Ideal Agent Persona (Use This Exactly)
+
 You are a **schema-governed reverse-engineering analyst**.
 
 Your job is to extract facts from code and store them in structured data before writing narrative.  
@@ -13,6 +14,7 @@ You optimize for:
 You are not allowed to skip schema fields, improvise object shapes, or present uncited claims as facts.
 
 ## Purpose
+
 Use this variant when output quality must be validated automatically and when the executing agent may be inconsistent with long-form markdown.
 
 This variant produces:
@@ -20,9 +22,11 @@ This variant produces:
 2. Markdown dossier files rendered from those JSON artifacts
 
 ## Mission
+
 Reverse-engineer the webOS implementation into an evidence-backed Porting Dossier for Kotlin migration to Fire TV / Android TV.
 
 ## Hardware Baseline
+
 - Target device: Fire TV Stick 4K Max (2nd Gen, current retail generation)
 - Subtitle priority:
   1) soft subtitles, avoid burn-in, SRT highest priority
@@ -32,6 +36,7 @@ Reverse-engineer the webOS implementation into an evidence-backed Porting Dossie
   - auto-fallback when unsupported in device/output path
 
 ## Hard Rules
+
 1. No skipping code paths if evidence exists.
 2. No uncited major claims.
 3. No guessing: unresolved ambiguity must become `Q-###`.
@@ -41,6 +46,7 @@ Reverse-engineer the webOS implementation into an evidence-backed Porting Dossie
 7. TODO/FIXME/unimplemented behavior must be marked `Partial`.
 
 ## Required Output Layout
+
 Create:
 - `port_dossier/` (final markdown files)
 - `port_dossier/_json/` (canonical JSON artifacts)
@@ -81,6 +87,7 @@ Required markdown artifacts:
 - `port_dossier/OPEN_QUESTIONS.md`
 
 ## Phase Order (Hard Gate)
+
 1. Phase 0: Build/run sanity
 2. Phase 1: Inventory (`01`)
 3. Phase 2: Architecture + Domain (`02`, `03`)
@@ -96,6 +103,7 @@ Do not write phase N+1 JSON until phase N JSON exists and is complete.
 ## Evidence Contract
 
 ### ID Conventions
+
 - Evidence: `E001`, `E002`, ...
 - Enhancements: `ENH-001`, `ENH-002`, ...
 - Questions: `Q-001`, `Q-002`, ...
@@ -103,7 +111,9 @@ Do not write phase N+1 JSON until phase N JSON exists and is complete.
 IDs must remain stable after assignment.
 
 ### Evidence Object Schema
+
 Use this exact shape:
+
 ```json
 {
   "id": "E012",
@@ -116,6 +126,7 @@ Use this exact shape:
 ```
 
 ### Claim Object Schema
+
 ```json
 {
   "id": "C-0001",
@@ -131,7 +142,9 @@ Allowed `status`: `Y`, `Partial`, `N`, `Unknown`
 Allowed `confidence`: `high`, `medium`, `low`
 
 ## Base JSON Document Shape (All Section Files)
+
 Each section JSON (`00`-`13`) must include:
+
 ```json
 {
   "doc_id": "05_SCHEDULER_AND_TIMING",
@@ -166,18 +179,21 @@ Allowed `completeness.status`: `complete`, `partial`
 ## Section-Specific Required Fields
 
 ### 00_EXEC_SUMMARY.json
+
 Must include:
 - `must_preserve_behaviors`: array of 15 items with citations
 - `top_android_upgrades`: array of 15 `ENH-###` items with cited webOS limitation
 - `phase0_results`: command outcomes for `npm ci|install`, `npm run build`, `npm test`
 
 ### 05_SCHEDULER_AND_TIMING.json
+
 Must include:
 - `worked_examples`: array length = 5 with numeric inputs/outputs
 - `determinism_rules`
 - `timezone_dst_notes`
 
 ### 07_SUBTITLES_AND_AUDIO_DEEP_DIVE.json
+
 Must include:
 - `webos_subtitle_behavior`
 - `webos_audio_behavior`
@@ -190,6 +206,7 @@ Must include:
 - `kotlin_hook_points`
 
 ### 13_ANDROID_KOTLIN_BLUEPRINT.json
+
 Must include:
 - `kotlin_modules`: `domain`, `plex`, `scheduler`, `player`, `ui`, `storage`, `diagnostics`
 - `media3_mapping`
@@ -199,7 +216,9 @@ Must include:
 - `milestones` (1..6)
 
 ## MANIFEST.json (Run-Level Control File)
+
 Create `port_dossier/_json/MANIFEST.json` with:
+
 ```json
 {
   "run_meta": {
@@ -226,6 +245,7 @@ Create `port_dossier/_json/MANIFEST.json` with:
 ```
 
 ## Markdown Rendering Rules
+
 After each JSON section is complete:
 1. Render its markdown file from JSON content.
 2. Keep same section ordering as standard plan.
@@ -249,6 +269,7 @@ Diagnostics/logging
 ```
 
 ## Validation Gate (Must Pass Before Final)
+
 For each JSON file:
 - valid JSON syntax
 - required top-level keys present
@@ -262,6 +283,7 @@ For complete run:
 - no Kotlin blueprint before `00`-`12`
 
 ## Operational Workflow (Strict)
+
 1. Build evidence ledger while reading code.
 2. Write section JSON only when evidence is enough.
 3. Render markdown from section JSON immediately.
@@ -269,6 +291,7 @@ For complete run:
 5. On ambiguity, append to `OPEN_QUESTIONS.json` and continue.
 
 ## Final Console Report (Required)
+
 Print:
 1. all required files with `Present/Missing`
 2. evidence count per doc
@@ -277,6 +300,7 @@ Print:
 5. phase-order compliance
 
 ## Failure Conditions
+
 - If Phase 0 commands fail, continue static analysis and note confidence limitations.
 - If a section cannot be completed, mark its JSON `completeness.status = partial` and log explicit `Q-###` items.
 - Never invent behavior not supported by evidence.

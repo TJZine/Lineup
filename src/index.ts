@@ -5,6 +5,7 @@
  */
 
 import { App } from './App';
+import { RETUNE_EVENT_NAMES } from './config/events';
 import { RETUNE_STORAGE_KEYS } from './config/storageKeys';
 import { isStoredTrue, safeLocalStorageGet } from './utils/storage';
 import './styles/tokens.css';
@@ -24,9 +25,6 @@ import './modules/ui/channel-setup/styles.css';
 import './styles/shell.css';
 
 type ConsoleNoiseMethod = 'debug' | 'info' | 'log' | 'warn';
-type DebugLoggingChangeDetail = { enabled?: boolean };
-
-const DEBUG_LOGGING_CHANGED_EVENT = 'retune:debug-logging-changed';
 const CONSOLE_NOISE_METHODS: ConsoleNoiseMethod[] = ['debug', 'info', 'log', 'warn'];
 /* eslint-disable no-console -- preserve originals so runtime setting changes can restore methods */
 const ORIGINAL_CONSOLE_METHODS: Record<ConsoleNoiseMethod, (...args: unknown[]) => void> = {
@@ -52,19 +50,8 @@ function configureLoggingPolicy(): void {
 }
 
 configureLoggingPolicy();
-window.addEventListener(DEBUG_LOGGING_CHANGED_EVENT, (event: Event) => {
-    const detail = (event as CustomEvent<DebugLoggingChangeDetail>).detail;
-    if (typeof detail?.enabled !== 'boolean') {
-        configureLoggingPolicy();
-        return;
-    }
-
-    const shouldSuppressNoise = !__RETUNE_DEV_BUILD__ && !detail.enabled;
-    const noop = (..._args: unknown[]): void => undefined;
-    for (const method of CONSOLE_NOISE_METHODS) {
-        // eslint-disable-next-line no-console
-        console[method] = shouldSuppressNoise ? noop : ORIGINAL_CONSOLE_METHODS[method];
-    }
+window.addEventListener(RETUNE_EVENT_NAMES.DEBUG_LOGGING_CHANGED, () => {
+    configureLoggingPolicy();
 });
 
 // ============================================

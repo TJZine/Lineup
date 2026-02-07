@@ -20,6 +20,7 @@ import { readStoredBoolean, safeLocalStorageGet, safeLocalStorageRemove, safeLoc
 import { ThemeManager } from '../theme';
 import { getSubtitleMode, setSubtitleMode, type SubtitleMode } from '../../../shared/subtitle-mode';
 import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
+import { dispatchDebugLoggingChanged } from '../../../config/events';
 
 const SUBTITLE_LANGUAGE_OPTIONS: Array<{ label: string; code: string | null }> = [
     { label: 'Auto (Plex)', code: null },
@@ -41,7 +42,6 @@ const SUBTITLE_MODE_OPTIONS: Array<{ label: string; mode: SubtitleMode }> = [
     { label: 'Standard (Recommended)', mode: 'standard' },
     { label: 'Full (Burn-in)', mode: 'full' },
 ];
-const DEBUG_LOGGING_CHANGED_EVENT = 'retune:debug-logging-changed';
 
 type ToggleMetadata = {
     storageKey: string;
@@ -435,7 +435,7 @@ export class SettingsScreen {
                             { label: 'Wide (3h)', value: 1 },
                         ],
                         onChange: (value: number): void => {
-                            const density = value === 1 ? 'wide' : 'detailed';
+                            const density = this._mapEpgGuideDensityValue(value);
                             this._saveEpgGuideDensityValue(value);
                             this._onGuideSettingChange?.({ key: 'guideDensity', density });
                         },
@@ -757,11 +757,7 @@ export class SettingsScreen {
     }
 
     private _notifyDebugLoggingChanged(enabled: boolean): void {
-        window.dispatchEvent(
-            new CustomEvent<{ enabled: boolean }>(DEBUG_LOGGING_CHANGED_EVENT, {
-                detail: { enabled },
-            })
-        );
+        dispatchDebugLoggingChanged(enabled);
     }
 
     private _saveEpgLayoutModeValue(value: number): void {
@@ -770,8 +766,12 @@ export class SettingsScreen {
     }
 
     private _saveEpgGuideDensityValue(value: number): void {
-        const density = value === 1 ? 'wide' : 'detailed';
+        const density = this._mapEpgGuideDensityValue(value);
         safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY, density);
+    }
+
+    private _mapEpgGuideDensityValue(value: number): 'wide' | 'detailed' {
+        return value === 1 ? 'wide' : 'detailed';
     }
 
     private _saveSubtitleLanguageValue(value: number): void {

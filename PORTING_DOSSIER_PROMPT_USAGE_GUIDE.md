@@ -1,11 +1,13 @@
 # Porting Dossier Prompt Usage Guide
 
 ## What You Have Now
+
 - `PORTING_DOSSIER_AGENT_PLAN.md`: markdown-first, highly explicit execution prompt.
 - `PORTING_DOSSIER_AGENT_PLAN_JSON_FIRST.md`: JSON-first variant with machine-checkable structure.
 - `PORTING_DOSSIER_REVIEW_AGENT_PROMPT.md`: strict review/audit gate prompt for dossier QA.
 
 ## Which One Should You Use?
+
 Use this decision rule:
 
 1. Use `PORTING_DOSSIER_AGENT_PLAN_JSON_FIRST.md` when:
@@ -25,6 +27,7 @@ Use this decision rule:
 ## Recommended Three-Pass Workflow (Best Practice)
 
 ### Pass A (Extraction + Validation)
+
 Use `PORTING_DOSSIER_AGENT_PLAN_JSON_FIRST.md`.
 
 Expected outputs:
@@ -36,6 +39,7 @@ Goal:
 - maximize correctness, coverage, and citation integrity.
 
 ### Pass B (Independent Review Gate)
+
 Use `PORTING_DOSSIER_REVIEW_AGENT_PROMPT.md`.
 
 Goal:
@@ -44,6 +48,7 @@ Goal:
 - produce pass/fail report before editorial polish.
 
 ### Pass C (Editorial/Decision Pass)
+
 Use `PORTING_DOSSIER_AGENT_PLAN.md`.
 
 Goal:
@@ -69,6 +74,7 @@ After Pass B fixes are applied, run a third session with:
    `Use existing /port_dossier and /port_dossier/_json outputs to improve readability and migration decisions without changing factual claims unless adding new citations.`
 
 ## Single-Session Alternative (If Time-Constrained)
+
 If you must do one session only:
 1. Use `PORTING_DOSSIER_AGENT_PLAN_JSON_FIRST.md`.
 2. Require markdown rendering during each phase.
@@ -76,6 +82,7 @@ If you must do one session only:
 4. Skip heavy prose polish until all files exist and validation gates pass.
 
 ## Quality Gates You Should Enforce Manually
+
 1. Every required file exists (`00`-`13`, `OPEN_QUESTIONS`, and all JSON artifacts).
 2. Every dossier file has a coverage table at the end.
 3. Critical claims are cited and evidence IDs resolve.
@@ -83,6 +90,7 @@ If you must do one session only:
 5. `OPEN_QUESTIONS` contains all unresolved ambiguity.
 
 ## Tradeoffs
+
 - JSON-first:
   - Pros: consistent, auditable, script-friendly, safer with weaker agents.
   - Cons: slower initial authoring, more rigid output discipline.
@@ -91,5 +99,6 @@ If you must do one session only:
   - Cons: easier to miss citations/coverage and drift into ambiguity.
 
 ## Recommended Default for You
+
 Use JSON-first as primary execution mode, then a strict review pass, then markdown-first editorial refinement.  
 If only one prompt is used, use JSON-first and embed the review checklist before finishing.
