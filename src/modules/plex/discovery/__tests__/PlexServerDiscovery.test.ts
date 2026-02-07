@@ -229,6 +229,93 @@ describe('PlexServerDiscovery', () => {
             // Should only have made one fetch call
             expect(fetch).toHaveBeenCalledTimes(1);
         });
+
+        it('should ignore stale in-flight discovery results after storage key switch', async () => {
+            const firstResources = [
+                {
+                    clientIdentifier: 'srv-stale',
+                    name: 'Stale Server',
+                    sourceTitle: 'testuser',
+                    ownerId: 'owner1',
+                    owned: true,
+                    provides: 'server',
+                    connections: [
+                        {
+                            uri: 'https://stale:32400',
+                            protocol: 'https',
+                            address: 'stale',
+                            port: 32400,
+                            local: false,
+                            relay: false,
+                        },
+                    ],
+                },
+            ];
+            const secondResources = [
+                {
+                    clientIdentifier: 'srv-fresh',
+                    name: 'Fresh Server',
+                    sourceTitle: 'testuser',
+                    ownerId: 'owner1',
+                    owned: true,
+                    provides: 'server',
+                    connections: [
+                        {
+                            uri: 'https://fresh:32400',
+                            protocol: 'https',
+                            address: 'fresh',
+                            port: 32400,
+                            local: false,
+                            relay: false,
+                        },
+                    ],
+                },
+            ];
+
+            const pendingFirstFetch: { resolve?: (value: unknown) => void } = {};
+            const firstFetchPromise = new Promise((resolve) => {
+                pendingFirstFetch.resolve = resolve;
+            });
+
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn()
+                .mockImplementationOnce(() => firstFetchPromise)
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => null },
+                    json: async () => secondResources,
+                    text: async () => JSON.stringify(secondResources),
+                });
+
+            const discovery = new PlexServerDiscovery(mockConfig);
+
+            const staleDiscovery = discovery.discoverServers();
+            discovery.setStorageKeys('retune_selected_server_alt', 'retune_server_health_alt');
+            const freshDiscovery = discovery.discoverServers();
+
+            const freshResult = await freshDiscovery;
+            expect(freshResult[0]).toBeDefined();
+            expect(freshResult[0]!.id).toBe('srv-fresh');
+
+            expect(pendingFirstFetch.resolve).toBeTruthy();
+            if (!pendingFirstFetch.resolve) {
+                throw new Error('Expected first discovery fetch resolver');
+            }
+            pendingFirstFetch.resolve({
+                ok: true,
+                status: 200,
+                headers: { get: () => null },
+                json: async () => firstResources,
+                text: async () => JSON.stringify(firstResources),
+            });
+
+            const staleResult = await staleDiscovery;
+            expect(staleResult[0]).toBeDefined();
+            expect(staleResult[0]!.id).toBe('srv-fresh');
+            expect(discovery.getServers()[0]).toBeDefined();
+            expect(discovery.getServers()[0]!.id).toBe('srv-fresh');
+            expect(fetch).toHaveBeenCalledTimes(2);
+        });
     });
 
     describe('testConnection', () => {

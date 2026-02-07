@@ -705,6 +705,12 @@ describe('AppOrchestrator', () => {
     });
 
     describe('profile switching', () => {
+        beforeEach(() => {
+            mockVideoPlayer.stop.mockClear();
+            mockScheduler.unloadChannel.mockClear();
+            mockPlexStreamResolver.stopTranscodeSession.mockClear();
+        });
+
         it('clears profile resume listener before explicit switchHomeUser startup', async () => {
             await orchestrator.initialize(mockConfig);
 
@@ -714,14 +720,22 @@ describe('AppOrchestrator', () => {
             };
             const mutable = orchestrator as unknown as {
                 _initCoordinator?: typeof initCoordinator;
+                _currentStreamDecision?: unknown;
             };
             mutable._initCoordinator = initCoordinator;
+            mutable._currentStreamDecision = {
+                isTranscoding: true,
+                sessionId: 'profile-switch-session',
+            };
 
             await orchestrator.switchHomeUser('user-2', '1234');
 
             expect(initCoordinator.clearProfileResume).toHaveBeenCalledTimes(1);
             expect(mockPlexAuth.switchHomeUser).toHaveBeenCalledWith('user-2', { pin: '1234' });
             expect(initCoordinator.runStartup).toHaveBeenCalledWith(3);
+            expect(mockVideoPlayer.stop).toHaveBeenCalledTimes(1);
+            expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
+            expect(mockPlexStreamResolver.stopTranscodeSession).toHaveBeenCalledWith('profile-switch-session');
             const clearOrder = initCoordinator.clearProfileResume.mock.invocationCallOrder[0];
             const switchInvocations = mockPlexAuth.switchHomeUser.mock.invocationCallOrder;
             const switchOrder = switchInvocations[switchInvocations.length - 1];
@@ -741,14 +755,22 @@ describe('AppOrchestrator', () => {
             };
             const mutable = orchestrator as unknown as {
                 _initCoordinator?: typeof initCoordinator;
+                _currentStreamDecision?: unknown;
             };
             mutable._initCoordinator = initCoordinator;
+            mutable._currentStreamDecision = {
+                isTranscoding: true,
+                sessionId: 'main-profile-session',
+            };
 
             await orchestrator.useMainAccountProfile();
 
             expect(initCoordinator.clearProfileResume).toHaveBeenCalledTimes(1);
             expect(mockPlexAuth.logoutActiveUser).toHaveBeenCalledTimes(1);
             expect(initCoordinator.runStartup).toHaveBeenCalledWith(3);
+            expect(mockVideoPlayer.stop).toHaveBeenCalledTimes(1);
+            expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
+            expect(mockPlexStreamResolver.stopTranscodeSession).toHaveBeenCalledWith('main-profile-session');
         });
     });
 

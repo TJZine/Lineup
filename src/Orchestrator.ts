@@ -1158,6 +1158,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             throw new Error('PlexAuth not initialized');
         }
 
+        this._prepareForProfileSwitch();
         // Profile-switch startup is resumed explicitly below; avoid duplicate
         // queued startup runs from a stale profile-resume listener.
         this._initCoordinator?.clearProfileResume();
@@ -1176,6 +1177,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             throw new Error('PlexAuth not initialized');
         }
 
+        this._prepareForProfileSwitch();
         // Same as switchHomeUser: avoid duplicate startup runs when an old
         // profile-resume listener is still registered.
         this._initCoordinator?.clearProfileResume();
@@ -2193,6 +2195,15 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _stopPlayback(): void {
         this._stopActiveTranscodeSession();
         this._videoPlayer?.stop();
+    }
+
+    private _prepareForProfileSwitch(): void {
+        this._stopPlayback();
+        this._scheduler?.unloadChannel();
+        this._pendingNowPlayingChannelId = null;
+        this._currentProgramForPlayback = null;
+        this._currentStreamDescriptor = null;
+        this._currentStreamDecision = null;
     }
 
     private _toggleNowPlayingInfoOverlay(): void {

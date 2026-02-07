@@ -386,12 +386,12 @@ export class ServerSelectScreen {
 
             if (savedId && server.id === savedId) {
                 row.classList.add('active');
-                if (normalizedStatus === 'ok' && !savedServerUnavailable) {
-                    selectButton.textContent = 'Connected';
-                    selectButton.disabled = true;
-                } else {
-                    selectButton.textContent = 'Reconnect';
-                }
+                // Keep reconnect available even for the currently saved server so users
+                // can re-test connectivity without first clearing selection.
+                selectButton.textContent =
+                    normalizedStatus === 'ok' && !savedServerUnavailable
+                        ? 'Connected'
+                        : 'Reconnect';
             }
 
             this._listEl.appendChild(row);
