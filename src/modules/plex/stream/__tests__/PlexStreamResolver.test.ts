@@ -326,7 +326,7 @@ describe('PlexStreamResolver', () => {
             expect(decision.playbackUrl).toContain('X-Plex-Token=mock-token');
         });
 
-        it('forces HLS with HDR10 fallback for DV MKV (P8.1) when Smart is enabled and letterbox detected', async () => {
+        it('keeps direct play for DV MKV (P8.1) when Smart is enabled and content is already direct-playable', async () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: jest.fn((key: string) =>
@@ -356,13 +356,48 @@ describe('PlexStreamResolver', () => {
 
             const decision = await resolver.resolveStream({ itemKey: '12345' });
 
+            expect(decision.isDirectPlay).toBe(true);
+            expect(decision.isTranscoding).toBe(false);
+            expect(decision.protocol).toBe('http');
+            expect(decision.transcodeRequest).toBeUndefined();
+            expect(decision.directPlay?.reasons).toEqual([]);
+            expect(decision.playbackUrl).toContain('X-Plex-Client-Capabilities=');
+            expect(decision.playbackUrl).not.toContain('dvhe');
+        });
+
+        it('still hides Dolby Vision when Smart fallback is enabled and content must transcode for other reasons', async () => {
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: jest.fn((key: string) =>
+                        key === RETUNE_STORAGE_KEYS.SMART_HDR10_FALLBACK ? '1' : null
+                    ),
+                },
+                configurable: true,
+            });
+
+            const dvItem = createMockMediaItem({
+                container: 'mkv',
+                videoCodec: 'h264',
+                audioCodec: 'truehd',
+                aspectRatio: 2.39,
+            });
+            const dvStream = dvItem.media[0]!.parts[0]!.streams[0] as PlexStream;
+            dvStream.displayTitle = 'Dolby Vision';
+            dvStream.doviPresent = true;
+            dvStream.doviProfile = '8.1';
+
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(dvItem),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            const decision = await resolver.resolveStream({ itemKey: '12345' });
+
             expect(decision.isTranscoding).toBe(true);
             expect(decision.protocol).toBe('hls');
             expect(decision.directPlay?.reasons).toContain('hdr10_fallback_smart');
+            expect(decision.directPlay?.reasons).toContain('unsupported_audio_codec:truehd');
             expect(decision.transcodeRequest?.hideDolbyVision).toBe(true);
-            expect(decision.playbackUrl).toContain('directStream=1');
-            expect(decision.playbackUrl).toContain('X-Plex-Client-Capabilities=');
-            expect(decision.playbackUrl).not.toContain('dvhe');
         });
 
         it('allows direct play for DV MKV when Smart is enabled but not letterbox', async () => {

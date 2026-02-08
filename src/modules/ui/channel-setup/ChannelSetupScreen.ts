@@ -1016,30 +1016,39 @@ export class ChannelSetupScreen {
         this._detailEl.textContent = '';
         this._errorEl.textContent = this._reviewError ?? '';
 
-        if (!this._recordApplied) {
-            const loading = document.createElement('div');
-            loading.className = 'setup-preview-loading';
-            loading.textContent = 'Preparing your review...';
-            this._contentEl.appendChild(loading);
-            return;
-        }
-
-        if (!this._review && !this._isReviewLoading && !this._reviewError) {
-            this._loadReview().catch(console.error);
-        }
-
         const scroll = document.createElement('div');
         scroll.className = 'setup-scroll';
 
         const reviewContainer = document.createElement('div');
         reviewContainer.className = 'setup-review';
 
-        if (this._isReviewLoading) {
-            const loading = document.createElement('div');
-            loading.className = 'setup-preview-loading';
-            loading.classList.add('panel-spinner');
-            loading.textContent = 'Preparing your review...';
-            reviewContainer.appendChild(loading);
+        let showLoadingState = false;
+        if (!this._recordApplied) {
+            showLoadingState = true;
+        } else if (!this._review && !this._isReviewLoading && !this._reviewError) {
+            // Defer kickoff to avoid re-entrant _renderStep() while this render is still building DOM.
+            const token = this._visibilityToken;
+            void Promise.resolve()
+                .then(() => {
+                    if (
+                        token !== this._visibilityToken ||
+                        this._isBuilding ||
+                        this._review ||
+                        this._isReviewLoading ||
+                        this._reviewError
+                    ) {
+                        return;
+                    }
+                    return this._loadReview();
+                })
+                .catch(console.error);
+            showLoadingState = true;
+        } else if (this._isReviewLoading) {
+            showLoadingState = true;
+        }
+
+        if (showLoadingState) {
+            this._renderBuildReviewLoading(reviewContainer);
         } else if (this._review) {
             const modeLine = document.createElement('div');
             modeLine.className = 'setup-summary';
@@ -1136,6 +1145,14 @@ export class ChannelSetupScreen {
 
         const listButtons = Array.from(reviewContainer.querySelectorAll<HTMLButtonElement>('button'));
         this._registerFocusables([...listButtons, backButton, confirmButton]);
+    }
+
+    private _renderBuildReviewLoading(container: HTMLElement = this._contentEl): void {
+        const loading = document.createElement('div');
+        loading.className = 'setup-preview-loading';
+        loading.classList.add('panel-spinner');
+        loading.textContent = 'Preparing your review...';
+        container.appendChild(loading);
     }
 
     private _renderBuildProgress(): void {

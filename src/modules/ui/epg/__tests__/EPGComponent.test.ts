@@ -233,6 +233,16 @@ describe('EPGComponent', () => {
             expect(epg.isVisible()).toBe(false);
         });
 
+        it('toggles the visible class on the container when opening and closing', () => {
+            expect(container.classList.contains(EPG_CLASSES.CONTAINER_VISIBLE)).toBe(false);
+
+            epg.show();
+            expect(container.classList.contains(EPG_CLASSES.CONTAINER_VISIBLE)).toBe(true);
+
+            epg.hide();
+            expect(container.classList.contains(EPG_CLASSES.CONTAINER_VISIBLE)).toBe(false);
+        });
+
         it('should toggle visibility', () => {
             epg.toggle();
             expect(epg.isVisible()).toBe(true);
@@ -292,6 +302,23 @@ describe('EPGComponent', () => {
             const titles = Array.from(container.querySelectorAll('.epg-cell-title'))
                 .map((el) => el.textContent);
             expect(titles).toContain('Loading...');
+        });
+
+        it('restores info panel content on reopen when preserveFocus is enabled', () => {
+            const channel = createMockChannel(0);
+            epg.loadChannels([channel]);
+            epg.loadScheduleForChannel(channel.id, createDetailedSchedule(channel.id));
+
+            epg.show();
+            epg.focusProgram(0, 0);
+            epg.hide();
+
+            epg.show({ preserveFocus: true });
+
+            const infoPanel = container.querySelector('.epg-info-panel') as HTMLElement | null;
+            const infoTitle = container.querySelector('.epg-info-title') as HTMLElement | null;
+            expect(infoPanel?.style.visibility).toBe('visible');
+            expect(infoTitle?.textContent).toBe('Program A');
         });
     });
 

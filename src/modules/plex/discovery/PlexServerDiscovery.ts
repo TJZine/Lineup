@@ -40,6 +40,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     private _serverHealthKey: string;
     private _pendingServerId: string | undefined;
     private _discoveryPromise: Promise<PlexServer[]> | null = null;
+    private _discoveryContextVersion = 0;
 
     /**
      * Create a new PlexServerDiscovery instance.
@@ -87,11 +88,15 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             return this._discoveryPromise;
         }
 
-        this._discoveryPromise = this._doDiscoverServers().finally(() => {
-            this._discoveryPromise = null;
+        const contextVersion = this._discoveryContextVersion;
+        const discoveryPromise = this._doDiscoverServers(contextVersion).finally(() => {
+            if (this._discoveryPromise === discoveryPromise) {
+                this._discoveryPromise = null;
+            }
         });
+        this._discoveryPromise = discoveryPromise;
 
-        return this._discoveryPromise;
+        return discoveryPromise;
     }
 
     /**
@@ -99,7 +104,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
      * @returns Promise resolving to list of servers
      * @throws PlexApiError on connection failure
      */
-    private async _doDiscoverServers(): Promise<PlexServer[]> {
+    private async _doDiscoverServers(contextVersion: number): Promise<PlexServer[]> {
         this._state.isDiscovering = true;
         let lastUrl = '';
 
@@ -210,6 +215,12 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
             const resources = await this._parseResourcesResponse(response);
             const servers = this._parseResources(resources);
+
+            // Discovery can race with profile/storage-key switches. Ignore results
+            // from stale contexts so they cannot overwrite the active user's state.
+            if (contextVersion !== this._discoveryContextVersion) {
+                return [...this._state.servers];
+            }
 
             this._state.servers = servers;
             this._state.lastRefreshAt = Date.now();
@@ -615,6 +626,10 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         if (!selectedServerKey || !serverHealthKey) {
             throw new Error('Storage keys must be non-empty strings');
         }
+        // Bump context to invalidate any in-flight discovery started under the
+        // previous profile/user storage namespace.
+        this._discoveryContextVersion += 1;
+        this._discoveryPromise = null;
         this._selectedServerKey = selectedServerKey;
         this._serverHealthKey = serverHealthKey;
         this._pendingServerId = undefined;

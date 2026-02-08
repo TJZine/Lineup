@@ -446,6 +446,7 @@ const mockEpg = {
     loadChannels: jest.fn(),
     setCategoryColorsEnabled: jest.fn(),
     setLayoutMode: jest.fn(),
+    setVisibleHours: jest.fn(),
     setNowWatchingBannerEnabled: jest.fn(),
     setLibraryTabs: jest.fn(),
     setGridAnchorTime: jest.fn(),
@@ -700,6 +701,104 @@ describe('AppOrchestrator', () => {
             expect(mockEpg.clearSchedules).toHaveBeenCalled();
             expect(epgCoordinator.primeEpgChannels).toHaveBeenCalled();
             expect(epgCoordinator.refreshEpgSchedules).toHaveBeenCalledWith({ reason: 'server-swap' });
+        });
+    });
+
+    describe('profile switching', () => {
+        beforeEach(() => {
+            mockVideoPlayer.stop.mockClear();
+            mockScheduler.unloadChannel.mockClear();
+            mockPlexStreamResolver.stopTranscodeSession.mockClear();
+        });
+
+        it('clears profile resume listener before explicit switchHomeUser startup', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            const initCoordinator = {
+                clearProfileResume: jest.fn(),
+                runStartup: jest.fn().mockResolvedValue(undefined),
+            };
+            const mutable = orchestrator as unknown as {
+                _initCoordinator?: typeof initCoordinator;
+                _currentStreamDecision?: unknown;
+            };
+            mutable._initCoordinator = initCoordinator;
+            mutable._currentStreamDecision = {
+                isTranscoding: true,
+                sessionId: 'profile-switch-session',
+            };
+
+            await orchestrator.switchHomeUser('user-2', '1234');
+
+            expect(initCoordinator.clearProfileResume).toHaveBeenCalledTimes(1);
+            expect(mockPlexAuth.switchHomeUser).toHaveBeenCalledWith('user-2', { pin: '1234' });
+            expect(initCoordinator.runStartup).toHaveBeenCalledWith(3);
+            expect(mockVideoPlayer.stop).toHaveBeenCalledTimes(1);
+            expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
+            expect(mockPlexStreamResolver.stopTranscodeSession).toHaveBeenCalledWith('profile-switch-session');
+            const clearOrder = initCoordinator.clearProfileResume.mock.invocationCallOrder[0];
+            const switchInvocations = mockPlexAuth.switchHomeUser.mock.invocationCallOrder;
+            const switchOrder = switchInvocations[switchInvocations.length - 1];
+            expect(clearOrder).toBeDefined();
+            expect(switchOrder).toBeDefined();
+            if (clearOrder !== undefined && switchOrder !== undefined) {
+                expect(clearOrder).toBeLessThan(switchOrder);
+            }
+        });
+
+        it('clears profile resume listener before explicit useMainAccountProfile startup', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            const initCoordinator = {
+                clearProfileResume: jest.fn(),
+                runStartup: jest.fn().mockResolvedValue(undefined),
+            };
+            const mutable = orchestrator as unknown as {
+                _initCoordinator?: typeof initCoordinator;
+                _currentStreamDecision?: unknown;
+            };
+            mutable._initCoordinator = initCoordinator;
+            mutable._currentStreamDecision = {
+                isTranscoding: true,
+                sessionId: 'main-profile-session',
+            };
+
+            await orchestrator.useMainAccountProfile();
+
+            expect(initCoordinator.clearProfileResume).toHaveBeenCalledTimes(1);
+            expect(mockPlexAuth.logoutActiveUser).toHaveBeenCalledTimes(1);
+            expect(initCoordinator.runStartup).toHaveBeenCalledWith(3);
+            expect(mockVideoPlayer.stop).toHaveBeenCalledTimes(1);
+            expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
+            expect(mockPlexStreamResolver.stopTranscodeSession).toHaveBeenCalledWith('main-profile-session');
+        });
+
+        it('clears pending day rollover timer during profile switch preparation', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            const initCoordinator = {
+                clearProfileResume: jest.fn(),
+                runStartup: jest.fn().mockResolvedValue(undefined),
+            };
+            const clearTimeoutSpy = jest.spyOn(globalThis, 'clearTimeout');
+            const pendingRolloverTimer = globalThis.setTimeout(() => undefined, 60_000);
+
+            const mutable = orchestrator as unknown as {
+                _initCoordinator?: typeof initCoordinator;
+                _pendingDayRolloverTimer?: ReturnType<typeof setTimeout> | null;
+                _pendingDayRolloverDayKey?: number | null;
+            };
+            mutable._initCoordinator = initCoordinator;
+            mutable._pendingDayRolloverTimer = pendingRolloverTimer;
+            mutable._pendingDayRolloverDayKey = 123;
+
+            await orchestrator.switchHomeUser('user-2');
+
+            expect(clearTimeoutSpy).toHaveBeenCalledWith(pendingRolloverTimer);
+            expect(mutable._pendingDayRolloverTimer).toBeNull();
+            expect(mutable._pendingDayRolloverDayKey).toBeNull();
+
+            clearTimeoutSpy.mockRestore();
         });
     });
 
@@ -1220,6 +1319,30 @@ describe('AppOrchestrator', () => {
             orchestrator.onGuideSettingChange({ key: 'nowWatchingBanner', enabled: false });
 
             expect(mockEpg.setNowWatchingBannerEnabled).toHaveBeenCalledWith(false);
+        });
+
+        it('refreshes schedules when guide density changes while EPG is visible', async () => {
+            mockLocalStorage.getItem.mockImplementation((key: string) =>
+                key === 'retune_epg_guide_density' ? 'wide' : null
+            );
+            mockEpg.isVisible.mockReturnValue(true);
+            const mutable = orchestrator as unknown as {
+                _epgCoordinator?: { refreshEpgSchedules: (options?: { reason?: string }) => Promise<void> };
+            };
+            const refreshSpy = jest
+                .spyOn(
+                    mutable._epgCoordinator as {
+                        refreshEpgSchedules: (options?: { reason?: string }) => Promise<void>;
+                    },
+                    'refreshEpgSchedules'
+                )
+                .mockResolvedValue(undefined);
+
+            await orchestrator.start();
+            orchestrator.onGuideSettingChange({ key: 'guideDensity', density: 'wide' });
+
+            expect(mockEpg.setVisibleHours).toHaveBeenCalledWith(3);
+            expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
         });
     });
 

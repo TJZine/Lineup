@@ -17,7 +17,6 @@
 
 .now-playing-info-container.visible .now-playing-info-panel {
   animation: now-playing-info-enter 160ms ease-out;
-  will-change: transform, opacity;
 }
 
 .now-playing-info-panel {
@@ -261,6 +260,11 @@
 @media (min-width: 2560px) {
   .now-playing-info-panel {
     max-width: 1500px;
+  }
+
+  .now-playing-info-up-next {
+    font-size: var(--text-base);
+    font-weight: 600;
   }
 }
 

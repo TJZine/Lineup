@@ -20,6 +20,7 @@ import { readStoredBoolean, safeLocalStorageGet, safeLocalStorageRemove, safeLoc
 import { ThemeManager } from '../theme';
 import { getSubtitleMode, setSubtitleMode, type SubtitleMode } from '../../../shared/subtitle-mode';
 import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
+import { dispatchDebugLoggingChanged } from '../../../config/events';
 
 const SUBTITLE_LANGUAGE_OPTIONS: Array<{ label: string; code: string | null }> = [
     { label: 'Auto (Plex)', code: null },
@@ -120,6 +121,10 @@ const SELECT_METADATA: Record<string, SelectMetadata> = {
     },
     'settings-epg-layout-mode': {
         storageKey: SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE,
+        defaultValue: 0,
+    },
+    'settings-epg-density': {
+        storageKey: SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY,
         defaultValue: 0,
     },
 };
@@ -258,6 +263,7 @@ export class SettingsScreen {
         const subtitleMode = this._valueToSubtitleMode(subtitleModeValue);
         const subtitlesEnabled = subtitleMode !== 'off';
         const epgLayoutModeValue = this._loadEpgLayoutModeValue();
+        const epgGuideDensityValue = this._loadEpgGuideDensityValue();
         const useGlobalSubtitlePreference = this._loadBoolSetting(
             SETTINGS_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE,
             DEFAULT_SETTINGS.subtitles.useGlobalPreference
@@ -420,6 +426,21 @@ export class SettingsScreen {
                         },
                     },
                     {
+                        id: 'settings-epg-density',
+                        label: 'Guide Density',
+                        description: 'Detailed shows 2 hours, Wide shows 3 hours',
+                        value: epgGuideDensityValue,
+                        options: [
+                            { label: 'Detailed (2h)', value: 0 },
+                            { label: 'Wide (3h)', value: 1 },
+                        ],
+                        onChange: (value: number): void => {
+                            const density = this._mapEpgGuideDensityValue(value);
+                            this._saveEpgGuideDensityValue(value);
+                            this._onGuideSettingChange?.({ key: 'guideDensity', density });
+                        },
+                    },
+                    {
                         id: 'settings-epg-layout-mode',
                         label: 'Guide Layout',
                         description: 'Overlay keeps full-screen video; Classic shows PIP',
@@ -489,10 +510,12 @@ export class SettingsScreen {
                     {
                         id: 'settings-debug-logging',
                         label: 'Debug Logging',
-                        description: 'Enable verbose console output',
+                        description: 'Enable verbose console output (applies immediately)',
                         value: this._loadBoolSetting(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING, DEFAULT_SETTINGS.developer.debugLogging),
-                        onChange: (value: boolean) =>
-                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING, value),
+                        onChange: (value: boolean): void => {
+                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING, value);
+                            this._notifyDebugLoggingChanged(value);
+                        },
                     },
                     {
                         id: 'settings-subtitle-debug-logging',
@@ -700,6 +723,11 @@ export class SettingsScreen {
         return raw === 'classic' ? 1 : 0;
     }
 
+    private _loadEpgGuideDensityValue(): number {
+        const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY);
+        return raw === 'wide' ? 1 : 0;
+    }
+
     private _loadSubtitleLanguageValue(): number {
         const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE);
         if (raw === null) return 0;
@@ -728,9 +756,22 @@ export class SettingsScreen {
         safeLocalStorageSet(key, String(value));
     }
 
+    private _notifyDebugLoggingChanged(enabled: boolean): void {
+        dispatchDebugLoggingChanged(enabled);
+    }
+
     private _saveEpgLayoutModeValue(value: number): void {
         const mode = value === 1 ? 'classic' : 'overlay';
         safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, mode);
+    }
+
+    private _saveEpgGuideDensityValue(value: number): void {
+        const density = this._mapEpgGuideDensityValue(value);
+        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY, density);
+    }
+
+    private _mapEpgGuideDensityValue(value: number): 'wide' | 'detailed' {
+        return value === 1 ? 'wide' : 'detailed';
     }
 
     private _saveSubtitleLanguageValue(value: number): void {
@@ -802,6 +843,14 @@ export class SettingsScreen {
 
 
     private _refreshValues(): void {
+        const selectLoaders: Record<string, () => number> = {
+            'settings-now-playing-timeout': () => this._loadClampedNowPlayingAutoHide(),
+            'settings-subtitle-mode': () => this._loadSubtitleModeValue(),
+            'settings-subtitle-language': () => this._loadSubtitleLanguageValue(),
+            'settings-hdr10-fallback-mode': () => this._readHdr10FallbackSelectValue(),
+            'settings-epg-density': () => this._loadEpgGuideDensityValue(),
+            'settings-epg-layout-mode': () => this._loadEpgLayoutModeValue(),
+        };
         for (const [id, meta] of this._toggleMetadata.entries()) {
             const toggle = this._toggleElements.get(id);
             if (!toggle) continue;
@@ -812,17 +861,10 @@ export class SettingsScreen {
         for (const [id, meta] of this._selectMetadata.entries()) {
             const select = this._selectElements.get(id);
             if (!select) continue;
-            const value = id === 'settings-now-playing-timeout'
-                ? this._loadClampedNowPlayingAutoHide()
-                : id === 'settings-subtitle-mode'
-                    ? this._loadSubtitleModeValue()
-                : id === 'settings-subtitle-language'
-                    ? this._loadSubtitleLanguageValue()
-                    : id === 'settings-hdr10-fallback-mode'
-                        ? this._readHdr10FallbackSelectValue()
-                        : id === 'settings-epg-layout-mode'
-                            ? this._loadEpgLayoutModeValue()
-                    : this._loadNumberSetting(meta.storageKey, meta.defaultValue);
+            const loader = selectLoaders[id];
+            const value = loader
+                ? loader()
+                : this._loadNumberSetting(meta.storageKey, meta.defaultValue);
             select.update(value);
             meta.onRefresh?.(value);
         }

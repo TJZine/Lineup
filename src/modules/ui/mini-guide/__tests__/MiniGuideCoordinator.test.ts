@@ -387,13 +387,23 @@ describe('MiniGuideCoordinator', () => {
         expect(switchToChannel).toHaveBeenCalledWith('ch3');
     });
 
-    it('auto-hide hides after timeout', () => {
+    it('auto-hide hides after timeout after mini-guide interaction', () => {
+        const { coordinator, overlay } = setup({ autoHideMs: AUTO_HIDE_MS });
+        coordinator.show();
+        coordinator.handleNavigation('down');
+
+        jest.advanceTimersByTime(AUTO_HIDE_MS + 1);
+
+        expect(overlay.hide).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not auto-hide without interaction', () => {
         const { coordinator, overlay } = setup({ autoHideMs: AUTO_HIDE_MS });
         coordinator.show();
 
         jest.advanceTimersByTime(AUTO_HIDE_MS + 1);
 
-        expect(overlay.hide).toHaveBeenCalledTimes(1);
+        expect(overlay.hide).not.toHaveBeenCalled();
     });
 
     it('hide aborts and prevents post-hide updates', async () => {

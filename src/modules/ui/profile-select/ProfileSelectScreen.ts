@@ -259,9 +259,11 @@ export class ProfileSelectScreen {
         try {
             const users = await this._orchestrator.getHomeUsers();
             if (users.length <= 1) {
-                const nav = this._orchestrator.getNavigation();
-                if (nav?.getCurrentScreen() === 'profile-select') {
-                    nav.goTo('server-select', { allowAutoConnect: true });
+                if (users.length === 1) {
+                    this._renderUsers(users);
+                    this._setStatus('Only one profile is available for this account.');
+                } else {
+                    this._setStatus('No Plex Home profiles were found.');
                 }
                 return;
             }

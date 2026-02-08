@@ -246,6 +246,13 @@ export function parseHomeUsers(payload: unknown): PlexHomeUser[] {
     if (typeof payload === 'string') {
         const text = payload.trim();
         if (!text) return [];
+        if (text.startsWith('{') || text.startsWith('[')) {
+            try {
+                return parseHomeUsers(JSON.parse(text));
+            } catch {
+                // Fall through to XML parser.
+            }
+        }
         const xmlUsers = parseHomeUsersXml(text);
         if (xmlUsers.length > 0) {
             return xmlUsers;
@@ -253,39 +260,18 @@ export function parseHomeUsers(payload: unknown): PlexHomeUser[] {
     }
 
     if (typeof payload === 'object') {
-        const data = payload as Record<string, unknown>;
-        const container = data['MediaContainer'];
-        const usersRaw = ((): unknown => {
-            if (Array.isArray(data)) return data;
-            if (container && typeof container === 'object') {
-                const containerObj = container as Record<string, unknown>;
-                if (Array.isArray(containerObj['User'])) return containerObj['User'];
+        const candidates = collectHomeUserCandidates(payload);
+        if (candidates.length > 0) {
+            const users = candidates
+                .map((record) => parseHomeUserRecord(record))
+                .filter((user): user is PlexHomeUser => user !== null);
+            const deduped = new Map<string, PlexHomeUser>();
+            for (const user of users) {
+                if (!deduped.has(user.id)) {
+                    deduped.set(user.id, user);
+                }
             }
-            if (Array.isArray(data['User'])) return data['User'];
-            return null;
-        })();
-
-        if (Array.isArray(usersRaw)) {
-            return usersRaw.map((user) => {
-                const u = user as Record<string, unknown>;
-                const id = String(u['id'] ?? '');
-                const title = String(u['title'] ?? u['username'] ?? '');
-                const thumb = typeof u['thumb'] === 'string' ? u['thumb'] : null;
-                const restricted = typeof u['restricted'] === 'undefined'
-                    ? undefined
-                    : coerceBoolean(u['restricted']);
-                const baseUser = {
-                    id,
-                    title,
-                    thumb,
-                    admin: coerceBoolean(u['admin']),
-                    protected: coerceBoolean(u['protected']),
-                };
-                return {
-                    ...baseUser,
-                    ...(typeof restricted === 'undefined' ? {} : { restricted }),
-                };
-            }).filter((u) => u.id.length > 0);
+            return Array.from(deduped.values());
         }
     }
 
@@ -336,26 +322,18 @@ function parseHomeUsersXml(payload: string): PlexHomeUser[] {
         const parser = new DOMParser();
         const doc = parser.parseFromString(payload, 'application/xml');
         if (doc.getElementsByTagName('parsererror').length === 0) {
-            const users = Array.from(doc.getElementsByTagName('User'));
-            return users.map((node) => {
-                const id = node.getAttribute('id') || '';
-                const title = node.getAttribute('title') || node.getAttribute('username') || '';
-                const thumb = node.getAttribute('thumb');
-                const restricted = node.hasAttribute('restricted')
-                    ? coerceBoolean(node.getAttribute('restricted'))
-                    : undefined;
-                const baseUser = {
-                    id,
-                    title,
-                    thumb: thumb ? thumb : null,
-                    admin: coerceBoolean(node.getAttribute('admin')),
-                    protected: coerceBoolean(node.getAttribute('protected')),
-                };
-                return {
-                    ...baseUser,
-                    ...(typeof restricted === 'undefined' ? {} : { restricted }),
-                };
-            }).filter((u) => u.id.length > 0);
+            const users = getXmlUserNodes(doc)
+                .map((node) => parseHomeUserAttributes(getXmlNodeAttributes(node)))
+                .filter((user): user is PlexHomeUser => user !== null);
+            if (users.length > 0) {
+                const deduped = new Map<string, PlexHomeUser>();
+                for (const user of users) {
+                    if (!deduped.has(user.id)) {
+                        deduped.set(user.id, user);
+                    }
+                }
+                return Array.from(deduped.values());
+            }
         }
     }
 
@@ -363,12 +341,12 @@ function parseHomeUsersXml(payload: string): PlexHomeUser[] {
 }
 
 function parseHomeUsersXmlFallback(payload: string): PlexHomeUser[] {
-    const matches = payload.match(/<User\b[^>]*>/g) ?? [];
+    const matches = payload.match(/<(?:User|HomeUser|user|homeUser)\b[^>]*>/g) ?? [];
     const users: PlexHomeUser[] = [];
 
     for (const raw of matches) {
-        const attrs: Record<string, string> = {};
-        const attrRegex = /(\w+)=["']([^"']*)["']/g;
+        const attrs: Record<string, unknown> = {};
+        const attrRegex = /([:\w-]+)=["']([^"']*)["']/g;
         let match: RegExpExecArray | null = null;
         while ((match = attrRegex.exec(raw)) !== null) {
             const key = match[1];
@@ -376,27 +354,162 @@ function parseHomeUsersXmlFallback(payload: string): PlexHomeUser[] {
                 attrs[key] = match[2] ?? '';
             }
         }
-        const id = attrs['id'] ?? '';
-        if (!id) continue;
-        const title = attrs['title'] ?? attrs['username'] ?? '';
-        const thumb = attrs['thumb'] ?? null;
-        const restricted = typeof attrs['restricted'] === 'undefined'
-            ? undefined
-            : coerceBoolean(attrs['restricted']);
-        const baseUser = {
-            id,
-            title,
-            thumb: thumb || null,
-            admin: coerceBoolean(attrs['admin']),
-            protected: coerceBoolean(attrs['protected']),
-        };
-        users.push({
-            ...baseUser,
-            ...(typeof restricted === 'undefined' ? {} : { restricted }),
-        });
+        const parsed = parseHomeUserAttributes(attrs);
+        if (parsed) users.push(parsed);
     }
 
     return users;
+}
+
+function collectHomeUserCandidates(payload: unknown): Record<string, unknown>[] {
+    const out: Record<string, unknown>[] = [];
+    const queue: unknown[] = [payload];
+    const userKeys = new Set([
+        'user',
+        'users',
+        'homeuser',
+        'homeusers',
+        'manageduser',
+        'managedusers',
+        'account',
+        'accounts',
+    ]);
+
+    while (queue.length > 0) {
+        const current = queue.shift();
+        if (!current) continue;
+
+        if (Array.isArray(current)) {
+            for (const item of current) {
+                if (item && typeof item === 'object') {
+                    queue.push(item);
+                }
+            }
+            continue;
+        }
+
+        if (typeof current !== 'object') continue;
+        const record = current as Record<string, unknown>;
+
+        if (looksLikeHomeUserRecord(record)) {
+            out.push(record);
+        }
+
+        for (const [key, value] of Object.entries(record)) {
+            if (!value) continue;
+
+            if (Array.isArray(value)) {
+                if (userKeys.has(key.toLowerCase())) {
+                    for (const item of value) {
+                        if (item && typeof item === 'object') {
+                            out.push(item as Record<string, unknown>);
+                        }
+                    }
+                    continue;
+                } else {
+                    for (const item of value) {
+                        if (item && typeof item === 'object') {
+                            queue.push(item);
+                        }
+                    }
+                }
+                continue;
+            }
+
+            if (typeof value === 'object') {
+                if (userKeys.has(key.toLowerCase())) {
+                    out.push(value as Record<string, unknown>);
+                }
+                queue.push(value);
+            }
+        }
+    }
+
+    return out;
+}
+
+function looksLikeHomeUserRecord(record: Record<string, unknown>): boolean {
+    const id = getRecordValue(record, ['id', 'userid', 'uuid', 'key']);
+    const title = getRecordValue(record, ['title', 'username', 'name']);
+    const hasHomeSignals = [
+        'admin',
+        'isAdmin',
+        'protected',
+        'hasPassword',
+        'pinProtected',
+        'restricted',
+        'home',
+    ].some((key) => typeof getRecordValue(record, [key]) !== 'undefined');
+    if (typeof id === 'undefined' || id === null) return false;
+    if (String(id).trim().length === 0) return false;
+    if (typeof title === 'undefined' || title === null) return false;
+    if (String(title).trim().length === 0) return false;
+    return hasHomeSignals;
+}
+
+function parseHomeUserRecord(record: Record<string, unknown>): PlexHomeUser | null {
+    return parseHomeUserAttributes(record);
+}
+
+function parseHomeUserAttributes(attrs: Record<string, unknown>): PlexHomeUser | null {
+    const idValue = getRecordValue(attrs, ['id', 'userID', 'userId', 'userid', 'key']);
+    const titleValue = getRecordValue(attrs, ['title', 'username', 'name']);
+    const id = String(idValue ?? '').trim();
+    const title = String(titleValue ?? '').trim();
+    if (id.length === 0 || title.length === 0) {
+        return null;
+    }
+
+    const thumbValue = getRecordValue(attrs, ['thumb', 'avatar', 'avatarUrl']);
+    const thumb = typeof thumbValue === 'string' && thumbValue.trim().length > 0
+        ? thumbValue
+        : null;
+
+    const restrictedValue = getRecordValue(attrs, ['restricted']);
+    const protectedValue = getRecordValue(attrs, ['protected', 'hasPassword', 'pinProtected']);
+    const adminValue = getRecordValue(attrs, ['admin', 'isAdmin']);
+
+    const baseUser = {
+        id,
+        title,
+        thumb,
+        admin: coerceBoolean(adminValue),
+        protected: coerceBoolean(protectedValue),
+    };
+
+    return {
+        ...baseUser,
+        ...(typeof restrictedValue === 'undefined' ? {} : { restricted: coerceBoolean(restrictedValue) }),
+    };
+}
+
+function getRecordValue(record: Record<string, unknown>, keys: string[]): unknown {
+    const normalized = new Set(keys.map((key) => key.toLowerCase()));
+    for (const [key, value] of Object.entries(record)) {
+        if (normalized.has(key.toLowerCase())) {
+            return value;
+        }
+    }
+    return undefined;
+}
+
+function getXmlUserNodes(doc: Document): Element[] {
+    const names = ['User', 'HomeUser', 'user', 'homeUser'];
+    const nodes: Element[] = [];
+    for (const name of names) {
+        nodes.push(...Array.from(doc.getElementsByTagName(name)));
+    }
+    return nodes;
+}
+
+function getXmlNodeAttributes(node: Element): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (let i = 0; i < node.attributes.length; i++) {
+        const attr = node.attributes.item(i);
+        if (!attr) continue;
+        out[attr.name] = attr.value;
+    }
+    return out;
 }
 
 function parseSwitchTokenXml(payload: string): string | null {

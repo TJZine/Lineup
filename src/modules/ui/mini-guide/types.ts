@@ -5,6 +5,7 @@
 
 export interface MiniGuideConfig {
     containerId: string;
+    autoHideMs?: number;
 }
 
 export interface MiniGuideChannelViewModel {

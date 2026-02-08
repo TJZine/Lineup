@@ -28,7 +28,7 @@ import type { IMiniGuideOverlay } from '../modules/ui/mini-guide';
 import type { IChannelTransitionOverlay } from '../modules/ui/channel-transition';
 import type { IPlaybackOptionsModal } from '../modules/ui/playback-options';
 import type { IDisposable } from '../utils/interfaces';
-import { isStoredTrue, readStoredBoolean, safeLocalStorageGet } from '../utils/storage';
+import { readStoredBoolean, readStoredBooleanWithLegacy, safeLocalStorageGet } from '../utils/storage';
 import { RETUNE_STORAGE_KEYS } from '../config/storageKeys';
 import type { OrchestratorConfig, ModuleStatus } from '../Orchestrator';
 
@@ -944,7 +944,11 @@ export class InitializationCoordinator implements IInitializationCoordinator {
 
     private _isDebugLoggingEnabled(): boolean {
         try {
-            return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DEBUG_LOGGING));
+            return readStoredBooleanWithLegacy(
+                RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
+                RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY,
+                false
+            );
         } catch {
             return false;
         }

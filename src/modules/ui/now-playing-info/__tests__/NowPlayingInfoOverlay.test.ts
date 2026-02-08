@@ -126,6 +126,51 @@ describe('NowPlayingInfoOverlay', () => {
         expect(castLine.textContent).toBe('Cast: Actor A +2');
     });
 
+    it('reflows actor row after show when ResizeObserver is unavailable', async () => {
+        const globalWithResizeObserver = globalThis as unknown as { ResizeObserver?: typeof ResizeObserver };
+        const originalResizeObserver = globalWithResizeObserver.ResizeObserver;
+        jest.useFakeTimers();
+        delete globalWithResizeObserver.ResizeObserver;
+        try {
+            overlay.destroy();
+            container.innerHTML = '';
+            overlay = new NowPlayingInfoOverlay();
+            const config: NowPlayingInfoConfig = { containerId: 'now-playing-info-container', autoHideMs: 5000 };
+            overlay.initialize(config);
+
+            const actorsRow = container.querySelector('.now-playing-info-actors') as HTMLElement;
+            let widthReadCount = 0;
+            Object.defineProperty(actorsRow, 'clientWidth', {
+                configurable: true,
+                get: () => {
+                    widthReadCount += 1;
+                    return widthReadCount <= 2 ? 0 : 120;
+                },
+            });
+
+            overlay.show({
+                ...baseViewModel,
+                actorHeadshots: [{ name: 'Actor A', url: 'https://example.com/a.jpg' }],
+                actorMoreCount: 2,
+            });
+
+            for (let i = 0; i < 6; i++) {
+                jest.advanceTimersByTime(20);
+                await Promise.resolve();
+            }
+
+            const more = container.querySelector('.now-playing-info-actor-more') as HTMLElement | null;
+            expect(more?.textContent).toBe('+2');
+        } finally {
+            jest.useRealTimers();
+            if (originalResizeObserver) {
+                globalWithResizeObserver.ResizeObserver = originalResizeObserver;
+            } else {
+                delete globalWithResizeObserver.ResizeObserver;
+            }
+        }
+    });
+
     it('should hide actor headshots when missing', () => {
         overlay.show(baseViewModel);
         const actorsRow = container.querySelector('.now-playing-info-actors') as HTMLElement;

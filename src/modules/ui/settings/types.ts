@@ -144,7 +144,8 @@ export type SettingsSectionId = 'audio_subtitles' | 'playback_hdr' | 'appearance
 
 export type GuideSettingChange =
     | { key: 'categoryColors' | 'libraryTabs' | 'nowWatchingBanner'; enabled: boolean }
-    | { key: 'layoutMode'; mode: 'overlay' | 'classic' };
+    | { key: 'layoutMode'; mode: 'overlay' | 'classic' }
+    | { key: 'guideDensity'; density: 'detailed' | 'wide' };
 
 /**
  * Settings section configuration.

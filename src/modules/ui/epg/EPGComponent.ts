@@ -405,21 +405,9 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this.setTimeOffsetToNow();
         }
 
-        if (this.config.autoFitPixelsPerMinute && this.programAreaElement) {
-            const width = this.programAreaElement.getBoundingClientRect().width;
-            const minutesVisible = this.config.visibleHours * 60;
-            const raw = minutesVisible > 0 ? width / minutesVisible : 0;
-            const minPpm = this.config.minPixelsPerMinute ?? 6;
-            const maxPpm = this.config.maxPixelsPerMinute ?? 12;
-
-            if (Number.isFinite(raw) && width > 0) {
-                const ppm = Math.min(maxPpm, Math.max(minPpm, Math.round(raw)));
-                this.config.pixelsPerMinute = ppm;
-                this.timeHeader.refreshLayout();
-                this.timeHeader.updateScrollPosition(this.state.scrollPosition.timeOffset);
-                this.updateTimeIndicatorPosition();
-            }
-        }
+        this._refreshPixelsPerMinuteForCurrentViewport();
+        this.timeHeader.refreshLayout();
+        this.timeHeader.updateScrollPosition(this.state.scrollPosition.timeOffset);
 
         // Render immediately on open to avoid a blank guide before first input.
         this.renderGridInternal();
@@ -428,6 +416,13 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         // Auto-focus current program if available.
         if (this.config.autoScrollToNow && !shouldPreserveFocus) {
             this.focusNow();
+        } else if (shouldPreserveFocus) {
+            const focusedCell = this.state.focusedCell;
+            if (focusedCell?.kind === 'program') {
+                this._scheduleInfoPanelUpdate(focusedCell.program);
+            } else {
+                this.infoPanel.hide();
+            }
         }
 
         if (this.isDebugEnabled()) {
@@ -542,6 +537,27 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.config.layoutMode = mode;
         if (this.state.isVisible) {
             this.applyLayoutMode();
+        }
+    }
+
+    setVisibleHours(hours: number): void {
+        const normalized = Math.max(1, Math.min(this.config.totalHours, Math.round(hours)));
+        if (!Number.isFinite(normalized) || normalized === this.config.visibleHours) {
+            return;
+        }
+
+        this.config.visibleHours = normalized;
+        const maxOffset = Math.max(0, (this.config.totalHours * 60) - (this.config.visibleHours * 60));
+        this.state.scrollPosition.timeOffset = Math.max(0, Math.min(this.state.scrollPosition.timeOffset, maxOffset));
+        this.lastVisibleRangeKey = null;
+
+        this._refreshPixelsPerMinuteForCurrentViewport();
+        this.timeHeader.refreshLayout();
+        this.timeHeader.updateScrollPosition(this.state.scrollPosition.timeOffset);
+
+        if (this.state.isVisible) {
+            this.renderGridInternal();
+            this.virtualizer.updateTemporalClasses(this.state.currentTime);
         }
     }
 
@@ -1536,6 +1552,25 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
                 appendEpgDebugLog('EPG.renderGrid', payload);
             }
         });
+    }
+
+    private _refreshPixelsPerMinuteForCurrentViewport(): void {
+        if (!this.config.autoFitPixelsPerMinute || !this.programAreaElement) {
+            return;
+        }
+
+        const width = this.programAreaElement.getBoundingClientRect().width;
+        const minutesVisible = this.config.visibleHours * 60;
+        const raw = minutesVisible > 0 ? width / minutesVisible : 0;
+        const minPpm = this.config.minPixelsPerMinute ?? 6;
+        const maxPpm = this.config.maxPixelsPerMinute ?? 12;
+
+        if (!Number.isFinite(raw) || width <= 0) {
+            return;
+        }
+
+        this.config.pixelsPerMinute = Math.min(maxPpm, Math.max(minPpm, Math.round(raw)));
+        this.updateTimeIndicatorPosition();
     }
 
     private maybeEmitVisibleRange(): void {

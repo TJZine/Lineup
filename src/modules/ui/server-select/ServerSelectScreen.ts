@@ -15,6 +15,7 @@ const FOCUS_RESTORE_DELAY_MS = 50;
 export class ServerSelectScreen {
     private _container: HTMLElement;
     private _orchestrator: AppOrchestrator;
+    private _autoConnectHintEl: HTMLElement;
     private _statusEl: HTMLElement;
     private _detailEl: HTMLElement;
     private _errorEl: HTMLElement;
@@ -25,6 +26,7 @@ export class ServerSelectScreen {
     private _clearButton: HTMLButtonElement;
     private _isLoading: boolean = false;
     private _restoreFocusTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    private _registeredServerButtonIds: string[] = [];
 
     constructor(container: HTMLElement, orchestrator: AppOrchestrator) {
         this._container = container;
@@ -48,6 +50,24 @@ export class ServerSelectScreen {
         subtitle.className = 'screen-subtitle';
         subtitle.textContent = 'Choose a server to continue startup.';
         panel.appendChild(subtitle);
+
+        const autoConnectHint = document.createElement('div');
+        autoConnectHint.className = 'server-autoconnect-hint';
+        autoConnectHint.setAttribute('aria-live', 'polite');
+        autoConnectHint.setAttribute('hidden', 'true');
+
+        const autoConnectBadge = document.createElement('span');
+        autoConnectBadge.className = 'server-autoconnect-badge';
+        autoConnectBadge.textContent = 'AUTO-CONNECT';
+        autoConnectHint.appendChild(autoConnectBadge);
+
+        const autoConnectText = document.createElement('span');
+        autoConnectText.className = 'server-autoconnect-text';
+        autoConnectText.textContent = 'Trying your saved server first.';
+        autoConnectHint.appendChild(autoConnectText);
+
+        panel.appendChild(autoConnectHint);
+        this._autoConnectHintEl = autoConnectHint;
 
         const status = document.createElement('div');
         status.className = 'screen-status';
@@ -129,15 +149,23 @@ export class ServerSelectScreen {
         this._clearError();
         this._setStatus('', '');
         this._registerFocusables();
-        const allowAutoConnect = options?.allowAutoConnect !== false;
+        // Manual server-select entry should not reconnect implicitly unless explicitly requested.
+        const allowAutoConnect = options?.allowAutoConnect === true;
         this._loadServers({ autoSelect: allowAutoConnect, forceRefresh: false }).catch(console.error);
     }
 
     private async _loadServers(options: { autoSelect: boolean; forceRefresh: boolean }): Promise<void> {
         if (this._isLoading) return;
         this._isLoading = true;
-        this._listEl.innerHTML = '';
-        this._setStatus(options.autoSelect ? 'Connecting…' : 'Discovering servers…', '');
+        this._unregisterServerListFocusables();
+        this._listEl.replaceChildren();
+        const savedId = safeLocalStorageGet(this._orchestrator.getSelectedServerStorageKey());
+        const isAutoConnectAttempt = options.autoSelect && Boolean(savedId);
+        this._setAutoConnectHintVisible(isAutoConnectAttempt);
+        this._setStatus(
+            isAutoConnectAttempt ? 'Reconnecting to saved server…' : 'Discovering servers…',
+            isAutoConnectAttempt ? 'If that fails, choose any server below.' : ''
+        );
         this._statusEl.classList.add('panel-spinner');
 
         // Disable controls
@@ -150,7 +178,6 @@ export class ServerSelectScreen {
             const servers = await this._orchestrator.discoverServers(options.forceRefresh);
             let autoSelectError: unknown | null = null;
             let savedServerUnavailable = false;
-            const savedId = safeLocalStorageGet(this._orchestrator.getSelectedServerStorageKey());
 
             if (options.autoSelect) {
                 if (savedId && servers.some(s => s.id === savedId)) {
@@ -166,6 +193,9 @@ export class ServerSelectScreen {
                         savedServerUnavailable = true;
                         autoSelectError = error;
                     }
+                } else if (savedId) {
+                    savedServerUnavailable = true;
+                    autoSelectError = new Error('Saved server was not found during discovery.');
                 }
             }
 
@@ -179,10 +209,12 @@ export class ServerSelectScreen {
             } else {
                 this._setStatus('Select a server from the list.', '');
             }
+            this._setAutoConnectHintVisible(false);
         } catch (error) {
             this._handleError(error, 'Failed to discover servers.');
             this._setStatus('Discovery failed.', '');
             this._renderServers([], null);
+            this._setAutoConnectHintVisible(false);
         } finally {
             this._isLoading = false;
             this._statusEl.classList.remove('panel-spinner');
@@ -211,6 +243,7 @@ export class ServerSelectScreen {
 
     hide(): void {
         this._unregisterFocusables();
+        this._unregisterServerListFocusables();
         if (this._restoreFocusTimeoutId !== null) {
             clearTimeout(this._restoreFocusTimeoutId);
             this._restoreFocusTimeoutId = null;
@@ -232,9 +265,20 @@ export class ServerSelectScreen {
     private _handleClearSelection(): void {
         this._clearError();
         this._orchestrator.clearSelectedServer();
+        this._setAutoConnectHintVisible(false);
         this._setStatus('Selection cleared.', 'Pick a server to continue.');
         this._renderServers([], null);
         this._restoreFocus();
+    }
+
+    private _setAutoConnectHintVisible(visible: boolean): void {
+        if (visible) {
+            this._autoConnectHintEl.classList.add('visible');
+            this._autoConnectHintEl.removeAttribute('hidden');
+            return;
+        }
+        this._autoConnectHintEl.classList.remove('visible');
+        this._autoConnectHintEl.setAttribute('hidden', 'true');
     }
 
     private _renderServers(
@@ -265,13 +309,7 @@ export class ServerSelectScreen {
             }
         }
 
-        // Clean up existing focusables to prevent phantom navigation targets
-        const nav = this._orchestrator.getNavigation();
-        if (nav) {
-            const buttons = this._listEl.querySelectorAll('button');
-            buttons.forEach(btn => nav.unregisterFocusable(btn.id));
-        }
-
+        this._unregisterServerListFocusables();
         this._listEl.replaceChildren();
 
         if (servers.length === 0) {
@@ -386,12 +424,12 @@ export class ServerSelectScreen {
 
             if (savedId && server.id === savedId) {
                 row.classList.add('active');
-                if (normalizedStatus === 'ok' && !savedServerUnavailable) {
-                    selectButton.textContent = 'Connected';
-                    selectButton.disabled = true;
-                } else {
-                    selectButton.textContent = 'Reconnect';
-                }
+                // Keep reconnect available even for the currently saved server so users
+                // can re-test connectivity without first clearing selection.
+                selectButton.textContent =
+                    normalizedStatus === 'ok' && !savedServerUnavailable
+                        ? 'Connected'
+                        : 'Reconnect';
             }
 
             this._listEl.appendChild(row);
@@ -428,10 +466,24 @@ export class ServerSelectScreen {
                 });
             }
         }
+        this._registeredServerButtonIds = enabledServerButtons.map((button) => button.id);
 
         // Update neighbors for static buttons now that list is populated.
         this._updateStaticButtonNeighbors(enabledServerButtons[0]?.id ?? null);
 
+    }
+
+    private _unregisterServerListFocusables(): void {
+        if (this._registeredServerButtonIds.length === 0) {
+            return;
+        }
+        const nav = this._orchestrator.getNavigation();
+        if (nav) {
+            for (const id of this._registeredServerButtonIds) {
+                nav.unregisterFocusable(id);
+            }
+        }
+        this._registeredServerButtonIds = [];
     }
 
     private async _selectServer(server: PlexServer): Promise<void> {

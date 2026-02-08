@@ -509,6 +509,32 @@ describe('PlexAuth', () => {
             expect(users[1]).toMatchObject({ id: '2', title: 'Kid', restricted: true });
         });
 
+        it('should parse HomeUser XML tag variants with lowercase attributes', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const xml = `
+                <MediaContainer size="2">
+                  <HomeUser id="1" username="Admin" admin="1" hasPassword="1" />
+                  <homeUser id="2" title="Kid" admin="0" protected="0" restricted="1" />
+                </MediaContainer>
+            `;
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: () => 'application/xml' },
+                json: async () => ({}),
+                text: async () => xml,
+            });
+
+            const users = await auth.getHomeUsers();
+
+            expect(users).toHaveLength(2);
+            expect(users[0]).toMatchObject({ id: '1', title: 'Admin', protected: true });
+            expect(users[1]).toMatchObject({ id: '2', title: 'Kid', restricted: true });
+        });
+
         it('should parse home users from JSON returned as text with non-JSON content-type', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
@@ -536,6 +562,70 @@ describe('PlexAuth', () => {
             expect(users).toHaveLength(2);
             expect(users[0]).toMatchObject({ id: '1', title: 'Admin', admin: true, protected: false });
             expect(users[1]).toMatchObject({ id: '2', title: 'Kid', protected: true, restricted: true });
+        });
+
+        it('should parse home users from nested JSON HomeUser payloads', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: () => 'application/json' },
+                json: async () => ({
+                    MediaContainer: {
+                        homeUsers: {
+                            HomeUser: [
+                                { id: '1', username: 'Admin', admin: true, hasPassword: true },
+                                { id: '2', title: 'Kid', admin: false, protected: false, restricted: true },
+                            ],
+                        },
+                    },
+                }),
+                text: async () => '{}',
+            });
+
+            const users = await auth.getHomeUsers();
+
+            expect(users).toHaveLength(2);
+            expect(users[0]).toMatchObject({ id: '1', title: 'Admin', protected: true });
+            expect(users[1]).toMatchObject({ id: '2', title: 'Kid', protected: false, restricted: true });
+        });
+
+        it('should fall back to v1 endpoint when v2 returns empty profile payload', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ MediaContainer: {} }),
+                    text: async () => '{}',
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => 'application/xml' },
+                    json: async () => ({}),
+                    text: async () => `
+                        <MediaContainer size="2">
+                          <User id="1" title="Admin" admin="1" protected="1" />
+                          <User id="2" title="Kid" admin="0" protected="0" />
+                        </MediaContainer>
+                    `,
+                });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            const users = await auth.getHomeUsers();
+
+            expect(users).toHaveLength(2);
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(String(fetchMock.mock.calls[0][0])).toBe('https://plex.tv/api/v2/home/users');
+            expect(String(fetchMock.mock.calls[1][0])).toBe('https://plex.tv/api/home/users');
         });
 
         it('should build switch URL with pin query param', async () => {

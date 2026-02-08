@@ -97,7 +97,7 @@ describe('ChannelSetupScreen', () => {
         expect(screenAny._loadReview).not.toHaveBeenCalled();
     });
 
-    it('loads review once the setup record is applied', () => {
+    it('loads review once the setup record is applied', async () => {
         const { screen } = makeScreen();
         const screenAny = screen as unknown as {
             _recordApplied: boolean;
@@ -115,8 +115,62 @@ describe('ChannelSetupScreen', () => {
         screenAny._loadReview = jest.fn().mockResolvedValue(undefined);
 
         screenAny._renderBuildReview();
+        await Promise.resolve();
 
         expect(screenAny._loadReview).toHaveBeenCalled();
+    });
+
+    it('does not load review if visibility token changes before deferred kickoff', async () => {
+        const { screen } = makeScreen();
+        const screenAny = screen as unknown as {
+            _recordApplied: boolean;
+            _review: unknown;
+            _isReviewLoading: boolean;
+            _reviewError: string | null;
+            _visibilityToken: number;
+            _loadReview: jest.Mock;
+            _renderBuildReview: () => void;
+        };
+
+        screenAny._recordApplied = true;
+        screenAny._review = null;
+        screenAny._isReviewLoading = false;
+        screenAny._reviewError = null;
+        screenAny._visibilityToken = 10;
+        screenAny._loadReview = jest.fn().mockResolvedValue(undefined);
+
+        screenAny._renderBuildReview();
+        screenAny._visibilityToken = 11;
+        await Promise.resolve();
+
+        expect(screenAny._loadReview).not.toHaveBeenCalled();
+    });
+
+    it('shows only loading state while kicking off review fetch', () => {
+        const { container, screen } = makeScreen();
+        const screenAny = screen as unknown as {
+            _recordApplied: boolean;
+            _review: unknown;
+            _isReviewLoading: boolean;
+            _reviewError: string | null;
+            _loadReview: jest.Mock;
+            _renderBuildReview: () => void;
+        };
+
+        screenAny._recordApplied = true;
+        screenAny._review = null;
+        screenAny._isReviewLoading = false;
+        screenAny._reviewError = null;
+        screenAny._loadReview = jest.fn().mockResolvedValue(undefined);
+
+        screenAny._renderBuildReview();
+
+        expect(container.querySelectorAll('.setup-preview-loading')).toHaveLength(1);
+        expect(container.querySelectorAll('#setup-back')).toHaveLength(1);
+        const confirmButton = container.querySelector('#setup-confirm') as HTMLButtonElement | null;
+        expect(confirmButton).not.toBeNull();
+        expect(confirmButton?.disabled).toBe(true);
+        expect(container.querySelectorAll('#setup-confirm')).toHaveLength(1);
     });
 
     it('renders library meta with formatted content counts', () => {

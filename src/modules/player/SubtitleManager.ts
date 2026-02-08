@@ -848,6 +848,8 @@ export class SubtitleManager {
             //   192-168-50-19.<hash>.plex.direct
             // If HTTPS+plex.direct is flaky on some webOS stacks (chunked encoding),
             // try plain HTTP to the LAN IP as a best-effort fallback.
+            // TODO(subtitle-endpoints): Re-evaluate this fallback after final webOS subtitle endpoint testing.
+            // Remove it if telemetry shows it never succeeds in real-world sessions.
             const hostname = original.hostname ?? '';
             if (!hostname.endsWith('.plex.direct')) return null;
 
@@ -930,6 +932,7 @@ export class SubtitleManager {
     private _getSubtitleTranscodePaths(): string[] {
         // Plex docs/examples for universal start use /library/metadata/{ratingKey}. For universal subtitles,
         // behavior varies across server/profile combos, so try both metadata-path and (if present) part key.
+        // TODO(subtitle-endpoints): Identify the single reliable path shape for webOS and delete the losing branch.
         const ctx = this._subtitleContext;
         const itemKey = ctx?.itemKey ?? null;
         if (!itemKey) return [];

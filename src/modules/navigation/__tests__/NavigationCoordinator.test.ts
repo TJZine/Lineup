@@ -362,7 +362,7 @@ describe('NavigationCoordinator', () => {
         expect(event.originalEvent.preventDefault).toHaveBeenCalled();
     });
 
-    it('does not open exit-confirm when back stack is available', () => {
+    it('still opens exit-confirm on back from player even when back stack is available', () => {
         const { handlers, navigation } = setup();
         (navigation.getState as jest.Mock).mockReturnValue({
             currentScreen: 'player',
@@ -375,9 +375,9 @@ describe('NavigationCoordinator', () => {
 
         handlers.keyPress?.(event);
 
-        expect(navigation.openModal).not.toHaveBeenCalled();
-        expect(event.handled).not.toBe(true);
-        expect(event.originalEvent.preventDefault).not.toHaveBeenCalled();
+        expect(navigation.openModal).toHaveBeenCalledWith('exit-confirm');
+        expect(event.handled).toBe(true);
+        expect(event.originalEvent.preventDefault).toHaveBeenCalled();
     });
 
     it('opens playback options when OK pressed in now playing modal', () => {

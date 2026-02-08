@@ -44,6 +44,7 @@ const createNavigationStub = (): {
 describe('SettingsScreen (Guide settings)', () => {
     beforeEach(() => {
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE);
+        localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY);
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED);
     });
 
@@ -79,6 +80,19 @@ describe('SettingsScreen (Guide settings)', () => {
 
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('classic');
         expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'layoutMode', mode: 'classic' });
+    });
+
+    it('writes guide density and emits change', () => {
+        const onGuideSettingChange = jest.fn();
+        const { container, screen } = createScreen(onGuideSettingChange);
+
+        screen.show();
+
+        const densitySelect = container.querySelector('#settings-epg-density') as HTMLButtonElement;
+        densitySelect.click();
+
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBe('wide');
+        expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'guideDensity', density: 'wide' });
     });
 
     it('writes now watching toggle and emits change', () => {

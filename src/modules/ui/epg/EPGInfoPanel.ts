@@ -443,8 +443,8 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             ? (item.showThumb && item.showThumb.length ? item.showThumb : item.thumb)
             : item.thumb;
 
-        const width = mode === 'fast' ? 140 : 280;
-        const height = mode === 'fast' ? 210 : 420;
+        const width = mode === 'fast' ? 160 : 320;
+        const height = mode === 'fast' ? 240 : 480;
         const resolvedUrl = this.thumbResolver?.(preferredThumb, width, height) || null;
         if (resolvedUrl) {
             poster.src = resolvedUrl;

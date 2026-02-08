@@ -141,8 +141,8 @@ import { PlaybackOptionsCoordinator } from './modules/ui/playback-options';
 import type { IDisposable } from './utils/interfaces';
 import { createMulberry32 } from './utils/prng';
 import {
-    isStoredTrue,
     readStoredBoolean,
+    readStoredBooleanWithLegacy,
     safeLocalStorageGet,
     safeLocalStorageRemove,
     safeLocalStorageSet,
@@ -620,8 +620,13 @@ export class AppOrchestrator implements IAppOrchestrator {
                 referenceTimeMs: number
             ): ScheduleConfig => this._buildDailyScheduleConfig(channel, items, referenceTimeMs),
             switchToChannel: (channelId: string): Promise<void> => this.switchToChannel(channelId),
-            getAutoHideMs: (): number =>
-                this._config?.playerConfig.hideControlsAfterMs ?? 3000,
+            getAutoHideMs: (): number => {
+                const configured = this._config?.miniGuideConfig?.autoHideMs;
+                if (typeof configured === 'number' && Number.isFinite(configured) && configured > 0) {
+                    return Math.max(1000, Math.floor(configured));
+                }
+                return 8_000;
+            },
         });
 
         this._channelTransitionCoordinator = new ChannelTransitionCoordinator({
@@ -1153,6 +1158,10 @@ export class AppOrchestrator implements IAppOrchestrator {
             throw new Error('PlexAuth not initialized');
         }
 
+        this._prepareForProfileSwitch();
+        // Profile-switch startup is resumed explicitly below; avoid duplicate
+        // queued startup runs from a stale profile-resume listener.
+        this._initCoordinator?.clearProfileResume();
         await this._plexAuth.switchHomeUser(userId, { pin: pin ?? null });
         this._configureDiscoveryStorageKeysForActiveUser();
 
@@ -1168,6 +1177,10 @@ export class AppOrchestrator implements IAppOrchestrator {
             throw new Error('PlexAuth not initialized');
         }
 
+        this._prepareForProfileSwitch();
+        // Same as switchHomeUser: avoid duplicate startup runs when an old
+        // profile-resume listener is still registered.
+        this._initCoordinator?.clearProfileResume();
         await this._plexAuth.logoutActiveUser();
         this._configureDiscoveryStorageKeysForActiveUser();
 
@@ -1211,7 +1224,11 @@ export class AppOrchestrator implements IAppOrchestrator {
         if (!this._plexDiscovery) {
             throw new Error('PlexServerDiscovery not initialized');
         }
-        const debugLogging = isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DEBUG_LOGGING));
+        const debugLogging = readStoredBooleanWithLegacy(
+            RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
+            RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY,
+            false
+        );
         if (debugLogging) {
             console.warn('[Orchestrator] selectServer: selecting server', { serverId });
         }
@@ -1345,11 +1362,13 @@ export class AppOrchestrator implements IAppOrchestrator {
     /**
      * Open the server selection screen.
      */
-    openServerSelect(): void {
+    openServerSelect(options?: { allowAutoConnect?: boolean }): void {
         if (!this._navigation) {
             return;
         }
-        this._navigation.goTo('server-select');
+        this._navigation.goTo('server-select', {
+            allowAutoConnect: options?.allowAutoConnect === true,
+        });
     }
 
     /**
@@ -1399,7 +1418,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         }
 
         epgCoordinator.primeEpgChannels();
-        if (change.key === 'libraryTabs') {
+        if (change.key === 'libraryTabs' || change.key === 'guideDensity') {
             void epgCoordinator.refreshEpgSchedules({ reason: 'guide-settings' });
         }
     }
@@ -2182,6 +2201,20 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _stopPlayback(): void {
         this._stopActiveTranscodeSession();
         this._videoPlayer?.stop();
+    }
+
+    private _prepareForProfileSwitch(): void {
+        if (this._pendingDayRolloverTimer !== null) {
+            globalThis.clearTimeout(this._pendingDayRolloverTimer);
+            this._pendingDayRolloverTimer = null;
+        }
+        this._pendingDayRolloverDayKey = null;
+        this._stopPlayback();
+        this._scheduler?.unloadChannel();
+        this._pendingNowPlayingChannelId = null;
+        this._currentProgramForPlayback = null;
+        this._currentStreamDescriptor = null;
+        this._currentStreamDecision = null;
     }
 
     private _toggleNowPlayingInfoOverlay(): void {
