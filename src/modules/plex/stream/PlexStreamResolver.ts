@@ -32,7 +32,12 @@ import {
 } from './constants';
 import { generateUUID } from './utils';
 import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
-import { isStoredTrue, readStoredBoolean, safeLocalStorageGet } from '../../../utils/storage';
+import {
+    isStoredTrue,
+    readStoredBoolean,
+    readStoredBooleanWithLegacy,
+    safeLocalStorageGet,
+} from '../../../utils/storage';
 import { redactSensitiveTokens } from '../../../utils/redact';
 import { detectHdrLabel } from './hdr';
 import {
@@ -579,13 +584,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             });
             const applyHdr10Fallback = fallback.apply;
             const forceTranscodeForHdr10Fallback = applyHdr10Fallback && fallback.reason === 'force';
-            const debugEnabled = ((): boolean => {
-                try {
-                    return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DEBUG_LOGGING));
-                } catch {
-                    return false;
-                }
-            })();
+            const debugEnabled = this._isDebugLoggingEnabled();
 
             if (debugEnabled) {
                 const reasons: string[] = [];
@@ -1190,13 +1189,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         const url = new URL('/video/:/transcode/universal/start.m3u8', baseUri);
         url.search = params.toString();
         try {
-            const shouldLogTranscodeDebug = ((): boolean => {
-                try {
-                    return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DEBUG_LOGGING));
-                } catch {
-                    return false;
-                }
-            })();
+            const shouldLogTranscodeDebug = this._isDebugLoggingEnabled();
             if (!shouldLogTranscodeDebug) {
                 return url.toString();
             }
@@ -1738,7 +1731,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         // Debug logging
         if (fallback) {
             try {
-                if (isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DEBUG_LOGGING))) {
+                if (this._isDebugLoggingEnabled()) {
                     console.warn('[PlexStreamResolver] Audio fallback selected:', {
                         from: { codec: defaultTrack.codec, language: defaultTrack.language },
                         to: { codec: fallback.codec, language: fallback.language },
@@ -1769,7 +1762,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
     private _isDebugLoggingEnabled(): boolean {
         try {
-            return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DEBUG_LOGGING));
+            return readStoredBooleanWithLegacy(
+                RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
+                RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY,
+                false
+            );
         } catch {
             return false;
         }

@@ -120,6 +120,32 @@ describe('ChannelSetupScreen', () => {
         expect(screenAny._loadReview).toHaveBeenCalled();
     });
 
+    it('does not load review if visibility token changes before deferred kickoff', async () => {
+        const { screen } = makeScreen();
+        const screenAny = screen as unknown as {
+            _recordApplied: boolean;
+            _review: unknown;
+            _isReviewLoading: boolean;
+            _reviewError: string | null;
+            _visibilityToken: number;
+            _loadReview: jest.Mock;
+            _renderBuildReview: () => void;
+        };
+
+        screenAny._recordApplied = true;
+        screenAny._review = null;
+        screenAny._isReviewLoading = false;
+        screenAny._reviewError = null;
+        screenAny._visibilityToken = 10;
+        screenAny._loadReview = jest.fn().mockResolvedValue(undefined);
+
+        screenAny._renderBuildReview();
+        screenAny._visibilityToken = 11;
+        await Promise.resolve();
+
+        expect(screenAny._loadReview).not.toHaveBeenCalled();
+    });
+
     it('shows only loading state while kicking off review fetch', () => {
         const { container, screen } = makeScreen();
         const screenAny = screen as unknown as {

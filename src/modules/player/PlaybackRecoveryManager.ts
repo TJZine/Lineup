@@ -17,7 +17,11 @@ import type { IVideoPlayer, StreamDescriptor } from './index';
 import type { AudioTrack, SubtitleTrack } from './types';
 import { TEXT_SUBTITLE_FORMATS } from './constants';
 import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
-import { isStoredTrue, safeLocalStorageGet } from '../../utils/storage';
+import {
+    isStoredTrue,
+    readStoredBooleanWithLegacy,
+    safeLocalStorageGet,
+} from '../../utils/storage';
 import { getSubtitleMode, subtitleModeAllowsBurnIn, subtitleModeIsDirectOnly } from '../../shared/subtitle-mode';
 
 export interface PlaybackRecoveryDeps {
@@ -659,7 +663,11 @@ export class PlaybackRecoveryManager {
 
     private _isDebugLoggingEnabled(): boolean {
         try {
-            return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DEBUG_LOGGING));
+            return readStoredBooleanWithLegacy(
+                RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
+                RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY,
+                false
+            );
         } catch {
             return false;
         }

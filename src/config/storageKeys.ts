@@ -55,7 +55,9 @@ export const RETUNE_STORAGE_KEYS = {
     SHOW_PROFILE_PICKER_ON_STARTUP: 'retune_show_profile_picker_on_startup',
 
     // Developer / Debug
-    DEBUG_LOGGING: 'retune_debug_transcode',
+    DEBUG_LOGGING: 'retune_debug_logging',
+    /** Legacy debug key from older transcode-focused setting scope */
+    DEBUG_LOGGING_LEGACY: 'retune_debug_transcode',
     SUBTITLE_DEBUG_LOGGING: 'retune_subtitle_debug_logging',
     SHOW_FPS: 'retune_show_fps',
 

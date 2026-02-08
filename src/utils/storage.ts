@@ -52,6 +52,31 @@ export function readStoredBoolean(key: string, defaultValue: boolean): boolean {
 }
 
 /**
+ * Read a boolean from a primary key, falling back to a legacy key.
+ * If only the legacy value exists, migrate it to the primary key.
+ */
+export function readStoredBooleanWithLegacy(
+    primaryKey: string,
+    legacyKey: string,
+    defaultValue: boolean
+): boolean {
+    const primary = parseStoredBoolean(safeLocalStorageGet(primaryKey));
+    if (primary !== null) {
+        return primary;
+    }
+
+    const legacy = parseStoredBoolean(safeLocalStorageGet(legacyKey));
+    if (legacy === null) {
+        return defaultValue;
+    }
+
+    const serialized = legacy ? '1' : '0';
+    safeLocalStorageSet(primaryKey, serialized);
+    safeLocalStorageRemove(legacyKey);
+    return legacy;
+}
+
+/**
  * Clear only Retune-owned keys (prefix-based).
  * Does not call localStorage.clear() to avoid clobbering unrelated app data.
  */

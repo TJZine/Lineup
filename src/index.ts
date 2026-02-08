@@ -7,7 +7,7 @@
 import { App } from './App';
 import { RETUNE_EVENT_NAMES } from './config/events';
 import { RETUNE_STORAGE_KEYS } from './config/storageKeys';
-import { isStoredTrue, safeLocalStorageGet } from './utils/storage';
+import { readStoredBooleanWithLegacy } from './utils/storage';
 import './styles/tokens.css';
 import './styles/themes.css';
 import './styles/video.css';
@@ -40,13 +40,21 @@ const ORIGINAL_CONSOLE_METHODS: Record<ConsoleNoiseMethod, (...args: unknown[]) 
  * Keep console.error intact for real failure diagnostics.
  */
 function configureLoggingPolicy(): void {
-    const debugEnabled = isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DEBUG_LOGGING));
+    const debugEnabled = readStoredBooleanWithLegacy(
+        RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
+        RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY,
+        false
+    );
     const shouldSuppressNoise = !__RETUNE_DEV_BUILD__ && !debugEnabled;
     const noop = (..._args: unknown[]): void => undefined;
     for (const method of CONSOLE_NOISE_METHODS) {
         // eslint-disable-next-line no-console
         console[method] = shouldSuppressNoise ? noop : ORIGINAL_CONSOLE_METHODS[method];
     }
+}
+
+function logLifecycle(message: string): void {
+    ORIGINAL_CONSOLE_METHODS.warn(message);
 }
 
 configureLoggingPolicy();
@@ -173,7 +181,7 @@ function describeElement(el: Element | null): unknown {
  * Initialize the application when DOM is ready.
  */
 async function bootstrap(): Promise<void> {
-    console.warn('[Retune] Starting...');
+    logLifecycle('[Retune] Starting...');
 
     try {
         app = new App();
@@ -219,7 +227,7 @@ async function bootstrap(): Promise<void> {
         };
         (window as Window & { __RETUNE__?: typeof debugApi }).__RETUNE__ = debugApi;
         await app.start();
-        console.warn('[Retune] Started successfully');
+        logLifecycle('[Retune] Started successfully');
     } catch (error) {
         console.error('Failed to start Retune:', error);
     }
@@ -230,9 +238,9 @@ async function bootstrap(): Promise<void> {
  */
 async function cleanup(): Promise<void> {
     if (app) {
-        console.warn('[Retune] Shutting down...');
+        logLifecycle('[Retune] Shutting down...');
         await app.shutdown();
-        console.warn('[Retune] Shut down complete');
+        logLifecycle('[Retune] Shut down complete');
     }
 }
 

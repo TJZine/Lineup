@@ -141,8 +141,8 @@ import { PlaybackOptionsCoordinator } from './modules/ui/playback-options';
 import type { IDisposable } from './utils/interfaces';
 import { createMulberry32 } from './utils/prng';
 import {
-    isStoredTrue,
     readStoredBoolean,
+    readStoredBooleanWithLegacy,
     safeLocalStorageGet,
     safeLocalStorageRemove,
     safeLocalStorageSet,
@@ -1224,7 +1224,11 @@ export class AppOrchestrator implements IAppOrchestrator {
         if (!this._plexDiscovery) {
             throw new Error('PlexServerDiscovery not initialized');
         }
-        const debugLogging = isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DEBUG_LOGGING));
+        const debugLogging = readStoredBooleanWithLegacy(
+            RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
+            RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY,
+            false
+        );
         if (debugLogging) {
             console.warn('[Orchestrator] selectServer: selecting server', { serverId });
         }
@@ -2200,6 +2204,11 @@ export class AppOrchestrator implements IAppOrchestrator {
     }
 
     private _prepareForProfileSwitch(): void {
+        if (this._pendingDayRolloverTimer !== null) {
+            globalThis.clearTimeout(this._pendingDayRolloverTimer);
+            this._pendingDayRolloverTimer = null;
+        }
+        this._pendingDayRolloverDayKey = null;
         this._stopPlayback();
         this._scheduler?.unloadChannel();
         this._pendingNowPlayingChannelId = null;

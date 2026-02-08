@@ -26,6 +26,7 @@ export class ServerSelectScreen {
     private _clearButton: HTMLButtonElement;
     private _isLoading: boolean = false;
     private _restoreFocusTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    private _registeredServerButtonIds: string[] = [];
 
     constructor(container: HTMLElement, orchestrator: AppOrchestrator) {
         this._container = container;
@@ -156,7 +157,8 @@ export class ServerSelectScreen {
     private async _loadServers(options: { autoSelect: boolean; forceRefresh: boolean }): Promise<void> {
         if (this._isLoading) return;
         this._isLoading = true;
-        this._listEl.innerHTML = '';
+        this._unregisterServerListFocusables();
+        this._listEl.replaceChildren();
         const savedId = safeLocalStorageGet(this._orchestrator.getSelectedServerStorageKey());
         const isAutoConnectAttempt = options.autoSelect && Boolean(savedId);
         this._setAutoConnectHintVisible(isAutoConnectAttempt);
@@ -191,6 +193,9 @@ export class ServerSelectScreen {
                         savedServerUnavailable = true;
                         autoSelectError = error;
                     }
+                } else if (savedId) {
+                    savedServerUnavailable = true;
+                    autoSelectError = new Error('Saved server was not found during discovery.');
                 }
             }
 
@@ -238,6 +243,7 @@ export class ServerSelectScreen {
 
     hide(): void {
         this._unregisterFocusables();
+        this._unregisterServerListFocusables();
         if (this._restoreFocusTimeoutId !== null) {
             clearTimeout(this._restoreFocusTimeoutId);
             this._restoreFocusTimeoutId = null;
@@ -303,13 +309,7 @@ export class ServerSelectScreen {
             }
         }
 
-        // Clean up existing focusables to prevent phantom navigation targets
-        const nav = this._orchestrator.getNavigation();
-        if (nav) {
-            const buttons = this._listEl.querySelectorAll('button');
-            buttons.forEach(btn => nav.unregisterFocusable(btn.id));
-        }
-
+        this._unregisterServerListFocusables();
         this._listEl.replaceChildren();
 
         if (servers.length === 0) {
@@ -466,10 +466,24 @@ export class ServerSelectScreen {
                 });
             }
         }
+        this._registeredServerButtonIds = enabledServerButtons.map((button) => button.id);
 
         // Update neighbors for static buttons now that list is populated.
         this._updateStaticButtonNeighbors(enabledServerButtons[0]?.id ?? null);
 
+    }
+
+    private _unregisterServerListFocusables(): void {
+        if (this._registeredServerButtonIds.length === 0) {
+            return;
+        }
+        const nav = this._orchestrator.getNavigation();
+        if (nav) {
+            for (const id of this._registeredServerButtonIds) {
+                nav.unregisterFocusable(id);
+            }
+        }
+        this._registeredServerButtonIds = [];
     }
 
     private async _selectServer(server: PlexServer): Promise<void> {

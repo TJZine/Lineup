@@ -772,6 +772,34 @@ describe('AppOrchestrator', () => {
             expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
             expect(mockPlexStreamResolver.stopTranscodeSession).toHaveBeenCalledWith('main-profile-session');
         });
+
+        it('clears pending day rollover timer during profile switch preparation', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            const initCoordinator = {
+                clearProfileResume: jest.fn(),
+                runStartup: jest.fn().mockResolvedValue(undefined),
+            };
+            const clearTimeoutSpy = jest.spyOn(globalThis, 'clearTimeout');
+            const pendingRolloverTimer = globalThis.setTimeout(() => undefined, 60_000);
+
+            const mutable = orchestrator as unknown as {
+                _initCoordinator?: typeof initCoordinator;
+                _pendingDayRolloverTimer?: ReturnType<typeof setTimeout> | null;
+                _pendingDayRolloverDayKey?: number | null;
+            };
+            mutable._initCoordinator = initCoordinator;
+            mutable._pendingDayRolloverTimer = pendingRolloverTimer;
+            mutable._pendingDayRolloverDayKey = 123;
+
+            await orchestrator.switchHomeUser('user-2');
+
+            expect(clearTimeoutSpy).toHaveBeenCalledWith(pendingRolloverTimer);
+            expect(mutable._pendingDayRolloverTimer).toBeNull();
+            expect(mutable._pendingDayRolloverDayKey).toBeNull();
+
+            clearTimeoutSpy.mockRestore();
+        });
     });
 
     describe('start', () => {

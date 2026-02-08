@@ -30,7 +30,7 @@ import {
     CHANNEL_INPUT_CONFIG,
 } from './constants';
 import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
-import { isStoredTrue, safeLocalStorageGet } from '../../utils/storage';
+import { readStoredBooleanWithLegacy } from '../../utils/storage';
 
 /**
  * Channel number input state.
@@ -651,7 +651,11 @@ export class NavigationManager
 
     private _isDebugLoggingEnabled(): boolean {
         try {
-            return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DEBUG_LOGGING));
+            return readStoredBooleanWithLegacy(
+                RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
+                RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY,
+                false
+            );
         } catch {
             return false;
         }

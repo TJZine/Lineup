@@ -129,6 +129,7 @@ describe('NowPlayingInfoOverlay', () => {
     it('reflows actor row after show when ResizeObserver is unavailable', async () => {
         const globalWithResizeObserver = globalThis as unknown as { ResizeObserver?: typeof ResizeObserver };
         const originalResizeObserver = globalWithResizeObserver.ResizeObserver;
+        jest.useFakeTimers();
         delete globalWithResizeObserver.ResizeObserver;
         try {
             overlay.destroy();
@@ -153,11 +154,15 @@ describe('NowPlayingInfoOverlay', () => {
                 actorMoreCount: 2,
             });
 
-            await new Promise((resolve) => setTimeout(resolve, 0));
+            for (let i = 0; i < 6; i++) {
+                jest.advanceTimersByTime(20);
+                await Promise.resolve();
+            }
 
             const more = container.querySelector('.now-playing-info-actor-more') as HTMLElement | null;
             expect(more?.textContent).toBe('+2');
         } finally {
+            jest.useRealTimers();
             if (originalResizeObserver) {
                 globalWithResizeObserver.ResizeObserver = originalResizeObserver;
             } else {

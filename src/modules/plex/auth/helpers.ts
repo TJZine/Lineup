@@ -405,10 +405,12 @@ function collectHomeUserCandidates(payload: unknown): Record<string, unknown>[] 
                             out.push(item as Record<string, unknown>);
                         }
                     }
-                }
-                for (const item of value) {
-                    if (item && typeof item === 'object') {
-                        queue.push(item);
+                    continue;
+                } else {
+                    for (const item of value) {
+                        if (item && typeof item === 'object') {
+                            queue.push(item);
+                        }
                     }
                 }
                 continue;

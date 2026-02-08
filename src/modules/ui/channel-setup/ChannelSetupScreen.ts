@@ -1027,9 +1027,16 @@ export class ChannelSetupScreen {
             showLoadingState = true;
         } else if (!this._review && !this._isReviewLoading && !this._reviewError) {
             // Defer kickoff to avoid re-entrant _renderStep() while this render is still building DOM.
+            const token = this._visibilityToken;
             void Promise.resolve()
                 .then(() => {
-                    if (this._isBuilding || this._review || this._isReviewLoading || this._reviewError) {
+                    if (
+                        token !== this._visibilityToken ||
+                        this._isBuilding ||
+                        this._review ||
+                        this._isReviewLoading ||
+                        this._reviewError
+                    ) {
                         return;
                     }
                     return this._loadReview();
