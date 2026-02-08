@@ -1026,7 +1026,15 @@ export class ChannelSetupScreen {
         if (!this._recordApplied) {
             showLoadingState = true;
         } else if (!this._review && !this._isReviewLoading && !this._reviewError) {
-            this._loadReview().catch(console.error);
+            // Defer kickoff to avoid re-entrant _renderStep() while this render is still building DOM.
+            void Promise.resolve()
+                .then(() => {
+                    if (this._isBuilding || this._review || this._isReviewLoading || this._reviewError) {
+                        return;
+                    }
+                    return this._loadReview();
+                })
+                .catch(console.error);
             showLoadingState = true;
         } else if (this._isReviewLoading) {
             showLoadingState = true;

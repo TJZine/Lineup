@@ -142,6 +142,57 @@ describe('ServerSelectScreen', () => {
         expect(findLastNeighbors('btn-server-refresh')?.down).toBe('btn-server-select-0');
     });
 
+    it('does not auto-connect saved server by default', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([
+            { id: 'srv-1', name: 'Server One', owned: true },
+        ]);
+        orchestrator.selectServer.mockResolvedValue(true);
+
+        localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
+
+        const screen = new ServerSelectScreen(container, orchestrator as never);
+        screen.show();
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(orchestrator.selectServer).not.toHaveBeenCalled();
+        const status = container.querySelector('.screen-status') as HTMLElement;
+        expect(status.textContent).toContain('Select a server from the list.');
+    });
+
+    it('shows auto-connect hint only when explicitly requested', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        let resolveDiscovery: (servers: Array<{ id: string; name: string; owned: boolean }>) => void = () => {};
+        orchestrator.discoverServers.mockImplementation(
+            () => new Promise<Array<{ id: string; name: string; owned: boolean }>>((resolve) => {
+                resolveDiscovery = resolve;
+            })
+        );
+        orchestrator.selectServer.mockResolvedValue(false);
+        localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
+
+        const screen = new ServerSelectScreen(container, orchestrator as never);
+        screen.show({ allowAutoConnect: true });
+
+        const hint = container.querySelector('.server-autoconnect-hint') as HTMLElement | null;
+        const status = container.querySelector('.screen-status') as HTMLElement | null;
+        expect(hint).not.toBeNull();
+        expect(hint?.classList.contains('visible')).toBe(true);
+        expect(status?.textContent).toContain('Reconnecting to saved server');
+
+        resolveDiscovery([{ id: 'srv-1', name: 'Server One', owned: true }]);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(hint?.classList.contains('visible')).toBe(false);
+    });
+
     it('keeps reconnect enabled when saved server auto-select fails', async () => {
         const orchestrator = createOrchestratorStub();
         const container = document.createElement('div');
@@ -161,7 +212,7 @@ describe('ServerSelectScreen', () => {
         );
 
         const screen = new ServerSelectScreen(container, orchestrator as never);
-        screen.show();
+        screen.show({ allowAutoConnect: true });
 
         await new Promise((resolve) => setTimeout(resolve, 0));
 

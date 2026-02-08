@@ -97,7 +97,7 @@ describe('ChannelSetupScreen', () => {
         expect(screenAny._loadReview).not.toHaveBeenCalled();
     });
 
-    it('loads review once the setup record is applied', () => {
+    it('loads review once the setup record is applied', async () => {
         const { screen } = makeScreen();
         const screenAny = screen as unknown as {
             _recordApplied: boolean;
@@ -115,6 +115,7 @@ describe('ChannelSetupScreen', () => {
         screenAny._loadReview = jest.fn().mockResolvedValue(undefined);
 
         screenAny._renderBuildReview();
+        await Promise.resolve();
 
         expect(screenAny._loadReview).toHaveBeenCalled();
     });
@@ -138,11 +139,12 @@ describe('ChannelSetupScreen', () => {
 
         screenAny._renderBuildReview();
 
-        expect(container.querySelector('.setup-preview-loading')).not.toBeNull();
-        expect(container.querySelector('#setup-back')).not.toBeNull();
+        expect(container.querySelectorAll('.setup-preview-loading')).toHaveLength(1);
+        expect(container.querySelectorAll('#setup-back')).toHaveLength(1);
         const confirmButton = container.querySelector('#setup-confirm') as HTMLButtonElement | null;
         expect(confirmButton).not.toBeNull();
         expect(confirmButton?.disabled).toBe(true);
+        expect(container.querySelectorAll('#setup-confirm')).toHaveLength(1);
     });
 
     it('renders library meta with formatted content counts', () => {

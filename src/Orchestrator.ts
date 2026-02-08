@@ -1358,11 +1358,13 @@ export class AppOrchestrator implements IAppOrchestrator {
     /**
      * Open the server selection screen.
      */
-    openServerSelect(): void {
+    openServerSelect(options?: { allowAutoConnect?: boolean }): void {
         if (!this._navigation) {
             return;
         }
-        this._navigation.goTo('server-select');
+        this._navigation.goTo('server-select', {
+            allowAutoConnect: options?.allowAutoConnect === true,
+        });
     }
 
     /**
