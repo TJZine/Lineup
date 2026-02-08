@@ -7,6 +7,7 @@
 import { VideoPlayer, mapMediaErrorCodeToPlaybackError } from '../VideoPlayer';
 import { PlayerErrorCode } from '../types';
 import type { VideoPlayerConfig, StreamDescriptor } from '../types';
+import type { PlatformPlaybackService, PlatformSubtitleService } from '../../../platform';
 
 // ============================================
 // Test Helpers
@@ -308,6 +309,47 @@ describe('VideoPlayer', () => {
             const subtitles = player.getAvailableSubtitles();
             expect(subtitles).toHaveLength(1);
             expect(subtitles[0]?.id).toBe('en');
+        });
+
+        it('should use injected playback service for source assignment', async () => {
+            const playbackService: PlatformPlaybackService = {
+                applyStreamSource: jest.fn((videoElement, stream) => {
+                    videoElement.src = stream.url;
+                }),
+            };
+            const injectedPlayer = new VideoPlayer({ playbackService });
+            await injectedPlayer.initialize(createMockConfig());
+            const descriptor = createMockDescriptor({
+                protocol: 'direct',
+                url: 'http://custom-source.mp4',
+            });
+
+            await injectedPlayer.loadStream(descriptor);
+
+            expect(playbackService.applyStreamSource).toHaveBeenCalledWith(
+                expect.any(HTMLVideoElement),
+                { protocol: 'direct', url: 'http://custom-source.mp4' }
+            );
+            injectedPlayer.destroy();
+        });
+
+        it('should forward injected subtitle service to SubtitleManager seam', async () => {
+            const subtitleService: PlatformSubtitleService = {
+                deriveLanHttpSubtitleUrl: jest.fn(() => new URL('http://10.0.0.20:32400/subtitles')),
+            };
+            const injectedPlayer = new VideoPlayer({ subtitleService });
+            await injectedPlayer.initialize(createMockConfig());
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const subtitleManager = (injectedPlayer as any)._subtitleManager as {
+                _deriveLanHttpUrl: (url: URL) => URL | null;
+            };
+
+            const derived = subtitleManager._deriveLanHttpUrl(new URL('https://ignored.example/subtitles'));
+
+            expect(subtitleService.deriveLanHttpSubtitleUrl).toHaveBeenCalledTimes(1);
+            expect(derived?.toString()).toBe('http://10.0.0.20:32400/subtitles');
+            injectedPlayer.destroy();
         });
     });
 

@@ -14,6 +14,8 @@ import {
     looksLikeHtml,
     normalizeSubtitleToVtt,
 } from './subtitleConversion';
+import type { PlatformSubtitleService } from '../../platform';
+import { webosPlatformServices } from '../../platform';
 
 interface SubtitleTrackContext {
     serverUri: string | null;
@@ -64,6 +66,11 @@ export class SubtitleManager {
 
     /** Abort controllers for subtitle fetches */
     private _fallbackControllers: Map<string, AbortController> = new Map();
+    private readonly _subtitleService: PlatformSubtitleService;
+
+    constructor(subtitleService?: PlatformSubtitleService) {
+        this._subtitleService = subtitleService ?? webosPlatformServices.subtitle;
+    }
 
     private _isSubtitleDebugEnabled(): boolean {
         try {
@@ -843,34 +850,7 @@ export class SubtitleManager {
     }
 
     private _deriveLanHttpUrl(original: URL): URL | null {
-        try {
-            // Plex "plex.direct" hostnames often embed the LAN IP as the first label:
-            //   192-168-50-19.<hash>.plex.direct
-            // If HTTPS+plex.direct is flaky on some webOS stacks (chunked encoding),
-            // try plain HTTP to the LAN IP as a best-effort fallback.
-            // TODO(subtitle-endpoints): Re-evaluate this fallback after final webOS subtitle endpoint testing.
-            // Remove it if telemetry shows it never succeeds in real-world sessions.
-            const hostname = original.hostname ?? '';
-            if (!hostname.endsWith('.plex.direct')) return null;
-
-            const firstLabel = hostname.split('.')[0] ?? '';
-            if (!firstLabel.includes('-')) return null;
-            const ip = firstLabel.split('-').join('.');
-            const octets = ip.split('.');
-            if (octets.length !== 4) return null;
-            for (const o of octets) {
-                const n = Number(o);
-                if (!Number.isInteger(n) || n < 0 || n > 255) return null;
-            }
-
-            const url = new URL(original.toString());
-            url.protocol = 'http:';
-            url.hostname = ip;
-            // Keep the same port.
-            return url;
-        } catch {
-            return null;
-        }
+        return this._subtitleService.deriveLanHttpSubtitleUrl(original);
     }
 
     private _buildSubtitleTranscodeUrl(

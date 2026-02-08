@@ -8,7 +8,9 @@
 
 import { EventEmitter } from '../../utils/EventEmitter';
 import { RemoteButton, KeyEvent } from './interfaces';
-import { KEY_MAP, LONG_PRESS_THRESHOLD_MS } from './constants';
+import { LONG_PRESS_THRESHOLD_MS, mapKeyCode as mapPlatformKeyCode } from './constants';
+import type { PlatformInputService } from '../../platform';
+import { webosPlatformServices } from '../../platform';
 
 /**
  * Event map for RemoteHandler internal events.
@@ -39,13 +41,15 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
     private _isLongPressFired: Map<number, boolean> = new Map();
     private _isEnabled: boolean = false;
     private _debugMode: boolean = false;
+    private readonly _inputService: PlatformInputService;
 
     // Bound handlers for cleanup
     private _boundKeyDownHandler: (event: KeyboardEvent) => void;
     private _boundKeyUpHandler: (event: KeyboardEvent) => void;
 
-    constructor() {
+    constructor(inputService?: PlatformInputService) {
         super();
+        this._inputService = inputService ?? webosPlatformServices.input;
         this._boundKeyDownHandler = this._handleKeyDown.bind(this);
         this._boundKeyUpHandler = this._handleKeyUp.bind(this);
     }
@@ -101,8 +105,7 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
      * @returns The mapped button or null if not mapped
      */
     public mapKeyCode(keyCode: number): RemoteButton | null {
-        const button = KEY_MAP.get(keyCode);
-        return button !== undefined ? button : null;
+        return mapPlatformKeyCode(keyCode, this._inputService);
     }
 
     /**

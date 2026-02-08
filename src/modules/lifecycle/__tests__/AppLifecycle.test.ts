@@ -8,6 +8,7 @@ import { AppLifecycle } from '../AppLifecycle';
 import { StateManager } from '../StateManager';
 import { ErrorRecovery } from '../ErrorRecovery';
 import { AppErrorCode, PersistentState } from '../types';
+import type { PlatformLifecycleService } from '../../../platform';
 
 describe('AppLifecycle', () => {
     let lifecycle: AppLifecycle;
@@ -184,6 +185,36 @@ describe('AppLifecycle', () => {
             await lifecycle.shutdown();
 
             expect(handler).toHaveBeenCalled();
+        });
+
+        it('keeps relaunch add/remove symmetry and removes the exact same handler', async () => {
+            const lifecycleService: PlatformLifecycleService = {
+                bindRelaunch: jest.fn((handler: (event: Event) => void) => {
+                    document.addEventListener('webOSRelaunch', handler);
+                    return () => {
+                        document.removeEventListener('webOSRelaunch', handler);
+                    };
+                }),
+            };
+            const lifecycleWithService = new AppLifecycle(
+                mockStateManager,
+                mockErrorRecovery,
+                lifecycleService
+            );
+
+            await lifecycleWithService.initialize();
+            await lifecycleWithService.shutdown();
+
+            const added = addEventListenerSpy.mock.calls.find(
+                (call) => call[0] === 'webOSRelaunch'
+            )?.[1];
+            const removed = removeEventListenerSpy.mock.calls.find(
+                (call) => call[0] === 'webOSRelaunch'
+            )?.[1];
+
+            expect(lifecycleService.bindRelaunch).toHaveBeenCalledTimes(1);
+            expect(added).toBeDefined();
+            expect(removed).toBe(added);
         });
     });
 

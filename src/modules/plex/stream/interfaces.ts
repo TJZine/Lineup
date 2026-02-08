@@ -12,6 +12,7 @@ import type {
     StreamDecision,
     HlsOptions,
 } from './types';
+import type { PlatformIdentityService } from '../../../platform';
 
 // ============================================
 // Error Types
@@ -70,6 +71,8 @@ export interface PlexStreamResolverConfig {
     getItem: (ratingKey: string) => Promise<PlexMediaItem | null>;
     /** Client identifier for session tracking */
     clientIdentifier: string;
+    /** Optional platform identity abstraction */
+    identityService?: PlatformIdentityService;
 }
 
 // ============================================

@@ -26,6 +26,8 @@ export type {
 // Constants
 export {
     KEY_MAP,
+    mapKeyCode,
+    resolveKeyMap,
     LONG_PRESS_THRESHOLD_MS,
     LONG_PRESS_DEBOUNCE_MS,
     CURSOR_HIDE_DELAY_MS,

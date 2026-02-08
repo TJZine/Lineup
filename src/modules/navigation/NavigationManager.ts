@@ -31,6 +31,7 @@ import {
 } from './constants';
 import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
 import { readStoredBooleanWithLegacy } from '../../utils/storage';
+import type { PlatformInputService } from '../../platform';
 
 /**
  * Channel number input state.
@@ -94,10 +95,10 @@ export class NavigationManager
         timer: null,
     };
 
-    constructor() {
+    constructor(inputService?: PlatformInputService) {
         super();
         this._focusManager = new FocusManager();
-        this._remoteHandler = new RemoteHandler();
+        this._remoteHandler = new RemoteHandler(inputService);
         this._boundFocusInHandler = this._handleFocusIn.bind(this);
         this._state = {
             config: DEFAULT_NAVIGATION_CONFIG,

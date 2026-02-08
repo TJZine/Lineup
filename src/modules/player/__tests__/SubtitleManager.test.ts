@@ -6,6 +6,7 @@
 
 import { SubtitleManager } from '../SubtitleManager';
 import type { SubtitleTrack } from '../types';
+import type { PlatformSubtitleService } from '../../../platform';
 
 // ============================================
 // Test Helpers
@@ -421,6 +422,23 @@ Hello`;
             expect(derived?.toString()).toBe(
                 'http://192.168.50.19:32400/video/:/transcode/universal/subtitles?x=1'
             );
+        });
+
+        it('should use injected subtitle service fallback policy', () => {
+            const subtitleService: PlatformSubtitleService = {
+                deriveLanHttpSubtitleUrl: jest.fn(() => new URL('http://10.0.0.1:32400/subtitles')),
+            };
+            const injectedManager = new SubtitleManager(subtitleService);
+            injectedManager.initialize(createMockVideoElement());
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const derived = (injectedManager as any)._deriveLanHttpUrl(
+                new URL('https://ignored.example/video')
+            ) as URL | null;
+
+            expect(subtitleService.deriveLanHttpSubtitleUrl).toHaveBeenCalledTimes(1);
+            expect(derived?.toString()).toBe('http://10.0.0.1:32400/subtitles');
+            injectedManager.destroy();
         });
 
         it('should skip fallback work for non-selected tracks', async () => {

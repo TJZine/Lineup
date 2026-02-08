@@ -7,6 +7,7 @@ import { PlexStreamResolver } from '../PlexStreamResolver';
 import type { PlexStreamResolverConfig } from '../interfaces';
 import type { PlexMediaItem, PlexMediaFile, PlexStream } from '../types';
 import { RETUNE_STORAGE_KEYS } from '../../../../config/storageKeys';
+import type { PlatformIdentityService } from '../../../../platform';
 
 // ============================================
 // Test Helpers
@@ -773,6 +774,47 @@ describe('PlexStreamResolver', () => {
             expect(url).toContain('X-Plex-Client-Identifier=test-client-id');
             expect(url).toContain('X-Plex-Platform=webOS');
             expect(url).toContain('start.m3u8');
+        });
+
+        it('preserves identity precedence: override > existing params > platform defaults', () => {
+            const identityService: PlatformIdentityService = {
+                isWebOs: jest.fn(() => true),
+                detectPlatformVersion: jest.fn(() => '99.1'),
+                getDefaultPlexIdentity: jest.fn((clientIdentifier: string) => ({
+                    'X-Plex-Client-Identifier': clientIdentifier,
+                    'X-Plex-Platform': 'ServicePlatform',
+                    'X-Plex-Product': 'ServiceProduct',
+                    'X-Plex-Version': '9.9.9',
+                    'X-Plex-Device': 'ServiceDevice',
+                    'X-Plex-Device-Name': 'Service Device Name',
+                    'X-Plex-Platform-Version': '99.1',
+                    'X-Plex-Model': 'ServiceModel',
+                })),
+            };
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: (key: string) =>
+                        key === 'retune_transcode_platform' ? 'OverridePlatform' : null,
+                },
+                configurable: true,
+            });
+            const config = createMockConfig({
+                getAuthHeaders: () => ({
+                    'X-Plex-Token': 'mock-token',
+                    'X-Plex-Platform': 'HeaderPlatform',
+                    'X-Plex-Model': 'HeaderModel',
+                }),
+                identityService,
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            const parsed = new URL(resolver.getTranscodeUrl('12345', {}));
+
+            expect(parsed.searchParams.get('X-Plex-Platform')).toBe('OverridePlatform');
+            expect(parsed.searchParams.get('X-Plex-Model')).toBe('HeaderModel');
+            expect(parsed.searchParams.get('X-Plex-Product')).toBe('ServiceProduct');
+            expect(parsed.searchParams.get('X-Plex-Platform-Version')).toBe('99.1');
+            expect(identityService.getDefaultPlexIdentity).toHaveBeenCalledWith('test-client-id');
         });
 
         it('should respect bitrate limits', () => {

@@ -8,7 +8,9 @@
  */
 
 import { RemoteHandler } from '../RemoteHandler';
-import { LONG_PRESS_THRESHOLD_MS } from '../constants';
+import { KEY_MAP, LONG_PRESS_THRESHOLD_MS, mapKeyCode as mapPlatformKeyCode } from '../constants';
+import type { PlatformInputService } from '../../../platform';
+import { webosPlatformServices } from '../../../platform';
 
 // Helper to dispatch key events
 function dispatchKeyEvent(
@@ -41,6 +43,27 @@ describe('RemoteHandler', () => {
     });
 
     describe('key mapping', () => {
+        it('should derive KEY_MAP from platform input service', () => {
+            expect(KEY_MAP).toBe(webosPlatformServices.input.getKeyMap());
+        });
+
+        it('should expose KEY_MAP as an immutable read-only view', () => {
+            const keyMapLike = KEY_MAP as unknown as {
+                set?: unknown;
+                delete?: unknown;
+                clear?: unknown;
+            };
+            expect(keyMapLike.set).toBeUndefined();
+            expect(keyMapLike.delete).toBeUndefined();
+            expect(keyMapLike.clear).toBeUndefined();
+            expect(KEY_MAP.get(13)).toBe('ok');
+        });
+
+        it('should use the shared key mapping source for default mapping behavior', () => {
+            expect(remoteHandler.mapKeyCode(13)).toBe(mapPlatformKeyCode(13));
+            expect(remoteHandler.mapKeyCode(461)).toBe(mapPlatformKeyCode(461));
+        });
+
         it('should map webOS key codes correctly', () => {
             expect(remoteHandler.mapKeyCode(13)).toBe('ok');
             expect(remoteHandler.mapKeyCode(461)).toBe('back');
@@ -95,6 +118,23 @@ describe('RemoteHandler', () => {
         it('should return null for unmapped keys', () => {
             expect(remoteHandler.mapKeyCode(999)).toBeNull();
             expect(remoteHandler.mapKeyCode(0)).toBeNull();
+        });
+
+        it('should use injected input service mappings when provided', () => {
+            const customInputService: PlatformInputService = {
+                getKeyMap: () =>
+                    new Map([
+                        [999, 'ok'],
+                    ]),
+            };
+            const customRemoteHandler = new RemoteHandler(customInputService);
+            customRemoteHandler.initialize(false);
+            try {
+                expect(customRemoteHandler.mapKeyCode(999)).toBe('ok');
+                expect(customRemoteHandler.mapKeyCode(13)).toBeNull();
+            } finally {
+                customRemoteHandler.destroy();
+            }
         });
     });
 

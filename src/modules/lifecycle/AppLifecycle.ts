@@ -24,6 +24,8 @@ import {
     TIMING_CONFIG,
     VALID_PHASE_TRANSITIONS,
 } from './constants';
+import type { PlatformLifecycleService } from '../../platform';
+import { webosPlatformServices } from '../../platform';
 
 /**
  * Application Lifecycle Manager.
@@ -50,9 +52,10 @@ export class AppLifecycle implements IAppLifecycle {
 
     // Event listener references (for cleanup)
     private _visibilityHandler: (() => void) | null = null;
-    private _webOSRelaunchHandler: ((event: Event) => void) | null = null;
+    private _webOSRelaunchDisposer: (() => void) | null = null;
     private _onlineHandler: (() => void) | null = null;
     private _offlineHandler: (() => void) | null = null;
+    private readonly _lifecycleService: PlatformLifecycleService;
 
     // Memory monitoring
     private _memoryCheckInterval: number | null = null;
@@ -77,11 +80,17 @@ export class AppLifecycle implements IAppLifecycle {
      * Create a new AppLifecycle manager.
      * @param stateManager - Optional custom StateManager (for testing)
      * @param errorRecovery - Optional custom ErrorRecovery (for testing)
+     * @param lifecycleService - Optional platform lifecycle service (for testing/wiring)
      */
-    constructor(stateManager?: StateManager, errorRecovery?: ErrorRecovery) {
+    constructor(
+        stateManager?: StateManager,
+        errorRecovery?: ErrorRecovery,
+        lifecycleService?: PlatformLifecycleService
+    ) {
         this._emitter = new EventEmitter<LifecycleEventMap>();
         this._stateManager = stateManager !== undefined ? stateManager : new StateManager();
         this._errorRecovery = errorRecovery !== undefined ? errorRecovery : new ErrorRecovery();
+        this._lifecycleService = lifecycleService ?? webosPlatformServices.lifecycle;
     }
 
     // ========== Lifecycle Methods ==========
@@ -452,10 +461,10 @@ export class AppLifecycle implements IAppLifecycle {
         document.addEventListener('visibilitychange', this._visibilityHandler);
 
         // webOS relaunch event
-        this._webOSRelaunchHandler = (_event: Event): void => {
+        const relaunchHandler = (_event: Event): void => {
             this._handleResume();
         };
-        document.addEventListener('webOSRelaunch', this._webOSRelaunchHandler);
+        this._webOSRelaunchDisposer = this._lifecycleService.bindRelaunch(relaunchHandler);
     }
 
     /**
@@ -466,9 +475,9 @@ export class AppLifecycle implements IAppLifecycle {
             document.removeEventListener('visibilitychange', this._visibilityHandler);
             this._visibilityHandler = null;
         }
-        if (this._webOSRelaunchHandler) {
-            document.removeEventListener('webOSRelaunch', this._webOSRelaunchHandler);
-            this._webOSRelaunchHandler = null;
+        if (this._webOSRelaunchDisposer) {
+            this._webOSRelaunchDisposer();
+            this._webOSRelaunchDisposer = null;
         }
     }
 

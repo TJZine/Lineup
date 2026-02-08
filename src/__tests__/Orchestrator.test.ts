@@ -16,6 +16,8 @@ import type { IPlexLibrary } from '../modules/plex/library';
 import type { ChannelConfig, IChannelManager } from '../modules/scheduler/channel-manager';
 import type { ScheduledProgram } from '../modules/scheduler/scheduler';
 import type { INowPlayingInfoOverlay, NowPlayingInfoConfig } from '../modules/ui/now-playing-info';
+import type { PlatformServices } from '../platform';
+import { webosPlatformServices } from '../platform';
 
 // Mock localStorage
 const mockLocalStorage = {
@@ -573,6 +575,76 @@ describe('AppOrchestrator', () => {
             expect(require('../modules/scheduler/scheduler').ChannelScheduler).toHaveBeenCalled();
             expect(require('../modules/player').VideoPlayer).toHaveBeenCalled();
             expect(require('../modules/ui/epg').EPGComponent).toHaveBeenCalled();
+        });
+
+        it('wires injected platform services into lifecycle/navigation/stream/player seams', async () => {
+            const platformServices: PlatformServices = {
+                identity: {
+                    isWebOs: jest.fn(() => true),
+                    detectPlatformVersion: jest.fn(() => '24.0'),
+                    getDefaultPlexIdentity: jest.fn((clientIdentifier: string) => ({
+                        'X-Plex-Client-Identifier': clientIdentifier,
+                        'X-Plex-Platform': 'webOS',
+                        'X-Plex-Product': 'Retune',
+                        'X-Plex-Version': '1.0.0',
+                        'X-Plex-Device': 'LG Smart TV',
+                        'X-Plex-Device-Name': 'Retune',
+                        'X-Plex-Platform-Version': '24.0',
+                        'X-Plex-Model': 'LGTV',
+                    })),
+                },
+                input: {
+                    getKeyMap: jest.fn(() => new Map([[13, 'ok']])),
+                },
+                lifecycle: {
+                    bindRelaunch: jest.fn(() => jest.fn()),
+                },
+                playback: {
+                    applyStreamSource: jest.fn(),
+                },
+                subtitle: {
+                    deriveLanHttpSubtitleUrl: jest.fn(() => null),
+                },
+            };
+            const orchestratorWithPlatform = new AppOrchestrator(platformServices);
+
+            await orchestratorWithPlatform.initialize(mockConfig);
+
+            expect(require('../modules/lifecycle').AppLifecycle).toHaveBeenCalledWith(
+                undefined,
+                undefined,
+                platformServices.lifecycle
+            );
+            expect(require('../modules/navigation').NavigationManager).toHaveBeenCalledWith(
+                platformServices.input
+            );
+            const streamResolverConfig =
+                (require('../modules/plex/stream').PlexStreamResolver as jest.Mock).mock.calls[0]?.[0];
+            expect(streamResolverConfig?.identityService).toBe(platformServices.identity);
+            expect(require('../modules/player').VideoPlayer).toHaveBeenCalledWith({
+                playbackService: platformServices.playback,
+                subtitleService: platformServices.subtitle,
+            });
+        });
+
+        it('wires default webos platform services into lifecycle/navigation/stream/player seams', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            expect(require('../modules/lifecycle').AppLifecycle).toHaveBeenCalledWith(
+                undefined,
+                undefined,
+                webosPlatformServices.lifecycle
+            );
+            expect(require('../modules/navigation').NavigationManager).toHaveBeenCalledWith(
+                webosPlatformServices.input
+            );
+            const streamResolverConfig =
+                (require('../modules/plex/stream').PlexStreamResolver as jest.Mock).mock.calls[0]?.[0];
+            expect(streamResolverConfig?.identityService).toBe(webosPlatformServices.identity);
+            expect(require('../modules/player').VideoPlayer).toHaveBeenCalledWith({
+                playbackService: webosPlatformServices.playback,
+                subtitleService: webosPlatformServices.subtitle,
+            });
         });
 
         it('should preserve caller-supplied nowPlayingInfoConfig.onAutoHide', async () => {

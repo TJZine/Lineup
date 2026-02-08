@@ -46,6 +46,8 @@ import {
     parseDolbyVisionProfileString,
     shouldApplyHdr10Fallback,
 } from './dvHdr10Fallback';
+import type { PlatformIdentityService } from '../../../platform';
+import { webosPlatformServices } from '../../../platform';
 
 // Re-export types for consumers
 export { PlexStreamErrorCode } from './types';
@@ -58,6 +60,7 @@ export { PlexStreamErrorCode } from './types';
 export class PlexStreamResolver implements IPlexStreamResolver {
     private readonly _config: PlexStreamResolverConfig;
     private readonly _emitter: EventEmitter<StreamResolverEventMap>;
+    private readonly _identityService: PlatformIdentityService;
 
     /**
      * Create a new PlexStreamResolver instance.
@@ -66,6 +69,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     constructor(config: PlexStreamResolverConfig) {
         this._config = config;
         this._emitter = new EventEmitter<StreamResolverEventMap>();
+        this._identityService = config.identityService ?? webosPlatformServices.identity;
     }
 
     private _getChromeMajor(): number | null {
@@ -82,12 +86,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     }
 
     private _isWebOs(): boolean {
-        try {
-            if (typeof navigator === 'undefined') return false;
-            return /Web0S|webOS/i.test(navigator.userAgent || '');
-        } catch {
-            return false;
-        }
+        return this._identityService.isWebOs();
     }
 
     /**
@@ -95,47 +94,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
      * Used for X-Plex-Platform-Version when constructing transcode URLs.
      */
     private _detectPlatformVersion(): string {
-        try {
-            // Try webOSTV API first (most accurate)
-            if (typeof window !== 'undefined') {
-                const webOSTV = (window as { webOSTV?: { platform?: { version?: string } } }).webOSTV;
-                if (webOSTV?.platform?.version) {
-                    return webOSTV.platform.version;
-                }
-            }
-
-            // Fallback: infer from Chromium version in User Agent
-            // Chromium versions mapped to webOS versions:
-            // - webOS 25 (C5, 2025): Chromium 120+
-            // - webOS 24 (C4, 2024): Chromium 108
-            // - webOS 23 (C3, 2023): Chromium 94
-            // - webOS 22: Chromium 87
-            // - webOS 6.x and older: Chromium <87
-            const chromeMajor = this._getChromeMajor();
-            if (chromeMajor !== null) {
-                if (chromeMajor >= 120) return '25.0';  // webOS 25+ (C5 and newer)
-                if (chromeMajor >= 108) return '24.0';  // webOS 24 (C4)
-                if (chromeMajor >= 94) return '23.0';   // webOS 23
-                if (chromeMajor >= 87) return '22.0';   // webOS 22
-            }
-
-            return '6.0'; // Conservative fallback for older TVs
-        } catch {
-            return '6.0';
-        }
+        return this._identityService.detectPlatformVersion();
     }
 
     private _applyDefaultIdentityParams(params: URLSearchParams): void {
-        const defaults: Record<string, string> = {
-            'X-Plex-Client-Identifier': this._config.clientIdentifier,
-            'X-Plex-Platform': 'webOS',
-            'X-Plex-Product': 'Retune',
-            'X-Plex-Version': '1.0.0',
-            'X-Plex-Device': 'LG Smart TV',
-            'X-Plex-Device-Name': 'Retune',
-            'X-Plex-Platform-Version': this._detectPlatformVersion(),
-            'X-Plex-Model': 'LGTV',
-        };
+        const defaults = this._identityService.getDefaultPlexIdentity(this._config.clientIdentifier);
         for (const [key, value] of Object.entries(defaults)) {
             if (!params.has(key)) {
                 params.set(key, value);

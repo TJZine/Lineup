@@ -30,6 +30,8 @@ import {
 import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
 import { isStoredTrue, safeLocalStorageGet } from '../../utils/storage';
 import { redactSensitiveTokens } from '../../utils/redact';
+import type { PlatformPlaybackService, PlatformSubtitleService } from '../../platform';
+import { webosPlatformServices } from '../../platform';
 
 // Import and re-export from ErrorHandler for backward compatibility
 import { mapMediaErrorCodeToPlaybackError } from './ErrorHandler';
@@ -101,7 +103,7 @@ export class VideoPlayer implements IVideoPlayer {
     private _videoElement: HTMLVideoElement | null = null;
 
     /** Subtitle manager */
-    private _subtitleManager: SubtitleManager = new SubtitleManager();
+    private _subtitleManager: SubtitleManager;
 
     /** Audio track manager */
     private _audioTrackManager: AudioTrackManager = new AudioTrackManager();
@@ -114,6 +116,7 @@ export class VideoPlayer implements IVideoPlayer {
 
     /** Keep-alive manager */
     private _keepAliveManager: KeepAliveManager = new KeepAliveManager();
+    private readonly _playbackService: PlatformPlaybackService;
 
     /** Player configuration */
     private _config: VideoPlayerConfig | null = null;
@@ -126,6 +129,14 @@ export class VideoPlayer implements IVideoPlayer {
 
     /** Internal state */
     private _state: VideoPlayerInternalState = this._createInitialState();
+
+    constructor(services?: {
+        playbackService?: PlatformPlaybackService;
+        subtitleService?: PlatformSubtitleService;
+    }) {
+        this._playbackService = services?.playbackService ?? webosPlatformServices.playback;
+        this._subtitleManager = new SubtitleManager(services?.subtitleService);
+    }
 
     private _isSubtitleDebugEnabled(): boolean {
         try {
@@ -309,17 +320,11 @@ export class VideoPlayer implements IVideoPlayer {
         this._retryManager.reset();
         this._retryManager.setDescriptor(descriptor);
 
-        // Set source based on protocol
-        // CRITICAL: webOS has native HLS support - DO NOT use HLS.js
-        if (descriptor.protocol === 'hls') {
-            // Native HLS - set src directly
-            this._videoElement.src = descriptor.url;
-        } else {
-            // Direct play - set src directly.
-            // Note: Some platforms (including webOS) are picky about <source type=...> for MKV,
-            // so we let the media pipeline sniff the container/codec from the URL response.
-            this._videoElement.src = descriptor.url;
-        }
+        // Platform seam: keep native source assignment behavior identical.
+        this._playbackService.applyStreamSource(this._videoElement, {
+            protocol: descriptor.protocol,
+            url: descriptor.url,
+        });
 
         this._logSubtitleDebug('loadStream_src_set', () => ({
             protocol: descriptor.protocol,

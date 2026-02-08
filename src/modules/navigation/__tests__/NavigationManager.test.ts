@@ -9,6 +9,7 @@
 
 import { NavigationManager } from '../index';
 import { NavigationConfig } from '../interfaces';
+import type { PlatformInputService } from '../../../platform';
 
 // Mock elements
 function createMockElement(id: string): HTMLElement {
@@ -301,6 +302,23 @@ describe('NavigationManager', () => {
             dispatchKeyEvent(38, 'keyup');
 
             expect(handler).toHaveBeenCalledWith({ button: 'up' });
+        });
+
+        it('should honor injected input service mappings end-to-end', () => {
+            const customInputService: PlatformInputService = {
+                getKeyMap: () => new Map([[999, 'guide']]),
+            };
+            const customNav = new NavigationManager(customInputService);
+            customNav.initialize(config);
+            const guideHandler = jest.fn();
+            customNav.on('guide', guideHandler);
+
+            try {
+                dispatchKeyEvent(999);
+                expect(guideHandler).toHaveBeenCalledTimes(1);
+            } finally {
+                customNav.destroy();
+            }
         });
 
         it('should not emit keyPress for unmapped keys', () => {
