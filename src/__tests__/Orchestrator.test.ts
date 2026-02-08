@@ -1155,13 +1155,18 @@ describe('AppOrchestrator', () => {
         // ORCH-002: Concurrent Channel Switch Guard
         // ========================================
 
-        it('should reject concurrent channel switch attempts', async () => {
-            // Make resolveChannelContent take some time
-            let resolveDelay: () => void = (): void => { };
+        it('should queue latest concurrent channel switch attempts', async () => {
+            // Make first resolveChannelContent call take some time.
+            let resolveFirst: () => void = (): void => { };
             mockChannelManager.resolveChannelContent.mockImplementation(
-                (): Promise<{ channelId: string; items: never[]; orderedItems: never[]; totalDurationMs: number; resolvedAt: number }> => new Promise<{ channelId: string; items: never[]; orderedItems: never[]; totalDurationMs: number; resolvedAt: number }>((resolve) => {
-                    resolveDelay = (): void => resolve({ channelId: 'ch1', items: [], orderedItems: [], totalDurationMs: 0, resolvedAt: Date.now() });
-                })
+                (channelId: string): Promise<{ channelId: string; items: never[]; orderedItems: never[]; totalDurationMs: number; resolvedAt: number }> =>
+                    new Promise<{ channelId: string; items: never[]; orderedItems: never[]; totalDurationMs: number; resolvedAt: number }>((resolve) => {
+                        if (mockChannelManager.resolveChannelContent.mock.calls.length === 1) {
+                            resolveFirst = (): void => resolve({ channelId, items: [], orderedItems: [], totalDurationMs: 0, resolvedAt: Date.now() });
+                            return;
+                        }
+                        resolve({ channelId, items: [], orderedItems: [], totalDurationMs: 0, resolvedAt: Date.now() });
+                    })
             );
 
             // Start first switch (will be pending)
@@ -1179,9 +1184,13 @@ describe('AppOrchestrator', () => {
             expect(mockChannelManager.resolveChannelContent).toHaveBeenCalledTimes(1);
             expect(mockScheduler.loadChannel).not.toHaveBeenCalled();
 
-            // Complete first switch
-            resolveDelay();
+            // Complete first and then queued second switch.
+            resolveFirst();
             await switch1;
+            expect(mockChannelManager.resolveChannelContent).toHaveBeenCalledTimes(2);
+            expect(mockScheduler.loadChannel).toHaveBeenCalledTimes(2);
+            expect(mockChannelManager.setCurrentChannel).toHaveBeenNthCalledWith(1, 'ch1');
+            expect(mockChannelManager.setCurrentChannel).toHaveBeenNthCalledWith(2, 'ch2');
 
             consoleSpy.mockRestore();
         });

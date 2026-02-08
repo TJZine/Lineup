@@ -261,16 +261,19 @@ describe('ChannelTuningCoordinator', () => {
         consoleWarnSpy.mockRestore();
     });
 
-    it('guards against concurrent channel switches', async () => {
+    it('queues the latest concurrent channel switch and runs it after the in-flight switch', async () => {
         const { coordinator, channelManager } = createCoordinator();
         const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
         let resolveDelay: () => void = () => {};
 
-        channelManager.resolveChannelContent.mockImplementation(
-            () => new Promise((resolve) => {
-                resolveDelay = (): void => resolve(resolvedContent);
-            })
-        );
+        channelManager.resolveChannelContent.mockImplementation((id) => {
+            if (channelManager.resolveChannelContent.mock.calls.length === 1) {
+                return new Promise((resolve) => {
+                    resolveDelay = (): void => resolve(resolvedContent);
+                });
+            }
+            return Promise.resolve({ ...resolvedContent, channelId: id });
+        });
 
         const switch1 = coordinator.switchToChannel('ch1');
         const switch2 = coordinator.switchToChannel('ch2');
@@ -281,6 +284,10 @@ describe('ChannelTuningCoordinator', () => {
 
         resolveDelay();
         await switch1;
+        expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(2);
+        expect(channelManager.resolveChannelContent).toHaveBeenNthCalledWith(1, 'ch1', { signal: null });
+        expect(channelManager.resolveChannelContent).toHaveBeenNthCalledWith(2, 'ch2', { signal: null });
+        expect(channelManager.setCurrentChannel).toHaveBeenLastCalledWith('ch2');
 
         consoleSpy.mockRestore();
     });

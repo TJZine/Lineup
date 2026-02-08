@@ -54,6 +54,7 @@ function summarizeErrorForLog(error: unknown): { name?: string; code?: unknown; 
 
 export class ChannelTuningCoordinator {
     private _isChannelSwitching = false;
+    private _pendingSwitch: { channelId: string; signal: AbortSignal | undefined } | null = null;
 
     constructor(private readonly deps: ChannelTuningCoordinatorDeps) { }
 
@@ -66,20 +67,80 @@ export class ChannelTuningCoordinator {
             return;
         }
 
-        // Prevent concurrent channel switches from causing state corruption
-        if (this._isChannelSwitching) {
-            console.warn('Channel switch already in progress, ignoring request');
+        if (options?.signal?.aborted) {
             return;
         }
 
-        if (options?.signal?.aborted) {
+        // Prevent concurrent state corruption while preserving latest user intent.
+        if (this._isChannelSwitching) {
+            console.warn('Channel switch already in progress, queueing latest request');
+            this._pendingSwitch = { channelId, signal: options?.signal };
+            return;
+        }
+
+        this._isChannelSwitching = true;
+        let request: { channelId: string; signal: AbortSignal | undefined } | null = {
+            channelId,
+            signal: options?.signal,
+        };
+        let firstError: unknown = null;
+
+        try {
+            while (request) {
+                const current = request;
+                request = null;
+
+                if (current.signal?.aborted) {
+                    const pendingAfterAbort = this._pendingSwitch;
+                    this._pendingSwitch = null;
+                    if (pendingAfterAbort) {
+                        request = pendingAfterAbort;
+                    }
+                    continue;
+                }
+
+                try {
+                    await this._runSingleSwitch(
+                        current.channelId,
+                        channelManager,
+                        scheduler,
+                        videoPlayer,
+                        current.signal
+                    );
+                } catch (error: unknown) {
+                    if (firstError === null) {
+                        firstError = error;
+                    }
+                }
+
+                const pending = this._pendingSwitch;
+                this._pendingSwitch = null;
+                if (pending) {
+                    request = pending;
+                }
+            }
+        } finally {
+            this._isChannelSwitching = false;
+        }
+
+        if (firstError !== null) {
+            throw firstError;
+        }
+    }
+
+    private async _runSingleSwitch(
+        channelId: string,
+        channelManager: IChannelManager,
+        scheduler: IChannelScheduler,
+        videoPlayer: IVideoPlayer,
+        signal: AbortSignal | undefined
+    ): Promise<void> {
+        if (signal?.aborted) {
             return;
         }
 
         // New channel = new playback attempt; unblock any prior fast-fail guard.
         this.deps.resetPlaybackGuardsForNewChannel();
-
-        this._isChannelSwitching = true;
         let didRequestProgramStart = false;
 
         try {
@@ -102,10 +163,10 @@ export class ChannelTuningCoordinator {
             let content: ResolvedChannelContent;
             try {
                 content = await channelManager.resolveChannelContent(channelId, {
-                    signal: options?.signal ?? null,
+                    signal: signal ?? null,
                 });
             } catch (error: unknown) {
-                if (options?.signal?.aborted === true) {
+                if (signal?.aborted === true) {
                     return;
                 }
                 if (
@@ -152,7 +213,7 @@ export class ChannelTuningCoordinator {
                 return;
             }
 
-            if (options?.signal?.aborted) {
+            if (signal?.aborted) {
                 return;
             }
 
@@ -201,7 +262,6 @@ export class ChannelTuningCoordinator {
             // Save state
             await this.deps.saveLifecycleState();
         } finally {
-            this._isChannelSwitching = false;
             if (!didRequestProgramStart && this.deps.getPendingNowPlayingChannelId() === channelId) {
                 this.deps.setPendingNowPlayingChannelId(null);
             }

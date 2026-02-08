@@ -114,7 +114,8 @@ jobs:
       
       - name: Setup webOS CLI
         run: |
-          if npm install -g @webosose/ares-cli 2>/dev/null; then
+          ARES_CLI_VERSION="3.1.0"
+          if npm install -g "@webosose/ares-cli@${ARES_CLI_VERSION}" 2>/dev/null; then
             echo "webOS CLI installed successfully"
           else
             echo "WARNING: webOS CLI not available in CI environment"
