@@ -4,6 +4,8 @@
  * @version 1.0.0
  */
 
+import type { ThemeName } from './theme';
+
 /**
  * Audio settings configuration.
  */
@@ -31,7 +33,7 @@ export interface PlaybackSettings {
  */
 export interface DisplaySettings {
     /** Color theme */
-    theme: 'obsidian' | 'broadcast' | 'swiss';
+    theme: ThemeName;
     /** Now Playing Info overlay auto-hide timeout (ms) */
     nowPlayingInfoAutoHideMs: number;
 }

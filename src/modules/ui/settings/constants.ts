@@ -6,6 +6,8 @@
 
 import type { SettingsConfig } from './types';
 import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
+import { DEFAULT_THEME } from './theme';
+export { THEME_CLASSES } from './theme';
 
 /**
  * localStorage keys for persisting settings.
@@ -69,7 +71,7 @@ export const DEFAULT_SETTINGS: SettingsConfig = {
         forceHdr10Fallback: false,
     },
     display: {
-        theme: 'obsidian',
+        theme: DEFAULT_THEME,
         nowPlayingInfoAutoHideMs: 10_000,
     },
     developer: {
@@ -87,12 +89,3 @@ export const DEFAULT_SETTINGS: SettingsConfig = {
         showProfilePickerOnStartup: false,
     },
 };
-
-/**
- * Theme CSS class mappings.
- */
-export const THEME_CLASSES = {
-    obsidian: '',
-    broadcast: 'theme-broadcast',
-    swiss: 'theme-swiss',
-} as const;

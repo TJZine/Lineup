@@ -16,7 +16,7 @@
 }
 
 .now-playing-info-container.visible .now-playing-info-panel {
-  animation: now-playing-info-enter 160ms ease-out;
+  animation: now-playing-info-enter var(--transition-normal);
 }
 
 .now-playing-info-panel {

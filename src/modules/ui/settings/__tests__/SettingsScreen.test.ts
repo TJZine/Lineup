@@ -5,6 +5,11 @@
 import { SettingsScreen } from '../SettingsScreen';
 import { SETTINGS_STORAGE_KEYS } from '../constants';
 import type { GuideSettingChange } from '../types';
+import { ThemeManager } from '../../theme';
+
+function resetThemeManagerSingleton(): void {
+    ThemeManager.__resetForTests();
+}
 
 type StubFocusable = {
     id: string;
@@ -143,5 +148,42 @@ describe('SettingsScreen (Guide settings)', () => {
 
         keyHandler?.({ handled: false, button: 'left' });
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('overlay');
+    });
+});
+
+describe('SettingsScreen (Theme selection)', () => {
+    beforeEach(() => {
+        localStorage.removeItem(SETTINGS_STORAGE_KEYS.THEME);
+        resetThemeManagerSingleton();
+        document.body.classList.remove('theme-broadcast', 'theme-swiss', 'theme-directv');
+    });
+
+    afterEach(() => {
+        document.body.innerHTML = '';
+        document.body.classList.remove('theme-broadcast', 'theme-swiss', 'theme-directv');
+        resetThemeManagerSingleton();
+    });
+
+    it('cycles to DirecTV and applies the theme class', () => {
+        const onGuideSettingChange = jest.fn();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const nav = createNavigationStub();
+        const screen = new SettingsScreen(
+            container,
+            () => nav as unknown as never,
+            undefined,
+            onGuideSettingChange
+        );
+
+        screen.show();
+
+        const themeSelect = container.querySelector('#settings-theme') as HTMLButtonElement;
+        themeSelect.click();
+        themeSelect.click();
+        themeSelect.click();
+
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.THEME)).toBe('directv');
+        expect(document.body.classList.contains('theme-directv')).toBe(true);
     });
 });

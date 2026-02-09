@@ -8,6 +8,7 @@ import type { INavigationManager, FocusableElement, KeyEvent } from '../../navig
 import { createSettingsToggle } from './SettingsToggle';
 import { createSettingsSelect } from './SettingsSelect';
 import { SETTINGS_STORAGE_KEYS, DEFAULT_SETTINGS } from './constants';
+import { DEFAULT_THEME, THEME_OPTIONS } from './theme';
 import type {
     SettingsSectionConfig,
     SettingsItemConfig,
@@ -42,6 +43,11 @@ const SUBTITLE_MODE_OPTIONS: Array<{ label: string; mode: SubtitleMode }> = [
     { label: 'Standard (Recommended)', mode: 'standard' },
     { label: 'Full (Burn-in)', mode: 'full' },
 ];
+
+const DEFAULT_THEME_VALUE = Math.max(
+    0,
+    THEME_OPTIONS.findIndex((option) => option.theme === DEFAULT_THEME)
+);
 
 type ToggleMetadata = {
     storageKey: string;
@@ -224,36 +230,13 @@ export class SettingsScreen {
         this._container.appendChild(panel);
     }
 
-    private _themeToValue(theme: 'obsidian' | 'broadcast' | 'swiss'): 0 | 1 | 2 {
-        switch (theme) {
-            case 'broadcast':
-                return 1;
-            case 'swiss':
-                return 2;
-            case 'obsidian':
-            default:
-                return 0;
-        }
-    }
-
-    private _valueToTheme(value: number): 'obsidian' | 'broadcast' | 'swiss' {
-        switch (value) {
-            case 1:
-                return 'broadcast';
-            case 2:
-                return 'swiss';
-            case 0:
-            default:
-                return 'obsidian';
-        }
-    }
-
     /**
      * Build section configurations from current settings.
      */
     private _buildSections(): SettingsSectionConfig[] {
         const nowPlayingAutoHide = this._loadClampedNowPlayingAutoHide();
-        const themeValue = this._themeToValue(ThemeManager.getInstance().getTheme());
+        const themeValue = THEME_OPTIONS.findIndex((option) => option.theme === ThemeManager.getInstance().getTheme());
+        const selectedThemeValue = themeValue >= 0 ? themeValue : DEFAULT_THEME_VALUE;
         const keepPlayingInSettings = this._loadBoolSetting(
             SETTINGS_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS,
             DEFAULT_SETTINGS.playback.keepPlayingInSettings
@@ -459,15 +442,13 @@ export class SettingsScreen {
                         id: 'settings-theme',
                         label: 'Theme',
                         description: 'Visual style of the application',
-                        value: themeValue,
-                        options: [
-                            { label: 'Obsidian Glass', value: 0 },
-                            { label: 'Broadcast Blue', value: 1 },
-                            { label: 'Swiss Minimal', value: 2 },
-                        ],
+                        value: selectedThemeValue,
+                        options: THEME_OPTIONS.map((option, index) => ({
+                            label: option.label,
+                            value: index,
+                        })),
                         onChange: (value: number): void => {
-                            const theme = this._valueToTheme(value);
-                            ThemeManager.getInstance().setTheme(theme);
+                            ThemeManager.getInstance().setTheme(THEME_OPTIONS[value]?.theme ?? DEFAULT_THEME);
                         },
                     },
                     {
@@ -870,8 +851,8 @@ export class SettingsScreen {
         }
         const themeSelect = this._selectElements.get('settings-theme');
         if (themeSelect) {
-            const themeValue = this._themeToValue(ThemeManager.getInstance().getTheme());
-            themeSelect.update(themeValue);
+            const themeValue = THEME_OPTIONS.findIndex((option) => option.theme === ThemeManager.getInstance().getTheme());
+            themeSelect.update(themeValue >= 0 ? themeValue : DEFAULT_THEME_VALUE);
         }
         const mode = this._valueToSubtitleMode(this._loadSubtitleModeValue());
         this._updateSubtitleDependentControls(mode);

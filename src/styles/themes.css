@@ -1,5 +1,5 @@
 /**
- * Theme overrides for Broadcast Blue and Swiss Minimal.
+ * Theme overrides for Broadcast Blue, Swiss Minimal, and DirecTV Classic.
  */
 
 .theme-broadcast {
@@ -8,7 +8,7 @@
   --color-primary: #00a8e1;
   --color-primary-dark: #007aa8;
   --color-primary-light: #49c2ea;
-  --color-bg-deep: #040911;
+  --color-bg-deep: #0a0608;
   --color-bg-surface: rgba(6, 10, 18, 0.92);
   --color-bg-elevated: rgba(10, 14, 22, 0.94);
   --color-bg-overlay: rgba(4, 8, 16, 0.86);
@@ -16,6 +16,8 @@
   --panel-surface-2: rgba(10, 14, 22, 0.94);
   --panel-border: 1px solid rgba(255, 255, 255, 0.1);
   --panel-radius: 0px;
+  --panel-inner-glow: linear-gradient(180deg, rgba(229, 160, 13, 0.04), transparent);
+  --transition-normal: 120ms ease-out;
   --epg-info-panel-fade-to: var(--panel-surface-2);
 }
 
@@ -33,6 +35,20 @@
   --panel-surface-2: rgba(20, 22, 24, 0.86);
   --panel-border: 1px solid rgba(255, 255, 255, 0.12);
   --panel-radius: 14px;
+  --transition-normal: 280ms ease-in-out;
+  --epg-info-panel-fade-to: var(--panel-surface-2);
+}
+
+.theme-directv {
+  --focus-color: #00a6d6;
+  --focus-color-rgb: 0, 166, 214;
+  --color-primary: #00629b;
+  --color-primary-dark: #003865;
+  --color-bg-deep: #001020;
+  --color-bg-surface: rgba(0, 40, 80, 0.92);
+  --panel-border: 1px solid rgba(0, 166, 214, 0.25);
+  --panel-radius: 4px;
+  --transition-normal: 150ms ease;
   --epg-info-panel-fade-to: var(--panel-surface-2);
 }
 

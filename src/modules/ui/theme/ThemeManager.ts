@@ -3,12 +3,11 @@
  * @module modules/ui/theme/ThemeManager
  */
 
-import { THEME_CLASSES } from '../settings/constants';
-import type { DisplaySettings } from '../settings/types';
+import { THEME_CLASSES } from '../settings/theme';
+import type { ThemeName } from '../settings/theme';
+import { DEFAULT_THEME } from '../settings/theme';
 import { safeLocalStorageGet, safeLocalStorageSet } from '../../../utils/storage';
 import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
-
-type ThemeName = DisplaySettings['theme'];
 
 /**
  * Manages application theming.
@@ -16,13 +15,21 @@ type ThemeName = DisplaySettings['theme'];
  */
 export class ThemeManager {
     private static _instance: ThemeManager | null = null;
-    private _currentTheme: ThemeName = 'obsidian';
+    private _currentTheme: ThemeName = DEFAULT_THEME;
 
     static getInstance(): ThemeManager {
         if (!ThemeManager._instance) {
             ThemeManager._instance = new ThemeManager();
         }
         return ThemeManager._instance;
+    }
+
+    /**
+     * Test-only helper to clear singleton state between test cases.
+     * Do not call from application runtime code.
+     */
+    static __resetForTests(): void {
+        ThemeManager._instance = null;
     }
 
     private constructor() {
@@ -39,7 +46,7 @@ export class ThemeManager {
             return;
         }
 
-        this._currentTheme = 'obsidian';
+        this._currentTheme = DEFAULT_THEME;
         safeLocalStorageSet(RETUNE_STORAGE_KEYS.THEME, this._currentTheme);
         this._applyTheme(this._currentTheme);
     }
