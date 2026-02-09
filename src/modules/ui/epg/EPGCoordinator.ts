@@ -12,6 +12,7 @@ import type { IChannelManager, ChannelConfig, ResolvedChannelContent } from '../
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig, ScheduleWindow } from '../../scheduler/scheduler';
 import { readStoredBoolean, safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from '../../../utils/storage';
 import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
+import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 
 export type EpgUiStatus = 'pending' | 'initializing' | 'ready' | 'error' | 'disabled' | undefined;
 
@@ -420,7 +421,10 @@ export class EPGCoordinator {
                 return;
             }
             this.closeEPG();
-            this.deps.switchToChannel(payload.channel.id).catch(console.error);
+            this.deps.switchToChannel(payload.channel.id).catch((error: unknown) => {
+                if (isAbortLikeError(error)) return;
+                console.error('[EPG] switchToChannel failed:', summarizeErrorForLog(error));
+            });
         };
         epg.on('channelSelected', handler);
 

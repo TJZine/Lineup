@@ -15,6 +15,7 @@ import {
 import type { PlexLibraryType } from '../../plex/library';
 import type { FocusableElement, KeyEvent } from '../../navigation';
 import { safeLocalStorageGet } from '../../../utils/storage';
+import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../scheduler/channel-manager/constants';
 
 const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
@@ -261,7 +262,10 @@ export class ChannelSetupScreen {
             nav.on('keyPress', this._navKeyHandler);
         }
         this._resetState();
-        this._loadLibraries().catch(console.error);
+        this._loadLibraries().catch((error: unknown) => {
+            if (isAbortLikeError(error)) return;
+            console.error('[ChannelSetup] Load libraries failed:', summarizeErrorForLog(error));
+        });
     }
 
     hide(): void {
@@ -1041,7 +1045,10 @@ export class ChannelSetupScreen {
                     }
                     return this._loadReview();
                 })
-                .catch(console.error);
+                .catch((error: unknown) => {
+                    if (isAbortLikeError(error)) return;
+                    console.error('[ChannelSetup] Load review failed:', summarizeErrorForLog(error));
+                });
             showLoadingState = true;
         } else if (this._isReviewLoading) {
             showLoadingState = true;
@@ -1219,7 +1226,10 @@ export class ChannelSetupScreen {
             }
             this._orchestrator.switchToChannelByNumber(1)
                 .then(() => this._orchestrator.openEPG())
-                .catch(console.error);
+                .catch((error: unknown) => {
+                    if (isAbortLikeError(error)) return;
+                    console.error('[ChannelSetup] Switch to channel 1 failed:', summarizeErrorForLog(error));
+                });
         });
         actions.appendChild(doneButton);
 
@@ -1228,7 +1238,10 @@ export class ChannelSetupScreen {
         this._registerFocusables([backButton, doneButton]);
 
         // Start build
-        this._startBuild(backButton, doneButton, barFill, taskLabel, detailLabel).catch(console.error);
+        this._startBuild(backButton, doneButton, barFill, taskLabel, detailLabel).catch((error: unknown) => {
+            if (isAbortLikeError(error)) return;
+            console.error('[ChannelSetup] Build failed:', summarizeErrorForLog(error));
+        });
     }
 
     private async _startBuild(
@@ -1420,7 +1433,10 @@ export class ChannelSetupScreen {
             window.clearTimeout(this._previewTimeoutId);
         }
         this._previewTimeoutId = window.setTimeout(() => {
-            this._refreshPreview().catch(console.error);
+            this._refreshPreview().catch((error: unknown) => {
+                if (isAbortLikeError(error)) return;
+                console.error('[ChannelSetup] Preview refresh failed:', summarizeErrorForLog(error));
+            });
         }, 400);
     }
 

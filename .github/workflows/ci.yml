@@ -114,10 +114,12 @@ jobs:
       
       - name: Setup webOS CLI
         run: |
-          if npm install -g @webosose/ares-cli 2>/dev/null; then
+          ARES_CLI_PACKAGE="@webos-tools/cli"
+          ARES_CLI_VERSION="3.1.4"
+          if npm install -g "${ARES_CLI_PACKAGE}@${ARES_CLI_VERSION}"; then
             echo "webOS CLI installed successfully"
           else
-            echo "WARNING: webOS CLI not available in CI environment"
+            echo "WARNING: Failed to install ${ARES_CLI_PACKAGE}@${ARES_CLI_VERSION}"
             echo "Packaging step will be skipped"
           fi
       
@@ -125,8 +127,17 @@ jobs:
         run: |
           if command -v ares-package &> /dev/null; then
             echo "Creating IPK package for webOS TV..."
-            # ares-package dist/ -o ./packages/
-            echo "Packaging command ready (currently commented for safety)"
+            mkdir -p ./packages
+            ares-package dist/ -o ./packages/
+            ls -la ./packages/
           else
             echo "Skipping packaging - webOS CLI not available"
           fi
+
+      - name: Upload webOS package artifacts
+        if: hashFiles('packages/*.ipk') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: webos-ipk
+          path: packages/*.ipk
+          retention-days: 7

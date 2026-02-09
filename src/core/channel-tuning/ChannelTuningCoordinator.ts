@@ -17,6 +17,7 @@ import type {
     IChannelScheduler,
     ScheduleConfig,
 } from '../../modules/scheduler/scheduler';
+import { summarizeErrorForLog } from '../../utils/errors';
 
 export interface ChannelTuningCoordinatorDeps {
     getChannelManager: () => IChannelManager | null;
@@ -42,21 +43,39 @@ export interface ChannelTuningCoordinatorDeps {
     saveLifecycleState: () => Promise<void>;
 }
 
-function summarizeErrorForLog(error: unknown): { name?: string; code?: unknown; message?: string } {
-    if (!error || typeof error !== 'object') return {};
-    const e = error as { name?: unknown; code?: unknown; message?: unknown };
-    return {
-        ...(typeof e.name === 'string' ? { name: e.name } : {}),
-        ...('code' in e ? { code: e.code } : {}),
-        ...(typeof e.message === 'string' ? { message: e.message } : {}),
-    };
+interface QueuedSwitchRequest {
+    channelId: string;
+    signal: AbortSignal | undefined;
+    completion: Promise<void>;
+    resolve: () => void;
+    reject: (error: unknown) => void;
+}
+
+function createAbortLikeError(message: string): Error {
+    if (typeof DOMException !== 'undefined') {
+        return new DOMException(message, 'AbortError');
+    }
+    const error = new Error(message);
+    error.name = 'AbortError';
+    return error;
 }
 
 export class ChannelTuningCoordinator {
     private _isChannelSwitching = false;
+    private _pendingSwitch: QueuedSwitchRequest | null = null;
 
     constructor(private readonly deps: ChannelTuningCoordinatorDeps) { }
 
+    /**
+     * Switch queue policy:
+     * - At most one switch executes at a time.
+     * - A single pending slot is kept (latest-wins).
+     * - The returned promise is bound to the caller's own request.
+     *
+     * Promise semantics:
+     * - If the caller-provided AbortSignal is aborted, the promise resolves (no-op) and no switch occurs.
+     * - If a pending request is superseded by a newer request, the superseded request rejects with AbortError.
+     */
     async switchToChannel(channelId: string, options?: { signal?: AbortSignal }): Promise<void> {
         const channelManager = this.deps.getChannelManager();
         const scheduler = this.deps.getScheduler();
@@ -66,20 +85,129 @@ export class ChannelTuningCoordinator {
             return;
         }
 
-        // Prevent concurrent channel switches from causing state corruption
-        if (this._isChannelSwitching) {
-            console.warn('Channel switch already in progress, ignoring request');
+        if (options?.signal?.aborted) {
             return;
         }
 
-        if (options?.signal?.aborted) {
+        const request = this._createSwitchRequest(channelId, options?.signal);
+
+        // Prevent concurrent state corruption while preserving latest user intent.
+        if (this._isChannelSwitching) {
+            const superseded = this._pendingSwitch;
+            if (superseded) {
+                superseded.reject(
+                    createAbortLikeError(
+                        `Channel switch to "${superseded.channelId}" was superseded by "${channelId}"`
+                    )
+                );
+            }
+            console.warn('Channel switch already in progress, queueing latest request');
+            // Latest-wins queue: keep only the most recent pending request.
+            this._pendingSwitch = request;
+            return request.completion;
+        }
+
+        this._isChannelSwitching = true;
+        void this._drainSwitchQueue(
+            request,
+            channelManager,
+            scheduler,
+            videoPlayer
+        );
+        return request.completion;
+    }
+
+    private _createSwitchRequest(
+        channelId: string,
+        signal: AbortSignal | undefined
+    ): QueuedSwitchRequest {
+        let resolveFn: () => void = () => undefined;
+        let rejectFn: (error: unknown) => void = () => undefined;
+        const completion = new Promise<void>((resolve, reject) => {
+            resolveFn = resolve;
+            rejectFn = reject;
+        });
+        return {
+            channelId,
+            signal,
+            completion,
+            resolve: resolveFn,
+            reject: rejectFn,
+        };
+    }
+
+    private _takePendingSwitch(): QueuedSwitchRequest | null {
+        const pending = this._pendingSwitch;
+        this._pendingSwitch = null;
+        return pending;
+    }
+
+    private async _drainSwitchQueue(
+        initialRequest: QueuedSwitchRequest,
+        channelManager: IChannelManager,
+        scheduler: IChannelScheduler,
+        videoPlayer: IVideoPlayer
+    ): Promise<void> {
+        let request: QueuedSwitchRequest | null = initialRequest;
+        const failures: unknown[] = [];
+
+        try {
+            while (request) {
+                const current = request;
+                request = null;
+
+                if (current.signal?.aborted) {
+                    current.resolve();
+                    request = this._takePendingSwitch();
+                    continue;
+                }
+
+                try {
+                    await this._runSingleSwitch(
+                        current.channelId,
+                        channelManager,
+                        scheduler,
+                        videoPlayer,
+                        current.signal
+                    );
+                    current.resolve();
+                } catch (error: unknown) {
+                    failures.push(error);
+                    current.reject(error);
+                }
+
+                request = this._takePendingSwitch();
+            }
+        } finally {
+            this._isChannelSwitching = false;
+            const latePending = this._takePendingSwitch();
+            if (latePending) {
+                this._isChannelSwitching = true;
+                void this._drainSwitchQueue(latePending, channelManager, scheduler, videoPlayer);
+            }
+        }
+
+        if (failures.length > 1) {
+            console.warn(
+                'Multiple queued channel switches failed',
+                failures.map((error) => summarizeErrorForLog(error))
+            );
+        }
+    }
+
+    private async _runSingleSwitch(
+        channelId: string,
+        channelManager: IChannelManager,
+        scheduler: IChannelScheduler,
+        videoPlayer: IVideoPlayer,
+        signal: AbortSignal | undefined
+    ): Promise<void> {
+        if (signal?.aborted) {
             return;
         }
 
         // New channel = new playback attempt; unblock any prior fast-fail guard.
         this.deps.resetPlaybackGuardsForNewChannel();
-
-        this._isChannelSwitching = true;
         let didRequestProgramStart = false;
 
         try {
@@ -102,10 +230,10 @@ export class ChannelTuningCoordinator {
             let content: ResolvedChannelContent;
             try {
                 content = await channelManager.resolveChannelContent(channelId, {
-                    signal: options?.signal ?? null,
+                    signal: signal ?? null,
                 });
             } catch (error: unknown) {
-                if (options?.signal?.aborted === true) {
+                if (signal?.aborted === true) {
                     return;
                 }
                 if (
@@ -152,7 +280,7 @@ export class ChannelTuningCoordinator {
                 return;
             }
 
-            if (options?.signal?.aborted) {
+            if (signal?.aborted) {
                 return;
             }
 
@@ -201,14 +329,13 @@ export class ChannelTuningCoordinator {
             // Save state
             await this.deps.saveLifecycleState();
         } finally {
-            this._isChannelSwitching = false;
             if (!didRequestProgramStart && this.deps.getPendingNowPlayingChannelId() === channelId) {
                 this.deps.setPendingNowPlayingChannelId(null);
             }
         }
     }
 
-    async switchToChannelByNumber(number: number): Promise<void> {
+    async switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void> {
         const channelManager = this.deps.getChannelManager();
         if (!channelManager) {
             console.error('Channel manager not initialized');
@@ -228,6 +355,6 @@ export class ChannelTuningCoordinator {
             return;
         }
 
-        await this.switchToChannel(channel.id);
+        await this.switchToChannel(channel.id, options);
     }
 }

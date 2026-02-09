@@ -29,6 +29,7 @@ import { normalizeToastInput, type ToastInput, type ToastType } from './modules/
 import { STORAGE_KEYS } from './types';
 import { RETUNE_STORAGE_KEYS } from './config/storageKeys';
 import {
+    readStoredBooleanWithLegacy,
     safeClearRetuneStorage,
     safeLocalStorageGet,
     safeLocalStorageRemove,
@@ -369,11 +370,11 @@ export class App {
             document.removeEventListener('keydown', this._globalKeydownHandler);
         }
         this._globalKeydownHandler = (e: KeyboardEvent): void => {
-            if (e.code === 'KeyI') {
+            if (this._isDebugSurfaceEnabled() && e.code === 'KeyI') {
                 this._orchestrator?.toggleServerSelect();
             }
             // Dev Menu: Ctrl+Shift+D
-            if (e.code === 'KeyD' && e.ctrlKey && e.shiftKey) {
+            if (this._isDebugSurfaceEnabled() && e.code === 'KeyD' && e.ctrlKey && e.shiftKey) {
                 this._toggleDevMenu();
             }
         };
@@ -397,10 +398,18 @@ export class App {
         root.appendChild(devMenu);
         this._devMenuContainer = devMenu;
 
-        // Expose global helper
-        (window as unknown as { retune: { toggleDevMenu: () => void } }).retune = {
-            toggleDevMenu: (): void => this._toggleDevMenu(),
-        };
+        // Expose global helper only when debug surface is enabled.
+        if (this._isDebugSurfaceEnabled()) {
+            (window as unknown as { retune: { toggleDevMenu: () => void } }).retune = {
+                toggleDevMenu: (): void => this._toggleDevMenu(),
+            };
+        } else {
+            try {
+                delete (window as { retune?: unknown }).retune;
+            } catch {
+                // ignore
+            }
+        }
 
         // Toast container (non-blocking warnings)
         const toastContainer = document.createElement('div');
@@ -954,6 +963,7 @@ export class App {
     }
 
     private _toggleDevMenu(): void {
+        if (!this._isDebugSurfaceEnabled()) return;
         if (!this._devMenuContainer) return;
 
         if (this._devMenuContainer.style.display === 'none') {
@@ -962,6 +972,17 @@ export class App {
         } else {
             this._devMenuContainer.style.display = 'none';
         }
+    }
+
+    private _isDebugSurfaceEnabled(): boolean {
+        if (__RETUNE_DEV_BUILD__) {
+            return true;
+        }
+        return readStoredBooleanWithLegacy(
+            RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
+            RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY,
+            false
+        );
     }
 
     private _renderDevMenu(): void {

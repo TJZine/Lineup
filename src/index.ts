@@ -7,6 +7,8 @@
 import { App } from './App';
 import { RETUNE_EVENT_NAMES } from './config/events';
 import { RETUNE_STORAGE_KEYS } from './config/storageKeys';
+import { redactSensitiveTokens } from './utils/redact';
+import { summarizeErrorForLog } from './utils/errors';
 import { readStoredBooleanWithLegacy } from './utils/storage';
 import './styles/tokens.css';
 import './styles/themes.css';
@@ -57,9 +59,88 @@ function logLifecycle(message: string): void {
     ORIGINAL_CONSOLE_METHODS.warn(message);
 }
 
+interface RetuneDebugApi {
+    openEPG: () => void;
+    closeEPG: () => void;
+    toggleEPG: () => void;
+    domSnapshot: () => unknown;
+    hideVideo: () => void;
+    showVideo: () => void;
+    orchestratorStatus: () => unknown;
+}
+
+let app: App | null = null;
+
+function isDebugSurfaceEnabled(): boolean {
+    const debugEnabled = readStoredBooleanWithLegacy(
+        RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
+        RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY,
+        false
+    );
+    return __RETUNE_DEV_BUILD__ || debugEnabled;
+}
+
+function toSafeErrorMessage(value: unknown): string {
+    if (value instanceof Error) {
+        return redactSensitiveTokens(value.message);
+    }
+    if (typeof value === 'string') {
+        return redactSensitiveTokens(value);
+    }
+    return 'An unexpected error occurred.';
+}
+
+function syncWindowDebugApi(currentApp: App | null): void {
+    const win = window as Window & { __RETUNE__?: RetuneDebugApi };
+    if (!currentApp || !isDebugSurfaceEnabled()) {
+        delete win.__RETUNE__;
+        return;
+    }
+    win.__RETUNE__ = {
+        openEPG: (): void => {
+            currentApp.getOrchestrator()?.openEPG();
+        },
+        closeEPG: (): void => {
+            currentApp.getOrchestrator()?.closeEPG();
+        },
+        toggleEPG: (): void => {
+            currentApp.getOrchestrator()?.toggleEPG();
+        },
+        domSnapshot: (): unknown => ({
+            app: describeElement(document.getElementById('app')),
+            videoContainer: describeElement(document.getElementById('video-container')),
+            video: describeElement(document.querySelector('video')),
+            epgContainer: describeElement(document.getElementById('epg-container')),
+        }),
+        hideVideo: (): void => {
+            const video = document.querySelector('video') as HTMLElement | null;
+            if (video) video.style.display = 'none';
+        },
+        showVideo: (): void => {
+            const video = document.querySelector('video') as HTMLElement | null;
+            if (video) video.style.display = 'block';
+        },
+        orchestratorStatus: (): unknown => {
+            const orchestrator = currentApp.getOrchestrator();
+            if (!orchestrator) return null;
+            const status = Array.from(orchestrator.getModuleStatus().values()).map((s) => ({
+                id: s.id,
+                status: s.status,
+                loadTimeMs: s.loadTimeMs ?? null,
+                errorCode: s.error?.code ?? null,
+            }));
+            return {
+                isReady: orchestrator.isReady(),
+                status,
+            };
+        },
+    };
+}
+
 configureLoggingPolicy();
 window.addEventListener(RETUNE_EVENT_NAMES.DEBUG_LOGGING_CHANGED, () => {
     configureLoggingPolicy();
+    syncWindowDebugApi(app);
 });
 
 // ============================================
@@ -70,8 +151,9 @@ window.addEventListener(RETUNE_EVENT_NAMES.DEBUG_LOGGING_CHANGED, () => {
  * Handle uncaught errors.
  */
 function handleGlobalError(event: ErrorEvent): void {
-    console.error('Uncaught error:', event.error || event.message);
-    showGlobalErrorOverlay(event.error instanceof Error ? event.error.message : String(event.message));
+    const raw = event.error ?? event.message;
+    console.error('Uncaught error:', summarizeErrorForLog(raw));
+    showGlobalErrorOverlay(toSafeErrorMessage(raw));
     event.preventDefault();
 }
 
@@ -79,13 +161,8 @@ function handleGlobalError(event: ErrorEvent): void {
  * Handle unhandled promise rejections.
  */
 function handleUnhandledRejection(event: PromiseRejectionEvent): void {
-    console.error('Unhandled promise rejection:', event.reason);
-    const message =
-        event.reason instanceof Error
-            ? event.reason.message
-            : typeof event.reason === 'string'
-                ? event.reason
-                : 'An unexpected error occurred.';
+    console.error('Unhandled promise rejection:', summarizeErrorForLog(event.reason));
+    const message = toSafeErrorMessage(event.reason);
     showGlobalErrorOverlay(message);
     event.preventDefault();
 }
@@ -147,8 +224,6 @@ window.addEventListener('unhandledrejection', handleUnhandledRejection);
 // Application Bootstrap
 // ============================================
 
-let app: App | null = null;
-
 function describeElement(el: Element | null): unknown {
     if (!el) return null;
     const element = el as HTMLElement;
@@ -185,51 +260,11 @@ async function bootstrap(): Promise<void> {
 
     try {
         app = new App();
-        const debugApi = {
-            app,
-            openEPG: (): void => {
-                app?.getOrchestrator()?.openEPG();
-            },
-            closeEPG: (): void => {
-                app?.getOrchestrator()?.closeEPG();
-            },
-            toggleEPG: (): void => {
-                app?.getOrchestrator()?.toggleEPG();
-            },
-            domSnapshot: (): unknown => ({
-                app: describeElement(document.getElementById('app')),
-                videoContainer: describeElement(document.getElementById('video-container')),
-                video: describeElement(document.querySelector('video')),
-                epgContainer: describeElement(document.getElementById('epg-container')),
-            }),
-            hideVideo: (): void => {
-                const video = document.querySelector('video') as HTMLElement | null;
-                if (video) video.style.display = 'none';
-            },
-            showVideo: (): void => {
-                const video = document.querySelector('video') as HTMLElement | null;
-                if (video) video.style.display = 'block';
-            },
-            orchestratorStatus: (): unknown => {
-                const orchestrator = app?.getOrchestrator();
-                if (!orchestrator) return null;
-                const status = Array.from(orchestrator.getModuleStatus().values()).map((s) => ({
-                    id: s.id,
-                    status: s.status,
-                    loadTimeMs: s.loadTimeMs ?? null,
-                    errorCode: s.error?.code ?? null,
-                }));
-                return {
-                    isReady: orchestrator.isReady(),
-                    status,
-                };
-            },
-        };
-        (window as Window & { __RETUNE__?: typeof debugApi }).__RETUNE__ = debugApi;
+        syncWindowDebugApi(app);
         await app.start();
         logLifecycle('[Retune] Started successfully');
     } catch (error) {
-        console.error('Failed to start Retune:', error);
+        console.error('Failed to start Retune:', summarizeErrorForLog(error));
     }
 }
 
@@ -242,21 +277,29 @@ async function cleanup(): Promise<void> {
         await app.shutdown();
         logLifecycle('[Retune] Shut down complete');
     }
+    syncWindowDebugApi(null);
 }
 
 // Start when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        bootstrap().catch(console.error);
+        bootstrap().catch((error: unknown) => {
+            console.error('[Retune] bootstrap failed:', summarizeErrorForLog(error));
+        });
     });
 } else {
-    bootstrap().catch(console.error);
+    bootstrap().catch((error: unknown) => {
+        console.error('[Retune] bootstrap failed:', summarizeErrorForLog(error));
+    });
 }
 
 // Cleanup on page hide (more reliable for async work than beforeunload)
 window.addEventListener('pagehide', () => {
-    cleanup().catch(console.error);
+    cleanup().catch((error: unknown) => {
+        console.error('[Retune] cleanup failed:', summarizeErrorForLog(error));
+    });
 });
 
-// Export for testing
+// Exported as a live binding for integration/debug harnesses.
+// @internal Prefer App APIs over importing this singleton from app code.
 export { app, bootstrap, cleanup };

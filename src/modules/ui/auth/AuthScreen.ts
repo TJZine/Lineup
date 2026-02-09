@@ -6,6 +6,7 @@
 
 import { AppOrchestrator } from '../../../Orchestrator';
 import { AppErrorCode, PlexApiError, type PlexPinRequest } from '../../plex/auth';
+import { summarizeErrorForLog } from '../../../utils/errors';
 
 type QrCodeModule = {
     toCanvas: (
@@ -136,7 +137,9 @@ export class AuthScreen {
         requestButton.className = 'screen-button';
         requestButton.textContent = 'Request PIN';
         this._handleRequestClick = (): void => {
-            this._handleRequestPin().catch(console.error);
+            this._handleRequestPin().catch((error: unknown) => {
+                console.error('[AuthScreen] Request PIN failed:', summarizeErrorForLog(error));
+            });
         };
         requestButton.addEventListener('click', this._handleRequestClick);
         buttonRow.appendChild(requestButton);
@@ -149,7 +152,9 @@ export class AuthScreen {
         cancelButton.textContent = 'Cancel';
         cancelButton.disabled = true;
         this._handleCancelClick = (): void => {
-            this._handleCancel().catch(console.error);
+            this._handleCancel().catch((error: unknown) => {
+                console.error('[AuthScreen] Cancel PIN failed:', summarizeErrorForLog(error));
+            });
         };
         cancelButton.addEventListener('click', this._handleCancelClick);
         buttonRow.appendChild(cancelButton);
@@ -162,7 +167,9 @@ export class AuthScreen {
         retryButton.textContent = 'Retry';
         retryButton.style.display = 'none';
         this._handleRetryClick = (): void => {
-            this._handleRequestPin().catch(console.error);
+            this._handleRequestPin().catch((error: unknown) => {
+                console.error('[AuthScreen] Retry request PIN failed:', summarizeErrorForLog(error));
+            });
         };
         retryButton.addEventListener('click', this._handleRetryClick);
         buttonRow.appendChild(retryButton);

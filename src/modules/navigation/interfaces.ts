@@ -4,6 +4,8 @@
  * @version 1.0.0
  */
 
+import type { PlatformRemoteButton } from '../../platform/services';
+
 // Navigation module interfaces - local definitions matching the app's shared type surface.
 
 /**
@@ -104,16 +106,7 @@ export interface IFocusManager {
 /**
  * Remote control button identifiers
  */
-export type RemoteButton =
-    | 'ok' | 'back'
-    | 'up' | 'down' | 'left' | 'right'
-    | 'play' | 'pause' | 'stop'
-    | 'rewind' | 'fastforward'
-    | 'channelUp' | 'channelDown'
-    | 'red' | 'green' | 'yellow' | 'blue'
-    | 'num0' | 'num1' | 'num2' | 'num3' | 'num4'
-    | 'num5' | 'num6' | 'num7' | 'num8' | 'num9'
-    | 'info' | 'guide';
+export type RemoteButton = PlatformRemoteButton;
 
 /**
  * Navigation direction for focus movement

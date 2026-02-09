@@ -16,6 +16,8 @@ import type { IPlexLibrary } from '../modules/plex/library';
 import type { ChannelConfig, IChannelManager } from '../modules/scheduler/channel-manager';
 import type { ScheduledProgram } from '../modules/scheduler/scheduler';
 import type { INowPlayingInfoOverlay, NowPlayingInfoConfig } from '../modules/ui/now-playing-info';
+import type { PlatformServices } from '../platform';
+import { webosPlatformServices } from '../platform';
 
 // Mock localStorage
 const mockLocalStorage = {
@@ -573,6 +575,76 @@ describe('AppOrchestrator', () => {
             expect(require('../modules/scheduler/scheduler').ChannelScheduler).toHaveBeenCalled();
             expect(require('../modules/player').VideoPlayer).toHaveBeenCalled();
             expect(require('../modules/ui/epg').EPGComponent).toHaveBeenCalled();
+        });
+
+        it('wires injected platform services into lifecycle/navigation/stream/player seams', async () => {
+            const platformServices: PlatformServices = {
+                identity: {
+                    isWebOs: jest.fn(() => true),
+                    detectPlatformVersion: jest.fn(() => '24.0'),
+                    getDefaultPlexIdentity: jest.fn((clientIdentifier: string) => ({
+                        'X-Plex-Client-Identifier': clientIdentifier,
+                        'X-Plex-Platform': 'webOS',
+                        'X-Plex-Product': 'Retune',
+                        'X-Plex-Version': '1.0.0',
+                        'X-Plex-Device': 'LG Smart TV',
+                        'X-Plex-Device-Name': 'Retune',
+                        'X-Plex-Platform-Version': '24.0',
+                        'X-Plex-Model': 'LGTV',
+                    })),
+                },
+                input: {
+                    getKeyMap: jest.fn(() => new Map([[13, 'ok']])),
+                },
+                lifecycle: {
+                    bindRelaunch: jest.fn(() => jest.fn()),
+                },
+                playback: {
+                    applyStreamSource: jest.fn(),
+                },
+                subtitle: {
+                    deriveLanHttpSubtitleUrl: jest.fn(() => null),
+                },
+            };
+            const orchestratorWithPlatform = new AppOrchestrator(platformServices);
+
+            await orchestratorWithPlatform.initialize(mockConfig);
+
+            expect(require('../modules/lifecycle').AppLifecycle).toHaveBeenCalledWith(
+                undefined,
+                undefined,
+                platformServices.lifecycle
+            );
+            expect(require('../modules/navigation').NavigationManager).toHaveBeenCalledWith(
+                platformServices.input
+            );
+            const streamResolverConfig =
+                (require('../modules/plex/stream').PlexStreamResolver as jest.Mock).mock.calls[0]?.[0];
+            expect(streamResolverConfig?.identityService).toBe(platformServices.identity);
+            expect(require('../modules/player').VideoPlayer).toHaveBeenCalledWith({
+                playbackService: platformServices.playback,
+                subtitleService: platformServices.subtitle,
+            });
+        });
+
+        it('wires default webos platform services into lifecycle/navigation/stream/player seams', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            expect(require('../modules/lifecycle').AppLifecycle).toHaveBeenCalledWith(
+                undefined,
+                undefined,
+                webosPlatformServices.lifecycle
+            );
+            expect(require('../modules/navigation').NavigationManager).toHaveBeenCalledWith(
+                webosPlatformServices.input
+            );
+            const streamResolverConfig =
+                (require('../modules/plex/stream').PlexStreamResolver as jest.Mock).mock.calls[0]?.[0];
+            expect(streamResolverConfig?.identityService).toBe(webosPlatformServices.identity);
+            expect(require('../modules/player').VideoPlayer).toHaveBeenCalledWith({
+                playbackService: webosPlatformServices.playback,
+                subtitleService: webosPlatformServices.subtitle,
+            });
         });
 
         it('should preserve caller-supplied nowPlayingInfoConfig.onAutoHide', async () => {
@@ -1155,13 +1227,18 @@ describe('AppOrchestrator', () => {
         // ORCH-002: Concurrent Channel Switch Guard
         // ========================================
 
-        it('should reject concurrent channel switch attempts', async () => {
-            // Make resolveChannelContent take some time
-            let resolveDelay: () => void = (): void => { };
+        it('should queue latest concurrent channel switch attempts and resolve each request when applied', async () => {
+            // Make first resolveChannelContent call take some time.
+            let resolveFirst: () => void = (): void => { };
             mockChannelManager.resolveChannelContent.mockImplementation(
-                (): Promise<{ channelId: string; items: never[]; orderedItems: never[]; totalDurationMs: number; resolvedAt: number }> => new Promise<{ channelId: string; items: never[]; orderedItems: never[]; totalDurationMs: number; resolvedAt: number }>((resolve) => {
-                    resolveDelay = (): void => resolve({ channelId: 'ch1', items: [], orderedItems: [], totalDurationMs: 0, resolvedAt: Date.now() });
-                })
+                (channelId: string): Promise<{ channelId: string; items: never[]; orderedItems: never[]; totalDurationMs: number; resolvedAt: number }> =>
+                    new Promise<{ channelId: string; items: never[]; orderedItems: never[]; totalDurationMs: number; resolvedAt: number }>((resolve) => {
+                        if (mockChannelManager.resolveChannelContent.mock.calls.length === 1) {
+                            resolveFirst = (): void => resolve({ channelId, items: [], orderedItems: [], totalDurationMs: 0, resolvedAt: Date.now() });
+                            return;
+                        }
+                        resolve({ channelId, items: [], orderedItems: [], totalDurationMs: 0, resolvedAt: Date.now() });
+                    })
             );
 
             // Start first switch (will be pending)
@@ -1171,17 +1248,22 @@ describe('AppOrchestrator', () => {
             const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
             const switch2 = orchestrator.switchToChannel('ch2');
 
-            // Both should resolve, but second should early-return
-            await switch2;
+            // Second switch should remain pending while first is still in-flight.
+            await Promise.resolve();
             expect(consoleSpy).toHaveBeenCalledWith(
                 expect.stringContaining('already in progress')
             );
             expect(mockChannelManager.resolveChannelContent).toHaveBeenCalledTimes(1);
             expect(mockScheduler.loadChannel).not.toHaveBeenCalled();
 
-            // Complete first switch
-            resolveDelay();
+            // Complete first and then queued second switch.
+            resolveFirst();
+            await switch2;
             await switch1;
+            expect(mockChannelManager.resolveChannelContent).toHaveBeenCalledTimes(2);
+            expect(mockScheduler.loadChannel).toHaveBeenCalledTimes(2);
+            expect(mockChannelManager.setCurrentChannel).toHaveBeenNthCalledWith(1, 'ch1');
+            expect(mockChannelManager.setCurrentChannel).toHaveBeenNthCalledWith(2, 'ch2');
 
             consoleSpy.mockRestore();
         });

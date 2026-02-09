@@ -7,6 +7,7 @@
 import { VideoPlayer, mapMediaErrorCodeToPlaybackError } from '../VideoPlayer';
 import { PlayerErrorCode } from '../types';
 import type { VideoPlayerConfig, StreamDescriptor } from '../types';
+import type { PlatformPlaybackService, PlatformSubtitleService } from '../../../platform';
 
 // ============================================
 // Test Helpers
@@ -308,6 +309,77 @@ describe('VideoPlayer', () => {
             const subtitles = player.getAvailableSubtitles();
             expect(subtitles).toHaveLength(1);
             expect(subtitles[0]?.id).toBe('en');
+        });
+
+        it('should use injected playback service for source assignment', async () => {
+            const playbackService: PlatformPlaybackService = {
+                applyStreamSource: jest.fn((videoElement, stream) => {
+                    videoElement.src = stream.url;
+                }),
+            };
+            const injectedPlayer = new VideoPlayer({ playbackService });
+            await injectedPlayer.initialize(createMockConfig());
+            const descriptor = createMockDescriptor({
+                protocol: 'direct',
+                url: 'http://custom-source.mp4',
+            });
+
+            await injectedPlayer.loadStream(descriptor);
+
+            expect(playbackService.applyStreamSource).toHaveBeenCalledWith(
+                expect.any(HTMLVideoElement),
+                { protocol: 'direct', url: 'http://custom-source.mp4' }
+            );
+            injectedPlayer.destroy();
+        });
+
+        it('should use injected subtitle service during subtitle fallback flow', async () => {
+            const subtitleService: PlatformSubtitleService = {
+                deriveLanHttpSubtitleUrl: jest.fn(() => new URL('http://10.0.0.20:32400/subtitles')),
+            };
+            const globalWithFetch = globalThis as typeof globalThis & {
+                fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+            };
+            const originalFetch = globalWithFetch.fetch;
+            const fetchMock = jest.fn().mockResolvedValue({
+                ok: false,
+                status: 404,
+                headers: { get: (): string => 'text/plain' },
+                text: async (): Promise<string> => 'Not found',
+            } as unknown as Response);
+            globalWithFetch.fetch = fetchMock;
+            const injectedPlayer = new VideoPlayer({ subtitleService });
+            try {
+                await injectedPlayer.initialize(createMockConfig());
+                const descriptor = createMockDescriptor({
+                    subtitleTracks: [
+                        {
+                            id: 'en',
+                            label: 'English (SRT)',
+                            languageCode: 'en',
+                            language: 'English',
+                            codec: 'srt',
+                            format: 'srt',
+                            key: '/library/streams/1',
+                            isTextCandidate: true,
+                            fetchableViaKey: true,
+                        },
+                    ],
+                    preferredSubtitleTrackId: 'en',
+                    subtitleContext: {
+                        serverUri: 'https://10-0-0-20.plex.direct:32400',
+                        authHeaders: { 'X-Plex-Token': 'token' },
+                    },
+                });
+
+                await injectedPlayer.loadStream(descriptor);
+                await Promise.resolve();
+
+                expect(subtitleService.deriveLanHttpSubtitleUrl).toHaveBeenCalled();
+            } finally {
+                globalWithFetch.fetch = originalFetch;
+                injectedPlayer.destroy();
+            }
         });
     });
 

@@ -5,62 +5,29 @@
  */
 
 import { RemoteButton, NavigationConfig } from './interfaces';
+import type { PlatformInputService } from '../../platform';
+import { webosPlatformServices } from '../../platform';
 
 /**
  * webOS remote control key code mappings.
  * CRITICAL: webOS uses different key codes than standard web browsers.
  */
-export const KEY_MAP: Map<number, RemoteButton> = new Map([
-    // Navigation
-    [13, 'ok'],
-    [461, 'back'],  // webOS specific! Standard web uses 8 (Backspace)
-    [8, 'back'],    // Backspace for desktop keyboards
-    [27, 'back'],   // Escape for desktop keyboards
-    [38, 'up'],
-    [40, 'down'],
-    [37, 'left'],
-    [39, 'right'],
+export function resolveKeyMap(
+    inputService: PlatformInputService = webosPlatformServices.input
+): ReadonlyMap<number, RemoteButton> {
+    return inputService.getKeyMap();
+}
 
-    // Playback
-    [415, 'play'],
-    [19, 'pause'],
-    [413, 'stop'],
-    [412, 'rewind'],
-    [417, 'fastforward'],
-
-    // Channel
-    [33, 'channelUp'],
-    [34, 'channelDown'],
-
-    // Color buttons (per webOS specification: 403=red, 404=green, 405=yellow, 406=blue)
-    [403, 'red'],
-    [404, 'green'],
-    [405, 'yellow'],
-    [406, 'blue'],
-    // Desktop keyboard fallbacks (use the same internal button identifiers)
-    [112, 'red'],    // F1
-    [113, 'green'],  // F2
-    [114, 'yellow'], // F3
-    [115, 'blue'],   // F4
-
-    // Numbers 0-9 (48-57)
-    [48, 'num0'],
-    [49, 'num1'],
-    [50, 'num2'],
-    [51, 'num3'],
-    [52, 'num4'],
-    [53, 'num5'],
-    [54, 'num6'],
-    [55, 'num7'],
-    [56, 'num8'],
-    [57, 'num9'],
-
-    // Info/Guide
-    [457, 'info'],
-    [458, 'guide'],
-    [73, 'info'],   // I key for desktop keyboards
-    [71, 'guide'],  // G key for desktop keyboards
-]);
+/**
+ * Shared key-code mapping helper used by navigation consumers.
+ */
+export function mapKeyCode(
+    keyCode: number,
+    inputService: PlatformInputService = webosPlatformServices.input
+): RemoteButton | null {
+    const button = resolveKeyMap(inputService).get(keyCode);
+    return button !== undefined ? button : null;
+}
 
 /**
  * Threshold for detecting long press (ms).
