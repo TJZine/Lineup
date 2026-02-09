@@ -6,6 +6,7 @@
 import { PLAYBACK_OPTIONS_CLASSES } from './constants';
 import type { IPlaybackOptionsModal } from './interfaces';
 import type { PlaybackOptionsConfig, PlaybackOptionsSection, PlaybackOptionsViewModel, PlaybackOptionsItem } from './types';
+import { createOverlayPrimitives } from '../common/OverlayPrimitives';
 
 export class PlaybackOptionsModal implements IPlaybackOptionsModal {
     private containerElement: HTMLElement | null = null;
@@ -70,18 +71,18 @@ export class PlaybackOptionsModal implements IPlaybackOptionsModal {
         this.focusableIds = [];
         this.optionElements.clear();
 
-        const panel = document.createElement('div');
-        panel.className = PLAYBACK_OPTIONS_CLASSES.PANEL;
-
-        const header = document.createElement('div');
-        header.className = PLAYBACK_OPTIONS_CLASSES.HEADER;
-
-        const title = document.createElement('h1');
-        title.className = PLAYBACK_OPTIONS_CLASSES.TITLE;
-        title.textContent = viewModel.title;
-
-        header.appendChild(title);
-        panel.appendChild(header);
+        const primitives = createOverlayPrimitives(
+            {
+                panel: PLAYBACK_OPTIONS_CLASSES.PANEL,
+                header: PLAYBACK_OPTIONS_CLASSES.HEADER,
+                title: PLAYBACK_OPTIONS_CLASSES.TITLE,
+            },
+            {
+                panel: {},
+                title: viewModel.title,
+            }
+        );
+        const panel = primitives.panelEl;
 
         panel.appendChild(this.createSection(viewModel.subtitles));
         panel.appendChild(this.createSection(viewModel.audio));

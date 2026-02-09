@@ -7,6 +7,7 @@
 import { AppOrchestrator } from '../../../Orchestrator';
 import { AppErrorCode, PlexApiError, type PlexPinRequest } from '../../plex/auth';
 import { summarizeErrorForLog } from '../../../utils/errors';
+import { createScreenShell } from '../common/ScreenShell';
 
 type QrCodeModule = {
     toCanvas: (
@@ -40,6 +41,7 @@ export class AuthScreen {
     private _activeCode: string | null = null;
     private _retryFocusableRegistered: boolean = false;
     private _cancelHasRetryNeighbor: boolean = false;
+    private _destroyScreenShell: (() => void) | null = null;
     private readonly _handleRequestClick: () => void;
     private readonly _handleCancelClick: () => void;
     private readonly _handleRetryClick: () => void;
@@ -54,18 +56,62 @@ export class AuthScreen {
         this._container.style.alignItems = 'center';
         this._container.style.justifyContent = 'center';
 
-        const panel = document.createElement('div');
-        panel.className = 'screen-panel';
+        this._handleRequestClick = (): void => {
+            this._handleRequestPin().catch((error: unknown) => {
+                console.error('[AuthScreen] Request PIN failed:', summarizeErrorForLog(error));
+            });
+        };
+        this._handleCancelClick = (): void => {
+            this._handleCancel().catch((error: unknown) => {
+                console.error('[AuthScreen] Cancel PIN failed:', summarizeErrorForLog(error));
+            });
+        };
+        this._handleRetryClick = (): void => {
+            this._handleRequestPin().catch((error: unknown) => {
+                console.error('[AuthScreen] Retry request PIN failed:', summarizeErrorForLog(error));
+            });
+        };
 
-        const title = document.createElement('h1');
-        title.className = 'screen-title';
-        title.textContent = 'Sign in to Plex';
-        panel.appendChild(title);
+        const shell = createScreenShell(this._container, {
+            title: 'Sign in to Plex',
+            subtitle: 'Scan the QR code or visit plex.tv/link',
+            status: {
+                title: 'Ready to request a PIN.',
+                tone: 'neutral',
+                ariaLive: 'polite',
+            },
+            actions: [
+                {
+                    id: 'btn-auth-request',
+                    label: 'Request PIN',
+                    variant: 'primary',
+                    onSelect: this._handleRequestClick,
+                },
+                {
+                    id: 'btn-auth-cancel',
+                    label: 'Cancel',
+                    variant: 'secondary',
+                    onSelect: this._handleCancelClick,
+                    disabled: true,
+                },
+                {
+                    id: 'btn-auth-retry',
+                    label: 'Retry',
+                    variant: 'secondary',
+                    onSelect: this._handleRetryClick,
+                },
+            ],
+            error: null,
+        });
+        this._destroyScreenShell = shell.destroy;
 
-        const subtitle = document.createElement('p');
-        subtitle.className = 'screen-subtitle';
-        subtitle.textContent = 'Scan the QR code or visit plex.tv/link';
-        panel.appendChild(subtitle);
+        const status = shell.contentEl.querySelector('.screen-status');
+        const detail = shell.contentEl.querySelector('.screen-detail');
+        if (!(status instanceof HTMLElement) || !(detail instanceof HTMLElement)) {
+            throw new Error('AuthScreen shell status elements unavailable');
+        }
+        this._statusEl = status;
+        this._detailEl = detail;
 
         const qrWrap = document.createElement('div');
         qrWrap.className = 'auth-qr';
@@ -80,7 +126,7 @@ export class AuthScreen {
         qrCanvas.height = 160;
         qrCard.appendChild(qrCanvas);
         qrWrap.appendChild(qrCard);
-        panel.appendChild(qrWrap);
+        shell.contentEl.insertBefore(qrWrap, this._statusEl);
         this._qrWrapEl = qrWrap;
         this._qrCanvasEl = qrCanvas;
 
@@ -88,27 +134,14 @@ export class AuthScreen {
         pinLive.className = 'sr-only';
         pinLive.setAttribute('aria-live', 'polite');
         pinLive.setAttribute('aria-atomic', 'true');
-        panel.appendChild(pinLive);
+        shell.contentEl.insertBefore(pinLive, this._statusEl);
         this._pinLiveEl = pinLive;
 
         const pinBoxes = document.createElement('div');
         pinBoxes.className = 'auth-pin-container';
         pinBoxes.setAttribute('aria-hidden', 'true');
-        panel.appendChild(pinBoxes);
+        shell.contentEl.insertBefore(pinBoxes, this._statusEl);
         this._pinBoxesEl = pinBoxes;
-
-        const status = document.createElement('div');
-        status.className = 'screen-status';
-        status.textContent = 'Ready to request a PIN.';
-        status.setAttribute('aria-live', 'polite');
-        panel.appendChild(status);
-        this._statusEl = status;
-
-        const detail = document.createElement('div');
-        detail.className = 'screen-detail';
-        detail.textContent = '';
-        panel.appendChild(detail);
-        this._detailEl = detail;
 
         const errorBox = document.createElement('div');
         errorBox.className = 'inline-error-box';
@@ -126,65 +159,30 @@ export class AuthScreen {
         errorBox.appendChild(errorMessage);
         this._errorMessageEl = errorMessage;
 
-        panel.appendChild(errorBox);
+        shell.contentEl.appendChild(errorBox);
         this._errorBoxEl = errorBox;
 
-        const buttonRow = document.createElement('div');
-        buttonRow.className = 'button-row';
-
-        const requestButton = document.createElement('button');
-        requestButton.id = 'btn-auth-request';
-        requestButton.className = 'screen-button';
-        requestButton.textContent = 'Request PIN';
-        this._handleRequestClick = (): void => {
-            this._handleRequestPin().catch((error: unknown) => {
-                console.error('[AuthScreen] Request PIN failed:', summarizeErrorForLog(error));
-            });
-        };
-        requestButton.addEventListener('click', this._handleRequestClick);
-        buttonRow.appendChild(requestButton);
-        this._requestButton = requestButton;
-
-
-        const cancelButton = document.createElement('button');
-        cancelButton.id = 'btn-auth-cancel';
-        cancelButton.className = 'screen-button secondary';
-        cancelButton.textContent = 'Cancel';
-        cancelButton.disabled = true;
-        this._handleCancelClick = (): void => {
-            this._handleCancel().catch((error: unknown) => {
-                console.error('[AuthScreen] Cancel PIN failed:', summarizeErrorForLog(error));
-            });
-        };
-        cancelButton.addEventListener('click', this._handleCancelClick);
-        buttonRow.appendChild(cancelButton);
-        this._cancelButton = cancelButton;
-
-
-        const retryButton = document.createElement('button');
-        retryButton.id = 'btn-auth-retry';
-        retryButton.className = 'screen-button secondary';
-        retryButton.textContent = 'Retry';
+        const requestButton = shell.actionsEl.querySelector('#btn-auth-request');
+        const cancelButton = shell.actionsEl.querySelector('#btn-auth-cancel');
+        const retryButton = shell.actionsEl.querySelector('#btn-auth-retry');
+        if (
+            !(requestButton instanceof HTMLButtonElement)
+            || !(cancelButton instanceof HTMLButtonElement)
+            || !(retryButton instanceof HTMLButtonElement)
+        ) {
+            throw new Error('AuthScreen shell actions unavailable');
+        }
         retryButton.style.display = 'none';
-        this._handleRetryClick = (): void => {
-            this._handleRequestPin().catch((error: unknown) => {
-                console.error('[AuthScreen] Retry request PIN failed:', summarizeErrorForLog(error));
-            });
-        };
-        retryButton.addEventListener('click', this._handleRetryClick);
-        buttonRow.appendChild(retryButton);
+
+        this._requestButton = requestButton;
+        this._cancelButton = cancelButton;
         this._retryButton = retryButton;
-
-
-        panel.appendChild(buttonRow);
-        this._container.appendChild(panel);
     }
 
     destroy(): void {
         this.hide();
-        this._requestButton.removeEventListener('click', this._handleRequestClick);
-        this._cancelButton.removeEventListener('click', this._handleCancelClick);
-        this._retryButton.removeEventListener('click', this._handleRetryClick);
+        this._destroyScreenShell?.();
+        this._destroyScreenShell = null;
     }
 
     show(): void {

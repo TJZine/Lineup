@@ -8,6 +8,7 @@ import { AppOrchestrator } from '../../../Orchestrator';
 import type { PlexHomeUser } from '../../plex/auth';
 import type { FocusableElement, KeyEvent } from '../../navigation';
 import { PlexApiError } from '../../plex/auth';
+import { createScreenShell } from '../common/ScreenShell';
 
 const FOCUS_RESTORE_DELAY_MS = 50;
 const PIN_LENGTH = 4;
@@ -65,69 +66,63 @@ export class ProfileSelectScreen {
         this._container.style.alignItems = 'center';
         this._container.style.justifyContent = 'center';
 
-        const panel = document.createElement('div');
-        panel.className = 'screen-panel profile-panel';
+        const shell = createScreenShell(this._container, {
+            title: "Who's watching?",
+            subtitle: 'Choose a Plex Home profile to continue.',
+            status: {
+                title: 'Loading profiles...',
+                tone: 'loading',
+            },
+            error: null,
+            actions: [
+                {
+                    id: 'btn-profile-main',
+                    label: 'Use Main Account',
+                    variant: 'primary',
+                    onSelect: (): void => {
+                        void this._handleUseMainAccount();
+                    },
+                },
+                {
+                    id: 'btn-profile-signout',
+                    label: 'Sign out',
+                    variant: 'secondary',
+                    onSelect: (): void => {
+                        void this._handleSignOut();
+                    },
+                },
+            ],
+        });
+        shell.panelEl.classList.add('profile-panel');
 
-        const title = document.createElement('h1');
-        title.className = 'screen-title';
-        title.textContent = "Who's watching?";
-        panel.appendChild(title);
-
-        const subtitle = document.createElement('p');
-        subtitle.className = 'screen-subtitle';
-        subtitle.textContent = 'Choose a Plex Home profile to continue.';
-        panel.appendChild(subtitle);
-
-        const status = document.createElement('div');
-        status.className = 'screen-status';
-        status.textContent = 'Loading profiles...';
-        panel.appendChild(status);
+        const status = shell.contentEl.querySelector('.screen-status');
+        const error = shell.contentEl.querySelector('.screen-error');
+        if (!(status instanceof HTMLElement) || !(error instanceof HTMLElement)) {
+            throw new Error('ProfileSelectScreen shell status elements unavailable');
+        }
         this._statusEl = status;
-
-        const error = document.createElement('div');
-        error.className = 'screen-error';
-        error.textContent = '';
-        error.setAttribute('role', 'alert');
-        error.setAttribute('aria-live', 'assertive');
-        panel.appendChild(error);
         this._errorEl = error;
+        this._errorEl.setAttribute('role', 'alert');
+        this._errorEl.setAttribute('aria-live', 'assertive');
 
         const list = document.createElement('div');
         list.className = 'profile-list';
-        panel.appendChild(list);
+        shell.contentEl.appendChild(list);
         this._listEl = list;
 
         const tip = document.createElement('div');
         tip.className = 'profile-tip';
         tip.textContent = 'Tip: Set a PIN on the admin profile to prevent unwanted access.';
-        panel.appendChild(tip);
+        shell.contentEl.appendChild(tip);
         this._tipEl = tip;
 
-        const buttonRow = document.createElement('div');
-        buttonRow.className = 'button-row';
-
-        const mainButton = document.createElement('button');
-        mainButton.id = 'btn-profile-main';
-        mainButton.className = 'screen-button';
-        mainButton.textContent = 'Use Main Account';
-        mainButton.addEventListener('click', () => {
-            void this._handleUseMainAccount();
-        });
-        buttonRow.appendChild(mainButton);
+        const mainButton = shell.actionsEl.querySelector('#btn-profile-main');
+        const signOutButton = shell.actionsEl.querySelector('#btn-profile-signout');
+        if (!(mainButton instanceof HTMLButtonElement) || !(signOutButton instanceof HTMLButtonElement)) {
+            throw new Error('ProfileSelectScreen shell actions unavailable');
+        }
         this._mainButton = mainButton;
-
-        const signOutButton = document.createElement('button');
-        signOutButton.id = 'btn-profile-signout';
-        signOutButton.className = 'screen-button secondary';
-        signOutButton.textContent = 'Sign out';
-        signOutButton.addEventListener('click', () => {
-            void this._handleSignOut();
-        });
-        buttonRow.appendChild(signOutButton);
         this._signOutButton = signOutButton;
-
-        panel.appendChild(buttonRow);
-        this._container.appendChild(panel);
 
         // PIN modal (hidden by default)
         const modal = document.createElement('div');
@@ -292,10 +287,11 @@ export class ProfileSelectScreen {
     private _renderUsers(users: PlexHomeUser[]): void {
         this._listEl.replaceChildren();
         this._userButtonIds = [];
+        const buttonIds = this._buildUserButtonIds(users.map((user) => user.id));
 
         users.forEach((user, index) => {
             const button = document.createElement('button');
-            button.id = `btn-profile-${index}`;
+            button.id = buttonIds[index] ?? 'btn-profile-unknown';
             button.className = 'profile-row';
             button.addEventListener('click', () => {
                 void this._handleUserSelect(user);
@@ -651,14 +647,20 @@ export class ProfileSelectScreen {
                 neighbors.left = this._mainButton.id;
             }
 
-            nav.registerFocusable({
+            const focusable: FocusableElement = {
                 id,
                 element: element as HTMLElement,
                 neighbors,
                 onSelect: () => {
                     (element as HTMLElement).click();
                 },
-            });
+            };
+            const userIndex = this._userButtonIds.indexOf(id);
+            if (userIndex >= 0) {
+                focusable.restoreGroup = 'profile-select-list';
+                focusable.restorePriority = Math.max(0, 1000 - userIndex);
+            }
+            nav.registerFocusable(focusable);
         });
 
         const preferredId = this._userButtonIds[0] ?? this._mainButton.id;
@@ -719,9 +721,53 @@ export class ProfileSelectScreen {
         this._restoreFocusTimeoutId = setTimeout(() => {
             this._restoreFocusTimeoutId = null;
             if (!this._container.classList.contains('visible')) return;
+            if (nav.restoreFocusForCurrentScreen()) {
+                return;
+            }
             const preferredId = this._userButtonIds[0] ?? this._mainButton.id;
             nav.setFocus(preferredId);
         }, FOCUS_RESTORE_DELAY_MS);
+    }
+
+    private _buildUserButtonIds(userIds: string[]): string[] {
+        const usedIds = new Set<string>();
+        return userIds.map((userId) => {
+            const sanitized = this._sanitizeButtonIdToken(userId);
+            const baseId = `btn-profile-${sanitized}`;
+            if (!usedIds.has(baseId)) {
+                usedIds.add(baseId);
+                return baseId;
+            }
+
+            const hashedId = `${baseId}-${this._hashIdToken(userId)}`;
+            if (!usedIds.has(hashedId)) {
+                usedIds.add(hashedId);
+                return hashedId;
+            }
+
+            let suffix = 2;
+            let deduped = `${hashedId}-${suffix}`;
+            while (usedIds.has(deduped)) {
+                suffix += 1;
+                deduped = `${hashedId}-${suffix}`;
+            }
+            usedIds.add(deduped);
+            return deduped;
+        });
+    }
+
+    private _sanitizeButtonIdToken(value: string): string {
+        const sanitized = value.replace(/[^a-zA-Z0-9_-]/g, '_');
+        return sanitized || 'unknown';
+    }
+
+    private _hashIdToken(value: string): string {
+        let hash = 0x811c9dc5;
+        for (let i = 0; i < value.length; i += 1) {
+            hash ^= value.charCodeAt(i);
+            hash = Math.imul(hash, 0x01000193);
+        }
+        return (hash >>> 0).toString(16).padStart(8, '0');
     }
 
     private _setStatus(message: string): void {

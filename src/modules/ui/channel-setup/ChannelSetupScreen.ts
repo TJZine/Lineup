@@ -17,6 +17,7 @@ import type { FocusableElement, KeyEvent } from '../../navigation';
 import { safeLocalStorageGet } from '../../../utils/storage';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../scheduler/channel-manager/constants';
+import { createScreenShell } from '../common/ScreenShell';
 
 const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
 const DEFAULT_MIN_ITEMS = 10;
@@ -188,44 +189,37 @@ export class ChannelSetupScreen {
         this._container.style.alignItems = 'center';
         this._container.style.justifyContent = 'center';
 
-        const panel = document.createElement('div');
-        panel.className = 'screen-panel setup-panel';
-        const title = document.createElement('h1');
-        title.className = 'screen-title';
-        title.textContent = 'Channel Setup';
-        panel.appendChild(title);
-
-        const subtitle = document.createElement('p');
-        subtitle.className = 'screen-subtitle';
-        subtitle.textContent = 'Build a clean, remote-first channel lineup for this server.';
-        panel.appendChild(subtitle);
+        const shell = createScreenShell(this._container, {
+            title: 'Channel Setup',
+            subtitle: 'Build a clean, remote-first channel lineup for this server.',
+            status: {
+                title: '',
+                tone: 'neutral',
+            },
+            error: null,
+            actions: [],
+        });
+        shell.panelEl.classList.add('setup-panel');
 
         const stepEl = document.createElement('div');
         stepEl.className = 'setup-step';
-        panel.appendChild(stepEl);
+        const status = shell.contentEl.querySelector('.screen-status');
+        const detail = shell.contentEl.querySelector('.screen-detail');
+        const error = shell.contentEl.querySelector('.screen-error');
+        if (!(status instanceof HTMLElement) || !(detail instanceof HTMLElement) || !(error instanceof HTMLElement)) {
+            throw new Error('ChannelSetupScreen shell status elements unavailable');
+        }
+        shell.contentEl.insertBefore(stepEl, status);
         this._stepEl = stepEl;
 
-        const status = document.createElement('div');
-        status.className = 'screen-status';
-        panel.appendChild(status);
         this._statusEl = status;
-
-        const detail = document.createElement('div');
-        detail.className = 'screen-detail';
-        panel.appendChild(detail);
         this._detailEl = detail;
-
-        const error = document.createElement('div');
-        error.className = 'screen-error';
-        panel.appendChild(error);
         this._errorEl = error;
 
         const content = document.createElement('div');
         content.className = 'setup-body';
-        panel.appendChild(content);
+        shell.contentEl.appendChild(content);
         this._contentEl = content;
-
-        this._container.appendChild(panel);
     }
 
     show(): void {

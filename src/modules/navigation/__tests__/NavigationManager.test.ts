@@ -496,6 +496,35 @@ describe('NavigationManager', () => {
                 expect(focused.id).toBe('btn5');
             }
         });
+
+        it('saves focus memory on successful setFocus when enabled', () => {
+            const el = createMockElement('btn-memory');
+            elements.push(el);
+            nav.registerFocusable({ id: 'btn-memory', element: el, neighbors: {} });
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const focusManager = (nav as any)._focusManager as { saveFocusState: (screenId: string) => void };
+            const saveSpy = jest.spyOn(focusManager, 'saveFocusState');
+
+            nav.setFocus('btn-memory');
+
+            expect(saveSpy).toHaveBeenCalledWith('splash');
+        });
+
+        it('restores focus for the current screen via explicit restore entrypoint', () => {
+            const el = createMockElement('btn-restore');
+            elements.push(el);
+            nav.registerFocusable({ id: 'btn-restore', element: el, neighbors: {} });
+
+            nav.setFocus('btn-restore');
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const focusManager = (nav as any)._focusManager as { blur: () => void };
+            focusManager.blur();
+            const restored = nav.restoreFocusForCurrentScreen();
+
+            expect(restored).toBe(true);
+            expect(nav.getFocusedElement()?.id).toBe('btn-restore');
+        });
     });
 
     describe('input blocking', () => {

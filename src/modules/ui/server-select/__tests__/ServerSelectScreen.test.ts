@@ -8,6 +8,7 @@ type NavigationStub = {
     registerFocusable: jest.Mock;
     unregisterFocusable: jest.Mock;
     setFocus: jest.Mock;
+    restoreFocusForCurrentScreen: jest.Mock;
     getCurrentScreen: jest.Mock;
     replaceScreen: jest.Mock;
 };
@@ -16,6 +17,7 @@ const createNavigationStub = (): NavigationStub => ({
     registerFocusable: jest.fn(),
     unregisterFocusable: jest.fn(),
     setFocus: jest.fn(),
+    restoreFocusForCurrentScreen: jest.fn().mockReturnValue(false),
     getCurrentScreen: jest.fn().mockReturnValue('server-select'),
     replaceScreen: jest.fn(),
 });
@@ -133,13 +135,37 @@ describe('ServerSelectScreen', () => {
         const registeredIds = orchestrator.getNavigation().registerFocusable.mock.calls
             .map((call) => (call[0] as { id?: string })?.id)
             .filter((id): id is string => typeof id === 'string');
-        expect(registeredIds).toContain('btn-server-select-0');
+        expect(registeredIds).toContain('btn-server-select-srv-1');
 
         const findLastNeighbors = (id: string): { down?: string } | undefined => {
             const calls = orchestrator.getNavigation().registerFocusable.mock.calls.filter((call) => call[0]?.id === id);
             return calls.length ? (calls[calls.length - 1][0].neighbors as { down?: string }) : undefined;
         };
-        expect(findLastNeighbors('btn-server-refresh')?.down).toBe('btn-server-select-0');
+        expect(findLastNeighbors('btn-server-refresh')?.down).toBe('btn-server-select-srv-1');
+    });
+
+    it('disambiguates colliding sanitized server ids with deterministic suffixes', async () => {
+        const orchestrator = createOrchestratorStub();
+        const nav = orchestrator.getNavigation();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([
+            { id: 'srv/1', name: 'Server One', owned: true },
+            { id: 'srv_1', name: 'Server Two', owned: true },
+        ]);
+
+        const screen = new ServerSelectScreen(container, orchestrator as never);
+        screen.show({ allowAutoConnect: false });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const serverIds = nav.registerFocusable.mock.calls
+            .map((call) => (call[0] as { id?: string })?.id)
+            .filter((id): id is string => typeof id === 'string' && id.startsWith('btn-server-select-srv_1'));
+
+        expect(serverIds).toContain('btn-server-select-srv_1');
+        expect(serverIds.some((id) => /^btn-server-select-srv_1-[0-9a-f]{8}$/.test(id))).toBe(true);
+        expect(new Set(serverIds).size).toBe(serverIds.length);
     });
 
     it('does not auto-connect saved server by default', async () => {
@@ -320,8 +346,8 @@ describe('ServerSelectScreen', () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
 
         const unregisteredIds = nav.unregisterFocusable.mock.calls.map((call) => call[0] as string | undefined);
-        expect(unregisteredIds).toContain('btn-server-select-0');
-        expect(unregisteredIds).toContain('btn-server-select-1');
+        expect(unregisteredIds).toContain('btn-server-select-srv-1');
+        expect(unregisteredIds).toContain('btn-server-select-srv-2');
     });
 
     it('restores focus to refresh after clearing saved server', async () => {
@@ -347,6 +373,34 @@ describe('ServerSelectScreen', () => {
 
         jest.advanceTimersByTime(60);
         expect(nav.setFocus).toHaveBeenCalledWith('btn-server-refresh');
+        jest.useRealTimers();
+    });
+
+    it('uses navigation restore entrypoint before refresh-button fallback', async () => {
+        const orchestrator = createOrchestratorStub();
+        const nav = orchestrator.getNavigation();
+        nav.restoreFocusForCurrentScreen.mockReturnValue(true);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([
+            { id: 'srv-1', name: 'Server One', owned: true },
+        ]);
+
+        const screen = new ServerSelectScreen(container, orchestrator as never);
+        screen.show({ allowAutoConnect: false });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        jest.useFakeTimers();
+        nav.setFocus.mockClear();
+        nav.restoreFocusForCurrentScreen.mockClear();
+
+        const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
+        clearBtn?.click();
+
+        jest.advanceTimersByTime(60);
+        expect(nav.restoreFocusForCurrentScreen).toHaveBeenCalledTimes(1);
+        expect(nav.setFocus).not.toHaveBeenCalledWith('btn-server-refresh');
         jest.useRealTimers();
     });
 });

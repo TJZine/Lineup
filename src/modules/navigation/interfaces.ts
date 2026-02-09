@@ -29,6 +29,7 @@ export interface INavigationManager {
 
     // Focus Management
     setFocus(elementId: string): void;
+    restoreFocusForCurrentScreen(): boolean;
     getFocusedElement(): FocusableElement | null;
     /**
      * Move focus in the specified direction.
@@ -190,6 +191,10 @@ export interface FocusableElement {
     element: HTMLElement;
     /** Focus group membership */
     group?: string;
+    /** Relative precedence for restore fallback within a restore group */
+    restorePriority?: number;
+    /** Restore bucket used when saved focus id no longer exists */
+    restoreGroup?: string;
     /** Explicit neighbor mappings */
     neighbors: {
         up?: string;

@@ -6,6 +6,7 @@
 import { MINI_GUIDE_CLASSES } from './constants';
 import type { IMiniGuideOverlay } from './interfaces';
 import type { MiniGuideConfig, MiniGuideViewModel } from './types';
+import { createOverlayPrimitives } from '../common/OverlayPrimitives';
 
 const ROW_COUNT = 5;
 
@@ -144,13 +145,16 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
       `);
         }
 
-        return `
-      <div class="${MINI_GUIDE_CLASSES.PANEL}">
+        const { panelEl } = createOverlayPrimitives(
+            { panel: MINI_GUIDE_CLASSES.PANEL },
+            { panel: {} }
+        );
+        panelEl.innerHTML = `
         ${rows.join('')}
         <div class="${MINI_GUIDE_CLASSES.FOOTER_HINT}">
           UP/DOWN Browse • CH± Page • OK Watch • RIGHT Full Guide • BACK Close
         </div>
-      </div>
-    `;
+      `;
+        return panelEl.outerHTML;
     }
 }

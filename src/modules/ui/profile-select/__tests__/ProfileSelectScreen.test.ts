@@ -11,6 +11,7 @@ type NavigationStub = {
     setFocus: jest.Mock;
     openModal: jest.Mock;
     closeModal: jest.Mock;
+    restoreFocusForCurrentScreen: jest.Mock;
     getCurrentScreen: jest.Mock;
     on: jest.Mock;
     off: jest.Mock;
@@ -25,6 +26,7 @@ const createNavigationStub = (): NavigationStub => ({
     setFocus: jest.fn(),
     openModal: jest.fn(),
     closeModal: jest.fn(),
+    restoreFocusForCurrentScreen: jest.fn().mockReturnValue(false),
     getCurrentScreen: jest.fn().mockReturnValue('profile-select'),
     __handlers: {},
     on: jest.fn(function (this: NavigationStub, event: string, handler: (payload: unknown) => void) {
@@ -105,6 +107,33 @@ describe('ProfileSelectScreen', () => {
         expect(container.textContent).toContain('Kid');
     });
 
+    it('disambiguates colliding sanitized user ids with deterministic suffixes', async () => {
+        const users = [
+            { id: 'kid/one', title: 'Kid One', thumb: null, admin: false, protected: false },
+            { id: 'kid_one', title: 'Kid Two', thumb: null, admin: false, protected: false },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const nav = orchestrator.getNavigation();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(container, orchestrator as never);
+        screen.show();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const rowIds = Array.from(container.querySelectorAll('.profile-row'))
+            .map((row) => (row as HTMLElement).id)
+            .filter((id) => id.startsWith('btn-profile-kid_one'));
+        expect(rowIds).toContain('btn-profile-kid_one');
+        expect(rowIds.some((id) => /^btn-profile-kid_one-[0-9a-f]{8}$/.test(id))).toBe(true);
+        expect(new Set(rowIds).size).toBe(rowIds.length);
+
+        const registeredIds = nav.registerFocusable.mock.calls
+            .map((call) => (call[0] as { id?: string })?.id)
+            .filter((id): id is string => typeof id === 'string' && id.startsWith('btn-profile-kid_one'));
+        expect(new Set(registeredIds).size).toBe(registeredIds.length);
+    });
+
     it('stays on profile screen when only one profile is available', async () => {
         const users = [{ id: '1', title: 'Admin', thumb: null, admin: true, protected: false }];
         const orchestrator = createOrchestratorStub(users);
@@ -137,7 +166,7 @@ describe('ProfileSelectScreen', () => {
 
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        const protectedButton = container.querySelector('#btn-profile-1') as HTMLButtonElement;
+        const protectedButton = container.querySelector('#btn-profile-2') as HTMLButtonElement;
         protectedButton.click();
 
         const modal = container.querySelector('.profile-pin-modal') as HTMLElement;
@@ -159,7 +188,7 @@ describe('ProfileSelectScreen', () => {
 
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        const protectedButton = container.querySelector('#btn-profile-1') as HTMLButtonElement;
+        const protectedButton = container.querySelector('#btn-profile-2') as HTMLButtonElement;
         protectedButton.click();
 
         expect(nav.openModal).toHaveBeenCalledWith('profile-pin', expectedPinFocusableIds);
@@ -180,7 +209,7 @@ describe('ProfileSelectScreen', () => {
 
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        const protectedButton = container.querySelector('#btn-profile-1') as HTMLButtonElement;
+        const protectedButton = container.querySelector('#btn-profile-2') as HTMLButtonElement;
         protectedButton.click();
 
         const pinCalls = nav.registerFocusable.mock.calls
@@ -210,7 +239,7 @@ describe('ProfileSelectScreen', () => {
 
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        const protectedButton = container.querySelector('#btn-profile-1') as HTMLButtonElement;
+        const protectedButton = container.querySelector('#btn-profile-2') as HTMLButtonElement;
         protectedButton.click();
 
         expect(container.querySelector('#btn-profile-pin-ok')).toBeNull();
@@ -231,7 +260,7 @@ describe('ProfileSelectScreen', () => {
 
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        const protectedButton = container.querySelector('#btn-profile-1') as HTMLButtonElement;
+        const protectedButton = container.querySelector('#btn-profile-2') as HTMLButtonElement;
         protectedButton.click();
 
         expect(nav.setFocus).toHaveBeenCalledWith('btn-profile-pin-5');
@@ -251,7 +280,7 @@ describe('ProfileSelectScreen', () => {
 
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        (container.querySelector('#btn-profile-1') as HTMLButtonElement).click();
+        (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
 
         (container.querySelector('#btn-profile-pin-1') as HTMLButtonElement).click();
         (container.querySelector('#btn-profile-pin-2') as HTMLButtonElement).click();
@@ -279,7 +308,7 @@ describe('ProfileSelectScreen', () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
         jest.useFakeTimers();
 
-        (container.querySelector('#btn-profile-1') as HTMLButtonElement).click();
+        (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
         (container.querySelector('#btn-profile-pin-1') as HTMLButtonElement).click();
         (container.querySelector('#btn-profile-pin-2') as HTMLButtonElement).click();
 
@@ -307,7 +336,7 @@ describe('ProfileSelectScreen', () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
 
         // Open PIN modal for protected user.
-        (container.querySelector('#btn-profile-1') as HTMLButtonElement).click();
+        (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
 
         const keyPress = nav.__handlers['keyPress'];
         expect(typeof keyPress).toBe('function');
@@ -343,7 +372,7 @@ describe('ProfileSelectScreen', () => {
 
         await new Promise((resolve) => setTimeout(resolve, 0));
         jest.useFakeTimers();
-        (container.querySelector('#btn-profile-1') as HTMLButtonElement).click();
+        (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
 
         (container.querySelector('#btn-profile-pin-1') as HTMLButtonElement).click();
         (container.querySelector('#btn-profile-pin-2') as HTMLButtonElement).click();
@@ -358,5 +387,31 @@ describe('ProfileSelectScreen', () => {
 
         jest.advanceTimersByTime(351);
         expect(slotsWrap.classList.contains('error')).toBe(false);
+    });
+
+    it('uses navigation restore entrypoint before preferred-focus fallback', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const nav = orchestrator.getNavigation();
+        nav.restoreFocusForCurrentScreen.mockReturnValue(true);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(container, orchestrator as never);
+        screen.show();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        jest.useFakeTimers();
+        nav.setFocus.mockClear();
+        nav.restoreFocusForCurrentScreen.mockClear();
+        (screen as unknown as { _restoreFocus: () => void })._restoreFocus();
+
+        jest.advanceTimersByTime(60);
+        expect(nav.restoreFocusForCurrentScreen).toHaveBeenCalledTimes(1);
+        expect(nav.setFocus).not.toHaveBeenCalled();
+        jest.useRealTimers();
     });
 });

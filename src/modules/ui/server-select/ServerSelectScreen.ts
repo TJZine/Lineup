@@ -10,6 +10,7 @@ import { PlexApiError } from '../../plex/auth';
 import type { FocusableElement } from '../../navigation';
 import { safeLocalStorageGet } from '../../../utils/storage';
 import { summarizeErrorForLog } from '../../../utils/errors';
+import { createScreenShell } from '../common/ScreenShell';
 
 const FOCUS_RESTORE_DELAY_MS = 50;
 
@@ -39,18 +40,63 @@ export class ServerSelectScreen {
         this._container.style.alignItems = 'center';
         this._container.style.justifyContent = 'center';
 
-        const panel = document.createElement('div');
-        panel.className = 'screen-panel';
+        const shell = createScreenShell(this._container, {
+            title: 'Select Plex Server',
+            subtitle: 'Choose a server to continue startup.',
+            status: {
+                title: 'Ready to discover servers.',
+                tone: 'neutral',
+            },
+            error: null,
+            actions: [
+                {
+                    id: 'btn-server-refresh',
+                    label: 'Retry discovery',
+                    variant: 'primary',
+                    onSelect: (): void => {
+                        this.refresh().catch((error: unknown) => {
+                            console.error('[ServerSelect] Refresh failed:', summarizeErrorForLog(error));
+                        });
+                    },
+                },
+                {
+                    id: 'btn-server-setup',
+                    label: 'Re-run Setup',
+                    variant: 'secondary',
+                    onSelect: (): void => {
+                        this._clearError();
+                        this._orchestrator.requestChannelSetupRerun();
+                    },
+                },
+                {
+                    id: 'btn-server-switch-profile',
+                    label: 'Switch Profile',
+                    variant: 'secondary',
+                    onSelect: (): void => {
+                        const nav = this._orchestrator.getNavigation();
+                        nav?.replaceScreen('profile-select');
+                    },
+                },
+                {
+                    id: 'btn-server-forget',
+                    label: 'Clear Saved Server',
+                    variant: 'secondary',
+                    onSelect: (): void => {
+                        this._handleClearSelection();
+                    },
+                },
+            ],
+        });
 
-        const title = document.createElement('h1');
-        title.className = 'screen-title';
-        title.textContent = 'Select Plex Server';
-        panel.appendChild(title);
-
-        const subtitle = document.createElement('p');
-        subtitle.className = 'screen-subtitle';
-        subtitle.textContent = 'Choose a server to continue startup.';
-        panel.appendChild(subtitle);
+        const status = shell.contentEl.querySelector('.screen-status');
+        const detail = shell.contentEl.querySelector('.screen-detail');
+        const error = shell.contentEl.querySelector('.screen-error');
+        if (!(status instanceof HTMLElement) || !(detail instanceof HTMLElement) || !(error instanceof HTMLElement)) {
+            throw new Error('ServerSelectScreen shell status elements unavailable');
+        }
+        this._statusEl = status;
+        this._detailEl = detail;
+        this._errorEl = error;
 
         const autoConnectHint = document.createElement('div');
         autoConnectHint.className = 'server-autoconnect-hint';
@@ -67,83 +113,30 @@ export class ServerSelectScreen {
         autoConnectText.textContent = 'Trying your saved server first.';
         autoConnectHint.appendChild(autoConnectText);
 
-        panel.appendChild(autoConnectHint);
+        shell.contentEl.insertBefore(autoConnectHint, this._statusEl);
         this._autoConnectHintEl = autoConnectHint;
 
-        const status = document.createElement('div');
-        status.className = 'screen-status';
-        status.textContent = 'Ready to discover servers.';
-        panel.appendChild(status);
-        this._statusEl = status;
-
-        const detail = document.createElement('div');
-        detail.className = 'screen-detail';
-        detail.textContent = '';
-        panel.appendChild(detail);
-        this._detailEl = detail;
-
-        const error = document.createElement('div');
-        error.className = 'screen-error';
-        error.textContent = '';
-        panel.appendChild(error);
-        this._errorEl = error;
-
-        const buttonRow = document.createElement('div');
-        buttonRow.className = 'button-row';
-
-        const refreshButton = document.createElement('button');
-        refreshButton.id = 'btn-server-refresh';
-        refreshButton.className = 'screen-button';
-        refreshButton.textContent = 'Retry discovery';
-        refreshButton.addEventListener('click', () => {
-            this.refresh().catch((error: unknown) => {
-                console.error('[ServerSelect] Refresh failed:', summarizeErrorForLog(error));
-            });
-        });
-        buttonRow.appendChild(refreshButton);
+        const refreshButton = shell.actionsEl.querySelector('#btn-server-refresh');
+        const setupButton = shell.actionsEl.querySelector('#btn-server-setup');
+        const switchProfileButton = shell.actionsEl.querySelector('#btn-server-switch-profile');
+        const clearButton = shell.actionsEl.querySelector('#btn-server-forget');
+        if (
+            !(refreshButton instanceof HTMLButtonElement)
+            || !(setupButton instanceof HTMLButtonElement)
+            || !(switchProfileButton instanceof HTMLButtonElement)
+            || !(clearButton instanceof HTMLButtonElement)
+        ) {
+            throw new Error('ServerSelectScreen shell actions unavailable');
+        }
         this._refreshButton = refreshButton;
-
-        const setupButton = document.createElement('button');
-        setupButton.id = 'btn-server-setup';
-        setupButton.className = 'screen-button secondary';
-        setupButton.textContent = 'Re-run Setup';
-        setupButton.addEventListener('click', () => {
-            this._clearError();
-            this._orchestrator.requestChannelSetupRerun();
-        });
-        buttonRow.appendChild(setupButton);
         this._setupButton = setupButton;
-
-        const switchProfileButton = document.createElement('button');
-        switchProfileButton.id = 'btn-server-switch-profile';
-        switchProfileButton.className = 'screen-button secondary';
-        switchProfileButton.textContent = 'Switch Profile';
-        switchProfileButton.addEventListener('click', () => {
-            const nav = this._orchestrator.getNavigation();
-            nav?.replaceScreen('profile-select');
-        });
-        buttonRow.appendChild(switchProfileButton);
         this._switchProfileButton = switchProfileButton;
-
-        const clearButton = document.createElement('button');
-        clearButton.id = 'btn-server-forget';
-        clearButton.className = 'screen-button secondary';
-        clearButton.textContent = 'Clear Saved Server';
-        clearButton.addEventListener('click', () => {
-            this._handleClearSelection();
-        });
-        buttonRow.appendChild(clearButton);
         this._clearButton = clearButton;
-
-
-        panel.appendChild(buttonRow);
 
         const list = document.createElement('div');
         list.className = 'server-list';
-        panel.appendChild(list);
+        shell.panelEl.appendChild(list);
         this._listEl = list;
-
-        this._container.appendChild(panel);
     }
 
     show(options?: { allowAutoConnect?: boolean }): void {
@@ -241,6 +234,9 @@ export class ServerSelectScreen {
             this._restoreFocusTimeoutId = setTimeout(() => {
                 this._restoreFocusTimeoutId = null;
                 if (!this._container.classList.contains('visible')) return;
+                if (nav.restoreFocusForCurrentScreen()) {
+                    return;
+                }
                 nav.setFocus('btn-server-refresh');
             }, FOCUS_RESTORE_DELAY_MS);
         }
@@ -362,6 +358,7 @@ export class ServerSelectScreen {
         }
 
         const enabledServerButtons: HTMLButtonElement[] = [];
+        const buttonIds = this._buildServerButtonIds(servers.map((server) => server?.id ?? 'unknown'));
 
         for (let i = 0; i < servers.length; i++) {
             const server = servers[i];
@@ -389,7 +386,7 @@ export class ServerSelectScreen {
             actions.className = 'server-actions';
 
             const selectButton = document.createElement('button');
-            selectButton.id = `btn-server-select-${i}`;
+            selectButton.id = buttonIds[i] ?? 'btn-server-select-unknown';
             selectButton.className = 'screen-button secondary';
             selectButton.textContent = 'Connect';
             selectButton.addEventListener('click', () => {
@@ -465,6 +462,8 @@ export class ServerSelectScreen {
                     id: button.id,
                     element: button,
                     neighbors,
+                    restoreGroup: 'server-select-list',
+                    restorePriority: 1000 - i,
                     onFocus: () => {
                         try {
                             button.scrollIntoView({ block: 'nearest' });
@@ -547,6 +546,47 @@ export class ServerSelectScreen {
         if (hours < 24) return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
         const days = Math.floor(hours / 24);
         return days === 1 ? '1 day ago' : `${days} days ago`;
+    }
+
+    private _buildServerButtonIds(serverIds: string[]): string[] {
+        const usedIds = new Set<string>();
+        return serverIds.map((serverId) => {
+            const sanitized = this._sanitizeButtonIdToken(serverId);
+            const baseId = `btn-server-select-${sanitized}`;
+            if (!usedIds.has(baseId)) {
+                usedIds.add(baseId);
+                return baseId;
+            }
+
+            const hashedId = `${baseId}-${this._hashIdToken(serverId)}`;
+            if (!usedIds.has(hashedId)) {
+                usedIds.add(hashedId);
+                return hashedId;
+            }
+
+            let suffix = 2;
+            let deduped = `${hashedId}-${suffix}`;
+            while (usedIds.has(deduped)) {
+                suffix += 1;
+                deduped = `${hashedId}-${suffix}`;
+            }
+            usedIds.add(deduped);
+            return deduped;
+        });
+    }
+
+    private _sanitizeButtonIdToken(value: string): string {
+        const sanitized = value.replace(/[^a-zA-Z0-9_-]/g, '_');
+        return sanitized || 'unknown';
+    }
+
+    private _hashIdToken(value: string): string {
+        let hash = 0x811c9dc5;
+        for (let i = 0; i < value.length; i += 1) {
+            hash ^= value.charCodeAt(i);
+            hash = Math.imul(hash, 0x01000193);
+        }
+        return (hash >>> 0).toString(16).padStart(8, '0');
     }
 
     private _setStatus(status: string, detail: string): void {

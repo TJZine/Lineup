@@ -453,6 +453,20 @@ describe('NavigationCoordinator', () => {
         expect(event.originalEvent.preventDefault).toHaveBeenCalled();
     });
 
+    it('routes back to EPG handleBack when guide is visible and no modal is open', () => {
+        const { handlers, epg, navigation } = setup();
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+        (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
+        (epg.handleBack as jest.Mock).mockReturnValue(true);
+
+        const event = makeKeyEvent('back');
+        handlers.keyPress?.(event);
+
+        expect(epg.handleBack).toHaveBeenCalledTimes(1);
+        expect(event.handled).toBe(true);
+        expect(event.originalEvent.preventDefault).toHaveBeenCalled();
+    });
+
     it('EPG direction keys always consumed', () => {
         const { handlers, epg, navigation } = setup();
         (epg.isVisible as jest.Mock).mockReturnValue(true);
