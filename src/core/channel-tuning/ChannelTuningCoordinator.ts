@@ -17,7 +17,7 @@ import type {
     IChannelScheduler,
     ScheduleConfig,
 } from '../../modules/scheduler/scheduler';
-import { summarizeErrorForLog } from '../../utils/errors';
+import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
 
 export interface ChannelTuningCoordinatorDeps {
     getChannelManager: () => IChannelManager | null;
@@ -233,18 +233,7 @@ export class ChannelTuningCoordinator {
                     signal: signal ?? null,
                 });
             } catch (error: unknown) {
-                if (signal?.aborted === true) {
-                    return;
-                }
-                if (
-                    ((typeof DOMException !== 'undefined' &&
-                        error instanceof DOMException &&
-                        error.name === 'AbortError') ||
-                        (error &&
-                            typeof error === 'object' &&
-                            'name' in error &&
-                            (error as { name?: unknown }).name === 'AbortError'))
-                ) {
+                if (isAbortLikeError(error, signal)) {
                     return;
                 }
 
