@@ -371,6 +371,13 @@ describe('ServerSelectScreen', () => {
         expect(clearBtn).not.toBeNull();
         clearBtn?.click();
 
+        expect(container.querySelectorAll('.server-row')).toHaveLength(1);
+        expect(container.querySelector('.server-empty-state')).toBeNull();
+        const status = container.querySelector('.screen-status') as HTMLElement | null;
+        const detail = container.querySelector('.screen-detail') as HTMLElement | null;
+        expect(status?.textContent).toBe('Selection cleared.');
+        expect(detail?.textContent).toBe('Pick a server to continue.');
+
         jest.advanceTimersByTime(60);
         expect(nav.setFocus).toHaveBeenCalledWith('btn-server-refresh');
         jest.useRealTimers();

@@ -31,6 +31,7 @@ export class ServerSelectScreen {
     private _isLoading: boolean = false;
     private _restoreFocusTimeoutId: ReturnType<typeof setTimeout> | null = null;
     private _registeredServerButtonIds: string[] = [];
+    private _lastDiscoveredServers: PlexServer[] = [];
 
     constructor(container: HTMLElement, orchestrator: AppOrchestrator) {
         this._container = container;
@@ -113,6 +114,8 @@ export class ServerSelectScreen {
         shell.contentEl.insertBefore(autoConnectHint, this._statusEl);
         this._autoConnectHintEl = autoConnectHint;
 
+        // Note: We cache action button references. If ScreenShell actions are ever re-rendered via shell.setActions(),
+        // these references must be re-queried.
         const refreshButton = shell.actionsEl.querySelector('#btn-server-refresh');
         const setupButton = shell.actionsEl.querySelector('#btn-server-setup');
         const switchProfileButton = shell.actionsEl.querySelector('#btn-server-switch-profile');
@@ -181,6 +184,7 @@ export class ServerSelectScreen {
 
         try {
             const servers = await this._orchestrator.discoverServers(options.forceRefresh);
+            this._lastDiscoveredServers = servers.slice();
             let autoSelectError: unknown | null = null;
             let savedServerUnavailable = false;
 
@@ -216,6 +220,7 @@ export class ServerSelectScreen {
             }
             this._setAutoConnectHintVisible(false);
         } catch (error) {
+            this._lastDiscoveredServers = [];
             this._handleError(error, 'Failed to discover servers.');
             this._setStatus('Discovery failed.', '');
             this._renderServers([], null, { emptyStateReason: 'discovery_failed' });
@@ -274,7 +279,7 @@ export class ServerSelectScreen {
         this._orchestrator.clearSelectedServer();
         this._setAutoConnectHintVisible(false);
         this._setStatus('Selection cleared.', 'Pick a server to continue.');
-        this._renderServers([], null, { emptyStateReason: 'no_servers' });
+        this._renderServers(this._lastDiscoveredServers, null, { emptyStateReason: 'no_servers' });
         this._restoreFocus();
     }
 

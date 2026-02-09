@@ -64,6 +64,14 @@
   margin: 10px 0 4px 0;
 }
 
+.screen-status--neutral {
+  color: var(--color-text-primary);
+}
+
+.screen-status--loading {
+  color: var(--color-text-secondary);
+}
+
 .screen-status--success {
   color: var(--color-success);
 }

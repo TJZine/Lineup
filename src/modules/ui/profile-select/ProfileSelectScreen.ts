@@ -10,6 +10,7 @@ import type { FocusableElement, KeyEvent } from '../../navigation';
 import { PlexApiError } from '../../plex/auth';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
+import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
 
 const FOCUS_RESTORE_DELAY_MS = 50;
 const PIN_LENGTH = 4;
@@ -34,6 +35,7 @@ export class ProfileSelectScreen {
     private _container: HTMLElement;
     private _orchestrator: AppOrchestrator;
     private _destroyScreenShell: (() => void) | null = null;
+    private _shellSetStatus: ((status: ScreenStatus | null) => void) | null = null;
     private _statusEl: HTMLElement;
     private _errorEl: HTMLElement;
     private _tipEl: HTMLElement;
@@ -96,6 +98,7 @@ export class ProfileSelectScreen {
             ],
         });
         this._destroyScreenShell = shell.destroy;
+        this._shellSetStatus = shell.setStatus;
         shell.panelEl.classList.add('profile-panel');
 
         this._statusEl = shell.statusEl;
@@ -114,6 +117,8 @@ export class ProfileSelectScreen {
         shell.contentEl.appendChild(tip);
         this._tipEl = tip;
 
+        // Note: We cache action button references. If ScreenShell actions are ever re-rendered via shell.setActions(),
+        // these references must be re-queried.
         const mainButton = shell.actionsEl.querySelector('#btn-profile-main');
         const signOutButton = shell.actionsEl.querySelector('#btn-profile-signout');
         if (!(mainButton instanceof HTMLButtonElement) || !(signOutButton instanceof HTMLButtonElement)) {
@@ -218,7 +223,7 @@ export class ProfileSelectScreen {
     show(): void {
         this._container.style.display = 'flex';
         this._container.classList.add('visible');
-        this._setStatus('Loading profiles...');
+        this._setStatus('Loading profiles...', { tone: 'loading' });
         this._clearError();
         this._registerKeyHandler();
         void this._loadProfiles();
@@ -255,7 +260,7 @@ export class ProfileSelectScreen {
         this._isLoading = true;
         this._listEl.replaceChildren();
         this._userButtonIds = [];
-        this._setStatus('Loading profiles...');
+        this._setStatus('Loading profiles...', { tone: 'loading' });
         this._setTip('Tip: Set a PIN on the admin profile to prevent unwanted access.');
 
         try {
@@ -373,7 +378,7 @@ export class ProfileSelectScreen {
     private async _handleUseMainAccount(): Promise<void> {
         if (this._isSwitching) return;
         this._clearError();
-        this._setStatus('Switching to main account...');
+        this._setStatus('Switching to main account...', { tone: 'loading' });
         this._isSwitching = true;
         try {
             await this._orchestrator.useMainAccountProfile();
@@ -398,7 +403,7 @@ export class ProfileSelectScreen {
     }
 
     private async _switchUser(userId: string, pin?: string): Promise<boolean> {
-        this._setStatus('Switching profile...');
+        this._setStatus('Switching profile...', { tone: 'loading' });
         this._isSwitching = true;
         try {
             await this._orchestrator.switchHomeUser(userId, pin);
@@ -737,7 +742,22 @@ export class ProfileSelectScreen {
         return buildDeterministicButtonIds('btn-profile-', userIds);
     }
 
-    private _setStatus(message: string): void {
+    private _setStatus(message: string, options?: { tone?: ScreenTone; ariaLive?: ScreenStatus['ariaLive'] }): void {
+        if (this._shellSetStatus) {
+            if (message.length === 0) {
+                this._shellSetStatus(null);
+                return;
+            }
+            const status: ScreenStatus = {
+                title: message,
+                tone: options?.tone ?? 'neutral',
+            };
+            if (options?.ariaLive) {
+                status.ariaLive = options.ariaLive;
+            }
+            this._shellSetStatus(status);
+            return;
+        }
         this._statusEl.textContent = message;
     }
 

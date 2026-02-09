@@ -424,8 +424,11 @@ export class ChannelManager implements IChannelManager {
         } else {
             channel.shuffleSeed = fnv1a32Uint(`${channel.id}:shuffle`);
         }
-        if (typeof config.phaseSeed === 'number' && Number.isFinite(config.phaseSeed)) channel.phaseSeed = config.phaseSeed;
-        else channel.phaseSeed = fnv1a32Uint(`${channel.id}:phase`);
+        if (typeof config.phaseSeed === 'number' && Number.isFinite(config.phaseSeed)) {
+            channel.phaseSeed = config.phaseSeed;
+        } else {
+            channel.phaseSeed = fnv1a32Uint(`${channel.id}:phase`);
+        }
         if (config.contentFilters !== undefined) channel.contentFilters = config.contentFilters;
         if (config.sortOrder !== undefined) channel.sortOrder = config.sortOrder;
         if (config.maxEpisodeRunTimeMs !== undefined) channel.maxEpisodeRunTimeMs = config.maxEpisodeRunTimeMs;

@@ -157,6 +157,8 @@ export class AuthScreen {
         shell.contentEl.appendChild(errorBox);
         this._errorBoxEl = errorBox;
 
+        // Note: We cache action button references. If ScreenShell actions are ever re-rendered via shell.setActions(),
+        // these references must be re-queried.
         const requestButton = shell.actionsEl.querySelector('#btn-auth-request');
         const cancelButton = shell.actionsEl.querySelector('#btn-auth-cancel');
         const retryButton = shell.actionsEl.querySelector('#btn-auth-retry');

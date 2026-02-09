@@ -119,7 +119,7 @@ export function createScreenShell(container: HTMLElement, props: ScreenShellProp
     };
 
     const setActions = (actions: ScreenAction[]): void => {
-        actionCleanupFns.forEach((cleanup) => cleanup());
+        for (const cleanup of actionCleanupFns) cleanup();
         actionCleanupFns = [];
         actionsEl.replaceChildren();
 
@@ -153,7 +153,7 @@ export function createScreenShell(container: HTMLElement, props: ScreenShellProp
     };
 
     const destroy = (): void => {
-        actionCleanupFns.forEach((cleanup) => cleanup());
+        for (const cleanup of actionCleanupFns) cleanup();
         actionCleanupFns = [];
         panelEl.remove();
     };
