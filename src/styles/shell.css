@@ -102,27 +102,24 @@
   padding: 10px 14px;
 }
 
-.inline-error-box {
-  margin-top: 12px;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  border-radius: 12px;
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.inline-error-title {
-  font-size: 18px;
+.screen-error-title {
+  font-size: calc(18px * var(--onboarding-scale));
   font-weight: 600;
   color: var(--color-error);
+  margin-bottom: 6px;
 }
 
-.inline-error-message {
-  font-size: 16px;
+.screen-error-message {
+  font-size: calc(16px * var(--onboarding-scale));
   color: var(--color-text-secondary);
   line-height: 1.5;
+}
+
+.screen-error-hint {
+  margin-top: 8px;
+  font-size: calc(14px * var(--onboarding-scale));
+  color: var(--color-text-muted);
+  line-height: 1.4;
 }
 
 .panel-spinner {

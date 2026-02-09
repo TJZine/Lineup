@@ -908,21 +908,22 @@ export class ChannelManager implements IChannelManager {
 
         const normalizedChannels: ChannelConfig[] = [];
         for (const raw of data.channels) {
-            // Keep unknown records as-is; basic field normalization happens below.
             const channel = raw as ChannelConfig;
-            if (channel && typeof channel === 'object') {
-                if (typeof channel.id !== 'string' || channel.id.length === 0) {
-                    didMutate = true;
-                    continue;
-                }
-                if (typeof channel.shuffleSeed !== 'number' || !Number.isFinite(channel.shuffleSeed)) {
-                    channel.shuffleSeed = fnv1a32Uint(`${channel.id}:shuffle`);
-                    didMutate = true;
-                }
-                if (typeof channel.phaseSeed !== 'number' || !Number.isFinite(channel.phaseSeed)) {
-                    channel.phaseSeed = fnv1a32Uint(`${channel.id}:phase`);
-                    didMutate = true;
-                }
+            if (!channel || typeof channel !== 'object') {
+                didMutate = true;
+                continue;
+            }
+            if (typeof channel.id !== 'string' || channel.id.length === 0) {
+                didMutate = true;
+                continue;
+            }
+            if (typeof channel.shuffleSeed !== 'number' || !Number.isFinite(channel.shuffleSeed)) {
+                channel.shuffleSeed = fnv1a32Uint(`${channel.id}:shuffle`);
+                didMutate = true;
+            }
+            if (typeof channel.phaseSeed !== 'number' || !Number.isFinite(channel.phaseSeed)) {
+                channel.phaseSeed = fnv1a32Uint(`${channel.id}:phase`);
+                didMutate = true;
             }
             normalizedChannels.push(channel);
         }
@@ -1017,7 +1018,9 @@ export class ChannelManager implements IChannelManager {
             const orderedItems = this._contentResolver.applyPlaybackMode(
                 items,
                 channel.playbackMode,
-                channel.shuffleSeed ?? fnv1a32Uint(`${channel.id}:shuffle`)
+                (typeof channel.shuffleSeed === 'number' && Number.isFinite(channel.shuffleSeed))
+                    ? channel.shuffleSeed
+                    : fnv1a32Uint(`${channel.id}:shuffle`)
             );
 
             // Build result

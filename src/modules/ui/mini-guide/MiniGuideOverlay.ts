@@ -3,7 +3,7 @@
  * @module modules/ui/mini-guide/MiniGuideOverlay
  */
 
-import { MINI_GUIDE_CLASSES } from './constants';
+import { MINI_GUIDE_CLASSES, MINI_GUIDE_TEXT } from './constants';
 import type { IMiniGuideOverlay } from './interfaces';
 import type { MiniGuideConfig, MiniGuideViewModel } from './types';
 import { createOverlayPrimitives } from '../common/OverlayPrimitives';
@@ -172,7 +172,7 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
 
         const footer = document.createElement('div');
         footer.className = MINI_GUIDE_CLASSES.FOOTER_HINT;
-        footer.textContent = 'UP/DOWN Browse • CH± Page • OK Watch • RIGHT Full Guide • BACK Close';
+        footer.textContent = MINI_GUIDE_TEXT.FOOTER_HINT;
         panelEl.appendChild(footer);
 
         return panelEl;

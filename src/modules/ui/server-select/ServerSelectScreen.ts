@@ -12,6 +12,7 @@ import { safeLocalStorageGet } from '../../../utils/storage';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
+import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
 
 const FOCUS_RESTORE_DELAY_MS = 50;
 
@@ -19,6 +20,7 @@ export class ServerSelectScreen {
     private _container: HTMLElement;
     private _orchestrator: AppOrchestrator;
     private _destroyScreenShell: (() => void) | null = null;
+    private _shellSetStatus: ((status: ScreenStatus | null) => void) | null = null;
     private _autoConnectHintEl: HTMLElement;
     private _statusEl: HTMLElement;
     private _detailEl: HTMLElement;
@@ -91,6 +93,7 @@ export class ServerSelectScreen {
             ],
         });
         this._destroyScreenShell = shell.destroy;
+        this._shellSetStatus = shell.setStatus;
 
         this._statusEl = shell.statusEl;
         this._detailEl = shell.detailEl;
@@ -172,7 +175,8 @@ export class ServerSelectScreen {
         this._setAutoConnectHintVisible(isAutoConnectAttempt);
         this._setStatus(
             isAutoConnectAttempt ? 'Reconnecting to saved server…' : 'Discovering servers…',
-            isAutoConnectAttempt ? 'If that fails, choose any server below.' : ''
+            isAutoConnectAttempt ? 'If that fails, choose any server below.' : '',
+            'loading'
         );
         this._statusEl.classList.add('panel-spinner');
 
@@ -185,6 +189,7 @@ export class ServerSelectScreen {
         try {
             const servers = await this._orchestrator.discoverServers(options.forceRefresh);
             this._lastDiscoveredServers = servers.slice();
+            this._statusEl.classList.remove('panel-spinner');
             let autoSelectError: unknown | null = null;
             let savedServerUnavailable = false;
 
@@ -193,7 +198,7 @@ export class ServerSelectScreen {
                     try {
                         const success = await this._orchestrator.selectServer(savedId);
                         if (success) {
-                            this._setStatus('Connected…', 'Continuing startup…');
+                            this._setStatus('Connected…', 'Continuing startup…', 'success');
                             return;
                         }
                         savedServerUnavailable = true;
@@ -211,18 +216,19 @@ export class ServerSelectScreen {
             // Fallback to rendering list
             this._renderServers(servers, savedId, { savedServerUnavailable, emptyStateReason: 'no_servers' });
             if (servers.length === 0) {
-                this._setStatus('No servers found.', 'Ensure your Plex server is reachable.');
+                this._setStatus('No servers found.', 'Ensure your Plex server is reachable.', 'warning');
             } else if (savedServerUnavailable) {
                 this._handleError(autoSelectError, 'Unable to use the saved server.');
-                this._setStatus('Saved server unavailable.', 'Select a server from the list.');
+                this._setStatus('Saved server unavailable.', 'Select a server from the list.', 'warning');
             } else {
-                this._setStatus('Select a server from the list.', '');
+                this._setStatus('Select a server from the list.', '', 'neutral');
             }
             this._setAutoConnectHintVisible(false);
         } catch (error) {
             this._lastDiscoveredServers = [];
+            this._statusEl.classList.remove('panel-spinner');
             this._handleError(error, 'Failed to discover servers.');
-            this._setStatus('Discovery failed.', '');
+            this._setStatus('Discovery failed.', '', 'error');
             this._renderServers([], null, { emptyStateReason: 'discovery_failed' });
             this._setAutoConnectHintVisible(false);
         } finally {
@@ -507,21 +513,21 @@ export class ServerSelectScreen {
 
     private async _selectServer(server: PlexServer): Promise<void> {
         this._clearError();
-        this._setStatus(`Connecting to ${server.name}…`, '');
+        this._setStatus(`Connecting to ${server.name}…`, '', 'loading');
         this._detailEl.textContent = '';
 
         try {
             const success = await this._orchestrator.selectServer(server.id);
             if (success) {
-                this._setStatus(`Connected to ${server.name}.`, 'Continuing startup…');
+                this._setStatus(`Connected to ${server.name}.`, 'Continuing startup…', 'success');
                 return;
             }
-            this._setStatus('Connection failed.', '');
+            this._setStatus('Connection failed.', '', 'error');
             this._detailEl.textContent = '';
             this._errorEl.textContent = 'Unable to use the selected server.';
         } catch (error) {
             this._clearError();
-            this._setStatus('Connection failed.', '');
+            this._setStatus('Connection failed.', '', 'error');
             this._detailEl.textContent = '';
             this._handleError(error, 'Unable to use the selected server.');
             console.error('[ServerSelect] Failed to select server:', error);
@@ -563,7 +569,15 @@ export class ServerSelectScreen {
         return buildDeterministicButtonIds('btn-server-select-', serverIds);
     }
 
-    private _setStatus(status: string, detail: string): void {
+    private _setStatus(status: string, detail: string, tone: ScreenTone = 'neutral'): void {
+        if (this._shellSetStatus) {
+            if (status.length === 0) {
+                this._shellSetStatus(null);
+                return;
+            }
+            this._shellSetStatus({ title: status, detail, tone });
+            return;
+        }
         this._statusEl.textContent = status;
         this._detailEl.textContent = detail;
     }

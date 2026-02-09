@@ -18,3 +18,7 @@ export const MINI_GUIDE_CLASSES = {
     PROGRESS_FILL: 'mini-guide-progress-fill',
     FOOTER_HINT: 'mini-guide-footer-hint',
 } as const;
+
+export const MINI_GUIDE_TEXT = {
+    FOOTER_HINT: 'UP/DOWN Browse • CH± Page • OK Watch • RIGHT Full Guide • BACK Close',
+} as const;

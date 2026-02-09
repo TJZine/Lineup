@@ -8,6 +8,7 @@ import { AppOrchestrator } from '../../../Orchestrator';
 import { AppErrorCode, PlexApiError, type PlexPinRequest } from '../../plex/auth';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { createScreenShell } from '../common/ScreenShell';
+import type { ScreenError, ScreenStatus, ScreenTone } from '../types/screen-shell';
 
 type QrCodeModule = {
     toCanvas: (
@@ -22,15 +23,14 @@ type QrCodeModule = {
 export class AuthScreen {
     private _container: HTMLElement;
     private _orchestrator: AppOrchestrator;
+    private _shellSetStatus: ((status: ScreenStatus | null) => void) | null = null;
+    private _shellSetError: ((error: ScreenError | null) => void) | null = null;
     private _pinLiveEl: HTMLElement;
     private _pinBoxesEl: HTMLElement;
     private _qrWrapEl: HTMLElement;
     private _qrCanvasEl: HTMLCanvasElement;
     private _statusEl: HTMLElement;
     private _detailEl: HTMLElement;
-    private _errorBoxEl: HTMLElement;
-    private _errorTitleEl: HTMLElement;
-    private _errorMessageEl: HTMLElement;
     private _requestButton: HTMLButtonElement;
     private _cancelButton: HTMLButtonElement;
     private _retryButton: HTMLButtonElement;
@@ -104,9 +104,13 @@ export class AuthScreen {
             error: null,
         });
         this._destroyScreenShell = shell.destroy;
+        this._shellSetStatus = shell.setStatus;
+        this._shellSetError = shell.setError;
 
         this._statusEl = shell.statusEl;
         this._detailEl = shell.detailEl;
+        shell.errorEl.setAttribute('role', 'alert');
+        shell.errorEl.setAttribute('aria-live', 'assertive');
 
         const qrWrap = document.createElement('div');
         qrWrap.className = 'auth-qr';
@@ -137,25 +141,6 @@ export class AuthScreen {
         pinBoxes.setAttribute('aria-hidden', 'true');
         shell.contentEl.insertBefore(pinBoxes, this._statusEl);
         this._pinBoxesEl = pinBoxes;
-
-        const errorBox = document.createElement('div');
-        errorBox.className = 'inline-error-box';
-        errorBox.style.display = 'none';
-        errorBox.setAttribute('role', 'alert');
-        errorBox.setAttribute('aria-live', 'assertive');
-
-        const errorTitle = document.createElement('div');
-        errorTitle.className = 'inline-error-title';
-        errorBox.appendChild(errorTitle);
-        this._errorTitleEl = errorTitle;
-
-        const errorMessage = document.createElement('div');
-        errorMessage.className = 'inline-error-message';
-        errorBox.appendChild(errorMessage);
-        this._errorMessageEl = errorMessage;
-
-        shell.contentEl.appendChild(errorBox);
-        this._errorBoxEl = errorBox;
 
         // Note: We cache action button references. If ScreenShell actions are ever re-rendered via shell.setActions(),
         // these references must be re-queried.
@@ -209,7 +194,7 @@ export class AuthScreen {
     private async _handleRequestPin(): Promise<void> {
         this._clearError();
         this._setButtons({ request: false, cancel: true, retry: false });
-        this._setStatus('Requesting PIN…', '');
+        this._setStatus('Requesting PIN…', '', { tone: 'loading' });
         this._renderPin('----');
         this._qrWrapEl.style.display = 'none';
         this._detailEl.textContent = '';
@@ -247,7 +232,7 @@ export class AuthScreen {
     private async _startPolling(pin: PlexPinRequest): Promise<void> {
         this._pollToken += 1;
         const token = this._pollToken;
-        this._setStatus('Waiting for sign-in…', '');
+        this._setStatus('Waiting for sign-in…', '', { tone: 'loading' });
 
         try {
             const result = await this._orchestrator.pollForPin(pin.id);
@@ -255,7 +240,7 @@ export class AuthScreen {
                 return;
             }
             this._stopExpiryTimer();
-            this._setStatus('Signed in.', 'Continuing startup…');
+            this._setStatus('Signed in.', 'Continuing startup…', { tone: 'success' });
             if (result.authToken) {
                 this._renderPin(this._activeCode || pin.code);
             }
@@ -286,13 +271,29 @@ export class AuthScreen {
         this._renderPin('----');
         this._qrWrapEl.style.display = 'none';
         this._detailEl.style.color = '';
-        this._setStatus('Cancelled.', 'Request a new PIN to continue.');
+        this._setStatus('Cancelled.', 'Request a new PIN to continue.', { tone: 'neutral' });
         this._setButtons({ request: true, cancel: false, retry: false });
     }
 
-    private _setStatus(status: string, detail: string): void {
-        this._statusEl.textContent = status;
-        this._detailEl.textContent = detail;
+    private _setStatus(
+        status: string,
+        detail: string,
+        options?: { tone?: ScreenTone; ariaLive?: ScreenStatus['ariaLive'] }
+    ): void {
+        if (!this._shellSetStatus) {
+            this._statusEl.textContent = status;
+            this._detailEl.textContent = detail;
+            return;
+        }
+        if (status.length === 0) {
+            this._shellSetStatus(null);
+            return;
+        }
+        const next: ScreenStatus = { title: status, detail, tone: options?.tone ?? 'neutral' };
+        if (options?.ariaLive) {
+            next.ariaLive = options.ariaLive;
+        }
+        this._shellSetStatus(next);
     }
 
     private _setButtons(state: { request: boolean; cancel: boolean; retry: boolean }): void {
@@ -304,6 +305,9 @@ export class AuthScreen {
         if (!nav) {
             return;
         }
+
+        const focusedIdBefore = nav.getFocusedElement()?.id ?? null;
+        const retryWasRegistered = this._retryFocusableRegistered;
 
         if (state.retry) {
             if (!this._retryFocusableRegistered) {
@@ -319,8 +323,16 @@ export class AuthScreen {
                 this._retryFocusableRegistered = true;
             }
         } else if (this._retryFocusableRegistered) {
+            const hadFocus = focusedIdBefore === 'btn-auth-retry';
             nav.unregisterFocusable('btn-auth-retry');
             this._retryFocusableRegistered = false;
+            if (hadFocus) {
+                if (state.request) {
+                    nav.setFocus('btn-auth-request');
+                } else if (state.cancel) {
+                    nav.setFocus('btn-auth-cancel');
+                }
+            }
         }
 
         const shouldHaveRetryNeighbor = this._retryFocusableRegistered;
@@ -341,8 +353,13 @@ export class AuthScreen {
             this._cancelHasRetryNeighbor = shouldHaveRetryNeighbor;
         }
 
-        if (state.retry) {
-            nav.setFocus('btn-auth-retry');
+        if (state.retry && !retryWasRegistered) {
+            // Only auto-focus retry when it first appears AND focus is currently unset.
+            // This avoids stealing focus from an explicitly focused request/cancel button.
+            const focusedIdAfter = nav.getFocusedElement()?.id ?? null;
+            if (!focusedIdAfter) {
+                nav.setFocus('btn-auth-retry');
+            }
         }
     }
 
@@ -359,9 +376,7 @@ export class AuthScreen {
     }
 
     private _clearError(): void {
-        this._errorBoxEl.style.display = 'none';
-        this._errorTitleEl.textContent = '';
-        this._errorMessageEl.textContent = '';
+        this._shellSetError?.(null);
     }
 
     private _handleError(error: unknown, fallback: string): void {
@@ -384,9 +399,10 @@ export class AuthScreen {
     }
 
     private _showError(title: string, message: string): void {
-        this._errorBoxEl.style.display = 'flex';
-        this._errorTitleEl.textContent = title;
-        this._errorMessageEl.textContent = message;
+        this._shellSetError?.({
+            title,
+            message,
+        });
     }
 
     private _startExpiryTimer(): void {
@@ -444,7 +460,7 @@ export class AuthScreen {
         this._renderPin('----');
         this._qrWrapEl.style.display = 'none';
         this._detailEl.style.color = '';
-        this._setStatus('Code expired.', 'Request a new PIN to continue.');
+        this._setStatus('Code expired.', 'Request a new PIN to continue.', { tone: 'warning' });
         this._setButtons({ request: true, cancel: false, retry: false });
     }
 

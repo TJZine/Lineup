@@ -72,6 +72,46 @@ describe('AuthScreen', () => {
         container.remove();
     });
 
+    it('moves focus off retry when retry is hidden while focused', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        let focusedId: string | null = null;
+        const nav = {
+            registerFocusable: jest.fn(),
+            unregisterFocusable: jest.fn((id: string) => {
+                if (focusedId === id) focusedId = null;
+            }),
+            setFocus: jest.fn((id: string) => {
+                focusedId = id;
+            }),
+            getFocusedElement: jest.fn(() => (focusedId ? { id: focusedId } : null)),
+        };
+
+        const orchestrator = {
+            requestAuthPin: jest.fn(),
+            pollForPin: jest.fn(),
+            cancelPin: jest.fn(),
+            getNavigation: jest.fn(() => nav),
+        } as unknown as { [key: string]: unknown };
+
+        const screen = new AuthScreen(container, orchestrator as unknown as never);
+        screen.show();
+
+        const screenAny = screen as unknown as { _setButtons: (s: { request: boolean; cancel: boolean; retry: boolean }) => void };
+
+        screenAny._setButtons({ request: true, cancel: false, retry: true });
+        expect(focusedId).toBe('btn-auth-request');
+
+        // Simulate user moved focus to retry while it is visible.
+        focusedId = 'btn-auth-retry';
+
+        screenAny._setButtons({ request: true, cancel: false, retry: false });
+        expect(focusedId).toBe('btn-auth-request');
+
+        container.remove();
+    });
+
     it('uses expiresAt to update the countdown detail', async () => {
         jest.useFakeTimers();
         const now = new Date('2026-02-05T00:00:00.000Z');
