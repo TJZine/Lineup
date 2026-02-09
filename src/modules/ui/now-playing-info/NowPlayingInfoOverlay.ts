@@ -6,6 +6,7 @@
 import { NOW_PLAYING_INFO_CLASSES, NOW_PLAYING_INFO_DEFAULTS } from './constants';
 import type { INowPlayingInfoOverlay } from './interfaces';
 import type { NowPlayingInfoConfig, NowPlayingInfoViewModel } from './types';
+import { createOverlayPrimitives } from '../common/OverlayPrimitives';
 
 export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
     private containerElement: HTMLElement | null = null;
@@ -26,7 +27,8 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         }
         this.containerElement = container;
         this.containerElement.classList.add(NOW_PLAYING_INFO_CLASSES.CONTAINER);
-        this.containerElement.innerHTML = this.createTemplate();
+        this.containerElement.textContent = '';
+        this.containerElement.appendChild(this.createTemplateElement());
         this.containerElement.classList.remove('visible');
         this.isVisibleFlag = false;
 
@@ -40,11 +42,20 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         this.setupActorResizeObserver();
     }
 
-    private createTemplate(): string {
-        return `
-      <div class="${NOW_PLAYING_INFO_CLASSES.PANEL}">
-        <img class="${NOW_PLAYING_INFO_CLASSES.POSTER}" src="" alt="" />
-        <div class="${NOW_PLAYING_INFO_CLASSES.CONTENT}">
+    private createTemplateElement(): HTMLElement {
+        const { panelEl } = createOverlayPrimitives(
+            { panel: NOW_PLAYING_INFO_CLASSES.PANEL },
+            { panel: {} }
+        );
+
+        const poster = document.createElement('img');
+        poster.className = NOW_PLAYING_INFO_CLASSES.POSTER;
+        poster.setAttribute('alt', '');
+        panelEl.appendChild(poster);
+
+        const content = document.createElement('div');
+        content.className = NOW_PLAYING_INFO_CLASSES.CONTENT;
+        content.innerHTML = `
           <div class="${NOW_PLAYING_INFO_CLASSES.TITLE}"></div>
           <div class="${NOW_PLAYING_INFO_CLASSES.SUBTITLE}"></div>
           <div class="${NOW_PLAYING_INFO_CLASSES.BADGES}"></div>
@@ -63,9 +74,10 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
             <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_META}"></div>
           </div>
           <div class="${NOW_PLAYING_INFO_CLASSES.UP_NEXT}"></div>
-        </div>
-      </div>
-    `;
+        `;
+        panelEl.appendChild(content);
+
+        return panelEl;
     }
 
     destroy(): void {
@@ -177,7 +189,8 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
                 poster.alt = viewModel.title;
                 poster.style.display = 'block';
             } else {
-                poster.src = '';
+                poster.removeAttribute('src');
+                poster.alt = '';
                 poster.style.display = 'none';
             }
         }

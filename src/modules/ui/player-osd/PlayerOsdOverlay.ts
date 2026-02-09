@@ -6,6 +6,7 @@
 import { PLAYER_OSD_CLASSES } from './constants';
 import type { IPlayerOsdOverlay } from './interfaces';
 import type { PlayerOsdConfig, PlayerOsdViewModel } from './types';
+import { createOverlayPrimitives } from '../common/OverlayPrimitives';
 
 type PlayerOsdElements = {
     status: HTMLElement | null;
@@ -53,7 +54,8 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         }
         this.containerElement = container;
         this.containerElement.classList.add(PLAYER_OSD_CLASSES.CONTAINER);
-        this.containerElement.innerHTML = this.createTemplate();
+        this.containerElement.textContent = '';
+        this.containerElement.appendChild(this.createTemplateElement());
         this.containerElement.classList.remove(PLAYER_OSD_CLASSES.VISIBLE);
         this.isVisibleFlag = false;
         this.cacheElements();
@@ -192,9 +194,12 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         };
     }
 
-    private createTemplate(): string {
-        return `
-      <div class="${PLAYER_OSD_CLASSES.PANEL}">
+    private createTemplateElement(): HTMLElement {
+        const { panelEl } = createOverlayPrimitives(
+            { panel: PLAYER_OSD_CLASSES.PANEL },
+            { panel: {} }
+        );
+        panelEl.innerHTML = `
         <div class="${PLAYER_OSD_CLASSES.TOP}">
           <div class="${PLAYER_OSD_CLASSES.STATUS}"></div>
           <div class="${PLAYER_OSD_CLASSES.CHANNEL}"></div>
@@ -222,7 +227,7 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
           <div class="${PLAYER_OSD_CLASSES.ENDS}"></div>
           <div class="${PLAYER_OSD_CLASSES.BUFFER_TEXT}"></div>
         </div>
-      </div>
-    `;
+      `;
+        return panelEl;
     }
 }

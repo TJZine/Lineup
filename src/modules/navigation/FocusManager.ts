@@ -14,7 +14,7 @@ interface FocusManagerState {
     currentFocusId: string | null;
     focusableElements: Map<string, FocusableElement>;
     focusGroups: Map<string, FocusGroup>;
-    focusMemory: Map<string, string>;
+    focusMemory: Map<string, { id: string; restoreGroup?: string; restorePriority?: number }>;
     preFocusIdBeforeModal: string | null;
 }
 
@@ -209,9 +209,24 @@ export class FocusManager implements IFocusManager {
      * @param screenId - The screen identifier
      */
     public saveFocusState(screenId: string): void {
-        if (this._state.currentFocusId) {
-            this._state.focusMemory.set(screenId, this._state.currentFocusId);
+        const currentFocusId = this._state.currentFocusId;
+        if (!currentFocusId) {
+            return;
         }
+        const focused = this._state.focusableElements.get(currentFocusId);
+        if (!focused) {
+            return;
+        }
+        const record: { id: string; restoreGroup?: string; restorePriority?: number } = {
+            id: focused.id,
+        };
+        if (focused.restoreGroup !== undefined) {
+            record.restoreGroup = focused.restoreGroup;
+        }
+        if (focused.restorePriority !== undefined) {
+            record.restorePriority = focused.restorePriority;
+        }
+        this._state.focusMemory.set(screenId, record);
     }
 
     /**
@@ -220,9 +235,33 @@ export class FocusManager implements IFocusManager {
      * @returns true if focus was restored, false otherwise
      */
     public restoreFocusState(screenId: string): boolean {
-        const savedFocusId = this._state.focusMemory.get(screenId);
-        if (savedFocusId && this._state.focusableElements.has(savedFocusId)) {
-            return this.focus(savedFocusId);
+        const saved = this._state.focusMemory.get(screenId);
+        if (!saved) {
+            return false;
+        }
+        if (this._state.focusableElements.has(saved.id)) {
+            return this.focus(saved.id);
+        }
+        if (saved.restoreGroup) {
+            let bestCandidateId: string | null = null;
+            let bestPriority = Number.NEGATIVE_INFINITY;
+            this._state.focusableElements.forEach((candidate) => {
+                if (candidate.restoreGroup !== saved.restoreGroup) {
+                    return;
+                }
+                const candidatePriority = candidate.restorePriority ?? 0;
+                if (candidatePriority > bestPriority) {
+                    bestCandidateId = candidate.id;
+                    bestPriority = candidatePriority;
+                    return;
+                }
+                if (candidatePriority === bestPriority && bestCandidateId !== null && candidate.id.localeCompare(bestCandidateId) < 0) {
+                    bestCandidateId = candidate.id;
+                }
+            });
+            if (bestCandidateId) {
+                return this.focus(bestCandidateId);
+            }
         }
         return false;
     }

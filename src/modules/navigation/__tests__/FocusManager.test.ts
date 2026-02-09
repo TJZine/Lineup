@@ -280,6 +280,80 @@ describe('FocusManager', () => {
             const restored = focusManager.restoreFocusState('unknown');
             expect(restored).toBe(false);
         });
+
+        it('restores by restoreGroup + highest restorePriority when saved id no longer exists', () => {
+            const elSaved = createMockElement('saved');
+            const elLow = createMockElement('candidate-low');
+            const elHigh = createMockElement('candidate-high');
+            elements.push(elSaved, elLow, elHigh);
+
+            focusManager.registerFocusable({
+                id: 'saved',
+                element: elSaved,
+                restoreGroup: 'profile-list',
+                restorePriority: 1,
+                neighbors: {},
+            });
+            focusManager.registerFocusable({
+                id: 'candidate-low',
+                element: elLow,
+                restoreGroup: 'profile-list',
+                restorePriority: 10,
+                neighbors: {},
+            });
+            focusManager.registerFocusable({
+                id: 'candidate-high',
+                element: elHigh,
+                restoreGroup: 'profile-list',
+                restorePriority: 20,
+                neighbors: {},
+            });
+
+            focusManager.focus('saved');
+            focusManager.saveFocusState('home');
+            focusManager.unregisterFocusable('saved');
+
+            const restored = focusManager.restoreFocusState('home');
+            expect(restored).toBe(true);
+            expect(focusManager.getCurrentFocusId()).toBe('candidate-high');
+        });
+
+        it('uses id ascending tie-break when restore priorities match', () => {
+            const elSaved = createMockElement('saved');
+            const elB = createMockElement('btn-b');
+            const elA = createMockElement('btn-a');
+            elements.push(elSaved, elA, elB);
+
+            focusManager.registerFocusable({
+                id: 'saved',
+                element: elSaved,
+                restoreGroup: 'server-list',
+                restorePriority: 5,
+                neighbors: {},
+            });
+            focusManager.registerFocusable({
+                id: 'btn-b',
+                element: elB,
+                restoreGroup: 'server-list',
+                restorePriority: 10,
+                neighbors: {},
+            });
+            focusManager.registerFocusable({
+                id: 'btn-a',
+                element: elA,
+                restoreGroup: 'server-list',
+                restorePriority: 10,
+                neighbors: {},
+            });
+
+            focusManager.focus('saved');
+            focusManager.saveFocusState('server-select');
+            focusManager.unregisterFocusable('saved');
+
+            const restored = focusManager.restoreFocusState('server-select');
+            expect(restored).toBe(true);
+            expect(focusManager.getCurrentFocusId()).toBe('btn-a');
+        });
     });
 
     describe('modal focus', () => {

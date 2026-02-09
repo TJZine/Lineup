@@ -28,7 +28,8 @@ export interface INavigationManager {
     getScreenParams(): Record<string, unknown>;
 
     // Focus Management
-    setFocus(elementId: string): void;
+    setFocus(elementId: string, options?: SetFocusOptions): void;
+    restoreFocusForCurrentScreen(): boolean;
     getFocusedElement(): FocusableElement | null;
     /**
      * Move focus in the specified direction.
@@ -78,6 +79,14 @@ export interface INavigationManager {
     // Long-press handling
     handleLongPress(button: RemoteButton, callback: () => void): void;
     cancelLongPress(): void;
+}
+
+export interface SetFocusOptions {
+    /**
+     * Persist focus memory for the current screen.
+     * Defaults to true. Note: focus is never persisted while a modal is open.
+     */
+    persist?: boolean;
 }
 
 /**
@@ -190,6 +199,10 @@ export interface FocusableElement {
     element: HTMLElement;
     /** Focus group membership */
     group?: string;
+    /** Relative precedence for restore fallback within a restore group (higher values are restored first). */
+    restorePriority?: number;
+    /** Restore group identifier used when saved focus id no longer exists */
+    restoreGroup?: string;
     /** Explicit neighbor mappings */
     neighbors: {
         up?: string;

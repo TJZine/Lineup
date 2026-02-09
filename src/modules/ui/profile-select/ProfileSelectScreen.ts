@@ -8,6 +8,9 @@ import { AppOrchestrator } from '../../../Orchestrator';
 import type { PlexHomeUser } from '../../plex/auth';
 import type { FocusableElement, KeyEvent } from '../../navigation';
 import { PlexApiError } from '../../plex/auth';
+import { buildDeterministicButtonIds } from '../../../utils/domIds';
+import { createScreenShell } from '../common/ScreenShell';
+import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
 
 const FOCUS_RESTORE_DELAY_MS = 50;
 const PIN_LENGTH = 4;
@@ -31,8 +34,11 @@ export class ProfileSelectScreen {
 
     private _container: HTMLElement;
     private _orchestrator: AppOrchestrator;
+    private _destroyScreenShell: (() => void) | null = null;
+    private _shellSetStatus: ((status: ScreenStatus | null) => void) | null = null;
     private _statusEl: HTMLElement;
     private _errorEl: HTMLElement;
+    private _tipEl: HTMLElement;
     private _listEl: HTMLElement;
     private _mainButton: HTMLButtonElement;
     private _signOutButton: HTMLButtonElement;
@@ -64,68 +70,62 @@ export class ProfileSelectScreen {
         this._container.style.alignItems = 'center';
         this._container.style.justifyContent = 'center';
 
-        const panel = document.createElement('div');
-        panel.className = 'screen-panel profile-panel';
+        const shell = createScreenShell(this._container, {
+            title: "Who's watching?",
+            subtitle: 'Choose a Plex Home profile to continue.',
+            status: {
+                title: 'Loading profiles...',
+                tone: 'loading',
+            },
+            error: null,
+            actions: [
+                {
+                    id: 'btn-profile-main',
+                    label: 'Use Main Account',
+                    variant: 'primary',
+                    onSelect: (): void => {
+                        void this._handleUseMainAccount();
+                    },
+                },
+                {
+                    id: 'btn-profile-signout',
+                    label: 'Sign out',
+                    variant: 'secondary',
+                    onSelect: (): void => {
+                        void this._handleSignOut();
+                    },
+                },
+            ],
+        });
+        this._destroyScreenShell = shell.destroy;
+        this._shellSetStatus = shell.setStatus;
+        shell.panelEl.classList.add('profile-panel');
 
-        const title = document.createElement('h1');
-        title.className = 'screen-title';
-        title.textContent = "Who's watching?";
-        panel.appendChild(title);
-
-        const subtitle = document.createElement('p');
-        subtitle.className = 'screen-subtitle';
-        subtitle.textContent = 'Choose a Plex Home profile to continue.';
-        panel.appendChild(subtitle);
-
-        const status = document.createElement('div');
-        status.className = 'screen-status';
-        status.textContent = 'Loading profiles...';
-        panel.appendChild(status);
-        this._statusEl = status;
-
-        const error = document.createElement('div');
-        error.className = 'screen-error';
-        error.textContent = '';
-        error.setAttribute('role', 'alert');
-        error.setAttribute('aria-live', 'assertive');
-        panel.appendChild(error);
-        this._errorEl = error;
+        this._statusEl = shell.statusEl;
+        this._errorEl = shell.errorEl;
+        this._errorEl.setAttribute('role', 'alert');
+        this._errorEl.setAttribute('aria-live', 'assertive');
 
         const list = document.createElement('div');
         list.className = 'profile-list';
-        panel.appendChild(list);
+        shell.contentEl.appendChild(list);
         this._listEl = list;
 
         const tip = document.createElement('div');
         tip.className = 'profile-tip';
         tip.textContent = 'Tip: Set a PIN on the admin profile to prevent unwanted access.';
-        panel.appendChild(tip);
+        shell.contentEl.appendChild(tip);
+        this._tipEl = tip;
 
-        const buttonRow = document.createElement('div');
-        buttonRow.className = 'button-row';
-
-        const mainButton = document.createElement('button');
-        mainButton.id = 'btn-profile-main';
-        mainButton.className = 'screen-button';
-        mainButton.textContent = 'Use Main Account';
-        mainButton.addEventListener('click', () => {
-            void this._handleUseMainAccount();
-        });
-        buttonRow.appendChild(mainButton);
+        // Note: We cache action button references. If ScreenShell actions are ever re-rendered via shell.setActions(),
+        // these references must be re-queried.
+        const mainButton = shell.actionsEl.querySelector('#btn-profile-main');
+        const signOutButton = shell.actionsEl.querySelector('#btn-profile-signout');
+        if (!(mainButton instanceof HTMLButtonElement) || !(signOutButton instanceof HTMLButtonElement)) {
+            throw new Error('ProfileSelectScreen shell actions unavailable');
+        }
         this._mainButton = mainButton;
-
-        const signOutButton = document.createElement('button');
-        signOutButton.id = 'btn-profile-signout';
-        signOutButton.className = 'screen-button secondary';
-        signOutButton.textContent = 'Sign out';
-        signOutButton.addEventListener('click', () => {
-            void this._handleSignOut();
-        });
-        buttonRow.appendChild(signOutButton);
         this._signOutButton = signOutButton;
-
-        panel.appendChild(buttonRow);
-        this._container.appendChild(panel);
 
         // PIN modal (hidden by default)
         const modal = document.createElement('div');
@@ -223,10 +223,16 @@ export class ProfileSelectScreen {
     show(): void {
         this._container.style.display = 'flex';
         this._container.classList.add('visible');
-        this._setStatus('Loading profiles...');
+        this._setStatus('Loading profiles...', { tone: 'loading' });
         this._clearError();
         this._registerKeyHandler();
         void this._loadProfiles();
+    }
+
+    destroy(): void {
+        this.hide();
+        this._destroyScreenShell?.();
+        this._destroyScreenShell = null;
     }
 
     hide(): void {
@@ -254,7 +260,8 @@ export class ProfileSelectScreen {
         this._isLoading = true;
         this._listEl.replaceChildren();
         this._userButtonIds = [];
-        this._setStatus('Loading profiles...');
+        this._setStatus('Loading profiles...', { tone: 'loading' });
+        this._setTip('Tip: Set a PIN on the admin profile to prevent unwanted access.');
 
         try {
             const users = await this._orchestrator.getHomeUsers();
@@ -262,16 +269,20 @@ export class ProfileSelectScreen {
                 if (users.length === 1) {
                     this._renderUsers(users);
                     this._setStatus('Only one profile is available for this account.');
+                    this._setTip('Select "Use Main Account" to continue, or "Sign out" to switch accounts.');
                 } else {
                     this._setStatus('No Plex Home profiles were found.');
+                    this._setTip('Select "Sign out" to switch accounts, or "Use Main Account" to continue.');
                 }
                 return;
             }
             this._renderUsers(users);
             this._setStatus('Select a profile to continue.');
+            this._setTip('Tip: Set a PIN on the admin profile to prevent unwanted access.');
         } catch (error) {
             this._handleError(error, 'Unable to load profiles.');
             this._setStatus('Profile list unavailable.');
+            this._setTip('Select "Sign out" to switch accounts, then try again.');
         } finally {
             this._isLoading = false;
             const nav = this._orchestrator.getNavigation();
@@ -285,10 +296,11 @@ export class ProfileSelectScreen {
     private _renderUsers(users: PlexHomeUser[]): void {
         this._listEl.replaceChildren();
         this._userButtonIds = [];
+        const buttonIds = this._buildUserButtonIds(users.map((user) => user.id));
 
         users.forEach((user, index) => {
             const button = document.createElement('button');
-            button.id = `btn-profile-${index}`;
+            button.id = buttonIds[index] ?? 'btn-profile-unknown';
             button.className = 'profile-row';
             button.addEventListener('click', () => {
                 void this._handleUserSelect(user);
@@ -366,7 +378,7 @@ export class ProfileSelectScreen {
     private async _handleUseMainAccount(): Promise<void> {
         if (this._isSwitching) return;
         this._clearError();
-        this._setStatus('Switching to main account...');
+        this._setStatus('Switching to main account...', { tone: 'loading' });
         this._isSwitching = true;
         try {
             await this._orchestrator.useMainAccountProfile();
@@ -391,7 +403,7 @@ export class ProfileSelectScreen {
     }
 
     private async _switchUser(userId: string, pin?: string): Promise<boolean> {
-        this._setStatus('Switching profile...');
+        this._setStatus('Switching profile...', { tone: 'loading' });
         this._isSwitching = true;
         try {
             await this._orchestrator.switchHomeUser(userId, pin);
@@ -644,19 +656,25 @@ export class ProfileSelectScreen {
                 neighbors.left = this._mainButton.id;
             }
 
-            nav.registerFocusable({
+            const focusable: FocusableElement = {
                 id,
                 element: element as HTMLElement,
                 neighbors,
                 onSelect: () => {
                     (element as HTMLElement).click();
                 },
-            });
+            };
+            const userIndex = this._userButtonIds.indexOf(id);
+            if (userIndex >= 0) {
+                focusable.restoreGroup = 'profile-select-list';
+                focusable.restorePriority = Math.max(0, 1000 - userIndex);
+            }
+            nav.registerFocusable(focusable);
         });
 
         const preferredId = this._userButtonIds[0] ?? this._mainButton.id;
         if (preferredId) {
-            nav.setFocus(preferredId);
+            nav.setFocus(preferredId, { persist: false });
         }
     }
 
@@ -712,13 +730,39 @@ export class ProfileSelectScreen {
         this._restoreFocusTimeoutId = setTimeout(() => {
             this._restoreFocusTimeoutId = null;
             if (!this._container.classList.contains('visible')) return;
+            if (nav.restoreFocusForCurrentScreen()) {
+                return;
+            }
             const preferredId = this._userButtonIds[0] ?? this._mainButton.id;
             nav.setFocus(preferredId);
         }, FOCUS_RESTORE_DELAY_MS);
     }
 
-    private _setStatus(message: string): void {
+    private _buildUserButtonIds(userIds: string[]): string[] {
+        return buildDeterministicButtonIds('btn-profile-', userIds);
+    }
+
+    private _setStatus(message: string, options?: { tone?: ScreenTone; ariaLive?: ScreenStatus['ariaLive'] }): void {
+        if (this._shellSetStatus) {
+            if (message.length === 0) {
+                this._shellSetStatus(null);
+                return;
+            }
+            const status: ScreenStatus = {
+                title: message,
+                tone: options?.tone ?? 'neutral',
+            };
+            if (options?.ariaLive) {
+                status.ariaLive = options.ariaLive;
+            }
+            this._shellSetStatus(status);
+            return;
+        }
         this._statusEl.textContent = message;
+    }
+
+    private _setTip(message: string): void {
+        this._tipEl.textContent = message;
     }
 
     private _clearError(): void {

@@ -12,7 +12,7 @@ import { NOW_PLAYING_INFO_MODAL_ID } from '../ui/now-playing-info';
 import type { PlaybackOptionsSectionId } from '../ui/playback-options/types';
 import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
 import { readStoredBoolean, readStoredBooleanWithLegacy } from '../../utils/storage';
-import { summarizeErrorForLog } from '../../utils/errors';
+import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
 
 const EPG_REPEAT_INITIAL_DELAY_MS = 250;
 const EPG_REPEAT_TIER_1_MS = 800;
@@ -114,6 +114,7 @@ export class NavigationCoordinator {
             }
             this.deps.setLastChannelChangeSourceNumber();
             this.deps.switchToChannelByNumber(payload.channelNumber).catch((error: unknown) => {
+                if (isAbortLikeError(error)) return;
                 console.error('[Navigation] switchToChannelByNumber failed:', summarizeErrorForLog(error));
             });
         };
@@ -505,24 +506,41 @@ export class NavigationCoordinator {
                 break;
             }
             case 'play':
-                this.deps.getVideoPlayer()?.play().catch(() => undefined);
-                this.deps.pokePlayerOsd('play');
+                {
+                    const player = this.deps.getVideoPlayer();
+                    if (!player) {
+                        break;
+                    }
+                    player.play()
+                        .then(() => {
+                            this.deps.pokePlayerOsd('play');
+                        })
+                        .catch(() => undefined);
+                }
                 break;
             case 'pause':
                 this.deps.getVideoPlayer()?.pause();
                 this.deps.pokePlayerOsd('pause');
                 break;
             case 'rewind': {
+                const player = this.deps.getVideoPlayer();
+                if (!player) {
+                    break;
+                }
                 const deltaMs = -this.deps.getSeekIncrementMs();
-                this.deps.getVideoPlayer()?.seekRelative(deltaMs).catch((error: unknown) => {
+                player.seekRelative(deltaMs).catch((error: unknown) => {
                     console.error('[Navigation] seek failed:', summarizeErrorForLog(error));
                 });
                 this.deps.pokePlayerOsd('seek');
                 break;
             }
             case 'fastforward': {
+                const player = this.deps.getVideoPlayer();
+                if (!player) {
+                    break;
+                }
                 const deltaMs = this.deps.getSeekIncrementMs();
-                this.deps.getVideoPlayer()?.seekRelative(deltaMs).catch((error: unknown) => {
+                player.seekRelative(deltaMs).catch((error: unknown) => {
                     console.error('[Navigation] seek failed:', summarizeErrorForLog(error));
                 });
                 this.deps.pokePlayerOsd('seek');

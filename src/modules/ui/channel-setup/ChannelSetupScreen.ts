@@ -17,6 +17,7 @@ import type { FocusableElement, KeyEvent } from '../../navigation';
 import { safeLocalStorageGet } from '../../../utils/storage';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../scheduler/channel-manager/constants';
+import { createScreenShell } from '../common/ScreenShell';
 
 const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
 const DEFAULT_MIN_ITEMS = 10;
@@ -59,6 +60,7 @@ const SHOW_SVG = `
 export class ChannelSetupScreen {
     private _container: HTMLElement;
     private _orchestrator: AppOrchestrator;
+    private _destroyScreenShell: (() => void) | null = null;
     private _stepEl: HTMLElement;
     private _statusEl: HTMLElement;
     private _detailEl: HTMLElement;
@@ -188,44 +190,38 @@ export class ChannelSetupScreen {
         this._container.style.alignItems = 'center';
         this._container.style.justifyContent = 'center';
 
-        const panel = document.createElement('div');
-        panel.className = 'screen-panel setup-panel';
-        const title = document.createElement('h1');
-        title.className = 'screen-title';
-        title.textContent = 'Channel Setup';
-        panel.appendChild(title);
-
-        const subtitle = document.createElement('p');
-        subtitle.className = 'screen-subtitle';
-        subtitle.textContent = 'Build a clean, remote-first channel lineup for this server.';
-        panel.appendChild(subtitle);
+        const shell = createScreenShell(this._container, {
+            title: 'Channel Setup',
+            subtitle: 'Build a clean, remote-first channel lineup for this server.',
+            status: {
+                title: '',
+                tone: 'neutral',
+            },
+            error: null,
+            actions: [],
+        });
+        this._destroyScreenShell = shell.destroy;
+        shell.panelEl.classList.add('setup-panel');
 
         const stepEl = document.createElement('div');
         stepEl.className = 'setup-step';
-        panel.appendChild(stepEl);
+        shell.contentEl.insertBefore(stepEl, shell.statusEl);
         this._stepEl = stepEl;
 
-        const status = document.createElement('div');
-        status.className = 'screen-status';
-        panel.appendChild(status);
-        this._statusEl = status;
-
-        const detail = document.createElement('div');
-        detail.className = 'screen-detail';
-        panel.appendChild(detail);
-        this._detailEl = detail;
-
-        const error = document.createElement('div');
-        error.className = 'screen-error';
-        panel.appendChild(error);
-        this._errorEl = error;
+        this._statusEl = shell.statusEl;
+        this._detailEl = shell.detailEl;
+        this._errorEl = shell.errorEl;
 
         const content = document.createElement('div');
         content.className = 'setup-body';
-        panel.appendChild(content);
+        shell.contentEl.appendChild(content);
         this._contentEl = content;
+    }
 
-        this._container.appendChild(panel);
+    destroy(): void {
+        this.hide();
+        this._destroyScreenShell?.();
+        this._destroyScreenShell = null;
     }
 
     show(): void {
@@ -431,7 +427,7 @@ export class ChannelSetupScreen {
         if (this._libraries.length === 0) {
             const empty = document.createElement('div');
             empty.className = 'setup-empty';
-            empty.textContent = 'No movie or show libraries found.';
+            empty.textContent = 'No movie or show libraries found. Select "Back" to choose a different server.';
             list.appendChild(empty);
         }
 
@@ -513,12 +509,15 @@ export class ChannelSetupScreen {
             this._orchestrator.openServerSelect();
         });
         actions.appendChild(backButton);
+        if (this._libraries.length === 0) {
+            this._preferredFocusId = backButton.id;
+        }
 
         const nextButton = document.createElement('button');
         nextButton.id = 'setup-next';
         nextButton.className = 'screen-button';
         nextButton.textContent = 'Next';
-        nextButton.disabled = this._selectedLibraryIds.size === 0;
+        nextButton.disabled = this._libraries.length === 0 || this._selectedLibraryIds.size === 0;
         nextButton.addEventListener('click', () => {
             if (this._selectedLibraryIds.size === 0) {
                 return;

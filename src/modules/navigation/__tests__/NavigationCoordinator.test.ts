@@ -132,6 +132,43 @@ const setup = (overrides: Partial<NavigationCoordinatorDeps> = {}): {
 };
 
 describe('NavigationCoordinator', () => {
+    beforeEach(() => {
+        jest.restoreAllMocks();
+    });
+
+    it('does not log an error when channel-number entry is superseded (AbortError)', async () => {
+        const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        const abortError = Object.assign(new Error('superseded'), { name: 'AbortError' });
+        const { handlers, deps } = setup({
+            switchToChannelByNumber: jest.fn().mockRejectedValue(abortError),
+        });
+
+        handlers.channelNumberEntered?.({ channelNumber: 12 });
+
+        // Allow the catch handler to run.
+        await Promise.resolve();
+
+        expect(deps.setLastChannelChangeSourceNumber).toHaveBeenCalledTimes(1);
+        expect(deps.switchToChannelByNumber).toHaveBeenCalledWith(12);
+        expect(consoleError).not.toHaveBeenCalled();
+    });
+
+    it('logs an error when channel-number entry fails unexpectedly', async () => {
+        const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        const failure = new Error('boom');
+        const { handlers } = setup({
+            switchToChannelByNumber: jest.fn().mockRejectedValue(failure),
+        });
+
+        handlers.channelNumberEntered?.({ channelNumber: 7 });
+        await Promise.resolve();
+
+        expect(consoleError).toHaveBeenCalledWith(
+            '[Navigation] switchToChannelByNumber failed:',
+            expect.anything()
+        );
+    });
+
     it('registers long-press back handler', () => {
         const { navigation } = setup();
 
@@ -416,6 +453,20 @@ describe('NavigationCoordinator', () => {
         expect(event.originalEvent.preventDefault).toHaveBeenCalled();
     });
 
+    it('routes back to EPG handleBack when guide is visible and no modal is open', () => {
+        const { handlers, epg, navigation } = setup();
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+        (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
+        (epg.handleBack as jest.Mock).mockReturnValue(true);
+
+        const event = makeKeyEvent('back');
+        handlers.keyPress?.(event);
+
+        expect(epg.handleBack).toHaveBeenCalledTimes(1);
+        expect(event.handled).toBe(true);
+        expect(event.originalEvent.preventDefault).toHaveBeenCalled();
+    });
+
     it('EPG direction keys always consumed', () => {
         const { handlers, epg, navigation } = setup();
         (epg.isVisible as jest.Mock).mockReturnValue(true);
@@ -479,10 +530,11 @@ describe('NavigationCoordinator', () => {
         expect(deps.switchToNextChannel).toHaveBeenCalled();
     });
 
-    it('play triggers pokePlayerOsd', () => {
+    it('play triggers pokePlayerOsd', async () => {
         const { handlers, deps } = setup();
         handlers.keyPress?.(makeKeyEvent('play'));
 
+        await Promise.resolve();
         expect(deps.pokePlayerOsd).toHaveBeenCalledWith('play');
     });
 

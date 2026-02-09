@@ -526,6 +526,27 @@ describe('ChannelManager', () => {
             expect(newManager.getAllChannels()).toHaveLength(0);
         });
 
+        it('should drop non-object channel records when loading from storage', async () => {
+            await manager.createChannel({
+                name: 'Saved Channel',
+                contentSource: createMockContentSource(),
+            });
+            const channel = manager.getAllChannels()[0]!;
+
+            mockLocalStorage.clear();
+            mockStorage[STORAGE_KEY] = JSON.stringify({
+                channels: [null, 'bad', 123, channel],
+                channelOrder: [channel.id],
+                currentChannelId: channel.id,
+                savedAt: Date.now(),
+            });
+
+            const newManager = new ChannelManager({ plexLibrary: mockLibrary });
+            await expect(newManager.loadChannels()).resolves.toBeUndefined();
+            expect(newManager.getAllChannels()).toHaveLength(1);
+            expect(newManager.getAllChannels()[0]!.id).toBe(channel.id);
+        });
+
         it('should rebuild channelOrder when persisted order is empty', async () => {
             const ch1 = await manager.createChannel({
                 name: 'Ch 10',

@@ -26,6 +26,20 @@ function dispatchKeyEvent(keyCode: number, type: 'keydown' | 'keyup' = 'keydown'
     document.dispatchEvent(event);
 }
 
+/** Access internal FocusManager for white-box testing. */
+function getInternalFocusManager(nav: NavigationManager): {
+    focus: (id: string) => boolean;
+    blur: () => void;
+    saveFocusState: (screenId: string) => void;
+} {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (nav as any)._focusManager as {
+        focus: (id: string) => boolean;
+        blur: () => void;
+        saveFocusState: (screenId: string) => void;
+    };
+}
+
 describe('NavigationManager', () => {
     let nav: NavigationManager;
     let config: NavigationConfig;
@@ -154,8 +168,7 @@ describe('NavigationManager', () => {
             nav.registerFocusable({ id: 'btn1', element: el, neighbors: {} });
 
             // Access internals for deterministic testing of the sentinel behavior.
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const focusManager = (nav as any)._focusManager as { focus: (id: string) => boolean };
+            const focusManager = getInternalFocusManager(nav);
             const focusSpy = jest.spyOn(focusManager, 'focus');
 
             nav.setFocus('btn1');
@@ -495,6 +508,60 @@ describe('NavigationManager', () => {
             if (focused) {
                 expect(focused.id).toBe('btn5');
             }
+        });
+
+        it('saves focus memory on successful setFocus when enabled', () => {
+            const el = createMockElement('btn-memory');
+            elements.push(el);
+            nav.registerFocusable({ id: 'btn-memory', element: el, neighbors: {} });
+
+            const focusManager = getInternalFocusManager(nav);
+            const saveSpy = jest.spyOn(focusManager, 'saveFocusState');
+
+            nav.setFocus('btn-memory');
+
+            expect(saveSpy).toHaveBeenCalledWith('splash');
+        });
+
+        it('does not save focus memory when persist is disabled', () => {
+            const el = createMockElement('btn-no-persist');
+            elements.push(el);
+            nav.registerFocusable({ id: 'btn-no-persist', element: el, neighbors: {} });
+
+            const focusManager = getInternalFocusManager(nav);
+            const saveSpy = jest.spyOn(focusManager, 'saveFocusState');
+
+            nav.setFocus('btn-no-persist', { persist: false });
+
+            expect(saveSpy).not.toHaveBeenCalled();
+        });
+
+        it('does not save focus memory while a modal is open', () => {
+            const el = createMockElement('btn-modal-focus');
+            elements.push(el);
+            nav.registerFocusable({ id: 'btn-modal-focus', element: el, neighbors: {} });
+
+            const focusManager = getInternalFocusManager(nav);
+            const saveSpy = jest.spyOn(focusManager, 'saveFocusState');
+
+            nav.openModal('confirm');
+            nav.setFocus('btn-modal-focus');
+
+            expect(saveSpy).not.toHaveBeenCalled();
+        });
+
+        it('restores focus for the current screen via explicit restore entrypoint', () => {
+            const el = createMockElement('btn-restore');
+            elements.push(el);
+            nav.registerFocusable({ id: 'btn-restore', element: el, neighbors: {} });
+
+            nav.setFocus('btn-restore');
+            const focusManager = getInternalFocusManager(nav);
+            focusManager.blur();
+            const restored = nav.restoreFocusForCurrentScreen();
+
+            expect(restored).toBe(true);
+            expect(nav.getFocusedElement()?.id).toBe('btn-restore');
         });
     });
 

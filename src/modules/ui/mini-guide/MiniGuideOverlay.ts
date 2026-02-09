@@ -3,9 +3,10 @@
  * @module modules/ui/mini-guide/MiniGuideOverlay
  */
 
-import { MINI_GUIDE_CLASSES } from './constants';
+import { MINI_GUIDE_CLASSES, MINI_GUIDE_TEXT } from './constants';
 import type { IMiniGuideOverlay } from './interfaces';
 import type { MiniGuideConfig, MiniGuideViewModel } from './types';
+import { createOverlayPrimitives } from '../common/OverlayPrimitives';
 
 const ROW_COUNT = 5;
 
@@ -30,7 +31,8 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
         }
         this.containerElement = container;
         this.containerElement.classList.add(MINI_GUIDE_CLASSES.CONTAINER);
-        this.containerElement.innerHTML = this.createTemplate();
+        this.containerElement.textContent = '';
+        this.containerElement.appendChild(this.createTemplateElement());
         this.containerElement.classList.remove(MINI_GUIDE_CLASSES.VISIBLE);
         this.isVisibleFlag = false;
         this.cacheElements();
@@ -38,7 +40,7 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
 
     destroy(): void {
         if (this.containerElement) {
-            this.containerElement.innerHTML = '';
+            this.containerElement.replaceChildren();
             this.containerElement.classList.remove(MINI_GUIDE_CLASSES.VISIBLE);
         }
         this.containerElement = null;
@@ -116,41 +118,63 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
 
     private cacheElements(): void {
         this.rows = [];
+        const root = this.containerElement;
+        if (!root) return;
         for (let i = 0; i < ROW_COUNT; i += 1) {
             this.rows.push({
-                row: document.getElementById(`mini-guide-row-${i}`),
-                number: document.getElementById(`mini-guide-num-${i}`),
-                name: document.getElementById(`mini-guide-name-${i}`),
-                now: document.getElementById(`mini-guide-now-${i}`),
-                next: document.getElementById(`mini-guide-next-${i}`),
-                progressFill: document.getElementById(`mini-guide-progress-${i}`),
+                row: root.querySelector(`#mini-guide-row-${i}`),
+                number: root.querySelector(`#mini-guide-num-${i}`),
+                name: root.querySelector(`#mini-guide-name-${i}`),
+                now: root.querySelector(`#mini-guide-now-${i}`),
+                next: root.querySelector(`#mini-guide-next-${i}`),
+                progressFill: root.querySelector(`#mini-guide-progress-${i}`),
             });
         }
     }
 
-    private createTemplate(): string {
-        const rows: string[] = [];
+    private createTemplateElement(): HTMLElement {
+        const { panelEl } = createOverlayPrimitives(
+            { panel: MINI_GUIDE_CLASSES.PANEL },
+            { panel: {} }
+        );
+
         for (let i = 0; i < ROW_COUNT; i += 1) {
-            rows.push(`
-        <div id="mini-guide-row-${i}" class="${MINI_GUIDE_CLASSES.CHANNEL_ROW}">
-          <div class="${MINI_GUIDE_CLASSES.CHANNEL_NUMBER}" id="mini-guide-num-${i}"></div>
-          <div class="${MINI_GUIDE_CLASSES.CHANNEL_NAME}" id="mini-guide-name-${i}"></div>
-          <div class="${MINI_GUIDE_CLASSES.PROGRAM_NOW}" id="mini-guide-now-${i}"></div>
-          <div class="${MINI_GUIDE_CLASSES.PROGRESS_BAR}">
-            <div class="${MINI_GUIDE_CLASSES.PROGRESS_FILL}" id="mini-guide-progress-${i}"></div>
-          </div>
-          <div class="${MINI_GUIDE_CLASSES.PROGRAM_NEXT}" id="mini-guide-next-${i}"></div>
-        </div>
-      `);
+            const row = document.createElement('div');
+            row.id = `mini-guide-row-${i}`;
+            row.className = MINI_GUIDE_CLASSES.CHANNEL_ROW;
+
+            const number = document.createElement('div');
+            number.id = `mini-guide-num-${i}`;
+            number.className = MINI_GUIDE_CLASSES.CHANNEL_NUMBER;
+
+            const name = document.createElement('div');
+            name.id = `mini-guide-name-${i}`;
+            name.className = MINI_GUIDE_CLASSES.CHANNEL_NAME;
+
+            const now = document.createElement('div');
+            now.id = `mini-guide-now-${i}`;
+            now.className = MINI_GUIDE_CLASSES.PROGRAM_NOW;
+
+            const progressBar = document.createElement('div');
+            progressBar.className = MINI_GUIDE_CLASSES.PROGRESS_BAR;
+            const progressFill = document.createElement('div');
+            progressFill.id = `mini-guide-progress-${i}`;
+            progressFill.className = MINI_GUIDE_CLASSES.PROGRESS_FILL;
+            progressBar.appendChild(progressFill);
+
+            const next = document.createElement('div');
+            next.id = `mini-guide-next-${i}`;
+            next.className = MINI_GUIDE_CLASSES.PROGRAM_NEXT;
+
+            row.append(number, name, now, progressBar, next);
+            panelEl.appendChild(row);
         }
 
-        return `
-      <div class="${MINI_GUIDE_CLASSES.PANEL}">
-        ${rows.join('')}
-        <div class="${MINI_GUIDE_CLASSES.FOOTER_HINT}">
-          UP/DOWN Browse • CH± Page • OK Watch • RIGHT Full Guide • BACK Close
-        </div>
-      </div>
-    `;
+        const footer = document.createElement('div');
+        footer.className = MINI_GUIDE_CLASSES.FOOTER_HINT;
+        footer.textContent = MINI_GUIDE_TEXT.FOOTER_HINT;
+        panelEl.appendChild(footer);
+
+        return panelEl;
     }
 }

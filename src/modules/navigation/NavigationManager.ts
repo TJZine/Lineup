@@ -346,13 +346,29 @@ export class NavigationManager
      * Set focus to an element by ID.
      * @param elementId - The element ID to focus
      */
-    public setFocus(elementId: string): void {
+    public setFocus(elementId: string, options?: { persist?: boolean }): void {
         const previousId = this._focusManager.getCurrentFocusId();
         const success = this._focusManager.focus(elementId);
 
-        if (success && previousId !== elementId) {
+        if (!success) {
+            return;
+        }
+
+        const shouldPersist = options?.persist !== false;
+        const modalOpen = this._state.modalStack.length > 0;
+        if (shouldPersist && !modalOpen && this._state.config.focusMemoryEnabled) {
+            this._focusManager.saveFocusState(this._state.currentScreen);
+        }
+        if (previousId !== elementId) {
             this.emit('focusChange', { from: previousId, to: elementId });
         }
+    }
+
+    public restoreFocusForCurrentScreen(): boolean {
+        if (!this._state.config.focusMemoryEnabled) {
+            return false;
+        }
+        return this._focusManager.restoreFocusState(this._state.currentScreen);
     }
 
     /**

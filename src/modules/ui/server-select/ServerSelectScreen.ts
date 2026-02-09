@@ -10,12 +10,17 @@ import { PlexApiError } from '../../plex/auth';
 import type { FocusableElement } from '../../navigation';
 import { safeLocalStorageGet } from '../../../utils/storage';
 import { summarizeErrorForLog } from '../../../utils/errors';
+import { buildDeterministicButtonIds } from '../../../utils/domIds';
+import { createScreenShell } from '../common/ScreenShell';
+import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
 
 const FOCUS_RESTORE_DELAY_MS = 50;
 
 export class ServerSelectScreen {
     private _container: HTMLElement;
     private _orchestrator: AppOrchestrator;
+    private _destroyScreenShell: (() => void) | null = null;
+    private _shellSetStatus: ((status: ScreenStatus | null) => void) | null = null;
     private _autoConnectHintEl: HTMLElement;
     private _statusEl: HTMLElement;
     private _detailEl: HTMLElement;
@@ -28,6 +33,7 @@ export class ServerSelectScreen {
     private _isLoading: boolean = false;
     private _restoreFocusTimeoutId: ReturnType<typeof setTimeout> | null = null;
     private _registeredServerButtonIds: string[] = [];
+    private _lastDiscoveredServers: PlexServer[] = [];
 
     constructor(container: HTMLElement, orchestrator: AppOrchestrator) {
         this._container = container;
@@ -39,18 +45,59 @@ export class ServerSelectScreen {
         this._container.style.alignItems = 'center';
         this._container.style.justifyContent = 'center';
 
-        const panel = document.createElement('div');
-        panel.className = 'screen-panel';
+        const shell = createScreenShell(this._container, {
+            title: 'Select Plex Server',
+            subtitle: 'Choose a server to continue startup.',
+            status: {
+                title: 'Ready to discover servers.',
+                tone: 'neutral',
+            },
+            error: null,
+            actions: [
+                {
+                    id: 'btn-server-refresh',
+                    label: 'Retry discovery',
+                    variant: 'primary',
+                    onSelect: (): void => {
+                        this.refresh().catch((error: unknown) => {
+                            console.error('[ServerSelect] Refresh failed:', summarizeErrorForLog(error));
+                        });
+                    },
+                },
+                {
+                    id: 'btn-server-setup',
+                    label: 'Re-run Setup',
+                    variant: 'secondary',
+                    onSelect: (): void => {
+                        this._clearError();
+                        this._orchestrator.requestChannelSetupRerun();
+                    },
+                },
+                {
+                    id: 'btn-server-switch-profile',
+                    label: 'Switch Profile',
+                    variant: 'secondary',
+                    onSelect: (): void => {
+                        const nav = this._orchestrator.getNavigation();
+                        nav?.replaceScreen('profile-select');
+                    },
+                },
+                {
+                    id: 'btn-server-forget',
+                    label: 'Clear Saved Server',
+                    variant: 'secondary',
+                    onSelect: (): void => {
+                        this._handleClearSelection();
+                    },
+                },
+            ],
+        });
+        this._destroyScreenShell = shell.destroy;
+        this._shellSetStatus = shell.setStatus;
 
-        const title = document.createElement('h1');
-        title.className = 'screen-title';
-        title.textContent = 'Select Plex Server';
-        panel.appendChild(title);
-
-        const subtitle = document.createElement('p');
-        subtitle.className = 'screen-subtitle';
-        subtitle.textContent = 'Choose a server to continue startup.';
-        panel.appendChild(subtitle);
+        this._statusEl = shell.statusEl;
+        this._detailEl = shell.detailEl;
+        this._errorEl = shell.errorEl;
 
         const autoConnectHint = document.createElement('div');
         autoConnectHint.className = 'server-autoconnect-hint';
@@ -67,83 +114,42 @@ export class ServerSelectScreen {
         autoConnectText.textContent = 'Trying your saved server first.';
         autoConnectHint.appendChild(autoConnectText);
 
-        panel.appendChild(autoConnectHint);
+        shell.contentEl.insertBefore(autoConnectHint, this._statusEl);
         this._autoConnectHintEl = autoConnectHint;
 
-        const status = document.createElement('div');
-        status.className = 'screen-status';
-        status.textContent = 'Ready to discover servers.';
-        panel.appendChild(status);
-        this._statusEl = status;
-
-        const detail = document.createElement('div');
-        detail.className = 'screen-detail';
-        detail.textContent = '';
-        panel.appendChild(detail);
-        this._detailEl = detail;
-
-        const error = document.createElement('div');
-        error.className = 'screen-error';
-        error.textContent = '';
-        panel.appendChild(error);
-        this._errorEl = error;
-
-        const buttonRow = document.createElement('div');
-        buttonRow.className = 'button-row';
-
-        const refreshButton = document.createElement('button');
-        refreshButton.id = 'btn-server-refresh';
-        refreshButton.className = 'screen-button';
-        refreshButton.textContent = 'Retry discovery';
-        refreshButton.addEventListener('click', () => {
-            this.refresh().catch((error: unknown) => {
-                console.error('[ServerSelect] Refresh failed:', summarizeErrorForLog(error));
-            });
-        });
-        buttonRow.appendChild(refreshButton);
+        // Note: We cache action button references. If ScreenShell actions are ever re-rendered via shell.setActions(),
+        // these references must be re-queried.
+        const refreshButton = shell.actionsEl.querySelector('#btn-server-refresh');
+        const setupButton = shell.actionsEl.querySelector('#btn-server-setup');
+        const switchProfileButton = shell.actionsEl.querySelector('#btn-server-switch-profile');
+        const clearButton = shell.actionsEl.querySelector('#btn-server-forget');
+        if (
+            !(refreshButton instanceof HTMLButtonElement)
+            || !(setupButton instanceof HTMLButtonElement)
+            || !(switchProfileButton instanceof HTMLButtonElement)
+            || !(clearButton instanceof HTMLButtonElement)
+        ) {
+            throw new Error('ServerSelectScreen shell actions unavailable');
+        }
         this._refreshButton = refreshButton;
-
-        const setupButton = document.createElement('button');
-        setupButton.id = 'btn-server-setup';
-        setupButton.className = 'screen-button secondary';
-        setupButton.textContent = 'Re-run Setup';
-        setupButton.addEventListener('click', () => {
-            this._clearError();
-            this._orchestrator.requestChannelSetupRerun();
-        });
-        buttonRow.appendChild(setupButton);
         this._setupButton = setupButton;
-
-        const switchProfileButton = document.createElement('button');
-        switchProfileButton.id = 'btn-server-switch-profile';
-        switchProfileButton.className = 'screen-button secondary';
-        switchProfileButton.textContent = 'Switch Profile';
-        switchProfileButton.addEventListener('click', () => {
-            const nav = this._orchestrator.getNavigation();
-            nav?.replaceScreen('profile-select');
-        });
-        buttonRow.appendChild(switchProfileButton);
         this._switchProfileButton = switchProfileButton;
-
-        const clearButton = document.createElement('button');
-        clearButton.id = 'btn-server-forget';
-        clearButton.className = 'screen-button secondary';
-        clearButton.textContent = 'Clear Saved Server';
-        clearButton.addEventListener('click', () => {
-            this._handleClearSelection();
-        });
-        buttonRow.appendChild(clearButton);
         this._clearButton = clearButton;
-
-
-        panel.appendChild(buttonRow);
 
         const list = document.createElement('div');
         list.className = 'server-list';
-        panel.appendChild(list);
+        shell.panelEl.appendChild(list);
         this._listEl = list;
+    }
 
-        this._container.appendChild(panel);
+    destroy(): void {
+        this.hide();
+        if (this._restoreFocusTimeoutId !== null) {
+            clearTimeout(this._restoreFocusTimeoutId);
+            this._restoreFocusTimeoutId = null;
+        }
+        this._destroyScreenShell?.();
+        this._destroyScreenShell = null;
     }
 
     show(options?: { allowAutoConnect?: boolean }): void {
@@ -169,7 +175,8 @@ export class ServerSelectScreen {
         this._setAutoConnectHintVisible(isAutoConnectAttempt);
         this._setStatus(
             isAutoConnectAttempt ? 'Reconnecting to saved server…' : 'Discovering servers…',
-            isAutoConnectAttempt ? 'If that fails, choose any server below.' : ''
+            isAutoConnectAttempt ? 'If that fails, choose any server below.' : '',
+            'loading'
         );
         this._statusEl.classList.add('panel-spinner');
 
@@ -181,6 +188,8 @@ export class ServerSelectScreen {
 
         try {
             const servers = await this._orchestrator.discoverServers(options.forceRefresh);
+            this._lastDiscoveredServers = servers.slice();
+            this._statusEl.classList.remove('panel-spinner');
             let autoSelectError: unknown | null = null;
             let savedServerUnavailable = false;
 
@@ -189,7 +198,7 @@ export class ServerSelectScreen {
                     try {
                         const success = await this._orchestrator.selectServer(savedId);
                         if (success) {
-                            this._setStatus('Connected…', 'Continuing startup…');
+                            this._setStatus('Connected…', 'Continuing startup…', 'success');
                             return;
                         }
                         savedServerUnavailable = true;
@@ -205,20 +214,22 @@ export class ServerSelectScreen {
             }
 
             // Fallback to rendering list
-            this._renderServers(servers, savedId, { savedServerUnavailable });
+            this._renderServers(servers, savedId, { savedServerUnavailable, emptyStateReason: 'no_servers' });
             if (servers.length === 0) {
-                this._setStatus('No servers found.', 'Ensure your Plex server is reachable.');
+                this._setStatus('No servers found.', 'Ensure your Plex server is reachable.', 'warning');
             } else if (savedServerUnavailable) {
                 this._handleError(autoSelectError, 'Unable to use the saved server.');
-                this._setStatus('Saved server unavailable.', 'Select a server from the list.');
+                this._setStatus('Saved server unavailable.', 'Select a server from the list.', 'warning');
             } else {
-                this._setStatus('Select a server from the list.', '');
+                this._setStatus('Select a server from the list.', '', 'neutral');
             }
             this._setAutoConnectHintVisible(false);
         } catch (error) {
+            this._lastDiscoveredServers = [];
+            this._statusEl.classList.remove('panel-spinner');
             this._handleError(error, 'Failed to discover servers.');
-            this._setStatus('Discovery failed.', '');
-            this._renderServers([], null);
+            this._setStatus('Discovery failed.', '', 'error');
+            this._renderServers([], null, { emptyStateReason: 'discovery_failed' });
             this._setAutoConnectHintVisible(false);
         } finally {
             this._isLoading = false;
@@ -241,6 +252,9 @@ export class ServerSelectScreen {
             this._restoreFocusTimeoutId = setTimeout(() => {
                 this._restoreFocusTimeoutId = null;
                 if (!this._container.classList.contains('visible')) return;
+                if (nav.restoreFocusForCurrentScreen()) {
+                    return;
+                }
                 nav.setFocus('btn-server-refresh');
             }, FOCUS_RESTORE_DELAY_MS);
         }
@@ -248,7 +262,6 @@ export class ServerSelectScreen {
 
     hide(): void {
         this._unregisterFocusables();
-        this._unregisterServerListFocusables();
         if (this._restoreFocusTimeoutId !== null) {
             clearTimeout(this._restoreFocusTimeoutId);
             this._restoreFocusTimeoutId = null;
@@ -272,7 +285,7 @@ export class ServerSelectScreen {
         this._orchestrator.clearSelectedServer();
         this._setAutoConnectHintVisible(false);
         this._setStatus('Selection cleared.', 'Pick a server to continue.');
-        this._renderServers([], null);
+        this._renderServers(this._lastDiscoveredServers, null, { emptyStateReason: 'no_servers' });
         this._restoreFocus();
     }
 
@@ -289,9 +302,10 @@ export class ServerSelectScreen {
     private _renderServers(
         servers: PlexServer[],
         savedId: string | null,
-        options?: { savedServerUnavailable?: boolean }
+        options?: { savedServerUnavailable?: boolean; emptyStateReason?: 'no_servers' | 'discovery_failed' }
     ): void {
         const savedServerUnavailable = options?.savedServerUnavailable === true;
+        const emptyStateReason = options?.emptyStateReason ?? 'no_servers';
         const rawHealth = safeLocalStorageGet(this._orchestrator.getServerHealthStorageKey());
         let healthMap: Record<string, { status?: string; type?: string; latencyMs?: number; testedAt?: number } | undefined> = {};
         let parsedHealth: unknown = {};
@@ -350,8 +364,9 @@ export class ServerSelectScreen {
 
             const description = document.createElement('div');
             description.className = 'server-empty-description';
-            description.textContent =
-                'Ensure your Plex Media Server is running and reachable on your network.';
+            description.textContent = emptyStateReason === 'discovery_failed'
+                ? 'Server discovery failed. Check network, then select "Retry discovery" to try again.'
+                : 'Ensure your Plex Media Server is running and reachable on your network. Select "Retry discovery" to scan again.';
 
             empty.replaceChildren(icon, title, description);
             this._listEl.appendChild(empty);
@@ -360,6 +375,7 @@ export class ServerSelectScreen {
         }
 
         const enabledServerButtons: HTMLButtonElement[] = [];
+        const buttonIds = this._buildServerButtonIds(servers.map((server) => server?.id ?? 'unknown'));
 
         for (let i = 0; i < servers.length; i++) {
             const server = servers[i];
@@ -387,7 +403,7 @@ export class ServerSelectScreen {
             actions.className = 'server-actions';
 
             const selectButton = document.createElement('button');
-            selectButton.id = `btn-server-select-${i}`;
+            selectButton.id = buttonIds[i] ?? 'btn-server-select-unknown';
             selectButton.className = 'screen-button secondary';
             selectButton.textContent = 'Connect';
             selectButton.addEventListener('click', () => {
@@ -463,6 +479,8 @@ export class ServerSelectScreen {
                     id: button.id,
                     element: button,
                     neighbors,
+                    restoreGroup: 'server-select-list',
+                    restorePriority: 1000 - i,
                     onFocus: () => {
                         try {
                             button.scrollIntoView({ block: 'nearest' });
@@ -495,21 +513,21 @@ export class ServerSelectScreen {
 
     private async _selectServer(server: PlexServer): Promise<void> {
         this._clearError();
-        this._setStatus(`Connecting to ${server.name}…`, '');
+        this._setStatus(`Connecting to ${server.name}…`, '', 'loading');
         this._detailEl.textContent = '';
 
         try {
             const success = await this._orchestrator.selectServer(server.id);
             if (success) {
-                this._setStatus(`Connected to ${server.name}.`, 'Continuing startup…');
+                this._setStatus(`Connected to ${server.name}.`, 'Continuing startup…', 'success');
                 return;
             }
-            this._setStatus('Connection failed.', '');
+            this._setStatus('Connection failed.', '', 'error');
             this._detailEl.textContent = '';
             this._errorEl.textContent = 'Unable to use the selected server.';
         } catch (error) {
             this._clearError();
-            this._setStatus('Connection failed.', '');
+            this._setStatus('Connection failed.', '', 'error');
             this._detailEl.textContent = '';
             this._handleError(error, 'Unable to use the selected server.');
             console.error('[ServerSelect] Failed to select server:', error);
@@ -547,7 +565,19 @@ export class ServerSelectScreen {
         return days === 1 ? '1 day ago' : `${days} days ago`;
     }
 
-    private _setStatus(status: string, detail: string): void {
+    private _buildServerButtonIds(serverIds: string[]): string[] {
+        return buildDeterministicButtonIds('btn-server-select-', serverIds);
+    }
+
+    private _setStatus(status: string, detail: string, tone: ScreenTone = 'neutral'): void {
+        if (this._shellSetStatus) {
+            if (status.length === 0) {
+                this._shellSetStatus(null);
+                return;
+            }
+            this._shellSetStatus({ title: status, detail, tone });
+            return;
+        }
         this._statusEl.textContent = status;
         this._detailEl.textContent = detail;
     }
@@ -572,7 +602,7 @@ export class ServerSelectScreen {
         this._registerStaticButtons(null);
 
         // Set initial focus
-        nav.setFocus('btn-server-refresh');
+        nav.setFocus('btn-server-refresh', { persist: false });
     }
 
     private _unregisterFocusables(): void {
@@ -584,12 +614,7 @@ export class ServerSelectScreen {
         nav.unregisterFocusable('btn-server-switch-profile');
         nav.unregisterFocusable('btn-server-forget');
 
-        // Clear potential list items
-        // In a real app we'd track IDs, but here we can just clear known patterns or rely on page tear-down
-        // For now, let's just clear the list HTML which removes listeners at DOM level, 
-        // but we should technically unregister from nav manager to keep map clean.
-        const buttons = this._listEl.querySelectorAll('button');
-        buttons.forEach(btn => nav.unregisterFocusable(btn.id));
+        this._unregisterServerListFocusables();
     }
 
     private _updateStaticButtonNeighbors(firstListFocusableId: string | null): void {
