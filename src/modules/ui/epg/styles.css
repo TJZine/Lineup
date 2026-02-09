@@ -281,7 +281,7 @@
   color: rgba(255, 255, 255, 0.9);
   border-radius: 999px;
   padding: 8px 12px;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
   letter-spacing: 0.4px;
   width: 100%;
@@ -331,7 +331,7 @@
   border-radius: 10px;
   padding: 10px 12px;
   text-align: left;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   width: 100%;
 }
@@ -375,7 +375,7 @@
   display: flex;
   align-items: center;
   padding-left: 12px;
-  font-size: 16px;
+  font-size: var(--text-md);
   color: rgba(255, 255, 255, 0.7);
   border-left: 1px solid rgba(255, 255, 255, 0.2);
   box-sizing: border-box;
@@ -532,9 +532,9 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 0.6px;
   color: #ff4444;
   text-transform: uppercase;
   z-index: 2;
@@ -543,8 +543,8 @@
 
 .epg-live-badge::before {
   content: '';
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: #ff4444;
   transform-origin: center;
@@ -563,11 +563,11 @@
 }
 
 .epg-cell.current .epg-cell-show:not(:empty) {
-  margin-top: 16px;
+  margin-top: 20px;
 }
 
 .epg-cell.current .epg-cell-show:empty + .epg-cell-title {
-  margin-top: 16px;
+  margin-top: 20px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -592,12 +592,12 @@
   position: absolute;
   top: 8px;
   left: 6px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 800;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.4px;
   color: #ff4444;
   background: rgba(0, 0, 0, 0.65);
-  padding: 2px 6px;
+  padding: 1px 5px;
   border-radius: 6px;
 }
 
@@ -702,7 +702,7 @@
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.12);
   color: rgba(255, 255, 255, 0.9);
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   letter-spacing: 0.3px;
   text-transform: uppercase;
@@ -733,6 +733,7 @@
 .epg-info-button.focused {
   background: var(--focus-color, #00a8e1);
   border-color: white;
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-color) inset;
   outline: none;
 }
 

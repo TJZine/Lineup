@@ -431,7 +431,7 @@ export class ChannelSetupScreen {
         if (this._libraries.length === 0) {
             const empty = document.createElement('div');
             empty.className = 'setup-empty';
-            empty.textContent = 'No movie or show libraries found.';
+            empty.textContent = 'No movie or show libraries found. Select "Back" to choose a different server.';
             list.appendChild(empty);
         }
 
@@ -513,12 +513,15 @@ export class ChannelSetupScreen {
             this._orchestrator.openServerSelect();
         });
         actions.appendChild(backButton);
+        if (this._libraries.length === 0) {
+            this._preferredFocusId = backButton.id;
+        }
 
         const nextButton = document.createElement('button');
         nextButton.id = 'setup-next';
         nextButton.className = 'screen-button';
         nextButton.textContent = 'Next';
-        nextButton.disabled = this._selectedLibraryIds.size === 0;
+        nextButton.disabled = this._libraries.length === 0 || this._selectedLibraryIds.size === 0;
         nextButton.addEventListener('click', () => {
             if (this._selectedLibraryIds.size === 0) {
                 return;

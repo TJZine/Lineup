@@ -39,7 +39,7 @@
 }
 
 .player-osd-status {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 800;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -47,7 +47,7 @@
 }
 
 .player-osd-channel {
-  font-size: 16px;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--color-text-secondary, rgba(255, 255, 255, 0.8));
   flex: 1 1 0;
@@ -78,7 +78,7 @@
 
 .player-osd-info {
   margin-top: 4px;
-  font-size: 16px;
+  font-size: var(--text-md);
   color: rgba(255, 255, 255, 0.78);
   white-space: nowrap;
   overflow: hidden;
@@ -105,7 +105,7 @@
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.12);
   color: var(--color-text-primary, rgba(255, 255, 255, 0.92));
-  font-size: 15px;
+  font-size: var(--text-md);
   font-weight: 600;
   padding: 6px 14px;
   border-radius: 999px;
@@ -116,7 +116,7 @@
   background: var(--color-primary);
   border-color: rgba(255, 255, 255, 0.35);
   color: #fff;
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-color) inset;
 }
 
 .player-osd-playback {
@@ -126,7 +126,7 @@
   background: rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.16);
   color: rgba(255, 255, 255, 0.85);
-  font-size: 12px;
+  font-size: var(--text-md);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -135,7 +135,7 @@
 
 .player-osd-hint {
   margin-top: 6px;
-  font-size: 13px;
+  font-size: var(--text-md);
   color: rgba(255, 255, 255, 0.6);
   letter-spacing: 0.3px;
   text-transform: uppercase;

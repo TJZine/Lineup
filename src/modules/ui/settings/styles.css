@@ -42,7 +42,7 @@
 }
 
 .settings-hint {
-  font-size: 14px;
+  font-size: var(--text-md);
   color: rgba(255, 255, 255, 0.5);
 }
 
@@ -90,7 +90,7 @@
 
 .settings-section-count {
   margin-left: auto;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 500;
   color: rgba(255, 255, 255, 0.6);
 }

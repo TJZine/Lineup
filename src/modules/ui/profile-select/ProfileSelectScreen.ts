@@ -33,6 +33,7 @@ export class ProfileSelectScreen {
     private _orchestrator: AppOrchestrator;
     private _statusEl: HTMLElement;
     private _errorEl: HTMLElement;
+    private _tipEl: HTMLElement;
     private _listEl: HTMLElement;
     private _mainButton: HTMLButtonElement;
     private _signOutButton: HTMLButtonElement;
@@ -100,6 +101,7 @@ export class ProfileSelectScreen {
         tip.className = 'profile-tip';
         tip.textContent = 'Tip: Set a PIN on the admin profile to prevent unwanted access.';
         panel.appendChild(tip);
+        this._tipEl = tip;
 
         const buttonRow = document.createElement('div');
         buttonRow.className = 'button-row';
@@ -255,6 +257,7 @@ export class ProfileSelectScreen {
         this._listEl.replaceChildren();
         this._userButtonIds = [];
         this._setStatus('Loading profiles...');
+        this._setTip('Tip: Set a PIN on the admin profile to prevent unwanted access.');
 
         try {
             const users = await this._orchestrator.getHomeUsers();
@@ -262,16 +265,20 @@ export class ProfileSelectScreen {
                 if (users.length === 1) {
                     this._renderUsers(users);
                     this._setStatus('Only one profile is available for this account.');
+                    this._setTip('Select "Use Main Account" to continue, or "Sign out" to switch accounts.');
                 } else {
                     this._setStatus('No Plex Home profiles were found.');
+                    this._setTip('Select "Sign out" to switch accounts, or "Use Main Account" to continue.');
                 }
                 return;
             }
             this._renderUsers(users);
             this._setStatus('Select a profile to continue.');
+            this._setTip('Tip: Set a PIN on the admin profile to prevent unwanted access.');
         } catch (error) {
             this._handleError(error, 'Unable to load profiles.');
             this._setStatus('Profile list unavailable.');
+            this._setTip('Select "Sign out" to switch accounts, then try again.');
         } finally {
             this._isLoading = false;
             const nav = this._orchestrator.getNavigation();
@@ -719,6 +726,10 @@ export class ProfileSelectScreen {
 
     private _setStatus(message: string): void {
         this._statusEl.textContent = message;
+    }
+
+    private _setTip(message: string): void {
+        this._tipEl.textContent = message;
     }
 
     private _clearError(): void {

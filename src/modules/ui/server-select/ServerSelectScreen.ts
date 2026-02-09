@@ -205,7 +205,7 @@ export class ServerSelectScreen {
             }
 
             // Fallback to rendering list
-            this._renderServers(servers, savedId, { savedServerUnavailable });
+            this._renderServers(servers, savedId, { savedServerUnavailable, emptyStateReason: 'no_servers' });
             if (servers.length === 0) {
                 this._setStatus('No servers found.', 'Ensure your Plex server is reachable.');
             } else if (savedServerUnavailable) {
@@ -218,7 +218,7 @@ export class ServerSelectScreen {
         } catch (error) {
             this._handleError(error, 'Failed to discover servers.');
             this._setStatus('Discovery failed.', '');
-            this._renderServers([], null);
+            this._renderServers([], null, { emptyStateReason: 'discovery_failed' });
             this._setAutoConnectHintVisible(false);
         } finally {
             this._isLoading = false;
@@ -272,7 +272,7 @@ export class ServerSelectScreen {
         this._orchestrator.clearSelectedServer();
         this._setAutoConnectHintVisible(false);
         this._setStatus('Selection cleared.', 'Pick a server to continue.');
-        this._renderServers([], null);
+        this._renderServers([], null, { emptyStateReason: 'no_servers' });
         this._restoreFocus();
     }
 
@@ -289,9 +289,10 @@ export class ServerSelectScreen {
     private _renderServers(
         servers: PlexServer[],
         savedId: string | null,
-        options?: { savedServerUnavailable?: boolean }
+        options?: { savedServerUnavailable?: boolean; emptyStateReason?: 'no_servers' | 'discovery_failed' }
     ): void {
         const savedServerUnavailable = options?.savedServerUnavailable === true;
+        const emptyStateReason = options?.emptyStateReason ?? 'no_servers';
         const rawHealth = safeLocalStorageGet(this._orchestrator.getServerHealthStorageKey());
         let healthMap: Record<string, { status?: string; type?: string; latencyMs?: number; testedAt?: number } | undefined> = {};
         let parsedHealth: unknown = {};
@@ -350,8 +351,9 @@ export class ServerSelectScreen {
 
             const description = document.createElement('div');
             description.className = 'server-empty-description';
-            description.textContent =
-                'Ensure your Plex Media Server is running and reachable on your network.';
+            description.textContent = emptyStateReason === 'discovery_failed'
+                ? 'Server discovery failed. Check network, then select "Retry discovery" to try again.'
+                : 'Ensure your Plex Media Server is running and reachable on your network. Select "Retry discovery" to scan again.';
 
             empty.replaceChildren(icon, title, description);
             this._listEl.appendChild(empty);
