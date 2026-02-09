@@ -117,12 +117,18 @@ function isWebOs(): boolean {
     }
 }
 
+let memoizedPlatformVersion: string | null = null;
+
 function detectPlatformVersion(): string {
+    if (memoizedPlatformVersion !== null) {
+        return memoizedPlatformVersion;
+    }
     try {
         if (typeof window !== 'undefined') {
             const webOSTV = (window as { webOSTV?: { platform?: { version?: string } } }).webOSTV;
             if (webOSTV?.platform?.version) {
-                return webOSTV.platform.version;
+                memoizedPlatformVersion = webOSTV.platform.version;
+                return memoizedPlatformVersion;
             }
         }
 
@@ -130,15 +136,29 @@ function detectPlatformVersion(): string {
         if (chromeMajor !== null) {
             // Heuristic fallback for environments where `webOSTV.platform.version` is unavailable.
             // Keep this mapping updated as new webOS Chromium baselines are validated.
-            if (chromeMajor >= 120) return '25.0';
-            if (chromeMajor >= 108) return '24.0';
-            if (chromeMajor >= 94) return '23.0';
-            if (chromeMajor >= 87) return '22.0';
+            if (chromeMajor >= 120) {
+                memoizedPlatformVersion = '25.0';
+                return memoizedPlatformVersion;
+            }
+            if (chromeMajor >= 108) {
+                memoizedPlatformVersion = '24.0';
+                return memoizedPlatformVersion;
+            }
+            if (chromeMajor >= 94) {
+                memoizedPlatformVersion = '23.0';
+                return memoizedPlatformVersion;
+            }
+            if (chromeMajor >= 87) {
+                memoizedPlatformVersion = '22.0';
+                return memoizedPlatformVersion;
+            }
         }
 
-        return '6.0';
+        memoizedPlatformVersion = '6.0';
+        return memoizedPlatformVersion;
     } catch {
-        return '6.0';
+        memoizedPlatformVersion = '6.0';
+        return memoizedPlatformVersion;
     }
 }
 

@@ -293,6 +293,32 @@ describe('ChannelTuningCoordinator', () => {
         consoleSpy.mockRestore();
     });
 
+    it('resolves a queued request whose signal was aborted while pending', async () => {
+        const { coordinator, channelManager } = createCoordinator();
+        let resolveDelay: () => void = () => {};
+
+        channelManager.resolveChannelContent.mockImplementation((id) => {
+            if (channelManager.resolveChannelContent.mock.calls.length === 1) {
+                return new Promise((resolve) => {
+                    resolveDelay = (): void => resolve(resolvedContent);
+                });
+            }
+            return Promise.resolve({ ...resolvedContent, channelId: id });
+        });
+
+        const switch1 = coordinator.switchToChannel('ch1');
+        const controller = new AbortController();
+        const switch2 = coordinator.switchToChannel('ch2', { signal: controller.signal });
+
+        controller.abort();
+        resolveDelay();
+
+        await expect(switch1).resolves.toBeUndefined();
+        await expect(switch2).resolves.toBeUndefined();
+        expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(1);
+        expect(channelManager.resolveChannelContent).toHaveBeenNthCalledWith(1, 'ch1', { signal: null });
+    });
+
     it('rejects a superseded pending request when a newer request replaces it', async () => {
         const { coordinator, channelManager } = createCoordinator();
         let resolveDelay: () => void = () => {};

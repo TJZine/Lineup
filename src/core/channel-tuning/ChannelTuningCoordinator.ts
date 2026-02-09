@@ -17,6 +17,7 @@ import type {
     IChannelScheduler,
     ScheduleConfig,
 } from '../../modules/scheduler/scheduler';
+import { summarizeErrorForLog } from '../../utils/errors';
 
 export interface ChannelTuningCoordinatorDeps {
     getChannelManager: () => IChannelManager | null;
@@ -50,16 +51,6 @@ interface QueuedSwitchRequest {
     reject: (error: unknown) => void;
 }
 
-function summarizeErrorForLog(error: unknown): { name?: string; code?: unknown; message?: string } {
-    if (!error || typeof error !== 'object') return {};
-    const e = error as { name?: unknown; code?: unknown; message?: unknown };
-    return {
-        ...(typeof e.name === 'string' ? { name: e.name } : {}),
-        ...('code' in e ? { code: e.code } : {}),
-        ...(typeof e.message === 'string' ? { message: e.message } : {}),
-    };
-}
-
 function createAbortLikeError(message: string): Error {
     if (typeof DOMException !== 'undefined') {
         return new DOMException(message, 'AbortError');
@@ -80,6 +71,10 @@ export class ChannelTuningCoordinator {
      * - At most one switch executes at a time.
      * - A single pending slot is kept (latest-wins).
      * - The returned promise is bound to the caller's own request.
+     *
+     * Promise semantics:
+     * - If the caller-provided AbortSignal is aborted, the promise resolves (no-op) and no switch occurs.
+     * - If a pending request is superseded by a newer request, the superseded request rejects with AbortError.
      */
     async switchToChannel(channelId: string, options?: { signal?: AbortSignal }): Promise<void> {
         const channelManager = this.deps.getChannelManager();
@@ -340,7 +335,7 @@ export class ChannelTuningCoordinator {
         }
     }
 
-    async switchToChannelByNumber(number: number): Promise<void> {
+    async switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void> {
         const channelManager = this.deps.getChannelManager();
         if (!channelManager) {
             console.error('Channel manager not initialized');
@@ -360,6 +355,6 @@ export class ChannelTuningCoordinator {
             return;
         }
 
-        await this.switchToChannel(channel.id);
+        await this.switchToChannel(channel.id, options);
     }
 }

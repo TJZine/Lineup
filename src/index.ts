@@ -8,6 +8,7 @@ import { App } from './App';
 import { RETUNE_EVENT_NAMES } from './config/events';
 import { RETUNE_STORAGE_KEYS } from './config/storageKeys';
 import { redactSensitiveTokens } from './utils/redact';
+import { summarizeErrorForLog } from './utils/errors';
 import { readStoredBooleanWithLegacy } from './utils/storage';
 import './styles/tokens.css';
 import './styles/themes.css';
@@ -59,7 +60,6 @@ function logLifecycle(message: string): void {
 }
 
 interface RetuneDebugApi {
-    app: App;
     openEPG: () => void;
     closeEPG: () => void;
     toggleEPG: () => void;
@@ -80,29 +80,6 @@ function isDebugSurfaceEnabled(): boolean {
     return __RETUNE_DEV_BUILD__ || debugEnabled;
 }
 
-function summarizeErrorForLog(value: unknown): unknown {
-    if (typeof value === 'string') {
-        return redactSensitiveTokens(value);
-    }
-    if (value instanceof Error) {
-        return {
-            name: value.name,
-            message: redactSensitiveTokens(value.message),
-        };
-    }
-    if (value && typeof value === 'object') {
-        const maybe = value as { name?: unknown; message?: unknown; code?: unknown };
-        return {
-            ...(typeof maybe.name === 'string' ? { name: maybe.name } : {}),
-            ...('code' in maybe ? { code: maybe.code } : {}),
-            ...(typeof maybe.message === 'string'
-                ? { message: redactSensitiveTokens(maybe.message) }
-                : {}),
-        };
-    }
-    return value;
-}
-
 function toSafeErrorMessage(value: unknown): string {
     if (value instanceof Error) {
         return redactSensitiveTokens(value.message);
@@ -120,7 +97,6 @@ function syncWindowDebugApi(currentApp: App | null): void {
         return;
     }
     win.__RETUNE__ = {
-        app: currentApp,
         openEPG: (): void => {
             currentApp.getOrchestrator()?.openEPG();
         },
@@ -288,7 +264,7 @@ async function bootstrap(): Promise<void> {
         await app.start();
         logLifecycle('[Retune] Started successfully');
     } catch (error) {
-        console.error('Failed to start Retune:', error);
+        console.error('Failed to start Retune:', summarizeErrorForLog(error));
     }
 }
 
@@ -307,15 +283,21 @@ async function cleanup(): Promise<void> {
 // Start when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        bootstrap().catch(console.error);
+        bootstrap().catch((error: unknown) => {
+            console.error('[Retune] bootstrap failed:', summarizeErrorForLog(error));
+        });
     });
 } else {
-    bootstrap().catch(console.error);
+    bootstrap().catch((error: unknown) => {
+        console.error('[Retune] bootstrap failed:', summarizeErrorForLog(error));
+    });
 }
 
 // Cleanup on page hide (more reliable for async work than beforeunload)
 window.addEventListener('pagehide', () => {
-    cleanup().catch(console.error);
+    cleanup().catch((error: unknown) => {
+        console.error('[Retune] cleanup failed:', summarizeErrorForLog(error));
+    });
 });
 
 // Exported as a live binding for integration/debug harnesses.

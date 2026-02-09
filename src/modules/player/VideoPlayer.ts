@@ -30,6 +30,7 @@ import {
 import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
 import { isStoredTrue, safeLocalStorageGet } from '../../utils/storage';
 import { redactSensitiveTokens } from '../../utils/redact';
+import { summarizeErrorForLog } from '../../utils/errors';
 import type { PlatformPlaybackService, PlatformSubtitleService } from '../../platform';
 import { webosPlatformServices } from '../../platform';
 
@@ -473,7 +474,7 @@ export class VideoPlayer implements IVideoPlayer {
             }
             await this._videoElement.play();
         } catch (error) {
-            console.error('[VideoPlayer] Play failed:', error);
+            console.error('[VideoPlayer] Play failed:', summarizeErrorForLog(error));
             throw error;
         }
     }

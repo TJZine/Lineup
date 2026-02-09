@@ -9,6 +9,7 @@ import type { PlexServer } from '../../plex/discovery/types';
 import { PlexApiError } from '../../plex/auth';
 import type { FocusableElement } from '../../navigation';
 import { safeLocalStorageGet } from '../../../utils/storage';
+import { summarizeErrorForLog } from '../../../utils/errors';
 
 const FOCUS_RESTORE_DELAY_MS = 50;
 
@@ -95,7 +96,9 @@ export class ServerSelectScreen {
         refreshButton.className = 'screen-button';
         refreshButton.textContent = 'Retry discovery';
         refreshButton.addEventListener('click', () => {
-            this.refresh().catch(console.error);
+            this.refresh().catch((error: unknown) => {
+                console.error('[ServerSelect] Refresh failed:', summarizeErrorForLog(error));
+            });
         });
         buttonRow.appendChild(refreshButton);
         this._refreshButton = refreshButton;
@@ -151,7 +154,9 @@ export class ServerSelectScreen {
         this._registerFocusables();
         // Manual server-select entry should not reconnect implicitly unless explicitly requested.
         const allowAutoConnect = options?.allowAutoConnect === true;
-        this._loadServers({ autoSelect: allowAutoConnect, forceRefresh: false }).catch(console.error);
+        this._loadServers({ autoSelect: allowAutoConnect, forceRefresh: false }).catch((error: unknown) => {
+            console.error('[ServerSelect] Load servers failed:', summarizeErrorForLog(error));
+        });
     }
 
     private async _loadServers(options: { autoSelect: boolean; forceRefresh: boolean }): Promise<void> {
@@ -386,7 +391,9 @@ export class ServerSelectScreen {
             selectButton.className = 'screen-button secondary';
             selectButton.textContent = 'Connect';
             selectButton.addEventListener('click', () => {
-                this._selectServer(server).catch(console.error);
+                this._selectServer(server).catch((error: unknown) => {
+                    console.error('[ServerSelect] Select server failed:', summarizeErrorForLog(error));
+                });
             });
             actions.appendChild(selectButton);
             row.appendChild(actions);

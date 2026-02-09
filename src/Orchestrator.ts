@@ -154,6 +154,7 @@ import type { ErrorRecoveryAction } from './core/error-recovery/types';
 import type { ToastInput } from './modules/ui/toast/types';
 import type { PlatformServices } from './platform';
 import { webosPlatformServices } from './platform';
+import { isAbortLikeError, summarizeErrorForLog } from './utils/errors';
 
 // ============================================
 // Types
@@ -270,7 +271,7 @@ export interface IAppOrchestrator {
     refreshPlaybackInfoSnapshot(): Promise<PlaybackInfoSnapshot>;
     setSubtitleTrack(trackId: string | null): Promise<void>;
     switchToChannel(channelId: string, options?: { signal?: AbortSignal }): Promise<void>;
-    switchToChannelByNumber(number: number): Promise<void>;
+    switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void>;
     openEPG(): void;
     closeEPG(): void;
     toggleEPG(): void;
@@ -1342,7 +1343,7 @@ export class AppOrchestrator implements IAppOrchestrator {
      * Switch to a channel by its number.
      * @param number - Channel number
      */
-    async switchToChannelByNumber(number: number): Promise<void> {
+    async switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void> {
         if (!this._channelTuning) {
             if (!this._channelManager || !this._scheduler || !this._videoPlayer) {
                 console.error('Modules not initialized');
@@ -1350,7 +1351,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             return;
         }
 
-        return this._channelTuning.switchToChannelByNumber(number);
+        return this._channelTuning.switchToChannelByNumber(number, options);
     }
 
     /**
@@ -1499,10 +1500,14 @@ export class AppOrchestrator implements IAppOrchestrator {
                 }
             },
             retryStart: (): void => {
-                this.start().catch(console.error);
+                this.start().catch((error: unknown) => {
+                    console.error('[Orchestrator] Retry start failed:', summarizeErrorForLog(error));
+                });
             },
             exitApp: (): void => {
-                this.shutdown().catch(console.error);
+                this.shutdown().catch((error: unknown) => {
+                    console.error('[Orchestrator] Shutdown failed:', summarizeErrorForLog(error));
+                });
             },
             skipToNext: (): void => {
                 if (this._scheduler) {
@@ -2298,7 +2303,10 @@ export class AppOrchestrator implements IAppOrchestrator {
 
         const nextChannel = this._channelManager.getNextChannel();
         if (nextChannel) {
-            this.switchToChannel(nextChannel.id).catch(console.error);
+            this.switchToChannel(nextChannel.id).catch((error: unknown) => {
+                if (isAbortLikeError(error)) return;
+                console.error('[Orchestrator] Next channel switch failed:', summarizeErrorForLog(error));
+            });
         }
     }
 
@@ -2310,7 +2318,10 @@ export class AppOrchestrator implements IAppOrchestrator {
 
         const prevChannel = this._channelManager.getPreviousChannel();
         if (prevChannel) {
-            this.switchToChannel(prevChannel.id).catch(console.error);
+            this.switchToChannel(prevChannel.id).catch((error: unknown) => {
+                if (isAbortLikeError(error)) return;
+                console.error('[Orchestrator] Previous channel switch failed:', summarizeErrorForLog(error));
+            });
         }
     }
 
