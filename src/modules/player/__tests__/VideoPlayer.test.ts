@@ -333,23 +333,53 @@ describe('VideoPlayer', () => {
             injectedPlayer.destroy();
         });
 
-        it('should forward injected subtitle service to SubtitleManager seam', async () => {
+        it('should use injected subtitle service during subtitle fallback flow', async () => {
             const subtitleService: PlatformSubtitleService = {
                 deriveLanHttpSubtitleUrl: jest.fn(() => new URL('http://10.0.0.20:32400/subtitles')),
             };
-            const injectedPlayer = new VideoPlayer({ subtitleService });
-            await injectedPlayer.initialize(createMockConfig());
-
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const subtitleManager = (injectedPlayer as any)._subtitleManager as {
-                _deriveLanHttpUrl: (url: URL) => URL | null;
+            const globalWithFetch = globalThis as typeof globalThis & {
+                fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
             };
+            const originalFetch = globalWithFetch.fetch;
+            const fetchMock = jest.fn().mockResolvedValue({
+                ok: false,
+                status: 404,
+                headers: { get: (): string => 'text/plain' },
+                text: async (): Promise<string> => 'Not found',
+            } as unknown as Response);
+            globalWithFetch.fetch = fetchMock;
+            const injectedPlayer = new VideoPlayer({ subtitleService });
+            try {
+                await injectedPlayer.initialize(createMockConfig());
+                const descriptor = createMockDescriptor({
+                    subtitleTracks: [
+                        {
+                            id: 'en',
+                            label: 'English (SRT)',
+                            languageCode: 'en',
+                            language: 'English',
+                            codec: 'srt',
+                            format: 'srt',
+                            key: '/library/streams/1',
+                            isTextCandidate: true,
+                            fetchableViaKey: true,
+                        },
+                    ],
+                    preferredSubtitleTrackId: 'en',
+                    subtitleContext: {
+                        serverUri: 'https://10-0-0-20.plex.direct:32400',
+                        authHeaders: { 'X-Plex-Token': 'token' },
+                    },
+                });
 
-            const derived = subtitleManager._deriveLanHttpUrl(new URL('https://ignored.example/subtitles'));
+                await injectedPlayer.loadStream(descriptor);
+                await Promise.resolve();
 
-            expect(subtitleService.deriveLanHttpSubtitleUrl).toHaveBeenCalledTimes(1);
-            expect(derived?.toString()).toBe('http://10.0.0.20:32400/subtitles');
-            injectedPlayer.destroy();
+                expect(subtitleService.deriveLanHttpSubtitleUrl).toHaveBeenCalled();
+            } finally {
+                globalWithFetch.fetch = originalFetch;
+                injectedPlayer.destroy();
+            }
         });
     });
 

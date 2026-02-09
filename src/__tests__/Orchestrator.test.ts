@@ -1227,7 +1227,7 @@ describe('AppOrchestrator', () => {
         // ORCH-002: Concurrent Channel Switch Guard
         // ========================================
 
-        it('should queue latest concurrent channel switch attempts', async () => {
+        it('should queue latest concurrent channel switch attempts and resolve each request when applied', async () => {
             // Make first resolveChannelContent call take some time.
             let resolveFirst: () => void = (): void => { };
             mockChannelManager.resolveChannelContent.mockImplementation(
@@ -1248,8 +1248,8 @@ describe('AppOrchestrator', () => {
             const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
             const switch2 = orchestrator.switchToChannel('ch2');
 
-            // Both should resolve, but second should early-return
-            await switch2;
+            // Second switch should remain pending while first is still in-flight.
+            await Promise.resolve();
             expect(consoleSpy).toHaveBeenCalledWith(
                 expect.stringContaining('already in progress')
             );
@@ -1258,6 +1258,7 @@ describe('AppOrchestrator', () => {
 
             // Complete first and then queued second switch.
             resolveFirst();
+            await switch2;
             await switch1;
             expect(mockChannelManager.resolveChannelContent).toHaveBeenCalledTimes(2);
             expect(mockScheduler.loadChannel).toHaveBeenCalledTimes(2);

@@ -25,7 +25,6 @@ export type {
 
 // Constants
 export {
-    KEY_MAP,
     mapKeyCode,
     resolveKeyMap,
     LONG_PRESS_THRESHOLD_MS,

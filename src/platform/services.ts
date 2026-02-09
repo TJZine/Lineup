@@ -21,6 +21,10 @@ export interface PlatformIdentityService {
 }
 
 export interface PlatformInputService {
+    /**
+     * Return a stable, read-only map reference for key mapping.
+     * Implementations should avoid allocating a new Map per call.
+     */
     getKeyMap(): ReadonlyMap<number, PlatformRemoteButton>;
 }
 
@@ -46,4 +50,3 @@ export interface PlatformServices {
     playback: PlatformPlaybackService;
     subtitle: PlatformSubtitleService;
 }
-

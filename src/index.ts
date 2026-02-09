@@ -318,5 +318,6 @@ window.addEventListener('pagehide', () => {
     cleanup().catch(console.error);
 });
 
-// Export for testing
+// Exported as a live binding for integration/debug harnesses.
+// @internal Prefer App APIs over importing this singleton from app code.
 export { app, bootstrap, cleanup };

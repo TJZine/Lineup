@@ -42,6 +42,14 @@ export interface ChannelTuningCoordinatorDeps {
     saveLifecycleState: () => Promise<void>;
 }
 
+interface QueuedSwitchRequest {
+    channelId: string;
+    signal: AbortSignal | undefined;
+    completion: Promise<void>;
+    resolve: () => void;
+    reject: (error: unknown) => void;
+}
+
 function summarizeErrorForLog(error: unknown): { name?: string; code?: unknown; message?: string } {
     if (!error || typeof error !== 'object') return {};
     const e = error as { name?: unknown; code?: unknown; message?: unknown };
@@ -52,12 +60,27 @@ function summarizeErrorForLog(error: unknown): { name?: string; code?: unknown; 
     };
 }
 
+function createAbortLikeError(message: string): Error {
+    if (typeof DOMException !== 'undefined') {
+        return new DOMException(message, 'AbortError');
+    }
+    const error = new Error(message);
+    error.name = 'AbortError';
+    return error;
+}
+
 export class ChannelTuningCoordinator {
     private _isChannelSwitching = false;
-    private _pendingSwitch: { channelId: string; signal: AbortSignal | undefined } | null = null;
+    private _pendingSwitch: QueuedSwitchRequest | null = null;
 
     constructor(private readonly deps: ChannelTuningCoordinatorDeps) { }
 
+    /**
+     * Switch queue policy:
+     * - At most one switch executes at a time.
+     * - A single pending slot is kept (latest-wins).
+     * - The returned promise is bound to the caller's own request.
+     */
     async switchToChannel(channelId: string, options?: { signal?: AbortSignal }): Promise<void> {
         const channelManager = this.deps.getChannelManager();
         const scheduler = this.deps.getScheduler();
@@ -71,19 +94,67 @@ export class ChannelTuningCoordinator {
             return;
         }
 
+        const request = this._createSwitchRequest(channelId, options?.signal);
+
         // Prevent concurrent state corruption while preserving latest user intent.
         if (this._isChannelSwitching) {
+            const superseded = this._pendingSwitch;
+            if (superseded) {
+                superseded.reject(
+                    createAbortLikeError(
+                        `Channel switch to "${superseded.channelId}" was superseded by "${channelId}"`
+                    )
+                );
+            }
             console.warn('Channel switch already in progress, queueing latest request');
-            this._pendingSwitch = { channelId, signal: options?.signal };
-            return;
+            // Latest-wins queue: keep only the most recent pending request.
+            this._pendingSwitch = request;
+            return request.completion;
         }
 
         this._isChannelSwitching = true;
-        let request: { channelId: string; signal: AbortSignal | undefined } | null = {
+        void this._drainSwitchQueue(
+            request,
+            channelManager,
+            scheduler,
+            videoPlayer
+        );
+        return request.completion;
+    }
+
+    private _createSwitchRequest(
+        channelId: string,
+        signal: AbortSignal | undefined
+    ): QueuedSwitchRequest {
+        let resolveFn: () => void = () => undefined;
+        let rejectFn: (error: unknown) => void = () => undefined;
+        const completion = new Promise<void>((resolve, reject) => {
+            resolveFn = resolve;
+            rejectFn = reject;
+        });
+        return {
             channelId,
-            signal: options?.signal,
+            signal,
+            completion,
+            resolve: resolveFn,
+            reject: rejectFn,
         };
-        let firstError: unknown = null;
+    }
+
+    private _takePendingSwitch(): QueuedSwitchRequest | null {
+        const pending = this._pendingSwitch;
+        this._pendingSwitch = null;
+        return pending;
+    }
+
+    private async _drainSwitchQueue(
+        initialRequest: QueuedSwitchRequest,
+        channelManager: IChannelManager,
+        scheduler: IChannelScheduler,
+        videoPlayer: IVideoPlayer
+    ): Promise<void> {
+        let request: QueuedSwitchRequest | null = initialRequest;
+        const failures: unknown[] = [];
 
         try {
             while (request) {
@@ -91,11 +162,8 @@ export class ChannelTuningCoordinator {
                 request = null;
 
                 if (current.signal?.aborted) {
-                    const pendingAfterAbort = this._pendingSwitch;
-                    this._pendingSwitch = null;
-                    if (pendingAfterAbort) {
-                        request = pendingAfterAbort;
-                    }
+                    current.resolve();
+                    request = this._takePendingSwitch();
                     continue;
                 }
 
@@ -107,24 +175,28 @@ export class ChannelTuningCoordinator {
                         videoPlayer,
                         current.signal
                     );
+                    current.resolve();
                 } catch (error: unknown) {
-                    if (firstError === null) {
-                        firstError = error;
-                    }
+                    failures.push(error);
+                    current.reject(error);
                 }
 
-                const pending = this._pendingSwitch;
-                this._pendingSwitch = null;
-                if (pending) {
-                    request = pending;
-                }
+                request = this._takePendingSwitch();
             }
         } finally {
             this._isChannelSwitching = false;
+            const latePending = this._takePendingSwitch();
+            if (latePending) {
+                this._isChannelSwitching = true;
+                void this._drainSwitchQueue(latePending, channelManager, scheduler, videoPlayer);
+            }
         }
 
-        if (firstError !== null) {
-            throw firstError;
+        if (failures.length > 1) {
+            console.warn(
+                'Multiple queued channel switches failed',
+                failures.map((error) => summarizeErrorForLog(error))
+            );
         }
     }
 

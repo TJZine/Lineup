@@ -8,7 +8,11 @@
  */
 
 import { RemoteHandler } from '../RemoteHandler';
-import { KEY_MAP, LONG_PRESS_THRESHOLD_MS, mapKeyCode as mapPlatformKeyCode } from '../constants';
+import {
+    LONG_PRESS_THRESHOLD_MS,
+    mapKeyCode as mapPlatformKeyCode,
+    resolveKeyMap,
+} from '../constants';
 import type { PlatformInputService } from '../../../platform';
 import { webosPlatformServices } from '../../../platform';
 
@@ -43,12 +47,13 @@ describe('RemoteHandler', () => {
     });
 
     describe('key mapping', () => {
-        it('should derive KEY_MAP from platform input service', () => {
-            expect(KEY_MAP).toBe(webosPlatformServices.input.getKeyMap());
+        it('should derive key map from platform input service', () => {
+            expect(resolveKeyMap()).toBe(webosPlatformServices.input.getKeyMap());
         });
 
-        it('should expose KEY_MAP as an immutable read-only view', () => {
-            const keyMapLike = KEY_MAP as unknown as {
+        it('should expose a read-only key map view', () => {
+            const keyMap = resolveKeyMap();
+            const keyMapLike = keyMap as unknown as {
                 set?: unknown;
                 delete?: unknown;
                 clear?: unknown;
@@ -56,7 +61,7 @@ describe('RemoteHandler', () => {
             expect(keyMapLike.set).toBeUndefined();
             expect(keyMapLike.delete).toBeUndefined();
             expect(keyMapLike.clear).toBeUndefined();
-            expect(KEY_MAP.get(13)).toBe('ok');
+            expect(keyMap.get(13)).toBe('ok');
         });
 
         it('should use the shared key mapping source for default mapping behavior', () => {

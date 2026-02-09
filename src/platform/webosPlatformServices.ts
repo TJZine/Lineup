@@ -128,6 +128,8 @@ function detectPlatformVersion(): string {
 
         const chromeMajor = getChromeMajor();
         if (chromeMajor !== null) {
+            // Heuristic fallback for environments where `webOSTV.platform.version` is unavailable.
+            // Keep this mapping updated as new webOS Chromium baselines are validated.
             if (chromeMajor >= 120) return '25.0';
             if (chromeMajor >= 108) return '24.0';
             if (chromeMajor >= 94) return '23.0';
@@ -154,6 +156,9 @@ function getDefaultPlexIdentity(clientIdentifier: string): Readonly<Record<strin
 }
 
 function bindRelaunch(handler: (event: Event) => void): () => void {
+    if (typeof document === 'undefined') {
+        return () => undefined;
+    }
     document.addEventListener('webOSRelaunch', handler);
     return () => {
         document.removeEventListener('webOSRelaunch', handler);

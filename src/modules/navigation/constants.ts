@@ -29,9 +29,6 @@ export function mapKeyCode(
     return button !== undefined ? button : null;
 }
 
-export const KEY_MAP: ReadonlyMap<number, RemoteButton> =
-    resolveKeyMap();
-
 /**
  * Threshold for detecting long press (ms).
  */

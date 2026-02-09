@@ -261,7 +261,7 @@ describe('ChannelTuningCoordinator', () => {
         consoleWarnSpy.mockRestore();
     });
 
-    it('queues the latest concurrent channel switch and runs it after the in-flight switch', async () => {
+    it('queues the latest concurrent channel switch and resolves each caller on its own request completion', async () => {
         const { coordinator, channelManager } = createCoordinator();
         const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
         let resolveDelay: () => void = () => {};
@@ -278,11 +278,12 @@ describe('ChannelTuningCoordinator', () => {
         const switch1 = coordinator.switchToChannel('ch1');
         const switch2 = coordinator.switchToChannel('ch2');
 
-        await switch2;
+        await Promise.resolve();
         expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('already in progress'));
         expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(1);
 
         resolveDelay();
+        await switch2;
         await switch1;
         expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(2);
         expect(channelManager.resolveChannelContent).toHaveBeenNthCalledWith(1, 'ch1', { signal: null });
@@ -290,6 +291,33 @@ describe('ChannelTuningCoordinator', () => {
         expect(channelManager.setCurrentChannel).toHaveBeenLastCalledWith('ch2');
 
         consoleSpy.mockRestore();
+    });
+
+    it('rejects a superseded pending request when a newer request replaces it', async () => {
+        const { coordinator, channelManager } = createCoordinator();
+        let resolveDelay: () => void = () => {};
+
+        channelManager.resolveChannelContent.mockImplementation((id) => {
+            if (channelManager.resolveChannelContent.mock.calls.length === 1) {
+                return new Promise((resolve) => {
+                    resolveDelay = (): void => resolve(resolvedContent);
+                });
+            }
+            return Promise.resolve({ ...resolvedContent, channelId: id });
+        });
+
+        const switch1 = coordinator.switchToChannel('ch1');
+        const switch2 = coordinator.switchToChannel('ch2');
+        const switch3 = coordinator.switchToChannel('ch3');
+
+        resolveDelay();
+
+        await expect(switch2).rejects.toMatchObject({ name: 'AbortError' });
+        await expect(switch3).resolves.toBeUndefined();
+        await expect(switch1).resolves.toBeUndefined();
+        expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(2);
+        expect(channelManager.resolveChannelContent).toHaveBeenNthCalledWith(1, 'ch1', { signal: null });
+        expect(channelManager.resolveChannelContent).toHaveBeenNthCalledWith(2, 'ch3', { signal: null });
     });
 
     it('reports CHANNEL_NOT_FOUND when switchToChannel misses', async () => {
