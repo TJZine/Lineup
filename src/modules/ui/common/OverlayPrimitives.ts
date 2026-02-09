@@ -34,10 +34,11 @@ export function createOverlayPrimitives(
         panelEl.appendChild(headerEl);
     }
 
-    const titleEl = classNames.title ? document.createElement('h1') : null;
+    const titleText = typeof props.title === 'string' ? props.title.trim() : '';
+    const titleEl = classNames.title && titleText ? document.createElement('h1') : null;
     if (titleEl && classNames.title) {
         titleEl.className = classNames.title;
-        titleEl.textContent = props.title ?? '';
+        titleEl.textContent = titleText;
         (headerEl ?? panelEl).appendChild(titleEl);
     }
 

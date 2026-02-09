@@ -49,7 +49,6 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
 
         const poster = document.createElement('img');
         poster.className = NOW_PLAYING_INFO_CLASSES.POSTER;
-        poster.setAttribute('src', '');
         poster.setAttribute('alt', '');
         panelEl.appendChild(poster);
 
@@ -189,7 +188,8 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
                 poster.alt = viewModel.title;
                 poster.style.display = 'block';
             } else {
-                poster.src = '';
+                poster.removeAttribute('src');
+                poster.alt = '';
                 poster.style.display = 'none';
             }
         }

@@ -6,6 +6,7 @@
  */
 
 import { EventEmitter } from '../../../utils/EventEmitter';
+import { fnv1a32Uint } from '../../../utils/hash';
 import { ContentResolver } from './ContentResolver';
 import { AppErrorCode } from '../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../lifecycle/constants';
@@ -193,18 +194,6 @@ function generateUUID(): string {
     });
 }
 
-/**
- * Deterministic string -> uint32 hash (FNV-1a).
- */
-function hashStringToUint32(input: string): number {
-    let hash = 0x811c9dc5;
-    for (let i = 0; i < input.length; i++) {
-        hash ^= input.charCodeAt(i);
-        hash = Math.imul(hash, 0x01000193);
-    }
-    return hash >>> 0;
-}
-
 // ============================================
 // Channel Manager Class
 // ============================================
@@ -337,10 +326,10 @@ export class ChannelManager implements IChannelManager {
             // Normalize seeds so imported channels behave like newly created ones.
             // This prevents nondeterministic shuffle order / missing live-drift until next app restart.
             if (typeof normalizedChannel.shuffleSeed !== 'number' || !Number.isFinite(normalizedChannel.shuffleSeed)) {
-                normalizedChannel.shuffleSeed = hashStringToUint32(`${normalizedChannel.id}:shuffle`);
+                normalizedChannel.shuffleSeed = fnv1a32Uint(`${normalizedChannel.id}:shuffle`);
             }
             if (typeof normalizedChannel.phaseSeed !== 'number' || !Number.isFinite(normalizedChannel.phaseSeed)) {
-                normalizedChannel.phaseSeed = hashStringToUint32(`${normalizedChannel.id}:phase`);
+                normalizedChannel.phaseSeed = fnv1a32Uint(`${normalizedChannel.id}:phase`);
             }
             this._state.channels.set(normalizedChannel.id, normalizedChannel);
             this._state.channelOrder.push(normalizedChannel.id);
@@ -433,7 +422,7 @@ export class ChannelManager implements IChannelManager {
         if (typeof config.shuffleSeed === 'number') channel.shuffleSeed = config.shuffleSeed;
         else channel.shuffleSeed = Date.now();
         if (typeof config.phaseSeed === 'number') channel.phaseSeed = config.phaseSeed;
-        else channel.phaseSeed = hashStringToUint32(`${channel.id}:phase`);
+        else channel.phaseSeed = fnv1a32Uint(`${channel.id}:phase`);
         if (config.contentFilters !== undefined) channel.contentFilters = config.contentFilters;
         if (config.sortOrder !== undefined) channel.sortOrder = config.sortOrder;
         if (config.maxEpisodeRunTimeMs !== undefined) channel.maxEpisodeRunTimeMs = config.maxEpisodeRunTimeMs;
@@ -921,11 +910,11 @@ export class ChannelManager implements IChannelManager {
                     continue;
                 }
                 if (typeof channel.shuffleSeed !== 'number' || !Number.isFinite(channel.shuffleSeed)) {
-                    channel.shuffleSeed = hashStringToUint32(`${channel.id}:shuffle`);
+                    channel.shuffleSeed = fnv1a32Uint(`${channel.id}:shuffle`);
                     didMutate = true;
                 }
                 if (typeof channel.phaseSeed !== 'number' || !Number.isFinite(channel.phaseSeed)) {
-                    channel.phaseSeed = hashStringToUint32(`${channel.id}:phase`);
+                    channel.phaseSeed = fnv1a32Uint(`${channel.id}:phase`);
                     didMutate = true;
                 }
             }

@@ -242,6 +242,18 @@ export class App {
             document.removeEventListener('keydown', this._globalKeydownHandler);
             this._globalKeydownHandler = null;
         }
+
+        this._authScreen?.destroy();
+        this._authScreen = null;
+        this._profileSelectScreen?.destroy();
+        this._profileSelectScreen = null;
+        this._serverSelectScreen?.destroy();
+        this._serverSelectScreen = null;
+        this._audioSetupScreen?.destroy();
+        this._audioSetupScreen = null;
+        this._settingsScreen?.destroy();
+        this._settingsScreen = null;
+
         this._cancelSettingsPrefetch();
         this._cancelChannelSetupPrefetch();
         try {

@@ -46,4 +46,21 @@ describe('OverlayPrimitives', () => {
         expect(primitives.headerEl?.className).toBe('gamma');
         expect(primitives.titleEl?.className).toBe('delta');
     });
+
+    it('skips creating a title element when title is missing', () => {
+        const primitives = createOverlayPrimitives(
+            {
+                panel: 'test-panel',
+                header: 'test-header',
+                title: 'test-title',
+            },
+            {
+                panel: {},
+            }
+        );
+
+        expect(primitives.headerEl).not.toBeNull();
+        expect(primitives.titleEl).toBeNull();
+        expect(primitives.panelEl.querySelector('h1')).toBeNull();
+    });
 });

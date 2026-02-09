@@ -10,6 +10,7 @@ import { PlexApiError } from '../../plex/auth';
 import type { FocusableElement } from '../../navigation';
 import { safeLocalStorageGet } from '../../../utils/storage';
 import { summarizeErrorForLog } from '../../../utils/errors';
+import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
 
 const FOCUS_RESTORE_DELAY_MS = 50;
@@ -17,6 +18,7 @@ const FOCUS_RESTORE_DELAY_MS = 50;
 export class ServerSelectScreen {
     private _container: HTMLElement;
     private _orchestrator: AppOrchestrator;
+    private _destroyScreenShell: (() => void) | null = null;
     private _autoConnectHintEl: HTMLElement;
     private _statusEl: HTMLElement;
     private _detailEl: HTMLElement;
@@ -87,6 +89,7 @@ export class ServerSelectScreen {
                 },
             ],
         });
+        this._destroyScreenShell = shell.destroy;
 
         const status = shell.contentEl.querySelector('.screen-status');
         const detail = shell.contentEl.querySelector('.screen-detail');
@@ -137,6 +140,16 @@ export class ServerSelectScreen {
         list.className = 'server-list';
         shell.panelEl.appendChild(list);
         this._listEl = list;
+    }
+
+    destroy(): void {
+        this.hide();
+        if (this._restoreFocusTimeoutId !== null) {
+            clearTimeout(this._restoreFocusTimeoutId);
+            this._restoreFocusTimeoutId = null;
+        }
+        this._destroyScreenShell?.();
+        this._destroyScreenShell = null;
     }
 
     show(options?: { allowAutoConnect?: boolean }): void {
@@ -244,7 +257,6 @@ export class ServerSelectScreen {
 
     hide(): void {
         this._unregisterFocusables();
-        this._unregisterServerListFocusables();
         if (this._restoreFocusTimeoutId !== null) {
             clearTimeout(this._restoreFocusTimeoutId);
             this._restoreFocusTimeoutId = null;
@@ -549,44 +561,7 @@ export class ServerSelectScreen {
     }
 
     private _buildServerButtonIds(serverIds: string[]): string[] {
-        const usedIds = new Set<string>();
-        return serverIds.map((serverId) => {
-            const sanitized = this._sanitizeButtonIdToken(serverId);
-            const baseId = `btn-server-select-${sanitized}`;
-            if (!usedIds.has(baseId)) {
-                usedIds.add(baseId);
-                return baseId;
-            }
-
-            const hashedId = `${baseId}-${this._hashIdToken(serverId)}`;
-            if (!usedIds.has(hashedId)) {
-                usedIds.add(hashedId);
-                return hashedId;
-            }
-
-            let suffix = 2;
-            let deduped = `${hashedId}-${suffix}`;
-            while (usedIds.has(deduped)) {
-                suffix += 1;
-                deduped = `${hashedId}-${suffix}`;
-            }
-            usedIds.add(deduped);
-            return deduped;
-        });
-    }
-
-    private _sanitizeButtonIdToken(value: string): string {
-        const sanitized = value.replace(/[^a-zA-Z0-9_-]/g, '_');
-        return sanitized || 'unknown';
-    }
-
-    private _hashIdToken(value: string): string {
-        let hash = 0x811c9dc5;
-        for (let i = 0; i < value.length; i += 1) {
-            hash ^= value.charCodeAt(i);
-            hash = Math.imul(hash, 0x01000193);
-        }
-        return (hash >>> 0).toString(16).padStart(8, '0');
+        return buildDeterministicButtonIds('btn-server-select-', serverIds);
     }
 
     private _setStatus(status: string, detail: string): void {
@@ -614,7 +589,7 @@ export class ServerSelectScreen {
         this._registerStaticButtons(null);
 
         // Set initial focus
-        nav.setFocus('btn-server-refresh');
+        nav.setFocus('btn-server-refresh', { persist: false });
     }
 
     private _unregisterFocusables(): void {
@@ -626,12 +601,7 @@ export class ServerSelectScreen {
         nav.unregisterFocusable('btn-server-switch-profile');
         nav.unregisterFocusable('btn-server-forget');
 
-        // Clear potential list items
-        // In a real app we'd track IDs, but here we can just clear known patterns or rely on page tear-down
-        // For now, let's just clear the list HTML which removes listeners at DOM level, 
-        // but we should technically unregister from nav manager to keep map clean.
-        const buttons = this._listEl.querySelectorAll('button');
-        buttons.forEach(btn => nav.unregisterFocusable(btn.id));
+        this._unregisterServerListFocusables();
     }
 
     private _updateStaticButtonNeighbors(firstListFocusableId: string | null): void {

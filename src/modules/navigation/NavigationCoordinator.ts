@@ -506,27 +506,41 @@ export class NavigationCoordinator {
                 break;
             }
             case 'play':
-                this.deps.getVideoPlayer()?.play()
-                    .then(() => {
-                        this.deps.pokePlayerOsd('play');
-                    })
-                    .catch(() => undefined);
+                {
+                    const player = this.deps.getVideoPlayer();
+                    if (!player) {
+                        break;
+                    }
+                    player.play()
+                        .then(() => {
+                            this.deps.pokePlayerOsd('play');
+                        })
+                        .catch(() => undefined);
+                }
                 break;
             case 'pause':
                 this.deps.getVideoPlayer()?.pause();
                 this.deps.pokePlayerOsd('pause');
                 break;
             case 'rewind': {
+                const player = this.deps.getVideoPlayer();
+                if (!player) {
+                    break;
+                }
                 const deltaMs = -this.deps.getSeekIncrementMs();
-                this.deps.getVideoPlayer()?.seekRelative(deltaMs).catch((error: unknown) => {
+                player.seekRelative(deltaMs).catch((error: unknown) => {
                     console.error('[Navigation] seek failed:', summarizeErrorForLog(error));
                 });
                 this.deps.pokePlayerOsd('seek');
                 break;
             }
             case 'fastforward': {
+                const player = this.deps.getVideoPlayer();
+                if (!player) {
+                    break;
+                }
                 const deltaMs = this.deps.getSeekIncrementMs();
-                this.deps.getVideoPlayer()?.seekRelative(deltaMs).catch((error: unknown) => {
+                player.seekRelative(deltaMs).catch((error: unknown) => {
                     console.error('[Navigation] seek failed:', summarizeErrorForLog(error));
                 });
                 this.deps.pokePlayerOsd('seek');

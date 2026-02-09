@@ -511,6 +511,35 @@ describe('NavigationManager', () => {
             expect(saveSpy).toHaveBeenCalledWith('splash');
         });
 
+        it('does not save focus memory when persist is disabled', () => {
+            const el = createMockElement('btn-no-persist');
+            elements.push(el);
+            nav.registerFocusable({ id: 'btn-no-persist', element: el, neighbors: {} });
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const focusManager = (nav as any)._focusManager as { saveFocusState: (screenId: string) => void };
+            const saveSpy = jest.spyOn(focusManager, 'saveFocusState');
+
+            nav.setFocus('btn-no-persist', { persist: false });
+
+            expect(saveSpy).not.toHaveBeenCalled();
+        });
+
+        it('does not save focus memory while a modal is open', () => {
+            const el = createMockElement('btn-modal-focus');
+            elements.push(el);
+            nav.registerFocusable({ id: 'btn-modal-focus', element: el, neighbors: {} });
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const focusManager = (nav as any)._focusManager as { saveFocusState: (screenId: string) => void };
+            const saveSpy = jest.spyOn(focusManager, 'saveFocusState');
+
+            nav.openModal('confirm');
+            nav.setFocus('btn-modal-focus');
+
+            expect(saveSpy).not.toHaveBeenCalled();
+        });
+
         it('restores focus for the current screen via explicit restore entrypoint', () => {
             const el = createMockElement('btn-restore');
             elements.push(el);

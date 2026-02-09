@@ -28,7 +28,7 @@ export interface INavigationManager {
     getScreenParams(): Record<string, unknown>;
 
     // Focus Management
-    setFocus(elementId: string): void;
+    setFocus(elementId: string, options?: SetFocusOptions): void;
     restoreFocusForCurrentScreen(): boolean;
     getFocusedElement(): FocusableElement | null;
     /**
@@ -79,6 +79,14 @@ export interface INavigationManager {
     // Long-press handling
     handleLongPress(button: RemoteButton, callback: () => void): void;
     cancelLongPress(): void;
+}
+
+export interface SetFocusOptions {
+    /**
+     * Persist focus memory for the current screen.
+     * Defaults to true. Note: focus is never persisted while a modal is open.
+     */
+    persist?: boolean;
 }
 
 /**

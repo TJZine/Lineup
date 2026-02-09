@@ -8,6 +8,7 @@ import { AppOrchestrator } from '../../../Orchestrator';
 import type { PlexHomeUser } from '../../plex/auth';
 import type { FocusableElement, KeyEvent } from '../../navigation';
 import { PlexApiError } from '../../plex/auth';
+import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
 
 const FOCUS_RESTORE_DELAY_MS = 50;
@@ -32,6 +33,7 @@ export class ProfileSelectScreen {
 
     private _container: HTMLElement;
     private _orchestrator: AppOrchestrator;
+    private _destroyScreenShell: (() => void) | null = null;
     private _statusEl: HTMLElement;
     private _errorEl: HTMLElement;
     private _tipEl: HTMLElement;
@@ -93,6 +95,7 @@ export class ProfileSelectScreen {
                 },
             ],
         });
+        this._destroyScreenShell = shell.destroy;
         shell.panelEl.classList.add('profile-panel');
 
         const status = shell.contentEl.querySelector('.screen-status');
@@ -224,6 +227,12 @@ export class ProfileSelectScreen {
         this._clearError();
         this._registerKeyHandler();
         void this._loadProfiles();
+    }
+
+    destroy(): void {
+        this.hide();
+        this._destroyScreenShell?.();
+        this._destroyScreenShell = null;
     }
 
     hide(): void {
@@ -665,7 +674,7 @@ export class ProfileSelectScreen {
 
         const preferredId = this._userButtonIds[0] ?? this._mainButton.id;
         if (preferredId) {
-            nav.setFocus(preferredId);
+            nav.setFocus(preferredId, { persist: false });
         }
     }
 
@@ -730,44 +739,7 @@ export class ProfileSelectScreen {
     }
 
     private _buildUserButtonIds(userIds: string[]): string[] {
-        const usedIds = new Set<string>();
-        return userIds.map((userId) => {
-            const sanitized = this._sanitizeButtonIdToken(userId);
-            const baseId = `btn-profile-${sanitized}`;
-            if (!usedIds.has(baseId)) {
-                usedIds.add(baseId);
-                return baseId;
-            }
-
-            const hashedId = `${baseId}-${this._hashIdToken(userId)}`;
-            if (!usedIds.has(hashedId)) {
-                usedIds.add(hashedId);
-                return hashedId;
-            }
-
-            let suffix = 2;
-            let deduped = `${hashedId}-${suffix}`;
-            while (usedIds.has(deduped)) {
-                suffix += 1;
-                deduped = `${hashedId}-${suffix}`;
-            }
-            usedIds.add(deduped);
-            return deduped;
-        });
-    }
-
-    private _sanitizeButtonIdToken(value: string): string {
-        const sanitized = value.replace(/[^a-zA-Z0-9_-]/g, '_');
-        return sanitized || 'unknown';
-    }
-
-    private _hashIdToken(value: string): string {
-        let hash = 0x811c9dc5;
-        for (let i = 0; i < value.length; i += 1) {
-            hash ^= value.charCodeAt(i);
-            hash = Math.imul(hash, 0x01000193);
-        }
-        return (hash >>> 0).toString(16).padStart(8, '0');
+        return buildDeterministicButtonIds('btn-profile-', userIds);
     }
 
     private _setStatus(message: string): void {

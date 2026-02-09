@@ -361,7 +361,7 @@ export class PlayerOsdCoordinator {
         });
 
         if (!navigation.isModalOpen()) {
-            navigation.setFocus(PLAYER_OSD_ACTION_IDS.subtitles);
+            navigation.setFocus(PLAYER_OSD_ACTION_IDS.subtitles, { persist: false });
         }
         this._actionsRegistered = true;
     }
