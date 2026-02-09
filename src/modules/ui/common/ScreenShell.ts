@@ -7,11 +7,14 @@ import type {
     ScreenTone,
 } from '../types/screen-shell';
 
-type ScreenShellHandles = {
+export type ScreenShellHandles = {
     panelEl: HTMLElement;
     heroEl: HTMLElement;
     contentEl: HTMLElement;
     actionsEl: HTMLElement;
+    statusEl: HTMLElement;
+    detailEl: HTMLElement;
+    errorEl: HTMLElement;
     setStatus: (status: ScreenStatus | null) => void;
     setError: (error: ScreenError | null) => void;
     setActions: (actions: ScreenAction[]) => void;
@@ -173,6 +176,9 @@ export function createScreenShell(container: HTMLElement, props: ScreenShellProp
         heroEl,
         contentEl,
         actionsEl,
+        statusEl,
+        detailEl,
+        errorEl,
         setStatus,
         setError,
         setActions,

@@ -199,9 +199,9 @@ export interface FocusableElement {
     element: HTMLElement;
     /** Focus group membership */
     group?: string;
-    /** Relative precedence for restore fallback within a restore group */
+    /** Relative precedence for restore fallback within a restore group (higher values are restored first). */
     restorePriority?: number;
-    /** Restore bucket used when saved focus id no longer exists */
+    /** Restore group identifier used when saved focus id no longer exists */
     restoreGroup?: string;
     /** Explicit neighbor mappings */
     neighbors: {

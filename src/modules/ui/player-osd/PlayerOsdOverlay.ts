@@ -54,7 +54,8 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         }
         this.containerElement = container;
         this.containerElement.classList.add(PLAYER_OSD_CLASSES.CONTAINER);
-        this.containerElement.innerHTML = this.createTemplate();
+        this.containerElement.textContent = '';
+        this.containerElement.appendChild(this.createTemplateElement());
         this.containerElement.classList.remove(PLAYER_OSD_CLASSES.VISIBLE);
         this.isVisibleFlag = false;
         this.cacheElements();
@@ -193,7 +194,7 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         };
     }
 
-    private createTemplate(): string {
+    private createTemplateElement(): HTMLElement {
         const { panelEl } = createOverlayPrimitives(
             { panel: PLAYER_OSD_CLASSES.PANEL },
             { panel: {} }
@@ -227,6 +228,6 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
           <div class="${PLAYER_OSD_CLASSES.BUFFER_TEXT}"></div>
         </div>
       `;
-        return panelEl.outerHTML;
+        return panelEl;
     }
 }

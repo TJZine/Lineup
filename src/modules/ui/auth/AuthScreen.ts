@@ -105,13 +105,8 @@ export class AuthScreen {
         });
         this._destroyScreenShell = shell.destroy;
 
-        const status = shell.contentEl.querySelector('.screen-status');
-        const detail = shell.contentEl.querySelector('.screen-detail');
-        if (!(status instanceof HTMLElement) || !(detail instanceof HTMLElement)) {
-            throw new Error('AuthScreen shell status elements unavailable');
-        }
-        this._statusEl = status;
-        this._detailEl = detail;
+        this._statusEl = shell.statusEl;
+        this._detailEl = shell.detailEl;
 
         const qrWrap = document.createElement('div');
         qrWrap.className = 'auth-qr';

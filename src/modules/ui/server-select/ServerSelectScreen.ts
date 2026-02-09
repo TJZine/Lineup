@@ -91,15 +91,9 @@ export class ServerSelectScreen {
         });
         this._destroyScreenShell = shell.destroy;
 
-        const status = shell.contentEl.querySelector('.screen-status');
-        const detail = shell.contentEl.querySelector('.screen-detail');
-        const error = shell.contentEl.querySelector('.screen-error');
-        if (!(status instanceof HTMLElement) || !(detail instanceof HTMLElement) || !(error instanceof HTMLElement)) {
-            throw new Error('ServerSelectScreen shell status elements unavailable');
-        }
-        this._statusEl = status;
-        this._detailEl = detail;
-        this._errorEl = error;
+        this._statusEl = shell.statusEl;
+        this._detailEl = shell.detailEl;
+        this._errorEl = shell.errorEl;
 
         const autoConnectHint = document.createElement('div');
         autoConnectHint.className = 'server-autoconnect-hint';

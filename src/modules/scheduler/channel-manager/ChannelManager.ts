@@ -419,9 +419,12 @@ export class ChannelManager implements IChannelManager {
         if (config.buildStrategy !== undefined) channel.buildStrategy = config.buildStrategy;
         if (config.sourceLibraryId !== undefined) channel.sourceLibraryId = config.sourceLibraryId;
         if (config.sourceLibraryName !== undefined) channel.sourceLibraryName = config.sourceLibraryName;
-        if (typeof config.shuffleSeed === 'number') channel.shuffleSeed = config.shuffleSeed;
-        else channel.shuffleSeed = Date.now();
-        if (typeof config.phaseSeed === 'number') channel.phaseSeed = config.phaseSeed;
+        if (typeof config.shuffleSeed === 'number' && Number.isFinite(config.shuffleSeed)) {
+            channel.shuffleSeed = config.shuffleSeed;
+        } else {
+            channel.shuffleSeed = fnv1a32Uint(`${channel.id}:shuffle`);
+        }
+        if (typeof config.phaseSeed === 'number' && Number.isFinite(config.phaseSeed)) channel.phaseSeed = config.phaseSeed;
         else channel.phaseSeed = fnv1a32Uint(`${channel.id}:phase`);
         if (config.contentFilters !== undefined) channel.contentFilters = config.contentFilters;
         if (config.sortOrder !== undefined) channel.sortOrder = config.sortOrder;
@@ -1011,7 +1014,7 @@ export class ChannelManager implements IChannelManager {
             const orderedItems = this._contentResolver.applyPlaybackMode(
                 items,
                 channel.playbackMode,
-                channel.shuffleSeed ?? Date.now()
+                channel.shuffleSeed ?? fnv1a32Uint(`${channel.id}:shuffle`)
             );
 
             // Build result

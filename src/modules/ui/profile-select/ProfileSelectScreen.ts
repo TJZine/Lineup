@@ -98,13 +98,8 @@ export class ProfileSelectScreen {
         this._destroyScreenShell = shell.destroy;
         shell.panelEl.classList.add('profile-panel');
 
-        const status = shell.contentEl.querySelector('.screen-status');
-        const error = shell.contentEl.querySelector('.screen-error');
-        if (!(status instanceof HTMLElement) || !(error instanceof HTMLElement)) {
-            throw new Error('ProfileSelectScreen shell status elements unavailable');
-        }
-        this._statusEl = status;
-        this._errorEl = error;
+        this._statusEl = shell.statusEl;
+        this._errorEl = shell.errorEl;
         this._errorEl.setAttribute('role', 'alert');
         this._errorEl.setAttribute('aria-live', 'assertive');
 

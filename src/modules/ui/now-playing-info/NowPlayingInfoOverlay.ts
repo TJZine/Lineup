@@ -27,7 +27,8 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         }
         this.containerElement = container;
         this.containerElement.classList.add(NOW_PLAYING_INFO_CLASSES.CONTAINER);
-        this.containerElement.innerHTML = this.createTemplate();
+        this.containerElement.textContent = '';
+        this.containerElement.appendChild(this.createTemplateElement());
         this.containerElement.classList.remove('visible');
         this.isVisibleFlag = false;
 
@@ -41,7 +42,7 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         this.setupActorResizeObserver();
     }
 
-    private createTemplate(): string {
+    private createTemplateElement(): HTMLElement {
         const { panelEl } = createOverlayPrimitives(
             { panel: NOW_PLAYING_INFO_CLASSES.PANEL },
             { panel: {} }
@@ -76,7 +77,7 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         `;
         panelEl.appendChild(content);
 
-        return panelEl.outerHTML;
+        return panelEl;
     }
 
     destroy(): void {

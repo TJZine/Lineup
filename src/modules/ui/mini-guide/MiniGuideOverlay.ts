@@ -31,7 +31,8 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
         }
         this.containerElement = container;
         this.containerElement.classList.add(MINI_GUIDE_CLASSES.CONTAINER);
-        this.containerElement.innerHTML = this.createTemplate();
+        this.containerElement.textContent = '';
+        this.containerElement.appendChild(this.createTemplateElement());
         this.containerElement.classList.remove(MINI_GUIDE_CLASSES.VISIBLE);
         this.isVisibleFlag = false;
         this.cacheElements();
@@ -129,7 +130,7 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
         }
     }
 
-    private createTemplate(): string {
+    private createTemplateElement(): HTMLElement {
         const rows: string[] = [];
         for (let i = 0; i < ROW_COUNT; i += 1) {
             rows.push(`
@@ -155,6 +156,6 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
           UP/DOWN Browse • CH± Page • OK Watch • RIGHT Full Guide • BACK Close
         </div>
       `;
-        return panelEl.outerHTML;
+        return panelEl;
     }
 }

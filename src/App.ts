@@ -251,6 +251,8 @@ export class App {
         this._serverSelectScreen = null;
         this._audioSetupScreen?.destroy();
         this._audioSetupScreen = null;
+        this._channelSetupScreen?.destroy();
+        this._channelSetupScreen = null;
         this._settingsScreen?.destroy();
         this._settingsScreen = null;
 

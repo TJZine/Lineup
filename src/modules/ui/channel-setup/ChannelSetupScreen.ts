@@ -60,6 +60,7 @@ const SHOW_SVG = `
 export class ChannelSetupScreen {
     private _container: HTMLElement;
     private _orchestrator: AppOrchestrator;
+    private _destroyScreenShell: (() => void) | null = null;
     private _stepEl: HTMLElement;
     private _statusEl: HTMLElement;
     private _detailEl: HTMLElement;
@@ -199,27 +200,28 @@ export class ChannelSetupScreen {
             error: null,
             actions: [],
         });
+        this._destroyScreenShell = shell.destroy;
         shell.panelEl.classList.add('setup-panel');
 
         const stepEl = document.createElement('div');
         stepEl.className = 'setup-step';
-        const status = shell.contentEl.querySelector('.screen-status');
-        const detail = shell.contentEl.querySelector('.screen-detail');
-        const error = shell.contentEl.querySelector('.screen-error');
-        if (!(status instanceof HTMLElement) || !(detail instanceof HTMLElement) || !(error instanceof HTMLElement)) {
-            throw new Error('ChannelSetupScreen shell status elements unavailable');
-        }
-        shell.contentEl.insertBefore(stepEl, status);
+        shell.contentEl.insertBefore(stepEl, shell.statusEl);
         this._stepEl = stepEl;
 
-        this._statusEl = status;
-        this._detailEl = detail;
-        this._errorEl = error;
+        this._statusEl = shell.statusEl;
+        this._detailEl = shell.detailEl;
+        this._errorEl = shell.errorEl;
 
         const content = document.createElement('div');
         content.className = 'setup-body';
         shell.contentEl.appendChild(content);
         this._contentEl = content;
+    }
+
+    destroy(): void {
+        this.hide();
+        this._destroyScreenShell?.();
+        this._destroyScreenShell = null;
     }
 
     show(): void {
