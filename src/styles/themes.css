@@ -46,6 +46,8 @@
   --color-primary-dark: #003865;
   --color-bg-deep: #001020;
   --color-bg-surface: rgba(0, 40, 80, 0.92);
+  --panel-surface: var(--color-bg-surface);
+  --panel-surface-2: rgba(0, 28, 56, 0.94);
   --panel-border: 1px solid rgba(0, 166, 214, 0.25);
   --panel-radius: 4px;
   --transition-normal: 150ms ease;

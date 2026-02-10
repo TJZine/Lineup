@@ -288,6 +288,38 @@ describe('PlexLibrary', () => {
             // Should only call fetch once due to cache
             expect(fetch).toHaveBeenCalledTimes(1);
         });
+
+        it('should clear cache when server or account changes', async () => {
+            const baseHeaders = {
+                Accept: 'application/json',
+                'X-Plex-Client-Identifier': 'mock-client-id',
+            };
+            let serverUri = 'http://192.168.1.100:32400';
+            let token = 'mock-token';
+            const config: PlexLibraryConfig = {
+                getAuthHeaders: () => ({
+                    ...baseHeaders,
+                    'X-Plex-Token': token,
+                }),
+                getServerUri: () => serverUri,
+                getAuthToken: () => token,
+            };
+
+            mockFetchSequence([
+                { json: mockLibrarySectionsResponse },
+                { json: mockLibrarySectionsResponse },
+            ]);
+            const library = new PlexLibrary(config);
+
+            await library.getLibraries();
+
+            // Simulate server swap (or profile swap with different token) and ensure cache is not reused.
+            serverUri = 'http://10.0.0.2:32400';
+
+            await library.getLibrary('1');
+
+            expect(fetch).toHaveBeenCalledTimes(2);
+        });
     });
 
     describe('getLibrary', () => {

@@ -460,9 +460,9 @@ describe('PlaybackRecoveryManager', () => {
         });
         (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(directDecision);
 
-        const ok = await manager.attemptDisableBurnInSubtitlesForCurrentProgram('test');
+        const result = await manager.attemptDisableBurnInSubtitlesForCurrentProgram('test');
 
-        expect(ok).toBe(true);
+        expect(result).toEqual({ outcome: 'disabled' });
         expect((resolver.stopTranscodeSession as jest.Mock)).toHaveBeenCalledWith('sess-burn');
         expect(resolver.resolveStream).toHaveBeenCalledWith(
             expect.objectContaining({

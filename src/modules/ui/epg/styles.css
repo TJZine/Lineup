@@ -501,7 +501,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.2;
-  transform: translateX(var(--epg-cell-text-shift-px, 0px));
 }
 
 .epg-cell-show {
@@ -513,7 +512,6 @@
   text-overflow: ellipsis;
   line-height: 1.2;
   margin-top: 0;
-  transform: translateX(var(--epg-cell-text-shift-px, 0px));
 }
 
 .epg-cell-time {
@@ -522,7 +520,12 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transform: translateX(var(--epg-cell-text-shift-px, 0px));
+}
+
+.epg-cell.text-shifted .epg-cell-title,
+.epg-cell.text-shifted .epg-cell-show,
+.epg-cell.text-shifted .epg-cell-time {
+  transform: translateX(var(--epg-cell-text-shift-px));
 }
 
 /* =========================================

@@ -49,6 +49,19 @@ export interface PlaybackRecoveryDeps {
     handleGlobalError: (error: AppError, context: string) => void;
 }
 
+export type DisableBurnInSubtitlesResult =
+    | { outcome: 'disabled' }
+    | {
+        outcome: 'ignored';
+        reason:
+        | 'recovery_in_progress'
+        | 'missing_deps'
+        | 'not_burn_in'
+        | 'program_changed'
+        | 'no_program';
+    }
+    | { outcome: 'failed' };
+
 export class PlaybackRecoveryManager {
     // Playback fast-fail guard: prevents tight skip loops when all items fail to play.
     private _playbackFailureWindowStartMs: number = 0;
@@ -629,22 +642,27 @@ export class PlaybackRecoveryManager {
         }
     }
 
-    async attemptDisableBurnInSubtitlesForCurrentProgram(reason: string): Promise<boolean> {
+    async attemptDisableBurnInSubtitlesForCurrentProgram(
+        reason: string
+    ): Promise<DisableBurnInSubtitlesResult> {
         if (this._streamRecoveryInProgress) {
-            return false;
+            return { outcome: 'ignored', reason: 'recovery_in_progress' };
         }
         const program = this.deps.getCurrentProgramForPlayback();
         const player = this.deps.getVideoPlayer();
         const resolver = this.deps.getStreamResolver();
         const currentDecision = this.deps.getCurrentStreamDecision?.() ?? null;
-        if (!program || !player || !resolver || !currentDecision) {
-            return false;
+        if (!program) {
+            return { outcome: 'ignored', reason: 'no_program' };
+        }
+        if (!player || !resolver || !currentDecision) {
+            return { outcome: 'ignored', reason: 'missing_deps' };
         }
 
         const transcodeRequest = currentDecision.transcodeRequest ?? null;
         const isBurnIn = transcodeRequest?.subtitleMode === 'burn';
         if (!isBurnIn) {
-            return false;
+            return { outcome: 'ignored', reason: 'not_burn_in' };
         }
 
         const itemKey = program.item.ratingKey;
@@ -701,7 +719,7 @@ export class PlaybackRecoveryManager {
                         abortedBecauseProgramChanged,
                     });
                 }
-                return false;
+                return { outcome: 'ignored', reason: 'program_changed' };
             }
             this.deps.setCurrentStreamDecision(decision);
 
@@ -726,7 +744,7 @@ export class PlaybackRecoveryManager {
                     abortedBecauseProgramChanged,
                 });
             }
-            return true;
+            return { outcome: 'disabled' };
         } catch (error) {
             const safeError = error instanceof Error
                 ? `${error.name}: ${error.message}`
@@ -740,7 +758,7 @@ export class PlaybackRecoveryManager {
                     abortedBecauseProgramChanged,
                 });
             }
-            return false;
+            return { outcome: 'failed' };
         } finally {
             this._streamRecoveryInProgress = false;
         }

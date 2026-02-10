@@ -286,40 +286,10 @@ export class PlaybackOptionsCoordinator {
             ? player.getAvailableSubtitles().find((t) => t.id === trackId) ?? null
             : null;
 
-        const mode = getSubtitleMode();
-        const allowBurnIn = subtitleModeAllowsBurnIn(mode);
-        if (trackId && track && allowBurnIn) {
-            // For burn-in formats (PGS/ASS/etc), go straight to the burn-in stream reload.
-            if (this.isBurnInTrack(track)) {
-                this.requestBurnInSubtitle(track.id, 'user_selected_burn_in_format');
-                this.refreshIfOpen();
-                this.closeModalAndReturnFocus();
+        if (trackId && track) {
+            const shouldContinue = await this.maybeHandleBurnInSubtitleSelection(trackId, track, token, player);
+            if (!shouldContinue) {
                 return;
-            }
-
-            if (track.isTextCandidate) {
-                // Direct-fetchable tracks don't need probing – they already have a known-good key.
-                if (!track.fetchableViaKey || !track.key) {
-                    const selectedItemKey = this.getCurrentProgramItemKey();
-                    const decision = await this.probeTextSubtitleExtractability(track);
-                    if (token !== this._subtitleSelectToken) {
-                        this.refreshIfOpen();
-                        return;
-                    }
-                    const currentItemKey = this.getCurrentProgramItemKey();
-                    const currentTrack = player.getAvailableSubtitles().find((candidate) => candidate.id === track.id) ?? null;
-                    if (currentItemKey !== selectedItemKey || !currentTrack) {
-                        // Program rollover or track list changes can occur while probing; drop stale results.
-                        this.refreshIfOpen();
-                        return;
-                    }
-                    if (decision === 'unsupported') {
-                        this.requestBurnInSubtitle(currentTrack.id, 'user_selected_text_extract_probe_unsupported');
-                        this.refreshIfOpen();
-                        this.closeModalAndReturnFocus();
-                        return;
-                    }
-                }
             }
         }
 
@@ -329,6 +299,60 @@ export class PlaybackOptionsCoordinator {
         // Intentionally do not persist subtitle track selections (webOS subtitle reliability concerns).
         this.refreshIfOpen();
         this.closeModalAndReturnFocus();
+    }
+
+    private async maybeHandleBurnInSubtitleSelection(
+        trackId: string,
+        track: SubtitleTrack,
+        token: number,
+        player: IVideoPlayer
+    ): Promise<boolean> {
+        const mode = getSubtitleMode();
+        const allowBurnIn = subtitleModeAllowsBurnIn(mode);
+        if (!allowBurnIn) {
+            return true;
+        }
+
+        // For burn-in formats (PGS/ASS/etc), go straight to the burn-in stream reload.
+        if (this.isBurnInTrack(track)) {
+            this.requestBurnInSubtitle(track.id, 'user_selected_burn_in_format');
+            this.refreshIfOpen();
+            this.closeModalAndReturnFocus();
+            return false;
+        }
+
+        if (!track.isTextCandidate) {
+            return true;
+        }
+
+        // Direct-fetchable tracks don't need probing – they already have a known-good key.
+        if (track.fetchableViaKey && track.key) {
+            return true;
+        }
+
+        const selectedItemKey = this.getCurrentProgramItemKey();
+        const decision = await this.probeTextSubtitleExtractability(track);
+        if (token !== this._subtitleSelectToken) {
+            this.refreshIfOpen();
+            return false;
+        }
+
+        const currentItemKey = this.getCurrentProgramItemKey();
+        const currentTrack = player.getAvailableSubtitles().find((candidate) => candidate.id === trackId) ?? null;
+        if (currentItemKey !== selectedItemKey || !currentTrack) {
+            // Program rollover or track list changes can occur while probing; drop stale results.
+            this.refreshIfOpen();
+            return false;
+        }
+
+        if (decision === 'unsupported') {
+            this.requestBurnInSubtitle(currentTrack.id, 'user_selected_text_extract_probe_unsupported');
+            this.refreshIfOpen();
+            this.closeModalAndReturnFocus();
+            return false;
+        }
+
+        return true;
     }
 
     private requestBurnInSubtitle(trackId: string, reason: string): void {

@@ -614,7 +614,13 @@ export class EPGVirtualizer {
         }
         this.updateShowLine(element, cellData);
 
-        element.style.setProperty('--epg-cell-text-shift-px', `${cellData.textShiftPx}px`);
+        if (cellData.textShiftPx > 0) {
+            element.classList.add(EPG_CLASSES.CELL_TEXT_SHIFTED);
+            element.style.setProperty('--epg-cell-text-shift-px', `${cellData.textShiftPx}px`);
+        } else {
+            element.classList.remove(EPG_CLASSES.CELL_TEXT_SHIFTED);
+            element.style.removeProperty('--epg-cell-text-shift-px');
+        }
 
         // Calculate position
         element.style.left = `${cellData.left}px`;
@@ -647,7 +653,13 @@ export class EPGVirtualizer {
         const element = cellData.cellElement;
         if (!element || !this.config) return;
 
-        element.style.setProperty('--epg-cell-text-shift-px', `${cellData.textShiftPx}px`);
+        if (cellData.textShiftPx > 0) {
+            element.classList.add(EPG_CLASSES.CELL_TEXT_SHIFTED);
+            element.style.setProperty('--epg-cell-text-shift-px', `${cellData.textShiftPx}px`);
+        } else {
+            element.classList.remove(EPG_CLASSES.CELL_TEXT_SHIFTED);
+            element.style.removeProperty('--epg-cell-text-shift-px');
+        }
         element.style.left = `${cellData.left}px`;
         element.style.width = `${cellData.width}px`;
         element.style.top = `${(cellData.rowIndex - this.channelOffset) * this.config.rowHeight}px`;

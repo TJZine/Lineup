@@ -8,6 +8,7 @@
 import { EventEmitter } from '../../../utils/EventEmitter';
 import type { IDisposable } from '../../../utils/interfaces';
 import { summarizeErrorForLog } from '../../../utils/errors';
+import { fnv1a32Hex } from '../../../utils/hash';
 import type { IPlexLibrary, PlexLibraryConfig } from './interfaces';
 import type {
     PlexLibrary as PlexLibraryType,
@@ -89,7 +90,33 @@ export class PlexLibrary implements IPlexLibrary {
         this._state = {
             libraryCache: new Map(),
             isRefreshing: false,
+            cacheScope: null,
         };
+    }
+
+    /**
+     * Derive the current cache scope. Do not include raw tokens in keys; use a stable hash.
+     */
+    private _getCacheScope(): string | null {
+        const serverUri = this._config.getServerUri();
+        if (!serverUri) {
+            return null;
+        }
+        const token = this._config.getAuthToken?.() ?? '';
+        const tokenHash = token ? fnv1a32Hex(token) : 'no-token';
+        return `${serverUri}::${tokenHash}`;
+    }
+
+    /**
+     * Ensure caches are scoped to the active server/account. Clear on scope change.
+     */
+    private _ensureCacheScope(): void {
+        const nextScope = this._getCacheScope();
+        if (this._state.cacheScope === nextScope) {
+            return;
+        }
+        this._state.libraryCache.clear();
+        this._state.cacheScope = nextScope;
     }
 
     private _redactUrlForLog(url: string): string {
@@ -122,6 +149,7 @@ export class PlexLibrary implements IPlexLibrary {
         includeItemCounts?: boolean;
         itemCountConcurrency?: number;
     }): Promise<PlexLibraryType[]> {
+        this._ensureCacheScope();
         const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTIONS);
         const response = await this._fetchWithRetry<PlexMediaContainer<RawLibrarySection>>(url, { signal: options?.signal ?? null });
 
@@ -182,6 +210,7 @@ export class PlexLibrary implements IPlexLibrary {
      * @returns Promise resolving to library or null if not found
      */
     async getLibrary(libraryId: string): Promise<PlexLibraryType | null> {
+        this._ensureCacheScope();
         // Check cache first
         const cached = this._state.libraryCache.get(libraryId);
         if (cached && Date.now() - cached.cachedAt < PLEX_LIBRARY_CONSTANTS.CACHE_TTL_MS) {
@@ -619,6 +648,7 @@ export class PlexLibrary implements IPlexLibrary {
      * @param libraryId - Library section ID to refresh
      */
     async refreshLibrary(libraryId: string): Promise<void> {
+        this._ensureCacheScope();
         // Invalidate cache for this library
         this._state.libraryCache.delete(libraryId);
 

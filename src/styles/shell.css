@@ -360,6 +360,8 @@
   flex-direction: column;
   gap: 16px;
   overflow-y: auto;
+  scroll-padding-top: var(--setup-focus-inset);
+  scroll-padding-bottom: var(--setup-focus-inset);
   padding: var(--setup-focus-inset);
   padding-right: calc(var(--setup-focus-inset) + 4px);
   flex: 1;

@@ -78,7 +78,7 @@ export const DEFAULT_SETTINGS: SettingsConfig = {
         showFps: false,
     },
     subtitles: {
-        mode: 'standard',
+        mode: 'full',
         language: null,
         preferForced: false,
     },

@@ -1105,7 +1105,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         try {
             await this._videoPlayer.setSubtitleTrack(trackId);
         } catch (error) {
-            console.warn('[Orchestrator] setSubtitleTrack failed:', error);
+            console.warn('[Orchestrator] setSubtitleTrack failed:', summarizeErrorForLog(error));
         }
     }
 
@@ -1834,7 +1834,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             this._pendingDayRolloverTimer = globalThis.setTimeout(() => {
                 this._pendingDayRolloverTimer = null;
                 this._applyScheduleDayRollover().catch((error) => {
-                    console.error('[Orchestrator] Failed to apply day rollover:', error);
+                    console.error('[Orchestrator] Failed to apply day rollover:', summarizeErrorForLog(error));
                 });
             }, delayMs);
             return;
@@ -1904,14 +1904,14 @@ export class AppOrchestrator implements IAppOrchestrator {
         // This catch is a safety net for any unexpected throws
         const handler = (program: ScheduledProgram): void => {
             this._handleProgramStart(program).catch((error) => {
-                console.error('[Orchestrator] Unhandled error in program start:', error);
+                console.error('[Orchestrator] Unhandled error in program start:', summarizeErrorForLog(error));
             });
         };
         this._scheduler.on('programStart', handler);
 
         const syncHandler = (): void => {
             this._handleScheduleDayRollover().catch((error) => {
-                console.error('[Orchestrator] Unhandled error in scheduleSync handler:', error);
+                console.error('[Orchestrator] Unhandled error in scheduleSync handler:', summarizeErrorForLog(error));
             });
         };
         this._scheduler.on('scheduleSync', syncHandler);
@@ -1959,18 +1959,18 @@ export class AppOrchestrator implements IAppOrchestrator {
 
             if (!event.trackId) {
                 const decision = this._currentStreamDecision ?? null;
-                if (decision?.transcodeRequest?.subtitleMode === 'burn') {
-                    void this._playbackRecovery?.attemptDisableBurnInSubtitlesForCurrentProgram('subtitle_track_off')
-                        .then((ok) => {
-                            if (ok) return;
-                            if (!this._nowPlayingHandler) return;
-                            this._nowPlayingHandler({ message: 'Failed to disable burn-in subtitles', type: 'warning' });
-                        })
-                        .catch(() => {
-                            if (!this._nowPlayingHandler) return;
-                            this._nowPlayingHandler({ message: 'Failed to disable burn-in subtitles', type: 'warning' });
-                        });
-                }
+                    if (decision?.transcodeRequest?.subtitleMode === 'burn') {
+                        void this._playbackRecovery?.attemptDisableBurnInSubtitlesForCurrentProgram('subtitle_track_off')
+                            .then((result) => {
+                                if (result.outcome !== 'failed') return;
+                                if (!this._nowPlayingHandler) return;
+                                this._nowPlayingHandler({ message: 'Failed to disable burn-in subtitles', type: 'warning' });
+                            })
+                            .catch(() => {
+                                if (!this._nowPlayingHandler) return;
+                                this._nowPlayingHandler({ message: 'Failed to disable burn-in subtitles', type: 'warning' });
+                            });
+                    }
                 return;
             }
 
@@ -2226,7 +2226,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             if (this._playbackRecovery?.tryHandleStreamResolverAuthError(error)) {
                 return;
             }
-            console.error('Failed to load stream:', error);
+            console.error('Failed to load stream:', summarizeErrorForLog(error));
             this._playbackRecovery?.handlePlaybackFailure('programStart', error);
         }
     }
