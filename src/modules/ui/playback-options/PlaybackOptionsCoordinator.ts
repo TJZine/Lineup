@@ -288,14 +288,14 @@ export class PlaybackOptionsCoordinator {
 
         const mode = getSubtitleMode();
         const allowBurnIn = subtitleModeAllowsBurnIn(mode);
-            if (trackId && track && allowBurnIn) {
-                // For burn-in formats (PGS/ASS/etc), go straight to the burn-in stream reload.
-                if (this.isBurnInTrack(track)) {
-                    this.requestBurnInSubtitle(track.id, 'user_selected_burn_in_format');
-                    this.refreshIfOpen();
-                    this.closeModalAndReturnFocus();
-                    return;
-                }
+        if (trackId && track && allowBurnIn) {
+            // For burn-in formats (PGS/ASS/etc), go straight to the burn-in stream reload.
+            if (this.isBurnInTrack(track)) {
+                this.requestBurnInSubtitle(track.id, 'user_selected_burn_in_format');
+                this.refreshIfOpen();
+                this.closeModalAndReturnFocus();
+                return;
+            }
 
             if (track.isTextCandidate) {
                 // Direct-fetchable tracks don't need probing – they already have a known-good key.

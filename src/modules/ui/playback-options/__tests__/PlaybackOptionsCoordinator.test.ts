@@ -330,7 +330,7 @@ describe('PlaybackOptionsCoordinator', () => {
         }
     });
 
-        it('ignores stale probe results when playback item changes', async () => {
+    it('ignores stale probe results when playback item changes', async () => {
         localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
         let resolveFetch: ((value: { ok: boolean; status: number }) => void) | undefined;

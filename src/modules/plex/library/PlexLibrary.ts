@@ -75,6 +75,10 @@ export class PlexLibrary implements IPlexLibrary {
     private readonly _emitter: EventEmitter<PlexLibraryEvents>;
     private readonly _state: PlexLibraryState;
 
+    private get _logger(): { warn: typeof console.warn; error: typeof console.error } {
+        return this._config.logger ?? { warn: console.warn, error: console.error };
+    }
+
     /**
      * Create a new PlexLibrary instance.
      * @param config - Configuration with auth and server URI getters
@@ -155,8 +159,7 @@ export class PlexLibrary implements IPlexLibrary {
                         // Non-fatal: keep the section visible even if counts fail.
                         lib.contentCount = 0;
                         const context = typeof lib.title === 'string' && lib.title ? lib.title : lib.id;
-                        const logger = this._config.logger ?? { warn: console.warn, error: console.error };
-                        logger.warn(`[PlexLibrary] Failed to fetch item count for library ${context}:`, summarizeErrorForLog(error));
+                        this._logger.warn(`[PlexLibrary] Failed to fetch item count for library ${context}:`, summarizeErrorForLog(error));
                     }
                 }
             });
@@ -542,8 +545,7 @@ export class PlexLibrary implements IPlexLibrary {
         const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_ACTORS(libraryId), params);
         const response = await this._fetchWithRetry<PlexMediaContainer<RawDirectoryTag>>(url, { signal: options.signal ?? null });
         if (!response) {
-            const logger = this._config.logger ?? { warn: console.warn, error: console.error };
-            logger.warn(`[PlexLibrary] Actors endpoint unavailable for library ${libraryId}`);
+            this._logger.warn(`[PlexLibrary] Actors endpoint unavailable for library ${libraryId}`);
             options.onUnsupported?.();
             return [];
         }
@@ -559,8 +561,7 @@ export class PlexLibrary implements IPlexLibrary {
         const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_STUDIOS(libraryId), params);
         const response = await this._fetchWithRetry<PlexMediaContainer<RawDirectoryTag>>(url, { signal: options.signal ?? null });
         if (!response) {
-            const logger = this._config.logger ?? { warn: console.warn, error: console.error };
-            logger.warn(`[PlexLibrary] Studios endpoint unavailable for library ${libraryId}`);
+            this._logger.warn(`[PlexLibrary] Studios endpoint unavailable for library ${libraryId}`);
             options.onUnsupported?.();
             return [];
         }
@@ -706,7 +707,7 @@ export class PlexLibrary implements IPlexLibrary {
         url: string,
         options: RequestInit = {}
     ): Promise<T | null> {
-        const logger = this._config.logger ?? { warn: console.warn, error: console.error };
+        const logger = this._logger;
         let timeoutRetries = 0;
         let serverErrorRetried = false;
         let rateLimitRetries = 0;

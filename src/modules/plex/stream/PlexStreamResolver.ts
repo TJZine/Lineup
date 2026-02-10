@@ -1586,35 +1586,41 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     /**
      * Select the best media version based on constraints.
      */
-    private _selectBestMedia(
-        mediaList: PlexMediaFile[],
+    private _pickHighestResolution(
+        candidates: PlexMediaFile[],
+        allMedia: PlexMediaFile[],
         maxBitrate?: number
     ): { media: PlexMediaFile; mediaIndex: number } | null {
-        if (!mediaList || mediaList.length === 0) {
+        if (!candidates || candidates.length === 0) {
             return null;
         }
 
         // Filter by bitrate if specified
-        let candidates = mediaList;
+        let filtered = candidates;
         if (typeof maxBitrate === 'number') {
-            candidates = mediaList.filter((m) => m.bitrate <= maxBitrate);
-            if (candidates.length === 0) {
+            filtered = candidates.filter((m) => m.bitrate <= maxBitrate);
+            if (filtered.length === 0) {
                 // Fall back to lowest bitrate if nothing fits
-                candidates = [mediaList.reduce((a, b) =>
-                    a.bitrate < b.bitrate ? a : b
-                )];
+                filtered = [candidates.reduce((a, b) => (a.bitrate < b.bitrate ? a : b))];
             }
         }
 
         // Prefer highest resolution
-        const sorted = [...candidates].sort((a, b) =>
+        const sorted = [...filtered].sort((a, b) =>
             (b.width * b.height) - (a.width * a.height)
         );
 
         const media = sorted[0];
         if (!media) return null;
-        const mediaIndex = mediaList.findIndex((entry) => entry === media);
+        const mediaIndex = allMedia.findIndex((entry) => entry === media);
         return { media, mediaIndex: mediaIndex >= 0 ? mediaIndex : 0 };
+    }
+
+    private _selectBestMedia(
+        mediaList: PlexMediaFile[],
+        maxBitrate?: number
+    ): { media: PlexMediaFile; mediaIndex: number } | null {
+        return this._pickHighestResolution(mediaList, mediaList, maxBitrate);
     }
 
     private _selectBestMediaWithSubtitleStream(
@@ -1622,33 +1628,13 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         subtitleStreamId: string,
         maxBitrate?: number
     ): { media: PlexMediaFile; mediaIndex: number } | null {
-        if (!mediaList || mediaList.length === 0) {
-            return null;
-        }
+        if (!mediaList || mediaList.length === 0) return null;
         const candidates = mediaList.filter((m) => {
             const part = m.parts[0];
             if (!part) return false;
             return part.streams.some((s) => s.streamType === 3 && s.id === subtitleStreamId);
         });
-        if (candidates.length === 0) {
-            return null;
-        }
-
-        // Filter by bitrate if specified (mirror _selectBestMedia behavior)
-        let bitrateCandidates = candidates;
-        if (typeof maxBitrate === 'number') {
-            bitrateCandidates = candidates.filter((m) => m.bitrate <= maxBitrate);
-            if (bitrateCandidates.length === 0) {
-                bitrateCandidates = [candidates.reduce((a, b) => (a.bitrate < b.bitrate ? a : b))];
-            }
-        }
-
-        // Prefer highest resolution among candidates that contain the subtitle stream.
-        const sorted = [...bitrateCandidates].sort((a, b) => (b.width * b.height) - (a.width * a.height));
-        const media = sorted[0];
-        if (!media) return null;
-        const mediaIndex = mediaList.findIndex((entry) => entry === media);
-        return { media, mediaIndex: mediaIndex >= 0 ? mediaIndex : 0 };
+        return this._pickHighestResolution(candidates, mediaList, maxBitrate);
     }
 
     /**
