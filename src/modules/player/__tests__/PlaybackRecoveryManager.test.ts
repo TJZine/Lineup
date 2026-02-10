@@ -256,16 +256,32 @@ describe('PlaybackRecoveryManager', () => {
         expect(player.play).toHaveBeenCalled();
     });
 
-    it('prefers stored per-item subtitle preference when available', async () => {
+    it('ignores stored subtitle track selections (no per-item or global persistence)', async () => {
         localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'standard');
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE, '0');
         localStorage.setItem(
             `${RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_BY_ITEM_PREFIX}item-1`,
-            JSON.stringify({ trackId: 'sub-full', language: 'en', codec: 'srt', lastUpdated: Date.now() })
+            JSON.stringify({ trackId: 'sub-es', language: 'es', codec: 'srt', lastUpdated: Date.now() })
+        );
+        localStorage.setItem(
+            RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL,
+            JSON.stringify({ trackId: 'sub-es', language: 'es', codec: 'srt', lastUpdated: Date.now() })
         );
 
-        const decision = makeDecision({ availableSubtitleStreams: makeSubtitleStreams() });
-        const { manager, resolver } = setup();
+        const spanishStream: PlexStream = {
+            id: 'sub-es',
+            streamType: 3,
+            language: 'Spanish',
+            languageCode: 'es',
+            codec: 'srt',
+            format: 'srt',
+            key: '/library/streams/3',
+            forced: false,
+            default: false,
+            title: 'Spanish',
+        };
+
+        const decision = makeDecision({ availableSubtitleStreams: [spanishStream, ...makeSubtitleStreams()] });
+        const { manager, resolver } = setup({ getPreferredSubtitleLanguage: () => 'en' });
         (resolver.resolveStream as jest.Mock).mockResolvedValue(decision);
 
         const stream = await manager.resolveStreamForProgram(makeProgram());

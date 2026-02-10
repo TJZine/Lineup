@@ -68,16 +68,6 @@ export class PlaybackRecoveryManager {
         return this._streamRecoveryInProgress;
     }
 
-    private _useGlobalSubtitlePreference(): boolean {
-        try {
-            return isStoredTrue(
-                safeLocalStorageGet(RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE)
-            );
-        } catch {
-            return false;
-        }
-    }
-
     private _preferForcedSubtitles(): boolean {
         try {
             return isStoredTrue(
@@ -119,34 +109,8 @@ export class PlaybackRecoveryManager {
         }
     }
 
-    private _getSubtitlePreferenceKey(itemKey: string): string {
-        return `${RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_BY_ITEM_PREFIX}${itemKey}`;
-    }
-
-    private _readStoredPreference(key: string): { trackId: string; language: string; codec: string } | null {
-        const raw = safeLocalStorageGet(key);
-        if (!raw) return null;
-        try {
-            const parsed = JSON.parse(raw) as { trackId?: unknown; language?: unknown; codec?: unknown };
-            if (
-                typeof parsed.trackId === 'string' &&
-                typeof parsed.language === 'string' &&
-                typeof parsed.codec === 'string'
-            ) {
-                return {
-                    trackId: parsed.trackId,
-                    language: parsed.language,
-                    codec: parsed.codec,
-                };
-            }
-        } catch {
-            return null;
-        }
-        return null;
-    }
-
     private _resolvePreferredSubtitleId(
-        itemKey: string | null,
+        _itemKey: string | null,
         tracks: SubtitleTrack[]
     ): string | null {
         const mode = getSubtitleMode();
@@ -165,22 +129,8 @@ export class PlaybackRecoveryManager {
             return null;
         }
 
-        const useGlobal = this._useGlobalSubtitlePreference() || !itemKey;
-        const storedPreference = useGlobal
-            ? this._readStoredPreference(RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL)
-            : this._readStoredPreference(this._getSubtitlePreferenceKey(itemKey));
-        if (storedPreference) {
-            const byId = eligible.find((t) => t.id === storedPreference.trackId);
-            if (byId) return byId.id;
-            const byLangCodec = eligible.find(
-                (t) =>
-                    t.codec.toLowerCase() === storedPreference.codec.toLowerCase() &&
-                    (t.languageCode.toLowerCase() === storedPreference.language.toLowerCase() ||
-                        t.language.toLowerCase() === storedPreference.language.toLowerCase())
-            );
-            if (byLangCodec) return byLangCodec.id;
-        }
-
+        // Retune does not persist a specific subtitle track choice across items/channels.
+        // Auto-selection is derived only from language preferences (app override, Plex user preference, or defaults).
         const appPreferredLanguage = this._getPreferredSubtitleLanguage();
         if (appPreferredLanguage) {
             const preferred = this._findSubtitleByLanguage(eligible, appPreferredLanguage);

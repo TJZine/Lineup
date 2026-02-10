@@ -556,9 +556,7 @@ describe('PlaybackOptionsCoordinator', () => {
         expect(notifyToast).toHaveBeenCalledWith('Failed to load burn-in subtitles', 'warning');
     });
 
-    it('persists subtitle preference per item when global override is off', async (): Promise<void> => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE, '0');
-
+    it('does not persist subtitle preference (no per-item or global storage)', async (): Promise<void> => {
         const player = createPlayer([
             makeTextTrack({ id: 'sub-99', fetchableViaKey: true, key: '/library/streams/99' }),
         ]);
@@ -577,8 +575,10 @@ describe('PlaybackOptionsCoordinator', () => {
 
         await flushPromises();
 
-        const stored = localStorage.getItem(`${RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_BY_ITEM_PREFIX}item-99`);
-        expect(stored).toContain('sub-99');
+        const storedItem = localStorage.getItem(`${RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_BY_ITEM_PREFIX}item-99`);
+        const storedGlobal = localStorage.getItem(RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL);
+        expect(storedItem).toBeNull();
+        expect(storedGlobal).toBeNull();
     });
 
     it('closes modal after selecting subtitle or audio', () => {

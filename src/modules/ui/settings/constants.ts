@@ -37,8 +37,6 @@ export const SETTINGS_STORAGE_KEYS = {
     AUDIO_SETUP_COMPLETE: RETUNE_STORAGE_KEYS.AUDIO_SETUP_COMPLETE,
     /** Subtitle mode */
     SUBTITLE_MODE: RETUNE_STORAGE_KEYS.SUBTITLE_MODE,
-    /** Use global subtitle preference override */
-    SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE: RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE,
     /** Preferred subtitle language (app override) */
     SUBTITLE_LANGUAGE: RETUNE_STORAGE_KEYS.SUBTITLE_LANGUAGE,
     /** Prefer forced subtitles over full subtitles */
@@ -81,7 +79,6 @@ export const DEFAULT_SETTINGS: SettingsConfig = {
     },
     subtitles: {
         mode: 'standard',
-        useGlobalPreference: false,
         language: null,
         preferForced: false,
     },

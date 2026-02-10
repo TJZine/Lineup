@@ -14,18 +14,11 @@ import type { IVideoPlayer } from '../../player';
 import type { ScheduledProgram } from '../../scheduler/scheduler';
 import type { SubtitleTrack } from '../../player/types';
 import { BURN_IN_SUBTITLE_FORMATS } from '../../player/constants';
-import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
 import { getSubtitleMode, setSubtitleMode, subtitleModeAllowsBurnIn, subtitleModeIsDirectOnly } from '../../../shared/subtitle-mode';
 import type { ToastType } from '../toast/types';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
 import type { StreamDescriptor } from '../../player/types';
 import { redactSensitiveTokens } from '../../../utils/redact';
-import {
-    isStoredTrue,
-    safeLocalStorageGet,
-    safeLocalStorageRemove,
-    safeLocalStorageSet,
-} from '../../../utils/storage';
 
 export const SUBTITLE_PROBE_TOTAL_TIMEOUT_MS = 400;
 
@@ -295,15 +288,14 @@ export class PlaybackOptionsCoordinator {
 
         const mode = getSubtitleMode();
         const allowBurnIn = subtitleModeAllowsBurnIn(mode);
-        if (trackId && track && allowBurnIn) {
-            // For burn-in formats (PGS/ASS/etc), go straight to the burn-in stream reload.
-            if (this.isBurnInTrack(track)) {
-                this.persistSubtitlePreference(track);
-                this.requestBurnInSubtitle(track.id, 'user_selected_burn_in_format');
-                this.refreshIfOpen();
-                this.closeModalAndReturnFocus();
-                return;
-            }
+            if (trackId && track && allowBurnIn) {
+                // For burn-in formats (PGS/ASS/etc), go straight to the burn-in stream reload.
+                if (this.isBurnInTrack(track)) {
+                    this.requestBurnInSubtitle(track.id, 'user_selected_burn_in_format');
+                    this.refreshIfOpen();
+                    this.closeModalAndReturnFocus();
+                    return;
+                }
 
             if (track.isTextCandidate) {
                 // Direct-fetchable tracks don't need probing – they already have a known-good key.
@@ -322,7 +314,6 @@ export class PlaybackOptionsCoordinator {
                         return;
                     }
                     if (decision === 'unsupported') {
-                        this.persistSubtitlePreference(currentTrack);
                         this.requestBurnInSubtitle(currentTrack.id, 'user_selected_text_extract_probe_unsupported');
                         this.refreshIfOpen();
                         this.closeModalAndReturnFocus();
@@ -335,7 +326,7 @@ export class PlaybackOptionsCoordinator {
         player.setSubtitleTrack(trackId).catch(() => {
             // Subtitle selection errors are handled by SubtitleManager fallback/Toast.
         });
-        this.persistSubtitlePreference(track);
+        // Intentionally do not persist subtitle track selections (webOS subtitle reliability concerns).
         this.refreshIfOpen();
         this.closeModalAndReturnFocus();
     }
@@ -493,43 +484,8 @@ export class PlaybackOptionsCoordinator {
     }
 
 
-    private useGlobalSubtitlePreference(): boolean {
-        try {
-            return isStoredTrue(
-                safeLocalStorageGet(RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE)
-            );
-        } catch {
-            return false;
-        }
-    }
-
     private isBurnInTrack(track: SubtitleTrack): boolean {
         const format = (track.format || track.codec || '').toLowerCase();
         return BURN_IN_SUBTITLE_FORMATS.includes(format);
-    }
-
-    private getItemPreferenceKey(itemKey: string): string {
-        return `${RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_BY_ITEM_PREFIX}${itemKey}`;
-    }
-
-    private persistSubtitlePreference(track: SubtitleTrack | null): void {
-        const itemKey = this.deps.getCurrentProgram()?.item.ratingKey ?? null;
-        const useGlobal = this.useGlobalSubtitlePreference() || !itemKey;
-        const storageKey = useGlobal
-            ? RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL
-            : this.getItemPreferenceKey(itemKey);
-
-        if (!track) {
-            safeLocalStorageRemove(storageKey);
-            return;
-        }
-
-        const payload = {
-            trackId: track.id,
-            language: track.languageCode || track.language,
-            codec: track.codec,
-            lastUpdated: Date.now(),
-        };
-        safeLocalStorageSet(storageKey, JSON.stringify(payload));
     }
 }

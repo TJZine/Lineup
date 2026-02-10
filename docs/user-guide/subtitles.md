@@ -11,6 +11,12 @@ Settings → **Audio & Subtitles** → **Subtitle Mode**
 - **Standard (avoid transcoding)**: Allow server extraction for text subtitles, but try to avoid burn-in transcoding.
 - **Full (Burn-in, default)**: Also allow image/styled subtitles (PGS/ASS/etc) via burn-in transcoding, and may use burn-in when other subtitle paths aren’t available.
 
+## Subtitle selection persistence
+
+Retune does **not** remember a specific subtitle track selection (per-item or globally). If you change subtitles during playback, that choice applies only to the current program/stream.
+
+To influence auto-selection, use **Preferred Subtitle Language** and **Prefer Forced Subtitles** in Settings.
+
 ## Playback labels
 
 When choosing subtitles in **Playback Options**:

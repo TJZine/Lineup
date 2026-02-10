@@ -62,8 +62,6 @@ export interface SubtitleSettings {
      * - full: allow burn-in (image/styled) subtitles via transcoding
      */
     mode: 'off' | 'direct' | 'standard' | 'full';
-    /** Use global subtitle preference override */
-    useGlobalPreference: boolean;
     /** Preferred subtitle language code (app override) */
     language: string | null;
     /** Prefer forced subtitles over full subtitles when auto-selecting */

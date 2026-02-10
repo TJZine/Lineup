@@ -81,10 +81,6 @@ const TOGGLE_METADATA: Record<string, ToggleMetadata> = {
         storageKey: SETTINGS_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING,
         defaultValue: DEFAULT_SETTINGS.developer.subtitleDebugLogging,
     },
-    'settings-subtitles-global': {
-        storageKey: SETTINGS_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE,
-        defaultValue: DEFAULT_SETTINGS.subtitles.useGlobalPreference,
-    },
     'settings-subtitles-prefer-forced': {
         storageKey: SETTINGS_STORAGE_KEYS.SUBTITLE_PREFER_FORCED,
         defaultValue: DEFAULT_SETTINGS.subtitles.preferForced,
@@ -245,10 +241,6 @@ export class SettingsScreen {
         const subtitlesEnabled = subtitleMode !== 'off';
         const epgLayoutModeValue = this._loadEpgLayoutModeValue();
         const epgGuideDensityValue = this._loadEpgGuideDensityValue();
-        const useGlobalSubtitlePreference = this._loadBoolSetting(
-            SETTINGS_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE,
-            DEFAULT_SETTINGS.subtitles.useGlobalPreference
-        );
         const preferForcedSubtitles = this._loadBoolSetting(
             SETTINGS_STORAGE_KEYS.SUBTITLE_PREFER_FORCED,
             DEFAULT_SETTINGS.subtitles.preferForced
@@ -312,20 +304,6 @@ export class SettingsScreen {
                         disabledReason: 'Enable Subtitle Mode first',
                         onChange: (value: number): void => {
                             this._saveSubtitleLanguageValue(value);
-                        },
-                    },
-                    {
-                        id: 'settings-subtitles-global',
-                        label: 'Use Global Subtitle Preference',
-                        description: 'Apply a single subtitle choice to all channels',
-                        value: useGlobalSubtitlePreference,
-                        disabled: !subtitlesEnabled,
-                        disabledReason: 'Enable Subtitle Mode first',
-                        onChange: (value: boolean): void => {
-                            this._saveBoolSetting(
-                                SETTINGS_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE,
-                                value
-                            );
                         },
                     },
                     {
@@ -857,8 +835,6 @@ export class SettingsScreen {
         const subtitlesEnabled = mode !== 'off';
         const subtitleLanguage = this._selectElements.get('settings-subtitle-language');
         subtitleLanguage?.setDisabled(!subtitlesEnabled);
-        const subtitleGlobal = this._toggleElements.get('settings-subtitles-global');
-        subtitleGlobal?.setDisabled(!subtitlesEnabled);
         const subtitlePreferForced = this._toggleElements.get('settings-subtitles-prefer-forced');
         subtitlePreferForced?.setDisabled(!subtitlesEnabled);
         const nav = this._getNavigation();

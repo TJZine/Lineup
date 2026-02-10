@@ -7,6 +7,7 @@ This document is a living “what we do and why” for subtitles on webOS, plus 
 - Make **embedded text subtitles** (especially SRT/SubRip) reliable.
 - Keep the UX **simple** (streaming-app expectations) while preserving power options (direct-only and burn-in).
 - Avoid leaking Plex tokens (URLs must be redacted in logs).
+- Avoid persisting subtitle track selections across items/channels (webOS subtitle handling is brittle).
 
 ## Terminology
 
@@ -21,6 +22,7 @@ This document is a living “what we do and why” for subtitles on webOS, plus 
 - `PlexStreamResolver` returns `StreamDecision.availableSubtitleStreams`.
 - `PlaybackRecoveryManager` maps those to `SubtitleTrack[]` and builds `StreamDescriptor.subtitleContext`.
 - `VideoPlayer` loads tracks via `SubtitleManager`.
+- Subtitle track selections are not persisted; only language preferences influence auto-selection.
 
 Key files:
 - `src/modules/plex/stream/PlexStreamResolver.ts`
