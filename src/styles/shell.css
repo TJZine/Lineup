@@ -332,7 +332,7 @@
 
 .setup-panel {
   max-height: 85vh;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
 }
@@ -355,11 +355,13 @@
 }
 
 .setup-scroll {
+  --setup-focus-inset: calc(var(--focus-ring-width) + var(--focus-ring-offset) + 2px);
   display: flex;
   flex-direction: column;
   gap: 16px;
   overflow-y: auto;
-  padding-right: 4px;
+  padding: var(--setup-focus-inset);
+  padding-right: calc(var(--setup-focus-inset) + 4px);
   flex: 1;
   min-height: 0;
 }

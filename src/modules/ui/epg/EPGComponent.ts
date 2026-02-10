@@ -299,7 +299,10 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         this.timeIndicatorElement = document.createElement('div');
         this.timeIndicatorElement.className = EPG_CLASSES.TIME_INDICATOR;
-        this.programAreaElement.appendChild(this.timeIndicatorElement);
+        // Attach to the translated content container so it scrolls horizontally with the grid.
+        // (Appending to the program area would keep it fixed while the grid content translates.)
+        const host = this.virtualizer.getContentElement() ?? this.programAreaElement;
+        host.appendChild(this.timeIndicatorElement);
 
         this.updateTimeIndicatorPosition();
     }
@@ -922,14 +925,15 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
      */
     private ensureCellVisible(channelIndex: number, program: ScheduledProgram): boolean {
         const { scrollPosition } = this.state;
-        const { visibleHours } = this.config;
+        const { visibleHours, totalHours } = this.config;
         let didScroll = this.ensureChannelVisible(channelIndex);
 
         // Check horizontal visibility
         const programStartMinutes = (program.scheduledStartTime - this.state.gridAnchorTime) / 60000;
         const programEndMinutes = (program.scheduledEndTime - this.state.gridAnchorTime) / 60000;
         const visibleEndMinutes = scrollPosition.timeOffset + (visibleHours * 60);
-        const clampTimeOffset = (minutes: number): number => Math.max(0, minutes);
+        const maxOffset = Math.max(0, (totalHours * 60) - (visibleHours * 60));
+        const clampTimeOffset = (minutes: number): number => Math.max(0, Math.min(minutes, maxOffset));
 
         if (programStartMinutes < scrollPosition.timeOffset) {
             this.state.scrollPosition.timeOffset = clampTimeOffset(programStartMinutes);
@@ -1578,9 +1582,10 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             return;
         }
 
-        const channelStart = this.state.scrollPosition.channelOffset;
+        const rowBuffer = EPG_CONSTANTS.ROW_BUFFER;
+        const channelStart = Math.max(0, this.state.scrollPosition.channelOffset - rowBuffer);
         const channelEnd = Math.min(
-            channelStart + this.config.visibleChannels,
+            this.state.scrollPosition.channelOffset + this.config.visibleChannels + rowBuffer,
             this.state.channels.length
         );
         const timeStartMs = this.state.gridAnchorTime + (this.state.scrollPosition.timeOffset * 60000);

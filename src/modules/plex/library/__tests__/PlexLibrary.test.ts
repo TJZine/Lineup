@@ -247,6 +247,25 @@ describe('PlexLibrary', () => {
             expect(libs[0]!.title).toBe('Movies');
         });
 
+        it('should populate contentCount when includeItemCounts is enabled', async () => {
+            mockFetchSequence([
+                { json: mockLibrarySectionsResponse },
+                { json: { MediaContainer: { totalSize: 123 } } },
+                { json: { MediaContainer: { totalSize: 456 } } },
+                { json: { MediaContainer: { totalSize: 789 } } },
+                { json: { MediaContainer: { totalSize: 10 } } },
+            ]);
+            const library = new PlexLibrary(mockConfig);
+
+            const libs = await library.getLibraries({ includeItemCounts: true, itemCountConcurrency: 1 });
+
+            expect(libs).toHaveLength(4);
+            expect(libs[0]!.contentCount).toBe(123);
+            expect(libs[1]!.contentCount).toBe(456);
+            expect(libs[2]!.contentCount).toBe(789);
+            expect(libs[3]!.contentCount).toBe(10);
+        });
+
         it('should parse library types correctly', async () => {
             mockFetchJson(mockLibrarySectionsResponse);
             const library = new PlexLibrary(mockConfig);

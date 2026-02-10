@@ -46,6 +46,49 @@ function createMockDescriptor(
     };
 }
 
+type FakeSubtitleManager = {
+    initialize: () => void;
+    loadTracks: (_tracks: unknown, ctx?: StreamDescriptor['subtitleContext']) => string[];
+    unloadTracks: () => void;
+    getTracks: () => unknown[];
+    getActiveTrackId: () => string | null;
+    setActiveTrack: (trackId: string | null) => void;
+    destroy: () => void;
+};
+
+function createFakeSubtitleManager(
+    tracks: unknown[],
+    opts: { clearActiveOnDeactivate: boolean }
+): FakeSubtitleManager {
+    let activeTrackId: string | null = null;
+    let context: StreamDescriptor['subtitleContext'] | undefined;
+
+    return {
+        initialize: (): void => undefined,
+        loadTracks: (_tracks: unknown, ctx?: StreamDescriptor['subtitleContext']): string[] => {
+            context = ctx;
+            return [];
+        },
+        unloadTracks: (): void => {
+            activeTrackId = null;
+            context = undefined;
+        },
+        getTracks: (): unknown[] => tracks,
+        getActiveTrackId: (): string | null => activeTrackId,
+        setActiveTrack: (trackId: string | null): void => {
+            activeTrackId = trackId;
+            if (trackId === 'embedded-srt') {
+                if (opts.clearActiveOnDeactivate) {
+                    // Simulate a synchronous failure that deactivates the subtitle immediately.
+                    activeTrackId = null;
+                }
+                context?.onDeactivate?.({ trackId, reason: 'embedded_text_requires_burn_in' });
+            }
+        },
+        destroy: (): void => undefined,
+    };
+}
+
 // ============================================
 // mapMediaErrorCodeToPlaybackError Tests
 // ============================================
@@ -410,44 +453,7 @@ describe('VideoPlayer', () => {
                 fetchableViaKey: false,
             };
 
-            type FakeSubtitleManager = {
-                initialize: () => void;
-                loadTracks: (_tracks: unknown, ctx?: StreamDescriptor['subtitleContext']) => string[];
-                unloadTracks: () => void;
-                getTracks: () => unknown[];
-                getActiveTrackId: () => string | null;
-                setActiveTrack: (trackId: string | null) => void;
-                destroy: () => void;
-            };
-
-            const fakeSubtitleManager = ((): FakeSubtitleManager => {
-                let activeTrackId: string | null = null;
-                let context: StreamDescriptor['subtitleContext'] | undefined;
-                const tracks = [selectedTrack];
-
-                return {
-                    initialize: (): void => undefined,
-                    loadTracks: (_tracks: unknown, ctx?: StreamDescriptor['subtitleContext']): string[] => {
-                        context = ctx;
-                        return [];
-                    },
-                    unloadTracks: (): void => {
-                        activeTrackId = null;
-                        context = undefined;
-                    },
-                    getTracks: (): unknown[] => tracks,
-                    getActiveTrackId: (): string | null => activeTrackId,
-                    setActiveTrack: (trackId: string | null): void => {
-                        activeTrackId = trackId;
-                        if (trackId === 'embedded-srt') {
-                            // Simulate a synchronous failure that deactivates the subtitle immediately.
-                            activeTrackId = null;
-                            context?.onDeactivate?.({ trackId, reason: 'embedded_text_requires_burn_in' });
-                        }
-                    },
-                    destroy: (): void => undefined,
-                };
-            })();
+            const fakeSubtitleManager = createFakeSubtitleManager([selectedTrack], { clearActiveOnDeactivate: true });
 
             (player as unknown as { _subtitleManager: unknown })._subtitleManager = fakeSubtitleManager;
 
@@ -492,43 +498,7 @@ describe('VideoPlayer', () => {
                 fetchableViaKey: false,
             };
 
-            type FakeSubtitleManager = {
-                initialize: () => void;
-                loadTracks: (_tracks: unknown, ctx?: StreamDescriptor['subtitleContext']) => string[];
-                unloadTracks: () => void;
-                getTracks: () => unknown[];
-                getActiveTrackId: () => string | null;
-                setActiveTrack: (trackId: string | null) => void;
-                destroy: () => void;
-            };
-
-            const fakeSubtitleManager = ((): FakeSubtitleManager => {
-                let activeTrackId: string | null = null;
-                let context: StreamDescriptor['subtitleContext'] | undefined;
-                const tracks = [selectedTrack];
-
-                return {
-                    initialize: (): void => undefined,
-                    loadTracks: (_tracks: unknown, ctx?: StreamDescriptor['subtitleContext']): string[] => {
-                        context = ctx;
-                        return [];
-                    },
-                    unloadTracks: (): void => {
-                        activeTrackId = null;
-                        context = undefined;
-                    },
-                    getTracks: (): unknown[] => tracks,
-                    getActiveTrackId: (): string | null => activeTrackId,
-                    setActiveTrack: (trackId: string | null): void => {
-                        activeTrackId = trackId;
-                        if (trackId === 'embedded-srt') {
-                            // Simulate a synchronous failure signal while the manager still reports the track active.
-                            context?.onDeactivate?.({ trackId, reason: 'embedded_text_requires_burn_in' });
-                        }
-                    },
-                    destroy: (): void => undefined,
-                };
-            })();
+            const fakeSubtitleManager = createFakeSubtitleManager([selectedTrack], { clearActiveOnDeactivate: false });
 
             (player as unknown as { _subtitleManager: unknown })._subtitleManager = fakeSubtitleManager;
 

@@ -6,13 +6,15 @@ import { SettingsScreen } from '../SettingsScreen';
 import { SETTINGS_STORAGE_KEYS } from '../constants';
 import type { GuideSettingChange } from '../types';
 import { ThemeManager } from '../../theme';
-import { THEME_OPTIONS } from '../theme';
+import { THEME_OPTIONS, THEME_CLASSES } from '../theme';
 
 type StubFocusable = {
     id: string;
     neighbors: { up?: string; down?: string; left?: string; right?: string };
     onSelect?: () => void;
 };
+
+const ALL_THEME_CLASSES = Object.values(THEME_CLASSES).filter(Boolean);
 
 const createNavigationStub = (): {
     focusables: Map<string, StubFocusable>;
@@ -152,12 +154,12 @@ describe('SettingsScreen (Theme selection)', () => {
     beforeEach(() => {
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.THEME);
         ThemeManager.__resetForTests();
-        document.body.classList.remove('theme-broadcast', 'theme-swiss', 'theme-directv');
+        document.body.classList.remove(...ALL_THEME_CLASSES);
     });
 
     afterEach(() => {
         document.body.innerHTML = '';
-        document.body.classList.remove('theme-broadcast', 'theme-swiss', 'theme-directv');
+        document.body.classList.remove(...ALL_THEME_CLASSES);
         ThemeManager.__resetForTests();
     });
 

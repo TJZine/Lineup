@@ -807,6 +807,14 @@ export class EPGVirtualizer {
         return this.elementPool.size;
     }
 
+    /**
+     * Get the root content element that is translated for time scrolling.
+     * Used for attaching overlays that should move with the grid (e.g. the "Now" line).
+     */
+    getContentElement(): HTMLElement | null {
+        return this.contentElement;
+    }
+
     updateScrollPosition(timeOffset: number): void {
         if (!this.contentElement || !this.config) return;
         const translateX = -(timeOffset * this.config.pixelsPerMinute);

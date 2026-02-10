@@ -257,13 +257,7 @@ Hello`,
         });
 
         it('skips extraction attempts when the active track is burned into the stream', () => {
-            const originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
-            const fetchMock = jest.fn();
-            Object.defineProperty(globalThis, 'fetch', {
-                value: fetchMock,
-                writable: true,
-                configurable: true,
-            });
+            const { fetchMock, restore } = installFetchAndBlobMocks();
 
             try {
                 const track = createMockSubtitleTrack({
@@ -284,12 +278,7 @@ Hello`,
                 expect(manager.getActiveTrackId()).toBe('burned-text');
                 expect(fetchMock).not.toHaveBeenCalled();
             } finally {
-                if (originalFetchDescriptor) {
-                    Object.defineProperty(globalThis, 'fetch', originalFetchDescriptor);
-                } else {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    delete (globalThis as any).fetch;
-                }
+                restore();
             }
         });
     });

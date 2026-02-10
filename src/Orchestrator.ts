@@ -1259,6 +1259,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                     console.warn('[Orchestrator] selectServer: startup phases complete', { serverId });
                 }
                 if (this._epg) {
+                    this._epgCoordinator?.clearScheduleCaches();
                     this._epg.clearSchedules();
                     if (debugLogging) {
                         console.warn('[Orchestrator] selectServer: cleared EPG schedules', { serverId });
@@ -1427,6 +1428,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         }
 
         if (change.key === 'libraryTabs') {
+            epgCoordinator.clearScheduleCaches();
             epg.clearSchedules();
         }
 

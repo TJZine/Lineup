@@ -34,7 +34,7 @@ export interface PlaybackOptionsCoordinatorDeps {
     getVideoPlayer: () => IVideoPlayer | null;
     getCurrentStreamDescriptor?: () => StreamDescriptor | null;
     getCurrentProgram: () => ScheduledProgram | null;
-    requestBurnInSubtitle?: (trackId: string, reason: string) => void;
+    requestBurnInSubtitle?: (trackId: string, reason: string) => void | Promise<void>;
     notifyToast?: (message: string, type?: ToastType) => void;
 }
 
@@ -90,6 +90,7 @@ export class PlaybackOptionsCoordinator {
         this.pendingViewModel = null;
         this.pendingFocusableIds = [];
         this.pendingPreferredFocusId = null;
+        this.subtitleProbeCache.clear();
     }
 
     refreshIfOpen(): void {
@@ -335,9 +336,16 @@ export class PlaybackOptionsCoordinator {
     }
 
     private requestBurnInSubtitle(trackId: string, reason: string): void {
+        const request = this.deps.requestBurnInSubtitle;
+        if (!request) {
+            this.deps.notifyToast?.('Burn-in subtitles unavailable', 'warning');
+            return;
+        }
         this.deps.notifyToast?.('Loading burn-in subtitles…', 'info');
         try {
-            this.deps.requestBurnInSubtitle?.(trackId, reason);
+            void Promise.resolve(request(trackId, reason)).catch(() => {
+                // ignore async errors
+            });
         } catch {
             // ignore
         }
@@ -347,7 +355,8 @@ export class PlaybackOptionsCoordinator {
         return this.deps.getCurrentProgram()?.item.ratingKey ?? null;
     }
 
-    private hashIdentity(value: string): string {
+    // Non-cryptographic hash used only for cache-key scoping. Avoid storing raw tokens in keys.
+    private hashForCacheKeyScope(value: string): string {
         let hash = 0;
         for (let index = 0; index < value.length; index += 1) {
             hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
@@ -362,7 +371,7 @@ export class PlaybackOptionsCoordinator {
         const itemKey = context.itemKey ?? this.getCurrentProgramItemKey() ?? 'global';
         const serverKey = context.serverUri ?? 'unknown-server';
         const token = this.getAuthTokenFromHeaders(context.authHeaders);
-        const accountKey = token ? this.hashIdentity(token) : 'anonymous';
+        const accountKey = token ? this.hashForCacheKeyScope(token) : 'anonymous';
         return `${serverKey}::${accountKey}::${itemKey}::${trackId}`;
     }
 
@@ -404,11 +413,16 @@ export class PlaybackOptionsCoordinator {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 400);
         try {
-            const response = await fetch(url.toString(), {
-                method: 'GET',
+            const init: RequestInit = {
+                method: 'HEAD',
                 headers: { Accept: 'text/vtt, text/plain, */*' },
                 signal: controller.signal,
-            });
+            };
+            let response = await fetch(url.toString(), init);
+            if (!response.ok && (response.status === 405 || response.status === 501)) {
+                // Some Plex endpoints/proxies may not support HEAD reliably; fall back to GET.
+                response = await fetch(url.toString(), { ...init, method: 'GET' });
+            }
             if (response.ok) {
                 this.subtitleProbeCache.set(cacheKey, 'supported');
                 return 'supported';
@@ -416,6 +430,7 @@ export class PlaybackOptionsCoordinator {
             this.subtitleProbeCache.set(cacheKey, 'unsupported');
             return 'unsupported';
         } catch {
+            // Don't cache transient network/timeout errors; allow future attempts to succeed.
             return 'unsupported';
         } finally {
             clearTimeout(timeoutId);

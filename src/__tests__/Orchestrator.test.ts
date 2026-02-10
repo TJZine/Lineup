@@ -750,6 +750,7 @@ describe('AppOrchestrator', () => {
 
             const initCoordinator = { runStartup: jest.fn().mockResolvedValue(undefined) };
             const epgCoordinator = {
+                clearScheduleCaches: jest.fn(),
                 primeEpgChannels: jest.fn(),
                 refreshEpgSchedules: jest.fn().mockResolvedValue(undefined),
             };

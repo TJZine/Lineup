@@ -62,7 +62,11 @@ export class ChannelSetupCoordinator {
         if (!plexLibrary) {
             throw new Error('PlexLibrary not initialized');
         }
-        const libraries = await plexLibrary.getLibraries({ signal: signal ?? null });
+        const libraries = await plexLibrary.getLibraries({
+            signal: signal ?? null,
+            includeItemCounts: true,
+            itemCountConcurrency: 4,
+        });
         return libraries.filter((lib) => lib.type === 'movie' || lib.type === 'show');
     }
 

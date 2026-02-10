@@ -31,7 +31,19 @@ export interface IPlexLibrary {
      * Get all libraries.
      * @returns Promise resolving to list of libraries
      */
-    getLibraries(options?: { signal?: AbortSignal | null }): Promise<PlexLibrary[]>;
+    getLibraries(options?: {
+        signal?: AbortSignal | null;
+        /**
+         * When true, fetch and populate `contentCount` for each library section.
+         * Uses a lightweight count query (X-Plex-Container-Size=0) per library.
+         */
+        includeItemCounts?: boolean;
+        /**
+         * Concurrency for item count queries when `includeItemCounts` is true.
+         * Defaults to 4.
+         */
+        itemCountConcurrency?: number;
+    }): Promise<PlexLibrary[]>;
 
     /**
      * Get a specific library by ID.

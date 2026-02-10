@@ -23,6 +23,7 @@ import {
     safeLocalStorageGet,
 } from '../../utils/storage';
 import { getSubtitleMode, subtitleModeAllowsBurnIn, subtitleModeIsDirectOnly } from '../../shared/subtitle-mode';
+import { redactSensitiveTokens } from '../../utils/redact';
 
 export interface PlaybackRecoveryDeps {
     getVideoPlayer: () => IVideoPlayer | null;
@@ -549,7 +550,10 @@ export class PlaybackRecoveryManager {
             this.resetPlaybackFailureGuard();
             return true;
         } catch (error) {
-            console.error('[Orchestrator] Transcode fallback failed:', error);
+            const safeError = error instanceof Error
+                ? `${error.name}: ${error.message}`
+                : String(error);
+            console.error('[Orchestrator] Transcode fallback failed:', redactSensitiveTokens(safeError));
             return false;
         } finally {
             this._streamRecoveryInProgress = false;
@@ -653,7 +657,10 @@ export class PlaybackRecoveryManager {
             }
             return true;
         } catch (error) {
-            console.error('[PlaybackRecovery] Burn-in reload failed:', error);
+            const safeError = error instanceof Error
+                ? `${error.name}: ${error.message}`
+                : String(error);
+            console.error('[PlaybackRecovery] Burn-in reload failed:', redactSensitiveTokens(safeError));
             if (debugEnabled) {
                 console.warn('[PlaybackRecovery] Burn-in recovery failed:', {
                     itemKey,

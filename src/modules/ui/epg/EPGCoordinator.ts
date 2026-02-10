@@ -67,6 +67,15 @@ export class EPGCoordinator {
 
     constructor(private readonly deps: EPGCoordinatorDeps) { }
 
+    /**
+     * Clear schedule caches and "loaded range" markers.
+     * Use this when the UI schedules are cleared (e.g. after library filter changes)
+     * to avoid cache/UI mismatches where the coordinator believes data is loaded.
+     */
+    clearScheduleCaches(): void {
+        this._clearScheduleCaches();
+    }
+
     private _isLibraryTabsEnabled(): boolean {
         return readStoredBoolean(RETUNE_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, true);
     }

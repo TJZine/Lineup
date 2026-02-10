@@ -66,6 +66,30 @@ const getViewModel = (coordinator: PlaybackOptionsCoordinator): PlaybackOptionsV
     return (coordinator as unknown as { pendingViewModel: PlaybackOptionsViewModel | null }).pendingViewModel!;
 };
 
+const flushPromises = async (rounds: number = 10): Promise<void> => {
+    for (let i = 0; i < rounds; i += 1) {
+        await Promise.resolve();
+    }
+};
+
+const installFetchMock = (fetchMock: jest.Mock): { restore: () => void } => {
+    const originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+    Object.defineProperty(globalThis, 'fetch', {
+        value: fetchMock,
+        writable: true,
+        configurable: true,
+    });
+    const restore = (): void => {
+        if (originalFetchDescriptor) {
+            Object.defineProperty(globalThis, 'fetch', originalFetchDescriptor);
+        } else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            delete (globalThis as any).fetch;
+        }
+    };
+    return { restore };
+};
+
 const createLocalStorageMock = (): Storage => {
     let store: Record<string, string> = {};
     return {
@@ -201,7 +225,7 @@ describe('PlaybackOptionsCoordinator', () => {
         const burn = viewModel.subtitles.options.find((option) => option.id === 'playback-subtitle-burn');
 
         burn?.onSelect?.();
-        await Promise.resolve();
+        await flushPromises();
 
         expect(requestBurnInSubtitle).toHaveBeenCalledWith('burn', expect.any(String));
         expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalled();
@@ -210,13 +234,8 @@ describe('PlaybackOptionsCoordinator', () => {
     it('requests burn-in immediately for unsupported text subtitle probes in Full mode', async () => {
         localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
-        const originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
         const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 501 });
-        Object.defineProperty(globalThis, 'fetch', {
-            value: fetchMock,
-            writable: true,
-            configurable: true,
-        });
+        const { restore } = installFetchMock(fetchMock);
 
         try {
             const player = createPlayer([makeTextTrack({ id: 'keyless', fetchableViaKey: false })]);
@@ -239,13 +258,12 @@ describe('PlaybackOptionsCoordinator', () => {
             const option = viewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-keyless');
             option?.onSelect?.();
 
-            await Promise.resolve();
-            await Promise.resolve();
+            await flushPromises();
 
             expect(fetchMock).toHaveBeenCalledWith(
                 expect.stringContaining('/library/streams/keyless'),
                 expect.objectContaining({
-                    method: 'GET',
+                    method: 'HEAD',
                     headers: { Accept: 'text/vtt, text/plain, */*' },
                 })
             );
@@ -253,27 +271,17 @@ describe('PlaybackOptionsCoordinator', () => {
             expect(requestBurnInSubtitle).toHaveBeenCalledWith('keyless', expect.any(String));
             expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalled();
         } finally {
-            if (originalFetchDescriptor) {
-                Object.defineProperty(globalThis, 'fetch', originalFetchDescriptor);
-            } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                delete (globalThis as any).fetch;
-            }
+            restore();
         }
     });
 
     it('scopes subtitle probe cache by server identity', async () => {
         localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
-        const originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
         const fetchMock = jest.fn()
-            .mockResolvedValueOnce({ ok: false, status: 501 })
+            .mockResolvedValueOnce({ ok: false, status: 400 })
             .mockResolvedValueOnce({ ok: true, status: 200 });
-        Object.defineProperty(globalThis, 'fetch', {
-            value: fetchMock,
-            writable: true,
-            configurable: true,
-        });
+        const { restore } = installFetchMock(fetchMock);
 
         try {
             const player = createPlayer([makeTextTrack({ id: 'keyless', fetchableViaKey: false })]);
@@ -299,8 +307,7 @@ describe('PlaybackOptionsCoordinator', () => {
             const firstOption = firstViewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-keyless');
             firstOption?.onSelect?.();
 
-            await Promise.resolve();
-            await Promise.resolve();
+            await flushPromises();
 
             expect(requestBurnInSubtitle).toHaveBeenCalledWith('keyless', expect.any(String));
 
@@ -314,36 +321,25 @@ describe('PlaybackOptionsCoordinator', () => {
             const secondOption = secondViewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-keyless');
             secondOption?.onSelect?.();
 
-            await Promise.resolve();
-            await Promise.resolve();
+            await flushPromises();
 
             expect(fetchMock).toHaveBeenCalledTimes(2);
             expect((player.setSubtitleTrack as jest.Mock)).toHaveBeenCalledWith('keyless');
         } finally {
-            if (originalFetchDescriptor) {
-                Object.defineProperty(globalThis, 'fetch', originalFetchDescriptor);
-            } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                delete (globalThis as any).fetch;
-            }
+            restore();
         }
     });
 
     it('ignores stale probe results when playback item changes', async () => {
         localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
-        const originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
         let resolveFetch: ((value: { ok: boolean; status: number }) => void) | undefined;
         const fetchMock = jest.fn().mockImplementation(() => (
             new Promise((resolve) => {
                 resolveFetch = resolve as (value: { ok: boolean; status: number }) => void;
             })
         ));
-        Object.defineProperty(globalThis, 'fetch', {
-            value: fetchMock,
-            writable: true,
-            configurable: true,
-        });
+        const { restore } = installFetchMock(fetchMock);
 
         try {
             const subtitles = [makeTextTrack({ id: 'keyless', fetchableViaKey: false })];
@@ -378,25 +374,18 @@ describe('PlaybackOptionsCoordinator', () => {
                 resolveFetch({ ok: false, status: 501 });
             }
 
-            await Promise.resolve();
-            await Promise.resolve();
+            await flushPromises();
 
             expect(requestBurnInSubtitle).not.toHaveBeenCalled();
             expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalled();
         } finally {
-            if (originalFetchDescriptor) {
-                Object.defineProperty(globalThis, 'fetch', originalFetchDescriptor);
-            } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                delete (globalThis as any).fetch;
-            }
+            restore();
         }
     });
 
     it('ignores stale probe results when the user re-selects another subtitle', async () => {
         localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
-        const originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
         let resolveFirstProbe: ((value: { ok: boolean; status: number }) => void) | undefined;
         const fetchMock = jest.fn().mockImplementation((url: string) => {
             if (url.includes('/library/streams/first')) {
@@ -409,11 +398,7 @@ describe('PlaybackOptionsCoordinator', () => {
             }
             throw new Error(`Unexpected probe URL: ${url}`);
         });
-        Object.defineProperty(globalThis, 'fetch', {
-            value: fetchMock,
-            writable: true,
-            configurable: true,
-        });
+        const { restore } = installFetchMock(fetchMock);
 
         try {
             const subtitles = [
@@ -447,8 +432,7 @@ describe('PlaybackOptionsCoordinator', () => {
             first?.onSelect?.();
             second?.onSelect?.();
 
-            await Promise.resolve();
-            await Promise.resolve();
+            await flushPromises();
 
             expect((player.setSubtitleTrack as jest.Mock)).toHaveBeenCalledWith('second');
             expect(requestBurnInSubtitle).not.toHaveBeenCalled();
@@ -457,25 +441,18 @@ describe('PlaybackOptionsCoordinator', () => {
                 resolveFirstProbe({ ok: false, status: 501 });
             }
 
-            await Promise.resolve();
-            await Promise.resolve();
+            await flushPromises();
 
             expect(requestBurnInSubtitle).not.toHaveBeenCalled();
             expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalledWith('first');
         } finally {
-            if (originalFetchDescriptor) {
-                Object.defineProperty(globalThis, 'fetch', originalFetchDescriptor);
-            } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                delete (globalThis as any).fetch;
-            }
+            restore();
         }
     });
 
     it('requests burn-in when text subtitle probe times out in Full mode', async (): Promise<void> => {
         localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
-        const originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
         jest.useFakeTimers();
         const fetchMock = jest.fn().mockImplementation((_url: string, init?: RequestInit) => (
             new Promise((_resolve, reject) => {
@@ -491,11 +468,7 @@ describe('PlaybackOptionsCoordinator', () => {
                 // Never resolves unless aborted.
             })
         ));
-        Object.defineProperty(globalThis, 'fetch', {
-            value: fetchMock,
-            writable: true,
-            configurable: true,
-        });
+        const { restore } = installFetchMock(fetchMock);
 
         try {
             const player = createPlayer([makeTextTrack({ id: 'keyless', fetchableViaKey: false })]);
@@ -519,19 +492,13 @@ describe('PlaybackOptionsCoordinator', () => {
             option?.onSelect?.();
 
             jest.advanceTimersByTime(450);
-            await Promise.resolve();
-            await Promise.resolve();
+            await flushPromises();
 
             expect(requestBurnInSubtitle).toHaveBeenCalledWith('keyless', expect.any(String));
             expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalled();
         } finally {
             jest.useRealTimers();
-            if (originalFetchDescriptor) {
-                Object.defineProperty(globalThis, 'fetch', originalFetchDescriptor);
-            } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                delete (globalThis as any).fetch;
-            }
+            restore();
         }
     });
 
@@ -554,8 +521,7 @@ describe('PlaybackOptionsCoordinator', () => {
         const option = viewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-sub-99');
         option?.onSelect();
 
-        await Promise.resolve();
-        await Promise.resolve();
+        await flushPromises();
 
         const stored = localStorage.getItem(`${RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_BY_ITEM_PREFIX}item-99`);
         expect(stored).toContain('sub-99');

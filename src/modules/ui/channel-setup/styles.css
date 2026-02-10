@@ -213,7 +213,10 @@
 .setup-split-left {
     overflow-y: auto;
     min-height: 0;
-    padding-right: 4px;
+    padding-right: calc(var(--focus-ring-width) + var(--focus-ring-offset) + 6px);
+    padding-left: calc(var(--focus-ring-width) + var(--focus-ring-offset) + 2px);
+    padding-top: calc(var(--focus-ring-width) + var(--focus-ring-offset) + 2px);
+    padding-bottom: calc(var(--focus-ring-width) + var(--focus-ring-offset) + 2px);
 }
 
 .setup-split-right {
