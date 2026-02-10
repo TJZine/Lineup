@@ -652,9 +652,9 @@ export class AppOrchestrator implements IAppOrchestrator {
             getCurrentStreamDescriptor: (): StreamDescriptor | null => this._currentStreamDescriptor,
             getCurrentProgram: (): ScheduledProgram | null =>
                 this._scheduler?.getCurrentProgram() ?? this._currentProgramForPlayback,
-            requestBurnInSubtitle: (trackId: string, reason: string): void => {
-                void this._playbackRecovery?.attemptBurnInSubtitleForCurrentProgram(trackId, reason);
-            },
+            requestBurnInSubtitle: (trackId: string, reason: string): Promise<boolean> =>
+                this._playbackRecovery?.attemptBurnInSubtitleForCurrentProgram(trackId, reason)
+                ?? Promise.resolve(false),
             notifyToast: (message, type): void => {
                 if (!this._nowPlayingHandler) return;
                 this._nowPlayingHandler(type ? { message, type } : message);
@@ -1933,6 +1933,11 @@ export class AppOrchestrator implements IAppOrchestrator {
 
         // Player ended -> skip to next
         const endedHandler = (): void => {
+            // Stream reload/recovery can trigger spurious 'ended' events on webOS (especially when tearing down src).
+            // Never advance the schedule during an intentional reload.
+            if (this._playbackRecovery?.isStreamRecoveryInProgress()) {
+                return;
+            }
             this._stopActiveTranscodeSession();
             if (this._scheduler) {
                 this._scheduler.skipToNext();
@@ -1948,7 +1953,24 @@ export class AppOrchestrator implements IAppOrchestrator {
         const trackHandler = (event: { type: 'audio' | 'subtitle'; trackId: string | null }): void => {
             this._playbackOptionsCoordinator?.refreshIfOpen();
 
-            if (event.type !== 'subtitle' || !event.trackId || !this._videoPlayer) {
+            if (event.type !== 'subtitle' || !this._videoPlayer) {
+                return;
+            }
+
+            if (!event.trackId) {
+                const decision = this._currentStreamDecision ?? null;
+                if (decision?.transcodeRequest?.subtitleMode === 'burn') {
+                    void this._playbackRecovery?.attemptDisableBurnInSubtitlesForCurrentProgram('subtitle_track_off')
+                        .then((ok) => {
+                            if (ok) return;
+                            if (!this._nowPlayingHandler) return;
+                            this._nowPlayingHandler({ message: 'Failed to disable burn-in subtitles', type: 'warning' });
+                        })
+                        .catch(() => {
+                            if (!this._nowPlayingHandler) return;
+                            this._nowPlayingHandler({ message: 'Failed to disable burn-in subtitles', type: 'warning' });
+                        });
+                }
                 return;
             }
 

@@ -440,6 +440,10 @@ export class VideoPlayer implements IVideoPlayer {
             return;
         }
 
+        // Mark stream as unloaded early so any teardown-related events (e.g. spurious 'ended' on webOS)
+        // don't propagate as "real" playback completion.
+        this._state.currentDescriptor = null;
+
         // Cancel pending retries to prevent stream resurrection
         this._retryManager.clear();
         this._retryManager.setDescriptor(null);
@@ -465,7 +469,6 @@ export class VideoPlayer implements IVideoPlayer {
         this._audioTrackManager.unload();
 
         // Reset state
-        this._state.currentDescriptor = null;
         this._state.currentTimeMs = 0;
         this._state.durationMs = 0;
         this._state.bufferPercent = 0;

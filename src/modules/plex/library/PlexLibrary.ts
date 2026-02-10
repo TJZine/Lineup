@@ -148,6 +148,10 @@ export class PlexLibrary implements IPlexLibrary {
                         const count = await this.getLibraryItemCount(lib.id, { signal });
                         lib.contentCount = count;
                     } catch (error) {
+                        // Abort is intentional — skip remaining work without logging.
+                        if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
+                            return;
+                        }
                         // Non-fatal: keep the section visible even if counts fail.
                         lib.contentCount = 0;
                         const context = typeof lib.title === 'string' && lib.title ? lib.title : lib.id;

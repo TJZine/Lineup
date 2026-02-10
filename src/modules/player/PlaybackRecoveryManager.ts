@@ -64,6 +64,10 @@ export class PlaybackRecoveryManager {
 
     constructor(private readonly deps: PlaybackRecoveryDeps) { }
 
+    isStreamRecoveryInProgress(): boolean {
+        return this._streamRecoveryInProgress;
+    }
+
     private _useGlobalSubtitlePreference(): boolean {
         try {
             return isStoredTrue(
@@ -665,6 +669,123 @@ export class PlaybackRecoveryManager {
                 console.warn('[PlaybackRecovery] Burn-in recovery failed:', {
                     itemKey,
                     trackId,
+                    reason,
+                    abortedBecauseProgramChanged,
+                });
+            }
+            return false;
+        } finally {
+            this._streamRecoveryInProgress = false;
+        }
+    }
+
+    async attemptDisableBurnInSubtitlesForCurrentProgram(reason: string): Promise<boolean> {
+        if (this._streamRecoveryInProgress) {
+            return false;
+        }
+        const program = this.deps.getCurrentProgramForPlayback();
+        const player = this.deps.getVideoPlayer();
+        const resolver = this.deps.getStreamResolver();
+        const currentDecision = this.deps.getCurrentStreamDecision?.() ?? null;
+        if (!program || !player || !resolver || !currentDecision) {
+            return false;
+        }
+
+        const transcodeRequest = currentDecision.transcodeRequest ?? null;
+        const isBurnIn = transcodeRequest?.subtitleMode === 'burn';
+        if (!isBurnIn) {
+            return false;
+        }
+
+        const itemKey = program.item.ratingKey;
+        const debugEnabled = this._isDebugLoggingEnabled();
+        let abortedBecauseProgramChanged = false;
+        const burnedInTrackId = transcodeRequest?.subtitleStreamId ?? null;
+
+        this._streamRecoveryInProgress = true;
+
+        try {
+            if (debugEnabled) {
+                console.warn('[PlaybackRecovery] Disable burn-in start:', {
+                    itemKey,
+                    burnedInTrackId,
+                    reason,
+                });
+            }
+            console.warn('[PlaybackRecovery] Reloading to disable burn-in subtitles:', {
+                reason,
+                itemKey,
+                burnedInTrackId,
+            });
+
+            // Best-effort: stop the current transcode session before switching back to direct play.
+            if (currentDecision.isTranscoding && currentDecision.sessionId) {
+                resolver.stopTranscodeSession(currentDecision.sessionId).catch(() => undefined);
+            }
+
+            const livePosition = ((): number | null => {
+                try {
+                    const value = player.getCurrentTimeMs();
+                    return Number.isFinite(value) ? value : null;
+                } catch {
+                    return null;
+                }
+            })();
+            const baseOffset = typeof livePosition === 'number' ? livePosition : program.elapsedMs;
+            const clampedOffset = Math.max(0, Math.min(baseOffset, program.item.durationMs));
+            const activeAudioId = player.getState()?.activeAudioId ?? null;
+
+            const decision: StreamDecision = await resolver.resolveStream({
+                itemKey,
+                startOffsetMs: clampedOffset,
+                directPlay: true,
+                ...(activeAudioId ? { audioStreamId: activeAudioId } : {}),
+            });
+            if (this.deps.getCurrentProgramForPlayback() !== program) {
+                abortedBecauseProgramChanged = true;
+                if (debugEnabled) {
+                    console.warn('[PlaybackRecovery] Disable burn-in aborted:', {
+                        itemKey,
+                        burnedInTrackId,
+                        reason,
+                        abortedBecauseProgramChanged,
+                    });
+                }
+                return false;
+            }
+            this.deps.setCurrentStreamDecision(decision);
+
+            const descriptor = this._buildStreamDescriptor(program, decision, clampedOffset);
+            // Ensure subtitles are off after returning to direct play.
+            const descriptorWithSubtitlesOff = { ...descriptor, preferredSubtitleTrackId: null };
+            this.deps.setCurrentStreamDescriptor(descriptorWithSubtitlesOff);
+
+            await player.loadStream(descriptorWithSubtitlesOff);
+            await player.play();
+            this.resetPlaybackFailureGuard();
+
+            if (typeof burnedInTrackId === 'string' && burnedInTrackId.length > 0) {
+                this._burnInAttemptedForItemKey.delete(`${itemKey}::${burnedInTrackId}`);
+            }
+
+            if (debugEnabled) {
+                console.warn('[PlaybackRecovery] Disable burn-in complete:', {
+                    itemKey,
+                    burnedInTrackId,
+                    reason,
+                    abortedBecauseProgramChanged,
+                });
+            }
+            return true;
+        } catch (error) {
+            const safeError = error instanceof Error
+                ? `${error.name}: ${error.message}`
+                : String(error);
+            console.error('[PlaybackRecovery] Disable burn-in reload failed:', redactSensitiveTokens(safeError));
+            if (debugEnabled) {
+                console.warn('[PlaybackRecovery] Disable burn-in failed:', {
+                    itemKey,
+                    burnedInTrackId,
                     reason,
                     abortedBecauseProgramChanged,
                 });

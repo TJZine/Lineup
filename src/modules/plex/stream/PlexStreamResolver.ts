@@ -340,7 +340,17 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         // 2. Select best media version
-        const selectedMedia = this._selectBestMedia(item.media, request.maxBitrate);
+        let selectedMedia = this._selectBestMedia(item.media, request.maxBitrate);
+        if (request.subtitleStreamId) {
+            const withSubtitle = this._selectBestMediaWithSubtitleStream(
+                item.media,
+                request.subtitleStreamId,
+                request.maxBitrate
+            );
+            if (withSubtitle) {
+                selectedMedia = withSubtitle;
+            }
+        }
         if (!selectedMedia) {
             throw this._createError(
                 PlexStreamErrorCode.PLAYBACK_FORMAT_UNSUPPORTED,
@@ -374,6 +384,13 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                     (s) => s.streamType === 3 && s.id === request.subtitleStreamId
                 ) ?? null)
                 : null;
+        if (request.subtitleMode === 'burn' && request.subtitleStreamId && !subtitleStream) {
+            throw this._createError(
+                PlexStreamErrorCode.PLAYBACK_SOURCE_NOT_FOUND,
+                `Subtitle stream not found for burn-in: ${request.subtitleStreamId}`,
+                true
+            );
+        }
         const availableSubtitleStreams = part.streams.filter((s) => s.streamType === 3);
         const availableAudioStreams = part.streams.filter((s) => s.streamType === 2);
 
@@ -1594,6 +1611,40 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             (b.width * b.height) - (a.width * a.height)
         );
 
+        const media = sorted[0];
+        if (!media) return null;
+        const mediaIndex = mediaList.findIndex((entry) => entry === media);
+        return { media, mediaIndex: mediaIndex >= 0 ? mediaIndex : 0 };
+    }
+
+    private _selectBestMediaWithSubtitleStream(
+        mediaList: PlexMediaFile[],
+        subtitleStreamId: string,
+        maxBitrate?: number
+    ): { media: PlexMediaFile; mediaIndex: number } | null {
+        if (!mediaList || mediaList.length === 0) {
+            return null;
+        }
+        const candidates = mediaList.filter((m) => {
+            const part = m.parts[0];
+            if (!part) return false;
+            return part.streams.some((s) => s.streamType === 3 && s.id === subtitleStreamId);
+        });
+        if (candidates.length === 0) {
+            return null;
+        }
+
+        // Filter by bitrate if specified (mirror _selectBestMedia behavior)
+        let bitrateCandidates = candidates;
+        if (typeof maxBitrate === 'number') {
+            bitrateCandidates = candidates.filter((m) => m.bitrate <= maxBitrate);
+            if (bitrateCandidates.length === 0) {
+                bitrateCandidates = [candidates.reduce((a, b) => (a.bitrate < b.bitrate ? a : b))];
+            }
+        }
+
+        // Prefer highest resolution among candidates that contain the subtitle stream.
+        const sorted = [...bitrateCandidates].sort((a, b) => (b.width * b.height) - (a.width * a.height));
         const media = sorted[0];
         if (!media) return null;
         const mediaIndex = mediaList.findIndex((entry) => entry === media);

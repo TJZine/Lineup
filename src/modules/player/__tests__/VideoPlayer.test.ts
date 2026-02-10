@@ -865,6 +865,19 @@ describe('VideoPlayer', () => {
 
             expect(handler).toHaveBeenCalled();
         });
+
+        it('should ignore ended events during unload/reload teardown', async () => {
+            const handler = jest.fn();
+            player.on('ended', handler);
+
+            await player.loadStream(createMockDescriptor());
+
+            const videoElement = container.querySelector('video')!;
+            player.unloadStream();
+            videoElement.dispatchEvent(new Event('ended'));
+
+            expect(handler).not.toHaveBeenCalled();
+        });
     });
 
     // ========================================

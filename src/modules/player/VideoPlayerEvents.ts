@@ -189,6 +189,12 @@ export class VideoPlayerEvents {
     }
 
     private _handleEnded(): void {
+        // webOS can emit spurious 'ended' events during source teardown/reloads.
+        // Ignore ended when no stream is currently loaded.
+        const state = this._callbacks?.getState() ?? null;
+        if (!state?.currentDescriptor) {
+            return;
+        }
         this._callbacks?.updateStatus('ended');
         this._emitter?.emit('ended', undefined);
     }

@@ -27,7 +27,7 @@ import {
     safeLocalStorageSet,
 } from '../../../utils/storage';
 
-const SUBTITLE_PROBE_TOTAL_TIMEOUT_MS = 400;
+export const SUBTITLE_PROBE_TOTAL_TIMEOUT_MS = 400;
 
 export interface PlaybackOptionsCoordinatorDeps {
     playbackOptionsModalId: string;
@@ -36,7 +36,7 @@ export interface PlaybackOptionsCoordinatorDeps {
     getVideoPlayer: () => IVideoPlayer | null;
     getCurrentStreamDescriptor?: () => StreamDescriptor | null;
     getCurrentProgram: () => ScheduledProgram | null;
-    requestBurnInSubtitle?: (trackId: string, reason: string) => void | Promise<void>;
+    requestBurnInSubtitle?: (trackId: string, reason: string) => boolean | Promise<boolean>;
     notifyToast?: (message: string, type?: ToastType) => void;
 }
 
@@ -307,29 +307,27 @@ export class PlaybackOptionsCoordinator {
 
             if (track.isTextCandidate) {
                 // Direct-fetchable tracks don't need probing – they already have a known-good key.
-                if (track.fetchableViaKey && track.key) {
-                    // Fall through to normal setSubtitleTrack path below.
-                } else {
-                const selectedItemKey = this.getCurrentProgramItemKey();
-                const decision = await this.probeTextSubtitleExtractability(track);
-                if (token !== this._subtitleSelectToken) {
-                    this.refreshIfOpen();
-                    return;
-                }
-                const currentItemKey = this.getCurrentProgramItemKey();
-                const currentTrack = player.getAvailableSubtitles().find((candidate) => candidate.id === track.id) ?? null;
-                if (currentItemKey !== selectedItemKey || !currentTrack) {
-                    // Program rollover or track list changes can occur while probing; drop stale results.
-                    this.refreshIfOpen();
-                    return;
-                }
-                if (decision === 'unsupported') {
-                    this.persistSubtitlePreference(currentTrack);
-                    this.requestBurnInSubtitle(currentTrack.id, 'user_selected_text_extract_probe_unsupported');
-                    this.refreshIfOpen();
-                    this.closeModalAndReturnFocus();
-                    return;
-                }
+                if (!track.fetchableViaKey || !track.key) {
+                    const selectedItemKey = this.getCurrentProgramItemKey();
+                    const decision = await this.probeTextSubtitleExtractability(track);
+                    if (token !== this._subtitleSelectToken) {
+                        this.refreshIfOpen();
+                        return;
+                    }
+                    const currentItemKey = this.getCurrentProgramItemKey();
+                    const currentTrack = player.getAvailableSubtitles().find((candidate) => candidate.id === track.id) ?? null;
+                    if (currentItemKey !== selectedItemKey || !currentTrack) {
+                        // Program rollover or track list changes can occur while probing; drop stale results.
+                        this.refreshIfOpen();
+                        return;
+                    }
+                    if (decision === 'unsupported') {
+                        this.persistSubtitlePreference(currentTrack);
+                        this.requestBurnInSubtitle(currentTrack.id, 'user_selected_text_extract_probe_unsupported');
+                        this.refreshIfOpen();
+                        this.closeModalAndReturnFocus();
+                        return;
+                    }
                 }
             }
         }
@@ -350,11 +348,17 @@ export class PlaybackOptionsCoordinator {
         }
         this.deps.notifyToast?.('Loading burn-in subtitles…', 'info');
         try {
-            void Promise.resolve(request(trackId, reason)).catch(() => {
-                // ignore async errors
-            });
+            void Promise.resolve(request(trackId, reason))
+                .then((ok) => {
+                    if (ok === false) {
+                        this.deps.notifyToast?.('Failed to load burn-in subtitles', 'warning');
+                    }
+                })
+                .catch(() => {
+                    this.deps.notifyToast?.('Failed to load burn-in subtitles', 'warning');
+                });
         } catch {
-            // ignore
+            this.deps.notifyToast?.('Failed to load burn-in subtitles', 'warning');
         }
     }
 

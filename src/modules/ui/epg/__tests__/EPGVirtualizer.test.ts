@@ -246,7 +246,7 @@ describe('EPGVirtualizer', () => {
                     type: 'movie',
                     title: 'Program 1',
                     fullTitle: 'Program 1',
-                    durationMs: 3 * 60 * 60 * 1000,
+                    durationMs: 60 * 60 * 1000, // 60 minutes (01:30 → 02:30)
                     thumb: null,
                     year: 2020,
                     scheduledIndex: 0,

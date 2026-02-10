@@ -111,6 +111,7 @@ const setup = (overrides: Partial<PlaybackRecoveryDeps> = {}): {
     } as unknown as IChannelScheduler;
     const resolver: IPlexStreamResolver = {
         resolveStream: jest.fn().mockResolvedValue(makeDecision()),
+        stopTranscodeSession: jest.fn().mockResolvedValue(undefined),
     } as unknown as IPlexStreamResolver;
     const player: IVideoPlayer = {
         loadStream: jest.fn().mockResolvedValue(undefined),
@@ -415,6 +416,49 @@ describe('PlaybackRecoveryManager', () => {
 
         expect(ok).toBe(false);
         expect(resolver.resolveStream).not.toHaveBeenCalled();
+    });
+
+    it('reloads direct play when disabling burn-in subtitles', async () => {
+        const burnInDecision = makeDecision({
+            protocol: 'hls',
+            isDirectPlay: false,
+            isTranscoding: true,
+            sessionId: 'sess-burn',
+            transcodeRequest: {
+                sessionId: 'sess-burn',
+                maxBitrate: 20000,
+                subtitleStreamId: 'sub-keyless',
+                subtitleMode: 'burn',
+                mediaIndex: 0,
+                partIndex: 0,
+            },
+        });
+        const directDecision = makeDecision({
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+        });
+
+        const { manager, resolver, player, deps } = setup({
+            getCurrentStreamDecision: () => burnInDecision,
+        });
+        (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(directDecision);
+
+        const ok = await manager.attemptDisableBurnInSubtitlesForCurrentProgram('test');
+
+        expect(ok).toBe(true);
+        expect((resolver.stopTranscodeSession as jest.Mock)).toHaveBeenCalledWith('sess-burn');
+        expect(resolver.resolveStream).toHaveBeenCalledWith(
+            expect.objectContaining({
+                itemKey: 'item-1',
+                directPlay: true,
+            })
+        );
+        expect(deps.setCurrentStreamDescriptor).toHaveBeenCalledWith(
+            expect.objectContaining({ preferredSubtitleTrackId: null })
+        );
+        expect(player.loadStream).toHaveBeenCalled();
+        expect(player.play).toHaveBeenCalled();
     });
 
     it('prefers forced subtitles when preference is enabled', async () => {
