@@ -240,6 +240,7 @@ export class EPGVirtualizer {
             isPartial: false,
             isCurrent: false,
             isPast: false,
+            textShiftPx: 0,
             cellElement: null,
         }, false);
     }
@@ -342,6 +343,16 @@ export class EPGVirtualizer {
                         programStartMinutes < visibleWindowStartMinutes ||
                         programEndMinutes > visibleWindowEndMinutes;
 
+                    const shouldShiftText = programStartMinutes < visibleWindowStartMinutes &&
+                        programEndMinutes > visibleWindowStartMinutes;
+                    const hiddenLeftMinutes = shouldShiftText
+                        ? (visibleWindowStartMinutes - programStartMinutes)
+                        : 0;
+                    const rawShiftPx = hiddenLeftMinutes * this.config.pixelsPerMinute;
+                    // Clamp to avoid shifting text beyond the visible portion of the cell.
+                    const maxShiftPx = Math.max(0, width - 24);
+                    const textShiftPx = Math.max(0, Math.min(rawShiftPx, maxShiftPx));
+
                     addCell({
                         kind: 'program',
                         key: cellKey,
@@ -353,6 +364,7 @@ export class EPGVirtualizer {
                         isPartial,
                         isCurrent,
                         isPast,
+                        textShiftPx,
                         cellElement: null,
                     }, isFocusedCell);
 
@@ -534,6 +546,7 @@ export class EPGVirtualizer {
         element.style.left = '';
         element.style.width = '';
         element.style.top = '';
+        element.style.removeProperty('--epg-cell-text-shift-px');
 
         // Remove state classes
         element.classList.remove(
@@ -601,6 +614,8 @@ export class EPGVirtualizer {
         }
         this.updateShowLine(element, cellData);
 
+        element.style.setProperty('--epg-cell-text-shift-px', `${cellData.textShiftPx}px`);
+
         // Calculate position
         element.style.left = `${cellData.left}px`;
         element.style.width = `${cellData.width}px`;
@@ -632,6 +647,7 @@ export class EPGVirtualizer {
         const element = cellData.cellElement;
         if (!element || !this.config) return;
 
+        element.style.setProperty('--epg-cell-text-shift-px', `${cellData.textShiftPx}px`);
         element.style.left = `${cellData.left}px`;
         element.style.width = `${cellData.width}px`;
         element.style.top = `${(cellData.rowIndex - this.channelOffset) * this.config.rowHeight}px`;

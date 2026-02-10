@@ -501,6 +501,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.2;
+  transform: translateX(var(--epg-cell-text-shift-px, 0px));
 }
 
 .epg-cell-show {
@@ -512,6 +513,7 @@
   text-overflow: ellipsis;
   line-height: 1.2;
   margin-top: 0;
+  transform: translateX(var(--epg-cell-text-shift-px, 0px));
 }
 
 .epg-cell-time {
@@ -520,6 +522,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transform: translateX(var(--epg-cell-text-shift-px, 0px));
 }
 
 /* =========================================

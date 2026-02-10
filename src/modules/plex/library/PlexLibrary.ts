@@ -151,7 +151,8 @@ export class PlexLibrary implements IPlexLibrary {
                         // Non-fatal: keep the section visible even if counts fail.
                         lib.contentCount = 0;
                         const context = typeof lib.title === 'string' && lib.title ? lib.title : lib.id;
-                        console.warn(`[PlexLibrary] Failed to fetch item count for library ${context}:`, summarizeErrorForLog(error));
+                        const logger = this._config.logger ?? { warn: console.warn, error: console.error };
+                        logger.warn(`[PlexLibrary] Failed to fetch item count for library ${context}:`, summarizeErrorForLog(error));
                     }
                 }
             });

@@ -45,6 +45,23 @@ const createNavigationStub = (): {
     };
 };
 
+const createScreen = (onGuideSettingChange: (change: GuideSettingChange) => void): {
+    container: HTMLElement;
+    nav: ReturnType<typeof createNavigationStub>;
+    screen: SettingsScreen;
+} => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const nav = createNavigationStub();
+    const screen = new SettingsScreen(
+        container,
+        () => nav as unknown as never,
+        undefined,
+        onGuideSettingChange
+    );
+    return { container, nav, screen };
+};
+
 describe('SettingsScreen (Guide settings)', () => {
     beforeEach(() => {
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE);
@@ -55,23 +72,6 @@ describe('SettingsScreen (Guide settings)', () => {
     afterEach(() => {
         document.body.innerHTML = '';
     });
-
-    const createScreen = (onGuideSettingChange: (change: GuideSettingChange) => void): {
-        container: HTMLElement;
-        nav: ReturnType<typeof createNavigationStub>;
-        screen: SettingsScreen;
-    } => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
-        const nav = createNavigationStub();
-        const screen = new SettingsScreen(
-            container,
-            () => nav as unknown as never,
-            undefined,
-            onGuideSettingChange
-        );
-        return { container, nav, screen };
-    };
 
     it('writes layout mode and emits change', () => {
         const onGuideSettingChange = jest.fn();
@@ -164,16 +164,7 @@ describe('SettingsScreen (Theme selection)', () => {
     });
 
     it('cycles to DirecTV and applies the theme class', () => {
-        const onGuideSettingChange = jest.fn();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
-        const nav = createNavigationStub();
-        const screen = new SettingsScreen(
-            container,
-            () => nav as unknown as never,
-            undefined,
-            onGuideSettingChange
-        );
+        const { nav, screen } = createScreen(jest.fn());
 
         screen.show();
 

@@ -27,6 +27,8 @@ import {
     safeLocalStorageSet,
 } from '../../../utils/storage';
 
+const SUBTITLE_PROBE_TOTAL_TIMEOUT_MS = 400;
+
 export interface PlaybackOptionsCoordinatorDeps {
     playbackOptionsModalId: string;
     getNavigation: () => INavigationManager | null;
@@ -304,6 +306,10 @@ export class PlaybackOptionsCoordinator {
             }
 
             if (track.isTextCandidate) {
+                // Direct-fetchable tracks don't need probing – they already have a known-good key.
+                if (track.fetchableViaKey && track.key) {
+                    // Fall through to normal setSubtitleTrack path below.
+                } else {
                 const selectedItemKey = this.getCurrentProgramItemKey();
                 const decision = await this.probeTextSubtitleExtractability(track);
                 if (token !== this._subtitleSelectToken) {
@@ -323,6 +329,7 @@ export class PlaybackOptionsCoordinator {
                     this.refreshIfOpen();
                     this.closeModalAndReturnFocus();
                     return;
+                }
                 }
             }
         }
@@ -410,30 +417,52 @@ export class PlaybackOptionsCoordinator {
         const url = this.buildSubtitleProbeUrl(track, context);
         if (!url) return 'unknown';
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 400);
+        const startMs = Date.now();
         try {
-            const init: RequestInit = {
+            const headController = new AbortController();
+            const headTimeoutId = setTimeout(() => headController.abort(), SUBTITLE_PROBE_TOTAL_TIMEOUT_MS);
+            let response: Response;
+            try {
+                response = await fetch(url.toString(), {
                 method: 'HEAD',
                 headers: { Accept: 'text/vtt, text/plain, */*' },
-                signal: controller.signal,
-            };
-            let response = await fetch(url.toString(), init);
+                    signal: headController.signal,
+                });
+            } finally {
+                clearTimeout(headTimeoutId);
+            }
             if (!response.ok && (response.status === 405 || response.status === 501)) {
                 // Some Plex endpoints/proxies may not support HEAD reliably; fall back to GET.
-                response = await fetch(url.toString(), { ...init, method: 'GET' });
+                const elapsedMs = Date.now() - startMs;
+                const remainingMs = Math.max(0, SUBTITLE_PROBE_TOTAL_TIMEOUT_MS - elapsedMs);
+                // Keep the total probe time bounded; don't double the worst-case latency.
+                const fallbackTimeoutMs = Math.max(50, remainingMs);
+
+                const getController = new AbortController();
+                const getTimeoutId = setTimeout(() => getController.abort(), fallbackTimeoutMs);
+                try {
+                    response = await fetch(url.toString(), {
+                        method: 'GET',
+                        headers: { Accept: 'text/vtt, text/plain, */*' },
+                        signal: getController.signal,
+                    });
+                } finally {
+                    clearTimeout(getTimeoutId);
+                }
             }
             if (response.ok) {
                 this.subtitleProbeCache.set(cacheKey, 'supported');
                 return 'supported';
+            }
+            if (response.status >= 500) {
+                // Don't cache transient server errors; allow future attempts to succeed.
+                return 'unsupported';
             }
             this.subtitleProbeCache.set(cacheKey, 'unsupported');
             return 'unsupported';
         } catch {
             // Don't cache transient network/timeout errors; allow future attempts to succeed.
             return 'unsupported';
-        } finally {
-            clearTimeout(timeoutId);
         }
     }
 

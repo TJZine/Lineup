@@ -66,6 +66,9 @@ const getViewModel = (coordinator: PlaybackOptionsCoordinator): PlaybackOptionsV
     return (coordinator as unknown as { pendingViewModel: PlaybackOptionsViewModel | null }).pendingViewModel!;
 };
 
+// Keep in sync with `SUBTITLE_PROBE_TOTAL_TIMEOUT_MS` in `PlaybackOptionsCoordinator.ts`.
+const SUBTITLE_PROBE_TIMEOUT_MS = 400;
+
 const flushPromises = async (rounds: number = 10): Promise<void> => {
     for (let i = 0; i < rounds; i += 1) {
         await Promise.resolve();
@@ -491,7 +494,7 @@ describe('PlaybackOptionsCoordinator', () => {
             const option = viewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-keyless');
             option?.onSelect?.();
 
-            jest.advanceTimersByTime(450);
+            jest.advanceTimersByTime(SUBTITLE_PROBE_TIMEOUT_MS + 50);
             await flushPromises();
 
             expect(requestBurnInSubtitle).toHaveBeenCalledWith('keyless', expect.any(String));

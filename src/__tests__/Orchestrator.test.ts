@@ -771,6 +771,7 @@ describe('AppOrchestrator', () => {
 
             expect(mockPlexDiscovery.selectServer).toHaveBeenCalledWith('server-1');
             expect(initCoordinator.runStartup).toHaveBeenCalledWith(3);
+            expect(epgCoordinator.clearScheduleCaches).toHaveBeenCalled();
             expect(mockEpg.clearSchedules).toHaveBeenCalled();
             expect(epgCoordinator.primeEpgChannels).toHaveBeenCalled();
             expect(epgCoordinator.refreshEpgSchedules).toHaveBeenCalledWith({ reason: 'server-swap' });

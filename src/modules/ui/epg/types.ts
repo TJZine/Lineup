@@ -260,6 +260,11 @@ export type CellRenderData =
         isCurrent: boolean;
         /** Whether program has ended */
         isPast: boolean;
+        /**
+         * Horizontal text shift (pixels) applied to title/show/time so labels remain readable
+         * when the cell is partially clipped on the left due to time scrolling.
+         */
+        textShiftPx: number;
         /** DOM element reference */
         cellElement: HTMLElement | null;
     }
@@ -286,6 +291,8 @@ export type CellRenderData =
         isCurrent: boolean;
         /** Placeholders are never past */
         isPast: boolean;
+        /** See `program.textShiftPx` (placeholders usually 0). */
+        textShiftPx: number;
         /** DOM element reference */
         cellElement: HTMLElement | null;
     };
