@@ -242,7 +242,146 @@ describe('PlaybackOptionsCoordinator', () => {
             await Promise.resolve();
             await Promise.resolve();
 
+            expect(fetchMock).toHaveBeenCalledWith(
+                expect.stringContaining('/library/streams/keyless'),
+                expect.objectContaining({
+                    method: 'GET',
+                    headers: { Accept: 'text/vtt, text/plain, */*' },
+                })
+            );
+            expect(fetchMock.mock.calls[0]?.[0]).toContain('X-Plex-Token=token');
             expect(requestBurnInSubtitle).toHaveBeenCalledWith('keyless', expect.any(String));
+            expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalled();
+        } finally {
+            if (originalFetchDescriptor) {
+                Object.defineProperty(globalThis, 'fetch', originalFetchDescriptor);
+            } else {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                delete (globalThis as any).fetch;
+            }
+        }
+    });
+
+    it('scopes subtitle probe cache by server identity', async () => {
+        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+        const fetchMock = jest.fn()
+            .mockResolvedValueOnce({ ok: false, status: 501 })
+            .mockResolvedValueOnce({ ok: true, status: 200 });
+        Object.defineProperty(globalThis, 'fetch', {
+            value: fetchMock,
+            writable: true,
+            configurable: true,
+        });
+
+        try {
+            const player = createPlayer([makeTextTrack({ id: 'keyless', fetchableViaKey: false })]);
+            const requestBurnInSubtitle = jest.fn();
+            let context: NonNullable<StreamDescriptor['subtitleContext']> = {
+                serverUri: 'http://server-a',
+                authHeaders: { 'X-Plex-Token': 'token-a' },
+                itemKey: 'item-1',
+            };
+
+            const coordinator = new PlaybackOptionsCoordinator({
+                playbackOptionsModalId: 'playback-options',
+                getNavigation: (): null => null,
+                getPlaybackOptionsModal: (): null => null,
+                getVideoPlayer: (): IVideoPlayer => player,
+                getCurrentProgram: (): ScheduledProgram | null => makeProgram('item-1'),
+                getCurrentStreamDescriptor: (): StreamDescriptor =>
+                    ({ subtitleContext: context } as unknown as StreamDescriptor),
+                requestBurnInSubtitle,
+            });
+
+            const firstViewModel = getViewModel(coordinator);
+            const firstOption = firstViewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-keyless');
+            firstOption?.onSelect?.();
+
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(requestBurnInSubtitle).toHaveBeenCalledWith('keyless', expect.any(String));
+
+            context = {
+                serverUri: 'http://server-b',
+                authHeaders: { 'X-Plex-Token': 'token-b' },
+                itemKey: 'item-1',
+            };
+
+            const secondViewModel = getViewModel(coordinator);
+            const secondOption = secondViewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-keyless');
+            secondOption?.onSelect?.();
+
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect((player.setSubtitleTrack as jest.Mock)).toHaveBeenCalledWith('keyless');
+        } finally {
+            if (originalFetchDescriptor) {
+                Object.defineProperty(globalThis, 'fetch', originalFetchDescriptor);
+            } else {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                delete (globalThis as any).fetch;
+            }
+        }
+    });
+
+    it('ignores stale probe results when playback item changes', async () => {
+        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+        let resolveFetch: ((value: { ok: boolean; status: number }) => void) | undefined;
+        const fetchMock = jest.fn().mockImplementation(() => (
+            new Promise((resolve) => {
+                resolveFetch = resolve as (value: { ok: boolean; status: number }) => void;
+            })
+        ));
+        Object.defineProperty(globalThis, 'fetch', {
+            value: fetchMock,
+            writable: true,
+            configurable: true,
+        });
+
+        try {
+            const subtitles = [makeTextTrack({ id: 'keyless', fetchableViaKey: false })];
+            const player = createPlayer(subtitles);
+            const requestBurnInSubtitle = jest.fn();
+            let currentProgram: ScheduledProgram | null = makeProgram('item-1');
+
+            const coordinator = new PlaybackOptionsCoordinator({
+                playbackOptionsModalId: 'playback-options',
+                getNavigation: (): null => null,
+                getPlaybackOptionsModal: (): null => null,
+                getVideoPlayer: (): IVideoPlayer => player,
+                getCurrentProgram: (): ScheduledProgram | null => currentProgram,
+                getCurrentStreamDescriptor: (): StreamDescriptor =>
+                    ({
+                        subtitleContext: {
+                            serverUri: 'http://example.com',
+                            authHeaders: { 'X-Plex-Token': 'token' },
+                            itemKey: currentProgram?.item.ratingKey ?? undefined,
+                        },
+                    } as unknown as StreamDescriptor),
+                requestBurnInSubtitle,
+            });
+
+            const viewModel = getViewModel(coordinator);
+            const option = viewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-keyless');
+            option?.onSelect?.();
+
+            currentProgram = makeProgram('item-2');
+            subtitles.splice(0, subtitles.length, makeTextTrack({ id: 'other', fetchableViaKey: false }));
+            if (resolveFetch) {
+                resolveFetch({ ok: false, status: 501 });
+            }
+
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(requestBurnInSubtitle).not.toHaveBeenCalled();
             expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalled();
         } finally {
             if (originalFetchDescriptor) {

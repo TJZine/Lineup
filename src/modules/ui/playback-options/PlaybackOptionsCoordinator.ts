@@ -300,10 +300,18 @@ export class PlaybackOptionsCoordinator {
             }
 
             if (track.isTextCandidate) {
+                const selectedItemKey = this.getCurrentProgramItemKey();
                 const decision = await this.probeTextSubtitleExtractability(track);
+                const currentItemKey = this.getCurrentProgramItemKey();
+                const currentTrack = player.getAvailableSubtitles().find((candidate) => candidate.id === track.id) ?? null;
+                if (currentItemKey !== selectedItemKey || !currentTrack) {
+                    // Program rollover or track list changes can occur while probing; drop stale results.
+                    this.refreshIfOpen();
+                    return;
+                }
                 if (decision === 'unsupported') {
-                    this.persistSubtitlePreference(track);
-                    this.requestBurnInSubtitle(track.id, 'user_selected_text_extract_probe_unsupported');
+                    this.persistSubtitlePreference(currentTrack);
+                    this.requestBurnInSubtitle(currentTrack.id, 'user_selected_text_extract_probe_unsupported');
                     this.refreshIfOpen();
                     this.closeModalAndReturnFocus();
                     return;
@@ -328,9 +336,27 @@ export class PlaybackOptionsCoordinator {
         }
     }
 
-    private getProbeCacheKey(trackId: string): string {
-        const itemKey = this.deps.getCurrentProgram()?.item.ratingKey ?? null;
-        return `${itemKey ?? 'global'}::${trackId}`;
+    private getCurrentProgramItemKey(): string | null {
+        return this.deps.getCurrentProgram()?.item.ratingKey ?? null;
+    }
+
+    private hashIdentity(value: string): string {
+        let hash = 0;
+        for (let index = 0; index < value.length; index += 1) {
+            hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
+        }
+        return (hash >>> 0).toString(16);
+    }
+
+    private getProbeCacheKey(
+        trackId: string,
+        context: NonNullable<StreamDescriptor['subtitleContext']>
+    ): string {
+        const itemKey = context.itemKey ?? this.getCurrentProgramItemKey() ?? 'global';
+        const serverKey = context.serverUri ?? 'unknown-server';
+        const token = this.getAuthTokenFromHeaders(context.authHeaders);
+        const accountKey = token ? this.hashIdentity(token) : 'anonymous';
+        return `${serverKey}::${accountKey}::${itemKey}::${trackId}`;
     }
 
     private getAuthTokenFromHeaders(headers: Record<string, string>): string | null {
@@ -356,14 +382,15 @@ export class PlaybackOptionsCoordinator {
     }
 
     private async probeTextSubtitleExtractability(track: SubtitleTrack): Promise<'supported' | 'unsupported' | 'unknown'> {
-        const cacheKey = this.getProbeCacheKey(track.id);
+        const context = this.deps.getCurrentStreamDescriptor?.()?.subtitleContext ?? null;
+        if (!context) return 'unknown';
+        const cacheKey = this.getProbeCacheKey(track.id, context);
         const cached = this.subtitleProbeCache.get(cacheKey);
         if (cached) return cached;
 
-        const context = this.deps.getCurrentStreamDescriptor?.()?.subtitleContext ?? null;
-        if (!context) return 'unknown';
-
-        // Fast probe only: if the stream endpoint is unsupported (commonly 501), skip slow extract attempts in Full mode.
+        // Fast probe only: treat timeout/failure as unsupported and force burn-in for this selection.
+        // Use a minimal header set so the probe matches the normal query-token extraction path and avoids
+        // preflight-only failures caused by broader X-Plex-* header bundles.
         const url = this.buildSubtitleProbeUrl(track, context);
         if (!url) return 'unknown';
 
@@ -372,7 +399,7 @@ export class PlaybackOptionsCoordinator {
         try {
             const response = await fetch(url.toString(), {
                 method: 'GET',
-                headers: { ...context.authHeaders, Accept: 'text/vtt, text/plain, */*' },
+                headers: { Accept: 'text/vtt, text/plain, */*' },
                 signal: controller.signal,
             });
             if (response.ok) {
