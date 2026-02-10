@@ -5,20 +5,26 @@
 import { ThemeManager } from '../ThemeManager';
 import { RETUNE_STORAGE_KEYS } from '../../../../config/storageKeys';
 
-function resetThemeManagerSingleton(): void {
-    ThemeManager.__resetForTests();
-}
-
 describe('ThemeManager', () => {
     beforeEach(() => {
         localStorage.clear();
         document.body.className = '';
-        resetThemeManagerSingleton();
+        ThemeManager.__resetForTests();
     });
 
     afterEach(() => {
         document.body.className = '';
-        resetThemeManagerSingleton();
+        ThemeManager.__resetForTests();
+    });
+
+    it('falls back to DEFAULT_THEME when none is saved and persists it', () => {
+        document.body.classList.add('theme-directv');
+
+        const manager = ThemeManager.getInstance();
+
+        expect(manager.getTheme()).toBe('obsidian');
+        expect(localStorage.getItem(RETUNE_STORAGE_KEYS.THEME)).toBe('obsidian');
+        expect(document.body.classList.contains('theme-directv')).toBe(false);
     });
 
     it('applies saved directv theme and removes other theme classes', () => {

@@ -54,6 +54,52 @@ function createMockSubtitleTrack(
     };
 }
 
+function installFetchAndBlobMocks(): { fetchMock: jest.Mock; restore: () => void } {
+    const originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+    const originalCreateObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+    const originalRevokeObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
+
+    const fetchMock = jest.fn();
+    Object.defineProperty(globalThis, 'fetch', {
+        value: fetchMock,
+        writable: true,
+        configurable: true,
+    });
+    Object.defineProperty(URL, 'createObjectURL', {
+        value: jest.fn().mockReturnValue('blob:mock'),
+        writable: true,
+        configurable: true,
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+        value: jest.fn(),
+        writable: true,
+        configurable: true,
+    });
+
+    const restore = (): void => {
+        if (originalFetchDescriptor) {
+            Object.defineProperty(globalThis, 'fetch', originalFetchDescriptor);
+        } else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            delete (globalThis as any).fetch;
+        }
+        if (originalCreateObjectUrlDescriptor) {
+            Object.defineProperty(URL, 'createObjectURL', originalCreateObjectUrlDescriptor);
+        } else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            delete (URL as any).createObjectURL;
+        }
+        if (originalRevokeObjectUrlDescriptor) {
+            Object.defineProperty(URL, 'revokeObjectURL', originalRevokeObjectUrlDescriptor);
+        } else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            delete (URL as any).revokeObjectURL;
+        }
+    };
+
+    return { fetchMock, restore };
+}
+
 // ============================================
 // SubtitleManager Tests
 // ============================================
@@ -168,16 +214,7 @@ describe('SubtitleManager', () => {
         });
 
         it('does not classify keyless text tracks as burn-in and attempts extraction on selection', async () => {
-            const originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
-            const fetchMock = jest.fn();
-            const originalCreateObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
-            const originalRevokeObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
-            Object.defineProperty(globalThis, 'fetch', {
-                value: fetchMock,
-                writable: true,
-                configurable: true,
-            });
-
+            const { fetchMock, restore } = installFetchAndBlobMocks();
             try {
                 const onDeactivate = jest.fn(() => true);
                 const embeddedTrack = createMockSubtitleTrack({
@@ -190,16 +227,6 @@ describe('SubtitleManager', () => {
                 const tracks: SubtitleTrack[] = [
                     embeddedTrack,
                 ];
-                Object.defineProperty(URL, 'createObjectURL', {
-                    value: jest.fn().mockReturnValue('blob:mock'),
-                    writable: true,
-                    configurable: true,
-                });
-                Object.defineProperty(URL, 'revokeObjectURL', {
-                    value: jest.fn(),
-                    writable: true,
-                    configurable: true,
-                });
 
                 fetchMock.mockResolvedValue({
                     ok: true,
@@ -225,24 +252,7 @@ Hello`,
                 await new Promise((resolve) => setTimeout(resolve, 0));
                 expect(fetchMock).toHaveBeenCalled();
             } finally {
-                if (originalFetchDescriptor) {
-                    Object.defineProperty(globalThis, 'fetch', originalFetchDescriptor);
-                } else {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    delete (globalThis as any).fetch;
-                }
-                if (originalCreateObjectUrlDescriptor) {
-                    Object.defineProperty(URL, 'createObjectURL', originalCreateObjectUrlDescriptor);
-                } else {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    delete (URL as any).createObjectURL;
-                }
-                if (originalRevokeObjectUrlDescriptor) {
-                    Object.defineProperty(URL, 'revokeObjectURL', originalRevokeObjectUrlDescriptor);
-                } else {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    delete (URL as any).revokeObjectURL;
-                }
+                restore();
             }
         });
 
@@ -289,52 +299,15 @@ Hello`,
     // ========================================
 
     describe('fallback fetch', () => {
-        let originalFetchDescriptor: PropertyDescriptor | undefined;
-        let originalCreateObjectUrlDescriptor: PropertyDescriptor | undefined;
-        let originalRevokeObjectUrlDescriptor: PropertyDescriptor | undefined;
+        let restoreMocks: (() => void) | null = null;
 
         beforeEach(() => {
-            // JSDOM doesn't implement createObjectURL by default.
-            // SubtitleManager uses it to attach converted VTT blobs.
-            originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
-            originalCreateObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
-            originalRevokeObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
-            Object.defineProperty(globalThis, 'fetch', {
-                value: jest.fn(),
-                writable: true,
-                configurable: true,
-            });
-            Object.defineProperty(URL, 'createObjectURL', {
-                value: jest.fn().mockReturnValue('blob:mock'),
-                writable: true,
-                configurable: true,
-            });
-            Object.defineProperty(URL, 'revokeObjectURL', {
-                value: jest.fn(),
-                writable: true,
-                configurable: true,
-            });
+            restoreMocks = installFetchAndBlobMocks().restore;
         });
 
         afterEach(() => {
-            if (originalFetchDescriptor) {
-                Object.defineProperty(globalThis, 'fetch', originalFetchDescriptor);
-            } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                delete (globalThis as any).fetch;
-            }
-            if (originalCreateObjectUrlDescriptor) {
-                Object.defineProperty(URL, 'createObjectURL', originalCreateObjectUrlDescriptor);
-            } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                delete (URL as any).createObjectURL;
-            }
-            if (originalRevokeObjectUrlDescriptor) {
-                Object.defineProperty(URL, 'revokeObjectURL', originalRevokeObjectUrlDescriptor);
-            } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                delete (URL as any).revokeObjectURL;
-            }
+            restoreMocks?.();
+            restoreMocks = null;
         });
 
         it('should not send Plex auth headers when fetching subtitle text (token is in query)', async () => {

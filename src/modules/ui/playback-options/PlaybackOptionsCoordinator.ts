@@ -19,6 +19,7 @@ import { getSubtitleMode, setSubtitleMode, subtitleModeAllowsBurnIn, subtitleMod
 import type { ToastType } from '../toast/types';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
 import type { StreamDescriptor } from '../../player/types';
+import { redactSensitiveTokens } from '../../../utils/redact';
 import {
     isStoredTrue,
     safeLocalStorageGet,
@@ -44,6 +45,7 @@ export class PlaybackOptionsCoordinator {
     private registeredFocusableIds: string[] = [];
     private preferredSection: PlaybackOptionsSectionId = 'subtitles';
     private readonly subtitleProbeCache: Map<string, 'supported' | 'unsupported'> = new Map();
+    private _subtitleSelectToken = 0;
 
     constructor(private readonly deps: PlaybackOptionsCoordinatorDeps) { }
 
@@ -270,10 +272,11 @@ export class PlaybackOptionsCoordinator {
     }
 
     private handleSubtitleSelect(trackId: string | null): void {
-        void this.handleSubtitleSelectAsync(trackId);
+        const token = ++this._subtitleSelectToken;
+        void this.handleSubtitleSelectAsync(trackId, token);
     }
 
-    private async handleSubtitleSelectAsync(trackId: string | null): Promise<void> {
+    private async handleSubtitleSelectAsync(trackId: string | null, token: number): Promise<void> {
         const player = this.deps.getVideoPlayer();
         if (!player) return;
         if (trackId) {
@@ -302,6 +305,10 @@ export class PlaybackOptionsCoordinator {
             if (track.isTextCandidate) {
                 const selectedItemKey = this.getCurrentProgramItemKey();
                 const decision = await this.probeTextSubtitleExtractability(track);
+                if (token !== this._subtitleSelectToken) {
+                    this.refreshIfOpen();
+                    return;
+                }
                 const currentItemKey = this.getCurrentProgramItemKey();
                 const currentTrack = player.getAvailableSubtitles().find((candidate) => candidate.id === track.id) ?? null;
                 if (currentItemKey !== selectedItemKey || !currentTrack) {
@@ -409,7 +416,6 @@ export class PlaybackOptionsCoordinator {
             this.subtitleProbeCache.set(cacheKey, 'unsupported');
             return 'unsupported';
         } catch {
-            this.subtitleProbeCache.set(cacheKey, 'unsupported');
             return 'unsupported';
         } finally {
             clearTimeout(timeoutId);
@@ -420,7 +426,10 @@ export class PlaybackOptionsCoordinator {
         const player = this.deps.getVideoPlayer();
         if (!player) return;
         player.setAudioTrack(trackId).catch((error) => {
-            console.error('[PlaybackOptions] Audio track switch failed:', error);
+            const safeError = error instanceof Error
+                ? `${error.name}: ${error.message}`
+                : String(error);
+            console.error('[PlaybackOptions] Audio track switch failed:', redactSensitiveTokens(safeError));
         }).finally(() => {
             this.refreshIfOpen();
         });

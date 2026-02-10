@@ -16,7 +16,7 @@
 }
 
 .now-playing-info-container.visible .now-playing-info-panel {
-  animation: now-playing-info-enter var(--transition-normal);
+  animation: now-playing-info-enter var(--transition-normal, 200ms ease);
 }
 
 .now-playing-info-panel {

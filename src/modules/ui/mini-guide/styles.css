@@ -7,7 +7,7 @@
   pointer-events: none;
   opacity: 0;
   transform: translateY(-12px);
-  transition: opacity var(--transition-normal), transform var(--transition-normal);
+  transition: opacity var(--transition-normal, 200ms ease), transform var(--transition-normal, 200ms ease);
 }
 
 .mini-guide.visible {

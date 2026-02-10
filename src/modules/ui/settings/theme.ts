@@ -21,9 +21,14 @@ const THEME_LABELS = {
     directv: 'DirecTV Classic',
 } as const satisfies Record<ThemeName, string>;
 
-const THEME_ORDER = Object.freeze(
-    ['obsidian', 'broadcast', 'swiss', 'directv'] as const satisfies ReadonlyArray<ThemeName>
-);
+// IMPORTANT: Keep this list exhaustive. If you add a theme, TypeScript should fail compilation
+// until THEME_ORDER includes it (prevents themes silently disappearing from THEME_OPTIONS).
+const THEME_ORDER_RAW = ['obsidian', 'broadcast', 'swiss', 'directv'] as const satisfies ReadonlyArray<ThemeName>;
+const THEME_ORDER = Object.freeze(THEME_ORDER_RAW);
+
+type MissingThemes = Exclude<ThemeName, (typeof THEME_ORDER_RAW)[number]>;
+const _assertAllThemesListed: MissingThemes extends never ? true : never = true;
+void _assertAllThemesListed;
 
 export const THEME_OPTIONS: ReadonlyArray<Readonly<{ theme: ThemeName; label: string }>> = Object.freeze(
     THEME_ORDER.map((theme) =>

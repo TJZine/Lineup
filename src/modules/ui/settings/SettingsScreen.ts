@@ -234,8 +234,7 @@ export class SettingsScreen {
      */
     private _buildSections(): SettingsSectionConfig[] {
         const nowPlayingAutoHide = this._loadClampedNowPlayingAutoHide();
-        const themeValue = THEME_OPTIONS.findIndex((option) => option.theme === ThemeManager.getInstance().getTheme());
-        const selectedThemeValue = themeValue >= 0 ? themeValue : DEFAULT_THEME_VALUE;
+        const selectedThemeValue = this._getThemeIndex(ThemeManager.getInstance().getTheme());
         const keepPlayingInSettings = this._loadBoolSetting(
             SETTINGS_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS,
             DEFAULT_SETTINGS.playback.keepPlayingInSettings
@@ -843,11 +842,15 @@ export class SettingsScreen {
         }
         const themeSelect = this._selectElements.get('settings-theme');
         if (themeSelect) {
-            const themeValue = THEME_OPTIONS.findIndex((option) => option.theme === ThemeManager.getInstance().getTheme());
-            themeSelect.update(themeValue >= 0 ? themeValue : DEFAULT_THEME_VALUE);
+            themeSelect.update(this._getThemeIndex(ThemeManager.getInstance().getTheme()));
         }
         const mode = this._valueToSubtitleMode(this._loadSubtitleModeValue());
         this._updateSubtitleDependentControls(mode);
+    }
+
+    private _getThemeIndex(theme: (typeof THEME_OPTIONS)[number]['theme']): number {
+        const index = THEME_OPTIONS.findIndex((option) => option.theme === theme);
+        return index >= 0 ? index : DEFAULT_THEME_VALUE;
     }
 
     private _updateSubtitleDependentControls(mode: SubtitleMode): void {

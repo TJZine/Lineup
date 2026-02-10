@@ -654,14 +654,24 @@ export class VideoPlayer implements IVideoPlayer {
     public async setSubtitleTrack(trackId: string | null): Promise<void> {
         this._subtitleSelectionInProgress = true;
         this._subtitleSelectionRequestedId = trackId;
-        this._subtitleSelectionDeferredDeactivation = null;
         try {
             // Set state first so any synchronous deactivation callbacks can reliably clear it.
             this._state.activeSubtitleId = trackId;
 
             this._subtitleManager.setActiveTrack(trackId);
-            const finalActiveTrackId = this._subtitleManager.getActiveTrackId();
+            let finalActiveTrackId = this._subtitleManager.getActiveTrackId();
             this._state.activeSubtitleId = finalActiveTrackId;
+
+            const deferredDeactivation = this._subtitleSelectionDeferredDeactivation;
+            this._subtitleSelectionDeferredDeactivation = null;
+            if (deferredDeactivation && this._state.activeSubtitleId === deferredDeactivation.trackId) {
+                finalActiveTrackId = null;
+                this._state.activeSubtitleId = null;
+                this._logSubtitleDebug('subtitle_track_deactivated_deferred_applied', () => ({
+                    trackId: deferredDeactivation.trackId,
+                    reason: deferredDeactivation.reason,
+                }));
+            }
 
             const selected = trackId
                 ? this._subtitleManager.getTracks().find((t) => t.id === trackId) ?? null
@@ -672,8 +682,8 @@ export class VideoPlayer implements IVideoPlayer {
                 codec: selected?.codec ?? null,
                 language: selected?.language ?? null,
                 fetchableViaKey: selected?.fetchableViaKey ?? null,
-                ...(this._subtitleSelectionDeferredDeactivation
-                    ? { deferredDeactivation: this._subtitleSelectionDeferredDeactivation }
+                ...(deferredDeactivation
+                    ? { deferredDeactivation }
                     : {}),
             }));
 
@@ -688,7 +698,11 @@ export class VideoPlayer implements IVideoPlayer {
         } finally {
             this._subtitleSelectionInProgress = false;
             this._subtitleSelectionRequestedId = null;
+            const deferredDeactivation = this._subtitleSelectionDeferredDeactivation;
             this._subtitleSelectionDeferredDeactivation = null;
+            if (deferredDeactivation) {
+                this._handleSubtitleDeactivated(deferredDeactivation.trackId, deferredDeactivation.reason);
+            }
         }
     }
 

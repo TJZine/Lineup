@@ -393,6 +393,85 @@ describe('PlaybackOptionsCoordinator', () => {
         }
     });
 
+    it('ignores stale probe results when the user re-selects another subtitle', async () => {
+        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+        let resolveFirstProbe: ((value: { ok: boolean; status: number }) => void) | undefined;
+        const fetchMock = jest.fn().mockImplementation((url: string) => {
+            if (url.includes('/library/streams/first')) {
+                return new Promise((resolve) => {
+                    resolveFirstProbe = resolve as (value: { ok: boolean; status: number }) => void;
+                });
+            }
+            if (url.includes('/library/streams/second')) {
+                return Promise.resolve({ ok: true, status: 200 });
+            }
+            throw new Error(`Unexpected probe URL: ${url}`);
+        });
+        Object.defineProperty(globalThis, 'fetch', {
+            value: fetchMock,
+            writable: true,
+            configurable: true,
+        });
+
+        try {
+            const subtitles = [
+                makeTextTrack({ id: 'first', fetchableViaKey: false }),
+                makeTextTrack({ id: 'second', fetchableViaKey: false }),
+            ];
+            const player = createPlayer(subtitles);
+            const requestBurnInSubtitle = jest.fn();
+
+            const coordinator = new PlaybackOptionsCoordinator({
+                playbackOptionsModalId: 'playback-options',
+                getNavigation: (): null => null,
+                getPlaybackOptionsModal: (): null => null,
+                getVideoPlayer: (): IVideoPlayer => player,
+                getCurrentProgram: (): ScheduledProgram | null => makeProgram('item-1'),
+                getCurrentStreamDescriptor: (): StreamDescriptor =>
+                    ({
+                        subtitleContext: {
+                            serverUri: 'http://example.com',
+                            authHeaders: { 'X-Plex-Token': 'token' },
+                            itemKey: 'item-1',
+                        },
+                    } as unknown as StreamDescriptor),
+                requestBurnInSubtitle,
+            });
+
+            const viewModel = getViewModel(coordinator);
+            const first = viewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-first');
+            const second = viewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-second');
+
+            first?.onSelect?.();
+            second?.onSelect?.();
+
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect((player.setSubtitleTrack as jest.Mock)).toHaveBeenCalledWith('second');
+            expect(requestBurnInSubtitle).not.toHaveBeenCalled();
+
+            if (resolveFirstProbe) {
+                resolveFirstProbe({ ok: false, status: 501 });
+            }
+
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(requestBurnInSubtitle).not.toHaveBeenCalled();
+            expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalledWith('first');
+        } finally {
+            if (originalFetchDescriptor) {
+                Object.defineProperty(globalThis, 'fetch', originalFetchDescriptor);
+            } else {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                delete (globalThis as any).fetch;
+            }
+        }
+    });
+
     it('requests burn-in when text subtitle probe times out in Full mode', async (): Promise<void> => {
         localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 

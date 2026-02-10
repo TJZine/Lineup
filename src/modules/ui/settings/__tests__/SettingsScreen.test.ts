@@ -6,10 +6,7 @@ import { SettingsScreen } from '../SettingsScreen';
 import { SETTINGS_STORAGE_KEYS } from '../constants';
 import type { GuideSettingChange } from '../types';
 import { ThemeManager } from '../../theme';
-
-function resetThemeManagerSingleton(): void {
-    ThemeManager.__resetForTests();
-}
+import { THEME_OPTIONS } from '../theme';
 
 type StubFocusable = {
     id: string;
@@ -154,14 +151,14 @@ describe('SettingsScreen (Guide settings)', () => {
 describe('SettingsScreen (Theme selection)', () => {
     beforeEach(() => {
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.THEME);
-        resetThemeManagerSingleton();
+        ThemeManager.__resetForTests();
         document.body.classList.remove('theme-broadcast', 'theme-swiss', 'theme-directv');
     });
 
     afterEach(() => {
         document.body.innerHTML = '';
         document.body.classList.remove('theme-broadcast', 'theme-swiss', 'theme-directv');
-        resetThemeManagerSingleton();
+        ThemeManager.__resetForTests();
     });
 
     it('cycles to DirecTV and applies the theme class', () => {
@@ -178,10 +175,20 @@ describe('SettingsScreen (Theme selection)', () => {
 
         screen.show();
 
-        const themeSelect = container.querySelector('#settings-theme') as HTMLButtonElement;
-        themeSelect.click();
-        themeSelect.click();
-        themeSelect.click();
+        const directvIndex = THEME_OPTIONS.findIndex((option) => option.theme === 'directv');
+        const currentIndex = THEME_OPTIONS.findIndex((option) => option.theme === ThemeManager.getInstance().getTheme());
+        expect(directvIndex).toBeGreaterThanOrEqual(0);
+        expect(currentIndex).toBeGreaterThanOrEqual(0);
+
+        nav.setFocus('settings-theme');
+        const keyHandler = nav.on.mock.calls.find((call) => call[0] === 'keyPress')?.[1];
+        expect(typeof keyHandler).toBe('function');
+
+        const delta = directvIndex - currentIndex;
+        const button = delta >= 0 ? 'right' : 'left';
+        for (let i = 0; i < Math.abs(delta); i += 1) {
+            keyHandler?.({ handled: false, button });
+        }
 
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.THEME)).toBe('directv');
         expect(document.body.classList.contains('theme-directv')).toBe(true);
