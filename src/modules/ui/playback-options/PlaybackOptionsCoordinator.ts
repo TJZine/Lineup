@@ -18,6 +18,7 @@ import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
 import { getSubtitleMode, setSubtitleMode, subtitleModeAllowsBurnIn, subtitleModeIsDirectOnly } from '../../../shared/subtitle-mode';
 import type { ToastType } from '../toast/types';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
+import type { StreamDescriptor } from '../../player/types';
 import {
     isStoredTrue,
     safeLocalStorageGet,
@@ -30,7 +31,9 @@ export interface PlaybackOptionsCoordinatorDeps {
     getNavigation: () => INavigationManager | null;
     getPlaybackOptionsModal: () => IPlaybackOptionsModal | null;
     getVideoPlayer: () => IVideoPlayer | null;
+    getCurrentStreamDescriptor?: () => StreamDescriptor | null;
     getCurrentProgram: () => ScheduledProgram | null;
+    requestBurnInSubtitle?: (trackId: string, reason: string) => void;
     notifyToast?: (message: string, type?: ToastType) => void;
 }
 
@@ -40,6 +43,7 @@ export class PlaybackOptionsCoordinator {
     private pendingPreferredFocusId: string | null = null;
     private registeredFocusableIds: string[] = [];
     private preferredSection: PlaybackOptionsSectionId = 'subtitles';
+    private readonly subtitleProbeCache: Map<string, 'supported' | 'unsupported'> = new Map();
 
     constructor(private readonly deps: PlaybackOptionsCoordinatorDeps) { }
 
@@ -180,7 +184,7 @@ export class PlaybackOptionsCoordinator {
             subtitles: {
                 title: 'Subtitles',
                 options: subtitleOptions,
-                helperText: 'Direct is fastest. Extract uses the server. Burn-in transcodes the video (Full mode).',
+                helperText: 'Direct is fastest. Extract uses the server. Full mode can use Burn-in (transcodes) when needed.',
                 ...(subtitleEmptyMessage ? { emptyMessage: subtitleEmptyMessage } : {}),
             },
             audio: {
@@ -266,6 +270,10 @@ export class PlaybackOptionsCoordinator {
     }
 
     private handleSubtitleSelect(trackId: string | null): void {
+        void this.handleSubtitleSelectAsync(trackId);
+    }
+
+    private async handleSubtitleSelectAsync(trackId: string | null): Promise<void> {
         const player = this.deps.getVideoPlayer();
         if (!player) return;
         if (trackId) {
@@ -278,12 +286,107 @@ export class PlaybackOptionsCoordinator {
         const track = trackId
             ? player.getAvailableSubtitles().find((t) => t.id === trackId) ?? null
             : null;
+
+        const mode = getSubtitleMode();
+        const allowBurnIn = subtitleModeAllowsBurnIn(mode);
+        if (trackId && track && allowBurnIn) {
+            // For burn-in formats (PGS/ASS/etc), go straight to the burn-in stream reload.
+            if (this.isBurnInTrack(track)) {
+                this.persistSubtitlePreference(track);
+                this.requestBurnInSubtitle(track.id, 'user_selected_burn_in_format');
+                this.refreshIfOpen();
+                this.closeModalAndReturnFocus();
+                return;
+            }
+
+            if (track.isTextCandidate) {
+                const decision = await this.probeTextSubtitleExtractability(track);
+                if (decision === 'unsupported') {
+                    this.persistSubtitlePreference(track);
+                    this.requestBurnInSubtitle(track.id, 'user_selected_text_extract_probe_unsupported');
+                    this.refreshIfOpen();
+                    this.closeModalAndReturnFocus();
+                    return;
+                }
+            }
+        }
+
         player.setSubtitleTrack(trackId).catch(() => {
             // Subtitle selection errors are handled by SubtitleManager fallback/Toast.
         });
         this.persistSubtitlePreference(track);
         this.refreshIfOpen();
         this.closeModalAndReturnFocus();
+    }
+
+    private requestBurnInSubtitle(trackId: string, reason: string): void {
+        this.deps.notifyToast?.('Loading burn-in subtitles…', 'info');
+        try {
+            this.deps.requestBurnInSubtitle?.(trackId, reason);
+        } catch {
+            // ignore
+        }
+    }
+
+    private getProbeCacheKey(trackId: string): string {
+        const itemKey = this.deps.getCurrentProgram()?.item.ratingKey ?? null;
+        return `${itemKey ?? 'global'}::${trackId}`;
+    }
+
+    private getAuthTokenFromHeaders(headers: Record<string, string>): string | null {
+        const token = headers['X-Plex-Token'] ?? headers['x-plex-token'];
+        return typeof token === 'string' && token.length > 0 ? token : null;
+    }
+
+    private buildSubtitleProbeUrl(track: SubtitleTrack, context: NonNullable<StreamDescriptor['subtitleContext']>): URL | null {
+        const baseUri = context.serverUri ?? null;
+        if (!baseUri) return null;
+        try {
+            const url = track.key
+                ? new URL(track.key, baseUri)
+                : new URL(`/library/streams/${encodeURIComponent(track.id)}`, baseUri);
+            const token = this.getAuthTokenFromHeaders(context.authHeaders);
+            if (token && !url.searchParams.has('X-Plex-Token')) {
+                url.searchParams.set('X-Plex-Token', token);
+            }
+            return url;
+        } catch {
+            return null;
+        }
+    }
+
+    private async probeTextSubtitleExtractability(track: SubtitleTrack): Promise<'supported' | 'unsupported' | 'unknown'> {
+        const cacheKey = this.getProbeCacheKey(track.id);
+        const cached = this.subtitleProbeCache.get(cacheKey);
+        if (cached) return cached;
+
+        const context = this.deps.getCurrentStreamDescriptor?.()?.subtitleContext ?? null;
+        if (!context) return 'unknown';
+
+        // Fast probe only: if the stream endpoint is unsupported (commonly 501), skip slow extract attempts in Full mode.
+        const url = this.buildSubtitleProbeUrl(track, context);
+        if (!url) return 'unknown';
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 400);
+        try {
+            const response = await fetch(url.toString(), {
+                method: 'GET',
+                headers: { ...context.authHeaders, Accept: 'text/vtt, text/plain, */*' },
+                signal: controller.signal,
+            });
+            if (response.ok) {
+                this.subtitleProbeCache.set(cacheKey, 'supported');
+                return 'supported';
+            }
+            this.subtitleProbeCache.set(cacheKey, 'unsupported');
+            return 'unsupported';
+        } catch {
+            this.subtitleProbeCache.set(cacheKey, 'unsupported');
+            return 'unsupported';
+        } finally {
+            clearTimeout(timeoutId);
+        }
     }
 
     private handleAudioSelect(trackId: string): void {

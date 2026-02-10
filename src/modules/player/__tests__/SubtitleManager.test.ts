@@ -245,6 +245,43 @@ Hello`,
                 }
             }
         });
+
+        it('skips extraction attempts when the active track is burned into the stream', () => {
+            const originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+            const fetchMock = jest.fn();
+            Object.defineProperty(globalThis, 'fetch', {
+                value: fetchMock,
+                writable: true,
+                configurable: true,
+            });
+
+            try {
+                const track = createMockSubtitleTrack({
+                    id: 'burned-text',
+                    codec: 'srt',
+                    format: 'srt',
+                    fetchableViaKey: false,
+                });
+                delete (track as { key?: string }).key;
+                manager.loadTracks([track], {
+                    serverUri: 'http://example.com',
+                    authHeaders: { 'X-Plex-Token': 'token' },
+                    burnedInSubtitleTrackId: 'burned-text',
+                });
+
+                manager.setActiveTrack('burned-text');
+
+                expect(manager.getActiveTrackId()).toBe('burned-text');
+                expect(fetchMock).not.toHaveBeenCalled();
+            } finally {
+                if (originalFetchDescriptor) {
+                    Object.defineProperty(globalThis, 'fetch', originalFetchDescriptor);
+                } else {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    delete (globalThis as any).fetch;
+                }
+            }
+        });
     });
 
     // ========================================

@@ -20,7 +20,6 @@ import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from '.
 import { readStoredBoolean, safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from '../../../utils/storage';
 import { ThemeManager } from '../theme';
 import { getSubtitleMode, setSubtitleMode, type SubtitleMode } from '../../../shared/subtitle-mode';
-import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
 import { dispatchDebugLoggingChanged } from '../../../config/events';
 
 const SUBTITLE_LANGUAGE_OPTIONS: Array<{ label: string; code: string | null }> = [
@@ -40,8 +39,8 @@ const SUBTITLE_LANGUAGE_OPTIONS: Array<{ label: string; code: string | null }> =
 const SUBTITLE_MODE_OPTIONS: Array<{ label: string; mode: SubtitleMode }> = [
     { label: 'Off', mode: 'off' },
     { label: 'Direct only (fastest)', mode: 'direct' },
-    { label: 'Standard (Recommended)', mode: 'standard' },
-    { label: 'Full (Burn-in)', mode: 'full' },
+    { label: 'Standard (avoid transcoding)', mode: 'standard' },
+    { label: 'Full (Burn-in, default)', mode: 'full' },
 ];
 
 const DEFAULT_THEME_VALUE = Math.max(
@@ -115,7 +114,7 @@ const SELECT_METADATA: Record<string, SelectMetadata> = {
     },
     'settings-subtitle-mode': {
         storageKey: SETTINGS_STORAGE_KEYS.SUBTITLE_MODE,
-        defaultValue: 2, // Standard (Recommended)
+        defaultValue: 3, // Full (Burn-in, default)
     },
     'settings-subtitle-language': {
         storageKey: SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE,
@@ -288,7 +287,7 @@ export class SettingsScreen {
                     {
                         id: 'settings-subtitle-mode',
                         label: 'Subtitle Mode',
-                        description: 'Standard is recommended. Full may require transcoding (burn-in).',
+                        description: 'Full is default (may transcode). Standard avoids transcoding when possible.',
                         value: subtitleModeValue,
                         options: SUBTITLE_MODE_OPTIONS.map((option, index) => ({
                             label: option.label,
@@ -766,29 +765,22 @@ export class SettingsScreen {
 
     private _subtitleModeToValue(mode: SubtitleMode): number {
         const index = SUBTITLE_MODE_OPTIONS.findIndex((o) => o.mode === mode);
-        return index >= 0 ? index : 2;
+        return index >= 0 ? index : 3;
     }
 
     private _valueToSubtitleMode(value: number): SubtitleMode {
         const option = SUBTITLE_MODE_OPTIONS[value];
-        if (!option) return 'standard';
+        if (!option) return 'full';
         return option.mode;
     }
 
     private _loadSubtitleModeValue(): number {
-        // getSubtitleMode() performs legacy migration + persistence.
         const mode = getSubtitleMode();
         return this._subtitleModeToValue(mode);
     }
 
     private _saveSubtitleMode(mode: SubtitleMode): void {
         setSubtitleMode(mode);
-        // Best-effort legacy compatibility: keep old gating key in sync so older builds behave.
-        try {
-            safeLocalStorageSet(RETUNE_STORAGE_KEYS.SUBTITLES_ENABLED, mode === 'off' ? '0' : '1');
-        } catch {
-            // ignore
-        }
     }
 
     private _readHdr10FallbackSelectValue(): 0 | 1 | 2 {

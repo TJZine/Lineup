@@ -453,6 +453,10 @@ export class PlaybackRecoveryManager {
                 partIndex: decision.partIndex,
                 partKey: decision.partKey,
                 sessionId: decision.sessionId,
+                burnedInSubtitleTrackId:
+                    decision.transcodeRequest?.subtitleMode === 'burn'
+                        ? (decision.transcodeRequest.subtitleStreamId ?? null)
+                        : null,
                 onUnavailable: this.deps.notifySubtitleUnavailable,
                 onDeactivate: ({ trackId, reason }): boolean => {
                     const allowBurnIn = subtitleModeAllowsBurnIn(getSubtitleMode());

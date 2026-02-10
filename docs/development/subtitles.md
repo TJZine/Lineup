@@ -63,7 +63,11 @@ Retune then runs `normalizeSubtitleToVtt()` and uses a VTT `Blob`.
 
 ### Burn-in escalation (Full mode)
 
-If **Subtitle Mode = Full (Burn-in)** and extraction fails, Retune triggers a best-effort burn-in reload:
+If **Subtitle Mode = Full (Burn-in, default)**, Retune triggers a best-effort burn-in reload when needed:
+
+- immediately for burn-in formats (PGS/ASS/etc) when selected in Playback Options
+- when a fast direct-stream probe suggests a text track is not directly fetchable (avoid slow Extract UX)
+- when extraction fails after a normal selection attempt
 
 - `PlaybackRecoveryManager.attemptBurnInSubtitleForCurrentProgram(trackId, reason)`
 - `PlexStreamResolver.resolveStream({ directPlay: false, subtitleMode: 'burn', subtitleStreamId })`
@@ -108,4 +112,3 @@ Look for `[SubtitleDebug]` JSON logs. Helpful events:
 - Consider “always blob-fetch” for subtitles (even VTT) to avoid `<track src>` auth/CORS quirks.
 - Cache extracted VTT per session (avoid re-fetching on reselect).
 - UI affordance: “Try Burn‑in” action in Playback Options (explicit instead of only automatic in Full mode).
-

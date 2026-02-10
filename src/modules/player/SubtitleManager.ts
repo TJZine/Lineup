@@ -25,6 +25,7 @@ interface SubtitleTrackContext {
     partIndex?: number;
     partKey?: string;
     sessionId?: string;
+    burnedInSubtitleTrackId?: string | null;
     onUnavailable?: () => void;
     onDeactivate?: (args: { trackId: string; reason: string }) => boolean;
 }
@@ -228,6 +229,11 @@ export class SubtitleManager {
             return;
         }
 
+        const burnedInActive =
+            typeof trackId === 'string' &&
+            trackId.length > 0 &&
+            this._subtitleContext?.burnedInSubtitleTrackId === trackId;
+
         const textTracks = this._videoElement.textTracks;
 
         for (let i = 0; i < textTracks.length; i++) {
@@ -242,6 +248,14 @@ export class SubtitleManager {
         if (trackId && this._readyTracks.has(trackId)) {
             this._applyTrackModeShowing(trackId);
         } else if (trackId) {
+            // When the current stream has subtitles burned into the video, avoid slow extract attempts.
+            // Track selection is still reflected in state/OSD, but rendering is handled by the video stream.
+            if (burnedInActive) {
+                this._logSubtitleDebug('subtitle_track_burned_in_active', () => ({
+                    id: trackId,
+                }));
+                return;
+            }
             // Avoid prefetching/transforming every subtitle track on load.
             // Only attempt the expensive fetch+convert fallback for the user-selected track.
             const selected = this._tracks.find((t) => t.id === trackId) ?? null;

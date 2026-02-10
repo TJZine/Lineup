@@ -26,13 +26,12 @@ export const RETUNE_STORAGE_KEYS = {
     NOW_PLAYING_INFO_AUTO_HIDE_MS: 'retune_now_playing_info_auto_hide_ms',
     NOW_PLAYING_STREAM_DEBUG: 'retune_now_playing_stream_debug',
     NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW: 'retune_now_playing_stream_debug_auto_show',
-    SUBTITLES_ENABLED: 'retune_subtitles_enabled',
     /**
      * Subtitle handling mode:
      * - off: no automatic subtitle loading/selection
      * - direct: only show subtitles that can be fetched directly (best performance)
-     * - standard: allow server extraction for text subtitles (recommended)
-     * - full: allow burn-in (image/styled) subtitles via transcoding
+     * - standard: allow extraction for text subtitles while avoiding burn-in transcoding
+     * - full: allow burn-in (image/styled) subtitles via transcoding (default)
      */
     SUBTITLE_MODE: 'retune_subtitle_mode',
     SUBTITLE_LANGUAGE: 'retune_subtitle_language',
@@ -40,7 +39,6 @@ export const RETUNE_STORAGE_KEYS = {
     SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE: 'retune_subtitle_pref_global_override',
     SUBTITLE_PREFERENCE_BY_ITEM_PREFIX: 'retune_subtitle_pref_item:',
     SUBTITLE_PREFERENCE_BY_CHANNEL_PREFIX: 'retune_subtitle_pref_channel:',
-    SUBTITLE_FILTER_EXTERNAL_ONLY: 'retune_subtitle_filter_external_only',
     SUBTITLE_ALLOW_BURN_IN: 'retune_subtitle_allow_burn_in',
     /** Prefer forced subtitles over full subtitles */
     SUBTITLE_PREFER_FORCED: 'retune_subtitle_prefer_forced',

@@ -649,8 +649,12 @@ export class AppOrchestrator implements IAppOrchestrator {
             getNavigation: (): INavigationManager | null => this._navigation,
             getPlaybackOptionsModal: (): IPlaybackOptionsModal | null => this._playbackOptionsModal,
             getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
+            getCurrentStreamDescriptor: (): StreamDescriptor | null => this._currentStreamDescriptor,
             getCurrentProgram: (): ScheduledProgram | null =>
                 this._scheduler?.getCurrentProgram() ?? this._currentProgramForPlayback,
+            requestBurnInSubtitle: (trackId: string, reason: string): void => {
+                void this._playbackRecovery?.attemptBurnInSubtitleForCurrentProgram(trackId, reason);
+            },
             notifyToast: (message, type): void => {
                 if (!this._nowPlayingHandler) return;
                 this._nowPlayingHandler(type ? { message, type } : message);

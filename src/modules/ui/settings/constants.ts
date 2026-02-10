@@ -35,7 +35,7 @@ export const SETTINGS_STORAGE_KEYS = {
     NOW_PLAYING_INFO_AUTO_HIDE_MS: RETUNE_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS,
     /** Audio setup completed flag */
     AUDIO_SETUP_COMPLETE: RETUNE_STORAGE_KEYS.AUDIO_SETUP_COMPLETE,
-    /** Subtitle mode (replaces legacy SUBTITLES_ENABLED/external-only/burn-in toggles) */
+    /** Subtitle mode */
     SUBTITLE_MODE: RETUNE_STORAGE_KEYS.SUBTITLE_MODE,
     /** Use global subtitle preference override */
     SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE: RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE,

@@ -5,6 +5,7 @@ import type { PlaybackOptionsViewModel } from '../types';
 import type { ScheduledProgram } from '../../../scheduler/scheduler';
 import type { SubtitleTrack, AudioTrack } from '../../../player/types';
 import { RETUNE_STORAGE_KEYS } from '../../../../config/storageKeys';
+import type { StreamDescriptor } from '../../../player/types';
 
 const makeProgram = (ratingKey = 'item-1'): ScheduledProgram =>
     ({
@@ -181,7 +182,142 @@ describe('PlaybackOptionsCoordinator', () => {
         expect(server?.meta).toBe('Extract');
     });
 
-    it('persists subtitle preference per item when global override is off', () => {
+    it('requests burn-in immediately for burn-in subtitle formats in Full mode', async () => {
+        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const player = createPlayer([makeBurnInTrack({ id: 'burn' })]);
+        const requestBurnInSubtitle = jest.fn();
+
+        const coordinator = new PlaybackOptionsCoordinator({
+            playbackOptionsModalId: 'playback-options',
+            getNavigation: (): null => null,
+            getPlaybackOptionsModal: (): null => null,
+            getVideoPlayer: (): IVideoPlayer => player,
+            getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+            requestBurnInSubtitle,
+        });
+
+        const viewModel = getViewModel(coordinator);
+        const burn = viewModel.subtitles.options.find((option) => option.id === 'playback-subtitle-burn');
+
+        burn?.onSelect?.();
+        await Promise.resolve();
+
+        expect(requestBurnInSubtitle).toHaveBeenCalledWith('burn', expect.any(String));
+        expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalled();
+    });
+
+    it('requests burn-in immediately for unsupported text subtitle probes in Full mode', async () => {
+        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+        const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 501 });
+        Object.defineProperty(globalThis, 'fetch', {
+            value: fetchMock,
+            writable: true,
+            configurable: true,
+        });
+
+        try {
+            const player = createPlayer([makeTextTrack({ id: 'keyless', fetchableViaKey: false })]);
+            const requestBurnInSubtitle = jest.fn();
+
+            const coordinator = new PlaybackOptionsCoordinator({
+                playbackOptionsModalId: 'playback-options',
+                getNavigation: (): null => null,
+                getPlaybackOptionsModal: (): null => null,
+                getVideoPlayer: (): IVideoPlayer => player,
+                getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+                getCurrentStreamDescriptor: (): StreamDescriptor =>
+                    ({
+                        subtitleContext: { serverUri: 'http://example.com', authHeaders: { 'X-Plex-Token': 'token' } },
+                    } as unknown as StreamDescriptor),
+                requestBurnInSubtitle,
+            });
+
+            const viewModel = getViewModel(coordinator);
+            const option = viewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-keyless');
+            option?.onSelect?.();
+
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(requestBurnInSubtitle).toHaveBeenCalledWith('keyless', expect.any(String));
+            expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalled();
+        } finally {
+            if (originalFetchDescriptor) {
+                Object.defineProperty(globalThis, 'fetch', originalFetchDescriptor);
+            } else {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                delete (globalThis as any).fetch;
+            }
+        }
+    });
+
+    it('requests burn-in when text subtitle probe times out in Full mode', async (): Promise<void> => {
+        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+        jest.useFakeTimers();
+        const fetchMock = jest.fn().mockImplementation((_url: string, init?: RequestInit) => (
+            new Promise((_resolve, reject) => {
+                const signal = init?.signal;
+                if (!signal) return;
+                if (signal.aborted) {
+                    reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
+                    return;
+                }
+                signal.addEventListener('abort', () => {
+                    reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
+                });
+                // Never resolves unless aborted.
+            })
+        ));
+        Object.defineProperty(globalThis, 'fetch', {
+            value: fetchMock,
+            writable: true,
+            configurable: true,
+        });
+
+        try {
+            const player = createPlayer([makeTextTrack({ id: 'keyless', fetchableViaKey: false })]);
+            const requestBurnInSubtitle = jest.fn();
+
+            const coordinator = new PlaybackOptionsCoordinator({
+                playbackOptionsModalId: 'playback-options',
+                getNavigation: (): null => null,
+                getPlaybackOptionsModal: (): null => null,
+                getVideoPlayer: (): IVideoPlayer => player,
+                getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+                getCurrentStreamDescriptor: (): StreamDescriptor =>
+                    ({
+                        subtitleContext: { serverUri: 'http://example.com', authHeaders: { 'X-Plex-Token': 'token' } },
+                    } as unknown as StreamDescriptor),
+                requestBurnInSubtitle,
+            });
+
+            const viewModel = getViewModel(coordinator);
+            const option = viewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-keyless');
+            option?.onSelect?.();
+
+            jest.advanceTimersByTime(450);
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(requestBurnInSubtitle).toHaveBeenCalledWith('keyless', expect.any(String));
+            expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalled();
+        } finally {
+            jest.useRealTimers();
+            if (originalFetchDescriptor) {
+                Object.defineProperty(globalThis, 'fetch', originalFetchDescriptor);
+            } else {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                delete (globalThis as any).fetch;
+            }
+        }
+    });
+
+    it('persists subtitle preference per item when global override is off', async (): Promise<void> => {
         localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE, '0');
 
         const player = createPlayer([
@@ -199,6 +335,9 @@ describe('PlaybackOptionsCoordinator', () => {
         const viewModel = getViewModel(coordinator);
         const option = viewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-sub-99');
         option?.onSelect();
+
+        await Promise.resolve();
+        await Promise.resolve();
 
         const stored = localStorage.getItem(`${RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_BY_ITEM_PREFIX}item-99`);
         expect(stored).toContain('sub-99');
