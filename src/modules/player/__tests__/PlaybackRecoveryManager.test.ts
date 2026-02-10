@@ -296,6 +296,109 @@ describe('PlaybackRecoveryManager', () => {
         expect(stream.preferredSubtitleTrackId).toBeNull();
     });
 
+    it('does not escalate subtitle deactivation to burn-in in standard mode', async () => {
+        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'standard');
+
+        const keylessEmbedded: PlexStream = {
+            id: 'sub-keyless',
+            streamType: 3,
+            language: 'English',
+            languageCode: 'en',
+            codec: 'srt',
+            format: 'srt',
+            forced: false,
+            default: true,
+            title: 'Embedded',
+        };
+        const directDecision = makeDecision({
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+            availableSubtitleStreams: [keylessEmbedded],
+        });
+
+        const notifyToast = jest.fn();
+        const { manager, resolver } = setup({ notifyToast });
+        (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(directDecision);
+
+        const stream = await manager.resolveStreamForProgram(makeProgram());
+        const handled = stream.subtitleContext?.onDeactivate?.({
+            trackId: 'sub-keyless',
+            reason: 'subtitle_text_fetch_failed',
+        });
+
+        expect(handled).toBe(false);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(resolver.resolveStream).toHaveBeenCalledTimes(1);
+        expect(notifyToast).not.toHaveBeenCalled();
+    });
+
+    it('escalates subtitle deactivation to burn-in in Full mode', async () => {
+        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const keylessText: PlexStream = {
+            id: 'sub-keyless',
+            streamType: 3,
+            language: 'English',
+            languageCode: 'en',
+            codec: 'srt',
+            format: 'srt',
+            forced: false,
+            default: true,
+            title: 'Keyless',
+        };
+        const directDecision = makeDecision({
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+            availableSubtitleStreams: [keylessText],
+        });
+        const burnInDecision = makeDecision({
+            protocol: 'hls',
+            isDirectPlay: false,
+            isTranscoding: true,
+            selectedSubtitleStream: keylessText,
+            availableSubtitleStreams: [keylessText],
+            transcodeRequest: {
+                sessionId: 'sess-2',
+                maxBitrate: 20000,
+                subtitleStreamId: 'sub-keyless',
+                subtitleMode: 'burn',
+                mediaIndex: 0,
+                partIndex: 0,
+            },
+        });
+
+        const notifyToast = jest.fn();
+        const { manager, resolver } = setup({ notifyToast });
+        (resolver.resolveStream as jest.Mock)
+            .mockResolvedValueOnce(directDecision)
+            .mockResolvedValueOnce(burnInDecision);
+
+        const stream = await manager.resolveStreamForProgram(makeProgram());
+        const handled = stream.subtitleContext?.onDeactivate?.({
+            trackId: 'sub-keyless',
+            reason: 'subtitle_text_fetch_failed',
+        });
+
+        expect(handled).toBe(true);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(resolver.resolveStream).toHaveBeenCalledWith(
+            expect.objectContaining({
+                itemKey: 'item-1',
+                directPlay: false,
+                subtitleStreamId: 'sub-keyless',
+                subtitleMode: 'burn',
+            })
+        );
+        expect(notifyToast).toHaveBeenCalledWith(
+            'Subtitles failed to load. Trying burn-in…',
+            'info'
+        );
+    });
+
     it('skips burn-in reload when already in burn-in HLS for track', async () => {
         const { manager, resolver } = setup({
             getCurrentStreamDescriptor: () => ({ protocol: 'hls' } as StreamDescriptor),

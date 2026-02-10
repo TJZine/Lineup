@@ -384,6 +384,94 @@ describe('VideoPlayer', () => {
     });
 
     // ========================================
+    // setSubtitleTrack
+    // ========================================
+
+    describe('setSubtitleTrack', () => {
+        it('does not persist selection when a subtitle deactivates immediately', async () => {
+            const player = new VideoPlayer();
+            await player.initialize(createMockConfig());
+
+            const trackChanges: Array<string | null> = [];
+            player.on('trackChange', (payload): void => {
+                if (payload.type === 'subtitle') {
+                    trackChanges.push(payload.trackId);
+                }
+            });
+
+            const selectedTrack = {
+                id: 'embedded-srt',
+                label: 'English (SRT)',
+                languageCode: 'en',
+                language: 'English',
+                codec: 'srt',
+                format: 'srt',
+                isTextCandidate: true,
+                fetchableViaKey: false,
+            };
+
+            type FakeSubtitleManager = {
+                initialize: () => void;
+                loadTracks: (_tracks: unknown, ctx?: StreamDescriptor['subtitleContext']) => string[];
+                unloadTracks: () => void;
+                getTracks: () => unknown[];
+                getActiveTrackId: () => string | null;
+                setActiveTrack: (trackId: string | null) => void;
+                destroy: () => void;
+            };
+
+            const fakeSubtitleManager = ((): FakeSubtitleManager => {
+                let activeTrackId: string | null = null;
+                let context: StreamDescriptor['subtitleContext'] | undefined;
+                const tracks = [selectedTrack];
+
+                return {
+                    initialize: (): void => undefined,
+                    loadTracks: (_tracks: unknown, ctx?: StreamDescriptor['subtitleContext']): string[] => {
+                        context = ctx;
+                        return [];
+                    },
+                    unloadTracks: (): void => {
+                        activeTrackId = null;
+                        context = undefined;
+                    },
+                    getTracks: (): unknown[] => tracks,
+                    getActiveTrackId: (): string | null => activeTrackId,
+                    setActiveTrack: (trackId: string | null): void => {
+                        activeTrackId = trackId;
+                        if (trackId === 'embedded-srt') {
+                            // Simulate a synchronous failure that deactivates the subtitle immediately.
+                            activeTrackId = null;
+                            context?.onDeactivate?.({ trackId, reason: 'embedded_text_requires_burn_in' });
+                        }
+                    },
+                    destroy: (): void => undefined,
+                };
+            })();
+
+            (player as unknown as { _subtitleManager: unknown })._subtitleManager = fakeSubtitleManager;
+
+            const descriptor = createMockDescriptor({
+                subtitleTracks: [selectedTrack] as unknown as StreamDescriptor['subtitleTracks'],
+                subtitleContext: {
+                    serverUri: 'http://example.com',
+                    authHeaders: { 'X-Plex-Token': 'token' },
+                    onDeactivate: () => true,
+                },
+            });
+            await player.loadStream(descriptor);
+
+            trackChanges.length = 0;
+            await player.setSubtitleTrack('embedded-srt');
+
+            expect(player.getState().activeSubtitleId).toBeNull();
+            expect(trackChanges).toEqual([null]);
+
+            player.destroy();
+        });
+    });
+
+    // ========================================
     // playback control
     // ========================================
 

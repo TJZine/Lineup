@@ -180,7 +180,7 @@ export class PlaybackOptionsCoordinator {
             subtitles: {
                 title: 'Subtitles',
                 options: subtitleOptions,
-                helperText: 'Direct is fastest. Extract uses the server. Burn-in transcodes the video.',
+                helperText: 'Direct is fastest. Extract uses the server. Burn-in transcodes the video (Full mode).',
                 ...(subtitleEmptyMessage ? { emptyMessage: subtitleEmptyMessage } : {}),
             },
             audio: {

@@ -166,6 +166,85 @@ describe('SubtitleManager', () => {
             manager.setActiveTrack(null);
             expect(manager.getActiveTrackId()).toBeNull();
         });
+
+        it('does not classify keyless text tracks as burn-in and attempts extraction on selection', async () => {
+            const originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+            const fetchMock = jest.fn();
+            const originalCreateObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+            const originalRevokeObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
+            Object.defineProperty(globalThis, 'fetch', {
+                value: fetchMock,
+                writable: true,
+                configurable: true,
+            });
+
+            try {
+                const onDeactivate = jest.fn(() => true);
+                const embeddedTrack = createMockSubtitleTrack({
+                    id: 'embedded-srt',
+                    codec: 'srt',
+                    format: 'srt',
+                    fetchableViaKey: false,
+                });
+                delete (embeddedTrack as { key?: string }).key;
+                const tracks: SubtitleTrack[] = [
+                    embeddedTrack,
+                ];
+                Object.defineProperty(URL, 'createObjectURL', {
+                    value: jest.fn().mockReturnValue('blob:mock'),
+                    writable: true,
+                    configurable: true,
+                });
+                Object.defineProperty(URL, 'revokeObjectURL', {
+                    value: jest.fn(),
+                    writable: true,
+                    configurable: true,
+                });
+
+                fetchMock.mockResolvedValue({
+                    ok: true,
+                    status: 200,
+                    headers: { get: (): null => null },
+                    text: async () => `1
+00:00:00,000 --> 00:00:01,000
+Hello`,
+                });
+
+                const burnInRequired = manager.loadTracks(tracks, {
+                    serverUri: 'http://example.com',
+                    authHeaders: { 'X-Plex-Token': 'token' },
+                    onDeactivate,
+                });
+                expect(burnInRequired).toHaveLength(0);
+
+                manager.setActiveTrack('embedded-srt');
+
+                expect(manager.getActiveTrackId()).toBe('embedded-srt');
+                expect(onDeactivate).not.toHaveBeenCalled();
+
+                await new Promise((resolve) => setTimeout(resolve, 0));
+                expect(fetchMock).toHaveBeenCalled();
+            } finally {
+                if (originalFetchDescriptor) {
+                    Object.defineProperty(globalThis, 'fetch', originalFetchDescriptor);
+                } else {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    delete (globalThis as any).fetch;
+                }
+                if (originalCreateObjectUrlDescriptor) {
+                    Object.defineProperty(URL, 'createObjectURL', originalCreateObjectUrlDescriptor);
+                } else {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    delete (URL as any).createObjectURL;
+                }
+                if (originalRevokeObjectUrlDescriptor) {
+                    Object.defineProperty(URL, 'revokeObjectURL', originalRevokeObjectUrlDescriptor);
+                } else {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    delete (URL as any).revokeObjectURL;
+                }
+            }
+        });
     });
 
     // ========================================

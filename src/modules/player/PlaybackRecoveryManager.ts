@@ -459,8 +459,11 @@ export class PlaybackRecoveryManager {
                     if (!allowBurnIn) {
                         return false;
                     }
-                    // Best-effort: try burn-in subtitles when extraction fails (Full mode only).
-                    this.deps.notifyToast?.('Subtitles failed to load. Trying burn-in…', 'info');
+                    // Best-effort: try burn-in subtitles when extraction fails.
+                    this.deps.notifyToast?.(
+                        'Subtitles failed to load. Trying burn-in…',
+                        'info'
+                    );
                     void this.attemptBurnInSubtitleForCurrentProgram(trackId, `subtitle_extract_failed:${reason}`)
                         .then((ok) => {
                             if (!ok) {

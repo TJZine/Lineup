@@ -159,7 +159,7 @@ describe('PlaybackOptionsCoordinator', () => {
         expect(burnOption?.meta).toBe('Burn-in');
     });
 
-    it('labels direct vs extracted text tracks', () => {
+    it('labels direct vs burn-in for text tracks', () => {
         const player = createPlayer([
             makeTextTrack({ id: 'direct', fetchableViaKey: true, key: '/library/streams/1' }),
             makeTextTrack({ id: 'server', fetchableViaKey: false }),
