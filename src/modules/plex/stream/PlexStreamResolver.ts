@@ -333,7 +333,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         const item = await this._config.getItem(request.itemKey);
         if (!item) {
             throw this._createError(
-                PlexStreamErrorCode.PLAYBACK_SOURCE_NOT_FOUND,
+                PlexStreamErrorCode.ITEM_NOT_FOUND,
                 `Item not found: ${request.itemKey}`,
                 false
             );
@@ -386,7 +386,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 : null;
         if (request.subtitleMode === 'burn' && request.subtitleStreamId && !subtitleStream) {
             throw this._createError(
-                PlexStreamErrorCode.PLAYBACK_SOURCE_NOT_FOUND,
+                PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND,
                 `Subtitle stream not found for burn-in: ${request.subtitleStreamId}`,
                 true
             );
@@ -744,6 +744,36 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             }
             if (transcodeRequestInfo) {
                 decision.transcodeRequest = transcodeRequestInfo;
+            }
+
+            // Optional (debug-only): ask PMS why it chose to transcode vs direct-stream.
+            // This helps explain cases where HDR10 fallback unexpectedly results in SDR H.264 transcodes.
+            if (debugEnabled && decision.isTranscoding && transcodeRequestInfo) {
+                try {
+                    decision.serverDecision = await this.fetchUniversalTranscodeDecision(
+                        request.itemKey,
+                        {
+                            sessionId: transcodeRequestInfo.sessionId,
+                            maxBitrate: transcodeRequestInfo.maxBitrate,
+                            ...(typeof transcodeRequestInfo.audioStreamId === 'string'
+                                ? { audioStreamId: transcodeRequestInfo.audioStreamId }
+                                : {}),
+                            ...(typeof transcodeRequestInfo.hideDolbyVision === 'boolean'
+                                ? { hideDolbyVision: transcodeRequestInfo.hideDolbyVision }
+                                : {}),
+                        }
+                    );
+                    console.warn('[PlexStreamResolver] PMS universal decision:', {
+                        itemKey: request.itemKey,
+                        ...decision.serverDecision,
+                    });
+                } catch (e) {
+                    const message = e instanceof Error ? e.message : String(e);
+                    console.warn('[PlexStreamResolver] PMS universal decision fetch failed:', {
+                        itemKey: request.itemKey,
+                        error: message,
+                    });
+                }
             }
 
             if (this._isDebugLoggingEnabled()) {
@@ -1442,18 +1472,33 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         const chromeMajor = this._getChromeMajor();
         const isWebOs = this._isWebOs();
 
-        // HEVC detection (common for 4K MKV libraries).
-        const supportsHevc =
+        // HEVC detection (common for 4K libraries).
+        //
+        // Important: many HDR10 and DV base-layer sources are HEVC Main 10 (10-bit).
+        // If we only advertise HEVC Main, PMS may assume "can't decode" and choose an
+        // SDR H.264 transcode as the safest target.
+        const supportsHevcMain =
             canPlay('video/mp4; codecs="hvc1.1.6.L93.B0"') ||
             canPlay('video/mp4; codecs="hev1.1.6.L93.B0"') ||
-            // Fallback: webOS 23+ (Chromium 94+) should support HEVC decode.
+            // Fallback: webOS 23+ (Chromium 94+) should support HEVC decode, even if canPlayType lies.
             (isWebOs && chromeMajor !== null && chromeMajor >= 94);
 
+        // HEVC Main 10 (10-bit). Common sample codec strings include 2.x profiles.
+        const supportsHevcMain10 =
+            canPlay('video/mp4; codecs="hvc1.2.4.L93.B0"') ||
+            canPlay('video/mp4; codecs="hev1.2.4.L93.B0"') ||
+            canPlay('video/mp4; codecs="hvc1.2.4.L150.B0"') ||
+            canPlay('video/mp4; codecs="hev1.2.4.L150.B0"') ||
+            // Same conservative webOS fallback as HEVC Main.
+            (isWebOs && chromeMajor !== null && chromeMajor >= 94);
+
+        const supportsHevc = supportsHevcMain || supportsHevcMain10;
+
+        // Dolby Vision support in browser stacks is inconsistent; do not guess based on platform.
+        // Only advertise DV when canPlayType explicitly reports it.
         const supportsDolbyVision =
             canPlay('video/mp4; codecs="dvh1.05.06"') ||
-            canPlay('video/mp4; codecs="dvh1.08.06"') ||
-            // Jellyfin research: LG webOS 2020+ should support profile 8 but may not report it.
-            (isWebOs && chromeMajor !== null && chromeMajor >= 94);
+            canPlay('video/mp4; codecs="dvh1.08.06"');
 
         const supportsVp9 =
             canPlay('video/webm; codecs="vp9"') ||
@@ -1467,6 +1512,10 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         if (supportsHevc) {
             // Plex commonly uses HEVC "level" style values like 120 (1080p) / 150 (4K).
             const hevcLevel = is4K ? '150' : '120';
+            // Prefer Main10 when available; keep Main as a fallback.
+            if (supportsHevcMain10) {
+                videoDecoders.push(`hevc{profile:main10&level:${hevcLevel}}`);
+            }
             videoDecoders.push(`hevc{profile:main&level:${hevcLevel}}`);
             if (supportsDolbyVision && options?.hideDolbyVision !== true) {
                 videoDecoders.push('hevc{profile:dvhe.05}');
@@ -1613,6 +1662,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         const media = sorted[0];
         if (!media) return null;
         const mediaIndex = allMedia.findIndex((entry) => entry === media);
+        if (mediaIndex < 0 && __RETUNE_DEV_BUILD__) {
+            console.warn(
+                '[PlexStreamResolver] _pickHighestResolution: selected media not found in allMedia, defaulting to index 0'
+            );
+        }
         return { media, mediaIndex: mediaIndex >= 0 ? mediaIndex : 0 };
     }
 

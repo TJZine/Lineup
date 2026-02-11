@@ -712,14 +712,14 @@ describe('PlexStreamResolver', () => {
             expect(decision.sessionId).toMatch(/^[a-f0-9-]{36}$/);
         });
 
-        it('should throw PLAYBACK_SOURCE_NOT_FOUND for missing item', async () => {
+        it('should throw ITEM_NOT_FOUND for missing item', async () => {
             const config = createMockConfig({
                 getItem: jest.fn().mockResolvedValue(null),
             });
             const resolver = new PlexStreamResolver(config);
 
             await expect(resolver.resolveStream({ itemKey: '12345' })).rejects.toMatchObject({
-                code: 'PLAYBACK_SOURCE_NOT_FOUND',
+                code: 'ITEM_NOT_FOUND',
             });
         });
 

@@ -75,10 +75,7 @@ export class PlexLibrary implements IPlexLibrary {
     private readonly _config: PlexLibraryConfig;
     private readonly _emitter: EventEmitter<PlexLibraryEvents>;
     private readonly _state: PlexLibraryState;
-
-    private get _logger(): { warn: typeof console.warn; error: typeof console.error } {
-        return this._config.logger ?? { warn: console.warn, error: console.error };
-    }
+    private readonly _logger: NonNullable<PlexLibraryConfig['logger']>;
 
     /**
      * Create a new PlexLibrary instance.
@@ -86,6 +83,7 @@ export class PlexLibrary implements IPlexLibrary {
      */
     constructor(config: PlexLibraryConfig) {
         this._config = config;
+        this._logger = config.logger ?? { warn: console.warn, error: console.error };
         this._emitter = new EventEmitter<PlexLibraryEvents>();
         this._state = {
             libraryCache: new Map(),
@@ -102,7 +100,7 @@ export class PlexLibrary implements IPlexLibrary {
         if (!serverUri) {
             return null;
         }
-        const token = this._config.getAuthToken?.() ?? '';
+        const token = this._config.getAuthToken() ?? '';
         const tokenHash = token ? fnv1a32Hex(token) : 'no-token';
         return `${serverUri}::${tokenHash}`;
     }
