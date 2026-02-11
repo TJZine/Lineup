@@ -23,6 +23,7 @@
   --panel-border: 1px solid rgb(255 255 255 / 10%);
   --panel-radius: 0px;
   --panel-inner-glow: linear-gradient(180deg, rgba(229, 160, 13, 0.04), transparent);
+  --panel-inner-glow: linear-gradient(180deg, rgb(229 160 13 / 4%), transparent);
   --transition-normal: 120ms ease-out;
   --epg-info-panel-fade-to: var(--panel-surface-2);
 }
@@ -59,6 +60,10 @@
   --color-bg-deep: #001020;
   --color-bg-surface: rgba(0, 40, 80, 0.92);
   --color-bg-surface: rgb(0 40 80 / 92%);
+  --color-bg-elevated: rgba(0, 28, 56, 0.94);
+  --color-bg-elevated: rgb(0 28 56 / 94%);
+  --color-bg-overlay: rgba(0, 20, 40, 0.86);
+  --color-bg-overlay: rgb(0 20 40 / 86%);
   --panel-surface: var(--color-bg-surface);
   --panel-surface-2: rgba(0, 28, 56, 0.94);
   --panel-surface-2: rgb(0 28 56 / 94%);
