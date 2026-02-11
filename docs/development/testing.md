@@ -20,8 +20,25 @@ npm run test:coverage
 - **Core Logic**: Schedulers, math utilities, Plex data parsing.
 - **State Management**: Channel creation, deletion, updates.
 - **Orchestration**: ensuring events trigger correct actions.
+- **Runtime UI Classes**: Screen/modal/overlay behavior through public APIs and DOM-visible outcomes.
 
-*Note: UI components are generally tested manually or via integration tests.*
+## Behavior-First Unit Testing
+
+- Prefer public behavior assertions (user actions, emitted events, rendered output) over internal implementation details.
+- Keep tests deterministic: use fake timers for timing behavior and avoid real-time sleeps.
+- Mock network/platform boundaries, but keep module wiring realistic (constructor/startup paths should still execute).
+- Add targeted smoke coverage for app/bootstrap startup seams so regressions in initialization are caught early.
+
+## Anti-Pattern Policy (Frozen Suites)
+
+- Do not probe private members on the SUT (no underscore-field pokes via casted internals).
+- Do not use real-time wait helpers based on `setTimeout`/`setInterval` in tests.
+- Use `jest.useFakeTimers()` with explicit advancement (`advanceTimersByTime`, `runOnlyPendingTimers`) for timing assertions.
+- Policy enforcement runs via `src/__tests__/policy/AntiPatterns.policy.test.ts` and writes reports to:
+  - `/tmp/current-private-probes.json`
+  - `/tmp/current-sleeps.txt`
+
+*Manual and integration verification still complement unit tests, especially for webOS device behavior.*
 
 ## Manual Verification
 

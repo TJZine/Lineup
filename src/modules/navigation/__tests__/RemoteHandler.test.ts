@@ -29,11 +29,6 @@ function dispatchKeyEvent(
     return event;
 }
 
-// Helper to wait for a specific duration
-function wait(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 describe('RemoteHandler', () => {
     let remoteHandler: RemoteHandler;
 
@@ -53,7 +48,7 @@ describe('RemoteHandler', () => {
 
         it('should expose a read-only key map view', () => {
             const keyMap = resolveKeyMap();
-            const keyMapLike = keyMap as unknown as {
+            const keyMapLike = keyMap as never as {
                 set?: unknown;
                 delete?: unknown;
                 clear?: unknown;
@@ -219,14 +214,21 @@ describe('RemoteHandler', () => {
     });
 
     describe('long press detection', () => {
-        it('should detect long press after threshold', async () => {
+        beforeEach(() => {
+            jest.useFakeTimers();
+        });
+
+        afterEach(() => {
+            jest.runOnlyPendingTimers();
+            jest.useRealTimers();
+        });
+
+        it('should detect long press after threshold', () => {
             const handler = jest.fn();
             remoteHandler.registerLongPress('ok', handler);
 
             dispatchKeyEvent(13, 'keydown');
-
-            // Wait for long press threshold
-            await wait(LONG_PRESS_THRESHOLD_MS + 100);
+            jest.advanceTimersByTime(LONG_PRESS_THRESHOLD_MS + 100);
 
             expect(handler).toHaveBeenCalled();
 
@@ -234,54 +236,52 @@ describe('RemoteHandler', () => {
             dispatchKeyEvent(13, 'keyup');
         });
 
-        it('should not trigger long press on quick tap', async () => {
+        it('should not trigger long press on quick tap', () => {
             const handler = jest.fn();
             remoteHandler.registerLongPress('ok', handler);
 
             dispatchKeyEvent(13, 'keydown');
-            await wait(100); // Less than threshold
+            jest.advanceTimersByTime(100);
             dispatchKeyEvent(13, 'keyup');
-
-            await wait(LONG_PRESS_THRESHOLD_MS);
+            jest.advanceTimersByTime(LONG_PRESS_THRESHOLD_MS);
 
             expect(handler).not.toHaveBeenCalled();
         });
 
-        it('should cancel long press', async () => {
+        it('should cancel long press', () => {
             const handler = jest.fn();
             remoteHandler.registerLongPress('ok', handler);
 
             dispatchKeyEvent(13, 'keydown');
-            await wait(100);
+            jest.advanceTimersByTime(100);
             remoteHandler.cancelLongPress();
-
-            await wait(LONG_PRESS_THRESHOLD_MS);
+            jest.advanceTimersByTime(LONG_PRESS_THRESHOLD_MS);
 
             expect(handler).not.toHaveBeenCalled();
 
             dispatchKeyEvent(13, 'keyup');
         });
 
-        it('should emit longPress event', async () => {
+        it('should emit longPress event', () => {
             const handler = jest.fn();
             remoteHandler.on('longPress', handler);
             remoteHandler.registerLongPress('ok', () => { });
 
             dispatchKeyEvent(13, 'keydown');
-            await wait(LONG_PRESS_THRESHOLD_MS + 100);
+            jest.advanceTimersByTime(LONG_PRESS_THRESHOLD_MS + 100);
 
             expect(handler).toHaveBeenCalledWith({ button: 'ok' });
 
             dispatchKeyEvent(13, 'keyup');
         });
 
-        it('should report wasLongPress=true in keyUp after long press', async () => {
+        it('should report wasLongPress=true in keyUp after long press', () => {
             const keyUpHandler = jest.fn();
             remoteHandler.on('keyUp', keyUpHandler);
             remoteHandler.registerLongPress('ok', () => { });
 
             dispatchKeyEvent(13, 'keydown');
-            await wait(LONG_PRESS_THRESHOLD_MS + 100);
+            jest.advanceTimersByTime(LONG_PRESS_THRESHOLD_MS + 100);
             dispatchKeyEvent(13, 'keyup');
 
             expect(keyUpHandler).toHaveBeenCalledWith(

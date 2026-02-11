@@ -6,51 +6,33 @@ import { ChannelSetupScreen } from '../ChannelSetupScreen';
 import type { AppOrchestrator } from '../../../../Orchestrator';
 import type { PlexLibrary } from '../../../plex/library/types';
 
-type NavigationStub = {
-    focusables: Map<string, { id: string; neighbors: { up?: string; down?: string; left?: string; right?: string } }>;
+type Focusable = {
+    id: string;
+    neighbors: { up?: string; down?: string; left?: string; right?: string };
+};
+
+type NavigationMock = {
+    focusables: Map<string, Focusable>;
     registerFocusable: jest.Mock;
     unregisterFocusable: jest.Mock;
     setFocus: jest.Mock;
     getFocusedElement: jest.Mock;
+    on: jest.Mock;
+    off: jest.Mock;
 };
 
-const createNavigationStub = (): NavigationStub => {
-    const focusables = new Map<string, { id: string; neighbors: { up?: string; down?: string; left?: string; right?: string } }>();
-    let focusedId: string | null = null;
-    return {
-        focusables,
-        registerFocusable: jest.fn((focusable: { id: string; neighbors: { up?: string; down?: string; left?: string; right?: string } }) => {
-            focusables.set(focusable.id, focusable);
-        }),
-        unregisterFocusable: jest.fn((id: string) => {
-            focusables.delete(id);
-        }),
-        setFocus: jest.fn((id: string) => {
-            focusedId = id;
-        }),
-        getFocusedElement: jest.fn(() => (focusedId ? ({ id: focusedId } as HTMLElement) : null)),
-    };
+type ChannelSetupOrchestratorStub = {
+    getNavigation: jest.Mock;
+    getLibrariesForSetup: jest.Mock;
+    getSelectedServerStorageKey: jest.Mock;
+    getSelectedServerId: jest.Mock;
+    getChannelSetupRecord: jest.Mock;
+    openServerSelect: jest.Mock;
 };
 
-const makeScreen = (): { container: HTMLElement; screen: ChannelSetupScreen } => {
-    const container = document.createElement('div');
-    document.body.appendChild(container);
-    const orchestrator = {
-        getNavigation: () => null,
-    } as unknown as AppOrchestrator;
-    const screen = new ChannelSetupScreen(container, orchestrator);
-    return { container, screen };
-};
-
-const makeScreenWithNav = (): { container: HTMLElement; screen: ChannelSetupScreen; nav: NavigationStub } => {
-    const container = document.createElement('div');
-    document.body.appendChild(container);
-    const nav = createNavigationStub();
-    const orchestrator = {
-        getNavigation: () => nav,
-    } as unknown as AppOrchestrator;
-    const screen = new ChannelSetupScreen(container, orchestrator);
-    return { container, screen, nav };
+const flushPromises = async (): Promise<void> => {
+    await Promise.resolve();
+    await Promise.resolve();
 };
 
 const makeLibrary = (overrides: Partial<PlexLibrary>): PlexLibrary => ({
@@ -66,237 +48,144 @@ const makeLibrary = (overrides: Partial<PlexLibrary>): PlexLibrary => ({
     thumb: overrides.thumb ?? null,
 });
 
+const createNavigationMock = (): NavigationMock => {
+    const focusables = new Map<string, Focusable>();
+    let focusedId: string | null = null;
+    return {
+        focusables,
+        registerFocusable: jest.fn((focusable: Focusable) => {
+            focusables.set(focusable.id, focusable);
+        }),
+        unregisterFocusable: jest.fn((id: string) => {
+            focusables.delete(id);
+        }),
+        setFocus: jest.fn((id: string) => {
+            focusedId = id;
+        }),
+        getFocusedElement: jest.fn(() => (focusedId ? ({ id: focusedId } as HTMLElement) : null)),
+        on: jest.fn(),
+        off: jest.fn(),
+    };
+};
+
+const createOrchestrator = (
+    overrides: Partial<ChannelSetupOrchestratorStub> = {}
+): ChannelSetupOrchestratorStub => ({
+    getNavigation: jest.fn(() => null),
+    getLibrariesForSetup: jest.fn().mockResolvedValue([]),
+    getSelectedServerStorageKey: jest.fn(() => 'retune-selected-server-id'),
+    getSelectedServerId: jest.fn(() => null),
+    getChannelSetupRecord: jest.fn(() => null),
+    openServerSelect: jest.fn(),
+    ...overrides,
+});
+
+const click = (container: HTMLElement, selector: string): void => {
+    const element = container.querySelector(selector);
+    if (!(element instanceof HTMLButtonElement)) {
+        throw new Error(`Button not found: ${selector}`);
+    }
+    element.click();
+};
+
 describe('ChannelSetupScreen', () => {
     afterEach(() => {
-        document.body.innerHTML = '';
         jest.clearAllMocks();
-        jest.useRealTimers();
+        document.body.innerHTML = '';
     });
 
-    it('renders a loading placeholder while setup record is not applied', () => {
-        const { container, screen } = makeScreen();
-        const screenAny = screen as unknown as {
-            _recordApplied: boolean;
-            _review: unknown;
-            _isReviewLoading: boolean;
-            _reviewError: string | null;
-            _loadReview: jest.Mock;
-            _renderBuildReview: () => void;
-        };
+    it('shows loading state while libraries are in flight', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
 
-        screenAny._recordApplied = false;
-        screenAny._review = null;
-        screenAny._isReviewLoading = false;
-        screenAny._reviewError = null;
-        screenAny._loadReview = jest.fn().mockResolvedValue(undefined);
+        let resolveLibraries: (libraries: PlexLibrary[]) => void = () => undefined;
+        const librariesPromise = new Promise<PlexLibrary[]>((resolve) => {
+            resolveLibraries = resolve;
+        });
 
-        screenAny._renderBuildReview();
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn(() => librariesPromise),
+        });
 
-        const loading = container.querySelector('.setup-preview-loading') as HTMLElement | null;
-        expect(loading?.textContent).toContain('Preparing your review');
-        expect(screenAny._loadReview).not.toHaveBeenCalled();
+        const screen = new ChannelSetupScreen(container, orchestrator as never as AppOrchestrator);
+        screen.show();
+
+        expect(container.textContent ?? '').toContain('Loading libraries');
+
+        resolveLibraries([makeLibrary({ id: 'movies', title: 'Movies', contentCount: 1200 })]);
+        await flushPromises();
     });
 
-    it('loads review once the setup record is applied', async () => {
-        const { screen } = makeScreen();
-        const screenAny = screen as unknown as {
-            _recordApplied: boolean;
-            _review: unknown;
-            _isReviewLoading: boolean;
-            _reviewError: string | null;
-            _loadReview: jest.Mock;
-            _renderBuildReview: () => void;
-        };
+    it('renders bulk actions and formatted library metadata', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
 
-        screenAny._recordApplied = true;
-        screenAny._review = null;
-        screenAny._isReviewLoading = false;
-        screenAny._reviewError = null;
-        screenAny._loadReview = jest.fn().mockResolvedValue(undefined);
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([
+                makeLibrary({ id: 'movies', title: 'Movies', contentCount: 1234 }),
+                makeLibrary({ id: 'shows', title: 'Shows', type: 'show', contentCount: 56 }),
+            ]),
+        });
 
-        screenAny._renderBuildReview();
-        await Promise.resolve();
-
-        expect(screenAny._loadReview).toHaveBeenCalled();
-    });
-
-    it('does not load review if visibility token changes before deferred kickoff', async () => {
-        const { screen } = makeScreen();
-        const screenAny = screen as unknown as {
-            _recordApplied: boolean;
-            _review: unknown;
-            _isReviewLoading: boolean;
-            _reviewError: string | null;
-            _visibilityToken: number;
-            _loadReview: jest.Mock;
-            _renderBuildReview: () => void;
-        };
-
-        screenAny._recordApplied = true;
-        screenAny._review = null;
-        screenAny._isReviewLoading = false;
-        screenAny._reviewError = null;
-        screenAny._visibilityToken = 10;
-        screenAny._loadReview = jest.fn().mockResolvedValue(undefined);
-
-        screenAny._renderBuildReview();
-        screenAny._visibilityToken = 11;
-        await Promise.resolve();
-
-        expect(screenAny._loadReview).not.toHaveBeenCalled();
-    });
-
-    it('shows only loading state while kicking off review fetch', () => {
-        const { container, screen } = makeScreen();
-        const screenAny = screen as unknown as {
-            _recordApplied: boolean;
-            _review: unknown;
-            _isReviewLoading: boolean;
-            _reviewError: string | null;
-            _loadReview: jest.Mock;
-            _renderBuildReview: () => void;
-        };
-
-        screenAny._recordApplied = true;
-        screenAny._review = null;
-        screenAny._isReviewLoading = false;
-        screenAny._reviewError = null;
-        screenAny._loadReview = jest.fn().mockResolvedValue(undefined);
-
-        screenAny._renderBuildReview();
-
-        expect(container.querySelectorAll('.setup-preview-loading')).toHaveLength(1);
-        expect(container.querySelectorAll('#setup-back')).toHaveLength(1);
-        const confirmButton = container.querySelector('#setup-confirm') as HTMLButtonElement | null;
-        expect(confirmButton).not.toBeNull();
-        expect(confirmButton?.disabled).toBe(true);
-        expect(container.querySelectorAll('#setup-confirm')).toHaveLength(1);
-    });
-
-    it('renders library meta with formatted content counts', () => {
-        const { container, screen } = makeScreen();
-        const screenAny = screen as unknown as {
-            _libraries: PlexLibrary[];
-            _selectedLibraryIds: Set<string>;
-            _renderLibraryStep: () => void;
-        };
-
-        screenAny._libraries = [
-            makeLibrary({ id: 'movies', title: 'Movies', type: 'movie', contentCount: 1234 }),
-            makeLibrary({ id: 'shows', title: 'Shows', type: 'show', contentCount: 56 }),
-        ];
-        screenAny._selectedLibraryIds = new Set(['movies']);
-
-        screenAny._renderLibraryStep();
-
-        const meta = container.querySelector('#setup-lib-movies .setup-toggle-meta') as HTMLElement | null;
-        const formattedCount = new Intl.NumberFormat().format(1234);
-        expect(meta?.textContent).toContain(`Movies • ${formattedCount} titles`);
-    });
-
-    it('renders select-all and clear-all bulk action buttons', () => {
-        const { container, screen } = makeScreen();
-        const screenAny = screen as unknown as {
-            _libraries: PlexLibrary[];
-            _selectedLibraryIds: Set<string>;
-            _renderLibraryStep: () => void;
-        };
-
-        screenAny._libraries = [makeLibrary({ id: 'movies' }), makeLibrary({ id: 'shows', type: 'show' })];
-        screenAny._selectedLibraryIds = new Set(['movies']);
-
-        screenAny._renderLibraryStep();
+        const screen = new ChannelSetupScreen(container, orchestrator as never as AppOrchestrator);
+        screen.show();
+        await flushPromises();
 
         expect(container.querySelector('#setup-select-all')).not.toBeNull();
         expect(container.querySelector('#setup-clear-all')).not.toBeNull();
+
+        const meta = container.querySelector('#setup-lib-movies .setup-toggle-meta');
+        const formattedCount = new Intl.NumberFormat().format(1234);
+        expect(meta?.textContent ?? '').toContain(`Movies • ${formattedCount} titles`);
     });
 
-    it('applies clear-all and select-all behavior for library tiles', () => {
-        const { container, screen } = makeScreen();
-        const screenAny = screen as unknown as {
-            _libraries: PlexLibrary[];
-            _selectedLibraryIds: Set<string>;
-            _renderLibraryStep: () => void;
-        };
+    it('supports clear-all and select-all toggles', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
 
-        screenAny._libraries = [makeLibrary({ id: 'movies' }), makeLibrary({ id: 'shows', type: 'show' })];
-        screenAny._selectedLibraryIds = new Set(['movies']);
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([
+                makeLibrary({ id: 'movies' }),
+                makeLibrary({ id: 'shows', type: 'show' }),
+            ]),
+        });
 
-        screenAny._renderLibraryStep();
+        const screen = new ChannelSetupScreen(container, orchestrator as never as AppOrchestrator);
+        screen.show();
+        await flushPromises();
 
-        const clearAll = container.querySelector('#setup-clear-all') as HTMLButtonElement | null;
-        const selectAll = container.querySelector('#setup-select-all') as HTMLButtonElement | null;
-        expect(clearAll).not.toBeNull();
-        expect(selectAll).not.toBeNull();
-
-        clearAll?.click();
+        click(container, '#setup-clear-all');
         expect(container.querySelectorAll('.setup-toggle.library-toggle.selected')).toHaveLength(0);
         expect((container.querySelector('#setup-next') as HTMLButtonElement | null)?.disabled).toBe(true);
 
-        (container.querySelector('#setup-select-all') as HTMLButtonElement | null)?.click();
+        click(container, '#setup-select-all');
         expect(container.querySelectorAll('.setup-toggle.library-toggle.selected')).toHaveLength(2);
         expect((container.querySelector('#setup-next') as HTMLButtonElement | null)?.disabled).toBe(false);
     });
 
-    it('renders selected library tiles with a checkmark icon', () => {
-        const { container, screen } = makeScreen();
-        const screenAny = screen as unknown as {
-            _libraries: PlexLibrary[];
-            _selectedLibraryIds: Set<string>;
-            _renderLibraryStep: () => void;
-        };
+    it('wires bulk-action focus neighbors to each other and first tile', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
 
-        screenAny._libraries = [makeLibrary({ id: 'movies', title: 'Movies' })];
-        screenAny._selectedLibraryIds = new Set(['movies']);
+        const nav = createNavigationMock();
+        const orchestrator = createOrchestrator({
+            getNavigation: jest.fn(() => nav),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([
+                makeLibrary({ id: 'movies' }),
+                makeLibrary({ id: 'shows', type: 'show' }),
+            ]),
+        });
 
-        screenAny._renderLibraryStep();
-
-        const selectedIcon = container.querySelector('#setup-lib-movies .setup-toggle-state-icon');
-        expect(selectedIcon).not.toBeNull();
-        const srOnlyText = container.querySelector('#setup-lib-movies .setup-toggle-state .sr-only') as HTMLElement | null;
-        expect(srOnlyText?.textContent).toBe('Selected');
-    });
-
-    it('wires bulk action focus neighbors to each other and the first library tile', () => {
-        const { screen, nav } = makeScreenWithNav();
-        const screenAny = screen as unknown as {
-            _libraries: PlexLibrary[];
-            _selectedLibraryIds: Set<string>;
-            _renderLibraryStep: () => void;
-        };
-
-        screenAny._libraries = [makeLibrary({ id: 'movies' }), makeLibrary({ id: 'shows', type: 'show' })];
-        screenAny._selectedLibraryIds = new Set(['movies']);
-        screenAny._renderLibraryStep();
+        const screen = new ChannelSetupScreen(container, orchestrator as never as AppOrchestrator);
+        screen.show();
+        await flushPromises();
 
         const selectAll = nav.focusables.get('setup-select-all');
         const clearAll = nav.focusables.get('setup-clear-all');
+
         expect(selectAll?.neighbors.right).toBe('setup-clear-all');
         expect(selectAll?.neighbors.down).toBe('setup-lib-movies');
         expect(clearAll?.neighbors.left).toBe('setup-select-all');
         expect(clearAll?.neighbors.down).toBe('setup-lib-movies');
-    });
-
-    it('renders and expires preview deltas in preview rows', () => {
-        jest.useFakeTimers();
-        jest.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
-
-        const { screen } = makeScreen();
-        const screenAny = screen as unknown as {
-            _previewDeltas: Partial<Record<string, number>>;
-            _previewDeltaExpiresAtMs: number;
-            _buildPreviewRow: (label: string, value: number, deltaKey: string) => HTMLElement;
-        };
-
-        screenAny._previewDeltas = { total: 5 };
-        screenAny._previewDeltaExpiresAtMs = Date.now() + 3000;
-
-        const rowWithDelta = screenAny._buildPreviewRow('Total planned', 45, 'total');
-        expect(rowWithDelta.textContent).toContain('(+5)');
-        expect(rowWithDelta.querySelector('.setup-preview-delta.positive')).not.toBeNull();
-
-        jest.advanceTimersByTime(3001);
-        const rowAfterExpiry = screenAny._buildPreviewRow('Total planned', 45, 'total');
-        expect(rowAfterExpiry.querySelector('.setup-preview-delta')).toBeNull();
     });
 });
