@@ -10,10 +10,6 @@ import type { PlatformIdentityService } from '../../../../platform';
 import { createMockConfig, createMockMediaItem } from './testUtils';
 
 // ============================================
-// Test Helpers
-// ============================================
-
-// ============================================
 // Tests
 // ============================================
 
