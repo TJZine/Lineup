@@ -266,6 +266,34 @@ describe('PlexLibrary', () => {
             expect(libs[3]!.contentCount).toBe(10);
         });
 
+        it('should sanitize itemCountConcurrency when includeItemCounts is enabled', async () => {
+            const oneLibraryResponse = {
+                MediaContainer: {
+                    Directory: [
+                        {
+                            key: '1',
+                            uuid: 'lib-1',
+                            title: 'Movies',
+                            type: 'movie',
+                            agent: 'com.plexapp.agents.imdb',
+                            scanner: 'Plex Movie Scanner',
+                        },
+                    ],
+                },
+            };
+            mockFetchSequence([
+                { json: oneLibraryResponse },
+                { json: { MediaContainer: { totalSize: 123 } } },
+            ]);
+            const library = new PlexLibrary(mockConfig);
+
+            const libs = await library.getLibraries({ includeItemCounts: true, itemCountConcurrency: Number.NaN });
+
+            expect(libs).toHaveLength(1);
+            expect(libs[0]!.contentCount).toBe(123);
+            expect(fetch).toHaveBeenCalledTimes(2);
+        });
+
         it('should parse library types correctly', async () => {
             mockFetchJson(mockLibrarySectionsResponse);
             const library = new PlexLibrary(mockConfig);
@@ -308,6 +336,7 @@ describe('PlexLibrary', () => {
             mockFetchSequence([
                 { json: mockLibrarySectionsResponse },
                 { json: mockLibrarySectionsResponse },
+                { json: mockLibrarySectionsResponse },
             ]);
             const library = new PlexLibrary(config);
 
@@ -318,7 +347,12 @@ describe('PlexLibrary', () => {
 
             await library.getLibrary('1');
 
-            expect(fetch).toHaveBeenCalledTimes(2);
+            // Simulate account swap while keeping the same server; cache should also be cleared.
+            token = 'other-token';
+
+            await library.getLibrary('1');
+
+            expect(fetch).toHaveBeenCalledTimes(3);
         });
     });
 

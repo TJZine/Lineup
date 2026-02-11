@@ -162,7 +162,14 @@ export class PlexLibrary implements IPlexLibrary {
 
         if (options?.includeItemCounts) {
             const signal = options.signal ?? null;
-            const requestedConcurrency = options.itemCountConcurrency ?? 4;
+            const defaultConcurrency = 4;
+            const rawConcurrency = options.itemCountConcurrency;
+            const normalizedConcurrency =
+                typeof rawConcurrency === 'number' && Number.isFinite(rawConcurrency)
+                    ? Math.floor(rawConcurrency)
+                    : defaultConcurrency;
+            const requestedConcurrency =
+                normalizedConcurrency > 0 ? normalizedConcurrency : defaultConcurrency;
             const concurrency = Math.max(1, Math.min(requestedConcurrency, 8));
             const queue = libraries.slice();
             const workerCount = Math.min(concurrency, queue.length);
