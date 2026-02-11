@@ -236,6 +236,51 @@ describe('EPGVirtualizer', () => {
             expect(cell.style.top).toBe('0px');
         });
 
+        it('shifts program text into view when the program starts before the visible window', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch0';
+
+            const program: ScheduledProgram = {
+                item: {
+                    ratingKey: 'p1',
+                    type: 'movie',
+                    title: 'Program 1',
+                    fullTitle: 'Program 1',
+                    durationMs: 60 * 60 * 1000, // 60 minutes (01:30 → 02:30)
+                    thumb: null,
+                    year: 2020,
+                    scheduledIndex: 0,
+                },
+                scheduledStartTime: gridAnchorTime + (90 * 60000), // 01:30
+                scheduledEndTime: gridAnchorTime + (150 * 60000),  // 02:30
+                elapsedMs: 0,
+                remainingMs: 0,
+                scheduleIndex: 0,
+                loopNumber: 0,
+                streamDescriptor: null,
+                isCurrent: false,
+            };
+
+            const schedules = new Map<string, ScheduleWindow>([
+                [channelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + (24 * 60 * 60000),
+                    programs: [program],
+                }],
+            ]);
+
+            const timeOffset = 120; // visible window starts at 02:00
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset });
+            virtualizer.renderVisibleCells([channelId], schedules, range);
+
+            const expectedKey = `${channelId}-${program.scheduledStartTime}`;
+            const cell = container.querySelector(`[data-key="${expectedKey}"]`) as HTMLElement;
+            expect(cell).not.toBeNull();
+
+            // Hidden-left = (120 - 90) minutes * 4 px/min = 120px
+            expect(cell.style.getPropertyValue('--epg-cell-text-shift-px')).toBe('120px');
+        });
+
         it('renders show title line for episode programs', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-episode';

@@ -5,12 +5,16 @@
 import { SettingsScreen } from '../SettingsScreen';
 import { SETTINGS_STORAGE_KEYS } from '../constants';
 import type { GuideSettingChange } from '../types';
+import { ThemeManager } from '../../theme';
+import { THEME_OPTIONS, THEME_CLASSES } from '../theme';
 
 type StubFocusable = {
     id: string;
     neighbors: { up?: string; down?: string; left?: string; right?: string };
     onSelect?: () => void;
 };
+
+const ALL_THEME_CLASSES = Object.values(THEME_CLASSES).filter(Boolean);
 
 const createNavigationStub = (): {
     focusables: Map<string, StubFocusable>;
@@ -41,6 +45,23 @@ const createNavigationStub = (): {
     };
 };
 
+const createScreen = (onGuideSettingChange: (change: GuideSettingChange) => void): {
+    container: HTMLElement;
+    nav: ReturnType<typeof createNavigationStub>;
+    screen: SettingsScreen;
+} => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const nav = createNavigationStub();
+    const screen = new SettingsScreen(
+        container,
+        () => nav as unknown as never,
+        undefined,
+        onGuideSettingChange
+    );
+    return { container, nav, screen };
+};
+
 describe('SettingsScreen (Guide settings)', () => {
     beforeEach(() => {
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE);
@@ -51,23 +72,6 @@ describe('SettingsScreen (Guide settings)', () => {
     afterEach(() => {
         document.body.innerHTML = '';
     });
-
-    const createScreen = (onGuideSettingChange: (change: GuideSettingChange) => void): {
-        container: HTMLElement;
-        nav: ReturnType<typeof createNavigationStub>;
-        screen: SettingsScreen;
-    } => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
-        const nav = createNavigationStub();
-        const screen = new SettingsScreen(
-            container,
-            () => nav as unknown as never,
-            undefined,
-            onGuideSettingChange
-        );
-        return { container, nav, screen };
-    };
 
     it('writes layout mode and emits change', () => {
         const onGuideSettingChange = jest.fn();
@@ -143,5 +147,43 @@ describe('SettingsScreen (Guide settings)', () => {
 
         keyHandler?.({ handled: false, button: 'left' });
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('overlay');
+    });
+});
+
+describe('SettingsScreen (Theme selection)', () => {
+    beforeEach(() => {
+        localStorage.removeItem(SETTINGS_STORAGE_KEYS.THEME);
+        ThemeManager.__resetForTests();
+        document.body.classList.remove(...ALL_THEME_CLASSES);
+    });
+
+    afterEach(() => {
+        document.body.innerHTML = '';
+        document.body.classList.remove(...ALL_THEME_CLASSES);
+        ThemeManager.__resetForTests();
+    });
+
+    it('cycles to DirecTV and applies the theme class', () => {
+        const { nav, screen } = createScreen(jest.fn());
+
+        screen.show();
+
+        const directvIndex = THEME_OPTIONS.findIndex((option) => option.theme === 'directv');
+        const currentIndex = THEME_OPTIONS.findIndex((option) => option.theme === ThemeManager.getInstance().getTheme());
+        expect(directvIndex).toBeGreaterThanOrEqual(0);
+        expect(currentIndex).toBeGreaterThanOrEqual(0);
+
+        nav.setFocus('settings-theme');
+        const keyHandler = nav.on.mock.calls.find((call) => call[0] === 'keyPress')?.[1];
+        expect(typeof keyHandler).toBe('function');
+
+        const delta = directvIndex - currentIndex;
+        const button = delta >= 0 ? 'right' : 'left';
+        for (let i = 0; i < Math.abs(delta); i += 1) {
+            keyHandler?.({ handled: false, button });
+        }
+
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.THEME)).toBe('directv');
+        expect(document.body.classList.contains('theme-directv')).toBe(true);
     });
 });

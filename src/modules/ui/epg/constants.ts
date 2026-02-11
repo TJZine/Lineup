@@ -53,6 +53,7 @@ export const EPG_CLASSES = {
     CELL_CURRENT: 'current',
     CELL_PAST: 'past',
     CELL_LOADING: 'loading',
+    CELL_TEXT_SHIFTED: 'text-shifted',
     CELL_SHOW: 'epg-cell-show',
     CELL_TITLE: 'epg-cell-title',
     CELL_TIME: 'epg-cell-time',

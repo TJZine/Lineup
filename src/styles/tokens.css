@@ -105,6 +105,7 @@
     --panel-border: 1px solid var(--color-border-default);
     --panel-radius: 12px;
     --panel-inner-glow: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
+    --panel-inner-glow: linear-gradient(180deg, rgb(255 255 255 / 6%), rgb(255 255 255 / 0%));
     --epg-info-panel-height: clamp(300px, 34vh, 420px);
     --epg-info-poster-width: clamp(230px, 20vw, 340px);
     --epg-info-panel-fade-to: var(--panel-surface-2);

@@ -4,6 +4,8 @@
  * @version 1.0.0
  */
 
+import type { ThemeName } from './theme';
+
 /**
  * Audio settings configuration.
  */
@@ -31,7 +33,7 @@ export interface PlaybackSettings {
  */
 export interface DisplaySettings {
     /** Color theme */
-    theme: 'obsidian' | 'broadcast' | 'swiss';
+    theme: ThemeName;
     /** Now Playing Info overlay auto-hide timeout (ms) */
     nowPlayingInfoAutoHideMs: number;
 }
@@ -60,8 +62,6 @@ export interface SubtitleSettings {
      * - full: allow burn-in (image/styled) subtitles via transcoding
      */
     mode: 'off' | 'direct' | 'standard' | 'full';
-    /** Use global subtitle preference override */
-    useGlobalPreference: boolean;
     /** Preferred subtitle language code (app override) */
     language: string | null;
     /** Prefer forced subtitles over full subtitles when auto-selecting */

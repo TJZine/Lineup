@@ -158,12 +158,27 @@ export class VideoPlayer implements IVideoPlayer {
         console.warn(`[SubtitleDebug] ${JSON.stringify(entry)}`);
     }
 
-    private _handleSubtitleDeactivated(reason: string): void {
+    private _subtitleSelectionInProgress: boolean = false;
+    private _subtitleSelectionRequestedId: string | null = null;
+    private _subtitleSelectionDeferredDeactivation:
+        | { trackId: string; reason: string }
+        | null = null;
+
+    private _handleSubtitleDeactivated(trackId: string, reason: string): void {
         if (this._state.activeSubtitleId === null) {
+            return;
+        }
+        if (this._state.activeSubtitleId !== trackId) {
+            this._logSubtitleDebug('subtitle_track_deactivated_ignored', () => ({
+                reason,
+                trackId,
+                activeSubtitleId: this._state.activeSubtitleId,
+            }));
             return;
         }
         this._state.activeSubtitleId = null;
         this._logSubtitleDebug('subtitle_track_deactivated', () => ({
+            trackId,
             reason,
         }));
         this._emitter.emit('trackChange', { type: 'subtitle', trackId: null });
@@ -359,7 +374,16 @@ export class VideoPlayer implements IVideoPlayer {
                             error: String(error),
                         }));
                     }
-                    this._handleSubtitleDeactivated(args.reason);
+
+                    const deferDeactivation =
+                        this._subtitleSelectionInProgress &&
+                        this._subtitleSelectionRequestedId === args.trackId;
+                    if (deferDeactivation) {
+                        this._subtitleSelectionDeferredDeactivation = { ...args };
+                        return handled;
+                    }
+
+                    this._handleSubtitleDeactivated(args.trackId, args.reason);
                     return handled;
                 },
             }
@@ -416,6 +440,10 @@ export class VideoPlayer implements IVideoPlayer {
             return;
         }
 
+        // Mark stream as unloaded early so any teardown-related events (e.g. spurious 'ended' on webOS)
+        // don't propagate as "real" playback completion.
+        this._state.currentDescriptor = null;
+
         // Cancel pending retries to prevent stream resurrection
         this._retryManager.clear();
         this._retryManager.setDescriptor(null);
@@ -441,7 +469,6 @@ export class VideoPlayer implements IVideoPlayer {
         this._audioTrackManager.unload();
 
         // Reset state
-        this._state.currentDescriptor = null;
         this._state.currentTimeMs = 0;
         this._state.durationMs = 0;
         this._state.bufferPercent = 0;
@@ -628,26 +655,58 @@ export class VideoPlayer implements IVideoPlayer {
      * @param trackId - Track ID to activate, null to disable
      */
     public async setSubtitleTrack(trackId: string | null): Promise<void> {
-        this._subtitleManager.setActiveTrack(trackId);
-        this._state.activeSubtitleId = trackId;
+        this._subtitleSelectionInProgress = true;
+        this._subtitleSelectionRequestedId = trackId;
+        try {
+            // Set state first so any synchronous deactivation callbacks can reliably clear it.
+            this._state.activeSubtitleId = trackId;
 
-        const selected = trackId
-            ? this._subtitleManager.getTracks().find((t) => t.id === trackId) ?? null
-            : null;
-        this._logSubtitleDebug('subtitle_track_selected', () => ({
-            id: trackId,
-            codec: selected?.codec ?? null,
-            language: selected?.language ?? null,
-            fetchableViaKey: selected?.fetchableViaKey ?? null,
-        }));
+            this._subtitleManager.setActiveTrack(trackId);
+            let finalActiveTrackId = this._subtitleManager.getActiveTrackId();
+            this._state.activeSubtitleId = finalActiveTrackId;
 
-        this._logSubtitleDebug('setSubtitleTrack', () => ({
-            trackId,
-            nativeTextTracks: this._snapshotNativeTextTracks(),
-        }));
+            const deferredDeactivation = this._subtitleSelectionDeferredDeactivation;
+            this._subtitleSelectionDeferredDeactivation = null;
+            if (deferredDeactivation && this._state.activeSubtitleId === deferredDeactivation.trackId) {
+                finalActiveTrackId = null;
+                this._state.activeSubtitleId = null;
+                this._logSubtitleDebug('subtitle_track_deactivated_deferred_applied', () => ({
+                    trackId: deferredDeactivation.trackId,
+                    reason: deferredDeactivation.reason,
+                }));
+            }
 
-        this._emitter.emit('trackChange', { type: 'subtitle', trackId });
-        this._emitStateChange();
+            const selected = trackId
+                ? this._subtitleManager.getTracks().find((t) => t.id === trackId) ?? null
+                : null;
+            this._logSubtitleDebug('subtitle_track_selected', () => ({
+                requestedId: trackId,
+                finalId: finalActiveTrackId,
+                codec: selected?.codec ?? null,
+                language: selected?.language ?? null,
+                fetchableViaKey: selected?.fetchableViaKey ?? null,
+                ...(deferredDeactivation
+                    ? { deferredDeactivation }
+                    : {}),
+            }));
+
+            this._logSubtitleDebug('setSubtitleTrack', () => ({
+                requestedId: trackId,
+                finalId: finalActiveTrackId,
+                nativeTextTracks: this._snapshotNativeTextTracks(),
+            }));
+
+            this._emitter.emit('trackChange', { type: 'subtitle', trackId: finalActiveTrackId });
+            this._emitStateChange();
+        } finally {
+            this._subtitleSelectionInProgress = false;
+            this._subtitleSelectionRequestedId = null;
+            const deferredDeactivation = this._subtitleSelectionDeferredDeactivation;
+            this._subtitleSelectionDeferredDeactivation = null;
+            if (deferredDeactivation) {
+                this._handleSubtitleDeactivated(deferredDeactivation.trackId, deferredDeactivation.reason);
+            }
+        }
     }
 
     /**

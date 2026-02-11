@@ -935,6 +935,25 @@ describe('EPGComponent', () => {
             expect(indicator.style.left).toBeDefined();
         });
 
+        it('should scroll with grid content when timeOffset changes', () => {
+            const channels = [createMockChannel(0)];
+            epg.loadChannels(channels);
+            epg.loadScheduleForChannel('ch0', createMockSchedule('ch0', 10));
+            epg.show();
+
+            const indicator = container.querySelector('.epg-time-indicator') as HTMLElement;
+            expect(indicator).not.toBeNull();
+            expect(indicator.parentElement).not.toBeNull();
+
+            // Scroll to 2 hours from anchor
+            const twoHoursFromAnchor = epg.getState().viewWindow.startTime + (2 * 60 * 60000);
+            epg.scrollToTime(twoHoursFromAnchor);
+
+            // Indicator should be attached to the translated content element (virtualizer),
+            // not the fixed program area.
+            expect((indicator.parentElement as HTMLElement).style.transform).toMatch(/translateX\(-?\d+px\)/);
+        });
+
         it('should update position on refreshCurrentTime', () => {
             epg.show();
 

@@ -649,8 +649,12 @@ export class AppOrchestrator implements IAppOrchestrator {
             getNavigation: (): INavigationManager | null => this._navigation,
             getPlaybackOptionsModal: (): IPlaybackOptionsModal | null => this._playbackOptionsModal,
             getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
+            getCurrentStreamDescriptor: (): StreamDescriptor | null => this._currentStreamDescriptor,
             getCurrentProgram: (): ScheduledProgram | null =>
                 this._scheduler?.getCurrentProgram() ?? this._currentProgramForPlayback,
+            requestBurnInSubtitle: (trackId: string, reason: string): Promise<boolean> =>
+                this._playbackRecovery?.attemptBurnInSubtitleForCurrentProgram(trackId, reason)
+                ?? Promise.resolve(false),
             notifyToast: (message, type): void => {
                 if (!this._nowPlayingHandler) return;
                 this._nowPlayingHandler(type ? { message, type } : message);
@@ -1101,7 +1105,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         try {
             await this._videoPlayer.setSubtitleTrack(trackId);
         } catch (error) {
-            console.warn('[Orchestrator] setSubtitleTrack failed:', error);
+            console.warn('[Orchestrator] setSubtitleTrack failed:', summarizeErrorForLog(error));
         }
     }
 
@@ -1255,6 +1259,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                     console.warn('[Orchestrator] selectServer: startup phases complete', { serverId });
                 }
                 if (this._epg) {
+                    this._epgCoordinator?.clearScheduleCaches();
                     this._epg.clearSchedules();
                     if (debugLogging) {
                         console.warn('[Orchestrator] selectServer: cleared EPG schedules', { serverId });
@@ -1423,6 +1428,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         }
 
         if (change.key === 'libraryTabs') {
+            epgCoordinator.clearScheduleCaches();
             epg.clearSchedules();
         }
 
@@ -1828,7 +1834,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             this._pendingDayRolloverTimer = globalThis.setTimeout(() => {
                 this._pendingDayRolloverTimer = null;
                 this._applyScheduleDayRollover().catch((error) => {
-                    console.error('[Orchestrator] Failed to apply day rollover:', error);
+                    console.error('[Orchestrator] Failed to apply day rollover:', summarizeErrorForLog(error));
                 });
             }, delayMs);
             return;
@@ -1898,14 +1904,14 @@ export class AppOrchestrator implements IAppOrchestrator {
         // This catch is a safety net for any unexpected throws
         const handler = (program: ScheduledProgram): void => {
             this._handleProgramStart(program).catch((error) => {
-                console.error('[Orchestrator] Unhandled error in program start:', error);
+                console.error('[Orchestrator] Unhandled error in program start:', summarizeErrorForLog(error));
             });
         };
         this._scheduler.on('programStart', handler);
 
         const syncHandler = (): void => {
             this._handleScheduleDayRollover().catch((error) => {
-                console.error('[Orchestrator] Unhandled error in scheduleSync handler:', error);
+                console.error('[Orchestrator] Unhandled error in scheduleSync handler:', summarizeErrorForLog(error));
             });
         };
         this._scheduler.on('scheduleSync', syncHandler);
@@ -1927,6 +1933,11 @@ export class AppOrchestrator implements IAppOrchestrator {
 
         // Player ended -> skip to next
         const endedHandler = (): void => {
+            // Stream reload/recovery can trigger spurious 'ended' events on webOS (especially when tearing down src).
+            // Never advance the schedule during an intentional reload.
+            if (this._playbackRecovery?.isStreamRecoveryInProgress()) {
+                return;
+            }
             this._stopActiveTranscodeSession();
             if (this._scheduler) {
                 this._scheduler.skipToNext();
@@ -1942,7 +1953,24 @@ export class AppOrchestrator implements IAppOrchestrator {
         const trackHandler = (event: { type: 'audio' | 'subtitle'; trackId: string | null }): void => {
             this._playbackOptionsCoordinator?.refreshIfOpen();
 
-            if (event.type !== 'subtitle' || !event.trackId || !this._videoPlayer) {
+            if (event.type !== 'subtitle' || !this._videoPlayer) {
+                return;
+            }
+
+            if (!event.trackId) {
+                const decision = this._currentStreamDecision ?? null;
+                    if (decision?.transcodeRequest?.subtitleMode === 'burn') {
+                        void this._playbackRecovery?.attemptDisableBurnInSubtitlesForCurrentProgram('subtitle_track_off')
+                            .then((result) => {
+                                if (result.outcome !== 'failed') return;
+                                if (!this._nowPlayingHandler) return;
+                                this._nowPlayingHandler({ message: 'Failed to disable burn-in subtitles', type: 'warning' });
+                            })
+                            .catch(() => {
+                                if (!this._nowPlayingHandler) return;
+                                this._nowPlayingHandler({ message: 'Failed to disable burn-in subtitles', type: 'warning' });
+                            });
+                    }
                 return;
             }
 
@@ -2198,7 +2226,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             if (this._playbackRecovery?.tryHandleStreamResolverAuthError(error)) {
                 return;
             }
-            console.error('Failed to load stream:', error);
+            console.error('Failed to load stream:', summarizeErrorForLog(error));
             this._playbackRecovery?.handlePlaybackFailure('programStart', error);
         }
     }

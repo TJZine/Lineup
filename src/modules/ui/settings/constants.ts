@@ -6,6 +6,8 @@
 
 import type { SettingsConfig } from './types';
 import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
+import { DEFAULT_THEME } from './theme';
+export { THEME_CLASSES } from './theme';
 
 /**
  * localStorage keys for persisting settings.
@@ -33,10 +35,8 @@ export const SETTINGS_STORAGE_KEYS = {
     NOW_PLAYING_INFO_AUTO_HIDE_MS: RETUNE_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS,
     /** Audio setup completed flag */
     AUDIO_SETUP_COMPLETE: RETUNE_STORAGE_KEYS.AUDIO_SETUP_COMPLETE,
-    /** Subtitle mode (replaces legacy SUBTITLES_ENABLED/external-only/burn-in toggles) */
+    /** Subtitle mode */
     SUBTITLE_MODE: RETUNE_STORAGE_KEYS.SUBTITLE_MODE,
-    /** Use global subtitle preference override */
-    SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE: RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL_OVERRIDE,
     /** Preferred subtitle language (app override) */
     SUBTITLE_LANGUAGE: RETUNE_STORAGE_KEYS.SUBTITLE_LANGUAGE,
     /** Prefer forced subtitles over full subtitles */
@@ -69,7 +69,7 @@ export const DEFAULT_SETTINGS: SettingsConfig = {
         forceHdr10Fallback: false,
     },
     display: {
-        theme: 'obsidian',
+        theme: DEFAULT_THEME,
         nowPlayingInfoAutoHideMs: 10_000,
     },
     developer: {
@@ -78,8 +78,7 @@ export const DEFAULT_SETTINGS: SettingsConfig = {
         showFps: false,
     },
     subtitles: {
-        mode: 'standard',
-        useGlobalPreference: false,
+        mode: 'full',
         language: null,
         preferForced: false,
     },
@@ -87,12 +86,3 @@ export const DEFAULT_SETTINGS: SettingsConfig = {
         showProfilePickerOnStartup: false,
     },
 };
-
-/**
- * Theme CSS class mappings.
- */
-export const THEME_CLASSES = {
-    obsidian: '',
-    broadcast: 'theme-broadcast',
-    swiss: 'theme-swiss',
-} as const;

@@ -247,6 +247,53 @@ describe('PlexLibrary', () => {
             expect(libs[0]!.title).toBe('Movies');
         });
 
+        it('should populate contentCount when includeItemCounts is enabled', async () => {
+            mockFetchSequence([
+                { json: mockLibrarySectionsResponse },
+                { json: { MediaContainer: { totalSize: 123 } } },
+                { json: { MediaContainer: { totalSize: 456 } } },
+                { json: { MediaContainer: { totalSize: 789 } } },
+                { json: { MediaContainer: { totalSize: 10 } } },
+            ]);
+            const library = new PlexLibrary(mockConfig);
+
+            const libs = await library.getLibraries({ includeItemCounts: true, itemCountConcurrency: 1 });
+
+            expect(libs).toHaveLength(4);
+            expect(libs[0]!.contentCount).toBe(123);
+            expect(libs[1]!.contentCount).toBe(456);
+            expect(libs[2]!.contentCount).toBe(789);
+            expect(libs[3]!.contentCount).toBe(10);
+        });
+
+        it('should sanitize itemCountConcurrency when includeItemCounts is enabled', async () => {
+            const oneLibraryResponse = {
+                MediaContainer: {
+                    Directory: [
+                        {
+                            key: '1',
+                            uuid: 'lib-1',
+                            title: 'Movies',
+                            type: 'movie',
+                            agent: 'com.plexapp.agents.imdb',
+                            scanner: 'Plex Movie Scanner',
+                        },
+                    ],
+                },
+            };
+            mockFetchSequence([
+                { json: oneLibraryResponse },
+                { json: { MediaContainer: { totalSize: 123 } } },
+            ]);
+            const library = new PlexLibrary(mockConfig);
+
+            const libs = await library.getLibraries({ includeItemCounts: true, itemCountConcurrency: Number.NaN });
+
+            expect(libs).toHaveLength(1);
+            expect(libs[0]!.contentCount).toBe(123);
+            expect(fetch).toHaveBeenCalledTimes(2);
+        });
+
         it('should parse library types correctly', async () => {
             mockFetchJson(mockLibrarySectionsResponse);
             const library = new PlexLibrary(mockConfig);
@@ -268,6 +315,44 @@ describe('PlexLibrary', () => {
 
             // Should only call fetch once due to cache
             expect(fetch).toHaveBeenCalledTimes(1);
+        });
+
+        it('should clear cache when server or account changes', async () => {
+            const baseHeaders = {
+                Accept: 'application/json',
+                'X-Plex-Client-Identifier': 'mock-client-id',
+            };
+            let serverUri = 'http://192.168.1.100:32400';
+            let token = 'mock-token';
+            const config: PlexLibraryConfig = {
+                getAuthHeaders: () => ({
+                    ...baseHeaders,
+                    'X-Plex-Token': token,
+                }),
+                getServerUri: () => serverUri,
+                getAuthToken: () => token,
+            };
+
+            mockFetchSequence([
+                { json: mockLibrarySectionsResponse },
+                { json: mockLibrarySectionsResponse },
+                { json: mockLibrarySectionsResponse },
+            ]);
+            const library = new PlexLibrary(config);
+
+            await library.getLibraries();
+
+            // Simulate server swap (or profile swap with different token) and ensure cache is not reused.
+            serverUri = 'http://10.0.0.2:32400';
+
+            await library.getLibrary('1');
+
+            // Simulate account swap while keeping the same server; cache should also be cleared.
+            token = 'other-token';
+
+            await library.getLibrary('1');
+
+            expect(fetch).toHaveBeenCalledTimes(3);
         });
     });
 

@@ -87,6 +87,7 @@ export enum PlexStreamErrorCode {
     SERVER_UNREACHABLE = 'SERVER_UNREACHABLE',
     MIXED_CONTENT_BLOCKED = 'MIXED_CONTENT_BLOCKED',
     PLAYBACK_SOURCE_NOT_FOUND = 'PLAYBACK_SOURCE_NOT_FOUND',
+    SUBTITLE_STREAM_NOT_FOUND = 'SUBTITLE_STREAM_NOT_FOUND',
     PLAYBACK_FORMAT_UNSUPPORTED = 'PLAYBACK_FORMAT_UNSUPPORTED',
     TRANSCODE_FAILED = 'TRANSCODE_FAILED',
     PARSE_ERROR = 'PARSE_ERROR',
@@ -114,6 +115,9 @@ export function mapPlexStreamErrorCodeToAppErrorCode(
         case PlexStreamErrorCode.MIXED_CONTENT_BLOCKED:
             return AppErrorCode.MIXED_CONTENT_BLOCKED;
         case PlexStreamErrorCode.PLAYBACK_SOURCE_NOT_FOUND:
+            return AppErrorCode.PLAYBACK_SOURCE_NOT_FOUND;
+        case PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND:
+            // Keep user-facing error mapping consistent while enabling more precise internal branching.
             return AppErrorCode.PLAYBACK_SOURCE_NOT_FOUND;
         case PlexStreamErrorCode.PLAYBACK_FORMAT_UNSUPPORTED:
             return AppErrorCode.PLAYBACK_FORMAT_UNSUPPORTED;

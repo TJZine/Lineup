@@ -117,6 +117,8 @@ test-results/
 .local/
 *.local.ts
 *.local.js
+.worktrees/
+worktrees/
 .agent/
 agent-memory/
 orchestration-docs/

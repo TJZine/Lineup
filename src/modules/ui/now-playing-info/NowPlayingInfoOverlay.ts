@@ -55,11 +55,13 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
 
         const content = document.createElement('div');
         content.className = NOW_PLAYING_INFO_CLASSES.CONTENT;
+        // Static template only. Do not interpolate Plex/user-provided strings into this HTML.
+        // Use `textContent` when binding viewModel data to avoid XSS foot-guns.
         content.innerHTML = `
-          <div class="${NOW_PLAYING_INFO_CLASSES.TITLE}"></div>
-          <div class="${NOW_PLAYING_INFO_CLASSES.SUBTITLE}"></div>
-          <div class="${NOW_PLAYING_INFO_CLASSES.BADGES}"></div>
-          <div class="${NOW_PLAYING_INFO_CLASSES.PLAYBACK}">
+	          <div class="${NOW_PLAYING_INFO_CLASSES.TITLE}"></div>
+	          <div class="${NOW_PLAYING_INFO_CLASSES.SUBTITLE}"></div>
+	          <div class="${NOW_PLAYING_INFO_CLASSES.BADGES}"></div>
+	          <div class="${NOW_PLAYING_INFO_CLASSES.PLAYBACK}">
             <div class="${NOW_PLAYING_INFO_CLASSES.PLAYBACK_SUMMARY}"></div>
           </div>
           <div class="${NOW_PLAYING_INFO_CLASSES.META}"></div>

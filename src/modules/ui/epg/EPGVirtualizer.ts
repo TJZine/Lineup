@@ -240,6 +240,7 @@ export class EPGVirtualizer {
             isPartial: false,
             isCurrent: false,
             isPast: false,
+            textShiftPx: 0,
             cellElement: null,
         }, false);
     }
@@ -342,6 +343,16 @@ export class EPGVirtualizer {
                         programStartMinutes < visibleWindowStartMinutes ||
                         programEndMinutes > visibleWindowEndMinutes;
 
+                    const shouldShiftText = programStartMinutes < visibleWindowStartMinutes &&
+                        programEndMinutes > visibleWindowStartMinutes;
+                    const hiddenLeftMinutes = shouldShiftText
+                        ? (visibleWindowStartMinutes - programStartMinutes)
+                        : 0;
+                    const rawShiftPx = hiddenLeftMinutes * this.config.pixelsPerMinute;
+                    // Clamp to avoid shifting text beyond the visible portion of the cell.
+                    const maxShiftPx = Math.max(0, width - 24);
+                    const textShiftPx = Math.max(0, Math.min(rawShiftPx, maxShiftPx));
+
                     addCell({
                         kind: 'program',
                         key: cellKey,
@@ -353,6 +364,7 @@ export class EPGVirtualizer {
                         isPartial,
                         isCurrent,
                         isPast,
+                        textShiftPx,
                         cellElement: null,
                     }, isFocusedCell);
 
@@ -534,6 +546,7 @@ export class EPGVirtualizer {
         element.style.left = '';
         element.style.width = '';
         element.style.top = '';
+        element.style.removeProperty('--epg-cell-text-shift-px');
 
         // Remove state classes
         element.classList.remove(
@@ -601,6 +614,14 @@ export class EPGVirtualizer {
         }
         this.updateShowLine(element, cellData);
 
+        if (cellData.textShiftPx > 0) {
+            element.classList.add(EPG_CLASSES.CELL_TEXT_SHIFTED);
+            element.style.setProperty('--epg-cell-text-shift-px', `${cellData.textShiftPx}px`);
+        } else {
+            element.classList.remove(EPG_CLASSES.CELL_TEXT_SHIFTED);
+            element.style.removeProperty('--epg-cell-text-shift-px');
+        }
+
         // Calculate position
         element.style.left = `${cellData.left}px`;
         element.style.width = `${cellData.width}px`;
@@ -632,6 +653,13 @@ export class EPGVirtualizer {
         const element = cellData.cellElement;
         if (!element || !this.config) return;
 
+        if (cellData.textShiftPx > 0) {
+            element.classList.add(EPG_CLASSES.CELL_TEXT_SHIFTED);
+            element.style.setProperty('--epg-cell-text-shift-px', `${cellData.textShiftPx}px`);
+        } else {
+            element.classList.remove(EPG_CLASSES.CELL_TEXT_SHIFTED);
+            element.style.removeProperty('--epg-cell-text-shift-px');
+        }
         element.style.left = `${cellData.left}px`;
         element.style.width = `${cellData.width}px`;
         element.style.top = `${(cellData.rowIndex - this.channelOffset) * this.config.rowHeight}px`;
@@ -805,6 +833,14 @@ export class EPGVirtualizer {
      */
     getPoolSize(): number {
         return this.elementPool.size;
+    }
+
+    /**
+     * Get the root content element that is translated for time scrolling.
+     * Used for attaching overlays that should move with the grid (e.g. the "Now" line).
+     */
+    getContentElement(): HTMLElement | null {
+        return this.contentElement;
     }
 
     updateScrollPosition(timeOffset: number): void {

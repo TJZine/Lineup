@@ -522,6 +522,12 @@
   text-overflow: ellipsis;
 }
 
+.epg-cell.text-shifted .epg-cell-title,
+.epg-cell.text-shifted .epg-cell-show,
+.epg-cell.text-shifted .epg-cell-time {
+  transform: translateX(var(--epg-cell-text-shift-px));
+}
+
 /* =========================================
    LIVE Indicator Badge
    ========================================= */

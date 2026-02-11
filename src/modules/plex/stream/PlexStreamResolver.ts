@@ -333,14 +333,24 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         const item = await this._config.getItem(request.itemKey);
         if (!item) {
             throw this._createError(
-                PlexStreamErrorCode.PLAYBACK_SOURCE_NOT_FOUND,
+                PlexStreamErrorCode.ITEM_NOT_FOUND,
                 `Item not found: ${request.itemKey}`,
                 false
             );
         }
 
         // 2. Select best media version
-        const selectedMedia = this._selectBestMedia(item.media, request.maxBitrate);
+        let selectedMedia = this._selectBestMedia(item.media, request.maxBitrate);
+        if (request.subtitleStreamId) {
+            const withSubtitle = this._selectBestMediaWithSubtitleStream(
+                item.media,
+                request.subtitleStreamId,
+                request.maxBitrate
+            );
+            if (withSubtitle) {
+                selectedMedia = withSubtitle;
+            }
+        }
         if (!selectedMedia) {
             throw this._createError(
                 PlexStreamErrorCode.PLAYBACK_FORMAT_UNSUPPORTED,
@@ -374,6 +384,13 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                     (s) => s.streamType === 3 && s.id === request.subtitleStreamId
                 ) ?? null)
                 : null;
+        if (request.subtitleMode === 'burn' && request.subtitleStreamId && !subtitleStream) {
+            throw this._createError(
+                PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND,
+                `Subtitle stream not found for burn-in: ${request.subtitleStreamId}`,
+                true
+            );
+        }
         const availableSubtitleStreams = part.streams.filter((s) => s.streamType === 3);
         const availableAudioStreams = part.streams.filter((s) => s.streamType === 2);
 
@@ -727,6 +744,36 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             }
             if (transcodeRequestInfo) {
                 decision.transcodeRequest = transcodeRequestInfo;
+            }
+
+            // Optional (debug-only): ask PMS why it chose to transcode vs direct-stream.
+            // This helps explain cases where HDR10 fallback unexpectedly results in SDR H.264 transcodes.
+            if (debugEnabled && decision.isTranscoding && transcodeRequestInfo) {
+                try {
+                    decision.serverDecision = await this.fetchUniversalTranscodeDecision(
+                        request.itemKey,
+                        {
+                            sessionId: transcodeRequestInfo.sessionId,
+                            maxBitrate: transcodeRequestInfo.maxBitrate,
+                            ...(typeof transcodeRequestInfo.audioStreamId === 'string'
+                                ? { audioStreamId: transcodeRequestInfo.audioStreamId }
+                                : {}),
+                            ...(typeof transcodeRequestInfo.hideDolbyVision === 'boolean'
+                                ? { hideDolbyVision: transcodeRequestInfo.hideDolbyVision }
+                                : {}),
+                        }
+                    );
+                    console.warn('[PlexStreamResolver] PMS universal decision:', {
+                        itemKey: request.itemKey,
+                        ...decision.serverDecision,
+                    });
+                } catch (e) {
+                    const message = e instanceof Error ? e.message : String(e);
+                    console.warn('[PlexStreamResolver] PMS universal decision fetch failed:', {
+                        itemKey: request.itemKey,
+                        error: message,
+                    });
+                }
             }
 
             if (this._isDebugLoggingEnabled()) {
@@ -1425,18 +1472,33 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         const chromeMajor = this._getChromeMajor();
         const isWebOs = this._isWebOs();
 
-        // HEVC detection (common for 4K MKV libraries).
-        const supportsHevc =
+        // HEVC detection (common for 4K libraries).
+        //
+        // Important: many HDR10 and DV base-layer sources are HEVC Main 10 (10-bit).
+        // If we only advertise HEVC Main, PMS may assume "can't decode" and choose an
+        // SDR H.264 transcode as the safest target.
+        const supportsHevcMain =
             canPlay('video/mp4; codecs="hvc1.1.6.L93.B0"') ||
             canPlay('video/mp4; codecs="hev1.1.6.L93.B0"') ||
-            // Fallback: webOS 23+ (Chromium 94+) should support HEVC decode.
+            // Fallback: webOS 23+ (Chromium 94+) should support HEVC decode, even if canPlayType lies.
             (isWebOs && chromeMajor !== null && chromeMajor >= 94);
 
+        // HEVC Main 10 (10-bit). Common sample codec strings include 2.x profiles.
+        const supportsHevcMain10 =
+            canPlay('video/mp4; codecs="hvc1.2.4.L93.B0"') ||
+            canPlay('video/mp4; codecs="hev1.2.4.L93.B0"') ||
+            canPlay('video/mp4; codecs="hvc1.2.4.L150.B0"') ||
+            canPlay('video/mp4; codecs="hev1.2.4.L150.B0"') ||
+            // Same conservative webOS fallback as HEVC Main.
+            (isWebOs && chromeMajor !== null && chromeMajor >= 94);
+
+        const supportsHevc = supportsHevcMain || supportsHevcMain10;
+
+        // Dolby Vision support in browser stacks is inconsistent; do not guess based on platform.
+        // Only advertise DV when canPlayType explicitly reports it.
         const supportsDolbyVision =
             canPlay('video/mp4; codecs="dvh1.05.06"') ||
-            canPlay('video/mp4; codecs="dvh1.08.06"') ||
-            // Jellyfin research: LG webOS 2020+ should support profile 8 but may not report it.
-            (isWebOs && chromeMajor !== null && chromeMajor >= 94);
+            canPlay('video/mp4; codecs="dvh1.08.06"');
 
         const supportsVp9 =
             canPlay('video/webm; codecs="vp9"') ||
@@ -1450,6 +1512,10 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         if (supportsHevc) {
             // Plex commonly uses HEVC "level" style values like 120 (1080p) / 150 (4K).
             const hevcLevel = is4K ? '150' : '120';
+            // Prefer Main10 when available; keep Main as a fallback.
+            if (supportsHevcMain10) {
+                videoDecoders.push(`hevc{profile:main10&level:${hevcLevel}}`);
+            }
             videoDecoders.push(`hevc{profile:main&level:${hevcLevel}}`);
             if (supportsDolbyVision && options?.hideDolbyVision !== true) {
                 videoDecoders.push('hevc{profile:dvhe.05}');
@@ -1569,35 +1635,60 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     /**
      * Select the best media version based on constraints.
      */
-    private _selectBestMedia(
-        mediaList: PlexMediaFile[],
+    private _pickHighestResolution(
+        candidates: PlexMediaFile[],
+        allMedia: PlexMediaFile[],
         maxBitrate?: number
     ): { media: PlexMediaFile; mediaIndex: number } | null {
-        if (!mediaList || mediaList.length === 0) {
+        if (!candidates || candidates.length === 0) {
             return null;
         }
 
         // Filter by bitrate if specified
-        let candidates = mediaList;
+        let filtered = candidates;
         if (typeof maxBitrate === 'number') {
-            candidates = mediaList.filter((m) => m.bitrate <= maxBitrate);
-            if (candidates.length === 0) {
+            filtered = candidates.filter((m) => m.bitrate <= maxBitrate);
+            if (filtered.length === 0) {
                 // Fall back to lowest bitrate if nothing fits
-                candidates = [mediaList.reduce((a, b) =>
-                    a.bitrate < b.bitrate ? a : b
-                )];
+                filtered = [candidates.reduce((a, b) => (a.bitrate < b.bitrate ? a : b))];
             }
         }
 
         // Prefer highest resolution
-        const sorted = [...candidates].sort((a, b) =>
+        const sorted = [...filtered].sort((a, b) =>
             (b.width * b.height) - (a.width * a.height)
         );
 
         const media = sorted[0];
         if (!media) return null;
-        const mediaIndex = mediaList.findIndex((entry) => entry === media);
+        const mediaIndex = allMedia.findIndex((entry) => entry === media);
+        if (mediaIndex < 0 && __RETUNE_DEV_BUILD__) {
+            console.warn(
+                '[PlexStreamResolver] _pickHighestResolution: selected media not found in allMedia, defaulting to index 0'
+            );
+        }
         return { media, mediaIndex: mediaIndex >= 0 ? mediaIndex : 0 };
+    }
+
+    private _selectBestMedia(
+        mediaList: PlexMediaFile[],
+        maxBitrate?: number
+    ): { media: PlexMediaFile; mediaIndex: number } | null {
+        return this._pickHighestResolution(mediaList, mediaList, maxBitrate);
+    }
+
+    private _selectBestMediaWithSubtitleStream(
+        mediaList: PlexMediaFile[],
+        subtitleStreamId: string,
+        maxBitrate?: number
+    ): { media: PlexMediaFile; mediaIndex: number } | null {
+        if (!mediaList || mediaList.length === 0) return null;
+        const candidates = mediaList.filter((m) => {
+            const part = m.parts[0];
+            if (!part) return false;
+            return part.streams.some((s) => s.streamType === 3 && s.id === subtitleStreamId);
+        });
+        return this._pickHighestResolution(candidates, mediaList, maxBitrate);
     }
 
     /**

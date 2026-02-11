@@ -17,6 +17,7 @@ import { type PlaybackInfoSnapshotLike } from '../../../utils/playbackSummary';
 import { formatAudioCodec } from '../../../utils/mediaFormat';
 import { extractHdrLabelFromPlexMedia } from '../../plex/stream/hdr';
 import { formatContentRatingBadge } from '../../../utils/contentRating';
+import { summarizeErrorForLog } from '../../../utils/errors';
 
 export interface NowPlayingInfoCoordinatorDeps {
     nowPlayingModalId: string;
@@ -202,7 +203,7 @@ export class NowPlayingInfoCoordinator {
         } catch (error) {
             console.warn(
                 '[NowPlayingInfoCoordinator] Failed to load Now Playing details:',
-                error
+                summarizeErrorForLog(error)
             );
         }
     }

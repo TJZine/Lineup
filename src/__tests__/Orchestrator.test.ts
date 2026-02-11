@@ -750,6 +750,7 @@ describe('AppOrchestrator', () => {
 
             const initCoordinator = { runStartup: jest.fn().mockResolvedValue(undefined) };
             const epgCoordinator = {
+                clearScheduleCaches: jest.fn(),
                 primeEpgChannels: jest.fn(),
                 refreshEpgSchedules: jest.fn().mockResolvedValue(undefined),
             };
@@ -770,6 +771,7 @@ describe('AppOrchestrator', () => {
 
             expect(mockPlexDiscovery.selectServer).toHaveBeenCalledWith('server-1');
             expect(initCoordinator.runStartup).toHaveBeenCalledWith(3);
+            expect(epgCoordinator.clearScheduleCaches).toHaveBeenCalled();
             expect(mockEpg.clearSchedules).toHaveBeenCalled();
             expect(epgCoordinator.primeEpgChannels).toHaveBeenCalled();
             expect(epgCoordinator.refreshEpgSchedules).toHaveBeenCalledWith({ reason: 'server-swap' });

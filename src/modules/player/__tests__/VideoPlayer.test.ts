@@ -46,6 +46,49 @@ function createMockDescriptor(
     };
 }
 
+type FakeSubtitleManager = {
+    initialize: () => void;
+    loadTracks: (_tracks: unknown, ctx?: StreamDescriptor['subtitleContext']) => string[];
+    unloadTracks: () => void;
+    getTracks: () => unknown[];
+    getActiveTrackId: () => string | null;
+    setActiveTrack: (trackId: string | null) => void;
+    destroy: () => void;
+};
+
+function createFakeSubtitleManager(
+    tracks: unknown[],
+    opts: { clearActiveOnDeactivate: boolean }
+): FakeSubtitleManager {
+    let activeTrackId: string | null = null;
+    let context: StreamDescriptor['subtitleContext'] | undefined;
+
+    return {
+        initialize: (): void => undefined,
+        loadTracks: (_tracks: unknown, ctx?: StreamDescriptor['subtitleContext']): string[] => {
+            context = ctx;
+            return [];
+        },
+        unloadTracks: (): void => {
+            activeTrackId = null;
+            context = undefined;
+        },
+        getTracks: (): unknown[] => tracks,
+        getActiveTrackId: (): string | null => activeTrackId,
+        setActiveTrack: (trackId: string | null): void => {
+            activeTrackId = trackId;
+            if (trackId === 'embedded-srt') {
+                if (opts.clearActiveOnDeactivate) {
+                    // Simulate a synchronous failure that deactivates the subtitle immediately.
+                    activeTrackId = null;
+                }
+                context?.onDeactivate?.({ trackId, reason: 'embedded_text_requires_burn_in' });
+            }
+        },
+        destroy: (): void => undefined,
+    };
+}
+
 // ============================================
 // mapMediaErrorCodeToPlaybackError Tests
 // ============================================
@@ -380,6 +423,102 @@ describe('VideoPlayer', () => {
                 globalWithFetch.fetch = originalFetch;
                 injectedPlayer.destroy();
             }
+        });
+    });
+
+    // ========================================
+    // setSubtitleTrack
+    // ========================================
+
+    describe('setSubtitleTrack', () => {
+        it('does not persist selection when a subtitle deactivates immediately', async () => {
+            const player = new VideoPlayer();
+            await player.initialize(createMockConfig());
+
+            const trackChanges: Array<string | null> = [];
+            player.on('trackChange', (payload): void => {
+                if (payload.type === 'subtitle') {
+                    trackChanges.push(payload.trackId);
+                }
+            });
+
+            const selectedTrack = {
+                id: 'embedded-srt',
+                label: 'English (SRT)',
+                languageCode: 'en',
+                language: 'English',
+                codec: 'srt',
+                format: 'srt',
+                isTextCandidate: true,
+                fetchableViaKey: false,
+            };
+
+            const fakeSubtitleManager = createFakeSubtitleManager([selectedTrack], { clearActiveOnDeactivate: true });
+
+            (player as unknown as { _subtitleManager: unknown })._subtitleManager = fakeSubtitleManager;
+
+            const descriptor = createMockDescriptor({
+                subtitleTracks: [selectedTrack] as unknown as StreamDescriptor['subtitleTracks'],
+                subtitleContext: {
+                    serverUri: 'http://example.com',
+                    authHeaders: { 'X-Plex-Token': 'token' },
+                    onDeactivate: () => true,
+                },
+            });
+            await player.loadStream(descriptor);
+
+            trackChanges.length = 0;
+            await player.setSubtitleTrack('embedded-srt');
+
+            expect(player.getState().activeSubtitleId).toBeNull();
+            expect(trackChanges).toEqual([null]);
+
+            player.destroy();
+        });
+
+        it('reconciles deferred deactivation when subtitle manager still reports the track active', async () => {
+            const player = new VideoPlayer();
+            await player.initialize(createMockConfig());
+
+            const trackChanges: Array<string | null> = [];
+            player.on('trackChange', (payload): void => {
+                if (payload.type === 'subtitle') {
+                    trackChanges.push(payload.trackId);
+                }
+            });
+
+            const selectedTrack = {
+                id: 'embedded-srt',
+                label: 'English (SRT)',
+                languageCode: 'en',
+                language: 'English',
+                codec: 'srt',
+                format: 'srt',
+                isTextCandidate: true,
+                fetchableViaKey: false,
+            };
+
+            const fakeSubtitleManager = createFakeSubtitleManager([selectedTrack], { clearActiveOnDeactivate: false });
+
+            (player as unknown as { _subtitleManager: unknown })._subtitleManager = fakeSubtitleManager;
+
+            const descriptor = createMockDescriptor({
+                subtitleTracks: [selectedTrack] as unknown as StreamDescriptor['subtitleTracks'],
+                subtitleContext: {
+                    serverUri: 'http://example.com',
+                    authHeaders: { 'X-Plex-Token': 'token' },
+                    onDeactivate: () => true,
+                },
+            });
+            await player.loadStream(descriptor);
+
+            trackChanges.length = 0;
+            await player.setSubtitleTrack('embedded-srt');
+
+            expect(player.getState().activeSubtitleId).toBeNull();
+            expect(trackChanges).toEqual([null]);
+
+            player.destroy();
         });
     });
 
@@ -725,6 +864,19 @@ describe('VideoPlayer', () => {
             videoElement.dispatchEvent(new Event('ended'));
 
             expect(handler).toHaveBeenCalled();
+        });
+
+        it('should ignore ended events during unload/reload teardown', async () => {
+            const handler = jest.fn();
+            player.on('ended', handler);
+
+            await player.loadStream(createMockDescriptor());
+
+            const videoElement = container.querySelector('video')!;
+            player.unloadStream();
+            videoElement.dispatchEvent(new Event('ended'));
+
+            expect(handler).not.toHaveBeenCalled();
         });
     });
 
