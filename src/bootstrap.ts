@@ -243,6 +243,9 @@ async function bootstrap(): Promise<void> {
         logLifecycle('[Retune] Started successfully');
     } catch (error) {
         console.error('Failed to start Retune:', summarizeErrorForLog(error));
+        showGlobalErrorOverlay(toSafeErrorMessage(error));
+        app = null;
+        syncWindowDebugApi(null);
     }
 }
 
@@ -254,6 +257,7 @@ async function cleanup(): Promise<void> {
         logLifecycle('[Retune] Shutting down...');
         await app.shutdown();
         logLifecycle('[Retune] Shut down complete');
+        app = null;
     }
     syncWindowDebugApi(null);
 }
@@ -288,6 +292,15 @@ export function installRetuneBootstrap(): void {
     window.addEventListener('pagehide', () => {
         cleanup().catch((error: unknown) => {
             console.error('[Retune] cleanup failed:', summarizeErrorForLog(error));
+        });
+    });
+
+    // Restore from BFCache (browser dev). When a page is restored from cache, scripts are not re-run.
+    window.addEventListener('pageshow', (event: PageTransitionEvent) => {
+        if (!event.persisted) return;
+        if (app) return;
+        bootstrap().catch((error: unknown) => {
+            console.error('[Retune] bootstrap (pageshow) failed:', summarizeErrorForLog(error));
         });
     });
 }

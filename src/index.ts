@@ -16,4 +16,7 @@ import './styles/shell.css';
 
 import { installRetuneBootstrap } from './bootstrap';
 
+// Backward-compat exports for integration/debug harnesses that import from the entrypoint.
+export { app, bootstrap, cleanup } from './bootstrap';
+
 installRetuneBootstrap();

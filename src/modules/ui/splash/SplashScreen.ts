@@ -8,7 +8,6 @@ import './styles.css';
 
 export class SplashScreen {
     private _container: HTMLElement;
-    private _statusElement: HTMLElement | null = null;
 
     constructor(container: HTMLElement) {
         this._container = container;
@@ -36,7 +35,6 @@ export class SplashScreen {
         const status = document.createElement('div');
         status.className = 'splash-status screen-status';
         status.textContent = 'Starting up…';
-        this._statusElement = status;
 
         content.appendChild(title);
         content.appendChild(subtitle);
@@ -46,9 +44,9 @@ export class SplashScreen {
     }
 
     public updateStatus(text: string): void {
-        if (this._statusElement) {
-            this._statusElement.textContent = text;
-        }
+        const status = this._container.querySelector('.splash-status');
+        if (!(status instanceof HTMLElement)) return;
+        status.textContent = text;
     }
 
     public show(): void {

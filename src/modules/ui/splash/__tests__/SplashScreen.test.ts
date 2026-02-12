@@ -38,7 +38,7 @@ describe('SplashScreen', () => {
         document.body.appendChild(container);
 
         const screen = new SplashScreen(container);
-        (screen as never as { _statusElement: HTMLElement | null })._statusElement = null;
+        container.querySelector('.splash-status')?.remove();
 
         expect(() => screen.updateStatus('No-op update')).not.toThrow();
     });
