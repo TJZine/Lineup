@@ -88,6 +88,8 @@ describe('AntiPatterns policy (frozen suites)', () => {
 
         const baselineSleepLines = readSleepBaseline();
         if (baselineSleepLines) {
+            // Sleep-based waits are zero-tolerance once a baseline is established.
+            // (Unlike private probes, which are ratcheted by baseline comparison + new-probe detection.)
             expect(sortedSleepProbes.length).toBe(0);
         }
     });

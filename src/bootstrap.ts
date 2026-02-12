@@ -57,6 +57,32 @@ interface RetuneDebugApi {
 let app: App | null = null;
 let bootstrapInstalled = false;
 
+function handleDebugLoggingChanged(): void {
+    configureLoggingPolicy();
+    syncWindowDebugApi(app);
+}
+
+function handleDomContentLoaded(): void {
+    bootstrap().catch((error: unknown) => {
+        console.error('[Retune] bootstrap failed:', summarizeErrorForLog(error));
+    });
+}
+
+function handlePageHide(): void {
+    cleanup().catch((error: unknown) => {
+        console.error('[Retune] cleanup failed:', summarizeErrorForLog(error));
+    });
+}
+
+function handlePageShow(event: PageTransitionEvent): void {
+    // Restore from BFCache (browser dev). When a page is restored from cache, scripts are not re-run.
+    if (!event.persisted) return;
+    if (app) return;
+    bootstrap().catch((error: unknown) => {
+        console.error('[Retune] bootstrap (pageshow) failed:', summarizeErrorForLog(error));
+    });
+}
+
 function isDebugSurfaceEnabled(): boolean {
     const debugEnabled = readStoredBooleanWithLegacy(
         RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
@@ -274,21 +300,14 @@ export function installRetuneBootstrap(): void {
     bootstrapInstalled = true;
 
     configureLoggingPolicy();
-    window.addEventListener(RETUNE_EVENT_NAMES.DEBUG_LOGGING_CHANGED, () => {
-        configureLoggingPolicy();
-        syncWindowDebugApi(app);
-    });
+    window.addEventListener(RETUNE_EVENT_NAMES.DEBUG_LOGGING_CHANGED, handleDebugLoggingChanged);
 
     window.addEventListener('error', handleGlobalError);
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
 
     // Start when DOM is ready
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            bootstrap().catch((error: unknown) => {
-                console.error('[Retune] bootstrap failed:', summarizeErrorForLog(error));
-            });
-        });
+        document.addEventListener('DOMContentLoaded', handleDomContentLoaded, { once: true });
     } else {
         bootstrap().catch((error: unknown) => {
             console.error('[Retune] bootstrap failed:', summarizeErrorForLog(error));
@@ -296,20 +315,24 @@ export function installRetuneBootstrap(): void {
     }
 
     // Cleanup on page hide (more reliable for async work than beforeunload)
-    window.addEventListener('pagehide', () => {
-        cleanup().catch((error: unknown) => {
-            console.error('[Retune] cleanup failed:', summarizeErrorForLog(error));
-        });
-    });
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('pageshow', handlePageShow);
+}
 
-    // Restore from BFCache (browser dev). When a page is restored from cache, scripts are not re-run.
-    window.addEventListener('pageshow', (event: PageTransitionEvent) => {
-        if (!event.persisted) return;
-        if (app) return;
-        bootstrap().catch((error: unknown) => {
-            console.error('[Retune] bootstrap (pageshow) failed:', summarizeErrorForLog(error));
-        });
-    });
+/**
+ * Remove global handlers registered by installRetuneBootstrap().
+ * @internal Primarily intended for tests and debug harnesses.
+ */
+export function uninstallRetuneBootstrap(): void {
+    if (!bootstrapInstalled) return;
+    bootstrapInstalled = false;
+
+    window.removeEventListener(RETUNE_EVENT_NAMES.DEBUG_LOGGING_CHANGED, handleDebugLoggingChanged);
+    window.removeEventListener('error', handleGlobalError);
+    window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    window.removeEventListener('pagehide', handlePageHide);
+    window.removeEventListener('pageshow', handlePageShow);
+    document.removeEventListener('DOMContentLoaded', handleDomContentLoaded);
 }
 
 // Exported as a live binding for integration/debug harnesses.
@@ -323,6 +346,7 @@ export const bootstrapInternals = {
     handleUnhandledRejection,
     showGlobalErrorOverlay,
     describeElement,
+    uninstallRetuneBootstrap,
 };
 
 export { app, bootstrap, cleanup };

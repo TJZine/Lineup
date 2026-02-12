@@ -348,9 +348,7 @@ describe('App bootstrap smoke', () => {
 
     it('shows, throttles, and hides toasts via orchestrator hooks', async () => {
         jest.useFakeTimers();
-        const nowSpy = jest.spyOn(Date, 'now');
-        let now = 0;
-        nowSpy.mockImplementation(() => now);
+        jest.setSystemTime(0);
 
         app = new App();
         await app.start();
@@ -359,19 +357,19 @@ describe('App bootstrap smoke', () => {
         const toastEl = document.getElementById('app-toast') as HTMLElement | null;
         expect(toastEl).not.toBeNull();
 
-        now = 10_000;
+        jest.setSystemTime(10_000);
         nowPlayingHandler?.({ message: 'Hello', type: 'info' });
         expect(toastEl?.style.display).toBe('block');
         expect(toastEl?.style.opacity).toBe('1');
         expect(toastEl?.textContent ?? '').toContain('Hello');
 
         // Within throttle window: should be suppressed.
-        now = 10_500;
+        jest.setSystemTime(10_500);
         nowPlayingHandler?.({ message: 'Suppressed', type: 'success' });
         expect(toastEl?.textContent ?? '').not.toContain('Suppressed');
 
         // Later timestamp: should replace the toast and clear the previous hide timer.
-        now = 12_000;
+        jest.setSystemTime(12_000);
         nowPlayingHandler?.({ message: 'Replaced', type: 'success' });
         expect(toastEl?.textContent ?? '').toContain('Replaced');
 
@@ -381,18 +379,14 @@ describe('App bootstrap smoke', () => {
         expect(toastEl?.style.display).toBe('none');
 
         const persistenceWarning = lifecycleHandlers.get('persistenceWarning');
-        now = 14_000;
+        jest.setSystemTime(14_000);
         persistenceWarning?.({});
         expect(toastEl?.textContent ?? '').toContain('Some settings could not be saved.');
-
-        nowSpy.mockRestore();
     });
 
     it('copies dev playback info via clipboard and legacy paths', async () => {
         jest.useFakeTimers();
-        const nowSpy = jest.spyOn(Date, 'now');
-        let now = 0;
-        nowSpy.mockImplementation(() => now);
+        jest.setSystemTime(0);
 
         refreshPlaybackInfoSnapshotSpy.mockResolvedValueOnce({
             channel: null,
@@ -417,7 +411,7 @@ describe('App bootstrap smoke', () => {
             configurable: true,
         });
 
-        now = 10_000;
+        jest.setSystemTime(10_000);
         const copySummary = devMenu?.querySelector('#dev-playback-copy-summary') as HTMLButtonElement | null;
         copySummary?.click();
         await flushPromises();
@@ -435,7 +429,7 @@ describe('App bootstrap smoke', () => {
         });
         const execSpy = document.execCommand as unknown as jest.Mock;
 
-        now = 12_000;
+        jest.setSystemTime(12_000);
         const copyRaw = devMenu?.querySelector('#dev-playback-copy-raw') as HTMLButtonElement | null;
         copyRaw?.click();
         await flushPromises();
@@ -446,19 +440,17 @@ describe('App bootstrap smoke', () => {
             new Error('blocked')
         );
         (document.execCommand as unknown as jest.Mock).mockReturnValueOnce(false);
-        now = 14_000;
+        jest.setSystemTime(14_000);
         copyRaw?.click();
         await flushPromises();
         const toastEl = document.getElementById('app-toast') as HTMLElement | null;
         expect(toastEl?.textContent ?? '').toContain('Copy not supported');
 
         // Empty text branch.
-        now = 16_000;
+        jest.setSystemTime(16_000);
         pre!.dataset.summary = '';
         copySummary?.click();
         await flushPromises();
-
-        nowSpy.mockRestore();
     });
 
     it('renders a fatal error when startup fails', async () => {

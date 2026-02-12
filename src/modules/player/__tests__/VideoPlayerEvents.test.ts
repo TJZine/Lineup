@@ -23,6 +23,8 @@ const createState = (): VideoPlayerInternalState => ({
     currentDescriptor: null,
 });
 
+const attachedEvents: VideoPlayerEvents[] = [];
+
 const createFixture = (): {
     events: VideoPlayerEvents;
     video: HTMLVideoElement;
@@ -36,6 +38,7 @@ const createFixture = (): {
     state: VideoPlayerInternalState;
 } => {
     const events = new VideoPlayerEvents();
+    attachedEvents.push(events);
     const video = document.createElement('video');
     const emitter = { emit: jest.fn() } as never as EventEmitter<PlayerEventMap>;
     const state = createState();
@@ -58,6 +61,10 @@ const createFixture = (): {
 
 describe('VideoPlayerEvents', () => {
     afterEach(() => {
+        for (const events of attachedEvents) {
+            events.detach();
+        }
+        attachedEvents.length = 0;
         jest.useRealTimers();
         document.body.innerHTML = '';
     });

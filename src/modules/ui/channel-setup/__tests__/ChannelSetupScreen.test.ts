@@ -6,6 +6,8 @@ import { ChannelSetupScreen } from '../ChannelSetupScreen';
 import type { AppOrchestrator } from '../../../../Orchestrator';
 import type { PlexLibrary } from '../../../plex/library/types';
 
+import { flushPromises } from '../../../../__tests__/helpers';
+
 type Focusable = {
     id: string;
     neighbors: { up?: string; down?: string; left?: string; right?: string };
@@ -28,11 +30,6 @@ type ChannelSetupOrchestratorStub = {
     getSelectedServerId: jest.Mock;
     getChannelSetupRecord: jest.Mock;
     openServerSelect: jest.Mock;
-};
-
-const flushPromises = async (): Promise<void> => {
-    await Promise.resolve();
-    await Promise.resolve();
 };
 
 const makeLibrary = (overrides: Partial<PlexLibrary>): PlexLibrary => ({
@@ -70,7 +67,7 @@ const createNavigationMock = (): NavigationMock => {
 
 const createOrchestrator = (
     overrides: Partial<ChannelSetupOrchestratorStub> = {}
-): ChannelSetupOrchestratorStub => ({
+): AppOrchestrator => ({
     getNavigation: jest.fn(() => null),
     getLibrariesForSetup: jest.fn().mockResolvedValue([]),
     getSelectedServerStorageKey: jest.fn(() => 'retune-selected-server-id'),
@@ -78,7 +75,7 @@ const createOrchestrator = (
     getChannelSetupRecord: jest.fn(() => null),
     openServerSelect: jest.fn(),
     ...overrides,
-});
+}) as never as AppOrchestrator;
 
 const click = (container: HTMLElement, selector: string): void => {
     const element = container.querySelector(selector);
@@ -107,7 +104,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn(() => librariesPromise),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator as never as AppOrchestrator);
+        const screen = new ChannelSetupScreen(container, orchestrator);
         screen.show();
 
         expect(container.textContent ?? '').toContain('Loading libraries');
@@ -130,7 +127,7 @@ describe('ChannelSetupScreen', () => {
             ]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator as never as AppOrchestrator);
+        const screen = new ChannelSetupScreen(container, orchestrator);
         screen.show();
         await flushPromises();
 
@@ -153,7 +150,7 @@ describe('ChannelSetupScreen', () => {
             ]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator as never as AppOrchestrator);
+        const screen = new ChannelSetupScreen(container, orchestrator);
         screen.show();
         await flushPromises();
 
@@ -179,7 +176,7 @@ describe('ChannelSetupScreen', () => {
             ]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator as never as AppOrchestrator);
+        const screen = new ChannelSetupScreen(container, orchestrator);
         screen.show();
         await flushPromises();
 

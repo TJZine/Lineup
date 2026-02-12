@@ -119,6 +119,11 @@ describe('PlaybackOptionsModal', () => {
         expect(spies.subtitleSelect).toHaveBeenCalledTimes(1);
         expect(spies.subtitleBlocked).toHaveBeenCalledTimes(1);
         expect(spies.audioSelect).toHaveBeenCalledTimes(1);
+
+        const disabledOption = viewModel.subtitles.options.find((o) => o.id === 'sub-3');
+        expect(disabledOption).toBeDefined();
+        expect(disabledOption?.disabled).toBe(true);
+        expect(disabledOption?.onSelect).not.toHaveBeenCalled();
     });
 
     it('renders empty section message when options are absent', () => {

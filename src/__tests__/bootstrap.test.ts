@@ -16,6 +16,7 @@ const setDevBuild = (value: boolean): void => {
 };
 
 type BootstrapModule = typeof import('../bootstrap');
+let installedModule: BootstrapModule | null = null;
 
 const importBootstrapModule = async (options?: {
     start?: jest.Mock;
@@ -40,7 +41,8 @@ const importBootstrapModule = async (options?: {
         })),
     }));
 
-    const module = await import('../bootstrap');
+	const module = await import('../bootstrap');
+    installedModule = module;
     module.installRetuneBootstrap();
     await flushPromises();
     if (options?.autoDispatchDomReady !== false && start.mock.calls.length === 0) {
@@ -59,10 +61,18 @@ describe('bootstrap seam', () => {
         delete (window as { __RETUNE__?: unknown }).__RETUNE__;
     });
 
-    afterEach(() => {
-        jest.restoreAllMocks();
-        document.body.innerHTML = '';
-        localStorage.clear();
+    afterEach(async () => {
+        try {
+            if (installedModule) {
+                await installedModule.cleanup();
+                installedModule.uninstallRetuneBootstrap();
+            }
+        } finally {
+            installedModule = null;
+            jest.restoreAllMocks();
+            document.body.innerHTML = '';
+            localStorage.clear();
+        }
     });
 
     it('registers global handlers and boots App', async () => {
@@ -84,7 +94,7 @@ describe('bootstrap seam', () => {
         expect(shutdown).toHaveBeenCalledTimes(1);
     });
 
-    it('exposes and clears debug surface based on build/debug flags', async () => {
+    it('exposes debug surface and supports video visibility toggles', async () => {
         const orchestrator = {
             openEPG: jest.fn(),
             closeEPG: jest.fn(),
@@ -127,16 +137,33 @@ describe('bootstrap seam', () => {
         expect(orchestrator.openEPG).toHaveBeenCalledTimes(1);
         expect(orchestrator.closeEPG).toHaveBeenCalledTimes(1);
         expect(orchestrator.toggleEPG).toHaveBeenCalledTimes(1);
+    });
 
+    it('clears debug surface when syncWindowDebugApi is called with null', async () => {
+        const { module } = await importBootstrapModule();
         module.bootstrapInternals.syncWindowDebugApi(null);
         expect((window as { __RETUNE__?: unknown }).__RETUNE__).toBeUndefined();
+    });
 
+    it('returns null orchestratorStatus when orchestrator is absent', async () => {
+        const { module } = await importBootstrapModule();
         module.bootstrapInternals.syncWindowDebugApi({
             getOrchestrator: () => null,
         } as never);
         const nullStatus = (window as { __RETUNE__?: { orchestratorStatus: () => unknown } }).__RETUNE__
             ?.orchestratorStatus();
         expect(nullStatus).toBeNull();
+    });
+
+    it('suppresses debug surface when not in dev build and debug logging is off', async () => {
+        const orchestrator = {
+            openEPG: jest.fn(),
+            closeEPG: jest.fn(),
+            toggleEPG: jest.fn(),
+            getModuleStatus: jest.fn(() => new Map()),
+            isReady: jest.fn(() => true),
+        };
+        const { module } = await importBootstrapModule();
 
         setDevBuild(false);
         localStorage.removeItem(RETUNE_STORAGE_KEYS.DEBUG_LOGGING);
