@@ -97,7 +97,7 @@ describe('VideoPlayerEvents', () => {
         events.detach();
     });
 
-    it('waitForCanPlay resolves on canplay and rejects on timeout', async () => {
+    it('waitForCanPlay resolves on canplay', async () => {
         jest.useFakeTimers();
 
         const { events, video } = createFixture();
@@ -106,6 +106,14 @@ describe('VideoPlayerEvents', () => {
         const resolvePromise = events.waitForCanPlay(500);
         video.dispatchEvent(new Event('canplay'));
         await expect(resolvePromise).resolves.toBeUndefined();
+        events.detach();
+    });
+
+    it('waitForCanPlay rejects on timeout', async () => {
+        jest.useFakeTimers();
+
+        const { events, video } = createFixture();
+        Object.defineProperty(video, 'readyState', { configurable: true, value: 1 });
 
         const timeoutPromise = events.waitForCanPlay(10);
         jest.advanceTimersByTime(11);
@@ -125,59 +133,82 @@ describe('VideoPlayerEvents', () => {
         events.detach();
     });
 
-    it('updates status for load, playback, seeking, and waiting transitions', () => {
-        const { events, video, callbacks, state } = createFixture();
-
+    it('updates status to loading on loadstart', () => {
+        const { events, video, callbacks } = createFixture();
         video.dispatchEvent(new Event('loadstart'));
         expect(callbacks.updateStatus).toHaveBeenCalledWith('loading');
+        events.detach();
+    });
 
+    it('updates status to paused on canplay when loading', () => {
+        const { events, video, callbacks, state } = createFixture();
         state.status = 'loading';
         video.dispatchEvent(new Event('canplay'));
         expect(callbacks.updateStatus).toHaveBeenCalledWith('paused');
+        events.detach();
+    });
 
-        callbacks.updateStatus.mockClear();
+    it('updates status to paused on pause when playing', () => {
+        const { events, video, callbacks, state } = createFixture();
         state.status = 'playing';
         video.dispatchEvent(new Event('pause'));
         expect(callbacks.updateStatus).toHaveBeenCalledWith('paused');
+        events.detach();
+    });
 
-        callbacks.updateStatus.mockClear();
+    it('ignores pause while seeking', () => {
+        const { events, video, callbacks, state } = createFixture();
         state.status = 'seeking';
         video.dispatchEvent(new Event('pause'));
         expect(callbacks.updateStatus).not.toHaveBeenCalled();
+        events.detach();
+    });
 
-        callbacks.updateStatus.mockClear();
+    it('restores playing status after seek when video is not paused', () => {
+        const { events, video, callbacks, state } = createFixture();
         state.status = 'playing';
         video.dispatchEvent(new Event('seeking'));
         Object.defineProperty(video, 'paused', { configurable: true, value: false });
         video.dispatchEvent(new Event('seeked'));
         expect(callbacks.updateStatus).toHaveBeenNthCalledWith(1, 'seeking');
         expect(callbacks.updateStatus).toHaveBeenNthCalledWith(2, 'playing');
+        events.detach();
+    });
 
-        callbacks.updateStatus.mockClear();
+    it('restores paused status after seek when video is paused', () => {
+        const { events, video, callbacks, state } = createFixture();
         state.status = 'playing';
         video.dispatchEvent(new Event('seeking'));
         Object.defineProperty(video, 'paused', { configurable: true, value: true });
         video.dispatchEvent(new Event('seeked'));
         expect(callbacks.updateStatus).toHaveBeenNthCalledWith(1, 'seeking');
         expect(callbacks.updateStatus).toHaveBeenNthCalledWith(2, 'paused');
+        events.detach();
+    });
 
-        callbacks.updateStatus.mockClear();
+    it('restores previous non-playing status after seek when paused', () => {
+        const { events, video, callbacks, state } = createFixture();
         state.status = 'buffering';
         video.dispatchEvent(new Event('seeking'));
         video.dispatchEvent(new Event('seeked'));
         expect(callbacks.updateStatus).toHaveBeenNthCalledWith(1, 'seeking');
         expect(callbacks.updateStatus).toHaveBeenNthCalledWith(2, 'buffering');
+        events.detach();
+    });
 
-        callbacks.updateStatus.mockClear();
+    it('updates status to buffering on waiting when playing', () => {
+        const { events, video, callbacks, state } = createFixture();
         state.status = 'playing';
         video.dispatchEvent(new Event('waiting'));
         expect(callbacks.updateStatus).toHaveBeenCalledWith('buffering');
+        events.detach();
+    });
 
-        callbacks.updateStatus.mockClear();
+    it('ignores waiting when paused', () => {
+        const { events, video, callbacks, state } = createFixture();
         state.status = 'paused';
         video.dispatchEvent(new Event('waiting'));
         expect(callbacks.updateStatus).not.toHaveBeenCalled();
-
         events.detach();
     });
 

@@ -8,10 +8,7 @@ import { RETUNE_STORAGE_KEYS } from '../config/storageKeys';
 import { ThemeManager } from '../modules/ui/theme';
 import { STORAGE_KEYS } from '../types';
 
-const flushPromises = async (): Promise<void> => {
-    await Promise.resolve();
-    await Promise.resolve();
-};
+import { flushPromises } from './helpers';
 
 jest.mock('../modules/ui/splash', () => ({
     SplashScreen: class SplashScreen {
@@ -142,10 +139,12 @@ describe('App bootstrap smoke', () => {
         expect(document.getElementById('splash-container')).not.toBeNull();
     });
 
-    it('renders dev menu and playback info when debug surface is enabled', async () => {
-        refreshPlaybackInfoSnapshotSpy.mockReset();
-
-        const snapshotWithDecision: PlaybackInfoSnapshot = {
+    const createPlaybackSnapshots = (): {
+        snapshotWithDecision: PlaybackInfoSnapshot;
+        snapshotNoDecision: PlaybackInfoSnapshot;
+        snapshotNoStream: PlaybackInfoSnapshot;
+    } => ({
+        snapshotWithDecision: {
             channel: { id: 'ch12', number: 12, name: 'News' },
             program: {
                 itemKey: '/library/metadata/1234',
@@ -191,9 +190,8 @@ describe('App bootstrap smoke', () => {
                     decisionText: 'transcode because codec',
                 },
             },
-        };
-
-        const snapshotNoDecision: PlaybackInfoSnapshot = {
+        },
+        snapshotNoDecision: {
             channel: null,
             program: null,
             stream: {
@@ -212,13 +210,87 @@ describe('App bootstrap smoke', () => {
                 selectedAudio: null,
                 selectedSubtitle: null,
             },
-        };
-
-        const snapshotNoStream: PlaybackInfoSnapshot = {
+        },
+        snapshotNoStream: {
             channel: null,
             program: null,
             stream: null,
-        };
+        },
+    });
+
+    const openDevMenu = async (): Promise<{
+        devMenu: HTMLElement;
+        playbackPre: HTMLPreElement;
+        refreshButton: HTMLButtonElement;
+    }> => {
+        document.dispatchEvent(
+            new KeyboardEvent('keydown', {
+                code: 'KeyD',
+                ctrlKey: true,
+                shiftKey: true,
+            })
+        );
+        await flushPromises();
+
+        const devMenu = document.getElementById('dev-menu');
+        if (!(devMenu instanceof HTMLElement)) {
+            throw new Error('Dev menu #dev-menu not found');
+        }
+        const playbackPre = devMenu.querySelector('#dev-playback-info');
+        if (!(playbackPre instanceof HTMLPreElement)) {
+            throw new Error('Dev menu playback info #dev-playback-info not found');
+        }
+        const refreshButton = devMenu.querySelector('#dev-playback-refresh');
+        if (!(refreshButton instanceof HTMLButtonElement)) {
+            throw new Error('Dev menu refresh button #dev-playback-refresh not found');
+        }
+        return { devMenu, playbackPre, refreshButton };
+    };
+
+    it('renders dev menu and playback info when debug surface is enabled', async () => {
+        refreshPlaybackInfoSnapshotSpy.mockReset();
+
+        const { snapshotWithDecision } = createPlaybackSnapshots();
+
+        refreshPlaybackInfoSnapshotSpy
+            .mockResolvedValueOnce(snapshotWithDecision)
+
+        app = new App();
+        await app.start();
+
+        const { devMenu, playbackPre } = await openDevMenu();
+        expect(refreshPlaybackInfoSnapshotSpy).toHaveBeenCalledTimes(1);
+
+        expect(devMenu?.style.display).toBe('block');
+
+        expect(playbackPre?.textContent ?? '').toContain('PLAYBACK INFO');
+        expect(playbackPre?.textContent ?? '').toContain('DELIVERY (what the TV receives)');
+    });
+
+    it('refresh updates the PMS decision area and handles missing decision', async () => {
+        refreshPlaybackInfoSnapshotSpy.mockReset();
+        const { snapshotWithDecision, snapshotNoDecision } = createPlaybackSnapshots();
+
+        refreshPlaybackInfoSnapshotSpy
+            .mockResolvedValueOnce(snapshotWithDecision)
+            .mockResolvedValueOnce(snapshotNoDecision);
+
+        app = new App();
+        await app.start();
+
+        const { playbackPre, refreshButton } = await openDevMenu();
+        expect(refreshPlaybackInfoSnapshotSpy).toHaveBeenCalledTimes(1);
+
+        refreshButton.click();
+        await flushPromises();
+
+        expect(refreshPlaybackInfoSnapshotSpy).toHaveBeenCalledTimes(2);
+        expect(playbackPre?.textContent ?? '').toContain('PMS:       (decision not fetched; press Refresh again)');
+    });
+
+    it('refresh handles missing stream and allows toggling the dev menu', async () => {
+        refreshPlaybackInfoSnapshotSpy.mockReset();
+        const { snapshotWithDecision, snapshotNoDecision, snapshotNoStream } = createPlaybackSnapshots();
 
         refreshPlaybackInfoSnapshotSpy
             .mockResolvedValueOnce(snapshotWithDecision)
@@ -228,36 +300,17 @@ describe('App bootstrap smoke', () => {
         app = new App();
         await app.start();
 
-        document.dispatchEvent(
-            new KeyboardEvent('keydown', {
-                code: 'KeyD',
-                ctrlKey: true,
-                shiftKey: true,
-            })
-        );
-
-        await flushPromises();
+        const { devMenu, playbackPre, refreshButton } = await openDevMenu();
         expect(refreshPlaybackInfoSnapshotSpy).toHaveBeenCalledTimes(1);
 
-        const devMenu = document.getElementById('dev-menu') as HTMLElement | null;
-        expect(devMenu).not.toBeNull();
-        expect(devMenu?.style.display).toBe('block');
-
-        const pre = devMenu?.querySelector('#dev-playback-info') as HTMLPreElement | null;
-        expect(pre?.textContent ?? '').toContain('PLAYBACK INFO');
-        expect(pre?.textContent ?? '').toContain('DELIVERY (what the TV receives)');
-
-        const refreshButton = devMenu?.querySelector('#dev-playback-refresh') as HTMLButtonElement | null;
-        refreshButton?.click();
+        refreshButton.click();
         await flushPromises();
 
-        expect(refreshPlaybackInfoSnapshotSpy).toHaveBeenCalledTimes(2);
-        expect(pre?.textContent ?? '').toContain('PMS:       (decision not fetched; press Refresh again)');
-
-        refreshButton?.click();
+        refreshButton.click();
         await flushPromises();
+
         expect(refreshPlaybackInfoSnapshotSpy).toHaveBeenCalledTimes(3);
-        expect(pre?.textContent ?? '').toContain('(no stream decision yet)');
+        expect(playbackPre?.textContent ?? '').toContain('(no stream decision yet)');
 
         (window as unknown as { retune?: { toggleDevMenu: () => void } }).retune?.toggleDevMenu();
         expect(devMenu?.style.display).toBe('none');
@@ -499,23 +552,25 @@ describe('App bootstrap smoke', () => {
 
     it('generates and persists a client id when missing/invalid (fallback path)', async () => {
         const originalCrypto = globalThis.crypto;
-        Object.defineProperty(globalThis, 'crypto', {
-            value: { randomUUID: (): string => { throw new Error('no uuid'); } },
-            configurable: true,
-        });
+        try {
+            Object.defineProperty(globalThis, 'crypto', {
+                value: { randomUUID: (): string => { throw new Error('no uuid'); } },
+                configurable: true,
+            });
 
-        localStorage.setItem(STORAGE_KEYS.CLIENT_ID, '');
+            localStorage.setItem(STORAGE_KEYS.CLIENT_ID, '');
 
-        app = new App();
-        await app.start();
+            app = new App();
+            await app.start();
 
-        const clientId = localStorage.getItem(STORAGE_KEYS.CLIENT_ID) ?? '';
-        expect(clientId).toMatch(/^retune-[a-z0-9]+$/);
-
-        Object.defineProperty(globalThis, 'crypto', {
-            value: originalCrypto,
-            configurable: true,
-        });
+            const clientId = localStorage.getItem(STORAGE_KEYS.CLIENT_ID) ?? '';
+            expect(clientId).toMatch(/^retune-[a-z0-9]+$/);
+        } finally {
+            Object.defineProperty(globalThis, 'crypto', {
+                value: originalCrypto,
+                configurable: true,
+            });
+        }
     });
 
     it('uses an existing sane client id without regenerating', async () => {

@@ -63,11 +63,28 @@ const createViewModel = (): { spies: { subtitleSelect: jest.Mock; subtitleBlocke
 };
 
 describe('PlaybackOptionsModal', () => {
+    let container: HTMLDivElement;
+
+    const clickButton = (selector: string): void => {
+        const button = container.querySelector(selector);
+        if (!(button instanceof HTMLButtonElement)) {
+            throw new Error(`Button not found: ${selector}`);
+        }
+        button.click();
+    };
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        container.id = 'playback-options-container';
+        document.body.appendChild(container);
+    });
+
     afterEach(() => {
         document.body.innerHTML = '';
     });
 
     it('throws if initialize cannot find the container', () => {
+        document.body.innerHTML = '';
         const modal = new PlaybackOptionsModal();
         expect(() => modal.initialize({ containerId: 'missing' })).toThrow(
             'Playback Options container #missing not found'
@@ -75,10 +92,6 @@ describe('PlaybackOptionsModal', () => {
     });
 
     it('renders sections and focusable IDs on show', () => {
-        const container = document.createElement('div');
-        container.id = 'playback-options-container';
-        document.body.appendChild(container);
-
         const modal = new PlaybackOptionsModal();
         modal.initialize({ containerId: 'playback-options-container' });
 
@@ -92,20 +105,16 @@ describe('PlaybackOptionsModal', () => {
     });
 
     it('routes click handlers for normal and blocked options', () => {
-        const container = document.createElement('div');
-        container.id = 'playback-options-container';
-        document.body.appendChild(container);
-
         const modal = new PlaybackOptionsModal();
         modal.initialize({ containerId: 'playback-options-container' });
 
         const { viewModel, spies } = createViewModel();
         modal.show(viewModel);
 
-        (container.querySelector('#sub-1') as HTMLButtonElement).click();
-        (container.querySelector('#sub-2') as HTMLButtonElement).click();
-        (container.querySelector('#sub-3') as HTMLButtonElement).click();
-        (container.querySelector('#aud-1') as HTMLButtonElement).click();
+        clickButton('#sub-1');
+        clickButton('#sub-2');
+        clickButton('#sub-3');
+        clickButton('#aud-1');
 
         expect(spies.subtitleSelect).toHaveBeenCalledTimes(1);
         expect(spies.subtitleBlocked).toHaveBeenCalledTimes(1);
@@ -113,10 +122,6 @@ describe('PlaybackOptionsModal', () => {
     });
 
     it('renders empty section message when options are absent', () => {
-        const container = document.createElement('div');
-        container.id = 'playback-options-container';
-        document.body.appendChild(container);
-
         const modal = new PlaybackOptionsModal();
         modal.initialize({ containerId: 'playback-options-container' });
 
@@ -129,11 +134,7 @@ describe('PlaybackOptionsModal', () => {
         expect(container.textContent ?? '').toContain('No alternate audio');
     });
 
-    it('update rerenders and hide/destroy reset state', () => {
-        const container = document.createElement('div');
-        container.id = 'playback-options-container';
-        document.body.appendChild(container);
-
+    it('update rerenders content', () => {
         const modal = new PlaybackOptionsModal();
         modal.initialize({ containerId: 'playback-options-container' });
 
@@ -148,10 +149,26 @@ describe('PlaybackOptionsModal', () => {
 
         expect(container.textContent ?? '').toContain('Updated options');
         expect(container.textContent ?? '').toContain('Nothing selected');
+    });
+
+    it('hide resets visible state', () => {
+        const modal = new PlaybackOptionsModal();
+        modal.initialize({ containerId: 'playback-options-container' });
+
+        const { viewModel } = createViewModel();
+        modal.show(viewModel);
 
         modal.hide();
         expect(modal.isVisible()).toBe(false);
         expect(container.classList.contains('visible')).toBe(false);
+    });
+
+    it('destroy clears content and focusables', () => {
+        const modal = new PlaybackOptionsModal();
+        modal.initialize({ containerId: 'playback-options-container' });
+
+        const { viewModel } = createViewModel();
+        modal.show(viewModel);
 
         modal.destroy();
         expect(container.textContent).toBe('');

@@ -104,7 +104,8 @@ function syncWindowDebugApi(currentApp: App | null): void {
         },
         showVideo: (): void => {
             const video = document.querySelector('video') as HTMLElement | null;
-            if (video) video.style.display = 'block';
+            // Remove the inline override so the stylesheet/default display can apply.
+            if (video) video.style.display = '';
         },
         orchestratorStatus: (): unknown => {
             const orchestrator = currentApp.getOrchestrator();
@@ -156,6 +157,7 @@ function showGlobalErrorOverlay(message: string): void {
     overlay.id = 'global-error-overlay';
     overlay.setAttribute('role', 'alert');
     overlay.setAttribute('aria-live', 'assertive');
+    overlay.tabIndex = -1;
     overlay.style.position = 'fixed';
     overlay.style.left = '0';
     overlay.style.top = '0';
@@ -194,6 +196,11 @@ function showGlobalErrorOverlay(message: string): void {
     const host = document.body ?? document.documentElement;
     if (!host) return;
     host.appendChild(overlay);
+    try {
+        overlay.focus();
+    } catch {
+        // Best-effort focus for accessibility; some environments may block programmatic focus.
+    }
 }
 
 // Register global error handlers

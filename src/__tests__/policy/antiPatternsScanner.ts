@@ -110,15 +110,15 @@ export const scanSourceText = (
     const sleepProbes: SleepProbe[] = [];
 
     const registerProbe = (probe: PrivateProbe): void => {
-        const key = `${probe.file}:${probe.line}:${probe.column}:${probe.receiver}:${probe.property}`;
-        if (!privateProbes.some((entry) => `${entry.file}:${entry.line}:${entry.column}:${entry.receiver}:${entry.property}` === key)) {
+        const key = [probe.file, probe.line, probe.column, probe.receiver, probe.property].join('\0');
+        if (!privateProbes.some((entry) => [entry.file, entry.line, entry.column, entry.receiver, entry.property].join('\0') === key)) {
             privateProbes.push(probe);
         }
     };
 
     const registerSleep = (probe: SleepProbe): void => {
-        const key = `${probe.file}:${probe.line}:${probe.column}:${probe.kind}`;
-        if (!sleepProbes.some((entry) => `${entry.file}:${entry.line}:${entry.column}:${entry.kind}` === key)) {
+        const key = [probe.file, probe.line, probe.column, probe.kind].join('\0');
+        if (!sleepProbes.some((entry) => [entry.file, entry.line, entry.column, entry.kind].join('\0') === key)) {
             sleepProbes.push(probe);
         }
     };

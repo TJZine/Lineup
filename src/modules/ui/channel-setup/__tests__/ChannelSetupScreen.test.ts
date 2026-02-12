@@ -114,6 +114,9 @@ describe('ChannelSetupScreen', () => {
 
         resolveLibraries([makeLibrary({ id: 'movies', title: 'Movies', contentCount: 1200 })]);
         await flushPromises();
+
+        expect(container.textContent ?? '').not.toContain('Loading libraries');
+        expect(container.querySelector('#setup-lib-movies')).not.toBeNull();
     });
 
     it('renders bulk actions and formatted library metadata', async () => {

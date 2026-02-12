@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import {
@@ -17,10 +18,10 @@ const FROZEN_SUITES = [
     'src/modules/navigation/__tests__/RemoteHandler.test.ts',
 ];
 
-const CURRENT_PRIVATE_REPORT = '/tmp/current-private-probes.json';
-const CURRENT_SLEEP_REPORT = '/tmp/current-sleeps.txt';
-const BASELINE_PRIVATE_REPORT = '/tmp/baseline-private-probes.json';
-const BASELINE_SLEEP_REPORT = '/tmp/baseline-sleeps-ast.txt';
+const CURRENT_PRIVATE_REPORT = path.join(os.tmpdir(), 'current-private-probes.json');
+const CURRENT_SLEEP_REPORT = path.join(os.tmpdir(), 'current-sleeps.txt');
+const BASELINE_PRIVATE_REPORT = path.join(os.tmpdir(), 'baseline-private-probes.json');
+const BASELINE_SLEEP_REPORT = path.join(os.tmpdir(), 'baseline-sleeps-ast.txt');
 
 const toAbsolute = (file: string): string => path.join(process.cwd(), file);
 
@@ -69,16 +70,16 @@ describe('AntiPatterns policy (frozen suites)', () => {
         );
         fs.writeFileSync(CURRENT_SLEEP_REPORT, sleepLines.join('\n'));
 
-	        const baselinePrivateProbes = readPrivateBaseline();
-	        if (baselinePrivateProbes) {
-	            const baselineCount = baselinePrivateProbes.length;
-	            // Equality is permitted: we ratchet by disallowing count increases and by asserting
-	            // that no new probe keys were introduced (see `newProbes` below).
-	            expect(sortedPrivateProbes.length).toBeLessThanOrEqual(baselineCount);
+        const baselinePrivateProbes = readPrivateBaseline();
+        if (baselinePrivateProbes) {
+            const baselineCount = baselinePrivateProbes.length;
+            // Equality is permitted: we ratchet by disallowing count increases and by asserting
+            // that no new probe keys were introduced (see `newProbes` below).
+            expect(sortedPrivateProbes.length).toBeLessThanOrEqual(baselineCount);
 
-	            const baselineSet = new Set(
-	                baselinePrivateProbes.map((probe) => `${probe.file}|${probe.receiver}|${probe.property}`)
-	            );
+            const baselineSet = new Set(
+                baselinePrivateProbes.map((probe) => `${probe.file}|${probe.receiver}|${probe.property}`)
+            );
             const newProbes = sortedPrivateProbes.filter(
                 (probe) => !baselineSet.has(`${probe.file}|${probe.receiver}|${probe.property}`)
             );

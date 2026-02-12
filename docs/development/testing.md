@@ -29,6 +29,26 @@ npm run test:coverage
 - Mock network/platform boundaries, but keep module wiring realistic (constructor/startup paths should still execute).
 - Add targeted smoke coverage for app/bootstrap startup seams so regressions in initialization are caught early.
 
+## When to Refactor the Test Suite
+
+Default posture: avoid suite-wide refactors unless there is clear pain.
+
+Refactor when:
+- CI or local runs are meaningfully slow (and trending worse).
+- Flakes or nondeterminism are recurring (timing, network, global state).
+- Many suites repeat the same setup/fixture patterns and changes become expensive.
+
+Avoid refactors when:
+- The suite is stable and fast enough for current needs.
+- The primary benefit is “prettier tests” without measurable wins (speed, flake reduction, clarity for future changes).
+
+Measure slow suites before/after changes:
+
+```bash
+npx jest --maxWorkers=50% --json --outputFile=/tmp/jest-results.json
+node docs/qa/scripts/print_slowest_suites.mjs
+```
+
 ## Anti-Pattern Policy (Frozen Suites)
 
 - Do not probe private members on the SUT (no underscore-field pokes via casted internals).

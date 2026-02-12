@@ -81,10 +81,13 @@ describe('AuthScreen', () => {
                 authToken: null,
                 clientIdentifier: 'client-id',
             }),
-            pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
+            pollForPin: jest.fn().mockImplementation(
+                // Never resolves - simulates indefinite polling until the screen is hidden/cancelled.
+                () => new Promise(() => undefined)
+            ),
         });
 
-        const screen = new AuthScreen(container, orchestrator as never as AppOrchestrator);
+        const screen = new AuthScreen(container, orchestrator as unknown as AppOrchestrator);
         screen.show();
 
         click(container, '#btn-auth-request');
@@ -110,11 +113,14 @@ describe('AuthScreen', () => {
                     authToken: null,
                     clientIdentifier: 'client-id',
                 }),
-            pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
+            pollForPin: jest.fn().mockImplementation(
+                // Never resolves - simulates ongoing poll.
+                () => new Promise(() => undefined)
+            ),
             getNavigation: jest.fn(() => nav),
         });
 
-        const screen = new AuthScreen(container, orchestrator as never as AppOrchestrator);
+        const screen = new AuthScreen(container, orchestrator as unknown as AppOrchestrator);
         screen.show();
 
         click(container, '#btn-auth-request');
@@ -146,7 +152,7 @@ describe('AuthScreen', () => {
             pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
         });
 
-        const screen = new AuthScreen(container, orchestrator as never as AppOrchestrator);
+        const screen = new AuthScreen(container, orchestrator as unknown as AppOrchestrator);
         screen.show();
 
         click(container, '#btn-auth-request');
@@ -173,7 +179,7 @@ describe('AuthScreen', () => {
             pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
         });
 
-        const screen = new AuthScreen(container, orchestrator as never as AppOrchestrator);
+        const screen = new AuthScreen(container, orchestrator as unknown as AppOrchestrator);
         screen.show();
 
         click(container, '#btn-auth-request');
@@ -212,7 +218,7 @@ describe('AuthScreen', () => {
             pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
         });
 
-        const screen = new AuthScreen(container, orchestrator as never as AppOrchestrator);
+        const screen = new AuthScreen(container, orchestrator as unknown as AppOrchestrator);
         screen.show();
 
         click(container, '#btn-auth-request');

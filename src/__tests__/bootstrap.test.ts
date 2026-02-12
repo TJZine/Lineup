@@ -5,17 +5,14 @@
 import { RETUNE_EVENT_NAMES } from '../config/events';
 import { RETUNE_STORAGE_KEYS } from '../config/storageKeys';
 
+import { flushPromises } from './helpers';
+
 const setDevBuild = (value: boolean): void => {
     Object.defineProperty(globalThis, '__RETUNE_DEV_BUILD__', {
         value,
         configurable: true,
         writable: true,
     });
-};
-
-const flushPromises = async (): Promise<void> => {
-    await Promise.resolve();
-    await Promise.resolve();
 };
 
 type BootstrapModule = typeof import('../bootstrap');
@@ -80,6 +77,7 @@ describe('bootstrap seam', () => {
         expect(windowAddEventListenerSpy).toHaveBeenCalledWith('error', expect.any(Function));
         expect(windowAddEventListenerSpy).toHaveBeenCalledWith('unhandledrejection', expect.any(Function));
         expect(windowAddEventListenerSpy).toHaveBeenCalledWith('pagehide', expect.any(Function));
+        expect(windowAddEventListenerSpy).toHaveBeenCalledWith('pageshow', expect.any(Function));
         expect(start).toHaveBeenCalledTimes(1);
 
         await module.cleanup();
@@ -120,7 +118,7 @@ describe('bootstrap seam', () => {
         debugApi?.hideVideo();
         expect(video.style.display).toBe('none');
         debugApi?.showVideo();
-        expect(video.style.display).toBe('block');
+        expect(video.style.display).toBe('');
         expect(debugApi?.domSnapshot()).toBeTruthy();
         expect(debugApi?.orchestratorStatus()).toEqual({
             isReady: true,
@@ -231,16 +229,18 @@ describe('bootstrap seam', () => {
             configurable: true,
         });
 
-        const { start } = await importBootstrapModule({ autoDispatchDomReady: false });
-        expect(start).not.toHaveBeenCalled();
+        try {
+            const { start } = await importBootstrapModule({ autoDispatchDomReady: false });
+            expect(start).not.toHaveBeenCalled();
 
-        document.dispatchEvent(new Event('DOMContentLoaded'));
-        await flushPromises();
-        expect(start).toHaveBeenCalledTimes(1);
-
-        Object.defineProperty(document, 'readyState', {
-            value: 'complete',
-            configurable: true,
-        });
+            document.dispatchEvent(new Event('DOMContentLoaded'));
+            await flushPromises();
+            expect(start).toHaveBeenCalledTimes(1);
+        } finally {
+            Object.defineProperty(document, 'readyState', {
+                value: 'complete',
+                configurable: true,
+            });
+        }
     });
 });
