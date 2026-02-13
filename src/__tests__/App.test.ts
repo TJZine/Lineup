@@ -87,7 +87,10 @@ describe('App bootstrap smoke', () => {
             writable: true,
         });
 
-        jest.spyOn(ThemeManager, 'getInstance').mockReturnValue({} as never);
+        jest.spyOn(ThemeManager, 'getInstance').mockReturnValue({
+            getTheme: jest.fn().mockReturnValue('obsidian'),
+            applyTheme: jest.fn(),
+        } as never);
         initializeSpy = jest.spyOn(AppOrchestrator.prototype, 'initialize').mockResolvedValue(undefined);
         startSpy = jest.spyOn(AppOrchestrator.prototype, 'start').mockResolvedValue(undefined);
         jest.spyOn(AppOrchestrator.prototype, 'shutdown').mockResolvedValue(undefined);

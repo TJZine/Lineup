@@ -17,5 +17,6 @@ export type {
     SettingsSelectConfig,
     SettingsSelectOption,
     SettingsItemConfig,
+    SettingsCategoryConfig,
     SettingsSectionConfig,
 } from './types';

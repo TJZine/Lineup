@@ -733,6 +733,25 @@ describe('NavigationCoordinator', () => {
         expect(epg.hide).toHaveBeenCalled();
     });
 
+    it('preserves player continuity across settings roundtrip', () => {
+        const { handlers, deps, epg, videoPlayer, navigation } = setup();
+        (navigation.isModalOpen as jest.Mock).mockImplementation(
+            (modalId?: string) => modalId === NOW_PLAYING_INFO_MODAL_ID
+        );
+
+        handlers.screenChange?.({ from: 'player', to: 'settings' });
+
+        expect(epg.hide).toHaveBeenCalledTimes(1);
+        expect(navigation.closeModal).toHaveBeenCalledWith(NOW_PLAYING_INFO_MODAL_ID);
+        expect(deps.hideMiniGuide).toHaveBeenCalledTimes(1);
+        expect(deps.hidePlayerOsd).toHaveBeenCalledTimes(1);
+        expect(videoPlayer.pause).toHaveBeenCalledTimes(1);
+
+        handlers.screenChange?.({ from: 'settings', to: 'player' });
+
+        expect(videoPlayer.play).toHaveBeenCalledTimes(1);
+    });
+
     describe('mini guide repeat', () => {
         beforeEach(() => {
             jest.useFakeTimers();
