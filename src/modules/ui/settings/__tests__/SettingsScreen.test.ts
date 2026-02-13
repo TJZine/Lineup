@@ -321,6 +321,27 @@ describe('SettingsScreen (Two-pane layout)', () => {
         expect(nav.focusables.has('settings-hdr10-fallback-mode')).toBe(true);
         expect(nav.getFocusedElement()?.id).toBe('settings-hdr10-fallback-mode');
     });
+
+    it('does not switch active category during initial focus when previous screen focus is unrelated', () => {
+        const { container, nav, screen } = createScreen(jest.fn());
+
+        // First open: select a non-default category so the screen has a meaningful active category.
+        screen.show();
+        activateCategory(container, 'playback_hdr');
+        expect(container.querySelector('#settings-keep-playing')).not.toBeNull();
+        screen.hide();
+
+        // Simulate NavigationManager.goTo() behavior: focus may still reflect the previous screen
+        // when the Settings screen registers focusables during screenChange.
+        nav.setFocus('previous-screen-focused-id');
+
+        screen.show();
+
+        // Active category should remain playback_hdr (do not switch to the first rail entry via onFocus).
+        expect(container.querySelector('#settings-keep-playing')).not.toBeNull();
+        expect(container.querySelector('#settings-dts-passthrough')).toBeNull();
+        expect(nav.getFocusedElement()?.id).toBe('settings-category-playback_hdr');
+    });
 });
 
 describe('SettingsScreen (Theme selection)', () => {

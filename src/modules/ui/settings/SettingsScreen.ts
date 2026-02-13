@@ -792,7 +792,9 @@ export class SettingsScreen {
             ? preferredFocusId
             : currentFocusId && focusableIds.includes(currentFocusId)
                 ? currentFocusId
-                : focusableIds[0];
+                : activeCategoryButtonId && focusableIds.includes(activeCategoryButtonId)
+                    ? activeCategoryButtonId
+                    : focusableIds[0];
         if (preferredId) {
             nav.setFocus(preferredId);
         }
