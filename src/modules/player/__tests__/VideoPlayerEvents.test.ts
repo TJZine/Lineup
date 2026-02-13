@@ -279,6 +279,7 @@ describe('VideoPlayerEvents', () => {
 
     it('ignores media errors when retry manager or media code is unavailable', () => {
         const eventsWithoutRetry = new VideoPlayerEvents();
+        attachedEvents.push(eventsWithoutRetry);
         const videoWithoutRetry = document.createElement('video');
         const emitter = { emit: jest.fn() } as never as EventEmitter<PlayerEventMap>;
         const state = createState();

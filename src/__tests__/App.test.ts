@@ -285,7 +285,7 @@ describe('App bootstrap smoke', () => {
         await flushPromises();
 
         expect(refreshPlaybackInfoSnapshotSpy).toHaveBeenCalledTimes(2);
-        expect(playbackPre?.textContent ?? '').toContain('PMS:       (decision not fetched; press Refresh again)');
+        expect(playbackPre?.textContent ?? '').toMatch(/PMS:\s+\(decision not fetched; press Refresh again\)/);
     });
 
     it('refresh handles missing stream and allows toggling the dev menu', async () => {
@@ -341,7 +341,8 @@ describe('App bootstrap smoke', () => {
         expect(overlay?.classList.contains('hidden')).toBe(false);
 
         const retry = overlay?.querySelector('button.error-button.primary') as HTMLButtonElement | null;
-        retry?.click();
+        expect(retry).not.toBeNull();
+        retry!.click();
         expect(action).toHaveBeenCalledTimes(1);
         expect(overlay?.classList.contains('hidden')).toBe(true);
     });

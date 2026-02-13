@@ -99,10 +99,42 @@ const getSnippet = (sourceFile: ts.SourceFile, node: ts.Node): string => {
         .trim();
 };
 
+const inferScriptKind = (file: string): ts.ScriptKind => {
+    const lower = file.toLowerCase();
+    if (lower.endsWith('.tsx')) return ts.ScriptKind.TSX;
+    if (lower.endsWith('.ts')) return ts.ScriptKind.TS;
+    if (lower.endsWith('.jsx')) return ts.ScriptKind.JSX;
+    if (lower.endsWith('.js')) return ts.ScriptKind.JS;
+    if (lower.endsWith('.mts') || lower.endsWith('.cts')) return ts.ScriptKind.TS;
+    if (lower.endsWith('.mjs') || lower.endsWith('.cjs')) return ts.ScriptKind.JS;
+    return ts.ScriptKind.TS;
+};
+
 export const scanSourceText = (
     args: { file: string; sourceText: string }
 ): { privateProbes: PrivateProbe[]; sleepProbes: SleepProbe[] } => {
-    const sourceFile = ts.createSourceFile(args.file, args.sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    const sourceFile = ts.createSourceFile(
+        args.file,
+        args.sourceText,
+        ts.ScriptTarget.Latest,
+        true,
+        inferScriptKind(args.file)
+    );
+    const parseDiagnostics =
+        (sourceFile as unknown as { parseDiagnostics?: readonly ts.DiagnosticWithLocation[] }).parseDiagnostics ?? [];
+    if (parseDiagnostics.length > 0) {
+        const [diagnostic] = parseDiagnostics;
+        const message = diagnostic
+            ? ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')
+            : 'Unknown parse error';
+        const location = diagnostic && typeof diagnostic.start === 'number'
+            ? ((): string => {
+                const start = sourceFile.getLineAndCharacterOfPosition(diagnostic.start);
+                return `:${start.line + 1}:${start.character + 1}`;
+            })()
+            : '';
+        throw new Error(`Failed to parse ${args.file}${location}: ${message}`);
+    }
 
     const assertedAliases = new Set<string>();
     const waitWrappers = new Set<string>();
@@ -146,6 +178,27 @@ export const scanSourceText = (
     discoverWrappers(sourceFile);
 
     const visit = (node: ts.Node): void => {
+        const tryRegisterPrivateProbe = (
+            next: ts.Node,
+            receiverExpr: ts.Expression,
+            propertyName: string,
+        ): void => {
+            if (!propertyName.startsWith('_')) return;
+            const receiverExpression = stripParens(receiverExpr);
+            const receiverInfo = getAssertionInfo(receiverExpression);
+            const isAliasReceiver = ts.isIdentifier(receiverInfo.root) && assertedAliases.has(receiverInfo.root.text);
+            if (!receiverInfo.suspicious && !isAliasReceiver) return;
+            const { line, column } = getLineColumn(sourceFile, next);
+            registerProbe({
+                file: args.file,
+                line,
+                column,
+                receiver: receiverInfo.root.getText(sourceFile),
+                property: propertyName,
+                snippet: getSnippet(sourceFile, next),
+            });
+        };
+
         if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
             if (node.type && (node.type.kind === ts.SyntaxKind.AnyKeyword || node.type.kind === ts.SyntaxKind.UnknownKeyword)) {
                 assertedAliases.add(node.name.text);
@@ -159,42 +212,15 @@ export const scanSourceText = (
             }
         }
 
-        if (ts.isPropertyAccessExpression(node) && node.name.text.startsWith('_')) {
-            const receiverExpression = stripParens(node.expression);
-            const receiverInfo = getAssertionInfo(receiverExpression);
-            const isAliasReceiver = ts.isIdentifier(receiverInfo.root) && assertedAliases.has(receiverInfo.root.text);
-            if (receiverInfo.suspicious || isAliasReceiver) {
-                const { line, column } = getLineColumn(sourceFile, node);
-                registerProbe({
-                    file: args.file,
-                    line,
-                    column,
-                    receiver: receiverInfo.root.getText(sourceFile),
-                    property: node.name.text,
-                    snippet: getSnippet(sourceFile, node),
-                });
-            }
+        if (ts.isPropertyAccessExpression(node)) {
+            tryRegisterPrivateProbe(node, node.expression, node.name.text);
         }
 
         if (
             ts.isElementAccessExpression(node)
             && ts.isStringLiteral(node.argumentExpression)
-            && node.argumentExpression.text.startsWith('_')
         ) {
-            const receiverExpression = stripParens(node.expression);
-            const receiverInfo = getAssertionInfo(receiverExpression);
-            const isAliasReceiver = ts.isIdentifier(receiverInfo.root) && assertedAliases.has(receiverInfo.root.text);
-            if (receiverInfo.suspicious || isAliasReceiver) {
-                const { line, column } = getLineColumn(sourceFile, node);
-                registerProbe({
-                    file: args.file,
-                    line,
-                    column,
-                    receiver: receiverInfo.root.getText(sourceFile),
-                    property: node.argumentExpression.text,
-                    snippet: getSnippet(sourceFile, node),
-                });
-            }
+            tryRegisterPrivateProbe(node, node.expression, node.argumentExpression.text);
         }
 
         if (ts.isCallExpression(node) && isTimerCallee(node.expression)) {

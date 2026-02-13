@@ -3,8 +3,9 @@
  */
 
 import { ChannelSetupScreen } from '../ChannelSetupScreen';
-import type { AppOrchestrator } from '../../../../Orchestrator';
+import type { ChannelSetupOrchestrator } from '../ChannelSetupScreen';
 import type { PlexLibrary } from '../../../plex/library/types';
+import type { INavigationManager } from '../../../navigation/interfaces';
 
 import { flushPromises } from '../../../../__tests__/helpers';
 
@@ -21,15 +22,6 @@ type NavigationMock = {
     getFocusedElement: jest.Mock;
     on: jest.Mock;
     off: jest.Mock;
-};
-
-type ChannelSetupOrchestratorStub = {
-    getNavigation: jest.Mock;
-    getLibrariesForSetup: jest.Mock;
-    getSelectedServerStorageKey: jest.Mock;
-    getSelectedServerId: jest.Mock;
-    getChannelSetupRecord: jest.Mock;
-    openServerSelect: jest.Mock;
 };
 
 const makeLibrary = (overrides: Partial<PlexLibrary>): PlexLibrary => ({
@@ -66,16 +58,22 @@ const createNavigationMock = (): NavigationMock => {
 };
 
 const createOrchestrator = (
-    overrides: Partial<ChannelSetupOrchestratorStub> = {}
-): AppOrchestrator => ({
+    overrides: Partial<ChannelSetupOrchestrator> = {}
+): ChannelSetupOrchestrator => ({
     getNavigation: jest.fn(() => null),
     getLibrariesForSetup: jest.fn().mockResolvedValue([]),
+    getChannelSetupRecord: jest.fn(() => null),
     getSelectedServerStorageKey: jest.fn(() => 'retune-selected-server-id'),
     getSelectedServerId: jest.fn(() => null),
-    getChannelSetupRecord: jest.fn(() => null),
     openServerSelect: jest.fn(),
+    switchToChannelByNumber: jest.fn(),
+    openEPG: jest.fn(),
+    createChannelsFromSetup: jest.fn(),
+    markSetupComplete: jest.fn(),
+    getSetupPreview: jest.fn(),
+    getSetupReview: jest.fn(),
     ...overrides,
-}) as never as AppOrchestrator;
+} satisfies ChannelSetupOrchestrator);
 
 const click = (container: HTMLElement, selector: string): void => {
     const element = container.querySelector(selector);
@@ -169,7 +167,7 @@ describe('ChannelSetupScreen', () => {
 
         const nav = createNavigationMock();
         const orchestrator = createOrchestrator({
-            getNavigation: jest.fn(() => nav),
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([
                 makeLibrary({ id: 'movies' }),
                 makeLibrary({ id: 'shows', type: 'show' }),

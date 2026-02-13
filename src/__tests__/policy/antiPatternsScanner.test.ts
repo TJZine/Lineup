@@ -1,6 +1,22 @@
 import { scanSourceText } from './antiPatternsScanner';
 
 describe('scanSourceText', () => {
+    it('throws when sourceText contains parse errors', () => {
+        expect(() => scanSourceText({ file: 'broken.ts', sourceText: 'const = ;' })).toThrow(
+            /Failed to parse broken\.ts/
+        );
+    });
+
+    it('parses TSX and still detects private probes', () => {
+        const result = scanSourceText({
+            file: 'inline.tsx',
+            sourceText: 'const sutAny: any = sut; const el = <div />; sutAny._secret;',
+        });
+
+        expect(result.privateProbes).toHaveLength(1);
+        expect(result.privateProbes[0]?.property).toBe('_secret');
+    });
+
     it('flags underscore private probes through typed any receiver aliases', () => {
         const result = scanSourceText({
             file: 'inline.ts',

@@ -120,6 +120,10 @@ describe('PlaybackOptionsModal', () => {
         expect(spies.subtitleBlocked).toHaveBeenCalledTimes(1);
         expect(spies.audioSelect).toHaveBeenCalledTimes(1);
 
+        const blockedOption = viewModel.subtitles.options.find((o) => o.id === 'sub-2');
+        expect(blockedOption).toBeDefined();
+        expect(blockedOption?.onSelect).not.toHaveBeenCalled();
+
         const disabledOption = viewModel.subtitles.options.find((o) => o.id === 'sub-3');
         expect(disabledOption).toBeDefined();
         expect(disabledOption?.disabled).toBe(true);

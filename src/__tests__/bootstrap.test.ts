@@ -41,12 +41,12 @@ const importBootstrapModule = async (options?: {
         })),
     }));
 
-	const module = await import('../bootstrap');
-    installedModule = module;
-    module.installRetuneBootstrap();
-    await flushPromises();
-    if (options?.autoDispatchDomReady !== false && start.mock.calls.length === 0) {
-        document.dispatchEvent(new Event('DOMContentLoaded'));
+        const module = await import('../bootstrap');
+        installedModule = module;
+        module.installRetuneBootstrap();
+        await flushPromises();
+        if (options?.autoDispatchDomReady !== false && start.mock.calls.length === 0) {
+            document.dispatchEvent(new Event('DOMContentLoaded'));
         await flushPromises();
     }
     return { module, start, shutdown, getOrchestrator };
@@ -64,8 +64,7 @@ describe('bootstrap seam', () => {
     afterEach(async () => {
         try {
             if (installedModule) {
-                await installedModule.cleanup();
-                installedModule.uninstallRetuneBootstrap();
+                await installedModule.cleanupAndUninstallRetuneBootstrap();
             }
         } finally {
             installedModule = null;

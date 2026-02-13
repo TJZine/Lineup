@@ -322,6 +322,8 @@ export function installRetuneBootstrap(): void {
 /**
  * Remove global handlers registered by installRetuneBootstrap().
  * @internal Primarily intended for tests and debug harnesses.
+ * @remarks Call `cleanup()` first, or use `cleanupAndUninstallRetuneBootstrap()` to avoid
+ * leaving a running app without lifecycle handlers.
  */
 export function uninstallRetuneBootstrap(): void {
     if (!bootstrapInstalled) return;
@@ -333,6 +335,15 @@ export function uninstallRetuneBootstrap(): void {
     window.removeEventListener('pagehide', handlePageHide);
     window.removeEventListener('pageshow', handlePageShow);
     document.removeEventListener('DOMContentLoaded', handleDomContentLoaded);
+}
+
+/**
+ * Convenience helper for tests/harnesses to shutdown the app and remove global handlers.
+ * @internal
+ */
+export async function cleanupAndUninstallRetuneBootstrap(): Promise<void> {
+    await cleanup();
+    uninstallRetuneBootstrap();
 }
 
 // Exported as a live binding for integration/debug harnesses.
@@ -347,6 +358,7 @@ export const bootstrapInternals = {
     showGlobalErrorOverlay,
     describeElement,
     uninstallRetuneBootstrap,
+    cleanupAndUninstallRetuneBootstrap,
 };
 
 export { app, bootstrap, cleanup };
