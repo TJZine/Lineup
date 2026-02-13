@@ -6,6 +6,7 @@
 
 import {
     type ChannelSetupConfig,
+    type ChannelSetupContext,
     type ChannelBuildProgress,
     type ChannelSetupPreview,
     type ChannelSetupReview,
@@ -35,7 +36,7 @@ interface SetupStrategyState {
 }
 
 type SetupStep = 1 | 2 | 3;
-type StrategyAccordionKey = 'contentSources' | 'advancedSources' | 'buildOptions' | 'limits';
+type StrategyCategoryKey = 'content-sources' | 'advanced-sources' | 'build-options' | 'limits';
 type EstimateKey = keyof ChannelSetupPreview['estimates'];
 
 export type ChannelSetupOrchestrator = Pick<
@@ -50,6 +51,7 @@ export type ChannelSetupOrchestrator = Pick<
     | 'markSetupComplete'
     | 'getSetupPreview'
     | 'getSetupReview'
+    | 'getSetupContextForSelectedServer'
     | 'getSelectedServerStorageKey'
     | 'getSelectedServerId'
 >;
@@ -96,7 +98,8 @@ export class ChannelSetupScreen {
         studios: false,
         actors: false,
     };
-    private _strategyAccordions = ChannelSetupScreen._defaultStrategyAccordions();
+    private _activeStrategyCategory: StrategyCategoryKey = 'content-sources';
+    private _rememberedDetailFocusByCategory: Partial<Record<StrategyCategoryKey, string>> = {};
     private _buildMode: ChannelSetupConfig['buildMode'] = 'replace';
     private _actorStudioCombineMode: ChannelSetupConfig['actorStudioCombineMode'] = 'separate';
     private _maxChannels: number = DEFAULT_CHANNEL_SETUP_MAX;
@@ -126,19 +129,10 @@ export class ChannelSetupScreen {
     private _previewDeltas: Partial<Record<EstimateKey, number>> = {};
     private _previewDeltaTimeoutId: number | null = null;
     private _previewDeltaExpiresAtMs: number = 0;
-    private _strategyScrollTop = 0;
     private _previewPanelId = 'setup-preview-panel';
     private _maxPreviewWarnings = 5;
     private _recordApplied = false;
-
-    private static _defaultStrategyAccordions(): Record<StrategyAccordionKey, boolean> {
-        return {
-            contentSources: true,
-            advancedSources: false,
-            buildOptions: false,
-            limits: false,
-        };
-    }
+    private _setupContext: ChannelSetupContext = 'unknown';
 
     private _getNearestOptionIndex(options: number[], current: number): number {
         const first = options[0];
@@ -248,28 +242,64 @@ export class ChannelSetupScreen {
         if (nav && !this._navKeyHandler) {
             this._navKeyHandler = (event: KeyEvent): void => {
                 if (event.handled || this._step !== 2) return;
-                const focusedId = nav.getFocusedElement()?.id;
-                if (focusedId !== 'setup-max-channels' && focusedId !== 'setup-min-items') {
-                    return;
-                }
+                const focusedId = nav.getFocusedElement()?.id ?? null;
                 const direction = event.button === 'left'
                     ? 'left'
                     : event.button === 'right'
                         ? 'right'
                         : null;
-                if (!direction) return;
+                if (!direction || !focusedId) return;
 
-                if (focusedId === 'setup-max-channels') {
-                    this._maxChannels = this._stepPreset(this._channelLimitOptions, this._maxChannels, direction, 'clamp');
-                } else {
-                    this._minItems = this._stepPreset(this._minItemsOptions, this._minItems, direction, 'clamp');
+                const activeCategoryButtonId = this._categoryButtonId(this._activeStrategyCategory);
+                const activeDetailIds = this._getDetailControlIdsForCategory(this._activeStrategyCategory);
+                const focusedCategory = this._categoryFromButtonId(focusedId);
+
+                if (focusedCategory && direction === 'right') {
+                    if (focusedCategory !== this._activeStrategyCategory) {
+                        this._activeStrategyCategory = focusedCategory;
+                    }
+                    const detailIds = this._getDetailControlIdsForCategory(focusedCategory);
+                    const target = this._resolveDetailFocusTarget(focusedCategory, detailIds);
+                    if (target) {
+                        event.handled = true;
+                        this._preferredFocusId = target;
+                        this._rememberedDetailFocusByCategory[focusedCategory] = target;
+                        this._renderStep();
+                    }
+                    return;
                 }
-                event.handled = true;
-                this._preferredFocusId = focusedId;
-                this._review = null;
-                this._reviewError = null;
-                this._schedulePreview();
-                this._renderStep();
+
+                if (focusedId === 'setup-max-channels' || focusedId === 'setup-min-items') {
+                    const previousValue = focusedId === 'setup-max-channels' ? this._maxChannels : this._minItems;
+                    const options = focusedId === 'setup-max-channels' ? this._channelLimitOptions : this._minItemsOptions;
+                    const nextValue = this._stepPreset(options, previousValue, direction, 'clamp');
+                    if (focusedId === 'setup-max-channels') {
+                        this._maxChannels = nextValue;
+                    } else {
+                        this._minItems = nextValue;
+                    }
+                    event.handled = true;
+                    if (direction === 'left' && nextValue === previousValue) {
+                        this._preferredFocusId = activeCategoryButtonId;
+                        nav.setFocus(activeCategoryButtonId);
+                        return;
+                    }
+                    if (nextValue !== previousValue) {
+                        this._preferredFocusId = focusedId;
+                        this._rememberActiveDetailFocus(focusedId);
+                        this._review = null;
+                        this._reviewError = null;
+                        this._schedulePreview();
+                        this._renderStep();
+                    }
+                    return;
+                }
+
+                if (direction === 'left' && activeDetailIds.includes(focusedId)) {
+                    event.handled = true;
+                    this._preferredFocusId = activeCategoryButtonId;
+                    nav.setFocus(activeCategoryButtonId);
+                }
             };
             nav.on('keyPress', this._navKeyHandler);
         }
@@ -322,15 +352,16 @@ export class ChannelSetupScreen {
         this._minItems = DEFAULT_MIN_ITEMS;
         this._buildMode = 'replace';
         this._actorStudioCombineMode = 'separate';
-        this._strategyAccordions = ChannelSetupScreen._defaultStrategyAccordions();
+        this._activeStrategyCategory = 'content-sources';
+        this._rememberedDetailFocusByCategory = {};
         this._preview = null;
         this._previewError = null;
         this._review = null;
         this._reviewError = null;
         this._lastPreviewKey = null;
         this._pendingPreviewKey = null;
-        this._strategyScrollTop = 0;
         this._recordApplied = false;
+        this._setupContext = 'unknown';
         this._errorEl.textContent = '';
     }
 
@@ -595,101 +626,16 @@ export class ChannelSetupScreen {
     private _renderStrategyStep(): void {
         this._stepEl.textContent = 'Step 2 of 3';
         this._statusEl.textContent = 'Choose channel types to build.';
+        this._refreshSetupContextForStep2();
 
         const split = document.createElement('div');
         split.className = 'setup-split';
 
         const left = document.createElement('div');
-        left.className = 'setup-split-left';
+        left.className = 'setup-category-rail setup-focus-safe-scroll';
 
         const right = document.createElement('div');
-        right.className = 'setup-split-right';
-
-        const list = document.createElement('div');
-        list.className = 'setup-list';
-        list.classList.add('setup-accordion-list');
-
-        const focusableButtons: HTMLButtonElement[] = [];
-
-        left.addEventListener('scroll', () => {
-            this._strategyScrollTop = left.scrollTop;
-        });
-
-        const createAccordionSection = (options: {
-            key: string;
-            stateKey: StrategyAccordionKey;
-            title: string;
-            countText?: string;
-            summaryText?: string;
-            buttons: HTMLButtonElement[];
-        }): void => {
-            const expanded = this._strategyAccordions[options.stateKey];
-            const section = document.createElement('div');
-            section.className = 'setup-accordion-section';
-
-            const header = document.createElement('button');
-            header.id = `setup-accordion-${options.key}`;
-            header.className = 'setup-toggle setup-accordion-header';
-
-            const indicator = document.createElement('span');
-            indicator.className = 'setup-accordion-indicator';
-            indicator.textContent = expanded ? '▼' : '►';
-
-            const title = document.createElement('span');
-            title.className = 'setup-accordion-title';
-            title.textContent = options.title;
-
-            header.appendChild(indicator);
-            header.appendChild(title);
-
-            if (options.countText) {
-                const count = document.createElement('span');
-                count.className = 'setup-accordion-count';
-                count.textContent = options.countText;
-                header.appendChild(count);
-            } else if (options.summaryText) {
-                const summary = document.createElement('span');
-                summary.className = 'setup-accordion-summary';
-                summary.textContent = options.summaryText;
-                header.appendChild(summary);
-            }
-
-            header.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-            header.setAttribute('aria-controls', `setup-accordion-${options.key}-body`);
-
-            header.addEventListener('click', () => {
-                this._preferredFocusId = header.id;
-                const wasExpanded = this._strategyAccordions[options.stateKey];
-                (Object.keys(this._strategyAccordions) as StrategyAccordionKey[]).forEach((key) => {
-                    this._strategyAccordions[key] = false;
-                });
-                if (!wasExpanded) {
-                    this._strategyAccordions[options.stateKey] = true;
-                }
-                this._renderStep();
-            });
-
-            section.appendChild(header);
-
-            const body = document.createElement('div');
-            body.className = 'setup-accordion-body';
-            body.id = `setup-accordion-${options.key}-body`;
-            body.hidden = !expanded;
-            body.setAttribute('role', 'region');
-            body.setAttribute('aria-labelledby', header.id);
-
-            for (const button of options.buttons) {
-                body.appendChild(button);
-            }
-
-            section.appendChild(body);
-            list.appendChild(section);
-
-            focusableButtons.push(header);
-            if (expanded) {
-                focusableButtons.push(...options.buttons);
-            }
-        };
+        right.className = 'setup-detail-pane';
 
         const buildModeButton = document.createElement('button');
         buildModeButton.id = 'setup-build-mode';
@@ -713,6 +659,7 @@ export class ChannelSetupScreen {
 
         buildModeButton.addEventListener('click', () => {
             this._preferredFocusId = buildModeButton.id;
+            this._rememberActiveDetailFocus(buildModeButton.id);
             const modes: ChannelSetupConfig['buildMode'][] = ['replace', 'append', 'merge'];
             const currentIndex = modes.indexOf(this._buildMode);
             const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % modes.length : 0;
@@ -746,6 +693,7 @@ export class ChannelSetupScreen {
 
         combineButton.addEventListener('click', () => {
             this._preferredFocusId = combineButton.id;
+            this._rememberActiveDetailFocus(combineButton.id);
             this._actorStudioCombineMode = this._actorStudioCombineMode === 'combined' ? 'separate' : 'combined';
             this._review = null;
             this._reviewError = null;
@@ -789,6 +737,7 @@ export class ChannelSetupScreen {
 
             button.addEventListener('click', () => {
                 this._preferredFocusId = button.id;
+                this._rememberActiveDetailFocus(button.id);
                 this._strategies[strategy.key] = !this._strategies[strategy.key];
                 this._review = null;
                 this._reviewError = null;
@@ -831,6 +780,7 @@ export class ChannelSetupScreen {
 
         maxButton.addEventListener('click', () => {
             this._preferredFocusId = maxButton.id;
+            this._rememberActiveDetailFocus(maxButton.id);
             this._maxChannels = this._stepPreset(this._channelLimitOptions, this._maxChannels, 'right', 'wrap');
             this._review = null;
             this._reviewError = null;
@@ -860,6 +810,7 @@ export class ChannelSetupScreen {
 
         minItemsButton.addEventListener('click', () => {
             this._preferredFocusId = minItemsButton.id;
+            this._rememberActiveDetailFocus(minItemsButton.id);
             this._minItems = this._stepPreset(this._minItemsOptions, this._minItems, 'right', 'wrap');
             this._review = null;
             this._reviewError = null;
@@ -867,50 +818,52 @@ export class ChannelSetupScreen {
             this._renderStep();
         });
 
-        const contentEnabledCount = contentStrategies.filter((key) => this._strategies[key]).length;
-        const advancedEnabledCount = advancedStrategies.filter((key) => this._strategies[key]).length;
-        const contentTotal = contentStrategies.length;
-        const advancedTotal = advancedStrategies.length;
-        const buildSummary = `Build mode: ${this._buildMode.charAt(0).toUpperCase()}${this._buildMode.slice(1)} • Combine: ${
-            this._actorStudioCombineMode === 'combined' ? 'Combined' : 'Separate'
-        }`;
-        const limitsSummary = `Max: ${this._maxChannels} • Min: ${this._minItems}`;
+        const controlsByCategory: Record<StrategyCategoryKey, HTMLButtonElement[]> = {
+            'content-sources': contentButtons,
+            'advanced-sources': advancedButtons,
+            'build-options': [buildModeButton, combineButton],
+            'limits': [maxButton, minItemsButton],
+        };
 
-        createAccordionSection({
-            key: 'content-sources',
-            stateKey: 'contentSources',
-            title: 'Content Sources',
-            countText: `(${contentEnabledCount} of ${contentTotal} enabled)`,
-            buttons: contentButtons,
+        const categories: Array<{ key: StrategyCategoryKey; title: string }> = [
+            { key: 'content-sources', title: 'Content Sources' },
+            { key: 'advanced-sources', title: 'Advanced Sources' },
+            { key: 'build-options', title: 'Build Options' },
+            { key: 'limits', title: 'Limits' },
+        ];
+
+        const categoryButtons = categories.map((category) => {
+            const button = document.createElement('button');
+            button.id = this._categoryButtonId(category.key);
+            button.className = `setup-category-button${this._activeStrategyCategory === category.key ? ' selected' : ''}`;
+            button.textContent = category.title;
+            button.addEventListener('click', () => {
+                this._activeStrategyCategory = category.key;
+                this._preferredFocusId = button.id;
+                this._renderStep();
+            });
+            return button;
         });
 
-        createAccordionSection({
-            key: 'advanced-sources',
-            stateKey: 'advancedSources',
-            title: 'Advanced Sources',
-            countText: `(${advancedEnabledCount} of ${advancedTotal} enabled)`,
-            buttons: advancedButtons,
-        });
+        for (const button of categoryButtons) {
+            left.appendChild(button);
+        }
 
-        createAccordionSection({
-            key: 'build-options',
-            stateKey: 'buildOptions',
-            title: 'Build Options',
-            summaryText: buildSummary,
-            buttons: [buildModeButton, combineButton],
-        });
+        const detailScroll = document.createElement('div');
+        detailScroll.className = 'setup-detail-scroll';
 
-        createAccordionSection({
-            key: 'limits',
-            stateKey: 'limits',
-            title: 'Limits',
-            summaryText: limitsSummary,
-            buttons: [maxButton, minItemsButton],
-        });
+        const detailControls = document.createElement('div');
+        detailControls.className = 'setup-list';
+        const activeControls = controlsByCategory[this._activeStrategyCategory] ?? [];
+        for (const button of activeControls) {
+            detailControls.appendChild(button);
+        }
+        detailScroll.appendChild(detailControls);
 
         const previewPanel = document.createElement('div');
         previewPanel.id = this._previewPanelId;
         previewPanel.className = 'setup-preview';
+        previewPanel.setAttribute('aria-hidden', 'true');
 
         const previewTitle = document.createElement('div');
         previewTitle.className = 'setup-preview-title';
@@ -976,14 +929,11 @@ export class ChannelSetupScreen {
             previewPanel.appendChild(empty);
         }
 
-        left.appendChild(list);
+        right.appendChild(detailScroll);
         right.appendChild(previewPanel);
         split.appendChild(left);
         split.appendChild(right);
         this._contentEl.appendChild(split);
-        requestAnimationFrame(() => {
-            left.scrollTop = this._strategyScrollTop;
-        });
 
         const actions = document.createElement('div');
         actions.className = 'button-row';
@@ -1001,8 +951,11 @@ export class ChannelSetupScreen {
         const nextButton = document.createElement('button');
         nextButton.id = 'setup-next';
         nextButton.className = 'screen-button';
-        nextButton.textContent = 'Review';
+        const shouldFastPath = this._setupContext === 'first-time';
+        nextButton.textContent = shouldFastPath ? 'Build Channels' : 'Review';
         nextButton.addEventListener('click', () => {
+            this._cleanupStep2AsyncState();
+            this._isBuilding = shouldFastPath;
             this._step = 3;
             this._renderStep();
         });
@@ -1010,7 +963,7 @@ export class ChannelSetupScreen {
 
         this._contentEl.appendChild(actions);
 
-        this._registerFocusables([...focusableButtons, backButton, nextButton]);
+        this._registerStep2Focusables(categoryButtons, activeControls, backButton, nextButton);
 
         if (this._strategies.genres || this._strategies.directors) {
             this._detailEl.textContent = 'Performance warning: may be slow on large libraries.';
@@ -1019,6 +972,159 @@ export class ChannelSetupScreen {
         }
 
         this._schedulePreview();
+    }
+
+    private _categoryButtonId(category: StrategyCategoryKey): string {
+        return `setup-category-${category}`;
+    }
+
+    private _categoryFromButtonId(buttonId: string): StrategyCategoryKey | null {
+        const categories: StrategyCategoryKey[] = [
+            'content-sources',
+            'advanced-sources',
+            'build-options',
+            'limits',
+        ];
+        const match = categories.find((category) => this._categoryButtonId(category) === buttonId);
+        return match ?? null;
+    }
+
+    private _refreshSetupContextForStep2(): void {
+        try {
+            const context = this._orchestrator.getSetupContextForSelectedServer();
+            if (context === 'first-time' || context === 'existing' || context === 'unknown') {
+                this._setupContext = context;
+                return;
+            }
+        } catch {
+            // Ignore and fall back to unknown.
+        }
+        this._setupContext = 'unknown';
+    }
+
+    private _getDetailControlIdsForCategory(category: StrategyCategoryKey): string[] {
+        if (category === 'content-sources') {
+            return [
+                'setup-strategy-collections',
+                'setup-strategy-libraryFallback',
+                'setup-strategy-playlists',
+                'setup-strategy-recentlyAdded',
+            ];
+        }
+        if (category === 'advanced-sources') {
+            return [
+                'setup-strategy-genres',
+                'setup-strategy-directors',
+                'setup-strategy-decades',
+                'setup-strategy-studios',
+                'setup-strategy-actors',
+            ];
+        }
+        if (category === 'build-options') {
+            return ['setup-build-mode', 'setup-combine-mode'];
+        }
+        return ['setup-max-channels', 'setup-min-items'];
+    }
+
+    private _resolveDetailFocusTarget(category: StrategyCategoryKey, availableIds: string[]): string | null {
+        if (availableIds.length === 0) return null;
+        const remembered = this._rememberedDetailFocusByCategory[category];
+        if (remembered && availableIds.includes(remembered)) {
+            return remembered;
+        }
+        return availableIds[0] ?? null;
+    }
+
+    private _rememberActiveDetailFocus(controlId: string): void {
+        const activeIds = this._getDetailControlIdsForCategory(this._activeStrategyCategory);
+        if (!activeIds.includes(controlId)) {
+            return;
+        }
+        this._rememberedDetailFocusByCategory[this._activeStrategyCategory] = controlId;
+    }
+
+    private _cleanupStep2AsyncState(): void {
+        this._previewAbortController?.abort();
+        this._reviewAbortController?.abort();
+        this._previewAbortController = null;
+        this._reviewAbortController = null;
+        if (this._previewTimeoutId !== null) {
+            window.clearTimeout(this._previewTimeoutId);
+            this._previewTimeoutId = null;
+        }
+        this._pendingPreviewKey = null;
+        this._isPreviewLoading = false;
+        this._isReviewLoading = false;
+    }
+
+    private _registerStep2Focusables(
+        categoryButtons: HTMLButtonElement[],
+        detailButtons: HTMLButtonElement[],
+        backButton: HTMLButtonElement,
+        nextButton: HTMLButtonElement
+    ): void {
+        const nav = this._orchestrator.getNavigation();
+        if (!nav) {
+            return;
+        }
+
+        const focusableButtons = [...categoryButtons, ...detailButtons, backButton, nextButton]
+            .filter((button) => !button.disabled);
+        this._focusableIds = focusableButtons.map((button) => button.id);
+
+        const activeCategoryButtonId = this._categoryButtonId(this._activeStrategyCategory);
+        const detailIds = detailButtons.filter((button) => !button.disabled).map((button) => button.id);
+        const detailFocusTarget = this._resolveDetailFocusTarget(this._activeStrategyCategory, detailIds);
+
+        for (const [index, button] of focusableButtons.entries()) {
+            const neighbors: FocusableElement['neighbors'] = {};
+            const up = index > 0 ? focusableButtons[index - 1] : undefined;
+            if (up) {
+                neighbors.up = up.id;
+            }
+            const down = index < focusableButtons.length - 1 ? focusableButtons[index + 1] : undefined;
+            if (down) {
+                neighbors.down = down.id;
+            }
+
+            if (button.id === activeCategoryButtonId && detailFocusTarget) {
+                neighbors.right = detailFocusTarget;
+            }
+
+            const isDetailButton = detailIds.includes(button.id);
+            const isAdjustable = button.id === 'setup-max-channels' || button.id === 'setup-min-items';
+            if (isDetailButton && !isAdjustable) {
+                neighbors.left = activeCategoryButtonId;
+            }
+
+            nav.registerFocusable({
+                id: button.id,
+                element: button,
+                neighbors,
+                onFocus: () => {
+                    try {
+                        button.scrollIntoView({ block: 'nearest' });
+                    } catch {
+                        button.scrollIntoView();
+                    }
+                    if (isDetailButton) {
+                        this._rememberActiveDetailFocus(button.id);
+                    }
+                },
+            });
+        }
+
+        const preferred = this._preferredFocusId;
+        if (preferred && focusableButtons.some((button) => button.id === preferred)) {
+            nav.setFocus(preferred);
+            this._preferredFocusId = null;
+            return;
+        }
+
+        const first = focusableButtons[0];
+        if (first) {
+            nav.setFocus(first.id);
+        }
     }
 
     private _renderBuildStep(): void {
@@ -1508,7 +1614,9 @@ export class ChannelSetupScreen {
         } finally {
             if (token === this._visibilityToken) {
                 this._isPreviewLoading = false;
-                this._renderStep();
+                if (this._step === 2) {
+                    this._renderStep();
+                }
             }
         }
     }
