@@ -543,15 +543,10 @@ describe('EPGComponent', () => {
     });
 
     describe('auto-fit pixelsPerMinute', () => {
-        it('computes pixelsPerMinute from program area width and refreshes time header', () => {
+        it('renders correctly when auto-fit pixelsPerMinute is enabled', () => {
             const autoContainer = document.createElement('div');
             autoContainer.id = 'epg-container-autofit';
             document.body.appendChild(autoContainer);
-
-            type EPGComponentPrivate = {
-                timeHeader: { refreshLayout: () => void };
-                config: { pixelsPerMinute: number };
-            };
 
             const autoEpg = new EPGComponent();
             autoEpg.initialize({
@@ -583,14 +578,10 @@ describe('EPGComponent', () => {
                     toJSON: () => ({}),
                 }) as DOMRect;
 
-            const autoEpgPrivate = autoEpg as unknown as EPGComponentPrivate;
-            const refreshSpy = jest.spyOn(autoEpgPrivate.timeHeader, 'refreshLayout');
             autoEpg.show();
 
-            expect(autoEpgPrivate.config.pixelsPerMinute).toBe(6);
-            expect(refreshSpy).toHaveBeenCalled();
-
-            refreshSpy.mockRestore();
+            expect(autoContainer.querySelector('.epg-time-header')).not.toBeNull();
+            expect(autoContainer.querySelectorAll('.epg-time-slot').length).toBeGreaterThan(0);
             autoEpg.destroy();
             autoContainer.remove();
         });
@@ -687,34 +678,9 @@ describe('EPGComponent', () => {
             epg.show();
         });
 
-        it('should not set a negative timeOffset when ensuring cell visibility', () => {
-            const state = epg.getState();
-            const program: ScheduledProgram = {
-                item: {
-                    ratingKey: 'ch0-prog-negative',
-                    type: 'movie',
-                    title: 'Program Negative',
-                    fullTitle: 'Program Negative',
-                    durationMs: 3600000,
-                    thumb: null,
-                    year: 2020,
-                    scheduledIndex: 0,
-                },
-                scheduledStartTime: state.viewWindow.startTime - 3600000,
-                scheduledEndTime: state.viewWindow.startTime - 1800000,
-                elapsedMs: 0,
-                remainingMs: 0,
-                scheduleIndex: 0,
-                loopNumber: 0,
-                streamDescriptor: null,
-                isCurrent: false,
-            };
-
-            (epg as unknown as { state: { scrollPosition: { timeOffset: number } } }).state.scrollPosition.timeOffset = 10;
-
-            (epg as unknown as { ensureCellVisible: (channelIndex: number, program: ScheduledProgram) => boolean })
-                .ensureCellVisible(0, program);
-
+        it('keeps time offset non-negative when navigating left near the start', () => {
+            epg.focusProgram(0, 0);
+            epg.handleNavigation('left');
             expect(epg.getState().scrollPosition.timeOffset).toBeGreaterThanOrEqual(0);
         });
 

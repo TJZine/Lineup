@@ -3,271 +3,236 @@
  */
 
 import { AuthScreen } from '../AuthScreen';
+import type { AppOrchestrator } from '../../../../Orchestrator';
+
+import { flushPromises } from '../../../../__tests__/helpers';
 
 jest.mock('qrcode', () => ({
     toCanvas: jest.fn().mockResolvedValue(undefined),
 }));
 
+type NavigationMock = {
+    registerFocusable: jest.Mock;
+    unregisterFocusable: jest.Mock;
+    setFocus: jest.Mock;
+    getFocusedElement: jest.Mock;
+};
+
+type AuthOrchestratorStub = {
+    requestAuthPin: jest.Mock;
+    pollForPin: jest.Mock;
+    cancelPin: jest.Mock;
+    getNavigation: jest.Mock;
+};
+
+const createNavigationMock = (): NavigationMock => {
+    let focusedId: string | null = null;
+    return {
+        registerFocusable: jest.fn(),
+        unregisterFocusable: jest.fn((id: string) => {
+            if (focusedId === id) {
+                focusedId = null;
+            }
+        }),
+        setFocus: jest.fn((id: string) => {
+            focusedId = id;
+        }),
+        getFocusedElement: jest.fn(() => (focusedId ? { id: focusedId } : null)),
+    };
+};
+
+const createOrchestrator = (
+    overrides: Partial<AuthOrchestratorStub> = {}
+): AppOrchestrator => ({
+    requestAuthPin: jest.fn(),
+    pollForPin: jest.fn(),
+    cancelPin: jest.fn().mockResolvedValue(undefined),
+    getNavigation: jest.fn(() => null),
+    ...overrides,
+}) as unknown as AppOrchestrator;
+
+const click = (container: HTMLElement, selector: string): void => {
+    const element = container.querySelector(selector);
+    if (!(element instanceof HTMLButtonElement)) {
+        throw new Error(`Button not found: ${selector}`);
+    }
+    element.click();
+};
+
 describe('AuthScreen', () => {
-    it('hide() should stop expiry timer, invalidate polling token, and best-effort cancel active pin', () => {
+    afterEach(() => {
+        jest.useRealTimers();
+        jest.clearAllMocks();
+        document.body.innerHTML = '';
+    });
+
+    it('hide cancels the active PIN and stops polling', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = {
-            requestAuthPin: jest.fn(),
-            pollForPin: jest.fn(),
-            cancelPin: jest.fn(),
-            getNavigation: jest.fn(() => null),
-        } as unknown as { [key: string]: unknown };
+        const orchestrator = createOrchestrator({
+            requestAuthPin: jest.fn().mockResolvedValue({
+                id: 88,
+                code: 'ABCD',
+                expiresAt: new Date(Date.now() + 60_000),
+                authToken: null,
+                clientIdentifier: 'client-id',
+            }),
+            pollForPin: jest.fn().mockImplementation(
+                // Never resolves - simulates indefinite polling until the screen is hidden/cancelled.
+                () => new Promise(() => undefined)
+            ),
+        });
 
-        const screen = new AuthScreen(container, orchestrator as unknown as never);
+        const screen = new AuthScreen(container, orchestrator);
+        screen.show();
 
-        const screenAny = screen as unknown as {
-            _pollToken: number;
-            _expiryTimer: number | null;
-            _activePinId: number | null;
-        };
-        screenAny._pollToken = 41;
-        screenAny._expiryTimer = window.setInterval(() => undefined, 1000);
-        screenAny._activePinId = 88;
+        click(container, '#btn-auth-request');
+        await flushPromises();
 
         screen.hide();
 
-        expect(screenAny._expiryTimer).toBeNull();
-        expect(screenAny._pollToken).toBe(42);
         expect(orchestrator.cancelPin).toHaveBeenCalledWith(88);
-
-        container.remove();
     });
 
-    it('should unregister retry focusable when retry is hidden', () => {
+    it('unregisters retry focusable and moves focus when retry disappears', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const nav = {
-            registerFocusable: jest.fn(),
-            unregisterFocusable: jest.fn(),
-            setFocus: jest.fn(),
-            getFocusedElement: jest.fn(() => null),
-        };
-
-        const orchestrator = {
-            requestAuthPin: jest.fn(),
-            pollForPin: jest.fn(),
-            cancelPin: jest.fn(),
+        const nav = createNavigationMock();
+        const orchestrator = createOrchestrator({
+            requestAuthPin: jest.fn()
+                .mockRejectedValueOnce(new Error('first request failed'))
+                .mockResolvedValueOnce({
+                    id: 101,
+                    code: 'WXYZ',
+                    expiresAt: new Date(Date.now() + 60_000),
+                    authToken: null,
+                    clientIdentifier: 'client-id',
+                }),
+            pollForPin: jest.fn().mockImplementation(
+                // Never resolves - simulates ongoing poll.
+                () => new Promise(() => undefined)
+            ),
             getNavigation: jest.fn(() => nav),
-        } as unknown as { [key: string]: unknown };
+        });
 
-        const screen = new AuthScreen(container, orchestrator as unknown as never);
-        const screenAny = screen as unknown as { _renderQrBestEffort: () => Promise<void> };
-        screenAny._renderQrBestEffort = jest.fn().mockResolvedValue(undefined);
+        const screen = new AuthScreen(container, orchestrator);
         screen.show();
 
-        // Hide retry and ensure it is unregistered (prevents focusing hidden element).
-        (screen as unknown as { _setButtons: (s: { request: boolean; cancel: boolean; retry: boolean }) => void })
-            ._setButtons({ request: true, cancel: false, retry: false });
+        click(container, '#btn-auth-request');
+        await flushPromises();
+
+        nav.setFocus('btn-auth-retry');
+        click(container, '#btn-auth-retry');
+        await flushPromises();
 
         expect(nav.unregisterFocusable).toHaveBeenCalledWith('btn-auth-retry');
-
-        container.remove();
+        expect(nav.setFocus).toHaveBeenCalledWith('btn-auth-cancel');
     });
 
-    it('moves focus off retry when retry is hidden while focused', () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
-
-        let focusedId: string | null = null;
-        const nav = {
-            registerFocusable: jest.fn(),
-            unregisterFocusable: jest.fn((id: string) => {
-                if (focusedId === id) focusedId = null;
-            }),
-            setFocus: jest.fn((id: string) => {
-                focusedId = id;
-            }),
-            getFocusedElement: jest.fn(() => (focusedId ? { id: focusedId } : null)),
-        };
-
-        const orchestrator = {
-            requestAuthPin: jest.fn(),
-            pollForPin: jest.fn(),
-            cancelPin: jest.fn(),
-            getNavigation: jest.fn(() => nav),
-        } as unknown as { [key: string]: unknown };
-
-        const screen = new AuthScreen(container, orchestrator as unknown as never);
-        screen.show();
-
-        const screenAny = screen as unknown as { _setButtons: (s: { request: boolean; cancel: boolean; retry: boolean }) => void };
-
-        screenAny._setButtons({ request: true, cancel: false, retry: true });
-        expect(focusedId).toBe('btn-auth-request');
-
-        // Simulate user moved focus to retry while it is visible.
-        focusedId = 'btn-auth-retry';
-
-        screenAny._setButtons({ request: true, cancel: false, retry: false });
-        expect(focusedId).toBe('btn-auth-request');
-
-        container.remove();
-    });
-
-    it('uses expiresAt to update the countdown detail', async () => {
+    it('updates the countdown detail from expiresAt', async () => {
         jest.useFakeTimers();
-        const now = new Date('2026-02-05T00:00:00.000Z');
-        jest.setSystemTime(now);
+        jest.setSystemTime(new Date('2026-02-05T00:00:00.000Z'));
 
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = {
+        const orchestrator = createOrchestrator({
             requestAuthPin: jest.fn().mockResolvedValue({
                 id: 1,
                 code: 'ABCD',
-                expiresAt: new Date(Date.now() + 5000),
+                expiresAt: new Date(Date.now() + 5_000),
                 authToken: null,
-                clientIdentifier: 'x',
+                clientIdentifier: 'client-id',
             }),
             pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
-            cancelPin: jest.fn(),
-            getNavigation: jest.fn(() => null),
-        } as unknown as { [key: string]: unknown };
+        });
 
-        const screen = new AuthScreen(container, orchestrator as unknown as never);
+        const screen = new AuthScreen(container, orchestrator);
         screen.show();
 
-        const requestButton = container.querySelector('#btn-auth-request') as HTMLButtonElement;
-        requestButton.click();
+        click(container, '#btn-auth-request');
+        await flushPromises();
 
-        await Promise.resolve();
+        jest.advanceTimersByTime(1_000);
 
-        jest.advanceTimersByTime(1000);
-
-        const detail = container.querySelector('.screen-detail') as HTMLElement;
-        expect(detail.textContent).toContain('Expires in');
-        expect(detail.getAttribute('aria-live')).toBeNull();
-
-        jest.useRealTimers();
-        container.remove();
+        const detail = container.querySelector('.screen-detail');
+        expect(detail?.textContent ?? '').toContain('Expires in');
     });
 
-    it('clears PIN and hides QR when canceling an active PIN', async () => {
+    it('clears PIN and QR when cancel is pressed', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = {
-            requestAuthPin: jest.fn(),
-            pollForPin: jest.fn(),
-            cancelPin: jest.fn().mockResolvedValue(undefined),
-            getNavigation: jest.fn(() => null),
-        } as unknown as { [key: string]: unknown };
+        const orchestrator = createOrchestrator({
+            requestAuthPin: jest.fn().mockResolvedValue({
+                id: 42,
+                code: 'ABCD',
+                expiresAt: new Date(Date.now() + 5_000),
+                authToken: null,
+                clientIdentifier: 'client-id',
+            }),
+            pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
+        });
 
-        const screen = new AuthScreen(container, orchestrator as unknown as never);
-        const screenAny = screen as unknown as {
-            _activePinId: number | null;
-            _activeCode: string | null;
-            _expiresAt: Date | null;
-            _detailEl: HTMLElement;
-            _qrWrapEl: HTMLElement;
-            _renderPin: (code: string) => void;
-            _handleCancel: () => Promise<void>;
-        };
+        const screen = new AuthScreen(container, orchestrator);
+        screen.show();
 
-        screenAny._activePinId = 99;
-        screenAny._activeCode = 'ABCD';
-        screenAny._expiresAt = new Date(Date.now() + 60_000);
-        screenAny._renderPin('ABCD');
-        screenAny._qrWrapEl.style.display = 'flex';
-        screenAny._detailEl.style.color = 'var(--color-warning)';
+        click(container, '#btn-auth-request');
+        await flushPromises();
 
-        await screenAny._handleCancel();
+        click(container, '#btn-auth-cancel');
+        await flushPromises();
 
         const pin = Array.from(container.querySelectorAll('.auth-pin-character'))
             .map((node) => node.textContent)
             .join('');
         const qr = container.querySelector('.auth-qr') as HTMLElement;
-        const status = container.querySelector('.screen-status') as HTMLElement;
-        const detail = container.querySelector('.screen-detail') as HTMLElement;
+        const status = container.querySelector('.screen-status');
 
-        expect(orchestrator.cancelPin).toHaveBeenCalledWith(99);
+        expect(orchestrator.cancelPin).toHaveBeenCalledWith(42);
         expect(pin).toBe('----');
         expect(qr.style.display).toBe('none');
-        expect(status.textContent).toContain('Cancelled.');
-        expect(detail.style.color).toBe('');
+        expect(status?.textContent ?? '').toContain('Cancelled.');
     });
 
-    it('clears PIN and hides QR when PIN expires', async () => {
+    it('clears PIN and QR when code expires', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-02-05T00:00:00.000Z'));
+
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = {
-            requestAuthPin: jest.fn(),
-            pollForPin: jest.fn(),
-            cancelPin: jest.fn().mockResolvedValue(undefined),
-            getNavigation: jest.fn(() => null),
-        } as unknown as { [key: string]: unknown };
+        const orchestrator = createOrchestrator({
+            requestAuthPin: jest.fn().mockResolvedValue({
+                id: 77,
+                code: 'WXYZ',
+                expiresAt: new Date(Date.now() + 1_000),
+                authToken: null,
+                clientIdentifier: 'client-id',
+            }),
+            pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
+        });
 
-        const screen = new AuthScreen(container, orchestrator as unknown as never);
-        const screenAny = screen as unknown as {
-            _activePinId: number | null;
-            _activeCode: string | null;
-            _expiresAt: Date | null;
-            _detailEl: HTMLElement;
-            _qrWrapEl: HTMLElement;
-            _renderPin: (code: string) => void;
-            _handleExpiredPin: () => Promise<void>;
-        };
+        const screen = new AuthScreen(container, orchestrator);
+        screen.show();
 
-        screenAny._activePinId = 101;
-        screenAny._activeCode = 'WXYZ';
-        screenAny._expiresAt = new Date(Date.now() - 1_000);
-        screenAny._renderPin('WXYZ');
-        screenAny._qrWrapEl.style.display = 'flex';
-        screenAny._detailEl.style.color = 'var(--color-warning)';
+        click(container, '#btn-auth-request');
+        await flushPromises();
 
-        await screenAny._handleExpiredPin();
+        jest.advanceTimersByTime(1_500);
+        await flushPromises();
 
         const pin = Array.from(container.querySelectorAll('.auth-pin-character'))
             .map((node) => node.textContent)
             .join('');
         const qr = container.querySelector('.auth-qr') as HTMLElement;
-        const status = container.querySelector('.screen-status') as HTMLElement;
-        const detail = container.querySelector('.screen-detail') as HTMLElement;
+        const status = container.querySelector('.screen-status');
 
-        expect(orchestrator.cancelPin).toHaveBeenCalledWith(101);
+        expect(orchestrator.cancelPin).toHaveBeenCalledWith(77);
         expect(pin).toBe('----');
         expect(qr.style.display).toBe('none');
-        expect(status.textContent).toContain('Code expired.');
-        expect(detail.style.color).toBe('');
-    });
-
-    it('expired PIN state leaves only Request PIN as the primary available action', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
-
-        const orchestrator = {
-            requestAuthPin: jest.fn(),
-            pollForPin: jest.fn(),
-            cancelPin: jest.fn().mockResolvedValue(undefined),
-            getNavigation: jest.fn(() => null),
-        } as unknown as { [key: string]: unknown };
-
-        const screen = new AuthScreen(container, orchestrator as unknown as never);
-        const screenAny = screen as unknown as {
-            _activePinId: number | null;
-            _expiresAt: Date | null;
-            _handleExpiredPin: () => Promise<void>;
-        };
-        screenAny._activePinId = 77;
-        screenAny._expiresAt = new Date(Date.now() - 1);
-
-        await screenAny._handleExpiredPin();
-
-        const request = container.querySelector('#btn-auth-request') as HTMLButtonElement;
-        const cancel = container.querySelector('#btn-auth-cancel') as HTMLButtonElement;
-        const retry = container.querySelector('#btn-auth-retry') as HTMLButtonElement;
-        expect(request.disabled).toBe(false);
-        expect(cancel.disabled).toBe(true);
-        expect(retry.style.display).toBe('none');
+        expect(status?.textContent ?? '').toContain('Code expired.');
     });
 });

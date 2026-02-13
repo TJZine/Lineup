@@ -5,13 +5,13 @@
  */
 
 import {
-    AppOrchestrator,
     type ChannelSetupConfig,
     type ChannelBuildProgress,
     type ChannelSetupPreview,
     type ChannelSetupReview,
     type ChannelSetupRecord,
 } from '../../../Orchestrator';
+import type { AppOrchestrator } from '../../../Orchestrator';
 import type { PlexLibraryType } from '../../plex/library';
 import type { FocusableElement, KeyEvent } from '../../navigation';
 import { safeLocalStorageGet } from '../../../utils/storage';
@@ -38,6 +38,22 @@ type SetupStep = 1 | 2 | 3;
 type StrategyAccordionKey = 'contentSources' | 'advancedSources' | 'buildOptions' | 'limits';
 type EstimateKey = keyof ChannelSetupPreview['estimates'];
 
+export type ChannelSetupOrchestrator = Pick<
+    AppOrchestrator,
+    | 'getNavigation'
+    | 'getLibrariesForSetup'
+    | 'getChannelSetupRecord'
+    | 'openServerSelect'
+    | 'switchToChannelByNumber'
+    | 'openEPG'
+    | 'createChannelsFromSetup'
+    | 'markSetupComplete'
+    | 'getSetupPreview'
+    | 'getSetupReview'
+    | 'getSelectedServerStorageKey'
+    | 'getSelectedServerId'
+>;
+
 const MOVIE_SVG = `
 <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" aria-hidden="true">
   <rect x="3" y="5" width="18" height="14" rx="2"></rect>
@@ -59,7 +75,7 @@ const SHOW_SVG = `
 
 export class ChannelSetupScreen {
     private _container: HTMLElement;
-    private _orchestrator: AppOrchestrator;
+    private _orchestrator: ChannelSetupOrchestrator;
     private _destroyScreenShell: (() => void) | null = null;
     private _stepEl: HTMLElement;
     private _statusEl: HTMLElement;
@@ -174,7 +190,7 @@ export class ChannelSetupScreen {
         }
     }
 
-    constructor(container: HTMLElement, orchestrator: AppOrchestrator) {
+    constructor(container: HTMLElement, orchestrator: ChannelSetupOrchestrator) {
         this._container = container;
         this._orchestrator = orchestrator;
 

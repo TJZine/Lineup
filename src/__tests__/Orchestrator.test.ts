@@ -2,6 +2,7 @@
  * @fileoverview Unit tests for AppOrchestrator.
  * @module __tests__/Orchestrator.test
  * @version 1.0.0
+ * @remarks Legacy umbrella suite; focused suites live under `src/__tests__/orchestrator/`.
  */
 
 
@@ -855,7 +856,7 @@ describe('AppOrchestrator', () => {
                 runStartup: jest.fn().mockResolvedValue(undefined),
             };
             const clearTimeoutSpy = jest.spyOn(globalThis, 'clearTimeout');
-            const pendingRolloverTimer = globalThis.setTimeout(() => undefined, 60_000);
+            const pendingRolloverTimer = ({} as ReturnType<typeof setTimeout>);
 
             const mutable = orchestrator as unknown as {
                 _initCoordinator?: typeof initCoordinator;

@@ -20,8 +20,45 @@ npm run test:coverage
 - **Core Logic**: Schedulers, math utilities, Plex data parsing.
 - **State Management**: Channel creation, deletion, updates.
 - **Orchestration**: ensuring events trigger correct actions.
+- **Runtime UI Classes**: Screen/modal/overlay behavior through public APIs and DOM-visible outcomes.
 
-*Note: UI components are generally tested manually or via integration tests.*
+## Behavior-First Unit Testing
+
+- Prefer public behavior assertions (user actions, emitted events, rendered output) over internal implementation details.
+- Keep tests deterministic: use fake timers for timing behavior and avoid real-time sleeps.
+- Mock network/platform boundaries, but keep module wiring realistic (constructor/startup paths should still execute).
+- Add targeted smoke coverage for app/bootstrap startup seams so regressions in initialization are caught early.
+
+## When to Refactor the Test Suite
+
+Default posture: avoid suite-wide refactors unless there is clear pain.
+
+Refactor when:
+- CI or local runs are meaningfully slow (and trending worse).
+- Flakes or nondeterminism are recurring (timing, network, global state).
+- Many suites repeat the same setup/fixture patterns and changes become expensive.
+
+Avoid refactors when:
+- The suite is stable and fast enough for current needs.
+- The primary benefit is “prettier tests” without measurable wins (speed, flake reduction, clarity for future changes).
+
+Measure slow suites before/after changes:
+
+```bash
+npx jest --maxWorkers=50% --json --outputFile=/tmp/jest-results.json
+node docs/qa/scripts/print_slowest_suites.mjs
+```
+
+## Anti-Pattern Policy (Frozen Suites)
+
+- Do not probe private members on the SUT (no underscore-field pokes via casted internals).
+- Do not use real-time wait helpers based on `setTimeout`/`setInterval` in tests.
+- Use `jest.useFakeTimers()` with explicit advancement (`advanceTimersByTime`, `runOnlyPendingTimers`) for timing assertions.
+- Policy enforcement runs via `src/__tests__/policy/AntiPatterns.policy.test.ts` and writes reports to:
+  - `/tmp/current-private-probes.json`
+  - `/tmp/current-sleeps.txt`
+
+*Manual and integration verification still complement unit tests, especially for webOS device behavior.*
 
 ## Manual Verification
 

@@ -1,5 +1,5 @@
 /**
- * @fileoverview Application Shell - Creates root containers and initializes orchestrator.
+ * @fileoverview Application shell - creates root containers and initializes orchestrator.
  * @module App
  * @version 1.0.0
  */
