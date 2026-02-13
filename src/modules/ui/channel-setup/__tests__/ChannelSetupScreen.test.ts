@@ -152,7 +152,14 @@ const clickButton = (container: HTMLElement, selector: string): void => {
 };
 
 const enterStep2 = async (container: HTMLElement): Promise<void> => {
-    clickButton(container, '#setup-next');
+    const next = container.querySelector('#setup-next');
+    if (!(next instanceof HTMLButtonElement)) {
+        throw new Error('Next button not found');
+    }
+    if (next.disabled) {
+        throw new Error('Expected Next button to be enabled before entering Step 2');
+    }
+    next.click();
     await flushPromises();
 };
 
