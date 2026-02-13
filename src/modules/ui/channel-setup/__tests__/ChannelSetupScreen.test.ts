@@ -493,11 +493,11 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        let resolvePreview: ((value: typeof DEFAULT_PREVIEW | PromiseLike<typeof DEFAULT_PREVIEW>) => void) | null = null;
+        let resolvePreview: ((value: typeof DEFAULT_PREVIEW | PromiseLike<typeof DEFAULT_PREVIEW>) => void) | undefined;
         const getSetupPreview = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_PREVIEW>((resolve) => {
             resolvePreview = resolve;
         }));
-        let resolveBuild: ((value: typeof DEFAULT_BUILD_RESULT | PromiseLike<typeof DEFAULT_BUILD_RESULT>) => void) | null = null;
+        let resolveBuild: ((value: typeof DEFAULT_BUILD_RESULT | PromiseLike<typeof DEFAULT_BUILD_RESULT>) => void) | undefined;
         const createChannelsFromSetup = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_BUILD_RESULT>((resolve) => {
             resolveBuild = resolve;
         }));
@@ -526,8 +526,7 @@ describe('ChannelSetupScreen', () => {
         if (!resolvePreview) {
             throw new Error('Expected preview resolver to be set');
         }
-        const previewResolver = resolvePreview as unknown as (value: typeof DEFAULT_PREVIEW) => void;
-        previewResolver(DEFAULT_PREVIEW);
+        resolvePreview(DEFAULT_PREVIEW);
         await flushPromises();
 
         expect(container.textContent ?? '').toContain('Building channels');
@@ -536,8 +535,7 @@ describe('ChannelSetupScreen', () => {
         if (!resolveBuild) {
             throw new Error('Expected build resolver to be set');
         }
-        const buildResolver = resolveBuild as unknown as (value: typeof DEFAULT_BUILD_RESULT) => void;
-        buildResolver(DEFAULT_BUILD_RESULT);
+        resolveBuild(DEFAULT_BUILD_RESULT);
         await flushPromises();
     });
 });

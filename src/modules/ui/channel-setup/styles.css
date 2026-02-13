@@ -260,11 +260,6 @@
 .setup-detail-scroll {
     overflow-y: auto;
     min-height: 0;
-    --_focus-inset: calc(var(--focus-ring-width) + var(--focus-ring-offset));
-    padding-right: calc(var(--_focus-inset) + 6px);
-    padding-left: calc(var(--_focus-inset) + 2px);
-    padding-top: calc(var(--_focus-inset) + 2px);
-    padding-bottom: calc(var(--_focus-inset) + 2px);
 }
 
 .setup-detail-pane .setup-preview {

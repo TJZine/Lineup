@@ -35,8 +35,43 @@ interface SetupStrategyState {
     actors: boolean;
 }
 
+const CONTENT_STRATEGY_KEYS = [
+    'collections',
+    'libraryFallback',
+    'playlists',
+    'recentlyAdded',
+] as const satisfies readonly (keyof SetupStrategyState)[];
+
+const ADVANCED_STRATEGY_KEYS = [
+    'genres',
+    'directors',
+    'decades',
+    'studios',
+    'actors',
+] as const satisfies readonly (keyof SetupStrategyState)[];
+
+const isContentStrategyKey = (key: keyof SetupStrategyState): key is (typeof CONTENT_STRATEGY_KEYS)[number] =>
+    (CONTENT_STRATEGY_KEYS as readonly (keyof SetupStrategyState)[]).includes(key);
+
+const isAdvancedStrategyKey = (key: keyof SetupStrategyState): key is (typeof ADVANCED_STRATEGY_KEYS)[number] =>
+    (ADVANCED_STRATEGY_KEYS as readonly (keyof SetupStrategyState)[]).includes(key);
+
+const STRATEGY_CATEGORIES = [
+    'content-sources',
+    'advanced-sources',
+    'build-options',
+    'limits',
+] as const;
+
+const STEP2_CONTROL_IDS = {
+    buildMode: 'setup-build-mode',
+    combineMode: 'setup-combine-mode',
+    maxChannels: 'setup-max-channels',
+    minItems: 'setup-min-items',
+} as const;
+
 type SetupStep = 1 | 2 | 3;
-type StrategyCategoryKey = 'content-sources' | 'advanced-sources' | 'build-options' | 'limits';
+type StrategyCategoryKey = (typeof STRATEGY_CATEGORIES)[number];
 type EstimateKey = keyof ChannelSetupPreview['estimates'];
 
 export type ChannelSetupOrchestrator = Pick<
@@ -176,6 +211,10 @@ export class ChannelSetupScreen {
         return raw.replace(/[^a-zA-Z0-9_-]/g, '_');
     }
 
+    private _strategyButtonId(strategy: keyof SetupStrategyState): string {
+        return `setup-strategy-${this._toDomId(String(strategy))}`;
+    }
+
     private _formatCount(value: number): string {
         try {
             return new Intl.NumberFormat().format(value);
@@ -269,11 +308,11 @@ export class ChannelSetupScreen {
                     return;
                 }
 
-                if (focusedId === 'setup-max-channels' || focusedId === 'setup-min-items') {
-                    const previousValue = focusedId === 'setup-max-channels' ? this._maxChannels : this._minItems;
-                    const options = focusedId === 'setup-max-channels' ? this._channelLimitOptions : this._minItemsOptions;
+                if (focusedId === STEP2_CONTROL_IDS.maxChannels || focusedId === STEP2_CONTROL_IDS.minItems) {
+                    const previousValue = focusedId === STEP2_CONTROL_IDS.maxChannels ? this._maxChannels : this._minItems;
+                    const options = focusedId === STEP2_CONTROL_IDS.maxChannels ? this._channelLimitOptions : this._minItemsOptions;
                     const nextValue = this._stepPreset(options, previousValue, direction, 'clamp');
-                    if (focusedId === 'setup-max-channels') {
+                    if (focusedId === STEP2_CONTROL_IDS.maxChannels) {
                         this._maxChannels = nextValue;
                     } else {
                         this._minItems = nextValue;
@@ -638,7 +677,7 @@ export class ChannelSetupScreen {
         right.className = 'setup-detail-pane';
 
         const buildModeButton = document.createElement('button');
-        buildModeButton.id = 'setup-build-mode';
+        buildModeButton.id = STEP2_CONTROL_IDS.buildMode;
         buildModeButton.className = 'setup-toggle';
 
         const buildModeLabel = document.createElement('span');
@@ -672,7 +711,7 @@ export class ChannelSetupScreen {
         });
 
         const combineButton = document.createElement('button');
-        combineButton.id = 'setup-combine-mode';
+        combineButton.id = STEP2_CONTROL_IDS.combineMode;
         combineButton.className = 'setup-toggle';
 
         const combineLabel = document.createElement('span');
@@ -716,7 +755,7 @@ export class ChannelSetupScreen {
         const createStrategyButton = (strategy: typeof strategyLabels[number]): HTMLButtonElement => {
             const isEnabled = this._strategies[strategy.key];
             const button = document.createElement('button');
-            button.id = `setup-strategy-${this._toDomId(String(strategy.key))}`;
+            button.id = this._strategyButtonId(strategy.key);
             button.className = `setup-toggle${isEnabled ? ' selected' : ''}`;
 
             const label = document.createElement('span');
@@ -748,18 +787,15 @@ export class ChannelSetupScreen {
             return button;
         };
 
-        const contentStrategies = ['collections', 'libraryFallback', 'playlists', 'recentlyAdded'] as const;
-        const advancedStrategies = ['genres', 'directors', 'decades', 'studios', 'actors'] as const;
-
         const contentButtons = strategyLabels
-            .filter((strategy) => contentStrategies.includes(strategy.key as (typeof contentStrategies)[number]))
+            .filter((strategy) => isContentStrategyKey(strategy.key))
             .map(createStrategyButton);
         const advancedButtons = strategyLabels
-            .filter((strategy) => advancedStrategies.includes(strategy.key as (typeof advancedStrategies)[number]))
+            .filter((strategy) => isAdvancedStrategyKey(strategy.key))
             .map(createStrategyButton);
 
         const maxButton = document.createElement('button');
-        maxButton.id = 'setup-max-channels';
+        maxButton.id = STEP2_CONTROL_IDS.maxChannels;
         maxButton.className = 'setup-toggle setup-toggle--adjustable';
 
         const maxLabel = document.createElement('span');
@@ -789,7 +825,7 @@ export class ChannelSetupScreen {
         });
 
         const minItemsButton = document.createElement('button');
-        minItemsButton.id = 'setup-min-items';
+        minItemsButton.id = STEP2_CONTROL_IDS.minItems;
         minItemsButton.className = 'setup-toggle setup-toggle--adjustable';
 
         const minItemsLabel = document.createElement('span');
@@ -850,7 +886,7 @@ export class ChannelSetupScreen {
         }
 
         const detailScroll = document.createElement('div');
-        detailScroll.className = 'setup-detail-scroll';
+        detailScroll.className = 'setup-detail-scroll setup-focus-safe-scroll';
 
         const detailControls = document.createElement('div');
         detailControls.className = 'setup-list';
@@ -863,9 +899,13 @@ export class ChannelSetupScreen {
         const previewPanel = document.createElement('div');
         previewPanel.id = this._previewPanelId;
         previewPanel.className = 'setup-preview';
-        previewPanel.setAttribute('aria-hidden', 'true');
+        previewPanel.setAttribute('role', 'region');
+
+        const previewTitleId = `${this._previewPanelId}-title`;
+        previewPanel.setAttribute('aria-labelledby', previewTitleId);
 
         const previewTitle = document.createElement('div');
+        previewTitle.id = previewTitleId;
         previewTitle.className = 'setup-preview-title';
         previewTitle.textContent = 'Estimate';
         previewPanel.appendChild(previewTitle);
@@ -979,13 +1019,7 @@ export class ChannelSetupScreen {
     }
 
     private _categoryFromButtonId(buttonId: string): StrategyCategoryKey | null {
-        const categories: StrategyCategoryKey[] = [
-            'content-sources',
-            'advanced-sources',
-            'build-options',
-            'limits',
-        ];
-        const match = categories.find((category) => this._categoryButtonId(category) === buttonId);
+        const match = STRATEGY_CATEGORIES.find((category) => this._categoryButtonId(category) === buttonId);
         return match ?? null;
     }
 
@@ -1004,26 +1038,15 @@ export class ChannelSetupScreen {
 
     private _getDetailControlIdsForCategory(category: StrategyCategoryKey): string[] {
         if (category === 'content-sources') {
-            return [
-                'setup-strategy-collections',
-                'setup-strategy-libraryFallback',
-                'setup-strategy-playlists',
-                'setup-strategy-recentlyAdded',
-            ];
+            return CONTENT_STRATEGY_KEYS.map((key) => this._strategyButtonId(key));
         }
         if (category === 'advanced-sources') {
-            return [
-                'setup-strategy-genres',
-                'setup-strategy-directors',
-                'setup-strategy-decades',
-                'setup-strategy-studios',
-                'setup-strategy-actors',
-            ];
+            return ADVANCED_STRATEGY_KEYS.map((key) => this._strategyButtonId(key));
         }
         if (category === 'build-options') {
-            return ['setup-build-mode', 'setup-combine-mode'];
+            return [STEP2_CONTROL_IDS.buildMode, STEP2_CONTROL_IDS.combineMode];
         }
-        return ['setup-max-channels', 'setup-min-items'];
+        return [STEP2_CONTROL_IDS.maxChannels, STEP2_CONTROL_IDS.minItems];
     }
 
     private _resolveDetailFocusTarget(category: StrategyCategoryKey, availableIds: string[]): string | null {
@@ -1092,7 +1115,7 @@ export class ChannelSetupScreen {
             }
 
             const isDetailButton = detailIds.includes(button.id);
-            const isAdjustable = button.id === 'setup-max-channels' || button.id === 'setup-min-items';
+            const isAdjustable = button.id === STEP2_CONTROL_IDS.maxChannels || button.id === STEP2_CONTROL_IDS.minItems;
             if (isDetailButton && !isAdjustable) {
                 neighbors.left = activeCategoryButtonId;
             }
