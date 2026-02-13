@@ -11,8 +11,8 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
     setDisabled: (disabled: boolean) => void;
     isDisabled: () => boolean;
     getId: () => string;
-    cyclePrev: () => void;
-    cycleNext: () => void;
+    cyclePrev: () => boolean;
+    cycleNext: () => boolean;
 } {
     const button = document.createElement('button');
     button.id = config.id;
@@ -52,11 +52,32 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
     button.appendChild(meta);
     button.appendChild(state);
 
-    button.addEventListener('click', () => {
-        if (config.disabled) return;
+    const cyclePrev = (): boolean => {
+        if (config.disabled) return false;
+        const previousValue = config.value;
+        const nextValue = getPrevValue(config.options, config.value);
+        update(nextValue);
+        if (nextValue === previousValue) {
+            return false;
+        }
+        config.onChange(nextValue);
+        return true;
+    };
+
+    const cycleNext = (): boolean => {
+        if (config.disabled) return false;
+        const previousValue = config.value;
         const nextValue = getNextValueClamped(config.options, config.value);
         update(nextValue);
+        if (nextValue === previousValue) {
+            return false;
+        }
         config.onChange(nextValue);
+        return true;
+    };
+
+    button.addEventListener('click', () => {
+        cycleNext();
     });
 
     function update(value: number): void {
@@ -83,18 +104,8 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
         setDisabled,
         isDisabled: (): boolean => config.disabled ?? false,
         getId: (): string => config.id,
-        cyclePrev: (): void => {
-            if (config.disabled) return;
-            const nextValue = getPrevValue(config.options, config.value);
-            update(nextValue);
-            config.onChange(nextValue);
-        },
-        cycleNext: (): void => {
-            if (config.disabled) return;
-            const nextValue = getNextValueClamped(config.options, config.value);
-            update(nextValue);
-            config.onChange(nextValue);
-        },
+        cyclePrev,
+        cycleNext,
     };
 }
 

@@ -10,10 +10,10 @@ import { createSettingsSelect } from './SettingsSelect';
 import { SETTINGS_STORAGE_KEYS, DEFAULT_SETTINGS } from './constants';
 import { DEFAULT_THEME, THEME_OPTIONS } from './theme';
 import type {
-    SettingsSectionConfig,
+    SettingsCategoryConfig,
     SettingsItemConfig,
     SettingsSelectConfig,
-    SettingsSectionId,
+    SettingsCategoryId,
     GuideSettingChange,
 } from './types';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from '../now-playing-info';
@@ -139,21 +139,18 @@ export class SettingsScreen {
     private _getNavigation: () => INavigationManager | null;
     private _onSubtitleModeChange: ((mode: SubtitleMode) => void) | null = null;
     private _onGuideSettingChange: ((change: GuideSettingChange) => void) | null = null;
+    private _categories: SettingsCategoryConfig[] = [];
+    private _activeCategoryId: SettingsCategoryId | null = null;
+    private _lastFocusedItemByCategory: Partial<Record<SettingsCategoryId, string>> = {};
     private _focusableIds: string[] = [];
     private _toggleElements: Map<string, ReturnType<typeof createSettingsToggle>> = new Map();
     private _selectElements: Map<string, ReturnType<typeof createSettingsSelect>> = new Map();
-    private _focusableOrder: string[] = [];
+    private _categoryButtons: Map<SettingsCategoryId, HTMLButtonElement> = new Map();
+    private _activeCategoryItemIds: string[] = [];
     private _toggleMetadata: Map<string, ToggleMetadata> = new Map();
     private _selectMetadata: Map<string, SelectMetadata> = new Map();
-    private _sectionHeaders: Map<string, HTMLButtonElement> = new Map();
-    private _sectionBodies: Map<string, HTMLElement> = new Map();
-    private _sectionExpanded: Record<SettingsSectionId, boolean> = {
-        audio_subtitles: true,
-        playback_hdr: false,
-        appearance: false,
-        account: false,
-        developer: false,
-    };
+    private _detailTitle: HTMLHeadingElement | null = null;
+    private _detailItems: HTMLElement | null = null;
     private _switchProfileButton: HTMLButtonElement | null = null;
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
 
@@ -176,9 +173,12 @@ export class SettingsScreen {
     private _buildUI(): void {
         this._container.className = 'settings-screen screen';
         this._container.id = 'settings-screen';
-        this._focusableOrder = [];
-        this._sectionHeaders.clear();
-        this._sectionBodies.clear();
+        this._categoryButtons.clear();
+        this._toggleElements.clear();
+        this._selectElements.clear();
+        this._toggleMetadata.clear();
+        this._selectMetadata.clear();
+        this._activeCategoryItemIds = [];
 
         const panel = document.createElement('div');
         panel.className = 'settings-panel';
@@ -199,11 +199,39 @@ export class SettingsScreen {
         header.appendChild(hint);
         panel.appendChild(header);
 
-        // Build sections
-        const sections = this._buildSections();
-        for (const section of sections) {
-            panel.appendChild(this._createSection(section));
+        const content = document.createElement('div');
+        content.className = 'settings-content';
+
+        const categoryRail = document.createElement('div');
+        categoryRail.className = 'settings-categories';
+        categoryRail.setAttribute('aria-label', 'Settings categories');
+
+        const detail = document.createElement('div');
+        detail.className = 'settings-detail';
+
+        const detailTitle = document.createElement('h2');
+        detailTitle.className = 'settings-detail-title';
+        this._detailTitle = detailTitle;
+
+        const detailItems = document.createElement('div');
+        detailItems.className = 'settings-detail-items';
+        this._detailItems = detailItems;
+
+        detail.appendChild(detailTitle);
+        detail.appendChild(detailItems);
+
+        this._categories = this._buildCategories();
+        if (!this._activeCategoryId || !this._categories.some((category) => category.id === this._activeCategoryId)) {
+            this._activeCategoryId = this._categories[0]?.id ?? null;
         }
+        for (const category of this._categories) {
+            categoryRail.appendChild(this._createCategoryButton(category));
+        }
+        this._renderActiveCategory();
+
+        content.appendChild(categoryRail);
+        content.appendChild(detail);
+        panel.appendChild(content);
 
         const actions = document.createElement('div');
         actions.className = 'settings-actions';
@@ -218,17 +246,15 @@ export class SettingsScreen {
         });
         actions.appendChild(switchProfileButton);
         this._switchProfileButton = switchProfileButton;
-        this._focusableOrder.push(switchProfileButton.id);
-
-        panel.appendChild(actions);
+        detail.appendChild(actions);
 
         this._container.appendChild(panel);
     }
 
     /**
-     * Build section configurations from current settings.
+     * Build category configurations from current settings.
      */
-    private _buildSections(): SettingsSectionConfig[] {
+    private _buildCategories(): SettingsCategoryConfig[] {
         const nowPlayingAutoHide = this._loadClampedNowPlayingAutoHide();
         const selectedThemeValue = this._getThemeIndex(ThemeManager.getInstance().getTheme());
         const keepPlayingInSettings = this._loadBoolSetting(
@@ -254,7 +280,7 @@ export class SettingsScreen {
         return [
             {
                 id: 'audio_subtitles',
-                title: '🔊 Audio & Subtitles',
+                label: '🔊 Audio & Subtitles',
                 items: [
                     {
                         id: 'settings-dts-passthrough',
@@ -324,7 +350,7 @@ export class SettingsScreen {
             },
             {
                 id: 'playback_hdr',
-                title: '▶ Playback & HDR',
+                label: '▶ Playback & HDR',
                 items: [
                     {
                         id: 'settings-keep-playing',
@@ -352,7 +378,7 @@ export class SettingsScreen {
             },
             {
                 id: 'appearance',
-                title: '🎨 Appearance',
+                label: '🎨 Appearance',
                 items: [
                     {
                         id: 'settings-guide-category-colors',
@@ -444,7 +470,7 @@ export class SettingsScreen {
             },
             {
                 id: 'account',
-                title: '👤 Account',
+                label: '👤 Account',
                 items: [
                     {
                         id: 'settings-profile-picker-startup',
@@ -462,7 +488,7 @@ export class SettingsScreen {
             },
             {
                 id: 'developer',
-                title: '🛠 Developer',
+                label: '🛠 Developer',
                 items: [
                     {
                         id: 'settings-debug-logging',
@@ -490,67 +516,108 @@ export class SettingsScreen {
         ];
     }
 
-    /**
-     * Create a section DOM element.
-     */
-    private _createSection(config: SettingsSectionConfig): HTMLElement {
-        const section = document.createElement('div');
-        section.className = 'settings-section';
+    private _createCategoryButton(config: SettingsCategoryConfig): HTMLButtonElement {
+        const button = document.createElement('button');
+        button.id = this._getCategoryButtonId(config.id);
+        button.className = 'settings-category-button';
+        button.textContent = config.label;
+        button.setAttribute('aria-selected', config.id === this._activeCategoryId ? 'true' : 'false');
+        button.addEventListener('click', () => {
+            this._setActiveCategory(config.id, { preferredFocusId: button.id });
+        });
+        this._categoryButtons.set(config.id, button);
+        return button;
+    }
 
-        const expanded = this._sectionExpanded[config.id];
-        const header = document.createElement('button');
-        header.id = `settings-section-${config.id}`;
-        header.className = 'settings-section-header';
+    private _renderActiveCategory(): void {
+        const activeCategory = this._getActiveCategory();
+        this._toggleElements.clear();
+        this._selectElements.clear();
+        this._toggleMetadata.clear();
+        this._selectMetadata.clear();
+        this._activeCategoryItemIds = [];
 
-        const indicator = document.createElement('span');
-        indicator.className = 'settings-section-indicator';
-        indicator.textContent = expanded ? '▼' : '►';
-
-        const title = document.createElement('span');
-        title.className = 'settings-section-title';
-        title.textContent = config.title;
-
-        const count = document.createElement('span');
-        count.className = 'settings-section-count';
-        count.textContent = `(${config.items.length})`;
-
-        header.appendChild(indicator);
-        header.appendChild(title);
-        header.appendChild(count);
-
-        header.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-        header.setAttribute('aria-controls', `settings-section-${config.id}-body`);
-        section.appendChild(header);
-
-        const items = document.createElement('div');
-        items.className = 'settings-section-items';
-        items.id = `settings-section-${config.id}-body`;
-        items.hidden = !expanded;
-
-        this._sectionHeaders.set(header.id, header);
-        this._sectionBodies.set(items.id, items);
-        this._focusableOrder.push(header.id);
-
-        for (const item of config.items) {
-            const element = this._createItem(item);
-            items.appendChild(element);
+        if (this._detailTitle) {
+            this._detailTitle.textContent = activeCategory?.label ?? '';
         }
 
-        section.appendChild(items);
+        if (this._detailItems) {
+            this._detailItems.innerHTML = '';
+            if (activeCategory) {
+                for (const item of activeCategory.items) {
+                    this._activeCategoryItemIds.push(item.id);
+                    this._detailItems.appendChild(this._createItem(item));
+                }
+            }
+        }
 
-        header.addEventListener('click', () => {
-            const nextExpanded = !this._sectionExpanded[config.id];
-            this._sectionExpanded[config.id] = nextExpanded;
-            items.hidden = !nextExpanded;
-            indicator.textContent = nextExpanded ? '▼' : '►';
-            header.setAttribute('aria-expanded', nextExpanded ? 'true' : 'false');
-            this._unregisterFocusables();
-            this._registerFocusables();
-            const nav = this._getNavigation();
-            nav?.setFocus(header.id);
-        });
+        for (const category of this._categories) {
+            const button = this._categoryButtons.get(category.id);
+            if (!button) continue;
+            const isActive = category.id === this._activeCategoryId;
+            button.classList.toggle('active', isActive);
+            button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        }
+    }
 
-        return section;
+    private _setActiveCategory(
+        categoryId: SettingsCategoryId,
+        options: { preferredFocusId?: string | null; focusDetail?: boolean } = {}
+    ): void {
+        if (this._activeCategoryId === categoryId && !options.focusDetail) {
+            return;
+        }
+
+        this._activeCategoryId = categoryId;
+        this._categories = this._buildCategories();
+        if (!this._categories.some((category) => category.id === this._activeCategoryId)) {
+            this._activeCategoryId = this._categories[0]?.id ?? null;
+        }
+        this._renderActiveCategory();
+
+        if (!this._container.classList.contains('visible')) {
+            return;
+        }
+
+        const preferredFocusId = options.focusDetail
+            ? this._getPreferredDetailFocusId(categoryId) ?? this._getCategoryButtonId(categoryId)
+            : options.preferredFocusId ?? this._getCategoryButtonId(categoryId);
+        this._unregisterFocusables();
+        this._registerFocusables(preferredFocusId);
+    }
+
+    private _getActiveCategory(): SettingsCategoryConfig | undefined {
+        if (!this._activeCategoryId) return undefined;
+        return this._categories.find((category) => category.id === this._activeCategoryId);
+    }
+
+    private _getCategoryButtonId(id: SettingsCategoryId): string {
+        return `settings-category-${id}`;
+    }
+
+    private _getCategoryIdFromButtonId(id: string): SettingsCategoryId | null {
+        const prefix = 'settings-category-';
+        if (!id.startsWith(prefix)) return null;
+        const categoryId = id.slice(prefix.length) as SettingsCategoryId;
+        return this._categories.some((category) => category.id === categoryId) ? categoryId : null;
+    }
+
+    private _getPreferredDetailFocusId(categoryId: SettingsCategoryId): string | undefined {
+        const rememberedId = this._lastFocusedItemByCategory[categoryId];
+        if (rememberedId) {
+            if (this._activeCategoryId !== categoryId || this._isFocusableEnabled(rememberedId)) {
+                return rememberedId;
+            }
+        }
+        if (this._activeCategoryId === categoryId) {
+            return this._activeCategoryItemIds.find((id) => this._isFocusableEnabled(id)) ?? this._activeCategoryItemIds[0];
+        }
+        const category = this._categories.find((entry) => entry.id === categoryId);
+        return category?.items[0]?.id;
+    }
+
+    private _isDetailFocusable(id: string): boolean {
+        return this._toggleElements.has(id) || this._selectElements.has(id) || id === this._switchProfileButton?.id;
     }
 
     /**
@@ -558,6 +625,11 @@ export class SettingsScreen {
      */
     public show(): void {
         this._container.classList.add('visible');
+        this._categories = this._buildCategories();
+        if (!this._activeCategoryId || !this._categories.some((category) => category.id === this._activeCategoryId)) {
+            this._activeCategoryId = this._categories[0]?.id ?? null;
+        }
+        this._renderActiveCategory();
         this._refreshValues();
         const nav = this._getNavigation();
         if (nav && !this._navKeyHandler) {
@@ -565,14 +637,35 @@ export class SettingsScreen {
                 if (event.handled) return;
                 const focusedId = nav.getFocusedElement()?.id;
                 if (!focusedId) return;
-                const select = this._selectElements.get(focusedId);
-                if (!select || select.isDisabled()) return;
-                if (event.button === 'left') {
-                    select.cyclePrev();
+                const focusedCategoryId = this._getCategoryIdFromButtonId(focusedId);
+                if (focusedCategoryId && event.button === 'right') {
+                    this._setActiveCategory(focusedCategoryId, { focusDetail: true });
                     event.handled = true;
-                } else if (event.button === 'right') {
+                    return;
+                }
+                const select = this._selectElements.get(focusedId);
+                if (select && !select.isDisabled() && event.button === 'left') {
+                    const changed = select.cyclePrev();
+                    if (!changed) {
+                        const activeCategoryId = this._activeCategoryId;
+                        if (activeCategoryId) {
+                            nav.setFocus(this._getCategoryButtonId(activeCategoryId));
+                        }
+                    }
+                    event.handled = true;
+                    return;
+                }
+                if (select && !select.isDisabled() && event.button === 'right') {
                     select.cycleNext();
                     event.handled = true;
+                    return;
+                }
+                if (event.button === 'left' && this._isDetailFocusable(focusedId)) {
+                    const activeCategoryId = this._activeCategoryId;
+                    if (activeCategoryId) {
+                        nav.setFocus(this._getCategoryButtonId(activeCategoryId));
+                        event.handled = true;
+                    }
                 }
             };
             nav.on('keyPress', this._navKeyHandler);
@@ -600,40 +693,97 @@ export class SettingsScreen {
         const nav = this._getNavigation();
         if (!nav) return;
 
-        const focusableIds = this._focusableOrder.filter((id) => {
-            if (!this._isFocusableEnabled(id)) return false;
+        const categoryIds = this._categories.map((category) => this._getCategoryButtonId(category.id));
+        const detailIds = this._activeCategoryItemIds.filter((id) => this._isFocusableEnabled(id));
+        const switchProfileId = this._switchProfileButton?.id;
+
+        const focusableIds = [
+            ...categoryIds,
+            ...detailIds,
+            ...(switchProfileId ? [switchProfileId] : []),
+        ].filter((id) => {
             const element = this._getFocusableElement(id);
-            return element ? element.offsetParent !== null : false;
+            return Boolean(element) && this._isFocusableEnabled(id);
         });
         this._focusableIds = focusableIds;
 
         const currentFocusId = nav.getFocusedElement()?.id ?? null;
-        for (let i = 0; i < focusableIds.length; i++) {
-            const id = focusableIds[i];
-            if (!id) continue;
+        const activeCategoryId = this._activeCategoryId;
+        const activeCategoryButtonId = activeCategoryId ? this._getCategoryButtonId(activeCategoryId) : undefined;
+        const lastDetailId = detailIds.length > 0 ? detailIds[detailIds.length - 1] : undefined;
 
+        for (const id of focusableIds) {
             const element = this._getFocusableElement(id);
             if (!element) continue;
 
-            const upId = i > 0 ? focusableIds[i - 1] : undefined;
-            const downId = i < focusableIds.length - 1 ? focusableIds[i + 1] : undefined;
-
             const neighbors: FocusableElement['neighbors'] = {};
-            if (upId) neighbors.up = upId;
-            if (downId) neighbors.down = downId;
+            let onFocus: (() => void) | undefined;
+            let onSelect: (() => void) | undefined;
 
-            const isSelect = this._selectElements.has(id);
-            const onSelect = isSelect
-                ? (): void => { }
-                : (): void => {
+            const categoryId = this._getCategoryIdFromButtonId(id);
+            if (categoryId) {
+                const categoryIndex = categoryIds.indexOf(id);
+                const upId = categoryIndex > 0 ? categoryIds[categoryIndex - 1] : undefined;
+                const downId = categoryIndex >= 0 && categoryIndex < categoryIds.length - 1
+                    ? categoryIds[categoryIndex + 1]
+                    : undefined;
+                if (upId) neighbors.up = upId;
+                if (downId) neighbors.down = downId;
+                const preferredDetailId = this._getPreferredDetailFocusId(categoryId);
+                if (preferredDetailId) {
+                    neighbors.right = preferredDetailId;
+                }
+                onFocus = (): void => {
+                    if (this._activeCategoryId === categoryId) return;
+                    this._setActiveCategory(categoryId, { preferredFocusId: id });
+                };
+                onSelect = (): void => {
+                    this._setActiveCategory(categoryId, { preferredFocusId: id });
+                };
+            } else if (detailIds.includes(id)) {
+                const detailIndex = detailIds.indexOf(id);
+                const upId = detailIndex > 0 ? detailIds[detailIndex - 1] : undefined;
+                const downId = detailIndex < detailIds.length - 1
+                    ? detailIds[detailIndex + 1]
+                    : switchProfileId;
+                if (upId) neighbors.up = upId;
+                if (downId) neighbors.down = downId;
+                if (activeCategoryButtonId) {
+                    neighbors.left = activeCategoryButtonId;
+                }
+                onFocus = (): void => {
+                    if (!activeCategoryId) return;
+                    this._lastFocusedItemByCategory[activeCategoryId] = id;
+                };
+                const isSelect = this._selectElements.has(id);
+                onSelect = isSelect
+                    ? (): void => { }
+                    : (): void => {
+                        element.click();
+                    };
+            } else if (switchProfileId && id === switchProfileId) {
+                if (lastDetailId) {
+                    neighbors.up = lastDetailId;
+                }
+                if (activeCategoryButtonId) {
+                    neighbors.left = activeCategoryButtonId;
+                }
+                onSelect = (): void => {
                     element.click();
                 };
+            }
+
             const focusable: FocusableElement = {
                 id,
                 element,
                 neighbors,
-                onSelect,
             };
+            if (onFocus) {
+                focusable.onFocus = onFocus;
+            }
+            if (onSelect) {
+                focusable.onSelect = onSelect;
+            }
             nav.registerFocusable(focusable);
         }
 
@@ -642,7 +792,9 @@ export class SettingsScreen {
             ? preferredFocusId
             : currentFocusId && focusableIds.includes(currentFocusId)
                 ? currentFocusId
-                : focusableIds[0];
+                : activeCategoryButtonId && focusableIds.includes(activeCategoryButtonId)
+                    ? activeCategoryButtonId
+                    : focusableIds[0];
         if (preferredId) {
             nav.setFocus(preferredId);
         }
@@ -846,7 +998,7 @@ export class SettingsScreen {
     }
 
     private _isFocusableEnabled(id: string): boolean {
-        if (this._sectionHeaders.has(id)) {
+        if (this._getCategoryIdFromButtonId(id)) {
             return true;
         }
         if (this._switchProfileButton && id === this._switchProfileButton.id) {
@@ -896,7 +1048,6 @@ export class SettingsScreen {
             if (meta) {
                 this._selectMetadata.set(item.id, meta);
             }
-            this._focusableOrder.push(item.id);
             return select.element;
         }
 
@@ -906,13 +1057,14 @@ export class SettingsScreen {
         if (meta) {
             this._toggleMetadata.set(item.id, meta);
         }
-        this._focusableOrder.push(item.id);
         return toggle.element;
     }
 
     private _getFocusableElement(id: string): HTMLButtonElement | null {
-        const header = this._sectionHeaders.get(id);
-        if (header) return header;
+        const categoryId = this._getCategoryIdFromButtonId(id);
+        if (categoryId) {
+            return this._categoryButtons.get(categoryId) ?? null;
+        }
         if (this._switchProfileButton && id === this._switchProfileButton.id) {
             return this._switchProfileButton;
         }
@@ -927,14 +1079,22 @@ export class SettingsScreen {
      * Destroy the component.
      */
     public destroy(): void {
+        if (this._navKeyHandler) {
+            this._getNavigation()?.off('keyPress', this._navKeyHandler);
+            this._navKeyHandler = null;
+        }
         this._unregisterFocusables();
+        this._categories = [];
+        this._activeCategoryId = null;
+        this._lastFocusedItemByCategory = {};
         this._toggleElements.clear();
         this._selectElements.clear();
+        this._categoryButtons.clear();
+        this._activeCategoryItemIds = [];
         this._toggleMetadata.clear();
         this._selectMetadata.clear();
-        this._sectionHeaders.clear();
-        this._sectionBodies.clear();
-        this._focusableOrder = [];
+        this._detailTitle = null;
+        this._detailItems = null;
         this._switchProfileButton = null;
         this._container.innerHTML = '';
     }

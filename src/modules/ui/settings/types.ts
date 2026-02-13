@@ -140,7 +140,7 @@ export interface SettingsSelectConfig {
 
 export type SettingsItemConfig = SettingsToggleConfig | SettingsSelectConfig;
 
-export type SettingsSectionId = 'audio_subtitles' | 'playback_hdr' | 'appearance' | 'account' | 'developer';
+export type SettingsCategoryId = 'audio_subtitles' | 'playback_hdr' | 'appearance' | 'account' | 'developer';
 
 export type GuideSettingChange =
     | { key: 'categoryColors' | 'libraryTabs' | 'nowWatchingBanner'; enabled: boolean }
@@ -148,13 +148,18 @@ export type GuideSettingChange =
     | { key: 'guideDensity'; density: 'detailed' | 'wide' };
 
 /**
- * Settings section configuration.
+ * Settings category configuration.
  */
-export interface SettingsSectionConfig {
+export interface SettingsCategoryConfig {
     /** Unique identifier */
-    id: SettingsSectionId;
-    /** Section title */
-    title: string;
-    /** Toggle items in this section */
+    id: SettingsCategoryId;
+    /** Category label */
+    label: string;
+    /** Settings items in this category */
     items: SettingsItemConfig[];
 }
+
+/** @deprecated use SettingsCategoryId */
+export type SettingsSectionId = SettingsCategoryId;
+/** @deprecated use SettingsCategoryConfig */
+export type SettingsSectionConfig = SettingsCategoryConfig;
