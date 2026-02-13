@@ -41,12 +41,12 @@ const importBootstrapModule = async (options?: {
         })),
     }));
 
-        const module = await import('../bootstrap');
-        installedModule = module;
-        module.installRetuneBootstrap();
-        await flushPromises();
-        if (options?.autoDispatchDomReady !== false && start.mock.calls.length === 0) {
-            document.dispatchEvent(new Event('DOMContentLoaded'));
+    const module = await import('../bootstrap');
+    installedModule = module;
+    module.installRetuneBootstrap();
+    await flushPromises();
+    if (options?.autoDispatchDomReady !== false && start.mock.calls.length === 0) {
+        document.dispatchEvent(new Event('DOMContentLoaded'));
         await flushPromises();
     }
     return { module, start, shutdown, getOrchestrator };
@@ -91,6 +91,16 @@ describe('bootstrap seam', () => {
 
         await module.cleanup();
         expect(shutdown).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears app state and debug surface even when shutdown fails', async () => {
+        const shutdown = jest.fn().mockRejectedValueOnce(new Error('shutdown failed'));
+
+        const { module } = await importBootstrapModule({ shutdown });
+
+        await expect(module.cleanup()).rejects.toThrow('shutdown failed');
+        expect(module.app).toBeNull();
+        expect((window as { __RETUNE__?: unknown }).__RETUNE__).toBeUndefined();
     });
 
     it('exposes debug surface and supports video visibility toggles', async () => {

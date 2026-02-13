@@ -120,6 +120,8 @@ export const scanSourceText = (
         true,
         inferScriptKind(args.file)
     );
+    // TypeScript does not expose `parseDiagnostics` on SourceFile via the public API surface.
+    // We use this internal field as a best-effort guardrail; tests assert that broken source throws.
     const parseDiagnostics =
         (sourceFile as unknown as { parseDiagnostics?: readonly ts.DiagnosticWithLocation[] }).parseDiagnostics ?? [];
     if (parseDiagnostics.length > 0) {

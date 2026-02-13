@@ -402,6 +402,7 @@ describe('App bootstrap smoke', () => {
         await flushPromises();
 
         const devMenu = document.getElementById('dev-menu') as HTMLElement | null;
+        expect(devMenu).not.toBeNull();
         const pre = devMenu?.querySelector('#dev-playback-info') as HTMLPreElement | null;
         expect(pre).not.toBeNull();
         pre!.dataset.summary = 'SUMMARY';
@@ -414,7 +415,8 @@ describe('App bootstrap smoke', () => {
 
         jest.setSystemTime(10_000);
         const copySummary = devMenu?.querySelector('#dev-playback-copy-summary') as HTMLButtonElement | null;
-        copySummary?.click();
+        expect(copySummary).not.toBeNull();
+        copySummary!.click();
         await flushPromises();
         expect((navigator as unknown as { clipboard: { writeText: jest.Mock } }).clipboard.writeText).toHaveBeenCalledWith(
             'SUMMARY'
@@ -432,7 +434,8 @@ describe('App bootstrap smoke', () => {
 
         jest.setSystemTime(12_000);
         const copyRaw = devMenu?.querySelector('#dev-playback-copy-raw') as HTMLButtonElement | null;
-        copyRaw?.click();
+        expect(copyRaw).not.toBeNull();
+        copyRaw!.click();
         await flushPromises();
         expect(execSpy).toHaveBeenCalledWith('copy');
 
@@ -442,7 +445,7 @@ describe('App bootstrap smoke', () => {
         );
         (document.execCommand as unknown as jest.Mock).mockReturnValueOnce(false);
         jest.setSystemTime(14_000);
-        copyRaw?.click();
+        copyRaw!.click();
         await flushPromises();
         const toastEl = document.getElementById('app-toast') as HTMLElement | null;
         expect(toastEl?.textContent ?? '').toContain('Copy not supported');
@@ -450,7 +453,7 @@ describe('App bootstrap smoke', () => {
         // Empty text branch.
         jest.setSystemTime(16_000);
         pre!.dataset.summary = '';
-        copySummary?.click();
+        copySummary!.click();
         await flushPromises();
     });
 

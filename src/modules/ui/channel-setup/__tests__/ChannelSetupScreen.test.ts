@@ -6,13 +6,11 @@ import { ChannelSetupScreen } from '../ChannelSetupScreen';
 import type { ChannelSetupOrchestrator } from '../ChannelSetupScreen';
 import type { PlexLibrary } from '../../../plex/library/types';
 import type { INavigationManager } from '../../../navigation/interfaces';
+import type { FocusableElement } from '../../../navigation/interfaces';
 
 import { flushPromises } from '../../../../__tests__/helpers';
 
-type Focusable = {
-    id: string;
-    neighbors: { up?: string; down?: string; left?: string; right?: string };
-};
+type Focusable = Pick<FocusableElement, 'id' | 'neighbors'>;
 
 type NavigationMock = {
     focusables: Map<string, Focusable>;
@@ -75,7 +73,8 @@ const createOrchestrator = (
     ...overrides,
 } satisfies ChannelSetupOrchestrator);
 
-const click = (container: HTMLElement, selector: string): void => {
+// Intentionally button-only to enforce accessible remote-first UI semantics.
+const clickButton = (container: HTMLElement, selector: string): void => {
     const element = container.querySelector(selector);
     if (!(element instanceof HTMLButtonElement)) {
         throw new Error(`Button not found: ${selector}`);
@@ -152,11 +151,11 @@ describe('ChannelSetupScreen', () => {
         screen.show();
         await flushPromises();
 
-        click(container, '#setup-clear-all');
+        clickButton(container, '#setup-clear-all');
         expect(container.querySelectorAll('.setup-toggle.library-toggle.selected')).toHaveLength(0);
         expect((container.querySelector('#setup-next') as HTMLButtonElement | null)?.disabled).toBe(true);
 
-        click(container, '#setup-select-all');
+        clickButton(container, '#setup-select-all');
         expect(container.querySelectorAll('.setup-toggle.library-toggle.selected')).toHaveLength(2);
         expect((container.querySelector('#setup-next') as HTMLButtonElement | null)?.disabled).toBe(false);
     });

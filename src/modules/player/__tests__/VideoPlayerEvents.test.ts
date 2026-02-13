@@ -40,7 +40,7 @@ const createFixture = (): {
     const events = new VideoPlayerEvents();
     attachedEvents.push(events);
     const video = document.createElement('video');
-    const emitter = { emit: jest.fn() } as never as EventEmitter<PlayerEventMap>;
+    const emitter = { emit: jest.fn() } as unknown as EventEmitter<PlayerEventMap>;
     const state = createState();
     const callbacks = {
         updateStatus: jest.fn((status: VideoPlayerInternalState['status']) => {
@@ -53,7 +53,7 @@ const createFixture = (): {
     };
     const retryManager = {
         handleMediaError: jest.fn(),
-    } as never as RetryManager;
+    } as unknown as RetryManager;
 
     events.attach(video, emitter, callbacks, retryManager);
     return { events, video, emitter, callbacks, retryManager, state };
@@ -80,14 +80,14 @@ describe('VideoPlayerEvents', () => {
         const removeEventListenerSpy = jest.spyOn(video, 'removeEventListener');
 
         const events = new VideoPlayerEvents();
-        const emitter = { emit: jest.fn() } as never as EventEmitter<PlayerEventMap>;
+        const emitter = { emit: jest.fn() } as unknown as EventEmitter<PlayerEventMap>;
         const state = createState();
         const callbacks = {
             updateStatus: jest.fn(),
             getState: jest.fn(() => state),
             setState: jest.fn(),
         };
-        const retryManager = { handleMediaError: jest.fn() } as never as RetryManager;
+        const retryManager = { handleMediaError: jest.fn() } as unknown as RetryManager;
 
         events.attach(video, emitter, callbacks, retryManager);
         expect(addEventListenerSpy).toHaveBeenCalledWith('canplay', expect.any(Function));
@@ -101,7 +101,6 @@ describe('VideoPlayerEvents', () => {
         Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
 
         await expect(events.waitForCanPlay()).resolves.toBeUndefined();
-        events.detach();
     });
 
     it('waitForCanPlay resolves on canplay', async () => {
@@ -113,7 +112,6 @@ describe('VideoPlayerEvents', () => {
         const resolvePromise = events.waitForCanPlay(500);
         video.dispatchEvent(new Event('canplay'));
         await expect(resolvePromise).resolves.toBeUndefined();
-        events.detach();
     });
 
     it('waitForCanPlay rejects on timeout', async () => {
@@ -125,7 +123,6 @@ describe('VideoPlayerEvents', () => {
         const timeoutPromise = events.waitForCanPlay(10);
         jest.advanceTimersByTime(11);
         await expect(timeoutPromise).rejects.toThrow('Timeout waiting for media to be ready');
-        events.detach();
     });
 
     it('waitForCanPlay rejects when not attached and on media error', async () => {
@@ -137,90 +134,80 @@ describe('VideoPlayerEvents', () => {
         const waitPromise = events.waitForCanPlay(1000);
         video.dispatchEvent(new Event('error'));
         await expect(waitPromise).rejects.toThrow('Error loading media');
-        events.detach();
     });
 
     it('updates status to loading on loadstart', () => {
-        const { events, video, callbacks } = createFixture();
+        const { video, callbacks } = createFixture();
         video.dispatchEvent(new Event('loadstart'));
         expect(callbacks.updateStatus).toHaveBeenCalledWith('loading');
-        events.detach();
     });
 
     it('updates status to paused on canplay when loading', () => {
-        const { events, video, callbacks, state } = createFixture();
+        const { video, callbacks, state } = createFixture();
         state.status = 'loading';
         video.dispatchEvent(new Event('canplay'));
         expect(callbacks.updateStatus).toHaveBeenCalledWith('paused');
-        events.detach();
     });
 
     it('updates status to paused on pause when playing', () => {
-        const { events, video, callbacks, state } = createFixture();
+        const { video, callbacks, state } = createFixture();
         state.status = 'playing';
         video.dispatchEvent(new Event('pause'));
         expect(callbacks.updateStatus).toHaveBeenCalledWith('paused');
-        events.detach();
     });
 
     it('ignores pause while seeking', () => {
-        const { events, video, callbacks, state } = createFixture();
+        const { video, callbacks, state } = createFixture();
         state.status = 'seeking';
         video.dispatchEvent(new Event('pause'));
         expect(callbacks.updateStatus).not.toHaveBeenCalled();
-        events.detach();
     });
 
     it('restores playing status after seek when video is not paused', () => {
-        const { events, video, callbacks, state } = createFixture();
+        const { video, callbacks, state } = createFixture();
         state.status = 'playing';
         video.dispatchEvent(new Event('seeking'));
         Object.defineProperty(video, 'paused', { configurable: true, value: false });
         video.dispatchEvent(new Event('seeked'));
         expect(callbacks.updateStatus).toHaveBeenNthCalledWith(1, 'seeking');
         expect(callbacks.updateStatus).toHaveBeenNthCalledWith(2, 'playing');
-        events.detach();
     });
 
     it('restores paused status after seek when video is paused', () => {
-        const { events, video, callbacks, state } = createFixture();
+        const { video, callbacks, state } = createFixture();
         state.status = 'playing';
         video.dispatchEvent(new Event('seeking'));
         Object.defineProperty(video, 'paused', { configurable: true, value: true });
         video.dispatchEvent(new Event('seeked'));
         expect(callbacks.updateStatus).toHaveBeenNthCalledWith(1, 'seeking');
         expect(callbacks.updateStatus).toHaveBeenNthCalledWith(2, 'paused');
-        events.detach();
     });
 
     it('restores previous non-playing status after seek when paused', () => {
-        const { events, video, callbacks, state } = createFixture();
+        const { video, callbacks, state } = createFixture();
         state.status = 'buffering';
         video.dispatchEvent(new Event('seeking'));
         video.dispatchEvent(new Event('seeked'));
         expect(callbacks.updateStatus).toHaveBeenNthCalledWith(1, 'seeking');
         expect(callbacks.updateStatus).toHaveBeenNthCalledWith(2, 'buffering');
-        events.detach();
     });
 
     it('updates status to buffering on waiting when playing', () => {
-        const { events, video, callbacks, state } = createFixture();
+        const { video, callbacks, state } = createFixture();
         state.status = 'playing';
         video.dispatchEvent(new Event('waiting'));
         expect(callbacks.updateStatus).toHaveBeenCalledWith('buffering');
-        events.detach();
     });
 
     it('ignores waiting when paused', () => {
-        const { events, video, callbacks, state } = createFixture();
+        const { video, callbacks, state } = createFixture();
         state.status = 'paused';
         video.dispatchEvent(new Event('waiting'));
         expect(callbacks.updateStatus).not.toHaveBeenCalled();
-        events.detach();
     });
 
     it('emits ended only when a descriptor is loaded', () => {
-        const { events, video, emitter, callbacks, state } = createFixture();
+        const { video, emitter, callbacks, state } = createFixture();
 
         video.dispatchEvent(new Event('ended'));
         expect(emitter.emit).not.toHaveBeenCalledWith('ended', undefined);
@@ -244,11 +231,10 @@ describe('VideoPlayerEvents', () => {
 
         expect(callbacks.updateStatus).toHaveBeenCalledWith('ended');
         expect(emitter.emit).toHaveBeenCalledWith('ended', undefined);
-        events.detach();
     });
 
     it('handles recoverable and unrecoverable media errors', () => {
-        const { events, video, emitter, callbacks, retryManager } = createFixture();
+        const { video, emitter, callbacks, retryManager } = createFixture();
         const recoverableError: PlaybackError = {
             code: PlayerErrorCode.NETWORK_TIMEOUT,
             message: 'retrying',
@@ -263,7 +249,7 @@ describe('VideoPlayerEvents', () => {
         };
 
         (retryManager.handleMediaError as jest.Mock).mockReturnValueOnce(recoverableError);
-        (video as never as Record<string, number>)[SYNTHETIC_MEDIA_ERROR_CODE_KEY] = 2;
+        (video as unknown as Record<string, number>)[SYNTHETIC_MEDIA_ERROR_CODE_KEY] = 2;
         video.dispatchEvent(new Event('error'));
         expect(callbacks.updateStatus).toHaveBeenCalledWith('buffering');
         expect(emitter.emit).not.toHaveBeenCalledWith('error', recoverableError);
@@ -274,14 +260,13 @@ describe('VideoPlayerEvents', () => {
         expect(callbacks.setState).toHaveBeenCalledWith({ errorInfo: terminalError });
         expect(callbacks.updateStatus).toHaveBeenCalledWith('error');
         expect(emitter.emit).toHaveBeenCalledWith('error', terminalError);
-        events.detach();
     });
 
     it('ignores media errors when retry manager or media code is unavailable', () => {
         const eventsWithoutRetry = new VideoPlayerEvents();
         attachedEvents.push(eventsWithoutRetry);
         const videoWithoutRetry = document.createElement('video');
-        const emitter = { emit: jest.fn() } as never as EventEmitter<PlayerEventMap>;
+        const emitter = { emit: jest.fn() } as unknown as EventEmitter<PlayerEventMap>;
         const state = createState();
         const callbacks = {
             updateStatus: jest.fn((status: VideoPlayerInternalState['status']) => {
@@ -293,20 +278,18 @@ describe('VideoPlayerEvents', () => {
             }),
         };
 
-        eventsWithoutRetry.attach(videoWithoutRetry, emitter, callbacks, null as never as RetryManager);
+        eventsWithoutRetry.attach(videoWithoutRetry, emitter, callbacks, null as unknown as RetryManager);
         Object.defineProperty(videoWithoutRetry, 'error', { configurable: true, value: { code: 4 } });
         videoWithoutRetry.dispatchEvent(new Event('error'));
         expect(callbacks.updateStatus).not.toHaveBeenCalledWith('error');
-        eventsWithoutRetry.detach();
 
-        const { events, video, retryManager } = createFixture();
+        const { video, retryManager } = createFixture();
         video.dispatchEvent(new Event('error'));
         expect(retryManager.handleMediaError).not.toHaveBeenCalled();
-        events.detach();
     });
 
     it('emits time, buffer, and mediaLoaded updates', () => {
-        const { events, video, emitter, callbacks, state } = createFixture();
+        const { video, emitter, callbacks, state } = createFixture();
 
         state.currentDescriptor = {
             url: 'https://example/stream.m3u8',
@@ -350,8 +333,8 @@ describe('VideoPlayerEvents', () => {
             configurable: true,
             value: {
                 length: 1,
-                start: () => 0,
-                end: () => 50,
+                start: (i: number) => [0][i],
+                end: (i: number) => [50][i],
             },
         });
 
@@ -375,17 +358,15 @@ describe('VideoPlayerEvents', () => {
                 subtitle: state.currentDescriptor.subtitleTracks,
             },
         });
-        events.detach();
     });
 
     it('updates metadata duration without emitting mediaLoaded when descriptor is absent', () => {
-        const { events, video, emitter, callbacks } = createFixture();
+        const { video, emitter, callbacks } = createFixture();
         Object.defineProperty(video, 'duration', { configurable: true, value: Number.NaN });
 
         video.dispatchEvent(new Event('loadedmetadata'));
 
         expect(callbacks.setState).toHaveBeenCalledWith({ durationMs: 0 });
         expect(emitter.emit).not.toHaveBeenCalledWith('mediaLoaded', expect.anything());
-        events.detach();
     });
 });

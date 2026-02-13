@@ -126,7 +126,9 @@ describe('PlaybackOptionsModal', () => {
 
         const disabledOption = viewModel.subtitles.options.find((o) => o.id === 'sub-3');
         expect(disabledOption).toBeDefined();
-        expect(disabledOption?.disabled).toBe(true);
+        const disabledButton = container.querySelector('#sub-3') as HTMLButtonElement | null;
+        expect(disabledButton).not.toBeNull();
+        expect(disabledButton!.disabled).toBe(true);
         expect(disabledOption?.onSelect).not.toHaveBeenCalled();
     });
 

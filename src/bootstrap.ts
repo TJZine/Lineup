@@ -286,13 +286,23 @@ async function bootstrap(): Promise<void> {
  * Cleanup when page unloads.
  */
 async function cleanup(): Promise<void> {
-    if (app) {
-        logLifecycle('[Retune] Shutting down...');
-        await app.shutdown();
-        logLifecycle('[Retune] Shut down complete');
-        app = null;
+    const currentApp = app;
+    if (!currentApp) {
+        syncWindowDebugApi(null);
+        return;
     }
-    syncWindowDebugApi(null);
+
+    logLifecycle('[Retune] Shutting down...');
+    try {
+        await currentApp.shutdown();
+        logLifecycle('[Retune] Shut down complete');
+    } catch (error: unknown) {
+        console.error('[Retune] shutdown failed:', summarizeErrorForLog(error));
+        throw error;
+    } finally {
+        app = null;
+        syncWindowDebugApi(null);
+    }
 }
 
 export function installRetuneBootstrap(): void {
@@ -342,12 +352,22 @@ export function uninstallRetuneBootstrap(): void {
  * @internal
  */
 export async function cleanupAndUninstallRetuneBootstrap(): Promise<void> {
-    await cleanup();
-    uninstallRetuneBootstrap();
+    let cleanupError: unknown;
+    try {
+        await cleanup();
+    } catch (error: unknown) {
+        cleanupError = error;
+    } finally {
+        uninstallRetuneBootstrap();
+    }
+    if (cleanupError) {
+        throw cleanupError;
+    }
 }
 
 // Exported as a live binding for integration/debug harnesses.
-// @internal Prefer App APIs over importing this singleton from app code.
+// @internal Test/debug harness surface only; not a stable API for production consumers.
+// Prefer App APIs over importing this singleton from app code.
 export const bootstrapInternals = {
     configureLoggingPolicy,
     isDebugSurfaceEnabled,
