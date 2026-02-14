@@ -688,7 +688,7 @@ export class PlaybackRecoveryManager {
 
             // Best-effort: stop the current transcode session before switching back to direct play.
             if (currentDecision.isTranscoding && currentDecision.sessionId) {
-                resolver.stopTranscodeSession(currentDecision.sessionId).catch(() => undefined);
+                void resolver.stopTranscodeSession(currentDecision.sessionId);
             }
 
             const livePosition = ((): number | null => {

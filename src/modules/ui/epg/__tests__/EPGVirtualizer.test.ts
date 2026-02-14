@@ -281,6 +281,111 @@ describe('EPGVirtualizer', () => {
             expect(cell.style.getPropertyValue('--epg-cell-text-shift-px')).toBe('120px');
         });
 
+        it('keeps title gutter stable after forward/back scrubbing and clears stale shift class', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-scrub';
+            const program: ScheduledProgram = {
+                item: {
+                    ratingKey: 'scrub-1',
+                    type: 'movie',
+                    title: 'Scrub Program',
+                    fullTitle: 'Scrub Program',
+                    durationMs: 180 * 60 * 1000, // 3h
+                    thumb: null,
+                    year: 2026,
+                    scheduledIndex: 0,
+                },
+                scheduledStartTime: gridAnchorTime + (30 * 60000), // 00:30
+                scheduledEndTime: gridAnchorTime + (210 * 60000), // 03:30
+                elapsedMs: 0,
+                remainingMs: 0,
+                scheduleIndex: 0,
+                loopNumber: 0,
+                streamDescriptor: null,
+                isCurrent: false,
+            };
+
+            const schedules = new Map<string, ScheduleWindow>([
+                [channelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + (24 * 60 * 60000),
+                    programs: [program],
+                }],
+            ]);
+
+            const key = `${channelId}-${program.scheduledStartTime}`;
+
+            const forwardOffsetMinutes = 120; // 02:00
+            const forwardRange = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: forwardOffsetMinutes });
+            virtualizer.renderVisibleCells([channelId], schedules, forwardRange);
+
+            const forwardCell = container.querySelector(`[data-key="${key}"]`) as HTMLElement;
+            expect(forwardCell).not.toBeNull();
+            expect(forwardCell.classList.contains(EPG_CLASSES.CELL_TEXT_SHIFTED)).toBe(true);
+            const forwardShift = Number(forwardCell.style.getPropertyValue('--epg-cell-text-shift-px').replace('px', ''));
+            const forwardLeft = Number(forwardCell.style.left.replace('px', ''));
+            const forwardTitleLeft = forwardLeft + 12 + forwardShift - (forwardOffsetMinutes * config.pixelsPerMinute);
+            expect(forwardTitleLeft).toBeGreaterThanOrEqual(12);
+
+            const backRange = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], schedules, backRange);
+
+            const backCell = container.querySelector(`[data-key="${key}"]`) as HTMLElement;
+            expect(backCell).not.toBeNull();
+            expect(backCell.classList.contains(EPG_CLASSES.CELL_TEXT_SHIFTED)).toBe(false);
+            expect(backCell.style.getPropertyValue('--epg-cell-text-shift-px')).toBe('');
+            const backTitleLeft = Number(backCell.style.left.replace('px', '')) + 12;
+            expect(backTitleLeft).toBeGreaterThanOrEqual(12);
+        });
+
+        it('keeps left/right text gutters when a long program is mostly clipped by scroll', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-clamp';
+            const program: ScheduledProgram = {
+                item: {
+                    ratingKey: 'clamp-1',
+                    type: 'movie',
+                    title: 'Clamp Program',
+                    fullTitle: 'Clamp Program',
+                    durationMs: 240 * 60 * 1000, // 4h
+                    thumb: null,
+                    year: 2026,
+                    scheduledIndex: 0,
+                },
+                scheduledStartTime: gridAnchorTime,
+                scheduledEndTime: gridAnchorTime + (240 * 60000),
+                elapsedMs: 0,
+                remainingMs: 0,
+                scheduleIndex: 0,
+                loopNumber: 0,
+                streamDescriptor: null,
+                isCurrent: false,
+            };
+            const schedules = new Map<string, ScheduleWindow>([
+                [channelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + (24 * 60 * 60000),
+                    programs: [program],
+                }],
+            ]);
+
+            // Leaves only 40px of the cell visible.
+            const timeOffset = 230;
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset });
+            virtualizer.renderVisibleCells([channelId], schedules, range);
+
+            const key = `${channelId}-${program.scheduledStartTime}`;
+            const cell = container.querySelector(`[data-key="${key}"]`) as HTMLElement;
+            expect(cell).not.toBeNull();
+            const shiftPx = Number(cell.style.getPropertyValue('--epg-cell-text-shift-px').replace('px', ''));
+            const leftPx = Number(cell.style.left.replace('px', ''));
+            const visibleLeft = leftPx - (timeOffset * config.pixelsPerMinute);
+            const visibleRight = visibleLeft + Number(cell.style.width.replace('px', ''));
+            const titleLeft = visibleLeft + 12 + shiftPx;
+            expect(titleLeft).toBeGreaterThanOrEqual(12);
+            expect(visibleRight - titleLeft).toBeGreaterThanOrEqual(12);
+        });
+
         it('does not shift text when the cell is already clipped to the left edge', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-left-clipped';
@@ -326,6 +431,56 @@ describe('EPGVirtualizer', () => {
             expect(cell.style.getPropertyValue('--epg-cell-text-shift-px')).toBe('');
         });
 
+        it('shifts text for pre-anchor long programs after scrolling right', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-pre-anchor';
+
+            const program: ScheduledProgram = {
+                item: {
+                    ratingKey: 'pre-anchor-1',
+                    type: 'movie',
+                    title: 'Pre Anchor Program',
+                    fullTitle: 'Pre Anchor Program',
+                    durationMs: 360 * 60000, // 6h
+                    thumb: null,
+                    year: 2026,
+                    scheduledIndex: 0,
+                },
+                scheduledStartTime: gridAnchorTime - (120 * 60000), // -02:00
+                scheduledEndTime: gridAnchorTime + (240 * 60000),   // +04:00
+                elapsedMs: 0,
+                remainingMs: 0,
+                scheduleIndex: 0,
+                loopNumber: 0,
+                streamDescriptor: null,
+                isCurrent: false,
+            };
+
+            const schedules = new Map<string, ScheduleWindow>([
+                [channelId, {
+                    startTime: gridAnchorTime - (4 * 60 * 60000),
+                    endTime: gridAnchorTime + (24 * 60 * 60000),
+                    programs: [program],
+                }],
+            ]);
+
+            const timeOffset = 90;
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset });
+            virtualizer.renderVisibleCells([channelId], schedules, range);
+
+            const key = `${channelId}-${program.scheduledStartTime}`;
+            const cell = container.querySelector(`[data-key="${key}"]`) as HTMLElement;
+            expect(cell).not.toBeNull();
+            expect(cell.classList.contains(EPG_CLASSES.CELL_TEXT_SHIFTED)).toBe(true);
+
+            const shiftPx = Number(cell.style.getPropertyValue('--epg-cell-text-shift-px').replace('px', ''));
+            expect(shiftPx).toBeGreaterThan(0);
+
+            const leftPx = Number(cell.style.left.replace('px', ''));
+            const titleLeft = leftPx + 12 + shiftPx - (timeOffset * config.pixelsPerMinute);
+            expect(titleLeft).toBeGreaterThanOrEqual(12);
+        });
+
         it('renders show title line for episode programs', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-episode';
@@ -339,15 +494,15 @@ describe('EPGVirtualizer', () => {
                             type: 'episode',
                             title: 'Episode One',
                             fullTitle: 'Great Show - S01E01 - Episode One',
-                            durationMs: 1800000,
+                            durationMs: 3600000,
                             thumb: null,
                             year: 2020,
                             scheduledIndex: 0,
                         },
                         scheduledStartTime: gridAnchorTime,
-                        scheduledEndTime: gridAnchorTime + 1800000,
+                        scheduledEndTime: gridAnchorTime + 3600000,
                         elapsedMs: 0,
-                        remainingMs: 1800000,
+                        remainingMs: 3600000,
                         scheduleIndex: 0,
                         loopNumber: 0,
                         streamDescriptor: null,
@@ -402,6 +557,163 @@ describe('EPGVirtualizer', () => {
             expect(showLine).not.toBeNull();
             expect(showLine?.textContent).toBe('');
             expect(showLine?.style.display).toBe('none');
+        });
+
+        it('hides time line deterministically for tiny-width cells', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-tiny';
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60000),
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'tiny-1',
+                            type: 'movie',
+                            title: 'Tiny Program',
+                            fullTitle: 'Tiny Program',
+                            durationMs: 20 * 60000, // 20 minutes => 80px at 4px/min
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: gridAnchorTime,
+                        scheduledEndTime: gridAnchorTime + (20 * 60000),
+                        elapsedMs: 0,
+                        remainingMs: 0,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${gridAnchorTime}"]`) as HTMLElement;
+            const timeLine = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
+
+            expect(cell.classList.contains('epg-cell-tier-tiny')).toBe(true);
+            expect(timeLine.style.display).toBe('none');
+        });
+
+        it('applies deterministic width-tier classes and line visibility at boundaries', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-tier-boundaries';
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60000),
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'wide-ep',
+                            type: 'episode',
+                            title: 'Wide Episode',
+                            fullTitle: 'Boundary Show - S01E01 - Wide Episode',
+                            durationMs: 55 * 60000, // 220px
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: gridAnchorTime,
+                        scheduledEndTime: gridAnchorTime + (55 * 60000),
+                        elapsedMs: 0,
+                        remainingMs: 0,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                    {
+                        item: {
+                            ratingKey: 'medium-ep',
+                            type: 'episode',
+                            title: 'Medium Episode',
+                            fullTitle: 'Boundary Show - S01E02 - Medium Episode',
+                            durationMs: 35 * 60000, // 140px
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 1,
+                        },
+                        scheduledStartTime: gridAnchorTime + (55 * 60000),
+                        scheduledEndTime: gridAnchorTime + (90 * 60000),
+                        elapsedMs: 0,
+                        remainingMs: 0,
+                        scheduleIndex: 1,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                    {
+                        item: {
+                            ratingKey: 'narrow-ep',
+                            type: 'episode',
+                            title: 'Narrow Episode',
+                            fullTitle: 'Boundary Show - S01E03 - Narrow Episode',
+                            durationMs: 22 * 60000, // 88px
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 2,
+                        },
+                        scheduledStartTime: gridAnchorTime + (90 * 60000),
+                        scheduledEndTime: gridAnchorTime + (112 * 60000),
+                        elapsedMs: 0,
+                        remainingMs: 0,
+                        scheduleIndex: 2,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                    {
+                        item: {
+                            ratingKey: 'tiny-ep',
+                            type: 'episode',
+                            title: 'Tiny Episode',
+                            fullTitle: 'Boundary Show - S01E04 - Tiny Episode',
+                            durationMs: 20 * 60000, // 80px
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 3,
+                        },
+                        scheduledStartTime: gridAnchorTime + (112 * 60000),
+                        scheduledEndTime: gridAnchorTime + (132 * 60000),
+                        elapsedMs: 0,
+                        remainingMs: 0,
+                        scheduleIndex: 3,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+            const wideCell = container.querySelector(`[data-key="${channelId}-${gridAnchorTime}"]`) as HTMLElement;
+            expect(wideCell.classList.contains(EPG_CLASSES.CELL_TIER_WIDE)).toBe(true);
+            expect((wideCell.querySelector(`.${EPG_CLASSES.CELL_SHOW}`) as HTMLElement).style.display).toBe('block');
+            expect((wideCell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement).style.display).toBe('block');
+
+            const mediumStart = gridAnchorTime + (55 * 60000);
+            const mediumCell = container.querySelector(`[data-key="${channelId}-${mediumStart}"]`) as HTMLElement;
+            expect(mediumCell.classList.contains(EPG_CLASSES.CELL_TIER_MEDIUM)).toBe(true);
+            expect((mediumCell.querySelector(`.${EPG_CLASSES.CELL_SHOW}`) as HTMLElement).style.display).toBe('none');
+            expect((mediumCell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement).style.display).toBe('block');
+
+            const narrowStart = gridAnchorTime + (90 * 60000);
+            const narrowCell = container.querySelector(`[data-key="${channelId}-${narrowStart}"]`) as HTMLElement;
+            expect(narrowCell.classList.contains(EPG_CLASSES.CELL_TIER_NARROW)).toBe(true);
+            expect((narrowCell.querySelector(`.${EPG_CLASSES.CELL_SHOW}`) as HTMLElement).style.display).toBe('none');
+            expect((narrowCell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement).style.display).toBe('none');
+
+            const tinyStart = gridAnchorTime + (112 * 60000);
+            const tinyCell = container.querySelector(`[data-key="${channelId}-${tinyStart}"]`) as HTMLElement;
+            expect(tinyCell.classList.contains(EPG_CLASSES.CELL_TIER_TINY)).toBe(true);
+            expect((tinyCell.querySelector(`.${EPG_CLASSES.CELL_SHOW}`) as HTMLElement).style.display).toBe('none');
+            expect((tinyCell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement).style.display).toBe('none');
         });
 
         it('renders loading placeholders when schedules are missing', () => {

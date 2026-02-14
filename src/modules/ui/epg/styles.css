@@ -389,6 +389,78 @@
   overflow: hidden;
 }
 
+.epg-program-edge-mask {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 16px;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.epg-program-edge-mask-left {
+  left: 0;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0));
+}
+
+.epg-program-edge-mask-right {
+  right: 0;
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0));
+}
+
+.epg-scrub-label {
+  position: absolute;
+  top: 10px;
+  left: 22px;
+  right: 22px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  pointer-events: none;
+  z-index: 8;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+
+.epg-scrub-label.visible {
+  opacity: 1;
+}
+
+.epg-scrub-label-title {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.epg-scrub-label-time,
+.epg-scrub-label-channel {
+  font-size: 15px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.epg-scrub-label-time {
+  color: rgba(255, 255, 255, 0.78);
+  margin-top: 2px;
+}
+
+.epg-scrub-label-channel {
+  color: rgba(255, 255, 255, 0.62);
+  margin-top: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .epg-scrub-label {
+    transition: none;
+  }
+}
+
 /* Program Cells */
 .epg-cell {
   position: absolute;
@@ -403,7 +475,7 @@
   box-sizing: border-box;
   margin: 2px;
   contain: layout paint;
-  transition: transform 80ms ease-out;
+  transition: background-color 80ms ease-out, outline-color 80ms ease-out;
   cursor: pointer;
 }
 
@@ -450,7 +522,6 @@
 
 .epg-cell.focused {
   background: var(--focus-color, #00a8e1);
-  transform: scale(1.02);
   z-index: 10;
   box-shadow: none;
   outline: 2px solid rgba(0, 0, 0, 0.55);
@@ -526,6 +597,26 @@
 .epg-cell.text-shifted .epg-cell-show,
 .epg-cell.text-shifted .epg-cell-time {
   transform: translateX(var(--epg-cell-text-shift-px));
+}
+
+.epg-cell-tier-medium .epg-cell-show,
+.epg-cell-tier-narrow .epg-cell-show,
+.epg-cell-tier-tiny .epg-cell-show {
+  display: none;
+}
+
+.epg-cell-tier-narrow .epg-cell-time,
+.epg-cell-tier-tiny .epg-cell-time {
+  display: none;
+}
+
+.epg-cell-tier-narrow .epg-cell-title,
+.epg-cell-tier-tiny .epg-cell-title {
+  margin-top: 0;
+}
+
+.epg-cell-tier-tiny .epg-cell-title {
+  font-size: 20px;
 }
 
 /* =========================================

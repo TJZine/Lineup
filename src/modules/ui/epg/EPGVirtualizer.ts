@@ -47,6 +47,23 @@ export function positionCell(
     };
 }
 
+const TEXT_GUTTER_PX = 12;
+const TEXT_RIGHT_GUTTER_PX = 12;
+const TIER_WIDE_MIN_PX = 220;
+const TIER_MEDIUM_MIN_PX = 140;
+const TIER_NARROW_MIN_PX = 88;
+
+type CellWidthTier = 'wide' | 'medium' | 'narrow' | 'tiny';
+
+type VisibleTextMetrics = {
+    visibleLeftPx: number;
+    visibleRightPx: number;
+    visibleWidthPx: number;
+    safeTextShiftPx: number;
+    isLeftClippedByCell: boolean;
+    isLeftClippedByScroll: boolean;
+};
+
 
 
 /**
@@ -328,10 +345,11 @@ export class EPGVirtualizer {
                     const cell = positionCell(program, this.gridAnchorTime, this.config.pixelsPerMinute);
                     const isCurrent = now >= program.scheduledStartTime && now < program.scheduledEndTime;
                     const isPast = now >= program.scheduledEndTime;
+                    const rawLeft = cell.left;
                     // If the program started before the visible guide window, clip to the left edge (no past).
-                    let left = cell.left;
+                    let left = rawLeft;
                     let width = cell.width;
-                    const wasLeftClipped = left < 0;
+                    const wasLeftClipped = rawLeft < 0;
                     if (wasLeftClipped) {
                         width = Math.max(20, width + left);
                         left = 0;
@@ -343,17 +361,14 @@ export class EPGVirtualizer {
                     const isPartial =
                         programStartMinutes < visibleWindowStartMinutes ||
                         programEndMinutes > visibleWindowEndMinutes;
-
-                    const shouldShiftText = !wasLeftClipped &&
-                        programStartMinutes < visibleWindowStartMinutes &&
-                        programEndMinutes > visibleWindowStartMinutes;
-                    const hiddenLeftMinutes = shouldShiftText
-                        ? (visibleWindowStartMinutes - programStartMinutes)
-                        : 0;
-                    const rawShiftPx = hiddenLeftMinutes * this.config.pixelsPerMinute;
-                    // Clamp to avoid shifting text beyond the visible portion of the cell.
-                    const maxShiftPx = Math.max(0, width - 24);
-                    const textShiftPx = Math.max(0, Math.min(rawShiftPx, maxShiftPx));
+                    const textMetrics = this.computeVisibleTextMetrics({
+                        rawLeftPx: rawLeft,
+                        clippedLeftPx: left,
+                        clippedWidthPx: width,
+                        visibleWindowStartMinutes,
+                        visibleWindowEndMinutes,
+                    });
+                    const textShiftPx = textMetrics.safeTextShiftPx;
 
                     addCell({
                         kind: 'program',
@@ -534,13 +549,16 @@ export class EPGVirtualizer {
     private resetElement(element: HTMLElement): void {
         const show = element.querySelector(`.${EPG_CLASSES.CELL_SHOW}`) as HTMLElement | null;
         const title = element.querySelector(`.${EPG_CLASSES.CELL_TITLE}`);
-        const time = element.querySelector(`.${EPG_CLASSES.CELL_TIME}`);
+        const time = element.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement | null;
         if (show) {
             show.textContent = '';
             show.style.display = 'none';
         }
         if (title) title.textContent = '';
-        if (time) time.textContent = '';
+        if (time) {
+            time.textContent = '';
+            time.style.display = 'block';
+        }
         const liveBadge = element.querySelector('.epg-live-badge');
         if (liveBadge) liveBadge.remove();
 
@@ -555,7 +573,12 @@ export class EPGVirtualizer {
             EPG_CLASSES.CELL_FOCUSED,
             EPG_CLASSES.CELL_CURRENT,
             EPG_CLASSES.CELL_PAST,
-            EPG_CLASSES.CELL_LOADING
+            EPG_CLASSES.CELL_LOADING,
+            EPG_CLASSES.CELL_TEXT_SHIFTED,
+            EPG_CLASSES.CELL_TIER_WIDE,
+            EPG_CLASSES.CELL_TIER_MEDIUM,
+            EPG_CLASSES.CELL_TIER_NARROW,
+            EPG_CLASSES.CELL_TIER_TINY
         );
         element.removeAttribute('data-key');
     }
@@ -583,6 +606,111 @@ export class EPGVirtualizer {
 
         show.textContent = '';
         show.style.display = 'none';
+    }
+
+    private getCellWidthTier(width: number): CellWidthTier {
+        if (width >= TIER_WIDE_MIN_PX) return 'wide';
+        if (width >= TIER_MEDIUM_MIN_PX) return 'medium';
+        if (width >= TIER_NARROW_MIN_PX) return 'narrow';
+        return 'tiny';
+    }
+
+    private applyWidthTierPresentation(element: HTMLElement, cellData: CellRenderData): void {
+        element.classList.remove(
+            EPG_CLASSES.CELL_TIER_WIDE,
+            EPG_CLASSES.CELL_TIER_MEDIUM,
+            EPG_CLASSES.CELL_TIER_NARROW,
+            EPG_CLASSES.CELL_TIER_TINY
+        );
+
+        const time = element.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement | null;
+        const show = element.querySelector(`.${EPG_CLASSES.CELL_SHOW}`) as HTMLElement | null;
+        const tier = this.getCellWidthTier(cellData.width);
+
+        if (tier === 'wide') {
+            element.classList.add(EPG_CLASSES.CELL_TIER_WIDE);
+            if (time) time.style.display = 'block';
+            return;
+        }
+
+        if (tier === 'medium') {
+            element.classList.add(EPG_CLASSES.CELL_TIER_MEDIUM);
+            if (show) show.style.display = 'none';
+            if (time) time.style.display = 'block';
+            return;
+        }
+
+        if (tier === 'narrow') {
+            element.classList.add(EPG_CLASSES.CELL_TIER_NARROW);
+            if (show) show.style.display = 'none';
+            if (time) time.style.display = 'none';
+            return;
+        }
+
+        element.classList.add(EPG_CLASSES.CELL_TIER_TINY);
+        if (show) show.style.display = 'none';
+        if (time) time.style.display = 'none';
+    }
+
+    private computeVisibleTextMetrics(input: {
+        rawLeftPx: number;
+        clippedLeftPx: number;
+        clippedWidthPx: number;
+        visibleWindowStartMinutes: number;
+        visibleWindowEndMinutes: number;
+    }): VisibleTextMetrics {
+        if (!this.config) {
+            return {
+                visibleLeftPx: 0,
+                visibleRightPx: 0,
+                visibleWidthPx: 0,
+                safeTextShiftPx: 0,
+                isLeftClippedByCell: false,
+                isLeftClippedByScroll: false,
+            };
+        }
+
+        const {
+            rawLeftPx,
+            clippedLeftPx,
+            clippedWidthPx,
+            visibleWindowStartMinutes,
+            visibleWindowEndMinutes,
+        } = input;
+        const ppm = this.config.pixelsPerMinute;
+        const clippedRightPx = clippedLeftPx + clippedWidthPx;
+        const visibleWindowLeftPx = visibleWindowStartMinutes * ppm;
+        const visibleWindowRightPx = visibleWindowEndMinutes * ppm;
+        const visibleLeftPx = Math.max(clippedLeftPx, visibleWindowLeftPx);
+        const visibleRightPx = Math.min(clippedRightPx, visibleWindowRightPx);
+        const visibleWidthPx = Math.max(0, visibleRightPx - visibleLeftPx);
+        const hiddenLeftPx = Math.max(0, visibleLeftPx - clippedLeftPx);
+        const isLeftClippedByCell = rawLeftPx < 0;
+        const isLeftClippedByScroll = hiddenLeftPx > 0;
+
+        if (!isLeftClippedByScroll || visibleWidthPx <= 0) {
+            return {
+                visibleLeftPx,
+                visibleRightPx,
+                visibleWidthPx,
+                safeTextShiftPx: 0,
+                isLeftClippedByCell,
+                isLeftClippedByScroll,
+            };
+        }
+
+        const desiredShiftPx = hiddenLeftPx;
+        const maxShiftPx = Math.max(0, clippedWidthPx - (TEXT_GUTTER_PX + TEXT_RIGHT_GUTTER_PX));
+        const safeTextShiftPx = Math.max(0, Math.min(desiredShiftPx, maxShiftPx));
+
+        return {
+            visibleLeftPx,
+            visibleRightPx,
+            visibleWidthPx,
+            safeTextShiftPx,
+            isLeftClippedByCell,
+            isLeftClippedByScroll,
+        };
     }
 
     /**
@@ -615,6 +743,7 @@ export class EPGVirtualizer {
             element.classList.add(EPG_CLASSES.CELL_LOADING);
         }
         this.updateShowLine(element, cellData);
+        this.applyWidthTierPresentation(element, cellData);
 
         if (cellData.textShiftPx > 0) {
             element.classList.add(EPG_CLASSES.CELL_TEXT_SHIFTED);
@@ -755,6 +884,7 @@ export class EPGVirtualizer {
             element.classList.add(EPG_CLASSES.CELL_LOADING);
         }
         this.updateShowLine(element, cellData);
+        this.applyWidthTierPresentation(element, cellData);
     }
 
     /**

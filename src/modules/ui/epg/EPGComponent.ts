@@ -12,7 +12,7 @@ import { EPGTimeHeader } from './EPGTimeHeader';
 import { EPGChannelList } from './EPGChannelList';
 import { EPGErrorBoundary } from './EPGErrorBoundary';
 import { EPGLibraryTabs } from './EPGLibraryTabs';
-import { rafThrottle, appendEpgDebugLog } from './utils';
+import { rafThrottle, appendEpgDebugLog, formatTimeRange } from './utils';
 import type { IEPGComponent } from './interfaces';
 import type {
     EPGConfig,
@@ -46,6 +46,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         scrollPosition: { channelOffset: 0, timeOffset: 0 },
         currentTime: Date.now(),
         gridAnchorTime: 0,
+        isScrubbingHorizontally: false,
+        scrubLabelProgramKey: null,
         lastRenderTime: 0,
     };
 
@@ -61,6 +63,10 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private gridElement: HTMLElement | null = null;
     private programAreaElement: HTMLElement | null = null;
     private timeIndicatorElement: HTMLElement | null = null;
+    private scrubLabelElement: HTMLElement | null = null;
+    private scrubLabelTitleElement: HTMLElement | null = null;
+    private scrubLabelTimeElement: HTMLElement | null = null;
+    private scrubLabelChannelElement: HTMLElement | null = null;
     private nowWatchingBannerElement: HTMLElement | null = null;
     private nowWatchingChannelElement: HTMLElement | null = null;
     private nowWatchingProgramElement: HTMLElement | null = null;
@@ -79,6 +85,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
     // Timers
     private timeUpdateInterval: ReturnType<typeof setInterval> | null = null;
+    private scrubLabelHideTimer: ReturnType<typeof setTimeout> | null = null;
     private _onVisibilityChange = (): void => {
         if (!this.state.isVisible) return;
         if (document.visibilityState === 'visible') {
@@ -166,6 +173,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
      * Destroy the EPG component and clean up resources.
      */
     destroy(): void {
+        this.hideScrubLabel(true);
         this._clearInfoPanelFullUpdateTimer();
         this.stopTimeUpdateInterval();
         document.removeEventListener('visibilitychange', this._onVisibilityChange);
@@ -189,6 +197,10 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.gridElement = null;
         this.programAreaElement = null;
         this.timeIndicatorElement = null;
+        this.scrubLabelElement = null;
+        this.scrubLabelTitleElement = null;
+        this.scrubLabelTimeElement = null;
+        this.scrubLabelChannelElement = null;
         this.nowWatchingBannerElement = null;
         this.nowWatchingChannelElement = null;
         this.nowWatchingProgramElement = null;
@@ -205,6 +217,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             scrollPosition: { channelOffset: 0, timeOffset: 0 },
             currentTime: Date.now(),
             gridAnchorTime: 0,
+            isScrubbingHorizontally: false,
+            scrubLabelProgramKey: null,
             lastRenderTime: 0,
         };
         this.hasRenderedOnce = false;
@@ -286,9 +300,43 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.nowWatchingTimeElement = this.containerElement.querySelector(
             `.${EPG_CLASSES.NOW_WATCHING_TIME}`
         );
+        this.initializeProgramAreaOverlays();
         if (this.nowWatchingBannerElement) {
             this.nowWatchingBannerElement.hidden = true;
         }
+    }
+
+    private initializeProgramAreaOverlays(): void {
+        if (!this.programAreaElement) return;
+
+        const leftMask = document.createElement('div');
+        leftMask.className = `${EPG_CLASSES.PROGRAM_EDGE_MASK} ${EPG_CLASSES.PROGRAM_EDGE_MASK_LEFT}`;
+        leftMask.setAttribute('aria-hidden', 'true');
+        this.programAreaElement.appendChild(leftMask);
+
+        const rightMask = document.createElement('div');
+        rightMask.className = `${EPG_CLASSES.PROGRAM_EDGE_MASK} ${EPG_CLASSES.PROGRAM_EDGE_MASK_RIGHT}`;
+        rightMask.setAttribute('aria-hidden', 'true');
+        this.programAreaElement.appendChild(rightMask);
+
+        this.scrubLabelElement = document.createElement('div');
+        this.scrubLabelElement.className = EPG_CLASSES.SCRUB_LABEL;
+        this.scrubLabelElement.setAttribute('aria-hidden', 'true');
+        this.scrubLabelElement.hidden = true;
+
+        this.scrubLabelTitleElement = document.createElement('div');
+        this.scrubLabelTitleElement.className = EPG_CLASSES.SCRUB_LABEL_TITLE;
+        this.scrubLabelElement.appendChild(this.scrubLabelTitleElement);
+
+        this.scrubLabelTimeElement = document.createElement('div');
+        this.scrubLabelTimeElement.className = EPG_CLASSES.SCRUB_LABEL_TIME;
+        this.scrubLabelElement.appendChild(this.scrubLabelTimeElement);
+
+        this.scrubLabelChannelElement = document.createElement('div');
+        this.scrubLabelChannelElement.className = EPG_CLASSES.SCRUB_LABEL_CHANNEL;
+        this.scrubLabelElement.appendChild(this.scrubLabelChannelElement);
+
+        this.programAreaElement.appendChild(this.scrubLabelElement);
     }
 
     /**
@@ -465,6 +513,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         document.removeEventListener('visibilitychange', this._onVisibilityChange);
 
         this._clearInfoPanelFullUpdateTimer();
+        this.hideScrubLabel(true);
         this.infoPanel.hide();
         this._isLibraryTabsFocused = false;
         this._libraryTabs?.destroy();
@@ -1127,16 +1176,93 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         switch (direction) {
             case 'up':
-                return this.navigateUp();
+                return this.handleVerticalNavigation('up');
             case 'down':
-                return this.navigateDown();
+                return this.handleVerticalNavigation('down');
             case 'left':
-                return this.navigateLeft();
+                return this.handleHorizontalNavigation('left');
             case 'right':
-                return this.navigateRight();
+                return this.handleHorizontalNavigation('right');
             default:
                 return false;
         }
+    }
+
+    private handleVerticalNavigation(direction: 'up' | 'down'): boolean {
+        const handled = direction === 'up' ? this.navigateUp() : this.navigateDown();
+        if (handled) {
+            this.hideScrubLabel(true);
+        }
+        return handled;
+    }
+
+    private handleHorizontalNavigation(direction: 'left' | 'right'): boolean {
+        const handled = direction === 'left' ? this.navigateLeft() : this.navigateRight();
+        if (handled) {
+            this.showScrubLabelForFocusedProgram();
+        }
+        return handled;
+    }
+
+    private showScrubLabelForFocusedProgram(): void {
+        if (
+            !this.scrubLabelElement ||
+            !this.scrubLabelTitleElement ||
+            !this.scrubLabelTimeElement ||
+            !this.scrubLabelChannelElement
+        ) {
+            return;
+        }
+
+        const focusedCell = this.state.focusedCell;
+        if (!focusedCell || focusedCell.kind !== 'program') {
+            this.hideScrubLabel(true);
+            return;
+        }
+
+        const channel = this.state.channels[focusedCell.channelIndex];
+        const channelLabel = channel
+            ? `${channel.number} • ${channel.name}`
+            : '';
+        const program = focusedCell.program;
+        const key = `${program.item.ratingKey}::${program.scheduledStartTime}`;
+
+        this.scrubLabelTitleElement.textContent = program.item.title;
+        this.scrubLabelTimeElement.textContent = formatTimeRange(
+            program.scheduledStartTime,
+            program.scheduledEndTime
+        );
+        this.scrubLabelChannelElement.textContent = channelLabel;
+
+        this.state.isScrubbingHorizontally = true;
+        this.state.scrubLabelProgramKey = key;
+        this.scrubLabelElement.hidden = false;
+        this.scrubLabelElement.classList.add(EPG_CLASSES.SCRUB_LABEL_VISIBLE);
+        this.scheduleScrubLabelHide();
+    }
+
+    private scheduleScrubLabelHide(): void {
+        if (this.scrubLabelHideTimer !== null) {
+            clearTimeout(this.scrubLabelHideTimer);
+        }
+        this.scrubLabelHideTimer = setTimeout(() => {
+            this.hideScrubLabel(false);
+        }, 450);
+    }
+
+    private hideScrubLabel(clearTimer: boolean): void {
+        if (this.scrubLabelHideTimer !== null) {
+            if (clearTimer) {
+                clearTimeout(this.scrubLabelHideTimer);
+            }
+            this.scrubLabelHideTimer = null;
+        }
+
+        this.state.isScrubbingHorizontally = false;
+        this.state.scrubLabelProgramKey = null;
+        if (!this.scrubLabelElement) return;
+        this.scrubLabelElement.classList.remove(EPG_CLASSES.SCRUB_LABEL_VISIBLE);
+        this.scrubLabelElement.hidden = true;
     }
 
     /**
@@ -1169,6 +1295,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
 
         this.focusProgramAtTime(targetChannelIndex, baseTimeMs);
+        this.hideScrubLabel(true);
         return true;
     }
 

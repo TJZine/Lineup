@@ -612,6 +612,38 @@ describe('NavigationCoordinator', () => {
         expect(navigation.closeModal).toHaveBeenCalledWith(NOW_PLAYING_INFO_MODAL_ID);
     });
 
+    it('reports a toast when resume playback fails on screen change', async () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const reportToast = jest.fn();
+        const { handlers, deps, videoPlayer } = setup();
+        (deps as unknown as { reportToast?: (toast: unknown) => void }).reportToast = reportToast;
+        (videoPlayer.play as jest.Mock).mockRejectedValueOnce(new Error('play failed'));
+
+        handlers.screenChange?.({ from: 'settings', to: 'player' });
+        await Promise.resolve();
+
+        expect(warnSpy).toHaveBeenCalled();
+        expect(reportToast).toHaveBeenCalledWith(
+            expect.objectContaining({ message: expect.any(String), type: 'warning' })
+        );
+    });
+
+    it('reports a toast when Play key playback fails', async () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const reportToast = jest.fn();
+        const { handlers, deps, videoPlayer } = setup();
+        (deps as unknown as { reportToast?: (toast: unknown) => void }).reportToast = reportToast;
+        (videoPlayer.play as jest.Mock).mockRejectedValueOnce(new Error('play failed'));
+
+        handlers.keyPress?.(makeKeyEvent('play'));
+        await Promise.resolve();
+
+        expect(warnSpy).toHaveBeenCalled();
+        expect(reportToast).toHaveBeenCalledWith(
+            expect.objectContaining({ message: expect.any(String), type: 'warning' })
+        );
+    });
+
     it('guide hides mini-guide before toggling EPG', () => {
         const { handlers, deps } = setup();
 

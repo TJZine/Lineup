@@ -127,6 +127,7 @@ export class VideoPlayer implements IVideoPlayer {
 
     /** State change handler for Media Session updates */
     private _mediaSessionStateChangeHandler: ((state: PlaybackState) => void) | null = null;
+    private _mediaSessionFailureTimestamps: Map<string, number> = new Map();
 
     /** Internal state */
     private _state: VideoPlayerInternalState = this._createInitialState();
@@ -1017,24 +1018,47 @@ export class VideoPlayer implements IVideoPlayer {
                 case 'seekto': {
                     const seekTimeSec = this._extractSeekTime(details);
                     if (seekTimeSec !== null) {
-                        void this.seekTo(seekTimeSec * 1000).catch(() => { /* swallow */ });
+                        void this.seekTo(seekTimeSec * 1000).catch((error: unknown) => {
+                            this._warnMediaSessionActionFailure('seekto', error);
+                        });
                     }
                     break;
                 }
 
                 case 'seekbackward': {
                     const offsetSec = this._extractSeekOffset(details);
-                    void this.seekRelative(-offsetSec * 1000).catch(() => { /* swallow */ });
+                    void this.seekRelative(-offsetSec * 1000).catch((error: unknown) => {
+                        this._warnMediaSessionActionFailure('seekbackward', error);
+                    });
                     break;
                 }
 
                 case 'seekforward': {
                     const offsetSec = this._extractSeekOffset(details);
-                    void this.seekRelative(offsetSec * 1000).catch(() => { /* swallow */ });
+                    void this.seekRelative(offsetSec * 1000).catch((error: unknown) => {
+                        this._warnMediaSessionActionFailure('seekforward', error);
+                    });
                     break;
                 }
             }
         };
+    }
+
+    private _warnMediaSessionActionFailure(action: MediaSessionActionLike, error: unknown): void {
+        const now = Date.now();
+        const key = `mediaSession:${action}`;
+        const last = this._mediaSessionFailureTimestamps.get(key) ?? 0;
+        if (now - last < 5000) {
+            return;
+        }
+        if (this._mediaSessionFailureTimestamps.size > 20) {
+            this._mediaSessionFailureTimestamps.clear();
+        }
+        this._mediaSessionFailureTimestamps.set(key, now);
+        console.warn('[VideoPlayer] MediaSession action failed:', {
+            action,
+            error: summarizeErrorForLog(error),
+        });
     }
 
     /**

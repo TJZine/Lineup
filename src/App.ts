@@ -712,7 +712,7 @@ export class App {
                         () => this._orchestrator?.getNavigation() ?? null,
                         (mode): void => {
                             if (mode !== 'off') return;
-                            void this._orchestrator?.setSubtitleTrack(null).catch(() => undefined);
+                            void this._orchestrator?.setSubtitleTrack(null);
                         },
                         (change): void => {
                             this._orchestrator?.onGuideSettingChange(change);
