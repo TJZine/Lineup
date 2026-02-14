@@ -38,6 +38,7 @@ import {
     readStoredBooleanWithLegacy,
     safeLocalStorageGet,
 } from '../../../utils/storage';
+import { summarizeErrorForLog } from '../../../utils/errors';
 import { redactSensitiveTokens } from '../../../utils/redact';
 import { detectHdrLabel } from './hdr';
 import {
@@ -833,7 +834,10 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             );
             this._throwIfAuthFailure(response);
         } catch (error) {
-            console.warn('[PlexStreamResolver] Failed to stop transcode session:', error);
+            console.warn('[PlexStreamResolver] stopTranscodeSession failed:', {
+                sessionId: trimmedSessionId,
+                error: summarizeErrorForLog(error),
+            });
         }
     }
 

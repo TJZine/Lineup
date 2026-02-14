@@ -856,6 +856,24 @@ describe('PlexStreamResolver', () => {
                 expect.objectContaining({ method: 'DELETE' })
             );
         });
+
+        it('logs a warning with session context when stopTranscodeSession fails', async () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const config = createMockConfig();
+            const resolver = new PlexStreamResolver(config);
+
+            mockFetch.mockRejectedValueOnce(new Error('network down'));
+
+            await resolver.stopTranscodeSession('sess-1');
+
+            expect(warnSpy).toHaveBeenCalledWith(
+                '[PlexStreamResolver] stopTranscodeSession failed:',
+                expect.objectContaining({
+                    sessionId: 'sess-1',
+                    error: expect.anything(),
+                })
+            );
+        });
     });
 
     // ========================================

@@ -806,6 +806,9 @@ export class AppOrchestrator implements IAppOrchestrator {
             hideChannelTransition: (): void => {
                 this._channelTransitionCoordinator?.hide();
             },
+            reportToast: (toast): void => {
+                this._nowPlayingHandler?.(toast);
+            },
         });
 
         // Create InitializationCoordinator with dependencies and callbacks
@@ -1109,6 +1112,9 @@ export class AppOrchestrator implements IAppOrchestrator {
             await this._videoPlayer.setSubtitleTrack(trackId);
         } catch (error) {
             console.warn('[Orchestrator] setSubtitleTrack failed:', summarizeErrorForLog(error));
+            if (this._nowPlayingHandler) {
+                this._nowPlayingHandler({ message: 'Could not update subtitles', type: 'warning' });
+            }
         }
     }
 
@@ -1999,7 +2005,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 if (this._nowPlayingHandler) {
                     this._nowPlayingHandler({ message: 'Burn-in subtitles are disabled in Settings', type: 'warning' });
                 }
-                void this._videoPlayer.setSubtitleTrack(null).catch(() => undefined);
+                void this.setSubtitleTrack(null);
                 return;
             }
 
@@ -2243,7 +2249,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         if (!decision || !decision.isTranscoding || !decision.sessionId) {
             return;
         }
-        this._plexStreamResolver?.stopTranscodeSession(decision.sessionId).catch(() => { /* swallow */ });
+        void this._plexStreamResolver?.stopTranscodeSession(decision.sessionId);
     }
 
     private _stopPlayback(): void {

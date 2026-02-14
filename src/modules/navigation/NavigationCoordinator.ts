@@ -66,6 +66,7 @@ export interface NavigationCoordinatorDeps {
     shouldRunChannelSetup: () => boolean;
     hidePlayerOsd: () => void;
     hideChannelTransition: () => void;
+    reportToast?: (toast: { message: string; type: 'warning' | 'error' | 'info' | 'success' }) => void;
 }
 
 export class NavigationCoordinator {
@@ -76,8 +77,37 @@ export class NavigationCoordinator {
     private _miniGuideRepeatButton: 'up' | 'down' | null = null;
     private _miniGuideRepeatStartMs = 0;
     private _suppressedLogTimestamps: Map<string, number> = new Map();
+    private _nonBlockingFailureTimestamps: Map<string, number> = new Map();
 
     constructor(private readonly deps: NavigationCoordinatorDeps) { }
+
+    private _warnNonBlockingFailure(
+        key: string,
+        message: string,
+        error: unknown
+    ): void {
+        const now = Date.now();
+        const last = this._nonBlockingFailureTimestamps.get(key);
+        if (typeof last === 'number' && now - last < 5000) {
+            return;
+        }
+        if (this._nonBlockingFailureTimestamps.size > 20) {
+            this._nonBlockingFailureTimestamps.clear();
+        }
+        this._nonBlockingFailureTimestamps.set(key, now);
+        console.warn(message, summarizeErrorForLog(error));
+    }
+
+    private _fireAndReport(
+        key: string,
+        promise: Promise<void>,
+        toastMessage: string
+    ): void {
+        void promise.catch((error: unknown) => {
+            this._warnNonBlockingFailure(key, `[Navigation] ${key} failed:`, error);
+            this.deps.reportToast?.({ message: toastMessage, type: 'warning' });
+        });
+    }
 
     wireNavigationEvents(): Array<() => void> {
         const navigation = this.deps.getNavigation();
@@ -231,7 +261,9 @@ export class NavigationCoordinator {
 
         // Resume playback when returning to player
         if (to === 'player' && from !== 'player') {
-            videoPlayer?.play().catch(() => undefined);
+            if (videoPlayer) {
+                this._fireAndReport('resume_play', videoPlayer.play(), 'Playback failed to resume');
+            }
         }
     }
 
@@ -511,11 +543,18 @@ export class NavigationCoordinator {
                     if (!player) {
                         break;
                     }
-                    player.play()
-                        .then(() => {
+                    const playPromise = player.play();
+                    this._fireAndReport(
+                        'remote_play',
+                        playPromise,
+                        'Unable to start playback'
+                    );
+                    void playPromise.then(
+                        () => {
                             this.deps.pokePlayerOsd('play');
-                        })
-                        .catch(() => undefined);
+                        },
+                        () => undefined
+                    );
                 }
                 break;
             case 'pause':

@@ -1112,6 +1112,27 @@ describe('VideoPlayer', () => {
                 expect(currentTimeValue).toBe(45); // 50 - 5
             });
 
+            it('logs a warning when Media Session seek handlers reject', async () => {
+                const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+                await player.loadStream(createMockDescriptor());
+                player.requestMediaSession();
+
+                jest.spyOn(player, 'seekTo').mockRejectedValueOnce(new Error('seek failed'));
+
+                const seektoHandler = mockMediaSession.handlers.get('seekto');
+                if (!seektoHandler) {
+                    throw new Error('seekto handler not installed');
+                }
+
+                seektoHandler({ seekTime: 12 });
+                await Promise.resolve();
+
+                expect(warnSpy).toHaveBeenCalledWith(
+                    '[VideoPlayer] MediaSession action failed:',
+                    expect.objectContaining({ action: 'seekto' })
+                );
+            });
+
             it('should clear handlers and metadata on releaseMediaSession', async () => {
                 await player.loadStream(createMockDescriptor({
                     mediaMetadata: { title: 'Test', durationMs: 1000 },
