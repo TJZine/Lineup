@@ -20,7 +20,7 @@
   <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License: Apache 2.0">
   <img src="https://img.shields.io/badge/platform-webOS%206.0%2B-brightgreen.svg" alt="Platform: webOS 6.0+">
   <img src="https://img.shields.io/badge/typescript-5.3-blue.svg" alt="TypeScript 5.3">
-  <img src="https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg" alt="Node >= 18.0.0">
+  <img src="https://img.shields.io/badge/node-%5E20.19.0_%7C%7C_%3E%3D22.12.0-green.svg" alt="Node ^20.19.0 || >=22.12.0">
 </p>
 
 ---
@@ -85,6 +85,9 @@ Get Retune running in 5 minutes:
 # Clone the repository
 git clone https://github.com/TJZine/Retune.git
 cd Retune
+
+# Use the recommended Node version from .nvmrc
+nvm use
 
 # Install dependencies
 npm install
@@ -158,6 +161,7 @@ ares-launch --device my-tv com.retune.app
 | Component | Requirement |
 |-----------|-------------|
 | **TV** | LG Smart TV (2021+ with webOS 6.0 or later) |
+| **Node.js (development)** | `^20.19.0 || >=22.12.0` (recommended: `nvm use`) |
 | **Plex Server** | Plex Media Server (any recent version) |
 | **Plex Account** | Free or Plex Pass |
 | **Network** | TV and Plex server on same network (or Plex relay enabled) |

@@ -10,15 +10,20 @@ concurrency:
 
 jobs:
   lint:
+    name: Lint (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['20.19.0', '22.19.0']
     steps:
       - uses: actions/checkout@v4
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node-version }}
           cache: 'npm'
       
       - name: Install dependencies
@@ -31,15 +36,20 @@ jobs:
 
 
   type-check:
+    name: Type Check (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['20.19.0', '22.19.0']
     steps:
       - uses: actions/checkout@v4
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node-version }}
           cache: 'npm'
       
       - name: Install dependencies
@@ -49,15 +59,20 @@ jobs:
         run: npm run typecheck
 
   test:
+    name: Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['20.19.0', '22.19.0']
     steps:
       - uses: actions/checkout@v4
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node-version }}
           cache: 'npm'
       
       - name: Install dependencies
@@ -67,6 +82,7 @@ jobs:
         run: npm test -- --coverage
       
       - name: Upload coverage
+        if: matrix.node-version == '22.19.0'
         uses: codecov/codecov-action@v4
         with:
           fail_ci_if_error: false
@@ -74,16 +90,21 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   build:
+    name: Build (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [lint, type-check, test]
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['20.19.0', '22.19.0']
     steps:
       - uses: actions/checkout@v4
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node-version }}
           cache: 'npm'
       
       - name: Install dependencies
@@ -93,7 +114,7 @@ jobs:
         run: npm run build
       
       - name: Upload build artifacts
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && matrix.node-version == '22.19.0'
         uses: actions/upload-artifact@v4
         with:
           name: dist
