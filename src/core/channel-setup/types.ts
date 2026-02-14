@@ -24,6 +24,8 @@ export interface ChannelSetupConfig {
     minItemsPerChannel: number;
 }
 
+export type ChannelSetupContext = 'first-time' | 'existing' | 'unknown';
+
 export interface ChannelBuildSummary {
     created: number;
     skipped: number;

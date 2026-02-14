@@ -14,6 +14,7 @@ import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS, MAX_CHANNEL_NUMBER } from '../
 
 import type {
     ChannelSetupConfig,
+    ChannelSetupContext,
     ChannelBuildSummary,
     ChannelBuildProgress,
     ChannelSetupRecord,
@@ -72,6 +73,15 @@ export class ChannelSetupCoordinator {
 
     getSetupRecord(serverId: string): ChannelSetupRecord | null {
         return this._getChannelSetupRecord(serverId);
+    }
+
+    getSetupContextForSelectedServer(): ChannelSetupContext {
+        const channelManager = this.deps.getChannelManager();
+        const serverId = this.deps.getSelectedServerId();
+        if (!channelManager || !serverId) {
+            return 'unknown';
+        }
+        return channelManager.getAllChannels().length === 0 ? 'first-time' : 'existing';
     }
 
     async getSetupPreview(

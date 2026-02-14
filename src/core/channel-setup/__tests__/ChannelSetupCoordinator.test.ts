@@ -231,6 +231,32 @@ describe('ChannelSetupCoordinator', () => {
         expect(coordinator.shouldRunChannelSetup()).toBe(true);
     });
 
+    it('getSetupContextForSelectedServer returns first-time when selected server has no channels', () => {
+        const { coordinator, channelManager } = createCoordinator({
+            getSelectedServerId: jest.fn().mockReturnValue('server-1'),
+        });
+        channelManager.getAllChannels.mockReturnValue([]);
+
+        expect(coordinator.getSetupContextForSelectedServer()).toBe('first-time');
+    });
+
+    it('getSetupContextForSelectedServer returns existing when selected server has channels', () => {
+        const { coordinator, channelManager } = createCoordinator({
+            getSelectedServerId: jest.fn().mockReturnValue('server-1'),
+        });
+        channelManager.getAllChannels.mockReturnValue([mockChannelConfig]);
+
+        expect(coordinator.getSetupContextForSelectedServer()).toBe('existing');
+    });
+
+    it('getSetupContextForSelectedServer returns unknown when context cannot be derived', () => {
+        const noManager = createCoordinator({ getChannelManager: () => null });
+        expect(noManager.coordinator.getSetupContextForSelectedServer()).toBe('unknown');
+
+        const noServer = createCoordinator({ getSelectedServerId: jest.fn().mockReturnValue(null) });
+        expect(noServer.coordinator.getSetupContextForSelectedServer()).toBe('unknown');
+    });
+
     it('markSetupComplete preserves createdAt and clears rerun flag', () => {
         const { coordinator, storage, channelManager } = createCoordinator();
         const existing: ChannelSetupRecord = {

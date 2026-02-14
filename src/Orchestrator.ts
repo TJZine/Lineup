@@ -126,6 +126,7 @@ import {
 import { ChannelSetupCoordinator } from './core/channel-setup';
 import type {
     ChannelSetupConfig,
+    ChannelSetupContext,
     ChannelBuildSummary,
     ChannelBuildProgress,
     ChannelSetupRecord,
@@ -175,6 +176,7 @@ export interface ModuleStatus {
 
 export type {
     ChannelSetupConfig,
+    ChannelSetupContext,
     ChannelBuildSummary,
     ChannelBuildProgress,
     ChannelSetupRecord,
@@ -291,6 +293,7 @@ export interface IAppOrchestrator {
     getServerHealthStorageKey(): string;
     getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibraryType[]>;
     getChannelSetupRecord(serverId: string): ChannelSetupRecord | null;
+    getSetupContextForSelectedServer(): ChannelSetupContext;
     getSetupPreview(config: ChannelSetupConfig, options?: { signal?: AbortSignal }): Promise<ChannelSetupPreview>;
     getSetupReview(config: ChannelSetupConfig, options?: { signal?: AbortSignal }): Promise<ChannelSetupReview>;
     createChannelsFromSetup(config: ChannelSetupConfig, options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }): Promise<ChannelBuildSummary>;
@@ -1294,6 +1297,10 @@ export class AppOrchestrator implements IAppOrchestrator {
 
     getChannelSetupRecord(serverId: string): ChannelSetupRecord | null {
         return this._channelSetup?.getSetupRecord(serverId) ?? null;
+    }
+
+    getSetupContextForSelectedServer(): ChannelSetupContext {
+        return this._channelSetup?.getSetupContextForSelectedServer() ?? 'unknown';
     }
 
     async getSetupPreview(

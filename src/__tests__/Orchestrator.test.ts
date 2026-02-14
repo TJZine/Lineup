@@ -1335,6 +1335,32 @@ describe('AppOrchestrator', () => {
         });
     });
 
+    describe('channel setup context', () => {
+        beforeEach(async () => {
+            await orchestrator.initialize(mockConfig);
+        });
+
+        it('returns first-time when selected server has no channels', () => {
+            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-4' });
+            mockChannelManager.getAllChannels.mockReturnValue([]);
+
+            expect(orchestrator.getSetupContextForSelectedServer()).toBe('first-time');
+        });
+
+        it('returns existing when selected server has channels', () => {
+            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-4' });
+            mockChannelManager.getAllChannels.mockReturnValue([{ id: 'channel-1' }]);
+
+            expect(orchestrator.getSetupContextForSelectedServer()).toBe('existing');
+        });
+
+        it('returns unknown when selected server is unavailable', () => {
+            mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
+
+            expect(orchestrator.getSetupContextForSelectedServer()).toBe('unknown');
+        });
+    });
+
     describe('EPG management', () => {
         beforeEach(async () => {
             await orchestrator.initialize(mockConfig);
