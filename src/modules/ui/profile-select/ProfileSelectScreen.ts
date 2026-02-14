@@ -639,7 +639,6 @@ export class ProfileSelectScreen {
 
         const userCount = this._userButtonIds.length;
         const firstActionId = this._mainButton.id;
-        const lastUserId = this._userButtonIds[userCount - 1];
 
         focusableIds.forEach((id, index) => {
             const element = document.getElementById(id);
@@ -665,17 +664,13 @@ export class ProfileSelectScreen {
                 // Down from any user card → first action button
                 neighbors.down = firstActionId;
             } else {
-                // Action buttons: Left/Right between each other, Up → last user card
+                // Action buttons: Left/Right between each other.
+                // Up is intentionally omitted — FocusManager spatial fallback
+                // picks the nearest profile card, preserving the Down→Up round-trip.
                 if (id === this._mainButton.id) {
                     neighbors.right = this._signOutButton.id;
-                    if (lastUserId) {
-                        neighbors.up = lastUserId;
-                    }
                 } else if (id === this._signOutButton.id) {
                     neighbors.left = this._mainButton.id;
-                    if (lastUserId) {
-                        neighbors.up = lastUserId;
-                    }
                 }
             }
 
