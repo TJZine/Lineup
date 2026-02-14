@@ -83,11 +83,10 @@ function createReadonlyKeyMap(
                 callbackfn.call(thisArg, value, key, readonlyMap);
             });
         },
-        entries: (): IterableIterator<[number, PlatformRemoteButton]> => internal.entries(),
-        keys: (): IterableIterator<number> => internal.keys(),
-        values: (): IterableIterator<PlatformRemoteButton> => internal.values(),
-        [Symbol.iterator]: (): IterableIterator<[number, PlatformRemoteButton]> =>
-            internal[Symbol.iterator](),
+        entries: () => internal.entries(),
+        keys: () => internal.keys(),
+        values: () => internal.values(),
+        [Symbol.iterator]: () => internal[Symbol.iterator](),
     };
     return Object.freeze(readonlyMap);
 }

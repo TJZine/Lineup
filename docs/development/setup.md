@@ -7,7 +7,7 @@ This project requires a specific setup to develop for LG webOS.
 
 ## Prerequisites
 
-- **Node.js**: v18+
+- **Node.js**: `^20.19.0 || >=22.12.0` (recommended: `nvm use` with project `.nvmrc`)
 - **Package Manager**: npm v9+
 - **LG webOS TV SDK**: Latest version (CLI tools)
 - **VirtualBox 6.x**: Required for the Emulator
