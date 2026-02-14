@@ -281,6 +281,51 @@ describe('EPGVirtualizer', () => {
             expect(cell.style.getPropertyValue('--epg-cell-text-shift-px')).toBe('120px');
         });
 
+        it('does not shift text when the cell is already clipped to the left edge', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-left-clipped';
+
+            const program: ScheduledProgram = {
+                item: {
+                    ratingKey: 'left-clipped-1',
+                    type: 'movie',
+                    title: 'Left Clipped Program',
+                    fullTitle: 'Left Clipped Program',
+                    durationMs: 60 * 60 * 1000, // 60 minutes (-00:30 → 00:30)
+                    thumb: null,
+                    year: 2020,
+                    scheduledIndex: 0,
+                },
+                scheduledStartTime: gridAnchorTime - (30 * 60000), // -00:30
+                scheduledEndTime: gridAnchorTime + (30 * 60000),   // 00:30
+                elapsedMs: 0,
+                remainingMs: 0,
+                scheduleIndex: 0,
+                loopNumber: 0,
+                streamDescriptor: null,
+                isCurrent: false,
+            };
+
+            const schedules = new Map<string, ScheduleWindow>([
+                [channelId, {
+                    startTime: gridAnchorTime - (2 * 60 * 60000),
+                    endTime: gridAnchorTime + (24 * 60 * 60000),
+                    programs: [program],
+                }],
+            ]);
+
+            // Visible window starts at anchor (00:00), so this program is both
+            // partial and left-clipped by layout clipping.
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], schedules, range);
+
+            const expectedKey = `${channelId}-${program.scheduledStartTime}`;
+            const cell = container.querySelector(`[data-key="${expectedKey}"]`) as HTMLElement;
+            expect(cell).not.toBeNull();
+            expect(cell.classList.contains(EPG_CLASSES.CELL_TEXT_SHIFTED)).toBe(false);
+            expect(cell.style.getPropertyValue('--epg-cell-text-shift-px')).toBe('');
+        });
+
         it('renders show title line for episode programs', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-episode';

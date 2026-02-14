@@ -20,6 +20,7 @@ export const RETUNE_STORAGE_KEYS = {
 
     // Setup / Onboarding
     AUDIO_SETUP_COMPLETE: 'retune_audio_setup_complete',
+    LAST_PROFILE_ID: 'retune_last_profile_id',
 
     // Display
     THEME: 'retune_theme',

@@ -11,6 +11,8 @@ import { PlexApiError } from '../../plex/auth';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
 import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
+import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
+import { safeLocalStorageGet, safeLocalStorageSet } from '../../../utils/storage';
 
 const FOCUS_RESTORE_DELAY_MS = 50;
 const PIN_LENGTH = 4;
@@ -297,6 +299,7 @@ export class ProfileSelectScreen {
         this._listEl.replaceChildren();
         this._userButtonIds = [];
         const buttonIds = this._buildUserButtonIds(users.map((user) => user.id));
+        const lastUsedId = safeLocalStorageGet(RETUNE_STORAGE_KEYS.LAST_PROFILE_ID);
 
         users.forEach((user, index) => {
             const button = document.createElement('button');
@@ -324,41 +327,40 @@ export class ProfileSelectScreen {
                 avatar.textContent = user.title.slice(0, 1).toUpperCase();
             }
 
-            const details = document.createElement('div');
-            details.className = 'profile-details';
-
-            const nameRow = document.createElement('div');
-            nameRow.className = 'profile-name-row';
-
             const name = document.createElement('span');
             name.className = 'profile-name';
             name.textContent = user.title;
-            nameRow.appendChild(name);
+
+            const badges = document.createElement('div');
+            badges.className = 'profile-badges';
 
             if (user.protected) {
                 const lock = document.createElement('span');
                 lock.className = 'profile-lock';
                 lock.textContent = 'PIN';
                 lock.setAttribute('aria-label', 'PIN required');
-                nameRow.appendChild(lock);
+                badges.appendChild(lock);
             }
 
             if (user.admin) {
                 const admin = document.createElement('span');
                 admin.className = 'profile-admin';
                 admin.textContent = 'Admin';
-                nameRow.appendChild(admin);
+                badges.appendChild(admin);
             }
 
-            details.appendChild(nameRow);
-
-            const meta = document.createElement('div');
-            meta.className = 'profile-meta';
-            meta.textContent = user.restricted ? 'Restricted' : 'Standard access';
-            details.appendChild(meta);
-
             button.appendChild(avatar);
-            button.appendChild(details);
+            button.appendChild(name);
+            if (badges.childElementCount > 0) {
+                button.appendChild(badges);
+            }
+
+            if (user.id === lastUsedId) {
+                const lastUsed = document.createElement('span');
+                lastUsed.className = 'profile-last-used';
+                lastUsed.textContent = 'Last used';
+                button.appendChild(lastUsed);
+            }
 
             this._listEl.appendChild(button);
             this._userButtonIds.push(button.id);
@@ -382,6 +384,8 @@ export class ProfileSelectScreen {
         this._isSwitching = true;
         try {
             await this._orchestrator.useMainAccountProfile();
+            // Clear last-used hint — main account bypasses profile cards.
+            safeLocalStorageSet(RETUNE_STORAGE_KEYS.LAST_PROFILE_ID, '');
             this._navigateToServerSelect();
         } catch (error) {
             this._handleError(error, 'Unable to switch profile.');
@@ -407,6 +411,7 @@ export class ProfileSelectScreen {
         this._isSwitching = true;
         try {
             await this._orchestrator.switchHomeUser(userId, pin);
+            safeLocalStorageSet(RETUNE_STORAGE_KEYS.LAST_PROFILE_ID, userId);
             this._navigateToServerSelect();
             return true;
         } catch (error) {
@@ -632,28 +637,41 @@ export class ProfileSelectScreen {
         ];
         this._focusableIds = focusableIds;
 
+        const userCount = this._userButtonIds.length;
+        const firstActionId = this._mainButton.id;
+
         focusableIds.forEach((id, index) => {
             const element = document.getElementById(id);
             if (!element) return;
 
+            const isUserCard = index < userCount;
             const neighbors: FocusableElement['neighbors'] = {};
-            if (index > 0) {
-                const upId = focusableIds[index - 1];
-                if (upId) {
-                    neighbors.up = upId;
-                }
-            }
-            if (index < focusableIds.length - 1) {
-                const downId = focusableIds[index + 1];
-                if (downId) {
-                    neighbors.down = downId;
-                }
-            }
 
-            if (id === this._mainButton.id) {
-                neighbors.right = this._signOutButton.id;
-            } else if (id === this._signOutButton.id) {
-                neighbors.left = this._mainButton.id;
+            if (isUserCard) {
+                // Horizontal navigation: Left/Right between user cards
+                if (index > 0) {
+                    const leftId = focusableIds[index - 1];
+                    if (leftId) {
+                        neighbors.left = leftId;
+                    }
+                }
+                if (index < userCount - 1) {
+                    const rightId = focusableIds[index + 1];
+                    if (rightId) {
+                        neighbors.right = rightId;
+                    }
+                }
+                // Down from any user card → first action button
+                neighbors.down = firstActionId;
+            } else {
+                // Action buttons: Left/Right between each other.
+                // Up is intentionally omitted — FocusManager spatial fallback
+                // picks the nearest profile card, preserving the Down→Up round-trip.
+                if (id === this._mainButton.id) {
+                    neighbors.right = this._signOutButton.id;
+                } else if (id === this._signOutButton.id) {
+                    neighbors.left = this._mainButton.id;
+                }
             }
 
             const focusable: FocusableElement = {
