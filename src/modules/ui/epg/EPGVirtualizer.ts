@@ -331,7 +331,8 @@ export class EPGVirtualizer {
                     // If the program started before the visible guide window, clip to the left edge (no past).
                     let left = cell.left;
                     let width = cell.width;
-                    if (left < 0) {
+                    const wasLeftClipped = left < 0;
+                    if (wasLeftClipped) {
                         width = Math.max(20, width + left);
                         left = 0;
                     }
@@ -343,7 +344,8 @@ export class EPGVirtualizer {
                         programStartMinutes < visibleWindowStartMinutes ||
                         programEndMinutes > visibleWindowEndMinutes;
 
-                    const shouldShiftText = programStartMinutes < visibleWindowStartMinutes &&
+                    const shouldShiftText = !wasLeftClipped &&
+                        programStartMinutes < visibleWindowStartMinutes &&
                         programEndMinutes > visibleWindowStartMinutes;
                     const hiddenLeftMinutes = shouldShiftText
                         ? (visibleWindowStartMinutes - programStartMinutes)
