@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
+      &node_matrix
       fail-fast: false
       matrix:
         node-version: ['20.19.0', '22.19.0']
@@ -39,10 +40,7 @@ jobs:
     name: Type Check (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: ['20.19.0', '22.19.0']
+    strategy: *node_matrix
     steps:
       - uses: actions/checkout@v4
       
@@ -62,10 +60,7 @@ jobs:
     name: Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: ['20.19.0', '22.19.0']
+    strategy: *node_matrix
     steps:
       - uses: actions/checkout@v4
       
@@ -90,21 +85,17 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   build:
-    name: Build (Node ${{ matrix.node-version }})
+    name: Build (Node 22.19.0)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [lint, type-check, test]
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: ['20.19.0', '22.19.0']
     steps:
       - uses: actions/checkout@v4
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: '22.19.0'
           cache: 'npm'
       
       - name: Install dependencies
@@ -114,7 +105,7 @@ jobs:
         run: npm run build
       
       - name: Upload build artifacts
-        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && matrix.node-version == '22.19.0'
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
         uses: actions/upload-artifact@v4
         with:
           name: dist

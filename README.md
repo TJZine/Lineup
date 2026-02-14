@@ -161,7 +161,7 @@ ares-launch --device my-tv com.retune.app
 | Component | Requirement |
 |-----------|-------------|
 | **TV** | LG Smart TV (2021+ with webOS 6.0 or later) |
-| **Node.js (development)** | `^20.19.0 || >=22.12.0` (recommended: `nvm use`) |
+| **Node.js (development)** | `^20.19.0` \|\| `>=22.12.0` (recommended: `nvm use`) |
 | **Plex Server** | Plex Media Server (any recent version) |
 | **Plex Account** | Free or Plex Pass |
 | **Network** | TV and Plex server on same network (or Plex relay enabled) |
