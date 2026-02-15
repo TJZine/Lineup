@@ -83,6 +83,11 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
                 } else {
                     rowElements.row.classList.remove(MINI_GUIDE_CLASSES.CHANNEL_ROW_LOADING);
                 }
+                if (rowVm.buildStrategy) {
+                    rowElements.row.dataset.buildStrategy = rowVm.buildStrategy;
+                } else {
+                    delete rowElements.row.dataset.buildStrategy;
+                }
             }
             if (rowElements.number) {
                 rowElements.number.textContent = String(rowVm.channelNumber);
@@ -91,7 +96,14 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
                 rowElements.name.textContent = rowVm.channelName;
             }
             if (rowElements.now) {
-                rowElements.now.textContent = rowVm.nowTitle;
+                rowElements.now.textContent = '';
+                if (rowVm.nowStartTime) {
+                    const start = document.createElement('span');
+                    start.className = 'mini-guide-start-time';
+                    start.textContent = rowVm.nowStartTime;
+                    rowElements.now.appendChild(start);
+                }
+                rowElements.now.appendChild(document.createTextNode(rowVm.nowTitle));
             }
             if (rowElements.next) {
                 rowElements.next.textContent = rowVm.nextTitle ?? '';

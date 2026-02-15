@@ -76,7 +76,7 @@ const mockEpgConfig = {
 
 const mockNowPlayingInfoConfig = {
     containerId: 'now-playing-info-container',
-    autoHideMs: 10_000,
+    autoHideMs: 0,
     posterWidth: 111,
     posterHeight: 222,
 };
@@ -201,11 +201,11 @@ jest.mock('../modules/ui/now-playing-info', () => ({
     })),
     NOW_PLAYING_INFO_MODAL_ID: 'now-playing-info',
     NOW_PLAYING_INFO_DEFAULTS: {
-        autoHideMs: 10_000,
+        autoHideMs: 0,
         posterWidth: 320,
         posterHeight: 480,
     },
-    NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS: [5_000, 10_000, 15_000, 30_000, 60_000, 120_000],
+    NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS: [0, 5_000, 10_000, 15_000, 30_000, 60_000, 120_000],
 }));
 
 jest.mock('../modules/ui/player-osd', () => ({
@@ -678,6 +678,66 @@ describe('AppOrchestrator', () => {
             };
 
             mockLocalStorage.getItem.mockReturnValue(null);
+            await orchestrator.initialize(configWithAutoHide);
+
+            const autoHideMs = getNowPlayingInfoAutoHideMs(configWithAutoHide.nowPlayingInfoConfig);
+
+            expect(autoHideMs).toBe(15_000);
+        });
+
+        it('should allow nowPlayingInfoConfig.autoHideMs = 0 when storage is unset', async () => {
+            const configWithAutoHide: OrchestratorConfig = {
+                ...mockConfig,
+                nowPlayingInfoConfig: {
+                    ...mockConfig.nowPlayingInfoConfig,
+                    autoHideMs: 0,
+                },
+            };
+
+            mockLocalStorage.getItem.mockReturnValue(null);
+            await orchestrator.initialize(configWithAutoHide);
+
+            const autoHideMs = getNowPlayingInfoAutoHideMs(configWithAutoHide.nowPlayingInfoConfig);
+
+            expect(autoHideMs).toBe(0);
+        });
+
+        it('should allow stored nowPlayingInfo auto-hide value of 0', async () => {
+            mockLocalStorage.getItem.mockReturnValue('0');
+            await orchestrator.initialize(mockConfig);
+
+            const autoHideMs = getNowPlayingInfoAutoHideMs(mockConfig.nowPlayingInfoConfig);
+
+            expect(autoHideMs).toBe(0);
+        });
+
+        it('should ignore whitespace-only stored nowPlayingInfo auto-hide and use config fallback', async () => {
+            const configWithAutoHide: OrchestratorConfig = {
+                ...mockConfig,
+                nowPlayingInfoConfig: {
+                    ...mockConfig.nowPlayingInfoConfig,
+                    autoHideMs: 15_000,
+                },
+            };
+
+            mockLocalStorage.getItem.mockReturnValue('   ');
+            await orchestrator.initialize(configWithAutoHide);
+
+            const autoHideMs = getNowPlayingInfoAutoHideMs(configWithAutoHide.nowPlayingInfoConfig);
+
+            expect(autoHideMs).toBe(15_000);
+        });
+
+        it('should ignore non-decimal stored nowPlayingInfo auto-hide and use config fallback', async () => {
+            const configWithAutoHide: OrchestratorConfig = {
+                ...mockConfig,
+                nowPlayingInfoConfig: {
+                    ...mockConfig.nowPlayingInfoConfig,
+                    autoHideMs: 15_000,
+                },
+            };
+
+            mockLocalStorage.getItem.mockReturnValue('0x0');
             await orchestrator.initialize(configWithAutoHide);
 
             const autoHideMs = getNowPlayingInfoAutoHideMs(configWithAutoHide.nowPlayingInfoConfig);

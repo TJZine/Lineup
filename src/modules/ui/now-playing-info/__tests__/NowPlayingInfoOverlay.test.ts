@@ -233,4 +233,16 @@ describe('NowPlayingInfoOverlay', () => {
         overlay.hide();
         jest.useRealTimers();
     });
+
+    it('stays visible in persistent mode (autoHideMs = 0)', () => {
+        jest.useFakeTimers();
+        overlay.setAutoHideMs(0);
+        overlay.show(baseViewModel);
+
+        jest.advanceTimersByTime(120_000);
+
+        expect(overlay.isVisible()).toBe(true);
+        overlay.hide();
+        jest.useRealTimers();
+    });
 });

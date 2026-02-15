@@ -42,6 +42,16 @@
   border-left: 3px solid var(--focus-color);
 }
 
+.mini-guide-row:not(.focused)[data-build-strategy="collections"] { border-left: 3px solid var(--epg-category-collections); }
+.mini-guide-row:not(.focused)[data-build-strategy="playlists"] { border-left: 3px solid var(--epg-category-playlists); }
+.mini-guide-row:not(.focused)[data-build-strategy="genres"] { border-left: 3px solid var(--epg-category-genres); }
+.mini-guide-row:not(.focused)[data-build-strategy="directors"] { border-left: 3px solid var(--epg-category-directors); }
+.mini-guide-row:not(.focused)[data-build-strategy="decades"] { border-left: 3px solid var(--epg-category-decades); }
+.mini-guide-row:not(.focused)[data-build-strategy="recentlyAdded"] { border-left: 3px solid var(--epg-category-recently-added); }
+.mini-guide-row:not(.focused)[data-build-strategy="studios"] { border-left: 3px solid var(--epg-category-studios); }
+.mini-guide-row:not(.focused)[data-build-strategy="actors"] { border-left: 3px solid var(--epg-category-actors); }
+.mini-guide-row:not(.focused)[data-build-strategy="libraryFallback"] { border-left: 3px solid var(--epg-category-library); }
+
 .mini-guide-row.loading .mini-guide-now,
 .mini-guide-row.loading .mini-guide-next {
   position: relative;
@@ -78,14 +88,15 @@
 }
 
 .mini-guide-channel-num {
+  flex: 0 0 clamp(40px, 3.5vw, 73px);
   font-size: 20px;
   font-weight: 700;
   color: var(--color-text-primary);
-  min-width: 56px;
+  min-width: 0;
 }
 
 .mini-guide-channel-name {
-  flex: 0 0 220px;
+  flex: 0 0 clamp(154px, 14vw, 286px);
   font-size: 18px;
   font-weight: 600;
   white-space: nowrap;
@@ -96,6 +107,7 @@
 
 .mini-guide-now {
   flex: 1 1 auto;
+  min-width: clamp(140px, 20vw, 300px);
   font-size: 20px;
   font-weight: 600;
   white-space: nowrap;
@@ -103,8 +115,16 @@
   text-overflow: ellipsis;
 }
 
+.mini-guide-start-time {
+  color: var(--color-text-muted, rgba(255, 255, 255, 0.5));
+  font-size: var(--text-xs, 14px);
+  margin-right: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .mini-guide-progress {
-  flex: 0 0 160px;
+  flex: 0 0 clamp(112px, 10vw, 208px);
   height: 8px;
   background: rgba(255, 255, 255, 0.12);
   border-radius: 999px;
@@ -118,7 +138,7 @@
 }
 
 .mini-guide-next {
-  flex: 0 0 260px;
+  flex: 0 0 clamp(182px, 18vw, 338px);
   font-size: var(--text-md);
   color: var(--color-text-muted);
   white-space: nowrap;

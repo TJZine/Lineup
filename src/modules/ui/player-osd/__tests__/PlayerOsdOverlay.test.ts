@@ -69,7 +69,9 @@ describe('PlayerOsdOverlay', () => {
         overlay.setViewModel({ ...baseViewModel, upNextText: 'Up next • 9:30 PM — Next' });
         overlay.show();
 
-        expect(container.querySelector(`.${PLAYER_OSD_CLASSES.STATUS}`)?.textContent).toBe('PLAYING');
+        const status = container.querySelector(`.${PLAYER_OSD_CLASSES.STATUS}`) as HTMLElement;
+        expect(status.getAttribute('aria-label')).toBe('PLAYING');
+        expect(status.querySelector('svg')).not.toBeNull();
         expect(container.querySelector(`.${PLAYER_OSD_CLASSES.CHANNEL}`)?.textContent).toBe('12 Comedy');
         expect(container.querySelector(`.${PLAYER_OSD_CLASSES.TITLE}`)?.textContent).toBe('Test Title');
         expect(container.querySelector(`.${PLAYER_OSD_CLASSES.SUBTITLE}`)?.textContent).toBe('Test Subtitle');
@@ -129,5 +131,113 @@ describe('PlayerOsdOverlay', () => {
         expect(
             (container.querySelector(`.${PLAYER_OSD_CLASSES.ACTION}[data-action="audio"]`) as HTMLElement).id
         ).toBe('');
+    });
+
+    it('renders PLAYING as an icon with aria label', () => {
+        overlay.setViewModel(baseViewModel);
+        overlay.show();
+
+        const status = container.querySelector(`.${PLAYER_OSD_CLASSES.STATUS}`) as HTMLElement;
+        const icon = status.querySelector('svg');
+
+        expect(status.getAttribute('aria-label')).toBe('PLAYING');
+        expect(icon).not.toBeNull();
+    });
+
+    it('renders PAUSED icon with two bars', () => {
+        overlay.setViewModel({
+            ...baseViewModel,
+            statusLabel: 'PAUSED',
+        });
+        overlay.show();
+
+        const status = container.querySelector(`.${PLAYER_OSD_CLASSES.STATUS}`) as HTMLElement;
+        const icon = status.querySelector('svg');
+
+        expect(icon).not.toBeNull();
+        expect(icon?.querySelectorAll('rect')).toHaveLength(2);
+    });
+
+    it('renders BUFFERING as spinner icon', () => {
+        overlay.setViewModel({
+            ...baseViewModel,
+            statusLabel: 'BUFFERING',
+        });
+        overlay.show();
+
+        const status = container.querySelector(`.${PLAYER_OSD_CLASSES.STATUS}`) as HTMLElement;
+        const icon = status.querySelector('svg');
+
+        expect(icon).not.toBeNull();
+        expect(icon?.classList.contains('player-osd-spinner')).toBe(true);
+    });
+
+    it('falls back to text when icon is not defined', () => {
+        overlay.setViewModel({
+            ...baseViewModel,
+            statusLabel: 'STOPPED',
+        });
+        overlay.show();
+
+        const status = container.querySelector(`.${PLAYER_OSD_CLASSES.STATUS}`) as HTMLElement;
+
+        expect(status.textContent).toBe('STOPPED');
+        expect(status.querySelector('svg')).toBeNull();
+    });
+
+    it('falls back to text for SEEKING', () => {
+        overlay.setViewModel({
+            ...baseViewModel,
+            statusLabel: 'SEEKING',
+        });
+        overlay.show();
+
+        const status = container.querySelector(`.${PLAYER_OSD_CLASSES.STATUS}`) as HTMLElement;
+
+        expect(status.textContent).toBe('SEEKING');
+        expect(status.querySelector('svg')).toBeNull();
+    });
+
+    it('falls back to text for LOADING', () => {
+        overlay.setViewModel({
+            ...baseViewModel,
+            statusLabel: 'LOADING',
+        });
+        overlay.show();
+
+        const status = container.querySelector(`.${PLAYER_OSD_CLASSES.STATUS}`) as HTMLElement;
+
+        expect(status.textContent).toBe('LOADING');
+        expect(status.querySelector('svg')).toBeNull();
+    });
+
+    it('dims played and buffered bars during BUFFERING', () => {
+        overlay.setViewModel({
+            ...baseViewModel,
+            statusLabel: 'BUFFERING',
+        });
+        overlay.show();
+
+        const played = container.querySelector(`.${PLAYER_OSD_CLASSES.BAR_PLAYED}`) as HTMLElement;
+        const buffered = container.querySelector(`.${PLAYER_OSD_CLASSES.BAR_BUFFER}`) as HTMLElement;
+        expect(played.style.opacity).toBe('0.3');
+        expect(buffered.style.opacity).toBe('0.3');
+    });
+
+    it('restores bar opacity after leaving BUFFERING', () => {
+        overlay.setViewModel({
+            ...baseViewModel,
+            statusLabel: 'BUFFERING',
+        });
+        overlay.show();
+        overlay.setViewModel({
+            ...baseViewModel,
+            statusLabel: 'PLAYING',
+        });
+
+        const played = container.querySelector(`.${PLAYER_OSD_CLASSES.BAR_PLAYED}`) as HTMLElement;
+        const buffered = container.querySelector(`.${PLAYER_OSD_CLASSES.BAR_BUFFER}`) as HTMLElement;
+        expect(played.style.opacity).toBe('');
+        expect(buffered.style.opacity).toBe('');
     });
 });

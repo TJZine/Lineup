@@ -85,7 +85,7 @@ const DEFAULT_EPG_CONFIG: EPGConfig = {
 
 const DEFAULT_NOW_PLAYING_INFO_CONFIG: NowPlayingInfoConfig = {
     containerId: 'now-playing-info-container',
-    autoHideMs: 10_000,
+    autoHideMs: 0,
 };
 
 const DEFAULT_PLAYER_OSD_CONFIG: PlayerOsdConfig = {

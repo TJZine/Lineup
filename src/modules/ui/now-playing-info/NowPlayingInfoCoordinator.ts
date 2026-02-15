@@ -394,10 +394,11 @@ export class NowPlayingInfoCoordinator {
         const config = this.deps.getNowPlayingInfoConfig();
         const thumbSize = config?.actorThumbSize ?? NOW_PLAYING_INFO_DEFAULTS.actorThumbSize;
         const maxCountRaw = config?.actorHeadshotCount;
+        const baseDefaultCount = NOW_PLAYING_INFO_DEFAULTS.actorHeadshotCount;
         const defaultCount =
             typeof window !== 'undefined' && window.innerWidth >= 2560
-                ? 7
-                : 5;
+                ? baseDefaultCount + 1
+                : baseDefaultCount;
         const maxCount = typeof maxCountRaw === 'number' && Number.isFinite(maxCountRaw)
             ? Math.max(1, Math.min(10, Math.floor(maxCountRaw)))
             : defaultCount;
@@ -569,13 +570,23 @@ export function getNowPlayingInfoAutoHideMs(
     config: NowPlayingInfoConfig | null | undefined
 ): number {
     const raw = safeLocalStorageGet(RETUNE_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS);
-    const parsed = raw ? Number(raw) : NaN;
+    const parsed = parseStoredNowPlayingInfoAutoHideMs(raw);
     const configured = config?.autoHideMs;
     const candidates = [
-        ...(Number.isFinite(parsed) ? [parsed] : []),
+        ...(typeof parsed === 'number' ? [parsed] : []),
         ...(typeof configured === 'number' && Number.isFinite(configured) ? [configured] : []),
     ];
     for (const candidate of candidates) {
+        if (candidate === 0) {
+            if (
+                NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS.includes(
+                    0 as (typeof NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS)[number]
+                )
+            ) {
+                return 0;
+            }
+            continue;
+        }
         if (candidate > 0) {
             const normalized = Math.max(1000, Math.floor(candidate));
             if (
@@ -588,4 +599,14 @@ export function getNowPlayingInfoAutoHideMs(
         }
     }
     return NOW_PLAYING_INFO_DEFAULTS.autoHideMs;
+}
+
+function parseStoredNowPlayingInfoAutoHideMs(raw: string | null): number | null {
+    if (raw === null) return null;
+    const trimmed = raw.trim();
+    if (!/^\d+$/.test(trimmed)) {
+        return null;
+    }
+    const parsed = Number.parseInt(trimmed, 10);
+    return Number.isFinite(parsed) ? parsed : null;
 }

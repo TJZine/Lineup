@@ -123,16 +123,17 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
     }
 
     setAutoHideMs(autoHideMs: number): void {
-        if (!Number.isFinite(autoHideMs) || autoHideMs <= 0) {
+        if (!Number.isFinite(autoHideMs) || autoHideMs < 0) {
             this.autoHideMs = NOW_PLAYING_INFO_DEFAULTS.autoHideMs;
             return;
         }
-        this.autoHideMs = Math.max(1000, Math.floor(autoHideMs));
+        this.autoHideMs = autoHideMs === 0 ? 0 : Math.max(1000, Math.floor(autoHideMs));
     }
 
     resetAutoHideTimer(): void {
         if (!this.isVisibleFlag) return;
         this.clearAutoHideTimer();
+        if (this.autoHideMs <= 0) return;
         this.autoHideTimer = window.setTimeout(() => {
             if (this.onAutoHide) {
                 this.onAutoHide();

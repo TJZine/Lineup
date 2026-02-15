@@ -251,8 +251,10 @@ export class MiniGuideCoordinator {
             channelId: channel.id,
             channelNumber: channel.number,
             channelName: displayName,
+            buildStrategy: channel.buildStrategy ?? null,
             status: 'loading',
             nowTitle: 'Loading...',
+            nowStartTime: null,
             nextTitle: null,
             nowProgress: 0,
         };
@@ -267,8 +269,10 @@ export class MiniGuideCoordinator {
             channelId: channel.id,
             channelNumber: channel.number,
             channelName: displayName,
+            buildStrategy: channel.buildStrategy ?? null,
             status: 'unavailable',
             nowTitle: 'Unavailable',
+            nowStartTime: null,
             nextTitle: null,
             nowProgress: 0,
         };
@@ -347,6 +351,13 @@ export class MiniGuideCoordinator {
     ): MiniGuideChannelViewModel {
         const nowTitle = this._formatMiniGuideTitle(now) ?? 'Unavailable';
         const nextTitle = this._formatMiniGuideTitle(next);
+        const nowStartTime = now?.scheduledStartTime
+            ? new Date(now.scheduledStartTime).toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true,
+            })
+            : null;
         const displayName = getChannelNameForDisplay({
             name: channel.name,
             sourceLibraryName: channel.sourceLibraryName ?? null,
@@ -360,8 +371,10 @@ export class MiniGuideCoordinator {
             channelId: channel.id,
             channelNumber: channel.number,
             channelName: displayName,
+            buildStrategy: channel.buildStrategy ?? null,
             status: 'ready',
             nowTitle,
+            nowStartTime,
             nextTitle,
             nowProgress,
         };
