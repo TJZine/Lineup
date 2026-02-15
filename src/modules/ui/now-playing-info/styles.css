@@ -144,7 +144,7 @@
   flex-wrap: wrap;
   row-gap: 6px;
   min-height: 0;
-  --actor-size: 44px;
+  --actor-size: 56px;
   --actor-gap: 8px;
 }
 
@@ -157,8 +157,8 @@
 }
 
 .now-playing-info-actor {
-  width: var(--actor-size, 44px);
-  height: var(--actor-size, 44px);
+  width: var(--actor-size, 56px);
+  height: var(--actor-size, 56px);
   border-radius: 999px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.18);

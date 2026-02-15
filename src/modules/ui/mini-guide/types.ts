@@ -12,6 +12,7 @@ export interface MiniGuideChannelViewModel {
     channelId: string;
     channelNumber: number;
     channelName: string;
+    buildStrategy?: import('../../scheduler/channel-manager/types').BuildStrategy | null;
     /**
      * Optional status hint for loading visuals.
      */
@@ -20,6 +21,7 @@ export interface MiniGuideChannelViewModel {
      * Uses 'Loading...' while resolving; 'Unavailable' on error.
      */
     nowTitle: string;
+    nowStartTime?: string | null;
     /**
      * Null when unknown.
      */

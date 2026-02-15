@@ -3,6 +3,7 @@
 ## Global Defaults (Always On)
 
 - **Planning = Codex plan + ST thoughts**: Keep the authoritative plan in Codex `update_plan`. Use Sequential‑Thinking MCP for structured thoughts per stage (not as the plan store).
+- **Plan authoring style = writing-plans skill**: When asked to produce an implementation plan file, use `.codex/skills/writing-plans/SKILL.md` format by default (required header, explicit files, bite-sized steps, concrete code snippets, exact commands, expected outcomes, frequent commit checkpoints).
 - **Docs lookup = context7**: pull short, dated snippets from official sources/best-practice docs for each claim. If unavailable, log the fallback.
 - **Search = Codanna first**: prefer Codanna MCP discovery tools (`semantic_search_docs`, `semantic_search_with_context`, `find_symbol`) for evidence sweeps; fall back to `ripgrep` when Codanna is unavailable or insufficient. Respect repo ignores and log the fallback method used.
 - **Discovery/Context = Codanna MCP**: use Codanna for symbol-aware context (`find_symbol`, `get_calls`, `find_callers`, `analyze_impact`) during analysis. Advisors still propose diffs; Codex executes per CODEX.md.

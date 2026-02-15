@@ -58,7 +58,7 @@
     --font-family-mono: ui-monospace, monospace;
     --font-family-display: var(--font-family-sans);
 
-    /* 10-foot UI Sizes */
+    /* 10-foot UI Sizes (CSS <length> values; keep units like px/rem) */
     --text-xs: 14px;
     --text-sm: 16px;
     --text-md: 18px;

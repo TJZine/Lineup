@@ -1015,10 +1015,6 @@ export class NavigationManager
 
         if (focusable && focusable.id) {
             this.setFocus(focusable.id);
-            const element = this._focusManager.getFocusedElement();
-            if (element && element.onSelect) {
-                element.onSelect();
-            }
         }
     };
 }

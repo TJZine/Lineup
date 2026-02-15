@@ -33,14 +33,15 @@ export const NOW_PLAYING_INFO_CLASSES = {
 } as const;
 
 export const NOW_PLAYING_INFO_DEFAULTS = {
-    autoHideMs: 10_000,
+    autoHideMs: 0,
     posterWidth: 320,
     posterHeight: 480,
-    actorThumbSize: 96,
-    actorHeadshotCount: 4,
+    actorThumbSize: 128,
+    actorHeadshotCount: 6,
 } as const;
 
 export const NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS = [
+    0,
     5_000,
     10_000,
     15_000,

@@ -8,6 +8,8 @@ import type { IPlayerOsdOverlay } from './interfaces';
 import type { PlayerOsdConfig, PlayerOsdViewModel } from './types';
 import { createOverlayPrimitives } from '../common/OverlayPrimitives';
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
 type PlayerOsdElements = {
     status: HTMLElement | null;
     channel: HTMLElement | null;
@@ -29,6 +31,7 @@ type PlayerOsdElements = {
 export class PlayerOsdOverlay implements IPlayerOsdOverlay {
     private containerElement: HTMLElement | null = null;
     private isVisibleFlag = false;
+    private lastStatusLabel: PlayerOsdViewModel['statusLabel'] | null = null;
     private elements: PlayerOsdElements = {
         status: null,
         channel: null,
@@ -58,6 +61,7 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         this.containerElement.appendChild(this.createTemplateElement());
         this.containerElement.classList.remove(PLAYER_OSD_CLASSES.VISIBLE);
         this.isVisibleFlag = false;
+        this.lastStatusLabel = null;
         this.cacheElements();
     }
 
@@ -68,6 +72,7 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         }
         this.containerElement = null;
         this.isVisibleFlag = false;
+        this.lastStatusLabel = null;
         this.elements = {
             status: null,
             channel: null,
@@ -107,7 +112,15 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         if (!this.containerElement) return;
 
         if (this.elements.status) {
-            this.elements.status.textContent = vm.statusLabel;
+            const label = vm.statusLabel;
+            if (label !== this.lastStatusLabel) {
+                this.elements.status.setAttribute('aria-label', label);
+                this.elements.status.textContent = '';
+                const icon = this.createStatusIcon(label);
+                if (icon) this.elements.status.appendChild(icon);
+                else this.elements.status.textContent = label;
+                this.lastStatusLabel = label;
+            }
         }
         if (this.elements.channel) {
             this.elements.channel.textContent = vm.channelPrefix;
@@ -156,6 +169,13 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
             const bufferPercent = Math.max(0, Math.min(1, vm.bufferedRatio)) * 100;
             this.elements.barBuffer.style.width = `${bufferPercent.toFixed(2)}%`;
         }
+        if (vm.statusLabel === 'BUFFERING') {
+            if (this.elements.barPlayed) this.elements.barPlayed.style.opacity = '0.3';
+            if (this.elements.barBuffer) this.elements.barBuffer.style.opacity = '0.3';
+        } else {
+            if (this.elements.barPlayed) this.elements.barPlayed.style.opacity = '';
+            if (this.elements.barBuffer) this.elements.barBuffer.style.opacity = '';
+        }
         if (this.elements.timecode) {
             this.elements.timecode.textContent = vm.timecode;
         }
@@ -167,6 +187,57 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
             this.elements.bufferText.textContent = vm.bufferText ?? '';
             this.elements.bufferText.style.display = vm.bufferText ? 'block' : 'none';
         }
+    }
+
+    private createStatusIcon(label: PlayerOsdViewModel['statusLabel']): SVGElement | null {
+        if (label !== 'PLAYING' && label !== 'PAUSED' && label !== 'BUFFERING') {
+            return null;
+        }
+        const svg = document.createElementNS(SVG_NS, 'svg');
+        svg.setAttribute('class', 'player-osd-status-icon');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('aria-hidden', 'true');
+
+        if (label === 'PLAYING') {
+            svg.setAttribute('fill', 'currentColor');
+            const path = document.createElementNS(SVG_NS, 'path');
+            path.setAttribute('d', 'M8 5v14l11-7z');
+            svg.appendChild(path);
+            return svg;
+        }
+
+        if (label === 'PAUSED') {
+            svg.setAttribute('fill', 'currentColor');
+            const left = document.createElementNS(SVG_NS, 'rect');
+            left.setAttribute('x', '6');
+            left.setAttribute('y', '4');
+            left.setAttribute('width', '4');
+            left.setAttribute('height', '16');
+            const right = document.createElementNS(SVG_NS, 'rect');
+            right.setAttribute('x', '14');
+            right.setAttribute('y', '4');
+            right.setAttribute('width', '4');
+            right.setAttribute('height', '16');
+            svg.append(left, right);
+            return svg;
+        }
+
+        if (label === 'BUFFERING') {
+            svg.setAttribute('class', 'player-osd-status-icon player-osd-spinner');
+            svg.setAttribute('fill', 'none');
+            const circle = document.createElementNS(SVG_NS, 'circle');
+            circle.setAttribute('cx', '12');
+            circle.setAttribute('cy', '12');
+            circle.setAttribute('r', '10');
+            circle.setAttribute('stroke', 'currentColor');
+            circle.setAttribute('stroke-width', '2.5');
+            circle.setAttribute('stroke-dasharray', '50 20');
+            circle.setAttribute('stroke-linecap', 'round');
+            svg.appendChild(circle);
+            return svg;
+        }
+
+        return null;
     }
 
     private cacheElements(): void {
@@ -200,13 +271,13 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
             { panel: {} }
         );
         panelEl.innerHTML = `
-        <div class="${PLAYER_OSD_CLASSES.TOP}">
-          <div class="${PLAYER_OSD_CLASSES.STATUS}"></div>
-          <div class="${PLAYER_OSD_CLASSES.CHANNEL}"></div>
-        </div>
+	        <div class="${PLAYER_OSD_CLASSES.TOP}">
+	          <div class="${PLAYER_OSD_CLASSES.STATUS}" role="status"></div>
+	          <div class="${PLAYER_OSD_CLASSES.CHANNEL}"></div>
+	        </div>
 
-        <div class="${PLAYER_OSD_CLASSES.TITLE}"></div>
-        <div class="${PLAYER_OSD_CLASSES.SUBTITLE}"></div>
+	        <div class="${PLAYER_OSD_CLASSES.TITLE}"></div>
+	        <div class="${PLAYER_OSD_CLASSES.SUBTITLE}"></div>
         <div class="${PLAYER_OSD_CLASSES.INFO_LINE}"></div>
         <div class="${PLAYER_OSD_CLASSES.UP_NEXT}"></div>
 

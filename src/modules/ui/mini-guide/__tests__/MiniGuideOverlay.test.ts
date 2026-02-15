@@ -133,6 +133,55 @@ describe('MiniGuideOverlay', () => {
         expect(document.getElementById('mini-guide-row-1')?.classList.contains('focused')).toBe(false);
     });
 
+    it('renders now start time when provided', () => {
+        const vm = makeViewModel();
+        (vm.channels[0] as { nowStartTime?: string | null }).nowStartTime = '9:30 PM';
+
+        overlay.setViewModel(vm);
+        overlay.show();
+
+        const now = document.getElementById('mini-guide-now-0') as HTMLElement;
+        const start = now.querySelector('.mini-guide-start-time') as HTMLElement | null;
+        expect(start?.textContent).toBe('9:30 PM');
+        expect(now.textContent).toContain('Now One');
+    });
+
+    it('does not render now start time when null', () => {
+        const vm = makeViewModel();
+        (vm.channels[0] as { nowStartTime?: string | null }).nowStartTime = null;
+
+        overlay.setViewModel(vm);
+        overlay.show();
+
+        const now = document.getElementById('mini-guide-now-0') as HTMLElement;
+        expect(now.querySelector('.mini-guide-start-time')).toBeNull();
+    });
+
+    it('sets row build strategy data attribute when present', () => {
+        const vm = makeViewModel();
+        (vm.channels[0] as { buildStrategy?: string | null }).buildStrategy = 'collections';
+
+        overlay.setViewModel(vm);
+        overlay.show();
+
+        const row = document.getElementById('mini-guide-row-0') as HTMLElement;
+        expect(row.dataset.buildStrategy).toBe('collections');
+    });
+
+    it('removes row build strategy data attribute when absent', () => {
+        const vm = makeViewModel();
+        (vm.channels[0] as { buildStrategy?: string | null }).buildStrategy = 'collections';
+
+        overlay.setViewModel(vm);
+
+        const cleared = makeViewModel();
+        (cleared.channels[0] as { buildStrategy?: string | null }).buildStrategy = null;
+        overlay.setViewModel(cleared);
+
+        const row = document.getElementById('mini-guide-row-0') as HTMLElement;
+        expect(row.dataset.buildStrategy).toBeUndefined();
+    });
+
     it('destroy clears DOM and visibility', () => {
         overlay.setViewModel(makeViewModel());
         overlay.show();

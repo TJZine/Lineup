@@ -70,7 +70,7 @@ export const DEFAULT_SETTINGS: SettingsConfig = {
     },
     display: {
         theme: DEFAULT_THEME,
-        nowPlayingInfoAutoHideMs: 10_000,
+        nowPlayingInfoAutoHideMs: 0,
     },
     developer: {
         debugLogging: false,

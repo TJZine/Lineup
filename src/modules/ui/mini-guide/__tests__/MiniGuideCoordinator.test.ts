@@ -114,10 +114,15 @@ const makeOverlay = (): IMiniGuideOverlay & { _visible: boolean } => {
     return overlay;
 };
 
-const makeChannel = (id: string, number: number): ChannelConfig => ({
+const makeChannel = (
+    id: string,
+    number: number,
+    buildStrategy?: ChannelConfig['buildStrategy']
+): ChannelConfig => ({
     id,
     name: `Channel ${number}`,
     number,
+    ...(buildStrategy ? { buildStrategy } : {}),
     playbackMode: 'sequential',
     shuffleSeed: 1,
     phaseSeed: 0,
@@ -295,6 +300,90 @@ describe('MiniGuideCoordinator', () => {
 
         const firstVm = (overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
         expect(firstVm.channels[2].nowTitle).toBe('Series Title • Episode Name');
+    });
+
+    it('includes formatted current start time when current program has scheduledStartTime', () => {
+        const singleChannel = makeChannel('ch1', 1);
+        const scheduler = {
+            getState: jest.fn().mockReturnValue({ isActive: true, channelId: 'ch1' }),
+            getCurrentProgram: jest.fn().mockReturnValue({
+                ...makeProgram('Current-Now'),
+                scheduledStartTime: Date.parse('2024-01-01T13:05:00.000Z'),
+            }),
+            getNextProgram: jest.fn().mockReturnValue(makeProgram('Current-Next')),
+        } as unknown as IChannelScheduler;
+        const { coordinator, overlay } = setup({
+            channels: [singleChannel],
+            currentChannel: singleChannel,
+            scheduler,
+        });
+
+        coordinator.show();
+
+        const firstVm = (overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
+        expect((firstVm.channels[2] as { nowStartTime?: string | null }).nowStartTime).toMatch(
+            /^\d{1,2}:\d{2} [AP]M$/
+        );
+    });
+
+    it('sets nowStartTime to null for loading and unavailable rows', () => {
+        const { coordinator, overlay } = setup();
+
+        coordinator.show();
+
+        const firstVm = (overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
+        expect((firstVm.channels[0] as { nowStartTime?: string | null }).nowStartTime).toBeNull();
+
+        const unavailableSetup = setup({
+            channels: [makeChannel('ch1', 1)],
+            currentChannel: makeChannel('ch1', 1),
+            scheduler: null,
+        });
+        unavailableSetup.coordinator.show();
+
+        const unavailableVm = (unavailableSetup.overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
+        expect((unavailableVm.channels[2] as { nowStartTime?: string | null }).nowStartTime).toBeNull();
+    });
+
+    it('threads buildStrategy into ready, loading, and unavailable rows', () => {
+        const readyChannel = makeChannel('ch1', 1, 'genres');
+        const readyScheduler = {
+            getState: jest.fn().mockReturnValue({ isActive: true, channelId: 'ch1' }),
+            getCurrentProgram: jest.fn().mockReturnValue(makeProgram('Current-Now')),
+            getNextProgram: jest.fn().mockReturnValue(makeProgram('Current-Next')),
+        } as unknown as IChannelScheduler;
+
+        const ready = setup({
+            channels: [readyChannel],
+            currentChannel: readyChannel,
+            scheduler: readyScheduler,
+        });
+        ready.coordinator.show();
+        const readyVm = (ready.overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
+        expect((readyVm.channels[2] as { buildStrategy?: string | null }).buildStrategy).toBe('genres');
+
+        const loading = setup({
+            channels: [
+                makeChannel('ch1', 1, 'collections'),
+                makeChannel('ch2', 2, 'playlists'),
+                makeChannel('ch3', 3, 'genres'),
+            ],
+            currentChannel: makeChannel('ch3', 3, 'genres'),
+            scheduler: readyScheduler,
+        });
+        loading.coordinator.show();
+        const loadingVm = (loading.overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
+        expect((loadingVm.channels[0] as { buildStrategy?: string | null }).buildStrategy).toBe('collections');
+
+        const unavailableChannel = makeChannel('ch9', 9, 'actors');
+        const unavailable = setup({
+            channels: [unavailableChannel],
+            currentChannel: unavailableChannel,
+            scheduler: null,
+        });
+        unavailable.coordinator.show();
+        const unavailableVm = (unavailable.overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
+        expect((unavailableVm.channels[2] as { buildStrategy?: string | null }).buildStrategy).toBe('actors');
     });
 
     it('dedupes resolve for duplicate non-current channels', () => {

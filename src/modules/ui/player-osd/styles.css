@@ -46,6 +46,22 @@
   color: var(--color-text-primary, rgba(255, 255, 255, 0.9));
 }
 
+.player-osd-status-icon {
+  width: 28px;
+  height: 28px;
+  vertical-align: middle;
+}
+
+.player-osd-spinner {
+  animation: osd-spin 1s linear infinite;
+}
+
+@keyframes osd-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .player-osd-channel {
   font-size: var(--text-md);
   font-weight: 600;
@@ -58,14 +74,14 @@
 }
 
 .player-osd-title {
-  font-size: 30px;
+  font-size: var(--text-xl);
   font-weight: 700;
   line-height: 1.2;
   color: var(--color-text-primary, rgba(255, 255, 255, 0.98));
 }
 
 .player-osd-subtitle {
-  font-size: 24px;
+  font-size: var(--text-lg);
   color: var(--color-text-secondary, rgba(255, 255, 255, 0.75));
   line-height: 1.2;
   display: -webkit-box;
@@ -73,7 +89,7 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-height: calc(24px * 1.2 * 2);
+  max-height: calc(var(--text-lg, 24px) * 1.2 * 2);
 }
 
 .player-osd-info {
@@ -87,7 +103,7 @@
 
 .player-osd-up-next {
   margin-top: 6px;
-  font-size: 18px;
+  font-size: var(--text-md);
   color: var(--color-text-muted, rgba(255, 255, 255, 0.6));
   white-space: nowrap;
   overflow: hidden;
@@ -173,7 +189,7 @@
   display: flex;
   align-items: center;
   gap: 18px;
-  font-size: 18px;
+  font-size: var(--text-md);
   color: rgba(255, 255, 255, 0.75);
 }
 
@@ -193,5 +209,9 @@
 @media (prefers-reduced-motion: reduce) {
   .player-osd {
     transition: none;
+  }
+
+  .player-osd-spinner {
+    animation: none;
   }
 }

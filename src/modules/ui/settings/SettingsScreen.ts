@@ -459,7 +459,7 @@ export class SettingsScreen {
                         description: 'Info overlay hide delay',
                         value: nowPlayingAutoHide,
                         options: NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS.map((value) => ({
-                            label: `${Math.round(value / 1000)}s`,
+                            label: value === 0 ? 'Persistent' : `${Math.round(value / 1000)}s`,
                             value,
                         })),
                         onChange: (value: number): void => {

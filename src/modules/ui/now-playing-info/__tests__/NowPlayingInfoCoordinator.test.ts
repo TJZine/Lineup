@@ -1,4 +1,5 @@
 import { NowPlayingInfoCoordinator } from '../NowPlayingInfoCoordinator';
+import { NOW_PLAYING_INFO_DEFAULTS } from '../constants';
 import type { INavigationManager } from '../../../navigation';
 import type { IChannelScheduler, ScheduledProgram } from '../../../scheduler/scheduler';
 import type { IChannelManager, ChannelConfig } from '../../../scheduler/channel-manager';
@@ -350,6 +351,77 @@ describe('NowPlayingInfoCoordinator', () => {
             { name: 'Actor E', url: 'http://image/actor/e' },
         ]);
         expect(lastUpdate.actorTotalCount).toBe(5);
+        coordinator.handleModalClose(modalId);
+    });
+
+    it('uses defaults-based actor count fallback when config omits actorHeadshotCount', async () => {
+        const plexLibrary = makePlexLibrary({
+            getImageUrl: jest.fn((path: string) => `http://image${path}`),
+            getItem: jest.fn().mockResolvedValue({
+                ratingKey: 'rk1',
+                title: 'Detail Title',
+                type: 'movie',
+                actorRoles: [
+                    { name: 'Actor A', thumb: '/actor/a' },
+                    { name: 'Actor B', thumb: '/actor/b' },
+                    { name: 'Actor C', thumb: '/actor/c' },
+                    { name: 'Actor D', thumb: '/actor/d' },
+                    { name: 'Actor E', thumb: '/actor/e' },
+                    { name: 'Actor F', thumb: '/actor/f' },
+                    { name: 'Actor G', thumb: '/actor/g' },
+                ],
+            } as PlexMediaItem),
+        });
+        const { coordinator, overlay } = setup({
+            getPlexLibrary: () => plexLibrary,
+            getNowPlayingInfoConfig: () => ({
+                containerId: 'now-playing-info-container',
+            }),
+        });
+
+        coordinator.handleModalOpen(modalId);
+        await Promise.resolve();
+
+        const updates = (overlay.update as jest.Mock).mock.calls;
+        const lastUpdate = updates[updates.length - 1]?.[0] as {
+            actorHeadshots?: Array<{ name: string; url: string | null }>;
+        };
+        expect(lastUpdate.actorHeadshots).toHaveLength(NOW_PLAYING_INFO_DEFAULTS.actorHeadshotCount);
+        coordinator.handleModalClose(modalId);
+    });
+
+    it('respects explicit actorHeadshotCount override', async () => {
+        const plexLibrary = makePlexLibrary({
+            getImageUrl: jest.fn((path: string) => `http://image${path}`),
+            getItem: jest.fn().mockResolvedValue({
+                ratingKey: 'rk1',
+                title: 'Detail Title',
+                type: 'movie',
+                actorRoles: [
+                    { name: 'Actor A', thumb: '/actor/a' },
+                    { name: 'Actor B', thumb: '/actor/b' },
+                    { name: 'Actor C', thumb: '/actor/c' },
+                    { name: 'Actor D', thumb: '/actor/d' },
+                    { name: 'Actor E', thumb: '/actor/e' },
+                ],
+            } as PlexMediaItem),
+        });
+        const { coordinator, overlay } = setup({
+            getPlexLibrary: () => plexLibrary,
+            getNowPlayingInfoConfig: () => ({
+                containerId: 'now-playing-info-container',
+                actorHeadshotCount: 2,
+            }),
+        });
+
+        coordinator.handleModalOpen(modalId);
+        await Promise.resolve();
+
+        const updates = (overlay.update as jest.Mock).mock.calls;
+        const lastUpdate = updates[updates.length - 1]?.[0] as {
+            actorHeadshots?: Array<{ name: string; url: string | null }>;
+        };
+        expect(lastUpdate.actorHeadshots).toHaveLength(2);
         coordinator.handleModalClose(modalId);
     });
 

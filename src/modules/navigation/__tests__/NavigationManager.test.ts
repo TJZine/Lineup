@@ -292,6 +292,29 @@ describe('NavigationManager', () => {
             el.click();
             expect(onSelect).toHaveBeenCalledTimes(1);
         });
+
+        it('pointer click should not invoke onSelect twice', () => {
+            nav.destroy();
+            nav = new NavigationManager();
+            nav.initialize({
+                ...config,
+                enablePointerMode: true,
+            });
+
+            const el = createMockElement('btn-pointer');
+            elements.push(el);
+            const onSelect = jest.fn();
+
+            nav.registerFocusable({
+                id: 'btn-pointer',
+                element: el,
+                neighbors: {},
+                onSelect,
+            });
+
+            el.click();
+            expect(onSelect).toHaveBeenCalledTimes(1);
+        });
     });
 
     describe('key handling', () => {
