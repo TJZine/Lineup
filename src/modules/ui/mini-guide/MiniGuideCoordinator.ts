@@ -352,7 +352,7 @@ export class MiniGuideCoordinator {
         const nowTitle = this._formatMiniGuideTitle(now) ?? 'Unavailable';
         const nextTitle = this._formatMiniGuideTitle(next);
         const nowStartTime = now?.scheduledStartTime
-            ? new Date(now.scheduledStartTime).toLocaleTimeString('en-US', {
+            ? new Date(now.scheduledStartTime).toLocaleTimeString(undefined, {
                 hour: 'numeric',
                 minute: '2-digit',
                 hour12: true,

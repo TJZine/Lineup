@@ -142,6 +142,7 @@ describe('PlayerOsdOverlay', () => {
 
         expect(status.getAttribute('aria-label')).toBe('PLAYING');
         expect(icon).not.toBeNull();
+        expect(icon?.querySelectorAll('path')).toHaveLength(1);
     });
 
     it('renders PAUSED icon with two bars', () => {

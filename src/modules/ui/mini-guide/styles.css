@@ -42,6 +42,10 @@
   border-left: 3px solid var(--focus-color);
 }
 
+.mini-guide-row:not(.focused) {
+  border-left: 3px solid transparent;
+}
+
 .mini-guide-row:not(.focused)[data-build-strategy="collections"] { border-left: 3px solid var(--epg-category-collections); }
 .mini-guide-row:not(.focused)[data-build-strategy="playlists"] { border-left: 3px solid var(--epg-category-playlists); }
 .mini-guide-row:not(.focused)[data-build-strategy="genres"] { border-left: 3px solid var(--epg-category-genres); }
@@ -118,7 +122,7 @@
 .mini-guide-start-time {
   color: var(--color-text-muted, rgba(255, 255, 255, 0.5));
   font-size: var(--text-xs, 14px);
-  margin-right: 8px;
+  margin-right: var(--space-2, 8px);
   white-space: nowrap;
   flex-shrink: 0;
 }

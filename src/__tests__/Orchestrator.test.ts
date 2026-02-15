@@ -9,7 +9,6 @@
 import { AppOrchestrator, type OrchestratorConfig, AppErrorCode } from '../Orchestrator';
 import {
     NowPlayingInfoCoordinator,
-    getNowPlayingInfoAutoHideMs,
 } from '../modules/ui/now-playing-info/NowPlayingInfoCoordinator';
 import type { INavigationManager } from '../modules/navigation';
 import type { PlexAuthDataV2 } from '../modules/plex/auth';
@@ -17,6 +16,7 @@ import type { IPlexLibrary } from '../modules/plex/library';
 import type { ChannelConfig, IChannelManager } from '../modules/scheduler/channel-manager';
 import type { ScheduledProgram } from '../modules/scheduler/scheduler';
 import type { INowPlayingInfoOverlay, NowPlayingInfoConfig } from '../modules/ui/now-playing-info';
+import { RETUNE_STORAGE_KEYS } from '../config/storageKeys';
 import type { PlatformServices } from '../platform';
 import { webosPlatformServices } from '../platform';
 
@@ -668,83 +668,6 @@ describe('AppOrchestrator', () => {
             expect(mockNavigation.closeModal).toHaveBeenCalledWith('now-playing-info');
         });
 
-        it('should honor config nowPlayingInfoConfig.autoHideMs when storage is unset', async () => {
-            const configWithAutoHide: OrchestratorConfig = {
-                ...mockConfig,
-                nowPlayingInfoConfig: {
-                    ...mockConfig.nowPlayingInfoConfig,
-                    autoHideMs: 15_000,
-                },
-            };
-
-            mockLocalStorage.getItem.mockReturnValue(null);
-            await orchestrator.initialize(configWithAutoHide);
-
-            const autoHideMs = getNowPlayingInfoAutoHideMs(configWithAutoHide.nowPlayingInfoConfig);
-
-            expect(autoHideMs).toBe(15_000);
-        });
-
-        it('should allow nowPlayingInfoConfig.autoHideMs = 0 when storage is unset', async () => {
-            const configWithAutoHide: OrchestratorConfig = {
-                ...mockConfig,
-                nowPlayingInfoConfig: {
-                    ...mockConfig.nowPlayingInfoConfig,
-                    autoHideMs: 0,
-                },
-            };
-
-            mockLocalStorage.getItem.mockReturnValue(null);
-            await orchestrator.initialize(configWithAutoHide);
-
-            const autoHideMs = getNowPlayingInfoAutoHideMs(configWithAutoHide.nowPlayingInfoConfig);
-
-            expect(autoHideMs).toBe(0);
-        });
-
-        it('should allow stored nowPlayingInfo auto-hide value of 0', async () => {
-            mockLocalStorage.getItem.mockReturnValue('0');
-            await orchestrator.initialize(mockConfig);
-
-            const autoHideMs = getNowPlayingInfoAutoHideMs(mockConfig.nowPlayingInfoConfig);
-
-            expect(autoHideMs).toBe(0);
-        });
-
-        it('should ignore whitespace-only stored nowPlayingInfo auto-hide and use config fallback', async () => {
-            const configWithAutoHide: OrchestratorConfig = {
-                ...mockConfig,
-                nowPlayingInfoConfig: {
-                    ...mockConfig.nowPlayingInfoConfig,
-                    autoHideMs: 15_000,
-                },
-            };
-
-            mockLocalStorage.getItem.mockReturnValue('   ');
-            await orchestrator.initialize(configWithAutoHide);
-
-            const autoHideMs = getNowPlayingInfoAutoHideMs(configWithAutoHide.nowPlayingInfoConfig);
-
-            expect(autoHideMs).toBe(15_000);
-        });
-
-        it('should ignore non-decimal stored nowPlayingInfo auto-hide and use config fallback', async () => {
-            const configWithAutoHide: OrchestratorConfig = {
-                ...mockConfig,
-                nowPlayingInfoConfig: {
-                    ...mockConfig.nowPlayingInfoConfig,
-                    autoHideMs: 15_000,
-                },
-            };
-
-            mockLocalStorage.getItem.mockReturnValue('0x0');
-            await orchestrator.initialize(configWithAutoHide);
-
-            const autoHideMs = getNowPlayingInfoAutoHideMs(configWithAutoHide.nowPlayingInfoConfig);
-
-            expect(autoHideMs).toBe(15_000);
-        });
-
         it('should use configured nowPlayingInfo poster sizes when resizing', async () => {
             const configWithPosterSizes: OrchestratorConfig = {
                 ...mockConfig,
@@ -802,6 +725,93 @@ describe('AppOrchestrator', () => {
             coordinator.onProgramStart(program as unknown as ScheduledProgram);
 
             expect(mockPlexLibrary.getImageUrl).toHaveBeenCalledWith('/thumb', 111, 222);
+        });
+    });
+
+    describe('nowPlayingInfo autoHideMs wiring', () => {
+        const baseProgram = {
+            item: {
+                ratingKey: 'rk1',
+                title: 'Test Movie',
+                durationMs: 120_000,
+                type: 'movie',
+                fullTitle: null,
+                year: 2024,
+                contentRating: 'PG',
+                thumb: '/thumb',
+            },
+            scheduledStartTime: Date.now(),
+            scheduledEndTime: Date.now() + 120_000,
+            elapsedMs: 0,
+            remainingMs: 120_000,
+            scheduleIndex: 0,
+            loopNumber: 0,
+            streamDescriptor: null,
+            isCurrent: true,
+        };
+
+        it('applies stored autoHideMs when opening now playing modal', async () => {
+            const configWithAutoHide: OrchestratorConfig = {
+                ...mockConfig,
+                nowPlayingInfoConfig: {
+                    ...mockConfig.nowPlayingInfoConfig,
+                    autoHideMs: 15_000,
+                },
+            };
+
+            mockLocalStorage.getItem.mockImplementation((key: string) =>
+                key === RETUNE_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS ? '0' : null
+            );
+            await orchestrator.initialize(configWithAutoHide);
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.validateToken.mockResolvedValue(true);
+            mockPlexDiscovery.isConnected.mockReturnValue(true);
+            await orchestrator.start();
+
+            mockScheduler.getCurrentProgram.mockReturnValue(baseProgram);
+            mockNavigation.isModalOpen.mockImplementation((modalId?: string) => modalId === 'now-playing-info');
+
+            const modalOpen = navHandlers.modalOpen as (payload: unknown) => void;
+            modalOpen({ modalId: 'now-playing-info' });
+
+            const nowPlayingModule = require('../modules/ui/now-playing-info');
+            const instance = (nowPlayingModule.NowPlayingInfoOverlay as jest.Mock).mock.results[0]?.value;
+            expect(instance.setAutoHideMs).toHaveBeenCalledWith(0);
+
+            const modalClose = navHandlers.modalClose as (payload: unknown) => void;
+            modalClose({ modalId: 'now-playing-info' });
+        });
+
+        it('falls back to config autoHideMs when stored value is invalid', async () => {
+            const configWithAutoHide: OrchestratorConfig = {
+                ...mockConfig,
+                nowPlayingInfoConfig: {
+                    ...mockConfig.nowPlayingInfoConfig,
+                    autoHideMs: 15_000,
+                },
+            };
+
+            mockLocalStorage.getItem.mockImplementation((key: string) =>
+                key === RETUNE_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS ? '0x0' : null
+            );
+            await orchestrator.initialize(configWithAutoHide);
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.validateToken.mockResolvedValue(true);
+            mockPlexDiscovery.isConnected.mockReturnValue(true);
+            await orchestrator.start();
+
+            mockScheduler.getCurrentProgram.mockReturnValue(baseProgram);
+            mockNavigation.isModalOpen.mockImplementation((modalId?: string) => modalId === 'now-playing-info');
+
+            const modalOpen = navHandlers.modalOpen as (payload: unknown) => void;
+            modalOpen({ modalId: 'now-playing-info' });
+
+            const nowPlayingModule = require('../modules/ui/now-playing-info');
+            const instance = (nowPlayingModule.NowPlayingInfoOverlay as jest.Mock).mock.results[0]?.value;
+            expect(instance.setAutoHideMs).toHaveBeenCalledWith(15_000);
+
+            const modalClose = navHandlers.modalClose as (payload: unknown) => void;
+            modalClose({ modalId: 'now-playing-info' });
         });
     });
 

@@ -31,6 +31,7 @@ type PlayerOsdElements = {
 export class PlayerOsdOverlay implements IPlayerOsdOverlay {
     private containerElement: HTMLElement | null = null;
     private isVisibleFlag = false;
+    private lastStatusLabel: PlayerOsdViewModel['statusLabel'] | null = null;
     private elements: PlayerOsdElements = {
         status: null,
         channel: null,
@@ -60,6 +61,7 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         this.containerElement.appendChild(this.createTemplateElement());
         this.containerElement.classList.remove(PLAYER_OSD_CLASSES.VISIBLE);
         this.isVisibleFlag = false;
+        this.lastStatusLabel = null;
         this.cacheElements();
     }
 
@@ -70,6 +72,7 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         }
         this.containerElement = null;
         this.isVisibleFlag = false;
+        this.lastStatusLabel = null;
         this.elements = {
             status: null,
             channel: null,
@@ -111,10 +114,13 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         if (this.elements.status) {
             const label = vm.statusLabel;
             this.elements.status.setAttribute('aria-label', label);
-            this.elements.status.textContent = '';
-            const icon = this.createStatusIcon(label);
-            if (icon) this.elements.status.appendChild(icon);
-            else this.elements.status.textContent = label;
+            if (label !== this.lastStatusLabel) {
+                this.elements.status.textContent = '';
+                const icon = this.createStatusIcon(label);
+                if (icon) this.elements.status.appendChild(icon);
+                else this.elements.status.textContent = label;
+                this.lastStatusLabel = label;
+            }
         }
         if (this.elements.channel) {
             this.elements.channel.textContent = vm.channelPrefix;
@@ -184,6 +190,9 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
     }
 
     private createStatusIcon(label: PlayerOsdViewModel['statusLabel']): SVGElement | null {
+        if (label !== 'PLAYING' && label !== 'PAUSED' && label !== 'BUFFERING') {
+            return null;
+        }
         const svg = document.createElementNS(SVG_NS, 'svg');
         svg.setAttribute('class', 'player-osd-status-icon');
         svg.setAttribute('viewBox', '0 0 24 24');
