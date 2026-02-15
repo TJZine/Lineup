@@ -215,6 +215,10 @@ export interface ChannelConfig {
     sourceLibraryId?: string;
     /** Source library display name (cached for filter tabs) */
     sourceLibraryName?: string;
+    /** 0 = base lineup, 1..n = alternate deterministic lineup replicas */
+    lineupReplicaIndex?: number;
+    /** True when this channel is the sequential variant of a generated channel */
+    isSequentialVariant?: boolean;
 
     // Content source definition
     /** Where content comes from */

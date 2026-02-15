@@ -4,6 +4,28 @@
  * @version 1.0.0
  */
 
+export type SetupStrategyKey =
+    | 'collections'
+    | 'playlists'
+    | 'genres'
+    | 'directors'
+    | 'decades'
+    | 'recentlyAdded'
+    | 'studios'
+    | 'actors';
+
+export interface SetupStrategyConfig {
+    enabled: boolean;
+    priority: number;
+    scope: 'per-library' | 'cross-library';
+}
+
+export interface ChannelExpansionConfig {
+    addAlternateLineups: boolean;
+    alternateLineupCopies: number;
+    addSequentialVariants: boolean;
+}
+
 export interface ChannelSetupConfig {
     serverId: string;
     selectedLibraryIds: string[];
@@ -20,6 +42,8 @@ export interface ChannelSetupConfig {
         studios: boolean;
         actors: boolean;
     };
+    strategyConfig?: Partial<Record<SetupStrategyKey, SetupStrategyConfig>>;
+    channelExpansion?: ChannelExpansionConfig;
     actorStudioCombineMode: 'separate' | 'combined';
     minItemsPerChannel: number;
 }

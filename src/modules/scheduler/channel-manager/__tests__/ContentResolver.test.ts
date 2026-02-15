@@ -301,6 +301,113 @@ describe('ContentResolver', () => {
             expect(result[2]!.ratingKey).toBe('l2');
         });
 
+        it('interleave mode remains stable with uneven source sizes and consumes all items', async () => {
+            mockLibrary.getLibraryItems.mockResolvedValue([
+                createMockItem({ ratingKey: 'l1' }),
+                createMockItem({ ratingKey: 'l2' }),
+                createMockItem({ ratingKey: 'l3' }),
+            ]);
+            mockLibrary.getCollectionItems.mockResolvedValue([
+                createMockItem({ ratingKey: 'c1' }),
+            ]);
+            mockLibrary.getPlaylistItems.mockResolvedValue([
+                createMockItem({ ratingKey: 'p1' }),
+                createMockItem({ ratingKey: 'p2' }),
+            ]);
+
+            const source: MixedContentSource = {
+                type: 'mixed',
+                sources: [
+                    { type: 'library', libraryId: 'lib1', libraryType: 'movie', includeWatched: true },
+                    { type: 'collection', collectionKey: 'col1', collectionName: 'Col' },
+                    { type: 'playlist', playlistKey: 'pl1', playlistName: 'Playlist' },
+                ],
+                mixMode: 'interleave',
+            };
+
+            const result = await resolver.resolveSource(source);
+
+            expect(result.map((item) => item.ratingKey)).toEqual(['l1', 'c1', 'p1', 'l2', 'p2', 'l3']);
+            expect(result).toHaveLength(6);
+        });
+
+        it('sequential mixed mode preserves sub-source order', async () => {
+            mockLibrary.getLibraryItems.mockResolvedValue([
+                createMockItem({ ratingKey: 'l1' }),
+                createMockItem({ ratingKey: 'l2' }),
+            ]);
+            mockLibrary.getCollectionItems.mockResolvedValue([
+                createMockItem({ ratingKey: 'c1' }),
+                createMockItem({ ratingKey: 'c2' }),
+            ]);
+
+            const source: MixedContentSource = {
+                type: 'mixed',
+                sources: [
+                    { type: 'library', libraryId: 'lib1', libraryType: 'movie', includeWatched: true },
+                    { type: 'collection', collectionKey: 'col1', collectionName: 'Col' },
+                ],
+                mixMode: 'sequential',
+            };
+
+            const result = await resolver.resolveSource(source);
+
+            expect(result.map((item) => item.ratingKey)).toEqual(['l1', 'l2', 'c1', 'c2']);
+        });
+
+        it('resolves mixed category sources across movie and show libraries with same filter key', async () => {
+            mockLibrary.getLibraryItems.mockImplementation(async (libraryId, options) => {
+                if (libraryId === 'movie-lib') {
+                    return [
+                        createMockItem({ ratingKey: 'm1', genres: ['Action'] }),
+                        createMockItem({ ratingKey: 'm2', genres: ['Action'] }),
+                    ];
+                }
+                if (libraryId === 'show-lib' && options?.filter?.type === PLEX_MEDIA_TYPES.EPISODE) {
+                    return [
+                        createMockEpisode(1, 1, { ratingKey: 's1e1', genres: ['Action'] }),
+                    ];
+                }
+                if (libraryId === 'show-lib') {
+                    return [];
+                }
+                return [];
+            });
+
+            const source: MixedContentSource = {
+                type: 'mixed',
+                sources: [
+                    {
+                        type: 'library',
+                        libraryId: 'movie-lib',
+                        libraryType: 'movie',
+                        includeWatched: true,
+                        libraryFilter: { genre: 'Action' },
+                    },
+                    {
+                        type: 'library',
+                        libraryId: 'show-lib',
+                        libraryType: 'show',
+                        includeWatched: true,
+                        libraryFilter: { genre: 'Action' },
+                    },
+                ],
+                mixMode: 'interleave',
+            };
+
+            const result = await resolver.resolveSource(source);
+
+            expect(result.map((item) => item.ratingKey)).toEqual(['m1', 's1e1', 'm2']);
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledWith(
+                'movie-lib',
+                expect.objectContaining({ filter: expect.objectContaining({ genre: 'Action' }) })
+            );
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledWith(
+                'show-lib',
+                expect.objectContaining({ filter: expect.objectContaining({ genre: 'Action', type: PLEX_MEDIA_TYPES.EPISODE }) })
+            );
+        });
+
         // Issue 5: Errors now propagate for cached fallback handling by ChannelManager
         it('should propagate errors for cached fallback handling', async () => {
             mockLibrary.getLibraryItems.mockRejectedValue(new Error('404'));

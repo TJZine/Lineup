@@ -7,6 +7,7 @@
 import type {
     ChannelSetupConfig,
     ChannelSetupEstimates,
+    SetupStrategyKey,
 } from './types';
 import type {
     PlexLibraryType,
@@ -33,6 +34,8 @@ export type PendingChannel = {
     buildStrategy?: BuildStrategy;
     sourceLibraryId?: string;
     sourceLibraryName?: string;
+    lineupReplicaIndex?: number;
+    isSequentialVariant?: boolean;
 };
 
 export interface ChannelSetupPlanInput {
@@ -62,6 +65,8 @@ export interface ChannelIdentityCandidate {
     contentFilters?: ContentFilter[];
     sortOrder?: SortOrder;
     playbackMode: ChannelConfig['playbackMode'];
+    lineupReplicaIndex?: number;
+    isSequentialVariant?: boolean;
 }
 
 export interface ChannelDiffEntry {
@@ -80,6 +85,16 @@ export interface ChannelDiffResult {
     summary: { created: number; removed: number; unchanged: number };
     samples: { created: string[]; removed: string[]; unchanged: string[] };
 }
+
+type CategoryCandidate = {
+    strategy: SetupStrategyKey;
+    categoryKey: string;
+    categoryLabel: string;
+    baseSource: ChannelConfig['contentSource'];
+    sourceLibraryId?: string;
+    sourceLibraryName?: string;
+    itemCount?: number;
+};
 
 const emptyEstimates = (): ChannelSetupEstimates => ({
     total: 0,
@@ -109,10 +124,7 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
         seedFor,
     } = input;
 
-    const estimates = emptyEstimates();
-    const pending: PendingChannel[] = [];
     let skipped = 0;
-    let reachedMaxChannels = false;
 
     const requestedMax = Number.isFinite(config.maxChannels) ? config.maxChannels : 100;
     const effectiveMaxChannels = Math.max(1, Math.floor(requestedMax));
@@ -123,15 +135,80 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
         .filter((lib) => config.selectedLibraryIds.includes(lib.id))
         .sort((a, b) => a.title.localeCompare(b.title));
 
-    const tryAdd = (strategy: keyof ChannelSetupEstimates, channel: PendingChannel): boolean => {
-        if (pending.length >= effectiveMaxChannels) {
-            reachedMaxChannels = true;
-            return false;
+    const getStrategyPriority = (strategy: SetupStrategyKey): number => {
+        const configured = config.strategyConfig?.[strategy]?.priority;
+        if (Number.isFinite(configured)) {
+            return Math.max(1, Math.floor(Number(configured)));
         }
-        pending.push(channel);
-        estimates[strategy] += 1;
-        estimates.total += 1;
-        return true;
+        const fallbackPriority: Record<SetupStrategyKey, number> = {
+            playlists: 1,
+            collections: 2,
+            recentlyAdded: 3,
+            genres: 4,
+            studios: 5,
+            actors: 6,
+            decades: 7,
+            directors: 8,
+        };
+        return fallbackPriority[strategy];
+    };
+
+    const isStrategyEnabled = (strategy: SetupStrategyKey): boolean => {
+        const configured = config.strategyConfig?.[strategy]?.enabled;
+        if (typeof configured === 'boolean') {
+            return configured;
+        }
+        return config.enabledStrategies[strategy] === true;
+    };
+
+    const getStrategyScope = (strategy: SetupStrategyKey): 'per-library' | 'cross-library' => {
+        return config.strategyConfig?.[strategy]?.scope === 'cross-library' ? 'cross-library' : 'per-library';
+    };
+
+    const strategyBuckets: Record<SetupStrategyKey, PendingChannel[]> = {
+        collections: [],
+        playlists: [],
+        genres: [],
+        directors: [],
+        decades: [],
+        recentlyAdded: [],
+        studios: [],
+        actors: [],
+    };
+    const legacyFallbackChannels: PendingChannel[] = [];
+
+    const addStrategyChannel = (strategy: SetupStrategyKey, channel: PendingChannel): void => {
+        strategyBuckets[strategy].push({
+            ...channel,
+            buildStrategy: strategy,
+            lineupReplicaIndex: channel.lineupReplicaIndex ?? 0,
+            isSequentialVariant: channel.isSequentialVariant === true,
+        });
+    };
+
+    const addLegacyFallback = (channel: PendingChannel): void => {
+        legacyFallbackChannels.push({
+            ...channel,
+            buildStrategy: 'libraryFallback',
+            lineupReplicaIndex: channel.lineupReplicaIndex ?? 0,
+            isSequentialVariant: channel.isSequentialVariant === true,
+        });
+    };
+
+    const sortCategoryCandidates = (candidates: CategoryCandidate[]): CategoryCandidate[] => {
+        const compare = (a: string, b: string): number => {
+            if (a === b) return 0;
+            return a < b ? -1 : 1;
+        };
+        return [...candidates].sort((a, b) => {
+            const countDiff = (b.itemCount ?? 0) - (a.itemCount ?? 0);
+            if (countDiff !== 0) return countDiff;
+            const aLabel = a.categoryLabel.toLowerCase();
+            const bLabel = b.categoryLabel.toLowerCase();
+            const labelDiff = compare(aLabel, bLabel);
+            if (labelDiff !== 0) return labelDiff;
+            return compare(a.categoryKey, b.categoryKey);
+        });
     };
 
     const sortTags = (tags: PlexTagDirectoryItem[]): PlexTagDirectoryItem[] => {
@@ -166,10 +243,15 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
     };
 
     // 0. Server-wide Playlists
-    if (config.enabledStrategies.playlists) {
-        for (const pl of playlists) {
+    if (isStrategyEnabled('playlists')) {
+        const orderedPlaylists = [...playlists].sort((a, b) => {
+            const countDiff = b.leafCount - a.leafCount;
+            if (countDiff !== 0) return countDiff;
+            return a.title.localeCompare(b.title);
+        });
+        for (const pl of orderedPlaylists) {
             if (pl.leafCount >= minItems) {
-                if (!tryAdd('playlists', {
+                addStrategyChannel('playlists', {
                     name: pl.title,
                     contentSource: {
                         type: 'playlist',
@@ -179,10 +261,7 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
                     playbackMode: 'shuffle',
                     shuffleSeed: seedFor(`playlist:${pl.ratingKey}`),
                     isAutoGenerated: true,
-                    buildStrategy: 'playlists',
-                })) {
-                    break;
-                }
+                });
             } else {
                 skipped++;
             }
@@ -194,37 +273,46 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
     for (const library of selectedLibraries) {
         // 1. Collections
         let addedCollections = false;
-        if (config.enabledStrategies.collections) {
+        if (isStrategyEnabled('collections')) {
             const collections = collectionsByLibraryId.get(library.id) ?? [];
+            const candidates: CategoryCandidate[] = [];
             for (const collection of collections) {
                 if (collection.childCount >= minItems) {
-                    if (!tryAdd('collections', {
-                        name: collection.title,
-                        contentSource: {
+                    candidates.push({
+                        strategy: 'collections',
+                        categoryKey: collection.ratingKey,
+                        categoryLabel: collection.title,
+                        itemCount: collection.childCount,
+                        baseSource: {
                             type: 'collection',
                             collectionKey: collection.ratingKey,
                             collectionName: collection.title,
                         },
-                        playbackMode: 'shuffle',
-                        shuffleSeed: seedFor(`collection:${collection.ratingKey}`),
-                        isAutoGenerated: true,
-                        buildStrategy: 'collections',
                         sourceLibraryId: library.id,
                         sourceLibraryName: library.title,
-                    })) {
-                        break;
-                    }
-                    addedCollections = true;
+                    });
                 } else {
                     skipped++;
                 }
+            }
+            for (const candidate of sortCategoryCandidates(candidates)) {
+                addStrategyChannel('collections', {
+                    name: candidate.categoryLabel,
+                    contentSource: candidate.baseSource,
+                    playbackMode: 'shuffle',
+                    shuffleSeed: seedFor(`collection:${candidate.categoryKey}`),
+                    isAutoGenerated: true,
+                    sourceLibraryId: library.id,
+                    sourceLibraryName: library.title,
+                });
+                addedCollections = true;
             }
         }
 
         if (!addedCollections && config.enabledStrategies.libraryFallback) {
             const fallbackCount = libraryItemCountById.get(library.id) ?? library.contentCount ?? null;
             if (fallbackCount === null || fallbackCount >= minItems) {
-                tryAdd('libraryFallback', {
+                addLegacyFallback({
                     name: library.title,
                     contentSource: {
                         type: 'library',
@@ -235,20 +323,19 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
                     playbackMode: 'shuffle',
                     shuffleSeed: seedFor(`library:${library.id}`),
                     isAutoGenerated: true,
-                    buildStrategy: 'libraryFallback',
                     sourceLibraryId: library.id,
                     sourceLibraryName: library.title,
                 });
             } else {
                 skipped++;
             }
-        } else if (!config.enabledStrategies.collections && !config.enabledStrategies.libraryFallback) {
+        } else if (!isStrategyEnabled('collections') && !config.enabledStrategies.libraryFallback) {
             skipped++;
         }
 
         // 2. Recently Added
-        if (config.enabledStrategies.recentlyAdded) {
-            tryAdd('recentlyAdded', {
+        if (isStrategyEnabled('recentlyAdded')) {
+            addStrategyChannel('recentlyAdded', {
                 name: `${library.title} - Recently Added`,
                 contentSource: {
                     type: 'library',
@@ -260,68 +347,85 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
                 playbackMode: 'sequential',
                 shuffleSeed: seedFor(`recentlyAdded:${library.id}`),
                 isAutoGenerated: true,
-                buildStrategy: 'recentlyAdded',
                 sourceLibraryId: library.id,
                 sourceLibraryName: library.title,
             });
         }
 
-        // 3. Item Scanning Strategies
-        if (config.enabledStrategies.genres || config.enabledStrategies.directors || config.enabledStrategies.decades) {
+        // 3. Item Scanning Strategies (per-library only pass)
+        if (isStrategyEnabled('genres') || isStrategyEnabled('directors') || isStrategyEnabled('decades')) {
             const tagItems = tagItemsByLibraryId.get(library.id) ?? [];
             const scanItems = scanItemsByLibraryId.get(library.id) ?? [];
 
-            if (config.enabledStrategies.genres) {
+            if (isStrategyEnabled('genres') && getStrategyScope('genres') === 'per-library') {
                 const genres = countTags(tagItems, 'genres');
+                const candidates: CategoryCandidate[] = [];
                 for (const genre of genres) {
                     if (genre.count < minItems) continue;
-                    if (!tryAdd('genres', {
-                        name: `${library.title} - ${genre.label}`,
-                        contentSource: {
+                    candidates.push({
+                        strategy: 'genres',
+                        categoryKey: `${library.id}:${genre.label.toLowerCase()}`,
+                        categoryLabel: genre.label,
+                        itemCount: genre.count,
+                        baseSource: {
                             type: 'library',
                             libraryId: library.id,
                             libraryType: library.type === 'movie' ? 'movie' : 'show',
                             includeWatched: true,
                         },
-                        contentFilters: [{ field: 'genre', operator: 'eq', value: genre.label }],
-                        playbackMode: 'shuffle',
-                        shuffleSeed: seedFor(`genre:${library.id}:${genre.label}`),
-                        isAutoGenerated: true,
-                        buildStrategy: 'genres',
                         sourceLibraryId: library.id,
                         sourceLibraryName: library.title,
-                    })) {
-                        break;
-                    }
+                    });
+                }
+                for (const candidate of sortCategoryCandidates(candidates)) {
+                    addStrategyChannel('genres', {
+                        name: `${library.title} - ${candidate.categoryLabel}`,
+                        contentSource: candidate.baseSource,
+                        contentFilters: [{ field: 'genre', operator: 'eq', value: candidate.categoryLabel }],
+                        playbackMode: 'shuffle',
+                        shuffleSeed: seedFor(`genre:${library.id}:${candidate.categoryLabel}`),
+                        isAutoGenerated: true,
+                        sourceLibraryId: library.id,
+                        sourceLibraryName: library.title,
+                    });
                 }
             }
 
-            if (config.enabledStrategies.directors) {
+            if (isStrategyEnabled('directors') && getStrategyScope('directors') === 'per-library') {
                 const directors = countTags(tagItems, 'directors');
+                const candidates: CategoryCandidate[] = [];
                 for (const director of directors) {
                     if (director.count < minItems) continue;
-                    if (!tryAdd('directors', {
-                        name: `${library.title} - ${director.label}`,
-                        contentSource: {
+                    candidates.push({
+                        strategy: 'directors',
+                        categoryKey: `${library.id}:${director.label.toLowerCase()}`,
+                        categoryLabel: director.label,
+                        itemCount: director.count,
+                        baseSource: {
                             type: 'library',
                             libraryId: library.id,
                             libraryType: library.type === 'movie' ? 'movie' : 'show',
                             includeWatched: true,
                         },
-                        contentFilters: [{ field: 'director', operator: 'eq', value: director.label }],
-                        playbackMode: 'shuffle',
-                        shuffleSeed: seedFor(`director:${library.id}:${director.label}`),
-                        isAutoGenerated: true,
-                        buildStrategy: 'directors',
                         sourceLibraryId: library.id,
                         sourceLibraryName: library.title,
-                    })) {
-                        break;
-                    }
+                    });
+                }
+                for (const candidate of sortCategoryCandidates(candidates)) {
+                    addStrategyChannel('directors', {
+                        name: `${library.title} - ${candidate.categoryLabel}`,
+                        contentSource: candidate.baseSource,
+                        contentFilters: [{ field: 'director', operator: 'eq', value: candidate.categoryLabel }],
+                        playbackMode: 'shuffle',
+                        shuffleSeed: seedFor(`director:${library.id}:${candidate.categoryLabel}`),
+                        isAutoGenerated: true,
+                        sourceLibraryId: library.id,
+                        sourceLibraryName: library.title,
+                    });
                 }
             }
 
-            if (config.enabledStrategies.decades) {
+            if (isStrategyEnabled('decades')) {
                 const decadeCounts = new Map<number, number>();
                 for (const item of scanItems) {
                     if (item.year) {
@@ -332,7 +436,7 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
                 const sortedDecades = Array.from(decadeCounts.keys()).sort((a, b) => a - b);
                 for (const decade of sortedDecades) {
                     if ((decadeCounts.get(decade) || 0) < minItems) continue;
-                    if (!tryAdd('decades', {
+                    addStrategyChannel('decades', {
                         name: `${library.title} - ${decade}s`,
                         contentSource: {
                             type: 'library',
@@ -347,43 +451,128 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
                         playbackMode: 'shuffle',
                         shuffleSeed: seedFor(`decade:${library.id}:${decade}`),
                         isAutoGenerated: true,
-                        buildStrategy: 'decades',
                         sourceLibraryId: library.id,
                         sourceLibraryName: library.title,
-                    })) {
-                        break;
-                    }
+                    });
                 }
             }
         }
     }
 
-    if (config.enabledStrategies.studios) {
-        if (actorStudioCombineMode === 'combined') {
+    if (isStrategyEnabled('genres') && getStrategyScope('genres') === 'cross-library') {
+        const grouped = new Map<string, { label: string; totalCount: number; sources: ChannelConfig['contentSource'][] }>();
+        for (const library of selectedLibraries) {
+            const tagItems = tagItemsByLibraryId.get(library.id) ?? [];
+            const genres = countTags(tagItems, 'genres');
+            for (const genre of genres) {
+                const key = genre.label.trim().toLowerCase();
+                if (!key) continue;
+                const entry = grouped.get(key) ?? { label: genre.label, totalCount: 0, sources: [] };
+                entry.totalCount += genre.count;
+                entry.sources.push({
+                    type: 'library',
+                    libraryId: library.id,
+                    libraryType: library.type === 'movie' ? 'movie' : 'show',
+                    includeWatched: true,
+                    libraryFilter: { genre: genre.label },
+                });
+                grouped.set(key, entry);
+            }
+        }
+        const candidates: CategoryCandidate[] = [];
+        for (const [categoryKey, entry] of grouped.entries()) {
+            if (entry.totalCount < minItems) continue;
+            const baseSource: ChannelConfig['contentSource'] = entry.sources.length > 1
+                ? { type: 'mixed', mixMode: 'interleave', sources: entry.sources }
+                : entry.sources[0] ?? { type: 'manual', items: [] };
+            candidates.push({
+                strategy: 'genres',
+                categoryKey,
+                categoryLabel: entry.label,
+                itemCount: entry.totalCount,
+                baseSource,
+            });
+        }
+        for (const candidate of sortCategoryCandidates(candidates)) {
+            addStrategyChannel('genres', {
+                name: candidate.categoryLabel,
+                contentSource: candidate.baseSource,
+                playbackMode: 'shuffle',
+                shuffleSeed: seedFor(`genre:cross:${candidate.categoryKey}`),
+                isAutoGenerated: true,
+            });
+        }
+    }
+
+    if (isStrategyEnabled('directors') && getStrategyScope('directors') === 'cross-library') {
+        const grouped = new Map<string, { label: string; totalCount: number; sources: ChannelConfig['contentSource'][] }>();
+        for (const library of selectedLibraries) {
+            const tagItems = tagItemsByLibraryId.get(library.id) ?? [];
+            const directors = countTags(tagItems, 'directors');
+            for (const director of directors) {
+                const key = director.label.trim().toLowerCase();
+                if (!key) continue;
+                const entry = grouped.get(key) ?? { label: director.label, totalCount: 0, sources: [] };
+                entry.totalCount += director.count;
+                entry.sources.push({
+                    type: 'library',
+                    libraryId: library.id,
+                    libraryType: library.type === 'movie' ? 'movie' : 'show',
+                    includeWatched: true,
+                    libraryFilter: { director: director.label },
+                });
+                grouped.set(key, entry);
+            }
+        }
+        const candidates: CategoryCandidate[] = [];
+        for (const [categoryKey, entry] of grouped.entries()) {
+            if (entry.totalCount < minItems) continue;
+            const baseSource: ChannelConfig['contentSource'] = entry.sources.length > 1
+                ? { type: 'mixed', mixMode: 'interleave', sources: entry.sources }
+                : entry.sources[0] ?? { type: 'manual', items: [] };
+            candidates.push({
+                strategy: 'directors',
+                categoryKey,
+                categoryLabel: entry.label,
+                itemCount: entry.totalCount,
+                baseSource,
+            });
+        }
+        for (const candidate of sortCategoryCandidates(candidates)) {
+            addStrategyChannel('directors', {
+                name: candidate.categoryLabel,
+                contentSource: candidate.baseSource,
+                playbackMode: 'shuffle',
+                shuffleSeed: seedFor(`director:cross:${candidate.categoryKey}`),
+                isAutoGenerated: true,
+            });
+        }
+    }
+
+    if (isStrategyEnabled('studios')) {
+        const studioScope = getStrategyScope('studios');
+        if (actorStudioCombineMode === 'combined' || studioScope === 'cross-library') {
             const combined = combineTagSources(selectedLibraries, studiosByLibraryId, 'studio');
             for (const tag of combined) {
                 if (tag.totalCount < minItems) continue;
-                if (!tryAdd('studios', {
+                addStrategyChannel('studios', {
                     name: tag.title,
                     contentSource: {
                         type: 'mixed',
-                        mixMode: 'sequential',
+                        mixMode: studioScope === 'cross-library' ? 'interleave' : 'sequential',
                         sources: tag.sources,
                     },
                     playbackMode: 'shuffle',
                     shuffleSeed: seedFor(`studio:${tag.key}`),
                     isAutoGenerated: true,
-                    buildStrategy: 'studios',
-                })) {
-                    break;
-                }
+                });
             }
         } else {
             for (const library of selectedLibraries) {
                 const tags = sortTags(studiosByLibraryId.get(library.id) ?? []);
                 for (const tag of tags) {
                     if (tag.count < minItems) continue;
-                    if (!tryAdd('studios', {
+                    addStrategyChannel('studios', {
                         name: `${tag.title} - ${library.type === 'movie' ? 'Movies' : 'TV'}`,
                         contentSource: {
                             type: 'library',
@@ -395,43 +584,38 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
                         playbackMode: 'shuffle',
                         shuffleSeed: seedFor(`studio:${library.id}:${tag.key}`),
                         isAutoGenerated: true,
-                        buildStrategy: 'studios',
                         sourceLibraryId: library.id,
                         sourceLibraryName: library.title,
-                    })) {
-                        break;
-                    }
+                    });
                 }
             }
         }
     }
 
-    if (config.enabledStrategies.actors) {
-        if (actorStudioCombineMode === 'combined') {
+    if (isStrategyEnabled('actors')) {
+        const actorScope = getStrategyScope('actors');
+        if (actorStudioCombineMode === 'combined' || actorScope === 'cross-library') {
             const combined = combineTagSources(selectedLibraries, actorsByLibraryId, 'actor');
             for (const tag of combined) {
                 if (tag.totalCount < minItems) continue;
-                if (!tryAdd('actors', {
+                addStrategyChannel('actors', {
                     name: tag.title,
                     contentSource: {
                         type: 'mixed',
-                        mixMode: 'sequential',
+                        mixMode: actorScope === 'cross-library' ? 'interleave' : 'sequential',
                         sources: tag.sources,
                     },
                     playbackMode: 'shuffle',
                     shuffleSeed: seedFor(`actor:${tag.key}`),
                     isAutoGenerated: true,
-                    buildStrategy: 'actors',
-                })) {
-                    break;
-                }
+                });
             }
         } else {
             for (const library of selectedLibraries) {
                 const tags = sortTags(actorsByLibraryId.get(library.id) ?? []);
                 for (const tag of tags) {
                     if (tag.count < minItems) continue;
-                    if (!tryAdd('actors', {
+                    addStrategyChannel('actors', {
                         name: `${tag.title} - ${library.type === 'movie' ? 'Movies' : 'TV'}`,
                         contentSource: {
                             type: 'library',
@@ -443,14 +627,85 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
                         playbackMode: 'shuffle',
                         shuffleSeed: seedFor(`actor:${library.id}:${tag.key}`),
                         isAutoGenerated: true,
-                        buildStrategy: 'actors',
                         sourceLibraryId: library.id,
                         sourceLibraryName: library.title,
-                    })) {
-                        break;
-                    }
+                    });
                 }
             }
+        }
+    }
+
+    const orderedStrategies = (Object.keys(strategyBuckets) as SetupStrategyKey[]).sort((a, b) => {
+        const priorityDiff = getStrategyPriority(a) - getStrategyPriority(b);
+        if (priorityDiff !== 0) return priorityDiff;
+        return a.localeCompare(b);
+    });
+
+    const baseOrdered: PendingChannel[] = [];
+    for (const strategy of orderedStrategies) {
+        baseOrdered.push(...strategyBuckets[strategy]);
+        // Legacy compatibility: keep fallback channels tied to collections placement.
+        if (strategy === 'collections' && legacyFallbackChannels.length > 0) {
+            baseOrdered.push(...legacyFallbackChannels);
+        }
+    }
+
+    let alternateCopies = 0;
+    if (config.channelExpansion?.addAlternateLineups) {
+        const raw = config.channelExpansion?.alternateLineupCopies;
+        const copies = Number.isFinite(raw) ? Math.floor(Number(raw)) : 1;
+        alternateCopies = Math.min(3, Math.max(1, copies));
+    }
+    const withAlternateLineups: PendingChannel[] = [];
+    for (const channel of baseOrdered) {
+        const baseChannel: PendingChannel = {
+            ...channel,
+            lineupReplicaIndex: channel.lineupReplicaIndex ?? 0,
+            isSequentialVariant: false,
+        };
+        withAlternateLineups.push(baseChannel);
+
+        if (alternateCopies <= 0 || baseChannel.playbackMode === 'sequential') {
+            continue;
+        }
+        for (let replicaIndex = 1; replicaIndex <= alternateCopies; replicaIndex++) {
+            withAlternateLineups.push({
+                ...baseChannel,
+                name: `${baseChannel.name} (${replicaIndex + 1})`,
+                shuffleSeed: seedFor(`${createChannelIdentityKey(baseChannel)}:replica:${replicaIndex}`),
+                lineupReplicaIndex: replicaIndex,
+                isSequentialVariant: false,
+            });
+        }
+    }
+
+    const withSequentialVariants: PendingChannel[] = [...withAlternateLineups];
+    if (config.channelExpansion?.addSequentialVariants) {
+        for (const channel of withAlternateLineups) {
+            if (channel.playbackMode === 'sequential') {
+                continue;
+            }
+            withSequentialVariants.push({
+                ...channel,
+                name: `${channel.name} • Sequential`,
+                playbackMode: 'sequential',
+                isSequentialVariant: true,
+                shuffleSeed: seedFor(`${createChannelIdentityKey(channel)}:sequential`),
+            });
+        }
+    }
+
+    const pending = withSequentialVariants.slice(0, effectiveMaxChannels);
+    const reachedMaxChannels = withSequentialVariants.length > effectiveMaxChannels;
+    const estimates = emptyEstimates();
+    for (const channel of pending) {
+        estimates.total += 1;
+        const strategyKey = channel.buildStrategy as keyof ChannelSetupEstimates | undefined;
+        if (!strategyKey || strategyKey === 'total') {
+            continue;
+        }
+        if (strategyKey in estimates) {
+            estimates[strategyKey] += 1;
         }
     }
 
@@ -468,6 +723,8 @@ export function createChannelIdentityKey(candidate: ChannelIdentityCandidate): s
         source: normalizeSource(candidate.contentSource),
         filters: normalizeFilters(candidate.contentFilters),
         sortOrder: candidate.sortOrder ?? null,
+        lineupReplicaIndex: candidate.lineupReplicaIndex ?? 0,
+        isSequentialVariant: candidate.isSequentialVariant === true,
     };
     return stableStringify(normalized);
 }

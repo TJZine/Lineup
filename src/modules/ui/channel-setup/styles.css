@@ -101,6 +101,16 @@
     color: var(--color-success);
 }
 
+.setup-toggle--adjustable .setup-toggle-state {
+    min-width: 2ch;
+    text-align: right;
+}
+
+.setup-toggle:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .setup-preview {
   width: 100%;
   padding: 12px 18px 12px 14px;
