@@ -33,6 +33,46 @@ Determines the order of content:
 - **Sequential**: Plays items in order (A-Z for movies, S01E01... for shows). Best for "binge" channels.
 - **Random**: True random shuffle. The schedule changes every time you look.
 
+## Channel Setup Builder (Step 2)
+
+The guided setup wizard can generate many channels in one pass.
+
+### Strategy Order (Priority)
+
+- Every strategy has a numeric **Priority**.
+- Lower numbers are planned first (`1` before `4`).
+- Priority helps you control which categories are created first when max-channel limits apply.
+
+### Strategy Scope
+
+- Default scope is **Per Library** for all strategies.
+- Per-library output example: `Movies - Action` and `Shows - Action`.
+- You can opt into **Mixed** scope (experimental) for category strategies that support it (Genres/Directors/Studios/Actors) to combine sources across libraries for the same category (example: `Action`).
+
+### Expansion Options (Both Off by Default)
+
+- **Add Alternate Lineups**:
+  - Creates additional channels from the same source/category with different deterministic shuffle seeds.
+  - Names use neutral numbering:
+    - `Action` (base)
+    - `Action (2)`, `Action (3)`, ...
+- **Alternate Lineup Copies**:
+  - Number of extra copies per generated channel (`1` to `3`).
+- **Add Sequential Channels**:
+  - Adds a sequential companion channel for each generated non-sequential channel.
+  - Naming format:
+    - `Action • Sequential`
+    - `Action (2) • Sequential`
+
+### High-Volume Defaults and Quick Action
+
+- Setup defaults are now:
+  - **Max channels**: `200`
+  - **Min items per channel**: `5`
+- Use **Expand Lineup** to quickly set:
+  - **Max channels** to `500` (the app maximum)
+  - **Min items per channel** to `1`
+
 ## Editing a Channel
 
 1. Go to **Settings** -> **Channels**.

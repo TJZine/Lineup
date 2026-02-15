@@ -54,3 +54,19 @@ Now you have a channel that plays Star Wars content in chronological order, appe
 Explore the full user guide to master the Electronic Program Guide and more.
 
 👉 **[Go to User Guide](../user-guide/README.md)**
+
+## Optional: Build Many Channels At Once
+
+Instead of creating channels one by one, you can use the setup wizard to auto-build a lineup:
+
+1. Open **Channel Setup**.
+2. In Step 2, keep defaults or tune:
+   - Strategy priorities
+   - Per-library vs mixed scope (experimental, available for some category strategies)
+   - Optional alternate lineups and sequential variants (both default Off)
+3. Use **Expand Lineup** if you want maximum channel volume quickly.
+
+Current setup defaults:
+
+- Max channels: `200`
+- Min items per channel: `5`

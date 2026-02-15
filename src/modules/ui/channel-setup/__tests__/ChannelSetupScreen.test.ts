@@ -7,6 +7,8 @@ import type { ChannelSetupOrchestrator } from '../ChannelSetupScreen';
 import type { PlexLibrary } from '../../../plex/library/types';
 import type { INavigationManager, KeyEvent } from '../../../navigation/interfaces';
 import type { FocusableElement } from '../../../navigation/interfaces';
+import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
+import { DEFAULT_MIN_ITEMS_PER_CHANNEL } from '../../../../core/channel-setup/constants';
 
 import { flushPromises } from '../../../../__tests__/helpers';
 
@@ -41,7 +43,6 @@ const DEFAULT_PREVIEW = {
     estimates: {
         total: 0,
         collections: 0,
-        libraryFallback: 0,
         playlists: 0,
         genres: 0,
         directors: 0,
@@ -335,7 +336,8 @@ describe('ChannelSetupScreen', () => {
         expect(nav.focusables.get('setup-category-advanced-sources')?.neighbors.down).toBe('setup-category-build-options');
         expect(nav.focusables.get('setup-category-build-options')?.neighbors.down).toBe('setup-category-limits');
         expect(nav.focusables.get('setup-category-limits')?.neighbors.down).toBe('setup-strategy-collections');
-        expect(nav.focusables.get('setup-strategy-recentlyAdded')?.neighbors.down).toBe('setup-back');
+        expect(nav.focusables.get('setup-strategy-recentlyAdded')?.neighbors.down).toBe('setup-priority-recentlyAdded');
+        expect(nav.focusables.get('setup-priority-recentlyAdded')?.neighbors.down).toBe('setup-back');
         expect(nav.focusables.get('setup-back')?.neighbors.down).toBe('setup-next');
         expect(nav.focusables.get('setup-next')?.neighbors.up).toBe('setup-back');
     });
@@ -544,5 +546,183 @@ describe('ChannelSetupScreen', () => {
         }
         resolveBuild(DEFAULT_BUILD_RESULT);
         await flushPromises();
+    });
+
+    it('defaults step-2 strategy settings to enabled with per-library scope', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        const config = (screen as unknown as { _buildConfig: (serverId: string) => Record<string, unknown> })._buildConfig('server-1');
+        const strategyConfig = config.strategyConfig as Record<string, { enabled: boolean; scope: string }>;
+        expect(strategyConfig).toBeDefined();
+        expect(Object.values(strategyConfig).every((value) => value.enabled === true)).toBe(true);
+        expect(Object.values(strategyConfig).every((value) => value.scope === 'per-library')).toBe(true);
+    });
+
+    it('renders scope controls only for strategies that support mixed sources', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        // Content-source strategies: scope has no effect today, so control should not be shown.
+        expect(container.querySelector('#setup-scope-collections')).toBeNull();
+        expect(container.querySelector('#setup-scope-playlists')).toBeNull();
+        expect(container.querySelector('#setup-scope-recentlyAdded')).toBeNull();
+
+        // Advanced strategies: only the mixed-capable category strategies should show scope controls.
+        clickButton(container, '#setup-category-advanced-sources');
+
+        expect(container.querySelector('#setup-scope-genres')).toBeTruthy();
+        expect(container.querySelector('#setup-scope-directors')).toBeTruthy();
+        expect(container.querySelector('#setup-scope-studios')).toBeTruthy();
+        expect(container.querySelector('#setup-scope-actors')).toBeTruthy();
+
+        // Decades currently does not support cross-library mixing.
+        expect(container.querySelector('#setup-scope-decades')).toBeNull();
+    });
+
+    it('serializes strategyConfig, channelExpansion, and preview key when Step 2 settings change', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        const internal = screen as unknown as {
+            _buildConfig: (serverId: string) => Record<string, unknown>;
+            _buildPreviewKey: (config: Record<string, unknown>) => string;
+        };
+
+        const beforeConfig = internal._buildConfig('server-1');
+        const beforeKey = internal._buildPreviewKey(beforeConfig);
+
+        expect(beforeConfig.channelExpansion).toEqual({
+            addAlternateLineups: false,
+            alternateLineupCopies: 1,
+            addSequentialVariants: false,
+        });
+
+        clickButton(container, '#setup-priority-playlists');
+        clickButton(container, '#setup-category-advanced-sources');
+        clickButton(container, '#setup-scope-genres');
+        clickButton(container, '#setup-category-build-options');
+        clickButton(container, '#setup-expansion-alternate-lineups');
+        clickButton(container, '#setup-expansion-copies');
+        clickButton(container, '#setup-expansion-sequential');
+
+        const afterConfig = internal._buildConfig('server-1');
+        const afterKey = internal._buildPreviewKey(afterConfig);
+        const strategyConfig = afterConfig.strategyConfig as Record<string, { priority: number; scope: string }>;
+        const beforeStrategyConfig = beforeConfig.strategyConfig as Record<string, { priority: number; scope: string }>;
+
+        expect(strategyConfig.playlists?.priority).not.toBe(beforeStrategyConfig.playlists?.priority);
+        expect(strategyConfig.genres?.scope).toBe('cross-library');
+        expect(afterConfig.channelExpansion).toEqual({
+            addAlternateLineups: true,
+            alternateLineupCopies: 2,
+            addSequentialVariants: true,
+        });
+        expect(afterKey).not.toBe(beforeKey);
+    });
+
+    it('Expand Lineup quick action sets max to MAX_CHANNELS and min items to 1', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-limits');
+        clickButton(container, '#setup-expand-lineup');
+
+        const config = (screen as unknown as { _buildConfig: (serverId: string) => Record<string, unknown> })._buildConfig('server-1');
+        expect(config.maxChannels).toBe(MAX_CHANNELS);
+        expect(config.minItemsPerChannel).toBe(1);
+    });
+
+    it('applies Expand Lineup values only after successful build completion', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
+        const markSetupComplete = jest.fn();
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+            createChannelsFromSetup,
+            markSetupComplete,
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-limits');
+        clickButton(container, '#setup-expand-lineup');
+        expect(markSetupComplete).not.toHaveBeenCalled();
+
+        clickButton(container, '#setup-next');
+        await flushPromises();
+        await flushPromises();
+
+        expect(createChannelsFromSetup).toHaveBeenCalledTimes(1);
+        expect(markSetupComplete).toHaveBeenCalledTimes(1);
+        const savedConfig = markSetupComplete.mock.calls[0]?.[1] as { maxChannels: number; minItemsPerChannel: number };
+        expect(savedConfig.maxChannels).toBe(MAX_CHANNELS);
+        expect(savedConfig.minItemsPerChannel).toBe(1);
+    });
+
+    it('uses new higher-volume defaults in Step 2 config state', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        const config = (screen as unknown as { _buildConfig: (serverId: string) => { maxChannels: number; minItemsPerChannel: number } })._buildConfig('server-1');
+        expect(config.maxChannels).toBe(DEFAULT_CHANNEL_SETUP_MAX);
+        expect(config.minItemsPerChannel).toBe(DEFAULT_MIN_ITEMS_PER_CHANNEL);
     });
 });
