@@ -9,6 +9,8 @@ import type {
     ChannelSetupEstimates,
     SetupStrategyKey,
 } from './types';
+import { DEFAULT_MIN_ITEMS_PER_CHANNEL, DEFAULT_STRATEGY_PRIORITIES } from './constants';
+import { DEFAULT_CHANNEL_SETUP_MAX } from '../../modules/scheduler/channel-manager/constants';
 import type {
     PlexLibraryType,
     PlexMediaItem,
@@ -45,7 +47,6 @@ export interface ChannelSetupPlanInput {
     collectionsByLibraryId: Map<string, PlexCollection[]>;
     tagItemsByLibraryId: Map<string, PlexMediaItem[]>;
     scanItemsByLibraryId: Map<string, PlexMediaItem[]>;
-    libraryItemCountById: Map<string, number | null>;
     actorsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
     studiosByLibraryId: Map<string, PlexTagDirectoryItem[]>;
     warnings: string[];
@@ -99,7 +100,6 @@ type CategoryCandidate = {
 const emptyEstimates = (): ChannelSetupEstimates => ({
     total: 0,
     collections: 0,
-    libraryFallback: 0,
     playlists: 0,
     genres: 0,
     directors: 0,
@@ -117,7 +117,6 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
         collectionsByLibraryId,
         tagItemsByLibraryId,
         scanItemsByLibraryId,
-        libraryItemCountById,
         actorsByLibraryId,
         studiosByLibraryId,
         warnings,
@@ -126,9 +125,9 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
 
     let skipped = 0;
 
-    const requestedMax = Number.isFinite(config.maxChannels) ? config.maxChannels : 100;
+    const requestedMax = Number.isFinite(config.maxChannels) ? config.maxChannels : DEFAULT_CHANNEL_SETUP_MAX;
     const effectiveMaxChannels = Math.max(1, Math.floor(requestedMax));
-    const requestedMinItems = Number.isFinite(config.minItemsPerChannel) ? config.minItemsPerChannel : 10;
+    const requestedMinItems = Number.isFinite(config.minItemsPerChannel) ? config.minItemsPerChannel : DEFAULT_MIN_ITEMS_PER_CHANNEL;
     const minItems = Math.max(1, Math.floor(requestedMinItems));
 
     const selectedLibraries = libraries
@@ -136,33 +135,19 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
         .sort((a, b) => a.title.localeCompare(b.title));
 
     const getStrategyPriority = (strategy: SetupStrategyKey): number => {
-        const configured = config.strategyConfig?.[strategy]?.priority;
+        const configured = config.strategyConfig[strategy]?.priority;
         if (Number.isFinite(configured)) {
             return Math.max(1, Math.floor(Number(configured)));
         }
-        const fallbackPriority: Record<SetupStrategyKey, number> = {
-            playlists: 1,
-            collections: 2,
-            recentlyAdded: 3,
-            genres: 4,
-            studios: 5,
-            actors: 6,
-            decades: 7,
-            directors: 8,
-        };
-        return fallbackPriority[strategy];
+        return DEFAULT_STRATEGY_PRIORITIES[strategy];
     };
 
     const isStrategyEnabled = (strategy: SetupStrategyKey): boolean => {
-        const configured = config.strategyConfig?.[strategy]?.enabled;
-        if (typeof configured === 'boolean') {
-            return configured;
-        }
-        return config.enabledStrategies[strategy] === true;
+        return config.strategyConfig[strategy]?.enabled === true;
     };
 
     const getStrategyScope = (strategy: SetupStrategyKey): 'per-library' | 'cross-library' => {
-        return config.strategyConfig?.[strategy]?.scope === 'cross-library' ? 'cross-library' : 'per-library';
+        return config.strategyConfig[strategy]?.scope === 'cross-library' ? 'cross-library' : 'per-library';
     };
 
     const strategyBuckets: Record<SetupStrategyKey, PendingChannel[]> = {
@@ -175,21 +160,11 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
         studios: [],
         actors: [],
     };
-    const legacyFallbackChannels: PendingChannel[] = [];
 
     const addStrategyChannel = (strategy: SetupStrategyKey, channel: PendingChannel): void => {
         strategyBuckets[strategy].push({
             ...channel,
             buildStrategy: strategy,
-            lineupReplicaIndex: channel.lineupReplicaIndex ?? 0,
-            isSequentialVariant: channel.isSequentialVariant === true,
-        });
-    };
-
-    const addLegacyFallback = (channel: PendingChannel): void => {
-        legacyFallbackChannels.push({
-            ...channel,
-            buildStrategy: 'libraryFallback',
             lineupReplicaIndex: channel.lineupReplicaIndex ?? 0,
             isSequentialVariant: channel.isSequentialVariant === true,
         });
@@ -272,7 +247,6 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
 
     for (const library of selectedLibraries) {
         // 1. Collections
-        let addedCollections = false;
         if (isStrategyEnabled('collections')) {
             const collections = collectionsByLibraryId.get(library.id) ?? [];
             const candidates: CategoryCandidate[] = [];
@@ -305,32 +279,7 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
                     sourceLibraryId: library.id,
                     sourceLibraryName: library.title,
                 });
-                addedCollections = true;
             }
-        }
-
-        if (!addedCollections && config.enabledStrategies.libraryFallback) {
-            const fallbackCount = libraryItemCountById.get(library.id) ?? library.contentCount ?? null;
-            if (fallbackCount === null || fallbackCount >= minItems) {
-                addLegacyFallback({
-                    name: library.title,
-                    contentSource: {
-                        type: 'library',
-                        libraryId: library.id,
-                        libraryType: library.type === 'movie' ? 'movie' : 'show',
-                        includeWatched: true,
-                    },
-                    playbackMode: 'shuffle',
-                    shuffleSeed: seedFor(`library:${library.id}`),
-                    isAutoGenerated: true,
-                    sourceLibraryId: library.id,
-                    sourceLibraryName: library.title,
-                });
-            } else {
-                skipped++;
-            }
-        } else if (!isStrategyEnabled('collections') && !config.enabledStrategies.libraryFallback) {
-            skipped++;
         }
 
         // 2. Recently Added
@@ -644,10 +593,6 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
     const baseOrdered: PendingChannel[] = [];
     for (const strategy of orderedStrategies) {
         baseOrdered.push(...strategyBuckets[strategy]);
-        // Legacy compatibility: keep fallback channels tied to collections placement.
-        if (strategy === 'collections' && legacyFallbackChannels.length > 0) {
-            baseOrdered.push(...legacyFallbackChannels);
-        }
     }
 
     let alternateCopies = 0;

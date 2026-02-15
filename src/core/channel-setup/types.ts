@@ -22,6 +22,7 @@ export interface SetupStrategyConfig {
 
 export interface ChannelExpansionConfig {
     addAlternateLineups: boolean;
+    /** Number of extra copies per generated channel (clamped to 1–3 at plan time). */
     alternateLineupCopies: number;
     addSequentialVariants: boolean;
 }
@@ -31,18 +32,7 @@ export interface ChannelSetupConfig {
     selectedLibraryIds: string[];
     maxChannels: number;
     buildMode: 'replace' | 'append' | 'merge';
-    enabledStrategies: {
-        collections: boolean;
-        libraryFallback: boolean;
-        playlists: boolean;
-        genres: boolean;
-        directors: boolean;
-        decades: boolean;
-        recentlyAdded: boolean;
-        studios: boolean;
-        actors: boolean;
-    };
-    strategyConfig?: Partial<Record<SetupStrategyKey, SetupStrategyConfig>>;
+    strategyConfig: Record<SetupStrategyKey, SetupStrategyConfig>;
     channelExpansion?: ChannelExpansionConfig;
     actorStudioCombineMode: 'separate' | 'combined';
     minItemsPerChannel: number;
@@ -70,7 +60,6 @@ export interface ChannelBuildProgress {
 export interface ChannelSetupEstimates {
     total: number;
     collections: number;
-    libraryFallback: number;
     playlists: number;
     genres: number;
     directors: number;

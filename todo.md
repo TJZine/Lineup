@@ -80,6 +80,7 @@
 
 ### Other Nice-to-Haves
 
+- [ ] Repo-wide legacy/compat cleanup pass: inventory all \"legacy/backward-compat/migration\" paths and decide what to keep/remove after a deeper review (channel-setup legacy/compat has been removed already).
 - [ ] Memory diagnostics per module (`ModuleStatus.memoryUsageMB`) for testing and debugging
 - [ ] Endpoint cleanup pass: capture live webOS + desktop traces for Plex Home profile fetch + subtitle extraction, pick canonical endpoint/path variants, and remove fallback branches that never succeed
 - [ ] EPG guide focus rule: preserve guide focus unless last change was channel up/down; decide number-entry behavior

@@ -7,7 +7,8 @@ import type { ChannelSetupOrchestrator } from '../ChannelSetupScreen';
 import type { PlexLibrary } from '../../../plex/library/types';
 import type { INavigationManager, KeyEvent } from '../../../navigation/interfaces';
 import type { FocusableElement } from '../../../navigation/interfaces';
-import { MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
+import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
+import { DEFAULT_MIN_ITEMS_PER_CHANNEL } from '../../../../core/channel-setup/constants';
 
 import { flushPromises } from '../../../../__tests__/helpers';
 
@@ -42,7 +43,6 @@ const DEFAULT_PREVIEW = {
     estimates: {
         total: 0,
         collections: 0,
-        libraryFallback: 0,
         playlists: 0,
         genres: 0,
         directors: 0,
@@ -548,7 +548,7 @@ describe('ChannelSetupScreen', () => {
         await flushPromises();
     });
 
-    it('defaults step-2 strategy settings to enabled with per-library scope and no libraryFallback selector', async () => {
+    it('defaults step-2 strategy settings to enabled with per-library scope', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -561,8 +561,6 @@ describe('ChannelSetupScreen', () => {
         screen.show();
         await flushPromises();
         await enterStep2(container);
-
-        expect(container.querySelector('#setup-strategy-libraryFallback')).toBeNull();
 
         const config = (screen as unknown as { _buildConfig: (serverId: string) => Record<string, unknown> })._buildConfig('server-1');
         const strategyConfig = config.strategyConfig as Record<string, { enabled: boolean; scope: string }>;
@@ -724,7 +722,7 @@ describe('ChannelSetupScreen', () => {
         await enterStep2(container);
 
         const config = (screen as unknown as { _buildConfig: (serverId: string) => { maxChannels: number; minItemsPerChannel: number } })._buildConfig('server-1');
-        expect(config.maxChannels).toBe(200);
-        expect(config.minItemsPerChannel).toBe(5);
+        expect(config.maxChannels).toBe(DEFAULT_CHANNEL_SETUP_MAX);
+        expect(config.minItemsPerChannel).toBe(DEFAULT_MIN_ITEMS_PER_CHANNEL);
     });
 });

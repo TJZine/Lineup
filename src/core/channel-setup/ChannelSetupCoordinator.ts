@@ -31,41 +31,15 @@ import {
     type PendingChannel,
     type ChannelDiffResult,
 } from './ChannelSetupPlanner';
+import {
+    DEFAULT_CHANNEL_EXPANSION,
+    DEFAULT_MIN_ITEMS_PER_CHANNEL,
+    DEFAULT_STRATEGY_PRIORITIES,
+    MIXED_SCOPE_STRATEGY_KEYS,
+    SETUP_STRATEGY_KEYS,
+} from './constants';
 
-const SELECTABLE_STRATEGY_KEYS: SetupStrategyKey[] = [
-    'collections',
-    'playlists',
-    'genres',
-    'directors',
-    'decades',
-    'recentlyAdded',
-    'studios',
-    'actors',
-];
-
-const DEFAULT_STRATEGY_PRIORITIES: Record<SetupStrategyKey, number> = {
-    playlists: 1,
-    collections: 2,
-    recentlyAdded: 3,
-    genres: 4,
-    studios: 5,
-    actors: 6,
-    decades: 7,
-    directors: 8,
-};
-
-const MIXED_SCOPE_STRATEGY_KEYS = new Set<SetupStrategyKey>([
-    'genres',
-    'directors',
-    'studios',
-    'actors',
-]);
-
-const DEFAULT_CHANNEL_EXPANSION: ChannelExpansionConfig = {
-    addAlternateLineups: false,
-    alternateLineupCopies: 1,
-    addSequentialVariants: false,
-};
+const SELECTABLE_STRATEGY_KEYS: SetupStrategyKey[] = [...SETUP_STRATEGY_KEYS];
 
 export interface ChannelSetupCoordinatorDeps {
     // Primary modules
@@ -415,8 +389,7 @@ export class ChannelSetupCoordinator {
         const record: ChannelSetupRecord = {
             serverId,
             selectedLibraryIds: [...normalizedConfig.selectedLibraryIds],
-            enabledStrategies: { ...normalizedConfig.enabledStrategies },
-            strategyConfig: { ...(normalizedConfig.strategyConfig ?? {}) },
+            strategyConfig: { ...normalizedConfig.strategyConfig },
             channelExpansion: normalizedConfig.channelExpansion ?? DEFAULT_CHANNEL_EXPANSION,
             maxChannels: normalizedConfig.maxChannels,
             buildMode: normalizedConfig.buildMode,
@@ -501,37 +474,21 @@ export class ChannelSetupCoordinator {
             : DEFAULT_CHANNEL_SETUP_MAX;
         const minItemsPerChannel = Number.isFinite(config.minItemsPerChannel)
             ? Math.max(1, Math.floor(config.minItemsPerChannel))
-            : 10;
+            : DEFAULT_MIN_ITEMS_PER_CHANNEL;
         const buildMode = config.buildMode ?? 'replace';
         const actorStudioCombineMode = config.actorStudioCombineMode ?? 'separate';
-        const rawEnabled = config.enabledStrategies as Partial<ChannelSetupConfig['enabledStrategies']> | undefined;
-        const selectableEnabled = SELECTABLE_STRATEGY_KEYS.reduce<Record<SetupStrategyKey, boolean>>((acc, key) => {
-            const fromLegacy = rawEnabled?.[key];
-            const fromStrategyConfig = config.strategyConfig?.[key]?.enabled;
-            if (typeof fromLegacy === 'boolean') {
-                acc[key] = fromLegacy;
-            } else if (typeof fromStrategyConfig === 'boolean') {
-                acc[key] = fromStrategyConfig;
-            } else {
-                acc[key] = true;
-            }
-            return acc;
-        }, {} as Record<SetupStrategyKey, boolean>);
-        const strategyConfig = SELECTABLE_STRATEGY_KEYS.reduce<Partial<Record<SetupStrategyKey, SetupStrategyConfig>>>((acc, key) => {
-            const candidate = config.strategyConfig?.[key];
+        const strategyConfig = SELECTABLE_STRATEGY_KEYS.reduce<Record<SetupStrategyKey, SetupStrategyConfig>>((acc, key) => {
+            const candidate = config.strategyConfig[key];
+            const enabled = typeof candidate?.enabled === 'boolean' ? candidate.enabled : true;
             const priority = Number.isFinite(candidate?.priority)
-                ? Math.max(1, Math.floor(Number(candidate?.priority)))
+                ? Math.max(1, Math.floor(Number(candidate.priority)))
                 : DEFAULT_STRATEGY_PRIORITIES[key];
             const scope = MIXED_SCOPE_STRATEGY_KEYS.has(key) && candidate?.scope === 'cross-library'
                 ? 'cross-library'
                 : 'per-library';
-            acc[key] = {
-                enabled: selectableEnabled[key],
-                priority,
-                scope,
-            };
+            acc[key] = { enabled, priority, scope };
             return acc;
-        }, {});
+        }, {} as Record<SetupStrategyKey, SetupStrategyConfig>);
         const channelExpansion = this._normalizeChannelExpansion(config.channelExpansion);
         return {
             ...config,
@@ -539,17 +496,6 @@ export class ChannelSetupCoordinator {
             minItemsPerChannel,
             buildMode,
             actorStudioCombineMode,
-            enabledStrategies: {
-                collections: selectableEnabled.collections,
-                libraryFallback: typeof rawEnabled?.libraryFallback === 'boolean' ? rawEnabled.libraryFallback : false,
-                playlists: selectableEnabled.playlists,
-                genres: selectableEnabled.genres,
-                directors: selectableEnabled.directors,
-                decades: selectableEnabled.decades,
-                recentlyAdded: selectableEnabled.recentlyAdded,
-                studios: selectableEnabled.studios,
-                actors: selectableEnabled.actors,
-            },
             strategyConfig,
             channelExpansion,
         };
@@ -572,7 +518,6 @@ export class ChannelSetupCoordinator {
         return {
             total: 0,
             collections: 0,
-            libraryFallback: 0,
             playlists: 0,
             genres: 0,
             directors: 0,
@@ -645,11 +590,10 @@ export class ChannelSetupCoordinator {
         const collectionsByLibraryId = new Map<string, PlexCollection[]>();
         const tagItemsByLibraryId = new Map<string, PlexMediaItem[]>();
         const scanItemsByLibraryId = new Map<string, PlexMediaItem[]>();
-        const libraryItemCountById = new Map<string, number | null>();
         const actorsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
         const studiosByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
 
-        if (config.enabledStrategies.playlists) {
+        if (config.strategyConfig.playlists.enabled) {
             reportProgress?.('fetch_playlists', 'Fetching playlists...', 'Scanning server', 0, null);
             try {
                 const playlistsStart = Date.now();
@@ -674,7 +618,7 @@ export class ChannelSetupCoordinator {
                 return { plan: null, canceled: true, lastTask: 'scan_library_items', errorsTotal, playlistMs, collectionsMs, libraryQueryMs };
             }
 
-            if (config.enabledStrategies.collections) {
+            if (config.strategyConfig.collections.enabled) {
                 reportProgress?.('fetch_collections', 'Fetching collections...', library.title, libIndex, selectedLibraries.length);
                 try {
                     const collectionsStart = Date.now();
@@ -691,32 +635,11 @@ export class ChannelSetupCoordinator {
                 }
             }
 
-            if (config.enabledStrategies.libraryFallback) {
-                let libraryCount: number | null = Number.isFinite(library.contentCount)
-                    ? library.contentCount
-                    : null;
-                if (libraryCount === 0) {
-                    try {
-                        const countOptions: LibraryQueryOptions = { signal };
-                        if (library.type === 'show') {
-                            countOptions.filter = { type: PLEX_MEDIA_TYPES.EPISODE };
-                        }
-                        const countStart = Date.now();
-                        libraryCount = await plexLibrary.getLibraryItemCount(library.id, countOptions);
-                        libraryQueryMs += Date.now() - countStart;
-                    } catch (e) {
-                        if (isAbortLike(e, signal ?? undefined)) {
-                            return { plan: null, canceled: true, lastTask: 'scan_library_items', errorsTotal, playlistMs, collectionsMs, libraryQueryMs };
-                        }
-                        console.warn(`Failed to fetch item count for ${library.title}:`, summarizeErrorForLog(e));
-                        errorsTotal++;
-                        libraryCount = null;
-                    }
-                }
-                libraryItemCountById.set(library.id, libraryCount);
-            }
-
-            if (config.enabledStrategies.genres || config.enabledStrategies.directors || config.enabledStrategies.decades) {
+            if (
+                config.strategyConfig.genres.enabled
+                || config.strategyConfig.directors.enabled
+                || config.strategyConfig.decades.enabled
+            ) {
                 reportProgress?.('scan_library_items', 'Resolving filters...', library.title, libIndex, selectedLibraries.length);
                 try {
                     const scanOptions: LibraryQueryOptions = {
@@ -728,7 +651,7 @@ export class ChannelSetupCoordinator {
                     let scanItems: PlexMediaItem[] = [];
 
                     if (library.type === 'show') {
-                        if (config.enabledStrategies.genres || config.enabledStrategies.directors) {
+                        if (config.strategyConfig.genres.enabled || config.strategyConfig.directors.enabled) {
                             const tagOptions: LibraryQueryOptions = {
                                 signal,
                                 limit: CHANNEL_SETUP_SCAN_LIMIT,
@@ -738,7 +661,7 @@ export class ChannelSetupCoordinator {
                             tagItems = await plexLibrary.getLibraryItems(library.id, tagOptions);
                             libraryQueryMs += Date.now() - tagStart;
                         }
-                        if (config.enabledStrategies.decades) {
+                        if (config.strategyConfig.decades.enabled) {
                             const episodeOptions: LibraryQueryOptions = {
                                 signal,
                                 limit: CHANNEL_SETUP_SCAN_LIMIT,
@@ -766,7 +689,7 @@ export class ChannelSetupCoordinator {
                 }
             }
 
-            if (config.enabledStrategies.studios) {
+            if (config.strategyConfig.studios.enabled) {
                 reportProgress?.('scan_library_items', 'Fetching studios...', library.title, libIndex, selectedLibraries.length);
                 try {
                     const studiosStart = Date.now();
@@ -788,7 +711,7 @@ export class ChannelSetupCoordinator {
                 }
             }
 
-            if (config.enabledStrategies.actors) {
+            if (config.strategyConfig.actors.enabled) {
                 reportProgress?.('scan_library_items', 'Fetching actors...', library.title, libIndex, selectedLibraries.length);
                 try {
                     const actorsStart = Date.now();
@@ -818,7 +741,6 @@ export class ChannelSetupCoordinator {
             collectionsByLibraryId,
             tagItemsByLibraryId,
             scanItemsByLibraryId,
-            libraryItemCountById,
             actorsByLibraryId,
             studiosByLibraryId,
             warnings: Array.from(warnings),
@@ -944,24 +866,30 @@ export class ChannelSetupCoordinator {
             ) {
                 return null;
             }
-            const strategies = parsed.enabledStrategies;
-            if (!strategies || typeof strategies !== 'object') {
+            const rawStrategyConfig = parsed.strategyConfig as unknown;
+            if (!rawStrategyConfig || typeof rawStrategyConfig !== 'object') {
                 return null;
             }
-
-            const requiredKeys: Array<keyof Omit<ChannelSetupConfig['enabledStrategies'], 'recentlyAdded' | 'studios' | 'actors'>> = [
-                'collections',
-                'libraryFallback',
-                'playlists',
-                'genres',
-                'directors',
-                'decades',
-            ];
-            for (const key of requiredKeys) {
-                if (typeof (strategies as Record<string, unknown>)[key] !== 'boolean') {
-                    return null;
+            const strategyConfig = SETUP_STRATEGY_KEYS.reduce<Record<SetupStrategyKey, SetupStrategyConfig>>((acc, key) => {
+                const raw = (rawStrategyConfig as Record<string, unknown>)[key] as unknown;
+                if (!raw || typeof raw !== 'object') {
+                    throw new Error(`Missing strategyConfig.${key}`);
                 }
-            }
+                const enabled = (raw as { enabled?: unknown }).enabled;
+                const priority = (raw as { priority?: unknown }).priority;
+                const scope = (raw as { scope?: unknown }).scope;
+                if (typeof enabled !== 'boolean') {
+                    throw new Error(`Invalid strategyConfig.${key}.enabled`);
+                }
+                if (typeof priority !== 'number' || !Number.isFinite(priority)) {
+                    throw new Error(`Invalid strategyConfig.${key}.priority`);
+                }
+                if (scope !== 'per-library' && scope !== 'cross-library') {
+                    throw new Error(`Invalid strategyConfig.${key}.scope`);
+                }
+                acc[key] = { enabled, priority, scope };
+                return acc;
+            }, {} as Record<SetupStrategyKey, SetupStrategyConfig>);
 
             if (typeof parsed.createdAt !== 'number' || !Number.isFinite(parsed.createdAt)) {
                 return null;
@@ -974,42 +902,25 @@ export class ChannelSetupCoordinator {
                 : DEFAULT_CHANNEL_SETUP_MAX;
             const minItemsPerChannel = typeof parsed.minItemsPerChannel === 'number' && Number.isFinite(parsed.minItemsPerChannel)
                 ? parsed.minItemsPerChannel
-                : 10;
+                : DEFAULT_MIN_ITEMS_PER_CHANNEL;
             const buildMode = parsed.buildMode === 'append' || parsed.buildMode === 'merge'
                 ? parsed.buildMode
                 : 'replace';
             const actorStudioCombineMode = parsed.actorStudioCombineMode === 'combined'
                 ? parsed.actorStudioCombineMode
                 : 'separate';
-            const enabledStrategies: ChannelSetupConfig['enabledStrategies'] = {
-                collections: Boolean((strategies as Record<string, unknown>).collections),
-                libraryFallback: Boolean((strategies as Record<string, unknown>).libraryFallback),
-                playlists: Boolean((strategies as Record<string, unknown>).playlists),
-                genres: Boolean((strategies as Record<string, unknown>).genres),
-                directors: Boolean((strategies as Record<string, unknown>).directors),
-                decades: Boolean((strategies as Record<string, unknown>).decades),
-                recentlyAdded: Boolean((strategies as Record<string, unknown>).recentlyAdded),
-                studios: Boolean((strategies as Record<string, unknown>).studios),
-                actors: Boolean((strategies as Record<string, unknown>).actors),
-            };
-            const strategyConfig = typeof parsed.strategyConfig === 'object' && parsed.strategyConfig !== null
-                ? parsed.strategyConfig as Partial<Record<SetupStrategyKey, SetupStrategyConfig>>
-                : undefined;
             const channelExpansion = typeof parsed.channelExpansion === 'object' && parsed.channelExpansion !== null
                 ? parsed.channelExpansion as ChannelExpansionConfig
                 : undefined;
             const baseConfig: ChannelSetupConfig = {
                 serverId: parsed.serverId,
                 selectedLibraryIds: parsed.selectedLibraryIds,
-                enabledStrategies,
                 maxChannels,
                 buildMode,
+                strategyConfig,
                 actorStudioCombineMode,
                 minItemsPerChannel,
             };
-            if (strategyConfig) {
-                baseConfig.strategyConfig = strategyConfig;
-            }
             if (channelExpansion) {
                 baseConfig.channelExpansion = channelExpansion;
             }

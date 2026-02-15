@@ -1,9 +1,10 @@
 import { ChannelSetupCoordinator } from '../ChannelSetupCoordinator';
 import type { ChannelSetupCoordinatorDeps } from '../ChannelSetupCoordinator';
-import type { ChannelSetupConfig, ChannelSetupRecord } from '../types';
+import type { ChannelSetupConfig, ChannelSetupRecord, SetupStrategyConfig, SetupStrategyKey } from '../types';
 import type { IPlexLibrary, PlexLibraryType, PlexMediaItem } from '../../../modules/plex/library';
 import type { IChannelManager, ChannelConfig } from '../../../modules/scheduler/channel-manager';
 import type { INavigationManager } from '../../../modules/navigation';
+import { DEFAULT_STRATEGY_PRIORITIES, MIXED_SCOPE_STRATEGY_KEYS, SETUP_STRATEGY_KEYS } from '../constants';
 
 const mockBuilder = {
     createChannel: jest.fn(),
@@ -14,22 +15,26 @@ jest.mock('../../../modules/scheduler/channel-manager', () => ({
     ChannelManager: jest.fn(() => mockBuilder),
 }));
 
+const createStrategyConfig = (
+    overrides?: Partial<Record<SetupStrategyKey, Partial<SetupStrategyConfig>>>
+): Record<SetupStrategyKey, SetupStrategyConfig> => (
+    SETUP_STRATEGY_KEYS.reduce<Record<SetupStrategyKey, SetupStrategyConfig>>((acc, key) => {
+        const candidate = overrides?.[key];
+        acc[key] = {
+            enabled: candidate?.enabled ?? false,
+            priority: candidate?.priority ?? DEFAULT_STRATEGY_PRIORITIES[key],
+            scope: MIXED_SCOPE_STRATEGY_KEYS.has(key) && candidate?.scope === 'cross-library' ? 'cross-library' : 'per-library',
+        };
+        return acc;
+    }, {} as Record<SetupStrategyKey, SetupStrategyConfig>)
+);
+
 const createConfig = (overrides?: Partial<ChannelSetupConfig>): ChannelSetupConfig => ({
     serverId: 'server-1',
     selectedLibraryIds: [],
     maxChannels: 25,
     buildMode: 'replace',
-    enabledStrategies: {
-        collections: false,
-        libraryFallback: false,
-        playlists: false,
-        genres: false,
-        directors: false,
-        decades: false,
-        recentlyAdded: false,
-        studios: false,
-        actors: false,
-    },
+    strategyConfig: createStrategyConfig(),
     actorStudioCombineMode: 'separate',
     minItemsPerChannel: 5,
     ...overrides,
@@ -211,7 +216,7 @@ describe('ChannelSetupCoordinator', () => {
         storage.set('retune_channel_setup_v1:server-1', JSON.stringify({
             serverId: 'server-1',
             selectedLibraryIds: ['lib1', 123],
-            enabledStrategies: { playlists: true },
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
             createdAt: 1,
             updatedAt: 2,
         }));
@@ -291,24 +296,22 @@ describe('ChannelSetupCoordinator', () => {
         expect(coordinator.shouldRunChannelSetup()).toBe(false);
     });
 
-    it('normalizes strategyConfig defaults from legacy enabledStrategies-only config', () => {
+    it('persists enabled flags from strategyConfig', () => {
         const { coordinator, storage } = createCoordinator();
-        const legacyConfig = createConfig({
-            enabledStrategies: {
-                ...createConfig().enabledStrategies,
-                collections: true,
-                playlists: false,
-                genres: true,
-                recentlyAdded: true,
-                studios: false,
-                actors: true,
-                decades: true,
-                directors: false,
-                libraryFallback: true,
-            },
+        const config = createConfig({
+            strategyConfig: createStrategyConfig({
+                collections: { enabled: true },
+                playlists: { enabled: false },
+                genres: { enabled: true },
+                recentlyAdded: { enabled: true },
+                studios: { enabled: false },
+                actors: { enabled: true },
+                decades: { enabled: true },
+                directors: { enabled: false },
+            }),
         });
 
-        coordinator.markSetupComplete('server-1', legacyConfig);
+        coordinator.markSetupComplete('server-1', config);
 
         const raw = storage.get('retune_channel_setup_v1:server-1');
         expect(raw).toBeTruthy();
@@ -318,7 +321,6 @@ describe('ChannelSetupCoordinator', () => {
         expect(strategyConfig?.collections?.enabled).toBe(true);
         expect(strategyConfig?.playlists?.enabled).toBe(false);
         expect(strategyConfig?.genres?.enabled).toBe(true);
-        expect(strategyConfig?.libraryFallback).toBeUndefined();
     });
 
     it('normalizes strategy priorities, per-library scope, and channel expansion defaults', () => {
@@ -344,26 +346,6 @@ describe('ChannelSetupCoordinator', () => {
         });
     });
 
-    it('does not expose libraryFallback in selectable strategyConfig when loading legacy records', () => {
-        const { coordinator, storage } = createCoordinator();
-        storage.set('retune_channel_setup_v1:server-1', JSON.stringify({
-            ...createConfig(),
-            strategyConfig: {
-                playlists: { enabled: true, priority: 1, scope: 'per-library' },
-                collections: { enabled: true, priority: 2, scope: 'per-library' },
-                libraryFallback: { enabled: true, priority: 9, scope: 'per-library' },
-            },
-            createdAt: 100,
-            updatedAt: 200,
-        }));
-
-        const record = coordinator.getSetupRecord('server-1') as unknown as Record<string, unknown>;
-        const strategyConfig = record.strategyConfig as Record<string, unknown> | undefined;
-
-        expect(strategyConfig).toBeDefined();
-        expect(strategyConfig?.libraryFallback).toBeUndefined();
-    });
-
     it('createChannelsFromSetup returns canceled when signal is already aborted', async () => {
         const { coordinator } = createCoordinator();
         const controller = new AbortController();
@@ -380,7 +362,7 @@ describe('ChannelSetupCoordinator', () => {
         plexLibrary.getPlaylists.mockRejectedValue({ name: 'AbortError' });
 
         const summary = await coordinator.createChannelsFromSetup(createConfig({
-            enabledStrategies: { ...createConfig().enabledStrategies, playlists: true },
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
         }));
 
         expect(summary.canceled).toBe(true);
@@ -408,29 +390,11 @@ describe('ChannelSetupCoordinator', () => {
 
         await coordinator.createChannelsFromSetup(createConfig({
             selectedLibraryIds: ['lib1'],
-            enabledStrategies: { ...createConfig().enabledStrategies, genres: true },
+            strategyConfig: createStrategyConfig({ genres: { enabled: true } }),
             minItemsPerChannel: Number.NaN,
         }));
 
         expect(plexLibrary.getLibraryItems).toHaveBeenCalled();
-    });
-
-    it('createChannelsFromSetup skips library fallback when count is zero', async () => {
-        const { coordinator, plexLibrary } = createCoordinator();
-        const libraries: PlexLibraryType[] = [
-            { id: 'lib1', title: 'Movies', type: 'movie', contentCount: 0 } as PlexLibraryType,
-        ];
-        plexLibrary.getLibraries.mockResolvedValue(libraries);
-        plexLibrary.getLibraryItemCount.mockResolvedValue(0);
-
-        const summary = await coordinator.createChannelsFromSetup(createConfig({
-            selectedLibraryIds: ['lib1'],
-            enabledStrategies: { ...createConfig().enabledStrategies, libraryFallback: true },
-        }));
-
-        expect(mockBuilder.createChannel).not.toHaveBeenCalled();
-        expect(summary.created).toBe(0);
-        expect(summary.skipped).toBe(1);
     });
 
     it('logs safe summaries for playlist fetch errors', async () => {
@@ -441,7 +405,7 @@ describe('ChannelSetupCoordinator', () => {
         plexLibrary.getPlaylists.mockRejectedValue(error);
 
         await coordinator.createChannelsFromSetup(createConfig({
-            enabledStrategies: { ...createConfig().enabledStrategies, playlists: true },
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
         }));
 
         const warnCalls = warnSpy.mock.calls.filter((call) => call[0] === 'Failed to fetch playlists:');
@@ -467,7 +431,7 @@ describe('ChannelSetupCoordinator', () => {
 
         await coordinator.createChannelsFromSetup(createConfig({
             selectedLibraryIds: ['m1', 's1'],
-            enabledStrategies: { ...createConfig().enabledStrategies, recentlyAdded: true },
+            strategyConfig: createStrategyConfig({ recentlyAdded: { enabled: true } }),
         }));
 
         expect(mockBuilder.createChannel).toHaveBeenCalledWith(expect.objectContaining({
@@ -496,7 +460,7 @@ describe('ChannelSetupCoordinator', () => {
 
         await coordinator.createChannelsFromSetup(createConfig({
             selectedLibraryIds: ['m1'],
-            enabledStrategies: { ...createConfig().enabledStrategies, studios: true, actors: true },
+            strategyConfig: createStrategyConfig({ studios: { enabled: true }, actors: { enabled: true } }),
         }));
 
         expect(mockBuilder.createChannel).toHaveBeenCalledWith(expect.objectContaining({
@@ -525,7 +489,7 @@ describe('ChannelSetupCoordinator', () => {
 
         await coordinator.createChannelsFromSetup(createConfig({
             selectedLibraryIds: ['m1'],
-            enabledStrategies: { ...createConfig().enabledStrategies, actors: true },
+            strategyConfig: createStrategyConfig({ actors: { enabled: true } }),
         }));
 
         const actorCall = mockBuilder.createChannel.mock.calls.find(
@@ -549,7 +513,7 @@ describe('ChannelSetupCoordinator', () => {
 
         await coordinator.createChannelsFromSetup(createConfig({
             selectedLibraryIds: ['m1'],
-            enabledStrategies: { ...createConfig().enabledStrategies, actors: true },
+            strategyConfig: createStrategyConfig({ actors: { enabled: true } }),
         }));
 
         const actorCall = mockBuilder.createChannel.mock.calls.find(
@@ -572,7 +536,7 @@ describe('ChannelSetupCoordinator', () => {
 
         await coordinator.createChannelsFromSetup(createConfig({
             buildMode: 'append',
-            enabledStrategies: { ...createConfig().enabledStrategies, playlists: true },
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
         }));
 
         const replaceArgs = channelManager.replaceAllChannels.mock.calls[0]?.[0];
@@ -601,7 +565,7 @@ describe('ChannelSetupCoordinator', () => {
 
         await coordinator.createChannelsFromSetup(createConfig({
             buildMode: 'merge',
-            enabledStrategies: { ...createConfig().enabledStrategies, playlists: true },
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
         }));
 
         const replaceArgs = channelManager.replaceAllChannels.mock.calls[0]?.[0];
@@ -630,7 +594,7 @@ describe('ChannelSetupCoordinator', () => {
         ]);
 
         const review = await coordinator.getSetupReview(createConfig({
-            enabledStrategies: { ...createConfig().enabledStrategies, playlists: true },
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
         }));
 
         expect(review.diff.summary.created).toBe(0);
@@ -673,11 +637,10 @@ describe('ChannelSetupCoordinator', () => {
 
         await coordinator.createChannelsFromSetup(createConfig({
             selectedLibraryIds: ['lib1'],
-            enabledStrategies: { ...createConfig().enabledStrategies, playlists: true, collections: true },
-            strategyConfig: {
-                playlists: { enabled: true, priority: 9, scope: 'per-library' },
-                collections: { enabled: true, priority: 1, scope: 'per-library' },
-            },
+            strategyConfig: createStrategyConfig({
+                playlists: { enabled: true, priority: 9 },
+                collections: { enabled: true, priority: 1 },
+            }),
         }));
 
         const names = mockBuilder.createChannel.mock.calls.map(([cfg]) => (cfg as ChannelConfig).name);
@@ -693,7 +656,7 @@ describe('ChannelSetupCoordinator', () => {
         ]);
 
         await coordinator.createChannelsFromSetup(createConfig({
-            enabledStrategies: { ...createConfig().enabledStrategies, playlists: true },
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
             channelExpansion: {
                 addAlternateLineups: true,
                 alternateLineupCopies: 2,
@@ -716,7 +679,7 @@ describe('ChannelSetupCoordinator', () => {
         ]);
 
         await coordinator.createChannelsFromSetup(createConfig({
-            enabledStrategies: { ...createConfig().enabledStrategies, playlists: true },
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
             channelExpansion: {
                 addAlternateLineups: true,
                 alternateLineupCopies: 2,
@@ -745,7 +708,7 @@ describe('ChannelSetupCoordinator', () => {
         ]);
 
         await coordinator.createChannelsFromSetup(createConfig({
-            enabledStrategies: { ...createConfig().enabledStrategies, playlists: true },
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
         }));
 
         const names = mockBuilder.createChannel.mock.calls.map(([cfg]) => (cfg as ChannelConfig).name);
@@ -760,7 +723,7 @@ describe('ChannelSetupCoordinator', () => {
 
         await coordinator.createChannelsFromSetup(createConfig({
             selectedLibraryIds: ['s1'],
-            enabledStrategies: { ...createConfig().enabledStrategies, recentlyAdded: true },
+            strategyConfig: createStrategyConfig({ recentlyAdded: { enabled: true } }),
             channelExpansion: {
                 addAlternateLineups: true,
                 alternateLineupCopies: 2,
@@ -781,7 +744,7 @@ describe('ChannelSetupCoordinator', () => {
 
         await coordinator.createChannelsFromSetup(createConfig({
             selectedLibraryIds: ['s1'],
-            enabledStrategies: { ...createConfig().enabledStrategies, recentlyAdded: true },
+            strategyConfig: createStrategyConfig({ recentlyAdded: { enabled: true } }),
             channelExpansion: {
                 addAlternateLineups: false,
                 alternateLineupCopies: 1,
@@ -812,7 +775,7 @@ describe('ChannelSetupCoordinator', () => {
 
         await coordinator.createChannelsFromSetup(createConfig({
             selectedLibraryIds: ['m1', 's1'],
-            enabledStrategies: { ...createConfig().enabledStrategies, genres: true },
+            strategyConfig: createStrategyConfig({ genres: { enabled: true } }),
             minItemsPerChannel: 1,
         }));
 
@@ -841,10 +804,7 @@ describe('ChannelSetupCoordinator', () => {
 
         await coordinator.createChannelsFromSetup(createConfig({
             selectedLibraryIds: ['m1', 's1'],
-            enabledStrategies: { ...createConfig().enabledStrategies, genres: true },
-            strategyConfig: {
-                genres: { enabled: true, priority: 4, scope: 'cross-library' },
-            },
+            strategyConfig: createStrategyConfig({ genres: { enabled: true, scope: 'cross-library' } }),
             minItemsPerChannel: 1,
         }));
 

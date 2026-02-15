@@ -18,21 +18,15 @@ import type { FocusableElement, KeyEvent } from '../../navigation';
 import { safeLocalStorageGet } from '../../../utils/storage';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../scheduler/channel-manager/constants';
+import {
+    DEFAULT_MIN_ITEMS_PER_CHANNEL,
+    DEFAULT_STRATEGY_PRIORITIES,
+    MIXED_SCOPE_STRATEGY_KEYS,
+    SETUP_STRATEGY_KEYS,
+} from '../../../core/channel-setup/constants';
 import { createScreenShell } from '../common/ScreenShell';
 
 const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
-const DEFAULT_MIN_ITEMS = 5;
-
-const SETUP_STRATEGY_KEYS = [
-    'collections',
-    'playlists',
-    'genres',
-    'directors',
-    'decades',
-    'recentlyAdded',
-    'studios',
-    'actors',
-] as const;
 
 type SetupStrategyKey = (typeof SETUP_STRATEGY_KEYS)[number];
 
@@ -48,23 +42,8 @@ type ChannelExpansionState = {
     addSequentialVariants: boolean;
 };
 
-const strategySupportsMixedScope = (key: SetupStrategyKey): boolean => (
-    key === 'genres'
-    || key === 'directors'
-    || key === 'studios'
-    || key === 'actors'
-);
-
-const DEFAULT_STRATEGY_PRIORITIES: Record<SetupStrategyKey, number> = {
-    playlists: 1,
-    collections: 2,
-    recentlyAdded: 3,
-    genres: 4,
-    studios: 5,
-    actors: 6,
-    decades: 7,
-    directors: 8,
-};
+const strategySupportsMixedScope = (key: SetupStrategyKey): boolean =>
+    MIXED_SCOPE_STRATEGY_KEYS.has(key);
 
 const createDefaultStrategyState = (): SetupStrategyState => ({
     collections: { enabled: true, priority: DEFAULT_STRATEGY_PRIORITIES.collections, scope: 'per-library' },
@@ -180,7 +159,7 @@ export class ChannelSetupScreen {
     private _buildMode: ChannelSetupConfig['buildMode'] = 'replace';
     private _actorStudioCombineMode: ChannelSetupConfig['actorStudioCombineMode'] = 'separate';
     private _maxChannels: number = DEFAULT_CHANNEL_SETUP_MAX;
-    private _minItems: number = DEFAULT_MIN_ITEMS;
+    private _minItems: number = DEFAULT_MIN_ITEMS_PER_CHANNEL;
     private _channelLimitOptions: number[] = CHANNEL_LIMIT_PRESETS.filter((value) => value <= MAX_CHANNELS);
     private _minItemsOptions: number[] = [1, 5, 10, 20, 50];
     private _buildAbortController: AbortController | null = null;
@@ -466,7 +445,7 @@ export class ChannelSetupScreen {
         this._isReviewLoading = false;
         this._replaceConfirm = false;
         this._maxChannels = DEFAULT_CHANNEL_SETUP_MAX;
-        this._minItems = DEFAULT_MIN_ITEMS;
+        this._minItems = DEFAULT_MIN_ITEMS_PER_CHANNEL;
         this._strategies = createDefaultStrategyState();
         this._channelExpansion = defaultChannelExpansionState();
         this._buildMode = 'replace';
@@ -1845,30 +1824,19 @@ export class ChannelSetupScreen {
     }
 
     private _buildConfig(serverId: string): ChannelSetupConfig {
-        const strategyConfig = SETUP_STRATEGY_KEYS.reduce<NonNullable<ChannelSetupConfig['strategyConfig']>>((acc, key) => {
+        const strategyConfig = SETUP_STRATEGY_KEYS.reduce<ChannelSetupConfig['strategyConfig']>((acc, key) => {
             acc[key] = {
                 enabled: this._strategies[key].enabled,
                 priority: this._strategies[key].priority,
                 scope: this._strategies[key].scope,
             };
             return acc;
-        }, {});
+        }, {} as ChannelSetupConfig['strategyConfig']);
         return {
             serverId,
             selectedLibraryIds: Array.from(this._selectedLibraryIds),
             maxChannels: this._maxChannels,
             buildMode: this._buildMode,
-            enabledStrategies: {
-                collections: this._strategies.collections.enabled,
-                libraryFallback: false,
-                playlists: this._strategies.playlists.enabled,
-                genres: this._strategies.genres.enabled,
-                directors: this._strategies.directors.enabled,
-                decades: this._strategies.decades.enabled,
-                recentlyAdded: this._strategies.recentlyAdded.enabled,
-                studios: this._strategies.studios.enabled,
-                actors: this._strategies.actors.enabled,
-            },
             strategyConfig,
             channelExpansion: {
                 addAlternateLineups: this._channelExpansion.addAlternateLineups,
@@ -2060,14 +2028,11 @@ export class ChannelSetupScreen {
 
         const defaults = createDefaultStrategyState();
         this._strategies = SETUP_STRATEGY_KEYS.reduce<SetupStrategyState>((acc, key) => {
-            const configured = record.strategyConfig?.[key];
-            const enabledFallback = record.enabledStrategies[key];
+            const configured = record.strategyConfig[key];
             acc[key] = {
-                enabled: typeof configured?.enabled === 'boolean'
-                    ? configured.enabled
-                    : Boolean(enabledFallback),
-                priority: Number.isFinite(configured?.priority)
-                    ? Math.max(1, Math.floor(Number(configured?.priority)))
+                enabled: configured.enabled,
+                priority: Number.isFinite(configured.priority)
+                    ? Math.max(1, Math.floor(Number(configured.priority)))
                     : defaults[key].priority,
                 scope: strategySupportsMixedScope(key) && configured?.scope === 'cross-library' ? 'cross-library' : 'per-library',
             };
@@ -2081,7 +2046,7 @@ export class ChannelSetupScreen {
             addSequentialVariants: record.channelExpansion?.addSequentialVariants === true,
         };
         this._maxChannels = Math.min(Number.isFinite(record.maxChannels) ? record.maxChannels : DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS);
-        this._minItems = Math.max(1, Math.floor(record.minItemsPerChannel || DEFAULT_MIN_ITEMS));
+        this._minItems = Math.max(1, Math.floor(record.minItemsPerChannel || DEFAULT_MIN_ITEMS_PER_CHANNEL));
         this._buildMode = record.buildMode ?? 'replace';
         this._actorStudioCombineMode = record.actorStudioCombineMode ?? 'separate';
         this._preview = null;

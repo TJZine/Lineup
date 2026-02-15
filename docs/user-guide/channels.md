@@ -70,12 +70,8 @@ The guided setup wizard can generate many channels in one pass.
   - **Max channels**: `200`
   - **Min items per channel**: `5`
 - Use **Expand Lineup** to quickly set:
-  - **Max channels** to the app cap
+  - **Max channels** to `500` (the app maximum)
   - **Min items per channel** to `1`
-
-### Legacy Compatibility
-
-- `libraryFallback` is preserved only for backward compatibility with older saved records and is no longer shown as a selectable setup strategy.
 
 ## Editing a Channel
 
