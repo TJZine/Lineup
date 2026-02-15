@@ -113,8 +113,8 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
 
         if (this.elements.status) {
             const label = vm.statusLabel;
-            this.elements.status.setAttribute('aria-label', label);
             if (label !== this.lastStatusLabel) {
+                this.elements.status.setAttribute('aria-label', label);
                 this.elements.status.textContent = '';
                 const icon = this.createStatusIcon(label);
                 if (icon) this.elements.status.appendChild(icon);
@@ -271,13 +271,13 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
             { panel: {} }
         );
         panelEl.innerHTML = `
-        <div class="${PLAYER_OSD_CLASSES.TOP}">
-          <div class="${PLAYER_OSD_CLASSES.STATUS}"></div>
-          <div class="${PLAYER_OSD_CLASSES.CHANNEL}"></div>
-        </div>
+	        <div class="${PLAYER_OSD_CLASSES.TOP}">
+	          <div class="${PLAYER_OSD_CLASSES.STATUS}" role="status"></div>
+	          <div class="${PLAYER_OSD_CLASSES.CHANNEL}"></div>
+	        </div>
 
-        <div class="${PLAYER_OSD_CLASSES.TITLE}"></div>
-        <div class="${PLAYER_OSD_CLASSES.SUBTITLE}"></div>
+	        <div class="${PLAYER_OSD_CLASSES.TITLE}"></div>
+	        <div class="${PLAYER_OSD_CLASSES.SUBTITLE}"></div>
         <div class="${PLAYER_OSD_CLASSES.INFO_LINE}"></div>
         <div class="${PLAYER_OSD_CLASSES.UP_NEXT}"></div>
 

@@ -89,7 +89,7 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-height: calc(var(--text-lg) * 1.2 * 2);
+  max-height: calc(var(--text-lg, 24px) * 1.2 * 2);
 }
 
 .player-osd-info {

@@ -54,6 +54,11 @@ describe('PlayerOsdOverlay', () => {
         expect(container.classList.contains(PLAYER_OSD_CLASSES.VISIBLE)).toBe(false);
     });
 
+    it('exposes status label semantics for assistive tech', () => {
+        const status = container.querySelector(`.${PLAYER_OSD_CLASSES.STATUS}`) as HTMLElement;
+        expect(status.getAttribute('role')).toBe('status');
+    });
+
     it('shows and hides', () => {
         overlay.setViewModel(baseViewModel);
         overlay.show();
