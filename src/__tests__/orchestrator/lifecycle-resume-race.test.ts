@@ -18,7 +18,7 @@ describe('AppOrchestrator lifecycle resume', () => {
         const stream = { url: 'https://example.invalid/stream.m3u8' } as unknown as StreamDescriptor;
 
         type SchedulerLike = {
-            on: jest.Mock<void, [event: 'programStart' | 'scheduleSync', handler: unknown]>;
+            on: jest.Mock<void, [event: 'programStart' | 'programEnd' | 'scheduleSync', handler: unknown]>;
             off: jest.Mock;
             resumeSyncTimer: jest.Mock;
             syncToCurrentTime: jest.Mock;
@@ -29,7 +29,7 @@ describe('AppOrchestrator lifecycle resume', () => {
             throw new Error('Expected scheduler programStart handler to be registered');
         };
         const scheduler: SchedulerLike = {
-            on: jest.fn((event: 'programStart' | 'scheduleSync', handler: unknown) => {
+            on: jest.fn((event: 'programStart' | 'programEnd' | 'scheduleSync', handler: unknown) => {
                 if (event !== 'programStart') return;
                 registeredProgramStart = true;
                 programStartHandler = handler as (program: ScheduledProgram) => void;
@@ -109,8 +109,10 @@ describe('AppOrchestrator lifecycle resume', () => {
         const streamB = { url: 'https://example.invalid/stream-b.m3u8' } as unknown as StreamDescriptor;
 
         type SchedulerLike = {
-            on: jest.Mock<void, [event: 'programStart' | 'scheduleSync', handler: unknown]>;
+            on: jest.Mock<void, [event: 'programStart' | 'programEnd' | 'scheduleSync', handler: unknown]>;
             off: jest.Mock;
+            resumeSyncTimer: jest.Mock;
+            syncToCurrentTime: jest.Mock;
         };
 
         let registeredProgramStart = false;
@@ -118,12 +120,14 @@ describe('AppOrchestrator lifecycle resume', () => {
             throw new Error('Expected scheduler programStart handler to be registered');
         };
         const scheduler: SchedulerLike = {
-            on: jest.fn((event: 'programStart' | 'scheduleSync', handler: unknown) => {
+            on: jest.fn((event: 'programStart' | 'programEnd' | 'scheduleSync', handler: unknown) => {
                 if (event !== 'programStart') return;
                 registeredProgramStart = true;
                 programStartHandler = handler as (program: ScheduledProgram) => void;
             }),
             off: jest.fn(),
+            resumeSyncTimer: jest.fn(),
+            syncToCurrentTime: jest.fn(),
         };
 
         const loadA = createDeferred<void>();
