@@ -6,24 +6,9 @@ import type { IMiniGuideOverlay } from '../interfaces';
 import type { IChannelManager, ChannelConfig } from '../../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig } from '../../../scheduler/scheduler';
 import type { ResolvedChannelContent, ResolvedContentItem } from '../../../scheduler/channel-manager/types';
+import { createDeferred, type Deferred } from '../../../../__tests__/helpers';
 
 const AUTO_HIDE_MS = 1000;
-
-type Deferred<T> = {
-    promise: Promise<T>;
-    resolve: (value: T) => void;
-    reject: (reason?: unknown) => void;
-};
-
-const makeDeferred = <T,>(): Deferred<T> => {
-    let resolve: (value: T) => void = () => undefined;
-    let reject: (reason?: unknown) => void = () => undefined;
-    const promise = new Promise<T>((res, rej) => {
-        resolve = res;
-        reject = rej;
-    });
-    return { promise, resolve, reject };
-};
 
 const makeItem = (title: string, durationMs: number, index: number): ResolvedContentItem => ({
     ratingKey: `rk-${title}`,
@@ -168,7 +153,7 @@ const setup = (overrides?: Partial<{
         : (channels[2] ?? channels[0] ?? null);
     const resolveDeferred: Record<string, Deferred<ResolvedChannelContent>> = {};
     channels.forEach((channel) => {
-        resolveDeferred[channel.id] = makeDeferred<ResolvedChannelContent>();
+        resolveDeferred[channel.id] = createDeferred<ResolvedChannelContent>();
     });
 
     const channelManager = {

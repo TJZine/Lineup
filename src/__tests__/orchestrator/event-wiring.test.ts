@@ -5,22 +5,7 @@ import type { IVideoPlayer } from '../../modules/player';
 import type { IPlexLibrary } from '../../modules/plex/library';
 import type { IPlexStreamResolver } from '../../modules/plex/stream';
 import type { IChannelScheduler } from '../../modules/scheduler/scheduler';
-
-type Deferred<T> = {
-    promise: Promise<T>;
-    resolve: (value: T | PromiseLike<T>) => void;
-    reject: (reason?: unknown) => void;
-};
-
-const createDeferred = <T>(): Deferred<T> => {
-    let resolve!: (value: T | PromiseLike<T>) => void;
-    let reject!: (reason?: unknown) => void;
-    const promise = new Promise<T>((res, rej) => {
-        resolve = res;
-        reject = rej;
-    });
-    return { promise, resolve, reject };
-};
+import { createDeferred, flushPromises } from '../helpers';
 
 describe('OrchestratorEventWiringCoordinator', () => {
     it('returns cleanups that unsubscribe all wired handlers', () => {
@@ -187,35 +172,39 @@ describe('OrchestratorEventWiringCoordinator', () => {
 
         expect(typeof pauseCallback).toBe('function');
         expect(typeof resumeCallback).toBe('function');
+        if (pauseCallback === null) {
+            throw new Error('Expected pause callback to be registered');
+        }
+        if (resumeCallback === null) {
+            throw new Error('Expected lifecycle callbacks to be registered');
+        }
 
-        const pauseResult = (pauseCallback as unknown as () => Promise<void>)();
-        expect(pauseResult).toBeDefined();
-        expect(typeof (pauseResult as Promise<void>).then).toBe('function');
+        const pausePromise = Promise.resolve((pauseCallback as () => void | Promise<void>)());
+        expect(typeof pausePromise.then).toBe('function');
 
         let pauseSettled = false;
-        void (pauseResult as Promise<void>).then(() => {
+        void pausePromise.then(() => {
             pauseSettled = true;
         });
-        await Promise.resolve();
+        await flushPromises(1);
         expect(pauseSettled).toBe(false);
 
         pauseDeferred.resolve(undefined);
-        await pauseResult;
+        await pausePromise;
         expect(pauseSettled).toBe(true);
 
-        const resumeResult = (resumeCallback as unknown as () => Promise<void>)();
-        expect(resumeResult).toBeDefined();
-        expect(typeof (resumeResult as Promise<void>).then).toBe('function');
+        const resumePromise = Promise.resolve((resumeCallback as () => void | Promise<void>)());
+        expect(typeof resumePromise.then).toBe('function');
 
         let resumeSettled = false;
-        void (resumeResult as Promise<void>).then(() => {
+        void resumePromise.then(() => {
             resumeSettled = true;
         });
-        await Promise.resolve();
+        await flushPromises(1);
         expect(resumeSettled).toBe(false);
 
         resumeDeferred.resolve(undefined);
-        await resumeResult;
+        await resumePromise;
         expect(resumeSettled).toBe(true);
     });
 });

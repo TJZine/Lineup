@@ -1,27 +1,10 @@
-import { AppOrchestrator } from '../../Orchestrator';
 import type { StreamDescriptor } from '../../modules/player';
 import type { ScheduledProgram } from '../../modules/scheduler/scheduler';
-
-type Deferred<T> = {
-    promise: Promise<T>;
-    resolve: (value: T | PromiseLike<T>) => void;
-    reject: (reason?: unknown) => void;
-};
-
-const createDeferred = <T>(): Deferred<T> => {
-    let resolve!: (value: T | PromiseLike<T>) => void;
-    let reject!: (reason?: unknown) => void;
-    const promise = new Promise<T>((res, rej) => {
-        resolve = res;
-        reject = rej;
-    });
-    return { promise, resolve, reject };
-};
+import { createDeferred, flushPromises } from '../helpers';
+import { createWiredTestOrchestrator } from './orchestratorTestHarness';
 
 describe('AppOrchestrator lifecycle resume', () => {
     it('does not call videoPlayer.play() on resume when sync triggers programStart handling', async () => {
-        const orchestrator = new AppOrchestrator();
-
         const program = {
             scheduleIndex: 0,
             loopNumber: 0,
@@ -34,17 +17,27 @@ describe('AppOrchestrator lifecycle resume', () => {
 
         const stream = { url: 'https://example.invalid/stream.m3u8' } as unknown as StreamDescriptor;
 
-        let programStartHandler: ((p: ScheduledProgram) => void) | null = null;
-        const scheduler = {
-            on: jest.fn((event: string, handler: (payload: unknown) => void) => {
-                if (event === 'programStart') {
-                    programStartHandler = handler as unknown as (p: ScheduledProgram) => void;
-                }
+        type SchedulerLike = {
+            on: jest.Mock<void, [event: 'programStart' | 'scheduleSync', handler: unknown]>;
+            off: jest.Mock;
+            resumeSyncTimer: jest.Mock;
+            syncToCurrentTime: jest.Mock;
+        };
+
+        let registeredProgramStart = false;
+        let programStartHandler: (p: ScheduledProgram) => void = () => {
+            throw new Error('Expected scheduler programStart handler to be registered');
+        };
+        const scheduler: SchedulerLike = {
+            on: jest.fn((event: 'programStart' | 'scheduleSync', handler: unknown) => {
+                if (event !== 'programStart') return;
+                registeredProgramStart = true;
+                programStartHandler = handler as (program: ScheduledProgram) => void;
             }),
             off: jest.fn(),
             resumeSyncTimer: jest.fn(),
             syncToCurrentTime: jest.fn(() => {
-                programStartHandler?.(program);
+                programStartHandler(program);
             }),
         };
 
@@ -56,10 +49,14 @@ describe('AppOrchestrator lifecycle resume', () => {
             play: jest.fn().mockResolvedValue(undefined),
         };
 
-        let resumeCallback: (() => void | Promise<void>) | null = null;
+        let registeredResume = false;
+        let resumeCallback: () => Promise<void> = () => {
+            throw new Error('Expected lifecycle onResume callback to be registered');
+        };
         const lifecycle = {
             onPause: jest.fn(() => ({ dispose: (): void => undefined })),
-            onResume: jest.fn((callback: () => void | Promise<void>) => {
+            onResume: jest.fn((callback: () => Promise<void>) => {
+                registeredResume = true;
                 resumeCallback = callback;
                 return { dispose: (): void => undefined };
             }),
@@ -72,24 +69,11 @@ describe('AppOrchestrator lifecycle resume', () => {
             handlePlaybackFailure: jest.fn(),
         };
 
-        const internals = orchestrator as unknown as {
-            _scheduler: unknown;
-            _videoPlayer: unknown;
-            _lifecycle: unknown;
-            _playbackRecovery: unknown;
-            _setupEventWiring: () => void;
-        };
-        internals._scheduler = scheduler;
-        internals._videoPlayer = videoPlayer;
-        internals._lifecycle = lifecycle;
-        internals._playbackRecovery = playbackRecovery;
-        internals._setupEventWiring();
+        createWiredTestOrchestrator({ scheduler, videoPlayer, lifecycle, playbackRecovery });
 
-        expect(typeof resumeCallback).toBe('function');
-        if (!resumeCallback) {
-            throw new Error('Expected lifecycle onResume callback to be registered');
-        }
-        const resumePromise = (resumeCallback as unknown as () => Promise<void>)();
+        expect(registeredProgramStart).toBe(true);
+        expect(registeredResume).toBe(true);
+        const resumePromise = resumeCallback();
 
         // With the fix, resume waits for the in-flight programStart handling and does not issue a separate play().
         expect(videoPlayer.play).toHaveBeenCalledTimes(0);
@@ -101,8 +85,6 @@ describe('AppOrchestrator lifecycle resume', () => {
     });
 
     it('suppresses stale programStart play() when a newer programStart arrives during loadStream', async () => {
-        const orchestrator = new AppOrchestrator();
-
         const programA = {
             scheduleIndex: 0,
             loopNumber: 0,
@@ -126,12 +108,20 @@ describe('AppOrchestrator lifecycle resume', () => {
         const streamA = { url: 'https://example.invalid/stream-a.m3u8' } as unknown as StreamDescriptor;
         const streamB = { url: 'https://example.invalid/stream-b.m3u8' } as unknown as StreamDescriptor;
 
-        let programStartHandler: ((p: ScheduledProgram) => void) | null = null;
-        const scheduler = {
-            on: jest.fn((event: string, handler: (payload: unknown) => void) => {
-                if (event === 'programStart') {
-                    programStartHandler = handler as unknown as (p: ScheduledProgram) => void;
-                }
+        type SchedulerLike = {
+            on: jest.Mock<void, [event: 'programStart' | 'scheduleSync', handler: unknown]>;
+            off: jest.Mock;
+        };
+
+        let registeredProgramStart = false;
+        let programStartHandler: (p: ScheduledProgram) => void = () => {
+            throw new Error('Expected scheduler programStart handler to be registered');
+        };
+        const scheduler: SchedulerLike = {
+            on: jest.fn((event: 'programStart' | 'scheduleSync', handler: unknown) => {
+                if (event !== 'programStart') return;
+                registeredProgramStart = true;
+                programStartHandler = handler as (program: ScheduledProgram) => void;
             }),
             off: jest.fn(),
         };
@@ -160,42 +150,28 @@ describe('AppOrchestrator lifecycle resume', () => {
             handlePlaybackFailure: jest.fn(),
         };
 
-        const internals = orchestrator as unknown as {
-            _scheduler: unknown;
-            _videoPlayer: unknown;
-            _lifecycle: unknown;
-            _playbackRecovery: unknown;
-            _setupEventWiring: () => void;
-        };
-        internals._scheduler = scheduler;
-        internals._videoPlayer = videoPlayer;
-        internals._lifecycle = lifecycle;
-        internals._playbackRecovery = playbackRecovery;
-        internals._setupEventWiring();
+        createWiredTestOrchestrator({ scheduler, videoPlayer, lifecycle, playbackRecovery });
 
-        expect(programStartHandler).toBeTruthy();
-        if (!programStartHandler) {
-            throw new Error('Expected scheduler programStart handler to be registered');
-        }
+        expect(registeredProgramStart).toBe(true);
 
         // First program starts, but loadStream is still in-flight.
-        (programStartHandler as unknown as (p: ScheduledProgram) => void)(programA);
-        await Promise.resolve();
+        programStartHandler(programA);
+        await flushPromises(6);
         expect(videoPlayer.loadStream).toHaveBeenCalledTimes(1);
         expect(videoPlayer.play).toHaveBeenCalledTimes(0);
 
         // Second program starts before the first finishes loading.
-        (programStartHandler as unknown as (p: ScheduledProgram) => void)(programB);
-        await Promise.resolve();
+        programStartHandler(programB);
+        await flushPromises(6);
         expect(videoPlayer.loadStream).toHaveBeenCalledTimes(2);
 
         // Allow program B to complete its load+play first.
-        await Promise.resolve();
+        await flushPromises(6);
         expect(videoPlayer.play).toHaveBeenCalledTimes(1);
 
         // Now resolve the first load; stale handler must not play.
         loadA.resolve(undefined);
-        await Promise.resolve();
+        await flushPromises(6);
 
         expect(videoPlayer.play).toHaveBeenCalledTimes(1);
     });
