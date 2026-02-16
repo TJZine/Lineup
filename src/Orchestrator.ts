@@ -41,7 +41,6 @@ import {
     type IPlexServerDiscovery,
     type PlexServer,
 } from './modules/plex/discovery';
-import { PLEX_DISCOVERY_CONSTANTS } from './modules/plex/discovery/constants';
 import {
     PlexLibrary,
     type IPlexLibrary,
@@ -121,6 +120,8 @@ import {
 import {
     InitializationCoordinator,
     ChannelTuningCoordinator,
+    OrchestratorEventWiringCoordinator,
+    OrchestratorStorageContext,
     type IInitializationCoordinator,
 } from './core';
 import { ChannelSetupCoordinator } from './core/channel-setup';
@@ -374,9 +375,46 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _currentStreamDescriptor: StreamDescriptor | null = null;
     private _currentStreamDecision: StreamDecision | null = null;
     private readonly _platformServices: PlatformServices;
+    private readonly _storageContext: OrchestratorStorageContext;
+    private readonly _eventWiringCoordinator: OrchestratorEventWiringCoordinator;
 
     constructor(platformServices?: PlatformServices) {
         this._platformServices = platformServices ?? webosPlatformServices;
+        this._storageContext = new OrchestratorStorageContext({
+            getActiveUserId: this._getActiveUserId.bind(this),
+            getSelectedServerId: this._getSelectedServerId.bind(this),
+            setDiscoveryStorageKeys: (selectedKey: string, healthKey: string): void => {
+                this._plexDiscovery?.setStorageKeys(selectedKey, healthKey);
+            },
+            setChannelManagerStorageKeys: (channelsKey: string, currentChannelKey: string): void => {
+                this._channelManager?.setStorageKeys(channelsKey, currentChannelKey);
+            },
+        });
+        this._eventWiringCoordinator = new OrchestratorEventWiringCoordinator({
+            getScheduler: (): IChannelScheduler | null => this._scheduler,
+            getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
+            getPlexLibrary: (): IPlexLibrary | null => this._plexLibrary,
+            getPlexStreamResolver: (): IPlexStreamResolver | null => this._plexStreamResolver,
+            getNavigation: (): INavigationManager | null => this._navigation,
+            getLifecycle: (): IAppLifecycle | null => this._lifecycle,
+            wireNavigationEvents: (): Array<() => void> =>
+                this._navigationCoordinator?.wireNavigationEvents() ?? [],
+            wireEpgEvents: (): Array<() => void> =>
+                this._epgCoordinator?.wireEpgEvents() ?? [],
+            onProgramStart: this._handleProgramStart.bind(this),
+            onScheduleSync: this._handleScheduleDayRollover.bind(this),
+            onPlayerEnded: this._handlePlayerEnded.bind(this),
+            onPlayerTrackChange: this._handlePlayerTrackChange.bind(this),
+            onPlaybackError: this._handlePlaybackError.bind(this),
+            onPlayerStateChange: this._handlePlayerStateChange.bind(this),
+            onPlayerTimeUpdate: this._handlePlayerTimeUpdate.bind(this),
+            onPlayerBufferUpdate: this._handlePlayerBufferUpdate.bind(this),
+            onPlexLibraryAuthExpired: this._handlePlexLibraryAuthExpired.bind(this),
+            onPlexStreamError: this._handlePlexStreamError.bind(this),
+            onScreenChange: this._handleScreenChange.bind(this),
+            onPause: this._handleLifecyclePause.bind(this),
+            onResume: this._handleLifecycleResume.bind(this),
+        });
         this._initializeModuleStatus();
     }
 
@@ -977,11 +1015,11 @@ export class AppOrchestrator implements IAppOrchestrator {
     }
 
     getSelectedServerStorageKey(): string {
-        return this._getSelectedServerStorageKey();
+        return this._storageContext.getSelectedServerStorageKey();
     }
 
     getServerHealthStorageKey(): string {
-        return this._getServerHealthStorageKey();
+        return this._storageContext.getServerHealthStorageKey();
     }
 
     /**
@@ -1634,30 +1672,8 @@ export class AppOrchestrator implements IAppOrchestrator {
         return this._plexAuth.getActiveUserId() ?? this._plexAuth.getAccountUserId() ?? null;
     }
 
-    private _getSelectedServerStorageKey(): string {
-        const userId = this._getActiveUserId();
-        if (!userId) {
-            return PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY;
-        }
-        return `${PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY}:${userId}`;
-    }
-
-    private _getServerHealthStorageKey(): string {
-        const userId = this._getActiveUserId();
-        if (!userId) {
-            return PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY;
-        }
-        return `${PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY}:${userId}`;
-    }
-
     private _configureDiscoveryStorageKeysForActiveUser(): void {
-        if (!this._plexDiscovery) {
-            return;
-        }
-        this._plexDiscovery.setStorageKeys(
-            this._getSelectedServerStorageKey(),
-            this._getServerHealthStorageKey()
-        );
+        this._storageContext.configureDiscoveryStorageKeysForActiveUser();
     }
 
     private _seedSubtitleLanguageFromPlexUser(): void {
@@ -1676,36 +1692,8 @@ export class AppOrchestrator implements IAppOrchestrator {
         safeLocalStorageSet(RETUNE_STORAGE_KEYS.SUBTITLE_LANGUAGE, normalized);
     }
 
-    private _getPerServerChannelsStorageKey(serverId: string): string {
-        const userId = this._getActiveUserId();
-        if (!userId) {
-            return `${STORAGE_KEYS.CHANNELS_SERVER}:${serverId}`;
-        }
-        return `${STORAGE_KEYS.CHANNELS_SERVER}:${serverId}:${userId}`;
-    }
-
-    private _getPerServerCurrentChannelKey(serverId: string): string {
-        const userId = this._getActiveUserId();
-        if (!userId) {
-            return `${STORAGE_KEYS.CURRENT_CHANNEL}:${serverId}`;
-        }
-        return `${STORAGE_KEYS.CURRENT_CHANNEL}:${serverId}:${userId}`;
-    }
-
     private async _configureChannelManagerStorageForSelectedServer(): Promise<void> {
-        if (!this._channelManager) {
-            return;
-        }
-
-        const serverId = this._getSelectedServerId();
-        if (!serverId) {
-            return;
-        }
-
-        const serverChannelsKey = this._getPerServerChannelsStorageKey(serverId);
-        const serverCurrentKey = this._getPerServerCurrentChannelKey(serverId);
-
-        this._channelManager.setStorageKeys(serverChannelsKey, serverCurrentKey);
+        await this._storageContext.configureChannelManagerStorageForSelectedServer();
     }
 
     private async _persistSelectedServerForActiveUser(
@@ -1898,303 +1886,172 @@ export class AppOrchestrator implements IAppOrchestrator {
             return;
         }
         this._eventsWired = true;
-
-        this._wireSchedulerEvents();
-        this._wirePlayerEvents();
-        this._wirePlexEvents();
-        this._wireNavigationEvents();
-        this._wireEpgEvents();
-        this._wireLifecycleEvents();
+        const cleanup = this._eventWiringCoordinator.setupCoreEvents();
+        this._eventUnsubscribers.push(...cleanup);
     }
 
-    /**
-     * Wire scheduler events to player.
-     */
-    private _wireSchedulerEvents(): void {
-        if (!this._scheduler) return;
-
-        // Fire-and-forget pattern: _handleProgramStart has internal error handling
-        // This catch is a safety net for any unexpected throws
-        const handler = (program: ScheduledProgram): void => {
-            this._handleProgramStart(program).catch((error) => {
-                console.error('[Orchestrator] Unhandled error in program start:', summarizeErrorForLog(error));
-            });
-        };
-        this._scheduler.on('programStart', handler);
-
-        const syncHandler = (): void => {
-            this._handleScheduleDayRollover().catch((error) => {
-                console.error('[Orchestrator] Unhandled error in scheduleSync handler:', summarizeErrorForLog(error));
-            });
-        };
-        this._scheduler.on('scheduleSync', syncHandler);
-
-        // Register cleanup
-        this._eventUnsubscribers.push(() => {
-            if (this._scheduler) {
-                this._scheduler.off('programStart', handler);
-                this._scheduler.off('scheduleSync', syncHandler);
-            }
-        });
-    }
-
-    /**
-     * Wire player events to scheduler.
-     */
-    private _wirePlayerEvents(): void {
-        if (!this._videoPlayer) return;
-
-        // Player ended -> skip to next
-        const endedHandler = (): void => {
-            // Stream reload/recovery can trigger spurious 'ended' events on webOS (especially when tearing down src).
-            // Never advance the schedule during an intentional reload.
-            if (this._playbackRecovery?.isStreamRecoveryInProgress()) {
-                return;
-            }
-            this._stopActiveTranscodeSession();
-            if (this._scheduler) {
-                this._scheduler.skipToNext();
-            }
-        };
-        this._videoPlayer.on('ended', endedHandler);
-        this._eventUnsubscribers.push(() => {
-            if (this._videoPlayer) {
-                this._videoPlayer.off('ended', endedHandler);
-            }
-        });
-
-        const trackHandler = (event: { type: 'audio' | 'subtitle'; trackId: string | null }): void => {
-            this._playbackOptionsCoordinator?.refreshIfOpen();
-
-            if (event.type !== 'subtitle' || !this._videoPlayer) {
-                return;
-            }
-
-            if (!event.trackId) {
-                const decision = this._currentStreamDecision ?? null;
-                    if (decision?.transcodeRequest?.subtitleMode === 'burn') {
-                        void this._playbackRecovery?.attemptDisableBurnInSubtitlesForCurrentProgram('subtitle_track_off')
-                            .then((result) => {
-                                if (result.outcome !== 'failed') return;
-                                if (!this._nowPlayingHandler) return;
-                                this._nowPlayingHandler({ message: 'Failed to disable burn-in subtitles', type: 'warning' });
-                            })
-                            .catch(() => {
-                                if (!this._nowPlayingHandler) return;
-                                this._nowPlayingHandler({ message: 'Failed to disable burn-in subtitles', type: 'warning' });
-                            });
-                    }
-                return;
-            }
-
-            const selected = this._videoPlayer.getAvailableSubtitles()
-                .find((track) => track.id === event.trackId) ?? null;
-            if (!selected) {
-                return;
-            }
-
-            const format = (selected.format || selected.codec || '').toLowerCase();
-            const isBurnIn = BURN_IN_SUBTITLE_FORMATS.includes(format);
-            if (!isBurnIn) {
-                return;
-            }
-
-            // Only check burn-in settings for tracks that actually require burn-in.
-            const allowBurnIn = readStoredBoolean(RETUNE_STORAGE_KEYS.SUBTITLE_ALLOW_BURN_IN, true);
-            if (!allowBurnIn) {
-                if (this._nowPlayingHandler) {
-                    this._nowPlayingHandler({ message: 'Burn-in subtitles are disabled in Settings', type: 'warning' });
-                }
-                void this.setSubtitleTrack(null);
-                return;
-            }
-
-            void this._playbackRecovery?.attemptBurnInSubtitleForCurrentProgram(
-                event.trackId,
-                'subtitle_track_change'
-            );
-        };
-        this._videoPlayer.on('trackChange', trackHandler);
-        this._eventUnsubscribers.push(() => {
-            if (this._videoPlayer) {
-                this._videoPlayer.off('trackChange', trackHandler);
-            }
-        });
-
-        // Player error -> handle or skip
-        const errorHandler = (error: PlaybackError): void => {
-            if (error.recoverable) {
-                const mappedCode = mapPlayerErrorCodeToAppErrorCode(error.code);
-                this.handleGlobalError(
-                    {
-                        code: mappedCode,
-                        message: error.message,
-                        recoverable: true,
-                    },
-                    'video-player'
-                );
-            } else {
-                // Special case: if Direct playback fails due to container/codec support, retry via HLS Direct Stream.
-                // This is critical for MKV-heavy libraries on older webOS versions.
-                if (error.code === 'PLAYBACK_FORMAT_UNSUPPORTED') {
-                    void (async (): Promise<void> => {
-                        try {
-                            const ok = await this._playbackRecovery?.attemptTranscodeFallbackForCurrentProgram(
-                                'PLAYBACK_FORMAT_UNSUPPORTED'
-                            );
-                            if (!ok) {
-                                this._playbackRecovery?.handlePlaybackFailure('video-player', error);
-                            }
-                        } catch (fallbackError) {
-                            this._playbackRecovery?.handlePlaybackFailure('video-player', fallbackError);
-                        }
-                    })();
-                    return;
-                }
-                this._playbackRecovery?.handlePlaybackFailure('video-player', error);
-            }
-        };
-        this._videoPlayer.on('error', errorHandler);
-        this._eventUnsubscribers.push(() => {
-            if (this._videoPlayer) {
-                this._videoPlayer.off('error', errorHandler);
-            }
-        });
-
-        const stateHandler = (state: PlaybackState): void => {
-            this._playerOsdCoordinator?.onPlayerStateChange(state);
-            this._channelTransitionCoordinator?.onPlayerStateChange(state);
-        };
-        this._videoPlayer.on('stateChange', stateHandler);
-        this._eventUnsubscribers.push(() => {
-            if (this._videoPlayer) {
-                this._videoPlayer.off('stateChange', stateHandler);
-            }
-        });
-
-        const timeHandler = (payload: { currentTimeMs: number; durationMs: number }): void => {
-            this._playerOsdCoordinator?.onTimeUpdate(payload);
-        };
-        this._videoPlayer.on('timeUpdate', timeHandler);
-        this._eventUnsubscribers.push(() => {
-            if (this._videoPlayer) {
-                this._videoPlayer.off('timeUpdate', timeHandler);
-            }
-        });
-
-        const bufferHandler = (payload: { percent: number; bufferedRanges: TimeRange[] }): void => {
-            this._playerOsdCoordinator?.onBufferUpdate(payload);
-        };
-        this._videoPlayer.on('bufferUpdate', bufferHandler);
-        this._eventUnsubscribers.push(() => {
-            if (this._videoPlayer) {
-                this._videoPlayer.off('bufferUpdate', bufferHandler);
-            }
-        });
-
-        // No-op on state changes: Retune does not report playback progress to Plex.
-    }
-
-    private _wirePlexEvents(): void {
-        if (this._plexLibrary) {
-            const authExpiredHandler = (): void => {
-                this.handleGlobalError(
-                    {
-                        code: AppErrorCode.AUTH_EXPIRED,
-                        message: 'Authentication expired',
-                        recoverable: true,
-                    },
-                    'plex-library'
-                );
-            };
-            this._plexLibrary.on('authExpired', authExpiredHandler);
-            this._eventUnsubscribers.push(() => {
-                if (this._plexLibrary && typeof this._plexLibrary.off === 'function') {
-                    this._plexLibrary.off('authExpired', authExpiredHandler);
-                }
-            });
-        }
-
-        if (this._plexStreamResolver) {
-            const errorHandler = (error: StreamResolverError): void => {
-                const mapped = mapPlexStreamErrorCodeToAppErrorCode(error.code);
-                if (
-                    mapped === AppErrorCode.AUTH_REQUIRED ||
-                    mapped === AppErrorCode.AUTH_EXPIRED ||
-                    mapped === AppErrorCode.AUTH_INVALID
-                ) {
-                    this.handleGlobalError(
-                        {
-                            code: mapped,
-                            message: error.message,
-                            recoverable: error.recoverable,
-                        },
-                        'plex-stream'
-                    );
-                }
-            };
-            this._plexStreamResolver.on('error', errorHandler);
-            this._eventUnsubscribers.push(() => {
-                if (this._plexStreamResolver && typeof this._plexStreamResolver.off === 'function') {
-                    this._plexStreamResolver.off('error', errorHandler);
-                }
-            });
-        }
-    }
-
-    /**
-     * Wire navigation key events and screen changes.
-     */
-    private _wireNavigationEvents(): void {
-        this._eventUnsubscribers.push(...(this._navigationCoordinator?.wireNavigationEvents() ?? []));
-        if (!this._navigation) {
+    private _handlePlayerEnded(): void {
+        // Stream reload/recovery can trigger spurious 'ended' events on webOS (especially when tearing down src).
+        // Never advance the schedule during an intentional reload.
+        if (this._playbackRecovery?.isStreamRecoveryInProgress()) {
             return;
         }
-        const screenHandler = (payload: { from: string; to: string }): void => {
-            this._channelTransitionCoordinator?.onScreenChange(payload.to as Screen);
-        };
-        this._navigation.on('screenChange', screenHandler);
-        this._eventUnsubscribers.push(() => {
-            this._navigation?.off('screenChange', screenHandler);
-        });
+        this._stopActiveTranscodeSession();
+        this._scheduler?.skipToNext();
     }
 
-    /**
-     * Wire EPG channel selection events.
-     */
-    private _wireEpgEvents(): void {
-        this._eventUnsubscribers.push(...(this._epgCoordinator?.wireEpgEvents() ?? []));
+    private _handlePlayerTrackChange(event: { type: 'audio' | 'subtitle'; trackId: string | null }): void {
+        this._playbackOptionsCoordinator?.refreshIfOpen();
+
+        if (event.type !== 'subtitle' || !this._videoPlayer) {
+            return;
+        }
+
+        if (!event.trackId) {
+            const decision = this._currentStreamDecision ?? null;
+            if (decision?.transcodeRequest?.subtitleMode === 'burn') {
+                void this._playbackRecovery?.attemptDisableBurnInSubtitlesForCurrentProgram('subtitle_track_off')
+                    .then((result) => {
+                        if (result.outcome !== 'failed') return;
+                        if (!this._nowPlayingHandler) return;
+                        this._nowPlayingHandler({ message: 'Failed to disable burn-in subtitles', type: 'warning' });
+                    })
+                    .catch(() => {
+                        if (!this._nowPlayingHandler) return;
+                        this._nowPlayingHandler({ message: 'Failed to disable burn-in subtitles', type: 'warning' });
+                    });
+            }
+            return;
+        }
+
+        const selected = this._videoPlayer.getAvailableSubtitles()
+            .find((track) => track.id === event.trackId) ?? null;
+        if (!selected) {
+            return;
+        }
+
+        const format = (selected.format || selected.codec || '').toLowerCase();
+        const isBurnIn = BURN_IN_SUBTITLE_FORMATS.includes(format);
+        if (!isBurnIn) {
+            return;
+        }
+
+        // Only check burn-in settings for tracks that actually require burn-in.
+        const allowBurnIn = readStoredBoolean(RETUNE_STORAGE_KEYS.SUBTITLE_ALLOW_BURN_IN, true);
+        if (!allowBurnIn) {
+            if (this._nowPlayingHandler) {
+                this._nowPlayingHandler({ message: 'Burn-in subtitles are disabled in Settings', type: 'warning' });
+            }
+            void this.setSubtitleTrack(null);
+            return;
+        }
+
+        void this._playbackRecovery?.attemptBurnInSubtitleForCurrentProgram(
+            event.trackId,
+            'subtitle_track_change'
+        );
     }
 
-    /**
-     * Wire lifecycle pause/resume events.
-     */
-    private _wireLifecycleEvents(): void {
-        if (!this._lifecycle) return;
+    private _handlePlaybackError(error: PlaybackError): void {
+        if (error.recoverable) {
+            const mappedCode = mapPlayerErrorCodeToAppErrorCode(error.code);
+            this.handleGlobalError(
+                {
+                    code: mappedCode,
+                    message: error.message,
+                    recoverable: true,
+                },
+                'video-player'
+            );
+            return;
+        }
 
-        // On pause
-        this._lifecycle.onPause(async () => {
-            if (this._videoPlayer) {
-                this._videoPlayer.pause();
-            }
-            if (this._scheduler) {
-                this._scheduler.pauseSyncTimer();
-            }
-            if (this._lifecycle) {
-                await this._lifecycle.saveState();
-            }
-        });
+        // Special case: if Direct playback fails due to container/codec support, retry via HLS Direct Stream.
+        // This is critical for MKV-heavy libraries on older webOS versions.
+        if (error.code === 'PLAYBACK_FORMAT_UNSUPPORTED') {
+            void (async (): Promise<void> => {
+                try {
+                    const ok = await this._playbackRecovery?.attemptTranscodeFallbackForCurrentProgram(
+                        'PLAYBACK_FORMAT_UNSUPPORTED'
+                    );
+                    if (!ok) {
+                        this._playbackRecovery?.handlePlaybackFailure('video-player', error);
+                    }
+                } catch (fallbackError) {
+                    this._playbackRecovery?.handlePlaybackFailure('video-player', fallbackError);
+                }
+            })();
+            return;
+        }
+        this._playbackRecovery?.handlePlaybackFailure('video-player', error);
+    }
 
-        // On resume
-        this._lifecycle.onResume(async () => {
-            if (this._scheduler) {
-                this._scheduler.resumeSyncTimer();
-                this._scheduler.syncToCurrentTime();
-            }
-            if (this._videoPlayer) {
-                await this._videoPlayer.play();
-            }
-        });
+    private _handlePlayerStateChange(state: PlaybackState): void {
+        this._playerOsdCoordinator?.onPlayerStateChange(state);
+        this._channelTransitionCoordinator?.onPlayerStateChange(state);
+    }
+
+    private _handlePlayerTimeUpdate(payload: { currentTimeMs: number; durationMs: number }): void {
+        this._playerOsdCoordinator?.onTimeUpdate(payload);
+    }
+
+    private _handlePlayerBufferUpdate(payload: { percent: number; bufferedRanges: TimeRange[] }): void {
+        this._playerOsdCoordinator?.onBufferUpdate(payload);
+    }
+
+    private _handlePlexLibraryAuthExpired(): void {
+        this.handleGlobalError(
+            {
+                code: AppErrorCode.AUTH_EXPIRED,
+                message: 'Authentication expired',
+                recoverable: true,
+            },
+            'plex-library'
+        );
+    }
+
+    private _handlePlexStreamError(error: StreamResolverError): void {
+        const mapped = mapPlexStreamErrorCodeToAppErrorCode(error.code);
+        if (
+            mapped === AppErrorCode.AUTH_REQUIRED ||
+            mapped === AppErrorCode.AUTH_EXPIRED ||
+            mapped === AppErrorCode.AUTH_INVALID
+        ) {
+            this.handleGlobalError(
+                {
+                    code: mapped,
+                    message: error.message,
+                    recoverable: error.recoverable,
+                },
+                'plex-stream'
+            );
+        }
+    }
+
+    private _handleScreenChange(payload: { from: string; to: string }): void {
+        this._channelTransitionCoordinator?.onScreenChange(payload.to as Screen);
+    }
+
+    private async _handleLifecyclePause(): Promise<void> {
+        if (this._videoPlayer) {
+            this._videoPlayer.pause();
+        }
+        if (this._scheduler) {
+            this._scheduler.pauseSyncTimer();
+        }
+        if (this._lifecycle) {
+            await this._lifecycle.saveState();
+        }
+    }
+
+    private async _handleLifecycleResume(): Promise<void> {
+        if (this._scheduler) {
+            this._scheduler.resumeSyncTimer();
+            this._scheduler.syncToCurrentTime();
+        }
+        if (this._videoPlayer) {
+            await this._videoPlayer.play();
+        }
     }
 
     // ========================================
