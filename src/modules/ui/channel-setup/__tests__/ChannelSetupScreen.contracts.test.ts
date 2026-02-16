@@ -7,6 +7,13 @@ import type { ChannelSetupOrchestrator } from '../ChannelSetupScreen';
 import type { PlexLibrary } from '../../../plex/library/types';
 import type { FocusableElement, INavigationManager, KeyEvent } from '../../../navigation/interfaces';
 import { flushPromises } from '../../../../__tests__/helpers';
+import { MIXED_SCOPE_STRATEGY_KEYS } from '../../../../core/channel-setup/constants';
+import {
+    ADVANCED_STRATEGY_KEYS,
+    CONTENT_STRATEGY_KEYS,
+    STEP2_CONTROL_IDS,
+    STRATEGY_CATEGORIES,
+} from '../steps/constants';
 
 type Focusable = Pick<FocusableElement, 'id' | 'neighbors'>;
 
@@ -178,20 +185,52 @@ describe('ChannelSetupScreen contracts', () => {
         expect(container.querySelector('#setup-select-all')).not.toBeNull();
         expect(container.querySelector('#setup-clear-all')).not.toBeNull();
         expect(container.querySelector('#setup-next')).not.toBeNull();
+        expect(container.querySelector('#setup-back')).not.toBeNull();
+        expect(container.querySelector('#setup-lib-movies')).not.toBeNull();
 
         clickButton(container, '#setup-next');
         await flushPromises();
-        expect(container.querySelector('#setup-category-content-sources')).not.toBeNull();
-        expect(container.querySelector('#setup-build-mode')).toBeNull();
+        for (const category of STRATEGY_CATEGORIES) {
+            expect(container.querySelector(`#setup-category-${category}`)).not.toBeNull();
+        }
+        expect(container.querySelector('#setup-preview-panel')).not.toBeNull();
+
+        for (const key of CONTENT_STRATEGY_KEYS) {
+            expect(container.querySelector(`#setup-strategy-${key}`)).not.toBeNull();
+            expect(container.querySelector(`#setup-priority-${key}`)).not.toBeNull();
+            if (MIXED_SCOPE_STRATEGY_KEYS.has(key)) {
+                expect(container.querySelector(`#setup-scope-${key}`)).not.toBeNull();
+            }
+        }
+
+        clickButton(container, '#setup-category-advanced-sources');
+        for (const key of ADVANCED_STRATEGY_KEYS) {
+            expect(container.querySelector(`#setup-strategy-${key}`)).not.toBeNull();
+            expect(container.querySelector(`#setup-priority-${key}`)).not.toBeNull();
+            if (MIXED_SCOPE_STRATEGY_KEYS.has(key)) {
+                expect(container.querySelector(`#setup-scope-${key}`)).not.toBeNull();
+            }
+        }
 
         clickButton(container, '#setup-category-build-options');
-        expect(container.querySelector('#setup-build-mode')).not.toBeNull();
+        expect(container.querySelector(`#${STEP2_CONTROL_IDS.buildMode}`)).not.toBeNull();
+        expect(container.querySelector(`#${STEP2_CONTROL_IDS.combineMode}`)).not.toBeNull();
+        expect(container.querySelector(`#${STEP2_CONTROL_IDS.addAlternateLineups}`)).not.toBeNull();
+        expect(container.querySelector(`#${STEP2_CONTROL_IDS.alternateLineupCopies}`)).not.toBeNull();
+        expect(container.querySelector(`#${STEP2_CONTROL_IDS.addSequentialVariants}`)).not.toBeNull();
+
+        clickButton(container, '#setup-category-limits');
+        expect(container.querySelector(`#${STEP2_CONTROL_IDS.maxChannels}`)).not.toBeNull();
+        expect(container.querySelector(`#${STEP2_CONTROL_IDS.minItems}`)).not.toBeNull();
+        expect(container.querySelector(`#${STEP2_CONTROL_IDS.expandLineup}`)).not.toBeNull();
 
         clickButton(container, '#setup-next');
         await flushPromises();
         await flushPromises();
         expect(container.querySelector('#setup-back')).not.toBeNull();
         expect(container.querySelector('#setup-confirm')).not.toBeNull();
+        await flushPromises();
+        expect(container.querySelector('#setup-replace-confirm')).not.toBeNull();
     });
 
     it('preserves fast-path build screen IDs for first-time setup', async () => {

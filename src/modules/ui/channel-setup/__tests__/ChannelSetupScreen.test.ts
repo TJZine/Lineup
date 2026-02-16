@@ -8,7 +8,7 @@ import type { PlexLibrary } from '../../../plex/library/types';
 import type { INavigationManager, KeyEvent } from '../../../navigation/interfaces';
 import type { FocusableElement } from '../../../navigation/interfaces';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
-import { DEFAULT_MIN_ITEMS_PER_CHANNEL } from '../../../../core/channel-setup/constants';
+import { DEFAULT_MIN_ITEMS_PER_CHANNEL, SETUP_STRATEGY_KEYS } from '../../../../core/channel-setup/constants';
 
 import { flushPromises } from '../../../../__tests__/helpers';
 
@@ -267,6 +267,40 @@ describe('ChannelSetupScreen', () => {
         expect(selectAll?.neighbors.down).toBe('setup-lib-movies');
         expect(clearAll?.neighbors.left).toBe('setup-select-all');
         expect(clearAll?.neighbors.down).toBe('setup-lib-movies');
+    });
+
+    it('cleans up keyPress handlers and focus registrations across show/hide/destroy cycles', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const orchestrator = createOrchestrator({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+
+        expect(nav.on).toHaveBeenCalledTimes(1);
+        expect(nav.focusables.size).toBeGreaterThan(0);
+
+        screen.hide();
+        expect(nav.off).toHaveBeenCalledTimes(1);
+        expect(nav.focusables.size).toBe(0);
+        const unregisterCallsAfterHide = nav.unregisterFocusable.mock.calls.length;
+        expect(unregisterCallsAfterHide).toBeGreaterThan(0);
+
+        screen.show();
+        await flushPromises();
+        expect(nav.on).toHaveBeenCalledTimes(2);
+        expect(nav.focusables.size).toBeGreaterThan(0);
+
+        screen.destroy();
+        expect(nav.off).toHaveBeenCalledTimes(2);
+        expect(nav.focusables.size).toBe(0);
+        expect(nav.unregisterFocusable.mock.calls.length).toBeGreaterThan(unregisterCallsAfterHide);
     });
 
     it('renders Step 2 category rail in fixed order', async () => {
@@ -712,6 +746,45 @@ describe('ChannelSetupScreen', () => {
         expect(afterKey).not.toBe(beforeKey);
     });
 
+    it('renders strategy and priority controls for every setup strategy key with no extras', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        const observedStrategies = new Set<string>();
+        const observedPriorities = new Set<string>();
+        const collectVisibleStrategyControls = (): void => {
+            const strategyButtons = Array.from(
+                container.querySelectorAll<HTMLButtonElement>('[id^="setup-strategy-"]')
+            );
+            const priorityButtons = Array.from(
+                container.querySelectorAll<HTMLButtonElement>('[id^="setup-priority-"]')
+            );
+            for (const button of strategyButtons) {
+                observedStrategies.add(button.id.replace('setup-strategy-', ''));
+            }
+            for (const button of priorityButtons) {
+                observedPriorities.add(button.id.replace('setup-priority-', ''));
+            }
+        };
+
+        collectVisibleStrategyControls();
+        clickButton(container, '#setup-category-advanced-sources');
+        collectVisibleStrategyControls();
+
+        const expected = [...SETUP_STRATEGY_KEYS].sort();
+        expect([...observedStrategies].sort()).toEqual(expected);
+        expect([...observedPriorities].sort()).toEqual(expected);
+    });
+
     it('Expand Lineup quick action sets max to MAX_CHANNELS and min items to 1', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -820,6 +893,33 @@ describe('ChannelSetupScreen', () => {
 
         expect(container.textContent ?? '').toContain('No server selected.');
         expect((container.querySelector('#setup-done') as HTMLButtonElement | null)?.disabled).toBe(true);
+    });
+
+    it('returns to Step 2 when backing out of build progress with no server selected', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
+            getSelectedServerId: jest.fn(() => null),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+        clickButton(container, '#setup-next');
+        await flushPromises();
+
+        expect(container.textContent ?? '').toContain('No server selected.');
+
+        clickButton(container, '#setup-back');
+        await flushPromises();
+
+        expect(container.querySelector('#setup-category-content-sources')).not.toBeNull();
+        expect((container.querySelector('#setup-next') as HTMLButtonElement | null)?.textContent).toBe('Build Channels');
+        expect((container.querySelector('#setup-back') as HTMLButtonElement | null)?.textContent).toBe('Back');
     });
 
     it('uses new higher-volume defaults in Step 2 config state', async () => {

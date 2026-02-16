@@ -6,6 +6,9 @@ import type {
 } from '../../../../Orchestrator';
 import type { PlexLibraryType } from '../../../plex/library';
 import type { FocusRegistrationMode } from '../focus/types';
+import type { SetupStrategyKey, StrategyCategoryKey } from './constants';
+
+export type { SetupStrategyKey, StrategyCategoryKey } from './constants';
 
 export interface StepRenderContext {
     contentEl: HTMLElement;
@@ -15,7 +18,6 @@ export interface StepRenderContext {
     errorEl: HTMLElement;
 }
 
-export type StrategyCategoryKey = 'content-sources' | 'advanced-sources' | 'build-options' | 'limits';
 export type StrategyScope = 'per-library' | 'cross-library';
 
 export interface StrategyStateItem {
@@ -24,7 +26,7 @@ export interface StrategyStateItem {
     scope: StrategyScope;
 }
 
-export type StrategyStateMap = Record<string, StrategyStateItem>;
+export type StrategyStateMap = Record<SetupStrategyKey, StrategyStateItem>;
 
 export interface ChannelExpansionState {
     addAlternateLineups: boolean;
@@ -77,12 +79,12 @@ export interface StrategyStepDeps {
     stepPreset: (options: number[], current: number, dir: 'left' | 'right', mode: 'clamp' | 'wrap') => number;
     channelLimitOptions: number[];
     minItemsOptions: number[];
-    strategyKeys: readonly string[];
+    strategyKeys: readonly SetupStrategyKey[];
     categoryButtonId: (category: StrategyCategoryKey) => string;
-    strategyButtonId: (strategy: string) => string;
-    priorityButtonId: (strategy: string) => string;
-    scopeButtonId: (strategy: string) => string;
-    strategySupportsMixedScope: (strategy: string) => boolean;
+    strategyButtonId: (strategy: SetupStrategyKey) => string;
+    priorityButtonId: (strategy: SetupStrategyKey) => string;
+    scopeButtonId: (strategy: SetupStrategyKey) => string;
+    strategySupportsMixedScope: (strategy: SetupStrategyKey) => boolean;
     rememberDetailFocus: (controlId: string) => void;
     buildPreviewRow: (label: string, value: number | string, key?: EstimateKey) => HTMLElement;
     renderCappedWarnings: (warnings: string[], container: HTMLElement) => void;

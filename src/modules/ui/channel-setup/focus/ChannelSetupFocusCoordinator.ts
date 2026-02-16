@@ -1,11 +1,8 @@
 import type { FocusableElement } from '../../../navigation/interfaces';
+import { STEP2_ADJUSTABLE_CONTROL_IDS } from '../steps/constants';
 import type { FocusCoordinatorDeps } from './types';
 
-const STEP2_ADJUSTABLE_IDS = new Set([
-    'setup-max-channels',
-    'setup-min-items',
-    'setup-expansion-copies',
-]);
+const STEP2_ADJUSTABLE_IDS = new Set<string>(STEP2_ADJUSTABLE_CONTROL_IDS);
 
 const scrollToNearest = (element: HTMLElement): void => {
     try {

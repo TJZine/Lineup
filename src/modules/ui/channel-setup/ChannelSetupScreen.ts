@@ -31,10 +31,16 @@ import { StrategyStepController } from './steps/StrategyStepController';
 import { BuildReviewStepController } from './steps/BuildReviewStepController';
 import { BuildProgressStepController } from './steps/BuildProgressStepController';
 import type { BuildReviewStateSnapshot, StrategyStepMutableState } from './steps/types';
+import {
+    ADVANCED_STRATEGY_KEYS,
+    CONTENT_STRATEGY_KEYS,
+    STEP2_CONTROL_IDS,
+    STRATEGY_CATEGORIES,
+    type SetupStrategyKey,
+    type StrategyCategoryKey,
+} from './steps/constants';
 
 const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
-
-type SetupStrategyKey = (typeof SETUP_STRATEGY_KEYS)[number];
 
 type SetupStrategyState = Record<SetupStrategyKey, {
     enabled: boolean;
@@ -68,40 +74,7 @@ const defaultChannelExpansionState = (): ChannelExpansionState => ({
     addSequentialVariants: false,
 });
 
-const CONTENT_STRATEGY_KEYS = [
-    'collections',
-    'playlists',
-    'recentlyAdded',
-] as const satisfies readonly SetupStrategyKey[];
-
-const ADVANCED_STRATEGY_KEYS = [
-    'genres',
-    'directors',
-    'decades',
-    'studios',
-    'actors',
-] as const satisfies readonly SetupStrategyKey[];
-
-const STRATEGY_CATEGORIES = [
-    'content-sources',
-    'advanced-sources',
-    'build-options',
-    'limits',
-] as const;
-
-const STEP2_CONTROL_IDS = {
-    buildMode: 'setup-build-mode',
-    combineMode: 'setup-combine-mode',
-    addAlternateLineups: 'setup-expansion-alternate-lineups',
-    alternateLineupCopies: 'setup-expansion-copies',
-    addSequentialVariants: 'setup-expansion-sequential',
-    expandLineup: 'setup-expand-lineup',
-    maxChannels: 'setup-max-channels',
-    minItems: 'setup-min-items',
-} as const;
-
 type SetupStep = 1 | 2 | 3;
-type StrategyCategoryKey = (typeof STRATEGY_CATEGORIES)[number];
 type EstimateKey = keyof ChannelSetupPreview['estimates'];
 
 export type ChannelSetupOrchestrator = Pick<
@@ -645,7 +618,7 @@ export class ChannelSetupScreen {
         }, {
             state: {
                 activeStrategyCategory: this._activeStrategyCategory,
-                strategies: this._strategies as unknown as Record<string, { enabled: boolean; priority: number; scope: 'per-library' | 'cross-library' }>,
+                strategies: this._strategies,
                 channelExpansion: this._channelExpansion,
                 buildMode: this._buildMode,
                 actorStudioCombineMode: this._actorStudioCombineMode,
@@ -662,10 +635,10 @@ export class ChannelSetupScreen {
             minItemsOptions: this._minItemsOptions,
             strategyKeys: SETUP_STRATEGY_KEYS,
             categoryButtonId: (category) => this._categoryButtonId(category),
-            strategyButtonId: (strategy) => this._strategyButtonId(strategy as SetupStrategyKey),
-            priorityButtonId: (strategy) => this._priorityButtonId(strategy as SetupStrategyKey),
-            scopeButtonId: (strategy) => this._scopeButtonId(strategy as SetupStrategyKey),
-            strategySupportsMixedScope: (strategy) => strategySupportsMixedScope(strategy as SetupStrategyKey),
+            strategyButtonId: (strategy) => this._strategyButtonId(strategy),
+            priorityButtonId: (strategy) => this._priorityButtonId(strategy),
+            scopeButtonId: (strategy) => this._scopeButtonId(strategy),
+            strategySupportsMixedScope: (strategy) => strategySupportsMixedScope(strategy),
             rememberDetailFocus: (controlId) => this._rememberActiveDetailFocus(controlId),
             buildPreviewRow: (label, value, key) => this._buildPreviewRow(label, value, key),
             renderCappedWarnings: (warnings, container) => this._renderCappedWarnings(warnings, container),
@@ -677,7 +650,7 @@ export class ChannelSetupScreen {
             applySettingChange: (focusId, mutate) => {
                 const draft: StrategyStepMutableState = {
                     activeStrategyCategory: this._activeStrategyCategory,
-                    strategies: this._strategies as unknown as Record<string, { enabled: boolean; priority: number; scope: 'per-library' | 'cross-library' }>,
+                    strategies: this._strategies,
                     channelExpansion: this._channelExpansion,
                     buildMode: this._buildMode,
                     actorStudioCombineMode: this._actorStudioCombineMode,
@@ -688,7 +661,7 @@ export class ChannelSetupScreen {
                 this._rememberActiveDetailFocus(focusId);
                 mutate(draft);
                 this._activeStrategyCategory = draft.activeStrategyCategory;
-                this._strategies = draft.strategies as SetupStrategyState;
+                this._strategies = draft.strategies;
                 this._channelExpansion = draft.channelExpansion;
                 this._buildMode = draft.buildMode;
                 this._actorStudioCombineMode = draft.actorStudioCombineMode;
@@ -909,7 +882,7 @@ export class ChannelSetupScreen {
             state: { isBuilding: this._isBuilding },
             registerFocusables: (buttons, mode) => this._registerFocusables(buttons, mode),
             onCancelOrBack: (button) => {
-                if (this._isBuilding) {
+                if (this._buildAbortController) {
                     this._buildAbortController?.abort();
                     button.disabled = true;
                     button.textContent = 'Canceling...';

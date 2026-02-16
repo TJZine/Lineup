@@ -1,41 +1,21 @@
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
+import { ADVANCED_STRATEGY_KEYS, CONTENT_STRATEGY_KEYS, STEP2_CONTROL_IDS } from './constants';
 import type {
+    SetupStrategyKey,
     StepRenderContext,
     StrategyCategoryKey,
     StrategyStepDeps,
     StrategyStepMutableState,
 } from './types';
 
-const CONTENT_STRATEGY_KEYS = [
-    'collections',
-    'playlists',
-    'recentlyAdded',
-] as const;
+const CONTENT_STRATEGY_KEY_SET = new Set<SetupStrategyKey>(CONTENT_STRATEGY_KEYS);
+const ADVANCED_STRATEGY_KEY_SET = new Set<SetupStrategyKey>(ADVANCED_STRATEGY_KEYS);
 
-const ADVANCED_STRATEGY_KEYS = [
-    'genres',
-    'directors',
-    'decades',
-    'studios',
-    'actors',
-] as const;
+const isContentStrategyKey = (key: SetupStrategyKey): key is (typeof CONTENT_STRATEGY_KEYS)[number] =>
+    CONTENT_STRATEGY_KEY_SET.has(key);
 
-const STEP2_CONTROL_IDS = {
-    buildMode: 'setup-build-mode',
-    combineMode: 'setup-combine-mode',
-    addAlternateLineups: 'setup-expansion-alternate-lineups',
-    alternateLineupCopies: 'setup-expansion-copies',
-    addSequentialVariants: 'setup-expansion-sequential',
-    expandLineup: 'setup-expand-lineup',
-    maxChannels: 'setup-max-channels',
-    minItems: 'setup-min-items',
-} as const;
-
-const isContentStrategyKey = (key: string): key is (typeof CONTENT_STRATEGY_KEYS)[number] =>
-    (CONTENT_STRATEGY_KEYS as readonly string[]).includes(key);
-
-const isAdvancedStrategyKey = (key: string): key is (typeof ADVANCED_STRATEGY_KEYS)[number] =>
-    (ADVANCED_STRATEGY_KEYS as readonly string[]).includes(key);
+const isAdvancedStrategyKey = (key: SetupStrategyKey): key is (typeof ADVANCED_STRATEGY_KEYS)[number] =>
+    ADVANCED_STRATEGY_KEY_SET.has(key);
 
 export class StrategyStepController {
     render(ctx: StepRenderContext, deps: StrategyStepDeps): void {
@@ -113,7 +93,7 @@ export class StrategyStepController {
             });
         });
 
-        const strategyLabels: Array<{ key: string; label: string; detail: string }> = [
+        const strategyLabels: Array<{ key: SetupStrategyKey; label: string; detail: string }> = [
             { key: 'collections', label: 'Collections', detail: 'One channel per collection.' },
             { key: 'playlists', label: 'Playlists', detail: 'Channels from Plex playlists.' },
             { key: 'recentlyAdded', label: 'Recently added', detail: 'Per library, newest first.' },
@@ -126,9 +106,6 @@ export class StrategyStepController {
 
         const createStrategyControls = (strategy: typeof strategyLabels[number]): HTMLButtonElement[] => {
             const strategyState = state.strategies[strategy.key];
-            if (!strategyState) {
-                return [];
-            }
 
             const toggleButton = document.createElement('button');
             toggleButton.id = deps.strategyButtonId(strategy.key);
@@ -151,11 +128,7 @@ export class StrategyStepController {
             toggleButton.appendChild(toggleState);
             toggleButton.addEventListener('click', () => {
                 applySettingChange(toggleButton.id, (draft) => {
-                    const current = draft.strategies[strategy.key];
-                    if (!current) {
-                        return;
-                    }
-                    current.enabled = !current.enabled;
+                    draft.strategies[strategy.key].enabled = !draft.strategies[strategy.key].enabled;
                 });
             });
 
@@ -180,12 +153,9 @@ export class StrategyStepController {
             priorityButton.appendChild(priorityState);
             priorityButton.addEventListener('click', () => {
                 applySettingChange(priorityButton.id, (draft) => {
-                    const current = draft.strategies[strategy.key];
-                    if (!current) {
-                        return;
-                    }
                     const maxPriority = deps.strategyKeys.length;
-                    current.priority = current.priority >= maxPriority ? 1 : current.priority + 1;
+                    const next = draft.strategies[strategy.key];
+                    next.priority = next.priority >= maxPriority ? 1 : next.priority + 1;
                 });
             });
 
@@ -214,11 +184,8 @@ export class StrategyStepController {
             scopeButton.appendChild(scopeState);
             scopeButton.addEventListener('click', () => {
                 applySettingChange(scopeButton.id, (draft) => {
-                    const current = draft.strategies[strategy.key];
-                    if (!current) {
-                        return;
-                    }
-                    current.scope = current.scope === 'cross-library' ? 'per-library' : 'cross-library';
+                    const next = draft.strategies[strategy.key];
+                    next.scope = next.scope === 'cross-library' ? 'per-library' : 'cross-library';
                 });
             });
 
