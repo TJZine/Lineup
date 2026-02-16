@@ -201,13 +201,13 @@ export class OrchestratorEventWiringCoordinator {
         if (!lifecycle) return;
 
         lifecycle.onPause(() => {
-            this._deps.onPause().catch((error) => {
+            return this._deps.onPause().catch((error) => {
                 console.error('[Orchestrator] Unhandled error in lifecycle pause handler:', summarizeErrorForLog(error));
             });
         });
 
         lifecycle.onResume(() => {
-            this._deps.onResume().catch((error) => {
+            return this._deps.onResume().catch((error) => {
                 console.error('[Orchestrator] Unhandled error in lifecycle resume handler:', summarizeErrorForLog(error));
             });
         });
