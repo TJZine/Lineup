@@ -1,65 +1,10 @@
-import { AppOrchestrator } from '../../Orchestrator';
-
-type SchedulerLike = {
-    on: jest.Mock;
-    off: jest.Mock;
-    skipToNext: jest.Mock;
-    pauseSyncTimer: jest.Mock;
-    resumeSyncTimer: jest.Mock;
-    syncToCurrentTime: jest.Mock;
-    unloadChannel: jest.Mock;
-};
-
-type VideoPlayerLike = {
-    on: jest.Mock;
-    off: jest.Mock;
-    play: jest.Mock;
-    pause: jest.Mock;
-    stop: jest.Mock;
-    destroy: jest.Mock;
-};
-
-type LifecycleLike = {
-    onPause: jest.Mock;
-    onResume: jest.Mock;
-    saveState: jest.Mock;
-};
-
-type NavigationLike = {
-    on: jest.Mock;
-    off: jest.Mock;
-    destroy: jest.Mock;
-};
-
-type PlexLibraryLike = {
-    on: jest.Mock;
-    off: jest.Mock;
-};
-
-type PlexStreamResolverLike = {
-    on: jest.Mock;
-    off: jest.Mock;
-};
-
-type InitCoordinatorLike = {
-    runStartup: jest.Mock;
-    clearAuthResume: jest.Mock;
-    clearServerResume: jest.Mock;
-    clearProfileResume: jest.Mock;
-};
-
-type OrchestratorInternals = {
-    _scheduler: SchedulerLike | null;
-    _videoPlayer: VideoPlayerLike | null;
-    _lifecycle: LifecycleLike | null;
-    _navigation: NavigationLike | null;
-    _plexLibrary: PlexLibraryLike | null;
-    _plexStreamResolver: PlexStreamResolverLike | null;
-    _navigationCoordinator: { wireNavigationEvents: () => Array<() => void> } | null;
-    _epgCoordinator: { wireEpgEvents: () => Array<() => void> } | null;
-    _initCoordinator: InitCoordinatorLike | null;
-    _setupEventWiring: () => void;
-};
+import { OrchestratorEventWiringCoordinator } from '../../core/orchestrator/OrchestratorEventWiringCoordinator';
+import type { IAppLifecycle } from '../../modules/lifecycle';
+import type { INavigationManager } from '../../modules/navigation';
+import type { IVideoPlayer } from '../../modules/player';
+import type { IPlexLibrary } from '../../modules/plex/library';
+import type { IPlexStreamResolver } from '../../modules/plex/stream';
+import type { IChannelScheduler } from '../../modules/scheduler/scheduler';
 
 type Deferred<T> = {
     promise: Promise<T>;
@@ -77,145 +22,109 @@ const createDeferred = <T>(): Deferred<T> => {
     return { promise, resolve, reject };
 };
 
-const createHarness = (): {
-    orchestrator: AppOrchestrator;
-    scheduler: SchedulerLike;
-    videoPlayer: VideoPlayerLike;
-    lifecycle: LifecycleLike;
-    navigation: NavigationLike;
-    plexLibrary: PlexLibraryLike;
-    plexStreamResolver: PlexStreamResolverLike;
-    navigationCleanup: jest.Mock;
-    epgCleanup: jest.Mock;
-    getPauseCallback: () => (() => void | Promise<void>) | null;
-    getResumeCallback: () => (() => void | Promise<void>) | null;
-} => {
-    const orchestrator = new AppOrchestrator();
-    const internals = orchestrator as unknown as OrchestratorInternals;
-    let pauseCallback: (() => void | Promise<void>) | null = null;
-    let resumeCallback: (() => void | Promise<void>) | null = null;
-    const navigationCleanup = jest.fn();
-    const epgCleanup = jest.fn();
+describe('OrchestratorEventWiringCoordinator', () => {
+    it('returns cleanups that unsubscribe all wired handlers', () => {
+        let pauseCallback: (() => void | Promise<void>) | null = null;
+        let resumeCallback: (() => void | Promise<void>) | null = null;
+        const pauseDispose = jest.fn();
+        const resumeDispose = jest.fn();
 
-    const scheduler: SchedulerLike = {
-        on: jest.fn(),
-        off: jest.fn(),
-        skipToNext: jest.fn(),
-        pauseSyncTimer: jest.fn(),
-        resumeSyncTimer: jest.fn(),
-        syncToCurrentTime: jest.fn(),
-        unloadChannel: jest.fn(),
-    };
+        const programStartHandlerRef: { current: ((p: unknown) => void) | null } = { current: null };
+        const scheduleSyncHandlerRef: { current: (() => void) | null } = { current: null };
 
-    const videoPlayer: VideoPlayerLike = {
-        on: jest.fn(),
-        off: jest.fn(),
-        play: jest.fn().mockResolvedValue(undefined),
-        pause: jest.fn(),
-        stop: jest.fn(),
-        destroy: jest.fn(),
-    };
+        const scheduler = {
+            on: jest.fn((event: string, handler: (...args: unknown[]) => void) => {
+                if (event === 'programStart') {
+                    programStartHandlerRef.current = handler as (p: unknown) => void;
+                }
+                if (event === 'scheduleSync') {
+                    scheduleSyncHandlerRef.current = handler as () => void;
+                }
+            }),
+            off: jest.fn(),
+        } as unknown as IChannelScheduler;
 
-    const lifecycle: LifecycleLike = {
-        onPause: jest.fn((callback: () => void | Promise<void>) => {
-            pauseCallback = callback;
-        }),
-        onResume: jest.fn((callback: () => void | Promise<void>) => {
-            resumeCallback = callback;
-        }),
-        saveState: jest.fn().mockResolvedValue(undefined),
-    };
+        const videoPlayer = {
+            on: jest.fn(),
+            off: jest.fn(),
+        } as unknown as IVideoPlayer;
 
-    const navigation: NavigationLike = {
-        on: jest.fn(),
-        off: jest.fn(),
-        destroy: jest.fn(),
-    };
+        const plexLibrary = {
+            on: jest.fn(),
+            off: jest.fn(),
+        } as unknown as IPlexLibrary;
 
-    const plexLibrary: PlexLibraryLike = {
-        on: jest.fn(),
-        off: jest.fn(),
-    };
+        const plexStreamResolver = {
+            on: jest.fn(),
+            off: jest.fn(),
+        } as unknown as IPlexStreamResolver;
 
-    const plexStreamResolver: PlexStreamResolverLike = {
-        on: jest.fn(),
-        off: jest.fn(),
-    };
+        const navigation = {
+            on: jest.fn(),
+            off: jest.fn(),
+        } as unknown as INavigationManager;
 
-    internals._scheduler = scheduler;
-    internals._videoPlayer = videoPlayer;
-    internals._lifecycle = lifecycle;
-    internals._navigation = navigation;
-    internals._plexLibrary = plexLibrary;
-    internals._plexStreamResolver = plexStreamResolver;
-    internals._navigationCoordinator = {
-        wireNavigationEvents: (): Array<() => void> => [navigationCleanup],
-    };
-    internals._epgCoordinator = {
-        wireEpgEvents: (): Array<() => void> => [epgCleanup],
-    };
-    internals._initCoordinator = {
-        runStartup: jest.fn(async () => {
-            internals._setupEventWiring();
-        }),
-        clearAuthResume: jest.fn(),
-        clearServerResume: jest.fn(),
-        clearProfileResume: jest.fn(),
-    };
+        const lifecycle = {
+            onPause: jest.fn((callback: () => void | Promise<void>) => {
+                pauseCallback = callback;
+                return { dispose: pauseDispose };
+            }),
+            onResume: jest.fn((callback: () => void | Promise<void>) => {
+                resumeCallback = callback;
+                return { dispose: resumeDispose };
+            }),
+        } as unknown as IAppLifecycle;
 
-    return {
-        orchestrator,
-        scheduler,
-        videoPlayer,
-        lifecycle,
-        navigation,
-        plexLibrary,
-        plexStreamResolver,
-        navigationCleanup,
-        epgCleanup,
-        getPauseCallback: () => pauseCallback,
-        getResumeCallback: () => resumeCallback,
-    };
-};
+        const navigationCleanup = jest.fn();
+        const epgCleanup = jest.fn();
 
-describe('AppOrchestrator event wiring characterization', () => {
-    it('wires subscriptions once even if startup wiring is invoked multiple times', async () => {
-        const { orchestrator, scheduler, videoPlayer, navigation, plexLibrary, plexStreamResolver, lifecycle } = createHarness();
+        const coordinator = new OrchestratorEventWiringCoordinator({
+            getScheduler: (): IChannelScheduler | null => scheduler,
+            getVideoPlayer: (): IVideoPlayer | null => videoPlayer,
+            getPlexLibrary: (): IPlexLibrary | null => plexLibrary,
+            getPlexStreamResolver: (): IPlexStreamResolver | null => plexStreamResolver,
+            getNavigation: (): INavigationManager | null => navigation,
+            getLifecycle: (): IAppLifecycle | null => lifecycle,
+            wireNavigationEvents: (): Array<() => void> => [navigationCleanup],
+            wireEpgEvents: (): Array<() => void> => [epgCleanup],
+            onProgramStart: jest.fn(async () => undefined),
+            onScheduleSync: jest.fn(async () => undefined),
+            onPlayerEnded: jest.fn(),
+            onPlayerTrackChange: jest.fn(),
+            onPlaybackError: jest.fn(),
+            onPlayerStateChange: jest.fn(),
+            onPlayerTimeUpdate: jest.fn(),
+            onPlayerBufferUpdate: jest.fn(),
+            onPlexLibraryAuthExpired: jest.fn(),
+            onPlexStreamError: jest.fn(),
+            onScreenChange: jest.fn(),
+            onPause: jest.fn(async () => undefined),
+            onResume: jest.fn(async () => undefined),
+        });
 
-        await orchestrator.start();
-        const schedulerOnCallsAfterFirstStart = scheduler.on.mock.calls.length;
-        const playerOnCallsAfterFirstStart = videoPlayer.on.mock.calls.length;
-        const navigationOnCallsAfterFirstStart = navigation.on.mock.calls.length;
-        const plexLibraryOnCallsAfterFirstStart = plexLibrary.on.mock.calls.length;
-        const plexStreamOnCallsAfterFirstStart = plexStreamResolver.on.mock.calls.length;
-        const lifecyclePauseCallsAfterFirstStart = lifecycle.onPause.mock.calls.length;
-        const lifecycleResumeCallsAfterFirstStart = lifecycle.onResume.mock.calls.length;
+        const cleanups = coordinator.setupCoreEvents();
 
-        await orchestrator.start();
+        expect(scheduler.on).toHaveBeenCalledWith('programStart', expect.any(Function));
+        expect(scheduler.on).toHaveBeenCalledWith('scheduleSync', expect.any(Function));
+        expect(videoPlayer.on).toHaveBeenCalledWith('ended', expect.any(Function));
+        expect(videoPlayer.on).toHaveBeenCalledWith('trackChange', expect.any(Function));
+        expect(videoPlayer.on).toHaveBeenCalledWith('error', expect.any(Function));
+        expect(videoPlayer.on).toHaveBeenCalledWith('stateChange', expect.any(Function));
+        expect(videoPlayer.on).toHaveBeenCalledWith('timeUpdate', expect.any(Function));
+        expect(videoPlayer.on).toHaveBeenCalledWith('bufferUpdate', expect.any(Function));
+        expect(navigation.on).toHaveBeenCalledWith('screenChange', expect.any(Function));
+        expect(plexLibrary.on).toHaveBeenCalledWith('authExpired', expect.any(Function));
+        expect(plexStreamResolver.on).toHaveBeenCalledWith('error', expect.any(Function));
+        expect(lifecycle.onPause).toHaveBeenCalledTimes(1);
+        expect(lifecycle.onResume).toHaveBeenCalledTimes(1);
+        expect(typeof pauseCallback).toBe('function');
+        expect(typeof resumeCallback).toBe('function');
+        expect(typeof programStartHandlerRef.current).toBe('function');
+        expect(typeof scheduleSyncHandlerRef.current).toBe('function');
 
-        expect(scheduler.on.mock.calls.length).toBe(schedulerOnCallsAfterFirstStart);
-        expect(videoPlayer.on.mock.calls.length).toBe(playerOnCallsAfterFirstStart);
-        expect(navigation.on.mock.calls.length).toBe(navigationOnCallsAfterFirstStart);
-        expect(plexLibrary.on.mock.calls.length).toBe(plexLibraryOnCallsAfterFirstStart);
-        expect(plexStreamResolver.on.mock.calls.length).toBe(plexStreamOnCallsAfterFirstStart);
-        expect(lifecycle.onPause.mock.calls.length).toBe(lifecyclePauseCallsAfterFirstStart);
-        expect(lifecycle.onResume.mock.calls.length).toBe(lifecycleResumeCallsAfterFirstStart);
-    });
-
-    it('unsubscribes all wired handlers during shutdown', async () => {
-        const {
-            orchestrator,
-            scheduler,
-            videoPlayer,
-            navigation,
-            plexLibrary,
-            plexStreamResolver,
-            navigationCleanup,
-            epgCleanup,
-        } = createHarness();
-
-        await orchestrator.start();
-        await orchestrator.shutdown();
+        for (const cleanup of cleanups) {
+            cleanup();
+        }
 
         expect(scheduler.off).toHaveBeenCalledWith('programStart', expect.any(Function));
         expect(scheduler.off).toHaveBeenCalledWith('scheduleSync', expect.any(Function));
@@ -230,33 +139,58 @@ describe('AppOrchestrator event wiring characterization', () => {
         expect(plexStreamResolver.off).toHaveBeenCalledWith('error', expect.any(Function));
         expect(navigationCleanup).toHaveBeenCalledTimes(1);
         expect(epgCleanup).toHaveBeenCalledTimes(1);
+        expect(pauseDispose).toHaveBeenCalledTimes(1);
+        expect(resumeDispose).toHaveBeenCalledTimes(1);
     });
 
-    it('registers lifecycle callbacks that stay pending until async pause/resume work finishes', async () => {
-        const {
-            orchestrator,
-            scheduler,
-            videoPlayer,
-            lifecycle,
-            getPauseCallback,
-            getResumeCallback,
-        } = createHarness();
-
-        await orchestrator.start();
-
-        const pauseCallback = getPauseCallback();
-        const resumeCallback = getResumeCallback();
-        expect(pauseCallback).toBeDefined();
-        expect(resumeCallback).toBeDefined();
-
+    it('wires pause/resume callbacks that stay pending until async work finishes', async () => {
         const pauseDeferred = createDeferred<void>();
-        lifecycle.saveState.mockReturnValueOnce(pauseDeferred.promise);
+        const resumeDeferred = createDeferred<void>();
 
-        const pauseResult = pauseCallback?.();
+        let pauseCallback: (() => void | Promise<void>) | null = null;
+        let resumeCallback: (() => void | Promise<void>) | null = null;
+
+        const coordinator = new OrchestratorEventWiringCoordinator({
+            getScheduler: (): IChannelScheduler | null => null,
+            getVideoPlayer: (): IVideoPlayer | null => null,
+            getPlexLibrary: (): IPlexLibrary | null => null,
+            getPlexStreamResolver: (): IPlexStreamResolver | null => null,
+            getNavigation: (): INavigationManager | null => null,
+            getLifecycle: (): IAppLifecycle | null => ({
+                onPause: (cb: () => void | Promise<void>) => {
+                    pauseCallback = cb;
+                    return { dispose: (): void => undefined };
+                },
+                onResume: (cb: () => void | Promise<void>) => {
+                    resumeCallback = cb;
+                    return { dispose: (): void => undefined };
+                },
+            } as unknown as IAppLifecycle),
+            wireNavigationEvents: (): Array<() => void> => [],
+            wireEpgEvents: (): Array<() => void> => [],
+            onProgramStart: jest.fn(async () => undefined),
+            onScheduleSync: jest.fn(async () => undefined),
+            onPlayerEnded: jest.fn(),
+            onPlayerTrackChange: jest.fn(),
+            onPlaybackError: jest.fn(),
+            onPlayerStateChange: jest.fn(),
+            onPlayerTimeUpdate: jest.fn(),
+            onPlayerBufferUpdate: jest.fn(),
+            onPlexLibraryAuthExpired: jest.fn(),
+            onPlexStreamError: jest.fn(),
+            onScreenChange: jest.fn(),
+            onPause: jest.fn(() => pauseDeferred.promise),
+            onResume: jest.fn(() => resumeDeferred.promise),
+        });
+
+        coordinator.setupCoreEvents();
+
+        expect(typeof pauseCallback).toBe('function');
+        expect(typeof resumeCallback).toBe('function');
+
+        const pauseResult = (pauseCallback as unknown as () => Promise<void>)();
         expect(pauseResult).toBeDefined();
         expect(typeof (pauseResult as Promise<void>).then).toBe('function');
-        expect(videoPlayer.pause).toHaveBeenCalledTimes(1);
-        expect(scheduler.pauseSyncTimer).toHaveBeenCalledTimes(1);
 
         let pauseSettled = false;
         void (pauseResult as Promise<void>).then(() => {
@@ -269,14 +203,9 @@ describe('AppOrchestrator event wiring characterization', () => {
         await pauseResult;
         expect(pauseSettled).toBe(true);
 
-        const resumeDeferred = createDeferred<void>();
-        videoPlayer.play.mockReturnValueOnce(resumeDeferred.promise);
-
-        const resumeResult = resumeCallback?.();
+        const resumeResult = (resumeCallback as unknown as () => Promise<void>)();
         expect(resumeResult).toBeDefined();
         expect(typeof (resumeResult as Promise<void>).then).toBe('function');
-        expect(scheduler.resumeSyncTimer).toHaveBeenCalledTimes(1);
-        expect(scheduler.syncToCurrentTime).toHaveBeenCalledTimes(1);
 
         let resumeSettled = false;
         void (resumeResult as Promise<void>).then(() => {

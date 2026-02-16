@@ -55,19 +55,19 @@ export interface IAppLifecycle {
      * Register a callback for when the app is paused (backgrounded).
      * @param callback - Function to call on pause
      */
-    onPause(callback: LifecycleCallback): void;
+    onPause(callback: LifecycleCallback): IDisposable;
 
     /**
      * Register a callback for when the app is resumed (foregrounded).
      * @param callback - Function to call on resume
      */
-    onResume(callback: LifecycleCallback): void;
+    onResume(callback: LifecycleCallback): IDisposable;
 
     /**
      * Register a callback for when the app is about to terminate.
      * @param callback - Function to call before terminate
      */
-    onTerminate(callback: LifecycleCallback): void;
+    onTerminate(callback: LifecycleCallback): IDisposable;
 
     /**
      * Check if network is currently available.

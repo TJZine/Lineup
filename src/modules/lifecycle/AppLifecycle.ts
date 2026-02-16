@@ -208,24 +208,24 @@ export class AppLifecycle implements IAppLifecycle {
      * Register a callback for when app is paused.
      * @param callback - Function to call on pause
      */
-    public onPause(callback: LifecycleCallback): void {
-        this._pauseCallbacks.push(callback);
+    public onPause(callback: LifecycleCallback): IDisposable {
+        return this._registerLifecycleCallback(this._pauseCallbacks, callback);
     }
 
     /**
      * Register a callback for when app resumes.
      * @param callback - Function to call on resume
      */
-    public onResume(callback: LifecycleCallback): void {
-        this._resumeCallbacks.push(callback);
+    public onResume(callback: LifecycleCallback): IDisposable {
+        return this._registerLifecycleCallback(this._resumeCallbacks, callback);
     }
 
     /**
      * Register a callback for before termination.
      * @param callback - Function to call before terminate
      */
-    public onTerminate(callback: LifecycleCallback): void {
-        this._terminateCallbacks.push(callback);
+    public onTerminate(callback: LifecycleCallback): IDisposable {
+        return this._registerLifecycleCallback(this._terminateCallbacks, callback);
     }
 
     // ========== Network Monitoring ==========
@@ -655,6 +655,24 @@ export class AppLifecycle implements IAppLifecycle {
         });
 
         await Promise.all(promises);
+    }
+
+    private _registerLifecycleCallback(
+        callbacks: LifecycleCallback[],
+        callback: LifecycleCallback
+    ): IDisposable {
+        callbacks.push(callback);
+        let disposed = false;
+        return {
+            dispose: (): void => {
+                if (disposed) return;
+                disposed = true;
+                const idx = callbacks.indexOf(callback);
+                if (idx >= 0) {
+                    callbacks.splice(idx, 1);
+                }
+            },
+        };
     }
 
     /**

@@ -263,6 +263,29 @@ describe('AppLifecycle', () => {
             expect(pauseCallback).toHaveBeenCalled();
         });
 
+        it('should allow removing pause callbacks via disposable subscription', async () => {
+            await lifecycle.initialize();
+            // Follow valid transition path: authenticating -> loading_data -> ready
+            lifecycle.setPhase('loading_data');
+            await new Promise(resolve => setTimeout(resolve, 0));
+            lifecycle.setPhase('ready');
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            const pauseCallback = jest.fn();
+            const subscription = lifecycle.onPause(pauseCallback) as unknown as { dispose?: () => void };
+            expect(typeof subscription?.dispose).toBe('function');
+            subscription.dispose?.();
+
+            // Simulate visibility change to hidden
+            Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+
+            // Wait for async callbacks
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(pauseCallback).not.toHaveBeenCalled();
+        });
+
         it('should call resume callbacks when visible', async () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
@@ -285,6 +308,32 @@ describe('AppLifecycle', () => {
             await new Promise(resolve => setTimeout(resolve, 0));
 
             expect(resumeCallback).toHaveBeenCalled();
+        });
+
+        it('should allow removing resume callbacks via disposable subscription', async () => {
+            await lifecycle.initialize();
+            // Follow valid transition path: authenticating -> loading_data -> ready
+            lifecycle.setPhase('loading_data');
+            await new Promise(resolve => setTimeout(resolve, 0));
+            lifecycle.setPhase('ready');
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            const resumeCallback = jest.fn();
+            const subscription = lifecycle.onResume(resumeCallback) as unknown as { dispose?: () => void };
+            expect(typeof subscription?.dispose).toBe('function');
+            subscription.dispose?.();
+
+            // First hide
+            Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            // Then show
+            Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(resumeCallback).not.toHaveBeenCalled();
         });
 
         it('should emit visibilityChange event', async () => {

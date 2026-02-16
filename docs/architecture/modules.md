@@ -23,6 +23,7 @@ flowchart TD
     
     subgraph Player["Video Player"]
         VP[VideoPlayer]
+        SM[SubtitleManager]
         HLS[HLS Handler]
         KA[KeepAlive]
     end

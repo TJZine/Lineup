@@ -11,20 +11,17 @@ export interface OrchestratorStorageContextDeps {
 export class OrchestratorStorageContext {
     constructor(private readonly _deps: OrchestratorStorageContextDeps) {}
 
-    getSelectedServerStorageKey(): string {
+    private _userScopedKey(baseKey: string): string {
         const userId = this._deps.getActiveUserId();
-        if (!userId) {
-            return PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY;
-        }
-        return `${PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY}:${userId}`;
+        return userId ? `${baseKey}:${userId}` : baseKey;
+    }
+
+    getSelectedServerStorageKey(): string {
+        return this._userScopedKey(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY);
     }
 
     getServerHealthStorageKey(): string {
-        const userId = this._deps.getActiveUserId();
-        if (!userId) {
-            return PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY;
-        }
-        return `${PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY}:${userId}`;
+        return this._userScopedKey(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY);
     }
 
     configureDiscoveryStorageKeysForActiveUser(): void {
@@ -34,7 +31,7 @@ export class OrchestratorStorageContext {
         );
     }
 
-    async configureChannelManagerStorageForSelectedServer(): Promise<void> {
+    configureChannelManagerStorageForSelectedServer(): void {
         const serverId = this._deps.getSelectedServerId();
         if (!serverId) {
             return;

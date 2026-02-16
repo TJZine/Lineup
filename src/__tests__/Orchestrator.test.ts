@@ -126,6 +126,7 @@ jest.mock('../utils', () => ({
 // Mock AppLifecycle
 const mockLifecycle = {
     initialize: jest.fn().mockResolvedValue(undefined),
+    shutdown: jest.fn().mockResolvedValue(undefined),
     setPhase: jest.fn(),
     getPhase: jest.fn().mockReturnValue('ready'),
     getErrorRecovery: jest.fn(() => ({
@@ -135,10 +136,10 @@ const mockLifecycle = {
     restoreState: jest.fn().mockResolvedValue(null),
     saveState: jest.fn().mockResolvedValue(undefined),
     reportError: jest.fn(),
-    onPause: jest.fn(),
-    onResume: jest.fn(),
-    onTerminate: jest.fn(),
-    on: jest.fn(() => jest.fn()),
+    onPause: jest.fn(() => ({ dispose: jest.fn() })),
+    onResume: jest.fn(() => ({ dispose: jest.fn() })),
+    onTerminate: jest.fn(() => ({ dispose: jest.fn() })),
+    on: jest.fn(() => ({ dispose: jest.fn() })),
 };
 
 jest.mock('../modules/lifecycle', () => ({
@@ -555,10 +556,12 @@ describe('AppOrchestrator', () => {
         (mockLifecycle.onPause as jest.Mock).mockImplementation(
             (handler: () => void | Promise<void>) => {
                 pauseHandler = handler;
+                return { dispose: jest.fn() };
             });
         (mockLifecycle.onResume as jest.Mock).mockImplementation(
             (handler: () => void | Promise<void>) => {
                 resumeHandler = handler;
+                return { dispose: jest.fn() };
             });
         orchestrator = new AppOrchestrator();
     });
@@ -1664,7 +1667,7 @@ describe('AppOrchestrator', () => {
         it('should save state before shutdown', async () => {
             await orchestrator.shutdown();
 
-            expect(mockLifecycle.saveState).toHaveBeenCalled();
+            expect(mockLifecycle.shutdown).toHaveBeenCalled();
         });
 
         it('should stop video player on shutdown', async () => {

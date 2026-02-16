@@ -370,6 +370,8 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _ready: boolean = false;
     private _initCoordinator: IInitializationCoordinator | null = null;
     private _channelSetup: ChannelSetupCoordinator | null = null;
+    private _lastProgramStartPromise: Promise<void> | null = null;
+    private _programStartSequence: number = 0;
 
     private _currentProgramForPlayback: ScheduledProgram | null = null;
     private _currentStreamDescriptor: StreamDescriptor | null = null;
@@ -401,7 +403,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this._navigationCoordinator?.wireNavigationEvents() ?? [],
             wireEpgEvents: (): Array<() => void> =>
                 this._epgCoordinator?.wireEpgEvents() ?? [],
-            onProgramStart: this._handleProgramStart.bind(this),
+            onProgramStart: this._handleProgramStartTracked.bind(this),
             onScheduleSync: this._handleScheduleDayRollover.bind(this),
             onPlayerEnded: this._handlePlayerEnded.bind(this),
             onPlayerTrackChange: this._handlePlayerTrackChange.bind(this),
@@ -942,9 +944,14 @@ export class AppOrchestrator implements IAppOrchestrator {
         this._eventUnsubscribers = [];
         this._eventsWired = false; // Reset to allow re-wiring on retry
 
-        // Save state
+        // Shutdown lifecycle (flushes state and removes global listeners)
         if (this._lifecycle) {
-            await this._lifecycle.saveState();
+            try {
+                await this._lifecycle.shutdown();
+            } catch (e) {
+                console.warn('[Orchestrator] lifecycle shutdown failed:', e);
+            }
+            this._lifecycle = null;
         }
 
         // Stop playback (resilient to errors)
@@ -1910,16 +1917,16 @@ export class AppOrchestrator implements IAppOrchestrator {
         if (!event.trackId) {
             const decision = this._currentStreamDecision ?? null;
             if (decision?.transcodeRequest?.subtitleMode === 'burn') {
+                const warnDisableFailed = (): void => {
+                    if (!this._nowPlayingHandler) return;
+                    this._nowPlayingHandler({ message: 'Failed to disable burn-in subtitles', type: 'warning' });
+                };
                 void this._playbackRecovery?.attemptDisableBurnInSubtitlesForCurrentProgram('subtitle_track_off')
                     .then((result) => {
                         if (result.outcome !== 'failed') return;
-                        if (!this._nowPlayingHandler) return;
-                        this._nowPlayingHandler({ message: 'Failed to disable burn-in subtitles', type: 'warning' });
+                        warnDisableFailed();
                     })
-                    .catch(() => {
-                        if (!this._nowPlayingHandler) return;
-                        this._nowPlayingHandler({ message: 'Failed to disable burn-in subtitles', type: 'warning' });
-                    });
+                    .catch(() => warnDisableFailed());
             }
             return;
         }
@@ -2045,9 +2052,18 @@ export class AppOrchestrator implements IAppOrchestrator {
     }
 
     private async _handleLifecycleResume(): Promise<void> {
+        const lastProgramStartBefore = this._lastProgramStartPromise;
         if (this._scheduler) {
             this._scheduler.resumeSyncTimer();
             this._scheduler.syncToCurrentTime();
+        }
+        const lastProgramStartAfter = this._lastProgramStartPromise;
+        if (
+            lastProgramStartAfter &&
+            lastProgramStartAfter !== lastProgramStartBefore
+        ) {
+            await lastProgramStartAfter;
+            return;
         }
         if (this._videoPlayer) {
             await this._videoPlayer.play();
@@ -2061,6 +2077,8 @@ export class AppOrchestrator implements IAppOrchestrator {
      * Handle program start event from scheduler.
      */
     private async _handleProgramStart(program: ScheduledProgram): Promise<void> {
+        const sequence = ++this._programStartSequence;
+        const isStale = (): boolean => sequence !== this._programStartSequence;
         if (!this._videoPlayer) {
             return;
         }
@@ -2071,12 +2089,11 @@ export class AppOrchestrator implements IAppOrchestrator {
             this._playerOsdCoordinator?.poke('status');
             this._pendingNowPlayingChannelId = null;
         }
-        this._nowPlayingInfoCoordinator?.onProgramStart(program);
-        this._epgCoordinator?.refreshEpgScheduleForLiveChannel();
-
         try {
+            this._nowPlayingInfoCoordinator?.onProgramStart(program);
+            this._epgCoordinator?.refreshEpgScheduleForLiveChannel();
             const stream = await this._playbackRecovery?.resolveStreamForProgram(programAtStart);
-            if (this._currentProgramForPlayback !== programAtStart) {
+            if (isStale() || this._currentProgramForPlayback !== programAtStart) {
                 return;
             }
             if (!stream) {
@@ -2090,6 +2107,9 @@ export class AppOrchestrator implements IAppOrchestrator {
             void this._nowPlayingDebugManager?.maybeFetchNowPlayingStreamDecisionForDebugHud();
 
             await this._videoPlayer.loadStream(stream);
+            if (isStale() || this._currentProgramForPlayback !== programAtStart) {
+                return;
+            }
             await this._videoPlayer.play();
             this._playbackRecovery?.resetPlaybackFailureGuard();
         } catch (error) {
@@ -2099,6 +2119,12 @@ export class AppOrchestrator implements IAppOrchestrator {
             console.error('Failed to load stream:', summarizeErrorForLog(error));
             this._playbackRecovery?.handlePlaybackFailure('programStart', error);
         }
+    }
+
+    private _handleProgramStartTracked(program: ScheduledProgram): Promise<void> {
+        const promise = this._handleProgramStart(program);
+        this._lastProgramStartPromise = promise;
+        return promise;
     }
 
     private _stopActiveTranscodeSession(): void {

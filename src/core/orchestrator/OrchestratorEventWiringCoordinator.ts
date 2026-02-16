@@ -53,7 +53,7 @@ export class OrchestratorEventWiringCoordinator {
         this._wirePlexEvents(cleanups);
         this._wireNavigationEvents(cleanups);
         this._wireEpgEvents(cleanups);
-        this._wireLifecycleEvents();
+        this._wireLifecycleEvents(cleanups);
         return cleanups;
     }
 
@@ -76,10 +76,8 @@ export class OrchestratorEventWiringCoordinator {
         scheduler.on('scheduleSync', scheduleSyncHandler);
 
         cleanups.push(() => {
-            const currentScheduler = this._deps.getScheduler();
-            if (!currentScheduler) return;
-            currentScheduler.off('programStart', programStartHandler);
-            currentScheduler.off('scheduleSync', scheduleSyncHandler);
+            scheduler.off('programStart', programStartHandler);
+            scheduler.off('scheduleSync', scheduleSyncHandler);
         });
     }
 
@@ -90,61 +88,40 @@ export class OrchestratorEventWiringCoordinator {
         const endedHandler = (): void => {
             this._deps.onPlayerEnded();
         };
-        videoPlayer.on('ended', endedHandler);
-        cleanups.push(() => {
-            const currentPlayer = this._deps.getVideoPlayer();
-            if (!currentPlayer) return;
-            currentPlayer.off('ended', endedHandler);
-        });
-
         const trackChangeHandler = (event: { type: 'audio' | 'subtitle'; trackId: string | null }): void => {
             this._deps.onPlayerTrackChange(event);
         };
-        videoPlayer.on('trackChange', trackChangeHandler);
-        cleanups.push(() => {
-            const currentPlayer = this._deps.getVideoPlayer();
-            if (!currentPlayer) return;
-            currentPlayer.off('trackChange', trackChangeHandler);
-        });
 
         const errorHandler = (error: PlaybackError): void => {
             this._deps.onPlaybackError(error);
         };
-        videoPlayer.on('error', errorHandler);
-        cleanups.push(() => {
-            const currentPlayer = this._deps.getVideoPlayer();
-            if (!currentPlayer) return;
-            currentPlayer.off('error', errorHandler);
-        });
 
         const stateChangeHandler = (state: PlaybackState): void => {
             this._deps.onPlayerStateChange(state);
         };
-        videoPlayer.on('stateChange', stateChangeHandler);
-        cleanups.push(() => {
-            const currentPlayer = this._deps.getVideoPlayer();
-            if (!currentPlayer) return;
-            currentPlayer.off('stateChange', stateChangeHandler);
-        });
 
         const timeUpdateHandler = (payload: { currentTimeMs: number; durationMs: number }): void => {
             this._deps.onPlayerTimeUpdate(payload);
         };
-        videoPlayer.on('timeUpdate', timeUpdateHandler);
-        cleanups.push(() => {
-            const currentPlayer = this._deps.getVideoPlayer();
-            if (!currentPlayer) return;
-            currentPlayer.off('timeUpdate', timeUpdateHandler);
-        });
 
         const bufferUpdateHandler = (payload: { percent: number; bufferedRanges: TimeRange[] }): void => {
             this._deps.onPlayerBufferUpdate(payload);
         };
+
+        videoPlayer.on('ended', endedHandler);
+        videoPlayer.on('trackChange', trackChangeHandler);
+        videoPlayer.on('error', errorHandler);
+        videoPlayer.on('stateChange', stateChangeHandler);
+        videoPlayer.on('timeUpdate', timeUpdateHandler);
         videoPlayer.on('bufferUpdate', bufferUpdateHandler);
+
         cleanups.push(() => {
-            const currentPlayer = this._deps.getVideoPlayer();
-            if (!currentPlayer) return;
-            currentPlayer.off('bufferUpdate', bufferUpdateHandler);
+            videoPlayer.off('ended', endedHandler);
+            videoPlayer.off('trackChange', trackChangeHandler);
+            videoPlayer.off('error', errorHandler);
+            videoPlayer.off('stateChange', stateChangeHandler);
+            videoPlayer.off('timeUpdate', timeUpdateHandler);
+            videoPlayer.off('bufferUpdate', bufferUpdateHandler);
         });
     }
 
@@ -156,9 +133,7 @@ export class OrchestratorEventWiringCoordinator {
             };
             plexLibrary.on('authExpired', authExpiredHandler);
             cleanups.push(() => {
-                const currentLibrary = this._deps.getPlexLibrary();
-                if (!currentLibrary || typeof currentLibrary.off !== 'function') return;
-                currentLibrary.off('authExpired', authExpiredHandler);
+                plexLibrary.off('authExpired', authExpiredHandler);
             });
         }
 
@@ -169,9 +144,7 @@ export class OrchestratorEventWiringCoordinator {
             };
             plexStreamResolver.on('error', plexStreamErrorHandler);
             cleanups.push(() => {
-                const currentResolver = this._deps.getPlexStreamResolver();
-                if (!currentResolver || typeof currentResolver.off !== 'function') return;
-                currentResolver.off('error', plexStreamErrorHandler);
+                plexStreamResolver.off('error', plexStreamErrorHandler);
             });
         }
     }
@@ -188,7 +161,7 @@ export class OrchestratorEventWiringCoordinator {
         };
         navigation.on('screenChange', screenChangeHandler);
         cleanups.push(() => {
-            this._deps.getNavigation()?.off('screenChange', screenChangeHandler);
+            navigation.off('screenChange', screenChangeHandler);
         });
     }
 
@@ -196,20 +169,23 @@ export class OrchestratorEventWiringCoordinator {
         cleanups.push(...this._deps.wireEpgEvents());
     }
 
-    private _wireLifecycleEvents(): void {
+    private _wireLifecycleEvents(cleanups: Array<() => void>): void {
         const lifecycle = this._deps.getLifecycle();
         if (!lifecycle) return;
 
-        lifecycle.onPause(() => {
+        const pauseSub = lifecycle.onPause(() => {
             return this._deps.onPause().catch((error) => {
                 console.error('[Orchestrator] Unhandled error in lifecycle pause handler:', summarizeErrorForLog(error));
             });
         });
 
-        lifecycle.onResume(() => {
+        const resumeSub = lifecycle.onResume(() => {
             return this._deps.onResume().catch((error) => {
                 console.error('[Orchestrator] Unhandled error in lifecycle resume handler:', summarizeErrorForLog(error));
             });
         });
+
+        cleanups.push(() => pauseSub.dispose());
+        cleanups.push(() => resumeSub.dispose());
     }
 }
