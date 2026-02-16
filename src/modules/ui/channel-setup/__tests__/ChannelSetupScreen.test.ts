@@ -497,6 +497,67 @@ describe('ChannelSetupScreen', () => {
         expect(nextButton?.textContent).toBe('Review');
     });
 
+    it('disables Confirm & Replace until replace confirmation is toggled', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
+            getSetupReview,
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-next');
+        await flushPromises();
+        await flushPromises();
+
+        const confirm = container.querySelector('#setup-confirm') as HTMLButtonElement | null;
+        expect(confirm?.disabled).toBe(true);
+
+        clickButton(container, '#setup-replace-confirm');
+        const toggledConfirm = container.querySelector('#setup-confirm') as HTMLButtonElement | null;
+        expect(toggledConfirm?.disabled).toBe(false);
+    });
+
+    it('shows review loading state before review payload resolves', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        let resolveReview: ((value: typeof DEFAULT_REVIEW | PromiseLike<typeof DEFAULT_REVIEW>) => void) | undefined;
+        const getSetupReview = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_REVIEW>((resolve) => {
+            resolveReview = resolve;
+        }));
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
+            getSetupReview,
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-next');
+        await flushPromises();
+        expect(container.textContent ?? '').toContain('Preparing your review');
+
+        if (!resolveReview) {
+            throw new Error('Expected review resolver to be set');
+        }
+        resolveReview(DEFAULT_REVIEW);
+        await flushPromises();
+    });
+
     it('keeps build progress stable when a delayed preview resolves after fast-path transition', async () => {
         jest.useFakeTimers();
         const container = document.createElement('div');
@@ -705,6 +766,60 @@ describe('ChannelSetupScreen', () => {
         const savedConfig = markSetupComplete.mock.calls[0]?.[1] as { maxChannels: number; minItemsPerChannel: number };
         expect(savedConfig.maxChannels).toBe(MAX_CHANNELS);
         expect(savedConfig.minItemsPerChannel).toBe(1);
+    });
+
+    it('transitions cancel button to Canceling during in-flight build abort', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        let resolveBuild: ((value: typeof DEFAULT_BUILD_RESULT | PromiseLike<typeof DEFAULT_BUILD_RESULT>) => void) | undefined;
+        const createChannelsFromSetup = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_BUILD_RESULT>((resolve) => {
+            resolveBuild = resolve;
+        }));
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
+            createChannelsFromSetup,
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-next');
+        await flushPromises();
+        clickButton(container, '#setup-back');
+        expect((container.querySelector('#setup-back') as HTMLButtonElement | null)?.textContent).toBe('Canceling...');
+
+        if (!resolveBuild) {
+            throw new Error('Expected build resolver to be set');
+        }
+        resolveBuild(DEFAULT_BUILD_RESULT);
+        await flushPromises();
+    });
+
+    it('shows no-server-selected error when entering build without server id', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
+            getSelectedServerId: jest.fn(() => null),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+        clickButton(container, '#setup-next');
+        await flushPromises();
+
+        expect(container.textContent ?? '').toContain('No server selected.');
+        expect((container.querySelector('#setup-done') as HTMLButtonElement | null)?.disabled).toBe(true);
     });
 
     it('uses new higher-volume defaults in Step 2 config state', async () => {
