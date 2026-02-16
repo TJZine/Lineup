@@ -78,6 +78,7 @@ The brain of the operation. Determines what plays when.
 Wraps the native webOS video element.
 
 - **VideoPlayer**: Handles play, pause, seek, and track selection.
+- **SubtitleManager**: Fetches, converts, and attaches subtitle tracks (VTT, SRT, burn-in escalation).
 - **HLS**: Manages HLS stream events (if using native HLS or hls.js fallback).
 - **KeepAlive**: Prevents the TV from sleeping during playback.
 

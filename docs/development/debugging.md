@@ -4,7 +4,7 @@
 
 Standard Chrome DevTools work for browser development (`npm run dev`).
 
-- **Redux/State**: Log state changes to console.
+- **App State**: Log state changes to console.
 - **Network**: Inspect Plex API calls in the Network tab.
 
 ## webOS Remote Debugging

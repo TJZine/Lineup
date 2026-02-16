@@ -45,7 +45,10 @@ Retune transforms your Plex media library into simulated **live television chann
 | 📊 **Electronic Program Guide** | Browse channels and schedules in a familiar TV guide grid |
 | 🔀 **Flexible Playback Modes** | Sequential, shuffle, or random playback per channel |
 | ⏱️ **Time-Based Scheduling** | Content plays based on wall-clock time—tune in mid-program like real TV |
+| 🏗️ **Bulk Channel Builder** | Auto-generate hundreds of channels from your libraries in one pass |
 | 🎮 **Full Remote Support** | Navigate with your LG Magic Remote or standard remote |
+| 💬 **Subtitle Support** | Multiple modes: direct, server extraction, and burn-in transcoding |
+| 🎥 **HDR & Dolby Vision** | Smart HDR10 fallback for Dolby Vision MKV content |
 | 💾 **Persistent Channels** | Your channel configurations survive app restarts |
 | 🔐 **Secure Plex Auth** | OAuth PIN-based login—no typing passwords on your TV |
 | 🖥️ **Multi-Server Support** | Connect to any Plex server you have access to |
@@ -92,11 +95,8 @@ nvm use
 # Install dependencies
 npm install
 
-# Build the application
-npm run build
-
-# Package for webOS
-ares-package dist/
+# Build and package for webOS (lean production build)
+npm run package:webos
 
 # Install to your TV (replace 'my-tv' with your device name)
 ares-install --device my-tv com.retune.app_1.0.0_all.ipk
@@ -106,7 +106,7 @@ ares-launch --device my-tv com.retune.app
 ```
 
 > [!TIP]
-> See the [Development Workflow Guide](dev-workflow.md) for detailed setup instructions, including webOS SDK installation and TV developer mode setup.
+> See the [Development Quick Reference](dev-workflow.md) for common commands, or [Environment Setup](docs/development/setup.md) for full setup instructions including webOS SDK installation.
 
 ---
 
@@ -116,14 +116,23 @@ ares-launch --device my-tv com.retune.app
 |----------|-------------|
 | **Getting Started** | |
 | [Quick Start](#-quick-start) | 5-minute setup guide |
-| [Development Workflow](dev-workflow.md) | Complete development environment setup |
+| [Installation](docs/getting-started/installation.md) | Step-by-step TV installation |
+| [Your First Channel](docs/getting-started/first-channel.md) | Create and customize your first channel |
 | **User Guides** | |
-| [Creating Channels](docs/user-guide/channels.md) | How to create and manage channels |
-| [Using the EPG](docs/user-guide/epg.md) | Navigating the program guide |
+| [Channel Management](docs/user-guide/channels.md) | Creating, editing, and bulk-building channels |
+| [Electronic Program Guide](docs/user-guide/epg.md) | Navigating the program guide |
+| [Subtitles](docs/user-guide/subtitles.md) | Subtitle modes and configuration |
 | [Remote Control Reference](docs/user-guide/remote-keys.md) | Button mappings and shortcuts |
+| [Troubleshooting](docs/user-guide/troubleshooting.md) | Solutions for common problems |
 | [FAQ](FAQ.md) | Frequently asked questions |
+| **Development** | |
+| [Development Quick Reference](dev-workflow.md) | Common dev commands and TV deployment |
+| [Environment Setup](docs/development/setup.md) | Full development environment setup |
+| [Testing Guide](docs/development/testing.md) | Unit, manual, and device testing |
+| [Debugging Guide](docs/development/debugging.md) | Browser and webOS remote debugging |
 | **Technical** | |
 | [Architecture Overview](docs/architecture/README.md) | System design and module breakdown |
+| [Plex API Reference](docs/api/plex-integration.md) | Plex integration interface contracts |
 | [Contributing](CONTRIBUTING.md) | How to contribute to Retune |
 
 ---
