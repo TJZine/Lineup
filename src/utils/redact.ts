@@ -32,12 +32,22 @@ export function redactSensitiveTokens(value: string): string {
  * Best-effort JSON stringify that redacts sensitive tokens.
  * Intended for logging only.
  */
-export function safeStringifyForLog(value: unknown): string {
+export function safeStringifyForLog(
+    value: unknown,
+    options?: { includeStack?: boolean }
+): string {
     if (typeof value === 'string') {
         return redactSensitiveTokens(value);
     }
     if (value instanceof Error) {
-        return redactSensitiveTokens(JSON.stringify({ name: value.name, message: value.message }));
+        const payload: { name: string; message: string; stack?: string } = {
+            name: value.name,
+            message: value.message,
+        };
+        if (options?.includeStack && typeof value.stack === 'string') {
+            payload.stack = value.stack;
+        }
+        return redactSensitiveTokens(JSON.stringify(payload));
     }
     if (value === undefined || typeof value === 'function' || typeof value === 'symbol') {
         return redactSensitiveTokens(String(value));
@@ -49,6 +59,10 @@ export function safeStringifyForLog(value: unknown): string {
         }
         return redactSensitiveTokens(stringified);
     } catch (error) {
+        // Deliberate double try/catch:
+        // 1) Best effort: stringify an "unserializable" sentinel and redact it (so redactSensitiveTokens always sees a string).
+        // 2) Guardrail: even `String(error)` / `toString()` can throw for hand-crafted exceptions, so the inner catch returns
+        //    the final fallback string.
         try {
             return redactSensitiveTokens(JSON.stringify({ unserializable: true, error: String(error) }));
         } catch {
