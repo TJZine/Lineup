@@ -475,6 +475,70 @@ describe('PlexServerDiscovery', () => {
 
             expect(result.connection).toBeNull();
         });
+
+        it('warns once when no working connections are found', async () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            mockFetchFailure(new Error('Connection failed'));
+            const discovery = new PlexServerDiscovery(mockConfig);
+            const mockServer = createMockServer({
+                connections: [
+                    createMockConnection({ uri: 'https://a:32400', protocol: 'https' }),
+                    createMockConnection({ uri: 'http://b:32400', protocol: 'http' }),
+                ],
+            });
+
+            const result = await discovery.findFastestConnection(mockServer);
+
+            expect(result.connection).toBeNull();
+            expect(warnSpy).toHaveBeenCalledWith(
+                '[Discovery] No working connections found',
+                expect.objectContaining({
+                    serverId: 'srv1',
+                    authRequired: false,
+                    httpsCount: 1,
+                    httpCount: 1,
+                })
+            );
+        });
+
+        it('warns when HTTP is selected as last resort', async () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const fetchMock = jest.fn().mockImplementation((url: string) => {
+                if (url.startsWith('https://')) {
+                    return Promise.reject(new Error('HTTPS failed'));
+                }
+                return Promise.resolve({
+                    ok: true,
+                    status: 200,
+                    json: async () => ({ machineIdentifier: 'test' }),
+                });
+            });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            const discovery = new PlexServerDiscovery(mockConfig);
+            const mockServer = createMockServer({
+                connections: [
+                    createMockConnection({
+                        uri: 'http://local-http:32400',
+                        protocol: 'http',
+                        local: true,
+                        relay: false,
+                    }),
+                ],
+            });
+
+            const result = await discovery.findFastestConnection(mockServer);
+
+            expect(result.connection).not.toBeNull();
+            expect(result.connection!.protocol).toBe('http');
+            expect(warnSpy).toHaveBeenCalledWith(
+                '[Discovery] Selected HTTP connection (last resort)',
+                expect.objectContaining({
+                    local: true,
+                    relay: false,
+                })
+            );
+        });
     });
 
     describe('selectServer', () => {
