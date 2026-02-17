@@ -256,6 +256,28 @@ describe('PlaybackRecoveryManager', () => {
         expect(player.play).toHaveBeenCalled();
     });
 
+    it('logs transcode fallback start and failure telemetry', async () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        const { manager, resolver } = setup();
+        (resolver.resolveStream as jest.Mock).mockRejectedValueOnce(new Error('resolver boom'));
+
+        const ok = await manager.attemptTranscodeFallbackForCurrentProgram('subtitle_decode_failed');
+
+        expect(ok).toBe(false);
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[PlaybackRecovery] Transcode fallback start:',
+            expect.objectContaining({
+                reason: 'subtitle_decode_failed',
+                itemKey: 'item-1',
+            })
+        );
+        expect(errorSpy).toHaveBeenCalledWith(
+            '[PlaybackRecovery] Transcode fallback failed:',
+            expect.any(Object)
+        );
+    });
+
     it('ignores stored subtitle track selections (no per-item or global persistence)', async () => {
         localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'standard');
         localStorage.setItem(
@@ -434,6 +456,29 @@ describe('PlaybackRecoveryManager', () => {
         expect(resolver.resolveStream).not.toHaveBeenCalled();
     });
 
+    it('logs burn-in start and failure telemetry', async () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        const { manager, resolver } = setup();
+        (resolver.resolveStream as jest.Mock).mockRejectedValueOnce(new Error('burn-in failed'));
+
+        const ok = await manager.attemptBurnInSubtitleForCurrentProgram('sub-keyless', 'subtitle_extract_failed:test');
+
+        expect(ok).toBe(false);
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[PlaybackRecovery] Burn-in reload start:',
+            expect.objectContaining({
+                trackId: 'sub-keyless',
+                reason: 'subtitle_extract_failed:test',
+                itemKey: 'item-1',
+            })
+        );
+        expect(errorSpy).toHaveBeenCalledWith(
+            '[PlaybackRecovery] Burn-in reload failed:',
+            expect.any(Object)
+        );
+    });
+
     it('reloads direct play when disabling burn-in subtitles', async () => {
         const burnInDecision = makeDecision({
             protocol: 'hls',
@@ -475,6 +520,51 @@ describe('PlaybackRecoveryManager', () => {
         );
         expect(player.loadStream).toHaveBeenCalled();
         expect(player.play).toHaveBeenCalled();
+    });
+
+    it('logs disable burn-in start and abort telemetry when program changes', async () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const burnInDecision = makeDecision({
+            protocol: 'hls',
+            isDirectPlay: false,
+            isTranscoding: true,
+            sessionId: 'sess-burn',
+            transcodeRequest: {
+                sessionId: 'sess-burn',
+                maxBitrate: 20000,
+                subtitleStreamId: 'sub-keyless',
+                subtitleMode: 'burn',
+                mediaIndex: 0,
+                partIndex: 0,
+            },
+        });
+        const directDecision = makeDecision({
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+        });
+
+        let currentProgram = makeProgram();
+        const { manager, resolver } = setup({
+            getCurrentProgramForPlayback: () => currentProgram,
+            getCurrentStreamDecision: () => burnInDecision,
+        });
+        (resolver.resolveStream as jest.Mock).mockImplementationOnce(async () => {
+            currentProgram = makeProgram({ item: { ...currentProgram.item, ratingKey: 'item-2' } as never });
+            return directDecision;
+        });
+
+        const result = await manager.attemptDisableBurnInSubtitlesForCurrentProgram('subtitle_decode_stable');
+
+        expect(result).toEqual({ outcome: 'ignored', reason: 'program_changed' });
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[PlaybackRecovery] Disable burn-in start:',
+            expect.objectContaining({ reason: 'subtitle_decode_stable', itemKey: 'item-1' })
+        );
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[PlaybackRecovery] Disable burn-in aborted:',
+            expect.objectContaining({ outcome: 'program_changed' })
+        );
     });
 
     it('prefers forced subtitles when preference is enabled', async () => {

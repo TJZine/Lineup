@@ -19,11 +19,11 @@ import { TEXT_SUBTITLE_FORMATS } from './constants';
 import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
 import {
     isStoredTrue,
-    readStoredBoolean,
     safeLocalStorageGet,
 } from '../../utils/storage';
 import { getSubtitleMode, subtitleModeAllowsBurnIn, subtitleModeIsDirectOnly } from '../../shared/subtitle-mode';
 import { redactSensitiveTokens } from '../../utils/redact';
+import { summarizeErrorForLog } from '../../utils/errors';
 
 export interface PlaybackRecoveryDeps {
     getVideoPlayer: () => IVideoPlayer | null;
@@ -466,7 +466,6 @@ export class PlaybackRecoveryManager {
     }
 
     async attemptTranscodeFallbackForCurrentProgram(reason: string): Promise<boolean> {
-        void reason;
         if (this._streamRecoveryInProgress) {
             return false;
         }
@@ -487,6 +486,10 @@ export class PlaybackRecoveryManager {
         }
 
         this._directFallbackAttemptedForItemKey.add(itemKey);
+        console.warn('[PlaybackRecovery] Transcode fallback start:', {
+            reason: redactSensitiveTokens(reason),
+            itemKey,
+        });
         this._streamRecoveryInProgress = true;
 
         try {
@@ -498,6 +501,10 @@ export class PlaybackRecoveryManager {
                 directPlay: false,
             });
             if (this.deps.getCurrentProgramForPlayback() !== programAtStart) {
+                console.warn('[PlaybackRecovery] Transcode fallback aborted:', {
+                    outcome: 'program_changed',
+                    itemKey,
+                });
                 return false;
             }
             this.deps.setCurrentStreamDecision(decision);
@@ -514,10 +521,7 @@ export class PlaybackRecoveryManager {
             this.resetPlaybackFailureGuard();
             return true;
         } catch (error) {
-            const safeError = error instanceof Error
-                ? `${error.name}: ${error.message}`
-                : String(error);
-            console.error('[Orchestrator] Transcode fallback failed:', redactSensitiveTokens(safeError));
+            console.error('[PlaybackRecovery] Transcode fallback failed:', summarizeErrorForLog(error));
             return false;
         } finally {
             this._streamRecoveryInProgress = false;
@@ -525,7 +529,6 @@ export class PlaybackRecoveryManager {
     }
 
     async attemptBurnInSubtitleForCurrentProgram(trackId: string, reason: string): Promise<boolean> {
-        void reason;
         if (this._streamRecoveryInProgress) {
             return false;
         }
@@ -537,8 +540,6 @@ export class PlaybackRecoveryManager {
         }
 
         const itemKey = program.item.ratingKey;
-        const debugEnabled = this._isDebugLoggingEnabled();
-        void debugEnabled;
         const attemptKey = `${itemKey}::${trackId}`;
         if (this._burnInAttemptedForItemKey.has(attemptKey)) {
             return false;
@@ -554,6 +555,11 @@ export class PlaybackRecoveryManager {
             return false;
         }
 
+        console.warn('[PlaybackRecovery] Burn-in reload start:', {
+            reason: redactSensitiveTokens(reason),
+            trackId,
+            itemKey,
+        });
         this._streamRecoveryInProgress = true;
 
         try {
@@ -578,6 +584,11 @@ export class PlaybackRecoveryManager {
                 ...(activeAudioId ? { audioStreamId: activeAudioId } : {}),
             });
             if (this.deps.getCurrentProgramForPlayback() !== program) {
+                console.warn('[PlaybackRecovery] Burn-in reload aborted:', {
+                    outcome: 'program_changed',
+                    trackId,
+                    itemKey,
+                });
                 return false;
             }
             this.deps.setCurrentStreamDecision(decision);
@@ -593,10 +604,7 @@ export class PlaybackRecoveryManager {
             this._burnInAttemptedForItemKey.add(attemptKey);
             return true;
         } catch (error) {
-            const safeError = error instanceof Error
-                ? `${error.name}: ${error.message}`
-                : String(error);
-            console.error('[PlaybackRecovery] Burn-in reload failed:', redactSensitiveTokens(safeError));
+            console.error('[PlaybackRecovery] Burn-in reload failed:', summarizeErrorForLog(error));
             return false;
         } finally {
             this._streamRecoveryInProgress = false;
@@ -606,7 +614,6 @@ export class PlaybackRecoveryManager {
     async attemptDisableBurnInSubtitlesForCurrentProgram(
         reason: string
     ): Promise<DisableBurnInSubtitlesResult> {
-        void reason;
         if (this._streamRecoveryInProgress) {
             return { outcome: 'ignored', reason: 'recovery_in_progress' };
         }
@@ -628,9 +635,12 @@ export class PlaybackRecoveryManager {
         }
 
         const itemKey = program.item.ratingKey;
-        const debugEnabled = this._isDebugLoggingEnabled();
-        void debugEnabled;
         const burnedInTrackId = transcodeRequest?.subtitleStreamId ?? null;
+        console.warn('[PlaybackRecovery] Disable burn-in start:', {
+            reason: redactSensitiveTokens(reason),
+            itemKey,
+            burnedInTrackId,
+        });
 
         this._streamRecoveryInProgress = true;
 
@@ -660,6 +670,10 @@ export class PlaybackRecoveryManager {
                 ...(activeAudioId ? { audioStreamId: activeAudioId } : {}),
             });
             if (this.deps.getCurrentProgramForPlayback() !== program) {
+                console.warn('[PlaybackRecovery] Disable burn-in aborted:', {
+                    outcome: 'program_changed',
+                    itemKey,
+                });
                 return { outcome: 'ignored', reason: 'program_changed' };
             }
             this.deps.setCurrentStreamDecision(decision);
@@ -679,17 +693,10 @@ export class PlaybackRecoveryManager {
 
             return { outcome: 'disabled' };
         } catch (error) {
-            const safeError = error instanceof Error
-                ? `${error.name}: ${error.message}`
-                : String(error);
-            console.error('[PlaybackRecovery] Disable burn-in reload failed:', redactSensitiveTokens(safeError));
+            console.error('[PlaybackRecovery] Disable burn-in reload failed:', summarizeErrorForLog(error));
             return { outcome: 'failed' };
         } finally {
             this._streamRecoveryInProgress = false;
         }
-    }
-
-    private _isDebugLoggingEnabled(): boolean {
-        return readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
     }
 }
