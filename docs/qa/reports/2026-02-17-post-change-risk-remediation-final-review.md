@@ -2,9 +2,9 @@
 
 ## Findings (Highest Severity First)
 
-1. `Yellow` - Task 8 (`desloppify` reconciliation) could not be executed because no scan state exists in this branch.
-   - Evidence: vendored CLI (`PYTHONPATH=/tmp/desloppify python3 -m desloppify.cli show <id>`) returns `No scans yet. Run: desloppify scan` for all required IDs.
-   - Impact: no `.desloppify` reclassification evidence was produced in this remediation run.
+1. `Yellow` - Task 8 (`desloppify` reconciliation) was completed post-merge, but evidence remains local-only.
+   - Evidence: after merge into `feature/initial-build`, targeted IDs were reclassified in `.desloppify/state-typescript.json` (`fixed`/`wontfix`/`false_positive` as applicable).
+   - Impact: `.desloppify/` is git-ignored, so reconciliation state is not stored as versioned repository history.
 
 2. `Green` - Confirmed `App` prefetch regression is closed with direct chunk-load tests and restored import warmups.
 
@@ -19,9 +19,9 @@
 - No token leakage introduced in restored logs: `PASS` (string redaction + structured summaries)
 - Orchestrator failure paths covered: `PASS`
 - API-surface decision recorded: `PASS`
-- `desloppify` risk entries reconciled with evidence: `BLOCKED` (no scan state present)
+- `desloppify` risk entries reconciled with evidence: `PASS` (local `.desloppify` state updated post-merge)
 
 ## Final Verdict
 
 - Overall verdict: `YELLOW`
-- Confidence: `High` for implemented code/test changes, `Medium` for debt-state reconciliation completeness due missing desloppify baseline.
+- Confidence: `High` for implemented code/test changes, `Medium` for audit traceability because `.desloppify` state is local-only.

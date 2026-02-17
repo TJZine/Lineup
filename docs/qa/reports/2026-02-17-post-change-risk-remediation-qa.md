@@ -28,4 +28,10 @@
 ## Residual Risks and Rationale
 
 - Console noise in tests remains high because several suites intentionally exercise warning/error paths; this is expected and currently asserted in tests.
-- Task 8 blocker: `.desloppify/state-typescript.json` and `.desloppify/query.json` are not present in this branch, and vendored CLI reports `No scans yet. Run: desloppify scan` for all required IDs. No state reclassification was possible without creating a new scan baseline.
+- Post-merge addendum (same date): Task 8 was executed after merging into `feature/initial-build`, where `.desloppify` state is available.
+- Reconciled IDs:
+  - `smells::src/modules/player/PlaybackRecoveryManager.ts::voided_symbol` -> `fixed`
+  - `smells::src/modules/plex/stream/PlexStreamResolver.ts::voided_symbol` -> `wontfix` (debug-stub rationale documented)
+  - `smells::src/core/channel-setup/ChannelSetupCoordinator.ts::voided_symbol` -> `wontfix` (timing-marker rationale documented)
+  - `smells::src/core/channel-setup/ChannelSetupCoordinator.ts::catch_return_default` -> `false_positive` (abort-only return path)
+- Caveat: `.desloppify/` is git-ignored in this repository, so state reconciliation is local evidence and not a versioned repository artifact.
