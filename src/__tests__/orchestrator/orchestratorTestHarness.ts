@@ -4,7 +4,7 @@ import type { IVideoPlayer } from '../../modules/player';
 import type { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryManager';
 import type { IChannelScheduler } from '../../modules/scheduler/scheduler';
 
-export type OrchestratorTestInternals = {
+type OrchestratorTestInternals = {
     _scheduler: IChannelScheduler | null;
     _videoPlayer: IVideoPlayer | null;
     _lifecycle: IAppLifecycle | null;
@@ -12,17 +12,17 @@ export type OrchestratorTestInternals = {
     _setupEventWiring: () => void;
 };
 
-export type TestScheduler = Pick<IChannelScheduler, 'resumeSyncTimer' | 'syncToCurrentTime'> & {
+type TestScheduler = Pick<IChannelScheduler, 'resumeSyncTimer' | 'syncToCurrentTime'> & {
     on: (event: 'programStart' | 'programEnd' | 'scheduleSync', handler: unknown) => void;
     off: (event: 'programStart' | 'programEnd' | 'scheduleSync', handler: unknown) => void;
 };
 
-export type TestVideoPlayer = Pick<IVideoPlayer, 'loadStream' | 'play'> & {
+type TestVideoPlayer = Pick<IVideoPlayer, 'loadStream' | 'play'> & {
     on: (event: string, handler: unknown) => void;
     off: (event: string, handler: unknown) => void;
 };
 
-export type TestPlaybackRecovery = Pick<
+type TestPlaybackRecovery = Pick<
     PlaybackRecoveryManager,
     'resolveStreamForProgram' | 'resetPlaybackFailureGuard' | 'tryHandleStreamResolverAuthError' | 'handlePlaybackFailure'
 >;

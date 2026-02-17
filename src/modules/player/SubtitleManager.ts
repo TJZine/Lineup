@@ -9,7 +9,7 @@ import type { SubtitleTrack } from './types';
 import { BURN_IN_SUBTITLE_FORMATS } from './constants';
 import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
 import { isStoredTrue, safeLocalStorageGet } from '../../utils/storage';
-import { redactSensitiveTokens } from '../../utils/redact';
+import { redactSensitiveTokens, safeStringifyForLog } from '../../utils/redact';
 import {
     looksLikeHtml,
     normalizeSubtitleToVtt,
@@ -83,13 +83,11 @@ export class SubtitleManager {
 
     private _logSubtitleDebug(event: string, contextFactory: () => Record<string, unknown>): void {
         if (!this._isSubtitleDebugEnabled()) return;
-        const entry = {
-            ts: new Date().toISOString(),
-            module: 'SubtitleManager',
-            event,
-            ...contextFactory(),
-        };
-        console.warn(`[SubtitleDebug] ${JSON.stringify(entry)}`);
+        try {
+            console.warn('[SubtitleManager] subtitle-debug:', event, safeStringifyForLog(contextFactory()));
+        } catch {
+            // Ignore logging failures.
+        }
     }
 
     private _snapshotNativeTextTracks(): Array<Record<string, unknown>> {
@@ -128,7 +126,6 @@ export class SubtitleManager {
      */
     public loadTracks(tracks: SubtitleTrack[], context?: SubtitleTrackContext): string[] {
         if (!this._videoElement) {
-            console.warn('[SubtitleManager] Cannot load tracks: video element not initialized');
             return [];
         }
 

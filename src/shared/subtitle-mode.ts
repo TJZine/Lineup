@@ -9,13 +9,13 @@ import { safeLocalStorageGet, safeLocalStorageSet } from '../utils/storage';
 
 export type SubtitleMode = 'off' | 'direct' | 'standard' | 'full';
 
-export const SUBTITLE_MODES: readonly SubtitleMode[] = ['off', 'direct', 'standard', 'full'] as const;
+const SUBTITLE_MODES: readonly SubtitleMode[] = ['off', 'direct', 'standard', 'full'] as const;
 
-export function isSubtitleMode(value: unknown): value is SubtitleMode {
+function isSubtitleMode(value: unknown): value is SubtitleMode {
     return typeof value === 'string' && (SUBTITLE_MODES as readonly string[]).includes(value);
 }
 
-export function normalizeSubtitleMode(value: string | null): SubtitleMode | null {
+function normalizeSubtitleMode(value: string | null): SubtitleMode | null {
     if (!value) return null;
     const trimmed = value.trim().toLowerCase();
     if (isSubtitleMode(trimmed)) return trimmed;

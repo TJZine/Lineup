@@ -6,6 +6,7 @@
 
 import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
 import { isStoredTrue, safeLocalStorageGet } from '../../utils/storage';
+import { summarizeErrorForLog } from '../../utils/errors';
 import type { INavigationManager } from '../navigation';
 import type { IPlexStreamResolver, StreamDecision } from '../plex/stream';
 import type { ScheduledProgram } from '../scheduler/scheduler';
@@ -159,7 +160,11 @@ export class NowPlayingDebugManager {
                 await this._nowPlayingStreamDecisionFetchPromise;
             } catch (error) {
                 if (options.logErrors) {
-                    console.warn('[Orchestrator] Failed to fetch transcode decision:', error);
+                    console.warn('[NowPlayingDebug] In-flight PMS decision fetch failed:', {
+                        sessionId: 'REDACTED',
+                        ratingKey: program.item.ratingKey,
+                        error: summarizeErrorForLog(error),
+                    });
                 }
                 return;
             }
@@ -200,7 +205,12 @@ export class NowPlayingDebugManager {
             options.onApplied?.();
         } catch (error) {
             if (options.logErrors) {
-                console.warn('[Orchestrator] Failed to fetch transcode decision:', error);
+                console.error('[NowPlayingDebug] PMS decision fetch failed:', {
+                    sessionId: 'REDACTED',
+                    ratingKey: program.item.ratingKey,
+                    fetchToken: token,
+                    error: summarizeErrorForLog(error),
+                });
             }
         } finally {
             if (

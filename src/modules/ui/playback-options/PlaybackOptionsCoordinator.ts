@@ -22,7 +22,7 @@ import { redactSensitiveTokens } from '../../../utils/redact';
 
 export const SUBTITLE_PROBE_TOTAL_TIMEOUT_MS = 400;
 
-export interface PlaybackOptionsCoordinatorDeps {
+interface PlaybackOptionsCoordinatorDeps {
     playbackOptionsModalId: string;
     getNavigation: () => INavigationManager | null;
     getPlaybackOptionsModal: () => IPlaybackOptionsModal | null;

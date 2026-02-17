@@ -149,14 +149,6 @@ export class ChannelSetupCoordinator {
         const plexLibrary = this.deps.plexLibrary;
 
         const signal = options?.signal;
-        const buildStartMs = Date.now();
-        let libraryFetchMs = 0;
-        let playlistMs = 0;
-        let collectionsMs = 0;
-        let libraryQueryMs = 0;
-        let createChannelsMs = 0;
-        let applyChannelsMs = 0;
-        let refreshEpgMs = 0;
         const reportProgress = (
             task: ChannelBuildProgress['task'],
             label: string,
@@ -178,12 +170,9 @@ export class ChannelSetupCoordinator {
         reportProgress('fetch_playlists', 'Preparing...', 'Loading libraries', 0, null);
 
         let libraries: PlexLibraryType[];
-        const librariesStart = Date.now();
         try {
             libraries = await this.getLibrariesForSetup(signal ?? null);
-            libraryFetchMs += Date.now() - librariesStart;
         } catch (e) {
-            libraryFetchMs += Date.now() - librariesStart;
             if (isAbortLike(e, signal ?? undefined)) {
                 reportProgress('fetch_playlists', 'Preparing...', 'Canceled', 0, null);
                 return { created: 0, skipped: 0, reachedMaxChannels: false, errorCount: 0, canceled: true, lastTask: 'fetch_playlists' };
@@ -192,9 +181,6 @@ export class ChannelSetupCoordinator {
         }
         const normalizedConfig = this._normalizeConfig(config);
         const planResult = await this._buildSetupPlan(normalizedConfig, libraries, signal ?? null, reportProgress);
-        playlistMs += planResult.playlistMs;
-        collectionsMs += planResult.collectionsMs;
-        libraryQueryMs += planResult.libraryQueryMs;
 
         if (planResult.canceled || !planResult.plan) {
             return {
@@ -245,7 +231,6 @@ export class ChannelSetupCoordinator {
         };
 
         try {
-            const createStart = Date.now();
             let pIndex = 0;
             const buildMode = normalizedConfig.buildMode ?? 'replace';
             const availableNumbers = buildMode === 'replace'
@@ -321,7 +306,6 @@ export class ChannelSetupCoordinator {
                     finalSummary.errorCount++;
                 }
             }
-            createChannelsMs += Date.now() - createStart;
             finalSummary.reachedMaxChannels = reachedMax;
 
             if (checkCanceled()) {
@@ -331,7 +315,6 @@ export class ChannelSetupCoordinator {
             }
 
             reportProgress('apply_channels', 'Saving...', 'Saving library', finalSummary.created, finalSummary.created);
-            const applyStart = Date.now();
             const builtChannels = builder.getAllChannels();
             let finalChannels = builtChannels;
             if (buildMode === 'append') {
@@ -341,29 +324,15 @@ export class ChannelSetupCoordinator {
                 finalChannels = [...mergedExisting, ...builtChannels];
             }
             await channelManager.replaceAllChannels(finalChannels);
-            applyChannelsMs += Date.now() - applyStart;
 
             reportProgress('refresh_epg', 'Refreshing guide...', 'Loading schedules', 0, null);
             this.deps.primeEpgChannels();
-            const refreshStart = Date.now();
             await this.deps.refreshEpgSchedules({ reason: 'channel-setup', debounceMs: 0 });
-            refreshEpgMs += Date.now() - refreshStart;
 
         } catch (e) {
             console.error('[ChannelSetup] Channel build failed:', summarizeErrorForLog(e));
             throw e;
         } finally {
-            const totalMs = Date.now() - buildStartMs;
-            console.warn('[ChannelSetup] Timing:', {
-                totalMs,
-                libraryFetchMs,
-                playlistMs,
-                collectionsMs,
-                libraryQueryMs,
-                createChannelsMs,
-                applyChannelsMs,
-                refreshEpgMs,
-            });
             this.deps.storageRemove(tempKey);
             this.deps.storageRemove(tempCurrentKey);
         }
@@ -396,7 +365,6 @@ export class ChannelSetupCoordinator {
     requestChannelSetupRerun(): void {
         const serverId = this.deps.getSelectedServerId();
         if (!serverId) {
-            console.warn('[Orchestrator] No server selected for setup rerun.');
             return;
         }
         this.deps.storageRemove(this._getChannelSetupStorageKey(serverId));

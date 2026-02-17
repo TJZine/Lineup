@@ -270,7 +270,6 @@ export class ServerSelectScreen {
         this._container.classList.remove('visible');
     }
 
-
     async refresh(): Promise<void> {
         if (this._isLoading) {
             return;
@@ -278,7 +277,6 @@ export class ServerSelectScreen {
         this._clearError();
         await this._loadServers({ autoSelect: false, forceRefresh: true });
     }
-
 
     private _handleClearSelection(): void {
         this._clearError();
@@ -312,8 +310,7 @@ export class ServerSelectScreen {
         if (rawHealth) {
             try {
                 parsedHealth = JSON.parse(rawHealth);
-            } catch (e) {
-                console.warn('[ServerSelect] Failed to parse health data:', e);
+            } catch {
                 parsedHealth = null;
             }
         }
@@ -530,7 +527,7 @@ export class ServerSelectScreen {
             this._setStatus('Connection failed.', '', 'error');
             this._detailEl.textContent = '';
             this._handleError(error, 'Unable to use the selected server.');
-            console.error('[ServerSelect] Failed to select server:', error);
+            console.error('[ServerSelect] Failed to select server:', summarizeErrorForLog(error));
         }
     }
 

@@ -8,7 +8,7 @@ import type { IVideoPlayer, PlaybackState } from '../../player';
 import type { IChannelTransitionOverlay } from './interfaces';
 import { CHANNEL_TRANSITION_SHOW_DELAY_MS } from './constants';
 
-export interface ChannelTransitionCoordinatorDeps {
+interface ChannelTransitionCoordinatorDeps {
     getOverlay: () => IChannelTransitionOverlay | null;
     getNavigation: () => INavigationManager | null;
     getVideoPlayer: () => IVideoPlayer | null;

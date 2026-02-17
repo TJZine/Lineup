@@ -4,7 +4,7 @@
  * @version 1.0.0
  */
 
-export interface EPGLibraryTabsConfig {
+interface EPGLibraryTabsConfig {
     onSelect: (libraryId: string | null) => void;
 }
 

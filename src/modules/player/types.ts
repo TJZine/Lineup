@@ -29,7 +29,7 @@ export enum PlayerErrorCode {
 /**
  * Base application error structure.
  */
-export interface PlayerError {
+interface PlayerError {
     /** Player-module error code (maps to AppErrorCode via mapPlayerErrorCodeToAppErrorCode) */
     code: PlayerErrorCode;
     /** Technical error message */

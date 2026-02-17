@@ -4,7 +4,7 @@
  * @version 1.0.0
  */
 
-export type DvProfileInfo = {
+type DvProfileInfo = {
     raw: string | null;
     profileId: number | null;
     levelId: number | null;
@@ -12,7 +12,7 @@ export type DvProfileInfo = {
     hasHdr10BaseLayer: boolean;
 };
 
-export type DvHdr10BaseLayerContext = {
+type DvHdr10BaseLayerContext = {
     doviProfile?: string | null;
     codecProfileString?: string | null;
     hdr?: string | null;
@@ -22,7 +22,7 @@ export type DvHdr10BaseLayerContext = {
     extendedDisplayTitle?: string | null;
 };
 
-export type DvHdr10BaseLayerResult = {
+type DvHdr10BaseLayerResult = {
     profileInfo: DvProfileInfo;
     hasHdr10BaseLayer: boolean;
     isKnownNoHdr10BaseLayer: boolean;
@@ -222,7 +222,7 @@ export function inferHdr10BaseLayer(context: DvHdr10BaseLayerContext): DvHdr10Ba
     };
 }
 
-export type Hdr10FallbackMode = 'off' | 'smart' | 'force';
+type Hdr10FallbackMode = 'off' | 'smart' | 'force';
 
 export function computeHdr10FallbackMode(settings: {
     smartHdr10Fallback: boolean;

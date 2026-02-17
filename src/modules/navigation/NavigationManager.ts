@@ -5,8 +5,6 @@
  * @version 1.0.0
  */
 
-/* eslint-disable no-console -- Debug logging is gated by config.debugMode */
-
 import { EventEmitter } from '../../utils/EventEmitter';
 import { IDisposable } from '../../utils/interfaces';
 import {
@@ -124,7 +122,7 @@ export class NavigationManager
         this._state.config = { ...DEFAULT_NAVIGATION_CONFIG, ...config };
 
         // Initialize remote handler
-        this._remoteHandler.initialize(this._state.config.debugMode);
+        this._remoteHandler.initialize();
 
         // Subscribe to remote events
         this._keyDownDisposable = this._remoteHandler.on('keyDown', (keyEvent) => {
@@ -146,10 +144,6 @@ export class NavigationManager
         }
 
         this._isInitialized = true;
-
-        if (this._state.config.debugMode) {
-            console.debug('[NavigationManager] Initialized', this._state.config);
-        }
     }
 
     /**
@@ -200,9 +194,6 @@ export class NavigationManager
 
         this._isInitialized = false;
 
-        if (this._state.config.debugMode) {
-            console.debug('[NavigationManager] Destroyed');
-        }
     }
 
     // ==========================================
@@ -246,9 +237,6 @@ export class NavigationManager
             }
         }
 
-        if (this._state.config.debugMode) {
-            console.debug('[NavigationManager] goTo:', from, '->', screen);
-        }
     }
 
     /**
@@ -295,10 +283,6 @@ export class NavigationManager
             this._focusManager.restoreFocusState(previousScreen);
         }
 
-        if (this._state.config.debugMode) {
-            console.debug('[NavigationManager] goBack:', from, '->', previousScreen);
-        }
-
         return true;
     }
 
@@ -316,9 +300,6 @@ export class NavigationManager
 
         this.emit('screenChange', { from, to: screen });
 
-        if (this._state.config.debugMode) {
-            console.debug('[NavigationManager] replaceScreen:', from, '->', screen);
-        }
     }
 
     /**
@@ -512,9 +493,6 @@ export class NavigationManager
 
         this.emit('modalOpen', { modalId });
 
-        if (this._state.config.debugMode) {
-            console.debug('[NavigationManager] openModal:', modalId);
-        }
     }
 
     /**
@@ -555,9 +533,6 @@ export class NavigationManager
             this._focusManager.restorePreModalFocus();
         }
 
-        if (this._state.config.debugMode) {
-            console.debug('[NavigationManager] closeModal:', closedModalId);
-        }
     }
 
     /**
@@ -582,9 +557,6 @@ export class NavigationManager
     public blockInput(): void {
         this._state.isInputBlocked = true;
 
-        if (this._state.config.debugMode) {
-            console.debug('[NavigationManager] Input blocked');
-        }
     }
 
     /**
@@ -593,9 +565,6 @@ export class NavigationManager
     public unblockInput(): void {
         this._state.isInputBlocked = false;
 
-        if (this._state.config.debugMode) {
-            console.debug('[NavigationManager] Input unblocked');
-        }
     }
 
     /**
@@ -660,9 +629,6 @@ export class NavigationManager
         const currentId = this._focusManager.getCurrentFocusId();
         if (!currentId) return;
 
-        if (this._state.config.debugMode) {
-            console.warn(`[NavigationManager] Focus Desync (focusin). Restoring to ${currentId}`);
-        }
         this._focusManager.focus(currentId);
     }
 
@@ -687,14 +653,16 @@ export class NavigationManager
         if (this._suppressedLogTimestamps.size > 50) {
             this._suppressedLogTimestamps.clear();
         }
-        this._suppressedLogTimestamps.set(key, now);
-        console.warn('[NavigationManager] Input suppressed:', {
+        const modalStackSnapshot = [...this._state.modalStack];
+        // Use warn (not debug) to comply with repo console lint rules while still gating behind DEBUG_LOGGING.
+        console.warn('[Navigation] Input suppressed:', {
             reason,
             button: button ?? null,
             screen: this._state.currentScreen,
-            modalStack: [...this._state.modalStack],
-            inputBlocked: this._state.isInputBlocked,
+            modals: modalStackSnapshot,
+            state: this._state.isInputBlocked ? 'blocked' : 'open',
         });
+        this._suppressedLogTimestamps.set(key, now);
     }
 
     /**
@@ -724,10 +692,6 @@ export class NavigationManager
             return;
         }
 
-        if (this._state.config.debugMode) {
-            console.warn(`[NavigationManager] Key received: ${keyEvent.button} (repeat=${keyEvent.isRepeat})`);
-        }
-
         // GLOBAL FOCUS SENTINEL: Check for focus desync (Browser vs App)
         // This handles cases where buttons were disabled/enabled and browser focus dropped to body
         if (typeof document !== 'undefined' && document.activeElement === document.body) {
@@ -735,9 +699,6 @@ export class NavigationManager
             if (currentId) {
                 // App thinks we have focus, but browser is on body.
                 // Attempt to re-apply focus to the known element.
-                if (this._state.config.debugMode) {
-                    console.warn(`[NavigationManager] Focus Desync detected. Restoring to ${currentId}`);
-                }
                 this._focusManager.focus(currentId);
             }
         }

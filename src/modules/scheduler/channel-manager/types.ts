@@ -90,7 +90,7 @@ export interface ContentFilter {
 /**
  * Base interface for content sources
  */
-export interface BaseContentSource {
+interface BaseContentSource {
     type: string;
 }
 

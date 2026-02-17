@@ -4,11 +4,11 @@
  * @version 1.0.0
  */
 
-export const TOAST_TYPES = ['info', 'success', 'warning', 'error'] as const;
+const TOAST_TYPES = ['info', 'success', 'warning', 'error'] as const;
 
 export type ToastType = typeof TOAST_TYPES[number];
 
-export type ToastPayload = {
+type ToastPayload = {
     message: string;
     type?: ToastType;
 };

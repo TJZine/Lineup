@@ -29,7 +29,7 @@ import {
 } from './constants';
 import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
 import { isStoredTrue, safeLocalStorageGet } from '../../utils/storage';
-import { redactSensitiveTokens } from '../../utils/redact';
+import { redactSensitiveTokens, safeStringifyForLog } from '../../utils/redact';
 import { summarizeErrorForLog } from '../../utils/errors';
 import type { PlatformPlaybackService, PlatformSubtitleService } from '../../platform';
 import { webosPlatformServices } from '../../platform';
@@ -150,13 +150,11 @@ export class VideoPlayer implements IVideoPlayer {
 
     private _logSubtitleDebug(event: string, contextFactory: () => Record<string, unknown>): void {
         if (!this._isSubtitleDebugEnabled()) return;
-        const entry = {
-            ts: new Date().toISOString(),
-            module: 'VideoPlayer',
-            event,
-            ...contextFactory(),
-        };
-        console.warn(`[SubtitleDebug] ${JSON.stringify(entry)}`);
+        try {
+            console.warn('[VideoPlayer] subtitle-debug:', event, safeStringifyForLog(contextFactory()));
+        } catch {
+            // Ignore logging failures.
+        }
     }
 
     private _subtitleSelectionInProgress: boolean = false;
@@ -218,7 +216,6 @@ export class VideoPlayer implements IVideoPlayer {
     public async initialize(config: VideoPlayerConfig): Promise<void> {
         // Guard: Prevent creating multiple video elements (spec requirement)
         if (this._videoElement) {
-            console.warn('[VideoPlayer] Already initialized. Call destroy() before re-initializing.');
             return;
         }
 
@@ -329,7 +326,6 @@ export class VideoPlayer implements IVideoPlayer {
         // Store descriptor
         this._state.currentDescriptor = descriptor;
 
-
         // Update status
         this._updateStatus('loading');
 
@@ -393,9 +389,6 @@ export class VideoPlayer implements IVideoPlayer {
             descriptor.subtitleTracks,
             subtitleContext
         );
-        if (burnInTracks.length > 0) {
-            console.warn('[VideoPlayer] Tracks requiring burn-in:', burnInTracks);
-        }
         this._logSubtitleDebug('loadStream_subtitles_loaded', () => ({
             burnInTracks,
             nativeTextTracks: this._snapshotNativeTextTracks(),
@@ -916,7 +909,6 @@ export class VideoPlayer implements IVideoPlayer {
             // Ignore
         }
     }
-
 
     // ========================================
     // Private Methods - State

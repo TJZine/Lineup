@@ -291,6 +291,79 @@ describe('PlexStreamResolver', () => {
             expect(decision.transcodeRequest?.hideDolbyVision).toBe(true);
         });
 
+        it('logs a warning when PMS universal decision fetch fails in debug mode', async () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: jest.fn((key: string) =>
+                        key === RETUNE_STORAGE_KEYS.DEBUG_LOGGING ? '1' : null
+                    ),
+                },
+                configurable: true,
+            });
+
+            const mockItem = createMockMediaItem({
+                container: 'mkv',
+                videoCodec: 'h264',
+                audioCodec: 'truehd',
+            });
+            const resolver = new PlexStreamResolver(
+                createMockConfig({ getItem: jest.fn().mockResolvedValue(mockItem) })
+            );
+            mockFetch.mockRejectedValueOnce(new Error('decision fetch down'));
+
+            const decision = await resolver.resolveStream({ itemKey: '12345' });
+
+            expect(decision.isTranscoding).toBe(true);
+            expect(warnSpy).toHaveBeenCalledWith(
+                '[PlexStreamResolver] PMS universal decision fetch failed:',
+                expect.objectContaining({ itemKey: '12345' })
+            );
+        });
+
+        it('logs debug stream decision summary and HDR10 fallback reason', async () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: jest.fn((key: string) => {
+                        if (key === RETUNE_STORAGE_KEYS.DEBUG_LOGGING) return '1';
+                        if (key === RETUNE_STORAGE_KEYS.FORCE_HDR10_FALLBACK) return '1';
+                        return null;
+                    }),
+                },
+                configurable: true,
+            });
+            Object.defineProperty(globalThis, 'navigator', {
+                value: {
+                    userAgent:
+                        'Mozilla/5.0 (webOS) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.0.0 Safari/537.36',
+                },
+                configurable: true,
+            });
+
+            const dvItem = createMockMediaItem({ container: 'mkv' });
+            const dvStream = dvItem.media[0]!.parts[0]!.streams[0] as PlexStream;
+            dvStream.displayTitle = 'Dolby Vision';
+            dvStream.doviPresent = true;
+            dvStream.doviProfile = '8.1';
+
+            const resolver = new PlexStreamResolver(
+                createMockConfig({ getItem: jest.fn().mockResolvedValue(dvItem) })
+            );
+
+            const decision = await resolver.resolveStream({ itemKey: '12345' });
+
+            expect(decision.isTranscoding).toBe(true);
+            expect(warnSpy).toHaveBeenCalledWith(
+                '[PlexStreamResolver] HDR10 fallback applied:',
+                expect.objectContaining({ itemKey: '12345', reason: expect.any(String) })
+            );
+            expect(warnSpy).toHaveBeenCalledWith(
+                '[PlexStreamResolver] Stream decision:',
+                expect.objectContaining({ itemKey: '12345', mode: 'transcode' })
+            );
+        });
+
         it('allows direct play for DV MKV when Smart is enabled but not letterbox', async () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {

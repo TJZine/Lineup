@@ -15,7 +15,7 @@ const ROW_COUNT = 5;
 const CENTER_INDEX = 2;
 const PAGE_JUMP = 5;
 
-export interface MiniGuideCoordinatorDeps {
+interface MiniGuideCoordinatorDeps {
     getOverlay: () => IMiniGuideOverlay | null;
     getChannelManager: () => IChannelManager | null;
     getScheduler: () => IChannelScheduler | null;

@@ -21,13 +21,13 @@ every scan, show the user ALL scores:
 |------|-----|
 | Overall health | lenient + strict |
 | 5 mechanical dimensions | File health, Code quality, Duplication, Test health, Security |
-| 7 subjective dimensions | Naming Quality, Error Consistency, Abstraction Fit, Logic Clarity, AI Generated Debt, Type Safety, Contract Coherence |
+| 7 subjective dimensions | Naming Quality, Error Consistency, Abstraction Fit, Logic Clarity, AI-generated Debt, Type Safety, Contract Coherence |
 
 Never skip scores. The user tracks progress through them.
 
 ## 2. Core Loop
 
-```
+```text
 scan → follow the tool's strategy → fix or wontfix → rescan
 ```
 
@@ -66,6 +66,7 @@ Default dimensions:
 
 1. `desloppify review --prepare` — writes review data to `query.json`
 2. Launch an isolated reviewer (Claude subagent, or Codex fresh thread/worktree/cloud task) to read `query.json` (or `.desloppify/review_packet_blind.json`), review files, and write assessments:
+
    ```json
    {
      "assessments": {
@@ -80,6 +81,7 @@ Default dimensions:
      "findings": []
    }
    ```
+
 3. `desloppify review --import review_output.json`
 
 Even moderate scores (60-80) dramatically improve overall health.

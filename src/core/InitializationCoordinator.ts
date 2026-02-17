@@ -174,7 +174,6 @@ export class InitializationCoordinator implements IInitializationCoordinator {
 
     async runStartup(startPhase: 1 | 2 | 3 | 4 | 5): Promise<void> {
         if (this._startupInProgress) {
-            console.warn('[InitializationCoordinator] Startup already in progress; queuing follow-up run');
             this._startupQueuedPhase = this._startupQueuedPhase === null
                 ? startPhase
                 : (Math.min(this._startupQueuedPhase, startPhase) as 1 | 2 | 3 | 4 | 5);
@@ -203,7 +202,6 @@ export class InitializationCoordinator implements IInitializationCoordinator {
                 if (phaseToRun <= 2) {
                     const authValid = await this._initPhase2();
                     if (!authValid) {
-                        console.warn('[InitializationCoordinator] Phase 2 failed (auth not valid)');
                         if (this._startupQueuedPhase === null) {
                             break;
                         }
@@ -214,10 +212,8 @@ export class InitializationCoordinator implements IInitializationCoordinator {
                 }
 
                 if (phaseToRun <= 3) {
-                    console.warn('[InitializationCoordinator] Starting Phase 3 (Plex Connection)');
                     const plexConnected = await this._initPhase3();
                     if (!plexConnected) {
-                        console.warn('[InitializationCoordinator] Phase 3 failed (not connected)');
                         if (this._startupQueuedPhase === null) {
                             break;
                         }
@@ -228,16 +224,13 @@ export class InitializationCoordinator implements IInitializationCoordinator {
                 }
 
                 if (phaseToRun <= 4) {
-                    console.warn('[InitializationCoordinator] Starting Phase 4 (Channels & Player)');
                     await this._initPhase4();
                 }
 
                 if (phaseToRun <= 5) {
-                    console.warn('[InitializationCoordinator] Starting Phase 5 (EPG)');
                     await this._initPhase5();
                 }
 
-                console.warn('[InitializationCoordinator] Phases complete. Setting up wiring.');
                 this._callbacks.setupEventWiring();
                 this._callbacks.setReady(true);
                 if (this._deps.lifecycle) {
@@ -250,16 +243,12 @@ export class InitializationCoordinator implements IInitializationCoordinator {
 
                     if (shouldRunAudioSetup && shouldRunSetup) {
                         // First-time user: audio setup → channel setup
-                        console.warn('[InitializationCoordinator] Audio setup required. Navigating to audio setup wizard.');
                         this._deps.navigation.replaceScreen('audio-setup');
                     } else if (shouldRunSetup) {
-                        console.warn('[InitializationCoordinator] Channel setup required. Navigating to setup wizard.');
                         this._deps.navigation.replaceScreen('channel-setup');
                     } else {
-                        console.warn('[InitializationCoordinator] Navigating to player');
                         this._deps.navigation.replaceScreen('player');
                         if (this._deps.channelManager) {
-                            console.warn('[InitializationCoordinator] Switching to current channel');
 
                             let channelToPlay = this._deps.channelManager.getCurrentChannel();
 
@@ -269,21 +258,17 @@ export class InitializationCoordinator implements IInitializationCoordinator {
                                 const firstChannel = allChannels[0];
                                 if (firstChannel) {
                                     channelToPlay = firstChannel;
-                                    console.warn(`[InitializationCoordinator] No current channel set. Defaulting to first channel: ${firstChannel.name}`);
                                 }
                             }
 
                             if (channelToPlay) {
                                 await this._callbacks.switchToChannel(channelToPlay.id);
                             } else {
-                                console.warn('[InitializationCoordinator] No current channel found. Redirecting to Server Select.');
                                 this._callbacks.openServerSelect();
                             }
                         }
                     }
                 }
-
-                console.warn('[InitializationCoordinator] Startup sequence finished successfully');
 
                 this.clearAuthResume();
                 this.clearServerResume();
@@ -488,7 +473,6 @@ export class InitializationCoordinator implements IInitializationCoordinator {
                                 this._deps.navigation.goTo('auth');
                                 return false;
                             }
-                            console.warn('[InitializationCoordinator] Failed to load Plex Home users.');
                         }
                     }
 
@@ -681,9 +665,6 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             );
         }
 
-        if (this._isDebugLoggingEnabled()) {
-            console.warn('[InitializationCoordinator] Phase 4 complete');
-        }
     }
 
     /**
@@ -940,9 +921,5 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             });
         });
         this._profileResumeDisposable = disposable;
-    }
-
-    private _isDebugLoggingEnabled(): boolean {
-        return readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
     }
 }

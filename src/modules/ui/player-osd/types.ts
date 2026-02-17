@@ -9,7 +9,7 @@ export interface PlayerOsdConfig {
 
 export type PlayerOsdReason = 'play' | 'pause' | 'seek' | 'status';
 
-export interface PlayerOsdActionIds {
+interface PlayerOsdActionIds {
     subtitles: string;
     audio: string;
 }

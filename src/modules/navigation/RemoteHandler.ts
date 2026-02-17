@@ -4,8 +4,6 @@
  * @version 1.0.0
  */
 
-/* eslint-disable no-console -- Debug logging is gated by config.debugMode */
-
 import { EventEmitter } from '../../utils/EventEmitter';
 import { RemoteButton, KeyEvent } from './interfaces';
 import { LONG_PRESS_THRESHOLD_MS, mapKeyCode as mapPlatformKeyCode } from './constants';
@@ -40,7 +38,6 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
     private _longPressHandlers: LongPressHandler[] = [];
     private _isLongPressFired: Map<number, boolean> = new Map();
     private _isEnabled: boolean = false;
-    private _debugMode: boolean = false;
     private readonly _inputService: PlatformInputService;
 
     // Bound handlers for cleanup
@@ -56,21 +53,15 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
 
     /**
      * Initialize the remote handler.
-     * @param debugMode - Whether to log key events to console
      */
-    public initialize(debugMode: boolean = false): void {
+    public initialize(): void {
         if (this._isEnabled) {
             return;
         }
 
-        this._debugMode = debugMode;
         document.addEventListener('keydown', this._boundKeyDownHandler);
         document.addEventListener('keyup', this._boundKeyUpHandler);
         this._isEnabled = true;
-
-        if (this._debugMode) {
-            console.debug('[RemoteHandler] Initialized');
-        }
     }
 
     /**
@@ -93,10 +84,6 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
         this._isLongPressFired.clear();
         this._longPressHandlers = [];
         this._isEnabled = false;
-
-        if (this._debugMode) {
-            console.debug('[RemoteHandler] Destroyed');
-        }
     }
 
     /**
@@ -184,10 +171,6 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
             handled: false,
         };
 
-        if (this._debugMode) {
-            console.debug('[RemoteHandler] keyDown:', button, { isRepeat });
-        }
-
         this.emit('keyDown', keyEvent);
     }
 
@@ -220,10 +203,6 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
         // Clean up tracking
         this._keyDownTimes.delete(keyCode);
         this._isLongPressFired.delete(keyCode);
-
-        if (this._debugMode) {
-            console.debug('[RemoteHandler] keyUp:', button, { wasLongPress });
-        }
 
         this.emit('keyUp', { button, wasLongPress });
     }
@@ -275,10 +254,6 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
     private _handleLongPressTimeout(keyCode: number, button: RemoteButton): void {
         this._isLongPressFired.set(keyCode, true);
         this._longPressTimers.delete(keyCode);
-
-        if (this._debugMode) {
-            console.debug('[RemoteHandler] longPress:', button);
-        }
 
         // Find and invoke matching handlers
         this._longPressHandlers.forEach((handler) => {

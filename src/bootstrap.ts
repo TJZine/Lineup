@@ -53,7 +53,8 @@ function migrateLegacyDebugLoggingKey(): void {
     if (legacy === null) return;
 
     const serialized = legacy ? '1' : '0';
-    safeLocalStorageSet(primaryKey, serialized);
+    const didSet = safeLocalStorageSet(primaryKey, serialized);
+    if (!didSet) return;
     safeLocalStorageRemove(legacyKey);
 }
 
@@ -349,7 +350,7 @@ export function installRetuneBootstrap(): void {
  * @remarks Call `cleanup()` first, or use `cleanupAndUninstallRetuneBootstrap()` to avoid
  * leaving a running app without lifecycle handlers.
  */
-export function uninstallRetuneBootstrap(): void {
+function uninstallRetuneBootstrap(): void {
     if (!bootstrapInstalled) return;
     bootstrapInstalled = false;
 

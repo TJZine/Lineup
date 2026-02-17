@@ -5,6 +5,7 @@
  */
 
 import { EventEmitter } from '../../../utils/EventEmitter';
+import { redactSensitiveTokens } from '../../../utils/redact';
 import type { EPGErrorType } from './types';
 
 /**
@@ -64,7 +65,7 @@ export class EPGErrorBoundary extends EventEmitter<EPGErrorBoundaryEvents> {
 
         console.warn(
             `[EPG] ${type} in ${context}:`,
-            error ? error.message : undefined
+            error ? redactSensitiveTokens(error.message) : undefined
         );
 
         switch (type) {

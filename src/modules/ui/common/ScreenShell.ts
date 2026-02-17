@@ -7,7 +7,7 @@ import type {
     ScreenTone,
 } from '../types/screen-shell';
 
-export type ScreenShellHandles = {
+type ScreenShellHandles = {
     panelEl: HTMLElement;
     heroEl: HTMLElement;
     contentEl: HTMLElement;

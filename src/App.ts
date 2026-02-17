@@ -623,8 +623,8 @@ export class App {
         this._settingsPrefetchTimerId = window.setTimeout(() => {
             this._settingsPrefetchTimerId = null;
             if (this._settingsScreen || this._settingsScreenLoad) return;
-            void import('./modules/ui/settings/SettingsScreen').catch((error) => {
-                console.warn('[App] Settings prefetch failed:', error);
+            void import('./modules/ui/settings/SettingsScreen').catch(() => {
+                // Best-effort prefetch only.
             });
         }, 1200);
     }
@@ -639,8 +639,9 @@ export class App {
         if (this._channelSetupPrefetchTimerId !== null) return;
         this._channelSetupPrefetchTimerId = window.setTimeout(() => {
             this._channelSetupPrefetchTimerId = null;
-            void import('./modules/ui/channel-setup/ChannelSetupScreen').catch((error) => {
-                console.warn('[App] Channel setup prefetch failed:', error);
+            if (this._channelSetupScreen || this._channelSetupScreenLoad) return;
+            void import('./modules/ui/channel-setup/ChannelSetupScreen').catch(() => {
+                // Best-effort prefetch only.
             });
         }, 500);
     }
