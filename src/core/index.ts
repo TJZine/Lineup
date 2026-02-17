@@ -10,8 +10,6 @@ export { ChannelTuningCoordinator } from './channel-tuning';
 export type { ChannelTuningCoordinatorDeps } from './channel-tuning';
 export { ChannelSetupCoordinator } from './channel-setup';
 export type { ChannelSetupCoordinatorDeps } from './channel-setup';
-export { OrchestratorEventWiringCoordinator } from './orchestrator/OrchestratorEventWiringCoordinator';
-export type { OrchestratorEventWiringDeps } from './orchestrator/OrchestratorEventWiringCoordinator';
 export { OrchestratorStorageContext } from './orchestrator/OrchestratorStorageContext';
 export type { OrchestratorStorageContextDeps } from './orchestrator/OrchestratorStorageContext';
 export type {

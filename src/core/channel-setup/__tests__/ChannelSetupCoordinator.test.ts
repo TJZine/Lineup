@@ -110,9 +110,9 @@ const createCoordinator = (overrides?: Partial<ChannelSetupCoordinatorDeps>): Co
     const getSelectedServerId = jest.fn().mockReturnValue('server-1');
 
     const deps: ChannelSetupCoordinatorDeps = {
-        getPlexLibrary: () => plexLibrary,
-        getChannelManager: () => channelManager,
-        getNavigation: () => navigation,
+        plexLibrary,
+        channelManager,
+        navigation,
         getSelectedServerId,
         storageGet,
         storageSet,
@@ -174,10 +174,7 @@ describe('ChannelSetupCoordinator', () => {
         mockBuilder.getAllChannels.mockImplementation(() => builtChannels);
     });
 
-    it('shouldRunChannelSetup returns false without channel manager or server id', () => {
-        const noManager = createCoordinator({ getChannelManager: () => null });
-        expect(noManager.coordinator.shouldRunChannelSetup()).toBe(false);
-
+    it('shouldRunChannelSetup returns false without server id', () => {
         const noServer = createCoordinator({ getSelectedServerId: jest.fn().mockReturnValue(null) });
         expect(noServer.coordinator.shouldRunChannelSetup()).toBe(false);
     });
@@ -265,10 +262,7 @@ describe('ChannelSetupCoordinator', () => {
         expect(coordinator.getSetupContextForSelectedServer()).toBe('existing');
     });
 
-    it('getSetupContextForSelectedServer returns unknown when context cannot be derived', () => {
-        const noManager = createCoordinator({ getChannelManager: () => null });
-        expect(noManager.coordinator.getSetupContextForSelectedServer()).toBe('unknown');
-
+    it('getSetupContextForSelectedServer returns unknown when server is missing', () => {
         const noServer = createCoordinator({ getSelectedServerId: jest.fn().mockReturnValue(null) });
         expect(noServer.coordinator.getSetupContextForSelectedServer()).toBe('unknown');
     });

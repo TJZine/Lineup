@@ -87,10 +87,10 @@ const setup = (overrides: Partial<NavigationCoordinatorDeps> = {}): {
     } as unknown as IPlexAuth;
 
     const deps: NavigationCoordinatorDeps = {
-        getNavigation: () => navigation,
-        getEpg: () => epg,
-        getVideoPlayer: () => videoPlayer,
-        getPlexAuth: () => plexAuth,
+        navigation,
+        epg,
+        videoPlayer,
+        plexAuth,
         stopPlayback: jest.fn(),
         pokePlayerOsd: jest.fn(),
         togglePlayerOsd: jest.fn(),

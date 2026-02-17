@@ -28,10 +28,10 @@ const MINI_GUIDE_REPEAT_INTERVAL_2_MS = 90;
 const MINI_GUIDE_REPEAT_INTERVAL_3_MS = 55;
 
 export interface NavigationCoordinatorDeps {
-    getNavigation: () => INavigationManager | null;
-    getEpg: () => IEPGComponent | null;
-    getVideoPlayer: () => IVideoPlayer | null;
-    getPlexAuth: () => IPlexAuth | null;
+    navigation: INavigationManager;
+    epg: IEPGComponent | null;
+    videoPlayer: IVideoPlayer | null;
+    plexAuth: IPlexAuth | null;
     stopPlayback: () => void;
     pokePlayerOsd: (reason: 'play' | 'pause' | 'seek') => void;
     togglePlayerOsd: () => void;
@@ -110,8 +110,7 @@ export class NavigationCoordinator {
     }
 
     wireNavigationEvents(): Array<() => void> {
-        const navigation = this.deps.getNavigation();
-        if (!navigation) return [];
+        const navigation = this.deps.navigation;
 
         const unsubs: Array<() => void> = [];
 
@@ -122,7 +121,7 @@ export class NavigationCoordinator {
         };
         navigation.on('keyPress', keyHandler);
         unsubs.push(() => {
-            this.deps.getNavigation()?.off('keyPress', keyHandler);
+            navigation.off('keyPress', keyHandler);
         });
 
         const keyUpHandler = (payload: { button: KeyEvent['button'] }): void => {
@@ -135,7 +134,7 @@ export class NavigationCoordinator {
         };
         navigation.on('keyUp', keyUpHandler);
         unsubs.push(() => {
-            this.deps.getNavigation()?.off('keyUp', keyUpHandler);
+            navigation.off('keyUp', keyUpHandler);
         });
 
         const channelNumberHandler = (payload: { channelNumber: number }): void => {
@@ -150,7 +149,7 @@ export class NavigationCoordinator {
         };
         navigation.on('channelNumberEntered', channelNumberHandler);
         unsubs.push(() => {
-            this.deps.getNavigation()?.off('channelNumberEntered', channelNumberHandler);
+            navigation.off('channelNumberEntered', channelNumberHandler);
         });
 
         const guideHandler = (): void => {
@@ -162,18 +161,18 @@ export class NavigationCoordinator {
         };
         navigation.on('guide', guideHandler);
         unsubs.push(() => {
-            this.deps.getNavigation()?.off('guide', guideHandler);
+            navigation.off('guide', guideHandler);
         });
 
         const settingsHandler = (): void => {
-            const currentScreen = this.deps.getNavigation()?.getCurrentScreen();
+            const currentScreen = navigation.getCurrentScreen();
             if (currentScreen === 'player' || currentScreen === 'guide') {
-                this.deps.getNavigation()?.goTo('settings');
+                navigation.goTo('settings');
             }
         };
         navigation.on('settings', settingsHandler);
         unsubs.push(() => {
-            this.deps.getNavigation()?.off('settings', settingsHandler);
+            navigation.off('settings', settingsHandler);
         });
 
         const screenHandler = (payload: { from: string; to: string }): void => {
@@ -181,7 +180,7 @@ export class NavigationCoordinator {
         };
         navigation.on('screenChange', screenHandler);
         unsubs.push(() => {
-            this.deps.getNavigation()?.off('screenChange', screenHandler);
+            navigation.off('screenChange', screenHandler);
         });
 
         const modalOpenHandler = (payload: { modalId: string }): void => {
@@ -206,8 +205,8 @@ export class NavigationCoordinator {
         navigation.on('modalOpen', modalOpenHandler);
         navigation.on('modalClose', modalCloseHandler);
         unsubs.push(() => {
-            this.deps.getNavigation()?.off('modalOpen', modalOpenHandler);
-            this.deps.getNavigation()?.off('modalClose', modalCloseHandler);
+            navigation.off('modalOpen', modalOpenHandler);
+            navigation.off('modalClose', modalCloseHandler);
         });
 
         return unsubs;
@@ -217,13 +216,13 @@ export class NavigationCoordinator {
         this._stopEpgRepeat('screenChange');
         this._stopMiniGuideRepeat('screenChange');
         if (to === 'player' && this.deps.shouldRunChannelSetup()) {
-            this.deps.getNavigation()?.replaceScreen('channel-setup');
+            this.deps.navigation.replaceScreen('channel-setup');
             return;
         }
 
-        const epg = this.deps.getEpg();
-        const videoPlayer = this.deps.getVideoPlayer();
-        const navigation = this.deps.getNavigation();
+        const epg = this.deps.epg;
+        const videoPlayer = this.deps.videoPlayer;
+        const navigation = this.deps.navigation;
 
         // Hide EPG when leaving guide
         if (from === 'guide' && to !== 'guide') {
@@ -232,7 +231,7 @@ export class NavigationCoordinator {
 
         // Close Now Playing Info overlay when leaving player
         if (from === 'player' && to !== 'player') {
-            if (navigation?.isModalOpen(NOW_PLAYING_INFO_MODAL_ID)) {
+            if (navigation.isModalOpen(NOW_PLAYING_INFO_MODAL_ID)) {
                 navigation.closeModal(NOW_PLAYING_INFO_MODAL_ID);
             }
             this.deps.hideMiniGuide();
@@ -268,11 +267,10 @@ export class NavigationCoordinator {
     }
 
     private _handleLongPressBack(): void {
-        const navigation = this.deps.getNavigation();
-        if (!navigation) return;
+        const navigation = this.deps.navigation;
         if (navigation.isInputBlocked()) return;
 
-        this.deps.getEpg()?.hide();
+        this.deps.epg?.hide();
         while (navigation.isModalOpen()) {
             navigation.closeModal();
         }
@@ -299,8 +297,8 @@ export class NavigationCoordinator {
             return;
         }
         if (isNowPlayingModalOpen && event.button === 'ok') {
-            const navigation = this.deps.getNavigation();
-            if (navigation && !navigation.isModalOpen(this.deps.playbackOptionsModalId)) {
+            const navigation = this.deps.navigation;
+            if (!navigation.isModalOpen(this.deps.playbackOptionsModalId)) {
                 const prep = this.deps.preparePlaybackOptionsModal('subtitles');
                 navigation.closeModal(NOW_PLAYING_INFO_MODAL_ID);
                 navigation.openModal(this.deps.playbackOptionsModalId, prep.focusableIds);
@@ -314,9 +312,9 @@ export class NavigationCoordinator {
         }
 
         // Compute EPG routing eligibility: only route to EPG when on guide screen with no modal open
-        const epg = this.deps.getEpg();
-        const navigation = this.deps.getNavigation();
-        const modalOpen = navigation?.isModalOpen() ?? false;
+        const epg = this.deps.epg;
+        const navigation = this.deps.navigation;
+        const modalOpen = navigation.isModalOpen();
         const miniGuideVisible = this.deps.isMiniGuideVisible();
         const shouldRouteToEpg = !modalOpen && !!epg?.isVisible() && !miniGuideVisible;
 
@@ -380,9 +378,9 @@ export class NavigationCoordinator {
             }
         }
 
-        const currentScreen = navigation?.getCurrentScreen();
+        const currentScreen = navigation.getCurrentScreen();
         if (currentScreen === 'player' && miniGuideVisible && !modalOpen && !shouldRouteToEpg) {
-            if (navigation?.isInputBlocked()) {
+            if (navigation.isInputBlocked()) {
                 this._logInputNotHandled('input_blocked', event);
                 this._stopMiniGuideRepeat('inputBlocked');
                 event.handled = true;
@@ -487,8 +485,8 @@ export class NavigationCoordinator {
         }
 
         if (event.button === 'back') {
-            const currentScreen = navigation?.getCurrentScreen();
-            if (currentScreen === 'player' && navigation && !navigation.isModalOpen()) {
+            const currentScreen = navigation.getCurrentScreen();
+            if (currentScreen === 'player' && !navigation.isModalOpen()) {
                 if (this.deps.isPlayerOsdVisible()) {
                     this.deps.hidePlayerOsd();
                     event.handled = true;
@@ -526,20 +524,18 @@ export class NavigationCoordinator {
                 break;
             case 'info':
             case 'blue': {
-                const navigation = this.deps.getNavigation();
-                if (navigation) {
-                    const plexAuth = this.deps.getPlexAuth();
-                    if (plexAuth && !plexAuth.isAuthenticated()) {
-                        navigation.goTo('auth');
-                    } else {
-                        navigation.goTo('server-select', { allowAutoConnect: false });
-                    }
+                const navigation = this.deps.navigation;
+                const plexAuth = this.deps.plexAuth;
+                if (plexAuth && !plexAuth.isAuthenticated()) {
+                    navigation.goTo('auth');
+                } else {
+                    navigation.goTo('server-select', { allowAutoConnect: false });
                 }
                 break;
             }
             case 'play':
                 {
-                    const player = this.deps.getVideoPlayer();
+                    const player = this.deps.videoPlayer;
                     if (!player) {
                         break;
                     }
@@ -558,11 +554,11 @@ export class NavigationCoordinator {
                 }
                 break;
             case 'pause':
-                this.deps.getVideoPlayer()?.pause();
+                this.deps.videoPlayer?.pause();
                 this.deps.pokePlayerOsd('pause');
                 break;
             case 'rewind': {
-                const player = this.deps.getVideoPlayer();
+                const player = this.deps.videoPlayer;
                 if (!player) {
                     break;
                 }
@@ -574,7 +570,7 @@ export class NavigationCoordinator {
                 break;
             }
             case 'fastforward': {
-                const player = this.deps.getVideoPlayer();
+                const player = this.deps.videoPlayer;
                 if (!player) {
                     break;
                 }
@@ -612,15 +608,11 @@ export class NavigationCoordinator {
     }
 
     private _scheduleNextEpgRepeatTick(): void {
-        const epg = this.deps.getEpg();
-        const navigation = this.deps.getNavigation();
+        const epg = this.deps.epg;
+        const navigation = this.deps.navigation;
 
         if (!epg || !epg.isVisible()) {
             this._stopEpgRepeat('notVisible');
-            return;
-        }
-        if (!navigation) {
-            this._stopEpgRepeat('noNavigation');
             return;
         }
         if (navigation.isModalOpen()) {
@@ -680,11 +672,7 @@ export class NavigationCoordinator {
     }
 
     private _scheduleNextMiniGuideRepeatTick(): void {
-        const navigation = this.deps.getNavigation();
-        if (!navigation) {
-            this._stopMiniGuideRepeat('noNavigation');
-            return;
-        }
+        const navigation = this.deps.navigation;
         if (navigation.isModalOpen()) {
             this._stopMiniGuideRepeat('modalOpen');
             return;
@@ -743,14 +731,14 @@ export class NavigationCoordinator {
         event: KeyEvent
     ): void {
         if (!this._isDebugLoggingEnabled()) return;
-        const navigation = this.deps.getNavigation();
-        const state = navigation?.getState();
+        const navigation = this.deps.navigation;
+        const state = navigation.getState();
         const key = [
             reason,
             event.button,
             state?.currentScreen ?? 'unknown',
             (state?.modalStack ?? []).join(','),
-            navigation?.isInputBlocked() ? 'blocked' : 'open',
+            navigation.isInputBlocked() ? 'blocked' : 'open',
         ].join('|');
         const now = Date.now();
         const last = this._suppressedLogTimestamps.get(key) ?? 0;
@@ -766,7 +754,7 @@ export class NavigationCoordinator {
             button: event.button,
             screen: state?.currentScreen ?? null,
             modalStack: state?.modalStack ?? [],
-            inputBlocked: navigation?.isInputBlocked() ?? null,
+            inputBlocked: navigation.isInputBlocked(),
         });
     }
 }
