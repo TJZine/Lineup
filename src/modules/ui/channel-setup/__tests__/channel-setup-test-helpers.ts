@@ -104,6 +104,7 @@ export const createNavigationMock = (): NavigationMock => {
                 isLongPress: false,
                 timestamp: Date.now(),
                 originalEvent: new KeyboardEvent('keydown'),
+                handled: false,
             };
             keyPressHandler?.(event);
             return event;
@@ -141,4 +142,3 @@ export const clickButton = (container: HTMLElement, selector: string): void => {
     }
     element.click();
 };
-

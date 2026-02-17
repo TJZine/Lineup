@@ -49,5 +49,30 @@ describe('BuildProgressStepController', () => {
         expect(backButton?.textContent).toBe('Back');
         expect(doneButton?.disabled).toBe(true);
     });
-});
 
+    it('ignores abort-like startBuild errors and does not surface them to the user', async () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+
+        const startBuild = jest.fn().mockRejectedValue(new DOMException('Aborted', 'AbortError'));
+        const deps: BuildProgressDeps = {
+            state: { isBuilding: true },
+            registerFocusables: jest.fn(),
+            onCancelOrBack: jest.fn(),
+            onDone: jest.fn(),
+            startBuild,
+        };
+
+        const controller = new BuildProgressStepController();
+        controller.render(ctx, deps);
+
+        await flushPromises();
+
+        const backButton = ctx.contentEl.querySelector('#setup-back') as HTMLButtonElement | null;
+        const doneButton = ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement | null;
+        expect(ctx.errorEl.textContent ?? '').toBe('');
+        expect(backButton?.textContent).toBe('Cancel');
+        expect(backButton?.disabled).toBe(false);
+        expect(doneButton?.disabled).toBe(true);
+    });
+});

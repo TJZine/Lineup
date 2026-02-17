@@ -88,6 +88,8 @@ describe('ChannelSetupScreen contracts', () => {
         expect(container.querySelector(`#${STEP2_CONTROL_IDS.expandLineup}`)).not.toBeNull();
 
         clickButton(container, '#setup-next');
+        // Multiple microtask ticks: click handler schedules state changes; render->loadReview uses a deferred microtask;
+        // and the final update reveals '#setup-back', '#setup-confirm', and '#setup-replace-confirm'.
         await flushPromises();
         await flushPromises();
         expect(container.querySelector('#setup-back')).not.toBeNull();
