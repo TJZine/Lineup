@@ -49,7 +49,7 @@ export interface PlaybackRecoveryDeps {
     handleGlobalError: (error: AppError, context: string) => void;
 }
 
-export type DisableBurnInSubtitlesResult =
+type DisableBurnInSubtitlesResult =
     | { outcome: 'disabled' }
     | {
         outcome: 'ignored';
@@ -466,6 +466,7 @@ export class PlaybackRecoveryManager {
     }
 
     async attemptTranscodeFallbackForCurrentProgram(reason: string): Promise<boolean> {
+        void reason;
         if (this._streamRecoveryInProgress) {
             return false;
         }
@@ -489,10 +490,6 @@ export class PlaybackRecoveryManager {
         this._streamRecoveryInProgress = true;
 
         try {
-            console.warn('[Orchestrator] Direct playback failed, retrying via HLS Direct Stream:', {
-                reason,
-                itemKey,
-            });
 
             const clampedOffset = Math.max(0, Math.min(program.elapsedMs, program.item.durationMs));
             const decision: StreamDecision = await resolver.resolveStream({
@@ -528,6 +525,7 @@ export class PlaybackRecoveryManager {
     }
 
     async attemptBurnInSubtitleForCurrentProgram(trackId: string, reason: string): Promise<boolean> {
+        void reason;
         if (this._streamRecoveryInProgress) {
             return false;
         }
@@ -540,7 +538,7 @@ export class PlaybackRecoveryManager {
 
         const itemKey = program.item.ratingKey;
         const debugEnabled = this._isDebugLoggingEnabled();
-        let abortedBecauseProgramChanged = false;
+        void debugEnabled;
         const attemptKey = `${itemKey}::${trackId}`;
         if (this._burnInAttemptedForItemKey.has(attemptKey)) {
             return false;
@@ -559,18 +557,6 @@ export class PlaybackRecoveryManager {
         this._streamRecoveryInProgress = true;
 
         try {
-            if (debugEnabled) {
-                console.warn('[PlaybackRecovery] Burn-in recovery start:', {
-                    itemKey,
-                    trackId,
-                    reason,
-                });
-            }
-            console.warn('[PlaybackRecovery] Reloading for burn-in subtitles:', {
-                reason,
-                itemKey,
-                trackId,
-            });
 
             const livePosition = ((): number | null => {
                 try {
@@ -592,15 +578,6 @@ export class PlaybackRecoveryManager {
                 ...(activeAudioId ? { audioStreamId: activeAudioId } : {}),
             });
             if (this.deps.getCurrentProgramForPlayback() !== program) {
-                abortedBecauseProgramChanged = true;
-                if (debugEnabled) {
-                    console.warn('[PlaybackRecovery] Burn-in recovery aborted:', {
-                        itemKey,
-                        trackId,
-                        reason,
-                        abortedBecauseProgramChanged,
-                    });
-                }
                 return false;
             }
             this.deps.setCurrentStreamDecision(decision);
@@ -614,28 +591,12 @@ export class PlaybackRecoveryManager {
             await player.play();
             this.resetPlaybackFailureGuard();
             this._burnInAttemptedForItemKey.add(attemptKey);
-            if (debugEnabled) {
-                console.warn('[PlaybackRecovery] Burn-in recovery complete:', {
-                    itemKey,
-                    trackId,
-                    reason,
-                    abortedBecauseProgramChanged,
-                });
-            }
             return true;
         } catch (error) {
             const safeError = error instanceof Error
                 ? `${error.name}: ${error.message}`
                 : String(error);
             console.error('[PlaybackRecovery] Burn-in reload failed:', redactSensitiveTokens(safeError));
-            if (debugEnabled) {
-                console.warn('[PlaybackRecovery] Burn-in recovery failed:', {
-                    itemKey,
-                    trackId,
-                    reason,
-                    abortedBecauseProgramChanged,
-                });
-            }
             return false;
         } finally {
             this._streamRecoveryInProgress = false;
@@ -645,6 +606,7 @@ export class PlaybackRecoveryManager {
     async attemptDisableBurnInSubtitlesForCurrentProgram(
         reason: string
     ): Promise<DisableBurnInSubtitlesResult> {
+        void reason;
         if (this._streamRecoveryInProgress) {
             return { outcome: 'ignored', reason: 'recovery_in_progress' };
         }
@@ -667,24 +629,12 @@ export class PlaybackRecoveryManager {
 
         const itemKey = program.item.ratingKey;
         const debugEnabled = this._isDebugLoggingEnabled();
-        let abortedBecauseProgramChanged = false;
+        void debugEnabled;
         const burnedInTrackId = transcodeRequest?.subtitleStreamId ?? null;
 
         this._streamRecoveryInProgress = true;
 
         try {
-            if (debugEnabled) {
-                console.warn('[PlaybackRecovery] Disable burn-in start:', {
-                    itemKey,
-                    burnedInTrackId,
-                    reason,
-                });
-            }
-            console.warn('[PlaybackRecovery] Reloading to disable burn-in subtitles:', {
-                reason,
-                itemKey,
-                burnedInTrackId,
-            });
 
             // Best-effort: stop the current transcode session before switching back to direct play.
             if (currentDecision.isTranscoding && currentDecision.sessionId) {
@@ -710,15 +660,6 @@ export class PlaybackRecoveryManager {
                 ...(activeAudioId ? { audioStreamId: activeAudioId } : {}),
             });
             if (this.deps.getCurrentProgramForPlayback() !== program) {
-                abortedBecauseProgramChanged = true;
-                if (debugEnabled) {
-                    console.warn('[PlaybackRecovery] Disable burn-in aborted:', {
-                        itemKey,
-                        burnedInTrackId,
-                        reason,
-                        abortedBecauseProgramChanged,
-                    });
-                }
                 return { outcome: 'ignored', reason: 'program_changed' };
             }
             this.deps.setCurrentStreamDecision(decision);
@@ -736,28 +677,12 @@ export class PlaybackRecoveryManager {
                 this._burnInAttemptedForItemKey.delete(`${itemKey}::${burnedInTrackId}`);
             }
 
-            if (debugEnabled) {
-                console.warn('[PlaybackRecovery] Disable burn-in complete:', {
-                    itemKey,
-                    burnedInTrackId,
-                    reason,
-                    abortedBecauseProgramChanged,
-                });
-            }
             return { outcome: 'disabled' };
         } catch (error) {
             const safeError = error instanceof Error
                 ? `${error.name}: ${error.message}`
                 : String(error);
             console.error('[PlaybackRecovery] Disable burn-in reload failed:', redactSensitiveTokens(safeError));
-            if (debugEnabled) {
-                console.warn('[PlaybackRecovery] Disable burn-in failed:', {
-                    itemKey,
-                    burnedInTrackId,
-                    reason,
-                    abortedBecauseProgramChanged,
-                });
-            }
             return { outcome: 'failed' };
         } finally {
             this._streamRecoveryInProgress = false;

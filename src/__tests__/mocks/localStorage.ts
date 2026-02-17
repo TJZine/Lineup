@@ -7,7 +7,7 @@
  * Creates a mock localStorage instance for testing.
  * @returns Storage-compatible mock object
  */
-export function createMockLocalStorage(): Storage {
+function createMockLocalStorage(): Storage {
     let store: Record<string, string> = {};
     return {
         get length(): number {

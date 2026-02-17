@@ -27,7 +27,7 @@ const TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
     minute: '2-digit',
 });
 
-export interface PlayerOsdCoordinatorDeps {
+interface PlayerOsdCoordinatorDeps {
     getOverlay: () => IPlayerOsdOverlay | null;
     getCurrentProgram: () => ScheduledProgram | null;
     getNextProgram: () => ScheduledProgram | null;

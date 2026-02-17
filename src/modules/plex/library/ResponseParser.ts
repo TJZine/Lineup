@@ -48,7 +48,7 @@ export function parseLibrarySections(directories: RawLibrarySection[]): PlexLibr
  * @param data - Raw library section from Plex API
  * @returns Parsed library
  */
-export function parseLibrarySection(data: RawLibrarySection): PlexLibrary {
+function parseLibrarySection(data: RawLibrarySection): PlexLibrary {
     return {
         id: data.key,
         uuid: data.uuid,
@@ -79,7 +79,6 @@ export function mapLibraryType(type: string): PlexLibraryType {
         case 'photo':
             return 'photo';
         default:
-            console.warn(`[ResponseParser] Unknown library type: ${type}, defaulting to 'movie'`);
             return 'movie';
     }
 }
@@ -183,7 +182,6 @@ export function mapMediaType(type: string): PlexMediaType {
         case 'clip':
             return 'clip';
         default:
-            console.warn(`[ResponseParser] Unknown media type: ${type}, defaulting to 'movie'`);
             return 'movie';
     }
 }
@@ -223,7 +221,7 @@ export function parseDirectoryTags(directories: RawDirectoryTag[]): PlexTagDirec
  * @param data - Raw media file from Plex API
  * @returns Parsed media file
  */
-export function parseMediaFile(data: RawMediaFile): PlexMediaFile {
+function parseMediaFile(data: RawMediaFile): PlexMediaFile {
     // Pre-normalize codec/container strings to lowercase to avoid repeated allocations
     // in hot paths like direct play detection (SUGGESTION-001)
     const videoCodec = data.videoCodec ?? '';
@@ -251,7 +249,7 @@ export function parseMediaFile(data: RawMediaFile): PlexMediaFile {
  * @param data - Raw media part from Plex API
  * @returns Parsed media part
  */
-export function parseMediaPart(data: RawMediaPart): PlexMediaPart {
+function parseMediaPart(data: RawMediaPart): PlexMediaPart {
     const part: PlexMediaPart = {
         id: String(data.id),
         key: data.key,
@@ -280,7 +278,6 @@ export function parseStream(data: RawStream): PlexStream {
     if (validStreamTypes.includes(data.streamType as 1 | 2 | 3)) {
         streamType = data.streamType as 1 | 2 | 3;
     } else {
-        console.warn(`[ResponseParser] Invalid streamType: ${data.streamType}, defaulting to 1 (video)`);
         streamType = 1;
     }
 
@@ -346,7 +343,7 @@ export function parseSeasons(metadata: RawSeason[]): PlexSeason[] {
  * @param data - Raw season from Plex API
  * @returns Parsed season
  */
-export function parseSeason(data: RawSeason): PlexSeason {
+function parseSeason(data: RawSeason): PlexSeason {
     return {
         ratingKey: data.ratingKey,
         key: data.key,
@@ -372,7 +369,7 @@ export function parseCollections(metadata: RawCollection[]): PlexCollection[] {
  * @param data - Raw collection from Plex API
  * @returns Parsed collection
  */
-export function parseCollection(data: RawCollection): PlexCollection {
+function parseCollection(data: RawCollection): PlexCollection {
     return {
         ratingKey: data.ratingKey,
         key: data.key,
@@ -396,7 +393,7 @@ export function parsePlaylists(metadata: RawPlaylist[]): PlexPlaylist[] {
  * @param data - Raw playlist from Plex API
  * @returns Parsed playlist
  */
-export function parsePlaylist(data: RawPlaylist): PlexPlaylist {
+function parsePlaylist(data: RawPlaylist): PlexPlaylist {
     return {
         ratingKey: data.ratingKey,
         key: data.key,

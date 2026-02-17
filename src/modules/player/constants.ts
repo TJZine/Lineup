@@ -60,11 +60,6 @@ export const VIDEO_ELEMENT_STYLES = `
 // ============================================
 
 /**
- * Interval for timeUpdate events in milliseconds.
- */
-export const TIME_UPDATE_INTERVAL_MS = 250;
-
-/**
  * Timeout for audio track switch in milliseconds.
  */
 export const AUDIO_TRACK_SWITCH_TIMEOUT_MS = 5000;
@@ -80,19 +75,6 @@ export const DEFAULT_CONFIG = {
     retryAttempts: MAX_RETRY_ATTEMPTS,
     retryDelayMs: RETRY_BASE_DELAY_MS,
 } as const;
-
-// ============================================
-// MIME Types
-// ============================================
-
-/**
- * MIME type mappings for stream protocols.
- */
-export const PROTOCOL_MIME_TYPES: Record<string, string> = {
-    hls: 'application/x-mpegURL',
-    dash: 'application/dash+xml',
-    direct: 'video/mp4',
-};
 
 // ============================================
 // Subtitle Formats

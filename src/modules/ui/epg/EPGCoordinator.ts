@@ -325,8 +325,7 @@ export class EPGCoordinator {
             const rangeKey = this._getScheduleRangeKey(range.startTime, range.endTime);
             this._markScheduleLoaded(current.id, rangeKey);
             this._storeScheduleCache(current.id, rangeKey, this._cloneScheduleWindow(window));
-        } catch (error) {
-            console.warn('[Orchestrator] Failed to refresh live EPG schedule:', error);
+        } catch {
         }
     }
 
@@ -360,8 +359,7 @@ export class EPGCoordinator {
             const rangeKey = this._getScheduleRangeKey(range.startTime, range.endTime);
             this._markScheduleLoaded(current.id, rangeKey);
             this._storeScheduleCache(current.id, rangeKey, schedule);
-        } catch (error) {
-            console.warn('[Orchestrator] Failed to preseed EPG schedule:', error);
+        } catch {
         }
     }
 
@@ -747,7 +745,6 @@ export class EPGCoordinator {
                 cacheSize: this._epgScheduleCache.size,
                 cacheMaxEntries: this._epgScheduleCacheMaxEntries,
             };
-            console.warn('[EPGCoordinator] refreshEpgSchedulesForRange', payload);
             appendEpgDebugLog('EPG.refreshEpgSchedulesForRange', payload);
         }
 
@@ -824,7 +821,6 @@ export class EPGCoordinator {
                 if ((error as { name?: string }).name === 'AbortError') {
                     return;
                 }
-                console.warn('[Orchestrator] Failed to build EPG schedule for channel:', channel.id, error);
             } finally {
                 const active = this._epgScheduleInFlight.get(channel.id);
                 if (active && active.controller === controller) {
@@ -857,7 +853,6 @@ export class EPGCoordinator {
                 cacheSize: this._epgScheduleCache.size,
                 cacheMaxEntries: this._epgScheduleCacheMaxEntries,
             };
-            console.warn('[EPGCoordinator] refreshEpgSchedulesForRange results', payload);
             appendEpgDebugLog('EPG.refreshEpgSchedulesForRange.results', payload);
         }
 

@@ -18,8 +18,6 @@ type QrCodeModule = {
     ) => Promise<void>;
 };
 
-
-
 export class AuthScreen {
     private _container: HTMLElement;
     private _orchestrator: AppOrchestrator;
@@ -190,7 +188,6 @@ export class AuthScreen {
         this._container.classList.remove('visible');
     }
 
-
     private async _handleRequestPin(): Promise<void> {
         this._clearError();
         this._setButtons({ request: false, cancel: true, retry: false });
@@ -206,8 +203,7 @@ export class AuthScreen {
             this._stopExpiryTimer();
             try {
                 await this._orchestrator.cancelPin(this._activePinId);
-            } catch (error) {
-                console.warn('[AuthScreen] Failed to cancel PIN before requesting a new one:', error);
+            } catch {
             }
         }
         this._activePinId = null;

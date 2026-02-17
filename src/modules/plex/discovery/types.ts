@@ -125,11 +125,3 @@ export interface PlexApiResource {
     provides: string;
     connections: PlexApiConnection[];
 }
-
-/**
- * Identity response from Plex server.
- */
-export interface PlexIdentityResponse {
-    machineIdentifier: string;
-    version: string;
-}

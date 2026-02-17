@@ -324,13 +324,5 @@ export function generateScheduleWindow(
         programs.push(currentProgram);
     }
 
-    // Warn only if we hit the limit AND would have continued (actual truncation)
-    const wasTruncated = programs.length === MAX_WINDOW_PROGRAMS &&
-        currentProgram.scheduledEndTime < endTime;
-    if (wasTruncated) {
-        console.warn('[ScheduleCalculator] Reached MAX_WINDOW_PROGRAMS limit, window may be truncated');
-    }
-
     return programs;
 }
-

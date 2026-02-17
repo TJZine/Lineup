@@ -83,13 +83,8 @@ export class SubtitleManager {
 
     private _logSubtitleDebug(event: string, contextFactory: () => Record<string, unknown>): void {
         if (!this._isSubtitleDebugEnabled()) return;
-        const entry = {
-            ts: new Date().toISOString(),
-            module: 'SubtitleManager',
-            event,
-            ...contextFactory(),
-        };
-        console.warn(`[SubtitleDebug] ${JSON.stringify(entry)}`);
+        void event;
+        contextFactory();
     }
 
     private _snapshotNativeTextTracks(): Array<Record<string, unknown>> {
@@ -128,7 +123,6 @@ export class SubtitleManager {
      */
     public loadTracks(tracks: SubtitleTrack[], context?: SubtitleTrackContext): string[] {
         if (!this._videoElement) {
-            console.warn('[SubtitleManager] Cannot load tracks: video element not initialized');
             return [];
         }
 

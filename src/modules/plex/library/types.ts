@@ -213,7 +213,7 @@ export interface PlexLibraryState {
 /**
  * Cache entry for a library.
  */
-export interface LibraryCacheEntry {
+interface LibraryCacheEntry {
     library: PlexLibrary;
     cachedAt: number;
 }
@@ -245,7 +245,7 @@ export interface PlexMediaContainer<T> {
 /**
  * Plex search hub structure.
  */
-export interface PlexSearchHub {
+interface PlexSearchHub {
     type: string;
     hubIdentifier: string;
     size: number;
@@ -311,7 +311,7 @@ export interface RawMediaItem {
 /**
  * Raw metadata tag from Plex API.
  */
-export interface RawTag {
+interface RawTag {
     id?: number;
     tag?: string;
 }
@@ -319,7 +319,7 @@ export interface RawTag {
 /**
  * Raw role tag from Plex API (actors).
  */
-export interface RawRole {
+interface RawRole {
     id?: number;
     tag?: string;
     role?: string;
@@ -329,7 +329,7 @@ export interface RawRole {
 /**
  * Parsed role/actor entry for media items.
  */
-export interface PlexMediaRole {
+interface PlexMediaRole {
     name: string;
     role?: string | null;
     thumb?: string | null;

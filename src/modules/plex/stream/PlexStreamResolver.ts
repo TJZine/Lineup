@@ -43,7 +43,6 @@ import { detectHdrLabel } from './hdr';
 import {
     computeHdr10FallbackMode,
     inferHdr10BaseLayer,
-    parseDolbyVisionProfileString,
     shouldApplyHdr10Fallback,
 } from './dvHdr10Fallback';
 import type { PlatformIdentityService } from '../../../platform';
@@ -89,14 +88,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         return this._identityService.isWebOs();
     }
 
-    /**
-     * Detect webOS platform version from webOSTV API or Chromium user agent mapping.
-     * Used for X-Plex-Platform-Version when constructing transcode URLs.
-     */
-    private _detectPlatformVersion(): string {
-        return this._identityService.detectPlatformVersion();
-    }
-
     private _applyDefaultIdentityParams(params: URLSearchParams): void {
         const defaults = this._identityService.getDefaultPlexIdentity(this._config.clientIdentifier);
         for (const [key, value] of Object.entries(defaults)) {
@@ -118,12 +109,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
     private _logSubtitleDebug(event: string, context: Record<string, unknown>): void {
         if (!this._isSubtitleDebugEnabled()) return;
-        console.warn(`[SubtitleDebug] ${JSON.stringify({
-            ts: new Date().toISOString(),
-            module: 'PlexStreamResolver',
-            event,
-            ...context,
-        })}`);
+        void event;
+        void context;
     }
 
     private _detectSubtitleTextFormat(sample: string): 'webvtt' | 'srt' | 'unknown' {
@@ -529,10 +516,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             const hdr10FallbackMode = this._getHdr10FallbackMode();
             const isDolbyVision = this._detectHdrLabelFromStream(videoStream) === 'Dolby Vision';
             const sourceContainer = (media.container ?? '').toLowerCase();
-            const dvProfileInfo = parseDolbyVisionProfileString(
-                videoStream?.doviProfile ?? null,
-                videoStream?.profile ?? null
-            );
             const hdr10BaseLayerInfo = inferHdr10BaseLayer({
                 doviProfile: videoStream?.doviProfile ?? null,
                 codecProfileString: videoStream?.profile ?? null,
@@ -580,29 +563,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 if (forceHlsForDvNoHdr10BaseLayer) {
                     reasons.push('dv_profile_no_hdr10_base_layer');
                 }
-                if (reasons.length > 0) {
-                    console.warn('[PlexStreamResolver] Direct play decision:', {
-                        itemKey: request.itemKey,
-                        container: media.container,
-                        videoCodec: media.videoCodec,
-                        audioCodec: media.audioCodec,
-                        width: media.width,
-                        height: media.height,
-                        reasons,
-                    });
-                }
-            }
-            if (debugEnabled && applyHdr10Fallback) {
-                console.warn('[PlexStreamResolver] HDR10 fallback applied:', {
-                    itemKey: request.itemKey,
-                    mode: hdr10FallbackMode,
-                    reason: fallback.reason,
-                    debugWhy: fallback.debugWhy,
-                    container: media.container,
-                    aspectRatio: media.aspectRatio,
-                    doviProfile: videoStream?.doviProfile ?? null,
-                    streamProfile: videoStream?.profile ?? null,
-                });
             }
 
             let playbackUrl: string;
@@ -763,44 +723,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                                 : {}),
                         }
                     );
-                    console.warn('[PlexStreamResolver] PMS universal decision:', {
-                        itemKey: request.itemKey,
-                        ...decision.serverDecision,
-                    });
-                } catch (e) {
-                    const message = e instanceof Error ? e.message : String(e);
-                    console.warn('[PlexStreamResolver] PMS universal decision fetch failed:', {
-                        itemKey: request.itemKey,
-                        error: message,
-                    });
+                } catch {
                 }
-            }
-
-            if (this._isDebugLoggingEnabled()) {
-                console.warn('[PlexStreamResolver] Stream decision summary:', {
-                    itemKey: request.itemKey,
-                    isDirectPlay: decision.isDirectPlay,
-                    isTranscoding: decision.isTranscoding,
-                    container: media.container,
-                    sourceContainer,
-                    hdr: hdrLabel,
-                    doviPresent: videoStream?.doviPresent ?? null,
-                    doviProfile: videoStream?.doviProfile ?? null,
-                    streamProfile: videoStream?.profile ?? null,
-                    hdr10FallbackMode,
-                    hdr10FallbackApply: fallback.apply,
-                    hdr10FallbackReason: fallback.reason,
-                    hdr10FallbackDebugWhy: fallback.debugWhy,
-                    dvProfile: videoStream?.doviProfile ?? null,
-                    dvProfileInfo: {
-                        raw: dvProfileInfo.raw,
-                        profileId: dvProfileInfo.profileId,
-                        levelId: dvProfileInfo.levelId,
-                        hasHdr10BaseLayer: hdr10BaseLayerInfo.hasHdr10BaseLayer,
-                        hdr10DebugWhy: hdr10BaseLayerInfo.debugWhy,
-                    },
-                    forceHlsForDvNoHdr10BaseLayer,
-                });
             }
 
             return decision;
@@ -1211,36 +1135,10 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             if (debugUrl.searchParams.has('X-Plex-Token')) {
                 debugUrl.searchParams.set('X-Plex-Token', 'REDACTED');
             }
-            const idSummary = {
-                platform: debugUrl.searchParams.get('X-Plex-Platform'),
-                platformVersion: debugUrl.searchParams.get('X-Plex-Platform-Version'),
-                device: debugUrl.searchParams.get('X-Plex-Device'),
-                clientIdentifier: debugUrl.searchParams.get('X-Plex-Client-Identifier'),
-                model: debugUrl.searchParams.get('X-Plex-Model'),
-                product: debugUrl.searchParams.get('X-Plex-Product'),
-                version: debugUrl.searchParams.get('X-Plex-Version'),
-                profileName: debugUrl.searchParams.get('X-Plex-Client-Profile-Name'),
-                profileVersion: debugUrl.searchParams.get('X-Plex-Client-Profile-Version'),
-                preset: preset,
-                detectedPlatformVersion: this._detectPlatformVersion(),
-                chromeMajor: this._getChromeMajor(),
-                overrides: {
-                    platform: overridePlatform,
-                    platformVersion: overridePlatformVersion,
-                    device: overrideDevice,
-                    deviceName: overrideDeviceName,
-                    model: overrideModel,
-                    product: overrideProduct,
-                    version: overrideVersion,
-                    profileName: forcedProfileName,
-                    profileVersion: forcedProfileVersion,
-                },
-            };
             console.warn(
                 `[PlexStreamResolver] Transcode URL (compat=${compatMode ? '1' : '0'}):`,
                 debugUrl.toString()
             );
-            console.warn('[PlexStreamResolver] Transcode ID:', idSummary);
         } catch {
             // Ignore debug logging failures
         }
@@ -1788,13 +1686,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         // Debug logging
         if (fallback) {
             try {
-                if (this._isDebugLoggingEnabled()) {
-                    console.warn('[PlexStreamResolver] Audio fallback selected:', {
-                        from: { codec: defaultTrack.codec, language: defaultTrack.language },
-                        to: { codec: fallback.codec, language: fallback.language },
-                        reason: 'TrueHD cannot be decoded on webOS',
-                    });
-                }
             } catch {
                 // Ignore logging failures
             }

@@ -913,8 +913,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         for (const unsubscribe of this._eventUnsubscribers) {
             try {
                 unsubscribe();
-            } catch (e) {
-                console.warn('[Orchestrator] unsubscribe failed:', e);
+            } catch {
             }
         }
         this._eventUnsubscribers = [];
@@ -924,8 +923,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         if (this._lifecycle) {
             try {
                 await this._lifecycle.shutdown();
-            } catch (e) {
-                console.warn('[Orchestrator] lifecycle shutdown failed:', e);
+            } catch {
             }
             this._lifecycle = null;
         }
@@ -934,8 +932,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         if (this._videoPlayer) {
             try {
                 this._stopPlayback();
-            } catch (e) {
-                console.warn('[Orchestrator] stop failed:', e);
+            } catch {
             }
         }
 
@@ -1267,10 +1264,6 @@ export class AppOrchestrator implements IAppOrchestrator {
         if (!this._plexDiscovery) {
             throw new Error('PlexServerDiscovery not initialized');
         }
-        const debugLogging = readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
-        if (debugLogging) {
-            console.warn('[Orchestrator] selectServer: selecting server', { serverId });
-        }
         const ok = await this._plexDiscovery.selectServer(serverId);
         if (ok) {
             await this._persistSelectedServerForActiveUser(
@@ -1281,21 +1274,12 @@ export class AppOrchestrator implements IAppOrchestrator {
             // re-run the channel/player/EPG phases to swap to the selected server.
             if (this._initCoordinator) {
                 await this._initCoordinator.runStartup(3);
-                if (debugLogging) {
-                    console.warn('[Orchestrator] selectServer: startup phases complete', { serverId });
-                }
                 if (this._epg) {
                     this._epgCoordinator?.clearScheduleCaches();
                     this._epg.clearSchedules();
-                    if (debugLogging) {
-                        console.warn('[Orchestrator] selectServer: cleared EPG schedules', { serverId });
-                    }
                 }
                 this._epgCoordinator?.primeEpgChannels();
                 await this._epgCoordinator?.refreshEpgSchedules({ reason: 'server-swap' });
-                if (debugLogging) {
-                    console.warn('[Orchestrator] selectServer: started EPG refresh', { serverId });
-                }
             }
             return this._ready;
         }
@@ -1635,7 +1619,6 @@ export class AppOrchestrator implements IAppOrchestrator {
         }
     }
 
-
     private _getSelectedServerId(): string | null {
         if (!this._plexDiscovery) {
             return null;
@@ -1703,15 +1686,11 @@ export class AppOrchestrator implements IAppOrchestrator {
         });
     }
 
-
     private _shouldRunAudioSetup(): boolean {
         // Check if audio setup has been completed
         const completed = safeLocalStorageGet(RETUNE_STORAGE_KEYS.AUDIO_SETUP_COMPLETE);
         return completed !== '1';
     }
-
-
-
 
     private _getLocalMidnightMs(timeMs: number): number {
         const date = new Date(timeMs);
@@ -1992,15 +1971,25 @@ export class AppOrchestrator implements IAppOrchestrator {
         if (this._eventsWired) {
             return;
         }
-        this._eventsWired = true;
         const cleanups: Array<() => void> = [];
-        this._wireSchedulerEvents(cleanups);
-        this._wirePlayerEvents(cleanups);
-        this._wirePlexEvents(cleanups);
-        this._wireNavigationEvents(cleanups);
-        this._wireEpgEvents(cleanups);
-        this._wireLifecycleEvents(cleanups);
-        this._eventUnsubscribers.push(...cleanups);
+        try {
+            this._wireSchedulerEvents(cleanups);
+            this._wirePlayerEvents(cleanups);
+            this._wirePlexEvents(cleanups);
+            this._wireNavigationEvents(cleanups);
+            this._wireEpgEvents(cleanups);
+            this._wireLifecycleEvents(cleanups);
+            this._eventUnsubscribers.push(...cleanups);
+            this._eventsWired = true;
+        } catch (error) {
+            for (const cleanup of cleanups) {
+                try {
+                    cleanup();
+                } catch {
+                }
+            }
+            throw error;
+        }
     }
 
     private _handlePlayerEnded(): void {

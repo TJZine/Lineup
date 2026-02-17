@@ -40,7 +40,7 @@ export type PendingChannel = {
     isSequentialVariant?: boolean;
 };
 
-export interface ChannelSetupPlanInput {
+interface ChannelSetupPlanInput {
     config: ChannelSetupConfig;
     libraries: PlexLibraryType[];
     playlists: PlexPlaylist[];
@@ -53,7 +53,7 @@ export interface ChannelSetupPlanInput {
     seedFor: (value: string) => number;
 }
 
-export interface ChannelSetupPlan {
+interface ChannelSetupPlan {
     pendingChannels: PendingChannel[];
     estimates: ChannelSetupEstimates;
     warnings: string[];
@@ -61,7 +61,7 @@ export interface ChannelSetupPlan {
     reachedMaxChannels: boolean;
 }
 
-export interface ChannelIdentityCandidate {
+interface ChannelIdentityCandidate {
     contentSource: ChannelConfig['contentSource'];
     contentFilters?: ContentFilter[];
     sortOrder?: SortOrder;
@@ -70,7 +70,7 @@ export interface ChannelIdentityCandidate {
     isSequentialVariant?: boolean;
 }
 
-export interface ChannelDiffEntry {
+interface ChannelDiffEntry {
     name: string;
     identityKey: string;
     channelId?: string;

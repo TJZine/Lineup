@@ -81,7 +81,7 @@ export interface INavigationManager {
     cancelLongPress(): void;
 }
 
-export interface SetFocusOptions {
+interface SetFocusOptions {
     /**
      * Persist focus memory for the current screen.
      * Defaults to true. Note: focus is never persisted while a modal is open.

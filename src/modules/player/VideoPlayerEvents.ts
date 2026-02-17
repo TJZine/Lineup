@@ -19,7 +19,7 @@ import { SYNTHETIC_MEDIA_ERROR_CODE_KEY } from './constants';
 /**
  * Callbacks for state updates.
  */
-export interface EventHandlerCallbacks {
+interface EventHandlerCallbacks {
     updateStatus: (status: PlayerStatus) => void;
     getState: () => VideoPlayerInternalState;
     setState: (update: Partial<VideoPlayerInternalState>) => void;

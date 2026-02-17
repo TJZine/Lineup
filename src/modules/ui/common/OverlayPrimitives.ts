@@ -1,6 +1,6 @@
 import type { OverlayPanelConfig, OverlayProps } from '../types/overlay-primitives';
 
-export interface OverlayPrimitiveClassNames {
+interface OverlayPrimitiveClassNames {
     panel: string;
     header?: string;
     title?: string;
@@ -10,7 +10,7 @@ export interface OverlayPrimitiveClassNames {
     actions?: string;
 }
 
-export interface OverlayPrimitiveElements {
+interface OverlayPrimitiveElements {
     panelEl: HTMLElement;
     headerEl: HTMLElement | null;
     titleEl: HTMLElement | null;
@@ -86,7 +86,7 @@ export function createOverlayPrimitives(
     };
 }
 
-export function applyOverlayPanelConfig(panelEl: HTMLElement, panel: OverlayPanelConfig): void {
+function applyOverlayPanelConfig(panelEl: HTMLElement, panel: OverlayPanelConfig): void {
     if (panel.maxWidth) {
         panelEl.style.maxWidth = panel.maxWidth;
     } else {

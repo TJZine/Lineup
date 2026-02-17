@@ -4,7 +4,7 @@
  * @version 1.0.0
  */
 
-export interface HdrStreamLike {
+interface HdrStreamLike {
     streamType?: number;
     title?: string | null;
     displayTitle?: string | null;

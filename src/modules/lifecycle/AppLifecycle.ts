@@ -712,7 +712,6 @@ export class AppLifecycle implements IAppLifecycle {
             this._handleSaveError(error);
             return;
         }
-        console.warn(`[AppLifecycle] Unhandled async error (${context}):`, error);
     }
 
     private _handleSaveError(error: unknown): void {
@@ -721,7 +720,6 @@ export class AppLifecycle implements IAppLifecycle {
             const message = isQuotaError
                 ? 'Persistent storage quota exceeded; save deferred'
                 : 'Failed to persist state; will retry on next save';
-            console.warn(`[AppLifecycle] ${message}`, error);
             this._emitter.emit('persistenceWarning', {
                 message,
                 isQuotaError,
@@ -756,7 +754,6 @@ export class AppLifecycle implements IAppLifecycle {
             return;
         }
         this._nextNetworkWarningAt = now + TIMING_CONFIG.NETWORK_WARNING_BACKOFF_MS;
-        console.warn(`[AppLifecycle] ${message}`);
         this._emitter.emit('networkWarning', {
             message,
             isAvailable: this._isNetworkAvailable,

@@ -75,19 +75,19 @@ export interface ChannelSetupPreview {
     reachedMaxChannels: boolean;
 }
 
-export interface ChannelSetupDiffSummary {
+interface ChannelSetupDiffSummary {
     created: number;
     removed: number;
     unchanged: number;
 }
 
-export interface ChannelSetupDiffSample {
+interface ChannelSetupDiffSample {
     created: string[];
     removed: string[];
     unchanged: string[];
 }
 
-export interface ChannelSetupDiff {
+interface ChannelSetupDiff {
     summary: ChannelSetupDiffSummary;
     samples: ChannelSetupDiffSample;
 }

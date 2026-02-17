@@ -197,6 +197,39 @@ describe('bootstrap seam', () => {
         expect(overlays[0]?.textContent ?? '').toContain('First message');
     });
 
+    it('does not remove legacy debug logging key if migration write fails', async () => {
+        const primaryKey = RETUNE_STORAGE_KEYS.DEBUG_LOGGING;
+        const legacyKey = 'retune_debug_transcode';
+        localStorage.setItem(legacyKey, '1');
+
+        Object.defineProperty(document, 'readyState', { value: 'loading', configurable: true });
+        jest.doMock('../utils/storage', () => {
+            const actual = jest.requireActual('../utils/storage') as typeof import('../utils/storage');
+            return {
+                ...actual,
+                safeLocalStorageSet: jest.fn(() => false),
+                safeLocalStorageRemove: jest.fn(actual.safeLocalStorageRemove),
+            };
+        });
+
+        try {
+            await importBootstrapModule({ autoDispatchDomReady: false });
+
+            expect(localStorage.getItem(primaryKey)).toBeNull();
+            expect(localStorage.getItem(legacyKey)).toBe('1');
+
+            const storage = await import('../utils/storage') as unknown as {
+                safeLocalStorageSet: jest.Mock;
+                safeLocalStorageRemove: jest.Mock;
+            };
+            expect(storage.safeLocalStorageSet).toHaveBeenCalledWith(primaryKey, '1');
+            expect(storage.safeLocalStorageRemove).not.toHaveBeenCalled();
+        } finally {
+            jest.unmock('../utils/storage');
+            Object.defineProperty(document, 'readyState', { value: 'complete', configurable: true });
+        }
+    });
+
     it('handles error and rejection events via overlay path', async () => {
         const { module } = await importBootstrapModule();
         const preventDefault = jest.fn();

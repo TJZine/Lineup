@@ -111,7 +111,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
      */
     initialize(config: EPGConfig): void {
         if (this.state.isInitialized) {
-            console.warn('[EPG] Already initialized');
             return;
         }
 
@@ -240,8 +239,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
      */
     private initializeErrorBoundary(): void {
         this.errorBoundary.setCallbacks({
-            showFallbackRow: (context: string) => {
-                console.warn(`[EPG] Showing fallback for: ${context}`);
+            showFallbackRow: () => {
                 // Fallback: just skip the problematic row, don't crash
             },
             resetScrollPosition: () => {
@@ -483,7 +481,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
                 timeOffset: this.state.scrollPosition.timeOffset,
                 gridAnchorTime: this.state.gridAnchorTime,
             };
-            console.warn('[EPG] show', payload);
             appendEpgDebugLog('EPG.show', payload);
         }
 
@@ -572,7 +569,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
                 channelCount: channels.length,
                 timeOffset: this.state.scrollPosition.timeOffset,
             };
-            console.warn('[EPG] loadChannels', payload);
             appendEpgDebugLog('EPG.loadChannels', payload);
         }
     }
@@ -692,7 +688,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
                 focusKeyAfter: this._getFocusKey(this.state.focusedCell),
                 didAutoFocus,
             };
-            console.warn('[EPG] loadScheduleForChannel', payload);
             appendEpgDebugLog('EPG.loadScheduleForChannel', payload);
         }
     }
@@ -717,7 +712,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             const payload = {
                 channelCount: this.state.channels.length,
             };
-            console.warn('[EPG] clearSchedules', payload);
             appendEpgDebugLog('EPG.clearSchedules', payload);
         }
     }
@@ -1538,7 +1532,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
                 focusedKind: focusedCell.kind,
                 scheduleLoaded: this.state.schedules.has(channel.id),
             };
-            console.warn('[EPG] handleSelect', payload);
             appendEpgDebugLog('EPG.handleSelect', payload);
         }
 
@@ -1679,7 +1672,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
                     visibleRows: range.visibleRows.length,
                     renderedCells: this.virtualizer.getElementCount(),
                 };
-                console.warn('[EPG] renderGrid', payload);
                 appendEpgDebugLog('EPG.renderGrid', payload);
             }
         });

@@ -295,10 +295,8 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
             const latency = Date.now() - startTime;
             return latency;
-        } catch (error) {
+        } catch {
             clearTimeout(timeoutId);
-            const errorMsg = error instanceof Error ? error.message : String(error);
-            console.warn(`[Discovery] Connection test failed for ${url}:`, errorMsg);
             return null;
         }
     }
@@ -387,9 +385,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                     authRequired = true;
                 } else if (latency !== null) {
                     // Log warning if logWarnings is enabled
-                    if (config.logWarnings) {
-                        console.warn('[Discovery] Using HTTP connection - HTTPS unavailable');
-                    }
                     return { connection: this._createConnectionWithLatency(conn, latency), authRequired };
                 }
             }
@@ -674,7 +669,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
         return servers;
     }
-
 
     private async _parseResourcesResponse(response: Response): Promise<PlexApiResource[]> {
         const contentType =

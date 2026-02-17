@@ -7,7 +7,7 @@
 
 import type { PlaybackError, PlayerErrorCode } from './types';
 import { PlayerErrorCode as ErrorCode } from './types';
-import { RETRY_BASE_DELAY_MS, MAX_RETRY_ATTEMPTS } from './constants';
+import { RETRY_BASE_DELAY_MS } from './constants';
 
 /**
  * Map MediaError code to PlaybackError.
@@ -82,15 +82,6 @@ export function mapMediaErrorCodeToPlaybackError(
  * @param baseDelayMs - Base delay in milliseconds
  * @returns Delay in milliseconds
  */
-export function calculateBackoffDelay(attemptNumber: number, baseDelayMs: number): number {
+function calculateBackoffDelay(attemptNumber: number, baseDelayMs: number): number {
     return baseDelayMs * Math.pow(2, attemptNumber);
-}
-
-/**
- * Get capped retry attempts (max 3 per spec).
- * @param configRetryAttempts - Config value
- * @returns Capped retry attempts
- */
-export function getMaxRetryAttempts(configRetryAttempts: number): number {
-    return Math.min(configRetryAttempts, MAX_RETRY_ATTEMPTS);
 }

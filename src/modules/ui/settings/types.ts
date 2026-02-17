@@ -19,7 +19,7 @@ export interface AudioSettings {
 /**
  * Playback settings configuration.
  */
-export interface PlaybackSettings {
+interface PlaybackSettings {
     /** Keep playback running when opening settings */
     keepPlayingInSettings: boolean;
     /** Forces HDR10 playback for DV MKV only when cinematic aspect ratios are detected */
@@ -53,7 +53,7 @@ export interface DeveloperSettings {
 /**
  * Subtitle settings configuration.
  */
-export interface SubtitleSettings {
+interface SubtitleSettings {
     /**
      * Subtitle handling mode.
      * - off: do not automatically load/select subtitles
@@ -71,7 +71,7 @@ export interface SubtitleSettings {
 /**
  * Account settings configuration.
  */
-export interface AccountSettings {
+interface AccountSettings {
     /** Show profile picker on startup when Plex Home has multiple users */
     showProfilePickerOnStartup: boolean;
 }

@@ -65,30 +65,6 @@ export const MAX_RESOLUTION = {
 } as const;
 
 // ============================================
-// Retry Configuration
-// ============================================
-
-/**
- * Retry configuration for stream resolution.
- */
-export const RETRY_CONFIG = {
-    /** Maximum number of retry attempts */
-    maxRetries: 3,
-    /** Delay before each retry attempt (exponential backoff) */
-    retryDelayMs: [1000, 2000, 4000] as readonly number[],
-    /** Timeout for each request */
-    timeoutMs: 10000,
-} as const;
-
-/**
- * Error codes that allow retry.
- */
-export const RETRYABLE_ERROR_CODES: readonly string[] = [
-    'SERVER_UNREACHABLE',
-    'NETWORK_TIMEOUT',
-] as const;
-
-// ============================================
 // Subtitle Formats
 // ============================================
 
@@ -98,20 +74,6 @@ export { BURN_IN_SUBTITLE_FORMATS, TEXT_SUBTITLE_FORMATS } from '../../../shared
 // ============================================
 // Client Profile
 // ============================================
-
-/**
- * webOS client profile for Plex transcode decisions.
- * Tells the server what formats the client can handle.
- * Strictly adheres to Plex profile syntax.
- */
-export const WEBOS_CLIENT_PROFILE_PARTS: readonly string[] = [
-    'add-limitation(scope=videoCodec&scopeName=*&type=upperBound&name=video.bitrate&value=100000)',
-    'add-limitation(scope=videoAudioCodec&scopeName=*&type=match&name=audio.channels&list=2|6|8)',
-    'append-transcode-target(type=videoProfile&context=streaming&protocol=hls&container=mpegts)',
-    'append-transcode-target-codec(type=videoProfile&context=streaming&protocol=hls&videoCodec=h264)',
-    'append-transcode-target-codec(type=videoProfile&context=streaming&protocol=hls&audioCodec=aac)',
-    'append-transcode-target-codec(type=videoProfile&context=streaming&protocol=hls&audioCodec=ac3)',
-] as const;
 
 /**
  * Default HLS options when not specified.

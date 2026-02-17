@@ -18,7 +18,7 @@ export type PlaybackInfoSnapshotLike = {
     } | null;
 };
 
-export type PlaybackSummary = {
+type PlaybackSummary = {
     summary: string | null;
     tag: string | null;
     details: string[];

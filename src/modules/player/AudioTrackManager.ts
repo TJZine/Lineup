@@ -20,7 +20,7 @@ import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
  * Interface for audio track in HTMLVideoElement.
  * Not all browsers support this - used for HLS audio track switching.
  */
-export interface WebOSAudioTrack {
+interface WebOSAudioTrack {
     id: string;
     enabled: boolean;
     kind: string;
@@ -31,7 +31,7 @@ export interface WebOSAudioTrack {
 /**
  * Interface for audio track list in HTMLVideoElement.
  */
-export interface WebOSAudioTrackList {
+interface WebOSAudioTrackList {
     length: number;
     [index: number]: WebOSAudioTrack | undefined;
 }
@@ -39,7 +39,7 @@ export interface WebOSAudioTrackList {
 /**
  * Extended HTMLVideoElement interface for webOS.
  */
-export interface HTMLVideoElementWithAudioTracks extends HTMLVideoElement {
+interface HTMLVideoElementWithAudioTracks extends HTMLVideoElement {
     audioTracks?: WebOSAudioTrackList;
 }
 
@@ -52,7 +52,6 @@ const AUDIO_TRACK_MAX_RETRIES = 1;
 
 /** Polling interval for track switch verification */
 const TRACK_SWITCH_POLL_INTERVAL_MS = 100;
-
 
 // ============================================
 // Audio Track Manager Class
@@ -158,9 +157,6 @@ export class AudioTrackManager {
                 }
 
                 // Log retry
-                if (attempt < AUDIO_TRACK_MAX_RETRIES) {
-                    console.warn(`[AudioTrackManager] Retrying track switch (attempt ${attempt + 1})`);
-                }
             }
         }
 

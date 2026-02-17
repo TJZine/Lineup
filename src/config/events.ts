@@ -8,7 +8,7 @@ export const RETUNE_EVENT_NAMES = {
     DEBUG_LOGGING_CHANGED: 'retune:debug-logging-changed',
 } as const;
 
-export type DebugLoggingChangedDetail = {
+type DebugLoggingChangedDetail = {
     enabled: boolean;
 };
 

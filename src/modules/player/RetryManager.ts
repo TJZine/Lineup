@@ -10,13 +10,6 @@ import { MAX_RETRY_ATTEMPTS, RETRY_BASE_DELAY_MS, SYNTHETIC_MEDIA_ERROR_CODE_KEY
 import { mapMediaErrorCodeToPlaybackError } from './ErrorHandler';
 
 /**
- * Callback for retry error handling.
- */
-export interface RetryErrorCallback {
-    (error: PlaybackError): void;
-}
-
-/**
  * Manages retry logic for video playback with exponential backoff.
  */
 export class RetryManager {
@@ -133,8 +126,6 @@ export class RetryManager {
         this.clear();
         this._retryCount++;
 
-        console.warn(`[RetryManager] Scheduling retry ${this._retryCount} in ${delayMs}ms`);
-
         this._retryTimer = setTimeout(() => {
             this._retryTimer = null;
             this._retryPlayback();
@@ -203,7 +194,6 @@ export class RetryManager {
 
         const onTimeout = (): void => {
             cleanup();
-            console.warn('[RetryManager] Metadata timeout after 10s, treating as error');
             // Trigger error path - the video element may be in a zombie state.
             // Emit a synthetic error event with a recoverable MediaError code hint (NETWORK)
             // so VideoPlayerEvents can schedule retries and emit errors consistently.

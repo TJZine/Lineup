@@ -157,10 +157,7 @@ export class NowPlayingDebugManager {
         ) {
             try {
                 await this._nowPlayingStreamDecisionFetchPromise;
-            } catch (error) {
-                if (options.logErrors) {
-                    console.warn('[Orchestrator] Failed to fetch transcode decision:', error);
-                }
+            } catch {
                 return;
             }
             if (this.deps.getCurrentStreamDecision() !== decision) return;
@@ -198,10 +195,7 @@ export class NowPlayingDebugManager {
             decision.serverDecision = serverDecision;
             this._nowPlayingStreamDecisionFetchedForSessionId = sessionId;
             options.onApplied?.();
-        } catch (error) {
-            if (options.logErrors) {
-                console.warn('[Orchestrator] Failed to fetch transcode decision:', error);
-            }
+        } catch {
         } finally {
             if (
                 token === this._nowPlayingStreamDecisionFetchToken &&

@@ -93,11 +93,8 @@ export class StateManager implements IStateManager {
             }
 
             return this._repairState(migrated);
-        } catch (error) {
+        } catch {
             // Log parse errors in development for debugging
-            if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
-                console.warn('[StateManager] Load error:', error);
-            }
             return null;
         }
     }

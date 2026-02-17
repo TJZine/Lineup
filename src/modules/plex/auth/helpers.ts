@@ -630,7 +630,7 @@ export async function fetchWithTimeout(
  * @param response - Fetch response
  * @throws PlexApiError for error statuses
  */
-export function handleResponseStatus(response: Response): void {
+function handleResponseStatus(response: Response): void {
     // Authentication errors - not retryable
     if (response.status === 401) {
         throw new PlexApiError(
@@ -681,7 +681,7 @@ export function handleResponseStatus(response: Response): void {
  * Create a network error.
  * @returns PlexApiError for network failures
  */
-export function createNetworkError(): PlexApiError {
+function createNetworkError(): PlexApiError {
     return new PlexApiError(
         AppErrorCode.SERVER_UNREACHABLE,
         'Network error',

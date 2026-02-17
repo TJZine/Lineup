@@ -175,8 +175,6 @@ export class ErrorRecovery implements IErrorRecovery {
                 action: (): void => {
                     if (this._onSignIn) {
                         this._onSignIn();
-                    } else {
-                        console.warn('[ErrorRecovery] onSignIn callback not registered');
                     }
                 },
                 isPrimary: true,
@@ -200,8 +198,6 @@ export class ErrorRecovery implements IErrorRecovery {
                 action: (): void => {
                     if (this._onRetry) {
                         this._onRetry();
-                    } else {
-                        console.warn('[ErrorRecovery] onRetry callback not registered');
                     }
                 },
                 isPrimary: true,
@@ -268,8 +264,6 @@ export class ErrorRecovery implements IErrorRecovery {
                     // Wait before retrying - delay handled by caller
                     if (this._onRetry) {
                         this._onRetry();
-                    } else {
-                        console.warn('[ErrorRecovery] onRetry callback not registered');
                     }
                 },
                 isPrimary: true,
@@ -294,8 +288,6 @@ export class ErrorRecovery implements IErrorRecovery {
                     // Restart may help reclaim storage after cleanup
                     if (this._onRestart) {
                         this._onRestart();
-                    } else {
-                        console.warn('[ErrorRecovery] onRestart callback not registered');
                     }
                 },
                 isPrimary: true,
@@ -348,8 +340,6 @@ export class ErrorRecovery implements IErrorRecovery {
                 action: (): void => {
                     if (this._onRestart) {
                         this._onRestart();
-                    } else {
-                        console.warn('[ErrorRecovery] onRestart callback not registered');
                     }
                 },
                 isPrimary: true,

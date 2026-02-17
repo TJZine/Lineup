@@ -4,13 +4,13 @@
  * @version 1.0.0
  */
 
-export type SubtitleInputFormat = 'webvtt' | 'srt' | 'unknown';
+type SubtitleInputFormat = 'webvtt' | 'srt' | 'unknown';
 
-export function stripBom(text: string): string {
+function stripBom(text: string): string {
     return text.replace(/^\uFEFF/, '');
 }
 
-export function normalizeLineEndings(text: string): string {
+function normalizeLineEndings(text: string): string {
     return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 }
 

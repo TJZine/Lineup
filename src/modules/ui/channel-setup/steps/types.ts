@@ -18,15 +18,15 @@ export interface StepRenderContext {
     errorEl: HTMLElement;
 }
 
-export type StrategyScope = 'per-library' | 'cross-library';
+type StrategyScope = 'per-library' | 'cross-library';
 
-export interface StrategyStateItem {
+interface StrategyStateItem {
     enabled: boolean;
     priority: number;
     scope: StrategyScope;
 }
 
-export type StrategyStateMap = Record<SetupStrategyKey, StrategyStateItem>;
+type StrategyStateMap = Record<SetupStrategyKey, StrategyStateItem>;
 
 export interface ChannelExpansionState {
     addAlternateLineups: boolean;

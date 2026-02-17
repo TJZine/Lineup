@@ -749,12 +749,5 @@ export class NavigationCoordinator {
             this._suppressedLogTimestamps.clear();
         }
         this._suppressedLogTimestamps.set(key, now);
-        console.warn('[NavigationCoordinator] Input not handled:', {
-            reason,
-            button: event.button,
-            screen: state?.currentScreen ?? null,
-            modalStack: state?.modalStack ?? [],
-            inputBlocked: navigation.isInputBlocked(),
-        });
     }
 }

@@ -150,9 +150,6 @@ export class PlexAuth implements IPlexAuth {
                     throw error;
                 }
                 // Log unexpected non-PlexApiError errors for debugging
-                if (!(error instanceof PlexApiError)) {
-                    console.warn('[PlexAuth] Unexpected error during PIN polling:', error);
-                }
                 // On network error, continue polling
             }
             await this._sleep(interval);
@@ -276,9 +273,8 @@ export class PlexAuth implements IPlexAuth {
         };
         try {
             localStorage.setItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY, JSON.stringify(stored));
-        } catch (error) {
+        } catch {
             // Storage can be blocked or quota-limited; keep the token in-memory for this session.
-            console.warn('[PlexAuth] Failed to persist credentials to localStorage:', error);
         }
         this._state.accountToken = auth.accountToken;
         this._state.activeToken = auth.activeToken;
@@ -293,8 +289,7 @@ export class PlexAuth implements IPlexAuth {
         this._credentialsEpoch += 1;
         try {
             localStorage.removeItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY);
-        } catch (error) {
-            console.warn('[PlexAuth] Failed to clear credentials from localStorage:', error);
+        } catch {
         }
         this._state.accountToken = null;
         this._state.activeToken = null;
