@@ -68,12 +68,49 @@ jest.mock('../modules/ui/server-select', () => ({
     },
 }));
 
+const settingsScreenChunkLoaded = jest.fn();
+jest.mock('../modules/ui/settings/SettingsScreen', () => {
+    settingsScreenChunkLoaded();
+    return {
+        SettingsScreen: class SettingsScreen {
+            show(): void {
+                return;
+            }
+            hide(): void {
+                return;
+            }
+            destroy(): void {
+                return;
+            }
+        },
+    };
+});
+
+const channelSetupScreenChunkLoaded = jest.fn();
+jest.mock('../modules/ui/channel-setup/ChannelSetupScreen', () => {
+    channelSetupScreenChunkLoaded();
+    return {
+        ChannelSetupScreen: class ChannelSetupScreen {
+            show(): void {
+                return;
+            }
+            hide(): void {
+                return;
+            }
+            destroy(): void {
+                return;
+            }
+        },
+    };
+});
+
 describe('App bootstrap smoke', () => {
     let app: App | null = null;
     let initializeSpy: jest.SpyInstance;
     let startSpy: jest.SpyInstance;
     let refreshPlaybackInfoSnapshotSpy: jest.SpyInstance;
     let getRecoveryActionsSpy: jest.SpyInstance;
+    let isReadySpy: jest.SpyInstance;
     let nowPlayingHandler: ((toast: unknown) => void) | null = null;
     const lifecycleHandlers = new Map<string, (payload: unknown) => void>();
     let screenChangeHandler: ((from: string, to: string) => void) | null = null;
@@ -98,6 +135,8 @@ describe('App bootstrap smoke', () => {
             .spyOn(AppOrchestrator.prototype, 'refreshPlaybackInfoSnapshot')
             .mockResolvedValue({} as never);
         getRecoveryActionsSpy = jest.spyOn(AppOrchestrator.prototype, 'getRecoveryActions').mockReturnValue([]);
+        settingsScreenChunkLoaded.mockClear();
+        channelSetupScreenChunkLoaded.mockClear();
         jest.spyOn(AppOrchestrator.prototype, 'registerErrorHandler').mockImplementation(() => undefined);
         nowPlayingHandler = null;
         lifecycleHandlers.clear();
@@ -114,7 +153,7 @@ describe('App bootstrap smoke', () => {
             return { dispose: jest.fn() } as never;
         });
         jest.spyOn(AppOrchestrator.prototype, 'getCurrentScreen').mockReturnValue(null);
-        jest.spyOn(AppOrchestrator.prototype, 'isReady').mockReturnValue(false);
+        isReadySpy = jest.spyOn(AppOrchestrator.prototype, 'isReady').mockReturnValue(false);
     });
 
     afterEach(async () => {
@@ -520,7 +559,7 @@ describe('App bootstrap smoke', () => {
         screenChangeHandler?.('server-select', 'auth');
 
         // Exercise "ready guard" path which hides setup screens and schedules settings prefetch.
-        (AppOrchestrator.prototype.isReady as unknown as jest.Mock).mockReturnValue(true);
+        isReadySpy.mockReturnValue(true);
         screenChangeHandler?.('auth', 'player');
         screenChangeHandler?.('player', 'player');
 
@@ -529,6 +568,31 @@ describe('App bootstrap smoke', () => {
         lifecycleHandlers.get('phaseChange')?.({ to: 'ready' });
 
         expect(jest.getTimerCount()).toBeGreaterThan(0);
+    });
+
+    it('prefetches SettingsScreen after player entry delay', async () => {
+        jest.useFakeTimers();
+        isReadySpy.mockReturnValue(true);
+        app = new App();
+        await app.start();
+
+        screenChangeHandler?.('auth', 'player');
+        jest.advanceTimersByTime(1200);
+        await flushPromises();
+
+        expect(settingsScreenChunkLoaded).toHaveBeenCalledTimes(1);
+    });
+
+    it('prefetches ChannelSetupScreen after server-select delay', async () => {
+        jest.useFakeTimers();
+        app = new App();
+        await app.start();
+
+        screenChangeHandler?.('splash', 'server-select');
+        jest.advanceTimersByTime(500);
+        await flushPromises();
+
+        expect(channelSetupScreenChunkLoaded).toHaveBeenCalledTimes(1);
     });
 
     it('generates and persists a client id when missing/invalid (fallback path)', async () => {
