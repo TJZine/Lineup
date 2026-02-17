@@ -38,7 +38,7 @@ import {
     safeLocalStorageGet,
 } from '../../../utils/storage';
 import { summarizeErrorForLog } from '../../../utils/errors';
-import { redactSensitiveTokens } from '../../../utils/redact';
+import { redactSensitiveTokens, safeStringifyForLog } from '../../../utils/redact';
 import { detectHdrLabel } from './hdr';
 import {
     computeHdr10FallbackMode,
@@ -109,8 +109,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
     private _logSubtitleDebug(event: string, context: Record<string, unknown>): void {
         if (!this._isSubtitleDebugEnabled()) return;
-        void event;
-        void context;
+        try {
+            console.warn('[PlexStreamResolver] subtitle-debug:', event, safeStringifyForLog(context));
+        } catch {
+            // Ignore logging failures.
+        }
     }
 
     private _detectSubtitleTextFormat(sample: string): 'webvtt' | 'srt' | 'unknown' {
@@ -474,8 +477,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         // transcoding session binding (`session` + `X-Plex-Session-Identifier`).
         const sessionId = generateUUID();
 
-        try {
-            // 4. Check direct play compatibility ON THE SELECTED MEDIA VERSION
+        // 4. Check direct play compatibility ON THE SELECTED MEDIA VERSION
             const allowDirectPlayAudioFallback = ((): boolean => {
                 try {
                     return isStoredTrue(
@@ -745,9 +747,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             }
 
             return decision;
-        } catch (error) {
-            throw error;
-        }
     }
 
     /**
@@ -1699,14 +1698,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             });
 
         const fallback = fallbackCandidates[0];
-
-        // Debug logging
-        if (fallback) {
-            try {
-            } catch {
-                // Ignore logging failures
-            }
-        }
 
         return fallback || defaultTrack; // Use fallback if found, otherwise stick with default
     }

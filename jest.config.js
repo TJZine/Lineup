@@ -2,6 +2,7 @@
 export default {
     preset: 'ts-jest',
     testEnvironment: 'node',
+    setupFilesAfterEnv: ['<rootDir>/src/__tests__/jest.setup.ts'],
     roots: ['<rootDir>/src'],
     testMatch: ['**/__tests__/**/*.test.ts', '**/*.test.ts'],
     transform: {

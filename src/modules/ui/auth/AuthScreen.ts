@@ -204,6 +204,7 @@ export class AuthScreen {
             try {
                 await this._orchestrator.cancelPin(this._activePinId);
             } catch {
+                // Best-effort cancel; ignore errors.
             }
         }
         this._activePinId = null;

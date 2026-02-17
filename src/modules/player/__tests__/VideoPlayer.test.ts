@@ -112,6 +112,13 @@ describe('mapMediaErrorCodeToPlaybackError', () => {
         expect(e3.retryCount).toBe(3);
     });
 
+    it('caps retryAfterMs to a reasonable maximum', () => {
+        // attemptNumber=10 => 1s * 2^10 = 1024s; should be capped.
+        const e = mapMediaErrorCodeToPlaybackError(2, 10, 999);
+        expect(e.recoverable).toBe(true);
+        expect(e.retryAfterMs).toBeLessThanOrEqual(30000);
+    });
+
     it('maps MEDIA_ERR_DECODE (3) to PLAYBACK_DECODE_ERROR and recoverable=false', () => {
         const e = mapMediaErrorCodeToPlaybackError(3, 0, 3);
         expect(e.code).toBe(PlayerErrorCode.PLAYBACK_DECODE_ERROR);

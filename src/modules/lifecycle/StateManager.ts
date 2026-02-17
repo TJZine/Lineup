@@ -93,8 +93,12 @@ export class StateManager implements IStateManager {
             }
 
             return this._repairState(migrated);
-        } catch {
-            // Log parse errors in development for debugging
+        } catch (error) {
+            // Parse errors are non-fatal; state will be treated as absent.
+            const isDev = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
+            if (isDev) {
+                console.warn('[StateManager] Failed to parse persisted state:', error);
+            }
             return null;
         }
     }

@@ -149,8 +149,7 @@ export class PlexAuth implements IPlexAuth {
                 if (error instanceof PlexApiError && !error.retryable) {
                     throw error;
                 }
-                // Log unexpected non-PlexApiError errors for debugging
-                // On network error, continue polling
+                // Transient/network error: continue polling.
             }
             await this._sleep(interval);
         }
@@ -290,6 +289,7 @@ export class PlexAuth implements IPlexAuth {
         try {
             localStorage.removeItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY);
         } catch {
+            // localStorage can be blocked/unavailable; clearing in-memory state is still sufficient.
         }
         this._state.accountToken = null;
         this._state.activeToken = null;

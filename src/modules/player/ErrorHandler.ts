@@ -83,5 +83,7 @@ export function mapMediaErrorCodeToPlaybackError(
  * @returns Delay in milliseconds
  */
 function calculateBackoffDelay(attemptNumber: number, baseDelayMs: number): number {
-    return baseDelayMs * Math.pow(2, attemptNumber);
+    const MAX_BACKOFF_MS = 30000;
+    const calculated = baseDelayMs * Math.pow(2, attemptNumber);
+    return Math.min(calculated, MAX_BACKOFF_MS);
 }

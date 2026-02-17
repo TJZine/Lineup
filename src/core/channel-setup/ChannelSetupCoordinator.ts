@@ -170,11 +170,9 @@ export class ChannelSetupCoordinator {
         reportProgress('fetch_playlists', 'Preparing...', 'Loading libraries', 0, null);
 
         let libraries: PlexLibraryType[];
-        const librariesStart = Date.now();
         try {
             libraries = await this.getLibrariesForSetup(signal ?? null);
         } catch (e) {
-            void librariesStart;
             if (isAbortLike(e, signal ?? undefined)) {
                 reportProgress('fetch_playlists', 'Preparing...', 'Canceled', 0, null);
                 return { created: 0, skipped: 0, reachedMaxChannels: false, errorCount: 0, canceled: true, lastTask: 'fetch_playlists' };
@@ -183,9 +181,6 @@ export class ChannelSetupCoordinator {
         }
         const normalizedConfig = this._normalizeConfig(config);
         const planResult = await this._buildSetupPlan(normalizedConfig, libraries, signal ?? null, reportProgress);
-        void planResult.playlistMs;
-        void planResult.collectionsMs;
-        void planResult.libraryQueryMs;
 
         if (planResult.canceled || !planResult.plan) {
             return {
@@ -236,7 +231,6 @@ export class ChannelSetupCoordinator {
         };
 
         try {
-            const createStart = Date.now();
             let pIndex = 0;
             const buildMode = normalizedConfig.buildMode ?? 'replace';
             const availableNumbers = buildMode === 'replace'
@@ -312,7 +306,6 @@ export class ChannelSetupCoordinator {
                     finalSummary.errorCount++;
                 }
             }
-            void createStart;
             finalSummary.reachedMaxChannels = reachedMax;
 
             if (checkCanceled()) {
@@ -322,7 +315,6 @@ export class ChannelSetupCoordinator {
             }
 
             reportProgress('apply_channels', 'Saving...', 'Saving library', finalSummary.created, finalSummary.created);
-            const applyStart = Date.now();
             const builtChannels = builder.getAllChannels();
             let finalChannels = builtChannels;
             if (buildMode === 'append') {
@@ -332,13 +324,10 @@ export class ChannelSetupCoordinator {
                 finalChannels = [...mergedExisting, ...builtChannels];
             }
             await channelManager.replaceAllChannels(finalChannels);
-            void applyStart;
 
             reportProgress('refresh_epg', 'Refreshing guide...', 'Loading schedules', 0, null);
             this.deps.primeEpgChannels();
-            const refreshStart = Date.now();
             await this.deps.refreshEpgSchedules({ reason: 'channel-setup', debounceMs: 0 });
-            void refreshStart;
 
         } catch (e) {
             console.error('[ChannelSetup] Channel build failed:', summarizeErrorForLog(e));

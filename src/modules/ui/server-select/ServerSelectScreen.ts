@@ -527,7 +527,7 @@ export class ServerSelectScreen {
             this._setStatus('Connection failed.', '', 'error');
             this._detailEl.textContent = '';
             this._handleError(error, 'Unable to use the selected server.');
-            console.error('[ServerSelect] Failed to select server:', error);
+            console.error('[ServerSelect] Failed to select server:', summarizeErrorForLog(error));
         }
     }
 

@@ -6,6 +6,7 @@
 
 import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
 import { isStoredTrue, safeLocalStorageGet } from '../../utils/storage';
+import { summarizeErrorForLog } from '../../utils/errors';
 import type { INavigationManager } from '../navigation';
 import type { IPlexStreamResolver, StreamDecision } from '../plex/stream';
 import type { ScheduledProgram } from '../scheduler/scheduler';
@@ -157,7 +158,14 @@ export class NowPlayingDebugManager {
         ) {
             try {
                 await this._nowPlayingStreamDecisionFetchPromise;
-            } catch {
+            } catch (error) {
+                if (options.logErrors) {
+                    console.warn('[NowPlayingDebug] In-flight PMS decision fetch failed:', {
+                        sessionId,
+                        ratingKey: program.item.ratingKey,
+                        error: summarizeErrorForLog(error),
+                    });
+                }
                 return;
             }
             if (this.deps.getCurrentStreamDecision() !== decision) return;
@@ -195,7 +203,15 @@ export class NowPlayingDebugManager {
             decision.serverDecision = serverDecision;
             this._nowPlayingStreamDecisionFetchedForSessionId = sessionId;
             options.onApplied?.();
-        } catch {
+        } catch (error) {
+            if (options.logErrors) {
+                console.error('[NowPlayingDebug] PMS decision fetch failed:', {
+                    sessionId,
+                    ratingKey: program.item.ratingKey,
+                    fetchToken: token,
+                    error: summarizeErrorForLog(error),
+                });
+            }
         } finally {
             if (
                 token === this._nowPlayingStreamDecisionFetchToken &&

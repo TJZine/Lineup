@@ -53,14 +53,13 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
 
     /**
      * Initialize the remote handler.
-     * @param debugMode - Whether to log key events to console
+     * @param _debugMode - Currently unused (reserved for future debug logging)
      */
-    public initialize(debugMode: boolean = false): void {
+    public initialize(_debugMode: boolean = false): void {
         if (this._isEnabled) {
             return;
         }
 
-        void debugMode;
         document.addEventListener('keydown', this._boundKeyDownHandler);
         document.addEventListener('keyup', this._boundKeyUpHandler);
         this._isEnabled = true;

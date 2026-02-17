@@ -153,6 +153,7 @@ describe('PlaybackRecoveryManager', () => {
     afterEach(() => {
         localStorage.removeItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE);
         localStorage.removeItem(RETUNE_STORAGE_KEYS.SUBTITLE_PREFER_FORCED);
+        jest.restoreAllMocks();
     });
     it('resets playback failure guard and resumes scheduler', () => {
         const { manager, scheduler } = setup();

@@ -325,7 +325,12 @@ export class EPGCoordinator {
             const rangeKey = this._getScheduleRangeKey(range.startTime, range.endTime);
             this._markScheduleLoaded(current.id, rangeKey);
             this._storeScheduleCache(current.id, rangeKey, this._cloneScheduleWindow(window));
-        } catch {
+        } catch (error) {
+            if (this._isDebugEnabled()) {
+                appendEpgDebugLog('EPG.refreshEpgScheduleForLiveChannel.error', {
+                    error: summarizeErrorForLog(error),
+                });
+            }
         }
     }
 
@@ -359,7 +364,12 @@ export class EPGCoordinator {
             const rangeKey = this._getScheduleRangeKey(range.startTime, range.endTime);
             this._markScheduleLoaded(current.id, rangeKey);
             this._storeScheduleCache(current.id, rangeKey, schedule);
-        } catch {
+        } catch (error) {
+            if (this._isDebugEnabled()) {
+                appendEpgDebugLog('EPG._preseedCurrentChannelSchedule.error', {
+                    error: summarizeErrorForLog(error),
+                });
+            }
         }
     }
 
