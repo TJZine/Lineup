@@ -208,4 +208,41 @@ describe('AppOrchestrator event wiring', () => {
         await resumePromise;
         expect(resumeSettled).toBe(true);
     });
+
+    it('rolls back partial wiring when a wiring stage throws', () => {
+        const schedulerCleanup = jest.fn();
+        const navigationCleanup = jest.fn();
+        const orchestrator = new AppOrchestrator() as unknown as {
+            _eventsWired: boolean;
+            _eventUnsubscribers: Array<() => void>;
+            _setupEventWiring: () => void;
+            _wireSchedulerEvents: (cleanups: Array<() => void>) => void;
+            _wirePlayerEvents: (cleanups: Array<() => void>) => void;
+            _wirePlexEvents: (cleanups: Array<() => void>) => void;
+            _wireNavigationEvents: (cleanups: Array<() => void>) => void;
+            _wireEpgEvents: (cleanups: Array<() => void>) => void;
+            _wireLifecycleEvents: (cleanups: Array<() => void>) => void;
+        };
+
+        orchestrator._eventsWired = false;
+        orchestrator._eventUnsubscribers = [];
+        orchestrator._wireSchedulerEvents = (cleanups): void => {
+            cleanups.push(schedulerCleanup);
+        };
+        orchestrator._wirePlayerEvents = (): void => {
+            throw new Error('wire-player-failed');
+        };
+        orchestrator._wirePlexEvents = (): void => undefined;
+        orchestrator._wireNavigationEvents = (cleanups): void => {
+            cleanups.push(navigationCleanup);
+        };
+        orchestrator._wireEpgEvents = (): void => undefined;
+        orchestrator._wireLifecycleEvents = (): void => undefined;
+
+        expect(() => orchestrator._setupEventWiring()).toThrow('wire-player-failed');
+        expect(schedulerCleanup).toHaveBeenCalledTimes(1);
+        expect(navigationCleanup).not.toHaveBeenCalled();
+        expect(orchestrator._eventsWired).toBe(false);
+        expect(orchestrator._eventUnsubscribers).toHaveLength(0);
+    });
 });
