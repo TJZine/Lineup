@@ -123,4 +123,5 @@ export const DEFAULT_EPG_CONFIG = {
     autoScrollToNow: true,
     layoutMode: 'overlay',
     showNowWatchingBanner: true,
+    debugStorageRefreshIntervalMs: 500,
 } as const;

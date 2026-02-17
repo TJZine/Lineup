@@ -70,6 +70,12 @@ export interface EPGConfig {
     } | null;
     /** Optional callback when layout mode changes */
     onLayoutModeChange?: (mode: 'overlay' | 'classic') => void;
+    /**
+     * Debug flag refresh interval for same-tab devtools toggles.
+     * StorageEvent does not fire in the same document that calls localStorage.setItem(),
+     * so we periodically refresh the cached debug flag.
+     */
+    debugStorageRefreshIntervalMs?: number;
 }
 
 /**

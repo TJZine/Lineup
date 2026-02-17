@@ -5,6 +5,11 @@ describe('redactSensitiveTokens', () => {
         expect(redactSensitiveTokens('http://x?X-Plex-Token=abc123')).toBe('http://x?X-Plex-Token=REDACTED');
     });
 
+    it('redacts access_token and token query params', () => {
+        expect(redactSensitiveTokens('http://x?access_token=secret')).toBe('http://x?access_token=REDACTED');
+        expect(redactSensitiveTokens('http://x?token=secret')).toBe('http://x?token=REDACTED');
+    });
+
     it('redacts Plex token header-style strings', () => {
         expect(redactSensitiveTokens('X-Plex-Token: abc123')).toBe('X-Plex-Token: REDACTED');
         expect(redactSensitiveTokens('x-plex-token=abc123')).toBe('X-Plex-Token=REDACTED');
@@ -26,6 +31,16 @@ describe('redactSensitiveTokens', () => {
 });
 
 describe('safeStringifyForLog', () => {
+    it('redacts a plain string input', () => {
+        expect(safeStringifyForLog('http://x?token=abc123')).toBe('http://x?token=REDACTED');
+    });
+
+    it('stringifies and redacts an Error instance', () => {
+        expect(safeStringifyForLog(new Error('http://x?X-Plex-Token=abc123'))).toBe(
+            '{"name":"Error","message":"http://x?X-Plex-Token=REDACTED"}'
+        );
+    });
+
     it('stringifies and redacts token-like strings', () => {
         expect(safeStringifyForLog({ url: 'http://x?X-Plex-Token=abc123' })).toBe(
             '{"url":"http://x?X-Plex-Token=REDACTED"}'
@@ -35,6 +50,8 @@ describe('safeStringifyForLog', () => {
     it('handles circular structures without throwing', () => {
         const a: Record<string, unknown> = {};
         a.self = a;
-        expect(() => safeStringifyForLog(a)).not.toThrow();
+        const out = safeStringifyForLog(a);
+        expect(typeof out).toBe('string');
+        expect(out).toContain('"unserializable":true');
     });
 });

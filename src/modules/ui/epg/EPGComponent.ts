@@ -83,9 +83,11 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private _appliedLayoutMode: 'overlay' | 'classic' | null = null;
     private _appliedPipMode: 'overlay' | 'classic' | null = null;
     private _debugEnabled: boolean = false;
+    private _lastDebugEnabledStorageReadMs: number = 0;
     private _onStorage = (event: StorageEvent): void => {
         if (event.key !== 'retune_debug_epg') return;
         this._debugEnabled = event.newValue === '1';
+        this._lastDebugEnabledStorageReadMs = Date.now();
     };
 
     // Timers
@@ -181,8 +183,13 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
     private isDebugEnabled(): boolean {
         // StorageEvent does not fire in the same document that calls localStorage.setItem(),
-        // so refresh on read to support same-tab toggles (e.g., devtools).
-        this._debugEnabled = this._readDebugEnabledFromStorage();
+        // so periodically refresh to support same-tab toggles without reading on every call.
+        const now = Date.now();
+        const refreshIntervalMs = this.config.debugStorageRefreshIntervalMs ?? 500;
+        if (now - this._lastDebugEnabledStorageReadMs >= refreshIntervalMs) {
+            this._lastDebugEnabledStorageReadMs = now;
+            this._debugEnabled = this._readDebugEnabledFromStorage();
+        }
         return this._debugEnabled;
     }
 
@@ -282,7 +289,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.errorBoundary.on('degradedMode', (data) => {
             if (this.isDebugEnabled()) {
                 appendEpgDebugLog('EPG.degradedMode', data);
-                return;
             }
             console.warn('[EPG] Degraded mode');
         });
