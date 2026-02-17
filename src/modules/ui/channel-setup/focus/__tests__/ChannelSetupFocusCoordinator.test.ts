@@ -30,6 +30,7 @@ describe('ChannelSetupFocusCoordinator', () => {
         coordinator.registerLinear([second], null);
 
         expect(nav.unregisterFocusable).toHaveBeenCalledWith('btn-1');
+        expect(nav.registerFocusable).toHaveBeenCalledWith(expect.objectContaining({ id: 'btn-2' }));
     });
 
     it('unregisters previously registered focusables when re-registering via registerSpatial', () => {
@@ -49,6 +50,7 @@ describe('ChannelSetupFocusCoordinator', () => {
         coordinator.registerSpatial([second], null);
 
         expect(nav.unregisterFocusable).toHaveBeenCalledWith('spatial-1');
+        expect(nav.registerFocusable).toHaveBeenCalledWith(expect.objectContaining({ id: 'spatial-2' }));
     });
 
     it('unregisters previously registered focusables when re-registering via registerStep2', () => {
