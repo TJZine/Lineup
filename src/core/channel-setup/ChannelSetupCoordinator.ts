@@ -43,9 +43,9 @@ const SELECTABLE_STRATEGY_KEYS: SetupStrategyKey[] = [...SETUP_STRATEGY_KEYS];
 
 export interface ChannelSetupCoordinatorDeps {
     // Primary modules
-    getPlexLibrary: () => IPlexLibrary | null;
-    getChannelManager: () => IChannelManager | null;
-    getNavigation: () => INavigationManager | null;
+    plexLibrary: IPlexLibrary;
+    channelManager: IChannelManager;
+    navigation: INavigationManager;
 
     // Server + storage
     getSelectedServerId: () => string | null;
@@ -71,10 +71,7 @@ export class ChannelSetupCoordinator {
 
     // --- Public API mirrored from AppOrchestrator ---
     async getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibraryType[]> {
-        const plexLibrary = this.deps.getPlexLibrary();
-        if (!plexLibrary) {
-            throw new Error('PlexLibrary not initialized');
-        }
+        const plexLibrary = this.deps.plexLibrary;
         const libraries = await plexLibrary.getLibraries({
             signal: signal ?? null,
             includeItemCounts: true,
@@ -88,9 +85,9 @@ export class ChannelSetupCoordinator {
     }
 
     getSetupContextForSelectedServer(): ChannelSetupContext {
-        const channelManager = this.deps.getChannelManager();
+        const channelManager = this.deps.channelManager;
         const serverId = this.deps.getSelectedServerId();
-        if (!channelManager || !serverId) {
+        if (!serverId) {
             return 'unknown';
         }
         return channelManager.getAllChannels().length === 0 ? 'first-time' : 'existing';
@@ -121,10 +118,7 @@ export class ChannelSetupCoordinator {
         config: ChannelSetupConfig,
         options?: { signal?: AbortSignal }
     ): Promise<ChannelSetupReview> {
-        const channelManager = this.deps.getChannelManager();
-        if (!channelManager) {
-            throw new Error('Channel manager not initialized');
-        }
+        const channelManager = this.deps.channelManager;
         const normalizedConfig = this._normalizeConfig(config);
         const libraries = await this.getLibrariesForSetup(options?.signal ?? null);
         const planResult = await this._buildSetupPlan(normalizedConfig, libraries, options?.signal ?? null);
@@ -151,11 +145,8 @@ export class ChannelSetupCoordinator {
         config: ChannelSetupConfig,
         options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }
     ): Promise<ChannelBuildSummary> {
-        const channelManager = this.deps.getChannelManager();
-        const plexLibrary = this.deps.getPlexLibrary();
-        if (!channelManager || !plexLibrary) {
-            throw new Error('Channel manager not initialized');
-        }
+        const channelManager = this.deps.channelManager;
+        const plexLibrary = this.deps.plexLibrary;
 
         const signal = options?.signal;
         const buildStartMs = Date.now();
@@ -410,18 +401,13 @@ export class ChannelSetupCoordinator {
         }
         this.deps.storageRemove(this._getChannelSetupStorageKey(serverId));
         this._channelSetupRerunRequested = true;
-        const navigation = this.deps.getNavigation();
-        if (navigation) {
-            navigation.goTo('channel-setup');
-        }
+        const navigation = this.deps.navigation;
+        navigation.goTo('channel-setup');
     }
 
     // --- Used by InitializationCoordinator + NavigationCoordinator ---
     shouldRunChannelSetup(): boolean {
-        const channelManager = this.deps.getChannelManager();
-        if (!channelManager) {
-            return false;
-        }
+        const channelManager = this.deps.channelManager;
         const serverId = this.deps.getSelectedServerId();
         if (!serverId) {
             return false;
@@ -572,10 +558,7 @@ export class ChannelSetupCoordinator {
         collectionsMs: number;
         libraryQueryMs: number;
     }> {
-        const plexLibrary = this.deps.getPlexLibrary();
-        if (!plexLibrary) {
-            throw new Error('PlexLibrary not initialized');
-        }
+        const plexLibrary = this.deps.plexLibrary;
 
         const checkCanceled = (): boolean => signal?.aborted ?? false;
         const warnings = new Set<string>();

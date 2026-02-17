@@ -11,12 +11,6 @@ import { IDisposable } from '../../../utils/interfaces';
 // ============================================
 
 /**
- * Configuration for Plex API client identification.
- * These values are sent with every Plex API request.
- */
-export type PlexAuthMode = 'legacy' | 'jwt';
-
-/**
  * Public JWK used for JWT-based Plex auth (Ed25519).
  * Only required for the JWT flow.
  */
@@ -55,8 +49,6 @@ export interface PlexAuthConfig {
     device: string;
     /** User-friendly device name (e.g., "Living Room TV") */
     deviceName: string;
-    /** Auth flow selection (default: legacy PIN) */
-    authMode?: PlexAuthMode;
 }
 
 // ============================================

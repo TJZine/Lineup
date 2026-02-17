@@ -7,7 +7,6 @@
 export { PlexAuth, AppErrorCode, PlexApiError } from './PlexAuth';
 export type {
     IPlexAuth,
-    PlexAuthMode,
     PlexAuthConfig,
     PlexPublicJwk,
     PlexDeviceKey,

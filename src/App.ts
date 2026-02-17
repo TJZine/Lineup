@@ -29,7 +29,7 @@ import { normalizeToastInput, type ToastInput, type ToastType } from './modules/
 import { STORAGE_KEYS } from './types';
 import { RETUNE_STORAGE_KEYS } from './config/storageKeys';
 import {
-    readStoredBooleanWithLegacy,
+    readStoredBoolean,
     safeClearRetuneStorage,
     safeLocalStorageGet,
     safeLocalStorageRemove,
@@ -955,24 +955,9 @@ export class App {
                 await navigator.clipboard.writeText(text);
                 return true;
             }
-        } catch {
-            // fall through to legacy path
-        }
-        let ta: HTMLTextAreaElement | null = null;
-        try {
-            ta = document.createElement('textarea');
-            ta.value = text;
-            ta.style.position = 'fixed';
-            ta.style.left = '-9999px';
-            ta.style.top = '0';
-            document.body.appendChild(ta);
-            ta.focus();
-            ta.select();
-            return document.execCommand('copy');
+            return false;
         } catch {
             return false;
-        } finally {
-            ta?.remove();
         }
     }
 
@@ -992,11 +977,7 @@ export class App {
         if (__RETUNE_DEV_BUILD__) {
             return true;
         }
-        return readStoredBooleanWithLegacy(
-            RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
-            RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY,
-            false
-        );
+        return readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
     }
 
     private _renderDevMenu(): void {

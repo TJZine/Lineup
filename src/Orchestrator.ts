@@ -120,7 +120,6 @@ import {
 import {
     InitializationCoordinator,
     ChannelTuningCoordinator,
-    OrchestratorEventWiringCoordinator,
     OrchestratorStorageContext,
     type IInitializationCoordinator,
 } from './core';
@@ -144,7 +143,6 @@ import type { IDisposable } from './utils/interfaces';
 import { createMulberry32 } from './utils/prng';
 import {
     readStoredBoolean,
-    readStoredBooleanWithLegacy,
     safeLocalStorageGet,
     safeLocalStorageRemove,
     safeLocalStorageSet,
@@ -171,8 +169,6 @@ export interface ModuleStatus {
     status: 'pending' | 'initializing' | 'ready' | 'error' | 'disabled';
     loadTimeMs?: number;
     error?: AppError;
-    /** Placeholder for future memory diagnostics (per-module RAM usage tracking) */
-    memoryUsageMB?: number;
 }
 
 export type {
@@ -378,7 +374,6 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _currentStreamDecision: StreamDecision | null = null;
     private readonly _platformServices: PlatformServices;
     private readonly _storageContext: OrchestratorStorageContext;
-    private readonly _eventWiringCoordinator: OrchestratorEventWiringCoordinator;
 
     constructor(platformServices?: PlatformServices) {
         this._platformServices = platformServices ?? webosPlatformServices;
@@ -391,31 +386,6 @@ export class AppOrchestrator implements IAppOrchestrator {
             setChannelManagerStorageKeys: (channelsKey: string, currentChannelKey: string): void => {
                 this._channelManager?.setStorageKeys(channelsKey, currentChannelKey);
             },
-        });
-        this._eventWiringCoordinator = new OrchestratorEventWiringCoordinator({
-            getScheduler: (): IChannelScheduler | null => this._scheduler,
-            getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
-            getPlexLibrary: (): IPlexLibrary | null => this._plexLibrary,
-            getPlexStreamResolver: (): IPlexStreamResolver | null => this._plexStreamResolver,
-            getNavigation: (): INavigationManager | null => this._navigation,
-            getLifecycle: (): IAppLifecycle | null => this._lifecycle,
-            wireNavigationEvents: (): Array<() => void> =>
-                this._navigationCoordinator?.wireNavigationEvents() ?? [],
-            wireEpgEvents: (): Array<() => void> =>
-                this._epgCoordinator?.wireEpgEvents() ?? [],
-            onProgramStart: this._handleProgramStartTracked.bind(this),
-            onScheduleSync: this._handleScheduleDayRollover.bind(this),
-            onPlayerEnded: this._handlePlayerEnded.bind(this),
-            onPlayerTrackChange: this._handlePlayerTrackChange.bind(this),
-            onPlaybackError: this._handlePlaybackError.bind(this),
-            onPlayerStateChange: this._handlePlayerStateChange.bind(this),
-            onPlayerTimeUpdate: this._handlePlayerTimeUpdate.bind(this),
-            onPlayerBufferUpdate: this._handlePlayerBufferUpdate.bind(this),
-            onPlexLibraryAuthExpired: this._handlePlexLibraryAuthExpired.bind(this),
-            onPlexStreamError: this._handlePlexStreamError.bind(this),
-            onScreenChange: this._handleScreenChange.bind(this),
-            onPause: this._handleLifecyclePause.bind(this),
-            onResume: this._handleLifecycleResume.bind(this),
         });
         this._initializeModuleStatus();
     }
@@ -554,6 +524,68 @@ export class AppOrchestrator implements IAppOrchestrator {
         // Playback Options modal - no constructor args, initialize later
         this._playbackOptionsModal = new PlaybackOptionsModal();
 
+        this._createCoordinators();
+        if (this._config.epgConfig) {
+            const previousOnVisibleRangeChange = this._config.epgConfig.onVisibleRangeChange ?? null;
+            this._config.epgConfig.onVisibleRangeChange = (range): void => {
+                if (previousOnVisibleRangeChange) {
+                    previousOnVisibleRangeChange(range);
+                }
+                this._epgCoordinator?.refreshEpgSchedulesForRange(range, { reason: 'visible-range' });
+            };
+        }
+        this._channelSetup?.cleanupStaleChannelBuildKeys();
+
+        // Create InitializationCoordinator with dependencies and callbacks
+        this._initCoordinator = new InitializationCoordinator(
+            config,
+            {
+                lifecycle: this._lifecycle,
+                navigation: this._navigation,
+                plexAuth: this._plexAuth,
+                plexDiscovery: this._plexDiscovery,
+                plexLibrary: this._plexLibrary,
+                plexStreamResolver: this._plexStreamResolver,
+                channelManager: this._channelManager,
+                scheduler: this._scheduler,
+                videoPlayer: this._videoPlayer,
+                epg: this._epg,
+                nowPlayingInfo: this._nowPlayingInfo,
+                playerOsd: this._playerOsd,
+                miniGuide: this._miniGuide,
+                channelTransition: this._channelTransitionOverlay,
+                playbackOptions: this._playbackOptionsModal,
+            },
+            {
+                updateModuleStatus: this._updateModuleStatus.bind(this),
+                getModuleStatus: (id: string): ModuleStatus['status'] | undefined => this._moduleStatus.get(id)?.status,
+                handleGlobalError: this.handleGlobalError.bind(this),
+                setReady: (ready: boolean): void => { this._ready = ready; },
+                setupEventWiring: this._setupEventWiring.bind(this),
+                configureDiscoveryStorage: this._configureDiscoveryStorageKeysForActiveUser.bind(this),
+                configureChannelManagerStorage: this._configureChannelManagerStorageForSelectedServer.bind(this),
+                getSelectedServerId: this._getSelectedServerId.bind(this),
+                shouldRunAudioSetup: this._shouldRunAudioSetup.bind(this),
+                shouldRunChannelSetup: (): boolean => this._channelSetup?.shouldRunChannelSetup() ?? false,
+                switchToChannel: this.switchToChannel.bind(this),
+                openServerSelect: this.openServerSelect.bind(this),
+                buildPlexResourceUrl: (pathOrUrl: string | null): string | null => {
+                    if (!pathOrUrl) return null;
+                    return this._buildPlexResourceUrl(pathOrUrl);
+                },
+                seedSubtitleLanguageFromPlexUser: (): void => {
+                    this._seedSubtitleLanguageFromPlexUser();
+                },
+            }
+        );
+
+        // Update status for all modules
+        this._updateModuleStatus('event-emitter', 'ready');
+    }
+
+    private _createCoordinators(): void {
+        // This method assumes `initialize()` has already created the module instances it references.
+        // It must not perform side effects other than assigning coordinator fields.
         this._epgCoordinator = new EPGCoordinator({
             getEpg: (): IEPGComponent | null => this._epg,
             getChannelManager: (): IChannelManager | null => this._channelManager,
@@ -574,20 +606,11 @@ export class AppOrchestrator implements IAppOrchestrator {
             },
             switchToChannel: (channelId: string): Promise<void> => this.switchToChannel(channelId),
         });
-        if (this._config?.epgConfig) {
-            const previousOnVisibleRangeChange = this._config.epgConfig.onVisibleRangeChange ?? null;
-            this._config.epgConfig.onVisibleRangeChange = (range): void => {
-                if (previousOnVisibleRangeChange) {
-                    previousOnVisibleRangeChange(range);
-                }
-                this._epgCoordinator?.refreshEpgSchedulesForRange(range, { reason: 'visible-range' });
-            };
-        }
 
         this._channelSetup = new ChannelSetupCoordinator({
-            getPlexLibrary: (): IPlexLibrary | null => this._plexLibrary,
-            getChannelManager: (): IChannelManager | null => this._channelManager,
-            getNavigation: (): INavigationManager | null => this._navigation,
+            plexLibrary: this._plexLibrary!,
+            channelManager: this._channelManager!,
+            navigation: this._navigation!,
             getSelectedServerId: (): string | null => this._getSelectedServerId(),
             storageGet: (key: string): string | null => safeLocalStorageGet(key),
             storageSet: (key: string, value: string): void => {
@@ -601,7 +624,6 @@ export class AppOrchestrator implements IAppOrchestrator {
             refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }): Promise<void> =>
                 this._epgCoordinator?.refreshEpgSchedules(options) ?? Promise.resolve(),
         });
-        this._channelSetup.cleanupStaleChannelBuildKeys();
 
         this._nowPlayingDebugManager = new NowPlayingDebugManager({
             nowPlayingModalId: NOW_PLAYING_INFO_MODAL_ID,
@@ -778,10 +800,10 @@ export class AppOrchestrator implements IAppOrchestrator {
         });
 
         this._navigationCoordinator = new NavigationCoordinator({
-            getNavigation: (): INavigationManager | null => this._navigation,
-            getEpg: (): IEPGComponent | null => this._epg,
-            getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
-            getPlexAuth: (): IPlexAuth | null => this._plexAuth,
+            navigation: this._navigation!,
+            epg: this._epg,
+            videoPlayer: this._videoPlayer,
+            plexAuth: this._plexAuth,
             stopPlayback: (): void => this._stopPlayback(),
             pokePlayerOsd: (reason): void => {
                 this._playerOsdCoordinator?.poke(reason);
@@ -850,52 +872,6 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this._nowPlayingHandler?.(toast);
             },
         });
-
-        // Create InitializationCoordinator with dependencies and callbacks
-        this._initCoordinator = new InitializationCoordinator(
-            config,
-            {
-                lifecycle: this._lifecycle,
-                navigation: this._navigation,
-                plexAuth: this._plexAuth,
-                plexDiscovery: this._plexDiscovery,
-                plexLibrary: this._plexLibrary,
-                plexStreamResolver: this._plexStreamResolver,
-                channelManager: this._channelManager,
-                scheduler: this._scheduler,
-                videoPlayer: this._videoPlayer,
-                epg: this._epg,
-                nowPlayingInfo: this._nowPlayingInfo,
-                playerOsd: this._playerOsd,
-                miniGuide: this._miniGuide,
-                channelTransition: this._channelTransitionOverlay,
-                playbackOptions: this._playbackOptionsModal,
-            },
-            {
-                updateModuleStatus: this._updateModuleStatus.bind(this),
-                getModuleStatus: (id: string): ModuleStatus['status'] | undefined => this._moduleStatus.get(id)?.status,
-                handleGlobalError: this.handleGlobalError.bind(this),
-                setReady: (ready: boolean): void => { this._ready = ready; },
-                setupEventWiring: this._setupEventWiring.bind(this),
-                configureDiscoveryStorage: this._configureDiscoveryStorageKeysForActiveUser.bind(this),
-                configureChannelManagerStorage: this._configureChannelManagerStorageForSelectedServer.bind(this),
-                getSelectedServerId: this._getSelectedServerId.bind(this),
-                shouldRunAudioSetup: this._shouldRunAudioSetup.bind(this),
-                shouldRunChannelSetup: (): boolean => this._channelSetup?.shouldRunChannelSetup() ?? false,
-                switchToChannel: this.switchToChannel.bind(this),
-                openServerSelect: this.openServerSelect.bind(this),
-                buildPlexResourceUrl: (pathOrUrl: string | null): string | null => {
-                    if (!pathOrUrl) return null;
-                    return this._buildPlexResourceUrl(pathOrUrl);
-                },
-                seedSubtitleLanguageFromPlexUser: (): void => {
-                    this._seedSubtitleLanguageFromPlexUser();
-                },
-            }
-        );
-
-        // Update status for all modules
-        this._updateModuleStatus('event-emitter', 'ready');
     }
 
     /**
@@ -1291,11 +1267,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         if (!this._plexDiscovery) {
             throw new Error('PlexServerDiscovery not initialized');
         }
-        const debugLogging = readStoredBooleanWithLegacy(
-            RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
-            RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY,
-            false
-        );
+        const debugLogging = readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
         if (debugLogging) {
             console.warn('[Orchestrator] selectServer: selecting server', { serverId });
         }
@@ -1883,6 +1855,134 @@ export class AppOrchestrator implements IAppOrchestrator {
     // Private Methods - Event Wiring
     // ============================================
 
+    private _wireSchedulerEvents(cleanups: Array<() => void>): void {
+        const scheduler = this._scheduler;
+        if (!scheduler) return;
+
+        const programStartHandler = (program: ScheduledProgram): void => {
+            this._handleProgramStartTracked(program).catch((error) => {
+                console.error('[Orchestrator] Unhandled error in program start:', summarizeErrorForLog(error));
+            });
+        };
+        scheduler.on('programStart', programStartHandler);
+
+        const scheduleSyncHandler = (): void => {
+            this._handleScheduleDayRollover().catch((error) => {
+                console.error('[Orchestrator] Unhandled error in scheduleSync handler:', summarizeErrorForLog(error));
+            });
+        };
+        scheduler.on('scheduleSync', scheduleSyncHandler);
+
+        cleanups.push(() => {
+            scheduler.off('programStart', programStartHandler);
+            scheduler.off('scheduleSync', scheduleSyncHandler);
+        });
+    }
+
+    private _wirePlayerEvents(cleanups: Array<() => void>): void {
+        const videoPlayer = this._videoPlayer;
+        if (!videoPlayer) return;
+
+        const endedHandler = (): void => {
+            this._handlePlayerEnded();
+        };
+        const trackChangeHandler = (event: { type: 'audio' | 'subtitle'; trackId: string | null }): void => {
+            this._handlePlayerTrackChange(event);
+        };
+        const errorHandler = (error: PlaybackError): void => {
+            this._handlePlaybackError(error);
+        };
+        const stateChangeHandler = (state: PlaybackState): void => {
+            this._handlePlayerStateChange(state);
+        };
+        const timeUpdateHandler = (payload: { currentTimeMs: number; durationMs: number }): void => {
+            this._handlePlayerTimeUpdate(payload);
+        };
+        const bufferUpdateHandler = (payload: { percent: number; bufferedRanges: TimeRange[] }): void => {
+            this._handlePlayerBufferUpdate(payload);
+        };
+
+        videoPlayer.on('ended', endedHandler);
+        videoPlayer.on('trackChange', trackChangeHandler);
+        videoPlayer.on('error', errorHandler);
+        videoPlayer.on('stateChange', stateChangeHandler);
+        videoPlayer.on('timeUpdate', timeUpdateHandler);
+        videoPlayer.on('bufferUpdate', bufferUpdateHandler);
+
+        cleanups.push(() => {
+            videoPlayer.off('ended', endedHandler);
+            videoPlayer.off('trackChange', trackChangeHandler);
+            videoPlayer.off('error', errorHandler);
+            videoPlayer.off('stateChange', stateChangeHandler);
+            videoPlayer.off('timeUpdate', timeUpdateHandler);
+            videoPlayer.off('bufferUpdate', bufferUpdateHandler);
+        });
+    }
+
+    private _wirePlexEvents(cleanups: Array<() => void>): void {
+        const plexLibrary = this._plexLibrary;
+        if (plexLibrary) {
+            const authExpiredHandler = (): void => {
+                this._handlePlexLibraryAuthExpired();
+            };
+            plexLibrary.on('authExpired', authExpiredHandler);
+            cleanups.push(() => {
+                plexLibrary.off('authExpired', authExpiredHandler);
+            });
+        }
+
+        const plexStreamResolver = this._plexStreamResolver;
+        if (plexStreamResolver) {
+            const plexStreamErrorHandler = (error: StreamResolverError): void => {
+                this._handlePlexStreamError(error);
+            };
+            plexStreamResolver.on('error', plexStreamErrorHandler);
+            cleanups.push(() => {
+                plexStreamResolver.off('error', plexStreamErrorHandler);
+            });
+        }
+    }
+
+    private _wireNavigationEvents(cleanups: Array<() => void>): void {
+        cleanups.push(...(this._navigationCoordinator?.wireNavigationEvents() ?? []));
+        const navigation = this._navigation;
+        if (!navigation) {
+            return;
+        }
+
+        const screenChangeHandler = (payload: { from: string; to: string }): void => {
+            this._handleScreenChange(payload);
+        };
+        navigation.on('screenChange', screenChangeHandler);
+        cleanups.push(() => {
+            navigation.off('screenChange', screenChangeHandler);
+        });
+    }
+
+    private _wireEpgEvents(cleanups: Array<() => void>): void {
+        cleanups.push(...(this._epgCoordinator?.wireEpgEvents() ?? []));
+    }
+
+    private _wireLifecycleEvents(cleanups: Array<() => void>): void {
+        const lifecycle = this._lifecycle;
+        if (!lifecycle) return;
+
+        const pauseSub = lifecycle.onPause(() => {
+            return this._handleLifecyclePause().catch((error) => {
+                console.error('[Orchestrator] Unhandled error in lifecycle pause handler:', summarizeErrorForLog(error));
+            });
+        });
+
+        const resumeSub = lifecycle.onResume(() => {
+            return this._handleLifecycleResume().catch((error) => {
+                console.error('[Orchestrator] Unhandled error in lifecycle resume handler:', summarizeErrorForLog(error));
+            });
+        });
+
+        cleanups.push(() => pauseSub.dispose());
+        cleanups.push(() => resumeSub.dispose());
+    }
+
     /**
      * Wire up all cross-module events per integration contracts.
      * Idempotent: guards against duplicate wiring on retries.
@@ -1893,8 +1993,14 @@ export class AppOrchestrator implements IAppOrchestrator {
             return;
         }
         this._eventsWired = true;
-        const cleanup = this._eventWiringCoordinator.setupCoreEvents();
-        this._eventUnsubscribers.push(...cleanup);
+        const cleanups: Array<() => void> = [];
+        this._wireSchedulerEvents(cleanups);
+        this._wirePlayerEvents(cleanups);
+        this._wirePlexEvents(cleanups);
+        this._wireNavigationEvents(cleanups);
+        this._wireEpgEvents(cleanups);
+        this._wireLifecycleEvents(cleanups);
+        this._eventUnsubscribers.push(...cleanups);
     }
 
     private _handlePlayerEnded(): void {

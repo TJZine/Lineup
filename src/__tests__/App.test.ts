@@ -388,7 +388,7 @@ describe('App bootstrap smoke', () => {
         expect(toastEl?.textContent ?? '').toContain('Some settings could not be saved.');
     });
 
-    it('copies dev playback info via clipboard and legacy paths', async () => {
+    it('copies dev playback info via clipboard and shows toast when blocked/unsupported', async () => {
         jest.useFakeTimers();
         jest.setSystemTime(0);
 
@@ -425,29 +425,12 @@ describe('App bootstrap smoke', () => {
             'SUMMARY'
         );
 
-        // Force legacy copy path by throwing from clipboard.
-        (navigator as unknown as { clipboard: { writeText: jest.Mock } }).clipboard.writeText.mockRejectedValueOnce(
-            new Error('blocked')
-        );
-        Object.defineProperty(document, 'execCommand', {
-            value: jest.fn(() => true),
-            configurable: true,
-        });
-        const execSpy = document.execCommand as unknown as jest.Mock;
-
-        jest.setSystemTime(12_000);
         const copyRaw = devMenu?.querySelector('#dev-playback-copy-raw') as HTMLButtonElement | null;
         expect(copyRaw).not.toBeNull();
-        copyRaw!.click();
-        await flushPromises();
-        expect(execSpy).toHaveBeenCalledWith('copy');
-
-        // Unsupported copy branch (legacy path returns false).
         (navigator as unknown as { clipboard: { writeText: jest.Mock } }).clipboard.writeText.mockRejectedValueOnce(
             new Error('blocked')
         );
-        (document.execCommand as unknown as jest.Mock).mockReturnValueOnce(false);
-        jest.setSystemTime(14_000);
+        jest.setSystemTime(12_000);
         copyRaw!.click();
         await flushPromises();
         const toastEl = document.getElementById('app-toast') as HTMLElement | null;
@@ -485,7 +468,6 @@ describe('App bootstrap smoke', () => {
             writable: true,
         });
         localStorage.removeItem(RETUNE_STORAGE_KEYS.DEBUG_LOGGING);
-        localStorage.removeItem(RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY);
 
         app = new App();
         await app.start();

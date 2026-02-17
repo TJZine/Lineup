@@ -158,8 +158,3 @@ export interface SettingsCategoryConfig {
     /** Settings items in this category */
     items: SettingsItemConfig[];
 }
-
-/** @deprecated use SettingsCategoryId */
-export type SettingsSectionId = SettingsCategoryId;
-/** @deprecated use SettingsCategoryConfig */
-export type SettingsSectionConfig = SettingsCategoryConfig;

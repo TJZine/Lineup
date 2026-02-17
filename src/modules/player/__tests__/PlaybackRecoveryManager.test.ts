@@ -259,11 +259,11 @@ describe('PlaybackRecoveryManager', () => {
     it('ignores stored subtitle track selections (no per-item or global persistence)', async () => {
         localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'standard');
         localStorage.setItem(
-            `${RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_BY_ITEM_PREFIX}item-1`,
+            'retune_subtitle_pref_item:item-1',
             JSON.stringify({ trackId: 'sub-es', language: 'es', codec: 'srt', lastUpdated: Date.now() })
         );
         localStorage.setItem(
-            RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL,
+            'retune_subtitle_pref_global',
             JSON.stringify({ trackId: 'sub-es', language: 'es', codec: 'srt', lastUpdated: Date.now() })
         );
 
