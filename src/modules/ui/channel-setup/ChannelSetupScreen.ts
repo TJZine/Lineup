@@ -39,6 +39,7 @@ import {
     type SetupStrategyKey,
     type StrategyCategoryKey,
 } from './steps/constants';
+import { scrollToNearest } from './focus/scrollToNearest';
 
 const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
 
@@ -586,11 +587,7 @@ export class ChannelSetupScreen {
             element: selectAllButton,
             neighbors: selectAllNeighbors,
             onFocus: () => {
-                try {
-                    selectAllButton.scrollIntoView({ block: 'nearest' });
-                } catch {
-                    selectAllButton.scrollIntoView();
-                }
+                scrollToNearest(selectAllButton);
             },
         });
         nav.registerFocusable({
@@ -598,11 +595,7 @@ export class ChannelSetupScreen {
             element: clearAllButton,
             neighbors: clearAllNeighbors,
             onFocus: () => {
-                try {
-                    clearAllButton.scrollIntoView({ block: 'nearest' });
-                } catch {
-                    clearAllButton.scrollIntoView();
-                }
+                scrollToNearest(clearAllButton);
             },
         });
     }

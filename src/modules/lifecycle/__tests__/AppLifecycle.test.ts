@@ -187,6 +187,45 @@ describe('AppLifecycle', () => {
             expect(handler).toHaveBeenCalled();
         });
 
+        it('should allow removing terminate callbacks via disposable subscription', async () => {
+            await lifecycle.initialize();
+            lifecycle.setPhase('loading_data');
+            await Promise.resolve();
+            lifecycle.setPhase('ready');
+            await Promise.resolve();
+
+            const terminateCallback = jest.fn();
+            const subscription = lifecycle.onTerminate(terminateCallback) as unknown as { dispose?: () => void };
+            expect(typeof subscription?.dispose).toBe('function');
+            subscription.dispose?.();
+
+            await lifecycle.shutdown();
+
+            expect(terminateCallback).not.toHaveBeenCalled();
+        });
+
+        it('does not break callback iteration when a callback disposes another callback during shutdown', async () => {
+            await lifecycle.initialize();
+            lifecycle.setPhase('loading_data');
+            await Promise.resolve();
+            lifecycle.setPhase('ready');
+            await Promise.resolve();
+
+            let secondSubscription: { dispose?: () => void } | null = null;
+            const firstCallback = jest.fn(() => {
+                secondSubscription?.dispose?.();
+            });
+            lifecycle.onTerminate(firstCallback);
+
+            const secondCallback = jest.fn();
+            secondSubscription = lifecycle.onTerminate(secondCallback) as unknown as { dispose?: () => void };
+
+            await lifecycle.shutdown();
+
+            expect(firstCallback).toHaveBeenCalled();
+            expect(secondCallback).not.toHaveBeenCalled();
+        });
+
         it('keeps relaunch add/remove symmetry and removes the exact same handler', async () => {
             const lifecycleService: PlatformLifecycleService = {
                 bindRelaunch: jest.fn((handler: (event: Event) => void) => {

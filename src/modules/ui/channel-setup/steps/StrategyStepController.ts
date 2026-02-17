@@ -28,6 +28,39 @@ const STRATEGY_META = {
 } satisfies Record<SetupStrategyKey, { label: string; detail: string }>;
 
 export class StrategyStepController {
+    private _createToggleButton(options: {
+        id: string;
+        className: string;
+        label: string;
+        meta: string;
+        stateText: string;
+        onClick: () => void;
+        disabled?: boolean;
+    }): HTMLButtonElement {
+        const button = document.createElement('button');
+        button.id = options.id;
+        button.className = options.className;
+        button.disabled = options.disabled ?? false;
+
+        const label = document.createElement('span');
+        label.className = 'setup-toggle-label';
+        label.textContent = options.label;
+
+        const meta = document.createElement('span');
+        meta.className = 'setup-toggle-meta';
+        meta.textContent = options.meta;
+
+        const state = document.createElement('span');
+        state.className = 'setup-toggle-state';
+        state.textContent = options.stateText;
+
+        button.appendChild(label);
+        button.appendChild(meta);
+        button.appendChild(state);
+        button.addEventListener('click', options.onClick);
+        return button;
+    }
+
     render(ctx: StepRenderContext, deps: StrategyStepDeps): void {
         const state = deps.state;
         ctx.stepEl.textContent = 'Step 2 of 3';
@@ -42,59 +75,33 @@ export class StrategyStepController {
         const right = document.createElement('div');
         right.className = 'setup-detail-pane';
 
-        const buildModeButton = document.createElement('button');
-        buildModeButton.id = STEP2_CONTROL_IDS.buildMode;
-        buildModeButton.className = 'setup-toggle';
-
-        const buildModeLabel = document.createElement('span');
-        buildModeLabel.className = 'setup-toggle-label';
-        buildModeLabel.textContent = 'Build mode';
-
-        const buildModeMeta = document.createElement('span');
-        buildModeMeta.className = 'setup-toggle-meta';
-        buildModeMeta.textContent = 'Replace, append, or merge with your lineup.';
-
-        const buildModeState = document.createElement('span');
-        buildModeState.className = 'setup-toggle-state';
-        buildModeState.textContent = state.buildMode.charAt(0).toUpperCase() + state.buildMode.slice(1);
-
-        buildModeButton.appendChild(buildModeLabel);
-        buildModeButton.appendChild(buildModeMeta);
-        buildModeButton.appendChild(buildModeState);
-
-        buildModeButton.addEventListener('click', () => {
-            deps.applySettingChange(buildModeButton.id, (draft) => {
-                const modes: Array<typeof draft.buildMode> = ['replace', 'append', 'merge'];
-                const currentIndex = modes.indexOf(draft.buildMode);
-                const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % modes.length : 0;
-                draft.buildMode = modes[nextIndex] ?? 'replace';
-            });
+        const buildModeButton = this._createToggleButton({
+            id: STEP2_CONTROL_IDS.buildMode,
+            className: 'setup-toggle',
+            label: 'Build mode',
+            meta: 'Replace, append, or merge with your lineup.',
+            stateText: state.buildMode.charAt(0).toUpperCase() + state.buildMode.slice(1),
+            onClick: () => {
+                deps.applySettingChange(STEP2_CONTROL_IDS.buildMode, (draft) => {
+                    const modes: Array<typeof draft.buildMode> = ['replace', 'append', 'merge'];
+                    const currentIndex = modes.indexOf(draft.buildMode);
+                    const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % modes.length : 0;
+                    draft.buildMode = modes[nextIndex] ?? 'replace';
+                });
+            },
         });
 
-        const combineButton = document.createElement('button');
-        combineButton.id = STEP2_CONTROL_IDS.combineMode;
-        combineButton.className = 'setup-toggle';
-
-        const combineLabel = document.createElement('span');
-        combineLabel.className = 'setup-toggle-label';
-        combineLabel.textContent = 'Actor/Studio combine';
-
-        const combineMeta = document.createElement('span');
-        combineMeta.className = 'setup-toggle-meta';
-        combineMeta.textContent = 'Separate movies + TV or combine together.';
-
-        const combineState = document.createElement('span');
-        combineState.className = 'setup-toggle-state';
-        combineState.textContent = state.actorStudioCombineMode === 'combined' ? 'Combined' : 'Separate';
-
-        combineButton.appendChild(combineLabel);
-        combineButton.appendChild(combineMeta);
-        combineButton.appendChild(combineState);
-
-        combineButton.addEventListener('click', () => {
-            deps.applySettingChange(combineButton.id, (draft) => {
-                draft.actorStudioCombineMode = draft.actorStudioCombineMode === 'combined' ? 'separate' : 'combined';
-            });
+        const combineButton = this._createToggleButton({
+            id: STEP2_CONTROL_IDS.combineMode,
+            className: 'setup-toggle',
+            label: 'Actor/Studio combine',
+            meta: 'Separate movies + TV or combine together.',
+            stateText: state.actorStudioCombineMode === 'combined' ? 'Combined' : 'Separate',
+            onClick: () => {
+                deps.applySettingChange(STEP2_CONTROL_IDS.combineMode, (draft) => {
+                    draft.actorStudioCombineMode = draft.actorStudioCombineMode === 'combined' ? 'separate' : 'combined';
+                });
+            },
         });
 
         const strategyLabels: Array<{ key: SetupStrategyKey; label: string; detail: string }> = deps.strategyKeys.map((key) => ({
@@ -105,86 +112,53 @@ export class StrategyStepController {
         const createStrategyControls = (strategy: typeof strategyLabels[number]): HTMLButtonElement[] => {
             const strategyState = state.strategies[strategy.key];
 
-            const toggleButton = document.createElement('button');
-            toggleButton.id = deps.strategyButtonId(strategy.key);
-            toggleButton.className = `setup-toggle${strategyState.enabled ? ' selected' : ''}`;
-
-            const toggleLabel = document.createElement('span');
-            toggleLabel.className = 'setup-toggle-label';
-            toggleLabel.textContent = strategy.label;
-
-            const toggleMeta = document.createElement('span');
-            toggleMeta.className = 'setup-toggle-meta';
-            toggleMeta.textContent = strategy.detail;
-
-            const toggleState = document.createElement('span');
-            toggleState.className = 'setup-toggle-state';
-            toggleState.textContent = strategyState.enabled ? 'On' : 'Off';
-
-            toggleButton.appendChild(toggleLabel);
-            toggleButton.appendChild(toggleMeta);
-            toggleButton.appendChild(toggleState);
-            toggleButton.addEventListener('click', () => {
-                deps.applySettingChange(toggleButton.id, (draft) => {
-                    draft.strategies[strategy.key].enabled = !draft.strategies[strategy.key].enabled;
-                });
+            const toggleId = deps.strategyButtonId(strategy.key);
+            const toggleButton = this._createToggleButton({
+                id: toggleId,
+                className: `setup-toggle${strategyState.enabled ? ' selected' : ''}`,
+                label: strategy.label,
+                meta: strategy.detail,
+                stateText: strategyState.enabled ? 'On' : 'Off',
+                onClick: () => {
+                    deps.applySettingChange(toggleId, (draft) => {
+                        draft.strategies[strategy.key].enabled = !draft.strategies[strategy.key].enabled;
+                    });
+                },
             });
 
-            const priorityButton = document.createElement('button');
-            priorityButton.id = deps.priorityButtonId(strategy.key);
-            priorityButton.className = 'setup-toggle setup-toggle--adjustable';
-
-            const priorityLabel = document.createElement('span');
-            priorityLabel.className = 'setup-toggle-label';
-            priorityLabel.textContent = `${strategy.label} priority`;
-
-            const priorityMeta = document.createElement('span');
-            priorityMeta.className = 'setup-toggle-meta';
-            priorityMeta.textContent = 'Lower numbers are planned earlier.';
-
-            const priorityState = document.createElement('span');
-            priorityState.className = 'setup-toggle-state';
-            priorityState.textContent = String(strategyState.priority);
-
-            priorityButton.appendChild(priorityLabel);
-            priorityButton.appendChild(priorityMeta);
-            priorityButton.appendChild(priorityState);
-            priorityButton.addEventListener('click', () => {
-                deps.applySettingChange(priorityButton.id, (draft) => {
-                    const maxPriority = deps.strategyKeys.length;
-                    const next = draft.strategies[strategy.key];
-                    next.priority = next.priority >= maxPriority ? 1 : next.priority + 1;
-                });
+            const priorityId = deps.priorityButtonId(strategy.key);
+            const priorityButton = this._createToggleButton({
+                id: priorityId,
+                className: 'setup-toggle setup-toggle--adjustable',
+                label: `${strategy.label} priority`,
+                meta: 'Lower numbers are planned earlier.',
+                stateText: String(strategyState.priority),
+                onClick: () => {
+                    deps.applySettingChange(priorityId, (draft) => {
+                        const maxPriority = deps.strategyKeys.length;
+                        const next = draft.strategies[strategy.key];
+                        next.priority = next.priority >= maxPriority ? 1 : next.priority + 1;
+                    });
+                },
             });
 
             if (!deps.strategySupportsMixedScope(strategy.key)) {
                 return [toggleButton, priorityButton];
             }
 
-            const scopeButton = document.createElement('button');
-            scopeButton.id = deps.scopeButtonId(strategy.key);
-            scopeButton.className = `setup-toggle${strategyState.scope === 'cross-library' ? ' selected' : ''}`;
-
-            const scopeLabel = document.createElement('span');
-            scopeLabel.className = 'setup-toggle-label';
-            scopeLabel.textContent = `${strategy.label} scope`;
-
-            const scopeMeta = document.createElement('span');
-            scopeMeta.className = 'setup-toggle-meta';
-            scopeMeta.textContent = 'Per-library by default. Mixed is experimental.';
-
-            const scopeState = document.createElement('span');
-            scopeState.className = 'setup-toggle-state';
-            scopeState.textContent = strategyState.scope === 'cross-library' ? 'Mixed' : 'Per Library';
-
-            scopeButton.appendChild(scopeLabel);
-            scopeButton.appendChild(scopeMeta);
-            scopeButton.appendChild(scopeState);
-            scopeButton.addEventListener('click', () => {
-                deps.applySettingChange(scopeButton.id, (draft) => {
-                    const next = draft.strategies[strategy.key];
-                    next.scope = next.scope === 'cross-library' ? 'per-library' : 'cross-library';
-                });
+            const scopeId = deps.scopeButtonId(strategy.key);
+            const scopeButton = this._createToggleButton({
+                id: scopeId,
+                className: `setup-toggle${strategyState.scope === 'cross-library' ? ' selected' : ''}`,
+                label: `${strategy.label} scope`,
+                meta: 'Per-library by default. Mixed is experimental.',
+                stateText: strategyState.scope === 'cross-library' ? 'Mixed' : 'Per Library',
+                onClick: () => {
+                    deps.applySettingChange(scopeId, (draft) => {
+                        const next = draft.strategies[strategy.key];
+                        next.scope = next.scope === 'cross-library' ? 'per-library' : 'cross-library';
+                    });
+                },
             });
 
             return [toggleButton, priorityButton, scopeButton];
@@ -197,176 +171,102 @@ export class StrategyStepController {
             .filter((strategy) => isAdvancedStrategyKey(strategy.key))
             .flatMap(createStrategyControls);
 
-        const addAlternateLineupsButton = document.createElement('button');
-        addAlternateLineupsButton.id = STEP2_CONTROL_IDS.addAlternateLineups;
-        addAlternateLineupsButton.className = `setup-toggle${state.channelExpansion.addAlternateLineups ? ' selected' : ''}`;
-
-        const addAlternateLineupsLabel = document.createElement('span');
-        addAlternateLineupsLabel.className = 'setup-toggle-label';
-        addAlternateLineupsLabel.textContent = 'Add Alternate Lineups';
-
-        const addAlternateLineupsMeta = document.createElement('span');
-        addAlternateLineupsMeta.className = 'setup-toggle-meta';
-        addAlternateLineupsMeta.textContent = 'Create extra channels from the same category with different deterministic shuffle lineups.';
-
-        const addAlternateLineupsState = document.createElement('span');
-        addAlternateLineupsState.className = 'setup-toggle-state';
-        addAlternateLineupsState.textContent = state.channelExpansion.addAlternateLineups ? 'On' : 'Off';
-
-        addAlternateLineupsButton.appendChild(addAlternateLineupsLabel);
-        addAlternateLineupsButton.appendChild(addAlternateLineupsMeta);
-        addAlternateLineupsButton.appendChild(addAlternateLineupsState);
-        addAlternateLineupsButton.addEventListener('click', () => {
-            deps.applySettingChange(addAlternateLineupsButton.id, (draft) => {
-                draft.channelExpansion.addAlternateLineups = !draft.channelExpansion.addAlternateLineups;
-            });
+        const addAlternateLineupsButton = this._createToggleButton({
+            id: STEP2_CONTROL_IDS.addAlternateLineups,
+            className: `setup-toggle${state.channelExpansion.addAlternateLineups ? ' selected' : ''}`,
+            label: 'Add Alternate Lineups',
+            meta: 'Create extra channels from the same category with different deterministic shuffle lineups.',
+            stateText: state.channelExpansion.addAlternateLineups ? 'On' : 'Off',
+            onClick: () => {
+                deps.applySettingChange(STEP2_CONTROL_IDS.addAlternateLineups, (draft) => {
+                    draft.channelExpansion.addAlternateLineups = !draft.channelExpansion.addAlternateLineups;
+                });
+            },
         });
 
-        const alternateCopiesButton = document.createElement('button');
-        alternateCopiesButton.id = STEP2_CONTROL_IDS.alternateLineupCopies;
-        alternateCopiesButton.className = 'setup-toggle setup-toggle--adjustable';
-        alternateCopiesButton.disabled = !state.channelExpansion.addAlternateLineups;
-
-        const alternateCopiesLabel = document.createElement('span');
-        alternateCopiesLabel.className = 'setup-toggle-label';
-        alternateCopiesLabel.textContent = 'Alternate Lineup Copies';
-
-        const alternateCopiesMeta = document.createElement('span');
-        alternateCopiesMeta.className = 'setup-toggle-meta';
-        alternateCopiesMeta.textContent = 'How many extra copies per generated channel.';
-
-        const alternateCopiesState = document.createElement('span');
-        alternateCopiesState.className = 'setup-toggle-state';
-        alternateCopiesState.textContent = String(state.channelExpansion.alternateLineupCopies);
-
-        alternateCopiesButton.appendChild(alternateCopiesLabel);
-        alternateCopiesButton.appendChild(alternateCopiesMeta);
-        alternateCopiesButton.appendChild(alternateCopiesState);
-        alternateCopiesButton.addEventListener('click', () => {
-            if (!state.channelExpansion.addAlternateLineups) {
-                return;
-            }
-            deps.applySettingChange(alternateCopiesButton.id, (draft) => {
-                draft.channelExpansion.alternateLineupCopies = deps.stepPreset(
-                    [1, 2, 3],
-                    draft.channelExpansion.alternateLineupCopies,
-                    'right',
-                    'wrap'
-                );
-            });
+        const alternateCopiesButton = this._createToggleButton({
+            id: STEP2_CONTROL_IDS.alternateLineupCopies,
+            className: 'setup-toggle setup-toggle--adjustable',
+            disabled: !state.channelExpansion.addAlternateLineups,
+            label: 'Alternate Lineup Copies',
+            meta: 'How many extra copies per generated channel.',
+            stateText: String(state.channelExpansion.alternateLineupCopies),
+            onClick: () => {
+                if (!state.channelExpansion.addAlternateLineups) {
+                    return;
+                }
+                deps.applySettingChange(STEP2_CONTROL_IDS.alternateLineupCopies, (draft) => {
+                    draft.channelExpansion.alternateLineupCopies = deps.stepPreset(
+                        [1, 2, 3],
+                        draft.channelExpansion.alternateLineupCopies,
+                        'right',
+                        'wrap'
+                    );
+                });
+            },
         });
 
-        const addSequentialVariantsButton = document.createElement('button');
-        addSequentialVariantsButton.id = STEP2_CONTROL_IDS.addSequentialVariants;
-        addSequentialVariantsButton.className = `setup-toggle${state.channelExpansion.addSequentialVariants ? ' selected' : ''}`;
-
-        const addSequentialLabel = document.createElement('span');
-        addSequentialLabel.className = 'setup-toggle-label';
-        addSequentialLabel.textContent = 'Add Sequential Channels';
-
-        const addSequentialMeta = document.createElement('span');
-        addSequentialMeta.className = 'setup-toggle-meta';
-        addSequentialMeta.textContent = 'Also create a sequential version for each generated channel.';
-
-        const addSequentialState = document.createElement('span');
-        addSequentialState.className = 'setup-toggle-state';
-        addSequentialState.textContent = state.channelExpansion.addSequentialVariants ? 'On' : 'Off';
-
-        addSequentialVariantsButton.appendChild(addSequentialLabel);
-        addSequentialVariantsButton.appendChild(addSequentialMeta);
-        addSequentialVariantsButton.appendChild(addSequentialState);
-        addSequentialVariantsButton.addEventListener('click', () => {
-            deps.applySettingChange(addSequentialVariantsButton.id, (draft) => {
-                draft.channelExpansion.addSequentialVariants = !draft.channelExpansion.addSequentialVariants;
-            });
+        const addSequentialVariantsButton = this._createToggleButton({
+            id: STEP2_CONTROL_IDS.addSequentialVariants,
+            className: `setup-toggle${state.channelExpansion.addSequentialVariants ? ' selected' : ''}`,
+            label: 'Add Sequential Channels',
+            meta: 'Also create a sequential version for each generated channel.',
+            stateText: state.channelExpansion.addSequentialVariants ? 'On' : 'Off',
+            onClick: () => {
+                deps.applySettingChange(STEP2_CONTROL_IDS.addSequentialVariants, (draft) => {
+                    draft.channelExpansion.addSequentialVariants = !draft.channelExpansion.addSequentialVariants;
+                });
+            },
         });
 
-        const maxButton = document.createElement('button');
-        maxButton.id = STEP2_CONTROL_IDS.maxChannels;
-        maxButton.className = 'setup-toggle setup-toggle--adjustable';
-
-        const maxLabel = document.createElement('span');
-        maxLabel.className = 'setup-toggle-label';
-        maxLabel.textContent = 'Max channels';
-
-        const maxMeta = document.createElement('span');
-        maxMeta.className = 'setup-toggle-meta';
-        maxMeta.textContent = `Default ${DEFAULT_CHANNEL_SETUP_MAX}. Limit up to ${MAX_CHANNELS}.`;
-
-        const maxState = document.createElement('span');
-        maxState.className = 'setup-toggle-state';
-        maxState.textContent = String(state.maxChannels);
-
-        maxButton.appendChild(maxLabel);
-        maxButton.appendChild(maxMeta);
-        maxButton.appendChild(maxState);
-
-        maxButton.addEventListener('click', () => {
-            deps.applySettingChange(maxButton.id, (draft) => {
-                draft.maxChannels = deps.stepPreset(
-                    deps.channelLimitOptions,
-                    draft.maxChannels,
-                    'right',
-                    'wrap'
-                );
-            });
+        const maxButton = this._createToggleButton({
+            id: STEP2_CONTROL_IDS.maxChannels,
+            className: 'setup-toggle setup-toggle--adjustable',
+            label: 'Max channels',
+            meta: `Default ${DEFAULT_CHANNEL_SETUP_MAX}. Limit up to ${MAX_CHANNELS}.`,
+            stateText: String(state.maxChannels),
+            onClick: () => {
+                deps.applySettingChange(STEP2_CONTROL_IDS.maxChannels, (draft) => {
+                    draft.maxChannels = deps.stepPreset(
+                        deps.channelLimitOptions,
+                        draft.maxChannels,
+                        'right',
+                        'wrap'
+                    );
+                });
+            },
         });
 
-        const minItemsButton = document.createElement('button');
-        minItemsButton.id = STEP2_CONTROL_IDS.minItems;
-        minItemsButton.className = 'setup-toggle setup-toggle--adjustable';
-
-        const minItemsLabel = document.createElement('span');
-        minItemsLabel.className = 'setup-toggle-label';
-        minItemsLabel.textContent = 'Min items';
-
-        const minItemsMeta = document.createElement('span');
-        minItemsMeta.className = 'setup-toggle-meta';
-        minItemsMeta.textContent = 'Minimum content items per channel.';
-
-        const minItemsState = document.createElement('span');
-        minItemsState.className = 'setup-toggle-state';
-        minItemsState.textContent = String(state.minItems);
-
-        minItemsButton.appendChild(minItemsLabel);
-        minItemsButton.appendChild(minItemsMeta);
-        minItemsButton.appendChild(minItemsState);
-
-        minItemsButton.addEventListener('click', () => {
-            deps.applySettingChange(minItemsButton.id, (draft) => {
-                draft.minItems = deps.stepPreset(
-                    deps.minItemsOptions,
-                    draft.minItems,
-                    'right',
-                    'wrap'
-                );
-            });
+        const minItemsButton = this._createToggleButton({
+            id: STEP2_CONTROL_IDS.minItems,
+            className: 'setup-toggle setup-toggle--adjustable',
+            label: 'Min items',
+            meta: 'Minimum content items per channel.',
+            stateText: String(state.minItems),
+            onClick: () => {
+                deps.applySettingChange(STEP2_CONTROL_IDS.minItems, (draft) => {
+                    draft.minItems = deps.stepPreset(
+                        deps.minItemsOptions,
+                        draft.minItems,
+                        'right',
+                        'wrap'
+                    );
+                });
+            },
         });
 
-        const expandLineupButton = document.createElement('button');
-        expandLineupButton.id = STEP2_CONTROL_IDS.expandLineup;
-        expandLineupButton.className = 'setup-toggle';
-
-        const expandLineupLabel = document.createElement('span');
-        expandLineupLabel.className = 'setup-toggle-label';
-        expandLineupLabel.textContent = 'Expand Lineup';
-
-        const expandLineupMeta = document.createElement('span');
-        expandLineupMeta.className = 'setup-toggle-meta';
-        expandLineupMeta.textContent = 'Quick action: set max channels to the cap and min items to 1.';
-
-        const expandLineupState = document.createElement('span');
-        expandLineupState.className = 'setup-toggle-state';
-        expandLineupState.textContent = 'Apply';
-
-        expandLineupButton.appendChild(expandLineupLabel);
-        expandLineupButton.appendChild(expandLineupMeta);
-        expandLineupButton.appendChild(expandLineupState);
-        expandLineupButton.addEventListener('click', () => {
-            deps.applySettingChange(expandLineupButton.id, (draft) => {
-                draft.maxChannels = MAX_CHANNELS;
-                draft.minItems = 1;
-            });
+        const expandLineupButton = this._createToggleButton({
+            id: STEP2_CONTROL_IDS.expandLineup,
+            className: 'setup-toggle',
+            label: 'Expand Lineup',
+            meta: 'Quick action: set max channels to the cap and min items to 1.',
+            stateText: 'Apply',
+            onClick: () => {
+                deps.applySettingChange(STEP2_CONTROL_IDS.expandLineup, (draft) => {
+                    draft.maxChannels = MAX_CHANNELS;
+                    draft.minItems = 1;
+                });
+            },
         });
 
         const controlsByCategory: Record<StrategyCategoryKey, HTMLButtonElement[]> = {

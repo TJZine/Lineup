@@ -19,6 +19,16 @@ import {
     makeLibrary,
 } from './channel-setup-test-helpers';
 
+const waitForSelector = async (root: ParentNode, selector: string, maxRounds: number = 20): Promise<void> => {
+    for (let i = 0; i < maxRounds; i++) {
+        await flushPromises();
+        if (root.querySelector(selector) !== null) {
+            return;
+        }
+    }
+    throw new Error(`Timed out waiting for selector: ${selector}`);
+};
+
 describe('ChannelSetupScreen contracts', () => {
     afterEach(() => {
         jest.clearAllMocks();
@@ -88,13 +98,10 @@ describe('ChannelSetupScreen contracts', () => {
         expect(container.querySelector(`#${STEP2_CONTROL_IDS.expandLineup}`)).not.toBeNull();
 
         clickButton(container, '#setup-next');
-        // Multiple microtask ticks: click handler schedules state changes; render->loadReview uses a deferred microtask;
-        // and the final update reveals '#setup-back', '#setup-confirm', and '#setup-replace-confirm'.
-        await flushPromises();
-        await flushPromises();
+        await waitForSelector(container, '#setup-confirm');
         expect(container.querySelector('#setup-back')).not.toBeNull();
         expect(container.querySelector('#setup-confirm')).not.toBeNull();
-        await flushPromises();
+        await waitForSelector(container, '#setup-replace-confirm');
         expect(container.querySelector('#setup-replace-confirm')).not.toBeNull();
     });
 

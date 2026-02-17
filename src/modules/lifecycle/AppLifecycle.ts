@@ -627,7 +627,8 @@ export class AppLifecycle implements IAppLifecycle {
         callbacks: LifecycleCallback[],
         timeoutMs: number
     ): Promise<void> {
-        const promises = callbacks.map((callback) => {
+        const toRun = callbacks.slice();
+        const promises = toRun.map((callback) => {
             return new Promise<void>((resolve) => {
                 const timeoutId = setTimeout(() => {
                     resolve();
@@ -661,9 +662,9 @@ export class AppLifecycle implements IAppLifecycle {
         callbacks: LifecycleCallback[],
         callback: LifecycleCallback
     ): IDisposable {
-        const wrapped: LifecycleCallback = () => callback();
-        callbacks.push(wrapped);
         let disposed = false;
+        const wrapped: LifecycleCallback = () => (disposed ? undefined : callback());
+        callbacks.push(wrapped);
         return {
             dispose: (): void => {
                 if (disposed) return;

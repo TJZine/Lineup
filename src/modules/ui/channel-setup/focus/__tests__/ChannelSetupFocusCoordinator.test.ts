@@ -108,4 +108,46 @@ describe('ChannelSetupFocusCoordinator', () => {
         expect(nav.unregisterFocusable).toHaveBeenCalledWith('detail-1');
         expect(nav.unregisterFocusable).toHaveBeenCalledWith('footer-1');
     });
+
+    it('unregisterAll clears registered ids and unregisters them from navigation', () => {
+        const nav = {
+            registerFocusable: jest.fn(),
+            unregisterFocusable: jest.fn(),
+            setFocus: jest.fn(),
+        };
+
+        const deps: FocusCoordinatorDeps = {
+            getNavigation: () => nav as unknown as INavigationManager,
+        };
+        const coordinator = new ChannelSetupFocusCoordinator(deps);
+
+        const first = document.createElement('button');
+        first.id = 'btn-a';
+        const second = document.createElement('button');
+        second.id = 'btn-b';
+
+        coordinator.registerLinear([first, second], null);
+        expect((coordinator as unknown as { _registeredIds: string[] })._registeredIds).toEqual(['btn-a', 'btn-b']);
+
+        coordinator.unregisterAll();
+
+        expect(nav.unregisterFocusable).toHaveBeenCalledWith('btn-a');
+        expect(nav.unregisterFocusable).toHaveBeenCalledWith('btn-b');
+        expect((coordinator as unknown as { _registeredIds: string[] })._registeredIds).toEqual([]);
+    });
+
+    it('clears registered ids and returns false when navigation is null', () => {
+        const coordinator = new ChannelSetupFocusCoordinator({ getNavigation: (): INavigationManager | null => null });
+        (coordinator as unknown as { _registeredIds: string[] })._registeredIds = ['stale'];
+
+        const button = document.createElement('button');
+        button.id = 'x';
+
+        expect(coordinator.registerLinear([button], null)).toBe(false);
+        expect((coordinator as unknown as { _registeredIds: string[] })._registeredIds).toEqual([]);
+
+        (coordinator as unknown as { _registeredIds: string[] })._registeredIds = ['stale-2'];
+        coordinator.unregisterAll();
+        expect((coordinator as unknown as { _registeredIds: string[] })._registeredIds).toEqual([]);
+    });
 });

@@ -1,16 +1,9 @@
 import type { FocusableElement } from '../../../navigation/interfaces';
 import { STEP2_ADJUSTABLE_CONTROL_IDS } from '../steps/constants';
+import { scrollToNearest } from './scrollToNearest';
 import type { FocusCoordinatorDeps } from './types';
 
 const STEP2_ADJUSTABLE_IDS = new Set<string>(STEP2_ADJUSTABLE_CONTROL_IDS);
-
-const scrollToNearest = (element: HTMLElement): void => {
-    try {
-        element.scrollIntoView({ block: 'nearest' });
-    } catch {
-        element.scrollIntoView();
-    }
-};
 
 export class ChannelSetupFocusCoordinator {
     private readonly _deps: FocusCoordinatorDeps;
@@ -52,7 +45,9 @@ export class ChannelSetupFocusCoordinator {
             .filter((button) => !button.disabled);
         this._registeredIds = focusableButtons.map((button) => button.id);
 
-        const detailIds = detailButtons.filter((button) => !button.disabled).map((button) => button.id);
+        const detailIdSet = new Set<string>(
+            detailButtons.filter((button) => !button.disabled).map((button) => button.id)
+        );
         for (const [index, button] of focusableButtons.entries()) {
             const neighbors: FocusableElement['neighbors'] = {};
             const up = index > 0 ? focusableButtons[index - 1] : undefined;
@@ -68,7 +63,7 @@ export class ChannelSetupFocusCoordinator {
                 neighbors.right = detailFocusTarget;
             }
 
-            const isDetailButton = detailIds.includes(button.id);
+            const isDetailButton = detailIdSet.has(button.id);
             const isAdjustable = STEP2_ADJUSTABLE_IDS.has(button.id) || button.id.startsWith('setup-priority-');
             if (isDetailButton && !isAdjustable) {
                 neighbors.left = activeCategoryId;
