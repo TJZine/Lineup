@@ -9,7 +9,13 @@ import { RETUNE_EVENT_NAMES } from './config/events';
 import { RETUNE_STORAGE_KEYS } from './config/storageKeys';
 import { redactSensitiveTokens } from './utils/redact';
 import { summarizeErrorForLog } from './utils/errors';
-import { readStoredBooleanWithLegacy } from './utils/storage';
+import {
+    parseStoredBoolean,
+    readStoredBoolean,
+    safeLocalStorageGet,
+    safeLocalStorageRemove,
+    safeLocalStorageSet,
+} from './utils/storage';
 
 type ConsoleNoiseMethod = 'debug' | 'info' | 'log' | 'warn';
 const CONSOLE_NOISE_METHODS: ConsoleNoiseMethod[] = ['debug', 'info', 'log', 'warn'];
@@ -27,17 +33,28 @@ const ORIGINAL_CONSOLE_METHODS: Record<ConsoleNoiseMethod, (...args: unknown[]) 
  * Keep console.error intact for real failure diagnostics.
  */
 function configureLoggingPolicy(): void {
-    const debugEnabled = readStoredBooleanWithLegacy(
-        RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
-        RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY,
-        false
-    );
+    const debugEnabled = readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
     const shouldSuppressNoise = !__RETUNE_DEV_BUILD__ && !debugEnabled;
     const noop = (..._args: unknown[]): void => undefined;
     for (const method of CONSOLE_NOISE_METHODS) {
         // eslint-disable-next-line no-console
         console[method] = shouldSuppressNoise ? noop : ORIGINAL_CONSOLE_METHODS[method];
     }
+}
+
+function migrateLegacyDebugLoggingKey(): void {
+    const primaryKey = RETUNE_STORAGE_KEYS.DEBUG_LOGGING;
+    const legacyKey = 'retune_debug_transcode';
+
+    const primary = parseStoredBoolean(safeLocalStorageGet(primaryKey));
+    if (primary !== null) return;
+
+    const legacy = parseStoredBoolean(safeLocalStorageGet(legacyKey));
+    if (legacy === null) return;
+
+    const serialized = legacy ? '1' : '0';
+    safeLocalStorageSet(primaryKey, serialized);
+    safeLocalStorageRemove(legacyKey);
 }
 
 function logLifecycle(message: string): void {
@@ -84,11 +101,7 @@ function handlePageShow(event: PageTransitionEvent): void {
 }
 
 function isDebugSurfaceEnabled(): boolean {
-    const debugEnabled = readStoredBooleanWithLegacy(
-        RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
-        RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY,
-        false
-    );
+    const debugEnabled = readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
     return __RETUNE_DEV_BUILD__ || debugEnabled;
 }
 
@@ -309,6 +322,7 @@ export function installRetuneBootstrap(): void {
     if (bootstrapInstalled) return;
     bootstrapInstalled = true;
 
+    migrateLegacyDebugLoggingKey();
     configureLoggingPolicy();
     window.addEventListener(RETUNE_EVENT_NAMES.DEBUG_LOGGING_CHANGED, handleDebugLoggingChanged);
 

@@ -35,7 +35,6 @@ import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
 import {
     isStoredTrue,
     readStoredBoolean,
-    readStoredBooleanWithLegacy,
     safeLocalStorageGet,
 } from '../../../utils/storage';
 import { summarizeErrorForLog } from '../../../utils/errors';
@@ -1820,11 +1819,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
     private _isDebugLoggingEnabled(): boolean {
         try {
-            return readStoredBooleanWithLegacy(
-                RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
-                RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY,
-                false
-            );
+            return readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
         } catch {
             return false;
         }

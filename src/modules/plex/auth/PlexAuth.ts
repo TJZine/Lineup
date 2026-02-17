@@ -20,7 +20,6 @@ import {
     StoredAuthData,
 } from './interfaces';
 import {
-    AppErrorCode,
     PlexApiError,
     getOrCreateClientId,
     buildRequestHeaders,
@@ -32,9 +31,11 @@ import {
     fetchWithRetry,
     fetchWithTimeout,
 } from './helpers';
+import { AppErrorCode } from '../../lifecycle/types';
 
 // Re-export for consumers
-export { AppErrorCode, PlexApiError } from './helpers';
+export { PlexApiError } from './helpers';
+export { AppErrorCode } from '../../lifecycle/types';
 
 /**
  * Plex Authentication implementation.

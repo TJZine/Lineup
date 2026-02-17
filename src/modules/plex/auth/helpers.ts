@@ -9,9 +9,6 @@ import { PLEX_AUTH_CONSTANTS } from './constants';
 import { PlexAuthConfig, PlexAuthToken, PlexPinRequest, PlexHomeUser } from './interfaces';
 import { AppErrorCode } from '../../lifecycle/types';
 
-// Re-export AppErrorCode from canonical source for backward compatibility
-export { AppErrorCode } from '../../lifecycle/types';
-
 /**
  * Error class for Plex API errors.
  */

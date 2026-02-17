@@ -176,7 +176,6 @@ describe('bootstrap seam', () => {
 
         setDevBuild(false);
         localStorage.removeItem(RETUNE_STORAGE_KEYS.DEBUG_LOGGING);
-        localStorage.removeItem(RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY);
         module.bootstrapInternals.syncWindowDebugApi({
             getOrchestrator: () => orchestrator,
         } as never);
@@ -246,7 +245,6 @@ describe('bootstrap seam', () => {
     it('suppresses console noise when debug logging is off in lean mode', async () => {
         setDevBuild(false);
         localStorage.removeItem(RETUNE_STORAGE_KEYS.DEBUG_LOGGING);
-        localStorage.removeItem(RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY);
 
         const { module } = await importBootstrapModule();
         module.bootstrapInternals.configureLoggingPolicy();

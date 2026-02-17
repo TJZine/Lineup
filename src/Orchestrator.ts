@@ -144,7 +144,6 @@ import type { IDisposable } from './utils/interfaces';
 import { createMulberry32 } from './utils/prng';
 import {
     readStoredBoolean,
-    readStoredBooleanWithLegacy,
     safeLocalStorageGet,
     safeLocalStorageRemove,
     safeLocalStorageSet,
@@ -171,8 +170,6 @@ export interface ModuleStatus {
     status: 'pending' | 'initializing' | 'ready' | 'error' | 'disabled';
     loadTimeMs?: number;
     error?: AppError;
-    /** Placeholder for future memory diagnostics (per-module RAM usage tracking) */
-    memoryUsageMB?: number;
 }
 
 export type {
@@ -1291,11 +1288,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         if (!this._plexDiscovery) {
             throw new Error('PlexServerDiscovery not initialized');
         }
-        const debugLogging = readStoredBooleanWithLegacy(
-            RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
-            RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY,
-            false
-        );
+        const debugLogging = readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
         if (debugLogging) {
             console.warn('[Orchestrator] selectServer: selecting server', { serverId });
         }

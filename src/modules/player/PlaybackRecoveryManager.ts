@@ -19,7 +19,7 @@ import { TEXT_SUBTITLE_FORMATS } from './constants';
 import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
 import {
     isStoredTrue,
-    readStoredBooleanWithLegacy,
+    readStoredBoolean,
     safeLocalStorageGet,
 } from '../../utils/storage';
 import { getSubtitleMode, subtitleModeAllowsBurnIn, subtitleModeIsDirectOnly } from '../../shared/subtitle-mode';
@@ -766,11 +766,7 @@ export class PlaybackRecoveryManager {
 
     private _isDebugLoggingEnabled(): boolean {
         try {
-            return readStoredBooleanWithLegacy(
-                RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
-                RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY,
-                false
-            );
+            return readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
         } catch {
             return false;
         }

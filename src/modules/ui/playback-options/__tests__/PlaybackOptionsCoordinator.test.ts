@@ -575,8 +575,8 @@ describe('PlaybackOptionsCoordinator', () => {
 
         await flushPromises();
 
-        const storedItem = localStorage.getItem(`${RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_BY_ITEM_PREFIX}item-99`);
-        const storedGlobal = localStorage.getItem(RETUNE_STORAGE_KEYS.SUBTITLE_PREFERENCE_GLOBAL);
+        const storedItem = localStorage.getItem('retune_subtitle_pref_item:item-99');
+        const storedGlobal = localStorage.getItem('retune_subtitle_pref_global');
         expect(storedItem).toBeNull();
         expect(storedGlobal).toBeNull();
     });

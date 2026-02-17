@@ -30,7 +30,7 @@ import {
     CHANNEL_INPUT_CONFIG,
 } from './constants';
 import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
-import { readStoredBooleanWithLegacy } from '../../utils/storage';
+import { readStoredBoolean } from '../../utils/storage';
 import type { PlatformInputService } from '../../platform';
 
 /**
@@ -668,11 +668,7 @@ export class NavigationManager
 
     private _isDebugLoggingEnabled(): boolean {
         try {
-            return readStoredBooleanWithLegacy(
-                RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
-                RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY,
-                false
-            );
+            return readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
         } catch {
             return false;
         }

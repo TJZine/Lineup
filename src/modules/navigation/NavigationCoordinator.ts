@@ -11,7 +11,7 @@ import type { IPlexAuth } from '../plex/auth';
 import { NOW_PLAYING_INFO_MODAL_ID } from '../ui/now-playing-info';
 import type { PlaybackOptionsSectionId } from '../ui/playback-options/types';
 import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
-import { readStoredBoolean, readStoredBooleanWithLegacy } from '../../utils/storage';
+import { readStoredBoolean } from '../../utils/storage';
 import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
 
 const EPG_REPEAT_INITIAL_DELAY_MS = 250;
@@ -735,11 +735,7 @@ export class NavigationCoordinator {
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        return readStoredBooleanWithLegacy(
-            RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
-            RETUNE_STORAGE_KEYS.DEBUG_LOGGING_LEGACY,
-            false
-        );
+        return readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
     }
 
     private _logInputNotHandled(
