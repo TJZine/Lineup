@@ -667,11 +667,7 @@ export class NavigationManager
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        try {
-            return readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
-        } catch {
-            return false;
-        }
+        return readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
     }
 
     private _logInputSuppressed(reason: string, button?: RemoteButton): void {

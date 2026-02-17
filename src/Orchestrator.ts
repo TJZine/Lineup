@@ -525,6 +525,16 @@ export class AppOrchestrator implements IAppOrchestrator {
         this._playbackOptionsModal = new PlaybackOptionsModal();
 
         this._createCoordinators();
+        if (this._config.epgConfig) {
+            const previousOnVisibleRangeChange = this._config.epgConfig.onVisibleRangeChange ?? null;
+            this._config.epgConfig.onVisibleRangeChange = (range): void => {
+                if (previousOnVisibleRangeChange) {
+                    previousOnVisibleRangeChange(range);
+                }
+                this._epgCoordinator?.refreshEpgSchedulesForRange(range, { reason: 'visible-range' });
+            };
+        }
+        this._channelSetup?.cleanupStaleChannelBuildKeys();
 
         // Create InitializationCoordinator with dependencies and callbacks
         this._initCoordinator = new InitializationCoordinator(
@@ -596,15 +606,6 @@ export class AppOrchestrator implements IAppOrchestrator {
             },
             switchToChannel: (channelId: string): Promise<void> => this.switchToChannel(channelId),
         });
-        if (this._config?.epgConfig) {
-            const previousOnVisibleRangeChange = this._config.epgConfig.onVisibleRangeChange ?? null;
-            this._config.epgConfig.onVisibleRangeChange = (range): void => {
-                if (previousOnVisibleRangeChange) {
-                    previousOnVisibleRangeChange(range);
-                }
-                this._epgCoordinator?.refreshEpgSchedulesForRange(range, { reason: 'visible-range' });
-            };
-        }
 
         this._channelSetup = new ChannelSetupCoordinator({
             plexLibrary: this._plexLibrary!,
@@ -623,7 +624,6 @@ export class AppOrchestrator implements IAppOrchestrator {
             refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }): Promise<void> =>
                 this._epgCoordinator?.refreshEpgSchedules(options) ?? Promise.resolve(),
         });
-        this._channelSetup.cleanupStaleChannelBuildKeys();
 
         this._nowPlayingDebugManager = new NowPlayingDebugManager({
             nowPlayingModalId: NOW_PLAYING_INFO_MODAL_ID,

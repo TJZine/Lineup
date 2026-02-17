@@ -765,10 +765,6 @@ export class PlaybackRecoveryManager {
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        try {
-            return readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
-        } catch {
-            return false;
-        }
+        return readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
     }
 }

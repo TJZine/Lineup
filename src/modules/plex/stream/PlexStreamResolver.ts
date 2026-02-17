@@ -1818,11 +1818,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        try {
-            return readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
-        } catch {
-            return false;
-        }
+        return readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
     }
 
     private _isTrueHdCodec(codec: string | null | undefined): boolean {
