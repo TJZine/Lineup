@@ -21,7 +21,13 @@ import {
 
 const waitForSelector = async (root: ParentNode, selector: string, maxRounds: number = 20): Promise<void> => {
     for (let i = 0; i < maxRounds; i++) {
+        if (root.querySelector(selector) !== null) {
+            return;
+        }
         await flushPromises();
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, 0);
+        });
         if (root.querySelector(selector) !== null) {
             return;
         }
@@ -30,7 +36,11 @@ const waitForSelector = async (root: ParentNode, selector: string, maxRounds: nu
 };
 
 describe('ChannelSetupScreen contracts', () => {
+    let activeScreen: ChannelSetupScreen | null = null;
+
     afterEach(() => {
+        activeScreen?.destroy();
+        activeScreen = null;
         jest.clearAllMocks();
         document.body.innerHTML = '';
     });
@@ -46,6 +56,7 @@ describe('ChannelSetupScreen contracts', () => {
         });
 
         const screen = new ChannelSetupScreen(container, orchestrator);
+        activeScreen = screen;
         screen.show();
         await flushPromises();
 
@@ -116,6 +127,7 @@ describe('ChannelSetupScreen contracts', () => {
         });
 
         const screen = new ChannelSetupScreen(container, orchestrator);
+        activeScreen = screen;
         screen.show();
         await flushPromises();
         clickButton(container, '#setup-next');
@@ -138,6 +150,7 @@ describe('ChannelSetupScreen contracts', () => {
         });
 
         const screen = new ChannelSetupScreen(container, orchestrator);
+        activeScreen = screen;
         screen.show();
         await flushPromises();
 
@@ -156,6 +169,7 @@ describe('ChannelSetupScreen contracts', () => {
         });
 
         const screen = new ChannelSetupScreen(container, orchestrator);
+        activeScreen = screen;
         screen.show();
         await flushPromises();
         clickButton(container, '#setup-next');

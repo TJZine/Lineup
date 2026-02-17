@@ -566,38 +566,46 @@ export class ChannelSetupScreen {
         listButtons: HTMLButtonElement[]
     ): void {
         const nav = this._orchestrator.getNavigation();
-        if (!nav || selectAllButton.disabled || clearAllButton.disabled) {
+        if (!nav) {
             return;
         }
         const downNeighbor = listButtons[0]?.id;
-        const selectAllNeighbors: FocusableElement['neighbors'] = {
-            right: clearAllButton.id,
-        };
-        if (downNeighbor) {
-            selectAllNeighbors.down = downNeighbor;
+
+        if (!selectAllButton.disabled) {
+            const selectAllNeighbors: FocusableElement['neighbors'] = {};
+            if (!clearAllButton.disabled) {
+                selectAllNeighbors.right = clearAllButton.id;
+            }
+            if (downNeighbor) {
+                selectAllNeighbors.down = downNeighbor;
+            }
+            nav.registerFocusable({
+                id: selectAllButton.id,
+                element: selectAllButton,
+                neighbors: selectAllNeighbors,
+                onFocus: () => {
+                    scrollToNearest(selectAllButton);
+                },
+            });
         }
-        const clearAllNeighbors: FocusableElement['neighbors'] = {
-            left: selectAllButton.id,
-        };
-        if (downNeighbor) {
-            clearAllNeighbors.down = downNeighbor;
+
+        if (!clearAllButton.disabled) {
+            const clearAllNeighbors: FocusableElement['neighbors'] = {};
+            if (!selectAllButton.disabled) {
+                clearAllNeighbors.left = selectAllButton.id;
+            }
+            if (downNeighbor) {
+                clearAllNeighbors.down = downNeighbor;
+            }
+            nav.registerFocusable({
+                id: clearAllButton.id,
+                element: clearAllButton,
+                neighbors: clearAllNeighbors,
+                onFocus: () => {
+                    scrollToNearest(clearAllButton);
+                },
+            });
         }
-        nav.registerFocusable({
-            id: selectAllButton.id,
-            element: selectAllButton,
-            neighbors: selectAllNeighbors,
-            onFocus: () => {
-                scrollToNearest(selectAllButton);
-            },
-        });
-        nav.registerFocusable({
-            id: clearAllButton.id,
-            element: clearAllButton,
-            neighbors: clearAllNeighbors,
-            onFocus: () => {
-                scrollToNearest(clearAllButton);
-            },
-        });
     }
 
     private _renderStrategyStep(): void {

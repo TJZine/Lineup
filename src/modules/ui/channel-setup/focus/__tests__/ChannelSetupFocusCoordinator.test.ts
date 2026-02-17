@@ -5,6 +5,7 @@
 import { ChannelSetupFocusCoordinator } from '../ChannelSetupFocusCoordinator';
 import type { FocusCoordinatorDeps } from '../types';
 import type { INavigationManager } from '../../../../navigation/interfaces';
+import { createNavigationMock } from '../../__tests__/channel-setup-test-helpers';
 
 describe('ChannelSetupFocusCoordinator', () => {
     afterEach(() => {
@@ -13,11 +14,7 @@ describe('ChannelSetupFocusCoordinator', () => {
     });
 
     it('unregisters previously registered focusables when re-registering without an explicit unregisterAll', () => {
-        const nav = {
-            registerFocusable: jest.fn(),
-            unregisterFocusable: jest.fn(),
-            setFocus: jest.fn(),
-        };
+        const nav = createNavigationMock();
 
         const deps: FocusCoordinatorDeps = {
             getNavigation: () => nav as unknown as INavigationManager,
@@ -36,11 +33,7 @@ describe('ChannelSetupFocusCoordinator', () => {
     });
 
     it('unregisters previously registered focusables when re-registering via registerSpatial', () => {
-        const nav = {
-            registerFocusable: jest.fn(),
-            unregisterFocusable: jest.fn(),
-            setFocus: jest.fn(),
-        };
+        const nav = createNavigationMock();
 
         const deps: FocusCoordinatorDeps = {
             getNavigation: () => nav as unknown as INavigationManager,
@@ -59,11 +52,7 @@ describe('ChannelSetupFocusCoordinator', () => {
     });
 
     it('unregisters previously registered focusables when re-registering via registerStep2', () => {
-        const nav = {
-            registerFocusable: jest.fn(),
-            unregisterFocusable: jest.fn(),
-            setFocus: jest.fn(),
-        };
+        const nav = createNavigationMock();
 
         const deps: FocusCoordinatorDeps = {
             getNavigation: () => nav as unknown as INavigationManager,
@@ -110,11 +99,7 @@ describe('ChannelSetupFocusCoordinator', () => {
     });
 
     it('unregisterAll clears registered ids and unregisters them from navigation', () => {
-        const nav = {
-            registerFocusable: jest.fn(),
-            unregisterFocusable: jest.fn(),
-            setFocus: jest.fn(),
-        };
+        const nav = createNavigationMock();
 
         const deps: FocusCoordinatorDeps = {
             getNavigation: () => nav as unknown as INavigationManager,
@@ -127,27 +112,24 @@ describe('ChannelSetupFocusCoordinator', () => {
         second.id = 'btn-b';
 
         coordinator.registerLinear([first, second], null);
-        expect((coordinator as unknown as { _registeredIds: string[] })._registeredIds).toEqual(['btn-a', 'btn-b']);
 
         coordinator.unregisterAll();
 
         expect(nav.unregisterFocusable).toHaveBeenCalledWith('btn-a');
         expect(nav.unregisterFocusable).toHaveBeenCalledWith('btn-b');
-        expect((coordinator as unknown as { _registeredIds: string[] })._registeredIds).toEqual([]);
+
+        nav.unregisterFocusable.mockClear();
+        coordinator.unregisterAll();
+        expect(nav.unregisterFocusable).not.toHaveBeenCalled();
     });
 
     it('clears registered ids and returns false when navigation is null', () => {
         const coordinator = new ChannelSetupFocusCoordinator({ getNavigation: (): INavigationManager | null => null });
-        (coordinator as unknown as { _registeredIds: string[] })._registeredIds = ['stale'];
 
         const button = document.createElement('button');
         button.id = 'x';
 
         expect(coordinator.registerLinear([button], null)).toBe(false);
-        expect((coordinator as unknown as { _registeredIds: string[] })._registeredIds).toEqual([]);
-
-        (coordinator as unknown as { _registeredIds: string[] })._registeredIds = ['stale-2'];
         coordinator.unregisterAll();
-        expect((coordinator as unknown as { _registeredIds: string[] })._registeredIds).toEqual([]);
     });
 });

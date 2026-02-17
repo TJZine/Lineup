@@ -27,6 +27,17 @@ const STRATEGY_META = {
     actors: { label: 'Actors', detail: 'Channels by actor (Movies/TV).' },
 } satisfies Record<SetupStrategyKey, { label: string; detail: string }>;
 
+const ORDERED_PREVIEW_STRATEGY_KEYS: Array<keyof typeof STRATEGY_META> = [
+    'collections',
+    'recentlyAdded',
+    'playlists',
+    'genres',
+    'directors',
+    'decades',
+    'studios',
+    'actors',
+];
+
 export class StrategyStepController {
     private _createToggleButton(options: {
         id: string;
@@ -367,14 +378,9 @@ export class StrategyStepController {
             const rows = document.createElement('div');
             rows.className = 'setup-preview-rows';
             rows.appendChild(deps.buildPreviewRow('Total planned', estimates.total, 'total'));
-            rows.appendChild(deps.buildPreviewRow('Collections', estimates.collections, 'collections'));
-            rows.appendChild(deps.buildPreviewRow('Recently added', estimates.recentlyAdded, 'recentlyAdded'));
-            rows.appendChild(deps.buildPreviewRow('Playlists', estimates.playlists, 'playlists'));
-            rows.appendChild(deps.buildPreviewRow('Genres', estimates.genres, 'genres'));
-            rows.appendChild(deps.buildPreviewRow('Directors', estimates.directors, 'directors'));
-            rows.appendChild(deps.buildPreviewRow('Decades', estimates.decades, 'decades'));
-            rows.appendChild(deps.buildPreviewRow('Studios', estimates.studios, 'studios'));
-            rows.appendChild(deps.buildPreviewRow('Actors', estimates.actors, 'actors'));
+            for (const key of ORDERED_PREVIEW_STRATEGY_KEYS) {
+                rows.appendChild(deps.buildPreviewRow(STRATEGY_META[key].label, estimates[key], key));
+            }
             previewPanel.appendChild(rows);
 
             if (state.isPreviewLoading) {
