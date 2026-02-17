@@ -20,6 +20,7 @@ export class BuildReviewStepController {
             showLoadingState = true;
         } else if (!state.review && !state.isReviewLoading && !state.reviewError) {
             const token = deps.getVisibilityToken();
+            // Kick off review load on first eligible render; guards prevent duplicate loads when state changes.
             void Promise.resolve()
                 .then(() => {
                     const current = deps.getState();

@@ -242,6 +242,27 @@ describe('AppLifecycle', () => {
     });
 
     describe('visibility', () => {
+        it('removes the exact lifecycle subscription instance on dispose', () => {
+            const pauseCallback = jest.fn();
+            const first = lifecycle.onPause(pauseCallback) as unknown as { dispose?: () => void };
+            const second = lifecycle.onPause(pauseCallback) as unknown as { dispose?: () => void };
+
+            const callbacks = (lifecycle as unknown as { _pauseCallbacks: Array<() => unknown> })._pauseCallbacks;
+            expect(callbacks).toHaveLength(2);
+            expect(callbacks[0]).not.toBe(callbacks[1]);
+
+            const firstWrapped = callbacks[0];
+            const secondWrapped = callbacks[1];
+
+            second.dispose?.();
+            expect(callbacks).toHaveLength(1);
+            expect(callbacks[0]).toBe(firstWrapped);
+            expect(callbacks).not.toContain(secondWrapped);
+
+            first.dispose?.();
+            expect(callbacks).toHaveLength(0);
+        });
+
         it('should call pause callbacks when hidden', async () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready

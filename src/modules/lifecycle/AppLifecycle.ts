@@ -661,13 +661,14 @@ export class AppLifecycle implements IAppLifecycle {
         callbacks: LifecycleCallback[],
         callback: LifecycleCallback
     ): IDisposable {
-        callbacks.push(callback);
+        const wrapped: LifecycleCallback = () => callback();
+        callbacks.push(wrapped);
         let disposed = false;
         return {
             dispose: (): void => {
                 if (disposed) return;
                 disposed = true;
-                const idx = callbacks.indexOf(callback);
+                const idx = callbacks.indexOf(wrapped);
                 if (idx >= 0) {
                     callbacks.splice(idx, 1);
                 }

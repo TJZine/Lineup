@@ -53,6 +53,7 @@ export class BuildProgressStepController {
         actions.appendChild(doneButton);
 
         ctx.contentEl.appendChild(actions);
+        // Note: Focus registration filters out disabled buttons (Done starts disabled until build completes).
         deps.registerFocusables([backButton, doneButton], 'linear');
 
         void deps.startBuild({
@@ -63,7 +64,14 @@ export class BuildProgressStepController {
             detailLabel,
         }).catch((error: unknown) => {
             if (isAbortLikeError(error)) return;
-            console.error('[ChannelSetup] Build failed:', summarizeErrorForLog(error));
+            const summary = summarizeErrorForLog(error);
+            ctx.errorEl.textContent = 'Build failed. Please go back and try again.';
+            taskLabel.textContent = 'Build failed';
+            detailLabel.textContent = 'Press Back to adjust settings and retry.';
+            backButton.disabled = false;
+            backButton.textContent = 'Back';
+            doneButton.disabled = true;
+            console.error('[ChannelSetup] Build failed:', summary);
         });
     }
 }

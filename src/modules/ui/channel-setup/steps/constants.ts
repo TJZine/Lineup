@@ -1,6 +1,6 @@
-import { SETUP_STRATEGY_KEYS } from '../../../../core/channel-setup/constants';
+import type { SetupStrategyKey } from '../../../../core/channel-setup/types';
 
-export type SetupStrategyKey = (typeof SETUP_STRATEGY_KEYS)[number];
+export type { SetupStrategyKey } from '../../../../core/channel-setup/types';
 
 export const CONTENT_STRATEGY_KEYS = [
     'collections',
@@ -41,4 +41,3 @@ export const STEP2_ADJUSTABLE_CONTROL_IDS = [
     STEP2_CONTROL_IDS.minItems,
     STEP2_CONTROL_IDS.alternateLineupCopies,
 ] as const;
-

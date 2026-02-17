@@ -5,7 +5,6 @@ import type {
     StepRenderContext,
     StrategyCategoryKey,
     StrategyStepDeps,
-    StrategyStepMutableState,
 } from './types';
 
 const CONTENT_STRATEGY_KEY_SET = new Set<SetupStrategyKey>(CONTENT_STRATEGY_KEYS);
@@ -16,6 +15,17 @@ const isContentStrategyKey = (key: SetupStrategyKey): key is (typeof CONTENT_STR
 
 const isAdvancedStrategyKey = (key: SetupStrategyKey): key is (typeof ADVANCED_STRATEGY_KEYS)[number] =>
     ADVANCED_STRATEGY_KEY_SET.has(key);
+
+const STRATEGY_META = {
+    collections: { label: 'Collections', detail: 'One channel per collection.' },
+    playlists: { label: 'Playlists', detail: 'Channels from Plex playlists.' },
+    recentlyAdded: { label: 'Recently added', detail: 'Per library, newest first.' },
+    genres: { label: 'Genres', detail: 'Filter channels by genre (slower on large libraries).' },
+    directors: { label: 'Directors', detail: 'Filter channels by director (slower on large libraries).' },
+    decades: { label: 'Decades', detail: 'Channels by decade (1980s, 1990s...).' },
+    studios: { label: 'Studios', detail: 'Channels by studio (Movies/TV).' },
+    actors: { label: 'Actors', detail: 'Channels by actor (Movies/TV).' },
+} satisfies Record<SetupStrategyKey, { label: string; detail: string }>;
 
 export class StrategyStepController {
     render(ctx: StepRenderContext, deps: StrategyStepDeps): void {
@@ -31,12 +41,6 @@ export class StrategyStepController {
 
         const right = document.createElement('div');
         right.className = 'setup-detail-pane';
-
-        const applySettingChange = (focusId: string, mutate: (draft: StrategyStepMutableState) => void): void => {
-            deps.applySettingChange(focusId, (draft) => {
-                mutate(draft);
-            });
-        };
 
         const buildModeButton = document.createElement('button');
         buildModeButton.id = STEP2_CONTROL_IDS.buildMode;
@@ -59,7 +63,7 @@ export class StrategyStepController {
         buildModeButton.appendChild(buildModeState);
 
         buildModeButton.addEventListener('click', () => {
-            applySettingChange(buildModeButton.id, (draft) => {
+            deps.applySettingChange(buildModeButton.id, (draft) => {
                 const modes: Array<typeof draft.buildMode> = ['replace', 'append', 'merge'];
                 const currentIndex = modes.indexOf(draft.buildMode);
                 const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % modes.length : 0;
@@ -88,21 +92,15 @@ export class StrategyStepController {
         combineButton.appendChild(combineState);
 
         combineButton.addEventListener('click', () => {
-            applySettingChange(combineButton.id, (draft) => {
+            deps.applySettingChange(combineButton.id, (draft) => {
                 draft.actorStudioCombineMode = draft.actorStudioCombineMode === 'combined' ? 'separate' : 'combined';
             });
         });
 
-        const strategyLabels: Array<{ key: SetupStrategyKey; label: string; detail: string }> = [
-            { key: 'collections', label: 'Collections', detail: 'One channel per collection.' },
-            { key: 'playlists', label: 'Playlists', detail: 'Channels from Plex playlists.' },
-            { key: 'recentlyAdded', label: 'Recently added', detail: 'Per library, newest first.' },
-            { key: 'genres', label: 'Genres', detail: 'Filter channels by genre (slower on large libraries).' },
-            { key: 'directors', label: 'Directors', detail: 'Filter channels by director (slower on large libraries).' },
-            { key: 'decades', label: 'Decades', detail: 'Channels by decade (1980s, 1990s...).' },
-            { key: 'studios', label: 'Studios', detail: 'Channels by studio (Movies/TV).' },
-            { key: 'actors', label: 'Actors', detail: 'Channels by actor (Movies/TV).' },
-        ];
+        const strategyLabels: Array<{ key: SetupStrategyKey; label: string; detail: string }> = deps.strategyKeys.map((key) => ({
+            key,
+            ...STRATEGY_META[key],
+        }));
 
         const createStrategyControls = (strategy: typeof strategyLabels[number]): HTMLButtonElement[] => {
             const strategyState = state.strategies[strategy.key];
@@ -127,7 +125,7 @@ export class StrategyStepController {
             toggleButton.appendChild(toggleMeta);
             toggleButton.appendChild(toggleState);
             toggleButton.addEventListener('click', () => {
-                applySettingChange(toggleButton.id, (draft) => {
+                deps.applySettingChange(toggleButton.id, (draft) => {
                     draft.strategies[strategy.key].enabled = !draft.strategies[strategy.key].enabled;
                 });
             });
@@ -152,7 +150,7 @@ export class StrategyStepController {
             priorityButton.appendChild(priorityMeta);
             priorityButton.appendChild(priorityState);
             priorityButton.addEventListener('click', () => {
-                applySettingChange(priorityButton.id, (draft) => {
+                deps.applySettingChange(priorityButton.id, (draft) => {
                     const maxPriority = deps.strategyKeys.length;
                     const next = draft.strategies[strategy.key];
                     next.priority = next.priority >= maxPriority ? 1 : next.priority + 1;
@@ -183,7 +181,7 @@ export class StrategyStepController {
             scopeButton.appendChild(scopeMeta);
             scopeButton.appendChild(scopeState);
             scopeButton.addEventListener('click', () => {
-                applySettingChange(scopeButton.id, (draft) => {
+                deps.applySettingChange(scopeButton.id, (draft) => {
                     const next = draft.strategies[strategy.key];
                     next.scope = next.scope === 'cross-library' ? 'per-library' : 'cross-library';
                 });
@@ -219,7 +217,7 @@ export class StrategyStepController {
         addAlternateLineupsButton.appendChild(addAlternateLineupsMeta);
         addAlternateLineupsButton.appendChild(addAlternateLineupsState);
         addAlternateLineupsButton.addEventListener('click', () => {
-            applySettingChange(addAlternateLineupsButton.id, (draft) => {
+            deps.applySettingChange(addAlternateLineupsButton.id, (draft) => {
                 draft.channelExpansion.addAlternateLineups = !draft.channelExpansion.addAlternateLineups;
             });
         });
@@ -248,7 +246,7 @@ export class StrategyStepController {
             if (!state.channelExpansion.addAlternateLineups) {
                 return;
             }
-            applySettingChange(alternateCopiesButton.id, (draft) => {
+            deps.applySettingChange(alternateCopiesButton.id, (draft) => {
                 draft.channelExpansion.alternateLineupCopies = deps.stepPreset(
                     [1, 2, 3],
                     draft.channelExpansion.alternateLineupCopies,
@@ -278,7 +276,7 @@ export class StrategyStepController {
         addSequentialVariantsButton.appendChild(addSequentialMeta);
         addSequentialVariantsButton.appendChild(addSequentialState);
         addSequentialVariantsButton.addEventListener('click', () => {
-            applySettingChange(addSequentialVariantsButton.id, (draft) => {
+            deps.applySettingChange(addSequentialVariantsButton.id, (draft) => {
                 draft.channelExpansion.addSequentialVariants = !draft.channelExpansion.addSequentialVariants;
             });
         });
@@ -304,7 +302,7 @@ export class StrategyStepController {
         maxButton.appendChild(maxState);
 
         maxButton.addEventListener('click', () => {
-            applySettingChange(maxButton.id, (draft) => {
+            deps.applySettingChange(maxButton.id, (draft) => {
                 draft.maxChannels = deps.stepPreset(
                     deps.channelLimitOptions,
                     draft.maxChannels,
@@ -335,7 +333,7 @@ export class StrategyStepController {
         minItemsButton.appendChild(minItemsState);
 
         minItemsButton.addEventListener('click', () => {
-            applySettingChange(minItemsButton.id, (draft) => {
+            deps.applySettingChange(minItemsButton.id, (draft) => {
                 draft.minItems = deps.stepPreset(
                     deps.minItemsOptions,
                     draft.minItems,
@@ -365,7 +363,7 @@ export class StrategyStepController {
         expandLineupButton.appendChild(expandLineupMeta);
         expandLineupButton.appendChild(expandLineupState);
         expandLineupButton.addEventListener('click', () => {
-            applySettingChange(expandLineupButton.id, (draft) => {
+            deps.applySettingChange(expandLineupButton.id, (draft) => {
                 draft.maxChannels = MAX_CHANNELS;
                 draft.minItems = 1;
             });
@@ -383,7 +381,25 @@ export class StrategyStepController {
             ],
             'limits': [maxButton, minItemsButton, expandLineupButton],
         };
+        const categoryButtons = this._renderCategoryRail(left, deps, state);
+        const activeControls = controlsByCategory[state.activeStrategyCategory] ?? [];
 
+        const detailScroll = this._renderDetailPane(activeControls);
+        const previewPanel = this._renderPreviewPanel(deps, state);
+
+        right.appendChild(detailScroll);
+        right.appendChild(previewPanel);
+        split.appendChild(left);
+        split.appendChild(right);
+        ctx.contentEl.appendChild(split);
+        this._renderFooterActions(ctx, deps, state, categoryButtons, activeControls);
+    }
+
+    private _renderCategoryRail(
+        left: HTMLElement,
+        deps: StrategyStepDeps,
+        state: StrategyStepDeps['state']
+    ): HTMLButtonElement[] {
         const categories: Array<{ key: StrategyCategoryKey; title: string }> = [
             { key: 'content-sources', title: 'Content Sources' },
             { key: 'advanced-sources', title: 'Advanced Sources' },
@@ -406,17 +422,23 @@ export class StrategyStepController {
             left.appendChild(button);
         }
 
+        return categoryButtons;
+    }
+
+    private _renderDetailPane(activeControls: HTMLButtonElement[]): HTMLElement {
         const detailScroll = document.createElement('div');
         detailScroll.className = 'setup-detail-scroll setup-focus-safe-scroll';
 
         const detailControls = document.createElement('div');
         detailControls.className = 'setup-list';
-        const activeControls = controlsByCategory[state.activeStrategyCategory] ?? [];
         for (const button of activeControls) {
             detailControls.appendChild(button);
         }
         detailScroll.appendChild(detailControls);
+        return detailScroll;
+    }
 
+    private _renderPreviewPanel(deps: StrategyStepDeps, state: StrategyStepDeps['state']): HTMLElement {
         const previewPanel = document.createElement('div');
         previewPanel.id = state.previewPanelId;
         previewPanel.className = 'setup-preview';
@@ -436,7 +458,10 @@ export class StrategyStepController {
             error.className = 'setup-preview-warning';
             error.textContent = state.previewError;
             previewPanel.appendChild(error);
-        } else if (state.preview) {
+            return previewPanel;
+        }
+
+        if (state.preview) {
             const { estimates, warnings, reachedMaxChannels } = state.preview;
 
             const rows = document.createElement('div');
@@ -473,25 +498,33 @@ export class StrategyStepController {
                 deps.renderCappedWarnings(warnings, warningList);
                 previewPanel.appendChild(warningList);
             }
-        } else if (state.isPreviewLoading) {
+
+            return previewPanel;
+        }
+
+        if (state.isPreviewLoading) {
             const loading = document.createElement('div');
             loading.className = 'setup-preview-loading';
             loading.classList.add('panel-spinner');
             loading.textContent = 'Estimating channels...';
             previewPanel.appendChild(loading);
-        } else {
-            const empty = document.createElement('div');
-            empty.className = 'setup-preview-empty';
-            empty.textContent = 'Estimates will appear after a short pause.';
-            previewPanel.appendChild(empty);
+            return previewPanel;
         }
 
-        right.appendChild(detailScroll);
-        right.appendChild(previewPanel);
-        split.appendChild(left);
-        split.appendChild(right);
-        ctx.contentEl.appendChild(split);
+        const empty = document.createElement('div');
+        empty.className = 'setup-preview-empty';
+        empty.textContent = 'Estimates will appear after a short pause.';
+        previewPanel.appendChild(empty);
+        return previewPanel;
+    }
 
+    private _renderFooterActions(
+        ctx: StepRenderContext,
+        deps: StrategyStepDeps,
+        state: StrategyStepDeps['state'],
+        categoryButtons: HTMLButtonElement[],
+        activeControls: HTMLButtonElement[]
+    ): void {
         const actions = document.createElement('div');
         actions.className = 'button-row';
 

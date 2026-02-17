@@ -648,10 +648,16 @@ export class ChannelSetupScreen {
                 this._renderStep();
             },
             applySettingChange: (focusId, mutate) => {
+                const strategies = SETUP_STRATEGY_KEYS.reduce<SetupStrategyState>((acc, key) => {
+                    const current = this._strategies[key];
+                    acc[key] = current ? { ...current } : { enabled: true, priority: 1, scope: 'per-library' };
+                    return acc;
+                }, {} as SetupStrategyState);
+                const channelExpansion: ChannelExpansionState = { ...this._channelExpansion };
                 const draft: StrategyStepMutableState = {
                     activeStrategyCategory: this._activeStrategyCategory,
-                    strategies: this._strategies,
-                    channelExpansion: this._channelExpansion,
+                    strategies,
+                    channelExpansion,
                     buildMode: this._buildMode,
                     actorStudioCombineMode: this._actorStudioCombineMode,
                     maxChannels: this._maxChannels,
@@ -883,7 +889,7 @@ export class ChannelSetupScreen {
             registerFocusables: (buttons, mode) => this._registerFocusables(buttons, mode),
             onCancelOrBack: (button) => {
                 if (this._buildAbortController) {
-                    this._buildAbortController?.abort();
+                    this._buildAbortController.abort();
                     button.disabled = true;
                     button.textContent = 'Canceling...';
                     return;
@@ -1002,6 +1008,20 @@ export class ChannelSetupScreen {
 
         } catch (error) {
             if (token !== this._visibilityToken) return;
+            if (isAbortLikeError(error, this._buildAbortController?.signal)) {
+                this._statusEl.textContent = 'Canceled.';
+                this._detailEl.textContent = 'No changes were applied.';
+                taskLabel.textContent = 'Canceled';
+                detailLabel.textContent = '';
+                barFill.style.width = '0%';
+                barFill.classList.remove('indeterminate');
+
+                cancelButton.disabled = false;
+                cancelButton.textContent = 'Back';
+                doneButton.disabled = true;
+                cancelButton.focus();
+                return;
+            }
             const message = error instanceof Error ? error.message : 'Build failed.';
             this._errorEl.textContent = message;
             this._statusEl.textContent = 'Error';

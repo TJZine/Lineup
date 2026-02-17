@@ -43,6 +43,11 @@ export class ChannelSetupFocusCoordinator {
             return false;
         }
 
+        for (const id of this._registeredIds) {
+            nav.unregisterFocusable(id);
+        }
+        this._registeredIds = [];
+
         const focusableButtons = [...categoryButtons, ...detailButtons, ...footerButtons]
             .filter((button) => !button.disabled);
         this._registeredIds = focusableButtons.map((button) => button.id);
@@ -105,6 +110,11 @@ export class ChannelSetupFocusCoordinator {
             this._registeredIds = [];
             return false;
         }
+
+        for (const id of this._registeredIds) {
+            nav.unregisterFocusable(id);
+        }
+        this._registeredIds = [];
 
         const focusableButtons = buttons.filter(
             (button): button is HTMLButtonElement =>
