@@ -114,9 +114,10 @@ describe('mapMediaErrorCodeToPlaybackError', () => {
 
     it('caps retryAfterMs to a reasonable maximum', () => {
         // attemptNumber=10 => 1s * 2^10 = 1024s; should be capped.
-        const e = mapMediaErrorCodeToPlaybackError(2, 10, 999);
+        const retryCount = 10;
+        const e = mapMediaErrorCodeToPlaybackError(2, retryCount, retryCount + 1);
         expect(e.recoverable).toBe(true);
-        expect(e.retryAfterMs).toBeLessThanOrEqual(30000);
+        expect(e.retryAfterMs).toBe(30000);
     });
 
     it('maps MEDIA_ERR_DECODE (3) to PLAYBACK_DECODE_ERROR and recoverable=false', () => {

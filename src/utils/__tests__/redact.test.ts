@@ -14,11 +14,22 @@ describe('redactSensitiveTokens', () => {
         expect(redactSensitiveTokens('{"X-Plex-Token":"abc123"}')).toBe('{"X-Plex-Token":"REDACTED"}');
         expect(redactSensitiveTokens("{'X-Plex-Token':'abc123'}")).toBe("{'X-Plex-Token':'REDACTED'}");
     });
+
+    it('redacts token-like substrings inside JSON string values without breaking structure', () => {
+        expect(redactSensitiveTokens('{"url":"http://x?X-Plex-Token=abc123"}')).toBe(
+            '{"url":"http://x?X-Plex-Token=REDACTED"}'
+        );
+        expect(redactSensitiveTokens('{"h":"X-Plex-Token: abc123"}')).toBe('{"h":"X-Plex-Token: REDACTED"}');
+        expect(redactSensitiveTokens('{"h":"access_token: abc123"}')).toBe('{"h":"access_token: REDACTED"}');
+        expect(redactSensitiveTokens('{"h":"token: abc123"}')).toBe('{"h":"token: REDACTED"}');
+    });
 });
 
 describe('safeStringifyForLog', () => {
     it('stringifies and redacts token-like strings', () => {
-        expect(safeStringifyForLog({ url: 'http://x?X-Plex-Token=abc123' })).toContain('X-Plex-Token=REDACTED');
+        expect(safeStringifyForLog({ url: 'http://x?X-Plex-Token=abc123' })).toBe(
+            '{"url":"http://x?X-Plex-Token=REDACTED"}'
+        );
     });
 
     it('handles circular structures without throwing', () => {

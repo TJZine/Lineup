@@ -180,6 +180,9 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     }
 
     private isDebugEnabled(): boolean {
+        // StorageEvent does not fire in the same document that calls localStorage.setItem(),
+        // so refresh on read to support same-tab toggles (e.g., devtools).
+        this._debugEnabled = this._readDebugEnabledFromStorage();
         return this._debugEnabled;
     }
 

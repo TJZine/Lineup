@@ -161,7 +161,7 @@ export class NowPlayingDebugManager {
             } catch (error) {
                 if (options.logErrors) {
                     console.warn('[NowPlayingDebug] In-flight PMS decision fetch failed:', {
-                        sessionId,
+                        sessionId: 'REDACTED',
                         ratingKey: program.item.ratingKey,
                         error: summarizeErrorForLog(error),
                     });
@@ -206,7 +206,7 @@ export class NowPlayingDebugManager {
         } catch (error) {
             if (options.logErrors) {
                 console.error('[NowPlayingDebug] PMS decision fetch failed:', {
-                    sessionId,
+                    sessionId: 'REDACTED',
                     ratingKey: program.item.ratingKey,
                     fetchToken: token,
                     error: summarizeErrorForLog(error),

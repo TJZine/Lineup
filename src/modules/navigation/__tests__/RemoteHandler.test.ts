@@ -34,7 +34,7 @@ describe('RemoteHandler', () => {
 
     beforeEach(() => {
         remoteHandler = new RemoteHandler();
-        remoteHandler.initialize(false);
+        remoteHandler.initialize();
     });
 
     afterEach(() => {
@@ -128,7 +128,7 @@ describe('RemoteHandler', () => {
                     ]),
             };
             const customRemoteHandler = new RemoteHandler(customInputService);
-            customRemoteHandler.initialize(false);
+            customRemoteHandler.initialize();
             try {
                 expect(customRemoteHandler.mapKeyCode(999)).toBe('ok');
                 expect(customRemoteHandler.mapKeyCode(13)).toBeNull();
@@ -303,7 +303,7 @@ describe('RemoteHandler', () => {
 
         it('should not double-initialize', () => {
             // First init already done in beforeEach
-            remoteHandler.initialize(false); // Should be no-op
+            remoteHandler.initialize(); // Should be no-op
 
             const handler = jest.fn();
             remoteHandler.on('keyDown', handler);

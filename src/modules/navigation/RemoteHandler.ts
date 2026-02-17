@@ -53,9 +53,8 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
 
     /**
      * Initialize the remote handler.
-     * @param _debugMode - Currently unused (reserved for future debug logging)
      */
-    public initialize(_debugMode: boolean = false): void {
+    public initialize(): void {
         if (this._isEnabled) {
             return;
         }
@@ -63,7 +62,6 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
         document.addEventListener('keydown', this._boundKeyDownHandler);
         document.addEventListener('keyup', this._boundKeyUpHandler);
         this._isEnabled = true;
-
     }
 
     /**
@@ -86,7 +84,6 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
         this._isLongPressFired.clear();
         this._longPressHandlers = [];
         this._isEnabled = false;
-
     }
 
     /**

@@ -1,28 +1,19 @@
-/* eslint-disable no-console */
-
-const shouldAllowConsoleOutput =
-    typeof process !== 'undefined' && process.env.RETUNE_TEST_CONSOLE === '1';
+const shouldAllowConsoleOutput = process.env.RETUNE_TEST_CONSOLE === '1';
+const shouldSilenceWarningsAndErrors = process.env.RETUNE_TEST_CONSOLE_SILENT === '1';
 
 if (!shouldAllowConsoleOutput) {
-    const original = {
-        debug: console.debug,
-        log: console.log,
-        info: console.info,
-        warn: console.warn,
-        error: console.error,
-    };
+    beforeEach(() => {
+        jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+        jest.spyOn(console, 'log').mockImplementation(() => undefined);
+        jest.spyOn(console, 'info').mockImplementation(() => undefined);
 
-    console.debug = (..._args: unknown[]): void => undefined;
-    console.log = (..._args: unknown[]): void => undefined;
-    console.info = (..._args: unknown[]): void => undefined;
-    console.warn = (..._args: unknown[]): void => undefined;
-    console.error = (..._args: unknown[]): void => undefined;
+        if (shouldSilenceWarningsAndErrors) {
+            jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        }
+    });
 
-    afterAll(() => {
-        console.debug = original.debug;
-        console.log = original.log;
-        console.info = original.info;
-        console.warn = original.warn;
-        console.error = original.error;
+    afterEach(() => {
+        jest.restoreAllMocks();
     });
 }

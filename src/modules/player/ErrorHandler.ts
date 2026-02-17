@@ -9,6 +9,8 @@ import type { PlaybackError, PlayerErrorCode } from './types';
 import { PlayerErrorCode as ErrorCode } from './types';
 import { RETRY_BASE_DELAY_MS } from './constants';
 
+const MAX_BACKOFF_MS = 30000;
+
 /**
  * Map MediaError code to PlaybackError.
  * Exported for deterministic testing as required by spec.
@@ -83,7 +85,6 @@ export function mapMediaErrorCodeToPlaybackError(
  * @returns Delay in milliseconds
  */
 function calculateBackoffDelay(attemptNumber: number, baseDelayMs: number): number {
-    const MAX_BACKOFF_MS = 30000;
     const calculated = baseDelayMs * Math.pow(2, attemptNumber);
     return Math.min(calculated, MAX_BACKOFF_MS);
 }

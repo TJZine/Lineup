@@ -19,13 +19,13 @@ export function redactSensitiveTokens(value: string): string {
         .replace(/"token"\s*:\s*"[^"]*"/gi, '"token":"REDACTED"')
         .replace(/'token'\s*:\s*'[^']*'/gi, "'token':'REDACTED'")
         // Header-ish forms
-        .replace(/\bX-Plex-Token\s*:\s*[^\s,;]+/gi, 'X-Plex-Token: REDACTED')
-        .replace(/\baccess_token\s*:\s*[^\s,;]+/gi, 'access_token: REDACTED')
-        .replace(/(^|[\s,{])token\s*:\s*[^\s,;}]+/gi, '$1token: REDACTED')
+        .replace(/\bX-Plex-Token\s*:\s*[^\s,;"'`{}]+/gi, 'X-Plex-Token: REDACTED')
+        .replace(/\baccess_token\s*:\s*[^\s,;"'`{}]+/gi, 'access_token: REDACTED')
+        .replace(/(^|[\s,{\["'`])token\s*:\s*[^\s,;"'`{}]+/gi, '$1token: REDACTED')
         // Query-param-ish forms (avoid matching inside X-Plex-Token)
-        .replace(/X-Plex-Token=[^&\s]*/gi, 'X-Plex-Token=REDACTED')
-        .replace(/access_token=[^&\s]*/gi, 'access_token=REDACTED')
-        .replace(/(^|[?&\s])token=[^&\s]*/gi, '$1token=REDACTED');
+        .replace(/X-Plex-Token=[^&\s"'`{}]*/gi, 'X-Plex-Token=REDACTED')
+        .replace(/access_token=[^&\s"'`{}]*/gi, 'access_token=REDACTED')
+        .replace(/(^|[?&\s])token=[^&\s"'`{}]*/gi, '$1token=REDACTED');
 }
 
 /**

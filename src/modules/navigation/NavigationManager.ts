@@ -122,7 +122,7 @@ export class NavigationManager
         this._state.config = { ...DEFAULT_NAVIGATION_CONFIG, ...config };
 
         // Initialize remote handler
-        this._remoteHandler.initialize(this._state.config.debugMode);
+        this._remoteHandler.initialize();
 
         // Subscribe to remote events
         this._keyDownDisposable = this._remoteHandler.on('keyDown', (keyEvent) => {
@@ -144,7 +144,6 @@ export class NavigationManager
         }
 
         this._isInitialized = true;
-
     }
 
     /**

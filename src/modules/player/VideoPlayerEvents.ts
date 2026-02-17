@@ -53,11 +53,7 @@ export class VideoPlayerEvents {
     public attach(
         videoElement: HTMLVideoElement,
         emitter: EventEmitter<PlayerEventMap>,
-        callbacks: {
-            updateStatus: (status: PlayerStatus) => void;
-            getState: () => VideoPlayerInternalState;
-            setState: (update: Partial<VideoPlayerInternalState>) => void;
-        },
+        callbacks: EventHandlerCallbacks,
         retryManager: RetryManager
     ): void {
         this._videoElement = videoElement;
