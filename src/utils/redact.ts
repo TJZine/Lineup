@@ -39,8 +39,15 @@ export function safeStringifyForLog(value: unknown): string {
     if (value instanceof Error) {
         return redactSensitiveTokens(JSON.stringify({ name: value.name, message: value.message }));
     }
+    if (value === undefined || typeof value === 'function' || typeof value === 'symbol') {
+        return redactSensitiveTokens(String(value));
+    }
     try {
-        return redactSensitiveTokens(JSON.stringify(value));
+        const stringified = JSON.stringify(value);
+        if (stringified === undefined) {
+            return redactSensitiveTokens(String(value));
+        }
+        return redactSensitiveTokens(stringified);
     } catch (error) {
         try {
             return redactSensitiveTokens(JSON.stringify({ unserializable: true, error: String(error) }));

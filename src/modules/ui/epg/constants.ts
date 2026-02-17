@@ -124,4 +124,5 @@ export const DEFAULT_EPG_CONFIG = {
     layoutMode: 'overlay',
     showNowWatchingBanner: true,
     debugStorageRefreshIntervalMs: 500,
+    debugRenderGridLogIntervalMs: 1000,
 } as const;

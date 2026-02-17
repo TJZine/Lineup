@@ -84,6 +84,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private _appliedPipMode: 'overlay' | 'classic' | null = null;
     private _debugEnabled: boolean = false;
     private _lastDebugEnabledStorageReadMs: number = 0;
+    private _lastRenderGridDebugLogMs: number = 0;
     private _onStorage = (event: StorageEvent): void => {
         if (event.key !== 'retune_debug_epg') return;
         this._debugEnabled = event.newValue === '1';
@@ -123,6 +124,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         this.config = { ...DEFAULT_EPG_CONFIG, ...config } as EPGConfig;
         this._debugEnabled = this._readDebugEnabledFromStorage();
+        this._lastDebugEnabledStorageReadMs = Date.now();
         try {
             window.addEventListener('storage', this._onStorage);
         } catch {
@@ -260,6 +262,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
         this._appliedPipMode = null;
         this._debugEnabled = false;
+        this._lastDebugEnabledStorageReadMs = Date.now();
+        this._lastRenderGridDebugLogMs = 0;
 
         this.errorBoundary.destroy();
         this.removeAllListeners();
@@ -1702,6 +1706,13 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             }
 
             if (this.isDebugEnabled()) {
+                const now = Date.now();
+                const intervalMs = this.config.debugRenderGridLogIntervalMs ?? 1000;
+                const shouldLog = intervalMs <= 0 || now - this._lastRenderGridDebugLogMs >= intervalMs;
+                if (!shouldLog) {
+                    return;
+                }
+                this._lastRenderGridDebugLogMs = now;
                 const payload = {
                     channelCount: channelIds.length,
                     scheduleCount: this.state.schedules.size,

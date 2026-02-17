@@ -18,6 +18,8 @@ describe('redactSensitiveTokens', () => {
     it('redacts Plex token in JSON-ish strings', () => {
         expect(redactSensitiveTokens('{"X-Plex-Token":"abc123"}')).toBe('{"X-Plex-Token":"REDACTED"}');
         expect(redactSensitiveTokens("{'X-Plex-Token':'abc123'}")).toBe("{'X-Plex-Token':'REDACTED'}");
+        expect(redactSensitiveTokens("'access_token':'secret'")).toBe("'access_token':'REDACTED'");
+        expect(redactSensitiveTokens("'token':'secret'")).toBe("'token':'REDACTED'");
     });
 
     it('redacts token-like substrings inside JSON string values without breaking structure', () => {
@@ -28,9 +30,17 @@ describe('redactSensitiveTokens', () => {
         expect(redactSensitiveTokens('{"h":"access_token: abc123"}')).toBe('{"h":"access_token: REDACTED"}');
         expect(redactSensitiveTokens('{"h":"token: abc123"}')).toBe('{"h":"token: REDACTED"}');
     });
+
+    it('redacts standalone header-style token forms', () => {
+        expect(redactSensitiveTokens('token: abc123')).toBe('token: REDACTED');
+    });
 });
 
 describe('safeStringifyForLog', () => {
+    it('handles undefined by returning a string', () => {
+        expect(safeStringifyForLog(undefined)).toBe('undefined');
+    });
+
     it('redacts a plain string input', () => {
         expect(safeStringifyForLog('http://x?token=abc123')).toBe('http://x?token=REDACTED');
     });
