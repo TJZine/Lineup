@@ -384,12 +384,25 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                 if (latency === 'auth_required') {
                     authRequired = true;
                 } else if (latency !== null) {
-                    // Log warning if logWarnings is enabled
+                    if (config.logWarnings) {
+                        console.warn('[Discovery] Selected HTTP connection (last resort)', {
+                            local: conn.local,
+                            relay: conn.relay,
+                        });
+                    }
                     return { connection: this._createConnectionWithLatency(conn, latency), authRequired };
                 }
             }
         }
 
+        if (config.logWarnings) {
+            console.warn('[Discovery] No working connections found', {
+                serverId: server.id,
+                authRequired,
+                httpsCount: httpsConns.length,
+                httpCount: httpConns.length,
+            });
+        }
         return { connection: null, authRequired };
     }
 

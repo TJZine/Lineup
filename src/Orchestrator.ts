@@ -897,6 +897,11 @@ export class AppOrchestrator implements IAppOrchestrator {
      * instance reuse is not a supported pattern.
      */
     async shutdown(): Promise<void> {
+        const teardownFailures: Array<{ step: string; error: unknown }> = [];
+        const recordTeardownFailure = (step: string, error: unknown): void => {
+            teardownFailures.push({ step, error: summarizeErrorForLog(error) });
+        };
+
         if (this._initCoordinator) {
             this._initCoordinator.clearAuthResume();
             this._initCoordinator.clearServerResume();
@@ -913,7 +918,8 @@ export class AppOrchestrator implements IAppOrchestrator {
         for (const unsubscribe of this._eventUnsubscribers) {
             try {
                 unsubscribe();
-            } catch {
+            } catch (error) {
+                recordTeardownFailure('events.unsubscribe', error);
             }
         }
         this._eventUnsubscribers = [];
@@ -923,7 +929,8 @@ export class AppOrchestrator implements IAppOrchestrator {
         if (this._lifecycle) {
             try {
                 await this._lifecycle.shutdown();
-            } catch {
+            } catch (error) {
+                recordTeardownFailure('lifecycle.shutdown', error);
             }
             this._lifecycle = null;
         }
@@ -932,45 +939,110 @@ export class AppOrchestrator implements IAppOrchestrator {
         if (this._videoPlayer) {
             try {
                 this._stopPlayback();
-            } catch {
+            } catch (error) {
+                recordTeardownFailure('videoPlayer.stop', error);
             }
         }
 
         // Stop scheduler timer
         if (this._scheduler) {
-            this._scheduler.pauseSyncTimer();
-            this._scheduler.unloadChannel();
+            try {
+                this._scheduler.pauseSyncTimer();
+            } catch (error) {
+                recordTeardownFailure('scheduler.pauseSyncTimer', error);
+            }
+            try {
+                this._scheduler.unloadChannel();
+            } catch (error) {
+                recordTeardownFailure('scheduler.unloadChannel', error);
+            }
         }
 
         // Destroy modules
         if (this._epg) {
-            this._epg.destroy();
+            try {
+                this._epg.destroy();
+            } catch (error) {
+                recordTeardownFailure('epg.destroy', error);
+            }
         }
-        this._nowPlayingInfoCoordinator?.dispose();
+        try {
+            this._nowPlayingInfoCoordinator?.dispose();
+        } catch (error) {
+            recordTeardownFailure('nowPlayingInfoCoordinator.dispose', error);
+        }
         if (this._nowPlayingInfo) {
-            this._nowPlayingInfo.destroy();
+            try {
+                this._nowPlayingInfo.destroy();
+            } catch (error) {
+                recordTeardownFailure('nowPlayingInfo.destroy', error);
+            }
         }
-        this._playerOsdCoordinator?.hide();
+        try {
+            this._playerOsdCoordinator?.hide();
+        } catch (error) {
+            recordTeardownFailure('playerOsdCoordinator.hide', error);
+        }
         if (this._playerOsd) {
-            this._playerOsd.destroy();
+            try {
+                this._playerOsd.destroy();
+            } catch (error) {
+                recordTeardownFailure('playerOsd.destroy', error);
+            }
         }
-        this._miniGuideCoordinator?.hide();
+        try {
+            this._miniGuideCoordinator?.hide();
+        } catch (error) {
+            recordTeardownFailure('miniGuideCoordinator.hide', error);
+        }
         if (this._miniGuide) {
-            this._miniGuide.destroy();
+            try {
+                this._miniGuide.destroy();
+            } catch (error) {
+                recordTeardownFailure('miniGuide.destroy', error);
+            }
         }
-        this._channelTransitionCoordinator?.hide();
+        try {
+            this._channelTransitionCoordinator?.hide();
+        } catch (error) {
+            recordTeardownFailure('channelTransitionCoordinator.hide', error);
+        }
         if (this._channelTransitionOverlay) {
-            this._channelTransitionOverlay.destroy();
+            try {
+                this._channelTransitionOverlay.destroy();
+            } catch (error) {
+                recordTeardownFailure('channelTransitionOverlay.destroy', error);
+            }
         }
-        this._playbackOptionsCoordinator?.dispose();
+        try {
+            this._playbackOptionsCoordinator?.dispose();
+        } catch (error) {
+            recordTeardownFailure('playbackOptionsCoordinator.dispose', error);
+        }
         if (this._playbackOptionsModal) {
-            this._playbackOptionsModal.destroy();
+            try {
+                this._playbackOptionsModal.destroy();
+            } catch (error) {
+                recordTeardownFailure('playbackOptionsModal.destroy', error);
+            }
         }
         if (this._videoPlayer) {
-            this._videoPlayer.destroy();
+            try {
+                this._videoPlayer.destroy();
+            } catch (error) {
+                recordTeardownFailure('videoPlayer.destroy', error);
+            }
         }
         if (this._navigation) {
-            this._navigation.destroy();
+            try {
+                this._navigation.destroy();
+            } catch (error) {
+                recordTeardownFailure('navigation.destroy', error);
+            }
+        }
+
+        if (teardownFailures.length > 0) {
+            console.warn('[Orchestrator] Shutdown teardown failures:', teardownFailures);
         }
 
         this._ready = false;
@@ -1982,11 +2054,19 @@ export class AppOrchestrator implements IAppOrchestrator {
             this._eventUnsubscribers.push(...cleanups);
             this._eventsWired = true;
         } catch (error) {
+            const cleanupFailures: Array<{ step: string; error: unknown }> = [];
             for (const cleanup of cleanups) {
                 try {
                     cleanup();
-                } catch {
+                } catch (cleanupError) {
+                    cleanupFailures.push({
+                        step: 'event-wiring.cleanup',
+                        error: summarizeErrorForLog(cleanupError),
+                    });
                 }
+            }
+            if (cleanupFailures.length > 0) {
+                console.warn('[Orchestrator] Event wiring rollback failures:', cleanupFailures);
             }
             throw error;
         }

@@ -1684,6 +1684,40 @@ describe('AppOrchestrator', () => {
             expect(mockNavigation.destroy).toHaveBeenCalled();
         });
 
+        it('continues teardown and logs aggregated warnings when shutdown steps fail', async () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            try {
+                (mockLifecycle.shutdown as jest.Mock).mockRejectedValueOnce(new Error('lifecycle failed'));
+                (mockVideoPlayer.stop as jest.Mock).mockImplementationOnce(() => {
+                    throw new Error('stop failed');
+                });
+                (mockScheduler.pauseSyncTimer as jest.Mock).mockImplementationOnce(() => {
+                    throw new Error('pause failed');
+                });
+                (mockEpg.destroy as jest.Mock).mockImplementationOnce(() => {
+                    throw new Error('epg destroy failed');
+                });
+
+                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+
+                expect(mockNavigation.destroy).toHaveBeenCalled();
+                expect(warnSpy).toHaveBeenCalledWith(
+                    '[Orchestrator] Shutdown teardown failures:',
+                    expect.arrayContaining([
+                        expect.objectContaining({ step: 'lifecycle.shutdown' }),
+                        expect.objectContaining({ step: 'videoPlayer.stop' }),
+                        expect.objectContaining({ step: 'scheduler.pauseSyncTimer' }),
+                        expect.objectContaining({ step: 'epg.destroy' }),
+                    ])
+                );
+            } finally {
+                (mockLifecycle.shutdown as jest.Mock).mockResolvedValue(undefined);
+                (mockVideoPlayer.stop as jest.Mock).mockImplementation(() => undefined);
+                (mockScheduler.pauseSyncTimer as jest.Mock).mockImplementation(() => undefined);
+                (mockEpg.destroy as jest.Mock).mockImplementation(() => undefined);
+            }
+        });
+
         it('should set ready to false after shutdown', async () => {
             // First start to set ready
             mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('t'));

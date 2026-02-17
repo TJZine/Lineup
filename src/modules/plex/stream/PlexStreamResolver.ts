@@ -550,18 +550,20 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             const debugEnabled = this._isDebugLoggingEnabled();
 
             if (debugEnabled) {
-                const reasons: string[] = [];
-                if (request.directPlay === false) {
-                    reasons.push('direct_play_disabled_by_request');
-                }
-                if (!directDecision.canDirect) {
-                    reasons.push(...directDecision.reasons);
-                }
                 if (applyHdr10Fallback) {
-                    reasons.push(`hdr10_fallback_${fallback.reason}`);
+                    console.warn('[PlexStreamResolver] HDR10 fallback applied:', {
+                        itemKey: request.itemKey,
+                        reason: fallback.reason,
+                        container: sourceContainer,
+                        isDolbyVision,
+                    });
                 }
                 if (forceHlsForDvNoHdr10BaseLayer) {
-                    reasons.push('dv_profile_no_hdr10_base_layer');
+                    console.warn('[PlexStreamResolver] HDR10 base-layer fallback forced:', {
+                        itemKey: request.itemKey,
+                        reason: 'dv_profile_no_hdr10_base_layer',
+                        container: sourceContainer,
+                    });
                 }
             }
 
@@ -706,6 +708,16 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 decision.transcodeRequest = transcodeRequestInfo;
             }
 
+            if (debugEnabled) {
+                console.warn('[PlexStreamResolver] Stream decision:', {
+                    itemKey: request.itemKey,
+                    mode: decision.isTranscoding ? 'transcode' : 'direct_play',
+                    protocol: decision.protocol,
+                    subtitleDelivery: decision.subtitleDelivery,
+                    reasonCount: decision.directPlay?.reasons.length ?? 0,
+                });
+            }
+
             // Optional (debug-only): ask PMS why it chose to transcode vs direct-stream.
             // This helps explain cases where HDR10 fallback unexpectedly results in SDR H.264 transcodes.
             if (debugEnabled && decision.isTranscoding && transcodeRequestInfo) {
@@ -723,7 +735,12 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                                 : {}),
                         }
                     );
-                } catch {
+                } catch (error) {
+                    console.warn('[PlexStreamResolver] PMS universal decision fetch failed:', {
+                        itemKey: request.itemKey,
+                        sessionId: transcodeRequestInfo.sessionId,
+                        error: summarizeErrorForLog(error),
+                    });
                 }
             }
 
