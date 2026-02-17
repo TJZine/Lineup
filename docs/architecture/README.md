@@ -43,9 +43,12 @@ The architecture diagram shows the user interacting with their TV remote, which 
 4. **Scheduling**: `ScheduleCalculator` determines what item should be playing *right now* on the active channel.
 5. **Playback**: `VideoPlayer` receives a stream URL from `PlexStreamResolver` and hands it to the webOS video element.
 
+See [Module Breakdown](modules.md) for detailed module descriptions.
+
 ## Technology Stack
 
 - **Platform**: LG webOS 6.0+
-- **Language**: TypeScript / Node.js 18+
-- **Framework**: Custom vanilla JS architecture (no heavy reactive framework like React/Vue) for maximum performance on TV hardware.
-- **Build Tool**: Vite (likely, or custom webpack/rollup per project setup)
+- **Language**: TypeScript (`^5.3.3`)
+- **Runtime**: Node.js `^20.19.0 || >=22.12.0` (development)
+- **Framework**: Custom vanilla TypeScript architecture (no heavy reactive framework like React/Vue) for maximum performance on TV hardware.
+- **Build Tool**: Vite 7

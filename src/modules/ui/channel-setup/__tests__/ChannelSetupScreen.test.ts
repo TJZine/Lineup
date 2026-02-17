@@ -3,154 +3,21 @@
  */
 
 import { ChannelSetupScreen } from '../ChannelSetupScreen';
-import type { ChannelSetupOrchestrator } from '../ChannelSetupScreen';
 import type { PlexLibrary } from '../../../plex/library/types';
-import type { INavigationManager, KeyEvent } from '../../../navigation/interfaces';
-import type { FocusableElement } from '../../../navigation/interfaces';
+import type { INavigationManager } from '../../../navigation/interfaces';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
-import { DEFAULT_MIN_ITEMS_PER_CHANNEL } from '../../../../core/channel-setup/constants';
+import { DEFAULT_MIN_ITEMS_PER_CHANNEL, SETUP_STRATEGY_KEYS } from '../../../../core/channel-setup/constants';
 
 import { flushPromises } from '../../../../__tests__/helpers';
-
-type Focusable = Pick<FocusableElement, 'id' | 'neighbors'>;
-
-type NavigationMock = {
-    focusables: Map<string, Focusable>;
-    registerFocusable: jest.Mock;
-    unregisterFocusable: jest.Mock;
-    setFocus: jest.Mock;
-    getFocusedElement: jest.Mock;
-    on: jest.Mock;
-    off: jest.Mock;
-    emitKeyPress: (button: KeyEvent['button']) => KeyEvent;
-    setMockFocus: (id: string | null) => void;
-};
-
-const makeLibrary = (overrides: Partial<PlexLibrary>): PlexLibrary => ({
-    id: overrides.id ?? 'lib-1',
-    uuid: overrides.uuid ?? 'uuid-1',
-    title: overrides.title ?? 'Library',
-    type: overrides.type ?? 'movie',
-    agent: overrides.agent ?? 'agent',
-    scanner: overrides.scanner ?? 'scanner',
-    contentCount: overrides.contentCount ?? 0,
-    lastScannedAt: overrides.lastScannedAt ?? new Date(0),
-    art: overrides.art ?? null,
-    thumb: overrides.thumb ?? null,
-});
-
-const DEFAULT_PREVIEW = {
-    estimates: {
-        total: 0,
-        collections: 0,
-        playlists: 0,
-        genres: 0,
-        directors: 0,
-        decades: 0,
-        recentlyAdded: 0,
-        studios: 0,
-        actors: 0,
-    },
-    warnings: [],
-    reachedMaxChannels: false,
-};
-
-const DEFAULT_REVIEW = {
-    preview: DEFAULT_PREVIEW,
-    diff: {
-        summary: {
-            created: 0,
-            removed: 0,
-            unchanged: 0,
-        },
-        samples: {
-            created: [],
-            removed: [],
-            unchanged: [],
-        },
-    },
-};
-
-const DEFAULT_BUILD_RESULT = {
-    created: 1,
-    skipped: 0,
-    reachedMaxChannels: false,
-    errorCount: 0,
-    canceled: false,
-    lastTask: 'done',
-};
-
-const createNavigationMock = (): NavigationMock => {
-    const focusables = new Map<string, Focusable>();
-    let focusedId: string | null = null;
-    let keyPressHandler: ((event: KeyEvent) => void) | null = null;
-
-    return {
-        focusables,
-        registerFocusable: jest.fn((focusable: Focusable) => {
-            focusables.set(focusable.id, focusable);
-        }),
-        unregisterFocusable: jest.fn((id: string) => {
-            focusables.delete(id);
-        }),
-        setFocus: jest.fn((id: string) => {
-            focusedId = id;
-        }),
-        getFocusedElement: jest.fn(() => (focusedId ? ({ id: focusedId } as HTMLElement) : null)),
-        on: jest.fn((event: string, handler: (payload: KeyEvent) => void) => {
-            if (event === 'keyPress') {
-                keyPressHandler = handler;
-            }
-        }),
-        off: jest.fn((event: string, handler: (payload: KeyEvent) => void) => {
-            if (event === 'keyPress' && keyPressHandler === handler) {
-                keyPressHandler = null;
-            }
-        }),
-        emitKeyPress: (button: KeyEvent['button']): KeyEvent => {
-            const event: KeyEvent = {
-                button,
-                isRepeat: false,
-                isLongPress: false,
-                timestamp: Date.now(),
-                originalEvent: new KeyboardEvent('keydown'),
-            };
-            keyPressHandler?.(event);
-            return event;
-        },
-        setMockFocus: (id: string | null): void => {
-            focusedId = id;
-        },
-    };
-};
-
-const createOrchestrator = (
-    overrides: Partial<ChannelSetupOrchestrator> = {}
-): ChannelSetupOrchestrator => ({
-    getNavigation: jest.fn(() => null),
-    getLibrariesForSetup: jest.fn().mockResolvedValue([]),
-    getChannelSetupRecord: jest.fn(() => null),
-    getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
-    getSelectedServerStorageKey: jest.fn(() => 'retune-selected-server-id'),
-    getSelectedServerId: jest.fn(() => null),
-    openServerSelect: jest.fn(),
-    switchToChannelByNumber: jest.fn(),
-    openEPG: jest.fn(),
-    createChannelsFromSetup: jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT),
-    markSetupComplete: jest.fn(),
-    getSetupPreview: jest.fn().mockResolvedValue(DEFAULT_PREVIEW),
-    getSetupReview: jest.fn().mockResolvedValue(DEFAULT_REVIEW),
-    ...overrides,
-} satisfies ChannelSetupOrchestrator);
-
-// Intentionally button-only to enforce accessible remote-first UI semantics.
-const clickButton = (container: HTMLElement, selector: string): void => {
-    const element = container.querySelector(selector);
-    if (!(element instanceof HTMLButtonElement)) {
-        throw new Error(`Button not found: ${selector}`);
-    }
-    element.click();
-};
+import {
+    clickButton,
+    createNavigationMock,
+    createOrchestrator,
+    DEFAULT_BUILD_RESULT,
+    DEFAULT_PREVIEW,
+    DEFAULT_REVIEW,
+    makeLibrary,
+} from './channel-setup-test-helpers';
 
 const enterStep2 = async (container: HTMLElement): Promise<void> => {
     const next = container.querySelector('#setup-next');
@@ -267,6 +134,40 @@ describe('ChannelSetupScreen', () => {
         expect(selectAll?.neighbors.down).toBe('setup-lib-movies');
         expect(clearAll?.neighbors.left).toBe('setup-select-all');
         expect(clearAll?.neighbors.down).toBe('setup-lib-movies');
+    });
+
+    it('cleans up keyPress handlers and focus registrations across show/hide/destroy cycles', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const orchestrator = createOrchestrator({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+
+        expect(nav.on).toHaveBeenCalledTimes(1);
+        expect(nav.focusables.size).toBeGreaterThan(0);
+
+        screen.hide();
+        expect(nav.off).toHaveBeenCalledTimes(1);
+        expect(nav.focusables.size).toBe(0);
+        const unregisterCallsAfterHide = nav.unregisterFocusable.mock.calls.length;
+        expect(unregisterCallsAfterHide).toBeGreaterThan(0);
+
+        screen.show();
+        await flushPromises();
+        expect(nav.on).toHaveBeenCalledTimes(2);
+        expect(nav.focusables.size).toBeGreaterThan(0);
+
+        screen.destroy();
+        expect(nav.off).toHaveBeenCalledTimes(2);
+        expect(nav.focusables.size).toBe(0);
+        expect(nav.unregisterFocusable.mock.calls.length).toBeGreaterThan(unregisterCallsAfterHide);
     });
 
     it('renders Step 2 category rail in fixed order', async () => {
@@ -497,6 +398,119 @@ describe('ChannelSetupScreen', () => {
         expect(nextButton?.textContent).toBe('Review');
     });
 
+    it('clones nested Step 2 draft state before applying changes', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        const prevStrategies = (screen as unknown as { _strategies: unknown })._strategies;
+        const prevExpansion = (screen as unknown as { _channelExpansion: unknown })._channelExpansion;
+
+        clickButton(container, '#setup-strategy-collections');
+        await flushPromises();
+
+        const nextStrategies = (screen as unknown as { _strategies: unknown })._strategies;
+        const nextExpansion = (screen as unknown as { _channelExpansion: unknown })._channelExpansion;
+        expect(nextStrategies).not.toBe(prevStrategies);
+        expect(nextExpansion).not.toBe(prevExpansion);
+    });
+
+    it('treats abort-like build failures as canceled (not error)', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const createChannelsFromSetup = jest.fn().mockRejectedValue(new DOMException('Aborted', 'AbortError'));
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+            createChannelsFromSetup,
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-next');
+        await flushPromises();
+        await flushPromises();
+
+        expect(container.textContent ?? '').toContain('Canceled');
+        expect(container.textContent ?? '').toContain('No changes were applied');
+        expect(container.textContent ?? '').not.toContain('Build failed');
+    });
+
+    it('disables Confirm & Replace until replace confirmation is toggled', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
+            getSetupReview,
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-next');
+        await flushPromises();
+        await flushPromises();
+
+        const confirm = container.querySelector('#setup-confirm') as HTMLButtonElement | null;
+        expect(confirm?.disabled).toBe(true);
+
+        clickButton(container, '#setup-replace-confirm');
+        const toggledConfirm = container.querySelector('#setup-confirm') as HTMLButtonElement | null;
+        expect(toggledConfirm?.disabled).toBe(false);
+    });
+
+    it('shows review loading state before review payload resolves', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        let resolveReview: ((value: typeof DEFAULT_REVIEW | PromiseLike<typeof DEFAULT_REVIEW>) => void) | undefined;
+        const getSetupReview = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_REVIEW>((resolve) => {
+            resolveReview = resolve;
+        }));
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
+            getSetupReview,
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-next');
+        await flushPromises();
+        expect(container.textContent ?? '').toContain('Preparing your review');
+
+        if (!resolveReview) {
+            throw new Error('Expected review resolver to be set');
+        }
+        resolveReview(DEFAULT_REVIEW);
+        await flushPromises();
+    });
+
     it('keeps build progress stable when a delayed preview resolves after fast-path transition', async () => {
         jest.useFakeTimers();
         const container = document.createElement('div');
@@ -651,6 +665,45 @@ describe('ChannelSetupScreen', () => {
         expect(afterKey).not.toBe(beforeKey);
     });
 
+    it('renders strategy and priority controls for every setup strategy key with no extras', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        const observedStrategies = new Set<string>();
+        const observedPriorities = new Set<string>();
+        const collectVisibleStrategyControls = (): void => {
+            const strategyButtons = Array.from(
+                container.querySelectorAll<HTMLButtonElement>('[id^="setup-strategy-"]')
+            );
+            const priorityButtons = Array.from(
+                container.querySelectorAll<HTMLButtonElement>('[id^="setup-priority-"]')
+            );
+            for (const button of strategyButtons) {
+                observedStrategies.add(button.id.replace('setup-strategy-', ''));
+            }
+            for (const button of priorityButtons) {
+                observedPriorities.add(button.id.replace('setup-priority-', ''));
+            }
+        };
+
+        collectVisibleStrategyControls();
+        clickButton(container, '#setup-category-advanced-sources');
+        collectVisibleStrategyControls();
+
+        const expected = [...SETUP_STRATEGY_KEYS].sort();
+        expect([...observedStrategies].sort()).toEqual(expected);
+        expect([...observedPriorities].sort()).toEqual(expected);
+    });
+
     it('Expand Lineup quick action sets max to MAX_CHANNELS and min items to 1', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -705,6 +758,87 @@ describe('ChannelSetupScreen', () => {
         const savedConfig = markSetupComplete.mock.calls[0]?.[1] as { maxChannels: number; minItemsPerChannel: number };
         expect(savedConfig.maxChannels).toBe(MAX_CHANNELS);
         expect(savedConfig.minItemsPerChannel).toBe(1);
+    });
+
+    it('transitions cancel button to Canceling during in-flight build abort', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        let resolveBuild: ((value: typeof DEFAULT_BUILD_RESULT | PromiseLike<typeof DEFAULT_BUILD_RESULT>) => void) | undefined;
+        const createChannelsFromSetup = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_BUILD_RESULT>((resolve) => {
+            resolveBuild = resolve;
+        }));
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
+            createChannelsFromSetup,
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-next');
+        await flushPromises();
+        clickButton(container, '#setup-back');
+        expect((container.querySelector('#setup-back') as HTMLButtonElement | null)?.textContent).toBe('Canceling...');
+
+        if (!resolveBuild) {
+            throw new Error('Expected build resolver to be set');
+        }
+        resolveBuild(DEFAULT_BUILD_RESULT);
+        await flushPromises();
+    });
+
+    it('shows no-server-selected error when entering build without server id', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
+            getSelectedServerId: jest.fn(() => null),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+        clickButton(container, '#setup-next');
+        await flushPromises();
+
+        expect(container.textContent ?? '').toContain('No server selected.');
+        expect((container.querySelector('#setup-done') as HTMLButtonElement | null)?.disabled).toBe(true);
+    });
+
+    it('returns to Step 2 when backing out of build progress with no server selected', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
+            getSelectedServerId: jest.fn(() => null),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+        clickButton(container, '#setup-next');
+        await flushPromises();
+
+        expect(container.textContent ?? '').toContain('No server selected.');
+
+        clickButton(container, '#setup-back');
+        await flushPromises();
+
+        expect(container.querySelector('#setup-category-content-sources')).not.toBeNull();
+        expect((container.querySelector('#setup-next') as HTMLButtonElement | null)?.textContent).toBe('Build Channels');
+        expect((container.querySelector('#setup-back') as HTMLButtonElement | null)?.textContent).toBe('Back');
     });
 
     it('uses new higher-volume defaults in Step 2 config state', async () => {

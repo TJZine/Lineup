@@ -23,6 +23,7 @@ flowchart TD
     
     subgraph Player["Video Player"]
         VP[VideoPlayer]
+        SM[SubtitleManager]
         HLS[HLS Handler]
         KA[KeepAlive]
     end
@@ -41,12 +42,15 @@ flowchart TD
     
     Channels --> CS
     Player --> VP
+    VP --> SM
+    VP --> HLS
+    VP --> KA
 ```
 
 <details>
 <summary>Diagram Description (Accessibility)</summary>
 
-The diagram shows the App Orchestrator at the center, connecting to five module groups: Plex Integration (PlexAuth, PlexServerDiscovery, PlexLibrary, PlexStreamResolver), Channel Management (ChannelManager, ChannelStore), Scheduler (ScheduleCalculator, ShuffleEngine), Video Player (VideoPlayer, HLS Handler, KeepAlive), and User Interface (EPGComponent, PlayerOverlay, ToastManager).
+The diagram shows the App Orchestrator at the center, connecting to five module groups: Plex Integration (PlexAuth, PlexServerDiscovery, PlexLibrary, PlexStreamResolver), Channel Management (ChannelManager, ChannelStore), Scheduler (ScheduleCalculator, ShuffleEngine), Video Player (VideoPlayer, SubtitleManager, HLS Handler, KeepAlive), and User Interface (EPGComponent, PlayerOverlay, ToastManager).
 
 </details>
 
@@ -78,6 +82,7 @@ The brain of the operation. Determines what plays when.
 Wraps the native webOS video element.
 
 - **VideoPlayer**: Handles play, pause, seek, and track selection.
+- **SubtitleManager**: Fetches, converts, and attaches subtitle tracks (VTT, SRT, burn-in escalation).
 - **HLS**: Manages HLS stream events (if using native HLS or hls.js fallback).
 - **KeepAlive**: Prevents the TV from sleeping during playback.
 

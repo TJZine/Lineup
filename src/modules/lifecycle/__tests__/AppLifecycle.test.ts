@@ -187,6 +187,45 @@ describe('AppLifecycle', () => {
             expect(handler).toHaveBeenCalled();
         });
 
+        it('should allow removing terminate callbacks via disposable subscription', async () => {
+            await lifecycle.initialize();
+            lifecycle.setPhase('loading_data');
+            await Promise.resolve();
+            lifecycle.setPhase('ready');
+            await Promise.resolve();
+
+            const terminateCallback = jest.fn();
+            const subscription = lifecycle.onTerminate(terminateCallback) as unknown as { dispose?: () => void };
+            expect(typeof subscription?.dispose).toBe('function');
+            subscription.dispose?.();
+
+            await lifecycle.shutdown();
+
+            expect(terminateCallback).not.toHaveBeenCalled();
+        });
+
+        it('does not break callback iteration when a callback disposes another callback during shutdown', async () => {
+            await lifecycle.initialize();
+            lifecycle.setPhase('loading_data');
+            await Promise.resolve();
+            lifecycle.setPhase('ready');
+            await Promise.resolve();
+
+            let secondSubscription: { dispose?: () => void } | null = null;
+            const firstCallback = jest.fn(() => {
+                secondSubscription?.dispose?.();
+            });
+            lifecycle.onTerminate(firstCallback);
+
+            const secondCallback = jest.fn();
+            secondSubscription = lifecycle.onTerminate(secondCallback) as unknown as { dispose?: () => void };
+
+            await lifecycle.shutdown();
+
+            expect(firstCallback).toHaveBeenCalled();
+            expect(secondCallback).not.toHaveBeenCalled();
+        });
+
         it('keeps relaunch add/remove symmetry and removes the exact same handler', async () => {
             const lifecycleService: PlatformLifecycleService = {
                 bindRelaunch: jest.fn((handler: (event: Event) => void) => {
@@ -242,6 +281,27 @@ describe('AppLifecycle', () => {
     });
 
     describe('visibility', () => {
+        it('removes the exact lifecycle subscription instance on dispose', () => {
+            const pauseCallback = jest.fn();
+            const first = lifecycle.onPause(pauseCallback) as unknown as { dispose?: () => void };
+            const second = lifecycle.onPause(pauseCallback) as unknown as { dispose?: () => void };
+
+            const callbacks = (lifecycle as unknown as { _pauseCallbacks: Array<() => unknown> })._pauseCallbacks;
+            expect(callbacks).toHaveLength(2);
+            expect(callbacks[0]).not.toBe(callbacks[1]);
+
+            const firstWrapped = callbacks[0];
+            const secondWrapped = callbacks[1];
+
+            second.dispose?.();
+            expect(callbacks).toHaveLength(1);
+            expect(callbacks[0]).toBe(firstWrapped);
+            expect(callbacks).not.toContain(secondWrapped);
+
+            first.dispose?.();
+            expect(callbacks).toHaveLength(0);
+        });
+
         it('should call pause callbacks when hidden', async () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
@@ -261,6 +321,29 @@ describe('AppLifecycle', () => {
             await new Promise(resolve => setTimeout(resolve, 0));
 
             expect(pauseCallback).toHaveBeenCalled();
+        });
+
+        it('should allow removing pause callbacks via disposable subscription', async () => {
+            await lifecycle.initialize();
+            // Follow valid transition path: authenticating -> loading_data -> ready
+            lifecycle.setPhase('loading_data');
+            await new Promise(resolve => setTimeout(resolve, 0));
+            lifecycle.setPhase('ready');
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            const pauseCallback = jest.fn();
+            const subscription = lifecycle.onPause(pauseCallback) as unknown as { dispose?: () => void };
+            expect(typeof subscription?.dispose).toBe('function');
+            subscription.dispose?.();
+
+            // Simulate visibility change to hidden
+            Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+
+            // Wait for async callbacks
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(pauseCallback).not.toHaveBeenCalled();
         });
 
         it('should call resume callbacks when visible', async () => {
@@ -285,6 +368,32 @@ describe('AppLifecycle', () => {
             await new Promise(resolve => setTimeout(resolve, 0));
 
             expect(resumeCallback).toHaveBeenCalled();
+        });
+
+        it('should allow removing resume callbacks via disposable subscription', async () => {
+            await lifecycle.initialize();
+            // Follow valid transition path: authenticating -> loading_data -> ready
+            lifecycle.setPhase('loading_data');
+            await new Promise(resolve => setTimeout(resolve, 0));
+            lifecycle.setPhase('ready');
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            const resumeCallback = jest.fn();
+            const subscription = lifecycle.onResume(resumeCallback) as unknown as { dispose?: () => void };
+            expect(typeof subscription?.dispose).toBe('function');
+            subscription.dispose?.();
+
+            // First hide
+            Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            // Then show
+            Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(resumeCallback).not.toHaveBeenCalled();
         });
 
         it('should emit visibilityChange event', async () => {

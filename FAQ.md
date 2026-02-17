@@ -1,5 +1,9 @@
 # Frequently Asked Questions
 
+- [General](#general)
+- [Content & Channels](#content--channels)
+- [Technical](#technical)
+
 ## General
 
 ### Is Retune free?
@@ -18,10 +22,10 @@ Yes, as long as your Plex server is configured for "Remote Access"[^3].
 
 ### Why can't I fast forward?
 
-Retune simulates linear TV. Just like broadcast television, you can't skip ahead of the "live" broadcast time.
+Retune simulates linear TV. Just like broadcast television, you can't skip ahead of the "live" broadcast time. You **can** pause and resume playback using the Play/Pause button on your remote.
 
 > [!NOTE]
-> Pause/resume functionality may be added in future updates.
+> Seeking and fast-forward are intentionally disabled to preserve the live TV experience.
 
 ### The channel says "Off Air". Why?
 
@@ -37,6 +41,14 @@ This means there is no content scheduled for the current time. This happens if:
 
 Yes. If their server is shared with your Plex account, it will appear in the server list.
 
+### How do I enable subtitles?
+
+Go to **Settings → Audio & Subtitles → Subtitle Mode** and choose a mode. See the [Subtitles guide](docs/user-guide/subtitles.md) for details on each mode.
+
+### How do I create many channels at once?
+
+Use the **Channel Setup Builder** (accessible during initial setup or from Channels settings). It can auto-generate hundreds of channels from your libraries based on genres, collections, and more. See [Channel Management](docs/user-guide/channels.md#channel-setup-builder-step-2) for details.
+
 ## Technical
 
 ### Why is the installation so complicated?
@@ -48,7 +60,7 @@ LG requires "Developer Mode" for sideloading apps that aren't on the official LG
 
 ### Does it support Dolby Vision?
 
-It depends on your TV model. Retune hands the stream directly to the TV's native player. If the file is direct-playable and the TV supports it, yes.
+It depends on your TV model. Retune hands the stream directly to the TV's native player. If the file is direct-playable and the TV supports it, yes. For Dolby Vision MKV files that show dark letterbox bars, enable **Smart HDR10 Fallback** in Settings → HDR / Dolby Vision. See [Troubleshooting](docs/user-guide/troubleshooting.md#dolby-vision-mkv-shows-dark-letterbox-bars) for details.
 
 ---
 

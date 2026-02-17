@@ -10,6 +10,7 @@
 - **Metadata accuracy**: Flag hallucinated Sequential Thinking metadata—`files_touched`, `tests_to_run`, `dependencies`, `risk_level`, `confidence_score`, etc. should stay empty/default unless there is real evidence.
 - **Default workflow = 3-agent loop**: Prefer Plan → Code → Review. Reference `docs/AGENTIC_DEV_WORKFLOW.md`.
 - **Verification gate**: For UI/navigation/Orchestrator/Plex work, run `npm run verify` before concluding.
+- **Pre-MVP path policy**: Until an explicit milestone is reached (e.g., MVP launch) as declared by the project lead, or explicitly requested and approved by the project maintainer/tech lead, do not add legacy/fallback/compatibility code paths, migration shims, or dual-path "just in case" logic.
 
 ## Standard Flow
 

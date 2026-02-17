@@ -37,8 +37,8 @@ Whether you're fixing bugs, adding features, improving documentation, or just as
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| Node.js | 18+ | JavaScript runtime |
-| npm | 9+ | Package manager |
+| Node.js | `^20.19.0 \|\| >=22.12.0` | JavaScript runtime |
+| npm | 10+ | Package manager |
 | webOS TV SDK | Latest | TV emulator & deployment tools |
 | Git | 2.x | Version control |
 
@@ -93,7 +93,7 @@ git checkout -b feat/my-feature
 # ... edit files ...
 
 # 3. Run checks
-npm run build      # TypeScript compilation
+npm run build      # Vite production build
 npm run lint       # ESLint
 npm test           # Jest tests
 
@@ -187,15 +187,24 @@ describe('ChannelScheduler', () => {
 
 ```text
 src/
+├── __tests__/         # Integration & policy tests
+├── config/            # App configuration
+├── core/              # Core infrastructure (EventEmitter, etc.)
 ├── modules/           # Feature modules
+│   ├── debug/         # Debug tooling
 │   ├── lifecycle/     # App lifecycle management
 │   ├── navigation/    # D-pad and remote handling
-│   ├── player/        # Video playback
+│   ├── player/        # Video playback & subtitles
 │   ├── plex/          # Plex API integration
 │   ├── scheduler/     # Channel scheduling
 │   └── ui/            # User interface components
+├── platform/          # Platform abstraction (webOS, browser)
+├── shared/            # Shared constants & helpers
+├── styles/            # Global CSS
+├── types/             # TypeScript type definitions
 ├── utils/             # Shared utilities
 ├── App.ts             # Application shell
+├── bootstrap.ts       # Application bootstrap & startup
 ├── Orchestrator.ts    # Central state coordinator
 └── index.ts           # Entry point
 
@@ -263,7 +272,7 @@ A good bug report includes:
 <details>
 <summary>Bug Report Template</summary>
 
-```markdown
+````markdown
 **Environment**
 - webOS Version: 6.x
 - TV Model: LG C1
@@ -285,6 +294,7 @@ App freezes for 10 seconds, then shows black screen.
 ```text
 [Player] Error: MEDIA_NOT_SUPPORTED
 ```
+````
 
 </details>
 

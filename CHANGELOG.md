@@ -5,10 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-> [!NOTE]
-> This is a pre-release version. Breaking changes may occur before v1.0.0.
+## [1.0.0] - 2026-02-15
 
 ### Added
 
@@ -65,6 +62,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shared type definitions and interfaces
 - Comprehensive test coverage with Jest
 
+- **Channel Setup Builder**
+  - Guided wizard for bulk channel generation
+  - Strategy-based creation (genre, collection, show, etc.) with configurable priority
+  - Per-library and mixed scope options
+  - Alternate lineups and sequential companion channels
+  - Configurable max channels (up to 500) and min items per channel
+
+- **Subtitles**
+  - Multiple subtitle modes: Off, Direct only, Standard, Full (Burn-in)
+  - Automatic WebVTT conversion for non-VTT text formats
+  - Multi-path fetching (direct stream, PMS extraction, burn-in escalation)
+  - Preferred language and forced subtitle settings
+  - Subtitle debug logging for troubleshooting
+
+- **HDR / Dolby Vision**
+  - Smart HDR10 fallback for Dolby Vision MKV with cinematic aspect ratios
+  - Force HDR10 fallback option for all DV content with HDR10 base layer
+  - DV profile detection (Profile 5, 7, 8.x)
+
+- **Settings**
+  - Audio & subtitle configuration
+  - HDR / Dolby Vision preferences
+  - Developer options and debug logging
+
 ### Fixed
 
 - EPG focus management and stale content issues
@@ -77,18 +98,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Simplified Plex server discovery promise handling and object creation
-
-### Performance
-
-- Skip unnecessary index rebuild in scheduler `jumpToProgram` operation
+- **Performance**: Skip unnecessary index rebuild in scheduler `jumpToProgram` operation
 
 ---
 
-## [1.0.0] - TBD
-
-First stable release. See [Unreleased] section for feature list.
-
----
-
-[Unreleased]: https://github.com/TJZine/Retune/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/TJZine/Retune/releases/tag/v1.0.0

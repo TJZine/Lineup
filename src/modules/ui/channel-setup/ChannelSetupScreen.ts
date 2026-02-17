@@ -25,10 +25,23 @@ import {
     SETUP_STRATEGY_KEYS,
 } from '../../../core/channel-setup/constants';
 import { createScreenShell } from '../common/ScreenShell';
+import { ChannelSetupFocusCoordinator } from './focus/ChannelSetupFocusCoordinator';
+import { LibraryStepController } from './steps/LibraryStepController';
+import { StrategyStepController } from './steps/StrategyStepController';
+import { BuildReviewStepController } from './steps/BuildReviewStepController';
+import { BuildProgressStepController } from './steps/BuildProgressStepController';
+import type { BuildReviewStateSnapshot, StrategyStepMutableState } from './steps/types';
+import {
+    ADVANCED_STRATEGY_KEYS,
+    CONTENT_STRATEGY_KEYS,
+    STEP2_CONTROL_IDS,
+    STRATEGY_CATEGORIES,
+    type SetupStrategyKey,
+    type StrategyCategoryKey,
+} from './steps/constants';
+import { scrollToNearest } from './focus/scrollToNearest';
 
 const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
-
-type SetupStrategyKey = (typeof SETUP_STRATEGY_KEYS)[number];
 
 type SetupStrategyState = Record<SetupStrategyKey, {
     enabled: boolean;
@@ -62,46 +75,7 @@ const defaultChannelExpansionState = (): ChannelExpansionState => ({
     addSequentialVariants: false,
 });
 
-const CONTENT_STRATEGY_KEYS = [
-    'collections',
-    'playlists',
-    'recentlyAdded',
-] as const satisfies readonly SetupStrategyKey[];
-
-const ADVANCED_STRATEGY_KEYS = [
-    'genres',
-    'directors',
-    'decades',
-    'studios',
-    'actors',
-] as const satisfies readonly SetupStrategyKey[];
-
-const isContentStrategyKey = (key: SetupStrategyKey): key is (typeof CONTENT_STRATEGY_KEYS)[number] =>
-    (CONTENT_STRATEGY_KEYS as readonly SetupStrategyKey[]).includes(key);
-
-const isAdvancedStrategyKey = (key: SetupStrategyKey): key is (typeof ADVANCED_STRATEGY_KEYS)[number] =>
-    (ADVANCED_STRATEGY_KEYS as readonly SetupStrategyKey[]).includes(key);
-
-const STRATEGY_CATEGORIES = [
-    'content-sources',
-    'advanced-sources',
-    'build-options',
-    'limits',
-] as const;
-
-const STEP2_CONTROL_IDS = {
-    buildMode: 'setup-build-mode',
-    combineMode: 'setup-combine-mode',
-    addAlternateLineups: 'setup-expansion-alternate-lineups',
-    alternateLineupCopies: 'setup-expansion-copies',
-    addSequentialVariants: 'setup-expansion-sequential',
-    expandLineup: 'setup-expand-lineup',
-    maxChannels: 'setup-max-channels',
-    minItems: 'setup-min-items',
-} as const;
-
 type SetupStep = 1 | 2 | 3;
-type StrategyCategoryKey = (typeof STRATEGY_CATEGORIES)[number];
 type EstimateKey = keyof ChannelSetupPreview['estimates'];
 
 export type ChannelSetupOrchestrator = Pick<
@@ -143,7 +117,12 @@ const SHOW_SVG = `
 export class ChannelSetupScreen {
     private _container: HTMLElement;
     private _orchestrator: ChannelSetupOrchestrator;
+    private readonly _focus: ChannelSetupFocusCoordinator;
     private _destroyScreenShell: (() => void) | null = null;
+    private readonly _libraryStep = new LibraryStepController();
+    private readonly _strategyStep = new StrategyStepController();
+    private readonly _buildReviewStep = new BuildReviewStepController();
+    private readonly _buildProgressStep = new BuildProgressStepController();
     private _stepEl: HTMLElement;
     private _statusEl: HTMLElement;
     private _detailEl: HTMLElement;
@@ -167,7 +146,6 @@ export class ChannelSetupScreen {
     private _reviewAbortController: AbortController | null = null;
     private _previewTimeoutId: number | null = null;
     private _step: SetupStep = 1;
-    private _focusableIds: string[] = [];
     private _preferredFocusId: string | null = null;
     private _isLoading: boolean = false;
     private _isBuilding: boolean = false;
@@ -255,6 +233,9 @@ export class ChannelSetupScreen {
     constructor(container: HTMLElement, orchestrator: ChannelSetupOrchestrator) {
         this._container = container;
         this._orchestrator = orchestrator;
+        this._focus = new ChannelSetupFocusCoordinator({
+            getNavigation: (): ReturnType<ChannelSetupOrchestrator['getNavigation']> => this._orchestrator.getNavigation(),
+        });
 
         if (!this._channelLimitOptions.includes(DEFAULT_CHANNEL_SETUP_MAX)) {
             this._channelLimitOptions.push(DEFAULT_CHANNEL_SETUP_MAX);
@@ -522,750 +503,201 @@ export class ChannelSetupScreen {
     }
 
     private _renderLibraryStep(): void {
-        this._stepEl.textContent = 'Step 1 of 3';
-        this._statusEl.textContent = 'Select the libraries to include.';
-        this._detailEl.textContent = '';
-
-        const scroll = document.createElement('div');
-        scroll.className = 'setup-scroll';
-
-        const bulkActions = document.createElement('div');
-        bulkActions.className = 'setup-bulk-actions';
-
-        const firstLibraryId = this._libraries[0] ? `setup-lib-${this._toDomId(this._libraries[0].id)}` : null;
-
-        const selectAllButton = document.createElement('button');
-        selectAllButton.id = 'setup-select-all';
-        selectAllButton.className = 'screen-button secondary';
-        selectAllButton.textContent = 'Select All';
-        selectAllButton.disabled = this._libraries.length === 0;
-        selectAllButton.addEventListener('click', () => {
-            this._selectedLibraryIds = new Set(this._libraries.map((library) => library.id));
-            this._preferredFocusId = firstLibraryId ?? selectAllButton.id;
-            this._review = null;
-            this._reviewError = null;
-            this._replaceConfirm = false;
-            this._renderStep();
-        });
-        bulkActions.appendChild(selectAllButton);
-
-        const clearAllButton = document.createElement('button');
-        clearAllButton.id = 'setup-clear-all';
-        clearAllButton.className = 'screen-button secondary';
-        clearAllButton.textContent = 'Clear All';
-        clearAllButton.disabled = this._libraries.length === 0;
-        clearAllButton.addEventListener('click', () => {
-            this._selectedLibraryIds = new Set();
-            this._preferredFocusId = firstLibraryId ?? clearAllButton.id;
-            this._review = null;
-            this._reviewError = null;
-            this._replaceConfirm = false;
-            this._renderStep();
-        });
-        bulkActions.appendChild(clearAllButton);
-
-        scroll.appendChild(bulkActions);
-
-        const list = document.createElement('div');
-        list.className = 'setup-grid-2col';
-
-        if (this._libraries.length === 0) {
-            const empty = document.createElement('div');
-            empty.className = 'setup-empty';
-            empty.textContent = 'No movie or show libraries found. Select "Back" to choose a different server.';
-            list.appendChild(empty);
-        }
-
-        for (const library of this._libraries) {
-            const isSelected = this._selectedLibraryIds.has(library.id);
-
-            const button = document.createElement('button');
-            button.id = `setup-lib-${this._toDomId(library.id)}`;
-            button.className = `setup-toggle${isSelected ? ' selected' : ''}`;
-            button.classList.add('library-toggle');
-
-            const icon = document.createElement('span');
-            icon.className = 'setup-toggle-icon';
-            icon.setAttribute('aria-hidden', 'true');
-            icon.innerHTML = library.type === 'movie' ? MOVIE_SVG : SHOW_SVG;
-
-            const label = document.createElement('span');
-            label.className = 'setup-toggle-label';
-            label.textContent = library.title;
-
-            const meta = document.createElement('span');
-            meta.className = 'setup-toggle-meta';
-            const typeLabel = library.type === 'movie' ? 'Movies' : 'Shows';
-            const countText = typeof library.contentCount === 'number' && Number.isFinite(library.contentCount)
-                ? `${typeLabel} • ${this._formatCount(library.contentCount)} titles`
-                : typeLabel;
-            meta.textContent = countText;
-
-            const state = document.createElement('span');
-            state.className = 'setup-toggle-state';
-            if (isSelected) {
-                const stateIcon = document.createElement('span');
-                stateIcon.className = 'setup-toggle-state-icon';
-                stateIcon.setAttribute('aria-hidden', 'true');
-                stateIcon.textContent = '✓';
-
-                const srOnly = document.createElement('span');
-                srOnly.className = 'sr-only';
-                srOnly.textContent = 'Selected';
-
-                state.appendChild(stateIcon);
-                state.appendChild(srOnly);
-            } else {
-                state.textContent = 'Off';
-            }
-
-            button.appendChild(icon);
-            button.appendChild(label);
-            button.appendChild(meta);
-            button.appendChild(state);
-
-            button.addEventListener('click', () => {
-                this._preferredFocusId = button.id;
-                if (this._selectedLibraryIds.has(library.id)) {
-                    this._selectedLibraryIds.delete(library.id);
+        this._libraryStep.render({
+            contentEl: this._contentEl,
+            stepEl: this._stepEl,
+            statusEl: this._statusEl,
+            detailEl: this._detailEl,
+            errorEl: this._errorEl,
+        }, {
+            libraries: this._libraries,
+            selectedLibraryIds: this._selectedLibraryIds,
+            formatCount: (value) => this._formatCount(value),
+            movieSvg: MOVIE_SVG,
+            showSvg: SHOW_SVG,
+            toDomId: (raw) => this._toDomId(raw),
+            onToggleLibrary: (libraryId, focusId) => {
+                this._preferredFocusId = focusId;
+                if (this._selectedLibraryIds.has(libraryId)) {
+                    this._selectedLibraryIds.delete(libraryId);
                 } else {
-                    this._selectedLibraryIds.add(library.id);
+                    this._selectedLibraryIds.add(libraryId);
                 }
                 this._review = null;
                 this._reviewError = null;
                 this._replaceConfirm = false;
                 this._renderStep();
-            });
-
-            list.appendChild(button);
-        }
-
-        scroll.appendChild(list);
-        this._contentEl.appendChild(scroll);
-
-        const actions = document.createElement('div');
-        actions.className = 'button-row';
-
-        const backButton = document.createElement('button');
-        backButton.id = 'setup-back';
-        backButton.className = 'screen-button secondary';
-        backButton.textContent = 'Back';
-        backButton.addEventListener('click', () => {
-            this._orchestrator.openServerSelect();
+            },
+            onSelectAll: (focusId) => {
+                this._selectedLibraryIds = new Set(this._libraries.map((library) => library.id));
+                this._preferredFocusId = focusId;
+                this._review = null;
+                this._reviewError = null;
+                this._replaceConfirm = false;
+                this._renderStep();
+            },
+            onClearAll: (focusId) => {
+                this._selectedLibraryIds = new Set();
+                this._preferredFocusId = focusId;
+                this._review = null;
+                this._reviewError = null;
+                this._replaceConfirm = false;
+                this._renderStep();
+            },
+            onBack: () => {
+                this._orchestrator.openServerSelect();
+            },
+            onNext: () => {
+                this._step = 2;
+                this._renderStep();
+            },
+            registerFocusables: (buttons, mode) => {
+                this._registerFocusables(buttons, mode);
+            },
+            registerBulkActionNeighbors: (selectAllButton, clearAllButton, listButtons) => {
+                this._registerBulkActionNeighbors(selectAllButton, clearAllButton, listButtons);
+            },
         });
-        actions.appendChild(backButton);
-        if (this._libraries.length === 0) {
-            this._preferredFocusId = backButton.id;
-        }
+    }
 
-        const nextButton = document.createElement('button');
-        nextButton.id = 'setup-next';
-        nextButton.className = 'screen-button';
-        nextButton.textContent = 'Next';
-        nextButton.disabled = this._libraries.length === 0 || this._selectedLibraryIds.size === 0;
-        nextButton.addEventListener('click', () => {
-            if (this._selectedLibraryIds.size === 0) {
-                return;
-            }
-            this._step = 2;
-            this._renderStep();
-        });
-        actions.appendChild(nextButton);
-
-        this._contentEl.appendChild(actions);
-
-        const listButtons = Array.from(list.querySelectorAll<HTMLButtonElement>('button'));
-        const navigationButtons: HTMLElement[] = [selectAllButton, clearAllButton, ...listButtons, backButton, nextButton];
-        this._registerFocusables(navigationButtons, 'spatial');
+    private _registerBulkActionNeighbors(
+        selectAllButton: HTMLButtonElement,
+        clearAllButton: HTMLButtonElement,
+        listButtons: HTMLButtonElement[]
+    ): void {
         const nav = this._orchestrator.getNavigation();
-        if (nav && !selectAllButton.disabled && !clearAllButton.disabled) {
-            const downNeighbor = listButtons[0]?.id;
-            const selectAllNeighbors: FocusableElement['neighbors'] = {
-                right: clearAllButton.id,
-            };
+        if (!nav) {
+            return;
+        }
+        const downNeighbor = listButtons[0]?.id;
+
+        if (!selectAllButton.disabled) {
+            const selectAllNeighbors: FocusableElement['neighbors'] = {};
+            if (!clearAllButton.disabled) {
+                selectAllNeighbors.right = clearAllButton.id;
+            }
             if (downNeighbor) {
                 selectAllNeighbors.down = downNeighbor;
-            }
-            const clearAllNeighbors: FocusableElement['neighbors'] = {
-                left: selectAllButton.id,
-            };
-            if (downNeighbor) {
-                clearAllNeighbors.down = downNeighbor;
             }
             nav.registerFocusable({
                 id: selectAllButton.id,
                 element: selectAllButton,
                 neighbors: selectAllNeighbors,
                 onFocus: () => {
-                    try {
-                        selectAllButton.scrollIntoView({ block: 'nearest' });
-                    } catch {
-                        selectAllButton.scrollIntoView();
-                    }
+                    scrollToNearest(selectAllButton);
                 },
             });
+        }
+
+        if (!clearAllButton.disabled) {
+            const clearAllNeighbors: FocusableElement['neighbors'] = {};
+            if (!selectAllButton.disabled) {
+                clearAllNeighbors.left = selectAllButton.id;
+            }
+            if (downNeighbor) {
+                clearAllNeighbors.down = downNeighbor;
+            }
             nav.registerFocusable({
                 id: clearAllButton.id,
                 element: clearAllButton,
                 neighbors: clearAllNeighbors,
                 onFocus: () => {
-                    try {
-                        clearAllButton.scrollIntoView({ block: 'nearest' });
-                    } catch {
-                        clearAllButton.scrollIntoView();
-                    }
+                    scrollToNearest(clearAllButton);
                 },
             });
         }
-
-        this._detailEl.textContent = `Selected ${this._selectedLibraryIds.size} of ${this._libraries.length}.`;
     }
 
     private _renderStrategyStep(): void {
-        this._stepEl.textContent = 'Step 2 of 3';
-        this._statusEl.textContent = 'Choose channel types to build.';
         this._refreshSetupContextForStep2();
-
-        const split = document.createElement('div');
-        split.className = 'setup-split';
-
-        const left = document.createElement('div');
-        left.className = 'setup-category-rail setup-focus-safe-scroll';
-
-        const right = document.createElement('div');
-        right.className = 'setup-detail-pane';
-
-        const buildModeButton = document.createElement('button');
-        buildModeButton.id = STEP2_CONTROL_IDS.buildMode;
-        buildModeButton.className = 'setup-toggle';
-
-        const buildModeLabel = document.createElement('span');
-        buildModeLabel.className = 'setup-toggle-label';
-        buildModeLabel.textContent = 'Build mode';
-
-        const buildModeMeta = document.createElement('span');
-        buildModeMeta.className = 'setup-toggle-meta';
-        buildModeMeta.textContent = 'Replace, append, or merge with your lineup.';
-
-        const buildModeState = document.createElement('span');
-        buildModeState.className = 'setup-toggle-state';
-        buildModeState.textContent = this._buildMode.charAt(0).toUpperCase() + this._buildMode.slice(1);
-
-        buildModeButton.appendChild(buildModeLabel);
-        buildModeButton.appendChild(buildModeMeta);
-        buildModeButton.appendChild(buildModeState);
-
-        buildModeButton.addEventListener('click', () => {
-            this._preferredFocusId = buildModeButton.id;
-            this._rememberActiveDetailFocus(buildModeButton.id);
-            const modes: ChannelSetupConfig['buildMode'][] = ['replace', 'append', 'merge'];
-            const currentIndex = modes.indexOf(this._buildMode);
-            const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % modes.length : 0;
-            this._buildMode = modes[nextIndex] ?? 'replace';
-            this._replaceConfirm = false;
-            this._review = null;
-            this._reviewError = null;
-            this._schedulePreview();
-            this._renderStep();
-        });
-
-        const combineButton = document.createElement('button');
-        combineButton.id = STEP2_CONTROL_IDS.combineMode;
-        combineButton.className = 'setup-toggle';
-
-        const combineLabel = document.createElement('span');
-        combineLabel.className = 'setup-toggle-label';
-        combineLabel.textContent = 'Actor/Studio combine';
-
-        const combineMeta = document.createElement('span');
-        combineMeta.className = 'setup-toggle-meta';
-        combineMeta.textContent = 'Separate movies + TV or combine together.';
-
-        const combineState = document.createElement('span');
-        combineState.className = 'setup-toggle-state';
-        combineState.textContent = this._actorStudioCombineMode === 'combined' ? 'Combined' : 'Separate';
-
-        combineButton.appendChild(combineLabel);
-        combineButton.appendChild(combineMeta);
-        combineButton.appendChild(combineState);
-
-        combineButton.addEventListener('click', () => {
-            this._preferredFocusId = combineButton.id;
-            this._rememberActiveDetailFocus(combineButton.id);
-            this._actorStudioCombineMode = this._actorStudioCombineMode === 'combined' ? 'separate' : 'combined';
-            this._review = null;
-            this._reviewError = null;
-            this._schedulePreview();
-            this._renderStep();
-        });
-
-        const strategyLabels: Array<{ key: SetupStrategyKey; label: string; detail: string }> = [
-            { key: 'collections', label: 'Collections', detail: 'One channel per collection.' },
-            { key: 'playlists', label: 'Playlists', detail: 'Channels from Plex playlists.' },
-            { key: 'recentlyAdded', label: 'Recently added', detail: 'Per library, newest first.' },
-            { key: 'genres', label: 'Genres', detail: 'Filter channels by genre (slower on large libraries).' },
-            { key: 'directors', label: 'Directors', detail: 'Filter channels by director (slower on large libraries).' },
-            { key: 'decades', label: 'Decades', detail: 'Channels by decade (1980s, 1990s...).' },
-            { key: 'studios', label: 'Studios', detail: 'Channels by studio (Movies/TV).' },
-            { key: 'actors', label: 'Actors', detail: 'Channels by actor (Movies/TV).' },
-        ];
-
-        const createStrategyControls = (strategy: typeof strategyLabels[number]): HTMLButtonElement[] => {
-            const strategyState = this._strategies[strategy.key];
-
-            const toggleButton = document.createElement('button');
-            toggleButton.id = this._strategyButtonId(strategy.key);
-            toggleButton.className = `setup-toggle${strategyState.enabled ? ' selected' : ''}`;
-
-            const toggleLabel = document.createElement('span');
-            toggleLabel.className = 'setup-toggle-label';
-            toggleLabel.textContent = strategy.label;
-
-            const toggleMeta = document.createElement('span');
-            toggleMeta.className = 'setup-toggle-meta';
-            toggleMeta.textContent = strategy.detail;
-
-            const toggleState = document.createElement('span');
-            toggleState.className = 'setup-toggle-state';
-            toggleState.textContent = strategyState.enabled ? 'On' : 'Off';
-
-            toggleButton.appendChild(toggleLabel);
-            toggleButton.appendChild(toggleMeta);
-            toggleButton.appendChild(toggleState);
-            toggleButton.addEventListener('click', () => {
-                this._preferredFocusId = toggleButton.id;
-                this._rememberActiveDetailFocus(toggleButton.id);
-                this._strategies[strategy.key].enabled = !this._strategies[strategy.key].enabled;
+        this._strategyStep.render({
+            contentEl: this._contentEl,
+            stepEl: this._stepEl,
+            statusEl: this._statusEl,
+            detailEl: this._detailEl,
+            errorEl: this._errorEl,
+        }, {
+            state: {
+                activeStrategyCategory: this._activeStrategyCategory,
+                strategies: this._strategies,
+                channelExpansion: this._channelExpansion,
+                buildMode: this._buildMode,
+                actorStudioCombineMode: this._actorStudioCombineMode,
+                maxChannels: this._maxChannels,
+                minItems: this._minItems,
+                setupContext: this._setupContext,
+                previewPanelId: this._previewPanelId,
+                preview: this._preview,
+                previewError: this._previewError,
+                isPreviewLoading: this._isPreviewLoading,
+            },
+            stepPreset: (options, current, dir, mode) => this._stepPreset(options, current, dir, mode),
+            channelLimitOptions: this._channelLimitOptions,
+            minItemsOptions: this._minItemsOptions,
+            strategyKeys: SETUP_STRATEGY_KEYS,
+            categoryButtonId: (category) => this._categoryButtonId(category),
+            strategyButtonId: (strategy) => this._strategyButtonId(strategy),
+            priorityButtonId: (strategy) => this._priorityButtonId(strategy),
+            scopeButtonId: (strategy) => this._scopeButtonId(strategy),
+            strategySupportsMixedScope: (strategy) => strategySupportsMixedScope(strategy),
+            rememberDetailFocus: (controlId) => this._rememberActiveDetailFocus(controlId),
+            buildPreviewRow: (label, value, key) => this._buildPreviewRow(label, value, key),
+            renderCappedWarnings: (warnings, container) => this._renderCappedWarnings(warnings, container),
+            applyCategoryChange: (category, focusId) => {
+                this._activeStrategyCategory = category;
+                this._preferredFocusId = focusId;
+                this._renderStep();
+            },
+            applySettingChange: (focusId, mutate) => {
+                const strategies = SETUP_STRATEGY_KEYS.reduce<SetupStrategyState>((acc, key) => {
+                    const current = this._strategies[key];
+                    acc[key] = current ? { ...current } : { enabled: true, priority: 1, scope: 'per-library' };
+                    return acc;
+                }, {} as SetupStrategyState);
+                const channelExpansion: ChannelExpansionState = { ...this._channelExpansion };
+                const draft: StrategyStepMutableState = {
+                    activeStrategyCategory: this._activeStrategyCategory,
+                    strategies,
+                    channelExpansion,
+                    buildMode: this._buildMode,
+                    actorStudioCombineMode: this._actorStudioCombineMode,
+                    maxChannels: this._maxChannels,
+                    minItems: this._minItems,
+                };
+                this._preferredFocusId = focusId;
+                this._rememberActiveDetailFocus(focusId);
+                mutate(draft);
+                this._activeStrategyCategory = draft.activeStrategyCategory;
+                this._strategies = draft.strategies;
+                this._channelExpansion = draft.channelExpansion;
+                this._buildMode = draft.buildMode;
+                this._actorStudioCombineMode = draft.actorStudioCombineMode;
+                this._maxChannels = draft.maxChannels;
+                this._minItems = draft.minItems;
                 this._review = null;
                 this._reviewError = null;
+                this._replaceConfirm = false;
                 this._schedulePreview();
                 this._renderStep();
-            });
-
-            const priorityButton = document.createElement('button');
-            priorityButton.id = this._priorityButtonId(strategy.key);
-            priorityButton.className = 'setup-toggle setup-toggle--adjustable';
-
-            const priorityLabel = document.createElement('span');
-            priorityLabel.className = 'setup-toggle-label';
-            priorityLabel.textContent = `${strategy.label} priority`;
-
-            const priorityMeta = document.createElement('span');
-            priorityMeta.className = 'setup-toggle-meta';
-            priorityMeta.textContent = 'Lower numbers are planned earlier.';
-
-            const priorityState = document.createElement('span');
-            priorityState.className = 'setup-toggle-state';
-            priorityState.textContent = String(strategyState.priority);
-
-            priorityButton.appendChild(priorityLabel);
-            priorityButton.appendChild(priorityMeta);
-            priorityButton.appendChild(priorityState);
-            priorityButton.addEventListener('click', () => {
-                this._preferredFocusId = priorityButton.id;
-                this._rememberActiveDetailFocus(priorityButton.id);
-                const maxPriority = SETUP_STRATEGY_KEYS.length;
-                this._strategies[strategy.key].priority = this._strategies[strategy.key].priority >= maxPriority
-                    ? 1
-                    : this._strategies[strategy.key].priority + 1;
-                this._review = null;
-                this._reviewError = null;
-                this._schedulePreview();
+            },
+            onBack: () => {
+                this._step = 1;
                 this._renderStep();
-            });
-
-            if (!strategySupportsMixedScope(strategy.key)) {
-                return [toggleButton, priorityButton];
-            }
-
-            const scopeButton = document.createElement('button');
-            scopeButton.id = this._scopeButtonId(strategy.key);
-            scopeButton.className = `setup-toggle${strategyState.scope === 'cross-library' ? ' selected' : ''}`;
-
-            const scopeLabel = document.createElement('span');
-            scopeLabel.className = 'setup-toggle-label';
-            scopeLabel.textContent = `${strategy.label} scope`;
-
-            const scopeMeta = document.createElement('span');
-            scopeMeta.className = 'setup-toggle-meta';
-            scopeMeta.textContent = 'Per-library by default. Mixed is experimental.';
-
-            const scopeState = document.createElement('span');
-            scopeState.className = 'setup-toggle-state';
-            scopeState.textContent = strategyState.scope === 'cross-library' ? 'Mixed' : 'Per Library';
-
-            scopeButton.appendChild(scopeLabel);
-            scopeButton.appendChild(scopeMeta);
-            scopeButton.appendChild(scopeState);
-            scopeButton.addEventListener('click', () => {
-                this._preferredFocusId = scopeButton.id;
-                this._rememberActiveDetailFocus(scopeButton.id);
-                this._strategies[strategy.key].scope = this._strategies[strategy.key].scope === 'cross-library'
-                    ? 'per-library'
-                    : 'cross-library';
-                this._review = null;
-                this._reviewError = null;
-                this._schedulePreview();
+            },
+            onNext: () => {
+                this._cleanupStep2AsyncState();
+                this._isBuilding = this._setupContext === 'first-time';
+                this._step = 3;
                 this._renderStep();
-            });
-
-            return [toggleButton, priorityButton, scopeButton];
-        };
-
-        const contentButtons = strategyLabels
-            .filter((strategy) => isContentStrategyKey(strategy.key))
-            .flatMap(createStrategyControls);
-        const advancedButtons = strategyLabels
-            .filter((strategy) => isAdvancedStrategyKey(strategy.key))
-            .flatMap(createStrategyControls);
-
-        const addAlternateLineupsButton = document.createElement('button');
-        addAlternateLineupsButton.id = STEP2_CONTROL_IDS.addAlternateLineups;
-        addAlternateLineupsButton.className = `setup-toggle${this._channelExpansion.addAlternateLineups ? ' selected' : ''}`;
-
-        const addAlternateLineupsLabel = document.createElement('span');
-        addAlternateLineupsLabel.className = 'setup-toggle-label';
-        addAlternateLineupsLabel.textContent = 'Add Alternate Lineups';
-
-        const addAlternateLineupsMeta = document.createElement('span');
-        addAlternateLineupsMeta.className = 'setup-toggle-meta';
-        addAlternateLineupsMeta.textContent = 'Create extra channels from the same category with different deterministic shuffle lineups.';
-
-        const addAlternateLineupsState = document.createElement('span');
-        addAlternateLineupsState.className = 'setup-toggle-state';
-        addAlternateLineupsState.textContent = this._channelExpansion.addAlternateLineups ? 'On' : 'Off';
-
-        addAlternateLineupsButton.appendChild(addAlternateLineupsLabel);
-        addAlternateLineupsButton.appendChild(addAlternateLineupsMeta);
-        addAlternateLineupsButton.appendChild(addAlternateLineupsState);
-        addAlternateLineupsButton.addEventListener('click', () => {
-            this._preferredFocusId = addAlternateLineupsButton.id;
-            this._rememberActiveDetailFocus(addAlternateLineupsButton.id);
-            this._channelExpansion.addAlternateLineups = !this._channelExpansion.addAlternateLineups;
-            this._review = null;
-            this._reviewError = null;
-            this._schedulePreview();
-            this._renderStep();
+            },
+            registerStep2Focusables: (categoryButtons, detailButtons, backButton, nextButton) => {
+                this._registerStep2Focusables(categoryButtons, detailButtons, backButton, nextButton);
+            },
+            detailText: this._strategies.genres.enabled || this._strategies.directors.enabled
+                ? 'Performance warning: may be slow on large libraries.'
+                : '',
+            schedulePreview: () => this._schedulePreview(),
         });
-
-        const alternateCopiesButton = document.createElement('button');
-        alternateCopiesButton.id = STEP2_CONTROL_IDS.alternateLineupCopies;
-        alternateCopiesButton.className = 'setup-toggle setup-toggle--adjustable';
-        alternateCopiesButton.disabled = !this._channelExpansion.addAlternateLineups;
-
-        const alternateCopiesLabel = document.createElement('span');
-        alternateCopiesLabel.className = 'setup-toggle-label';
-        alternateCopiesLabel.textContent = 'Alternate Lineup Copies';
-
-        const alternateCopiesMeta = document.createElement('span');
-        alternateCopiesMeta.className = 'setup-toggle-meta';
-        alternateCopiesMeta.textContent = 'How many extra copies per generated channel.';
-
-        const alternateCopiesState = document.createElement('span');
-        alternateCopiesState.className = 'setup-toggle-state';
-        alternateCopiesState.textContent = String(this._channelExpansion.alternateLineupCopies);
-
-        alternateCopiesButton.appendChild(alternateCopiesLabel);
-        alternateCopiesButton.appendChild(alternateCopiesMeta);
-        alternateCopiesButton.appendChild(alternateCopiesState);
-        alternateCopiesButton.addEventListener('click', () => {
-            if (!this._channelExpansion.addAlternateLineups) return;
-            this._preferredFocusId = alternateCopiesButton.id;
-            this._rememberActiveDetailFocus(alternateCopiesButton.id);
-            this._channelExpansion.alternateLineupCopies = this._stepPreset(
-                [1, 2, 3],
-                this._channelExpansion.alternateLineupCopies,
-                'right',
-                'wrap'
-            );
-            this._review = null;
-            this._reviewError = null;
-            this._schedulePreview();
-            this._renderStep();
-        });
-
-        const addSequentialVariantsButton = document.createElement('button');
-        addSequentialVariantsButton.id = STEP2_CONTROL_IDS.addSequentialVariants;
-        addSequentialVariantsButton.className = `setup-toggle${this._channelExpansion.addSequentialVariants ? ' selected' : ''}`;
-
-        const addSequentialLabel = document.createElement('span');
-        addSequentialLabel.className = 'setup-toggle-label';
-        addSequentialLabel.textContent = 'Add Sequential Channels';
-
-        const addSequentialMeta = document.createElement('span');
-        addSequentialMeta.className = 'setup-toggle-meta';
-        addSequentialMeta.textContent = 'Also create a sequential version for each generated channel.';
-
-        const addSequentialState = document.createElement('span');
-        addSequentialState.className = 'setup-toggle-state';
-        addSequentialState.textContent = this._channelExpansion.addSequentialVariants ? 'On' : 'Off';
-
-        addSequentialVariantsButton.appendChild(addSequentialLabel);
-        addSequentialVariantsButton.appendChild(addSequentialMeta);
-        addSequentialVariantsButton.appendChild(addSequentialState);
-        addSequentialVariantsButton.addEventListener('click', () => {
-            this._preferredFocusId = addSequentialVariantsButton.id;
-            this._rememberActiveDetailFocus(addSequentialVariantsButton.id);
-            this._channelExpansion.addSequentialVariants = !this._channelExpansion.addSequentialVariants;
-            this._review = null;
-            this._reviewError = null;
-            this._schedulePreview();
-            this._renderStep();
-        });
-
-        const maxButton = document.createElement('button');
-        maxButton.id = STEP2_CONTROL_IDS.maxChannels;
-        maxButton.className = 'setup-toggle setup-toggle--adjustable';
-
-        const maxLabel = document.createElement('span');
-        maxLabel.className = 'setup-toggle-label';
-        maxLabel.textContent = 'Max channels';
-
-        const maxMeta = document.createElement('span');
-        maxMeta.className = 'setup-toggle-meta';
-        maxMeta.textContent = `Default ${DEFAULT_CHANNEL_SETUP_MAX}. Limit up to ${MAX_CHANNELS}.`;
-
-        const maxState = document.createElement('span');
-        maxState.className = 'setup-toggle-state';
-        maxState.textContent = String(this._maxChannels);
-
-        maxButton.appendChild(maxLabel);
-        maxButton.appendChild(maxMeta);
-        maxButton.appendChild(maxState);
-
-        maxButton.addEventListener('click', () => {
-            this._preferredFocusId = maxButton.id;
-            this._rememberActiveDetailFocus(maxButton.id);
-            this._maxChannels = this._stepPreset(this._channelLimitOptions, this._maxChannels, 'right', 'wrap');
-            this._review = null;
-            this._reviewError = null;
-            this._schedulePreview();
-            this._renderStep();
-        });
-
-        const minItemsButton = document.createElement('button');
-        minItemsButton.id = STEP2_CONTROL_IDS.minItems;
-        minItemsButton.className = 'setup-toggle setup-toggle--adjustable';
-
-        const minItemsLabel = document.createElement('span');
-        minItemsLabel.className = 'setup-toggle-label';
-        minItemsLabel.textContent = 'Min items';
-
-        const minItemsMeta = document.createElement('span');
-        minItemsMeta.className = 'setup-toggle-meta';
-        minItemsMeta.textContent = 'Minimum content items per channel.';
-
-        const minItemsState = document.createElement('span');
-        minItemsState.className = 'setup-toggle-state';
-        minItemsState.textContent = String(this._minItems);
-
-        minItemsButton.appendChild(minItemsLabel);
-        minItemsButton.appendChild(minItemsMeta);
-        minItemsButton.appendChild(minItemsState);
-
-        minItemsButton.addEventListener('click', () => {
-            this._preferredFocusId = minItemsButton.id;
-            this._rememberActiveDetailFocus(minItemsButton.id);
-            this._minItems = this._stepPreset(this._minItemsOptions, this._minItems, 'right', 'wrap');
-            this._review = null;
-            this._reviewError = null;
-            this._schedulePreview();
-            this._renderStep();
-        });
-
-        const expandLineupButton = document.createElement('button');
-        expandLineupButton.id = STEP2_CONTROL_IDS.expandLineup;
-        expandLineupButton.className = 'setup-toggle';
-
-        const expandLineupLabel = document.createElement('span');
-        expandLineupLabel.className = 'setup-toggle-label';
-        expandLineupLabel.textContent = 'Expand Lineup';
-
-        const expandLineupMeta = document.createElement('span');
-        expandLineupMeta.className = 'setup-toggle-meta';
-        expandLineupMeta.textContent = 'Quick action: set max channels to the cap and min items to 1.';
-
-        const expandLineupState = document.createElement('span');
-        expandLineupState.className = 'setup-toggle-state';
-        expandLineupState.textContent = 'Apply';
-
-        expandLineupButton.appendChild(expandLineupLabel);
-        expandLineupButton.appendChild(expandLineupMeta);
-        expandLineupButton.appendChild(expandLineupState);
-        expandLineupButton.addEventListener('click', () => {
-            this._preferredFocusId = expandLineupButton.id;
-            this._rememberActiveDetailFocus(expandLineupButton.id);
-            this._maxChannels = MAX_CHANNELS;
-            this._minItems = 1;
-            this._review = null;
-            this._reviewError = null;
-            this._schedulePreview();
-            this._renderStep();
-        });
-
-        const controlsByCategory: Record<StrategyCategoryKey, HTMLButtonElement[]> = {
-            'content-sources': contentButtons,
-            'advanced-sources': advancedButtons,
-            'build-options': [
-                buildModeButton,
-                combineButton,
-                addAlternateLineupsButton,
-                alternateCopiesButton,
-                addSequentialVariantsButton,
-            ],
-            'limits': [maxButton, minItemsButton, expandLineupButton],
-        };
-
-        const categories: Array<{ key: StrategyCategoryKey; title: string }> = [
-            { key: 'content-sources', title: 'Content Sources' },
-            { key: 'advanced-sources', title: 'Advanced Sources' },
-            { key: 'build-options', title: 'Build Options' },
-            { key: 'limits', title: 'Limits' },
-        ];
-
-        const categoryButtons = categories.map((category) => {
-            const button = document.createElement('button');
-            button.id = this._categoryButtonId(category.key);
-            button.className = `setup-category-button${this._activeStrategyCategory === category.key ? ' selected' : ''}`;
-            button.textContent = category.title;
-            button.addEventListener('click', () => {
-                this._activeStrategyCategory = category.key;
-                this._preferredFocusId = button.id;
-                this._renderStep();
-            });
-            return button;
-        });
-
-        for (const button of categoryButtons) {
-            left.appendChild(button);
-        }
-
-        const detailScroll = document.createElement('div');
-        detailScroll.className = 'setup-detail-scroll setup-focus-safe-scroll';
-
-        const detailControls = document.createElement('div');
-        detailControls.className = 'setup-list';
-        const activeControls = controlsByCategory[this._activeStrategyCategory] ?? [];
-        for (const button of activeControls) {
-            detailControls.appendChild(button);
-        }
-        detailScroll.appendChild(detailControls);
-
-        const previewPanel = document.createElement('div');
-        previewPanel.id = this._previewPanelId;
-        previewPanel.className = 'setup-preview';
-        previewPanel.setAttribute('role', 'region');
-
-        const previewTitleId = `${this._previewPanelId}-title`;
-        previewPanel.setAttribute('aria-labelledby', previewTitleId);
-
-        const previewTitle = document.createElement('div');
-        previewTitle.id = previewTitleId;
-        previewTitle.className = 'setup-preview-title';
-        previewTitle.textContent = 'Estimate';
-        previewPanel.appendChild(previewTitle);
-
-        if (this._previewError) {
-            const error = document.createElement('div');
-            error.className = 'setup-preview-warning';
-            error.textContent = this._previewError;
-            previewPanel.appendChild(error);
-        } else if (this._preview) {
-            // Render existing preview (even while loading new one)
-            const { estimates, warnings, reachedMaxChannels } = this._preview;
-
-            const rows = document.createElement('div');
-            rows.className = 'setup-preview-rows';
-            rows.appendChild(this._buildPreviewRow('Total planned', estimates.total, 'total'));
-            rows.appendChild(this._buildPreviewRow('Collections', estimates.collections, 'collections'));
-            rows.appendChild(this._buildPreviewRow('Recently added', estimates.recentlyAdded, 'recentlyAdded'));
-            rows.appendChild(this._buildPreviewRow('Playlists', estimates.playlists, 'playlists'));
-            rows.appendChild(this._buildPreviewRow('Genres', estimates.genres, 'genres'));
-            rows.appendChild(this._buildPreviewRow('Directors', estimates.directors, 'directors'));
-            rows.appendChild(this._buildPreviewRow('Decades', estimates.decades, 'decades'));
-            rows.appendChild(this._buildPreviewRow('Studios', estimates.studios, 'studios'));
-            rows.appendChild(this._buildPreviewRow('Actors', estimates.actors, 'actors'));
-            previewPanel.appendChild(rows);
-
-            // Show "Updating..." indicator while loading with existing preview
-            if (this._isPreviewLoading) {
-                const updating = document.createElement('div');
-                updating.className = 'setup-preview-updating';
-                updating.classList.add('panel-spinner');
-                updating.textContent = 'Updating...';
-                previewPanel.appendChild(updating);
-            }
-
-            if (reachedMaxChannels) {
-                const cap = document.createElement('div');
-                cap.className = 'setup-preview-warning';
-                cap.textContent = 'Reached max channel limit; extra channels will be skipped.';
-                previewPanel.appendChild(cap);
-            }
-
-            if (warnings.length > 0) {
-                const warningList = document.createElement('div');
-                warningList.className = 'setup-preview-warnings';
-                this._renderCappedWarnings(warnings, warningList);
-                previewPanel.appendChild(warningList);
-            }
-        } else if (this._isPreviewLoading) {
-            // First-load case: no previous preview exists
-            const loading = document.createElement('div');
-            loading.className = 'setup-preview-loading';
-            loading.classList.add('panel-spinner');
-            loading.textContent = 'Estimating channels...';
-            previewPanel.appendChild(loading);
-        } else {
-            const empty = document.createElement('div');
-            empty.className = 'setup-preview-empty';
-            empty.textContent = 'Estimates will appear after a short pause.';
-            previewPanel.appendChild(empty);
-        }
-
-        right.appendChild(detailScroll);
-        right.appendChild(previewPanel);
-        split.appendChild(left);
-        split.appendChild(right);
-        this._contentEl.appendChild(split);
-
-        const actions = document.createElement('div');
-        actions.className = 'button-row';
-
-        const backButton = document.createElement('button');
-        backButton.id = 'setup-back';
-        backButton.className = 'screen-button secondary';
-        backButton.textContent = 'Back';
-        backButton.addEventListener('click', () => {
-            this._step = 1;
-            this._renderStep();
-        });
-        actions.appendChild(backButton);
-
-        const nextButton = document.createElement('button');
-        nextButton.id = 'setup-next';
-        nextButton.className = 'screen-button';
-        const shouldFastPath = this._setupContext === 'first-time';
-        nextButton.textContent = shouldFastPath ? 'Build Channels' : 'Review';
-        nextButton.addEventListener('click', () => {
-            this._cleanupStep2AsyncState();
-            this._isBuilding = shouldFastPath;
-            this._step = 3;
-            this._renderStep();
-        });
-        actions.appendChild(nextButton);
-
-        this._contentEl.appendChild(actions);
-
-        this._registerStep2Focusables(categoryButtons, activeControls, backButton, nextButton);
-
-        if (this._strategies.genres.enabled || this._strategies.directors.enabled) {
-            this._detailEl.textContent = 'Performance warning: may be slow on large libraries.';
-        } else {
-            this._detailEl.textContent = '';
-        }
-
-        this._schedulePreview();
     }
 
     private _categoryButtonId(category: StrategyCategoryKey): string {
@@ -1367,70 +799,20 @@ export class ChannelSetupScreen {
         backButton: HTMLButtonElement,
         nextButton: HTMLButtonElement
     ): void {
-        const nav = this._orchestrator.getNavigation();
-        if (!nav) {
-            return;
-        }
-
-        const focusableButtons = [...categoryButtons, ...detailButtons, backButton, nextButton]
-            .filter((button) => !button.disabled);
-        this._focusableIds = focusableButtons.map((button) => button.id);
-
         const activeCategoryButtonId = this._categoryButtonId(this._activeStrategyCategory);
         const detailIds = detailButtons.filter((button) => !button.disabled).map((button) => button.id);
         const detailFocusTarget = this._resolveDetailFocusTarget(this._activeStrategyCategory, detailIds);
-
-        for (const [index, button] of focusableButtons.entries()) {
-            const neighbors: FocusableElement['neighbors'] = {};
-            const up = index > 0 ? focusableButtons[index - 1] : undefined;
-            if (up) {
-                neighbors.up = up.id;
-            }
-            const down = index < focusableButtons.length - 1 ? focusableButtons[index + 1] : undefined;
-            if (down) {
-                neighbors.down = down.id;
-            }
-
-            if (button.id === activeCategoryButtonId && detailFocusTarget) {
-                neighbors.right = detailFocusTarget;
-            }
-
-            const isDetailButton = detailIds.includes(button.id);
-            const isAdjustable = button.id === STEP2_CONTROL_IDS.maxChannels
-                || button.id === STEP2_CONTROL_IDS.minItems
-                || button.id === STEP2_CONTROL_IDS.alternateLineupCopies
-                || button.id.startsWith('setup-priority-');
-            if (isDetailButton && !isAdjustable) {
-                neighbors.left = activeCategoryButtonId;
-            }
-
-            nav.registerFocusable({
-                id: button.id,
-                element: button,
-                neighbors,
-                onFocus: () => {
-                    try {
-                        button.scrollIntoView({ block: 'nearest' });
-                    } catch {
-                        button.scrollIntoView();
-                    }
-                    if (isDetailButton) {
-                        this._rememberActiveDetailFocus(button.id);
-                    }
-                },
-            });
-        }
-
-        const preferred = this._preferredFocusId;
-        if (preferred && focusableButtons.some((button) => button.id === preferred)) {
-            nav.setFocus(preferred);
+        const preferredApplied = this._focus.registerStep2(
+            categoryButtons,
+            detailButtons,
+            [backButton, nextButton],
+            activeCategoryButtonId,
+            detailFocusTarget,
+            this._preferredFocusId,
+            (id) => this._rememberActiveDetailFocus(id)
+        );
+        if (preferredApplied) {
             this._preferredFocusId = null;
-            return;
-        }
-
-        const first = focusableButtons[0];
-        if (first) {
-            nav.setFocus(first.id);
         }
     }
 
@@ -1443,143 +825,49 @@ export class ChannelSetupScreen {
     }
 
     private _renderBuildReview(): void {
-        this._stepEl.textContent = 'Step 3 of 3';
-        this._statusEl.textContent = 'Review changes before building.';
-        this._detailEl.textContent = '';
-        this._errorEl.textContent = this._reviewError ?? '';
-
-        const scroll = document.createElement('div');
-        scroll.className = 'setup-scroll';
-
-        const reviewContainer = document.createElement('div');
-        reviewContainer.className = 'setup-review';
-
-        let showLoadingState = false;
-        if (!this._recordApplied) {
-            showLoadingState = true;
-        } else if (!this._review && !this._isReviewLoading && !this._reviewError) {
-            // Defer kickoff to avoid re-entrant _renderStep() while this render is still building DOM.
-            const token = this._visibilityToken;
-            void Promise.resolve()
-                .then(() => {
-                    if (
-                        token !== this._visibilityToken ||
-                        this._isBuilding ||
-                        this._review ||
-                        this._isReviewLoading ||
-                        this._reviewError
-                    ) {
-                        return;
-                    }
-                    return this._loadReview();
-                })
-                .catch((error: unknown) => {
-                    if (isAbortLikeError(error)) return;
-                    console.error('[ChannelSetup] Load review failed:', summarizeErrorForLog(error));
-                });
-            showLoadingState = true;
-        } else if (this._isReviewLoading) {
-            showLoadingState = true;
-        }
-
-        if (showLoadingState) {
-            this._renderBuildReviewLoading(reviewContainer);
-        } else if (this._review) {
-            const modeLine = document.createElement('div');
-            modeLine.className = 'setup-summary';
-            modeLine.textContent = `Build mode: ${this._buildMode.charAt(0).toUpperCase()}${this._buildMode.slice(1)}`;
-            reviewContainer.appendChild(modeLine);
-
-            const diffSummary = document.createElement('div');
-            diffSummary.className = 'setup-summary';
-            diffSummary.textContent = `Create ${this._review.diff.summary.created}, remove ${this._review.diff.summary.removed}, unchanged ${this._review.diff.summary.unchanged}.`;
-            reviewContainer.appendChild(diffSummary);
-
-            const sampleList = document.createElement('div');
-            sampleList.className = 'setup-preview-rows';
-            sampleList.appendChild(this._buildPreviewRow('Sample creates', this._review.diff.samples.created.join(', ') || 'None'));
-            sampleList.appendChild(this._buildPreviewRow('Sample removes', this._review.diff.samples.removed.join(', ') || 'None'));
-            sampleList.appendChild(this._buildPreviewRow('Sample unchanged', this._review.diff.samples.unchanged.join(', ') || 'None'));
-            reviewContainer.appendChild(sampleList);
-
-            if (this._review.preview.warnings.length > 0) {
-                const warningList = document.createElement('div');
-                warningList.className = 'setup-preview-warnings';
-                this._renderCappedWarnings(this._review.preview.warnings, warningList);
-                reviewContainer.appendChild(warningList);
-            }
-
-            if (this._buildMode === 'replace') {
-                const warning = document.createElement('div');
-                warning.className = 'setup-preview-warning';
-                warning.textContent = 'This will replace your current lineup.';
-                reviewContainer.appendChild(warning);
-
-                const confirmButton = document.createElement('button');
-                confirmButton.id = 'setup-replace-confirm';
-                confirmButton.className = `setup-toggle${this._replaceConfirm ? ' selected' : ''}`;
-                confirmButton.addEventListener('click', () => {
-                    this._preferredFocusId = confirmButton.id;
-                    this._replaceConfirm = !this._replaceConfirm;
-                    this._renderStep();
-                });
-
-                const confirmLabel = document.createElement('span');
-                confirmLabel.className = 'setup-toggle-label';
-                confirmLabel.textContent = 'Confirm replace';
-                const confirmMeta = document.createElement('span');
-                confirmMeta.className = 'setup-toggle-meta';
-                confirmMeta.textContent = 'Required before replacing channels.';
-                const confirmState = document.createElement('span');
-                confirmState.className = 'setup-toggle-state';
-                confirmState.textContent = this._replaceConfirm ? 'Confirmed' : 'Required';
-
-                confirmButton.appendChild(confirmLabel);
-                confirmButton.appendChild(confirmMeta);
-                confirmButton.appendChild(confirmState);
-
-                reviewContainer.appendChild(confirmButton);
-            }
-        }
-
-        scroll.appendChild(reviewContainer);
-        this._contentEl.appendChild(scroll);
-
-        const actions = document.createElement('div');
-        actions.className = 'button-row';
-
-        const backButton = document.createElement('button');
-        backButton.id = 'setup-back';
-        backButton.className = 'screen-button secondary';
-        backButton.textContent = 'Back';
-        backButton.addEventListener('click', () => {
-            this._reviewAbortController?.abort();
-            this._review = null;
-            this._reviewError = null;
-            this._replaceConfirm = false;
-            this._step = 2;
-            this._renderStep();
+        const getReviewState = (): BuildReviewStateSnapshot => ({
+            buildMode: this._buildMode,
+            review: this._review,
+            reviewError: this._reviewError,
+            isReviewLoading: this._isReviewLoading,
+            replaceConfirm: this._replaceConfirm,
+            isBuilding: this._isBuilding,
+            recordApplied: this._recordApplied,
         });
-        actions.appendChild(backButton);
 
-        const confirmButton = document.createElement('button');
-        confirmButton.id = 'setup-confirm';
-        confirmButton.className = 'screen-button';
-        confirmButton.textContent = this._buildMode === 'replace' ? 'Confirm & Replace' : 'Confirm & Build';
-        confirmButton.disabled = this._isReviewLoading || !this._review || (this._buildMode === 'replace' && !this._replaceConfirm);
-        confirmButton.addEventListener('click', () => {
-            if (confirmButton.disabled) {
-                return;
-            }
-            this._isBuilding = true;
-            this._renderStep();
+        this._buildReviewStep.render({
+            contentEl: this._contentEl,
+            stepEl: this._stepEl,
+            statusEl: this._statusEl,
+            detailEl: this._detailEl,
+            errorEl: this._errorEl,
+        }, {
+            state: getReviewState(),
+            getState: getReviewState,
+            loadReview: () => this._loadReview(),
+            onBackToStrategy: () => {
+                this._reviewAbortController?.abort();
+                this._review = null;
+                this._reviewError = null;
+                this._replaceConfirm = false;
+                this._step = 2;
+                this._renderStep();
+            },
+            onConfirmBuild: () => {
+                this._isBuilding = true;
+                this._renderStep();
+            },
+            onToggleReplaceConfirm: (focusId) => {
+                this._preferredFocusId = focusId;
+                this._replaceConfirm = !this._replaceConfirm;
+                this._renderStep();
+            },
+            buildPreviewRow: (label, value, key) => this._buildPreviewRow(label, value, key),
+            renderCappedWarnings: (warnings, container) => this._renderCappedWarnings(warnings, container),
+            registerFocusables: (buttons, mode) => this._registerFocusables(buttons, mode),
+            renderBuildReviewLoading: (container) => this._renderBuildReviewLoading(container),
+            getVisibilityToken: () => this._visibilityToken,
         });
-        actions.appendChild(confirmButton);
-
-        this._contentEl.appendChild(actions);
-
-        const listButtons = Array.from(reviewContainer.querySelectorAll<HTMLButtonElement>('button'));
-        this._registerFocusables([...listButtons, backButton, confirmButton]);
     }
 
     private _renderBuildReviewLoading(container: HTMLElement = this._contentEl): void {
@@ -1591,85 +879,64 @@ export class ChannelSetupScreen {
     }
 
     private _renderBuildProgress(): void {
-        this._stepEl.textContent = 'Step 3 of 3';
-        this._statusEl.textContent = 'Building channels...';
-        this._detailEl.textContent = '';
-        this._errorEl.textContent = '';
-
-        const progressContainer = document.createElement('div');
-        progressContainer.className = 'setup-progress-container';
-
-        // Progress Bar
-        const barContainer = document.createElement('div');
-        barContainer.className = 'setup-progress-bar-bg';
-        const barFill = document.createElement('div');
-        barFill.className = 'setup-progress-bar-fill';
-        barContainer.appendChild(barFill);
-        progressContainer.appendChild(barContainer);
-
-        // Task Name
-        const taskLabel = document.createElement('div');
-        taskLabel.className = 'setup-progress-task';
-        taskLabel.textContent = 'Initializing...';
-        progressContainer.appendChild(taskLabel);
-
-        // Detail
-        const detailLabel = document.createElement('div');
-        detailLabel.className = 'setup-progress-detail';
-        detailLabel.textContent = 'Please wait';
-        progressContainer.appendChild(detailLabel);
-
-        this._contentEl.appendChild(progressContainer);
-
-        const actions = document.createElement('div');
-        actions.className = 'button-row';
-
-        const backButton = document.createElement('button');
-        backButton.id = 'setup-back';
-        backButton.className = 'screen-button secondary';
-        backButton.textContent = 'Cancel'; // Becomes Cancel during build
-        backButton.addEventListener('click', () => {
-            if (this._isBuilding) {
-                // Cancel Build
-                this._buildAbortController?.abort();
-                backButton.disabled = true;
-                backButton.textContent = 'Canceling...';
-                return;
-            }
-            // If done or error, it acts as Back/Reset
-            this._step = 2;
-            this._renderStep();
+        this._buildProgressStep.render({
+            contentEl: this._contentEl,
+            stepEl: this._stepEl,
+            statusEl: this._statusEl,
+            detailEl: this._detailEl,
+            errorEl: this._errorEl,
+        }, {
+            state: { isBuilding: this._isBuilding },
+            registerFocusables: (buttons, mode) => this._registerFocusables(buttons, mode),
+            onCancelOrBack: (button) => {
+                if (this._buildAbortController) {
+                    this._buildAbortController.abort();
+                    button.disabled = true;
+                    button.textContent = 'Canceling...';
+                    return;
+                }
+                this._step = 2;
+                this._renderStep();
+            },
+            onDone: () => {
+                const nav = this._orchestrator.getNavigation();
+                if (nav) {
+                    nav.replaceScreen('player');
+                }
+                this._orchestrator.switchToChannelByNumber(1)
+                    .then(() => this._orchestrator.openEPG())
+                    .catch((error: unknown) => {
+                        if (isAbortLikeError(error)) return;
+                        console.error('[ChannelSetup] Switch to channel 1 failed:', summarizeErrorForLog(error));
+                    });
+            },
+            startBuild: async (ui) => {
+                await this._startBuild(ui.cancelButton, ui.doneButton, ui.barFill, ui.taskLabel, ui.detailLabel);
+            },
         });
-        actions.appendChild(backButton);
+    }
 
-        const doneButton = document.createElement('button');
-        doneButton.id = 'setup-done';
-        doneButton.className = 'screen-button';
-        doneButton.textContent = 'Done';
-        doneButton.disabled = true;
-        doneButton.addEventListener('click', () => {
-            const nav = this._orchestrator.getNavigation();
-            if (nav) {
-                nav.replaceScreen('player');
-            }
-            this._orchestrator.switchToChannelByNumber(1)
-                .then(() => this._orchestrator.openEPG())
-                .catch((error: unknown) => {
-                    if (isAbortLikeError(error)) return;
-                    console.error('[ChannelSetup] Switch to channel 1 failed:', summarizeErrorForLog(error));
-                });
-        });
-        actions.appendChild(doneButton);
+    private _applyBuildCanceledUI(
+        cancelButton: HTMLButtonElement,
+        doneButton: HTMLButtonElement,
+        barFill: HTMLElement,
+        taskLabel: HTMLElement,
+        detailLabel: HTMLElement,
+        options?: { disableDone?: boolean }
+    ): void {
+        this._statusEl.textContent = 'Canceled.';
+        this._detailEl.textContent = 'No changes were applied.';
+        taskLabel.textContent = 'Canceled';
+        detailLabel.textContent = '';
+        barFill.style.width = '0%';
+        barFill.classList.remove('indeterminate');
 
-        this._contentEl.appendChild(actions);
-
-        this._registerFocusables([backButton, doneButton]);
-
-        // Start build
-        this._startBuild(backButton, doneButton, barFill, taskLabel, detailLabel).catch((error: unknown) => {
-            if (isAbortLikeError(error)) return;
-            console.error('[ChannelSetup] Build failed:', summarizeErrorForLog(error));
-        });
+        cancelButton.disabled = false;
+        cancelButton.textContent = 'Back';
+        if (options?.disableDone) {
+            doneButton.disabled = true;
+        }
+        cancelButton.focus();
     }
 
     private async _startBuild(
@@ -1726,16 +993,7 @@ export class ChannelSetupScreen {
             if (token !== this._visibilityToken) return;
 
             if (result.canceled) {
-                this._statusEl.textContent = 'Canceled.';
-                this._detailEl.textContent = 'No changes were applied.';
-                taskLabel.textContent = 'Canceled';
-                detailLabel.textContent = '';
-                barFill.style.width = '0%';
-                barFill.classList.remove('indeterminate');
-
-                cancelButton.disabled = false;
-                cancelButton.textContent = 'Back';
-                cancelButton.focus();
+                this._applyBuildCanceledUI(cancelButton, doneButton, barFill, taskLabel, detailLabel);
             } else {
                 this._orchestrator.markSetupComplete(serverId, config);
                 this._statusEl.textContent = 'Channels ready.';
@@ -1765,6 +1023,10 @@ export class ChannelSetupScreen {
 
         } catch (error) {
             if (token !== this._visibilityToken) return;
+            if (isAbortLikeError(error, this._buildAbortController?.signal)) {
+                this._applyBuildCanceledUI(cancelButton, doneButton, barFill, taskLabel, detailLabel, { disableDone: true });
+                return;
+            }
             const message = error instanceof Error ? error.message : 'Build failed.';
             this._errorEl.textContent = message;
             this._statusEl.textContent = 'Error';
@@ -2065,65 +1327,15 @@ export class ChannelSetupScreen {
     }
 
     private _registerFocusables(buttons: HTMLElement[], mode: 'linear' | 'spatial' = 'linear'): void {
-        const nav = this._orchestrator.getNavigation();
-        if (!nav) {
-            return;
-        }
-
-        const focusableButtons = buttons.filter(
-            (button): button is HTMLButtonElement =>
-                button instanceof HTMLButtonElement && !button.disabled
-        );
-
-        this._focusableIds = focusableButtons.map((button) => button.id);
-
-        for (const [index, button] of focusableButtons.entries()) {
-            const focusable: FocusableElement = {
-                id: button.id,
-                element: button,
-                neighbors: {},
-                onFocus: () => {
-                    try {
-                        button.scrollIntoView({ block: 'nearest' });
-                    } catch {
-                        button.scrollIntoView();
-                    }
-                },
-            };
-            if (mode === 'linear') {
-                const up = index > 0 ? focusableButtons[index - 1] : undefined;
-                if (up) {
-                    focusable.neighbors.up = up.id;
-                }
-                const down = index < focusableButtons.length - 1 ? focusableButtons[index + 1] : undefined;
-                if (down) {
-                    focusable.neighbors.down = down.id;
-                }
-            }
-            nav.registerFocusable(focusable);
-        }
-
-        const preferred = this._preferredFocusId;
-        if (preferred && focusableButtons.some((button) => button.id === preferred)) {
-            nav.setFocus(preferred);
+        const preferredApplied = mode === 'spatial'
+            ? this._focus.registerSpatial(buttons, this._preferredFocusId)
+            : this._focus.registerLinear(buttons, this._preferredFocusId);
+        if (preferredApplied) {
             this._preferredFocusId = null;
-            return;
-        }
-
-        const first = focusableButtons[0];
-        if (first) {
-            nav.setFocus(first.id);
         }
     }
 
     private _unregisterFocusables(): void {
-        const nav = this._orchestrator.getNavigation();
-        if (!nav) {
-            return;
-        }
-        for (const id of this._focusableIds) {
-            nav.unregisterFocusable(id);
-        }
-        this._focusableIds = [];
+        this._focus.unregisterAll();
     }
 }
