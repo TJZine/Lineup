@@ -19,7 +19,7 @@ import {
     makeLibrary,
 } from './channel-setup-test-helpers';
 
-const waitForSelector = async (root: ParentNode, selector: string, maxRounds: number = 20): Promise<void> => {
+const waitForSelector = async (root: ParentNode, selector: string, maxRounds: number = 10): Promise<void> => {
     for (let i = 0; i < maxRounds; i++) {
         if (root.querySelector(selector) !== null) {
             return;
@@ -37,6 +37,11 @@ const waitForSelector = async (root: ParentNode, selector: string, maxRounds: nu
 
 describe('ChannelSetupScreen contracts', () => {
     let activeScreen: ChannelSetupScreen | null = null;
+
+    beforeEach(() => {
+        // This suite's polling helper uses real `setTimeout` ticks; keep timers real to avoid hangs.
+        jest.useRealTimers();
+    });
 
     afterEach(() => {
         activeScreen?.destroy();

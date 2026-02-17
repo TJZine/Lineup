@@ -130,6 +130,6 @@ describe('ChannelSetupFocusCoordinator', () => {
         button.id = 'x';
 
         expect(coordinator.registerLinear([button], null)).toBe(false);
-        coordinator.unregisterAll();
+        expect(() => coordinator.unregisterAll()).not.toThrow();
     });
 });

@@ -916,6 +916,29 @@ export class ChannelSetupScreen {
         });
     }
 
+    private _applyBuildCanceledUI(
+        cancelButton: HTMLButtonElement,
+        doneButton: HTMLButtonElement,
+        barFill: HTMLElement,
+        taskLabel: HTMLElement,
+        detailLabel: HTMLElement,
+        options?: { disableDone?: boolean }
+    ): void {
+        this._statusEl.textContent = 'Canceled.';
+        this._detailEl.textContent = 'No changes were applied.';
+        taskLabel.textContent = 'Canceled';
+        detailLabel.textContent = '';
+        barFill.style.width = '0%';
+        barFill.classList.remove('indeterminate');
+
+        cancelButton.disabled = false;
+        cancelButton.textContent = 'Back';
+        if (options?.disableDone) {
+            doneButton.disabled = true;
+        }
+        cancelButton.focus();
+    }
+
     private async _startBuild(
         cancelButton: HTMLButtonElement,
         doneButton: HTMLButtonElement,
@@ -970,16 +993,7 @@ export class ChannelSetupScreen {
             if (token !== this._visibilityToken) return;
 
             if (result.canceled) {
-                this._statusEl.textContent = 'Canceled.';
-                this._detailEl.textContent = 'No changes were applied.';
-                taskLabel.textContent = 'Canceled';
-                detailLabel.textContent = '';
-                barFill.style.width = '0%';
-                barFill.classList.remove('indeterminate');
-
-                cancelButton.disabled = false;
-                cancelButton.textContent = 'Back';
-                cancelButton.focus();
+                this._applyBuildCanceledUI(cancelButton, doneButton, barFill, taskLabel, detailLabel);
             } else {
                 this._orchestrator.markSetupComplete(serverId, config);
                 this._statusEl.textContent = 'Channels ready.';
@@ -1010,17 +1024,7 @@ export class ChannelSetupScreen {
         } catch (error) {
             if (token !== this._visibilityToken) return;
             if (isAbortLikeError(error, this._buildAbortController?.signal)) {
-                this._statusEl.textContent = 'Canceled.';
-                this._detailEl.textContent = 'No changes were applied.';
-                taskLabel.textContent = 'Canceled';
-                detailLabel.textContent = '';
-                barFill.style.width = '0%';
-                barFill.classList.remove('indeterminate');
-
-                cancelButton.disabled = false;
-                cancelButton.textContent = 'Back';
-                doneButton.disabled = true;
-                cancelButton.focus();
+                this._applyBuildCanceledUI(cancelButton, doneButton, barFill, taskLabel, detailLabel, { disableDone: true });
                 return;
             }
             const message = error instanceof Error ? error.message : 'Build failed.';
