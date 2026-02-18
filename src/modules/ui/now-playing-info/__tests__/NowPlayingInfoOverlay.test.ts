@@ -7,6 +7,7 @@
  */
 
 import { NowPlayingInfoOverlay } from '../NowPlayingInfoOverlay';
+import { NOW_PLAYING_INFO_CLASSES } from '../constants';
 import type { NowPlayingInfoConfig, NowPlayingInfoViewModel } from '../types';
 
 describe('NowPlayingInfoOverlay', () => {
@@ -60,6 +61,19 @@ describe('NowPlayingInfoOverlay', () => {
         expect(container.querySelector('.now-playing-info-subtitle')?.textContent).toBe('2h 10m');
         expect(container.querySelector('.now-playing-info-description')?.textContent).toBe('A test description of the movie.');
         expect(container.querySelector('.now-playing-info-context')?.textContent).toBe('12 Test Channel');
+    });
+
+    it('sets clear logo alt text when clearLogoUrl is shown', () => {
+        overlay.show({ ...baseViewModel, clearLogoUrl: 'https://example.com/logo.png' });
+        const clearLogo = container.querySelector(
+            `.${NOW_PLAYING_INFO_CLASSES.CLEAR_LOGO}`
+        ) as HTMLImageElement;
+        expect(clearLogo.getAttribute('src')).toBe('https://example.com/logo.png');
+        expect(clearLogo.getAttribute('alt')).toBe(baseViewModel.title);
+
+        overlay.show({ ...baseViewModel, clearLogoUrl: null });
+        expect(clearLogo.getAttribute('src')).toBeNull();
+        expect(clearLogo.getAttribute('alt')).toBe('');
     });
 
     it('should show up next when provided', () => {
@@ -248,7 +262,10 @@ describe('NowPlayingInfoOverlay', () => {
 
     it('applies cinematic class when vm.cinematic is true', () => {
         overlay.show({ ...baseViewModel, cinematic: true });
-        expect(container.classList.contains('now-playing-info-cinematic')).toBe(true);
+        expect(container.classList.contains(NOW_PLAYING_INFO_CLASSES.CINEMATIC)).toBe(true);
+
+        overlay.show(baseViewModel);
+        expect(container.classList.contains(NOW_PLAYING_INFO_CLASSES.CINEMATIC)).toBe(false);
     });
 
     it('sanitizes cinematic backdrop URLs to a single background image', () => {
@@ -259,7 +276,17 @@ describe('NowPlayingInfoOverlay', () => {
         });
 
         const backdrop = container.querySelector('.now-playing-info-backdrop') as HTMLElement;
-        expect(backdrop.style.backgroundImage).not.toContain('linear-gradient');
-        expect(backdrop.style.backgroundImage).not.toContain('https://evil');
+        expect(backdrop.style.backgroundImage).toBe('');
+    });
+
+    it('preserves legitimate poster URLs in cinematic backdrop', () => {
+        overlay.show({
+            ...baseViewModel,
+            cinematic: true,
+            posterUrl: 'https://example.com/a',
+        });
+
+        const backdrop = container.querySelector('.now-playing-info-backdrop') as HTMLElement;
+        expect(backdrop.style.backgroundImage).toContain('https://example.com/a');
     });
 });

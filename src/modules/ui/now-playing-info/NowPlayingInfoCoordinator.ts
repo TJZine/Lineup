@@ -52,6 +52,7 @@ export class NowPlayingInfoCoordinator {
     private nowPlayingInfoLiveUpdateTimer: ReturnType<typeof setInterval> | null = null;
     private nowPlayingInfoDetails: PlexMediaItem | null = null;
     private nowPlayingInfoDetailsRatingKey: string | null = null;
+    private cinematicNowPlaying = false;
 
     constructor(private readonly deps: NowPlayingInfoCoordinatorDeps) { }
 
@@ -59,6 +60,7 @@ export class NowPlayingInfoCoordinator {
         if (modalId !== this.deps.nowPlayingModalId) {
             return;
         }
+        this.cinematicNowPlaying = readStoredBoolean(RETUNE_STORAGE_KEYS.CINEMATIC_NOW_PLAYING, false);
         const overlay = this.deps.getNowPlayingInfo();
         const channelManager = this.deps.getChannelManager();
         if (!overlay || !channelManager) {
@@ -73,7 +75,7 @@ export class NowPlayingInfoCoordinator {
             } catch (error) {
                 console.warn(
                     '[NowPlayingInfoCoordinator] Scheduler unavailable, using fallback:',
-                    error
+                    summarizeErrorForLog(error)
                 );
                 // Fallback to last-known snapshot if scheduler is unavailable.
             }
@@ -99,6 +101,7 @@ export class NowPlayingInfoCoordinator {
         }
         this.stopLiveUpdates();
         this.deps.getNowPlayingInfo()?.hide();
+        this.cinematicNowPlaying = false;
     }
 
     onProgramStart(program: ScheduledProgram): void {
@@ -216,7 +219,7 @@ export class NowPlayingInfoCoordinator {
         const item = program.item;
         const channelName = channel?.name;
         const channelNumber = channel?.number;
-        const cinematic = readStoredBoolean(RETUNE_STORAGE_KEYS.CINEMATIC_NOW_PLAYING, false);
+        const cinematic = this.cinematicNowPlaying;
 
         let title = item.title;
         let subtitle = '';

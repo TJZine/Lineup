@@ -25,6 +25,7 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
     private containerElement: HTMLElement | null = null;
     private isVisibleFlag = false;
     private rows: MiniGuideRowElements[] = [];
+    private renderedBrandingStrategyByRow: Array<string | null> = [];
 
     initialize(config: MiniGuideConfig): void {
         const container = document.getElementById(config.containerId);
@@ -38,6 +39,7 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
         this.containerElement.classList.remove(MINI_GUIDE_CLASSES.VISIBLE);
         this.isVisibleFlag = false;
         this.cacheElements();
+        this.renderedBrandingStrategyByRow = Array(ROW_COUNT).fill(null);
     }
 
     destroy(): void {
@@ -48,6 +50,7 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
         this.containerElement = null;
         this.isVisibleFlag = false;
         this.rows = [];
+        this.renderedBrandingStrategyByRow = [];
     }
 
     show(): void {
@@ -95,12 +98,18 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
                 rowElements.number.textContent = String(rowVm.channelNumber);
             }
             if (rowElements.brandingIcon) {
-                rowElements.brandingIcon.replaceChildren();
-                if (rowVm.showBrandingIcon && rowVm.buildStrategy) {
-                    const icon = getChannelBrandingIcon(rowVm.buildStrategy);
-                    if (icon) {
-                        rowElements.brandingIcon.appendChild(icon);
+                const desiredStrategy =
+                    rowVm.showBrandingIcon && rowVm.buildStrategy ? rowVm.buildStrategy : null;
+                const renderedStrategy = this.renderedBrandingStrategyByRow[i] ?? null;
+                if (desiredStrategy !== renderedStrategy) {
+                    rowElements.brandingIcon.replaceChildren();
+                    if (desiredStrategy) {
+                        const icon = getChannelBrandingIcon(desiredStrategy);
+                        if (icon) {
+                            rowElements.brandingIcon.appendChild(icon);
+                        }
                     }
+                    this.renderedBrandingStrategyByRow[i] = desiredStrategy;
                 }
             }
             if (rowElements.name) {

@@ -252,7 +252,7 @@ export class MiniGuideCoordinator {
             channelNumber: channel.number,
             channelName: displayName,
             buildStrategy: channel.buildStrategy ?? null,
-            showBrandingIcon: !channel.icon && !!channel.buildStrategy,
+            showBrandingIcon: this._shouldShowBrandingIcon(channel),
             status: 'loading',
             nowTitle: 'Loading...',
             nowStartTime: null,
@@ -271,7 +271,7 @@ export class MiniGuideCoordinator {
             channelNumber: channel.number,
             channelName: displayName,
             buildStrategy: channel.buildStrategy ?? null,
-            showBrandingIcon: !channel.icon && !!channel.buildStrategy,
+            showBrandingIcon: this._shouldShowBrandingIcon(channel),
             status: 'unavailable',
             nowTitle: 'Unavailable',
             nowStartTime: null,
@@ -374,13 +374,17 @@ export class MiniGuideCoordinator {
             channelNumber: channel.number,
             channelName: displayName,
             buildStrategy: channel.buildStrategy ?? null,
-            showBrandingIcon: !channel.icon && !!channel.buildStrategy,
+            showBrandingIcon: this._shouldShowBrandingIcon(channel),
             status: 'ready',
             nowTitle,
             nowStartTime,
             nextTitle,
             nowProgress,
         };
+    }
+
+    private _shouldShowBrandingIcon(channel: ChannelConfig): boolean {
+        return !channel.icon && !!channel.buildStrategy;
     }
 
     private _formatMiniGuideTitle(program: ScheduledProgram | null): string | null {

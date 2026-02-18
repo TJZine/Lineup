@@ -145,6 +145,36 @@ describe('PlayerOsdOverlay', () => {
         ).toBe('');
     });
 
+    it('renders clear logo when clearLogoUrl is present and uses title for alt text', () => {
+        overlay.setViewModel({ ...baseViewModel, clearLogoUrl: 'http://example/logo.png' });
+        overlay.show();
+
+        const logo = container.querySelector(`.${PLAYER_OSD_CLASSES.CLEAR_LOGO}`) as HTMLImageElement;
+        const title = container.querySelector(`.${PLAYER_OSD_CLASSES.TITLE}`) as HTMLElement;
+        expect(logo.style.display).not.toBe('none');
+        expect(logo.getAttribute('src')).toBe('http://example/logo.png');
+        expect(logo.getAttribute('alt')).toBe(baseViewModel.title);
+        expect(title.style.display).toBe('none');
+
+        overlay.setViewModel({ ...baseViewModel, clearLogoUrl: null });
+        expect(logo.style.display).toBe('none');
+        expect(logo.getAttribute('src')).toBeNull();
+        expect(logo.getAttribute('alt')).toBe('');
+        expect(title.style.display).not.toBe('none');
+    });
+
+    it('toggles sleep timer text visibility', () => {
+        overlay.setViewModel({ ...baseViewModel, sleepTimerText: 'Sleep 45:00' });
+        overlay.show();
+        const sleep = container.querySelector(`.${PLAYER_OSD_CLASSES.SLEEP_TIMER}`) as HTMLElement;
+        expect(sleep.textContent).toBe('Sleep 45:00');
+        expect(sleep.style.display).not.toBe('none');
+
+        overlay.setViewModel({ ...baseViewModel, sleepTimerText: null });
+        expect(sleep.textContent).toBe('');
+        expect(sleep.style.display).toBe('none');
+    });
+
     it('renders PLAYING as an icon with aria label', () => {
         overlay.setViewModel(baseViewModel);
         overlay.show();

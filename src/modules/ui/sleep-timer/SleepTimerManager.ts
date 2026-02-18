@@ -1,6 +1,6 @@
 import { SLEEP_TIMER_PRESETS_MIN, SLEEP_TIMER_WARNING_MS } from './constants';
 
-interface SleepTimerCallbacks {
+export interface SleepTimerCallbacks {
     onWarning: (remainingMs: number) => void;
     onSleep: () => void;
     onCancel: () => void;

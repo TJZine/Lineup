@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { PlayerOsdCoordinator } from '../PlayerOsdCoordinator';
+import { INFO_BANNER_AUTO_HIDE_MS, PlayerOsdCoordinator } from '../PlayerOsdCoordinator';
 import type { IPlayerOsdOverlay } from '../interfaces';
 import type { INavigationManager } from '../../../navigation';
 import type { IVideoPlayer } from '../../../player';
@@ -514,10 +514,26 @@ describe('PlayerOsdCoordinator', () => {
         const { coordinator, overlay } = setup();
         coordinator.showInfoBanner();
         expect(overlay.show).toHaveBeenCalled();
-        jest.advanceTimersByTime(5999);
+        jest.advanceTimersByTime(INFO_BANNER_AUTO_HIDE_MS - 1);
         expect(overlay.hide).not.toHaveBeenCalled();
         jest.advanceTimersByTime(1);
         expect(overlay.hide).toHaveBeenCalled();
+    });
+
+    it('showInfoBanner preserves infoOnly on time updates while visible', () => {
+        const { coordinator, overlay } = setup();
+        (overlay.isVisible as jest.Mock).mockReturnValue(true);
+
+        coordinator.showInfoBanner();
+        const firstVm = (overlay.setViewModel as jest.Mock).mock.calls[0]?.[0] as { infoOnly?: boolean };
+        expect(firstVm?.infoOnly).toBe(true);
+
+        coordinator.onTimeUpdate({ currentTimeMs: 1_000, durationMs: 10_000 });
+        jest.advanceTimersByTime(300);
+
+        const calls = (overlay.setViewModel as jest.Mock).mock.calls;
+        const lastVm = calls[calls.length - 1]?.[0] as { infoOnly?: boolean };
+        expect(lastVm?.infoOnly).toBe(true);
     });
 
     it('does not steal focus when a modal is open', () => {

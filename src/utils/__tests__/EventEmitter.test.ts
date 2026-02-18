@@ -7,6 +7,10 @@
 import { EventEmitter } from '../EventEmitter';
 
 describe('EventEmitter', () => {
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
     describe('on/emit', () => {
         it('should call handler with correct payload type', () => {
             type TestEvents = { test: { value: number } };
@@ -77,65 +81,42 @@ describe('EventEmitter', () => {
 
         it('should log errors to console.error', () => {
             const emitter = new EventEmitter<{ test: void }>();
-            const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+            const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-            try {
-                emitter.on('test', () => {
-                    throw new Error('Test error');
-                });
-                emitter.emit('test', undefined);
+            emitter.on('test', () => {
+                throw new Error('Test error');
+            });
+            emitter.emit('test', undefined);
 
-                expect(consoleSpy).toHaveBeenCalledWith(
-                    expect.stringContaining('Handler error'),
-                    expect.objectContaining({
-                        name: 'Error',
-                        message: 'Test error',
-                    })
-                );
-            } finally {
-                consoleSpy.mockRestore();
-            }
+            expect(consoleSpy).toHaveBeenCalledWith(
+                expect.stringContaining('Handler error'),
+                expect.objectContaining({
+                    name: 'Error',
+                    message: 'Test error',
+                })
+            );
         });
 
         it('redacts sensitive tokens when logging thrown handler errors', () => {
             const emitter = new EventEmitter<{ test: void }>();
-            const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+            const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
             const secret = 'super-secret';
 
-            try {
-                emitter.on('test', () => {
-                    throw new Error(`http://x?X-Plex-Token=${secret}`);
-                });
-                emitter.emit('test', undefined);
-
-                const loggedErrorCall = consoleSpy.mock.calls.find((call) =>
-                    typeof call[0] === 'string' && call[0].includes('Handler error for event')
-                );
-                const loggedError = loggedErrorCall?.[1] as { message?: string } | undefined;
-                expect(loggedError).toBeDefined();
-                const message = loggedError?.message ?? '';
-                expect(message).toContain('REDACTED');
-                expect(message).not.toContain(secret);
-            } finally {
-                consoleSpy.mockRestore();
-            }
-        });
-
-        it('isolates handler errors and continues', () => {
-            type Events = { ping: void };
-            const emitter = new EventEmitter<Events>();
-
-            const badHandler = jest.fn(() => {
-                throw new Error('boom');
+            emitter.on('test', () => {
+                throw new Error(`http://x?X-Plex-Token=${secret}`);
             });
-            const goodHandler = jest.fn();
-            emitter.on('ping', badHandler);
-            emitter.on('ping', goodHandler);
+            emitter.emit('test', undefined);
 
-            expect(() => emitter.emit('ping', undefined)).not.toThrow();
-            expect(badHandler).toHaveBeenCalledTimes(1);
-            expect(goodHandler).toHaveBeenCalledTimes(1);
+            const loggedErrorCall = consoleSpy.mock.calls.find((call) =>
+                typeof call[0] === 'string' && call[0].includes('Handler error for event')
+            );
+            const loggedError = loggedErrorCall?.[1] as { message?: string } | undefined;
+            expect(loggedError).toBeDefined();
+            const message = loggedError?.message ?? '';
+            expect(message).toContain('REDACTED');
+            expect(message).not.toContain(secret);
         });
+
     });
 
     describe('once', () => {

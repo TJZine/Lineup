@@ -12,7 +12,13 @@ const ICON_PATHS: Record<string, string> = {
     libraryFallback: 'M5 5h14v14H5zM8 9h8v2H8zm0 4h8v2H8z',
 };
 
+const ICON_SVG_CACHE = new Map<string, SVGElement>();
+
 export function getChannelBrandingIcon(buildStrategy: string): SVGElement | null {
+    const cached = ICON_SVG_CACHE.get(buildStrategy);
+    if (cached) {
+        return cached.cloneNode(true) as SVGElement;
+    }
     const pathData = ICON_PATHS[buildStrategy];
     if (!pathData) {
         return null;
@@ -25,7 +31,8 @@ export function getChannelBrandingIcon(buildStrategy: string): SVGElement | null
     path.setAttribute('d', pathData);
     path.setAttribute('fill', 'currentColor');
     svg.appendChild(path);
-    return svg;
+    ICON_SVG_CACHE.set(buildStrategy, svg);
+    return svg.cloneNode(true) as SVGElement;
 }
 
 export function getAvailableStrategies(): string[] {

@@ -145,12 +145,14 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         if (this.elements.clearLogo) {
             if (vm.clearLogoUrl) {
                 this.elements.clearLogo.src = vm.clearLogoUrl;
+                this.elements.clearLogo.alt = vm.title || '';
                 this.elements.clearLogo.style.display = '';
                 if (this.elements.title) {
                     this.elements.title.style.display = 'none';
                 }
             } else {
                 this.elements.clearLogo.removeAttribute('src');
+                this.elements.clearLogo.alt = '';
                 this.elements.clearLogo.style.display = 'none';
                 if (this.elements.title) {
                     this.elements.title.style.display = '';

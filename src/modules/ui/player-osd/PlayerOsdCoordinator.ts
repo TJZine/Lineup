@@ -17,6 +17,7 @@ import { getChannelNameForDisplay } from '../channelDisplay';
 
 const RECENT_USER_ACTION_MS = 2000;
 const OSD_THROTTLE_MS = 250;
+export const INFO_BANNER_AUTO_HIDE_MS = 6000;
 const PLAYER_OSD_ACTION_IDS = {
     subtitles: 'player-osd-action-subtitles',
     sleep: 'player-osd-action-sleep',
@@ -108,13 +109,13 @@ export class PlayerOsdCoordinator {
         this._suppressActions = true;
         this._lastUserActionAt = 0;
         this._lastReason = 'status';
-        overlay.setViewModel({ ...this._buildViewModel('status'), infoOnly: true });
+        overlay.setViewModel(this._buildInfoOnlyViewModel('status'));
         overlay.show();
         this._clearAutoHideTimer();
         this._autoHideTimer = globalThis.setTimeout(() => {
             this._autoHideTimer = null;
             this.hide();
-        }, 6000) as unknown as number;
+        }, INFO_BANNER_AUTO_HIDE_MS) as unknown as number;
     }
 
     onPlayerStateChange(state: PlaybackState): void {
@@ -180,7 +181,7 @@ export class PlayerOsdCoordinator {
         const overlay = this.deps.getOverlay();
         if (!overlay) return;
         this._clearThrottledRenderTimer();
-        overlay.setViewModel(this._buildViewModel(reason));
+        overlay.setViewModel(this._suppressActions ? this._buildInfoOnlyViewModel(reason) : this._buildViewModel(reason));
         this._lastThrottledRenderAt = Date.now();
         overlay.show();
         if (!this._suppressActions) {
@@ -208,7 +209,11 @@ export class PlayerOsdCoordinator {
         const now = Date.now();
         const elapsed = now - this._lastThrottledRenderAt;
         if (elapsed >= OSD_THROTTLE_MS) {
-            overlay.setViewModel(this._buildViewModel(this._lastReason));
+            overlay.setViewModel(
+                this._suppressActions
+                    ? this._buildInfoOnlyViewModel(this._lastReason)
+                    : this._buildViewModel(this._lastReason)
+            );
             this._lastThrottledRenderAt = now;
             return;
         }
@@ -216,9 +221,24 @@ export class PlayerOsdCoordinator {
         this._throttledRenderTimer = globalThis.setTimeout(() => {
             this._throttledRenderTimer = null;
             const nextNow = Date.now();
-            overlay.setViewModel(this._buildViewModel(this._lastReason));
+            overlay.setViewModel(
+                this._suppressActions
+                    ? this._buildInfoOnlyViewModel(this._lastReason)
+                    : this._buildViewModel(this._lastReason)
+            );
             this._lastThrottledRenderAt = nextNow;
         }, OSD_THROTTLE_MS - elapsed) as unknown as number;
+    }
+
+    private _buildInfoOnlyViewModel(reason: PlayerOsdReason): PlayerOsdViewModel {
+        const vm: PlayerOsdViewModel = {
+            ...this._buildViewModel(reason),
+            infoOnly: true,
+            // Avoid setting focusable IDs/hints while actions are suppressed; banner should be informational only.
+            controlHint: null,
+        };
+        delete (vm as Partial<PlayerOsdViewModel>).actionIds;
+        return vm;
     }
 
     private _buildViewModel(reason: PlayerOsdReason): PlayerOsdViewModel {

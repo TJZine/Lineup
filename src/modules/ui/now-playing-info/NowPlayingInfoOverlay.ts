@@ -224,10 +224,12 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         if (clearLogo && title) {
             if (viewModel.clearLogoUrl) {
                 clearLogo.src = viewModel.clearLogoUrl;
+                clearLogo.alt = viewModel.title || '';
                 clearLogo.style.display = 'block';
                 (title as HTMLElement).style.display = 'none';
             } else {
                 clearLogo.removeAttribute('src');
+                clearLogo.alt = '';
                 clearLogo.style.display = 'none';
                 (title as HTMLElement).style.display = '';
             }
@@ -517,6 +519,10 @@ function buildSafeBackgroundImage(rawUrl: string | null): string {
     }
     const trimmed = rawUrl.trim();
     if (trimmed.length === 0) {
+        return '';
+    }
+    // Reject obvious CSS-injection payloads; poster URLs should be plain http(s) URLs with no raw whitespace or quotes.
+    if (/[\s"'`]/.test(trimmed)) {
         return '';
     }
     try {

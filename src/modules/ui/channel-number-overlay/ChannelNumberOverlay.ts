@@ -11,6 +11,7 @@ export class ChannelNumberOverlay implements IChannelNumberOverlay {
     private isVisibleFlag = false;
 
     initialize(containerId: string): void {
+        this._clearHideTimer();
         if (typeof document === 'undefined') {
             this.containerElement = null;
             this.digitsElement = null;
@@ -24,13 +25,22 @@ export class ChannelNumberOverlay implements IChannelNumberOverlay {
         this.containerElement = existing;
         this.containerElement.classList.add(CHANNEL_NUMBER_CLASSES.CONTAINER);
         this.containerElement.classList.remove(CHANNEL_NUMBER_CLASSES.VISIBLE, CHANNEL_NUMBER_CLASSES.ERROR);
-        this.containerElement.innerHTML = `
-            <div class="${CHANNEL_NUMBER_CLASSES.PANEL}">
-                <span class="${CHANNEL_NUMBER_CLASSES.LABEL}">CH</span>
-                <span class="${CHANNEL_NUMBER_CLASSES.DIGITS}"></span>
-            </div>
-        `;
-        this.digitsElement = this.containerElement.querySelector(`.${CHANNEL_NUMBER_CLASSES.DIGITS}`);
+        this.containerElement.replaceChildren();
+
+        const panel = document.createElement('div');
+        panel.className = CHANNEL_NUMBER_CLASSES.PANEL;
+
+        const label = document.createElement('span');
+        label.className = CHANNEL_NUMBER_CLASSES.LABEL;
+        label.textContent = 'CH';
+
+        const digits = document.createElement('span');
+        digits.className = CHANNEL_NUMBER_CLASSES.DIGITS;
+
+        panel.append(label, digits);
+        this.containerElement.appendChild(panel);
+
+        this.digitsElement = digits;
         this.isVisibleFlag = false;
     }
 

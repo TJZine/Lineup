@@ -103,6 +103,7 @@ import { PlayerOsdCoordinator } from './modules/ui/player-osd/PlayerOsdCoordinat
 import {
     ChannelNumberOverlay,
     type IChannelNumberOverlay,
+    type ChannelNumberOverlayConfig,
 } from './modules/ui/channel-number-overlay';
 import { SleepTimerManager } from './modules/ui/sleep-timer';
 import {
@@ -255,6 +256,7 @@ export interface OrchestratorConfig {
     nowPlayingInfoConfig: NowPlayingInfoConfig;
     playbackOptionsConfig: PlaybackOptionsConfig;
     playerOsdConfig: PlayerOsdConfig;
+    channelNumberOverlayConfig: ChannelNumberOverlayConfig;
     miniGuideConfig: MiniGuideConfig;
     channelTransitionConfig: ChannelTransitionConfig;
 }
@@ -2308,7 +2310,8 @@ export class AppOrchestrator implements IAppOrchestrator {
 
         this._currentProgramForPlayback = program;
         const programAtStart = program;
-        if (this._pendingNowPlayingChannelId) {
+        const shouldAutoShowInfoBanner = this._pendingNowPlayingChannelId !== null;
+        if (shouldAutoShowInfoBanner) {
             this._shouldAutoShowInfoBannerOnNextPlay = true;
             this._pendingNowPlayingChannelId = null;
         }
@@ -2317,9 +2320,15 @@ export class AppOrchestrator implements IAppOrchestrator {
             this._epgCoordinator?.refreshEpgScheduleForLiveChannel();
             const stream = await this._playbackRecovery?.resolveStreamForProgram(programAtStart);
             if (isStale() || this._currentProgramForPlayback !== programAtStart) {
+                if (shouldAutoShowInfoBanner) {
+                    this._shouldAutoShowInfoBannerOnNextPlay = false;
+                }
                 return;
             }
             if (!stream) {
+                if (shouldAutoShowInfoBanner) {
+                    this._shouldAutoShowInfoBannerOnNextPlay = false;
+                }
                 return;
             }
             this._currentStreamDescriptor = stream;
@@ -2331,16 +2340,25 @@ export class AppOrchestrator implements IAppOrchestrator {
 
             await this._videoPlayer.loadStream(stream);
             if (isStale() || this._currentProgramForPlayback !== programAtStart) {
+                if (shouldAutoShowInfoBanner) {
+                    this._shouldAutoShowInfoBannerOnNextPlay = false;
+                }
                 return;
             }
             await this._videoPlayer.play();
             this._playbackRecovery?.resetPlaybackFailureGuard();
         } catch (error) {
             if (this._playbackRecovery?.tryHandleStreamResolverAuthError(error)) {
+                if (shouldAutoShowInfoBanner) {
+                    this._shouldAutoShowInfoBannerOnNextPlay = false;
+                }
                 return;
             }
             console.error('Failed to load stream:', summarizeErrorForLog(error));
             this._playbackRecovery?.handlePlaybackFailure('programStart', error);
+            if (shouldAutoShowInfoBanner) {
+                this._shouldAutoShowInfoBannerOnNextPlay = false;
+            }
         }
     }
 

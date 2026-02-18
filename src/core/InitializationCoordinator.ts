@@ -645,8 +645,15 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             );
         }
 
-        if (this._deps.channelNumberOverlay) {
-            this._deps.channelNumberOverlay.initialize('channel-number-overlay-container');
+        if (this._deps.channelNumberOverlay && this._config) {
+            this._callbacks.updateModuleStatus('channel-number-overlay-ui', 'initializing');
+            this._deps.channelNumberOverlay.initialize(this._config.channelNumberOverlayConfig.containerId);
+            this._callbacks.updateModuleStatus(
+                'channel-number-overlay-ui',
+                'ready',
+                undefined,
+                Date.now() - startTime
+            );
         }
 
         if (this._deps.miniGuide && this._config) {

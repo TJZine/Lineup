@@ -271,7 +271,6 @@
 
 .now-playing-info-container.now-playing-info-cinematic {
   align-items: stretch;
-  justify-content: stretch;
 }
 
 .now-playing-info-container.now-playing-info-cinematic .now-playing-info-panel {
@@ -286,7 +285,6 @@
 
 .now-playing-info-container.now-playing-info-cinematic .now-playing-info-backdrop {
   opacity: 1;
-  transform: none;
 }
 
 .now-playing-info-container.now-playing-info-cinematic .now-playing-info-backdrop::after {

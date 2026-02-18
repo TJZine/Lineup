@@ -169,6 +169,9 @@ export class ContentResolver {
                     if (!merged.grandparentThumb && showThumb) {
                         merged.grandparentThumb = showThumb;
                     }
+                    if (!merged.clearLogo && item.clearLogo) {
+                        merged.clearLogo = item.clearLogo;
+                    }
 
                     expanded.push(this._toResolvedItem(merged, 0));
                 }
@@ -354,6 +357,7 @@ export class ContentResolver {
                 if (!merged.contentRating && parent.contentRating) merged.contentRating = parent.contentRating;
                 if ((!merged.year || merged.year === 0) && parent.year) merged.year = parent.year;
                 if (!merged.grandparentThumb && parent.thumb) merged.grandparentThumb = parent.thumb;
+                if (!merged.clearLogo && parent.clearLogo) merged.clearLogo = parent.clearLogo;
                 decorated.push(merged);
             } else {
                 decorated.push(episode);

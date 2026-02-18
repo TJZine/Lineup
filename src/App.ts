@@ -92,6 +92,10 @@ const DEFAULT_PLAYER_OSD_CONFIG: PlayerOsdConfig = {
     containerId: 'player-osd-container',
 };
 
+const DEFAULT_CHANNEL_NUMBER_OVERLAY_CONFIG = {
+    containerId: 'channel-number-overlay-container',
+};
+
 const DEFAULT_MINI_GUIDE_CONFIG: MiniGuideConfig = {
     containerId: 'mini-guide-container',
     autoHideMs: 8_000,
@@ -752,6 +756,7 @@ export class App {
             epgConfig: DEFAULT_EPG_CONFIG,
             nowPlayingInfoConfig: DEFAULT_NOW_PLAYING_INFO_CONFIG,
             playerOsdConfig: DEFAULT_PLAYER_OSD_CONFIG,
+            channelNumberOverlayConfig: DEFAULT_CHANNEL_NUMBER_OVERLAY_CONFIG,
             miniGuideConfig: DEFAULT_MINI_GUIDE_CONFIG,
             channelTransitionConfig: DEFAULT_CHANNEL_TRANSITION_CONFIG,
             playbackOptionsConfig: DEFAULT_PLAYBACK_OPTIONS_CONFIG,

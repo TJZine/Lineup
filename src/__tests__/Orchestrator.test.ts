@@ -89,6 +89,10 @@ const mockPlayerOsdConfig = {
     containerId: 'player-osd-container',
 };
 
+const mockChannelNumberOverlayConfig = {
+    containerId: 'channel-number-overlay-container',
+};
+
 const mockMiniGuideConfig = {
     containerId: 'mini-guide-container',
 };
@@ -104,6 +108,7 @@ const mockConfig: OrchestratorConfig = {
     epgConfig: mockEpgConfig,
     nowPlayingInfoConfig: mockNowPlayingInfoConfig,
     playerOsdConfig: mockPlayerOsdConfig,
+    channelNumberOverlayConfig: mockChannelNumberOverlayConfig,
     miniGuideConfig: mockMiniGuideConfig,
     channelTransitionConfig: mockChannelTransitionConfig,
     playbackOptionsConfig: mockPlaybackOptionsConfig,

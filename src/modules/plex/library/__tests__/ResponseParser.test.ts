@@ -158,9 +158,11 @@ describe('ResponseParser', () => {
                 Image: 'oops',
             } as unknown as RawMediaItem;
 
-            expect(() => parseMediaItem(raw)).not.toThrow();
-            const result = parseMediaItem(raw);
-            expect(result.clearLogo).toBeUndefined();
+            let result: ReturnType<typeof parseMediaItem> | undefined;
+            expect(() => {
+                result = parseMediaItem(raw);
+            }).not.toThrow();
+            expect(result?.clearLogo).toBeUndefined();
         });
 
         it('should handle TV episode fields', () => {

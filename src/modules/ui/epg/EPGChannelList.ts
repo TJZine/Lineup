@@ -238,6 +238,7 @@ export class EPGChannelList {
         row.replaceChildren();
 
         // Channel icon (if available) - validate URL scheme
+        let iconRendered = false;
         if (channel.icon) {
             // Only allow http(s) or safe raster data URIs (avoid svg in img for WebViews)
             const isValidIconUrl = /^https?:\/\//i.test(channel.icon) ||
@@ -248,9 +249,10 @@ export class EPGChannelList {
                 icon.src = channel.icon;
                 icon.alt = displayName;
                 row.appendChild(icon);
+                iconRendered = true;
             }
         }
-        if (!channel.icon && channel.buildStrategy) {
+        if (!iconRendered && channel.buildStrategy) {
             const brandingIcon = getChannelBrandingIcon(channel.buildStrategy);
             if (brandingIcon) {
                 row.appendChild(brandingIcon);

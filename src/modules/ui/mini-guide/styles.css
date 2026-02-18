@@ -120,6 +120,8 @@
   flex: 0 0 auto;
   opacity: 0.7;
   margin-right: 6px;
+  width: 18px;
+  height: 18px;
 }
 
 .mini-guide-now {
