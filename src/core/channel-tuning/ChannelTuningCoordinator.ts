@@ -338,6 +338,10 @@ export class ChannelTuningCoordinator {
                     code: AppErrorCode.CHANNEL_NOT_FOUND,
                     message: `Channel ${number} not found`,
                     recoverable: true,
+                    context: {
+                        operation: 'switchToChannelByNumber',
+                        attemptedChannelNumber: number,
+                    },
                 },
                 'switchToChannelByNumber'
             );

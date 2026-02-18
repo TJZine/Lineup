@@ -31,6 +31,7 @@ describe('PlayerOsdOverlay', () => {
         playbackText: 'Direct Play • H.264/AAC • 1080p',
         actionIds: {
             subtitles: 'player-osd-action-subtitles',
+            sleep: 'player-osd-action-sleep',
             audio: 'player-osd-action-audio',
         },
     };
@@ -93,6 +94,9 @@ describe('PlayerOsdOverlay', () => {
             (container.querySelector(`.${PLAYER_OSD_CLASSES.ACTION}[data-action="subtitles"]`) as HTMLElement).id
         ).toBe('player-osd-action-subtitles');
         expect(
+            (container.querySelector(`.${PLAYER_OSD_CLASSES.ACTION}[data-action="sleep"]`) as HTMLElement).id
+        ).toBe('player-osd-action-sleep');
+        expect(
             (container.querySelector(`.${PLAYER_OSD_CLASSES.ACTION}[data-action="audio"]`) as HTMLElement).id
         ).toBe('player-osd-action-audio');
 
@@ -132,6 +136,9 @@ describe('PlayerOsdOverlay', () => {
 
         expect(
             (container.querySelector(`.${PLAYER_OSD_CLASSES.ACTION}[data-action="subtitles"]`) as HTMLElement).id
+        ).toBe('');
+        expect(
+            (container.querySelector(`.${PLAYER_OSD_CLASSES.ACTION}[data-action="sleep"]`) as HTMLElement).id
         ).toBe('');
         expect(
             (container.querySelector(`.${PLAYER_OSD_CLASSES.ACTION}[data-action="audio"]`) as HTMLElement).id
@@ -245,5 +252,12 @@ describe('PlayerOsdOverlay', () => {
         const buffered = container.querySelector(`.${PLAYER_OSD_CLASSES.BAR_BUFFER}`) as HTMLElement;
         expect(played.style.opacity).toBe('');
         expect(buffered.style.opacity).toBe('');
+    });
+
+    it('applies info-only class when vm.infoOnly is true', () => {
+        overlay.setViewModel({ ...baseViewModel, infoOnly: true });
+        overlay.show();
+        const panel = container.querySelector(`.${PLAYER_OSD_CLASSES.PANEL}`) as HTMLElement;
+        expect(panel.classList.contains('info-only')).toBe(true);
     });
 });

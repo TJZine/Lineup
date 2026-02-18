@@ -80,6 +80,14 @@
   color: var(--color-text-primary, rgba(255, 255, 255, 0.98));
 }
 
+.player-osd-clear-logo {
+  max-height: 48px;
+  max-width: 320px;
+  object-fit: contain;
+  object-position: left center;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6));
+}
+
 .player-osd-subtitle {
   font-size: var(--text-lg);
   color: var(--color-text-secondary, rgba(255, 255, 255, 0.75));
@@ -149,12 +157,29 @@
   white-space: nowrap;
 }
 
+.player-osd-sleep {
+  margin-left: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .player-osd-hint {
   margin-top: 6px;
   font-size: var(--text-md);
   color: rgba(255, 255, 255, 0.6);
   letter-spacing: 0.3px;
   text-transform: uppercase;
+}
+
+.player-osd-panel.info-only .player-osd-actions,
+.player-osd-panel.info-only .player-osd-hint {
+  display: none;
 }
 
 .player-osd-bar {

@@ -78,6 +78,9 @@ const setup = (): {
     const subtitles = document.createElement('button');
     subtitles.id = 'player-osd-action-subtitles';
     document.body.appendChild(subtitles);
+    const sleep = document.createElement('button');
+    sleep.id = 'player-osd-action-sleep';
+    document.body.appendChild(sleep);
     const audio = document.createElement('button');
     audio.id = 'player-osd-action-audio';
     document.body.appendChild(audio);
@@ -102,6 +105,7 @@ const setup = (): {
         getVideoPlayer: (): IVideoPlayer => videoPlayer,
         getAutoHideMs: (): number => AUTO_HIDE_MS,
         getNavigation: (): INavigationManager => navigation,
+        buildPlexResourceUrl: jest.fn().mockReturnValue(null),
         playbackOptionsModalId: 'playback-options',
         preparePlaybackOptionsModal: jest.fn().mockReturnValue({
             focusableIds: ['playback-subtitle-off'],
@@ -157,6 +161,7 @@ describe('PlayerOsdCoordinator', () => {
                 isModalOpen: jest.fn().mockReturnValue(false),
                 openModal: jest.fn(),
             } as unknown as INavigationManager),
+            buildPlexResourceUrl: jest.fn().mockReturnValue(null),
             playbackOptionsModalId: 'playback-options',
             preparePlaybackOptionsModal: jest.fn().mockReturnValue({
                 focusableIds: ['playback-subtitle-off'],
@@ -261,6 +266,7 @@ describe('PlayerOsdCoordinator', () => {
                 isModalOpen: jest.fn().mockReturnValue(false),
                 openModal: jest.fn(),
             } as unknown as INavigationManager),
+            buildPlexResourceUrl: jest.fn().mockReturnValue(null),
             playbackOptionsModalId: 'playback-options',
             preparePlaybackOptionsModal: jest.fn().mockReturnValue({
                 focusableIds: ['playback-subtitle-off'],
@@ -300,6 +306,7 @@ describe('PlayerOsdCoordinator', () => {
                 isModalOpen: jest.fn().mockReturnValue(false),
                 openModal: jest.fn(),
             } as unknown as INavigationManager),
+            buildPlexResourceUrl: jest.fn().mockReturnValue(null),
             playbackOptionsModalId: 'playback-options',
             preparePlaybackOptionsModal: jest.fn().mockReturnValue({
                 focusableIds: ['playback-subtitle-off'],
@@ -341,6 +348,7 @@ describe('PlayerOsdCoordinator', () => {
                 isModalOpen: jest.fn().mockReturnValue(false),
                 openModal: jest.fn(),
             } as unknown as INavigationManager),
+            buildPlexResourceUrl: jest.fn().mockReturnValue(null),
             playbackOptionsModalId: 'playback-options',
             preparePlaybackOptionsModal: jest.fn().mockReturnValue({
                 focusableIds: ['playback-subtitle-off'],
@@ -423,6 +431,7 @@ describe('PlayerOsdCoordinator', () => {
                 isModalOpen: jest.fn().mockReturnValue(false),
                 openModal: jest.fn(),
             } as unknown as INavigationManager),
+            buildPlexResourceUrl: jest.fn().mockReturnValue(null),
             playbackOptionsModalId: 'playback-options',
             preparePlaybackOptionsModal: jest.fn().mockReturnValue({
                 focusableIds: ['playback-subtitle-off'],
@@ -469,6 +478,7 @@ describe('PlayerOsdCoordinator', () => {
                 isModalOpen: jest.fn().mockReturnValue(false),
                 openModal: jest.fn(),
             } as unknown as INavigationManager),
+            buildPlexResourceUrl: jest.fn().mockReturnValue(null),
             playbackOptionsModalId: 'playback-options',
             preparePlaybackOptionsModal: jest.fn().mockReturnValue({
                 focusableIds: ['playback-subtitle-off'],
@@ -485,13 +495,29 @@ describe('PlayerOsdCoordinator', () => {
         expect(viewModel.upNextText).toBeUndefined();
     });
 
+    it('showInfoBanner does not register focusables', () => {
+        const { coordinator, navigation } = setup();
+        coordinator.showInfoBanner();
+        expect(navigation.registerFocusable).not.toHaveBeenCalled();
+    });
+
+    it('showInfoBanner auto-hides after 6s', () => {
+        const { coordinator, overlay } = setup();
+        coordinator.showInfoBanner();
+        expect(overlay.show).toHaveBeenCalled();
+        jest.advanceTimersByTime(5999);
+        expect(overlay.hide).not.toHaveBeenCalled();
+        jest.advanceTimersByTime(1);
+        expect(overlay.hide).toHaveBeenCalled();
+    });
+
     it('does not steal focus when a modal is open', () => {
         const { coordinator, navigation } = setup();
         (navigation.isModalOpen as jest.Mock).mockReturnValue(true);
 
         coordinator.onPlayerStateChange(makeState('paused'));
 
-        expect(navigation.registerFocusable).toHaveBeenCalledTimes(2);
+        expect(navigation.registerFocusable).toHaveBeenCalledTimes(3);
         expect(navigation.setFocus).not.toHaveBeenCalled();
     });
 });

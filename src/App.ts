@@ -299,6 +299,10 @@ export class App {
         playerOsdContainer.id = 'player-osd-container';
         root.appendChild(playerOsdContainer);
 
+        const channelNumberOverlayContainer = document.createElement('div');
+        channelNumberOverlayContainer.id = 'channel-number-overlay-container';
+        root.appendChild(channelNumberOverlayContainer);
+
         const miniGuideContainer = document.createElement('div');
         miniGuideContainer.id = 'mini-guide-container';
         root.appendChild(miniGuideContainer);

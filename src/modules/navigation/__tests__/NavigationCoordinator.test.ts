@@ -169,6 +169,15 @@ describe('NavigationCoordinator', () => {
         );
     });
 
+    it('forwards channelInputUpdate payload to dependency callback', () => {
+        const onChannelInputUpdate = jest.fn();
+        const { handlers } = setup({ onChannelInputUpdate });
+
+        handlers.channelInputUpdate?.({ digits: '42', isComplete: false });
+
+        expect(onChannelInputUpdate).toHaveBeenCalledWith({ digits: '42', isComplete: false });
+    });
+
     it('registers long-press back handler', () => {
         const { navigation } = setup();
 

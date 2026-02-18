@@ -61,6 +61,7 @@ export interface NavigationCoordinatorDeps {
     switchToNextChannel: () => void;
     switchToPreviousChannel: () => void;
     switchToChannelByNumber: (n: number) => Promise<void>;
+    onChannelInputUpdate?: (payload: { digits: string; isComplete: boolean }) => void;
 
     toggleEpg: () => void;
     shouldRunChannelSetup: () => boolean;
@@ -150,6 +151,14 @@ export class NavigationCoordinator {
         navigation.on('channelNumberEntered', channelNumberHandler);
         unsubs.push(() => {
             navigation.off('channelNumberEntered', channelNumberHandler);
+        });
+
+        const inputUpdateHandler = (payload: { digits: string; isComplete: boolean }): void => {
+            this.deps.onChannelInputUpdate?.(payload);
+        };
+        navigation.on('channelInputUpdate', inputUpdateHandler);
+        unsubs.push(() => {
+            navigation.off('channelInputUpdate', inputUpdateHandler);
         });
 
         const guideHandler = (): void => {
