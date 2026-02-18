@@ -195,17 +195,17 @@ describe('ContentResolver', () => {
             expect(result[1]!.scheduledIndex).toBe(1);
         });
 
-        it('should decorate inline-expanded episodes with parent show metadata', async () => {
-            const show = createMockItem({
-                ratingKey: 'show-inline',
-                type: 'show',
-                title: 'Inline Show',
-                durationMs: 0, // Triggers inline expansion path
-                thumb: '/thumb/inline-show',
-                clearLogo: '/clearlogo/inline-show.png',
-                genres: ['Drama'],
-                contentRating: 'TV-14',
-            });
+	        it('should decorate inline-expanded episodes with parent show metadata', async () => {
+	            const show = createMockItem({
+	                ratingKey: 'show-inline',
+	                type: 'show',
+	                title: 'Inline Show',
+	                durationMs: 0, // Triggers inline expansion (durationMs: 0, no season/episode numbers)
+	                thumb: '/thumb/inline-show',
+	                clearLogo: '/clearlogo/inline-show.png',
+	                genres: ['Drama'],
+	                contentRating: 'TV-14',
+	            });
             const episodes = [
                 createMockEpisode(1, 1, { grandparentTitle: '', grandparentThumb: null, clearLogo: null }),
                 createMockEpisode(1, 2, { grandparentTitle: '', grandparentThumb: null, clearLogo: null }),

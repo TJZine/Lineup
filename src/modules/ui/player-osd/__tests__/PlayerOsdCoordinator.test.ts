@@ -121,35 +121,39 @@ const setup = (): {
 
 const makeCoordinatorOptions = (
     overrides: Partial<CoordinatorOptions> = {}
-): CoordinatorOptions => ({
-    getOverlay: (): IPlayerOsdOverlay => makeOverlay(),
-    getCurrentProgram: (): ScheduledProgram => makeProgram(),
-    getNextProgram: (): ScheduledProgram | null => null,
-    getCurrentChannel: (): ChannelConfig => makeChannel(),
-    getVideoPlayer: (): IVideoPlayer =>
-        ({
-            getState: jest.fn(() => makeState('playing')),
-            getAvailableAudio: jest.fn(() => []),
-            getAvailableSubtitles: jest.fn(() => []),
-        }) as unknown as IVideoPlayer,
-    getAutoHideMs: (): number => AUTO_HIDE_MS,
-    getNavigation: (): INavigationManager =>
-        ({
-            registerFocusable: jest.fn(),
-            unregisterFocusable: jest.fn(),
-            setFocus: jest.fn(),
-            isModalOpen: jest.fn().mockReturnValue(false),
-            openModal: jest.fn(),
-        }) as unknown as INavigationManager,
-    buildPlexResourceUrl: jest.fn().mockReturnValue(null),
-    playbackOptionsModalId: 'playback-options',
-    preparePlaybackOptionsModal: jest.fn().mockReturnValue({
-        focusableIds: ['playback-subtitle-off'],
-        preferredFocusId: 'playback-subtitle-off',
-    }),
-    getPlaybackInfoSnapshot: (): { stream: null } => ({ stream: null }),
-    ...overrides,
-});
+): CoordinatorOptions => {
+    const overlay = makeOverlay();
+    const navigation = {
+        registerFocusable: jest.fn(),
+        unregisterFocusable: jest.fn(),
+        setFocus: jest.fn(),
+        isModalOpen: jest.fn().mockReturnValue(false),
+        openModal: jest.fn(),
+    } as unknown as INavigationManager;
+    const videoPlayer = {
+        getState: jest.fn(() => makeState('playing')),
+        getAvailableAudio: jest.fn(() => []),
+        getAvailableSubtitles: jest.fn(() => []),
+    } as unknown as IVideoPlayer;
+
+    return {
+        getOverlay: (): IPlayerOsdOverlay => overlay,
+        getCurrentProgram: (): ScheduledProgram => makeProgram(),
+        getNextProgram: (): ScheduledProgram | null => null,
+        getCurrentChannel: (): ChannelConfig => makeChannel(),
+        getVideoPlayer: (): IVideoPlayer => videoPlayer,
+        getAutoHideMs: (): number => AUTO_HIDE_MS,
+        getNavigation: (): INavigationManager => navigation,
+        buildPlexResourceUrl: jest.fn().mockReturnValue(null),
+        playbackOptionsModalId: 'playback-options',
+        preparePlaybackOptionsModal: jest.fn().mockReturnValue({
+            focusableIds: ['playback-subtitle-off'],
+            preferredFocusId: 'playback-subtitle-off',
+        }),
+        getPlaybackInfoSnapshot: (): { stream: null } => ({ stream: null }),
+        ...overrides,
+    };
+};
 
 describe('PlayerOsdCoordinator', () => {
     beforeEach(() => {
@@ -169,6 +173,17 @@ describe('PlayerOsdCoordinator', () => {
         coordinator.refreshIfVisible();
 
         expect(overlay.setViewModel).not.toHaveBeenCalled();
+    });
+
+    it('refreshIfVisible triggers throttled render when overlay is visible', () => {
+        const { coordinator, overlay } = setup();
+        coordinator.poke('play');
+
+        (overlay.setViewModel as jest.Mock).mockClear();
+        coordinator.refreshIfVisible();
+
+        jest.advanceTimersByTime(300);
+        expect(overlay.setViewModel).toHaveBeenCalled();
     });
 
     it('uses mediaInfo resolution for direct play and labels active tracks', () => {
@@ -311,28 +326,12 @@ describe('PlayerOsdCoordinator', () => {
             getAvailableAudio: jest.fn(() => []),
             getAvailableSubtitles: jest.fn(() => []),
         } as unknown as IVideoPlayer;
-        const coordinator = new PlayerOsdCoordinator({
-            getOverlay: (): IPlayerOsdOverlay => overlay,
-            getCurrentProgram: (): ScheduledProgram => makeProgram(),
-            getNextProgram: (): ScheduledProgram | null => null,
-            getCurrentChannel: (): ChannelConfig => makeChannel(),
-            getVideoPlayer: (): IVideoPlayer => videoPlayer,
-            getAutoHideMs: (): number => AUTO_HIDE_MS,
-            getNavigation: (): INavigationManager => ({
-                registerFocusable: jest.fn(),
-                unregisterFocusable: jest.fn(),
-                setFocus: jest.fn(),
-                isModalOpen: jest.fn().mockReturnValue(false),
-                openModal: jest.fn(),
-            } as unknown as INavigationManager),
-            buildPlexResourceUrl: jest.fn().mockReturnValue(null),
-            playbackOptionsModalId: 'playback-options',
-            preparePlaybackOptionsModal: jest.fn().mockReturnValue({
-                focusableIds: ['playback-subtitle-off'],
-                preferredFocusId: 'playback-subtitle-off',
-            }),
-            getPlaybackInfoSnapshot: (): { stream: null } => ({ stream: null }),
-        });
+        const coordinator = new PlayerOsdCoordinator(
+            makeCoordinatorOptions({
+                getOverlay: (): IPlayerOsdOverlay => overlay,
+                getVideoPlayer: (): IVideoPlayer => videoPlayer,
+            })
+        );
 
         coordinator.poke('play');
 
@@ -349,32 +348,12 @@ describe('PlayerOsdCoordinator', () => {
             scheduledStartTime: 0,
             scheduledEndTime: 60_000,
         };
-        const coordinator = new PlayerOsdCoordinator({
-            getOverlay: (): IPlayerOsdOverlay => overlay,
-            getCurrentProgram: (): ScheduledProgram => program,
-            getNextProgram: (): ScheduledProgram | null => null,
-            getCurrentChannel: (): ChannelConfig => makeChannel(),
-            getVideoPlayer: (): IVideoPlayer => ({
-                getState: jest.fn(() => makeState('playing')),
-                getAvailableAudio: jest.fn(() => []),
-                getAvailableSubtitles: jest.fn(() => []),
-            } as unknown as IVideoPlayer),
-            getAutoHideMs: (): number => AUTO_HIDE_MS,
-            getNavigation: (): INavigationManager => ({
-                registerFocusable: jest.fn(),
-                unregisterFocusable: jest.fn(),
-                setFocus: jest.fn(),
-                isModalOpen: jest.fn().mockReturnValue(false),
-                openModal: jest.fn(),
-            } as unknown as INavigationManager),
-            buildPlexResourceUrl: jest.fn().mockReturnValue(null),
-            playbackOptionsModalId: 'playback-options',
-            preparePlaybackOptionsModal: jest.fn().mockReturnValue({
-                focusableIds: ['playback-subtitle-off'],
-                preferredFocusId: 'playback-subtitle-off',
-            }),
-            getPlaybackInfoSnapshot: (): { stream: null } => ({ stream: null }),
-        });
+        const coordinator = new PlayerOsdCoordinator(
+            makeCoordinatorOptions({
+                getOverlay: (): IPlayerOsdOverlay => overlay,
+                getCurrentProgram: (): ScheduledProgram => program,
+            })
+        );
 
         coordinator.onTimeUpdate({ currentTimeMs: 0, durationMs: 100_000 });
         coordinator.poke('play');
