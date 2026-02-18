@@ -70,58 +70,9 @@ const makeChannel = (): ChannelConfig => ({
     number: 1,
 } as ChannelConfig);
 
-const setup = (): {
-    coordinator: PlayerOsdCoordinator;
-    overlay: IPlayerOsdOverlay & { _visible: boolean };
-    videoPlayer: IVideoPlayer;
-    navigation: INavigationManager;
-} => {
-    const overlay = makeOverlay();
-    const subtitles = document.createElement('button');
-    subtitles.id = 'player-osd-action-subtitles';
-    document.body.appendChild(subtitles);
-    const sleep = document.createElement('button');
-    sleep.id = 'player-osd-action-sleep';
-    document.body.appendChild(sleep);
-    const audio = document.createElement('button');
-    audio.id = 'player-osd-action-audio';
-    document.body.appendChild(audio);
-    const navigation = {
-        registerFocusable: jest.fn(),
-        unregisterFocusable: jest.fn(),
-        setFocus: jest.fn(),
-        isModalOpen: jest.fn().mockReturnValue(false),
-        openModal: jest.fn(),
-    } as unknown as INavigationManager;
-    const videoPlayer = {
-        getState: jest.fn(() => makeState('playing')),
-        getAvailableAudio: jest.fn(() => []),
-        getAvailableSubtitles: jest.fn(() => []),
-    } as unknown as IVideoPlayer;
-
-    const coordinator = new PlayerOsdCoordinator({
-        getOverlay: (): IPlayerOsdOverlay => overlay,
-        getCurrentProgram: (): ScheduledProgram => makeProgram(),
-        getNextProgram: (): ScheduledProgram | null => null,
-        getCurrentChannel: (): ChannelConfig => makeChannel(),
-        getVideoPlayer: (): IVideoPlayer => videoPlayer,
-        getAutoHideMs: (): number => AUTO_HIDE_MS,
-        getNavigation: (): INavigationManager => navigation,
-        buildPlexResourceUrl: jest.fn().mockReturnValue(null),
-        playbackOptionsModalId: 'playback-options',
-        preparePlaybackOptionsModal: jest.fn().mockReturnValue({
-            focusableIds: ['playback-subtitle-off'],
-            preferredFocusId: 'playback-subtitle-off',
-        }),
-        getPlaybackInfoSnapshot: (): { stream: null } => ({ stream: null }),
-    });
-
-    return { coordinator, overlay, videoPlayer, navigation };
-};
-
-const makeCoordinatorOptions = (
+function makeCoordinatorOptions(
     overrides: Partial<CoordinatorOptions> = {}
-): CoordinatorOptions => {
+): CoordinatorOptions {
     const overlay = makeOverlay();
     const navigation = {
         registerFocusable: jest.fn(),
@@ -153,6 +104,37 @@ const makeCoordinatorOptions = (
         getPlaybackInfoSnapshot: (): { stream: null } => ({ stream: null }),
         ...overrides,
     };
+}
+
+const setup = (): {
+    coordinator: PlayerOsdCoordinator;
+    overlay: IPlayerOsdOverlay & { _visible: boolean };
+    videoPlayer: IVideoPlayer;
+    navigation: INavigationManager;
+} => {
+    const subtitles = document.createElement('button');
+    subtitles.id = 'player-osd-action-subtitles';
+    document.body.appendChild(subtitles);
+    const sleep = document.createElement('button');
+    sleep.id = 'player-osd-action-sleep';
+    document.body.appendChild(sleep);
+    const audio = document.createElement('button');
+    audio.id = 'player-osd-action-audio';
+    document.body.appendChild(audio);
+
+    const options = makeCoordinatorOptions();
+    const overlay = options.getOverlay() as IPlayerOsdOverlay & { _visible: boolean };
+    const navigation = options.getNavigation() as INavigationManager;
+    const videoPlayer = options.getVideoPlayer() as IVideoPlayer;
+
+    const coordinator = new PlayerOsdCoordinator({
+        ...options,
+        getOverlay: (): IPlayerOsdOverlay => overlay,
+        getNavigation: (): INavigationManager => navigation,
+        getVideoPlayer: (): IVideoPlayer => videoPlayer,
+    });
+
+    return { coordinator, overlay, videoPlayer, navigation };
 };
 
 describe('PlayerOsdCoordinator', () => {
@@ -511,7 +493,6 @@ describe('PlayerOsdCoordinator', () => {
 
     it('showInfoBanner preserves infoOnly on time updates while visible', () => {
         const { coordinator, overlay } = setup();
-        (overlay.isVisible as jest.Mock).mockReturnValue(true);
 
         coordinator.showInfoBanner();
         const firstVm = (overlay.setViewModel as jest.Mock).mock.calls[0]?.[0] as { infoOnly?: boolean };
