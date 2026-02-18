@@ -133,6 +133,22 @@ describe('ResponseParser', () => {
             expect(result.viewCount).toBe(2);
         });
 
+        it('parses clearLogo from Image array when present', () => {
+            const raw = {
+                ratingKey: 'rk-clearlogo',
+                key: '/library/metadata/rk-clearlogo',
+                type: 'movie',
+                title: 'Logo Movie',
+                Image: [
+                    { type: 'clearArt', url: '/clearart.png' },
+                    { type: 'clearLogo', url: '/clearlogo.png' },
+                ],
+            } as unknown as RawMediaItem;
+
+            const result = parseMediaItem(raw);
+            expect(result.clearLogo).toBe('/clearlogo.png');
+        });
+
         it('should handle TV episode fields', () => {
             const raw: RawMediaItem = {
                 ratingKey: 'e1',

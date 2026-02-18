@@ -56,6 +56,8 @@ export interface PlexMediaItem {
     thumb: string | null;
     art: string | null;
     banner?: string | null;
+    /** Transparent title logo from Plex metadata (Image[type=clearLogo]) */
+    clearLogo?: string | null;
     rating?: number;
     audienceRating?: number;
     contentRating?: string;
@@ -294,6 +296,7 @@ export interface RawMediaItem {
     Director?: RawTag[];
     Role?: RawRole[];
     Studio?: RawTag[];
+    Image?: RawImage[];
     grandparentTitle?: string;
     parentTitle?: string;
     grandparentThumb?: string | null;
@@ -306,6 +309,15 @@ export interface RawMediaItem {
     grandparentRatingKey?: string;
     parentRatingKey?: string;
     Media?: RawMediaFile[];
+}
+
+/**
+ * Raw image descriptor from Plex API metadata.
+ */
+interface RawImage {
+    alt?: string;
+    type?: string;
+    url?: string;
 }
 
 /**

@@ -515,6 +515,9 @@ export class ContentResolver {
         if (item.grandparentThumb) {
             resolved.showThumb = item.grandparentThumb;
         }
+        if (item.clearLogo) {
+            resolved.clearLogo = item.clearLogo;
+        }
         // Issue 8: Include filterable fields
         if (typeof item.rating === 'number') {
             resolved.rating = item.rating;
