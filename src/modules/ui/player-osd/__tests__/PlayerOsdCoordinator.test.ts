@@ -128,6 +128,15 @@ describe('PlayerOsdCoordinator', () => {
         jest.useRealTimers();
     });
 
+    it('refreshIfVisible does not update view model when overlay is hidden', () => {
+        const { coordinator, overlay } = setup();
+        expect(overlay.isVisible()).toBe(false);
+
+        coordinator.refreshIfVisible();
+
+        expect(overlay.setViewModel).not.toHaveBeenCalled();
+    });
+
     it('uses mediaInfo resolution for direct play and labels active tracks', () => {
         const overlay = makeOverlay();
         const videoPlayer = {

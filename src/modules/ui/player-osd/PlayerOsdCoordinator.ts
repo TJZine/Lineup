@@ -164,6 +164,18 @@ export class PlayerOsdCoordinator {
         this._requestThrottledRender();
     }
 
+    /**
+     * Re-render the OSD view model if (and only if) it is currently visible.
+     * Used for non-playback-driven UI updates (e.g., sleep timer countdown).
+     */
+    refreshIfVisible(): void {
+        const overlay = this.deps.getOverlay();
+        if (!overlay || !overlay.isVisible()) {
+            return;
+        }
+        this._requestThrottledRender();
+    }
+
     private _renderAndShow(reason: PlayerOsdReason): void {
         const overlay = this.deps.getOverlay();
         if (!overlay) return;

@@ -286,8 +286,14 @@
 
 .now-playing-info-container.now-playing-info-cinematic .now-playing-info-backdrop {
   opacity: 1;
-  filter: brightness(0.38);
   transform: none;
+}
+
+.now-playing-info-container.now-playing-info-cinematic .now-playing-info-backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.62);
 }
 
 .now-playing-info-container.now-playing-info-cinematic .now-playing-info-content,

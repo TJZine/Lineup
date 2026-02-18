@@ -540,11 +540,8 @@ export class AppOrchestrator implements IAppOrchestrator {
             },
             onCancel: (): void => undefined,
             onTick: (): void => {
-                const playerState = this._videoPlayer?.getState();
-                this._playerOsdCoordinator?.onTimeUpdate({
-                    currentTimeMs: playerState?.currentTimeMs ?? 0,
-                    durationMs: playerState?.durationMs ?? 0,
-                });
+                // Sleep timer countdown is independent of playback time updates; only refresh OSD if visible.
+                this._playerOsdCoordinator?.refreshIfVisible();
             },
         });
 
