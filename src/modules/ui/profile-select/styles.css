@@ -74,8 +74,14 @@
 }
 
 .profile-row.active .profile-last-used::before {
-    content: "\2713";
-    font-weight: 700;
+    /* Decorative checkmark; the "Active" text conveys the actual state. */
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 6px;
+    border-left: 2px solid currentcolor;
+    border-bottom: 2px solid currentcolor;
+    transform: rotate(-45deg);
 }
 
 .profile-avatar {

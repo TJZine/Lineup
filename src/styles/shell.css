@@ -14,7 +14,7 @@
 
 .screen.visible {
   display: flex;
-  animation: screen-enter var(--transition-normal) both;
+  animation: screen-enter var(--transition-normal, 200ms ease) both;
 }
 
 @keyframes screen-enter {
