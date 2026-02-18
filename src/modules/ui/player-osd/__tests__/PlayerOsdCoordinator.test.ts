@@ -510,6 +510,20 @@ describe('PlayerOsdCoordinator', () => {
         expect(navigation.registerFocusable).not.toHaveBeenCalled();
     });
 
+    it('restores interactive actions when paused during info banner', () => {
+        const { coordinator, navigation, overlay } = setup();
+
+        coordinator.showInfoBanner();
+        expect(navigation.registerFocusable).not.toHaveBeenCalled();
+
+        coordinator.onPlayerStateChange(makeState('paused'));
+
+        const calls = (overlay.setViewModel as jest.Mock).mock.calls;
+        const lastVm = calls[calls.length - 1]?.[0] as { infoOnly?: boolean };
+        expect(lastVm?.infoOnly).toBeFalsy();
+        expect(navigation.registerFocusable).toHaveBeenCalledTimes(3);
+    });
+
     it('showInfoBanner auto-hides after 6s', () => {
         const { coordinator, overlay } = setup();
         coordinator.showInfoBanner();

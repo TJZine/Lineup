@@ -384,7 +384,18 @@ export class ContentResolver {
                 try {
                     const episodes = await this._library.getShowEpisodes(item.ratingKey, options);
                     if (episodes.length > 0) {
-                        expanded.push(...episodes);
+                        const decorated = episodes.map((episode) => {
+                            const merged: PlexMediaItemMinimal = { ...episode };
+                            if (!merged.genres && item.genres) merged.genres = item.genres;
+                            if (!merged.directors && item.directors) merged.directors = item.directors;
+                            if (!merged.contentRating && item.contentRating) merged.contentRating = item.contentRating;
+                            if ((!merged.year || merged.year === 0) && item.year) merged.year = item.year;
+                            if (!merged.grandparentTitle && item.title) merged.grandparentTitle = item.title;
+                            if (!merged.grandparentThumb && item.thumb) merged.grandparentThumb = item.thumb;
+                            if (!merged.clearLogo && item.clearLogo) merged.clearLogo = item.clearLogo;
+                            return merged;
+                        });
+                        expanded.push(...decorated);
                         continue;
                     }
                 } catch (error) {

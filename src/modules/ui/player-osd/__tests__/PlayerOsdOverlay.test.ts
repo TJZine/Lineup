@@ -160,7 +160,52 @@ describe('PlayerOsdOverlay', () => {
         expect(logo.style.display).toBe('none');
         expect(logo.getAttribute('src')).toBeNull();
         expect(logo.getAttribute('alt')).toBe('');
-        expect(title.style.display).not.toBe('none');
+        expect(title.style.display).toBe('');
+    });
+
+    it('restores title and clears image when clear logo fails to load', () => {
+        overlay.setViewModel({ ...baseViewModel, clearLogoUrl: 'http://example/bad.png' });
+        overlay.show();
+
+        const logo = container.querySelector(`.${PLAYER_OSD_CLASSES.CLEAR_LOGO}`) as HTMLImageElement;
+        const title = container.querySelector(`.${PLAYER_OSD_CLASSES.TITLE}`) as HTMLElement;
+        expect(title.style.display).toBe('none');
+
+        (logo.onerror as unknown as (() => void))?.();
+
+        expect(logo.getAttribute('src')).toBeNull();
+        expect(logo.style.display).toBe('none');
+        expect(title.style.display).toBe('');
+        expect(logo.onerror).toBeNull();
+        expect(logo.onload).toBeNull();
+    });
+
+    it('clears error handler and keeps title hidden when clear logo loads', () => {
+        overlay.setViewModel({ ...baseViewModel, clearLogoUrl: 'http://example/good.png' });
+        overlay.show();
+
+        const logo = container.querySelector(`.${PLAYER_OSD_CLASSES.CLEAR_LOGO}`) as HTMLImageElement;
+        const title = container.querySelector(`.${PLAYER_OSD_CLASSES.TITLE}`) as HTMLElement;
+
+        (logo.onload as unknown as (() => void))?.();
+
+        expect(logo.getAttribute('src')).toBe('http://example/good.png');
+        expect(title.style.display).toBe('none');
+        expect(logo.onerror).toBeNull();
+        expect(logo.onload).toBeNull();
+    });
+
+    it('clears clear logo handlers when clearLogoUrl is removed', () => {
+        overlay.setViewModel({ ...baseViewModel, clearLogoUrl: 'http://example/logo.png' });
+        overlay.show();
+
+        const logo = container.querySelector(`.${PLAYER_OSD_CLASSES.CLEAR_LOGO}`) as HTMLImageElement;
+        expect(logo.onerror).not.toBeNull();
+        expect(logo.onload).not.toBeNull();
+
+        overlay.setViewModel({ ...baseViewModel, clearLogoUrl: null });
+        expect(logo.onerror).toBeNull();
+        expect(logo.onload).toBeNull();
     });
 
     it('toggles sleep timer text visibility', () => {
@@ -168,7 +213,7 @@ describe('PlayerOsdOverlay', () => {
         overlay.show();
         const sleep = container.querySelector(`.${PLAYER_OSD_CLASSES.SLEEP_TIMER}`) as HTMLElement;
         expect(sleep.textContent).toBe('Sleep 45:00');
-        expect(sleep.style.display).not.toBe('none');
+        expect(sleep.style.display).toBe('');
 
         overlay.setViewModel({ ...baseViewModel, sleepTimerText: null });
         expect(sleep.textContent).toBe('');
@@ -288,6 +333,17 @@ describe('PlayerOsdOverlay', () => {
         overlay.setViewModel({ ...baseViewModel, infoOnly: true });
         overlay.show();
         const panel = container.querySelector(`.${PLAYER_OSD_CLASSES.PANEL}`) as HTMLElement;
-        expect(panel.classList.contains('info-only')).toBe(true);
+        expect(panel.classList.contains(PLAYER_OSD_CLASSES.INFO_ONLY)).toBe(true);
+    });
+
+    it('removes info-only class when vm.infoOnly becomes falsy', () => {
+        overlay.setViewModel({ ...baseViewModel, infoOnly: true });
+        overlay.show();
+        const panel = container.querySelector(`.${PLAYER_OSD_CLASSES.PANEL}`) as HTMLElement;
+        expect(panel.classList.contains(PLAYER_OSD_CLASSES.INFO_ONLY)).toBe(true);
+
+        overlay.setViewModel({ ...baseViewModel, infoOnly: false });
+        overlay.show();
+        expect(panel.classList.contains(PLAYER_OSD_CLASSES.INFO_ONLY)).toBe(false);
     });
 });

@@ -7,6 +7,7 @@ export const PLAYER_OSD_CLASSES = {
     CONTAINER: 'player-osd',
     VISIBLE: 'visible',
     PANEL: 'player-osd-panel',
+    INFO_ONLY: 'info-only',
     TOP: 'player-osd-top',
     STATUS: 'player-osd-status',
     CHANNEL: 'player-osd-channel',

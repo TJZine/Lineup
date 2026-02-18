@@ -133,7 +133,7 @@ describe('ResponseParser', () => {
             expect(result.viewCount).toBe(2);
         });
 
-        it('parses clearLogo from Image array when present', () => {
+        it('should parse clearLogo from Image array when present', () => {
             const raw = {
                 ratingKey: 'rk-clearlogo',
                 key: '/library/metadata/rk-clearlogo',
@@ -149,7 +149,39 @@ describe('ResponseParser', () => {
             expect(result.clearLogo).toBe('/clearlogo.png');
         });
 
-        it('does not throw when Image is malformed', () => {
+        it('should not set clearLogo when Image clearLogo url is empty string', () => {
+            const raw = {
+                ratingKey: 'rk-clearlogo-empty',
+                key: '/library/metadata/rk-clearlogo-empty',
+                type: 'movie',
+                title: 'Empty Logo Movie',
+                Image: [{ type: 'clearLogo', url: '' }],
+            } as unknown as RawMediaItem;
+
+            let result: ReturnType<typeof parseMediaItem> | undefined;
+            expect(() => {
+                result = parseMediaItem(raw);
+            }).not.toThrow();
+            expect(result?.clearLogo).toBeUndefined();
+        });
+
+        it('should not set clearLogo when Image clearLogo url is missing', () => {
+            const raw = {
+                ratingKey: 'rk-clearlogo-missing',
+                key: '/library/metadata/rk-clearlogo-missing',
+                type: 'movie',
+                title: 'Missing Logo Movie',
+                Image: [{ type: 'clearLogo' }],
+            } as unknown as RawMediaItem;
+
+            let result: ReturnType<typeof parseMediaItem> | undefined;
+            expect(() => {
+                result = parseMediaItem(raw);
+            }).not.toThrow();
+            expect(result?.clearLogo).toBeUndefined();
+        });
+
+        it('should not throw when Image is malformed', () => {
             const raw = {
                 ratingKey: 'rk-malformed-image',
                 key: '/library/metadata/rk-malformed-image',

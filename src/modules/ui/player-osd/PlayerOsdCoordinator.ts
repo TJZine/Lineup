@@ -129,11 +129,13 @@ export class PlayerOsdCoordinator {
             case 'paused':
                 this._lastReason = 'pause';
                 this._clearAutoHideTimer();
+                this._suppressActions = false;
                 this._renderAndShow(this._lastReason);
                 return;
             case 'seeking':
                 this._lastReason = 'seek';
                 this._clearAutoHideTimer();
+                this._suppressActions = false;
                 this._renderAndShow(this._lastReason);
                 return;
             case 'playing':

@@ -74,8 +74,12 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
     }
 
     destroy(): void {
+        if (this.elements.clearLogo) {
+            this.elements.clearLogo.onerror = null;
+            this.elements.clearLogo.onload = null;
+        }
         if (this.containerElement) {
-            this.containerElement.innerHTML = '';
+            this.containerElement.replaceChildren();
             this.containerElement.classList.remove(PLAYER_OSD_CLASSES.VISIBLE);
         }
         this.containerElement = null;
@@ -122,7 +126,7 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
 
     setViewModel(vm: PlayerOsdViewModel): void {
         if (!this.containerElement) return;
-        this.elements.panel?.classList.toggle('info-only', !!vm.infoOnly);
+        this.elements.panel?.classList.toggle(PLAYER_OSD_CLASSES.INFO_ONLY, !!vm.infoOnly);
 
         if (this.elements.status) {
             const label = vm.statusLabel;
@@ -143,17 +147,41 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
             this.elements.title.textContent = vm.title;
         }
         if (this.elements.clearLogo) {
+            const img = this.elements.clearLogo;
             if (vm.clearLogoUrl) {
-                this.elements.clearLogo.src = vm.clearLogoUrl;
-                this.elements.clearLogo.alt = vm.title || '';
-                this.elements.clearLogo.style.display = '';
+                const expectedSrc = vm.clearLogoUrl;
+                img.onerror = (): void => {
+                    if (img.getAttribute('src') !== expectedSrc) return;
+                    img.onerror = null;
+                    img.onload = null;
+                    img.removeAttribute('src');
+                    img.alt = '';
+                    img.style.display = 'none';
+                    if (this.elements.title) {
+                        this.elements.title.style.display = '';
+                    }
+                };
+                img.onload = (): void => {
+                    if (img.getAttribute('src') !== expectedSrc) return;
+                    img.onerror = null;
+                    img.onload = null;
+                    if (this.elements.title) {
+                        this.elements.title.style.display = 'none';
+                    }
+                };
+
+                img.setAttribute('src', expectedSrc);
+                img.alt = vm.title || '';
+                img.style.display = '';
                 if (this.elements.title) {
                     this.elements.title.style.display = 'none';
                 }
             } else {
-                this.elements.clearLogo.removeAttribute('src');
-                this.elements.clearLogo.alt = '';
-                this.elements.clearLogo.style.display = 'none';
+                img.onerror = null;
+                img.onload = null;
+                img.removeAttribute('src');
+                img.alt = '';
+                img.style.display = 'none';
                 if (this.elements.title) {
                     this.elements.title.style.display = '';
                 }

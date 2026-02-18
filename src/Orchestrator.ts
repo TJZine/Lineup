@@ -1697,25 +1697,26 @@ export class AppOrchestrator implements IAppOrchestrator {
     // Private Methods - Initialization Phases
     // ============================================
 
-    private _initializeModuleStatus(): void {
-        const modules = [
-            'event-emitter',
-            'app-lifecycle',
-            'navigation',
-            'plex-auth',
-            'plex-server-discovery',
-            'plex-library',
-            'plex-stream-resolver',
-            'channel-manager',
-            'channel-scheduler',
-            'video-player',
-            'epg-ui',
-            'now-playing-info-ui',
-            'player-osd-ui',
-            'mini-guide-ui',
-            'channel-transition-ui',
-            'playback-options-ui',
-        ];
+	    private _initializeModuleStatus(): void {
+	        const modules = [
+	            'event-emitter',
+	            'app-lifecycle',
+	            'navigation',
+	            'plex-auth',
+	            'plex-server-discovery',
+	            'plex-library',
+	            'plex-stream-resolver',
+	            'channel-manager',
+	            'channel-scheduler',
+	            'video-player',
+	            'epg-ui',
+	            'now-playing-info-ui',
+	            'player-osd-ui',
+	            'channel-number-overlay-ui',
+	            'mini-guide-ui',
+	            'channel-transition-ui',
+	            'playback-options-ui',
+	        ];
 
         for (const id of modules) {
             this._moduleStatus.set(id, {

@@ -47,8 +47,8 @@ export class ChannelNumberOverlay implements IChannelNumberOverlay {
     destroy(): void {
         this._clearHideTimer();
         if (this.containerElement) {
-            this.containerElement.innerHTML = '';
             this.containerElement.classList.remove(CHANNEL_NUMBER_CLASSES.VISIBLE, CHANNEL_NUMBER_CLASSES.ERROR);
+            this.containerElement.replaceChildren();
         }
         this.containerElement = null;
         this.digitsElement = null;

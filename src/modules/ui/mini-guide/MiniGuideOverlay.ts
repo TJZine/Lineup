@@ -100,16 +100,19 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
             if (rowElements.brandingIcon) {
                 const desiredStrategy =
                     rowVm.showBrandingIcon && rowVm.buildStrategy ? rowVm.buildStrategy : null;
-                const renderedStrategy = this.renderedBrandingStrategyByRow[i] ?? null;
+                const renderedStrategy = this.renderedBrandingStrategyByRow[i];
                 if (desiredStrategy !== renderedStrategy) {
-                    rowElements.brandingIcon.replaceChildren();
-                    if (desiredStrategy) {
+                    if (desiredStrategy === null) {
+                        rowElements.brandingIcon.replaceChildren();
+                        this.renderedBrandingStrategyByRow[i] = null;
+                    } else {
                         const icon = getChannelBrandingIcon(desiredStrategy);
                         if (icon) {
+                            rowElements.brandingIcon.replaceChildren();
                             rowElements.brandingIcon.appendChild(icon);
+                            this.renderedBrandingStrategyByRow[i] = desiredStrategy;
                         }
                     }
-                    this.renderedBrandingStrategyByRow[i] = desiredStrategy;
                 }
             }
             if (rowElements.name) {

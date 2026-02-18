@@ -193,6 +193,44 @@ describe('ContentResolver', () => {
             expect(result[1]!.scheduledIndex).toBe(1);
         });
 
+        it('should decorate inline-expanded episodes with parent show metadata', async () => {
+            const show = createMockItem({
+                ratingKey: 'show-inline',
+                type: 'show',
+                title: 'Inline Show',
+                durationMs: 0, // Triggers inline expansion path
+                thumb: '/thumb/inline-show',
+                clearLogo: '/clearlogo/inline-show.png',
+                genres: ['Drama'],
+                contentRating: 'TV-14',
+            });
+            const episodes = [
+                createMockEpisode(1, 1, { grandparentTitle: '', grandparentThumb: null, clearLogo: null }),
+                createMockEpisode(1, 2, { grandparentTitle: '', grandparentThumb: null, clearLogo: null }),
+            ];
+
+            mockLibrary.getCollectionItems.mockResolvedValue([show]);
+            mockLibrary.getShowEpisodes.mockResolvedValue(episodes);
+
+            const source: CollectionContentSource = {
+                type: 'collection',
+                collectionKey: 'col-inline',
+                collectionName: 'Inline Show Collection',
+            };
+
+            const result = await resolver.resolveSource(source);
+
+            expect(mockLibrary.getCollectionItems).toHaveBeenCalledWith('col-inline', undefined);
+            expect(mockLibrary.getShowEpisodes).toHaveBeenCalledWith('show-inline', undefined);
+            expect(result).toHaveLength(2);
+            expect(result[0]!.type).toBe('episode');
+            expect(result[0]!.showTitle).toBe('Inline Show');
+            expect(result[0]!.showThumb).toBe('/thumb/inline-show');
+            expect(result[0]!.clearLogo).toBe('/clearlogo/inline-show.png');
+            expect(result[0]!.genres).toEqual(['Drama']);
+            expect(result[0]!.contentRating).toBe('TV-14');
+        });
+
         it('should resolve show source with all episodes', async () => {
             const episodes = [
                 createMockEpisode(1, 1),
