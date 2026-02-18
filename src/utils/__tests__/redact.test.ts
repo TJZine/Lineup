@@ -51,6 +51,22 @@ describe('safeStringifyForLog', () => {
         );
     });
 
+    it('optionally includes stack for Error instances', () => {
+        const error = new Error('boom');
+        error.stack = 'STACK X-Plex-Token=abc123';
+        expect(safeStringifyForLog(error, { includeStack: true })).toBe(
+            '{"name":"Error","message":"boom","stack":"STACK X-Plex-Token=REDACTED"}'
+        );
+    });
+
+    it('omits stack when includeStack is false', () => {
+        const error = new Error('boom');
+        error.stack = 'STACK X-Plex-Token=abc123';
+        expect(safeStringifyForLog(error, { includeStack: false })).toBe(
+            '{"name":"Error","message":"boom"}'
+        );
+    });
+
     it('stringifies and redacts token-like strings', () => {
         expect(safeStringifyForLog({ url: 'http://x?X-Plex-Token=abc123' })).toBe(
             '{"url":"http://x?X-Plex-Token=REDACTED"}'

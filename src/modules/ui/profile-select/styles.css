@@ -38,6 +38,52 @@
     transform: scale(1.06);
 }
 
+/* --- Active profile indicator --- */
+.profile-row.active {
+    border-color: var(--color-primary);
+    background: radial-gradient(
+        ellipse at center bottom,
+        var(--color-primary-alpha-20) 0%,
+        var(--color-primary-alpha-08) 70%,
+        transparent 100%
+    );
+    box-shadow:
+        0 0 20px var(--color-primary-alpha-15),
+        0 0 40px var(--color-primary-alpha-08);
+}
+
+.profile-row.active .profile-avatar {
+    transform: scale(1.12);
+    border: 2px solid var(--color-primary);
+    box-shadow: 0 4px 16px var(--color-primary-alpha-20);
+    transition: transform 200ms ease-out, box-shadow 200ms ease-out;
+}
+
+.profile-row.active .profile-last-used {
+    margin-top: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--color-primary-alpha-60);
+    background: var(--color-primary-alpha-16);
+    color: var(--color-primary);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.profile-row.active .profile-last-used::before {
+    /* Decorative checkmark; the "Active" text conveys the actual state. */
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 6px;
+    border-left: 2px solid currentcolor;
+    border-bottom: 2px solid currentcolor;
+    transform: rotate(-45deg);
+}
+
 .profile-avatar {
     width: calc(100px * var(--onboarding-scale, 1));
     height: calc(100px * var(--onboarding-scale, 1));
@@ -170,7 +216,7 @@
 .profile-pin-error {
     min-height: 20px;
     font-size: var(--text-md);
-    color: #ffb1b1;
+    color: var(--color-error-text);
 }
 
 .profile-numpad {
@@ -240,6 +286,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .profile-row.active .profile-avatar {
+        transition: none;
+    }
+
     .profile-row {
         transition: none;
     }

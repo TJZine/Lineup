@@ -358,8 +358,12 @@ export class ProfileSelectScreen {
             if (user.id === lastUsedId) {
                 const lastUsed = document.createElement('span');
                 lastUsed.className = 'profile-last-used';
-                lastUsed.textContent = 'Last used';
+                lastUsed.textContent = 'Active';
                 button.appendChild(lastUsed);
+                button.classList.add('active');
+                button.setAttribute('aria-current', 'true');
+            } else {
+                button.removeAttribute('aria-current');
             }
 
             this._listEl.appendChild(button);

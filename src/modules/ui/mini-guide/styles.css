@@ -129,16 +129,16 @@
 
 .mini-guide-progress {
   flex: 0 0 clamp(112px, 10vw, 208px);
-  height: 8px;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
+  height: var(--progress-height);
+  background: var(--progress-track);
+  border-radius: var(--progress-radius);
   overflow: hidden;
 }
 
 .mini-guide-progress-fill {
   height: 100%;
   width: 0%;
-  background: var(--color-primary);
+  background: var(--progress-fill);
 }
 
 .mini-guide-next {

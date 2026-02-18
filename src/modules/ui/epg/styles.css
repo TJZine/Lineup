@@ -205,7 +205,7 @@
 }
 
 .epg-channel-row.focused {
-  background: rgba(0, 168, 225, 0.2);
+  background: var(--color-primary-alpha-20);
 }
 
 /* Category colors by build strategy */
@@ -342,8 +342,8 @@
 }
 
 .epg-library-picker-item.selected {
-  background: rgba(0, 168, 225, 0.16);
-  border-color: rgba(0, 168, 225, 0.45);
+  background: var(--color-primary-alpha-16);
+  border-color: var(--color-primary-alpha-45);
 }
 
 .epg-time-header-slots {
@@ -537,7 +537,7 @@
 }
 
 .epg-cell.current {
-  border-left: 4px solid #ff4444;
+  border-left: 4px solid var(--color-live);
 }
 
 .epg-cell.past {
@@ -632,7 +632,7 @@
   font-size: var(--text-sm);
   font-weight: 700;
   letter-spacing: 0.6px;
-  color: #ff4444;
+  color: var(--color-live);
   text-transform: uppercase;
   z-index: 2;
   pointer-events: none;
@@ -643,7 +643,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #ff4444;
+  background: var(--color-live);
   transform-origin: center;
   animation: live-pulse 1.5s ease-in-out infinite;
 }
@@ -679,7 +679,7 @@
   top: 0;
   width: 3px;
   height: 100%;
-  background: #ff4444;
+  background: var(--color-live);
   z-index: 5;
   pointer-events: none;
 }
@@ -692,7 +692,7 @@
   font-size: var(--text-sm);
   font-weight: 800;
   letter-spacing: 0.4px;
-  color: #ff4444;
+  color: var(--color-live);
   background: rgba(0, 0, 0, 0.65);
   padding: 1px 5px;
   border-radius: 6px;
@@ -818,7 +818,7 @@
 .epg-info-button {
   padding: 12px 32px;
   font-size: 18px;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.1);
   border: 2px solid transparent;
   color: #ffffff;
@@ -835,5 +835,5 @@
 }
 
 .epg-info-button.primary {
-  background: var(--primary-color, #e5a00d);
+  background: var(--color-primary);
 }

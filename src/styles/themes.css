@@ -6,6 +6,7 @@
   --focus-color: #e5a00d;
   --focus-color-rgb: 229, 160, 13;
   --color-primary: #00a8e1;
+  --color-primary-rgb: 0 168 225;
   --color-primary-dark: #007aa8;
   --color-primary-light: #49c2ea;
   --color-bg-deep: #0a0608;
@@ -32,6 +33,7 @@
   --focus-color: #34d399;
   --focus-color-rgb: 52, 211, 153;
   --color-primary: #34d399;
+  --color-primary-rgb: 52 211 153;
   --color-primary-dark: #10b981;
   --color-primary-light: #6ee7b7;
   --color-bg-deep: #07090a;
@@ -56,6 +58,7 @@
   --focus-color: #00a6d6;
   --focus-color-rgb: 0, 166, 214;
   --color-primary: #00629b;
+  --color-primary-rgb: 0 98 155;
   --color-primary-dark: #003865;
   --color-primary-light: #2d8ad0;
   --color-bg-deep: #001020;
