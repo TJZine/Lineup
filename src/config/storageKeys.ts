@@ -24,6 +24,7 @@ export const RETUNE_STORAGE_KEYS = {
 
     // Display
     THEME: 'retune_theme',
+    CINEMATIC_NOW_PLAYING: 'retune_cinematic_now_playing',
     NOW_PLAYING_INFO_AUTO_HIDE_MS: 'retune_now_playing_info_auto_hide_ms',
     NOW_PLAYING_STREAM_DEBUG: 'retune_now_playing_stream_debug',
     NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW: 'retune_now_playing_stream_debug_auto_show',

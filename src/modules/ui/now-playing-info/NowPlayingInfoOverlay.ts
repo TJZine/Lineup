@@ -48,6 +48,10 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
             { panel: {} }
         );
 
+        const backdrop = document.createElement('div');
+        backdrop.className = NOW_PLAYING_INFO_CLASSES.BACKDROP;
+        panelEl.appendChild(backdrop);
+
         const poster = document.createElement('img');
         poster.className = NOW_PLAYING_INFO_CLASSES.POSTER;
         poster.setAttribute('alt', '');
@@ -58,6 +62,7 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         // Static template only. Do not interpolate Plex/user-provided strings into this HTML.
         // Use `textContent` when binding viewModel data to avoid XSS foot-guns.
         content.innerHTML = `
+              <img class="${NOW_PLAYING_INFO_CLASSES.CLEAR_LOGO}" alt="" style="display:none" />
 	          <div class="${NOW_PLAYING_INFO_CLASSES.TITLE}"></div>
 	          <div class="${NOW_PLAYING_INFO_CLASSES.SUBTITLE}"></div>
 	          <div class="${NOW_PLAYING_INFO_CLASSES.BADGES}"></div>
@@ -181,6 +186,15 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
 
     private updateContent(viewModel: NowPlayingInfoViewModel): void {
         if (!this.containerElement) return;
+        this.containerElement.classList.toggle(NOW_PLAYING_INFO_CLASSES.CINEMATIC, !!viewModel.cinematic);
+
+        const backdropEl = this.containerElement.querySelector(
+            `.${NOW_PLAYING_INFO_CLASSES.BACKDROP}`
+        ) as HTMLElement | null;
+        if (backdropEl) {
+            const url = viewModel.cinematic ? (viewModel.posterUrl ?? null) : null;
+            backdropEl.style.backgroundImage = url ? `url("${url}")` : '';
+        }
 
         const poster = this.containerElement.querySelector(
             `.${NOW_PLAYING_INFO_CLASSES.POSTER}`
@@ -201,6 +215,20 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         const title = this.containerElement.querySelector(`.${NOW_PLAYING_INFO_CLASSES.TITLE}`);
         if (title) {
             title.textContent = viewModel.title || '';
+        }
+        const clearLogo = this.containerElement.querySelector(
+            `.${NOW_PLAYING_INFO_CLASSES.CLEAR_LOGO}`
+        ) as HTMLImageElement | null;
+        if (clearLogo && title) {
+            if (viewModel.clearLogoUrl) {
+                clearLogo.src = viewModel.clearLogoUrl;
+                clearLogo.style.display = 'block';
+                (title as HTMLElement).style.display = 'none';
+            } else {
+                clearLogo.removeAttribute('src');
+                clearLogo.style.display = 'none';
+                (title as HTMLElement).style.display = '';
+            }
         }
 
         const subtitle = this.containerElement.querySelector(`.${NOW_PLAYING_INFO_CLASSES.SUBTITLE}`);

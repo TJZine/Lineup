@@ -25,6 +25,8 @@ export const SETTINGS_STORAGE_KEYS = {
     FORCE_HDR10_FALLBACK: RETUNE_STORAGE_KEYS.FORCE_HDR10_FALLBACK,
     /** Color theme */
     THEME: RETUNE_STORAGE_KEYS.THEME,
+    /** Cinematic layout for Now Playing overlay */
+    CINEMATIC_NOW_PLAYING: RETUNE_STORAGE_KEYS.CINEMATIC_NOW_PLAYING,
     /** Debug logging enabled */
     DEBUG_LOGGING: RETUNE_STORAGE_KEYS.DEBUG_LOGGING,
     /** Subtitle debug logging enabled */
@@ -71,6 +73,7 @@ export const DEFAULT_SETTINGS: SettingsConfig = {
     display: {
         theme: DEFAULT_THEME,
         nowPlayingInfoAutoHideMs: 0,
+        cinematicNowPlaying: false,
     },
     developer: {
         debugLogging: false,

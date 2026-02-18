@@ -7,9 +7,12 @@ export const NOW_PLAYING_INFO_MODAL_ID = 'now-playing-info';
 
 export const NOW_PLAYING_INFO_CLASSES = {
     CONTAINER: 'now-playing-info-container',
+    CINEMATIC: 'now-playing-info-cinematic',
     PANEL: 'now-playing-info-panel',
+    BACKDROP: 'now-playing-info-backdrop',
     POSTER: 'now-playing-info-poster',
     CONTENT: 'now-playing-info-content',
+    CLEAR_LOGO: 'now-playing-info-clear-logo',
     TITLE: 'now-playing-info-title',
     SUBTITLE: 'now-playing-info-subtitle',
     BADGES: 'now-playing-info-badges',

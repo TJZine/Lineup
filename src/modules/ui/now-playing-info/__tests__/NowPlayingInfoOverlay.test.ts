@@ -245,4 +245,9 @@ describe('NowPlayingInfoOverlay', () => {
         overlay.hide();
         jest.useRealTimers();
     });
+
+    it('applies cinematic class when vm.cinematic is true', () => {
+        overlay.show({ ...baseViewModel, cinematic: true });
+        expect(container.classList.contains('now-playing-info-cinematic')).toBe(true);
+    });
 });
