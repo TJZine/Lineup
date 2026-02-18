@@ -192,8 +192,10 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
             `.${NOW_PLAYING_INFO_CLASSES.BACKDROP}`
         ) as HTMLElement | null;
         if (backdropEl) {
-            const url = viewModel.cinematic ? (viewModel.posterUrl ?? null) : null;
-            backdropEl.style.backgroundImage = url ? `url("${url}")` : '';
+            const backgroundImage = viewModel.cinematic
+                ? buildSafeBackgroundImage(viewModel.posterUrl ?? null)
+                : '';
+            backdropEl.style.backgroundImage = backgroundImage;
         }
 
         const poster = this.containerElement.querySelector(
@@ -507,6 +509,25 @@ function formatTimecode(ms: number): string {
         return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
     }
     return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function buildSafeBackgroundImage(rawUrl: string | null): string {
+    if (!rawUrl) {
+        return '';
+    }
+    const trimmed = rawUrl.trim();
+    if (trimmed.length === 0) {
+        return '';
+    }
+    try {
+        const parsed = new URL(trimmed);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            return '';
+        }
+        return `url(${JSON.stringify(parsed.toString())})`;
+    } catch {
+        return '';
+    }
 }
 
 function formatInitials(name: string): string {

@@ -79,17 +79,46 @@ describe('EventEmitter', () => {
             const emitter = new EventEmitter<{ test: void }>();
             const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
-            emitter.on('test', () => {
-                throw new Error('Test error');
-            });
-            emitter.emit('test', undefined);
+            try {
+                emitter.on('test', () => {
+                    throw new Error('Test error');
+                });
+                emitter.emit('test', undefined);
 
-            expect(consoleSpy).toHaveBeenCalledWith(
-                expect.stringContaining('Handler error'),
-                expect.any(Error)
-            );
+                expect(consoleSpy).toHaveBeenCalledWith(
+                    expect.stringContaining('Handler error'),
+                    expect.objectContaining({
+                        name: 'Error',
+                        message: 'Test error',
+                    })
+                );
+            } finally {
+                consoleSpy.mockRestore();
+            }
+        });
 
-            consoleSpy.mockRestore();
+        it('redacts sensitive tokens when logging thrown handler errors', () => {
+            const emitter = new EventEmitter<{ test: void }>();
+            const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+            const secret = 'super-secret';
+
+            try {
+                emitter.on('test', () => {
+                    throw new Error(`http://x?X-Plex-Token=${secret}`);
+                });
+                emitter.emit('test', undefined);
+
+                const loggedErrorCall = consoleSpy.mock.calls.find((call) =>
+                    typeof call[0] === 'string' && call[0].includes('Handler error for event')
+                );
+                const loggedError = loggedErrorCall?.[1] as { message?: string } | undefined;
+                expect(loggedError).toBeDefined();
+                const message = loggedError?.message ?? '';
+                expect(message).toContain('REDACTED');
+                expect(message).not.toContain(secret);
+            } finally {
+                consoleSpy.mockRestore();
+            }
         });
 
         it('isolates handler errors and continues', () => {

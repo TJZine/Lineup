@@ -151,9 +151,11 @@ export function parseMediaItem(data: RawMediaItem): PlexMediaItem {
         const studios = data.Studio.map((tag) => tag.tag).filter((tag): tag is string => !!tag);
         if (studios.length > 0) item.studios = studios;
     }
-    if (data.Image && data.Image.length > 0) {
-        const entry = data.Image.find((img) => img.type === 'clearLogo' && img.url);
-        if (entry?.url) {
+    if (Array.isArray(data.Image) && data.Image.length > 0) {
+        const entry = data.Image.find(
+            (img) => img && img.type === 'clearLogo' && typeof img.url === 'string' && img.url.length > 0
+        );
+        if (entry && typeof entry.url === 'string') {
             item.clearLogo = entry.url;
         }
     }

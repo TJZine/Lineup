@@ -149,6 +149,20 @@ describe('ResponseParser', () => {
             expect(result.clearLogo).toBe('/clearlogo.png');
         });
 
+        it('does not throw when Image is malformed', () => {
+            const raw = {
+                ratingKey: 'rk-malformed-image',
+                key: '/library/metadata/rk-malformed-image',
+                type: 'movie',
+                title: 'Malformed Image Movie',
+                Image: 'oops',
+            } as unknown as RawMediaItem;
+
+            expect(() => parseMediaItem(raw)).not.toThrow();
+            const result = parseMediaItem(raw);
+            expect(result.clearLogo).toBeUndefined();
+        });
+
         it('should handle TV episode fields', () => {
             const raw: RawMediaItem = {
                 ratingKey: 'e1',

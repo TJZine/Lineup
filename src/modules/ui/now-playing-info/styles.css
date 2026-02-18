@@ -286,8 +286,8 @@
 
 .now-playing-info-container.now-playing-info-cinematic .now-playing-info-backdrop {
   opacity: 1;
-  filter: blur(22px) saturate(1.1) brightness(0.6);
-  transform: scale(1.04);
+  filter: brightness(0.38);
+  transform: none;
 }
 
 .now-playing-info-container.now-playing-info-cinematic .now-playing-info-content,

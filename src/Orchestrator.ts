@@ -539,7 +539,13 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this._videoPlayer?.pause();
             },
             onCancel: (): void => undefined,
-            onTick: (): void => undefined,
+            onTick: (): void => {
+                const playerState = this._videoPlayer?.getState();
+                this._playerOsdCoordinator?.onTimeUpdate({
+                    currentTimeMs: playerState?.currentTimeMs ?? 0,
+                    durationMs: playerState?.durationMs ?? 0,
+                });
+            },
         });
 
         this._createCoordinators();
@@ -1589,7 +1595,7 @@ export class AppOrchestrator implements IAppOrchestrator {
      * @param context - Module or operation context
      */
     handleGlobalError(error: AppError, context: string): void {
-        console.error(`[${context}] Error:`, error.code, error.message);
+        console.error(`[${context}] Error:`, summarizeErrorForLog(error));
 
         // Try module-specific handlers first
         for (const [moduleId, handler] of this._errorHandlers) {
@@ -1600,7 +1606,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                     return;
                 }
             } catch (handlerError) {
-                console.error(`Error in handler for ${moduleId}:`, handlerError);
+                console.error(`Error in handler for ${moduleId}:`, summarizeErrorForLog(handlerError));
             }
         }
 
@@ -2206,23 +2212,6 @@ export class AppOrchestrator implements IAppOrchestrator {
             return;
         }
 
-        // Special case: if Direct playback fails due to container/codec support, retry via HLS Direct Stream.
-        // This is critical for MKV-heavy libraries on older webOS versions.
-        if (error.code === 'PLAYBACK_FORMAT_UNSUPPORTED') {
-            void (async (): Promise<void> => {
-                try {
-                    const ok = await this._playbackRecovery?.attemptTranscodeFallbackForCurrentProgram(
-                        'PLAYBACK_FORMAT_UNSUPPORTED'
-                    );
-                    if (!ok) {
-                        this._playbackRecovery?.handlePlaybackFailure('video-player', error);
-                    }
-                } catch (fallbackError) {
-                    this._playbackRecovery?.handlePlaybackFailure('video-player', fallbackError);
-                }
-            })();
-            return;
-        }
         this._playbackRecovery?.handlePlaybackFailure('video-player', error);
     }
 

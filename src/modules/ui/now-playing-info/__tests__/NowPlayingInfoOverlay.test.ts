@@ -250,4 +250,16 @@ describe('NowPlayingInfoOverlay', () => {
         overlay.show({ ...baseViewModel, cinematic: true });
         expect(container.classList.contains('now-playing-info-cinematic')).toBe(true);
     });
+
+    it('sanitizes cinematic backdrop URLs to a single background image', () => {
+        overlay.show({
+            ...baseViewModel,
+            cinematic: true,
+            posterUrl: 'https://example.com/a") , linear-gradient(red, red), url("https://evil',
+        });
+
+        const backdrop = container.querySelector('.now-playing-info-backdrop') as HTMLElement;
+        expect(backdrop.style.backgroundImage).not.toContain('linear-gradient');
+        expect(backdrop.style.backgroundImage).not.toContain('https://evil');
+    });
 });
