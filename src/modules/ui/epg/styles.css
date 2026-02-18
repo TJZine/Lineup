@@ -249,6 +249,12 @@
   border-radius: 4px;
 }
 
+.channel-branding-icon {
+  flex: 0 0 auto;
+  opacity: 0.7;
+  margin-right: 6px;
+}
+
 /* Time Header */
 .epg-time-header {
   grid-row: 1;

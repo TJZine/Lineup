@@ -13,6 +13,8 @@ export interface MiniGuideChannelViewModel {
     channelNumber: number;
     channelName: string;
     buildStrategy?: import('../../scheduler/channel-manager/types').BuildStrategy | null;
+    /** True when buildStrategy icon should be shown (only when channel.icon is not set). */
+    showBrandingIcon?: boolean;
     /**
      * Optional status hint for loading visuals.
      */

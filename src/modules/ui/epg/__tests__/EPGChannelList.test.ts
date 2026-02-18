@@ -120,4 +120,15 @@ describe('EPGChannelList', () => {
         const row = parent.querySelector('.epg-channel-row') as HTMLElement;
         expect(row.dataset.buildStrategy).toBeUndefined();
     });
+
+    it('renders buildStrategy branding icon when no custom channel icon exists', () => {
+        const list = new EPGChannelList();
+        list.initialize(parent, createConfig({ visibleChannels: 1 }));
+        list.updateChannels([
+            { ...createMockChannel(0), buildStrategy: 'genres' as BuildStrategy },
+        ]);
+
+        const row = parent.querySelector('.epg-channel-row') as HTMLElement;
+        expect(row.querySelector('.channel-branding-icon')).not.toBeNull();
+    });
 });

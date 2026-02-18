@@ -99,6 +99,13 @@
   min-width: 0;
 }
 
+.mini-guide-branding-icon-slot {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .mini-guide-channel-name {
   flex: 0 0 clamp(154px, 14vw, 286px);
   font-size: 18px;
@@ -107,6 +114,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--color-text-secondary);
+}
+
+.channel-branding-icon {
+  flex: 0 0 auto;
+  opacity: 0.7;
+  margin-right: 6px;
 }
 
 .mini-guide-now {

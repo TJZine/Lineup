@@ -8,6 +8,7 @@ import { EPG_CLASSES, EPG_CONSTANTS } from './constants';
 import { appendEpgDebugLog } from './utils';
 import type { EPGConfig, ChannelConfig } from './types';
 import { getChannelNameForDisplay } from '../channelDisplay';
+import { getChannelBrandingIcon } from '../common/channelBrandingIcons';
 
 /**
  * EPG Channel List class.
@@ -247,6 +248,12 @@ export class EPGChannelList {
                 icon.src = channel.icon;
                 icon.alt = displayName;
                 row.appendChild(icon);
+            }
+        }
+        if (!channel.icon && channel.buildStrategy) {
+            const brandingIcon = getChannelBrandingIcon(channel.buildStrategy);
+            if (brandingIcon) {
+                row.appendChild(brandingIcon);
             }
         }
 
