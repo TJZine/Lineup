@@ -105,6 +105,7 @@ export class PlayerOsdCoordinator {
     showInfoBanner(): void {
         const overlay = this.deps.getOverlay();
         if (!overlay) return;
+        this._clearThrottledRenderTimer();
         this._unregisterActions();
         this._suppressActions = true;
         this._lastUserActionAt = 0;
@@ -233,14 +234,14 @@ export class PlayerOsdCoordinator {
     }
 
     private _buildInfoOnlyViewModel(reason: PlayerOsdReason): PlayerOsdViewModel {
-        const vm: PlayerOsdViewModel = {
-            ...this._buildViewModel(reason),
+        const { actionIds, ...vm } = this._buildViewModel(reason);
+        void actionIds;
+        return {
+            ...vm,
             infoOnly: true,
             // Avoid setting focusable IDs/hints while actions are suppressed; banner should be informational only.
             controlHint: null,
         };
-        delete (vm as Partial<PlayerOsdViewModel>).actionIds;
-        return vm;
     }
 
     private _buildViewModel(reason: PlayerOsdReason): PlayerOsdViewModel {
@@ -262,8 +263,7 @@ export class PlayerOsdCoordinator {
         const subtitle = program?.item.fullTitle && program.item.fullTitle !== program.item.title
             ? program.item.fullTitle
             : null;
-        const clearLogoPath =
-            (program?.item as { clearLogo?: string | null } | null)?.clearLogo ?? null;
+        const clearLogoPath = program?.item.clearLogo ?? null;
         const clearLogoUrl = clearLogoPath
             ? this.deps.buildPlexResourceUrl(clearLogoPath)
             : null;

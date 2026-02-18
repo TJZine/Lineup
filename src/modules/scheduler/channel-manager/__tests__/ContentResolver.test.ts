@@ -168,6 +168,7 @@ describe('ContentResolver', () => {
                 type: 'show',
                 title: 'My Show',
                 durationMs: 123456, // Some servers populate this even for show containers
+                clearLogo: '/clearlogo/show-1.png',
                 genres: ['Animation'],
                 contentRating: 'PG',
             });
@@ -189,6 +190,7 @@ describe('ContentResolver', () => {
             expect(result).toHaveLength(2);
             expect(result[0]!.type).toBe('episode');
             expect(result[0]!.genres).toEqual(['Animation']);
+            expect(result[0]!.clearLogo).toBe('/clearlogo/show-1.png');
             expect(result[0]!.scheduledIndex).toBe(0);
             expect(result[1]!.scheduledIndex).toBe(1);
         });
@@ -229,6 +231,32 @@ describe('ContentResolver', () => {
             expect(result[0]!.clearLogo).toBe('/clearlogo/inline-show.png');
             expect(result[0]!.genres).toEqual(['Drama']);
             expect(result[0]!.contentRating).toBe('TV-14');
+        });
+
+        it('propagates clearLogo from show list to episodes in show libraries', async () => {
+            const episodes = [
+                createMockEpisode(1, 1, { ratingKey: 'ep1', grandparentRatingKey: 'show1' }),
+            ];
+            const shows = [
+                createMockItem({ ratingKey: 'show1', type: 'show', genres: ['Drama'], clearLogo: '/clearlogo/show1.png' }),
+            ];
+            mockLibrary.getLibraryItems.mockImplementation((_, options) => {
+                if (options?.filter?.type === PLEX_MEDIA_TYPES.EPISODE) {
+                    return Promise.resolve(episodes);
+                }
+                return Promise.resolve(shows);
+            });
+
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'show-lib',
+                libraryType: 'show',
+                includeWatched: true,
+            };
+
+            const result = await resolver.resolveSource(source);
+            expect(result).toHaveLength(1);
+            expect(result[0]!.clearLogo).toBe('/clearlogo/show1.png');
         });
 
         it('should resolve show source with all episodes', async () => {

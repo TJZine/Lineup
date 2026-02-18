@@ -158,11 +158,8 @@ describe('ResponseParser', () => {
                 Image: [{ type: 'clearLogo', url: '' }],
             } as unknown as RawMediaItem;
 
-            let result: ReturnType<typeof parseMediaItem> | undefined;
-            expect(() => {
-                result = parseMediaItem(raw);
-            }).not.toThrow();
-            expect(result?.clearLogo).toBeUndefined();
+            const result = parseMediaItem(raw);
+            expect(result.clearLogo).toBeUndefined();
         });
 
         it('should not set clearLogo when Image clearLogo url is missing', () => {
@@ -174,11 +171,21 @@ describe('ResponseParser', () => {
                 Image: [{ type: 'clearLogo' }],
             } as unknown as RawMediaItem;
 
-            let result: ReturnType<typeof parseMediaItem> | undefined;
-            expect(() => {
-                result = parseMediaItem(raw);
-            }).not.toThrow();
-            expect(result?.clearLogo).toBeUndefined();
+            const result = parseMediaItem(raw);
+            expect(result.clearLogo).toBeUndefined();
+        });
+
+        it('should not set clearLogo when Image has no clearLogo entry', () => {
+            const raw = {
+                ratingKey: 'rk-clearlogo-absent',
+                key: '/library/metadata/rk-clearlogo-absent',
+                type: 'movie',
+                title: 'No ClearLogo Movie',
+                Image: [{ type: 'clearArt', url: '/clearart.png' }],
+            } as unknown as RawMediaItem;
+
+            const result = parseMediaItem(raw);
+            expect(result.clearLogo).toBeUndefined();
         });
 
         it('should not throw when Image is malformed', () => {
@@ -190,11 +197,8 @@ describe('ResponseParser', () => {
                 Image: 'oops',
             } as unknown as RawMediaItem;
 
-            let result: ReturnType<typeof parseMediaItem> | undefined;
-            expect(() => {
-                result = parseMediaItem(raw);
-            }).not.toThrow();
-            expect(result?.clearLogo).toBeUndefined();
+            const result = parseMediaItem(raw);
+            expect(result.clearLogo).toBeUndefined();
         });
 
         it('should handle TV episode fields', () => {
