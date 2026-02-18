@@ -358,8 +358,9 @@ export class ProfileSelectScreen {
             if (user.id === lastUsedId) {
                 const lastUsed = document.createElement('span');
                 lastUsed.className = 'profile-last-used';
-                lastUsed.textContent = 'Last used';
+                lastUsed.textContent = 'Active';
                 button.appendChild(lastUsed);
+                button.classList.add('active');
             }
 
             this._listEl.appendChild(button);

@@ -4,6 +4,7 @@
 
 import { ProfileSelectScreen } from '../ProfileSelectScreen';
 import { AppErrorCode, PlexApiError } from '../../../plex/auth';
+import { RETUNE_STORAGE_KEYS } from '../../../../config/storageKeys';
 
 type NavigationStub = {
     registerFocusable: jest.Mock;
@@ -84,6 +85,7 @@ describe('ProfileSelectScreen', () => {
     afterEach(() => {
         jest.useRealTimers();
         document.body.innerHTML = '';
+        localStorage.clear();
         jest.clearAllMocks();
     });
 
@@ -105,6 +107,27 @@ describe('ProfileSelectScreen', () => {
         expect(rows.length).toBe(2);
         expect(container.textContent).toContain('Admin');
         expect(container.textContent).toContain('Kid');
+    });
+
+    it('marks last used profile as active with Active badge', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
+        ];
+        localStorage.setItem(RETUNE_STORAGE_KEYS.LAST_PROFILE_ID, '2');
+        const orchestrator = createOrchestratorStub(users);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(container, orchestrator as never);
+        screen.show();
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const activeRow = container.querySelector('#btn-profile-2') as HTMLElement;
+        const badge = activeRow.querySelector('.profile-last-used') as HTMLElement;
+        expect(activeRow.classList.contains('active')).toBe(true);
+        expect(badge.textContent).toBe('Active');
     });
 
     it('disambiguates colliding sanitized user ids with deterministic suffixes', async () => {

@@ -12,6 +12,17 @@
 
     /* Primary */
     --color-primary: #00a8e1;
+    --color-primary-rgb: 0 168 225;
+
+    /* Primary color alpha variants (for use in backgrounds/borders without opacity) */
+    --color-primary-alpha-08: rgb(var(--color-primary-rgb) / 8%);
+    --color-primary-alpha-12: rgb(var(--color-primary-rgb) / 12%);
+    --color-primary-alpha-15: rgb(var(--color-primary-rgb) / 15%);
+    --color-primary-alpha-16: rgb(var(--color-primary-rgb) / 16%);
+    --color-primary-alpha-20: rgb(var(--color-primary-rgb) / 20%);
+    --color-primary-alpha-45: rgb(var(--color-primary-rgb) / 45%);
+    --color-primary-alpha-60: rgb(var(--color-primary-rgb) / 60%);
+    --color-primary-alpha-90: rgb(var(--color-primary-rgb) / 90%);
     --color-primary-dark: #007da6;
     --color-primary-light: #4bc4eb;
 
@@ -104,7 +115,6 @@
     --panel-surface-2: rgba(12, 15, 18, 0.94);
     --panel-border: 1px solid var(--color-border-default);
     --panel-radius: 12px;
-    --panel-inner-glow: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
     --panel-inner-glow: linear-gradient(180deg, rgb(255 255 255 / 6%), rgb(255 255 255 / 0%));
     --epg-info-panel-height: clamp(300px, 34vh, 420px);
     --epg-info-poster-width: clamp(230px, 20vw, 340px);
@@ -124,6 +134,16 @@
     --transition-fast: 100ms ease;
     --transition-normal: 200ms ease;
     --transition-slow: 300ms ease;
+
+    /* =========================================
+       Progress Bars
+       ========================================= */
+    --progress-height: 8px;
+    --progress-height-sm: 6px;
+    --progress-height-lg: 10px;
+    --progress-radius: 999px;
+    --progress-track: rgba(255, 255, 255, 0.12);
+    --progress-fill: var(--color-primary);
 
     /* =========================================
        Z-Index Scale
@@ -147,4 +167,8 @@
     --epg-category-studios: #795548;
     --epg-category-actors: #ff5722;
     --epg-category-library: #607d8b;
+
+    /* Live / "Now" indicator */
+    --color-live: rgb(255 68 68);
+    --color-error-text: rgb(255 177 177);
 }

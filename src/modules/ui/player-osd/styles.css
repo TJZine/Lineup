@@ -159,9 +159,9 @@
 
 .player-osd-bar {
   margin-top: 10px;
-  height: 10px;
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.10);
+  height: var(--progress-height-lg);
+  border-radius: var(--progress-radius);
+  background: var(--progress-track);
   position: relative;
   overflow: hidden;
 }
@@ -180,7 +180,7 @@
   left: 0;
   top: 0;
   bottom: 0;
-  background: var(--color-primary);
+  background: var(--progress-fill);
   width: 0%;
 }
 
