@@ -68,7 +68,7 @@
     border-radius: 999px;
     border: 1px solid var(--color-primary-alpha-60);
     background: var(--color-primary-alpha-16);
-    color: var(--focus-color);
+    color: var(--color-primary);
     font-weight: 600;
     letter-spacing: 0.04em;
 }

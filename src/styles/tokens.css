@@ -12,6 +12,7 @@
 
     /* Primary */
     --color-primary: #00a8e1;
+    /* Space-separated RGB is intentional: consumed by CSS Color 4 `rgb(var(--...)/alpha)` tokens below. */
     --color-primary-rgb: 0 168 225;
 
     /* Primary color alpha variants (for use in backgrounds/borders without opacity) */
@@ -58,6 +59,8 @@
        Focus States (Critical for TV)
        ========================================= */
     --focus-color: #5cc9e6;
+    /* Comma-separated RGB is intentional: consumed by CSS Color 3 `rgba(var(--...),
+       alpha)` callsites (e.g. panel spinners). */
     --focus-color-rgb: 92, 201, 230;
     --focus-ring-width: 3px;
     --focus-ring-offset: 2px;

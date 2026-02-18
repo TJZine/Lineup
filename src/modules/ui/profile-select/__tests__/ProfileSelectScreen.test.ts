@@ -127,6 +127,7 @@ describe('ProfileSelectScreen', () => {
         const activeRow = container.querySelector('#btn-profile-2') as HTMLElement;
         const badge = activeRow.querySelector('.profile-last-used') as HTMLElement;
         expect(activeRow.classList.contains('active')).toBe(true);
+        expect(activeRow.getAttribute('aria-current')).toBe('true');
         expect(badge.textContent).toBe('Active');
     });
 

@@ -307,6 +307,7 @@
 }
 
 .server-row.active .server-name::before {
+  /* Decorative glyph; the server name text conveys the actual label. */
   content: '✓ ';
   color: var(--color-success);
 }

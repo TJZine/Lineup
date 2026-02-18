@@ -44,6 +44,7 @@
 }
 
 .playback-options-section-title {
+  /* 10-foot UI: keep section headers readable. If shrinking, prefer --text-xs. */
   font-size: var(--text-sm);
   text-transform: uppercase;
   letter-spacing: 1.4px;
@@ -54,6 +55,7 @@
 }
 
 .playback-options-helper {
+  /* Keep helper copy aligned with section title sizing for consistency. */
   font-size: var(--text-sm);
   line-height: 1.4;
   color: rgba(255, 255, 255, 0.7);

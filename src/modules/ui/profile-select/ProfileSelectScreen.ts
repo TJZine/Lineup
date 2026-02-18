@@ -361,6 +361,9 @@ export class ProfileSelectScreen {
                 lastUsed.textContent = 'Active';
                 button.appendChild(lastUsed);
                 button.classList.add('active');
+                button.setAttribute('aria-current', 'true');
+            } else {
+                button.removeAttribute('aria-current');
             }
 
             this._listEl.appendChild(button);
