@@ -141,7 +141,7 @@ describe('ContentResolver', () => {
 
             const result = await resolver.resolveSource(source);
 
-            expect(mockLibrary.getLibraryItems).toHaveBeenCalledWith('lib1', undefined);
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledWith('lib1', expect.anything());
             expect(result).toHaveLength(2);
             expect(result[0]!.ratingKey).toBe('1');
         });
@@ -184,6 +184,52 @@ describe('ContentResolver', () => {
             expect(firstResult).toEqual(secondResult);
         });
 
+        it('does not allow one caller abort to cancel shared in-flight source resolve for other callers', async () => {
+            const deferred = createDeferredPromise<PlexMediaItemMinimal[]>();
+            mockLibrary.getLibraryItems.mockImplementation((_libraryId: string, options?: { signal?: AbortSignal | null }) => {
+                const signal = options?.signal;
+                return new Promise<PlexMediaItemMinimal[]>((resolve, reject) => {
+                    if (signal?.aborted) {
+                        reject({ name: 'AbortError' });
+                        return;
+                    }
+                    const onAbort = (): void => reject({ name: 'AbortError' });
+                    signal?.addEventListener('abort', onAbort, { once: true });
+                    deferred.promise
+                        .then((items) => {
+                            signal?.removeEventListener('abort', onAbort);
+                            resolve(items);
+                        })
+                        .catch((error) => {
+                            signal?.removeEventListener('abort', onAbort);
+                            reject(error);
+                        });
+                });
+            });
+
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'lib-abort',
+                libraryType: 'movie',
+                includeWatched: true,
+            };
+
+            const controllerA = new AbortController();
+            const controllerB = new AbortController();
+
+            const promiseA = resolver.resolveSource(source, { signal: controllerA.signal });
+            const promiseB = resolver.resolveSource(source, { signal: controllerB.signal });
+
+            controllerA.abort();
+            deferred.resolve([createMockItem({ ratingKey: 'abort-safe-1' })]);
+
+            await expect(promiseA).rejects.toMatchObject({ name: 'AbortError' });
+            await expect(promiseB).resolves.toEqual(
+                expect.arrayContaining([expect.objectContaining({ ratingKey: 'abort-safe-1' })])
+            );
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(1);
+        });
+
         it('respects cache TTL expiry and refetches after expiration', async () => {
             const nowSpy = jest.spyOn(Date, 'now');
             let nowMs = 0;
@@ -218,7 +264,7 @@ describe('ContentResolver', () => {
 
             const result = await resolver.resolveSource(source);
 
-            expect(mockLibrary.getCollectionItems).toHaveBeenCalledWith('col1', undefined);
+            expect(mockLibrary.getCollectionItems).toHaveBeenCalledWith('col1', expect.anything());
             expect(result).toHaveLength(1);
         });
 
@@ -260,8 +306,8 @@ describe('ContentResolver', () => {
 
             const result = await resolver.resolveSource(source);
 
-            expect(mockLibrary.getCollectionItems).toHaveBeenCalledWith('col-shows', undefined);
-            expect(mockLibrary.getShowEpisodes).toHaveBeenCalledWith('show-1', undefined);
+            expect(mockLibrary.getCollectionItems).toHaveBeenCalledWith('col-shows', expect.anything());
+            expect(mockLibrary.getShowEpisodes).toHaveBeenCalledWith('show-1', expect.anything());
             expect(result).toHaveLength(2);
             expect(result[0]!.type).toBe('episode');
             expect(result[0]!.genres).toEqual(['Animation']);
@@ -297,8 +343,8 @@ describe('ContentResolver', () => {
 
             const result = await resolver.resolveSource(source);
 
-            expect(mockLibrary.getCollectionItems).toHaveBeenCalledWith('col-inline', undefined);
-            expect(mockLibrary.getShowEpisodes).toHaveBeenCalledWith('show-inline', undefined);
+            expect(mockLibrary.getCollectionItems).toHaveBeenCalledWith('col-inline', expect.anything());
+            expect(mockLibrary.getShowEpisodes).toHaveBeenCalledWith('show-inline', expect.anything());
             expect(result).toHaveLength(2);
             expect(result[0]!.type).toBe('episode');
             expect(result[0]!.showTitle).toBe('Inline Show');
@@ -350,7 +396,7 @@ describe('ContentResolver', () => {
 
             const result = await resolver.resolveSource(source);
 
-            expect(mockLibrary.getShowEpisodes).toHaveBeenCalledWith('show1', undefined);
+            expect(mockLibrary.getShowEpisodes).toHaveBeenCalledWith('show1', expect.anything());
             expect(result).toHaveLength(3);
         });
 
@@ -388,7 +434,7 @@ describe('ContentResolver', () => {
 
             const result = await resolver.resolveSource(source);
 
-            expect(mockLibrary.getPlaylistItems).toHaveBeenCalledWith('playlist1', undefined);
+            expect(mockLibrary.getPlaylistItems).toHaveBeenCalledWith('playlist1', expect.anything());
             expect(result).toHaveLength(1);
         });
 

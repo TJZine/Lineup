@@ -87,6 +87,18 @@ export interface IChannelManager {
      */
     refreshChannelContent(channelId: string, options?: { signal?: AbortSignal | null }): Promise<ResolvedChannelContent>;
 
+    /**
+     * Resolve channel items for schedule generation without mutating ChannelManager state.
+     * Used by guide prefetchers that want to avoid caching/persisting channel metadata.
+     * @param channelId - Channel ID
+     * @returns Promise resolving to resolved content items
+     * @throws Error if channel not found
+     */
+    resolveChannelItemsForSchedule(
+        channelId: string,
+        options?: { signal?: AbortSignal | null }
+    ): Promise<ResolvedChannelContent['items']>;
+
     // Ordering / Current Channel
 
     /**

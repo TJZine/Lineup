@@ -31,6 +31,22 @@ import { detectHdrLabel } from '../../plex/stream/hdr';
 const SHOW_CACHE_TTL_MS = 300000;
 const SOURCE_CACHE_TTL_MS = 5 * 60_000;
 const SOURCE_CACHE_MAX_ENTRIES = 24;
+
+type SourceCacheEntry = {
+    items: ResolvedContentItem[];
+    cachedAt: number;
+    epoch: number;
+    generation: number;
+};
+
+type SourceInFlightEntry = {
+    controller: AbortController;
+    promise: Promise<ResolvedContentItem[]>;
+    waiters: number;
+    epoch: number;
+    generation: number;
+};
+
 type PlexStreamMinimal = {
     streamType: number;
     selected?: boolean;
@@ -65,11 +81,10 @@ export class ContentResolver {
         string,
         { items: PlexMediaItemMinimal[]; cachedAt: number }
     >();
-    private readonly _sourceCache = new Map<
-        string,
-        { items: ResolvedContentItem[]; cachedAt: number }
-    >();
-    private readonly _sourceInFlight = new Map<string, Promise<ResolvedContentItem[]>>();
+    private _cacheEpoch = 0;
+    private readonly _sourceCacheGenerationByKey = new Map<string, number>();
+    private readonly _sourceCache = new Map<string, SourceCacheEntry>();
+    private readonly _sourceInFlight = new Map<string, SourceInFlightEntry>();
 
     /**
      * Create a ContentResolver instance.
@@ -85,9 +100,36 @@ export class ContentResolver {
     }
 
     clearCaches(): void {
+        this._cacheEpoch += 1;
         this._showCacheByLibraryId.clear();
         this._sourceCache.clear();
+        this._sourceCacheGenerationByKey.clear();
+        for (const entry of this._sourceInFlight.values()) {
+            entry.controller.abort();
+        }
         this._sourceInFlight.clear();
+    }
+
+    invalidateSource(source: ChannelContentSource): void {
+        const key = this._buildSourceCacheKey(source);
+        this._bumpSourceCacheGeneration(key);
+        this._sourceCache.delete(key);
+
+        const inFlight = this._sourceInFlight.get(key);
+        if (inFlight) {
+            inFlight.controller.abort();
+            this._sourceInFlight.delete(key);
+        }
+
+        if (source.type === 'library' && source.libraryType === 'show') {
+            this._showCacheByLibraryId.delete(source.libraryId);
+        }
+
+        if (source.type === 'mixed') {
+            for (const subSource of source.sources) {
+                this.invalidateSource(subSource);
+            }
+        }
     }
 
     /**
@@ -101,27 +143,40 @@ export class ContentResolver {
         options?: { signal?: AbortSignal | null }
     ): Promise<ResolvedContentItem[]> {
         const cacheKey = this._buildSourceCacheKey(source);
+        const epoch = this._cacheEpoch;
+        const generation = this._getSourceCacheGeneration(cacheKey);
         const cached = this._getCachedSourceItems(cacheKey);
         if (cached) {
             return cached;
         }
 
         const inFlight = this._sourceInFlight.get(cacheKey);
-        if (inFlight) {
-            return inFlight;
+        if (inFlight && inFlight.epoch === epoch && inFlight.generation === generation) {
+            return this._awaitInFlight(cacheKey, inFlight, options?.signal ?? null);
         }
 
-        const resolvePromise = this._resolveSourceUncached(source, options)
+        const controller = new AbortController();
+        const resolvePromise = this._resolveSourceUncached(source, { signal: controller.signal })
             .then((items) => {
-                this._setCachedSourceItems(cacheKey, items);
+                this._setCachedSourceItems(cacheKey, items, { epoch, generation });
                 return this._cloneResolvedItems(items);
             })
             .finally(() => {
-                this._sourceInFlight.delete(cacheKey);
+                const current = this._sourceInFlight.get(cacheKey);
+                if (current && current.promise === resolvePromise) {
+                    this._sourceInFlight.delete(cacheKey);
+                }
             });
 
-        this._sourceInFlight.set(cacheKey, resolvePromise);
-        return resolvePromise;
+        const entry: SourceInFlightEntry = {
+            controller,
+            promise: resolvePromise,
+            waiters: 0,
+            epoch,
+            generation,
+        };
+        this._sourceInFlight.set(cacheKey, entry);
+        return this._awaitInFlight(cacheKey, entry, options?.signal ?? null);
     }
 
     private async _resolveSourceUncached(
@@ -548,6 +603,73 @@ export class ContentResolver {
         return this._stableSerialize(source);
     }
 
+    private _getSourceCacheGeneration(key: string): number {
+        return this._sourceCacheGenerationByKey.get(key) ?? 0;
+    }
+
+    private _bumpSourceCacheGeneration(key: string): number {
+        const next = (this._sourceCacheGenerationByKey.get(key) ?? 0) + 1;
+        this._sourceCacheGenerationByKey.set(key, next);
+        return next;
+    }
+
+    private _createAbortError(): unknown {
+        try {
+            return new DOMException('Aborted', 'AbortError');
+        } catch {
+            const error = new Error('Aborted');
+            error.name = 'AbortError';
+            return error;
+        }
+    }
+
+    private _awaitInFlight(
+        key: string,
+        entry: SourceInFlightEntry,
+        signal: AbortSignal | null
+    ): Promise<ResolvedContentItem[]> {
+        if (signal?.aborted) {
+            return Promise.reject(this._createAbortError());
+        }
+
+        entry.waiters += 1;
+        let released = false;
+        const release = (): void => {
+            if (released) return;
+            released = true;
+            entry.waiters -= 1;
+            if (entry.waiters > 0) {
+                return;
+            }
+            const current = this._sourceInFlight.get(key);
+            if (current !== entry) {
+                return;
+            }
+            entry.controller.abort();
+            this._sourceInFlight.delete(key);
+        };
+
+        if (!signal) {
+            return entry.promise.then((items) => this._cloneResolvedItems(items)).finally(release);
+        }
+
+        let onAbort: (() => void) | null = null;
+        const abortPromise = new Promise<ResolvedContentItem[]>((_, reject) => {
+            onAbort = (): void => reject(this._createAbortError());
+            signal.addEventListener('abort', onAbort, { once: true });
+        });
+
+        return Promise.race([
+            entry.promise.then((items) => this._cloneResolvedItems(items)),
+            abortPromise,
+        ]).finally(() => {
+            if (onAbort) {
+                signal.removeEventListener('abort', onAbort);
+            }
+            release();
+        });
+    }
+
     private _stableSerialize(value: unknown): string {
         if (value === null || typeof value !== 'object') {
             return JSON.stringify(value);
@@ -568,6 +690,11 @@ export class ContentResolver {
             return null;
         }
 
+        if (cached.epoch !== this._cacheEpoch || cached.generation !== this._getSourceCacheGeneration(key)) {
+            this._sourceCache.delete(key);
+            return null;
+        }
+
         if (Date.now() - cached.cachedAt > SOURCE_CACHE_TTL_MS) {
             this._sourceCache.delete(key);
             return null;
@@ -578,13 +705,26 @@ export class ContentResolver {
         return this._cloneResolvedItems(cached.items);
     }
 
-    private _setCachedSourceItems(key: string, items: ResolvedContentItem[]): void {
+    private _setCachedSourceItems(
+        key: string,
+        items: ResolvedContentItem[],
+        scope: { epoch: number; generation: number }
+    ): void {
+        if (scope.epoch !== this._cacheEpoch) {
+            return;
+        }
+        if (scope.generation !== this._getSourceCacheGeneration(key)) {
+            return;
+        }
+
         if (this._sourceCache.has(key)) {
             this._sourceCache.delete(key);
         }
         this._sourceCache.set(key, {
             items: this._cloneResolvedItems(items),
             cachedAt: Date.now(),
+            epoch: scope.epoch,
+            generation: scope.generation,
         });
 
         while (this._sourceCache.size > SOURCE_CACHE_MAX_ENTRIES) {

@@ -632,8 +632,33 @@ export class ChannelManager implements IChannelManager {
         }
 
         this._state.resolvedContent.delete(channelId);
-        this._contentResolver.clearCaches();
+        this._contentResolver.invalidateSource(channel.contentSource);
         return this._resolveContentInternal(channel, options);
+    }
+
+    /**
+     * Resolve channel items for schedule generation without mutating ChannelManager state.
+     * This avoids caching, event emission, and persistence side-effects.
+     */
+    async resolveChannelItemsForSchedule(
+        channelId: string,
+        options?: { signal?: AbortSignal | null }
+    ): Promise<ResolvedContentItem[]> {
+        const channel = this._state.channels.get(channelId);
+        if (!channel) {
+            throw new ChannelError(
+                AppErrorCode.CHANNEL_NOT_FOUND,
+                CHANNEL_ERROR_MESSAGES.CHANNEL_NOT_FOUND,
+                false
+            );
+        }
+
+        const cached = this._state.resolvedContent.get(channelId);
+        if (cached && !this._isStale(cached)) {
+            return cached.items;
+        }
+
+        return this._resolveFilteredItems(channel, options);
     }
 
 
@@ -960,6 +985,62 @@ export class ChannelManager implements IChannelManager {
     // Private Methods
     // ============================================
 
+    private async _resolveFilteredItems(
+        channel: ChannelConfig,
+        options?: { signal?: AbortSignal | null }
+    ): Promise<ResolvedContentItem[]> {
+        const rawItems = await this._contentResolver.resolveSource(channel.contentSource, options);
+
+        // Issue 1 (Round 4): If source itself returns empty, it's CONTENT_UNAVAILABLE (library/collection deleted)
+        // This is different from filtering removing all items
+        if (rawItems.length === 0) {
+            throw new ChannelError(
+                AppErrorCode.CONTENT_UNAVAILABLE,
+                `Content source returned no items - source may have been deleted`,
+                true // recoverable with cache fallback
+            );
+        }
+
+        let items = rawItems;
+
+        // Apply filters
+        if (channel.contentFilters && channel.contentFilters.length > 0) {
+            items = this._contentResolver.applyFilters(items, channel.contentFilters);
+        }
+
+        // Apply sort
+        if (channel.sortOrder) {
+            items = this._contentResolver.applySort(items, channel.sortOrder);
+        }
+
+        // Filter out zero-duration items
+        items = items.filter((item) => item.durationMs > 0);
+
+        // Apply duration limits
+        if (channel.minEpisodeRunTimeMs || channel.maxEpisodeRunTimeMs) {
+            items = items.filter((item) => {
+                if (channel.minEpisodeRunTimeMs && item.durationMs < channel.minEpisodeRunTimeMs) {
+                    return false;
+                }
+                if (channel.maxEpisodeRunTimeMs && item.durationMs > channel.maxEpisodeRunTimeMs) {
+                    return false;
+                }
+                return true;
+            });
+        }
+
+        // Issue 1 (Round 4): If content exists but filters removed all, it's SCHEDULER_EMPTY_CHANNEL
+        if (items.length === 0) {
+            throw new ChannelError(
+                AppErrorCode.SCHEDULER_EMPTY_CHANNEL,
+                CHANNEL_ERROR_MESSAGES.EMPTY_CONTENT,
+                false
+            );
+        }
+
+        return items;
+    }
+
     private async _resolveContentInternal(
         channel: ChannelConfig,
         options?: { signal?: AbortSignal | null }
@@ -967,55 +1048,7 @@ export class ChannelManager implements IChannelManager {
         const cached = this._state.resolvedContent.get(channel.id);
 
         try {
-            // Resolve from source
-            const rawItems = await this._contentResolver.resolveSource(channel.contentSource, options);
-
-            // Issue 1 (Round 4): If source itself returns empty, it's CONTENT_UNAVAILABLE (library/collection deleted)
-            // This is different from filtering removing all items
-            if (rawItems.length === 0) {
-                throw new ChannelError(
-                    AppErrorCode.CONTENT_UNAVAILABLE,
-                    `Content source returned no items - source may have been deleted`,
-                    true // recoverable with cache fallback
-                );
-            }
-
-            let items = rawItems;
-
-            // Apply filters
-            if (channel.contentFilters && channel.contentFilters.length > 0) {
-                items = this._contentResolver.applyFilters(items, channel.contentFilters);
-            }
-
-            // Apply sort
-            if (channel.sortOrder) {
-                items = this._contentResolver.applySort(items, channel.sortOrder);
-            }
-
-            // Filter out zero-duration items
-            items = items.filter((item) => item.durationMs > 0);
-
-            // Apply duration limits
-            if (channel.minEpisodeRunTimeMs || channel.maxEpisodeRunTimeMs) {
-                items = items.filter((item) => {
-                    if (channel.minEpisodeRunTimeMs && item.durationMs < channel.minEpisodeRunTimeMs) {
-                        return false;
-                    }
-                    if (channel.maxEpisodeRunTimeMs && item.durationMs > channel.maxEpisodeRunTimeMs) {
-                        return false;
-                    }
-                    return true;
-                });
-            }
-
-            // Issue 1 (Round 4): If content exists but filters removed all, it's SCHEDULER_EMPTY_CHANNEL
-            if (items.length === 0) {
-                throw new ChannelError(
-                    AppErrorCode.SCHEDULER_EMPTY_CHANNEL,
-                    CHANNEL_ERROR_MESSAGES.EMPTY_CONTENT,
-                    false
-                );
-            }
+            const items = await this._resolveFilteredItems(channel, options);
 
             // Apply playback mode
             const orderedItems = this._contentResolver.applyPlaybackMode(
@@ -1027,11 +1060,12 @@ export class ChannelManager implements IChannelManager {
             );
 
             // Build result
+            const totalDurationMs = items.reduce((sum, item) => sum + item.durationMs, 0);
             const result: ResolvedChannelContent = {
                 channelId: channel.id,
                 resolvedAt: Date.now(),
                 items,
-                totalDurationMs: items.reduce((sum, item) => sum + item.durationMs, 0),
+                totalDurationMs,
                 orderedItems,
                 // Issue 2: Include cache status for fresh content
                 fromCache: false,

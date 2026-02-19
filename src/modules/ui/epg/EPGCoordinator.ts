@@ -51,6 +51,7 @@ const EPG_BACKGROUND_WARM_DEFAULT_MAX_QUEUED_AGGRESSIVE = 128;
 const EPG_BACKGROUND_WARM_MAX_QUEUED_AGGRESSIVE = 220;
 const EPG_BACKGROUND_WARM_IDLE_TIMEOUT_MS = 120;
 const EPG_BACKGROUND_WARM_TIMER_DELAY_MS = 24;
+const EPG_BACKGROUND_WARM_BACKPRESSURE_DELAY_MS = 120;
 const DEFAULT_GUIDE_DENSITY: 'detailed' | 'wide' = 'detailed';
 const DETAILED_VISIBLE_HOURS = 2;
 const WIDE_VISIBLE_HOURS = 3;
@@ -839,7 +840,13 @@ export class EPGCoordinator {
                 return;
             }
             if (this._epgScheduleInFlight.size > queueState.concurrency * 2) {
-                this._cancelBackgroundWarmQueue('background-inflight-cap-reached');
+                if (this._backgroundWarmQueueTimer) {
+                    return;
+                }
+                this._backgroundWarmQueueTimer = setTimeout(() => {
+                    this._backgroundWarmQueueTimer = null;
+                    scheduleNextBatch();
+                }, EPG_BACKGROUND_WARM_BACKPRESSURE_DELAY_MS);
                 return;
             }
 
@@ -976,22 +983,30 @@ export class EPGCoordinator {
             schedule: ScheduleWindow,
             options?: { updateCache?: boolean; phase?: 'immediate' | 'background' }
         ): void => {
-            if (options?.phase === 'background') {
+            const phase = options?.phase ?? 'immediate';
+            const shouldApplyToUi = phase !== 'background';
+
+            if (phase === 'background') {
                 backgroundLoadedCount += 1;
             } else {
                 immediateLoadedCount += 1;
             }
-            if (firstVisibleScheduleReadyMs === null && visibleRangeIds.has(channelId)) {
-                firstVisibleScheduleReadyMs = Date.now() - refreshStartedAt;
+
+            if (shouldApplyToUi) {
+                if (firstVisibleScheduleReadyMs === null && visibleRangeIds.has(channelId)) {
+                    firstVisibleScheduleReadyMs = Date.now() - refreshStartedAt;
+                }
+                epg.loadScheduleForChannel(channelId, schedule);
             }
-            epg.loadScheduleForChannel(channelId, schedule);
             if (options?.updateCache === false) {
                 return;
             }
-            this._markScheduleLoaded(channelId, rangeKey);
             this._storeScheduleCache(channelId, rangeKey, schedule);
+            if (shouldApplyToUi) {
+                this._markScheduleLoaded(channelId, rangeKey);
+            }
 
-            if (options?.phase === 'background' && this._isDebugEnabled()) {
+            if (phase === 'background' && this._isDebugEnabled()) {
                 const cacheHitRatio = cacheHits / Math.max(1, cacheHits + cacheMisses);
                 appendEpgDebugLog('EPG.refreshEpgSchedulesForRange.background', {
                     refreshId,
@@ -1084,9 +1099,14 @@ export class EPGCoordinator {
             cacheMisses += 1;
 
             try {
-                const resolved = await channelManager.resolveChannelContent(channel.id, {
-                    signal: controller.signal,
-                });
+                const items =
+                    phase === 'background'
+                        ? await channelManager.resolveChannelItemsForSchedule(channel.id, {
+                            signal: controller.signal,
+                        })
+                        : (await channelManager.resolveChannelContent(channel.id, {
+                            signal: controller.signal,
+                        })).items;
                 if (refreshId !== this._epgScheduleLoadToken) {
                     return;
                 }
@@ -1097,7 +1117,7 @@ export class EPGCoordinator {
 
                 const scheduleConfig = this.deps.buildDailyScheduleConfig(
                     channel,
-                    resolved.items,
+                    items,
                     startTime
                 );
                 const index = ScheduleCalculator.buildScheduleIndex(scheduleConfig, shuffler);

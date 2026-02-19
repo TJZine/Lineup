@@ -374,6 +374,18 @@ describe('ChannelManager', () => {
             expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(1);
         });
 
+        it('does not clear all resolver caches when refreshing a single channel', async () => {
+            const channel = await manager.createChannel({
+                contentSource: createMockContentSource(),
+            });
+            const resolver = (manager as unknown as { _contentResolver: { clearCaches: () => void } })._contentResolver;
+            const clearCachesSpy = jest.spyOn(resolver, 'clearCaches');
+
+            await manager.refreshChannelContent(channel.id);
+
+            expect(clearCachesSpy).not.toHaveBeenCalled();
+        });
+
         it('should handle library deleted gracefully', async () => {
             mockLibrary.getLibraryItems.mockRejectedValue(new Error('404'));
 
