@@ -67,6 +67,7 @@ const createCoordinator = (): CoordinatorHarness => {
 
     const scheduler = {
         loadChannel: jest.fn(),
+        unloadChannel: jest.fn(),
         syncToCurrentTime: jest.fn(),
         getCurrentProgram: jest.fn().mockReturnValue(null),
     } as unknown as jest.Mocked<IChannelScheduler>;
@@ -295,6 +296,7 @@ describe('ChannelTuningCoordinator', () => {
 
     it('resolves a queued request whose signal was aborted while pending', async () => {
         const { coordinator, channelManager } = createCoordinator();
+        const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
         let resolveDelay: () => void = () => {};
 
         channelManager.resolveChannelContent.mockImplementation((id) => {
@@ -313,14 +315,16 @@ describe('ChannelTuningCoordinator', () => {
         controller.abort();
         resolveDelay();
 
-        await expect(switch1).resolves.toBeUndefined();
-        await expect(switch2).resolves.toBeUndefined();
+        await expect(switch1).resolves.toBe('switched');
+        await expect(switch2).resolves.toBe('aborted');
         expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(1);
         expect(channelManager.resolveChannelContent).toHaveBeenNthCalledWith(1, 'ch1', { signal: null });
+        consoleWarnSpy.mockRestore();
     });
 
     it('rejects a superseded pending request when a newer request replaces it', async () => {
         const { coordinator, channelManager } = createCoordinator();
+        const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
         let resolveDelay: () => void = () => {};
 
         channelManager.resolveChannelContent.mockImplementation((id) => {
@@ -339,15 +343,17 @@ describe('ChannelTuningCoordinator', () => {
         resolveDelay();
 
         await expect(switch2).rejects.toMatchObject({ name: 'AbortError' });
-        await expect(switch3).resolves.toBeUndefined();
-        await expect(switch1).resolves.toBeUndefined();
+        await expect(switch3).resolves.toBe('switched');
+        await expect(switch1).resolves.toBe('switched');
         expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(2);
         expect(channelManager.resolveChannelContent).toHaveBeenNthCalledWith(1, 'ch1', { signal: null });
         expect(channelManager.resolveChannelContent).toHaveBeenNthCalledWith(2, 'ch3', { signal: null });
+        consoleWarnSpy.mockRestore();
     });
 
     it('reports CHANNEL_NOT_FOUND when switchToChannel misses', async () => {
         const { coordinator, deps, channelManager, videoPlayer, scheduler } = createCoordinator();
+        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
         channelManager.getChannel.mockReturnValue(null);
 
         await coordinator.switchToChannel('missing');
@@ -362,6 +368,7 @@ describe('ChannelTuningCoordinator', () => {
         );
         expect(videoPlayer.stop).not.toHaveBeenCalled();
         expect(scheduler.loadChannel).not.toHaveBeenCalled();
+        consoleErrorSpy.mockRestore();
     });
 
     it('preserves success call order', async () => {
@@ -389,21 +396,41 @@ describe('ChannelTuningCoordinator', () => {
 
     it('clears pending now-playing channel when sync fails', async () => {
         const { coordinator, deps, scheduler } = createCoordinator();
+        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
         scheduler.syncToCurrentTime.mockImplementation(() => {
             throw new Error('sync failed');
         });
         deps.getPendingNowPlayingChannelId.mockReturnValue('ch1');
 
-        await expect(coordinator.switchToChannel('ch1')).rejects.toThrow('sync failed');
+        await expect(coordinator.switchToChannel('ch1')).resolves.toBe('failed');
 
+        expect(deps.handleGlobalError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                code: AppErrorCode.CONTENT_UNAVAILABLE,
+                recoverable: true,
+            }),
+            'switchToChannel'
+        );
+        expect(scheduler.unloadChannel).toHaveBeenCalledTimes(1);
         expect(deps.setPendingNowPlayingChannelId).toHaveBeenCalledWith(null);
+        consoleErrorSpy.mockRestore();
+    });
+
+    it('returns switched outcome even when lifecycle save fails', async () => {
+        const { coordinator, deps } = createCoordinator();
+        const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        deps.saveLifecycleState.mockRejectedValueOnce(new Error('save failed'));
+
+        await expect(coordinator.switchToChannel('ch1')).resolves.toBe('switched');
+
+        consoleWarnSpy.mockRestore();
     });
 
     it('reports CHANNEL_NOT_FOUND when switchToChannelByNumber misses', async () => {
         const { coordinator, deps, channelManager } = createCoordinator();
         channelManager.getChannelByNumber.mockReturnValue(null);
 
-        await coordinator.switchToChannelByNumber(999);
+        await expect(coordinator.switchToChannelByNumber(999)).resolves.toBe('failed');
 
         expect(deps.handleGlobalError).toHaveBeenCalledWith(
             {
@@ -417,5 +444,15 @@ describe('ChannelTuningCoordinator', () => {
             },
             'switchToChannelByNumber'
         );
+    });
+
+    it('returns aborted outcome when switchToChannelByNumber is aborted before execution', async () => {
+        const { coordinator } = createCoordinator();
+        const controller = new AbortController();
+        controller.abort();
+
+        await expect(
+            coordinator.switchToChannelByNumber(1, { signal: controller.signal })
+        ).resolves.toBe('aborted');
     });
 });

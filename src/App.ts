@@ -11,7 +11,7 @@ import {
     AppErrorCode,
 } from './Orchestrator';
 import type { LifecycleAppError, AppPhase } from './modules/lifecycle/types';
-import type { NavigationConfig } from './modules/navigation';
+import type { INavigationManager, NavigationConfig } from './modules/navigation';
 import type { VideoPlayerConfig } from './modules/player';
 import type { EPGConfig } from './modules/ui/epg';
 import type { NowPlayingInfoConfig } from './modules/ui/now-playing-info';
@@ -103,6 +103,17 @@ const DEFAULT_MINI_GUIDE_CONFIG: MiniGuideConfig = {
     autoHideMs: 8_000,
 };
 
+const NON_BLOCKING_TOAST_MESSAGES: Partial<Record<AppErrorCode, string>> = {
+    [AppErrorCode.CHANNEL_NOT_FOUND]: 'That channel is unavailable.',
+    [AppErrorCode.SCHEDULER_EMPTY_CHANNEL]: 'No scheduled content is available for that channel.',
+    [AppErrorCode.CONTENT_UNAVAILABLE]: 'That content is unavailable right now.',
+    [AppErrorCode.RESOURCE_NOT_FOUND]: 'Requested content could not be found.',
+};
+
+const NON_BLOCKING_LIFECYCLE_CODES = new Set<AppErrorCode>(
+    Object.keys(NON_BLOCKING_TOAST_MESSAGES).map((k) => k as AppErrorCode)
+);
+
 const DEFAULT_CHANNEL_TRANSITION_CONFIG: ChannelTransitionConfig = {
     containerId: 'channel-transition-container',
 };
@@ -110,6 +121,8 @@ const DEFAULT_CHANNEL_TRANSITION_CONFIG: ChannelTransitionConfig = {
 const DEFAULT_PLAYBACK_OPTIONS_CONFIG: PlaybackOptionsConfig = {
     containerId: 'playback-options-container',
 };
+
+const ERROR_OVERLAY_MODAL_ID = 'modal:error-overlay';
 
 // ============================================
 // App Class
@@ -121,6 +134,9 @@ const DEFAULT_PLAYBACK_OPTIONS_CONFIG: PlaybackOptionsConfig = {
 export class App {
     private _orchestrator: AppOrchestrator | null = null;
     private _errorOverlay: HTMLElement | null = null;
+    private _errorOverlayFocusableIds: string[] = [];
+    private _errorOverlayPreferredFocusId: string | null = null;
+    private _errorOverlayModalCloseHandler: ((payload: { modalId: string }) => void) | null = null;
     private _toastContainer: HTMLElement | null = null;
     private _toastHideTimer: number | null = null;
     private _lastToastAt: number = 0;
@@ -148,6 +164,10 @@ export class App {
     private _screenUnsubscribe: (() => void) | null = null;
     private _phaseUnsubscribe: (() => void) | null = null;
     private _globalKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
+
+    private _getSafeNavigation(): INavigationManager | null {
+        return this._orchestrator?.getNavigation() ?? null;
+    }
 
     /**
      * Initialize and start the application.
@@ -203,11 +223,33 @@ export class App {
                     userMessage: error.message,
                     actions: [],
                 };
-            // Show the error overlay for all errors
+            if (!this._shouldUseBlockingOverlay(lifecycleError)) {
+                this.hideErrorOverlay();
+                this._showToast({
+                    message: this._getNonBlockingToastMessage(lifecycleError),
+                    type: 'warning',
+                });
+                return true;
+            }
             this.showErrorOverlay(lifecycleError);
-            // Return false to allow other handlers to also process
             return false;
         });
+    }
+
+    private _shouldUseBlockingOverlay(error: LifecycleAppError): boolean {
+        if (!error.recoverable) {
+            return true;
+        }
+        return !NON_BLOCKING_LIFECYCLE_CODES.has(error.code as AppErrorCode);
+    }
+
+    private _getNonBlockingToastMessage(error: LifecycleAppError): string {
+        const code = error.code as AppErrorCode;
+        const mapped = NON_BLOCKING_TOAST_MESSAGES[code];
+        if (typeof mapped === 'string' && mapped.length > 0) {
+            return mapped;
+        }
+        return error.userMessage?.trim() || 'Something went wrong.';
     }
 
     /**
@@ -248,6 +290,8 @@ export class App {
             document.removeEventListener('keydown', this._globalKeydownHandler);
             this._globalKeydownHandler = null;
         }
+
+        this.hideErrorOverlay();
 
         this._authScreen?.destroy();
         this._authScreen = null;
@@ -386,6 +430,9 @@ export class App {
         const errorOverlay = document.createElement('div');
         errorOverlay.id = 'error-overlay';
         errorOverlay.className = 'error-overlay hidden';
+        errorOverlay.setAttribute('role', 'dialog');
+        errorOverlay.setAttribute('aria-modal', 'true');
+        errorOverlay.setAttribute('aria-label', 'Error');
         root.appendChild(errorOverlay);
         this._errorOverlay = errorOverlay;
 
@@ -819,21 +866,67 @@ export class App {
             return;
         }
 
+        const nav = this._getSafeNavigation();
+        const modalWasOpen = nav?.isModalOpen(ERROR_OVERLAY_MODAL_ID) ?? false;
+        if (nav && modalWasOpen) {
+            // Refresh modal focus trap membership on re-render without closing the overlay.
+            if (this._errorOverlayModalCloseHandler) {
+                nav.off('modalClose', this._errorOverlayModalCloseHandler);
+            }
+            nav.closeModal(ERROR_OVERLAY_MODAL_ID);
+        }
+
         const actions =
             error.actions.length > 0
                 ? error.actions
                 : this._orchestrator.getRecoveryActions(error.code as AppErrorCode);
         this._renderErrorOverlay(error, actions);
         this._errorOverlay.classList.remove('hidden');
+
+        if (nav && this._errorOverlayFocusableIds.length > 0) {
+            if (!this._errorOverlayModalCloseHandler) {
+                this._errorOverlayModalCloseHandler = ({ modalId }): void => {
+                    if (modalId !== ERROR_OVERLAY_MODAL_ID) return;
+                    this.hideErrorOverlay({ fromModalClose: true });
+                };
+                nav.on('modalClose', this._errorOverlayModalCloseHandler);
+            }
+            if (!nav.isModalOpen(ERROR_OVERLAY_MODAL_ID)) {
+                nav.openModal(ERROR_OVERLAY_MODAL_ID, this._errorOverlayFocusableIds);
+            }
+            const preferred = this._errorOverlayPreferredFocusId ?? this._errorOverlayFocusableIds[0] ?? null;
+            if (preferred) {
+                nav.setFocus(preferred, { persist: false });
+            }
+        }
     }
 
     /**
      * Hide error overlay.
      */
-    hideErrorOverlay(): void {
+    hideErrorOverlay(options?: { fromModalClose?: boolean }): void {
         if (this._errorOverlay) {
             this._errorOverlay.classList.add('hidden');
         }
+        const nav = this._getSafeNavigation();
+        if (nav) {
+            if (!options?.fromModalClose) {
+                nav.closeModal(ERROR_OVERLAY_MODAL_ID);
+            }
+            this._teardownErrorOverlayNavigation(nav);
+        }
+    }
+
+    private _teardownErrorOverlayNavigation(nav: INavigationManager): void {
+        if (this._errorOverlayModalCloseHandler) {
+            nav.off('modalClose', this._errorOverlayModalCloseHandler);
+            this._errorOverlayModalCloseHandler = null;
+        }
+        for (const id of this._errorOverlayFocusableIds) {
+            nav.unregisterFocusable(id);
+        }
+        this._errorOverlayFocusableIds = [];
+        this._errorOverlayPreferredFocusId = null;
     }
 
     /**
@@ -868,7 +961,17 @@ export class App {
         const actionsContainer = document.createElement('div');
         actionsContainer.className = 'error-actions';
 
+        const nav = this._getSafeNavigation();
+        if (nav) {
+            // Re-render replaces elements; ensure we unregister any prior focusables first.
+            this._teardownErrorOverlayNavigation(nav);
+        }
+
+        let primaryButton: HTMLButtonElement | null = null;
+        const focusableIds: string[] = [];
+
         for (const action of actions) {
+            const id = `error-overlay-action-${focusableIds.length}`;
             const button = document.createElement('button');
             button.className = action.isPrimary
                 ? 'error-button primary'
@@ -878,11 +981,31 @@ export class App {
                 this.hideErrorOverlay();
                 action.action();
             });
+            if (action.isPrimary && !primaryButton) {
+                primaryButton = button;
+            }
             actionsContainer.appendChild(button);
+
+            if (nav) {
+                focusableIds.push(id);
+                nav.registerFocusable({
+                    id,
+                    element: button,
+                    group: ERROR_OVERLAY_MODAL_ID,
+                    neighbors: {},
+                });
+            }
         }
 
         container.appendChild(actionsContainer);
         this._errorOverlay.appendChild(container);
+
+        // Ensure focus is visible even if Navigation is not available yet (e.g. during partial init / tests).
+        (primaryButton ?? actionsContainer.querySelector('button'))?.focus();
+
+        this._errorOverlayFocusableIds = focusableIds;
+        const primaryIndex = actions.findIndex((a) => a.isPrimary);
+        this._errorOverlayPreferredFocusId = focusableIds[primaryIndex] ?? focusableIds[0] ?? null;
     }
 
     /**
@@ -1004,62 +1127,49 @@ export class App {
             </div>
             <div style="display:flex;flex-direction:column;gap:10px;">
                 <details style="border:1px solid #333;border-radius:8px;padding:10px;">
-                    <summary style="cursor:pointer;color:#ddd;">Transcode Debug Overrides</summary>
+                    <summary style="cursor:pointer;color:#ddd;">Plex Debug Overrides</summary>
                     <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
-                        <label style="font-size:13px;color:#aaa;">Preset
-                            <select id="dev-transcode-preset" style="margin-left:8px;padding:6px;">
-                                <option value="">(none)</option>
-                                <option value="webos-lgtv">webos-lgtv</option>
-                                <option value="webos-lg">webos-lg</option>
-                                <option value="plex-web">plex-web</option>
-                                <option value="android">android</option>
+                        <label style="font-size:13px;color:#aaa;">
+                            <input id="dev-directplay-audio-fallback" type="checkbox" /> Try Direct Play using fallback audio track (retune_direct_play_audio_fallback=1)
+                        </label>
+                        <div style="margin-top:6px;font-size:12px;color:#888;">
+                            Now Playing Stream Debug (overlay)
+                        </div>
+                        <label style="font-size:13px;color:#aaa;">
+                            <input id="dev-nowplaying-stream-debug" type="checkbox" /> Show stream decision in Show Info overlay (retune_now_playing_stream_debug=1)
+                        </label>
+                        <label style="font-size:13px;color:#aaa;">
+                            <input id="dev-nowplaying-stream-debug-auto" type="checkbox" /> Auto-open Show Info on tune when debug is enabled (retune_now_playing_stream_debug_auto_show=1)
+                        </label>
+                        <label style="font-size:13px;color:#aaa;">
+                            Forced Client Profile Name
+                            <select id="dev-transcode-profile-name" style="margin-left:8px;padding:6px;">
+                                <option value="">(default)</option>
+                                <option value="HTML TV App">HTML TV App</option>
+                                <option value="Generic">Generic</option>
                             </select>
                         </label>
-	                        <label style="font-size:13px;color:#aaa;">
-	                            <input id="dev-transcode-compat" type="checkbox" /> Compat mode (retune_transcode_compat=1)
-	                        </label>
-	                        <label style="font-size:13px;color:#aaa;">
-	                            <input id="dev-directplay-audio-fallback" type="checkbox" /> Try Direct Play using fallback audio track (retune_direct_play_audio_fallback=1)
-	                        </label>
-	                        <div style="margin-top:6px;font-size:12px;color:#888;">
-	                            Now Playing Stream Debug (overlay)
-	                        </div>
-	                        <label style="font-size:13px;color:#aaa;">
-	                            <input id="dev-nowplaying-stream-debug" type="checkbox" /> Show stream decision in Show Info overlay (retune_now_playing_stream_debug=1)
-	                        </label>
-	                        <label style="font-size:13px;color:#aaa;">
-	                            <input id="dev-nowplaying-stream-debug-auto" type="checkbox" /> Auto-open Show Info on tune when debug is enabled (retune_now_playing_stream_debug_auto_show=1)
-	                        </label>
-	                        <label style="font-size:13px;color:#aaa;">Platform <input id="dev-transcode-platform" style="margin-left:8px;padding:6px;width:220px;" /></label>
-	                        <label style="font-size:13px;color:#aaa;">Platform Version <input id="dev-transcode-platform-version" style="margin-left:8px;padding:6px;width:220px;" /></label>
-	                        <label style="font-size:13px;color:#aaa;">Device <input id="dev-transcode-device" style="margin-left:8px;padding:6px;width:220px;" /></label>
-	                        <label style="font-size:13px;color:#aaa;">Device Name <input id="dev-transcode-device-name" style="margin-left:8px;padding:6px;width:220px;" /></label>
-                        <label style="font-size:13px;color:#aaa;">Model <input id="dev-transcode-model" style="margin-left:8px;padding:6px;width:220px;" /></label>
-                        <label style="font-size:13px;color:#aaa;">Product <input id="dev-transcode-product" style="margin-left:8px;padding:6px;width:220px;" /></label>
-                        <label style="font-size:13px;color:#aaa;">Version <input id="dev-transcode-version" style="margin-left:8px;padding:6px;width:220px;" /></label>
-                        <label style="font-size:13px;color:#aaa;">Forced Profile Name <input id="dev-transcode-profile-name" style="margin-left:8px;padding:6px;width:220px;" /></label>
-                        <label style="font-size:13px;color:#aaa;">Forced Profile Version <input id="dev-transcode-profile-version" style="margin-left:8px;padding:6px;width:220px;" /></label>
                         <div style="display:flex;gap:10px;margin-top:6px;">
                             <button id="dev-transcode-save" style="padding:8px;cursor:pointer;">Save Overrides</button>
                             <button id="dev-transcode-clear" style="padding:8px;cursor:pointer;background:#500;color:#fff;border:none;">Clear Overrides</button>
                         </div>
                         <div style="font-size:12px;color:#888;margin-top:6px;">
-                            Overrides apply only to transcode URL generation; tokens are never shown.
+                            Forced profile affects only transcode URL generation. Tokens are never shown.
                         </div>
                     </div>
                 </details>
-	                <details style="border:1px solid #333;border-radius:8px;padding:10px;">
-	                    <summary style="cursor:pointer;color:#ddd;">Playback Info (PMS Decision)</summary>
-	                        <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
-	                        <div style="display:flex;gap:10px;align-items:center;">
-	                            <button id="dev-playback-refresh" style="padding:8px;cursor:pointer;">Refresh</button>
-	                            <button id="dev-playback-copy-summary" style="padding:8px;cursor:pointer;">Copy Summary</button>
-	                            <button id="dev-playback-copy-raw" style="padding:8px;cursor:pointer;">Copy Raw</button>
-	                            <span style="font-size:12px;color:#888;">Tip: Ctrl+Shift+D (desktop) or run window.retune.toggleDevMenu() in the console</span>
-	                        </div>
-	                        <pre id="dev-playback-info" style="margin:0;max-height:260px;overflow:auto;background:#111;border:1px solid #333;border-radius:6px;padding:10px;color:#ddd;font-size:12px;line-height:1.35;white-space:pre-wrap;"></pre>
-	                        <div style="font-size:12px;color:#888;">
-	                            Shows Retune's local decision and (when transcoding) the server's universal transcode decision.
+                <details style="border:1px solid #333;border-radius:8px;padding:10px;">
+                    <summary style="cursor:pointer;color:#ddd;">Playback Info (PMS Decision)</summary>
+                    <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
+                        <div style="display:flex;gap:10px;align-items:center;">
+                            <button id="dev-playback-refresh" style="padding:8px;cursor:pointer;">Refresh</button>
+                            <button id="dev-playback-copy-summary" style="padding:8px;cursor:pointer;">Copy Summary</button>
+                            <button id="dev-playback-copy-raw" style="padding:8px;cursor:pointer;">Copy Raw</button>
+                            <span style="font-size:12px;color:#888;">Tip: Ctrl+Shift+D (desktop) or run window.retune.toggleDevMenu() in the console</span>
+                        </div>
+                        <pre id="dev-playback-info" style="margin:0;max-height:260px;overflow:auto;background:#111;border:1px solid #333;border-radius:6px;padding:10px;color:#ddd;font-size:12px;line-height:1.35;white-space:pre-wrap;"></pre>
+                        <div style="font-size:12px;color:#888;">
+                            Shows Retune's local decision and (when transcoding) the server's universal transcode decision.
                         </div>
                     </div>
                 </details>
@@ -1097,171 +1207,108 @@ export class App {
             }
         };
 
-        const presetSelect = this._devMenuContainer.querySelector('#dev-transcode-preset') as HTMLSelectElement | null;
-        if (presetSelect) {
-            presetSelect.value = read(RETUNE_STORAGE_KEYS.TRANSCODE_PRESET);
+        const profileNameSelect = this._devMenuContainer.querySelector('#dev-transcode-profile-name') as HTMLSelectElement | null;
+        if (profileNameSelect) {
+            const storedProfileName = read(RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
+            const isSupportedStoredProfileName = Array.from(profileNameSelect.options).some(
+                (option) => option.value === storedProfileName
+            );
+            if (storedProfileName.length > 0 && !isSupportedStoredProfileName) {
+                safeLocalStorageRemove(RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
+                profileNameSelect.value = '';
+            } else {
+                profileNameSelect.value = storedProfileName;
+            }
         }
-	        const compatEl = this._devMenuContainer.querySelector('#dev-transcode-compat') as HTMLInputElement | null;
-	        if (compatEl) {
-	            compatEl.checked = read(RETUNE_STORAGE_KEYS.TRANSCODE_COMPAT) === '1';
-	        }
-	        const directPlayAudioFallbackEl = this._devMenuContainer.querySelector('#dev-directplay-audio-fallback') as HTMLInputElement | null;
-	        if (directPlayAudioFallbackEl) {
-	            directPlayAudioFallbackEl.checked =
-	                read(RETUNE_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK) === '1';
-	        }
-	        const nowPlayingStreamDebugEl = this._devMenuContainer.querySelector('#dev-nowplaying-stream-debug') as HTMLInputElement | null;
-	        if (nowPlayingStreamDebugEl) {
-	            nowPlayingStreamDebugEl.checked =
-	                read(RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG) === '1';
-	        }
-	        const nowPlayingStreamDebugAutoEl = this._devMenuContainer.querySelector('#dev-nowplaying-stream-debug-auto') as HTMLInputElement | null;
-	        if (nowPlayingStreamDebugAutoEl) {
-	            nowPlayingStreamDebugAutoEl.checked =
-	                read(RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW) === '1';
-	        }
+        const directPlayAudioFallbackEl = this._devMenuContainer.querySelector('#dev-directplay-audio-fallback') as HTMLInputElement | null;
+        if (directPlayAudioFallbackEl) {
+            directPlayAudioFallbackEl.checked =
+                read(RETUNE_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK) === '1';
+        }
+        const nowPlayingStreamDebugEl = this._devMenuContainer.querySelector('#dev-nowplaying-stream-debug') as HTMLInputElement | null;
+        if (nowPlayingStreamDebugEl) {
+            nowPlayingStreamDebugEl.checked =
+                read(RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG) === '1';
+        }
+        const nowPlayingStreamDebugAutoEl = this._devMenuContainer.querySelector('#dev-nowplaying-stream-debug-auto') as HTMLInputElement | null;
+        if (nowPlayingStreamDebugAutoEl) {
+            nowPlayingStreamDebugAutoEl.checked =
+                read(RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW) === '1';
+        }
 
-        const setInputValue = (id: string, key: string): void => {
-            const el = this._devMenuContainer!.querySelector(id) as HTMLInputElement | null;
-            if (el) el.value = read(key);
-        };
-        setInputValue('#dev-transcode-platform', RETUNE_STORAGE_KEYS.TRANSCODE_PLATFORM);
-        setInputValue('#dev-transcode-platform-version', RETUNE_STORAGE_KEYS.TRANSCODE_PLATFORM_VERSION);
-        setInputValue('#dev-transcode-device', RETUNE_STORAGE_KEYS.TRANSCODE_DEVICE);
-        setInputValue('#dev-transcode-device-name', RETUNE_STORAGE_KEYS.TRANSCODE_DEVICE_NAME);
-        setInputValue('#dev-transcode-model', RETUNE_STORAGE_KEYS.TRANSCODE_MODEL);
-        setInputValue('#dev-transcode-product', RETUNE_STORAGE_KEYS.TRANSCODE_PRODUCT);
-        setInputValue('#dev-transcode-version', RETUNE_STORAGE_KEYS.TRANSCODE_VERSION);
-        setInputValue('#dev-transcode-profile-name', RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
-        setInputValue('#dev-transcode-profile-version', RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_VERSION);
-
-	        this._devMenuContainer.querySelector('#dev-transcode-save')?.addEventListener('click', () => {
-	            if (presetSelect) writeOrRemove(RETUNE_STORAGE_KEYS.TRANSCODE_PRESET, presetSelect.value);
-	            if (compatEl) {
-	                safeLocalStorageSet(
-	                    RETUNE_STORAGE_KEYS.TRANSCODE_COMPAT,
-	                    compatEl.checked ? '1' : '0'
-	                );
-	            }
-	            if (directPlayAudioFallbackEl) {
-	                safeLocalStorageSet(
-	                    RETUNE_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK,
-	                    directPlayAudioFallbackEl.checked ? '1' : '0'
-	                );
-	            }
-	            if (nowPlayingStreamDebugEl) {
-	                safeLocalStorageSet(
-	                    RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG,
-	                    nowPlayingStreamDebugEl.checked ? '1' : '0'
-	                );
-	            }
-	            if (nowPlayingStreamDebugAutoEl) {
-	                safeLocalStorageSet(
-	                    RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW,
-	                    nowPlayingStreamDebugAutoEl.checked ? '1' : '0'
-	                );
-	            }
-	            const getInput = (id: string): string => {
-	                const el = this._devMenuContainer!.querySelector(id) as HTMLInputElement | null;
-	                return el ? el.value : '';
-	            };
-            writeOrRemove(
-                RETUNE_STORAGE_KEYS.TRANSCODE_PLATFORM,
-                getInput('#dev-transcode-platform')
-            );
-            writeOrRemove(
-                RETUNE_STORAGE_KEYS.TRANSCODE_PLATFORM_VERSION,
-                getInput('#dev-transcode-platform-version')
-            );
-            writeOrRemove(
-                RETUNE_STORAGE_KEYS.TRANSCODE_DEVICE,
-                getInput('#dev-transcode-device')
-            );
-            writeOrRemove(
-                RETUNE_STORAGE_KEYS.TRANSCODE_DEVICE_NAME,
-                getInput('#dev-transcode-device-name')
-            );
-            writeOrRemove(
-                RETUNE_STORAGE_KEYS.TRANSCODE_MODEL,
-                getInput('#dev-transcode-model')
-            );
-            writeOrRemove(
-                RETUNE_STORAGE_KEYS.TRANSCODE_PRODUCT,
-                getInput('#dev-transcode-product')
-            );
-            writeOrRemove(
-                RETUNE_STORAGE_KEYS.TRANSCODE_VERSION,
-                getInput('#dev-transcode-version')
-            );
-            writeOrRemove(
-                RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_NAME,
-                getInput('#dev-transcode-profile-name')
-            );
-            writeOrRemove(
-                RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_VERSION,
-                getInput('#dev-transcode-profile-version')
-            );
-            this._showToast({ message: 'Saved transcode overrides', type: 'success' });
+        this._devMenuContainer.querySelector('#dev-transcode-save')?.addEventListener('click', () => {
+            if (directPlayAudioFallbackEl) {
+                safeLocalStorageSet(
+                    RETUNE_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK,
+                    directPlayAudioFallbackEl.checked ? '1' : '0'
+                );
+            }
+            if (nowPlayingStreamDebugEl) {
+                safeLocalStorageSet(
+                    RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG,
+                    nowPlayingStreamDebugEl.checked ? '1' : '0'
+                );
+            }
+            if (nowPlayingStreamDebugAutoEl) {
+                safeLocalStorageSet(
+                    RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW,
+                    nowPlayingStreamDebugAutoEl.checked ? '1' : '0'
+                );
+            }
+            if (profileNameSelect) {
+                writeOrRemove(RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_NAME, profileNameSelect.value);
+            }
+            this._showToast({ message: 'Saved overrides', type: 'success' });
         });
 
-		        this._devMenuContainer.querySelector('#dev-transcode-clear')?.addEventListener('click', () => {
-		            const ok = window.confirm('Clear transcode overrides?');
-		            if (!ok) return;
-		            const keys = [
-		                'retune_transcode_preset',
-		                'retune_transcode_compat',
-		                'retune_direct_play_audio_fallback',
-		                'retune_now_playing_stream_debug',
-		                'retune_now_playing_stream_debug_auto_show',
-		                'retune_transcode_platform',
-		                'retune_transcode_platform_version',
-		                'retune_transcode_device',
-	                'retune_transcode_device_name',
-	                'retune_transcode_model',
-                'retune_transcode_product',
-                'retune_transcode_version',
-                'retune_transcode_profile_name',
-                'retune_transcode_profile_version',
-            ];
+        this._devMenuContainer.querySelector('#dev-transcode-clear')?.addEventListener('click', () => {
+            const ok = window.confirm('Clear transcode overrides?');
+            if (!ok) return;
+            const keys = [
+                RETUNE_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK,
+                RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG,
+                RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW,
+                RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_NAME,
+            ] as const;
             for (const k of keys) safeLocalStorageRemove(k);
-            this._showToast({ message: 'Cleared transcode overrides', type: 'success' });
+            this._showToast({ message: 'Cleared overrides', type: 'success' });
             // Re-render to reflect cleared state
             this._renderDevMenu();
-	        });
+        });
 
-	        this._devMenuContainer.querySelector('#dev-playback-copy-summary')?.addEventListener('click', async () => {
-	            const pre = this._devMenuContainer?.querySelector('#dev-playback-info') as HTMLPreElement | null;
-	            const text = pre?.dataset?.summary ?? '';
-	            if (!text) {
-	                this._showToast({ message: 'Nothing to copy (refresh first)', type: 'warning' });
-	                return;
-	            }
-	            const ok = await this._copyToClipboard(text);
-	            this._showToast({ message: ok ? 'Copied summary' : 'Copy not supported', type: ok ? 'success' : 'warning' });
-	        });
+        this._devMenuContainer.querySelector('#dev-playback-copy-summary')?.addEventListener('click', async () => {
+            const pre = this._devMenuContainer?.querySelector('#dev-playback-info') as HTMLPreElement | null;
+            const text = pre?.dataset?.summary ?? '';
+            if (!text) {
+                this._showToast({ message: 'Nothing to copy (refresh first)', type: 'warning' });
+                return;
+            }
+            const ok = await this._copyToClipboard(text);
+            this._showToast({ message: ok ? 'Copied summary' : 'Copy not supported', type: ok ? 'success' : 'warning' });
+        });
 
-	        this._devMenuContainer.querySelector('#dev-playback-copy-raw')?.addEventListener('click', async () => {
-	            const pre = this._devMenuContainer?.querySelector('#dev-playback-info') as HTMLPreElement | null;
-	            const text = pre?.dataset?.raw ?? '';
-	            if (!text) {
-	                this._showToast({ message: 'Nothing to copy (refresh first)', type: 'warning' });
-	                return;
-	            }
-	            const ok = await this._copyToClipboard(text);
-	            this._showToast({ message: ok ? 'Copied raw JSON' : 'Copy not supported', type: ok ? 'success' : 'warning' });
-	        });
+        this._devMenuContainer.querySelector('#dev-playback-copy-raw')?.addEventListener('click', async () => {
+            const pre = this._devMenuContainer?.querySelector('#dev-playback-info') as HTMLPreElement | null;
+            const text = pre?.dataset?.raw ?? '';
+            if (!text) {
+                this._showToast({ message: 'Nothing to copy (refresh first)', type: 'warning' });
+                return;
+            }
+            const ok = await this._copyToClipboard(text);
+            this._showToast({ message: ok ? 'Copied raw JSON' : 'Copy not supported', type: ok ? 'success' : 'warning' });
+        });
     }
 
-	    private async _refreshDevPlaybackInfo(): Promise<void> {
-	        if (!this._devMenuContainer || !this._orchestrator) return;
-	        const pre = this._devMenuContainer.querySelector('#dev-playback-info') as HTMLPreElement | null;
-	        if (!pre) return;
+    private async _refreshDevPlaybackInfo(): Promise<void> {
+        if (!this._devMenuContainer || !this._orchestrator) return;
+        const pre = this._devMenuContainer.querySelector('#dev-playback-info') as HTMLPreElement | null;
+        if (!pre) return;
 
-	        pre.textContent = 'Loading...';
-	        pre.dataset.summary = '';
-	        pre.dataset.raw = '';
-	        try {
-	            const snapshot = await this._orchestrator.refreshPlaybackInfoSnapshot();
+        pre.textContent = 'Loading...';
+        pre.dataset.summary = '';
+        pre.dataset.raw = '';
+        try {
+            const snapshot = await this._orchestrator.refreshPlaybackInfoSnapshot();
             const fmtMs = (ms: number): string => {
                 const totalSec = Math.max(0, Math.floor(ms / 1000));
                 const h = Math.floor(totalSec / 3600);
@@ -1349,22 +1396,22 @@ export class App {
                 }
             }
 
-	            lines.push('');
-	            lines.push('RAW');
-	            lines.push('-'.repeat(60));
-	            lines.push(rawJson);
+            lines.push('');
+            lines.push('RAW');
+            lines.push('-'.repeat(60));
+            lines.push(rawJson);
 
-	            pre.textContent = lines.join('\n');
-	            const rawHeaderIdx = lines.findIndex((l) => l === 'RAW');
-	            const summary =
-	                rawHeaderIdx > 0 ? lines.slice(0, Math.max(0, rawHeaderIdx - 1)).join('\n') : pre.textContent;
-	            pre.dataset.summary = summary ?? '';
-	            pre.dataset.raw = rawJson;
-	        } catch (error) {
-	            pre.textContent = `Failed to load playback info: ${error instanceof Error ? error.message : String(error)}`;
-	            pre.dataset.summary = '';
-	            pre.dataset.raw = '';
-	        }
-	    }
+            pre.textContent = lines.join('\n');
+            const rawHeaderIdx = lines.findIndex((l) => l === 'RAW');
+            const summary =
+                rawHeaderIdx > 0 ? lines.slice(0, Math.max(0, rawHeaderIdx - 1)).join('\n') : pre.textContent;
+            pre.dataset.summary = summary ?? '';
+            pre.dataset.raw = rawJson;
+        } catch (error) {
+            pre.textContent = `Failed to load playback info: ${error instanceof Error ? error.message : String(error)}`;
+            pre.dataset.summary = '';
+            pre.dataset.raw = '';
+        }
+    }
 
 }

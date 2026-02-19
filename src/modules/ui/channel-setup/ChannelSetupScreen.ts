@@ -71,7 +71,8 @@ const createDefaultStrategyState = (): SetupStrategyState => ({
 const compareSetupStrategyKeys = (a: SetupStrategyKey, b: SetupStrategyKey): number => {
     const diff = DEFAULT_STRATEGY_PRIORITIES[a] - DEFAULT_STRATEGY_PRIORITIES[b];
     if (diff !== 0) return diff;
-    return String(a).localeCompare(String(b));
+    // Locale-agnostic tie-break for deterministic ordering across devices.
+    return a < b ? -1 : a > b ? 1 : 0;
 };
 
 const createDefaultStrategyOrder = (): SetupStrategyKey[] =>
@@ -1250,7 +1251,7 @@ export class ChannelSetupScreen {
             }
         } catch (error) {
             if (token !== this._visibilityToken) return;
-            if (error && typeof error === 'object' && 'name' in error && (error as { name?: unknown }).name === 'AbortError') {
+            if (isAbortLikeError(error, this._previewAbortController?.signal)) {
                 return;
             }
             this._previewError = error instanceof Error ? error.message : 'Unable to estimate channels.';
@@ -1290,7 +1291,7 @@ export class ChannelSetupScreen {
             this._review = review;
         } catch (error) {
             if (token !== this._visibilityToken) return;
-            if (error && typeof error === 'object' && 'name' in error && (error as { name?: unknown }).name === 'AbortError') {
+            if (isAbortLikeError(error, this._reviewAbortController?.signal)) {
                 return;
             }
             this._reviewError = error instanceof Error ? error.message : 'Unable to load review.';

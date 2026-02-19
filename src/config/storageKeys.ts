@@ -14,6 +14,13 @@ export const RETUNE_STORAGE_KEYS = {
     DTS_PASSTHROUGH: 'retune_enable_dts_passthrough',
     DIRECT_PLAY_AUDIO_FALLBACK: 'retune_direct_play_audio_fallback',
     KEEP_PLAYING_IN_SETTINGS: 'retune_keep_playing_in_settings',
+
+    // Transcoding (user-facing)
+    /** Transcode request parameter compatibility mode (advanced) */
+    TRANSCODE_COMPAT: 'retune_transcode_compat',
+    /** Max transcode quality override (see src/config/transcodeQuality.ts) */
+    TRANSCODE_QUALITY: 'retune_transcode_quality',
+
     // Display / HDR / Dolby Vision
     SMART_HDR10_FALLBACK: 'retune_smart_hdr10_fallback',
     FORCE_HDR10_FALLBACK: 'retune_force_hdr10_fallback',
@@ -56,15 +63,6 @@ export const RETUNE_STORAGE_KEYS = {
     SHOW_FPS: 'retune_show_fps',
 
     // Dev menu overrides (transcode)
-    TRANSCODE_COMPAT: 'retune_transcode_compat',
-    TRANSCODE_PRESET: 'retune_transcode_preset',
-    TRANSCODE_PLATFORM: 'retune_transcode_platform',
-    TRANSCODE_PLATFORM_VERSION: 'retune_transcode_platform_version',
-    TRANSCODE_DEVICE: 'retune_transcode_device',
-    TRANSCODE_DEVICE_NAME: 'retune_transcode_device_name',
-    TRANSCODE_MODEL: 'retune_transcode_model',
-    TRANSCODE_PRODUCT: 'retune_transcode_product',
-    TRANSCODE_VERSION: 'retune_transcode_version',
+    /** Force Plex transcode profile matching (dev-only; not user-facing). */
     TRANSCODE_PROFILE_NAME: 'retune_transcode_profile_name',
-    TRANSCODE_PROFILE_VERSION: 'retune_transcode_profile_version',
 } as const;

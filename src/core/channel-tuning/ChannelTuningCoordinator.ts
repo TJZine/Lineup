@@ -19,6 +19,9 @@ import type {
 } from '../../modules/scheduler/scheduler';
 import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
 
+export type { ChannelSwitchOutcome } from '../../types/channelSwitch';
+import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
+
 export interface ChannelTuningCoordinatorDeps {
     getChannelManager: () => IChannelManager | null;
     getScheduler: () => IChannelScheduler | null;
@@ -46,8 +49,8 @@ export interface ChannelTuningCoordinatorDeps {
 interface QueuedSwitchRequest {
     channelId: string;
     signal: AbortSignal | undefined;
-    completion: Promise<void>;
-    resolve: () => void;
+    completion: Promise<ChannelSwitchOutcome>;
+    resolve: (outcome: ChannelSwitchOutcome) => void;
     reject: (error: unknown) => void;
 }
 
@@ -73,20 +76,23 @@ export class ChannelTuningCoordinator {
      * - The returned promise is bound to the caller's own request.
      *
      * Promise semantics:
-     * - If the caller-provided AbortSignal is aborted, the promise resolves (no-op) and no switch occurs.
+     * - If the caller-provided AbortSignal is aborted, resolves with outcome 'aborted' and no switch occurs.
      * - If a pending request is superseded by a newer request, the superseded request rejects with AbortError.
      */
-    async switchToChannel(channelId: string, options?: { signal?: AbortSignal }): Promise<void> {
+    async switchToChannel(
+        channelId: string,
+        options?: { signal?: AbortSignal }
+    ): Promise<ChannelSwitchOutcome> {
         const channelManager = this.deps.getChannelManager();
         const scheduler = this.deps.getScheduler();
         const videoPlayer = this.deps.getVideoPlayer();
         if (!channelManager || !scheduler || !videoPlayer) {
             console.error('Modules not initialized');
-            return;
+            return 'failed';
         }
 
         if (options?.signal?.aborted) {
-            return;
+            return 'aborted';
         }
 
         const request = this._createSwitchRequest(channelId, options?.signal);
@@ -121,9 +127,9 @@ export class ChannelTuningCoordinator {
         channelId: string,
         signal: AbortSignal | undefined
     ): QueuedSwitchRequest {
-        let resolveFn: () => void = () => undefined;
+        let resolveFn: (outcome: ChannelSwitchOutcome) => void = () => undefined;
         let rejectFn: (error: unknown) => void = () => undefined;
-        const completion = new Promise<void>((resolve, reject) => {
+        const completion = new Promise<ChannelSwitchOutcome>((resolve, reject) => {
             resolveFn = resolve;
             rejectFn = reject;
         });
@@ -157,20 +163,20 @@ export class ChannelTuningCoordinator {
                 request = null;
 
                 if (current.signal?.aborted) {
-                    current.resolve();
+                    current.resolve('aborted');
                     request = this._takePendingSwitch();
                     continue;
                 }
 
                 try {
-                    await this._runSingleSwitch(
+                    const outcome = await this._runSingleSwitch(
                         current.channelId,
                         channelManager,
                         scheduler,
                         videoPlayer,
                         current.signal
                     );
-                    current.resolve();
+                    current.resolve(outcome);
                 } catch (error: unknown) {
                     failures.push(error);
                     current.reject(error);
@@ -201,9 +207,9 @@ export class ChannelTuningCoordinator {
         scheduler: IChannelScheduler,
         videoPlayer: IVideoPlayer,
         signal: AbortSignal | undefined
-    ): Promise<void> {
+    ): Promise<ChannelSwitchOutcome> {
         if (signal?.aborted) {
-            return;
+            return 'aborted';
         }
 
         // New channel = new playback attempt; unblock any prior fast-fail guard.
@@ -222,7 +228,7 @@ export class ChannelTuningCoordinator {
                     },
                     'switchToChannel'
                 );
-                return;
+                return 'failed';
             }
 
             // Resolve channel content BEFORE stopping player
@@ -234,7 +240,7 @@ export class ChannelTuningCoordinator {
                 });
             } catch (error: unknown) {
                 if (isAbortLikeError(error, signal)) {
-                    return;
+                    return 'aborted';
                 }
 
                 console.error('Failed to resolve channel content:', summarizeErrorForLog(error));
@@ -266,11 +272,11 @@ export class ChannelTuningCoordinator {
                         'switchToChannel'
                     );
                 }
-                return;
+                return 'failed';
             }
 
             if (signal?.aborted) {
-                return;
+                return 'aborted';
             }
 
             // Only stop player after successful content resolution
@@ -308,15 +314,43 @@ export class ChannelTuningCoordinator {
                 scheduler.syncToCurrentTime();
                 didRequestProgramStart = true;
             } catch (error: unknown) {
-                console.error('Failed to sync schedule time:', summarizeErrorForLog(error));
-                throw error;
+                const summary = summarizeErrorForLog(error);
+                console.error('Failed to sync schedule time:', summary);
+                this.deps.handleGlobalError(
+                    {
+                        code: AppErrorCode.CONTENT_UNAVAILABLE,
+                        message: 'Unable to start scheduled playback.',
+                        recoverable: true,
+                        context: {
+                            operation: 'switchToChannel',
+                            channelId,
+                            step: 'scheduler.syncToCurrentTime',
+                            error: summary,
+                        },
+                    },
+                    'switchToChannel'
+                );
+                try {
+                    scheduler.unloadChannel();
+                } catch (cleanupError: unknown) {
+                    console.warn(
+                        'Failed to unload schedule after sync failure:',
+                        summarizeErrorForLog(cleanupError)
+                    );
+                }
+                return 'failed';
             }
 
             // Update current channel
             channelManager.setCurrentChannel(channelId);
 
             // Save state
-            await this.deps.saveLifecycleState();
+            try {
+                await this.deps.saveLifecycleState();
+            } catch (error: unknown) {
+                console.warn('Failed to save lifecycle state:', summarizeErrorForLog(error));
+            }
+            return 'switched';
         } finally {
             if (!didRequestProgramStart && this.deps.getPendingNowPlayingChannelId() === channelId) {
                 this.deps.setPendingNowPlayingChannelId(null);
@@ -324,11 +358,14 @@ export class ChannelTuningCoordinator {
         }
     }
 
-    async switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void> {
+    async switchToChannelByNumber(
+        number: number,
+        options?: { signal?: AbortSignal }
+    ): Promise<ChannelSwitchOutcome> {
         const channelManager = this.deps.getChannelManager();
         if (!channelManager) {
             console.error('Channel manager not initialized');
-            return;
+            return 'failed';
         }
 
         const channel = channelManager.getChannelByNumber(number);
@@ -345,9 +382,17 @@ export class ChannelTuningCoordinator {
                 },
                 'switchToChannelByNumber'
             );
-            return;
+            return 'failed';
         }
 
-        await this.switchToChannel(channel.id, options);
+        try {
+            return await this.switchToChannel(channel.id, options);
+        } catch (error: unknown) {
+            if (isAbortLikeError(error, options?.signal)) {
+                return 'aborted';
+            }
+            console.error('Failed to switch by channel number:', summarizeErrorForLog(error));
+            return 'failed';
+        }
     }
 }

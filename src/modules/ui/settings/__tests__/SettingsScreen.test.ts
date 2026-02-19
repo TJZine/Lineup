@@ -344,6 +344,61 @@ describe('SettingsScreen (Two-pane layout)', () => {
     });
 });
 
+describe('SettingsScreen (Transcode controls)', () => {
+    beforeEach(() => {
+        localStorage.removeItem(SETTINGS_STORAGE_KEYS.TRANSCODE_COMPAT);
+        localStorage.removeItem(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY);
+    });
+
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    it('writes transcode compat toggle', () => {
+        const { container, screen } = createScreen(jest.fn());
+
+        screen.show();
+        activateCategory(container, 'playback_hdr');
+
+        const toggle = container.querySelector('#settings-transcode-compat') as HTMLButtonElement | null;
+        if (!toggle) {
+            throw new Error('Transcode compat toggle not found');
+        }
+
+        toggle.click();
+
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.TRANSCODE_COMPAT)).toBe('1');
+    });
+
+    it('writes transcode quality select', () => {
+        const { container, screen } = createScreen(jest.fn());
+
+        screen.show();
+        activateCategory(container, 'playback_hdr');
+
+        const select = container.querySelector('#settings-transcode-quality') as HTMLButtonElement | null;
+        if (!select) {
+            throw new Error('Transcode quality select not found');
+        }
+
+        select.click();
+
+        // Click cycles from Default -> first cap tier.
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY)).toBe('12000-1080p');
+    });
+
+    it('loads stored transcode quality on show', () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY, '12000-1080p');
+        const { container, screen } = createScreen(jest.fn());
+
+        screen.show();
+        activateCategory(container, 'playback_hdr');
+
+        const value = container.querySelector('#settings-transcode-quality .setup-toggle-value');
+        expect(value?.textContent?.trim()).toBe('12 Mbps (1080p)');
+    });
+});
+
 describe('SettingsScreen (Theme selection)', () => {
     beforeEach(() => {
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.THEME);

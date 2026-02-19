@@ -739,7 +739,7 @@ describe('PlexStreamResolver', () => {
             expect(url).toContain('start.m3u8');
         });
 
-        it('preserves identity precedence: override > existing params > platform defaults', () => {
+        it('preserves identity precedence: auth headers > platform defaults', () => {
             const identityService: PlatformIdentityService = {
                 isWebOs: jest.fn(() => true),
                 detectPlatformVersion: jest.fn(() => '99.1'),
@@ -754,13 +754,6 @@ describe('PlexStreamResolver', () => {
                     'X-Plex-Model': 'ServiceModel',
                 })),
             };
-            Object.defineProperty(globalThis, 'localStorage', {
-                value: {
-                    getItem: (key: string) =>
-                        key === 'retune_transcode_platform' ? 'OverridePlatform' : null,
-                },
-                configurable: true,
-            });
             const config = createMockConfig({
                 getAuthHeaders: () => ({
                     'X-Plex-Token': 'mock-token',
@@ -773,7 +766,7 @@ describe('PlexStreamResolver', () => {
 
             const parsed = new URL(resolver.getTranscodeUrl('12345', {}));
 
-            expect(parsed.searchParams.get('X-Plex-Platform')).toBe('OverridePlatform');
+            expect(parsed.searchParams.get('X-Plex-Platform')).toBe('HeaderPlatform');
             expect(parsed.searchParams.get('X-Plex-Model')).toBe('HeaderModel');
             expect(parsed.searchParams.get('X-Plex-Product')).toBe('ServiceProduct');
             expect(parsed.searchParams.get('X-Plex-Platform-Version')).toBe('99.1');
@@ -845,6 +838,76 @@ describe('PlexStreamResolver', () => {
             expect(parsed.searchParams.get('subtitles')).toBe('none');
             expect(parsed.searchParams.get('subtitleStreamID')).toBe('0');
             expect(parsed.searchParams.get('subtitleFormat')).toBe('none');
+        });
+
+        it('applies transcode quality cap from storage', () => {
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: (key: string) =>
+                        key === RETUNE_STORAGE_KEYS.TRANSCODE_QUALITY ? '4000-720p' : null,
+                },
+                configurable: true,
+            });
+
+            const config = createMockConfig();
+            const resolver = new PlexStreamResolver(config);
+
+            const url = resolver.getTranscodeUrl('12345', {});
+            const parsed = new URL(url);
+
+            expect(parsed.searchParams.get('maxVideoBitrate')).toBe('4000');
+            expect(parsed.searchParams.get('videoQuality')).toBe('100');
+            expect(parsed.searchParams.get('videoResolution')).toBe('1280x720');
+        });
+
+        it('explicit maxBitrate wins over storage cap when lower', () => {
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: (key: string) =>
+                        key === RETUNE_STORAGE_KEYS.TRANSCODE_QUALITY ? '4000-720p' : null,
+                },
+                configurable: true,
+            });
+
+            const config = createMockConfig();
+            const resolver = new PlexStreamResolver(config);
+
+            const url = resolver.getTranscodeUrl('12345', { maxBitrate: 1500 });
+            const parsed = new URL(url);
+
+            expect(parsed.searchParams.get('maxVideoBitrate')).toBe('1500');
+            expect(parsed.searchParams.get('videoQuality')).toBe('100');
+            expect(parsed.searchParams.get('videoResolution')).toBe('1280x720');
+        });
+
+        it('applies compat mode and quality cap together', () => {
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: (key: string) => {
+                        if (key === RETUNE_STORAGE_KEYS.TRANSCODE_COMPAT) {
+                            return '1';
+                        }
+                        if (key === RETUNE_STORAGE_KEYS.TRANSCODE_QUALITY) {
+                            return '2000-720p';
+                        }
+                        return null;
+                    },
+                },
+                configurable: true,
+            });
+
+            const config = createMockConfig();
+            const resolver = new PlexStreamResolver(config);
+
+            const url = resolver.getTranscodeUrl('12345', {});
+            const parsed = new URL(url);
+
+            expect(parsed.searchParams.get('subtitles')).toBe('none');
+            expect(parsed.searchParams.get('subtitleStreamID')).toBe('0');
+            expect(parsed.searchParams.get('subtitleFormat')).toBe('none');
+            expect(parsed.searchParams.get('maxVideoBitrate')).toBe('2000');
+            expect(parsed.searchParams.get('videoQuality')).toBe('100');
+            expect(parsed.searchParams.get('videoResolution')).toBe('1280x720');
         });
 
         it('should throw when no server URI is available', () => {

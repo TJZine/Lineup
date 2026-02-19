@@ -21,6 +21,7 @@ import {
     type LifecycleEventMap,
 } from './modules/lifecycle';
 import { STORAGE_KEYS } from './types';
+import type { ChannelSwitchOutcome } from './types/channelSwitch';
 import {
     NavigationManager,
     type INavigationManager,
@@ -913,7 +914,11 @@ export class AppOrchestrator implements IAppOrchestrator {
             },
             switchToNextChannel: (): void => this._switchToNextChannel(),
             switchToPreviousChannel: (): void => this._switchToPreviousChannel(),
-            switchToChannelByNumber: (n: number): Promise<void> => this.switchToChannelByNumber(n),
+            switchToChannelByNumber: (n: number): Promise<ChannelSwitchOutcome> =>
+                this._switchToChannelByNumberWithOutcome(n),
+            focusEpgOnCurrentChannel: (): void => {
+                this._epgCoordinator?.focusEpgOnCurrentChannel();
+            },
             toggleEpg: (): void => this.toggleEPG(),
             shouldRunChannelSetup: (): boolean => this._channelSetup?.shouldRunChannelSetup() ?? false,
             hidePlayerOsd: (): void => {
@@ -1497,7 +1502,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             return;
         }
 
-        return this._channelTuning.switchToChannel(channelId, options);
+        await this._channelTuning.switchToChannel(channelId, options);
     }
 
     /**
@@ -1512,7 +1517,29 @@ export class AppOrchestrator implements IAppOrchestrator {
             return;
         }
 
-        return this._channelTuning.switchToChannelByNumber(number, options);
+        await this._channelTuning.switchToChannelByNumber(number, options);
+    }
+
+    private async _switchToChannelByNumberWithOutcome(
+        number: number,
+        options?: { signal?: AbortSignal }
+    ): Promise<ChannelSwitchOutcome> {
+        if (!this._channelTuning) {
+            if (!this._channelManager || !this._scheduler || !this._videoPlayer) {
+                console.error('Modules not initialized');
+            }
+            return 'failed';
+        }
+
+        try {
+            return await this._channelTuning.switchToChannelByNumber(number, options);
+        } catch (error: unknown) {
+            if (isAbortLikeError(error, options?.signal)) {
+                return 'aborted';
+            }
+            console.error('switchToChannelByNumberWithOutcome failed:', summarizeErrorForLog(error));
+            return 'failed';
+        }
     }
 
     /**

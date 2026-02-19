@@ -21,6 +21,7 @@ import { readStoredBoolean, safeLocalStorageGet, safeLocalStorageRemove, safeLoc
 import { ThemeManager } from '../theme';
 import { getSubtitleMode, setSubtitleMode, type SubtitleMode } from '../../../shared/subtitle-mode';
 import { dispatchDebugLoggingChanged } from '../../../config/events';
+import { TRANSCODE_QUALITY_OPTIONS } from '../../../config/transcodeQuality';
 
 const SUBTITLE_LANGUAGE_OPTIONS: Array<{ label: string; code: string | null }> = [
     { label: 'Auto (Plex)', code: null },
@@ -73,6 +74,10 @@ const TOGGLE_METADATA: Record<string, ToggleMetadata> = {
         storageKey: SETTINGS_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS,
         defaultValue: DEFAULT_SETTINGS.playback.keepPlayingInSettings,
     },
+    'settings-transcode-compat': {
+        storageKey: SETTINGS_STORAGE_KEYS.TRANSCODE_COMPAT,
+        defaultValue: false,
+    },
     'settings-debug-logging': {
         storageKey: SETTINGS_STORAGE_KEYS.DEBUG_LOGGING,
         defaultValue: DEFAULT_SETTINGS.developer.debugLogging,
@@ -122,6 +127,10 @@ const SELECT_METADATA: Record<string, SelectMetadata> = {
     },
     'settings-hdr10-fallback-mode': {
         storageKey: SETTINGS_STORAGE_KEYS.SMART_HDR10_FALLBACK,
+        defaultValue: 0,
+    },
+    'settings-transcode-quality': {
+        storageKey: SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY,
         defaultValue: 0,
     },
     'settings-epg-layout-mode': {
@@ -265,6 +274,8 @@ export class SettingsScreen {
             SETTINGS_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS,
             DEFAULT_SETTINGS.playback.keepPlayingInSettings
         );
+        const transcodeCompat = this._loadBoolSetting(SETTINGS_STORAGE_KEYS.TRANSCODE_COMPAT, false);
+        const transcodeQualityValue = this._loadTranscodeQualityValue();
         const hdr10FallbackValue = this._readHdr10FallbackSelectValue();
         const subtitleModeValue = this._loadSubtitleModeValue();
         const subtitleMode = this._valueToSubtitleMode(subtitleModeValue);
@@ -377,6 +388,28 @@ export class SettingsScreen {
                         ],
                         onChange: (value: number) =>
                             this._applyHdr10FallbackSelectValue(value as 0 | 1 | 2),
+                    },
+                    {
+                        id: 'settings-transcode-quality',
+                        label: 'Transcode Quality',
+                        description: 'Caps Plex transcoding bitrate/resolution (Direct Play is unaffected)',
+                        value: transcodeQualityValue,
+                        options: TRANSCODE_QUALITY_OPTIONS.map((option, index) => ({
+                            label: option.label,
+                            value: index,
+                        })),
+                        onChange: (value: number): void => {
+                            this._saveTranscodeQualityValue(value);
+                        },
+                    },
+                    {
+                        id: 'settings-transcode-compat',
+                        label: 'Transcode Compat Mode',
+                        description: 'Advanced: only use if transcoding fails; sends a minimal parameter set to Plex',
+                        value: transcodeCompat,
+                        onChange: (value: boolean): void => {
+                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.TRANSCODE_COMPAT, value);
+                        },
                     },
                 ],
             },
@@ -881,6 +914,27 @@ export class SettingsScreen {
         safeLocalStorageSet(key, String(value));
     }
 
+    private _loadTranscodeQualityValue(): number {
+        const stored = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY) ?? '';
+        const matchIndex = TRANSCODE_QUALITY_OPTIONS.findIndex((option) => option.storageValue === stored);
+        if (matchIndex >= 0) {
+            return matchIndex;
+        }
+        if (stored) {
+            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY);
+        }
+        return 0;
+    }
+
+    private _saveTranscodeQualityValue(value: number): void {
+        const option = TRANSCODE_QUALITY_OPTIONS[value] ?? TRANSCODE_QUALITY_OPTIONS[0];
+        if (!option || option.storageValue.length === 0) {
+            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY);
+            return;
+        }
+        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY, option.storageValue);
+    }
+
     private _notifyDebugLoggingChanged(enabled: boolean): void {
         dispatchDebugLoggingChanged(enabled);
     }
@@ -966,6 +1020,7 @@ export class SettingsScreen {
             'settings-subtitle-mode': () => this._loadSubtitleModeValue(),
             'settings-subtitle-language': () => this._loadSubtitleLanguageValue(),
             'settings-hdr10-fallback-mode': () => this._readHdr10FallbackSelectValue(),
+            'settings-transcode-quality': () => this._loadTranscodeQualityValue(),
             'settings-epg-density': () => this._loadEpgGuideDensityValue(),
             'settings-epg-layout-mode': () => this._loadEpgLayoutModeValue(),
         };

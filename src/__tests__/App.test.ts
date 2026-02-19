@@ -114,6 +114,7 @@ describe('App bootstrap smoke', () => {
     let nowPlayingHandler: ((toast: unknown) => void) | null = null;
     const lifecycleHandlers = new Map<string, (payload: unknown) => void>();
     let screenChangeHandler: ((from: string, to: string) => void) | null = null;
+    let appShellErrorHandler: ((error: { code: string; message: string; recoverable: boolean }) => boolean) | null = null;
 
     beforeEach(() => {
         localStorage.clear();
@@ -137,7 +138,12 @@ describe('App bootstrap smoke', () => {
         getRecoveryActionsSpy = jest.spyOn(AppOrchestrator.prototype, 'getRecoveryActions').mockReturnValue([]);
         settingsScreenChunkLoaded.mockClear();
         channelSetupScreenChunkLoaded.mockClear();
-        jest.spyOn(AppOrchestrator.prototype, 'registerErrorHandler').mockImplementation(() => undefined);
+        appShellErrorHandler = null;
+        jest.spyOn(AppOrchestrator.prototype, 'registerErrorHandler').mockImplementation((moduleId, handler) => {
+            if (moduleId === 'app-shell') {
+                appShellErrorHandler = handler as never;
+            }
+        });
         nowPlayingHandler = null;
         lifecycleHandlers.clear();
         jest.spyOn(AppOrchestrator.prototype, 'setNowPlayingHandler').mockImplementation((handler) => {
@@ -384,9 +390,65 @@ describe('App bootstrap smoke', () => {
 
         const retry = overlay?.querySelector('button.error-button.primary') as HTMLButtonElement | null;
         expect(retry).not.toBeNull();
+        expect(document.activeElement).toBe(retry);
         retry!.click();
         expect(action).toHaveBeenCalledTimes(1);
         expect(overlay?.classList.contains('hidden')).toBe(true);
+    });
+
+    it.each([
+        ['CHANNEL_NOT_FOUND', 'That channel is unavailable.'],
+        ['SCHEDULER_EMPTY_CHANNEL', 'No scheduled content is available for that channel.'],
+        ['CONTENT_UNAVAILABLE', 'That content is unavailable right now.'],
+        ['RESOURCE_NOT_FOUND', 'Requested content could not be found.'],
+    ])(
+        'app-shell error handler suppresses blocking overlay for recoverable code %s',
+        async (code, expectedMessage) => {
+            app = new App();
+            await app.start();
+
+            app.showErrorOverlay({
+                code: 'TEST_ERROR',
+                message: 'Boom',
+                userMessage: 'Something failed',
+                recoverable: true,
+                phase: 'error',
+                timestamp: Date.now(),
+                actions: [],
+            } as never);
+
+            const overlay = document.getElementById('error-overlay') as HTMLElement | null;
+            expect(overlay?.classList.contains('hidden')).toBe(false);
+
+            expect(appShellErrorHandler).not.toBeNull();
+            const handled = appShellErrorHandler?.({
+                code,
+                message: 'x',
+                recoverable: true,
+            });
+
+            expect(handled).toBe(true);
+            expect(overlay?.classList.contains('hidden')).toBe(true);
+
+            const toast = document.getElementById('app-toast') as HTMLElement | null;
+            expect(toast?.textContent ?? '').toContain(expectedMessage);
+        }
+    );
+
+    it('app-shell error handler still shows overlay for auth-required blocking errors', async () => {
+        app = new App();
+        await app.start();
+
+        expect(appShellErrorHandler).not.toBeNull();
+        const handled = appShellErrorHandler?.({
+            code: 'AUTH_REQUIRED',
+            message: 'x',
+            recoverable: true,
+        });
+
+        expect(handled).toBe(false);
+        const overlay = document.getElementById('error-overlay') as HTMLElement | null;
+        expect(overlay?.classList.contains('hidden')).toBe(false);
     });
 
     it('shows, throttles, and hides toasts via orchestrator hooks', async () => {
@@ -546,7 +608,17 @@ describe('App bootstrap smoke', () => {
             .fn()
             .mockReturnValueOnce({ allowAutoConnect: true })
             .mockReturnValueOnce({});
-        jest.spyOn(AppOrchestrator.prototype, 'getNavigation').mockReturnValue({ getScreenParams } as never);
+        jest.spyOn(AppOrchestrator.prototype, 'getNavigation').mockReturnValue({
+            getScreenParams,
+            openModal: jest.fn(),
+            closeModal: jest.fn(),
+            isModalOpen: jest.fn().mockReturnValue(false),
+            registerFocusable: jest.fn(),
+            unregisterFocusable: jest.fn(),
+            setFocus: jest.fn(),
+            on: jest.fn(),
+            off: jest.fn(),
+        } as never);
 
         app = new App();
         await app.start();
