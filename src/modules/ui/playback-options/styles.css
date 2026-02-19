@@ -166,8 +166,7 @@
   cursor: default;
 }
 
-.playback-options-item:disabled,
-.playback-options-item[disabled] {
+.playback-options-item:disabled {
   opacity: 0.4;
   cursor: not-allowed;
   pointer-events: none;

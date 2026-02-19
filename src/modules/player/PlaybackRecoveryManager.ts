@@ -407,7 +407,7 @@ export class PlaybackRecoveryManager {
         // stale stream.default values during fallback (e.g. TrueHD -> AAC), and downstream
         // track selection uses the default flag to determine active audio.
         const selectedAudioId = decision.selectedAudioStream?.id;
-        if (selectedAudioId) {
+        if (selectedAudioId && audioTracks.some((track) => track.id === selectedAudioId)) {
             for (const track of audioTracks) {
                 track.default = track.id === selectedAudioId;
             }

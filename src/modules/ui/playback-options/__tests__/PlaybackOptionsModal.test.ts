@@ -112,7 +112,7 @@ describe('PlaybackOptionsModal', () => {
 
         const items = container.querySelectorAll('.playback-options-item');
         const oldItems = container.querySelectorAll('.setup-toggle');
-        expect(items.length).toBeGreaterThan(0);
+        expect(items.length).toBe(4);
         expect(oldItems.length).toBe(0);
     });
 

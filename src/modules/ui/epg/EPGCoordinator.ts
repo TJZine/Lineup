@@ -52,6 +52,7 @@ const EPG_BACKGROUND_WARM_MAX_QUEUED_AGGRESSIVE = 220;
 const EPG_BACKGROUND_WARM_IDLE_TIMEOUT_MS = 120;
 const EPG_BACKGROUND_WARM_TIMER_DELAY_MS = 24;
 const EPG_BACKGROUND_WARM_BACKPRESSURE_DELAY_MS = 120;
+const EPG_BACKGROUND_DEBUG_LOG_EVERY_N = 20;
 const DEFAULT_GUIDE_DENSITY: 'detailed' | 'wide' = 'detailed';
 const DETAILED_VISIBLE_HOURS = 2;
 const WIDE_VISIBLE_HOURS = 3;
@@ -98,6 +99,17 @@ export class EPGCoordinator {
     private _backgroundWarmQueueState: BackgroundWarmQueueState | null = null;
     private _backgroundWarmQueueTimer: ReturnType<typeof setTimeout> | null = null;
     private _backgroundWarmQueueIdleHandle: number | null = null;
+    private _backgroundDebugState: {
+        refreshId: number;
+        rangeKey: string;
+        refreshStartedAt: number;
+        logCount: number;
+        immediateLoadedCount: number;
+        backgroundLoadedCount: number;
+        cacheHits: number;
+        cacheMisses: number;
+        firstVisibleScheduleReadyMs: number | null;
+    } | null = null;
 
     constructor(private readonly deps: EPGCoordinatorDeps) { }
 
@@ -789,6 +801,7 @@ export class EPGCoordinator {
     }
 
     private _cancelBackgroundWarmQueue(reason: string): void {
+        const previousWarmState = this._backgroundWarmQueueState;
         this._backgroundWarmQueueState = null;
 
         if (this._backgroundWarmQueueTimer) {
@@ -806,6 +819,31 @@ export class EPGCoordinator {
 
         if (this._isDebugEnabled()) {
             appendEpgDebugLog('EPG.backgroundWarmQueue.cancel', { reason });
+        }
+
+        if (
+            previousWarmState &&
+            this._backgroundDebugState &&
+            this._backgroundDebugState.refreshId === previousWarmState.refreshId &&
+            reason === 'warm-queue-complete' &&
+            this._isDebugEnabled()
+        ) {
+            const cacheHitRatio =
+                this._backgroundDebugState.cacheHits /
+                Math.max(1, this._backgroundDebugState.cacheHits + this._backgroundDebugState.cacheMisses);
+            appendEpgDebugLog('EPG.refreshEpgSchedulesForRange.background', {
+                refreshId: this._backgroundDebugState.refreshId,
+                rangeKey: this._backgroundDebugState.rangeKey,
+                rangeRefreshDurationMs: Date.now() - this._backgroundDebugState.refreshStartedAt,
+                immediateLoadedCount: this._backgroundDebugState.immediateLoadedCount,
+                backgroundLoadedCount: this._backgroundDebugState.backgroundLoadedCount,
+                cacheHitRatio,
+                firstVisibleScheduleReadyMs: this._backgroundDebugState.firstVisibleScheduleReadyMs,
+            });
+        }
+
+        if (previousWarmState && this._backgroundDebugState?.refreshId === previousWarmState.refreshId) {
+            this._backgroundDebugState = null;
         }
     }
 
@@ -964,6 +1002,7 @@ export class EPGCoordinator {
         );
         this._pruneScheduleCache(Date.now());
 
+        const debugEnabled = this._isDebugEnabled();
         let cacheHits = 0;
         let staleCacheHits = 0;
         let cacheMisses = 0;
@@ -977,6 +1016,22 @@ export class EPGCoordinator {
             channels.length,
             immediateChannels.length
         );
+
+        if (debugEnabled && backgroundChannels.length > 0) {
+            this._backgroundDebugState = {
+                refreshId,
+                rangeKey,
+                refreshStartedAt,
+                logCount: 0,
+                immediateLoadedCount: 0,
+                backgroundLoadedCount: 0,
+                cacheHits: 0,
+                cacheMisses: 0,
+                firstVisibleScheduleReadyMs: null,
+            };
+        } else if (this._backgroundDebugState?.refreshId === refreshId) {
+            this._backgroundDebugState = null;
+        }
 
         const applySchedule = (
             channelId: string,
@@ -998,25 +1053,35 @@ export class EPGCoordinator {
                 }
                 epg.loadScheduleForChannel(channelId, schedule);
             }
+            if (phase === 'background' && debugEnabled && this._backgroundDebugState?.refreshId === refreshId) {
+                const state = this._backgroundDebugState;
+                state.immediateLoadedCount = immediateLoadedCount;
+                state.backgroundLoadedCount = backgroundLoadedCount;
+                state.cacheHits = cacheHits;
+                state.cacheMisses = cacheMisses;
+                state.firstVisibleScheduleReadyMs = firstVisibleScheduleReadyMs;
+                state.logCount += 1;
+
+                if (state.logCount % EPG_BACKGROUND_DEBUG_LOG_EVERY_N === 0) {
+                    const cacheHitRatio = cacheHits / Math.max(1, cacheHits + cacheMisses);
+                    appendEpgDebugLog('EPG.refreshEpgSchedulesForRange.background', {
+                        refreshId,
+                        rangeKey,
+                        rangeRefreshDurationMs: Date.now() - refreshStartedAt,
+                        immediateLoadedCount,
+                        backgroundLoadedCount,
+                        cacheHitRatio,
+                        firstVisibleScheduleReadyMs,
+                    });
+                }
+            }
+
             if (options?.updateCache === false) {
                 return;
             }
             this._storeScheduleCache(channelId, rangeKey, schedule);
             if (shouldApplyToUi) {
                 this._markScheduleLoaded(channelId, rangeKey);
-            }
-
-            if (phase === 'background' && this._isDebugEnabled()) {
-                const cacheHitRatio = cacheHits / Math.max(1, cacheHits + cacheMisses);
-                appendEpgDebugLog('EPG.refreshEpgSchedulesForRange.background', {
-                    refreshId,
-                    rangeKey,
-                    rangeRefreshDurationMs: Date.now() - refreshStartedAt,
-                    immediateLoadedCount,
-                    backgroundLoadedCount,
-                    cacheHitRatio,
-                    firstVisibleScheduleReadyMs,
-                });
             }
         };
 
@@ -1078,8 +1143,8 @@ export class EPGCoordinator {
                     applySchedule(channel.id, cachedSchedule, { updateCache: false, phase });
                     staleCacheHits += 1;
                 } else {
-                    applySchedule(channel.id, cachedSchedule, { phase });
                     cacheHits += 1;
+                    applySchedule(channel.id, cachedSchedule, { phase });
                     return;
                 }
             }

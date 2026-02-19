@@ -20,8 +20,8 @@
   --panel-surface: rgb(6 10 18 / 92%);
   --panel-surface-2: rgba(10, 14, 22, 0.94);
   --panel-surface-2: rgb(10 14 22 / 94%);
-  --panel-border: 1px solid rgba(255, 255, 255, 0.1);
-  --panel-border: 1px solid rgb(255 255 255 / 10%);
+  --panel-border: 1px solid rgba(255, 255, 255, 0.18);
+  --panel-border: 1px solid rgb(255 255 255 / 18%);
   --panel-radius: 0px;
   --panel-inner-glow: linear-gradient(180deg, rgba(229, 160, 13, 0.04), transparent);
   --panel-inner-glow: linear-gradient(180deg, rgb(229 160 13 / 4%), transparent);
@@ -29,7 +29,6 @@
   --epg-info-panel-fade-to: var(--panel-surface-2);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.65);
   --shadow-lg: 0 10px 32px rgba(0, 0, 0, 0.72);
-  --panel-border: 1px solid rgba(255, 255, 255, 0.18);
   --text-xs: 13px;
   --text-sm: 15px;
 }
@@ -52,12 +51,11 @@
   --panel-surface: rgb(16 18 20 / 80%);
   --panel-surface-2: rgba(20, 22, 24, 0.86);
   --panel-surface-2: rgb(20 22 24 / 86%);
-  --panel-border: 1px solid rgba(255, 255, 255, 0.12);
-  --panel-border: 1px solid rgb(255 255 255 / 12%);
+  --panel-border: 1px solid rgba(255, 255, 255, 0.06);
+  --panel-border: 1px solid rgb(255 255 255 / 6%);
   --panel-radius: 14px;
   --transition-normal: 280ms ease-in-out;
   --epg-info-panel-fade-to: var(--panel-surface-2);
-  --panel-border: 1px solid rgba(255, 255, 255, 0.06);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.15);
   --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.22);
   --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.30);
@@ -81,12 +79,11 @@
   --panel-surface: var(--color-bg-surface);
   --panel-surface-2: rgba(0, 28, 56, 0.94);
   --panel-surface-2: rgb(0 28 56 / 94%);
-  --panel-border: 1px solid rgba(0, 166, 214, 0.25);
-  --panel-border: 1px solid rgb(0 166 214 / 25%);
+  --panel-border: 1px solid rgba(0, 166, 214, 0.30);
+  --panel-border: 1px solid rgb(0 166 214 / 30%);
   --panel-radius: 4px;
   --transition-normal: 150ms ease;
   --epg-info-panel-fade-to: var(--panel-surface-2);
-  --panel-border: 1px solid rgba(0, 166, 214, 0.30);
   --panel-inner-glow: linear-gradient(180deg, rgba(0, 166, 214, 0.08), transparent);
   --shadow-md: 0 4px 12px rgba(0, 10, 30, 0.7);
   --shadow-lg: 0 10px 30px rgba(0, 10, 30, 0.8);

@@ -149,7 +149,7 @@
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.16);
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--color-text-primary);
   font-size: var(--text-md);
   font-weight: 700;
   letter-spacing: 0.04em;

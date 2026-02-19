@@ -880,6 +880,25 @@ describe('ContentResolver', () => {
         });
     });
 
+    describe('_stableSerialize', () => {
+        it('treats undefined as JSON null and omits undefined object keys', () => {
+            const stableSerialize = (resolver as unknown as { _stableSerialize: (value: unknown) => string })
+                ._stableSerialize
+                .bind(resolver) as (value: unknown) => string;
+            expect(stableSerialize(undefined)).toBe('null');
+
+            const json = stableSerialize({
+                a: undefined,
+                b: 1,
+                c: [undefined, 2],
+                d: { e: undefined, f: 'x' },
+            });
+
+            expect(() => JSON.parse(json)).not.toThrow();
+            expect(json).toBe('{"b":1,"c":[null,2],"d":{"f":"x"}}');
+        });
+    });
+
     describe('applySort', () => {
         const items: ResolvedContentItem[] = [
             { ratingKey: '1', type: 'movie', title: 'Zebra', fullTitle: 'Zebra', durationMs: 3600000, thumb: null, year: 2020, scheduledIndex: 0 },

@@ -671,15 +671,36 @@ export class ContentResolver {
     }
 
     private _stableSerialize(value: unknown): string {
+        if (value === undefined) {
+            return JSON.stringify(null);
+        }
         if (value === null || typeof value !== 'object') {
             return JSON.stringify(value);
         }
         if (Array.isArray(value)) {
             return `[${value.map((entry) => this._stableSerialize(entry)).join(',')}]`;
         }
+        if (value instanceof Date) {
+            return JSON.stringify(value.toISOString());
+        }
+        if (value instanceof Map) {
+            const entries = Array.from(value.entries())
+                .sort(([left], [right]) => {
+                    return this._stableSerialize(left).localeCompare(this._stableSerialize(right));
+                })
+                .map(([key, entry]) => `[${this._stableSerialize(key)},${this._stableSerialize(entry)}]`);
+            return `{"__type":"Map","entries":[${entries.join(',')}]}`;
+        }
+        if (value instanceof Set) {
+            const entries = Array.from(value.values())
+                .map((entry) => this._stableSerialize(entry))
+                .sort();
+            return `{"__type":"Set","values":[${entries.join(',')}]}`;
+        }
 
         const entries = Object
             .entries(value as Record<string, unknown>)
+            .filter(([, entry]) => entry !== undefined)
             .sort(([left], [right]) => left.localeCompare(right));
         return `{${entries.map(([key, entry]) => `${JSON.stringify(key)}:${this._stableSerialize(entry)}`).join(',')}}`;
     }
@@ -968,6 +989,8 @@ export class ContentResolver {
                         return numVal < numFilter;
                     case 'lte':
                         return numVal <= numFilter;
+                    default:
+                        return true;
                 }
             }
             case 'contains':
