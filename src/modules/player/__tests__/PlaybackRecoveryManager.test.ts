@@ -226,6 +226,43 @@ describe('PlaybackRecoveryManager', () => {
         expect(stream.protocol).toBe('hls');
     });
 
+    it('overrides Plex default flags so selectedAudioStream is the only default track', async () => {
+        const { manager, resolver } = setup();
+
+        const truehd: PlexStream = {
+            id: 'audio-truehd',
+            streamType: 2,
+            language: 'English',
+            languageCode: 'en',
+            codec: 'truehd',
+            channels: 8,
+            default: true,
+            title: 'English TrueHD',
+        };
+        const aac: PlexStream = {
+            id: 'audio-aac',
+            streamType: 2,
+            language: 'English',
+            languageCode: 'en',
+            codec: 'aac',
+            channels: 2,
+            default: false,
+            title: 'English AAC',
+        };
+
+        (resolver.resolveStream as jest.Mock).mockResolvedValue(
+            makeDecision({
+                selectedAudioStream: aac,
+                availableAudioStreams: [truehd, aac],
+            })
+        );
+
+        const descriptor = await manager.resolveStreamForProgram(makeProgram());
+
+        const defaults = descriptor.audioTracks.filter((t) => t.default).map((t) => t.id);
+        expect(defaults).toEqual(['audio-aac']);
+    });
+
     it('attempts transcode fallback only for direct protocol', async () => {
         const { manager, resolver, player } = setup({
             getCurrentStreamDescriptor: () => ({ protocol: 'hls' } as StreamDescriptor),
