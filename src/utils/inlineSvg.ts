@@ -43,7 +43,7 @@ function hasUnsafeSvgContent(root: Element): boolean {
             }
             if (name === 'href' || name === 'xlink:href' || name === 'src') {
                 const value = attr.value.trim();
-                if (/^javascript\s*:/i.test(value)) {
+                if (/^(?:javascript|data)\s*:/i.test(value)) {
                     return true;
                 }
             }

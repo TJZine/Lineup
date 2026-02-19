@@ -68,12 +68,14 @@ const createDefaultStrategyState = (): SetupStrategyState => ({
     actors: { enabled: true, scope: 'per-library' },
 });
 
+const compareSetupStrategyKeys = (a: SetupStrategyKey, b: SetupStrategyKey): number => {
+    const diff = DEFAULT_STRATEGY_PRIORITIES[a] - DEFAULT_STRATEGY_PRIORITIES[b];
+    if (diff !== 0) return diff;
+    return String(a).localeCompare(String(b));
+};
+
 const createDefaultStrategyOrder = (): SetupStrategyKey[] =>
-    [...SETUP_STRATEGY_KEYS].sort((a, b) => {
-        const diff = DEFAULT_STRATEGY_PRIORITIES[a] - DEFAULT_STRATEGY_PRIORITIES[b];
-        if (diff !== 0) return diff;
-        return String(a).localeCompare(String(b));
-    });
+    [...SETUP_STRATEGY_KEYS].sort(compareSetupStrategyKeys);
 
 const defaultChannelExpansionState = (): ChannelExpansionState => ({
     addAlternateLineups: false,
@@ -314,25 +316,36 @@ export class ChannelSetupScreen {
                     }
                     const strategy = this._strategyKeyFromControlId(focusedId, 'setup-priority-row-');
                     if (!strategy) {
+                        event.handled = true;
+                        event.originalEvent.preventDefault();
                         return;
                     }
                     const currentIndex = this._strategyOrder.indexOf(strategy);
                     if (currentIndex < 0) {
+                        event.handled = true;
+                        event.originalEvent.preventDefault();
                         return;
                     }
                     const targetIndex = event.button === 'channelUp' ? currentIndex - 1 : currentIndex + 1;
                     if (targetIndex < 0 || targetIndex >= this._strategyOrder.length) {
+                        event.handled = true;
+                        event.originalEvent.preventDefault();
                         return;
                     }
                     const movedKey = this._strategyOrder[currentIndex] ?? strategy;
                     const targetKey = this._strategyOrder[targetIndex];
                     if (!targetKey) {
+                        event.handled = true;
+                        event.originalEvent.preventDefault();
                         return;
                     }
                     event.handled = true;
                     event.originalEvent.preventDefault();
                     this._strategyOrder[currentIndex] = targetKey;
                     this._strategyOrder[targetIndex] = movedKey;
+                    // Fire-once render hint: set transient reorder state for the next synchronous render only
+                    // (used by the priority list to animate the move), then clear immediately so it doesn't
+                    // persist across future renders.
                     this._lastReorder = { key: movedKey, dir: event.button === 'channelUp' ? 'up' : 'down' };
                     this._preferredFocusId = this._priorityRowId(movedKey);
                     this._rememberedDetailFocusByCategory['priority-order'] = this._preferredFocusId;
@@ -1358,7 +1371,7 @@ export class ChannelSetupScreen {
             if (diff !== 0) {
                 return diff;
             }
-            return String(a).localeCompare(String(b));
+            return compareSetupStrategyKeys(a, b);
         });
         this._strategyOrder = sortedByPriority;
         this._channelExpansion = {
