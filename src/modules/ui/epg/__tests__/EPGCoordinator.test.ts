@@ -56,6 +56,41 @@ const baseProgram = (channelId: string, idx: number): ScheduledProgram =>
         isCurrent: false,
     } as ScheduledProgram);
 
+const flushPromises = async (): Promise<void> => {
+    await Promise.resolve();
+    await Promise.resolve();
+};
+
+const advanceWarmQueueTimers = async (steps = 24): Promise<void> => {
+    for (let i = 0; i < steps; i++) {
+        jest.advanceTimersByTime(50);
+        await flushPromises();
+    }
+};
+
+const withIdleCallbackDisabled = async (run: () => Promise<void>): Promise<void> => {
+    const idleScheduler = globalThis as unknown as Record<string, unknown>;
+    const priorRequestIdle = idleScheduler['requestIdleCallback'];
+    const priorCancelIdle = idleScheduler['cancelIdleCallback'];
+    delete idleScheduler['requestIdleCallback'];
+    delete idleScheduler['cancelIdleCallback'];
+
+    try {
+        await run();
+    } finally {
+        if (priorRequestIdle === undefined) {
+            delete idleScheduler['requestIdleCallback'];
+        } else {
+            idleScheduler['requestIdleCallback'] = priorRequestIdle;
+        }
+        if (priorCancelIdle === undefined) {
+            delete idleScheduler['cancelIdleCallback'];
+        } else {
+            idleScheduler['cancelIdleCallback'] = priorCancelIdle;
+        }
+    }
+};
+
 const makeDeps = (
     overrides: Partial<EPGCoordinatorDeps> = {}
 ): { deps: EPGCoordinatorDeps; epg: IEPGComponent; channelManager: IChannelManager; scheduler: IChannelScheduler } => {
@@ -493,6 +528,253 @@ describe('EPGCoordinator', () => {
         expect(loadedIds).toContain('c100');
         expect(loadedIds).toContain('c102');
         expect(epg.setGridAnchorTime).toHaveBeenCalled();
+    });
+
+    it('refreshEpgSchedulesForRange prioritizes focused/visible channels before warm queue', async () => {
+        jest.useFakeTimers();
+        try {
+            await withIdleCallbackDisabled(async () => {
+                const manyChannels = Array.from({ length: 240 }, (_, i) => makeChannel(`c${i}`, i + 1));
+                const resolveChannelContent = jest.fn().mockImplementation(async (id: string) => {
+                    const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
+                    return { items } as ResolvedChannelContent;
+                });
+
+                const base = makeDeps().deps.getChannelManager()!;
+                const { deps, epg } = makeDeps({
+                    getChannelManager: () =>
+                        ({
+                            ...base,
+                            getAllChannels: () => manyChannels,
+                            getCurrentChannel: () => manyChannels[100],
+                            resolveChannelContent,
+                        } as IChannelManager),
+                });
+
+                (epg.getState as jest.Mock).mockReturnValue({
+                    isVisible: true,
+                    focusedCell: { channelIndex: 101, timeSlotIndex: 0, kind: 'program' },
+                    scrollPosition: { channelOffset: 0, timeOffset: 0 },
+                    viewWindow: {
+                        startTime: 0,
+                        endTime: 0,
+                        startChannelIndex: 100,
+                        endChannelIndex: 103,
+                    },
+                    currentTime: 0,
+                });
+
+                const coordinator = new EPGCoordinator(deps);
+                await coordinator.refreshEpgSchedulesForRange(
+                    { channelStart: 100, channelEnd: 103, timeStartMs: 0, timeEndMs: 0 },
+                    { debounceMs: 0, reason: 'visible-range' }
+                );
+
+                const immediateLoadedIds = (epg.loadScheduleForChannel as jest.Mock).mock.calls.map((call) => call[0]);
+                expect(immediateLoadedIds).toContain('c100');
+                expect(immediateLoadedIds).toContain('c101');
+                expect(immediateLoadedIds).not.toContain('c130');
+
+                await advanceWarmQueueTimers();
+
+                const loadedAfterWarmTick = (epg.loadScheduleForChannel as jest.Mock).mock.calls.map((call) => call[0]);
+                expect(loadedAfterWarmTick).toContain('c130');
+            });
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('new visible-range request cancels stale background warm queue', async () => {
+        jest.useFakeTimers();
+        try {
+            await withIdleCallbackDisabled(async () => {
+                const manyChannels = Array.from({ length: 240 }, (_, i) => makeChannel(`c${i}`, i + 1));
+                const resolveChannelContent = jest.fn().mockImplementation(async (id: string) => {
+                    const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
+                    return { items } as ResolvedChannelContent;
+                });
+
+                const base = makeDeps().deps.getChannelManager()!;
+                const { deps, epg } = makeDeps({
+                    getChannelManager: () =>
+                        ({
+                            ...base,
+                            getAllChannels: () => manyChannels,
+                            getCurrentChannel: () => manyChannels[100],
+                            resolveChannelContent,
+                        } as IChannelManager),
+                });
+
+                (epg.getState as jest.Mock).mockReturnValue({
+                    isVisible: true,
+                    focusedCell: { channelIndex: 101, timeSlotIndex: 0, kind: 'program' },
+                    scrollPosition: { channelOffset: 0, timeOffset: 0 },
+                    viewWindow: {
+                        startTime: 0,
+                        endTime: 0,
+                        startChannelIndex: 100,
+                        endChannelIndex: 103,
+                    },
+                    currentTime: 0,
+                });
+
+                const coordinator = new EPGCoordinator(deps);
+                await coordinator.refreshEpgSchedulesForRange(
+                    { channelStart: 100, channelEnd: 103, timeStartMs: 0, timeEndMs: 0 },
+                    { debounceMs: 0, reason: 'visible-range' }
+                );
+
+                await coordinator.refreshEpgSchedulesForRange(
+                    { channelStart: 10, channelEnd: 13, timeStartMs: 0, timeEndMs: 0 },
+                    { debounceMs: 0, reason: 'visible-range' }
+                );
+
+                await advanceWarmQueueTimers();
+
+                const loadedIds = (epg.loadScheduleForChannel as jest.Mock).mock.calls.map((call) => call[0]);
+                expect(loadedIds).toContain('c30');
+                expect(loadedIds).not.toContain('c130');
+            });
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('staged loading assertions are deterministic with deferred resolver gates', async () => {
+        jest.useFakeTimers();
+        try {
+            await withIdleCallbackDisabled(async () => {
+                const manyChannels = Array.from({ length: 240 }, (_, i) => makeChannel(`c${i}`, i + 1));
+                const pendingResolves = new Map<string, (value: ResolvedChannelContent) => void>();
+                const resolveChannelContent = jest.fn().mockImplementation((id: string) => {
+                    const numericId = Number(id.replace('c', ''));
+                    if (numericId < 130) {
+                        return Promise.resolve({ items: [makeResolvedItem(id, 0)] } as ResolvedChannelContent);
+                    }
+                    return new Promise<ResolvedChannelContent>((resolve) => {
+                        pendingResolves.set(id, resolve);
+                    });
+                });
+                const base = makeDeps().deps.getChannelManager()!;
+                const { deps, epg } = makeDeps({
+                    getChannelManager: () =>
+                        ({
+                            ...base,
+                            getAllChannels: () => manyChannels,
+                            getCurrentChannel: () => manyChannels[100],
+                            resolveChannelContent,
+                        } as IChannelManager),
+                });
+
+                (epg.getState as jest.Mock).mockReturnValue({
+                    isVisible: true,
+                    focusedCell: { channelIndex: 101, timeSlotIndex: 0, kind: 'program' },
+                    scrollPosition: { channelOffset: 0, timeOffset: 0 },
+                    viewWindow: {
+                        startTime: 0,
+                        endTime: 0,
+                        startChannelIndex: 100,
+                        endChannelIndex: 103,
+                    },
+                    currentTime: 0,
+                });
+
+                const coordinator = new EPGCoordinator(deps);
+                const refreshPromise = coordinator.refreshEpgSchedulesForRange(
+                    { channelStart: 100, channelEnd: 103, timeStartMs: 0, timeEndMs: 0 },
+                    { debounceMs: 0, reason: 'visible-range' }
+                );
+
+                await flushPromises();
+                await refreshPromise;
+
+                const loadedAfterImmediate = (epg.loadScheduleForChannel as jest.Mock).mock.calls.map((call) => call[0]);
+                expect(loadedAfterImmediate).toContain('c100');
+                expect(loadedAfterImmediate).toContain('c101');
+                expect(loadedAfterImmediate).not.toContain('c130');
+                expect(pendingResolves.has('c130')).toBe(false);
+
+                await advanceWarmQueueTimers();
+
+                expect(pendingResolves.has('c130')).toBe(true);
+                const afterWarmTick = (epg.loadScheduleForChannel as jest.Mock).mock.calls.map((call) => call[0]);
+                expect(afterWarmTick).not.toContain('c130');
+                pendingResolves.get('c130')?.({ items: [makeResolvedItem('c130', 0)] } as ResolvedChannelContent);
+                for (const [id, resolve] of pendingResolves) {
+                    if (id === 'c130') {
+                        continue;
+                    }
+                    resolve({ items: [makeResolvedItem(id, 0)] } as ResolvedChannelContent);
+                }
+                await advanceWarmQueueTimers(4);
+                const afterGateRelease = (epg.loadScheduleForChannel as jest.Mock).mock.calls.map((call) => call[0]);
+                expect(afterGateRelease).toContain('c130');
+            });
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('aggressive preload mode widens background candidate set compared to default mode', async () => {
+        jest.useFakeTimers();
+        try {
+            await withIdleCallbackDisabled(async () => {
+                const manyChannels = Array.from({ length: 240 }, (_, i) => makeChannel(`c${i}`, i + 1));
+                const runRefresh = async (aggressive: boolean): Promise<string[]> => {
+                    if (aggressive) {
+                        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, '1');
+                    } else {
+                        localStorage.removeItem(RETUNE_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED);
+                    }
+
+                    const resolveChannelContent = jest.fn().mockImplementation(async (id: string) => {
+                        const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
+                        return { items } as ResolvedChannelContent;
+                    });
+
+                    const base = makeDeps().deps.getChannelManager()!;
+                    const { deps, epg } = makeDeps({
+                        getChannelManager: () =>
+                            ({
+                                ...base,
+                                getAllChannels: () => manyChannels,
+                                getCurrentChannel: () => manyChannels[100],
+                                resolveChannelContent,
+                            } as IChannelManager),
+                    });
+
+                    (epg.getState as jest.Mock).mockReturnValue({
+                        isVisible: true,
+                        focusedCell: { channelIndex: 101, timeSlotIndex: 0, kind: 'program' },
+                        scrollPosition: { channelOffset: 0, timeOffset: 0 },
+                        viewWindow: {
+                            startTime: 0,
+                            endTime: 0,
+                            startChannelIndex: 100,
+                            endChannelIndex: 103,
+                        },
+                        currentTime: 0,
+                    });
+
+                    const coordinator = new EPGCoordinator(deps);
+                    await coordinator.refreshEpgSchedulesForRange(
+                        { channelStart: 100, channelEnd: 103, timeStartMs: 0, timeEndMs: 0 },
+                        { debounceMs: 0, reason: 'visible-range' }
+                    );
+                    await advanceWarmQueueTimers(60);
+                    return (epg.loadScheduleForChannel as jest.Mock).mock.calls.map((call) => call[0]);
+                };
+
+                const defaultLoaded = await runRefresh(false);
+                const aggressiveLoaded = await runRefresh(true);
+
+                expect(defaultLoaded).not.toContain('c200');
+                expect(aggressiveLoaded).toContain('c200');
+            });
+        } finally {
+            jest.useRealTimers();
+        }
     });
 
     it('server-swap refresh bypasses loaded-range short-circuit after schedules were previously loaded', async () => {

@@ -145,7 +145,7 @@ export type SettingsItemConfig = SettingsToggleConfig | SettingsSelectConfig;
 export type SettingsCategoryId = 'audio_subtitles' | 'playback_hdr' | 'appearance' | 'account' | 'developer';
 
 export type GuideSettingChange =
-    | { key: 'categoryColors' | 'libraryTabs' | 'nowWatchingBanner'; enabled: boolean }
+    | { key: 'categoryColors' | 'libraryTabs' | 'nowWatchingBanner' | 'aggressivePreload'; enabled: boolean }
     | { key: 'layoutMode'; mode: 'overlay' | 'classic' }
     | { key: 'guideDensity'; density: 'detailed' | 'wide' };
 

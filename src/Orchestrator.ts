@@ -1610,13 +1610,17 @@ export class AppOrchestrator implements IAppOrchestrator {
             return;
         }
 
-        if (change.key === 'libraryTabs') {
+        if (change.key === 'libraryTabs' || change.key === 'aggressivePreload') {
             epgCoordinator.clearScheduleCaches();
             epg.clearSchedules();
         }
 
         epgCoordinator.primeEpgChannels();
-        if (change.key === 'libraryTabs' || change.key === 'guideDensity') {
+        if (
+            change.key === 'libraryTabs' ||
+            change.key === 'guideDensity' ||
+            change.key === 'aggressivePreload'
+        ) {
             void epgCoordinator.refreshEpgSchedules({ reason: 'guide-settings' });
         }
     }

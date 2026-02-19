@@ -29,6 +29,8 @@ import { detectHdrLabel } from '../../plex/stream/hdr';
 // ============================================
 
 const SHOW_CACHE_TTL_MS = 300000;
+const SOURCE_CACHE_TTL_MS = 5 * 60_000;
+const SOURCE_CACHE_MAX_ENTRIES = 24;
 type PlexStreamMinimal = {
     streamType: number;
     selected?: boolean;
@@ -63,6 +65,11 @@ export class ContentResolver {
         string,
         { items: PlexMediaItemMinimal[]; cachedAt: number }
     >();
+    private readonly _sourceCache = new Map<
+        string,
+        { items: ResolvedContentItem[]; cachedAt: number }
+    >();
+    private readonly _sourceInFlight = new Map<string, Promise<ResolvedContentItem[]>>();
 
     /**
      * Create a ContentResolver instance.
@@ -77,6 +84,12 @@ export class ContentResolver {
         this._logger = logger || { warn: console.warn.bind(console) };
     }
 
+    clearCaches(): void {
+        this._showCacheByLibraryId.clear();
+        this._sourceCache.clear();
+        this._sourceInFlight.clear();
+    }
+
     /**
      * Resolve content from any source type.
      * @param source - Content source configuration
@@ -84,6 +97,34 @@ export class ContentResolver {
      * @throws Error if resolution fails (for cached fallback handling by caller)
      */
     async resolveSource(
+        source: ChannelContentSource,
+        options?: { signal?: AbortSignal | null }
+    ): Promise<ResolvedContentItem[]> {
+        const cacheKey = this._buildSourceCacheKey(source);
+        const cached = this._getCachedSourceItems(cacheKey);
+        if (cached) {
+            return cached;
+        }
+
+        const inFlight = this._sourceInFlight.get(cacheKey);
+        if (inFlight) {
+            return inFlight;
+        }
+
+        const resolvePromise = this._resolveSourceUncached(source, options)
+            .then((items) => {
+                this._setCachedSourceItems(cacheKey, items);
+                return this._cloneResolvedItems(items);
+            })
+            .finally(() => {
+                this._sourceInFlight.delete(cacheKey);
+            });
+
+        this._sourceInFlight.set(cacheKey, resolvePromise);
+        return resolvePromise;
+    }
+
+    private async _resolveSourceUncached(
         source: ChannelContentSource,
         options?: { signal?: AbortSignal | null }
     ): Promise<ResolvedContentItem[]> {
@@ -502,6 +543,65 @@ export class ContentResolver {
     // ============================================
     // Private Helper Methods
     // ============================================
+
+    private _buildSourceCacheKey(source: ChannelContentSource): string {
+        return this._stableSerialize(source);
+    }
+
+    private _stableSerialize(value: unknown): string {
+        if (value === null || typeof value !== 'object') {
+            return JSON.stringify(value);
+        }
+        if (Array.isArray(value)) {
+            return `[${value.map((entry) => this._stableSerialize(entry)).join(',')}]`;
+        }
+
+        const entries = Object
+            .entries(value as Record<string, unknown>)
+            .sort(([left], [right]) => left.localeCompare(right));
+        return `{${entries.map(([key, entry]) => `${JSON.stringify(key)}:${this._stableSerialize(entry)}`).join(',')}}`;
+    }
+
+    private _getCachedSourceItems(key: string): ResolvedContentItem[] | null {
+        const cached = this._sourceCache.get(key);
+        if (!cached) {
+            return null;
+        }
+
+        if (Date.now() - cached.cachedAt > SOURCE_CACHE_TTL_MS) {
+            this._sourceCache.delete(key);
+            return null;
+        }
+
+        this._sourceCache.delete(key);
+        this._sourceCache.set(key, cached);
+        return this._cloneResolvedItems(cached.items);
+    }
+
+    private _setCachedSourceItems(key: string, items: ResolvedContentItem[]): void {
+        if (this._sourceCache.has(key)) {
+            this._sourceCache.delete(key);
+        }
+        this._sourceCache.set(key, {
+            items: this._cloneResolvedItems(items),
+            cachedAt: Date.now(),
+        });
+
+        while (this._sourceCache.size > SOURCE_CACHE_MAX_ENTRIES) {
+            const oldest = this._sourceCache.keys().next().value;
+            if (oldest === undefined) {
+                break;
+            }
+            this._sourceCache.delete(oldest);
+        }
+    }
+
+    private _cloneResolvedItems(items: ResolvedContentItem[]): ResolvedContentItem[] {
+        return items.map((item, index) => ({
+            ...item,
+            scheduledIndex: index,
+        }));
+    }
 
     private _toResolvedItem(item: PlexMediaItemMinimal, index: number): ResolvedContentItem {
         const fullTitle = this._buildFullTitle(item);

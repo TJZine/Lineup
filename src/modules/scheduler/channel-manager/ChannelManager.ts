@@ -260,6 +260,7 @@ export class ChannelManager implements IChannelManager {
         this.cancelPendingRetries();
         this._storageKey = storageKey;
         this._currentChannelKey = currentChannelKey;
+        this._contentResolver.clearCaches();
         this._state.channels.clear();
         this._state.resolvedContent.clear();
         this._state.channelOrder = [];
@@ -274,6 +275,7 @@ export class ChannelManager implements IChannelManager {
         options?: { currentChannelId?: string | null }
     ): Promise<void> {
         this.cancelPendingRetries();
+        this._contentResolver.clearCaches();
         this._state.channels.clear();
         this._state.resolvedContent.clear();
         this._state.channelOrder = [];
@@ -630,6 +632,7 @@ export class ChannelManager implements IChannelManager {
         }
 
         this._state.resolvedContent.delete(channelId);
+        this._contentResolver.clearCaches();
         return this._resolveContentInternal(channel, options);
     }
 

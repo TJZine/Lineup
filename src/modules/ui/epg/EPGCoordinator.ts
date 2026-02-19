@@ -43,9 +43,39 @@ const EPG_SCHEDULE_CACHE_TTL_MS = 2 * 60_000;
 const EPG_SCHEDULE_CACHE_STALE_TTL_MS = 10 * 60_000;
 const EPG_SCHEDULE_CACHE_MIN_ENTRIES = 60;
 const EPG_SCHEDULE_CACHE_MAX_ENTRIES = 240;
+const EPG_SCHEDULE_CACHE_MIN_ENTRIES_AGGRESSIVE = 120;
+const EPG_SCHEDULE_CACHE_MAX_ENTRIES_AGGRESSIVE = 360;
+const EPG_BACKGROUND_WARM_DEFAULT_MAX_QUEUED = 64;
+const EPG_BACKGROUND_WARM_MAX_QUEUED = 120;
+const EPG_BACKGROUND_WARM_DEFAULT_MAX_QUEUED_AGGRESSIVE = 128;
+const EPG_BACKGROUND_WARM_MAX_QUEUED_AGGRESSIVE = 220;
+const EPG_BACKGROUND_WARM_IDLE_TIMEOUT_MS = 120;
+const EPG_BACKGROUND_WARM_TIMER_DELAY_MS = 24;
 const DEFAULT_GUIDE_DENSITY: 'detailed' | 'wide' = 'detailed';
 const DETAILED_VISIBLE_HOURS = 2;
 const WIDE_VISIBLE_HOURS = 3;
+
+type IdleDeadlineLike = {
+    didTimeout: boolean;
+    timeRemaining: () => number;
+};
+
+type IdleSchedulerLike = typeof globalThis & {
+    requestIdleCallback?: (
+        callback: (deadline: IdleDeadlineLike) => void,
+        options?: { timeout: number }
+    ) => number;
+    cancelIdleCallback?: (handle: number) => void;
+};
+
+type BackgroundWarmQueueState = {
+    refreshId: number;
+    reason: string;
+    channels: ChannelConfig[];
+    runForChannel: (channel: ChannelConfig) => Promise<void>;
+    concurrency: number;
+    cursor: number;
+};
 
 export class EPGCoordinator {
     private _epgScheduleLoadToken = 0;
@@ -64,6 +94,9 @@ export class EPGCoordinator {
     private _pendingVisibleRangePromise: Promise<void> | null = null;
     private _pendingVisibleRangeResolve: (() => void) | null = null;
     private _pendingVisibleRangeReject: ((error: unknown) => void) | null = null;
+    private _backgroundWarmQueueState: BackgroundWarmQueueState | null = null;
+    private _backgroundWarmQueueTimer: ReturnType<typeof setTimeout> | null = null;
+    private _backgroundWarmQueueIdleHandle: number | null = null;
 
     constructor(private readonly deps: EPGCoordinatorDeps) { }
 
@@ -78,6 +111,10 @@ export class EPGCoordinator {
 
     private _isLibraryTabsEnabled(): boolean {
         return readStoredBoolean(RETUNE_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, true);
+    }
+
+    private _isAggressivePreloadEnabled(): boolean {
+        return readStoredBoolean(RETUNE_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, false);
     }
 
     private _readSelectedLibraryId(): string | null {
@@ -234,6 +271,7 @@ export class EPGCoordinator {
     }
 
     closeEPG(): void {
+        this._cancelBackgroundWarmQueue('close-epg');
         this.deps.getEpg()?.hide();
     }
 
@@ -523,15 +561,25 @@ export class EPGCoordinator {
     }
 
     private _computeScheduleCacheLimit(channelCount: number): number {
-        const scaled = Math.ceil(channelCount * 1.25);
+        const aggressive = this._isAggressivePreloadEnabled();
+        const scaled = Math.ceil(channelCount * (aggressive ? 1.6 : 1.25));
+        const minEntries = aggressive ? EPG_SCHEDULE_CACHE_MIN_ENTRIES_AGGRESSIVE : EPG_SCHEDULE_CACHE_MIN_ENTRIES;
+        const maxEntries = aggressive ? EPG_SCHEDULE_CACHE_MAX_ENTRIES_AGGRESSIVE : EPG_SCHEDULE_CACHE_MAX_ENTRIES;
         const clamped = Math.min(
-            EPG_SCHEDULE_CACHE_MAX_ENTRIES,
-            Math.max(EPG_SCHEDULE_CACHE_MIN_ENTRIES, scaled)
+            maxEntries,
+            Math.max(minEntries, scaled)
         );
         return clamped;
     }
 
     private _getChannelOverscanCount(channelCount: number): number {
+        const aggressive = this._isAggressivePreloadEnabled();
+        if (aggressive) {
+            if (channelCount >= 200) return 16;
+            if (channelCount >= 120) return 12;
+            if (channelCount >= 80) return 10;
+            return 8;
+        }
         if (channelCount >= 200) return 10;
         if (channelCount >= 120) return 8;
         if (channelCount >= 80) return 7;
@@ -542,11 +590,106 @@ export class EPGCoordinator {
         if (prefetchCount <= 0) {
             return 1;
         }
-        let target = 4;
-        if (channelCount >= 180) target = 8;
-        else if (channelCount >= 120) target = 7;
-        else if (channelCount >= 80) target = 6;
+        const aggressive = this._isAggressivePreloadEnabled();
+        let target = aggressive ? 5 : 4;
+        if (channelCount >= 180) target = aggressive ? 10 : 8;
+        else if (channelCount >= 120) target = aggressive ? 8 : 7;
+        else if (channelCount >= 80) target = aggressive ? 7 : 6;
         return Math.max(1, Math.min(target, prefetchCount));
+    }
+
+    private _getBackgroundWarmQueueCaps(
+        channelCount: number,
+        visibleCount: number
+    ): { maxQueuedChannels: number; maxConcurrency: number } {
+        const aggressive = this._isAggressivePreloadEnabled();
+        const baseQueue = aggressive
+            ? EPG_BACKGROUND_WARM_DEFAULT_MAX_QUEUED_AGGRESSIVE
+            : EPG_BACKGROUND_WARM_DEFAULT_MAX_QUEUED;
+        const maxQueueCap = aggressive
+            ? EPG_BACKGROUND_WARM_MAX_QUEUED_AGGRESSIVE
+            : EPG_BACKGROUND_WARM_MAX_QUEUED;
+        const scaledQueue = Math.max(baseQueue, visibleCount * (aggressive ? 20 : 12));
+        const maxQueuedChannels = Math.min(
+            maxQueueCap,
+            Math.max(48, Math.min(channelCount, scaledQueue))
+        );
+        const maxConcurrency = aggressive
+            ? (channelCount >= 120 ? 3 : 2)
+            : (channelCount >= 120 ? 2 : 1);
+        return { maxQueuedChannels, maxConcurrency };
+    }
+
+    private _getBackgroundLookAheadCount(channelCount: number, visibleCount: number): number {
+        const aggressive = this._isAggressivePreloadEnabled();
+        const scaled = Math.max(visibleCount * (aggressive ? 14 : 8), aggressive ? 48 : 24);
+        if (channelCount >= 200) {
+            return Math.max(scaled, aggressive ? 160 : 96);
+        }
+        if (channelCount >= 120) {
+            return Math.max(scaled, aggressive ? 120 : 72);
+        }
+        return Math.max(scaled, aggressive ? 84 : 48);
+    }
+
+    private _partitionPrefetchChannels(
+        channels: ChannelConfig[],
+        range: { channelStart: number; channelEnd: number },
+        ids: { liveChannelId: string | null; focusedChannelId: string | null }
+    ): {
+        immediateChannels: ChannelConfig[];
+        backgroundChannels: ChannelConfig[];
+        overscan: number;
+        bufferedRange: { start: number; end: number };
+        backgroundRange: { start: number; end: number };
+    } {
+        const overscan = this._getChannelOverscanCount(channels.length);
+        const startIndex = Math.max(0, range.channelStart - overscan);
+        const endIndex = Math.min(channels.length, range.channelEnd + overscan);
+
+        const immediateChannels: ChannelConfig[] = [];
+        const immediateIds = new Set<string>();
+        const addImmediate = (channel: ChannelConfig | null | undefined): void => {
+            if (!channel) return;
+            if (immediateIds.has(channel.id)) return;
+            immediateIds.add(channel.id);
+            immediateChannels.push(channel);
+        };
+
+        if (ids.liveChannelId) {
+            addImmediate(channels.find((channel) => channel.id === ids.liveChannelId));
+        }
+        if (ids.focusedChannelId) {
+            addImmediate(channels.find((channel) => channel.id === ids.focusedChannelId));
+        }
+        for (const channel of channels.slice(startIndex, endIndex)) {
+            addImmediate(channel);
+        }
+
+        const visibleCount = Math.max(1, range.channelEnd - range.channelStart + 1);
+        const { maxQueuedChannels } = this._getBackgroundWarmQueueCaps(channels.length, visibleCount);
+        const lookAhead = this._getBackgroundLookAheadCount(channels.length, visibleCount);
+        const warmStart = endIndex;
+        const warmEnd = Math.min(channels.length, warmStart + lookAhead);
+
+        const backgroundChannels: ChannelConfig[] = [];
+        for (const channel of channels.slice(warmStart, warmEnd)) {
+            if (immediateIds.has(channel.id)) {
+                continue;
+            }
+            backgroundChannels.push(channel);
+            if (backgroundChannels.length >= maxQueuedChannels) {
+                break;
+            }
+        }
+
+        return {
+            immediateChannels,
+            backgroundChannels,
+            overscan,
+            bufferedRange: { start: startIndex, end: endIndex },
+            backgroundRange: { start: warmStart, end: warmEnd },
+        };
     }
 
     private _pruneScheduleCache(nowMs: number): void {
@@ -612,6 +755,7 @@ export class EPGCoordinator {
     }
 
     private _clearScheduleCaches(): void {
+        this._cancelBackgroundWarmQueue('clear-schedule-caches');
         this._epgScheduleRangeKeyByChannel.clear();
         this._epgScheduleCache.clear();
     }
@@ -636,16 +780,129 @@ export class EPGCoordinator {
     }
 
     private _abortAllInFlightSchedules(): void {
+        this._cancelBackgroundWarmQueue('abort-all-inflight');
         for (const entry of this._epgScheduleInFlight.values()) {
             entry.controller.abort();
         }
         this._epgScheduleInFlight.clear();
     }
 
+    private _cancelBackgroundWarmQueue(reason: string): void {
+        this._backgroundWarmQueueState = null;
+
+        if (this._backgroundWarmQueueTimer) {
+            clearTimeout(this._backgroundWarmQueueTimer);
+            this._backgroundWarmQueueTimer = null;
+        }
+
+        if (this._backgroundWarmQueueIdleHandle !== null) {
+            const idleScheduler = globalThis as IdleSchedulerLike;
+            if (typeof idleScheduler.cancelIdleCallback === 'function') {
+                idleScheduler.cancelIdleCallback(this._backgroundWarmQueueIdleHandle);
+            }
+            this._backgroundWarmQueueIdleHandle = null;
+        }
+
+        if (this._isDebugEnabled()) {
+            appendEpgDebugLog('EPG.backgroundWarmQueue.cancel', { reason });
+        }
+    }
+
+    private _startBackgroundWarmQueue(
+        state: Omit<BackgroundWarmQueueState, 'cursor'>
+    ): void {
+        if (state.channels.length === 0) {
+            return;
+        }
+
+        this._cancelBackgroundWarmQueue('replace-background-warm-queue');
+        const queueState: BackgroundWarmQueueState = {
+            ...state,
+            cursor: 0,
+        };
+        this._backgroundWarmQueueState = queueState;
+
+        const scheduleNextBatch = (): void => {
+            if (this._backgroundWarmQueueState !== queueState) {
+                return;
+            }
+            if (queueState.refreshId !== this._epgScheduleLoadToken) {
+                this._cancelBackgroundWarmQueue('stale-refresh-token');
+                return;
+            }
+            if (queueState.cursor >= queueState.channels.length) {
+                this._cancelBackgroundWarmQueue('warm-queue-complete');
+                return;
+            }
+            if (this._epgScheduleCache.size >= this._epgScheduleCacheMaxEntries) {
+                this._cancelBackgroundWarmQueue('schedule-cache-cap-reached');
+                return;
+            }
+            if (this._epgScheduleInFlight.size > queueState.concurrency * 2) {
+                this._cancelBackgroundWarmQueue('background-inflight-cap-reached');
+                return;
+            }
+
+            const runBatch = async (): Promise<void> => {
+                if (this._backgroundWarmQueueState !== queueState) {
+                    return;
+                }
+                const batchSize = Math.max(1, queueState.concurrency * 2);
+                const batch = queueState.channels.slice(queueState.cursor, queueState.cursor + batchSize);
+                queueState.cursor += batch.length;
+                if (batch.length === 0) {
+                    this._cancelBackgroundWarmQueue('warm-queue-complete');
+                    return;
+                }
+
+                let cursor = 0;
+                const workers = Array.from(
+                    { length: Math.min(queueState.concurrency, batch.length) },
+                    async () => {
+                        while (true) {
+                            const channel = batch[cursor++];
+                            if (!channel) return;
+                            await queueState.runForChannel(channel);
+                        }
+                    }
+                );
+                await Promise.all(workers);
+                scheduleNextBatch();
+            };
+
+            const idleScheduler = globalThis as IdleSchedulerLike;
+            if (typeof idleScheduler.requestIdleCallback === 'function') {
+                this._backgroundWarmQueueIdleHandle = idleScheduler.requestIdleCallback((deadline) => {
+                    this._backgroundWarmQueueIdleHandle = null;
+                    if (this._backgroundWarmQueueState !== queueState) {
+                        return;
+                    }
+                    if (!deadline.didTimeout && deadline.timeRemaining() < 4) {
+                        scheduleNextBatch();
+                        return;
+                    }
+                    void runBatch();
+                }, { timeout: EPG_BACKGROUND_WARM_IDLE_TIMEOUT_MS });
+                return;
+            }
+
+            this._backgroundWarmQueueTimer = setTimeout(() => {
+                this._backgroundWarmQueueTimer = null;
+                if (this._backgroundWarmQueueState !== queueState) {
+                    return;
+                }
+                void runBatch();
+            }, EPG_BACKGROUND_WARM_TIMER_DELAY_MS);
+        };
+
+        scheduleNextBatch();
+    }
+
     private async _refreshEpgSchedulesForRange(
         range: { channelStart: number; channelEnd: number; timeStartMs: number; timeEndMs: number },
         reason: string
     ): Promise<void> {
+        const refreshStartedAt = Date.now();
         const epg = this.deps.getEpg();
         const channelManager = this.deps.getChannelManager();
         const scheduler = this.deps.getScheduler();
@@ -662,12 +919,8 @@ export class EPGCoordinator {
         const channels = this._getVisibleChannels(all, selectedId, shouldFilter);
         if (channels.length === 0) return;
 
-        const overscan = this._getChannelOverscanCount(channels.length);
-        const startIndex = Math.max(0, range.channelStart - overscan);
-        const endIndex = Math.min(channels.length, range.channelEnd + overscan);
-        const rangeChannels = channels.slice(startIndex, endIndex);
-
         const refreshId = ++this._epgScheduleLoadToken;
+        this._cancelBackgroundWarmQueue('new-visible-range-request');
         const rangeKey = this._getScheduleRangeKey(startTime, endTime);
         const forceRefresh = reason === 'channel-setup' || reason === 'server-swap';
         if (forceRefresh) {
@@ -681,25 +934,21 @@ export class EPGCoordinator {
         const focusedChannelId = epgState.focusedCell
             ? channels[epgState.focusedCell.channelIndex]?.id ?? null
             : null;
+        const partitioned = this._partitionPrefetchChannels(channels, range, {
+            liveChannelId,
+            focusedChannelId,
+        });
+        const immediateChannels = partitioned.immediateChannels;
+        const backgroundChannels = partitioned.backgroundChannels;
+        const visibleCount = Math.max(1, range.channelEnd - range.channelStart + 1);
+        const backgroundCaps = this._getBackgroundWarmQueueCaps(channels.length, visibleCount);
+        const visibleStart = Math.max(0, Math.min(range.channelStart, channels.length - 1));
+        const visibleEnd = Math.min(channels.length, range.channelEnd + 1);
+        const visibleRangeIds = new Set(channels.slice(visibleStart, visibleEnd).map((channel) => channel.id));
 
-        const prioritized: ChannelConfig[] = [];
-        const addChannel = (channel: ChannelConfig | null | undefined): void => {
-            if (!channel) return;
-            if (prioritized.some((existing) => existing.id === channel.id)) return;
-            prioritized.push(channel);
-        };
-
-        if (liveChannelId) {
-            addChannel(channels.find((c) => c.id === liveChannelId));
-        }
-        if (focusedChannelId) {
-            addChannel(channels.find((c) => c.id === focusedChannelId));
-        }
-        for (const channel of rangeChannels) {
-            addChannel(channel);
-        }
-
-        const neededIds = new Set(prioritized.map((channel) => channel.id));
+        const neededIds = new Set(
+            [...immediateChannels, ...backgroundChannels].map((channel) => channel.id)
+        );
         const abortAll = reason === 'library-filter' || forceRefresh;
         const { kept: inFlightKept, aborted: inFlightAborted } = this._pruneInFlightSchedules(
             neededIds,
@@ -714,19 +963,46 @@ export class EPGCoordinator {
         let inFlightSkipped = 0;
         let alreadyLoaded = 0;
         let liveScheduleHits = 0;
-        const concurrency = this._getScheduleLoadConcurrency(channels.length, prioritized.length);
+        let immediateLoadedCount = 0;
+        let backgroundLoadedCount = 0;
+        let firstVisibleScheduleReadyMs: number | null = null;
+        const immediateConcurrency = this._getScheduleLoadConcurrency(
+            channels.length,
+            immediateChannels.length
+        );
 
         const applySchedule = (
             channelId: string,
             schedule: ScheduleWindow,
-            options?: { updateCache?: boolean }
+            options?: { updateCache?: boolean; phase?: 'immediate' | 'background' }
         ): void => {
+            if (options?.phase === 'background') {
+                backgroundLoadedCount += 1;
+            } else {
+                immediateLoadedCount += 1;
+            }
+            if (firstVisibleScheduleReadyMs === null && visibleRangeIds.has(channelId)) {
+                firstVisibleScheduleReadyMs = Date.now() - refreshStartedAt;
+            }
             epg.loadScheduleForChannel(channelId, schedule);
             if (options?.updateCache === false) {
                 return;
             }
             this._markScheduleLoaded(channelId, rangeKey);
             this._storeScheduleCache(channelId, rangeKey, schedule);
+
+            if (options?.phase === 'background' && this._isDebugEnabled()) {
+                const cacheHitRatio = cacheHits / Math.max(1, cacheHits + cacheMisses);
+                appendEpgDebugLog('EPG.refreshEpgSchedulesForRange.background', {
+                    refreshId,
+                    rangeKey,
+                    rangeRefreshDurationMs: Date.now() - refreshStartedAt,
+                    immediateLoadedCount,
+                    backgroundLoadedCount,
+                    cacheHitRatio,
+                    firstVisibleScheduleReadyMs,
+                });
+            }
         };
 
         if (this._isDebugEnabled()) {
@@ -735,30 +1011,36 @@ export class EPGCoordinator {
                 refreshId,
                 rangeKey,
                 channelCount: channels.length,
-                preloadCount: prioritized.length,
+                preloadCount: immediateChannels.length,
+                warmQueueCount: backgroundChannels.length,
                 liveChannelId,
                 focusedChannelId,
                 visibleRange: {
                     start: range.channelStart,
                     end: range.channelEnd,
                 },
-                bufferedRange: {
-                    start: startIndex,
-                    end: endIndex,
-                },
-                overscan,
+                bufferedRange: partitioned.bufferedRange,
+                backgroundRange: partitioned.backgroundRange,
+                overscan: partitioned.overscan,
                 inFlight: {
                     kept: inFlightKept,
                     aborted: inFlightAborted,
                 },
-                concurrency,
+                concurrency: immediateConcurrency,
+                backgroundConcurrency: backgroundCaps.maxConcurrency,
                 cacheSize: this._epgScheduleCache.size,
                 cacheMaxEntries: this._epgScheduleCacheMaxEntries,
             };
             appendEpgDebugLog('EPG.refreshEpgSchedulesForRange', payload);
         }
 
-        const runForChannel = async (channel: ChannelConfig): Promise<void> => {
+        const runForChannel = async (
+            channel: ChannelConfig,
+            phase: 'immediate' | 'background'
+        ): Promise<void> => {
+            if (refreshId !== this._epgScheduleLoadToken) {
+                return;
+            }
             if (!forceRefresh && this._isScheduleLoadedForRange(channel.id, rangeKey)) {
                 alreadyLoaded += 1;
                 return;
@@ -768,7 +1050,7 @@ export class EPGCoordinator {
                 const state = scheduler.getState();
                 if (state.isActive && state.channelId === channel.id) {
                     const window = scheduler.getScheduleWindow(startTime, endTime);
-                    applySchedule(channel.id, this._cloneScheduleWindow(window));
+                    applySchedule(channel.id, this._cloneScheduleWindow(window), { phase });
                     liveScheduleHits += 1;
                     return;
                 }
@@ -778,10 +1060,10 @@ export class EPGCoordinator {
             if (cached) {
                 const cachedSchedule = this._cloneScheduleWindow(cached.schedule);
                 if (cached.isStale) {
-                    applySchedule(channel.id, cachedSchedule, { updateCache: false });
+                    applySchedule(channel.id, cachedSchedule, { updateCache: false, phase });
                     staleCacheHits += 1;
                 } else {
-                    applySchedule(channel.id, cachedSchedule);
+                    applySchedule(channel.id, cachedSchedule, { phase });
                     cacheHits += 1;
                     return;
                 }
@@ -805,6 +1087,9 @@ export class EPGCoordinator {
                 const resolved = await channelManager.resolveChannelContent(channel.id, {
                     signal: controller.signal,
                 });
+                if (refreshId !== this._epgScheduleLoadToken) {
+                    return;
+                }
                 const active = this._epgScheduleInFlight.get(channel.id);
                 if (!active || active.controller !== controller || controller.signal.aborted) {
                     return;
@@ -823,7 +1108,7 @@ export class EPGCoordinator {
                     scheduleConfig.anchorTime
                 );
 
-                applySchedule(channel.id, { startTime, endTime, programs });
+                applySchedule(channel.id, { startTime, endTime, programs }, { phase });
             } catch (error) {
                 if (controller.signal.aborted) {
                     return;
@@ -840,26 +1125,48 @@ export class EPGCoordinator {
         };
 
         let cursor = 0;
-        const workers = Array.from({ length: concurrency }, async () => {
+        const workers = Array.from({ length: immediateConcurrency }, async () => {
             while (true) {
-                const channel = prioritized[cursor++];
+                const channel = immediateChannels[cursor++];
                 if (!channel) return;
-                await runForChannel(channel);
+                await runForChannel(channel, 'immediate');
             }
         });
         await Promise.all(workers);
 
+        if (refreshId === this._epgScheduleLoadToken && backgroundChannels.length > 0) {
+            this._startBackgroundWarmQueue({
+                refreshId,
+                reason,
+                channels: backgroundChannels,
+                runForChannel: (channel) => runForChannel(channel, 'background'),
+                concurrency: Math.max(
+                    1,
+                    Math.min(backgroundCaps.maxConcurrency, backgroundChannels.length)
+                ),
+            });
+        }
+
         if (this._isDebugEnabled()) {
+            const rangeRefreshDurationMs = Date.now() - refreshStartedAt;
+            const cacheHitRatio = cacheHits / Math.max(1, cacheHits + cacheMisses);
             const payload = {
                 refreshId,
                 rangeKey,
+                rangeRefreshDurationMs,
                 cacheHits,
                 staleCacheHits,
                 cacheMisses,
+                cacheHitRatio,
                 inFlightSkipped,
                 alreadyLoaded,
                 liveScheduleHits,
-                concurrency,
+                immediateLoadedCount,
+                backgroundLoadedCount,
+                firstVisibleScheduleReadyMs,
+                immediateCount: immediateChannels.length,
+                backgroundQueuedCount: backgroundChannels.length,
+                concurrency: immediateConcurrency,
                 cacheSize: this._epgScheduleCache.size,
                 cacheMaxEntries: this._epgScheduleCacheMaxEntries,
             };
