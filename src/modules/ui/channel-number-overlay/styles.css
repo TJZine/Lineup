@@ -21,17 +21,17 @@
   min-width: 132px;
   padding: 8px 12px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  border: var(--panel-border);
   background: rgba(0, 0, 0, 0.72);
   box-shadow: var(--shadow-md);
-  color: var(--color-text-primary, #fff);
+  color: var(--color-text-primary);
 }
 
 .channel-number-label {
   font-size: var(--text-sm);
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--color-text-secondary);
 }
 
 .channel-number-digits {

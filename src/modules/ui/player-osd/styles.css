@@ -43,7 +43,7 @@
   font-weight: 800;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: var(--color-text-primary, rgba(255, 255, 255, 0.9));
+  color: var(--color-text-primary);
 }
 
 .player-osd-status-icon {
@@ -65,7 +65,7 @@
 .player-osd-channel {
   font-size: var(--text-md);
   font-weight: 600;
-  color: var(--color-text-secondary, rgba(255, 255, 255, 0.8));
+  color: var(--color-text-secondary);
   flex: 1 1 0;
   min-width: 0;
   white-space: nowrap;
@@ -77,7 +77,7 @@
   font-size: var(--text-xl);
   font-weight: 700;
   line-height: 1.2;
-  color: var(--color-text-primary, rgba(255, 255, 255, 0.98));
+  color: var(--color-text-primary);
 }
 
 .player-osd-clear-logo {
@@ -90,7 +90,7 @@
 
 .player-osd-subtitle {
   font-size: var(--text-lg);
-  color: var(--color-text-secondary, rgba(255, 255, 255, 0.75));
+  color: var(--color-text-secondary);
   line-height: 1.2;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -103,7 +103,7 @@
 .player-osd-info {
   margin-top: 4px;
   font-size: var(--text-md);
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -112,7 +112,7 @@
 .player-osd-up-next {
   margin-top: 6px;
   font-size: var(--text-md);
-  color: var(--color-text-muted, rgba(255, 255, 255, 0.6));
+  color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -128,7 +128,7 @@
 .player-osd-action {
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.12);
-  color: var(--color-text-primary, rgba(255, 255, 255, 0.92));
+  color: var(--color-text-primary);
   font-size: var(--text-md);
   font-weight: 600;
   padding: 6px 14px;
@@ -139,7 +139,7 @@
 .player-osd-action.focused {
   background: var(--color-primary);
   border-color: rgba(255, 255, 255, 0.35);
-  color: #fff;
+  color: var(--color-text-primary);
   box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-color) inset;
 }
 
@@ -163,7 +163,7 @@
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--color-text-primary);
   font-size: var(--text-sm);
   font-weight: 700;
   white-space: nowrap;
@@ -172,7 +172,7 @@
 .player-osd-hint {
   margin-top: 6px;
   font-size: var(--text-md);
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-text-muted);
   letter-spacing: 0.3px;
   text-transform: uppercase;
 }
@@ -215,7 +215,7 @@
   align-items: center;
   gap: 18px;
   font-size: var(--text-md);
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--color-text-secondary);
 }
 
 .player-osd-timecode {
