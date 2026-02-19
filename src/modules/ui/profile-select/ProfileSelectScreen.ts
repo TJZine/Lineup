@@ -46,6 +46,7 @@ export class ProfileSelectScreen {
     private _signOutButton: HTMLButtonElement;
     private _focusableIds: string[] = [];
     private _userButtonIds: string[] = [];
+    private _showMain = false;
     private _restoreFocusTimeoutId: ReturnType<typeof setTimeout> | null = null;
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
     private _isLoading: boolean = false;
@@ -262,11 +263,15 @@ export class ProfileSelectScreen {
         this._isLoading = true;
         this._listEl.replaceChildren();
         this._userButtonIds = [];
+        this._showMain = false;
+        this._mainButton.style.display = 'none';
         this._setStatus('Loading profiles...', { tone: 'loading' });
         this._setTip('Tip: Set a PIN on the admin profile to prevent unwanted access.');
 
         try {
             const users = await this._orchestrator.getHomeUsers();
+            this._showMain = users.length <= 1;
+            this._mainButton.style.display = this._showMain ? '' : 'none';
             if (users.length <= 1) {
                 if (users.length === 1) {
                     this._renderUsers(users);
@@ -634,15 +639,18 @@ export class ProfileSelectScreen {
         const nav = this._orchestrator.getNavigation();
         if (!nav) return;
 
+        const showMain = this._showMain;
         const focusableIds = [
             ...this._userButtonIds,
-            this._mainButton.id,
             this._signOutButton.id,
         ];
+        if (showMain) {
+            focusableIds.splice(this._userButtonIds.length, 0, this._mainButton.id);
+        }
         this._focusableIds = focusableIds;
 
         const userCount = this._userButtonIds.length;
-        const firstActionId = this._mainButton.id;
+        const firstActionId = showMain ? this._mainButton.id : this._signOutButton.id;
 
         focusableIds.forEach((id, index) => {
             const element = document.getElementById(id);
@@ -671,9 +679,9 @@ export class ProfileSelectScreen {
                 // Action buttons: Left/Right between each other.
                 // Up is intentionally omitted — FocusManager spatial fallback
                 // picks the nearest profile card, preserving the Down→Up round-trip.
-                if (id === this._mainButton.id) {
+                if (showMain && id === this._mainButton.id) {
                     neighbors.right = this._signOutButton.id;
-                } else if (id === this._signOutButton.id) {
+                } else if (showMain && id === this._signOutButton.id) {
                     neighbors.left = this._mainButton.id;
                 }
             }
@@ -694,7 +702,7 @@ export class ProfileSelectScreen {
             nav.registerFocusable(focusable);
         });
 
-        const preferredId = this._userButtonIds[0] ?? this._mainButton.id;
+        const preferredId = this._userButtonIds[0] ?? (showMain ? this._mainButton.id : this._signOutButton.id);
         if (preferredId) {
             nav.setFocus(preferredId, { persist: false });
         }
@@ -755,7 +763,8 @@ export class ProfileSelectScreen {
             if (nav.restoreFocusForCurrentScreen()) {
                 return;
             }
-            const preferredId = this._userButtonIds[0] ?? this._mainButton.id;
+            const showMain = this._showMain;
+            const preferredId = this._userButtonIds[0] ?? (showMain ? this._mainButton.id : this._signOutButton.id);
             nav.setFocus(preferredId);
         }, FOCUS_RESTORE_DELAY_MS);
     }

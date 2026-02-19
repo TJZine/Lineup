@@ -1,5 +1,5 @@
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
-import { ADVANCED_STRATEGY_KEYS, CONTENT_STRATEGY_KEYS, STEP2_CONTROL_IDS } from './constants';
+import { ADVANCED_STRATEGY_KEYS, CONTENT_STRATEGY_KEYS, STEP2_CONTROL_IDS, STRATEGY_CATEGORIES } from './constants';
 import type {
     SetupStrategyKey,
     StepRenderContext,
@@ -37,6 +37,14 @@ const ORDERED_PREVIEW_STRATEGY_KEYS: Array<keyof typeof STRATEGY_META> = [
     'studios',
     'actors',
 ];
+
+const CATEGORY_TITLES: Record<StrategyCategoryKey, string> = {
+    'content-sources': 'Content Sources',
+    'advanced-sources': 'Advanced Sources',
+    'build-options': 'Build Options',
+    limits: 'Limits',
+    'priority-order': 'Priority Order',
+};
 
 export class StrategyStepController {
     private _createToggleButton(options: {
@@ -137,24 +145,8 @@ export class StrategyStepController {
                 },
             });
 
-            const priorityId = deps.priorityButtonId(strategy.key);
-            const priorityButton = this._createToggleButton({
-                id: priorityId,
-                className: 'setup-toggle setup-toggle--adjustable',
-                label: `${strategy.label} priority`,
-                meta: 'Lower numbers are planned earlier.',
-                stateText: String(strategyState.priority),
-                onClick: () => {
-                    deps.applySettingChange(priorityId, (draft) => {
-                        const maxPriority = deps.strategyKeys.length;
-                        const next = draft.strategies[strategy.key];
-                        next.priority = next.priority >= maxPriority ? 1 : next.priority + 1;
-                    });
-                },
-            });
-
             if (!deps.strategySupportsMixedScope(strategy.key)) {
-                return [toggleButton, priorityButton];
+                return [toggleButton];
             }
 
             const scopeId = deps.scopeButtonId(strategy.key);
@@ -172,7 +164,7 @@ export class StrategyStepController {
                 },
             });
 
-            return [toggleButton, priorityButton, scopeButton];
+            return [toggleButton, scopeButton];
         };
 
         const contentButtons = strategyLabels
@@ -181,6 +173,7 @@ export class StrategyStepController {
         const advancedButtons = strategyLabels
             .filter((strategy) => isAdvancedStrategyKey(strategy.key))
             .flatMap(createStrategyControls);
+        const priorityRowButtons = this._renderPriorityReorderList(deps, state, strategyLabels);
 
         const addAlternateLineupsButton = this._createToggleButton({
             id: STEP2_CONTROL_IDS.addAlternateLineups,
@@ -291,11 +284,13 @@ export class StrategyStepController {
                 addSequentialVariantsButton,
             ],
             'limits': [maxButton, minItemsButton, expandLineupButton],
+            'priority-order': priorityRowButtons,
         };
         const categoryButtons = this._renderCategoryRail(left, deps, state);
         const activeControls = controlsByCategory[state.activeStrategyCategory] ?? [];
+        const activeCategoryTitle = CATEGORY_TITLES[state.activeStrategyCategory];
 
-        const detailScroll = this._renderDetailPane(activeControls);
+        const detailScroll = this._renderDetailPane(activeControls, activeCategoryTitle);
         const previewPanel = this._renderPreviewPanel(deps, state);
 
         right.appendChild(detailScroll);
@@ -311,12 +306,10 @@ export class StrategyStepController {
         deps: StrategyStepDeps,
         state: StrategyStepDeps['state']
     ): HTMLButtonElement[] {
-        const categories: Array<{ key: StrategyCategoryKey; title: string }> = [
-            { key: 'content-sources', title: 'Content Sources' },
-            { key: 'advanced-sources', title: 'Advanced Sources' },
-            { key: 'build-options', title: 'Build Options' },
-            { key: 'limits', title: 'Limits' },
-        ];
+        const categories: Array<{ key: StrategyCategoryKey; title: string }> = STRATEGY_CATEGORIES.map((key) => ({
+            key,
+            title: CATEGORY_TITLES[key],
+        }));
 
         const categoryButtons = categories.map((category) => {
             const button = document.createElement('button');
@@ -336,9 +329,13 @@ export class StrategyStepController {
         return categoryButtons;
     }
 
-    private _renderDetailPane(activeControls: HTMLButtonElement[]): HTMLElement {
+    private _renderDetailPane(activeControls: HTMLButtonElement[], activeCategoryTitle: string): HTMLElement {
         const detailScroll = document.createElement('div');
         detailScroll.className = 'setup-detail-scroll setup-focus-safe-scroll';
+        const header = document.createElement('div');
+        header.className = 'setup-detail-header';
+        header.textContent = activeCategoryTitle;
+        detailScroll.appendChild(header);
 
         const detailControls = document.createElement('div');
         detailControls.className = 'setup-list';
@@ -347,6 +344,55 @@ export class StrategyStepController {
         }
         detailScroll.appendChild(detailControls);
         return detailScroll;
+    }
+
+    private _renderPriorityReorderList(
+        deps: StrategyStepDeps,
+        state: StrategyStepDeps['state'],
+        strategyLabels: Array<{ key: SetupStrategyKey; label: string; detail: string }>
+    ): HTMLButtonElement[] {
+        return state.strategyOrder.map((key, index) => {
+            const strategy = strategyLabels.find((item) => item.key === key);
+            const strategyState = state.strategies[key];
+            const rowId = deps.priorityRowId(key);
+            const button = document.createElement('button');
+            button.id = rowId;
+            button.className = 'setup-toggle setup-priority-row';
+            const labelText = strategy?.label ?? String(key);
+            const stateText = strategyState.enabled ? 'On' : 'Off';
+            button.setAttribute('aria-label', `Priority ${index + 1}: ${labelText}, ${stateText}`);
+            button.setAttribute('aria-pressed', strategyState.enabled ? 'true' : 'false');
+            if (deps.lastReorder?.key === key && deps.lastReorder.dir === 'up') {
+                button.classList.add('setup-priority-row--move-up');
+            } else if (deps.lastReorder?.key === key && deps.lastReorder.dir === 'down') {
+                button.classList.add('setup-priority-row--move-down');
+            }
+
+            const rank = document.createElement('span');
+            rank.className = 'setup-priority-rank';
+            rank.textContent = String(index + 1);
+            rank.setAttribute('aria-hidden', 'true');
+
+            const label = document.createElement('span');
+            label.className = 'setup-priority-label';
+            label.textContent = labelText;
+            label.setAttribute('aria-hidden', 'true');
+
+            const rowState = document.createElement('span');
+            rowState.className = 'setup-priority-state';
+            rowState.textContent = stateText;
+            rowState.setAttribute('aria-hidden', 'true');
+
+            button.appendChild(rank);
+            button.appendChild(label);
+            button.appendChild(rowState);
+            button.addEventListener('click', () => {
+                deps.applySettingChange(rowId, (draft) => {
+                    draft.strategies[key].enabled = !draft.strategies[key].enabled;
+                });
+            });
+            return button;
+        });
     }
 
     private _renderPreviewPanel(deps: StrategyStepDeps, state: StrategyStepDeps['state']): HTMLElement {

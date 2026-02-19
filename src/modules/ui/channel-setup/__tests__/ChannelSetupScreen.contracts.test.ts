@@ -12,6 +12,7 @@ import {
     STEP2_CONTROL_IDS,
     STRATEGY_CATEGORIES,
 } from '../steps/constants';
+import { SETUP_STRATEGY_KEYS } from '../../../../core/channel-setup/constants';
 import {
     clickButton,
     createNavigationMock,
@@ -80,7 +81,6 @@ describe('ChannelSetupScreen contracts', () => {
 
         for (const key of CONTENT_STRATEGY_KEYS) {
             expect(container.querySelector(`#setup-strategy-${key}`)).not.toBeNull();
-            expect(container.querySelector(`#setup-priority-${key}`)).not.toBeNull();
             const scopeControl = container.querySelector(`#setup-scope-${key}`);
             if (MIXED_SCOPE_STRATEGY_KEYS.has(key)) {
                 expect(scopeControl).not.toBeNull();
@@ -92,13 +92,17 @@ describe('ChannelSetupScreen contracts', () => {
         clickButton(container, '#setup-category-advanced-sources');
         for (const key of ADVANCED_STRATEGY_KEYS) {
             expect(container.querySelector(`#setup-strategy-${key}`)).not.toBeNull();
-            expect(container.querySelector(`#setup-priority-${key}`)).not.toBeNull();
             const scopeControl = container.querySelector(`#setup-scope-${key}`);
             if (MIXED_SCOPE_STRATEGY_KEYS.has(key)) {
                 expect(scopeControl).not.toBeNull();
             } else {
                 expect(scopeControl).toBeNull();
             }
+        }
+
+        clickButton(container, '#setup-category-priority-order');
+        for (const key of SETUP_STRATEGY_KEYS) {
+            expect(container.querySelector(`#setup-priority-row-${key}`)).not.toBeNull();
         }
 
         clickButton(container, '#setup-category-build-options');

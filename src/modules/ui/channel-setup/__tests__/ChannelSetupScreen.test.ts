@@ -86,6 +86,28 @@ describe('ChannelSetupScreen', () => {
         expect(meta?.textContent ?? '').toContain(`Movies • ${formattedCount} titles`);
     });
 
+    it('applies stagger class and delay to library cards', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([
+                makeLibrary({ id: 'movies' }),
+                makeLibrary({ id: 'shows', type: 'show' }),
+            ]),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+
+        const first = container.querySelector('#setup-lib-movies') as HTMLButtonElement | null;
+        const second = container.querySelector('#setup-lib-shows') as HTMLButtonElement | null;
+        expect(first?.classList.contains('setup-stagger-in')).toBe(true);
+        expect(second?.classList.contains('setup-stagger-in')).toBe(true);
+        expect(second?.style.animationDelay).toBe('50ms');
+    });
+
     it('supports clear-all and select-all toggles', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -194,6 +216,7 @@ describe('ChannelSetupScreen', () => {
             'Advanced Sources',
             'Build Options',
             'Limits',
+            'Priority Order',
         ]);
     });
 
@@ -236,9 +259,9 @@ describe('ChannelSetupScreen', () => {
         expect(nav.focusables.get('setup-category-content-sources')?.neighbors.down).toBe('setup-category-advanced-sources');
         expect(nav.focusables.get('setup-category-advanced-sources')?.neighbors.down).toBe('setup-category-build-options');
         expect(nav.focusables.get('setup-category-build-options')?.neighbors.down).toBe('setup-category-limits');
-        expect(nav.focusables.get('setup-category-limits')?.neighbors.down).toBe('setup-strategy-collections');
-        expect(nav.focusables.get('setup-strategy-recentlyAdded')?.neighbors.down).toBe('setup-priority-recentlyAdded');
-        expect(nav.focusables.get('setup-priority-recentlyAdded')?.neighbors.down).toBe('setup-back');
+        expect(nav.focusables.get('setup-category-limits')?.neighbors.down).toBe('setup-category-priority-order');
+        expect(nav.focusables.get('setup-category-priority-order')?.neighbors.down).toBe('setup-strategy-collections');
+        expect(nav.focusables.get('setup-strategy-recentlyAdded')?.neighbors.down).toBe('setup-back');
         expect(nav.focusables.get('setup-back')?.neighbors.down).toBe('setup-next');
         expect(nav.focusables.get('setup-next')?.neighbors.up).toBe('setup-back');
     });
@@ -642,7 +665,8 @@ describe('ChannelSetupScreen', () => {
             addSequentialVariants: false,
         });
 
-        clickButton(container, '#setup-priority-playlists');
+        clickButton(container, '#setup-category-priority-order');
+        clickButton(container, '#setup-priority-row-playlists');
         clickButton(container, '#setup-category-advanced-sources');
         clickButton(container, '#setup-scope-genres');
         clickButton(container, '#setup-category-build-options');
@@ -652,10 +676,10 @@ describe('ChannelSetupScreen', () => {
 
         const afterConfig = internal._buildConfig('server-1');
         const afterKey = internal._buildPreviewKey(afterConfig);
-        const strategyConfig = afterConfig.strategyConfig as Record<string, { priority: number; scope: string }>;
-        const beforeStrategyConfig = beforeConfig.strategyConfig as Record<string, { priority: number; scope: string }>;
+        const strategyConfig = afterConfig.strategyConfig as Record<string, { enabled: boolean; scope: string }>;
+        const beforeStrategyConfig = beforeConfig.strategyConfig as Record<string, { enabled: boolean; scope: string }>;
 
-        expect(strategyConfig.playlists?.priority).not.toBe(beforeStrategyConfig.playlists?.priority);
+        expect(strategyConfig.playlists?.enabled).not.toBe(beforeStrategyConfig.playlists?.enabled);
         expect(strategyConfig.genres?.scope).toBe('cross-library');
         expect(afterConfig.channelExpansion).toEqual({
             addAlternateLineups: true,
@@ -665,7 +689,7 @@ describe('ChannelSetupScreen', () => {
         expect(afterKey).not.toBe(beforeKey);
     });
 
-    it('renders strategy and priority controls for every setup strategy key with no extras', async () => {
+    it('renders strategy toggles and priority rows for every setup strategy key with no extras', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -679,29 +703,96 @@ describe('ChannelSetupScreen', () => {
         await enterStep2(container);
 
         const observedStrategies = new Set<string>();
-        const observedPriorities = new Set<string>();
+        const observedPriorityRows = new Set<string>();
         const collectVisibleStrategyControls = (): void => {
             const strategyButtons = Array.from(
                 container.querySelectorAll<HTMLButtonElement>('[id^="setup-strategy-"]')
             );
-            const priorityButtons = Array.from(
-                container.querySelectorAll<HTMLButtonElement>('[id^="setup-priority-"]')
-            );
             for (const button of strategyButtons) {
                 observedStrategies.add(button.id.replace('setup-strategy-', ''));
-            }
-            for (const button of priorityButtons) {
-                observedPriorities.add(button.id.replace('setup-priority-', ''));
             }
         };
 
         collectVisibleStrategyControls();
         clickButton(container, '#setup-category-advanced-sources');
         collectVisibleStrategyControls();
+        clickButton(container, '#setup-category-priority-order');
+        const priorityRows = Array.from(
+            container.querySelectorAll<HTMLButtonElement>('[id^="setup-priority-row-"]')
+        );
+        for (const row of priorityRows) {
+            observedPriorityRows.add(row.id.replace('setup-priority-row-', ''));
+        }
 
         const expected = [...SETUP_STRATEGY_KEYS].sort();
         expect([...observedStrategies].sort()).toEqual(expected);
-        expect([...observedPriorities].sort()).toEqual(expected);
+        expect([...observedPriorityRows].sort()).toEqual(expected);
+    });
+
+    it('reorders priority rows with channel keys and derives strategy priorities from strategy order', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const orchestrator = createOrchestrator({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-priority-order');
+
+        const internal = screen as unknown as { _buildConfig: (serverId: string) => Record<string, unknown> };
+        const orderFromConfig = (config: Record<string, unknown>): string[] => {
+            const strategyConfig = config.strategyConfig as Record<string, { priority: number }>;
+            return Object.entries(strategyConfig)
+                .map(([key, value]) => ({ key, priority: value.priority }))
+                .sort((a, b) => {
+                    const diff = a.priority - b.priority;
+                    if (diff !== 0) return diff;
+                    return a.key.localeCompare(b.key);
+                })
+                .map((entry) => entry.key);
+        };
+
+        const beforeConfig = internal._buildConfig('server-1');
+        const beforeOrder = orderFromConfig(beforeConfig);
+        const moveIndex = Math.min(1, beforeOrder.length - 2);
+        const movedKey = beforeOrder[moveIndex];
+        const swappedKey = beforeOrder[moveIndex + 1];
+        expect(movedKey).toBeTruthy();
+        expect(swappedKey).toBeTruthy();
+
+        nav.setMockFocus(`setup-priority-row-${movedKey}`);
+
+        const dpadDown = nav.emitKeyPress('down');
+        expect(dpadDown.handled).toBeFalsy();
+
+        const afterDpadConfig = internal._buildConfig('server-1');
+        const afterDpadOrder = orderFromConfig(afterDpadConfig);
+        expect(afterDpadOrder).toEqual(beforeOrder);
+
+        nav.setMockFocus(`setup-priority-row-${movedKey}`);
+        const channelDown = nav.emitKeyPress('channelDown');
+        expect(channelDown.handled).toBe(true);
+
+        const afterDownConfig = internal._buildConfig('server-1');
+        const afterDownOrder = orderFromConfig(afterDownConfig);
+        expect(afterDownOrder[moveIndex]).toBe(swappedKey);
+        expect(afterDownOrder[moveIndex + 1]).toBe(movedKey);
+
+        nav.setMockFocus(`setup-priority-row-${movedKey}`);
+        const channelUp = nav.emitKeyPress('channelUp');
+        expect(channelUp.handled).toBe(true);
+
+        const afterUpConfig = internal._buildConfig('server-1');
+        const afterUpOrder = orderFromConfig(afterUpConfig);
+        expect(afterUpOrder).toEqual(beforeOrder);
     });
 
     it('Expand Lineup quick action sets max to MAX_CHANNELS and min items to 1', async () => {
