@@ -395,24 +395,44 @@ describe('App bootstrap smoke', () => {
         expect(overlay?.classList.contains('hidden')).toBe(true);
     });
 
-    it('app-shell error handler suppresses blocking overlay for recoverable channel/content errors', async () => {
-        app = new App();
-        await app.start();
+    it.each([
+        ['CHANNEL_NOT_FOUND', 'That channel is unavailable.'],
+        ['SCHEDULER_EMPTY_CHANNEL', 'No scheduled content is available for that channel.'],
+        ['CONTENT_UNAVAILABLE', 'That content is unavailable right now.'],
+        ['RESOURCE_NOT_FOUND', 'Requested content could not be found.'],
+    ])(
+        'app-shell error handler suppresses blocking overlay for recoverable code %s',
+        async (code, expectedMessage) => {
+            app = new App();
+            await app.start();
 
-        expect(appShellErrorHandler).not.toBeNull();
-        const handled = appShellErrorHandler?.({
-            code: 'CONTENT_UNAVAILABLE',
-            message: 'x',
-            recoverable: true,
-        });
+            app.showErrorOverlay({
+                code: 'TEST_ERROR',
+                message: 'Boom',
+                userMessage: 'Something failed',
+                recoverable: true,
+                phase: 'error',
+                timestamp: Date.now(),
+                actions: [],
+            } as never);
 
-        expect(handled).toBe(true);
-        const overlay = document.getElementById('error-overlay') as HTMLElement | null;
-        expect(overlay?.classList.contains('hidden')).toBe(true);
+            const overlay = document.getElementById('error-overlay') as HTMLElement | null;
+            expect(overlay?.classList.contains('hidden')).toBe(false);
 
-        const toast = document.getElementById('app-toast') as HTMLElement | null;
-        expect((toast?.textContent ?? '').trim().length).toBeGreaterThan(0);
-    });
+            expect(appShellErrorHandler).not.toBeNull();
+            const handled = appShellErrorHandler?.({
+                code,
+                message: 'x',
+                recoverable: true,
+            });
+
+            expect(handled).toBe(true);
+            expect(overlay?.classList.contains('hidden')).toBe(true);
+
+            const toast = document.getElementById('app-toast') as HTMLElement | null;
+            expect(toast?.textContent ?? '').toContain(expectedMessage);
+        }
+    );
 
     it('app-shell error handler still shows overlay for auth-required blocking errors', async () => {
         app = new App();

@@ -847,6 +847,58 @@ describe('PlexStreamResolver', () => {
             expect(parsed.searchParams.get('subtitleFormat')).toBe('none');
         });
 
+        it('applies transcode preset identity fields from storage', () => {
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: (key: string) =>
+                        key === RETUNE_STORAGE_KEYS.TRANSCODE_PRESET ? 'webos-lgtv' : null,
+                },
+                configurable: true,
+            });
+
+            const config = createMockConfig();
+            const resolver = new PlexStreamResolver(config);
+
+            const url = resolver.getTranscodeUrl('12345', {});
+            const parsed = new URL(url);
+
+            expect(parsed.searchParams.get('X-Plex-Platform')).toBe('webOS');
+            expect(parsed.searchParams.get('X-Plex-Platform-Version')).toBe('6.0');
+            expect(parsed.searchParams.get('X-Plex-Device')).toBe('lgtv');
+            expect(parsed.searchParams.get('X-Plex-Model')).toBe('webOS');
+        });
+
+        it('applies compat mode and preset identity fields together', () => {
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: (key: string) => {
+                        if (key === RETUNE_STORAGE_KEYS.TRANSCODE_COMPAT) {
+                            return '1';
+                        }
+                        if (key === RETUNE_STORAGE_KEYS.TRANSCODE_PRESET) {
+                            return 'android';
+                        }
+                        return null;
+                    },
+                },
+                configurable: true,
+            });
+
+            const config = createMockConfig();
+            const resolver = new PlexStreamResolver(config);
+
+            const url = resolver.getTranscodeUrl('12345', {});
+            const parsed = new URL(url);
+
+            expect(parsed.searchParams.get('subtitles')).toBe('none');
+            expect(parsed.searchParams.get('subtitleStreamID')).toBe('0');
+            expect(parsed.searchParams.get('subtitleFormat')).toBe('none');
+            expect(parsed.searchParams.get('X-Plex-Platform')).toBe('Android');
+            expect(parsed.searchParams.get('X-Plex-Platform-Version')).toBe('12');
+            expect(parsed.searchParams.get('X-Plex-Device')).toBe('Android');
+            expect(parsed.searchParams.get('X-Plex-Product')).toBe('Plex for Android');
+        });
+
         it('should throw when no server URI is available', () => {
             const config = createMockConfig({
                 getServerUri: () => null,

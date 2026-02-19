@@ -208,8 +208,8 @@
   background: var(--color-primary-alpha-20);
 }
 
-.epg-channel-row:focus:not(.focused),
-.epg-channel-row:focus-visible:not(.focused) {
+.epg-channel-row:focus,
+.epg-channel-row:focus-visible {
   outline: none;
 }
 
@@ -492,8 +492,8 @@
   cursor: pointer;
 }
 
-.epg-cell:focus:not(.focused),
-.epg-cell:focus-visible:not(.focused) {
+.epg-cell:focus,
+.epg-cell:focus-visible {
   outline: none;
 }
 

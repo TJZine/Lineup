@@ -13,6 +13,7 @@ import type { PlaybackOptionsSectionId } from '../ui/playback-options/types';
 import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
 import { readStoredBoolean } from '../../utils/storage';
 import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
+import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 
 const EPG_REPEAT_INITIAL_DELAY_MS = 250;
 const EPG_REPEAT_TIER_1_MS = 800;
@@ -60,7 +61,7 @@ export interface NavigationCoordinatorDeps {
 
     switchToNextChannel: () => void;
     switchToPreviousChannel: () => void;
-    switchToChannelByNumber: (n: number) => Promise<void>;
+    switchToChannelByNumber: (n: number) => Promise<ChannelSwitchOutcome>;
     focusEpgOnCurrentChannel: () => void;
     onChannelInputUpdate?: (payload: { digits: string; isComplete: boolean }) => void;
 
@@ -145,7 +146,10 @@ export class NavigationCoordinator {
             }
             this.deps.setLastChannelChangeSourceNumber();
             try {
-                await this.deps.switchToChannelByNumber(payload.channelNumber);
+                const outcome = await this.deps.switchToChannelByNumber(payload.channelNumber);
+                if (outcome !== 'switched') {
+                    return;
+                }
                 if (this.deps.epg?.isVisible()) {
                     this.deps.focusEpgOnCurrentChannel();
                 }

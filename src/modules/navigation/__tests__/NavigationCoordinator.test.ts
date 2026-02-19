@@ -117,7 +117,7 @@ const setup = (overrides: Partial<NavigationCoordinatorDeps> = {}): {
         setLastChannelChangeSourceNumber: jest.fn(),
         switchToNextChannel: jest.fn(),
         switchToPreviousChannel: jest.fn(),
-        switchToChannelByNumber: jest.fn().mockResolvedValue(undefined),
+        switchToChannelByNumber: jest.fn().mockResolvedValue('switched'),
         focusEpgOnCurrentChannel: jest.fn(),
         toggleEpg: jest.fn(),
         shouldRunChannelSetup: jest.fn().mockReturnValue(false),
@@ -174,6 +174,7 @@ describe('NavigationCoordinator', () => {
         const focusEpgOnCurrentChannel = jest.fn();
         const { handlers, deps, epg } = setup({
             focusEpgOnCurrentChannel,
+            switchToChannelByNumber: jest.fn().mockResolvedValue('switched'),
         });
         (epg.isVisible as jest.Mock).mockReturnValue(true);
 
@@ -188,8 +189,39 @@ describe('NavigationCoordinator', () => {
         const focusEpgOnCurrentChannel = jest.fn();
         const { handlers, deps, epg } = setup({
             focusEpgOnCurrentChannel,
+            switchToChannelByNumber: jest.fn().mockResolvedValue('switched'),
         });
         (epg.isVisible as jest.Mock).mockReturnValue(false);
+
+        handlers.channelNumberEntered?.({ channelNumber: 42 });
+        await Promise.resolve();
+
+        expect(deps.switchToChannelByNumber).toHaveBeenCalledWith(42);
+        expect(focusEpgOnCurrentChannel).not.toHaveBeenCalled();
+    });
+
+    it('channelNumberEntered does not focus EPG when switch outcome is aborted', async () => {
+        const focusEpgOnCurrentChannel = jest.fn();
+        const { handlers, deps, epg } = setup({
+            focusEpgOnCurrentChannel,
+            switchToChannelByNumber: jest.fn().mockResolvedValue('aborted'),
+        });
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+
+        handlers.channelNumberEntered?.({ channelNumber: 42 });
+        await Promise.resolve();
+
+        expect(deps.switchToChannelByNumber).toHaveBeenCalledWith(42);
+        expect(focusEpgOnCurrentChannel).not.toHaveBeenCalled();
+    });
+
+    it('channelNumberEntered does not focus EPG when switch outcome is failed', async () => {
+        const focusEpgOnCurrentChannel = jest.fn();
+        const { handlers, deps, epg } = setup({
+            focusEpgOnCurrentChannel,
+            switchToChannelByNumber: jest.fn().mockResolvedValue('failed'),
+        });
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
 
         handlers.channelNumberEntered?.({ channelNumber: 42 });
         await Promise.resolve();

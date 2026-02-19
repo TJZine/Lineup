@@ -110,6 +110,13 @@ const NON_BLOCKING_LIFECYCLE_CODES = new Set<AppErrorCode>([
     AppErrorCode.RESOURCE_NOT_FOUND,
 ]);
 
+const NON_BLOCKING_TOAST_MESSAGES: Partial<Record<AppErrorCode, string>> = {
+    [AppErrorCode.CHANNEL_NOT_FOUND]: 'That channel is unavailable.',
+    [AppErrorCode.SCHEDULER_EMPTY_CHANNEL]: 'No scheduled content is available for that channel.',
+    [AppErrorCode.CONTENT_UNAVAILABLE]: 'That content is unavailable right now.',
+    [AppErrorCode.RESOURCE_NOT_FOUND]: 'Requested content could not be found.',
+};
+
 const DEFAULT_CHANNEL_TRANSITION_CONFIG: ChannelTransitionConfig = {
     containerId: 'channel-transition-container',
 };
@@ -213,7 +220,7 @@ export class App {
             if (!this._shouldUseBlockingOverlay(lifecycleError)) {
                 this.hideErrorOverlay();
                 this._showToast({
-                    message: lifecycleError.userMessage?.trim() || 'That channel is unavailable.',
+                    message: this._getNonBlockingToastMessage(lifecycleError),
                     type: 'warning',
                 });
                 return true;
@@ -228,6 +235,15 @@ export class App {
             return true;
         }
         return !NON_BLOCKING_LIFECYCLE_CODES.has(error.code as AppErrorCode);
+    }
+
+    private _getNonBlockingToastMessage(error: LifecycleAppError): string {
+        const code = error.code as AppErrorCode;
+        const mapped = NON_BLOCKING_TOAST_MESSAGES[code];
+        if (typeof mapped === 'string' && mapped.length > 0) {
+            return mapped;
+        }
+        return error.userMessage?.trim() || 'That channel is unavailable.';
     }
 
     /**
