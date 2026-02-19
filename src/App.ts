@@ -1208,7 +1208,16 @@ export class App {
 
         const profileNameSelect = this._devMenuContainer.querySelector('#dev-transcode-profile-name') as HTMLSelectElement | null;
         if (profileNameSelect) {
-            profileNameSelect.value = read(RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
+            const storedProfileName = read(RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
+            const isSupportedStoredProfileName = Array.from(profileNameSelect.options).some(
+                (option) => option.value === storedProfileName
+            );
+            if (storedProfileName.length > 0 && !isSupportedStoredProfileName) {
+                safeLocalStorageRemove(RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
+                profileNameSelect.value = '';
+            } else {
+                profileNameSelect.value = storedProfileName;
+            }
         }
 	        const directPlayAudioFallbackEl = this._devMenuContainer.querySelector('#dev-directplay-audio-fallback') as HTMLInputElement | null;
 	        if (directPlayAudioFallbackEl) {

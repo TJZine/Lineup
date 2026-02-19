@@ -347,7 +347,7 @@ describe('SettingsScreen (Two-pane layout)', () => {
 describe('SettingsScreen (Transcode controls)', () => {
     beforeEach(() => {
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.TRANSCODE_COMPAT);
-        localStorage.removeItem(SETTINGS_STORAGE_KEYS.TRANSCODE_PRESET);
+        localStorage.removeItem(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY);
     });
 
     afterEach(() => {
@@ -370,31 +370,32 @@ describe('SettingsScreen (Transcode controls)', () => {
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.TRANSCODE_COMPAT)).toBe('1');
     });
 
-    it('writes transcode preset select', () => {
+    it('writes transcode quality select', () => {
         const { container, screen } = createScreen(jest.fn());
 
         screen.show();
         activateCategory(container, 'playback_hdr');
 
-        const select = container.querySelector('#settings-transcode-preset') as HTMLButtonElement | null;
+        const select = container.querySelector('#settings-transcode-quality') as HTMLButtonElement | null;
         if (!select) {
-            throw new Error('Transcode preset select not found');
+            throw new Error('Transcode quality select not found');
         }
 
         select.click();
 
-        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.TRANSCODE_PRESET)).toBe('webos-lgtv');
+        // Click cycles from Default -> first cap tier.
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY)).toBe('12000-1080p');
     });
 
-    it('loads stored transcode preset on show', () => {
-        localStorage.setItem(SETTINGS_STORAGE_KEYS.TRANSCODE_PRESET, 'webos-lgtv');
+    it('loads stored transcode quality on show', () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY, '12000-1080p');
         const { container, screen } = createScreen(jest.fn());
 
         screen.show();
         activateCategory(container, 'playback_hdr');
 
-        const value = container.querySelector('#settings-transcode-preset .setup-toggle-value');
-        expect(value?.textContent?.trim()).toBe('webOS LGTV');
+        const value = container.querySelector('#settings-transcode-quality .setup-toggle-value');
+        expect(value?.textContent?.trim()).toBe('12 Mbps (1080p)');
     });
 });
 
