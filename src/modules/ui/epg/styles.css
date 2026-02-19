@@ -81,7 +81,7 @@
   padding: 10px 16px;
   background: rgba(0, 0, 0, 0.72);
   border-bottom: 1px solid var(--color-border-subtle);
-  font-size: 16px;
+  font-size: var(--text-sm);
   color: var(--color-text-primary);
   flex-shrink: 0;
 }
@@ -113,7 +113,7 @@
   padding: 10px 16px;
   background: rgba(0, 0, 0, 0.72);
   border-top: 1px solid var(--color-border-default);
-  font-size: 16px;
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   pointer-events: none;
   flex-shrink: 0;
@@ -231,14 +231,14 @@
 .epg-channel-row[data-build-strategy="libraryFallback"] { border-left-color: var(--epg-category-library); }
 
 .epg-channel-number {
-  font-size: 18px;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--color-text-muted);
   min-width: 32px;
 }
 
 .epg-channel-name {
-  font-size: 18px;
+  font-size: var(--text-md);
   font-weight: 500;
   white-space: normal;
   overflow: hidden;
@@ -442,7 +442,7 @@
 }
 
 .epg-scrub-label-title {
-  font-size: 20px;
+  font-size: var(--text-base);
   font-weight: 700;
   line-height: 1.25;
   white-space: nowrap;
@@ -584,7 +584,7 @@
 }
 
 .epg-cell-title {
-  font-size: 24px;
+  font-size: var(--text-lg);
   font-weight: 500;
   margin-top: 0;
   white-space: nowrap;
@@ -594,7 +594,7 @@
 }
 
 .epg-cell-show {
-  font-size: 18px;
+  font-size: var(--text-md);
   font-weight: 500;
   color: var(--color-text-secondary);
   white-space: nowrap;
@@ -605,7 +605,7 @@
 }
 
 .epg-cell-time {
-  font-size: 18px;
+  font-size: var(--text-md);
   color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -636,7 +636,7 @@
 }
 
 .epg-cell-tier-tiny .epg-cell-title {
-  font-size: 20px;
+  font-size: var(--text-base);
 }
 
 /* =========================================
@@ -762,7 +762,7 @@
 }
 
 .epg-info-title {
-  font-size: 32px;
+  font-size: var(--text-2xl);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -771,7 +771,7 @@
 }
 
 .epg-info-show {
-  font-size: 20px;
+  font-size: var(--text-base);
   color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -780,7 +780,7 @@
 }
 
 .epg-info-meta {
-  font-size: 18px;
+  font-size: var(--text-md);
   color: var(--color-text-secondary);
   display: flex;
   gap: 16px;
@@ -788,7 +788,7 @@
 }
 
 .epg-info-genres {
-  font-size: 18px;
+  font-size: var(--text-md);
   color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -796,7 +796,7 @@
 }
 
 .epg-info-description {
-  font-size: 20px;
+  font-size: var(--text-base);
   line-height: 1.4;
   color: var(--color-text-primary);
   display: -webkit-box;
@@ -804,7 +804,7 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-height: calc(20px * 1.4 * 4);
+  max-height: calc(var(--text-base) * 1.4 * 4);
 }
 
 .epg-info-quality {
@@ -837,7 +837,7 @@
 
 .epg-info-button {
   padding: 12px 32px;
-  font-size: 18px;
+  font-size: var(--text-md);
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.1);
   border: 2px solid transparent;
