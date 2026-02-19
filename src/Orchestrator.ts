@@ -871,7 +871,14 @@ export class AppOrchestrator implements IAppOrchestrator {
                     this._channelNumberOverlay?.showDigits(payload.digits, CHANNEL_INPUT_CONFIG.MAX_DIGITS);
                 }
                 if (payload.isComplete) {
-                    this._channelNumberOverlay?.scheduleHide(250);
+                    const configuredDelay = this._config?.channelNumberOverlayConfig?.completeHideDelayMs;
+                    const delayMs =
+                        typeof configuredDelay === 'number' &&
+                            Number.isFinite(configuredDelay) &&
+                            configuredDelay >= 0
+                            ? Math.floor(configuredDelay)
+                            : 650;
+                    this._channelNumberOverlay?.scheduleHide(delayMs);
                 }
             },
             getSeekIncrementMs: (): number =>

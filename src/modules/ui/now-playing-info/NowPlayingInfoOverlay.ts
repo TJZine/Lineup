@@ -93,6 +93,13 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         this.actorResizeObserver = null;
         this.lastActorState = null;
         if (this.containerElement) {
+            const clearLogo = this.containerElement.querySelector(
+                `.${NOW_PLAYING_INFO_CLASSES.CLEAR_LOGO}`
+            ) as HTMLImageElement | null;
+            if (clearLogo) {
+                clearLogo.onerror = null;
+                clearLogo.onload = null;
+            }
             this.containerElement.innerHTML = '';
             this.containerElement.classList.remove('visible');
         }
@@ -223,11 +230,30 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         ) as HTMLImageElement | null;
         if (clearLogo && title) {
             if (viewModel.clearLogoUrl) {
-                clearLogo.src = viewModel.clearLogoUrl;
+                const expectedSrc = viewModel.clearLogoUrl;
+                clearLogo.onerror = (): void => {
+                    if (clearLogo.getAttribute('src') !== expectedSrc) return;
+                    clearLogo.onerror = null;
+                    clearLogo.onload = null;
+                    clearLogo.removeAttribute('src');
+                    clearLogo.alt = '';
+                    clearLogo.style.display = 'none';
+                    (title as HTMLElement).style.display = '';
+                };
+                clearLogo.onload = (): void => {
+                    if (clearLogo.getAttribute('src') !== expectedSrc) return;
+                    clearLogo.onerror = null;
+                    clearLogo.onload = null;
+                    (title as HTMLElement).style.display = 'none';
+                };
+
+                clearLogo.setAttribute('src', expectedSrc);
                 clearLogo.alt = viewModel.title || '';
                 clearLogo.style.display = 'block';
                 (title as HTMLElement).style.display = 'none';
             } else {
+                clearLogo.onerror = null;
+                clearLogo.onload = null;
                 clearLogo.removeAttribute('src');
                 clearLogo.alt = '';
                 clearLogo.style.display = 'none';

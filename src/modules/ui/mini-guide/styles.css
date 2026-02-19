@@ -116,7 +116,7 @@
   color: var(--color-text-secondary);
 }
 
-.channel-branding-icon {
+.mini-guide-row .channel-branding-icon {
   flex: 0 0 auto;
   opacity: 0.7;
   margin-right: 6px;

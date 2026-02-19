@@ -249,7 +249,7 @@
   border-radius: 4px;
 }
 
-.channel-branding-icon {
+.epg-channel-row .channel-branding-icon {
   flex: 0 0 auto;
   opacity: 0.7;
   margin-right: 6px;

@@ -16,6 +16,7 @@ import type { VideoPlayerConfig } from './modules/player';
 import type { EPGConfig } from './modules/ui/epg';
 import type { NowPlayingInfoConfig } from './modules/ui/now-playing-info';
 import type { PlayerOsdConfig } from './modules/ui/player-osd';
+import type { ChannelNumberOverlayConfig } from './modules/ui/channel-number-overlay';
 import type { MiniGuideConfig } from './modules/ui/mini-guide';
 import type { ChannelTransitionConfig } from './modules/ui/channel-transition';
 import type { PlaybackOptionsConfig } from './modules/ui/playback-options';
@@ -92,8 +93,9 @@ const DEFAULT_PLAYER_OSD_CONFIG: PlayerOsdConfig = {
     containerId: 'player-osd-container',
 };
 
-const DEFAULT_CHANNEL_NUMBER_OVERLAY_CONFIG = {
+const DEFAULT_CHANNEL_NUMBER_OVERLAY_CONFIG: ChannelNumberOverlayConfig = {
     containerId: 'channel-number-overlay-container',
+    completeHideDelayMs: 650,
 };
 
 const DEFAULT_MINI_GUIDE_CONFIG: MiniGuideConfig = {
