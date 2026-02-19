@@ -16,7 +16,7 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
 } {
     const button = document.createElement('button');
     button.id = config.id;
-    button.className = `setup-toggle${config.disabled ? ' disabled' : ''}`;
+    button.className = `setup-toggle setup-toggle--adjustable${config.disabled ? ' disabled' : ''}`;
     button.disabled = config.disabled ?? false;
 
     const label = document.createElement('span');
@@ -32,21 +32,10 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
     const state = document.createElement('span');
     state.className = 'setup-toggle-state';
 
-    const leftArrow = document.createElement('span');
-    leftArrow.className = 'setup-toggle-arrow left';
-    leftArrow.textContent = '◀';
-
     const valueEl = document.createElement('span');
     valueEl.className = 'setup-toggle-value';
     valueEl.textContent = resolveOptionLabel(config.options, config.value);
-
-    const rightArrow = document.createElement('span');
-    rightArrow.className = 'setup-toggle-arrow right';
-    rightArrow.textContent = '▶';
-
-    state.appendChild(leftArrow);
     state.appendChild(valueEl);
-    state.appendChild(rightArrow);
 
     button.appendChild(label);
     button.appendChild(meta);

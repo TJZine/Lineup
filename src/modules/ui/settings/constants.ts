@@ -25,8 +25,8 @@ export const SETTINGS_STORAGE_KEYS = {
     FORCE_HDR10_FALLBACK: RETUNE_STORAGE_KEYS.FORCE_HDR10_FALLBACK,
     /** Transcode compatibility mode override */
     TRANSCODE_COMPAT: RETUNE_STORAGE_KEYS.TRANSCODE_COMPAT,
-    /** Transcode profile preset override */
-    TRANSCODE_PRESET: RETUNE_STORAGE_KEYS.TRANSCODE_PRESET,
+    /** Transcode quality override */
+    TRANSCODE_QUALITY: RETUNE_STORAGE_KEYS.TRANSCODE_QUALITY,
     /** Color theme */
     THEME: RETUNE_STORAGE_KEYS.THEME,
     /** Cinematic layout for Now Playing overlay */

@@ -40,6 +40,7 @@ import {
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { redactSensitiveTokens, safeStringifyForLog } from '../../../utils/redact';
 import { detectHdrLabel } from './hdr';
+import { getTranscodeQualityOption } from '../../../config/transcodeQuality';
 import {
     computeHdr10FallbackMode,
     inferHdr10BaseLayer,
@@ -941,8 +942,12 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 return null;
             }
         };
-
-        const preset = getOverride(RETUNE_STORAGE_KEYS.TRANSCODE_PRESET);
+        const quality = getTranscodeQualityOption(getOverride(RETUNE_STORAGE_KEYS.TRANSCODE_QUALITY));
+        const shouldApplyQualityOverride = Boolean(quality && quality.storageValue.length > 0);
+        const qualityMaxBitrate = shouldApplyQualityOverride ? quality?.maxVideoBitrateKbps : undefined;
+        const effectiveMaxBitrate = typeof qualityMaxBitrate === 'number'
+            ? Math.min(maxBitrate, Math.max(1, Math.floor(qualityMaxBitrate)))
+            : maxBitrate;
 
         const relayOrigin = ((): string | null => {
             try {
@@ -996,7 +1001,12 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             params.set('directStreamAudio', '1');
             params.set('subtitleSize', String(subtitleSize));
             params.set('audioBoost', String(audioBoost));
-            params.set('maxVideoBitrate', String(maxBitrate));
+            params.set('maxVideoBitrate', String(effectiveMaxBitrate));
+            if (shouldApplyQualityOverride && quality?.videoResolution) {
+                // Match the shape used by official clients: quality + resolution + bitrate.
+                params.set('videoQuality', '100');
+                params.set('videoResolution', quality.videoResolution);
+            }
             if (location) {
                 params.set('location', location);
             }
@@ -1018,7 +1028,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             // Compat: minimal, conservative set for older/stricter servers
             params.set('directPlay', '0');
             params.set('directStream', '1');
-            params.set('maxVideoBitrate', String(maxBitrate));
+            params.set('maxVideoBitrate', String(effectiveMaxBitrate));
+            if (shouldApplyQualityOverride && quality?.videoResolution) {
+                params.set('videoQuality', '100');
+                params.set('videoResolution', quality.videoResolution);
+            }
             if (location) {
                 params.set('location', location);
             }
@@ -1054,86 +1068,13 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         // Optional: Force the server to use a specific built-in profile name/version (advanced).
-        const forcedProfileName = getOverride('retune_transcode_profile_name');
+        const forcedProfileName = getOverride(RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
         if (forcedProfileName) {
             params.set('X-Plex-Client-Profile-Name', forcedProfileName);
         } else {
             // Default to 'HTML TV App' for better Direct Play support on webOS
             // 'Generic' forces transcoding for almost everything.
             params.set('X-Plex-Client-Profile-Name', 'HTML TV App');
-        }
-
-        const forcedProfileVersion = getOverride('retune_transcode_profile_version');
-        if (forcedProfileVersion) {
-            params.set('X-Plex-Client-Profile-Version', forcedProfileVersion);
-        }
-
-        // Optional overrides for identity fields used by Plex profile matching.
-        // These are intentionally narrow and only affect the transcode URL.
-        const overridePlatform = getOverride('retune_transcode_platform');
-        const overridePlatformVersion = getOverride('retune_transcode_platform_version');
-        const overrideDevice = getOverride('retune_transcode_device');
-        const overrideModel = getOverride('retune_transcode_model');
-        const overrideProduct = getOverride('retune_transcode_product');
-        const overrideVersion = getOverride('retune_transcode_version');
-        const overrideDeviceName = getOverride('retune_transcode_device_name');
-
-        // Presets to quickly try known-ish combinations without code changes.
-        // If you find a working combo, prefer setting explicit overrides above.
-        if (preset) {
-            switch (preset) {
-                case 'webos-lgtv':
-                    params.set('X-Plex-Platform', 'webOS');
-                    params.set('X-Plex-Platform-Version', '6.0');
-                    params.set('X-Plex-Device', 'lgtv');
-                    params.set('X-Plex-Model', 'webOS');
-                    break;
-                case 'webos-lg':
-                    params.set('X-Plex-Platform', 'webOS');
-                    params.set('X-Plex-Platform-Version', '6.0');
-                    params.set('X-Plex-Device', 'LG');
-                    params.set('X-Plex-Model', 'webOS');
-                    break;
-                case 'android':
-                    params.set('X-Plex-Platform', 'Android');
-                    params.set('X-Plex-Platform-Version', '12');
-                    params.set('X-Plex-Device', 'Android');
-                    params.set('X-Plex-Model', 'Pixel');
-                    params.set('X-Plex-Product', 'Plex for Android');
-                    params.set('X-Plex-Version', '9.0.0');
-                    break;
-                case 'plex-web':
-                    params.set('X-Plex-Platform', 'Chrome');
-                    params.set('X-Plex-Platform-Version', '87.0');
-                    params.set('X-Plex-Device', 'Web');
-                    params.set('X-Plex-Model', 'Chrome');
-                    params.set('X-Plex-Product', 'Plex Web');
-                    params.set('X-Plex-Version', '4.0.0');
-                    break;
-            }
-        }
-
-        // Explicit overrides take precedence over presets.
-        if (overridePlatform) {
-            params.set('X-Plex-Platform', overridePlatform);
-        }
-        if (overridePlatformVersion) {
-            params.set('X-Plex-Platform-Version', overridePlatformVersion);
-        }
-        if (overrideDevice) {
-            params.set('X-Plex-Device', overrideDevice);
-        }
-        if (overrideDeviceName) {
-            params.set('X-Plex-Device-Name', overrideDeviceName);
-        }
-        if (overrideModel) {
-            params.set('X-Plex-Model', overrideModel);
-        }
-        if (overrideProduct) {
-            params.set('X-Plex-Product', overrideProduct);
-        }
-        if (overrideVersion) {
-            params.set('X-Plex-Version', overrideVersion);
         }
 
         // Ensure minimum required ID params are present even if getAuthHeaders is mocked/minimal
