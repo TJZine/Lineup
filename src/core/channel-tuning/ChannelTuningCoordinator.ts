@@ -314,7 +314,30 @@ export class ChannelTuningCoordinator {
                 scheduler.syncToCurrentTime();
                 didRequestProgramStart = true;
             } catch (error: unknown) {
-                console.error('Failed to sync schedule time:', summarizeErrorForLog(error));
+                const summary = summarizeErrorForLog(error);
+                console.error('Failed to sync schedule time:', summary);
+                this.deps.handleGlobalError(
+                    {
+                        code: AppErrorCode.CONTENT_UNAVAILABLE,
+                        message: 'Unable to start scheduled playback.',
+                        recoverable: true,
+                        context: {
+                            operation: 'switchToChannel',
+                            channelId,
+                            step: 'scheduler.syncToCurrentTime',
+                            error: summary,
+                        },
+                    },
+                    'switchToChannel'
+                );
+                try {
+                    scheduler.unloadChannel();
+                } catch (cleanupError: unknown) {
+                    console.warn(
+                        'Failed to unload schedule after sync failure:',
+                        summarizeErrorForLog(cleanupError)
+                    );
+                }
                 return 'failed';
             }
 

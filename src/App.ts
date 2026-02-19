@@ -122,7 +122,7 @@ const DEFAULT_PLAYBACK_OPTIONS_CONFIG: PlaybackOptionsConfig = {
     containerId: 'playback-options-container',
 };
 
-const ERROR_OVERLAY_MODAL_ID = 'error-overlay';
+const ERROR_OVERLAY_MODAL_ID = 'modal:error-overlay';
 
 // ============================================
 // App Class
@@ -166,31 +166,7 @@ export class App {
     private _globalKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
 
     private _getSafeNavigation(): INavigationManager | null {
-        const nav = this._orchestrator?.getNavigation() ?? null;
-        if (!nav) return null;
-        const maybe = nav as unknown as {
-            openModal?: unknown;
-            closeModal?: unknown;
-            isModalOpen?: unknown;
-            registerFocusable?: unknown;
-            unregisterFocusable?: unknown;
-            setFocus?: unknown;
-            on?: unknown;
-            off?: unknown;
-        };
-        if (
-            typeof maybe.openModal !== 'function' ||
-            typeof maybe.closeModal !== 'function' ||
-            typeof maybe.isModalOpen !== 'function' ||
-            typeof maybe.registerFocusable !== 'function' ||
-            typeof maybe.unregisterFocusable !== 'function' ||
-            typeof maybe.setFocus !== 'function' ||
-            typeof maybe.on !== 'function' ||
-            typeof maybe.off !== 'function'
-        ) {
-            return null;
-        }
-        return nav;
+        return this._orchestrator?.getNavigation() ?? null;
     }
 
     /**
@@ -898,9 +874,6 @@ export class App {
                 nav.off('modalClose', this._errorOverlayModalCloseHandler);
             }
             nav.closeModal(ERROR_OVERLAY_MODAL_ID);
-            if (this._errorOverlayModalCloseHandler) {
-                nav.on('modalClose', this._errorOverlayModalCloseHandler);
-            }
         }
 
         const actions =
@@ -1358,26 +1331,26 @@ export class App {
 		            const ok = window.confirm('Clear transcode overrides?');
 		            if (!ok) return;
 		            const keys = [
-		                'retune_transcode_preset',
-		                'retune_transcode_compat',
-		                'retune_direct_play_audio_fallback',
-		                'retune_now_playing_stream_debug',
-		                'retune_now_playing_stream_debug_auto_show',
-		                'retune_transcode_platform',
-		                'retune_transcode_platform_version',
-		                'retune_transcode_device',
-	                'retune_transcode_device_name',
-	                'retune_transcode_model',
-                'retune_transcode_product',
-                'retune_transcode_version',
-                'retune_transcode_profile_name',
-                'retune_transcode_profile_version',
-            ];
-            for (const k of keys) safeLocalStorageRemove(k);
-            this._showToast({ message: 'Cleared transcode overrides', type: 'success' });
-            // Re-render to reflect cleared state
-            this._renderDevMenu();
-	        });
+		                RETUNE_STORAGE_KEYS.TRANSCODE_PRESET,
+		                RETUNE_STORAGE_KEYS.TRANSCODE_COMPAT,
+		                RETUNE_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK,
+		                RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG,
+		                RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW,
+		                RETUNE_STORAGE_KEYS.TRANSCODE_PLATFORM,
+		                RETUNE_STORAGE_KEYS.TRANSCODE_PLATFORM_VERSION,
+		                RETUNE_STORAGE_KEYS.TRANSCODE_DEVICE,
+		                RETUNE_STORAGE_KEYS.TRANSCODE_DEVICE_NAME,
+		                RETUNE_STORAGE_KEYS.TRANSCODE_MODEL,
+		                RETUNE_STORAGE_KEYS.TRANSCODE_PRODUCT,
+		                RETUNE_STORAGE_KEYS.TRANSCODE_VERSION,
+		                RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_NAME,
+		                RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_VERSION,
+		            ] as const;
+	            for (const k of keys) safeLocalStorageRemove(k);
+	            this._showToast({ message: 'Cleared transcode overrides', type: 'success' });
+	            // Re-render to reflect cleared state
+	            this._renderDevMenu();
+		        });
 
 	        this._devMenuContainer.querySelector('#dev-playback-copy-summary')?.addEventListener('click', async () => {
 	            const pre = this._devMenuContainer?.querySelector('#dev-playback-info') as HTMLPreElement | null;

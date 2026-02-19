@@ -608,7 +608,17 @@ describe('App bootstrap smoke', () => {
             .fn()
             .mockReturnValueOnce({ allowAutoConnect: true })
             .mockReturnValueOnce({});
-        jest.spyOn(AppOrchestrator.prototype, 'getNavigation').mockReturnValue({ getScreenParams } as never);
+        jest.spyOn(AppOrchestrator.prototype, 'getNavigation').mockReturnValue({
+            getScreenParams,
+            openModal: jest.fn(),
+            closeModal: jest.fn(),
+            isModalOpen: jest.fn().mockReturnValue(false),
+            registerFocusable: jest.fn(),
+            unregisterFocusable: jest.fn(),
+            setFocus: jest.fn(),
+            on: jest.fn(),
+            off: jest.fn(),
+        } as never);
 
         app = new App();
         await app.start();

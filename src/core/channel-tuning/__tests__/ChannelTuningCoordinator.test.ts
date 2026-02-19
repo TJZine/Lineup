@@ -67,6 +67,7 @@ const createCoordinator = (): CoordinatorHarness => {
 
     const scheduler = {
         loadChannel: jest.fn(),
+        unloadChannel: jest.fn(),
         syncToCurrentTime: jest.fn(),
         getCurrentProgram: jest.fn().mockReturnValue(null),
     } as unknown as jest.Mocked<IChannelScheduler>;
@@ -403,6 +404,14 @@ describe('ChannelTuningCoordinator', () => {
 
         await expect(coordinator.switchToChannel('ch1')).resolves.toBe('failed');
 
+        expect(deps.handleGlobalError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                code: AppErrorCode.CONTENT_UNAVAILABLE,
+                recoverable: true,
+            }),
+            'switchToChannel'
+        );
+        expect(scheduler.unloadChannel).toHaveBeenCalledTimes(1);
         expect(deps.setPendingNowPlayingChannelId).toHaveBeenCalledWith(null);
         consoleErrorSpy.mockRestore();
     });
