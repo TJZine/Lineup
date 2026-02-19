@@ -71,7 +71,8 @@ const createDefaultStrategyState = (): SetupStrategyState => ({
 const compareSetupStrategyKeys = (a: SetupStrategyKey, b: SetupStrategyKey): number => {
     const diff = DEFAULT_STRATEGY_PRIORITIES[a] - DEFAULT_STRATEGY_PRIORITIES[b];
     if (diff !== 0) return diff;
-    return String(a).localeCompare(String(b));
+    // Locale-agnostic tie-break for deterministic ordering across devices.
+    return a < b ? -1 : a > b ? 1 : 0;
 };
 
 const createDefaultStrategyOrder = (): SetupStrategyKey[] =>
