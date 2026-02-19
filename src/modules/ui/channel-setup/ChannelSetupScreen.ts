@@ -45,7 +45,6 @@ const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
 
 type SetupStrategyState = Record<SetupStrategyKey, {
     enabled: boolean;
-    priority: number;
     scope: 'per-library' | 'cross-library';
 }>;
 
@@ -59,15 +58,22 @@ const strategySupportsMixedScope = (key: SetupStrategyKey): boolean =>
     MIXED_SCOPE_STRATEGY_KEYS.has(key);
 
 const createDefaultStrategyState = (): SetupStrategyState => ({
-    collections: { enabled: true, priority: DEFAULT_STRATEGY_PRIORITIES.collections, scope: 'per-library' },
-    playlists: { enabled: true, priority: DEFAULT_STRATEGY_PRIORITIES.playlists, scope: 'per-library' },
-    genres: { enabled: true, priority: DEFAULT_STRATEGY_PRIORITIES.genres, scope: 'per-library' },
-    directors: { enabled: true, priority: DEFAULT_STRATEGY_PRIORITIES.directors, scope: 'per-library' },
-    decades: { enabled: true, priority: DEFAULT_STRATEGY_PRIORITIES.decades, scope: 'per-library' },
-    recentlyAdded: { enabled: true, priority: DEFAULT_STRATEGY_PRIORITIES.recentlyAdded, scope: 'per-library' },
-    studios: { enabled: true, priority: DEFAULT_STRATEGY_PRIORITIES.studios, scope: 'per-library' },
-    actors: { enabled: true, priority: DEFAULT_STRATEGY_PRIORITIES.actors, scope: 'per-library' },
+    collections: { enabled: true, scope: 'per-library' },
+    playlists: { enabled: true, scope: 'per-library' },
+    genres: { enabled: true, scope: 'per-library' },
+    directors: { enabled: true, scope: 'per-library' },
+    decades: { enabled: true, scope: 'per-library' },
+    recentlyAdded: { enabled: true, scope: 'per-library' },
+    studios: { enabled: true, scope: 'per-library' },
+    actors: { enabled: true, scope: 'per-library' },
 });
+
+const createDefaultStrategyOrder = (): SetupStrategyKey[] =>
+    [...SETUP_STRATEGY_KEYS].slice().sort((a, b) => {
+        const diff = DEFAULT_STRATEGY_PRIORITIES[a] - DEFAULT_STRATEGY_PRIORITIES[b];
+        if (diff !== 0) return diff;
+        return String(a).localeCompare(String(b));
+    });
 
 const defaultChannelExpansionState = (): ChannelExpansionState => ({
     addAlternateLineups: false,
@@ -132,6 +138,7 @@ export class ChannelSetupScreen {
     private _libraries: PlexLibraryType[] = [];
     private _selectedLibraryIds: Set<string> = new Set();
     private _strategies: SetupStrategyState = createDefaultStrategyState();
+    private _strategyOrder: SetupStrategyKey[] = createDefaultStrategyOrder();
     private _channelExpansion: ChannelExpansionState = defaultChannelExpansionState();
     private _activeStrategyCategory: StrategyCategoryKey = 'content-sources';
     private _rememberedDetailFocusByCategory: Partial<Record<StrategyCategoryKey, string>> = {};
@@ -167,6 +174,7 @@ export class ChannelSetupScreen {
     private _maxPreviewWarnings = 5;
     private _recordApplied = false;
     private _setupContext: ChannelSetupContext = 'unknown';
+    private _lastReorder: { key: SetupStrategyKey; dir: 'up' | 'down' } | null = null;
 
     private _getNearestOptionIndex(options: number[], current: number): number {
         const first = options[0];
@@ -214,8 +222,8 @@ export class ChannelSetupScreen {
         return `setup-strategy-${this._toDomId(String(strategy))}`;
     }
 
-    private _priorityButtonId(strategy: SetupStrategyKey): string {
-        return `setup-priority-${this._toDomId(String(strategy))}`;
+    private _priorityRowId(strategy: SetupStrategyKey): string {
+        return `setup-priority-row-${this._toDomId(String(strategy))}`;
     }
 
     private _scopeButtonId(strategy: SetupStrategyKey): string {
@@ -292,12 +300,53 @@ export class ChannelSetupScreen {
             this._navKeyHandler = (event: KeyEvent): void => {
                 if (event.handled || this._step !== 2) return;
                 const focusedId = nav.getFocusedElement()?.id ?? null;
+                if (!focusedId) return;
+
+                if (
+                    this._activeStrategyCategory === 'priority-order'
+                    && focusedId.startsWith('setup-priority-row-')
+                    && (event.button === 'channelUp' || event.button === 'channelDown')
+                ) {
+                    if (event.isRepeat || event.isLongPress) {
+                        return;
+                    }
+                    const strategy = this._strategyKeyFromControlId(focusedId, 'setup-priority-row-');
+                    if (!strategy) {
+                        return;
+                    }
+                    const currentIndex = this._strategyOrder.indexOf(strategy);
+                    if (currentIndex < 0) {
+                        return;
+                    }
+                    const targetIndex = event.button === 'channelUp' ? currentIndex - 1 : currentIndex + 1;
+                    if (targetIndex < 0 || targetIndex >= this._strategyOrder.length) {
+                        return;
+                    }
+                    event.handled = true;
+                    const movedKey = this._strategyOrder[currentIndex] ?? strategy;
+                    const targetKey = this._strategyOrder[targetIndex];
+                    if (!targetKey) {
+                        return;
+                    }
+                    this._strategyOrder[currentIndex] = targetKey;
+                    this._strategyOrder[targetIndex] = movedKey;
+                    this._lastReorder = { key: movedKey, dir: event.button === 'channelUp' ? 'up' : 'down' };
+                    this._preferredFocusId = this._priorityRowId(movedKey);
+                    this._rememberedDetailFocusByCategory['priority-order'] = this._preferredFocusId;
+                    this._review = null;
+                    this._reviewError = null;
+                    this._schedulePreview();
+                    this._renderStep();
+                    this._lastReorder = null;
+                    return;
+                }
+
                 const direction = event.button === 'left'
                     ? 'left'
                     : event.button === 'right'
                         ? 'right'
                         : null;
-                if (!direction || !focusedId) return;
+                if (!direction) return;
 
                 const activeCategoryButtonId = this._categoryButtonId(this._activeStrategyCategory);
                 const activeDetailIds = this._getDetailControlIdsForCategory(this._activeStrategyCategory);
@@ -318,11 +367,9 @@ export class ChannelSetupScreen {
                     return;
                 }
 
-                const isPriorityControl = focusedId.startsWith('setup-priority-');
                 const isAdjustableControl = focusedId === STEP2_CONTROL_IDS.maxChannels
                     || focusedId === STEP2_CONTROL_IDS.minItems
-                    || focusedId === STEP2_CONTROL_IDS.alternateLineupCopies
-                    || isPriorityControl;
+                    || focusedId === STEP2_CONTROL_IDS.alternateLineupCopies;
                 if (isAdjustableControl) {
                     let previousValue = 0;
                     let nextValue = 0;
@@ -342,17 +389,6 @@ export class ChannelSetupScreen {
                         previousValue = this._channelExpansion.alternateLineupCopies;
                         nextValue = this._stepPreset([1, 2, 3], previousValue, direction, 'clamp');
                         this._channelExpansion.alternateLineupCopies = nextValue;
-                    } else {
-                        const strategy = this._strategyKeyFromControlId(focusedId, 'setup-priority-');
-                        if (!strategy) {
-                            return;
-                        }
-                        previousValue = this._strategies[strategy].priority;
-                        const maxPriority = SETUP_STRATEGY_KEYS.length;
-                        nextValue = direction === 'left'
-                            ? Math.max(1, previousValue - 1)
-                            : Math.min(maxPriority, previousValue + 1);
-                        this._strategies[strategy].priority = nextValue;
                     }
 
                     event.handled = true;
@@ -428,6 +464,7 @@ export class ChannelSetupScreen {
         this._maxChannels = DEFAULT_CHANNEL_SETUP_MAX;
         this._minItems = DEFAULT_MIN_ITEMS_PER_CHANNEL;
         this._strategies = createDefaultStrategyState();
+        this._strategyOrder = createDefaultStrategyOrder();
         this._channelExpansion = defaultChannelExpansionState();
         this._buildMode = 'replace';
         this._actorStudioCombineMode = 'separate';
@@ -441,6 +478,7 @@ export class ChannelSetupScreen {
         this._pendingPreviewKey = null;
         this._recordApplied = false;
         this._setupContext = 'unknown';
+        this._lastReorder = null;
         this._errorEl.textContent = '';
     }
 
@@ -620,6 +658,7 @@ export class ChannelSetupScreen {
             state: {
                 activeStrategyCategory: this._activeStrategyCategory,
                 strategies: this._strategies,
+                strategyOrder: this._strategyOrder,
                 channelExpansion: this._channelExpansion,
                 buildMode: this._buildMode,
                 actorStudioCombineMode: this._actorStudioCombineMode,
@@ -637,7 +676,8 @@ export class ChannelSetupScreen {
             strategyKeys: SETUP_STRATEGY_KEYS,
             categoryButtonId: (category) => this._categoryButtonId(category),
             strategyButtonId: (strategy) => this._strategyButtonId(strategy),
-            priorityButtonId: (strategy) => this._priorityButtonId(strategy),
+            priorityRowId: (strategy) => this._priorityRowId(strategy),
+            lastReorder: this._lastReorder,
             scopeButtonId: (strategy) => this._scopeButtonId(strategy),
             strategySupportsMixedScope: (strategy) => strategySupportsMixedScope(strategy),
             rememberDetailFocus: (controlId) => this._rememberActiveDetailFocus(controlId),
@@ -651,13 +691,15 @@ export class ChannelSetupScreen {
             applySettingChange: (focusId, mutate) => {
                 const strategies = SETUP_STRATEGY_KEYS.reduce<SetupStrategyState>((acc, key) => {
                     const current = this._strategies[key];
-                    acc[key] = current ? { ...current } : { enabled: true, priority: 1, scope: 'per-library' };
+                    acc[key] = current ? { ...current } : { enabled: true, scope: 'per-library' };
                     return acc;
                 }, {} as SetupStrategyState);
+                const strategyOrder = [...this._strategyOrder];
                 const channelExpansion: ChannelExpansionState = { ...this._channelExpansion };
                 const draft: StrategyStepMutableState = {
                     activeStrategyCategory: this._activeStrategyCategory,
                     strategies,
+                    strategyOrder,
                     channelExpansion,
                     buildMode: this._buildMode,
                     actorStudioCombineMode: this._actorStudioCombineMode,
@@ -669,6 +711,7 @@ export class ChannelSetupScreen {
                 mutate(draft);
                 this._activeStrategyCategory = draft.activeStrategyCategory;
                 this._strategies = draft.strategies;
+                this._strategyOrder = draft.strategyOrder;
                 this._channelExpansion = draft.channelExpansion;
                 this._buildMode = draft.buildMode;
                 this._actorStudioCombineMode = draft.actorStudioCombineMode;
@@ -725,7 +768,7 @@ export class ChannelSetupScreen {
     private _getDetailControlIdsForCategory(category: StrategyCategoryKey): string[] {
         if (category === 'content-sources') {
             return CONTENT_STRATEGY_KEYS.flatMap((key) => {
-                const ids = [this._strategyButtonId(key), this._priorityButtonId(key)];
+                const ids = [this._strategyButtonId(key)];
                 if (strategySupportsMixedScope(key)) {
                     ids.push(this._scopeButtonId(key));
                 }
@@ -734,7 +777,7 @@ export class ChannelSetupScreen {
         }
         if (category === 'advanced-sources') {
             return ADVANCED_STRATEGY_KEYS.flatMap((key) => {
-                const ids = [this._strategyButtonId(key), this._priorityButtonId(key)];
+                const ids = [this._strategyButtonId(key)];
                 if (strategySupportsMixedScope(key)) {
                     ids.push(this._scopeButtonId(key));
                 }
@@ -749,6 +792,9 @@ export class ChannelSetupScreen {
                 STEP2_CONTROL_IDS.alternateLineupCopies,
                 STEP2_CONTROL_IDS.addSequentialVariants,
             ];
+        }
+        if (category === 'priority-order') {
+            return this._strategyOrder.map((key) => this._priorityRowId(key));
         }
         return [STEP2_CONTROL_IDS.maxChannels, STEP2_CONTROL_IDS.minItems, STEP2_CONTROL_IDS.expandLineup];
     }
@@ -1087,9 +1133,10 @@ export class ChannelSetupScreen {
 
     private _buildConfig(serverId: string): ChannelSetupConfig {
         const strategyConfig = SETUP_STRATEGY_KEYS.reduce<ChannelSetupConfig['strategyConfig']>((acc, key) => {
+            const priorityIndex = this._strategyOrder.indexOf(key);
             acc[key] = {
                 enabled: this._strategies[key].enabled,
-                priority: this._strategies[key].priority,
+                priority: priorityIndex >= 0 ? priorityIndex + 1 : DEFAULT_STRATEGY_PRIORITIES[key],
                 scope: this._strategies[key].scope,
             };
             return acc;
@@ -1292,14 +1339,40 @@ export class ChannelSetupScreen {
         this._strategies = SETUP_STRATEGY_KEYS.reduce<SetupStrategyState>((acc, key) => {
             const configured = record.strategyConfig[key];
             acc[key] = {
-                enabled: configured.enabled,
-                priority: Number.isFinite(configured.priority)
-                    ? Math.max(1, Math.floor(Number(configured.priority)))
-                    : defaults[key].priority,
+                enabled: configured?.enabled ?? defaults[key].enabled,
                 scope: strategySupportsMixedScope(key) && configured?.scope === 'cross-library' ? 'cross-library' : 'per-library',
             };
             return acc;
         }, createDefaultStrategyState());
+        const fallbackOrder = createDefaultStrategyOrder();
+        const sortedByPriority = [...SETUP_STRATEGY_KEYS].sort((a, b) => {
+            const aPriority = Number.isFinite(record.strategyConfig[a]?.priority)
+                ? Math.max(1, Math.floor(Number(record.strategyConfig[a]?.priority)))
+                : DEFAULT_STRATEGY_PRIORITIES[a];
+            const bPriority = Number.isFinite(record.strategyConfig[b]?.priority)
+                ? Math.max(1, Math.floor(Number(record.strategyConfig[b]?.priority)))
+                : DEFAULT_STRATEGY_PRIORITIES[b];
+            const diff = aPriority - bPriority;
+            if (diff !== 0) {
+                return diff;
+            }
+            return String(a).localeCompare(String(b));
+        });
+        const deduped: SetupStrategyKey[] = [];
+        const seen = new Set<SetupStrategyKey>();
+        for (const key of sortedByPriority) {
+            if (!seen.has(key)) {
+                deduped.push(key);
+                seen.add(key);
+            }
+        }
+        for (const key of fallbackOrder) {
+            if (!seen.has(key)) {
+                deduped.push(key);
+                seen.add(key);
+            }
+        }
+        this._strategyOrder = deduped;
         this._channelExpansion = {
             addAlternateLineups: record.channelExpansion?.addAlternateLineups === true,
             alternateLineupCopies: Number.isFinite(record.channelExpansion?.alternateLineupCopies)

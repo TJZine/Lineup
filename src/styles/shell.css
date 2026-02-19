@@ -266,12 +266,19 @@
 .screen-button:focus,
 .setup-toggle.focused,
 .setup-toggle:focus,
-.profile-row.focused,
-.profile-row:focus,
 .profile-numpad-button.focused,
 .profile-numpad-button:focus {
   outline: var(--focus-ring-width) solid var(--focus-color);
   outline-offset: var(--focus-ring-offset);
+}
+
+@media (forced-colors: active) {
+  .profile-row.focused,
+  .profile-row:focus {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+    box-shadow: none;
+  }
 }
 
 .server-list {
@@ -351,7 +358,7 @@
 
 .setup-panel {
   max-height: 85vh;
-  overflow: visible;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }

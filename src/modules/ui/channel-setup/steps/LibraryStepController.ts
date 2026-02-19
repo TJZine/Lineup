@@ -46,13 +46,15 @@ export class LibraryStepController {
             list.appendChild(empty);
         }
 
-        for (const library of deps.libraries) {
+        deps.libraries.forEach((library, index) => {
             const isSelected = deps.selectedLibraryIds.has(library.id);
 
             const button = document.createElement('button');
             button.id = `setup-lib-${deps.toDomId(library.id)}`;
             button.className = `setup-toggle${isSelected ? ' selected' : ''}`;
             button.classList.add('library-toggle');
+            button.classList.add('setup-stagger-in');
+            button.style.animationDelay = `${index * 50}ms`;
 
             const icon = document.createElement('span');
             icon.className = 'setup-toggle-icon';
@@ -66,10 +68,17 @@ export class LibraryStepController {
             const meta = document.createElement('span');
             meta.className = 'setup-toggle-meta';
             const typeLabel = library.type === 'movie' ? 'Movies' : 'Shows';
-            const countText = typeof library.contentCount === 'number' && Number.isFinite(library.contentCount)
-                ? `${typeLabel} • ${deps.formatCount(library.contentCount)} titles`
-                : typeLabel;
-            meta.textContent = countText;
+            if (typeof library.contentCount === 'number' && Number.isFinite(library.contentCount)) {
+                meta.replaceChildren();
+                meta.appendChild(document.createTextNode(`${typeLabel} • `));
+                const countSpan = document.createElement('span');
+                countSpan.className = 'setup-toggle-count';
+                countSpan.textContent = deps.formatCount(library.contentCount);
+                meta.appendChild(countSpan);
+                meta.appendChild(document.createTextNode(' titles'));
+            } else {
+                meta.textContent = typeLabel;
+            }
 
             const state = document.createElement('span');
             state.className = 'setup-toggle-state';
@@ -98,7 +107,7 @@ export class LibraryStepController {
             });
 
             list.appendChild(button);
-        }
+        });
 
         scroll.appendChild(list);
         ctx.contentEl.appendChild(scroll);

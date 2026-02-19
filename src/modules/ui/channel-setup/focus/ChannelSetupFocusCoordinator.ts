@@ -64,7 +64,7 @@ export class ChannelSetupFocusCoordinator {
             }
 
             const isDetailButton = detailIdSet.has(button.id);
-            const isAdjustable = STEP2_ADJUSTABLE_IDS.has(button.id) || button.id.startsWith('setup-priority-');
+            const isAdjustable = STEP2_ADJUSTABLE_IDS.has(button.id);
             if (isDetailButton && !isAdjustable) {
                 neighbors.left = activeCategoryId;
             }

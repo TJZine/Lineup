@@ -109,6 +109,30 @@ describe('ProfileSelectScreen', () => {
         expect(container.textContent).toContain('Kid');
     });
 
+    it('hides main account action and skips focus registration when multiple users exist', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: false },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const nav = orchestrator.getNavigation();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(container, orchestrator as never);
+        screen.show();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const mainButton = container.querySelector('#btn-profile-main') as HTMLButtonElement | null;
+        expect(mainButton).not.toBeNull();
+        expect(mainButton?.style.display).toBe('none');
+
+        const registeredIds = nav.registerFocusable.mock.calls
+            .map((call) => (call[0] as { id?: string }).id)
+            .filter((id): id is string => typeof id === 'string');
+        expect(registeredIds).not.toContain('btn-profile-main');
+    });
+
     it('marks last used profile as active with Active badge', async () => {
         const users = [
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
@@ -174,6 +198,34 @@ describe('ProfileSelectScreen', () => {
         expect(rows.length).toBe(1);
         expect(container.textContent).toContain('Only one profile is available for this account.');
         expect(nav.goTo).not.toHaveBeenCalled();
+        const mainButton = container.querySelector('#btn-profile-main') as HTMLButtonElement | null;
+        expect(mainButton).not.toBeNull();
+        expect(mainButton?.style.display).toBe('');
+        const registeredIds = nav.registerFocusable.mock.calls
+            .map((call) => (call[0] as { id?: string }).id)
+            .filter((id): id is string => typeof id === 'string');
+        expect(registeredIds).toContain('btn-profile-main');
+    });
+
+    it('keeps main account action visible and focus-registered when no profiles are returned', async () => {
+        const users: Array<{ id: string; title: string; thumb: string | null; admin: boolean; protected: boolean }> = [];
+        const orchestrator = createOrchestratorStub(users);
+        const nav = orchestrator.getNavigation();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(container, orchestrator as never);
+        screen.show();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const mainButton = container.querySelector('#btn-profile-main') as HTMLButtonElement | null;
+        expect(mainButton).not.toBeNull();
+        expect(mainButton?.style.display).toBe('');
+
+        const registeredIds = nav.registerFocusable.mock.calls
+            .map((call) => (call[0] as { id?: string }).id)
+            .filter((id): id is string => typeof id === 'string');
+        expect(registeredIds).toContain('btn-profile-main');
     });
 
     it('opens PIN modal for protected users', async () => {

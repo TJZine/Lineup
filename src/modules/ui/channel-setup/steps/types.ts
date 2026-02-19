@@ -22,7 +22,6 @@ type StrategyScope = 'per-library' | 'cross-library';
 
 interface StrategyStateItem {
     enabled: boolean;
-    priority: number;
     scope: StrategyScope;
 }
 
@@ -57,6 +56,7 @@ export interface LibraryStepDeps {
 export type StrategyStepMutableState = {
     activeStrategyCategory: StrategyCategoryKey;
     strategies: StrategyStateMap;
+    strategyOrder: SetupStrategyKey[];
     channelExpansion: ChannelExpansionState;
     buildMode: ChannelSetupConfig['buildMode'];
     actorStudioCombineMode: ChannelSetupConfig['actorStudioCombineMode'];
@@ -82,7 +82,8 @@ export interface StrategyStepDeps {
     strategyKeys: readonly SetupStrategyKey[];
     categoryButtonId: (category: StrategyCategoryKey) => string;
     strategyButtonId: (strategy: SetupStrategyKey) => string;
-    priorityButtonId: (strategy: SetupStrategyKey) => string;
+    priorityRowId: (strategy: SetupStrategyKey) => string;
+    lastReorder: { key: SetupStrategyKey; dir: 'up' | 'down' } | null;
     scopeButtonId: (strategy: SetupStrategyKey) => string;
     strategySupportsMixedScope: (strategy: SetupStrategyKey) => boolean;
     rememberDetailFocus: (controlId: string) => void;

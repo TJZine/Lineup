@@ -136,8 +136,7 @@ describe('AudioSetupScreen', () => {
         expect(container.textContent).not.toContain('📺');
     });
 
-    it('shows tooltip after focus delay and hides immediately when focus moves away', () => {
-        jest.useFakeTimers();
+    it('shows direct-play helper text immediately without delayed tooltip behavior', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -146,23 +145,13 @@ describe('AudioSetupScreen', () => {
 
         screen.show();
 
-        const tooltip = container.querySelector('#audio-direct-play-tooltip') as HTMLElement | null;
-        expect(tooltip).not.toBeNull();
-        expect(tooltip?.classList.contains('hidden')).toBe(true);
-
-        nav.setFocus('audio-direct-play-fallback');
-        expect(tooltip?.classList.contains('hidden')).toBe(true);
-
-        jest.advanceTimersByTime(300);
-        expect(tooltip?.classList.contains('hidden')).toBe(false);
-
-        nav.setFocus('audio-setup-continue');
-        expect(tooltip?.classList.contains('hidden')).toBe(true);
-        jest.useRealTimers();
+        const helper = container.querySelector('#audio-direct-play-helper') as HTMLElement | null;
+        expect(helper).not.toBeNull();
+        expect(helper?.classList.contains('hidden')).toBe(false);
+        expect(helper?.style.display).not.toBe('none');
     });
 
-    it('clears tooltip timer on hide and destroy', () => {
-        jest.useFakeTimers();
+    it('hide and destroy do not rely on tooltip timers', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -170,18 +159,10 @@ describe('AudioSetupScreen', () => {
         const screen = new AudioSetupScreen(container, () => nav as unknown as never, jest.fn());
         screen.show();
 
-        const tooltip = container.querySelector('#audio-direct-play-tooltip') as HTMLElement | null;
-        nav.setFocus('audio-direct-play-fallback');
-        screen.hide();
-        jest.advanceTimersByTime(301);
-        expect(tooltip?.classList.contains('hidden')).toBe(true);
-
-        screen.show();
-        nav.setFocus('audio-direct-play-fallback');
+        expect(() => screen.hide()).not.toThrow();
+        expect(() => screen.show()).not.toThrow();
         screen.destroy();
-        expect(() => jest.advanceTimersByTime(301)).not.toThrow();
         expect(container.innerHTML).toBe('');
-        jest.useRealTimers();
     });
 
     it('shows current-settings continue text until user explicitly chooses', () => {

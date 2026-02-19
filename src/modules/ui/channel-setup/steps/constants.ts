@@ -21,6 +21,7 @@ export const STRATEGY_CATEGORIES = [
     'advanced-sources',
     'build-options',
     'limits',
+    'priority-order',
 ] as const;
 
 export type StrategyCategoryKey = (typeof STRATEGY_CATEGORIES)[number];

@@ -30,12 +30,17 @@
     color: inherit;
     text-align: center;
     cursor: pointer;
-    transition: transform 100ms ease-out;
+    transition: transform 100ms ease-out, box-shadow 100ms ease-out;
 }
 
 .profile-row.focused,
 .profile-row:focus {
+    outline: none;
     transform: scale(1.06);
+    box-shadow:
+        0 0 0 2px var(--color-primary-alpha-60),
+        0 0 24px var(--color-primary-alpha-20),
+        0 0 50px var(--color-primary-alpha-08);
 }
 
 /* --- Active profile indicator --- */
