@@ -308,6 +308,8 @@ export class ChannelSetupScreen {
                     && (event.button === 'channelUp' || event.button === 'channelDown')
                 ) {
                     if (event.isRepeat || event.isLongPress) {
+                        event.handled = true;
+                        event.originalEvent.preventDefault();
                         return;
                     }
                     const strategy = this._strategyKeyFromControlId(focusedId, 'setup-priority-row-');
@@ -322,12 +324,13 @@ export class ChannelSetupScreen {
                     if (targetIndex < 0 || targetIndex >= this._strategyOrder.length) {
                         return;
                     }
-                    event.handled = true;
                     const movedKey = this._strategyOrder[currentIndex] ?? strategy;
                     const targetKey = this._strategyOrder[targetIndex];
                     if (!targetKey) {
                         return;
                     }
+                    event.handled = true;
+                    event.originalEvent.preventDefault();
                     this._strategyOrder[currentIndex] = targetKey;
                     this._strategyOrder[targetIndex] = movedKey;
                     this._lastReorder = { key: movedKey, dir: event.button === 'channelUp' ? 'up' : 'down' };
@@ -1344,7 +1347,6 @@ export class ChannelSetupScreen {
             };
             return acc;
         }, createDefaultStrategyState());
-        const fallbackOrder = createDefaultStrategyOrder();
         const sortedByPriority = [...SETUP_STRATEGY_KEYS].sort((a, b) => {
             const aPriority = Number.isFinite(record.strategyConfig[a]?.priority)
                 ? Math.max(1, Math.floor(Number(record.strategyConfig[a]?.priority)))
@@ -1358,21 +1360,7 @@ export class ChannelSetupScreen {
             }
             return String(a).localeCompare(String(b));
         });
-        const deduped: SetupStrategyKey[] = [];
-        const seen = new Set<SetupStrategyKey>();
-        for (const key of sortedByPriority) {
-            if (!seen.has(key)) {
-                deduped.push(key);
-                seen.add(key);
-            }
-        }
-        for (const key of fallbackOrder) {
-            if (!seen.has(key)) {
-                deduped.push(key);
-                seen.add(key);
-            }
-        }
-        this._strategyOrder = deduped;
+        this._strategyOrder = sortedByPriority;
         this._channelExpansion = {
             addAlternateLineups: record.channelExpansion?.addAlternateLineups === true,
             alternateLineupCopies: Number.isFinite(record.channelExpansion?.alternateLineupCopies)
