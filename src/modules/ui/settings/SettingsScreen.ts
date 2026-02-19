@@ -43,6 +43,14 @@ const SUBTITLE_MODE_OPTIONS: Array<{ label: string; mode: SubtitleMode }> = [
     { label: 'Full (Burn-in, default)', mode: 'full' },
 ];
 
+const TRANSCODE_PRESET_OPTIONS = [
+    { label: 'Auto (No Override)', value: 0, storage: '' },
+    { label: 'webOS LGTV', value: 1, storage: 'webos-lgtv' },
+    { label: 'webOS LG', value: 2, storage: 'webos-lg' },
+    { label: 'Plex Web', value: 3, storage: 'plex-web' },
+    { label: 'Android', value: 4, storage: 'android' },
+] as const;
+
 const DEFAULT_THEME_VALUE = Math.max(
     0,
     THEME_OPTIONS.findIndex((option) => option.theme === DEFAULT_THEME)
@@ -72,6 +80,10 @@ const TOGGLE_METADATA: Record<string, ToggleMetadata> = {
     'settings-keep-playing': {
         storageKey: SETTINGS_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS,
         defaultValue: DEFAULT_SETTINGS.playback.keepPlayingInSettings,
+    },
+    'settings-transcode-compat': {
+        storageKey: SETTINGS_STORAGE_KEYS.TRANSCODE_COMPAT,
+        defaultValue: false,
     },
     'settings-debug-logging': {
         storageKey: SETTINGS_STORAGE_KEYS.DEBUG_LOGGING,
@@ -122,6 +134,10 @@ const SELECT_METADATA: Record<string, SelectMetadata> = {
     },
     'settings-hdr10-fallback-mode': {
         storageKey: SETTINGS_STORAGE_KEYS.SMART_HDR10_FALLBACK,
+        defaultValue: 0,
+    },
+    'settings-transcode-preset': {
+        storageKey: SETTINGS_STORAGE_KEYS.TRANSCODE_PRESET,
         defaultValue: 0,
     },
     'settings-epg-layout-mode': {
@@ -265,6 +281,8 @@ export class SettingsScreen {
             SETTINGS_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS,
             DEFAULT_SETTINGS.playback.keepPlayingInSettings
         );
+        const transcodeCompat = this._loadBoolSetting(SETTINGS_STORAGE_KEYS.TRANSCODE_COMPAT, false);
+        const transcodePresetValue = this._loadTranscodePresetValue();
         const hdr10FallbackValue = this._readHdr10FallbackSelectValue();
         const subtitleModeValue = this._loadSubtitleModeValue();
         const subtitleMode = this._valueToSubtitleMode(subtitleModeValue);
@@ -377,6 +395,28 @@ export class SettingsScreen {
                         ],
                         onChange: (value: number) =>
                             this._applyHdr10FallbackSelectValue(value as 0 | 1 | 2),
+                    },
+                    {
+                        id: 'settings-transcode-compat',
+                        label: 'Transcode Compat',
+                        description: 'Enable compatibility transcoding for strict clients',
+                        value: transcodeCompat,
+                        onChange: (value: boolean): void => {
+                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.TRANSCODE_COMPAT, value);
+                        },
+                    },
+                    {
+                        id: 'settings-transcode-preset',
+                        label: 'Transcode Preset',
+                        description: 'Override Plex client profile used for transcode requests',
+                        value: transcodePresetValue,
+                        options: TRANSCODE_PRESET_OPTIONS.map((option) => ({
+                            label: option.label,
+                            value: option.value,
+                        })),
+                        onChange: (value: number): void => {
+                            this._saveTranscodePresetValue(value);
+                        },
                     },
                 ],
             },
@@ -881,6 +921,29 @@ export class SettingsScreen {
         safeLocalStorageSet(key, String(value));
     }
 
+    private _loadTranscodePresetValue(): number {
+        const stored = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.TRANSCODE_PRESET) ?? '';
+        const match = TRANSCODE_PRESET_OPTIONS.find((option) => option.storage === stored);
+        if (match) {
+            return match.value;
+        }
+        if (stored) {
+            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.TRANSCODE_PRESET);
+        }
+        return 0;
+    }
+
+    private _saveTranscodePresetValue(value: number): void {
+        const option =
+            TRANSCODE_PRESET_OPTIONS.find((candidate) => candidate.value === value) ??
+            TRANSCODE_PRESET_OPTIONS[0];
+        if (option.storage) {
+            safeLocalStorageSet(SETTINGS_STORAGE_KEYS.TRANSCODE_PRESET, option.storage);
+            return;
+        }
+        safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.TRANSCODE_PRESET);
+    }
+
     private _notifyDebugLoggingChanged(enabled: boolean): void {
         dispatchDebugLoggingChanged(enabled);
     }
@@ -966,6 +1029,7 @@ export class SettingsScreen {
             'settings-subtitle-mode': () => this._loadSubtitleModeValue(),
             'settings-subtitle-language': () => this._loadSubtitleLanguageValue(),
             'settings-hdr10-fallback-mode': () => this._readHdr10FallbackSelectValue(),
+            'settings-transcode-preset': () => this._loadTranscodePresetValue(),
             'settings-epg-density': () => this._loadEpgGuideDensityValue(),
             'settings-epg-layout-mode': () => this._loadEpgLayoutModeValue(),
         };

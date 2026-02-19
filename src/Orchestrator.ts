@@ -914,6 +914,9 @@ export class AppOrchestrator implements IAppOrchestrator {
             switchToNextChannel: (): void => this._switchToNextChannel(),
             switchToPreviousChannel: (): void => this._switchToPreviousChannel(),
             switchToChannelByNumber: (n: number): Promise<void> => this.switchToChannelByNumber(n),
+            focusEpgOnCurrentChannel: (): void => {
+                this._epgCoordinator?.focusEpgOnCurrentChannel();
+            },
             toggleEpg: (): void => this.toggleEPG(),
             shouldRunChannelSetup: (): boolean => this._channelSetup?.shouldRunChannelSetup() ?? false,
             hidePlayerOsd: (): void => {

@@ -118,6 +118,7 @@ const setup = (overrides: Partial<NavigationCoordinatorDeps> = {}): {
         switchToNextChannel: jest.fn(),
         switchToPreviousChannel: jest.fn(),
         switchToChannelByNumber: jest.fn().mockResolvedValue(undefined),
+        focusEpgOnCurrentChannel: jest.fn(),
         toggleEpg: jest.fn(),
         shouldRunChannelSetup: jest.fn().mockReturnValue(false),
         hidePlayerOsd: jest.fn(),
@@ -167,6 +168,34 @@ describe('NavigationCoordinator', () => {
             '[Navigation] switchToChannelByNumber failed:',
             expect.anything()
         );
+    });
+
+    it('channelNumberEntered focuses EPG current channel after numeric switch when guide is visible', async () => {
+        const focusEpgOnCurrentChannel = jest.fn();
+        const { handlers, deps, epg } = setup({
+            focusEpgOnCurrentChannel,
+        });
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+
+        handlers.channelNumberEntered?.({ channelNumber: 42 });
+        await Promise.resolve();
+
+        expect(deps.switchToChannelByNumber).toHaveBeenCalledWith(42);
+        expect(focusEpgOnCurrentChannel).toHaveBeenCalledTimes(1);
+    });
+
+    it('channelNumberEntered does not call focusEpgOnCurrentChannel when guide is not visible', async () => {
+        const focusEpgOnCurrentChannel = jest.fn();
+        const { handlers, deps, epg } = setup({
+            focusEpgOnCurrentChannel,
+        });
+        (epg.isVisible as jest.Mock).mockReturnValue(false);
+
+        handlers.channelNumberEntered?.({ channelNumber: 42 });
+        await Promise.resolve();
+
+        expect(deps.switchToChannelByNumber).toHaveBeenCalledWith(42);
+        expect(focusEpgOnCurrentChannel).not.toHaveBeenCalled();
     });
 
     it('forwards channelInputUpdate payload to dependency callback', () => {

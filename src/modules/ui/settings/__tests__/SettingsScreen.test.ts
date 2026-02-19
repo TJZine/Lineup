@@ -344,6 +344,60 @@ describe('SettingsScreen (Two-pane layout)', () => {
     });
 });
 
+describe('SettingsScreen (Transcode controls)', () => {
+    beforeEach(() => {
+        localStorage.removeItem(SETTINGS_STORAGE_KEYS.TRANSCODE_COMPAT);
+        localStorage.removeItem(SETTINGS_STORAGE_KEYS.TRANSCODE_PRESET);
+    });
+
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    it('writes transcode compat toggle', () => {
+        const { container, screen } = createScreen(jest.fn());
+
+        screen.show();
+        activateCategory(container, 'playback_hdr');
+
+        const toggle = container.querySelector('#settings-transcode-compat') as HTMLButtonElement | null;
+        if (!toggle) {
+            throw new Error('Transcode compat toggle not found');
+        }
+
+        toggle.click();
+
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.TRANSCODE_COMPAT)).toBe('1');
+    });
+
+    it('writes transcode preset select', () => {
+        const { container, screen } = createScreen(jest.fn());
+
+        screen.show();
+        activateCategory(container, 'playback_hdr');
+
+        const select = container.querySelector('#settings-transcode-preset') as HTMLButtonElement | null;
+        if (!select) {
+            throw new Error('Transcode preset select not found');
+        }
+
+        select.click();
+
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.TRANSCODE_PRESET)).toBe('webos-lgtv');
+    });
+
+    it('loads stored transcode preset on show', () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.TRANSCODE_PRESET, 'webos-lgtv');
+        const { container, screen } = createScreen(jest.fn());
+
+        screen.show();
+        activateCategory(container, 'playback_hdr');
+
+        const value = container.querySelector('#settings-transcode-preset .setup-toggle-value');
+        expect(value?.textContent?.trim()).toBe('webOS LGTV');
+    });
+});
+
 describe('SettingsScreen (Theme selection)', () => {
     beforeEach(() => {
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.THEME);

@@ -114,6 +114,7 @@ describe('App bootstrap smoke', () => {
     let nowPlayingHandler: ((toast: unknown) => void) | null = null;
     const lifecycleHandlers = new Map<string, (payload: unknown) => void>();
     let screenChangeHandler: ((from: string, to: string) => void) | null = null;
+    let appShellErrorHandler: ((error: { code: string; message: string; recoverable: boolean }) => boolean) | null = null;
 
     beforeEach(() => {
         localStorage.clear();
@@ -137,7 +138,12 @@ describe('App bootstrap smoke', () => {
         getRecoveryActionsSpy = jest.spyOn(AppOrchestrator.prototype, 'getRecoveryActions').mockReturnValue([]);
         settingsScreenChunkLoaded.mockClear();
         channelSetupScreenChunkLoaded.mockClear();
-        jest.spyOn(AppOrchestrator.prototype, 'registerErrorHandler').mockImplementation(() => undefined);
+        appShellErrorHandler = null;
+        jest.spyOn(AppOrchestrator.prototype, 'registerErrorHandler').mockImplementation((moduleId, handler) => {
+            if (moduleId === 'app-shell') {
+                appShellErrorHandler = handler as never;
+            }
+        });
         nowPlayingHandler = null;
         lifecycleHandlers.clear();
         jest.spyOn(AppOrchestrator.prototype, 'setNowPlayingHandler').mockImplementation((handler) => {
@@ -387,6 +393,41 @@ describe('App bootstrap smoke', () => {
         retry!.click();
         expect(action).toHaveBeenCalledTimes(1);
         expect(overlay?.classList.contains('hidden')).toBe(true);
+    });
+
+    it('app-shell error handler suppresses blocking overlay for recoverable channel/content errors', async () => {
+        app = new App();
+        await app.start();
+
+        expect(appShellErrorHandler).not.toBeNull();
+        const handled = appShellErrorHandler?.({
+            code: 'CONTENT_UNAVAILABLE',
+            message: 'x',
+            recoverable: true,
+        });
+
+        expect(handled).toBe(true);
+        const overlay = document.getElementById('error-overlay') as HTMLElement | null;
+        expect(overlay?.classList.contains('hidden')).toBe(true);
+
+        const toast = document.getElementById('app-toast') as HTMLElement | null;
+        expect((toast?.textContent ?? '').trim().length).toBeGreaterThan(0);
+    });
+
+    it('app-shell error handler still shows overlay for auth-required blocking errors', async () => {
+        app = new App();
+        await app.start();
+
+        expect(appShellErrorHandler).not.toBeNull();
+        const handled = appShellErrorHandler?.({
+            code: 'AUTH_REQUIRED',
+            message: 'x',
+            recoverable: true,
+        });
+
+        expect(handled).toBe(false);
+        const overlay = document.getElementById('error-overlay') as HTMLElement | null;
+        expect(overlay?.classList.contains('hidden')).toBe(false);
     });
 
     it('shows, throttles, and hides toasts via orchestrator hooks', async () => {

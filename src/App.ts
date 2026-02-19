@@ -103,6 +103,13 @@ const DEFAULT_MINI_GUIDE_CONFIG: MiniGuideConfig = {
     autoHideMs: 8_000,
 };
 
+const NON_BLOCKING_LIFECYCLE_CODES = new Set<AppErrorCode>([
+    AppErrorCode.CHANNEL_NOT_FOUND,
+    AppErrorCode.SCHEDULER_EMPTY_CHANNEL,
+    AppErrorCode.CONTENT_UNAVAILABLE,
+    AppErrorCode.RESOURCE_NOT_FOUND,
+]);
+
 const DEFAULT_CHANNEL_TRANSITION_CONFIG: ChannelTransitionConfig = {
     containerId: 'channel-transition-container',
 };
@@ -203,11 +210,24 @@ export class App {
                     userMessage: error.message,
                     actions: [],
                 };
-            // Show the error overlay for all errors
+            if (!this._shouldUseBlockingOverlay(lifecycleError)) {
+                this.hideErrorOverlay();
+                this._showToast({
+                    message: lifecycleError.userMessage?.trim() || 'That channel is unavailable.',
+                    type: 'warning',
+                });
+                return true;
+            }
             this.showErrorOverlay(lifecycleError);
-            // Return false to allow other handlers to also process
             return false;
         });
+    }
+
+    private _shouldUseBlockingOverlay(error: LifecycleAppError): boolean {
+        if (!error.recoverable) {
+            return true;
+        }
+        return !NON_BLOCKING_LIFECYCLE_CODES.has(error.code as AppErrorCode);
     }
 
     /**

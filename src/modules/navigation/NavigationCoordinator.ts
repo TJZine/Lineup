@@ -61,6 +61,7 @@ export interface NavigationCoordinatorDeps {
     switchToNextChannel: () => void;
     switchToPreviousChannel: () => void;
     switchToChannelByNumber: (n: number) => Promise<void>;
+    focusEpgOnCurrentChannel: () => void;
     onChannelInputUpdate?: (payload: { digits: string; isComplete: boolean }) => void;
 
     toggleEpg: () => void;
@@ -138,15 +139,20 @@ export class NavigationCoordinator {
             navigation.off('keyUp', keyUpHandler);
         });
 
-        const channelNumberHandler = (payload: { channelNumber: number }): void => {
+        const channelNumberHandler = async (payload: { channelNumber: number }): Promise<void> => {
             if (!Number.isFinite(payload.channelNumber)) {
                 return;
             }
             this.deps.setLastChannelChangeSourceNumber();
-            this.deps.switchToChannelByNumber(payload.channelNumber).catch((error: unknown) => {
+            try {
+                await this.deps.switchToChannelByNumber(payload.channelNumber);
+                if (this.deps.epg?.isVisible()) {
+                    this.deps.focusEpgOnCurrentChannel();
+                }
+            } catch (error: unknown) {
                 if (isAbortLikeError(error)) return;
                 console.error('[Navigation] switchToChannelByNumber failed:', summarizeErrorForLog(error));
-            });
+            }
         };
         navigation.on('channelNumberEntered', channelNumberHandler);
         unsubs.push(() => {

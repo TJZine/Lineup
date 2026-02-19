@@ -208,6 +208,11 @@
   background: var(--color-primary-alpha-20);
 }
 
+.epg-channel-row:focus:not(.focused),
+.epg-channel-row:focus-visible:not(.focused) {
+  outline: none;
+}
+
 /* Category colors by build strategy */
 .epg-channel-row[data-build-strategy] {
   border-left-width: 4px;
@@ -472,7 +477,7 @@
 /* Program Cells */
 .epg-cell {
   position: absolute;
-  height: 88px;
+  height: 90px;
   padding: 8px 12px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 4px;
@@ -483,8 +488,13 @@
   box-sizing: border-box;
   margin: 2px;
   contain: layout paint;
-  transition: background-color 80ms ease-out, outline-color 80ms ease-out;
+  transition: background-color 80ms ease-out;
   cursor: pointer;
+}
+
+.epg-cell:focus:not(.focused),
+.epg-cell:focus-visible:not(.focused) {
+  outline: none;
 }
 
 .epg-cell.loading {
@@ -599,6 +609,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.2;
 }
 
 .epg-cell.text-shifted .epg-cell-title,
