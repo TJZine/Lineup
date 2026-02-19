@@ -27,6 +27,11 @@
   --panel-inner-glow: linear-gradient(180deg, rgb(229 160 13 / 4%), transparent);
   --transition-normal: 120ms ease-out;
   --epg-info-panel-fade-to: var(--panel-surface-2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.65);
+  --shadow-lg: 0 10px 32px rgba(0, 0, 0, 0.72);
+  --panel-border: 1px solid rgba(255, 255, 255, 0.18);
+  --text-xs: 13px;
+  --text-sm: 15px;
 }
 
 .theme-swiss {
@@ -52,6 +57,11 @@
   --panel-radius: 14px;
   --transition-normal: 280ms ease-in-out;
   --epg-info-panel-fade-to: var(--panel-surface-2);
+  --panel-border: 1px solid rgba(255, 255, 255, 0.06);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.22);
+  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.30);
+  --panel-inner-glow: linear-gradient(180deg, rgba(52, 211, 153, 0.05), transparent);
 }
 
 .theme-directv {
@@ -76,6 +86,10 @@
   --panel-radius: 4px;
   --transition-normal: 150ms ease;
   --epg-info-panel-fade-to: var(--panel-surface-2);
+  --panel-border: 1px solid rgba(0, 166, 214, 0.30);
+  --panel-inner-glow: linear-gradient(180deg, rgba(0, 166, 214, 0.08), transparent);
+  --shadow-md: 0 4px 12px rgba(0, 10, 30, 0.7);
+  --shadow-lg: 0 10px 30px rgba(0, 10, 30, 0.8);
 }
 
 .theme-swiss .now-playing-info-title {
