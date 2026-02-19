@@ -2,7 +2,6 @@
   display: inline-flex;
   width: calc(32px * var(--onboarding-scale, 1));
   height: calc(32px * var(--onboarding-scale, 1));
-  margin-right: calc(10px * var(--onboarding-scale, 1));
   align-items: center;
   justify-content: center;
   vertical-align: middle;

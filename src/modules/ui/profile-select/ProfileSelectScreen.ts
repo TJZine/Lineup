@@ -46,6 +46,7 @@ export class ProfileSelectScreen {
     private _signOutButton: HTMLButtonElement;
     private _focusableIds: string[] = [];
     private _userButtonIds: string[] = [];
+    private _showMain = false;
     private _restoreFocusTimeoutId: ReturnType<typeof setTimeout> | null = null;
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
     private _isLoading: boolean = false;
@@ -262,12 +263,15 @@ export class ProfileSelectScreen {
         this._isLoading = true;
         this._listEl.replaceChildren();
         this._userButtonIds = [];
+        this._showMain = false;
+        this._mainButton.style.display = 'none';
         this._setStatus('Loading profiles...', { tone: 'loading' });
         this._setTip('Tip: Set a PIN on the admin profile to prevent unwanted access.');
 
         try {
             const users = await this._orchestrator.getHomeUsers();
-            this._mainButton.style.display = users.length <= 1 ? '' : 'none';
+            this._showMain = users.length <= 1;
+            this._mainButton.style.display = this._showMain ? '' : 'none';
             if (users.length <= 1) {
                 if (users.length === 1) {
                     this._renderUsers(users);
@@ -635,7 +639,7 @@ export class ProfileSelectScreen {
         const nav = this._orchestrator.getNavigation();
         if (!nav) return;
 
-        const showMain = this._mainButton.style.display !== 'none';
+        const showMain = this._showMain;
         const focusableIds = [
             ...this._userButtonIds,
             this._signOutButton.id,
@@ -759,7 +763,7 @@ export class ProfileSelectScreen {
             if (nav.restoreFocusForCurrentScreen()) {
                 return;
             }
-            const showMain = this._mainButton.style.display !== 'none';
+            const showMain = this._showMain;
             const preferredId = this._userButtonIds[0] ?? (showMain ? this._mainButton.id : this._signOutButton.id);
             nav.setFocus(preferredId);
         }, FOCUS_RESTORE_DELAY_MS);

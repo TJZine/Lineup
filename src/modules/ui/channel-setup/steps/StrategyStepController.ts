@@ -1,5 +1,5 @@
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
-import { ADVANCED_STRATEGY_KEYS, CONTENT_STRATEGY_KEYS, STEP2_CONTROL_IDS } from './constants';
+import { ADVANCED_STRATEGY_KEYS, CONTENT_STRATEGY_KEYS, STEP2_CONTROL_IDS, STRATEGY_CATEGORIES } from './constants';
 import type {
     SetupStrategyKey,
     StepRenderContext,
@@ -306,13 +306,10 @@ export class StrategyStepController {
         deps: StrategyStepDeps,
         state: StrategyStepDeps['state']
     ): HTMLButtonElement[] {
-        const categories: Array<{ key: StrategyCategoryKey; title: string }> = [
-            { key: 'content-sources', title: CATEGORY_TITLES['content-sources'] },
-            { key: 'advanced-sources', title: CATEGORY_TITLES['advanced-sources'] },
-            { key: 'build-options', title: CATEGORY_TITLES['build-options'] },
-            { key: 'limits', title: CATEGORY_TITLES.limits },
-            { key: 'priority-order', title: CATEGORY_TITLES['priority-order'] },
-        ];
+        const categories: Array<{ key: StrategyCategoryKey; title: string }> = STRATEGY_CATEGORIES.map((key) => ({
+            key,
+            title: CATEGORY_TITLES[key],
+        }));
 
         const categoryButtons = categories.map((category) => {
             const button = document.createElement('button');
@@ -361,6 +358,10 @@ export class StrategyStepController {
             const button = document.createElement('button');
             button.id = rowId;
             button.className = 'setup-toggle setup-priority-row';
+            const labelText = strategy?.label ?? String(key);
+            const stateText = strategyState.enabled ? 'On' : 'Off';
+            button.setAttribute('aria-label', `Priority ${index + 1}: ${labelText}, ${stateText}`);
+            button.setAttribute('aria-pressed', strategyState.enabled ? 'true' : 'false');
             if (deps.lastReorder?.key === key && deps.lastReorder.dir === 'up') {
                 button.classList.add('setup-priority-row--move-up');
             } else if (deps.lastReorder?.key === key && deps.lastReorder.dir === 'down') {
@@ -370,14 +371,17 @@ export class StrategyStepController {
             const rank = document.createElement('span');
             rank.className = 'setup-priority-rank';
             rank.textContent = String(index + 1);
+            rank.setAttribute('aria-hidden', 'true');
 
             const label = document.createElement('span');
             label.className = 'setup-priority-label';
-            label.textContent = strategy?.label ?? String(key);
+            label.textContent = labelText;
+            label.setAttribute('aria-hidden', 'true');
 
             const rowState = document.createElement('span');
             rowState.className = 'setup-priority-state';
-            rowState.textContent = strategyState.enabled ? 'On' : 'Off';
+            rowState.textContent = stateText;
+            rowState.setAttribute('aria-hidden', 'true');
 
             button.appendChild(rank);
             button.appendChild(label);

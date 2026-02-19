@@ -1,3 +1,4 @@
+import { setTrustedInlineSvg } from '../../../../utils/inlineSvg';
 import type { LibraryStepDeps, StepRenderContext } from './types';
 
 export class LibraryStepController {
@@ -59,7 +60,7 @@ export class LibraryStepController {
             const icon = document.createElement('span');
             icon.className = 'setup-toggle-icon';
             icon.setAttribute('aria-hidden', 'true');
-            icon.innerHTML = library.type === 'movie' ? deps.movieSvg : deps.showSvg;
+            setTrustedInlineSvg(icon, library.type === 'movie' ? deps.movieSvg : deps.showSvg);
 
             const label = document.createElement('span');
             label.className = 'setup-toggle-label';
@@ -69,7 +70,6 @@ export class LibraryStepController {
             meta.className = 'setup-toggle-meta';
             const typeLabel = library.type === 'movie' ? 'Movies' : 'Shows';
             if (typeof library.contentCount === 'number' && Number.isFinite(library.contentCount)) {
-                meta.replaceChildren();
                 meta.appendChild(document.createTextNode(`${typeLabel} • `));
                 const countSpan = document.createElement('span');
                 countSpan.className = 'setup-toggle-count';

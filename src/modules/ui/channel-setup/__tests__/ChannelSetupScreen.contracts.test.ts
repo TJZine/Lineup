@@ -74,7 +74,6 @@ describe('ChannelSetupScreen contracts', () => {
 
         clickButton(container, '#setup-next');
         await flushPromises();
-        expect(container.querySelector('#setup-category-priority-order')).not.toBeNull();
         for (const category of STRATEGY_CATEGORIES) {
             expect(container.querySelector(`#setup-category-${category}`)).not.toBeNull();
         }

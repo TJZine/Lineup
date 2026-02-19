@@ -47,7 +47,6 @@ describe('AudioSetupScreen', () => {
 
     afterEach(() => {
         document.body.innerHTML = '';
-        jest.useRealTimers();
     });
 
     it('defaults to TV speakers when DTS passthrough not enabled', () => {

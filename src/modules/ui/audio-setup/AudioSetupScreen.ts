@@ -7,6 +7,7 @@
 import type { INavigationManager, FocusableElement } from '../../navigation';
 import { SETTINGS_STORAGE_KEYS, DEFAULT_SETTINGS } from '../settings/constants';
 import { safeLocalStorageSet, readStoredBoolean } from '../../../utils/storage';
+import { setTrustedInlineSvg } from '../../../utils/inlineSvg';
 
 /**
  * Audio choice configuration.
@@ -120,7 +121,7 @@ export class AudioSetupScreen {
             const iconWrap = document.createElement('span');
             iconWrap.className = 'audio-choice-icon';
             iconWrap.setAttribute('aria-hidden', 'true');
-            iconWrap.innerHTML = choice.iconSvg;
+            setTrustedInlineSvg(iconWrap, choice.iconSvg);
 
             const label = document.createElement('span');
             label.className = 'audio-choice-label';
@@ -329,7 +330,6 @@ export class AudioSetupScreen {
                 id: fallbackBtn.id,
                 element: fallbackBtn,
                 neighbors,
-                onFocus: () => undefined,
                 onSelect: () => fallbackBtn.click(),
             };
             this._fallbackFocusable = fallbackFocusable;
@@ -343,7 +343,6 @@ export class AudioSetupScreen {
                 id: continueBtn.id,
                 element: continueBtn,
                 neighbors,
-                onFocus: () => undefined,
                 onSelect: () => continueBtn.click(),
             });
         }

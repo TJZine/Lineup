@@ -276,9 +276,8 @@
 }
 
 .setup-category-button.selected {
-    border-left: 3px solid var(--color-primary);
-    background: rgba(255, 255, 255, 0.06);
     border-color: rgba(255, 255, 255, 0.10);
+    border-left: 3px solid var(--color-primary);
 }
 
 .setup-category-button:focus {

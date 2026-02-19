@@ -69,7 +69,7 @@ const createDefaultStrategyState = (): SetupStrategyState => ({
 });
 
 const createDefaultStrategyOrder = (): SetupStrategyKey[] =>
-    [...SETUP_STRATEGY_KEYS].slice().sort((a, b) => {
+    [...SETUP_STRATEGY_KEYS].sort((a, b) => {
         const diff = DEFAULT_STRATEGY_PRIORITIES[a] - DEFAULT_STRATEGY_PRIORITIES[b];
         if (diff !== 0) return diff;
         return String(a).localeCompare(String(b));
