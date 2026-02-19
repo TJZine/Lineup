@@ -401,10 +401,20 @@ describe('ChannelTuningCoordinator', () => {
         });
         deps.getPendingNowPlayingChannelId.mockReturnValue('ch1');
 
-        await expect(coordinator.switchToChannel('ch1')).rejects.toThrow('sync failed');
+        await expect(coordinator.switchToChannel('ch1')).resolves.toBe('failed');
 
         expect(deps.setPendingNowPlayingChannelId).toHaveBeenCalledWith(null);
         consoleErrorSpy.mockRestore();
+    });
+
+    it('returns switched outcome even when lifecycle save fails', async () => {
+        const { coordinator, deps } = createCoordinator();
+        const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        deps.saveLifecycleState.mockRejectedValueOnce(new Error('save failed'));
+
+        await expect(coordinator.switchToChannel('ch1')).resolves.toBe('switched');
+
+        consoleWarnSpy.mockRestore();
     });
 
     it('reports CHANNEL_NOT_FOUND when switchToChannelByNumber misses', async () => {

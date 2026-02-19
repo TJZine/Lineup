@@ -390,6 +390,7 @@ describe('App bootstrap smoke', () => {
 
         const retry = overlay?.querySelector('button.error-button.primary') as HTMLButtonElement | null;
         expect(retry).not.toBeNull();
+        expect(document.activeElement).toBe(retry);
         retry!.click();
         expect(action).toHaveBeenCalledTimes(1);
         expect(overlay?.classList.contains('hidden')).toBe(true);

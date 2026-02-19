@@ -11,7 +11,7 @@ import {
     AppErrorCode,
 } from './Orchestrator';
 import type { LifecycleAppError, AppPhase } from './modules/lifecycle/types';
-import type { NavigationConfig } from './modules/navigation';
+import type { INavigationManager, NavigationConfig } from './modules/navigation';
 import type { VideoPlayerConfig } from './modules/player';
 import type { EPGConfig } from './modules/ui/epg';
 import type { NowPlayingInfoConfig } from './modules/ui/now-playing-info';
@@ -103,19 +103,16 @@ const DEFAULT_MINI_GUIDE_CONFIG: MiniGuideConfig = {
     autoHideMs: 8_000,
 };
 
-const NON_BLOCKING_LIFECYCLE_CODES = new Set<AppErrorCode>([
-    AppErrorCode.CHANNEL_NOT_FOUND,
-    AppErrorCode.SCHEDULER_EMPTY_CHANNEL,
-    AppErrorCode.CONTENT_UNAVAILABLE,
-    AppErrorCode.RESOURCE_NOT_FOUND,
-]);
-
 const NON_BLOCKING_TOAST_MESSAGES: Partial<Record<AppErrorCode, string>> = {
     [AppErrorCode.CHANNEL_NOT_FOUND]: 'That channel is unavailable.',
     [AppErrorCode.SCHEDULER_EMPTY_CHANNEL]: 'No scheduled content is available for that channel.',
     [AppErrorCode.CONTENT_UNAVAILABLE]: 'That content is unavailable right now.',
     [AppErrorCode.RESOURCE_NOT_FOUND]: 'Requested content could not be found.',
 };
+
+const NON_BLOCKING_LIFECYCLE_CODES = new Set<AppErrorCode>(
+    Object.keys(NON_BLOCKING_TOAST_MESSAGES).map((k) => k as AppErrorCode)
+);
 
 const DEFAULT_CHANNEL_TRANSITION_CONFIG: ChannelTransitionConfig = {
     containerId: 'channel-transition-container',
@@ -124,6 +121,8 @@ const DEFAULT_CHANNEL_TRANSITION_CONFIG: ChannelTransitionConfig = {
 const DEFAULT_PLAYBACK_OPTIONS_CONFIG: PlaybackOptionsConfig = {
     containerId: 'playback-options-container',
 };
+
+const ERROR_OVERLAY_MODAL_ID = 'error-overlay';
 
 // ============================================
 // App Class
@@ -135,6 +134,9 @@ const DEFAULT_PLAYBACK_OPTIONS_CONFIG: PlaybackOptionsConfig = {
 export class App {
     private _orchestrator: AppOrchestrator | null = null;
     private _errorOverlay: HTMLElement | null = null;
+    private _errorOverlayFocusableIds: string[] = [];
+    private _errorOverlayPreferredFocusId: string | null = null;
+    private _errorOverlayModalCloseHandler: ((payload: { modalId: string }) => void) | null = null;
     private _toastContainer: HTMLElement | null = null;
     private _toastHideTimer: number | null = null;
     private _lastToastAt: number = 0;
@@ -162,6 +164,34 @@ export class App {
     private _screenUnsubscribe: (() => void) | null = null;
     private _phaseUnsubscribe: (() => void) | null = null;
     private _globalKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
+
+    private _getSafeNavigation(): INavigationManager | null {
+        const nav = this._orchestrator?.getNavigation() ?? null;
+        if (!nav) return null;
+        const maybe = nav as unknown as {
+            openModal?: unknown;
+            closeModal?: unknown;
+            isModalOpen?: unknown;
+            registerFocusable?: unknown;
+            unregisterFocusable?: unknown;
+            setFocus?: unknown;
+            on?: unknown;
+            off?: unknown;
+        };
+        if (
+            typeof maybe.openModal !== 'function' ||
+            typeof maybe.closeModal !== 'function' ||
+            typeof maybe.isModalOpen !== 'function' ||
+            typeof maybe.registerFocusable !== 'function' ||
+            typeof maybe.unregisterFocusable !== 'function' ||
+            typeof maybe.setFocus !== 'function' ||
+            typeof maybe.on !== 'function' ||
+            typeof maybe.off !== 'function'
+        ) {
+            return null;
+        }
+        return nav;
+    }
 
     /**
      * Initialize and start the application.
@@ -284,6 +314,8 @@ export class App {
             document.removeEventListener('keydown', this._globalKeydownHandler);
             this._globalKeydownHandler = null;
         }
+
+        this.hideErrorOverlay();
 
         this._authScreen?.destroy();
         this._authScreen = null;
@@ -422,6 +454,9 @@ export class App {
         const errorOverlay = document.createElement('div');
         errorOverlay.id = 'error-overlay';
         errorOverlay.className = 'error-overlay hidden';
+        errorOverlay.setAttribute('role', 'dialog');
+        errorOverlay.setAttribute('aria-modal', 'true');
+        errorOverlay.setAttribute('aria-label', 'Error');
         root.appendChild(errorOverlay);
         this._errorOverlay = errorOverlay;
 
@@ -855,21 +890,70 @@ export class App {
             return;
         }
 
+        const nav = this._getSafeNavigation();
+        const modalWasOpen = nav?.isModalOpen(ERROR_OVERLAY_MODAL_ID) ?? false;
+        if (nav && modalWasOpen) {
+            // Refresh modal focus trap membership on re-render without closing the overlay.
+            if (this._errorOverlayModalCloseHandler) {
+                nav.off('modalClose', this._errorOverlayModalCloseHandler);
+            }
+            nav.closeModal(ERROR_OVERLAY_MODAL_ID);
+            if (this._errorOverlayModalCloseHandler) {
+                nav.on('modalClose', this._errorOverlayModalCloseHandler);
+            }
+        }
+
         const actions =
             error.actions.length > 0
                 ? error.actions
                 : this._orchestrator.getRecoveryActions(error.code as AppErrorCode);
         this._renderErrorOverlay(error, actions);
         this._errorOverlay.classList.remove('hidden');
+
+        if (nav && this._errorOverlayFocusableIds.length > 0) {
+            if (!this._errorOverlayModalCloseHandler) {
+                this._errorOverlayModalCloseHandler = ({ modalId }): void => {
+                    if (modalId !== ERROR_OVERLAY_MODAL_ID) return;
+                    this.hideErrorOverlay({ fromModalClose: true });
+                };
+                nav.on('modalClose', this._errorOverlayModalCloseHandler);
+            }
+            if (!nav.isModalOpen(ERROR_OVERLAY_MODAL_ID)) {
+                nav.openModal(ERROR_OVERLAY_MODAL_ID, this._errorOverlayFocusableIds);
+            }
+            const preferred = this._errorOverlayPreferredFocusId ?? this._errorOverlayFocusableIds[0] ?? null;
+            if (preferred) {
+                nav.setFocus(preferred, { persist: false });
+            }
+        }
     }
 
     /**
      * Hide error overlay.
      */
-    hideErrorOverlay(): void {
+    hideErrorOverlay(options?: { fromModalClose?: boolean }): void {
         if (this._errorOverlay) {
             this._errorOverlay.classList.add('hidden');
         }
+        const nav = this._getSafeNavigation();
+        if (nav) {
+            if (!options?.fromModalClose) {
+                nav.closeModal(ERROR_OVERLAY_MODAL_ID);
+            }
+            this._teardownErrorOverlayNavigation(nav);
+        }
+    }
+
+    private _teardownErrorOverlayNavigation(nav: INavigationManager): void {
+        if (this._errorOverlayModalCloseHandler) {
+            nav.off('modalClose', this._errorOverlayModalCloseHandler);
+            this._errorOverlayModalCloseHandler = null;
+        }
+        for (const id of this._errorOverlayFocusableIds) {
+            nav.unregisterFocusable(id);
+        }
+        this._errorOverlayFocusableIds = [];
+        this._errorOverlayPreferredFocusId = null;
     }
 
     /**
@@ -904,7 +988,17 @@ export class App {
         const actionsContainer = document.createElement('div');
         actionsContainer.className = 'error-actions';
 
+        const nav = this._getSafeNavigation();
+        if (nav) {
+            // Re-render replaces elements; ensure we unregister any prior focusables first.
+            this._teardownErrorOverlayNavigation(nav);
+        }
+
+        let primaryButton: HTMLButtonElement | null = null;
+        const focusableIds: string[] = [];
+
         for (const action of actions) {
+            const id = `error-overlay-action-${focusableIds.length}`;
             const button = document.createElement('button');
             button.className = action.isPrimary
                 ? 'error-button primary'
@@ -914,11 +1008,31 @@ export class App {
                 this.hideErrorOverlay();
                 action.action();
             });
+            if (action.isPrimary && !primaryButton) {
+                primaryButton = button;
+            }
             actionsContainer.appendChild(button);
+
+            if (nav) {
+                focusableIds.push(id);
+                nav.registerFocusable({
+                    id,
+                    element: button,
+                    group: ERROR_OVERLAY_MODAL_ID,
+                    neighbors: {},
+                });
+            }
         }
 
         container.appendChild(actionsContainer);
         this._errorOverlay.appendChild(container);
+
+        // Ensure focus is visible even if Navigation is not available yet (e.g. during partial init / tests).
+        (primaryButton ?? actionsContainer.querySelector('button'))?.focus();
+
+        this._errorOverlayFocusableIds = focusableIds;
+        const primaryIndex = actions.findIndex((a) => a.isPrimary);
+        this._errorOverlayPreferredFocusId = focusableIds[primaryIndex] ?? focusableIds[0] ?? null;
     }
 
     /**

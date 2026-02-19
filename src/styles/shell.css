@@ -560,6 +560,12 @@
   cursor: pointer;
 }
 
+.error-button.focused,
+.error-button:focus {
+  outline: var(--focus-ring-width) solid var(--focus-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
 .error-button.primary {
   background: var(--color-primary);
 }

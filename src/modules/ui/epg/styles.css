@@ -206,6 +206,7 @@
 
 .epg-channel-row.focused {
   background: var(--color-primary-alpha-20);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-color) inset;
 }
 
 .epg-channel-row:focus,

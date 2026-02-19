@@ -315,14 +315,18 @@ export class ChannelTuningCoordinator {
                 didRequestProgramStart = true;
             } catch (error: unknown) {
                 console.error('Failed to sync schedule time:', summarizeErrorForLog(error));
-                throw error;
+                return 'failed';
             }
 
             // Update current channel
             channelManager.setCurrentChannel(channelId);
 
             // Save state
-            await this.deps.saveLifecycleState();
+            try {
+                await this.deps.saveLifecycleState();
+            } catch (error: unknown) {
+                console.warn('Failed to save lifecycle state:', summarizeErrorForLog(error));
+            }
             return 'switched';
         } finally {
             if (!didRequestProgramStart && this.deps.getPendingNowPlayingChannelId() === channelId) {

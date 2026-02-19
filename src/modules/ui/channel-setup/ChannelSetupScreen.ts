@@ -1251,7 +1251,7 @@ export class ChannelSetupScreen {
             }
         } catch (error) {
             if (token !== this._visibilityToken) return;
-            if (error && typeof error === 'object' && 'name' in error && (error as { name?: unknown }).name === 'AbortError') {
+            if (isAbortLikeError(error, this._previewAbortController?.signal)) {
                 return;
             }
             this._previewError = error instanceof Error ? error.message : 'Unable to estimate channels.';
@@ -1291,7 +1291,7 @@ export class ChannelSetupScreen {
             this._review = review;
         } catch (error) {
             if (token !== this._visibilityToken) return;
-            if (error && typeof error === 'object' && 'name' in error && (error as { name?: unknown }).name === 'AbortError') {
+            if (isAbortLikeError(error, this._reviewAbortController?.signal)) {
                 return;
             }
             this._reviewError = error instanceof Error ? error.message : 'Unable to load review.';
