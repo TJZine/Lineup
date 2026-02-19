@@ -16,6 +16,7 @@ import type { VideoPlayerConfig } from './modules/player';
 import type { EPGConfig } from './modules/ui/epg';
 import type { NowPlayingInfoConfig } from './modules/ui/now-playing-info';
 import type { PlayerOsdConfig } from './modules/ui/player-osd';
+import type { ChannelNumberOverlayConfig } from './modules/ui/channel-number-overlay';
 import type { MiniGuideConfig } from './modules/ui/mini-guide';
 import type { ChannelTransitionConfig } from './modules/ui/channel-transition';
 import type { PlaybackOptionsConfig } from './modules/ui/playback-options';
@@ -90,6 +91,11 @@ const DEFAULT_NOW_PLAYING_INFO_CONFIG: NowPlayingInfoConfig = {
 
 const DEFAULT_PLAYER_OSD_CONFIG: PlayerOsdConfig = {
     containerId: 'player-osd-container',
+};
+
+const DEFAULT_CHANNEL_NUMBER_OVERLAY_CONFIG: ChannelNumberOverlayConfig = {
+    containerId: 'channel-number-overlay-container',
+    completeHideDelayMs: 650,
 };
 
 const DEFAULT_MINI_GUIDE_CONFIG: MiniGuideConfig = {
@@ -298,6 +304,10 @@ export class App {
         const playerOsdContainer = document.createElement('div');
         playerOsdContainer.id = 'player-osd-container';
         root.appendChild(playerOsdContainer);
+
+        const channelNumberOverlayContainer = document.createElement('div');
+        channelNumberOverlayContainer.id = 'channel-number-overlay-container';
+        root.appendChild(channelNumberOverlayContainer);
 
         const miniGuideContainer = document.createElement('div');
         miniGuideContainer.id = 'mini-guide-container';
@@ -748,6 +758,7 @@ export class App {
             epgConfig: DEFAULT_EPG_CONFIG,
             nowPlayingInfoConfig: DEFAULT_NOW_PLAYING_INFO_CONFIG,
             playerOsdConfig: DEFAULT_PLAYER_OSD_CONFIG,
+            channelNumberOverlayConfig: DEFAULT_CHANNEL_NUMBER_OVERLAY_CONFIG,
             miniGuideConfig: DEFAULT_MINI_GUIDE_CONFIG,
             channelTransitionConfig: DEFAULT_CHANNEL_TRANSITION_CONFIG,
             playbackOptionsConfig: DEFAULT_PLAYBACK_OPTIONS_CONFIG,

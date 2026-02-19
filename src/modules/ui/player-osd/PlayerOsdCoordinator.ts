@@ -17,8 +17,10 @@ import { getChannelNameForDisplay } from '../channelDisplay';
 
 const RECENT_USER_ACTION_MS = 2000;
 const OSD_THROTTLE_MS = 250;
+export const INFO_BANNER_AUTO_HIDE_MS = 6000;
 const PLAYER_OSD_ACTION_IDS = {
     subtitles: 'player-osd-action-subtitles',
+    sleep: 'player-osd-action-sleep',
     audio: 'player-osd-action-audio',
 } as const;
 
@@ -35,6 +37,9 @@ interface PlayerOsdCoordinatorDeps {
     getVideoPlayer: () => IVideoPlayer | null;
     getAutoHideMs: () => number;
     getNavigation: () => INavigationManager | null;
+    buildPlexResourceUrl: (pathOrUrl: string) => string | null;
+    cycleSleepTimerPreset?: () => number;
+    getSleepTimerRemainingMs?: () => number;
     playbackOptionsModalId: string;
     preparePlaybackOptionsModal: (
         preferredSection: PlaybackOptionsSectionId
@@ -50,12 +55,14 @@ export class PlayerOsdCoordinator {
     private _lastTimeUpdate: { currentTimeMs: number; durationMs: number } | null = null;
     private _bufferedRanges: TimeRange[] = [];
     private _actionsRegistered = false;
+    private _suppressActions = false;
     private _throttledRenderTimer: number | null = null;
     private _lastThrottledRenderAt = 0;
 
     constructor(private readonly deps: PlayerOsdCoordinatorDeps) {}
 
     poke(reason: PlayerOsdReason): void {
+        this._suppressActions = false;
         this._lastUserActionAt = Date.now();
         this._lastReason = reason;
         this._clearThrottledRenderTimer();
@@ -76,6 +83,7 @@ export class PlayerOsdCoordinator {
             return;
         }
 
+        this._suppressActions = false;
         this._lastUserActionAt = Date.now();
         this._lastReason = 'status';
         this._renderAndShow(this._lastReason);
@@ -90,7 +98,25 @@ export class PlayerOsdCoordinator {
         this._clearAutoHideTimer();
         this._clearThrottledRenderTimer();
         this._unregisterActions();
+        this._suppressActions = false;
         this.deps.getOverlay()?.hide();
+    }
+
+    showInfoBanner(): void {
+        const overlay = this.deps.getOverlay();
+        if (!overlay) return;
+        this._clearThrottledRenderTimer();
+        this._unregisterActions();
+        this._suppressActions = true;
+        this._lastUserActionAt = 0;
+        this._lastReason = 'status';
+        overlay.setViewModel(this._buildInfoOnlyViewModel('status'));
+        overlay.show();
+        this._clearAutoHideTimer();
+        this._autoHideTimer = globalThis.setTimeout(() => {
+            this._autoHideTimer = null;
+            this.hide();
+        }, INFO_BANNER_AUTO_HIDE_MS) as unknown as number;
     }
 
     onPlayerStateChange(state: PlaybackState): void {
@@ -104,11 +130,13 @@ export class PlayerOsdCoordinator {
             case 'paused':
                 this._lastReason = 'pause';
                 this._clearAutoHideTimer();
+                this._suppressActions = false;
                 this._renderAndShow(this._lastReason);
                 return;
             case 'seeking':
                 this._lastReason = 'seek';
                 this._clearAutoHideTimer();
+                this._suppressActions = false;
                 this._renderAndShow(this._lastReason);
                 return;
             case 'playing':
@@ -140,14 +168,30 @@ export class PlayerOsdCoordinator {
         this._requestThrottledRender();
     }
 
+    /**
+     * Re-render the OSD view model if (and only if) it is currently visible.
+     * Used for non-playback-driven UI updates (e.g., sleep timer countdown).
+     */
+    refreshIfVisible(): void {
+        const overlay = this.deps.getOverlay();
+        if (!overlay || !overlay.isVisible()) {
+            return;
+        }
+        this._requestThrottledRender();
+    }
+
     private _renderAndShow(reason: PlayerOsdReason): void {
         const overlay = this.deps.getOverlay();
         if (!overlay) return;
         this._clearThrottledRenderTimer();
-        overlay.setViewModel(this._buildViewModel(reason));
+        overlay.setViewModel(this._suppressActions ? this._buildInfoOnlyViewModel(reason) : this._buildViewModel(reason));
         this._lastThrottledRenderAt = Date.now();
         overlay.show();
-        this._registerActions();
+        if (!this._suppressActions) {
+            this._registerActions();
+        } else {
+            this._unregisterActions();
+        }
     }
 
     private _clearThrottledRenderTimer(): void {
@@ -168,7 +212,11 @@ export class PlayerOsdCoordinator {
         const now = Date.now();
         const elapsed = now - this._lastThrottledRenderAt;
         if (elapsed >= OSD_THROTTLE_MS) {
-            overlay.setViewModel(this._buildViewModel(this._lastReason));
+            overlay.setViewModel(
+                this._suppressActions
+                    ? this._buildInfoOnlyViewModel(this._lastReason)
+                    : this._buildViewModel(this._lastReason)
+            );
             this._lastThrottledRenderAt = now;
             return;
         }
@@ -176,9 +224,24 @@ export class PlayerOsdCoordinator {
         this._throttledRenderTimer = globalThis.setTimeout(() => {
             this._throttledRenderTimer = null;
             const nextNow = Date.now();
-            overlay.setViewModel(this._buildViewModel(this._lastReason));
+            overlay.setViewModel(
+                this._suppressActions
+                    ? this._buildInfoOnlyViewModel(this._lastReason)
+                    : this._buildViewModel(this._lastReason)
+            );
             this._lastThrottledRenderAt = nextNow;
         }, OSD_THROTTLE_MS - elapsed) as unknown as number;
+    }
+
+    private _buildInfoOnlyViewModel(reason: PlayerOsdReason): PlayerOsdViewModel {
+        const { actionIds, ...vm } = this._buildViewModel(reason);
+        void actionIds;
+        return {
+            ...vm,
+            infoOnly: true,
+            // Avoid setting focusable IDs/hints while actions are suppressed; banner should be informational only.
+            controlHint: null,
+        };
     }
 
     private _buildViewModel(reason: PlayerOsdReason): PlayerOsdViewModel {
@@ -199,6 +262,14 @@ export class PlayerOsdCoordinator {
         const title = program?.item.title ?? '';
         const subtitle = program?.item.fullTitle && program.item.fullTitle !== program.item.title
             ? program.item.fullTitle
+            : null;
+        const clearLogoPath = program?.item.clearLogo ?? null;
+        const clearLogoUrl = clearLogoPath
+            ? this.deps.buildPlexResourceUrl(clearLogoPath)
+            : null;
+        const sleepTimerRemainingMs = this.deps.getSleepTimerRemainingMs?.() ?? 0;
+        const sleepTimerText = sleepTimerRemainingMs > 0
+            ? `Sleep ${formatTimecode(sleepTimerRemainingMs)}`
             : null;
 
         const timecode = isLive
@@ -257,6 +328,8 @@ export class PlayerOsdCoordinator {
             audioLabel,
             subtitleLabel,
             controlHint,
+            ...(sleepTimerText ? { sleepTimerText } : {}),
+            ...(clearLogoUrl ? { clearLogoUrl } : {}),
         };
     }
 
@@ -344,19 +417,32 @@ export class PlayerOsdCoordinator {
         if (typeof document === 'undefined') return;
 
         const subtitlesEl = document.getElementById(PLAYER_OSD_ACTION_IDS.subtitles) as HTMLElement | null;
+        const sleepEl = document.getElementById(PLAYER_OSD_ACTION_IDS.sleep) as HTMLElement | null;
         const audioEl = document.getElementById(PLAYER_OSD_ACTION_IDS.audio) as HTMLElement | null;
-        if (!subtitlesEl || !audioEl) return;
+        if (!subtitlesEl || !sleepEl || !audioEl) return;
 
         navigation.registerFocusable({
             id: PLAYER_OSD_ACTION_IDS.subtitles,
             element: subtitlesEl,
-            neighbors: { right: PLAYER_OSD_ACTION_IDS.audio },
+            neighbors: { right: PLAYER_OSD_ACTION_IDS.sleep },
             onSelect: () => this._openPlaybackOptions('subtitles'),
+        });
+        navigation.registerFocusable({
+            id: PLAYER_OSD_ACTION_IDS.sleep,
+            element: sleepEl,
+            neighbors: {
+                left: PLAYER_OSD_ACTION_IDS.subtitles,
+                right: PLAYER_OSD_ACTION_IDS.audio,
+            },
+            onSelect: () => {
+                this.deps.cycleSleepTimerPreset?.();
+                this._renderAndShow('status');
+            },
         });
         navigation.registerFocusable({
             id: PLAYER_OSD_ACTION_IDS.audio,
             element: audioEl,
-            neighbors: { left: PLAYER_OSD_ACTION_IDS.subtitles },
+            neighbors: { left: PLAYER_OSD_ACTION_IDS.sleep },
             onSelect: () => this._openPlaybackOptions('audio'),
         });
 
@@ -371,6 +457,7 @@ export class PlayerOsdCoordinator {
         const navigation = this.deps.getNavigation();
         if (!navigation) return;
         navigation.unregisterFocusable(PLAYER_OSD_ACTION_IDS.subtitles);
+        navigation.unregisterFocusable(PLAYER_OSD_ACTION_IDS.sleep);
         navigation.unregisterFocusable(PLAYER_OSD_ACTION_IDS.audio);
         this._actionsRegistered = false;
     }

@@ -36,6 +36,8 @@ export interface DisplaySettings {
     theme: ThemeName;
     /** Now Playing Info overlay auto-hide timeout (ms) */
     nowPlayingInfoAutoHideMs: number;
+    /** Cinematic Now Playing overlay layout toggle */
+    cinematicNowPlaying: boolean;
 }
 
 /**

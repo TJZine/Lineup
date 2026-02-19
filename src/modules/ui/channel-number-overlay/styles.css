@@ -1,0 +1,58 @@
+.channel-number-overlay {
+  position: absolute;
+  top: 22px;
+  right: 24px;
+  z-index: 860;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-8px);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.channel-number-overlay.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.channel-number-panel {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 132px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.72);
+  box-shadow: var(--shadow-md);
+  color: var(--color-text-primary, #fff);
+}
+
+.channel-number-label {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.channel-number-digits {
+  font-size: var(--text-xl);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+}
+
+.channel-number-overlay.channel-number-error .channel-number-panel {
+  border-color: rgba(255, 106, 106, 0.8);
+  box-shadow: 0 0 0 1px rgba(255, 106, 106, 0.35), var(--shadow-md);
+}
+
+.channel-number-overlay.channel-number-error .channel-number-digits {
+  font-size: var(--text-md);
+  letter-spacing: 0.04em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .channel-number-overlay {
+    transition: none;
+  }
+}

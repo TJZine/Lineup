@@ -24,6 +24,7 @@ import { STORAGE_KEYS } from './types';
 import {
     NavigationManager,
     type INavigationManager,
+    CHANNEL_INPUT_CONFIG,
     type NavigationConfig,
     type Screen,
 } from './modules/navigation';
@@ -99,6 +100,12 @@ import {
     type PlayerOsdConfig,
 } from './modules/ui/player-osd';
 import { PlayerOsdCoordinator } from './modules/ui/player-osd/PlayerOsdCoordinator';
+import {
+    ChannelNumberOverlay,
+    type IChannelNumberOverlay,
+    type ChannelNumberOverlayConfig,
+} from './modules/ui/channel-number-overlay';
+import { SleepTimerManager } from './modules/ui/sleep-timer';
 import {
     MiniGuideOverlay,
     type IMiniGuideOverlay,
@@ -249,6 +256,7 @@ export interface OrchestratorConfig {
     nowPlayingInfoConfig: NowPlayingInfoConfig;
     playbackOptionsConfig: PlaybackOptionsConfig;
     playerOsdConfig: PlayerOsdConfig;
+    channelNumberOverlayConfig: ChannelNumberOverlayConfig;
     miniGuideConfig: MiniGuideConfig;
     channelTransitionConfig: ChannelTransitionConfig;
 }
@@ -340,6 +348,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _nowPlayingInfo: INowPlayingInfoOverlay | null = null;
     private _nowPlayingInfoCoordinator: NowPlayingInfoCoordinator | null = null;
     private _playerOsd: PlayerOsdOverlay | null = null;
+    private _channelNumberOverlay: IChannelNumberOverlay | null = null;
     private _channelTransitionOverlay: ChannelTransitionOverlay | null = null;
     private _playerOsdCoordinator: PlayerOsdCoordinator | null = null;
     private _miniGuide: IMiniGuideOverlay | null = null;
@@ -347,12 +356,14 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _channelTransitionCoordinator: ChannelTransitionCoordinator | null = null;
     private _playbackOptionsModal: IPlaybackOptionsModal | null = null;
     private _playbackOptionsCoordinator: PlaybackOptionsCoordinator | null = null;
+    private _sleepTimer: SleepTimerManager | null = null;
     private _nowPlayingDebugManager: NowPlayingDebugManager | null = null;
     private _playbackRecovery: PlaybackRecoveryManager | null = null;
     private _channelTuning: ChannelTuningCoordinator | null = null;
     private _navigationCoordinator: NavigationCoordinator | null = null;
     private _nowPlayingHandler: ((toast: ToastInput) => void) | null = null;
     private _pendingNowPlayingChannelId: string | null = null;
+    private _shouldAutoShowInfoBannerOnNextPlay = false;
     private _lastChannelChangeSource: 'remote' | 'number' | 'guide' | null = null;
     private _activeScheduleDayKey: number | null = null;
     private _pendingDayRolloverDayKey: number | null = null;
@@ -514,6 +525,7 @@ export class AppOrchestrator implements IAppOrchestrator {
 
         // Player OSD overlay - no constructor args, initialize later
         this._playerOsd = new PlayerOsdOverlay();
+        this._channelNumberOverlay = new ChannelNumberOverlay();
 
         // Mini Guide overlay - no constructor args, initialize later
         this._miniGuide = new MiniGuideOverlay();
@@ -523,6 +535,17 @@ export class AppOrchestrator implements IAppOrchestrator {
 
         // Playback Options modal - no constructor args, initialize later
         this._playbackOptionsModal = new PlaybackOptionsModal();
+        this._sleepTimer = new SleepTimerManager({
+            onWarning: (): void => undefined,
+            onSleep: (): void => {
+                this._videoPlayer?.pause();
+            },
+            onCancel: (): void => undefined,
+            onTick: (): void => {
+                // Sleep timer countdown is independent of playback time updates; only refresh OSD if visible.
+                this._playerOsdCoordinator?.refreshIfVisible();
+            },
+        });
 
         this._createCoordinators();
         if (this._config.epgConfig) {
@@ -552,6 +575,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 epg: this._epg,
                 nowPlayingInfo: this._nowPlayingInfo,
                 playerOsd: this._playerOsd,
+                channelNumberOverlay: this._channelNumberOverlay,
                 miniGuide: this._miniGuide,
                 channelTransition: this._channelTransitionOverlay,
                 playbackOptions: this._playbackOptionsModal,
@@ -578,6 +602,17 @@ export class AppOrchestrator implements IAppOrchestrator {
                 },
             }
         );
+
+        this.registerErrorHandler('channel-number-overlay', (error) => {
+            if (typeof document === 'undefined') return false;
+            if (error.code !== AppErrorCode.CHANNEL_NOT_FOUND) return false;
+            const attempted = error.context?.attemptedChannelNumber;
+            const op = error.context?.operation;
+            if (op !== 'switchToChannelByNumber') return false;
+            if (typeof attempted !== 'number' || !Number.isFinite(attempted)) return false;
+            this._channelNumberOverlay?.showError(Math.floor(attempted));
+            return true;
+        });
 
         // Update status for all modules
         this._updateModuleStatus('event-emitter', 'ready');
@@ -674,6 +709,10 @@ export class AppOrchestrator implements IAppOrchestrator {
             getAutoHideMs: (): number =>
                 this._config?.playerConfig.hideControlsAfterMs ?? 3000,
             getNavigation: (): INavigationManager | null => this._navigation,
+            buildPlexResourceUrl: (pathOrUrl: string): string | null =>
+                this._buildPlexResourceUrl(pathOrUrl),
+            cycleSleepTimerPreset: (): number => this._sleepTimer?.cyclePreset() ?? 0,
+            getSleepTimerRemainingMs: (): number => this._sleepTimer?.getRemainingMs() ?? 0,
             playbackOptionsModalId: PLAYBACK_OPTIONS_MODAL_ID,
             preparePlaybackOptionsModal: (
                 preferredSection
@@ -826,6 +865,21 @@ export class AppOrchestrator implements IAppOrchestrator {
             handleMiniGuideSelect: (): void => {
                 this._lastChannelChangeSource = 'remote';
                 this._miniGuideCoordinator?.handleSelect();
+            },
+            onChannelInputUpdate: (payload): void => {
+                if (payload.digits) {
+                    this._channelNumberOverlay?.showDigits(payload.digits, CHANNEL_INPUT_CONFIG.MAX_DIGITS);
+                }
+                if (payload.isComplete) {
+                    const configuredDelay = this._config?.channelNumberOverlayConfig?.completeHideDelayMs;
+                    const delayMs =
+                        typeof configuredDelay === 'number' &&
+                            Number.isFinite(configuredDelay) &&
+                            configuredDelay >= 0
+                            ? Math.floor(configuredDelay)
+                            : 650;
+                    this._channelNumberOverlay?.scheduleHide(delayMs);
+                }
             },
             getSeekIncrementMs: (): number =>
                 (this._config?.playerConfig.seekIncrementSec ?? 10) * 1000,
@@ -990,6 +1044,14 @@ export class AppOrchestrator implements IAppOrchestrator {
                 recordTeardownFailure('playerOsd.destroy', error);
             }
         }
+        if (this._channelNumberOverlay) {
+            try {
+                this._channelNumberOverlay.destroy();
+            } catch (error) {
+                recordTeardownFailure('channelNumberOverlay.destroy', error);
+            }
+            this._channelNumberOverlay = null;
+        }
         try {
             this._miniGuideCoordinator?.hide();
         } catch (error) {
@@ -1032,6 +1094,14 @@ export class AppOrchestrator implements IAppOrchestrator {
             } catch (error) {
                 recordTeardownFailure('videoPlayer.destroy', error);
             }
+        }
+        if (this._sleepTimer) {
+            try {
+                this._sleepTimer.destroy();
+            } catch (error) {
+                recordTeardownFailure('sleepTimer.destroy', error);
+            }
+            this._sleepTimer = null;
         }
         if (this._navigation) {
             try {
@@ -1531,7 +1601,7 @@ export class AppOrchestrator implements IAppOrchestrator {
      * @param context - Module or operation context
      */
     handleGlobalError(error: AppError, context: string): void {
-        console.error(`[${context}] Error:`, error.code, error.message);
+        console.error(`[${context}] Error:`, summarizeErrorForLog(error));
 
         // Try module-specific handlers first
         for (const [moduleId, handler] of this._errorHandlers) {
@@ -1542,7 +1612,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                     return;
                 }
             } catch (handlerError) {
-                console.error(`Error in handler for ${moduleId}:`, handlerError);
+                console.error(`Error in handler for ${moduleId}:`, summarizeErrorForLog(handlerError));
             }
         }
 
@@ -1634,25 +1704,26 @@ export class AppOrchestrator implements IAppOrchestrator {
     // Private Methods - Initialization Phases
     // ============================================
 
-    private _initializeModuleStatus(): void {
-        const modules = [
-            'event-emitter',
-            'app-lifecycle',
-            'navigation',
-            'plex-auth',
-            'plex-server-discovery',
-            'plex-library',
-            'plex-stream-resolver',
-            'channel-manager',
-            'channel-scheduler',
-            'video-player',
-            'epg-ui',
-            'now-playing-info-ui',
-            'player-osd-ui',
-            'mini-guide-ui',
-            'channel-transition-ui',
-            'playback-options-ui',
-        ];
+	    private _initializeModuleStatus(): void {
+	        const modules = [
+	            'event-emitter',
+	            'app-lifecycle',
+	            'navigation',
+	            'plex-auth',
+	            'plex-server-discovery',
+	            'plex-library',
+	            'plex-stream-resolver',
+	            'channel-manager',
+	            'channel-scheduler',
+	            'video-player',
+	            'epg-ui',
+	            'now-playing-info-ui',
+	            'player-osd-ui',
+	            'channel-number-overlay-ui',
+	            'mini-guide-ui',
+	            'channel-transition-ui',
+	            'playback-options-ui',
+	        ];
 
         for (const id of modules) {
             this._moduleStatus.set(id, {
@@ -2148,29 +2219,16 @@ export class AppOrchestrator implements IAppOrchestrator {
             return;
         }
 
-        // Special case: if Direct playback fails due to container/codec support, retry via HLS Direct Stream.
-        // This is critical for MKV-heavy libraries on older webOS versions.
-        if (error.code === 'PLAYBACK_FORMAT_UNSUPPORTED') {
-            void (async (): Promise<void> => {
-                try {
-                    const ok = await this._playbackRecovery?.attemptTranscodeFallbackForCurrentProgram(
-                        'PLAYBACK_FORMAT_UNSUPPORTED'
-                    );
-                    if (!ok) {
-                        this._playbackRecovery?.handlePlaybackFailure('video-player', error);
-                    }
-                } catch (fallbackError) {
-                    this._playbackRecovery?.handlePlaybackFailure('video-player', fallbackError);
-                }
-            })();
-            return;
-        }
         this._playbackRecovery?.handlePlaybackFailure('video-player', error);
     }
 
     private _handlePlayerStateChange(state: PlaybackState): void {
         this._playerOsdCoordinator?.onPlayerStateChange(state);
         this._channelTransitionCoordinator?.onPlayerStateChange(state);
+        if (state.status === 'playing' && this._shouldAutoShowInfoBannerOnNextPlay) {
+            this._shouldAutoShowInfoBannerOnNextPlay = false;
+            this._playerOsdCoordinator?.showInfoBanner();
+        }
     }
 
     private _handlePlayerTimeUpdate(payload: { currentTimeMs: number; durationMs: number }): void {
@@ -2260,8 +2318,9 @@ export class AppOrchestrator implements IAppOrchestrator {
 
         this._currentProgramForPlayback = program;
         const programAtStart = program;
-        if (this._pendingNowPlayingChannelId) {
-            this._playerOsdCoordinator?.poke('status');
+        const shouldAutoShowInfoBanner = this._pendingNowPlayingChannelId !== null;
+        if (shouldAutoShowInfoBanner) {
+            this._shouldAutoShowInfoBannerOnNextPlay = true;
             this._pendingNowPlayingChannelId = null;
         }
         try {
@@ -2269,9 +2328,15 @@ export class AppOrchestrator implements IAppOrchestrator {
             this._epgCoordinator?.refreshEpgScheduleForLiveChannel();
             const stream = await this._playbackRecovery?.resolveStreamForProgram(programAtStart);
             if (isStale() || this._currentProgramForPlayback !== programAtStart) {
+                if (shouldAutoShowInfoBanner) {
+                    this._shouldAutoShowInfoBannerOnNextPlay = false;
+                }
                 return;
             }
             if (!stream) {
+                if (shouldAutoShowInfoBanner) {
+                    this._shouldAutoShowInfoBannerOnNextPlay = false;
+                }
                 return;
             }
             this._currentStreamDescriptor = stream;
@@ -2283,16 +2348,25 @@ export class AppOrchestrator implements IAppOrchestrator {
 
             await this._videoPlayer.loadStream(stream);
             if (isStale() || this._currentProgramForPlayback !== programAtStart) {
+                if (shouldAutoShowInfoBanner) {
+                    this._shouldAutoShowInfoBannerOnNextPlay = false;
+                }
                 return;
             }
             await this._videoPlayer.play();
             this._playbackRecovery?.resetPlaybackFailureGuard();
         } catch (error) {
             if (this._playbackRecovery?.tryHandleStreamResolverAuthError(error)) {
+                if (shouldAutoShowInfoBanner) {
+                    this._shouldAutoShowInfoBannerOnNextPlay = false;
+                }
                 return;
             }
             console.error('Failed to load stream:', summarizeErrorForLog(error));
             this._playbackRecovery?.handlePlaybackFailure('programStart', error);
+            if (shouldAutoShowInfoBanner) {
+                this._shouldAutoShowInfoBannerOnNextPlay = false;
+            }
         }
     }
 
@@ -2324,6 +2398,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         this._stopPlayback();
         this._scheduler?.unloadChannel();
         this._pendingNowPlayingChannelId = null;
+        this._shouldAutoShowInfoBannerOnNextPlay = false;
         this._currentProgramForPlayback = null;
         this._currentStreamDescriptor = null;
         this._currentStreamDecision = null;

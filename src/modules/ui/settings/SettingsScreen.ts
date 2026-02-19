@@ -101,6 +101,10 @@ const TOGGLE_METADATA: Record<string, ToggleMetadata> = {
         storageKey: SETTINGS_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP,
         defaultValue: DEFAULT_SETTINGS.account.showProfilePickerOnStartup,
     },
+    'settings-cinematic-now-playing': {
+        storageKey: SETTINGS_STORAGE_KEYS.CINEMATIC_NOW_PLAYING,
+        defaultValue: DEFAULT_SETTINGS.display.cinematicNowPlaying,
+    },
 };
 
 const SELECT_METADATA: Record<string, SelectMetadata> = {
@@ -451,6 +455,18 @@ export class SettingsScreen {
                         })),
                         onChange: (value: number): void => {
                             ThemeManager.getInstance().setTheme(THEME_OPTIONS[value]?.theme ?? DEFAULT_THEME);
+                        },
+                    },
+                    {
+                        id: 'settings-cinematic-now-playing',
+                        label: 'Cinematic Now Playing',
+                        description: 'Full-screen layout with blurred backdrop and large poster',
+                        value: this._loadBoolSetting(
+                            SETTINGS_STORAGE_KEYS.CINEMATIC_NOW_PLAYING,
+                            DEFAULT_SETTINGS.display.cinematicNowPlaying
+                        ),
+                        onChange: (value: boolean): void => {
+                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.CINEMATIC_NOW_PLAYING, value);
                         },
                     },
                     {

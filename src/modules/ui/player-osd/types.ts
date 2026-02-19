@@ -11,6 +11,7 @@ export type PlayerOsdReason = 'play' | 'pause' | 'seek' | 'status';
 
 interface PlayerOsdActionIds {
     subtitles: string;
+    sleep: string;
     audio: string;
 }
 
@@ -40,4 +41,10 @@ export interface PlayerOsdViewModel {
     audioLabel?: string | null;
     subtitleLabel?: string | null;
     controlHint?: string | null;
+    /** Sleep timer text, e.g. "Sleep 45:00" */
+    sleepTimerText?: string | null;
+    /** When true, OSD renders as an info banner (no focusable actions). */
+    infoOnly?: boolean;
+    /** Tokenized URL for clearLogo (if available). */
+    clearLogoUrl?: string | null;
 }

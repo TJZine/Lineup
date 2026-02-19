@@ -8,6 +8,7 @@ import { EPG_CLASSES, EPG_CONSTANTS } from './constants';
 import { appendEpgDebugLog } from './utils';
 import type { EPGConfig, ChannelConfig } from './types';
 import { getChannelNameForDisplay } from '../channelDisplay';
+import { getChannelBrandingIcon } from '../common/channelBrandingIcons';
 
 /**
  * EPG Channel List class.
@@ -237,6 +238,7 @@ export class EPGChannelList {
         row.replaceChildren();
 
         // Channel icon (if available) - validate URL scheme
+        let iconRendered = false;
         if (channel.icon) {
             // Only allow http(s) or safe raster data URIs (avoid svg in img for WebViews)
             const isValidIconUrl = /^https?:\/\//i.test(channel.icon) ||
@@ -247,6 +249,13 @@ export class EPGChannelList {
                 icon.src = channel.icon;
                 icon.alt = displayName;
                 row.appendChild(icon);
+                iconRendered = true;
+            }
+        }
+        if (!iconRendered && channel.buildStrategy) {
+            const brandingIcon = getChannelBrandingIcon(channel.buildStrategy);
+            if (brandingIcon) {
+                row.appendChild(brandingIcon);
             }
         }
 

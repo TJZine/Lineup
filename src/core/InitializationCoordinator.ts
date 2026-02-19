@@ -24,6 +24,7 @@ import type { IVideoPlayer } from '../modules/player';
 import { formatTimeRange, type IEPGComponent } from '../modules/ui/epg';
 import type { INowPlayingInfoOverlay } from '../modules/ui/now-playing-info';
 import type { IPlayerOsdOverlay } from '../modules/ui/player-osd';
+import type { IChannelNumberOverlay } from '../modules/ui/channel-number-overlay';
 import type { IMiniGuideOverlay } from '../modules/ui/mini-guide';
 import type { IChannelTransitionOverlay } from '../modules/ui/channel-transition';
 import type { IPlaybackOptionsModal } from '../modules/ui/playback-options';
@@ -53,6 +54,7 @@ export interface InitializationDependencies {
     epg: IEPGComponent | null;
     nowPlayingInfo: INowPlayingInfoOverlay | null;
     playerOsd: IPlayerOsdOverlay | null;
+    channelNumberOverlay: IChannelNumberOverlay | null;
     miniGuide: IMiniGuideOverlay | null;
     channelTransition: IChannelTransitionOverlay | null;
     playbackOptions: IPlaybackOptionsModal | null;
@@ -637,6 +639,17 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             this._deps.playerOsd.initialize(this._config.playerOsdConfig);
             this._callbacks.updateModuleStatus(
                 'player-osd-ui',
+                'ready',
+                undefined,
+                Date.now() - startTime
+            );
+        }
+
+        if (this._deps.channelNumberOverlay && this._config) {
+            this._callbacks.updateModuleStatus('channel-number-overlay-ui', 'initializing');
+            this._deps.channelNumberOverlay.initialize(this._config.channelNumberOverlayConfig.containerId);
+            this._callbacks.updateModuleStatus(
+                'channel-number-overlay-ui',
                 'ready',
                 undefined,
                 Date.now() - startTime

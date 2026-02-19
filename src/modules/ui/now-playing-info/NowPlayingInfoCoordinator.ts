@@ -11,7 +11,7 @@ import type { IPlexLibrary, PlexMediaItem } from '../../plex/library';
 import type { INowPlayingInfoOverlay, NowPlayingInfoViewModel } from './index';
 import type { NowPlayingInfoConfig } from './types';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from './constants';
-import { safeLocalStorageGet } from '../../../utils/storage';
+import { readStoredBoolean, safeLocalStorageGet } from '../../../utils/storage';
 import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
 import { type PlaybackInfoSnapshotLike } from '../../../utils/playbackSummary';
 import { formatAudioCodec } from '../../../utils/mediaFormat';
@@ -52,6 +52,7 @@ export class NowPlayingInfoCoordinator {
     private nowPlayingInfoLiveUpdateTimer: ReturnType<typeof setInterval> | null = null;
     private nowPlayingInfoDetails: PlexMediaItem | null = null;
     private nowPlayingInfoDetailsRatingKey: string | null = null;
+    private cinematicNowPlaying = false;
 
     constructor(private readonly deps: NowPlayingInfoCoordinatorDeps) { }
 
@@ -59,6 +60,7 @@ export class NowPlayingInfoCoordinator {
         if (modalId !== this.deps.nowPlayingModalId) {
             return;
         }
+        this.cinematicNowPlaying = readStoredBoolean(RETUNE_STORAGE_KEYS.CINEMATIC_NOW_PLAYING, false);
         const overlay = this.deps.getNowPlayingInfo();
         const channelManager = this.deps.getChannelManager();
         if (!overlay || !channelManager) {
@@ -73,7 +75,7 @@ export class NowPlayingInfoCoordinator {
             } catch (error) {
                 console.warn(
                     '[NowPlayingInfoCoordinator] Scheduler unavailable, using fallback:',
-                    error
+                    summarizeErrorForLog(error)
                 );
                 // Fallback to last-known snapshot if scheduler is unavailable.
             }
@@ -99,6 +101,7 @@ export class NowPlayingInfoCoordinator {
         }
         this.stopLiveUpdates();
         this.deps.getNowPlayingInfo()?.hide();
+        this.cinematicNowPlaying = false;
     }
 
     onProgramStart(program: ScheduledProgram): void {
@@ -216,6 +219,7 @@ export class NowPlayingInfoCoordinator {
         const item = program.item;
         const channelName = channel?.name;
         const channelNumber = channel?.number;
+        const cinematic = this.cinematicNowPlaying;
 
         let title = item.title;
         let subtitle = '';
@@ -258,6 +262,9 @@ export class NowPlayingInfoCoordinator {
                 posterUrl = this.deps.buildPlexResourceUrl(posterPath);
             }
         }
+        const clearLogoPath =
+            details?.clearLogo ?? (item as { clearLogo?: string | null }).clearLogo ?? null;
+        const clearLogoUrl = clearLogoPath ? this.deps.buildPlexResourceUrl(clearLogoPath) : null;
 
         const badges = this.buildQualityBadges(item, details, contentRating);
         const metaLines = this.buildMetaLines(item, details);
@@ -277,6 +284,8 @@ export class NowPlayingInfoCoordinator {
             ...(actorHeadshots.headshots.length > 0 ? { actorTotalCount: actorHeadshots.totalCount } : {}),
             ...(channelName ? { channelName } : {}),
             ...(typeof channelNumber === 'number' ? { channelNumber } : {}),
+            ...(cinematic ? { cinematic: true } : {}),
+            ...(clearLogoUrl ? { clearLogoUrl } : {}),
         };
 
         const upNext = this.buildUpNext();

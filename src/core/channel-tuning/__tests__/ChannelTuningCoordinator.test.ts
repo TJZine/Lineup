@@ -410,6 +410,10 @@ describe('ChannelTuningCoordinator', () => {
                 code: AppErrorCode.CHANNEL_NOT_FOUND,
                 message: 'Channel 999 not found',
                 recoverable: true,
+                context: {
+                    operation: 'switchToChannelByNumber',
+                    attemptedChannelNumber: 999,
+                },
             },
             'switchToChannelByNumber'
         );

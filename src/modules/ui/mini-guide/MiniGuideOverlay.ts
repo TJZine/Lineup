@@ -7,12 +7,14 @@ import { MINI_GUIDE_CLASSES, MINI_GUIDE_TEXT } from './constants';
 import type { IMiniGuideOverlay } from './interfaces';
 import type { MiniGuideConfig, MiniGuideViewModel } from './types';
 import { createOverlayPrimitives } from '../common/OverlayPrimitives';
+import { getChannelBrandingIcon } from '../common/channelBrandingIcons';
 
 const ROW_COUNT = 5;
 
 type MiniGuideRowElements = {
     row: HTMLElement | null;
     number: HTMLElement | null;
+    brandingIcon: HTMLElement | null;
     name: HTMLElement | null;
     now: HTMLElement | null;
     next: HTMLElement | null;
@@ -23,6 +25,7 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
     private containerElement: HTMLElement | null = null;
     private isVisibleFlag = false;
     private rows: MiniGuideRowElements[] = [];
+    private processedBrandingStrategyByRow: Array<string | null> = [];
 
     initialize(config: MiniGuideConfig): void {
         const container = document.getElementById(config.containerId);
@@ -36,6 +39,7 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
         this.containerElement.classList.remove(MINI_GUIDE_CLASSES.VISIBLE);
         this.isVisibleFlag = false;
         this.cacheElements();
+        this.processedBrandingStrategyByRow = Array(ROW_COUNT).fill(null);
     }
 
     destroy(): void {
@@ -46,6 +50,7 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
         this.containerElement = null;
         this.isVisibleFlag = false;
         this.rows = [];
+        this.processedBrandingStrategyByRow = [];
     }
 
     show(): void {
@@ -92,6 +97,24 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
             if (rowElements.number) {
                 rowElements.number.textContent = String(rowVm.channelNumber);
             }
+            if (rowElements.brandingIcon) {
+                const desiredStrategy =
+                    rowVm.showBrandingIcon && rowVm.buildStrategy ? rowVm.buildStrategy : null;
+                const processedStrategy = this.processedBrandingStrategyByRow[i];
+                if (desiredStrategy !== processedStrategy) {
+                    if (desiredStrategy === null) {
+                        rowElements.brandingIcon.replaceChildren();
+                        this.processedBrandingStrategyByRow[i] = null;
+                    } else {
+                        const icon = getChannelBrandingIcon(desiredStrategy);
+                        rowElements.brandingIcon.replaceChildren();
+                        if (icon) {
+                            rowElements.brandingIcon.appendChild(icon);
+                        }
+                        this.processedBrandingStrategyByRow[i] = desiredStrategy;
+                    }
+                }
+            }
             if (rowElements.name) {
                 rowElements.name.textContent = rowVm.channelName;
             }
@@ -136,6 +159,7 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
             this.rows.push({
                 row: root.querySelector(`#mini-guide-row-${i}`),
                 number: root.querySelector(`#mini-guide-num-${i}`),
+                brandingIcon: root.querySelector(`#mini-guide-icon-${i}`),
                 name: root.querySelector(`#mini-guide-name-${i}`),
                 now: root.querySelector(`#mini-guide-now-${i}`),
                 next: root.querySelector(`#mini-guide-next-${i}`),
@@ -159,6 +183,10 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
             number.id = `mini-guide-num-${i}`;
             number.className = MINI_GUIDE_CLASSES.CHANNEL_NUMBER;
 
+            const brandingIcon = document.createElement('span');
+            brandingIcon.id = `mini-guide-icon-${i}`;
+            brandingIcon.className = MINI_GUIDE_CLASSES.BRANDING_ICON_SLOT;
+
             const name = document.createElement('div');
             name.id = `mini-guide-name-${i}`;
             name.className = MINI_GUIDE_CLASSES.CHANNEL_NAME;
@@ -178,7 +206,7 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
             next.id = `mini-guide-next-${i}`;
             next.className = MINI_GUIDE_CLASSES.PROGRAM_NEXT;
 
-            row.append(number, name, now, progressBar, next);
+            row.append(number, brandingIcon, name, now, progressBar, next);
             panelEl.appendChild(row);
         }
 

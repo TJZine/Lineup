@@ -6,6 +6,7 @@
  */
 
 import { IEventEmitter, IDisposable } from './interfaces';
+import { summarizeErrorForLog } from './errors';
 
 /**
  * Type-safe event emitter with error isolation.
@@ -113,7 +114,7 @@ export class EventEmitter<TEventMap extends Record<string, unknown>>
                 // Error isolation: log but don't propagate
                 console.error(
                     '[EventEmitter] Handler error for event \'' + String(event) + '\':',
-                    error
+                    summarizeErrorForLog(error)
                 );
             }
         });

@@ -169,6 +169,9 @@ export class ContentResolver {
                     if (!merged.grandparentThumb && showThumb) {
                         merged.grandparentThumb = showThumb;
                     }
+                    if (!merged.clearLogo && item.clearLogo) {
+                        merged.clearLogo = item.clearLogo;
+                    }
 
                     expanded.push(this._toResolvedItem(merged, 0));
                 }
@@ -354,6 +357,7 @@ export class ContentResolver {
                 if (!merged.contentRating && parent.contentRating) merged.contentRating = parent.contentRating;
                 if ((!merged.year || merged.year === 0) && parent.year) merged.year = parent.year;
                 if (!merged.grandparentThumb && parent.thumb) merged.grandparentThumb = parent.thumb;
+                if (!merged.clearLogo && parent.clearLogo) merged.clearLogo = parent.clearLogo;
                 decorated.push(merged);
             } else {
                 decorated.push(episode);
@@ -380,7 +384,18 @@ export class ContentResolver {
                 try {
                     const episodes = await this._library.getShowEpisodes(item.ratingKey, options);
                     if (episodes.length > 0) {
-                        expanded.push(...episodes);
+                        const decorated = episodes.map((episode) => {
+                            const merged: PlexMediaItemMinimal = { ...episode };
+                            if (!merged.genres && item.genres) merged.genres = item.genres;
+                            if (!merged.directors && item.directors) merged.directors = item.directors;
+                            if (!merged.contentRating && item.contentRating) merged.contentRating = item.contentRating;
+                            if ((!merged.year || merged.year === 0) && item.year) merged.year = item.year;
+                            if (!merged.grandparentTitle && item.title) merged.grandparentTitle = item.title;
+                            if (!merged.grandparentThumb && item.thumb) merged.grandparentThumb = item.thumb;
+                            if (!merged.clearLogo && item.clearLogo) merged.clearLogo = item.clearLogo;
+                            return merged;
+                        });
+                        expanded.push(...decorated);
                         continue;
                     }
                 } catch (error) {
@@ -514,6 +529,9 @@ export class ContentResolver {
         }
         if (item.grandparentThumb) {
             resolved.showThumb = item.grandparentThumb;
+        }
+        if (item.clearLogo) {
+            resolved.clearLogo = item.clearLogo;
         }
         // Issue 8: Include filterable fields
         if (typeof item.rating === 'number') {

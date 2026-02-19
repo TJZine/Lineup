@@ -287,6 +287,30 @@ describe('MiniGuideCoordinator', () => {
         expect(firstVm.channels[2].nowTitle).toBe('Series Title • Episode Name');
     });
 
+    it('sets showBrandingIcon based on whether channel.icon is present', () => {
+        const withIcon = {
+            ...makeChannel('with-icon', 1, 'genres'),
+            icon: 'https://example.com/icon.png',
+        } as ChannelConfig;
+        const noIcon = makeChannel('no-icon', 2, 'genres');
+
+        const withIconSetup = setup({
+            channels: [withIcon],
+            currentChannel: withIcon,
+        });
+        withIconSetup.coordinator.show();
+        const withIconVm = (withIconSetup.overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
+        expect(withIconVm.channels[2].showBrandingIcon).toBe(false);
+
+        const noIconSetup = setup({
+            channels: [noIcon],
+            currentChannel: noIcon,
+        });
+        noIconSetup.coordinator.show();
+        const noIconVm = (noIconSetup.overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
+        expect(noIconVm.channels[2].showBrandingIcon).toBe(true);
+    });
+
     it('includes formatted current start time when current program has scheduledStartTime', () => {
         const singleChannel = makeChannel('ch1', 1);
         const scheduler = {

@@ -11,15 +11,19 @@ import { createOverlayPrimitives } from '../common/OverlayPrimitives';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 type PlayerOsdElements = {
+    panel: HTMLElement | null;
     status: HTMLElement | null;
     channel: HTMLElement | null;
+    clearLogo: HTMLImageElement | null;
     title: HTMLElement | null;
     subtitle: HTMLElement | null;
     infoLine: HTMLElement | null;
     upNext: HTMLElement | null;
     playbackTag: HTMLElement | null;
     actionSubtitles: HTMLElement | null;
+    actionSleep: HTMLElement | null;
     actionAudio: HTMLElement | null;
+    sleepTimer: HTMLElement | null;
     hint: HTMLElement | null;
     barBuffer: HTMLElement | null;
     barPlayed: HTMLElement | null;
@@ -33,15 +37,19 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
     private isVisibleFlag = false;
     private lastStatusLabel: PlayerOsdViewModel['statusLabel'] | null = null;
     private elements: PlayerOsdElements = {
+        panel: null,
         status: null,
         channel: null,
+        clearLogo: null,
         title: null,
         subtitle: null,
         infoLine: null,
         upNext: null,
         playbackTag: null,
         actionSubtitles: null,
+        actionSleep: null,
         actionAudio: null,
+        sleepTimer: null,
         hint: null,
         barBuffer: null,
         barPlayed: null,
@@ -66,23 +74,31 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
     }
 
     destroy(): void {
+        if (this.elements.clearLogo) {
+            this.elements.clearLogo.onerror = null;
+            this.elements.clearLogo.onload = null;
+        }
         if (this.containerElement) {
-            this.containerElement.innerHTML = '';
+            this.containerElement.replaceChildren();
             this.containerElement.classList.remove(PLAYER_OSD_CLASSES.VISIBLE);
         }
         this.containerElement = null;
         this.isVisibleFlag = false;
         this.lastStatusLabel = null;
         this.elements = {
+            panel: null,
             status: null,
             channel: null,
+            clearLogo: null,
             title: null,
             subtitle: null,
             infoLine: null,
             upNext: null,
             playbackTag: null,
             actionSubtitles: null,
+            actionSleep: null,
             actionAudio: null,
+            sleepTimer: null,
             hint: null,
             barBuffer: null,
             barPlayed: null,
@@ -110,6 +126,7 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
 
     setViewModel(vm: PlayerOsdViewModel): void {
         if (!this.containerElement) return;
+        this.elements.panel?.classList.toggle(PLAYER_OSD_CLASSES.INFO_ONLY, !!vm.infoOnly);
 
         if (this.elements.status) {
             const label = vm.statusLabel;
@@ -128,6 +145,47 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         }
         if (this.elements.title) {
             this.elements.title.textContent = vm.title;
+        }
+        if (this.elements.clearLogo) {
+            const img = this.elements.clearLogo;
+            if (vm.clearLogoUrl) {
+                const expectedSrc = vm.clearLogoUrl;
+                img.onerror = (): void => {
+                    if (img.getAttribute('src') !== expectedSrc) return;
+                    img.onerror = null;
+                    img.onload = null;
+                    img.removeAttribute('src');
+                    img.alt = '';
+                    img.style.display = 'none';
+                    if (this.elements.title) {
+                        this.elements.title.style.display = '';
+                    }
+                };
+                img.onload = (): void => {
+                    if (img.getAttribute('src') !== expectedSrc) return;
+                    img.onerror = null;
+                    img.onload = null;
+                    if (this.elements.title) {
+                        this.elements.title.style.display = 'none';
+                    }
+                };
+
+                img.setAttribute('src', expectedSrc);
+                img.alt = vm.title || '';
+                img.style.display = '';
+                if (this.elements.title) {
+                    this.elements.title.style.display = 'none';
+                }
+            } else {
+                img.onerror = null;
+                img.onload = null;
+                img.removeAttribute('src');
+                img.alt = '';
+                img.style.display = 'none';
+                if (this.elements.title) {
+                    this.elements.title.style.display = '';
+                }
+            }
         }
         if (this.elements.subtitle) {
             this.elements.subtitle.textContent = vm.subtitle ?? '';
@@ -154,8 +212,15 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         if (this.elements.actionSubtitles) {
             this.elements.actionSubtitles.id = vm.actionIds?.subtitles ?? '';
         }
+        if (this.elements.actionSleep) {
+            this.elements.actionSleep.id = vm.actionIds?.sleep ?? '';
+        }
         if (this.elements.actionAudio) {
             this.elements.actionAudio.id = vm.actionIds?.audio ?? '';
+        }
+        if (this.elements.sleepTimer) {
+            this.elements.sleepTimer.textContent = vm.sleepTimerText ?? '';
+            this.elements.sleepTimer.style.display = vm.sleepTimerText ? '' : 'none';
         }
         if (this.elements.hint) {
             this.elements.hint.textContent = vm.controlHint ?? '';
@@ -243,8 +308,10 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
     private cacheElements(): void {
         if (!this.containerElement) return;
         this.elements = {
+            panel: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.PANEL}`),
             status: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.STATUS}`),
             channel: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.CHANNEL}`),
+            clearLogo: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.CLEAR_LOGO}`),
             title: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.TITLE}`),
             subtitle: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.SUBTITLE}`),
             infoLine: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.INFO_LINE}`),
@@ -253,9 +320,13 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
             actionSubtitles: this.containerElement.querySelector(
                 `.${PLAYER_OSD_CLASSES.ACTION}[data-action="subtitles"]`
             ),
+            actionSleep: this.containerElement.querySelector(
+                `.${PLAYER_OSD_CLASSES.ACTION}[data-action="sleep"]`
+            ),
             actionAudio: this.containerElement.querySelector(
                 `.${PLAYER_OSD_CLASSES.ACTION}[data-action="audio"]`
             ),
+            sleepTimer: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.SLEEP_TIMER}`),
             hint: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.HINT}`),
             barBuffer: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.BAR_BUFFER}`),
             barPlayed: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.BAR_PLAYED}`),
@@ -276,6 +347,7 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
 	          <div class="${PLAYER_OSD_CLASSES.CHANNEL}"></div>
 	        </div>
 
+	        <img class="${PLAYER_OSD_CLASSES.CLEAR_LOGO}" alt="" style="display:none" />
 	        <div class="${PLAYER_OSD_CLASSES.TITLE}"></div>
 	        <div class="${PLAYER_OSD_CLASSES.SUBTITLE}"></div>
         <div class="${PLAYER_OSD_CLASSES.INFO_LINE}"></div>
@@ -283,8 +355,10 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
 
         <div class="${PLAYER_OSD_CLASSES.ACTIONS}">
           <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="subtitles">Subtitles</button>
+          <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="sleep">Sleep</button>
           <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="audio">Audio</button>
           <div class="${PLAYER_OSD_CLASSES.PLAYBACK_TAG}"></div>
+          <div class="${PLAYER_OSD_CLASSES.SLEEP_TIMER}"></div>
         </div>
         <div class="${PLAYER_OSD_CLASSES.HINT}"></div>
 

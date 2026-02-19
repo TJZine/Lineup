@@ -151,6 +151,14 @@ export function parseMediaItem(data: RawMediaItem): PlexMediaItem {
         const studios = data.Studio.map((tag) => tag.tag).filter((tag): tag is string => !!tag);
         if (studios.length > 0) item.studios = studios;
     }
+    if (Array.isArray(data.Image) && data.Image.length > 0) {
+        const entry = data.Image.find(
+            (img) => img && img.type === 'clearLogo' && typeof img.url === 'string' && img.url.length > 0
+        );
+        if (entry && typeof entry.url === 'string') {
+            item.clearLogo = entry.url;
+        }
+    }
     if (data.grandparentTitle !== undefined) item.grandparentTitle = data.grandparentTitle;
     if (data.parentTitle !== undefined) item.parentTitle = data.parentTitle;
     if (data.grandparentThumb !== undefined) item.grandparentThumb = data.grandparentThumb ?? null;

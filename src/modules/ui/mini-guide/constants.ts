@@ -11,6 +11,7 @@ export const MINI_GUIDE_CLASSES = {
     CHANNEL_ROW_FOCUSED: 'focused',
     CHANNEL_ROW_LOADING: 'loading',
     CHANNEL_NUMBER: 'mini-guide-channel-num',
+    BRANDING_ICON_SLOT: 'mini-guide-branding-icon-slot',
     CHANNEL_NAME: 'mini-guide-channel-name',
     PROGRAM_NOW: 'mini-guide-now',
     PROGRAM_NEXT: 'mini-guide-next',

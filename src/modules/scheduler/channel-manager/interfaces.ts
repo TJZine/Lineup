@@ -250,6 +250,7 @@ export interface PlexMediaItemMinimal {
     directors?: string[];
     addedAt: Date;
     viewCount?: number;
+    clearLogo?: string | null;
     grandparentRatingKey?: string;
     parentRatingKey?: string;
 }

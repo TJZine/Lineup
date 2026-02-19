@@ -48,6 +48,10 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
             { panel: {} }
         );
 
+        const backdrop = document.createElement('div');
+        backdrop.className = NOW_PLAYING_INFO_CLASSES.BACKDROP;
+        panelEl.appendChild(backdrop);
+
         const poster = document.createElement('img');
         poster.className = NOW_PLAYING_INFO_CLASSES.POSTER;
         poster.setAttribute('alt', '');
@@ -58,6 +62,7 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         // Static template only. Do not interpolate Plex/user-provided strings into this HTML.
         // Use `textContent` when binding viewModel data to avoid XSS foot-guns.
         content.innerHTML = `
+              <img class="${NOW_PLAYING_INFO_CLASSES.CLEAR_LOGO}" alt="" style="display:none" />
 	          <div class="${NOW_PLAYING_INFO_CLASSES.TITLE}"></div>
 	          <div class="${NOW_PLAYING_INFO_CLASSES.SUBTITLE}"></div>
 	          <div class="${NOW_PLAYING_INFO_CLASSES.BADGES}"></div>
@@ -88,6 +93,13 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         this.actorResizeObserver = null;
         this.lastActorState = null;
         if (this.containerElement) {
+            const clearLogo = this.containerElement.querySelector(
+                `.${NOW_PLAYING_INFO_CLASSES.CLEAR_LOGO}`
+            ) as HTMLImageElement | null;
+            if (clearLogo) {
+                clearLogo.onerror = null;
+                clearLogo.onload = null;
+            }
             this.containerElement.innerHTML = '';
             this.containerElement.classList.remove('visible');
         }
@@ -181,6 +193,17 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
 
     private updateContent(viewModel: NowPlayingInfoViewModel): void {
         if (!this.containerElement) return;
+        this.containerElement.classList.toggle(NOW_PLAYING_INFO_CLASSES.CINEMATIC, !!viewModel.cinematic);
+
+        const backdropEl = this.containerElement.querySelector(
+            `.${NOW_PLAYING_INFO_CLASSES.BACKDROP}`
+        ) as HTMLElement | null;
+        if (backdropEl) {
+            const backgroundImage = viewModel.cinematic
+                ? buildSafeBackgroundImage(viewModel.posterUrl ?? null)
+                : '';
+            backdropEl.style.backgroundImage = backgroundImage;
+        }
 
         const poster = this.containerElement.querySelector(
             `.${NOW_PLAYING_INFO_CLASSES.POSTER}`
@@ -201,6 +224,41 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         const title = this.containerElement.querySelector(`.${NOW_PLAYING_INFO_CLASSES.TITLE}`);
         if (title) {
             title.textContent = viewModel.title || '';
+        }
+        const clearLogo = this.containerElement.querySelector(
+            `.${NOW_PLAYING_INFO_CLASSES.CLEAR_LOGO}`
+        ) as HTMLImageElement | null;
+        if (clearLogo && title) {
+            if (viewModel.clearLogoUrl) {
+                const expectedSrc = viewModel.clearLogoUrl;
+                clearLogo.onerror = (): void => {
+                    if (clearLogo.getAttribute('src') !== expectedSrc) return;
+                    clearLogo.onerror = null;
+                    clearLogo.onload = null;
+                    clearLogo.removeAttribute('src');
+                    clearLogo.alt = '';
+                    clearLogo.style.display = 'none';
+                    (title as HTMLElement).style.display = '';
+                };
+                clearLogo.onload = (): void => {
+                    if (clearLogo.getAttribute('src') !== expectedSrc) return;
+                    clearLogo.onerror = null;
+                    clearLogo.onload = null;
+                    (title as HTMLElement).style.display = 'none';
+                };
+
+                clearLogo.setAttribute('src', expectedSrc);
+                clearLogo.alt = viewModel.title || '';
+                clearLogo.style.display = 'block';
+                (title as HTMLElement).style.display = 'none';
+            } else {
+                clearLogo.onerror = null;
+                clearLogo.onload = null;
+                clearLogo.removeAttribute('src');
+                clearLogo.alt = '';
+                clearLogo.style.display = 'none';
+                (title as HTMLElement).style.display = '';
+            }
         }
 
         const subtitle = this.containerElement.querySelector(`.${NOW_PLAYING_INFO_CLASSES.SUBTITLE}`);
@@ -479,6 +537,29 @@ function formatTimecode(ms: number): string {
         return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
     }
     return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function buildSafeBackgroundImage(rawUrl: string | null): string {
+    if (!rawUrl) {
+        return '';
+    }
+    const trimmed = rawUrl.trim();
+    if (trimmed.length === 0) {
+        return '';
+    }
+    // Reject obvious CSS-injection payloads; poster URLs should be plain http(s) URLs with no raw whitespace or quotes.
+    if (/[\s"'`]/.test(trimmed)) {
+        return '';
+    }
+    try {
+        const parsed = new URL(trimmed);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            return '';
+        }
+        return `url(${JSON.stringify(parsed.toString())})`;
+    } catch {
+        return '';
+    }
 }
 
 function formatInitials(name: string): string {

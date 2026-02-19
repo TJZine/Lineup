@@ -147,12 +147,28 @@ describe('ContentResolver', () => {
             expect(result).toHaveLength(1);
         });
 
+        it('propagates clearLogo into ResolvedContentItem when present', async () => {
+            const items = [createMockItem({ ratingKey: '1', clearLogo: '/clearlogo.png' })];
+            mockLibrary.getLibraryItems.mockResolvedValue(items);
+
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'lib1',
+                libraryType: 'movie',
+                includeWatched: true,
+            };
+
+            const result = await resolver.resolveSource(source);
+            expect(result[0]?.clearLogo).toBe('/clearlogo.png');
+        });
+
         it('should expand show containers returned by a collection source', async () => {
             const show = createMockItem({
                 ratingKey: 'show-1',
                 type: 'show',
                 title: 'My Show',
                 durationMs: 123456, // Some servers populate this even for show containers
+                clearLogo: '/clearlogo/show-1.png',
                 genres: ['Animation'],
                 contentRating: 'PG',
             });
@@ -174,8 +190,73 @@ describe('ContentResolver', () => {
             expect(result).toHaveLength(2);
             expect(result[0]!.type).toBe('episode');
             expect(result[0]!.genres).toEqual(['Animation']);
+            expect(result[0]!.clearLogo).toBe('/clearlogo/show-1.png');
             expect(result[0]!.scheduledIndex).toBe(0);
             expect(result[1]!.scheduledIndex).toBe(1);
+        });
+
+        it('should decorate inline-expanded episodes with parent show metadata', async () => {
+            const show = createMockItem({
+                ratingKey: 'show-inline',
+                type: 'show',
+                title: 'Inline Show',
+                durationMs: 0, // Triggers inline expansion (durationMs: 0, no season/episode numbers)
+                thumb: '/thumb/inline-show',
+                clearLogo: '/clearlogo/inline-show.png',
+                genres: ['Drama'],
+                contentRating: 'TV-14',
+            });
+            const episodes = [
+                createMockEpisode(1, 1, { grandparentTitle: '', grandparentThumb: null, clearLogo: null }),
+                createMockEpisode(1, 2, { grandparentTitle: '', grandparentThumb: null, clearLogo: null }),
+            ];
+
+            mockLibrary.getCollectionItems.mockResolvedValue([show]);
+            mockLibrary.getShowEpisodes.mockResolvedValue(episodes);
+
+            const source: CollectionContentSource = {
+                type: 'collection',
+                collectionKey: 'col-inline',
+                collectionName: 'Inline Show Collection',
+            };
+
+            const result = await resolver.resolveSource(source);
+
+            expect(mockLibrary.getCollectionItems).toHaveBeenCalledWith('col-inline', undefined);
+            expect(mockLibrary.getShowEpisodes).toHaveBeenCalledWith('show-inline', undefined);
+            expect(result).toHaveLength(2);
+            expect(result[0]!.type).toBe('episode');
+            expect(result[0]!.showTitle).toBe('Inline Show');
+            expect(result[0]!.showThumb).toBe('/thumb/inline-show');
+            expect(result[0]!.clearLogo).toBe('/clearlogo/inline-show.png');
+            expect(result[0]!.genres).toEqual(['Drama']);
+            expect(result[0]!.contentRating).toBe('TV-14');
+        });
+
+        it('propagates clearLogo from show list to episodes in show libraries', async () => {
+            const episodes = [
+                createMockEpisode(1, 1, { ratingKey: 'ep1', grandparentRatingKey: 'show1' }),
+            ];
+            const shows = [
+                createMockItem({ ratingKey: 'show1', type: 'show', genres: ['Drama'], clearLogo: '/clearlogo/show1.png' }),
+            ];
+            mockLibrary.getLibraryItems.mockImplementation((_, options) => {
+                if (options?.filter?.type === PLEX_MEDIA_TYPES.EPISODE) {
+                    return Promise.resolve(episodes);
+                }
+                return Promise.resolve(shows);
+            });
+
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'show-lib',
+                libraryType: 'show',
+                includeWatched: true,
+            };
+
+            const result = await resolver.resolveSource(source);
+            expect(result).toHaveLength(1);
+            expect(result[0]!.clearLogo).toBe('/clearlogo/show1.png');
         });
 
         it('should resolve show source with all episodes', async () => {

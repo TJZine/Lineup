@@ -89,6 +89,10 @@ const mockPlayerOsdConfig = {
     containerId: 'player-osd-container',
 };
 
+const mockChannelNumberOverlayConfig = {
+    containerId: 'channel-number-overlay-container',
+};
+
 const mockMiniGuideConfig = {
     containerId: 'mini-guide-container',
 };
@@ -104,6 +108,7 @@ const mockConfig: OrchestratorConfig = {
     epgConfig: mockEpgConfig,
     nowPlayingInfoConfig: mockNowPlayingInfoConfig,
     playerOsdConfig: mockPlayerOsdConfig,
+    channelNumberOverlayConfig: mockChannelNumberOverlayConfig,
     miniGuideConfig: mockMiniGuideConfig,
     channelTransitionConfig: mockChannelTransitionConfig,
     playbackOptionsConfig: mockPlaybackOptionsConfig,
@@ -410,6 +415,8 @@ const mockVideoPlayer = {
     releaseMediaSession: jest.fn(),
     getCurrentTimeMs: jest.fn().mockReturnValue(5000),
     getState: jest.fn().mockReturnValue({ activeAudioId: null }),
+    getAvailableAudio: jest.fn().mockReturnValue([]),
+    getAvailableSubtitles: jest.fn().mockReturnValue([]),
     isPlaying: jest.fn().mockReturnValue(false),
     on: jest.fn(() => jest.fn()),
     off: jest.fn(),
@@ -1180,24 +1187,16 @@ describe('AppOrchestrator', () => {
             expect(mockVideoPlayer.play).toHaveBeenCalled();
         });
 
-        it('retries via HLS when direct playback is unsupported (Direct Stream fallback)', async () => {
+        it('does not force direct-stream fallback when format is unsupported pre-MVP', async () => {
             mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
 
-            // First attempt: direct URL (e.g., MKV direct play on a legacy TV)
-            // Fallback attempt: HLS (remux / direct stream) URL
-            mockPlexStreamResolver.resolveStream
-                .mockResolvedValueOnce({
-                    playbackUrl: 'http://test/stream.mkv',
-                    protocol: 'direct',
-                    container: 'mkv',
-                })
-                .mockResolvedValueOnce({
-                    playbackUrl: 'http://test/stream.m3u8',
-                    protocol: 'hls',
-                    container: 'mpegts',
-                });
+            mockPlexStreamResolver.resolveStream.mockResolvedValueOnce({
+                playbackUrl: 'http://test/stream.mkv',
+                protocol: 'direct',
+                container: 'mkv',
+            });
 
             await orchestrator.start();
 
@@ -1222,28 +1221,40 @@ describe('AppOrchestrator', () => {
                 })
             );
 
-            // Simulate the TV refusing the container (MEDIA_ERR_SRC_NOT_SUPPORTED => PLAYBACK_FORMAT_UNSUPPORTED)
             playerHandlers.error?.({
                 recoverable: false,
                 code: 'PLAYBACK_FORMAT_UNSUPPORTED',
                 message: 'Media format not supported',
             });
 
-            // Allow async fallback attempt to run.
             await new Promise((resolve) => setImmediate(resolve));
 
-            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    itemKey: 'item-1',
-                    startOffsetMs: 5000,
-                    directPlay: false,
-                })
+            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledTimes(1);
+            expect(mockPlexStreamResolver.resolveStream).not.toHaveBeenCalledWith(
+                expect.objectContaining({ directPlay: false })
             );
+            expect(mockVideoPlayer.loadStream).toHaveBeenCalledTimes(1);
+            expect(mockVideoPlayer.play).toHaveBeenCalledTimes(1);
+        });
 
-            // Fallback should reload and play, not skip.
-            expect(mockVideoPlayer.loadStream).toHaveBeenCalledTimes(2);
-            expect(mockVideoPlayer.play).toHaveBeenCalledTimes(2);
-            expect(mockScheduler.skipToNext).toHaveBeenCalledTimes(0);
+        it('refreshes OSD countdown when sleep timer ticks and OSD is visible', async () => {
+            const playerOsdModule = require('../modules/ui/player-osd');
+            const playerOsdOverlay = (playerOsdModule.PlayerOsdOverlay as jest.Mock).mock.results[0]?.value as
+                | { isVisible: jest.Mock; setViewModel: jest.Mock }
+                | undefined;
+            expect(playerOsdOverlay).toBeDefined();
+
+            playerOsdOverlay?.isVisible.mockReturnValue(true);
+            playerOsdOverlay?.setViewModel.mockClear();
+
+            const mutable = orchestrator as unknown as {
+                _sleepTimer?: { start: (minutes: number) => void; cancel: () => void } | null;
+            };
+            mutable._sleepTimer?.start(1);
+            const calls = playerOsdOverlay?.setViewModel.mock.calls.length ?? 0;
+            mutable._sleepTimer?.cancel();
+
+            expect(calls).toBeGreaterThan(0);
         });
     });
 
@@ -1471,6 +1482,9 @@ describe('AppOrchestrator', () => {
         });
 
         it('should allow EPG while Now Playing modal is open and back should not close EPG', async () => {
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.validateToken.mockResolvedValue(true);
+            mockPlexDiscovery.isConnected.mockReturnValue(true);
             mockNavigation.isModalOpen.mockReturnValue(true);
             mockEpg.isVisible.mockReturnValue(true);
 
@@ -1508,6 +1522,9 @@ describe('AppOrchestrator', () => {
         });
 
         it('refreshes schedules when guide density changes while EPG is visible', async () => {
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.validateToken.mockResolvedValue(true);
+            mockPlexDiscovery.isConnected.mockReturnValue(true);
             mockLocalStorage.getItem.mockImplementation((key: string) =>
                 key === 'retune_epg_guide_density' ? 'wide' : null
             );
@@ -1535,6 +1552,9 @@ describe('AppOrchestrator', () => {
     describe('Now Playing Info overlay', () => {
         beforeEach(async () => {
             await orchestrator.initialize(mockConfig);
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.validateToken.mockResolvedValue(true);
+            mockPlexDiscovery.isConnected.mockReturnValue(true);
             await orchestrator.start();
         });
 
@@ -1626,6 +1646,28 @@ describe('AppOrchestrator', () => {
 
             expect(moduleHandler).toHaveBeenCalledWith(error);
             expect(mockLifecycle.reportError).toHaveBeenCalledWith(error);
+        });
+
+        it('redacts tokenized message values in global error logs', () => {
+            const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+            const secret = 'secret-token';
+            const error = {
+                code: AppErrorCode.NETWORK_TIMEOUT,
+                message: `http://x?X-Plex-Token=${secret}`,
+                recoverable: true,
+            };
+
+            orchestrator.handleGlobalError(error, 'test-context');
+
+            const globalErrorCall = consoleSpy.mock.calls.find((call) =>
+                typeof call[0] === 'string' && call[0].includes('[test-context] Error:')
+            );
+            expect(globalErrorCall).toBeDefined();
+            const logged = JSON.stringify(globalErrorCall);
+            expect(logged).toContain('REDACTED');
+            expect(logged).not.toContain(secret);
+
+            consoleSpy.mockRestore();
         });
     });
 
