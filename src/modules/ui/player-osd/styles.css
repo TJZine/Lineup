@@ -22,9 +22,9 @@
   width: min(1600px, 92vw);
   margin: 0 0 48px 0;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.4)),
-    rgba(0, 0, 0, 0.62);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 10px;
+    var(--panel-surface);
+  border: var(--panel-border);
+  border-radius: var(--panel-radius);
   box-shadow: var(--shadow-md);
   padding: 18px 22px;
   color: var(--color-text-primary);
