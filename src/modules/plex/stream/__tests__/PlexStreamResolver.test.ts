@@ -860,6 +860,26 @@ describe('PlexStreamResolver', () => {
             expect(parsed.searchParams.get('videoResolution')).toBe('1280x720');
         });
 
+        it('explicit maxBitrate wins over storage cap when lower', () => {
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: (key: string) =>
+                        key === RETUNE_STORAGE_KEYS.TRANSCODE_QUALITY ? '4000-720p' : null,
+                },
+                configurable: true,
+            });
+
+            const config = createMockConfig();
+            const resolver = new PlexStreamResolver(config);
+
+            const url = resolver.getTranscodeUrl('12345', { maxBitrate: 1500 });
+            const parsed = new URL(url);
+
+            expect(parsed.searchParams.get('maxVideoBitrate')).toBe('1500');
+            expect(parsed.searchParams.get('videoQuality')).toBe('100');
+            expect(parsed.searchParams.get('videoResolution')).toBe('1280x720');
+        });
+
         it('applies compat mode and quality cap together', () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {

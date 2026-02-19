@@ -1068,7 +1068,14 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         // Optional: Force the server to use a specific built-in profile name/version (advanced).
-        const forcedProfileName = getOverride(RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
+        const forcedProfileNameRaw = getOverride(RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
+        let forcedProfileName: string | null = null;
+        if (forcedProfileNameRaw) {
+            const value = forcedProfileNameRaw.trim().slice(0, 128);
+            if (value.length > 0 && !/[\r\n\0]/.test(value)) {
+                forcedProfileName = value;
+            }
+        }
         if (forcedProfileName) {
             params.set('X-Plex-Client-Profile-Name', forcedProfileName);
         } else {
