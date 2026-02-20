@@ -2,6 +2,12 @@
  * Theme overrides for Broadcast Blue, Swiss Minimal, and DirecTV Classic.
  */
 
+/* Notes:
+ * - Use fallback-first progressive enhancement for alpha colors: legacy rgba() then modern rgb(... / ...).
+ * - Keep `--focus-color-rgb` comma-separated (used by rgba(var(--focus-color-rgb), a)).
+ * - Keep `--color-primary-rgb` space-separated (used by rgb(var(--color-primary-rgb) / a)).
+ */
+
 .theme-broadcast {
   --focus-color: #e5a00d;
   --focus-color-rgb: 229, 160, 13;

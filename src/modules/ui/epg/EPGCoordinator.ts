@@ -573,8 +573,7 @@ export class EPGCoordinator {
         return { ...window, programs: [...window.programs] };
     }
 
-    private _computeScheduleCacheLimit(channelCount: number): number {
-        const aggressive = this._isAggressivePreloadEnabled();
+    private _computeScheduleCacheLimit(channelCount: number, aggressive: boolean): number {
         const scaled = Math.ceil(channelCount * (aggressive ? 1.6 : 1.25));
         const minEntries = aggressive ? EPG_SCHEDULE_CACHE_MIN_ENTRIES_AGGRESSIVE : EPG_SCHEDULE_CACHE_MIN_ENTRIES;
         const maxEntries = aggressive ? EPG_SCHEDULE_CACHE_MAX_ENTRIES_AGGRESSIVE : EPG_SCHEDULE_CACHE_MAX_ENTRIES;
@@ -585,8 +584,7 @@ export class EPGCoordinator {
         return clamped;
     }
 
-    private _getChannelOverscanCount(channelCount: number): number {
-        const aggressive = this._isAggressivePreloadEnabled();
+    private _getChannelOverscanCount(channelCount: number, aggressive: boolean): number {
         if (aggressive) {
             if (channelCount >= 200) return 16;
             if (channelCount >= 120) return 12;
@@ -599,11 +597,14 @@ export class EPGCoordinator {
         return 6;
     }
 
-    private _getScheduleLoadConcurrency(channelCount: number, prefetchCount: number): number {
+    private _getScheduleLoadConcurrency(
+        channelCount: number,
+        prefetchCount: number,
+        aggressive: boolean
+    ): number {
         if (prefetchCount <= 0) {
             return 1;
         }
-        const aggressive = this._isAggressivePreloadEnabled();
         let target = aggressive ? 5 : 4;
         if (channelCount >= 180) target = aggressive ? 10 : 8;
         else if (channelCount >= 120) target = aggressive ? 8 : 7;
@@ -613,9 +614,9 @@ export class EPGCoordinator {
 
     private _getBackgroundWarmQueueCaps(
         channelCount: number,
-        visibleCount: number
+        visibleCount: number,
+        aggressive: boolean
     ): { maxQueuedChannels: number; maxConcurrency: number } {
-        const aggressive = this._isAggressivePreloadEnabled();
         const baseQueue = aggressive
             ? EPG_BACKGROUND_WARM_DEFAULT_MAX_QUEUED_AGGRESSIVE
             : EPG_BACKGROUND_WARM_DEFAULT_MAX_QUEUED;
@@ -633,8 +634,11 @@ export class EPGCoordinator {
         return { maxQueuedChannels, maxConcurrency };
     }
 
-    private _getBackgroundLookAheadCount(channelCount: number, visibleCount: number): number {
-        const aggressive = this._isAggressivePreloadEnabled();
+    private _getBackgroundLookAheadCount(
+        channelCount: number,
+        visibleCount: number,
+        aggressive: boolean
+    ): number {
         const scaled = Math.max(visibleCount * (aggressive ? 14 : 8), aggressive ? 48 : 24);
         if (channelCount >= 200) {
             return Math.max(scaled, aggressive ? 160 : 96);
@@ -649,7 +653,7 @@ export class EPGCoordinator {
         channels: ChannelConfig[],
         range: { channelStart: number; channelEnd: number },
         ids: { liveChannelId: string | null; focusedChannelId: string | null },
-        caps: { visibleCount: number; maxQueuedChannels: number }
+        caps: { visibleCount: number; maxQueuedChannels: number; aggressive: boolean }
     ): {
         immediateChannels: ChannelConfig[];
         backgroundChannels: ChannelConfig[];
@@ -657,7 +661,7 @@ export class EPGCoordinator {
         bufferedRange: { start: number; end: number };
         backgroundRange: { start: number; end: number };
     } {
-        const overscan = this._getChannelOverscanCount(channels.length);
+        const overscan = this._getChannelOverscanCount(channels.length, caps.aggressive);
         const startIndex = Math.max(0, range.channelStart - overscan);
         const endIndex = Math.min(channels.length, range.channelEnd + overscan);
 
@@ -680,7 +684,7 @@ export class EPGCoordinator {
             addImmediate(channel);
         }
 
-        const lookAhead = this._getBackgroundLookAheadCount(channels.length, caps.visibleCount);
+        const lookAhead = this._getBackgroundLookAheadCount(channels.length, caps.visibleCount, caps.aggressive);
         const warmStart = endIndex;
         const warmEnd = Math.min(channels.length, warmStart + lookAhead);
 
@@ -971,7 +975,8 @@ export class EPGCoordinator {
             this._clearScheduleCaches();
         }
         const shuffler = new ShuffleGenerator();
-        this._epgScheduleCacheMaxEntries = this._computeScheduleCacheLimit(channels.length);
+        const aggressive = this._isAggressivePreloadEnabled();
+        this._epgScheduleCacheMaxEntries = this._computeScheduleCacheLimit(channels.length, aggressive);
 
         const liveChannelId = channelManager.getCurrentChannel()?.id ?? null;
         const epgState = epg.getState();
@@ -979,7 +984,7 @@ export class EPGCoordinator {
             ? channels[epgState.focusedCell.channelIndex]?.id ?? null
             : null;
         const visibleCount = Math.max(1, range.channelEnd - range.channelStart + 1);
-        const backgroundCaps = this._getBackgroundWarmQueueCaps(channels.length, visibleCount);
+        const backgroundCaps = this._getBackgroundWarmQueueCaps(channels.length, visibleCount, aggressive);
         const partitioned = this._partitionPrefetchChannels(
             channels,
             range,
@@ -990,6 +995,7 @@ export class EPGCoordinator {
             {
                 visibleCount,
                 maxQueuedChannels: backgroundCaps.maxQueuedChannels,
+                aggressive,
             }
         );
         const immediateChannels = partitioned.immediateChannels;
@@ -1021,7 +1027,8 @@ export class EPGCoordinator {
         let firstVisibleScheduleReadyMs: number | null = null;
         const immediateConcurrency = this._getScheduleLoadConcurrency(
             channels.length,
-            immediateChannels.length
+            immediateChannels.length,
+            aggressive
         );
 
         if (debugEnabled && backgroundChannels.length > 0) {

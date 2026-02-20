@@ -28,9 +28,9 @@ import { detectHdrLabel } from '../../plex/stream/hdr';
 // Content Resolver Class
 // ============================================
 
-const CACHE_TTL_MS = 5 * 60_000;
-const SHOW_CACHE_TTL_MS = CACHE_TTL_MS;
-const SOURCE_CACHE_TTL_MS = CACHE_TTL_MS;
+const CONTENT_RESOLVER_CACHE_TTL_MS = 5 * 60_000;
+const SHOW_CACHE_TTL_MS = CONTENT_RESOLVER_CACHE_TTL_MS;
+const SOURCE_CACHE_TTL_MS = CONTENT_RESOLVER_CACHE_TTL_MS;
 const SOURCE_CACHE_MAX_ENTRIES = 24;
 
 type SourceCacheEntry = {
@@ -961,18 +961,10 @@ export class ContentResolver {
                 if (!Number.isFinite(numVal) || !Number.isFinite(numFilter)) {
                     return true; // Skip filter when values aren't valid numbers
                 }
-                switch (filter.operator) {
-                    case 'gt':
-                        return numVal > numFilter;
-                    case 'gte':
-                        return numVal >= numFilter;
-                    case 'lt':
-                        return numVal < numFilter;
-                    case 'lte':
-                        return numVal <= numFilter;
-                    default:
-                        return true;
-                }
+                if (filter.operator === 'gt') return numVal > numFilter;
+                if (filter.operator === 'gte') return numVal >= numFilter;
+                if (filter.operator === 'lt') return numVal < numFilter;
+                return numVal <= numFilter;
             }
             case 'contains':
                 return String(value).toLowerCase().includes(String(filter.value).toLowerCase());
