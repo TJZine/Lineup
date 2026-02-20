@@ -991,6 +991,10 @@
   z-index: 1;
 }
 
+.theme-glass .epg-channel-row.focused {
+  box-shadow: none;
+}
+
 .theme-glass .epg-channel-row.focused::before {
   background: rgba(255, 255, 255, 0.14);
   border: 1px solid rgba(255, 255, 255, 0.20);
