@@ -226,6 +226,89 @@ describe('PlaybackRecoveryManager', () => {
         expect(stream.protocol).toBe('hls');
     });
 
+    it('overrides Plex default flags so selectedAudioStream is the only default track', async () => {
+        const { manager, resolver } = setup();
+
+        const truehd: PlexStream = {
+            id: 'audio-truehd',
+            streamType: 2,
+            language: 'English',
+            languageCode: 'en',
+            codec: 'truehd',
+            channels: 8,
+            default: true,
+            title: 'English TrueHD',
+        };
+        const aac: PlexStream = {
+            id: 'audio-aac',
+            streamType: 2,
+            language: 'English',
+            languageCode: 'en',
+            codec: 'aac',
+            channels: 2,
+            default: false,
+            title: 'English AAC',
+        };
+
+        (resolver.resolveStream as jest.Mock).mockResolvedValue(
+            makeDecision({
+                selectedAudioStream: aac,
+                availableAudioStreams: [truehd, aac],
+            })
+        );
+
+        const descriptor = await manager.resolveStreamForProgram(makeProgram());
+
+        const defaults = descriptor.audioTracks.filter((t) => t.default).map((t) => t.id);
+        expect(defaults).toEqual(['audio-aac']);
+    });
+
+    it('preserves Plex default flags when selectedAudioStream id is not present in available streams', async () => {
+        const { manager, resolver } = setup();
+
+        const plexDefault: PlexStream = {
+            id: 'audio-default',
+            streamType: 2,
+            language: 'English',
+            languageCode: 'en',
+            codec: 'aac',
+            channels: 2,
+            default: true,
+            title: 'English AAC',
+        };
+        const secondary: PlexStream = {
+            id: 'audio-secondary',
+            streamType: 2,
+            language: 'Spanish',
+            languageCode: 'es',
+            codec: 'aac',
+            channels: 2,
+            default: false,
+            title: 'Spanish AAC',
+        };
+        const selectedMissing: PlexStream = {
+            id: 'audio-missing',
+            streamType: 2,
+            language: 'English',
+            languageCode: 'en',
+            codec: 'aac',
+            channels: 2,
+            default: false,
+            title: 'English AAC (selected but missing)',
+        };
+
+        (resolver.resolveStream as jest.Mock).mockResolvedValue(
+            makeDecision({
+                selectedAudioStream: selectedMissing,
+                availableAudioStreams: [plexDefault, secondary],
+            })
+        );
+
+        const descriptor = await manager.resolveStreamForProgram(makeProgram());
+        const defaults = descriptor.audioTracks.filter((t) => t.default).map((t) => t.id);
+        expect(defaults).toEqual(['audio-default']);
+    });
+
     it('attempts transcode fallback only for direct protocol', async () => {
         const { manager, resolver, player } = setup({
             getCurrentStreamDescriptor: () => ({ protocol: 'hls' } as StreamDescriptor),

@@ -104,6 +104,18 @@ describe('PlaybackOptionsModal', () => {
         expect(modal.getFocusableIds()).toEqual(['sub-1', 'sub-2', 'aud-1']);
     });
 
+    it('uses playback-options-item class, not setup-toggle', () => {
+        const modal = new PlaybackOptionsModal();
+        modal.initialize({ containerId: 'playback-options-container' });
+        const { viewModel } = createViewModel();
+        modal.show(viewModel);
+
+        const items = container.querySelectorAll('.playback-options-item');
+        const oldItems = container.querySelectorAll('.setup-toggle');
+        expect(items.length).toBe(4);
+        expect(oldItems.length).toBe(0);
+    });
+
     it('routes click handlers for normal and blocked options', () => {
         const modal = new PlaybackOptionsModal();
         modal.initialize({ containerId: 'playback-options-container' });

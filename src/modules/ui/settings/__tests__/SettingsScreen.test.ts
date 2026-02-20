@@ -77,6 +77,7 @@ describe('SettingsScreen (Guide settings)', () => {
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE);
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY);
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED);
+        localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED);
     });
 
     afterEach(() => {
@@ -123,6 +124,47 @@ describe('SettingsScreen (Guide settings)', () => {
 
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED)).toBe('0');
         expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'nowWatchingBanner', enabled: false });
+    });
+
+    it('writes aggressive preload toggle and emits guide-setting change', () => {
+        const onGuideSettingChange = jest.fn();
+        const { container, screen } = createScreen(onGuideSettingChange);
+
+        screen.show();
+        activateCategory(container, 'appearance');
+
+        const toggle = container.querySelector('#settings-epg-aggressive-preload') as HTMLButtonElement;
+        toggle.click();
+
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED)).toBe('1');
+        expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'aggressivePreload', enabled: true });
+    });
+
+    it('renders aggressive preload toggle in appearance category', () => {
+        const { container, screen } = createScreen(jest.fn());
+
+        screen.show();
+        activateCategory(container, 'appearance');
+
+        const toggle = container.querySelector('#settings-epg-aggressive-preload');
+        expect(toggle).not.toBeNull();
+    });
+
+    it('refresh() preserves aggressive preload toggle state from storage metadata', () => {
+        const { container, screen } = createScreen(jest.fn());
+
+        screen.show();
+        activateCategory(container, 'appearance');
+
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, '1');
+        (screen as unknown as { _refreshValues: () => void })._refreshValues();
+        const onState = container.querySelector('#settings-epg-aggressive-preload .setup-toggle-state');
+        expect(onState?.textContent?.trim()).toBe('On');
+
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, '0');
+        (screen as unknown as { _refreshValues: () => void })._refreshValues();
+        const offState = container.querySelector('#settings-epg-aggressive-preload .setup-toggle-state');
+        expect(offState?.textContent?.trim()).toBe('Off');
     });
 
     it('does not change select value on OK', () => {

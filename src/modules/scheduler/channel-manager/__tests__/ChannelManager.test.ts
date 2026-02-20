@@ -265,6 +265,26 @@ describe('ChannelManager', () => {
             expect(manager.getAllChannels()).toHaveLength(MAX_CHANNELS);
             expect(warn).toHaveBeenCalledTimes(2);
         });
+
+        it('clears resolver source cache when replacing full lineup', async () => {
+            const resolver = (manager as unknown as { _contentResolver: { clearCaches: () => void } })._contentResolver;
+            const clearCachesSpy = jest.spyOn(resolver, 'clearCaches');
+
+            await manager.replaceAllChannels([createBaseChannel({ id: 'replace-1', number: 10 })]);
+
+            expect(clearCachesSpy).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('storage key updates', () => {
+        it('clears resolver source cache when ChannelManager storage scope changes', () => {
+            const resolver = (manager as unknown as { _contentResolver: { clearCaches: () => void } })._contentResolver;
+            const clearCachesSpy = jest.spyOn(resolver, 'clearCaches');
+
+            manager.setStorageKeys('retune_channels_new_scope', 'retune_current_channel_new_scope');
+
+            expect(clearCachesSpy).toHaveBeenCalledTimes(1);
+        });
     });
 
     describe('content resolution', () => {
@@ -352,6 +372,18 @@ describe('ChannelManager', () => {
             await manager.refreshChannelContent(channel.id);
 
             expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(1);
+        });
+
+        it('does not clear all resolver caches when refreshing a single channel', async () => {
+            const channel = await manager.createChannel({
+                contentSource: createMockContentSource(),
+            });
+            const resolver = (manager as unknown as { _contentResolver: { clearCaches: () => void } })._contentResolver;
+            const clearCachesSpy = jest.spyOn(resolver, 'clearCaches');
+
+            await manager.refreshChannelContent(channel.id);
+
+            expect(clearCachesSpy).not.toHaveBeenCalled();
         });
 
         it('should handle library deleted gracefully', async () => {

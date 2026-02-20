@@ -32,8 +32,8 @@
   max-width: 1180px;
   width: calc(100% - 10%);
   overflow: hidden;
-  transform: translate3d(-32px, 0, 0);
-  transition: transform var(--transition-fast, 100ms ease);
+  transform: translate3d(calc(-100% - 5vw), 0, 0);
+  transition: transform var(--transition-normal, 200ms ease);
   will-change: transform;
   backface-visibility: hidden;
   contain: layout paint;

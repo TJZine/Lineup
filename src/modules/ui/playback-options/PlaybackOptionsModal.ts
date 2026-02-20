@@ -137,33 +137,36 @@ export class PlaybackOptionsModal implements IPlaybackOptionsModal {
         const button = document.createElement('button');
         button.type = 'button';
         button.id = item.id;
-        button.className = `setup-toggle ${PLAYBACK_OPTIONS_CLASSES.ITEM}${item.selected ? ' selected' : ''}`;
-        if (item.disabled || item.blocked) {
-            button.classList.add('disabled');
+        button.className = `${PLAYBACK_OPTIONS_CLASSES.ITEM}${item.selected ? ' selected' : ''}`;
+        if (item.blocked) {
+            button.classList.add('blocked');
+            button.setAttribute('aria-disabled', 'true');
         }
         if (item.disabled) {
             button.disabled = true;
         }
-        if (item.blocked) {
-            button.setAttribute('aria-disabled', 'true');
-        }
 
         const label = document.createElement('span');
-        label.className = 'setup-toggle-label';
+        label.className = 'playback-options-item-label';
         label.textContent = item.label;
         button.appendChild(label);
 
         const meta = document.createElement('span');
-        meta.className = 'setup-toggle-meta';
-        meta.textContent = item.meta ?? '';
-        if (!item.meta) {
+        meta.className = 'playback-options-item-meta';
+        meta.textContent = '';
+        if (item.meta) {
+            const pill = document.createElement('span');
+            pill.className = 'playback-options-item-meta-pill';
+            pill.textContent = item.meta;
+            meta.appendChild(pill);
+        } else {
             meta.style.display = 'none';
         }
         button.appendChild(meta);
 
         if (item.state) {
             const state = document.createElement('span');
-            state.className = 'setup-toggle-state';
+            state.className = 'playback-options-item-state';
             state.textContent = item.state;
             button.appendChild(state);
         }

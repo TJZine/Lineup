@@ -32,8 +32,8 @@
   gap: 12px;
   padding: 10px 14px;
   border-radius: 14px;
-  background: rgba(0, 0, 0, 0.68);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--panel-surface);
+  border: var(--panel-border);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
   max-width: min(520px, 70vw);
 }
@@ -64,16 +64,16 @@
 }
 
 .channel-transition-title {
-  font-size: 20px;
+  font-size: var(--text-base);
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--color-text-primary);
   text-align: left;
   line-height: 1.25;
 }
 
 .channel-transition-subtitle {
-  font-size: 15px;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: var(--text-sm, 15px);
+  color: var(--color-text-secondary);
   text-align: left;
   white-space: nowrap;
   overflow: hidden;

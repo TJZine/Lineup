@@ -102,6 +102,10 @@ const TOGGLE_METADATA: Record<string, ToggleMetadata> = {
         storageKey: SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED,
         defaultValue: true,
     },
+    'settings-epg-aggressive-preload': {
+        storageKey: SETTINGS_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED,
+        defaultValue: false,
+    },
     'settings-profile-picker-startup': {
         storageKey: SETTINGS_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP,
         defaultValue: DEFAULT_SETTINGS.account.showProfilePickerOnStartup,
@@ -445,6 +449,16 @@ export class SettingsScreen {
                         onChange: (value: boolean): void => {
                             this._saveBoolSetting(SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, value);
                             this._onGuideSettingChange?.({ key: 'nowWatchingBanner', enabled: value });
+                        },
+                    },
+                    {
+                        id: 'settings-epg-aggressive-preload',
+                        label: 'Aggressive Guide Preload (Experimental)',
+                        description: 'Uses more memory to reduce loading in very large guides',
+                        value: this._loadBoolSetting(SETTINGS_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, false),
+                        onChange: (value: boolean): void => {
+                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, value);
+                            this._onGuideSettingChange?.({ key: 'aggressivePreload', enabled: value });
                         },
                     },
                     {

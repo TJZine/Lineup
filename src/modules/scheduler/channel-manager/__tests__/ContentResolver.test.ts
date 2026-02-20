@@ -99,6 +99,21 @@ function createMockEpisode(
     };
 }
 
+function createDeferredPromise<T>(): {
+    promise: Promise<T>;
+    resolve: (value: T) => void;
+    reject: (error?: unknown) => void;
+} {
+    let resolve!: (value: T) => void;
+    let reject!: (error?: unknown) => void;
+    const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+        resolve = resolvePromise;
+        reject = rejectPromise;
+    });
+
+    return { promise, resolve, reject };
+}
+
 // ============================================
 // Tests
 // ============================================
@@ -126,9 +141,115 @@ describe('ContentResolver', () => {
 
             const result = await resolver.resolveSource(source);
 
-            expect(mockLibrary.getLibraryItems).toHaveBeenCalledWith('lib1', undefined);
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledWith('lib1', expect.anything());
             expect(result).toHaveLength(2);
             expect(result[0]!.ratingKey).toBe('1');
+        });
+
+        it('reuses cached movie-library source payload across sequential resolveSource calls', async () => {
+            const items = [createMockItem({ ratingKey: '1' }), createMockItem({ ratingKey: '2' })];
+            mockLibrary.getLibraryItems.mockResolvedValue(items);
+
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'lib1',
+                libraryType: 'movie',
+                includeWatched: true,
+            };
+
+            await resolver.resolveSource(source);
+            await resolver.resolveSource(source);
+
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(1);
+        });
+
+        it('dedupes concurrent resolveSource calls for identical source key', async () => {
+            const deferred = createDeferredPromise<PlexMediaItemMinimal[]>();
+            mockLibrary.getLibraryItems.mockReturnValue(deferred.promise);
+
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'lib-concurrent',
+                libraryType: 'movie',
+                includeWatched: true,
+            };
+
+            const firstResolve = resolver.resolveSource(source);
+            const secondResolve = resolver.resolveSource(source);
+            deferred.resolve([createMockItem({ ratingKey: 'concurrent-1' })]);
+
+            const [firstResult, secondResult] = await Promise.all([firstResolve, secondResolve]);
+
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(1);
+            expect(firstResult).toEqual(secondResult);
+        });
+
+        it('does not allow one caller abort to cancel shared in-flight source resolve for other callers', async () => {
+            const deferred = createDeferredPromise<PlexMediaItemMinimal[]>();
+            mockLibrary.getLibraryItems.mockImplementation((_libraryId: string, options?: { signal?: AbortSignal | null }) => {
+                const signal = options?.signal;
+                return new Promise<PlexMediaItemMinimal[]>((resolve, reject) => {
+                    if (signal?.aborted) {
+                        reject({ name: 'AbortError' });
+                        return;
+                    }
+                    const onAbort = (): void => reject({ name: 'AbortError' });
+                    signal?.addEventListener('abort', onAbort, { once: true });
+                    deferred.promise
+                        .then((items) => {
+                            signal?.removeEventListener('abort', onAbort);
+                            resolve(items);
+                        })
+                        .catch((error) => {
+                            signal?.removeEventListener('abort', onAbort);
+                            reject(error);
+                        });
+                });
+            });
+
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'lib-abort',
+                libraryType: 'movie',
+                includeWatched: true,
+            };
+
+            const controllerA = new AbortController();
+            const controllerB = new AbortController();
+
+            const promiseA = resolver.resolveSource(source, { signal: controllerA.signal });
+            const promiseB = resolver.resolveSource(source, { signal: controllerB.signal });
+
+            controllerA.abort();
+            deferred.resolve([createMockItem({ ratingKey: 'abort-safe-1' })]);
+
+            await expect(promiseA).rejects.toMatchObject({ name: 'AbortError' });
+            await expect(promiseB).resolves.toEqual(
+                expect.arrayContaining([expect.objectContaining({ ratingKey: 'abort-safe-1' })])
+            );
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(1);
+        });
+
+        it('respects cache TTL expiry and refetches after expiration', async () => {
+            const nowSpy = jest.spyOn(Date, 'now');
+            let nowMs = 0;
+            nowSpy.mockImplementation(() => nowMs);
+
+            mockLibrary.getLibraryItems.mockResolvedValue([createMockItem({ ratingKey: 'ttl-1' })]);
+
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'lib-ttl',
+                libraryType: 'movie',
+                includeWatched: true,
+            };
+
+            await resolver.resolveSource(source);
+            nowMs = 300001;
+            await resolver.resolveSource(source);
+
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(2);
+            nowSpy.mockRestore();
         });
 
         it('should resolve collection source', async () => {
@@ -143,7 +264,7 @@ describe('ContentResolver', () => {
 
             const result = await resolver.resolveSource(source);
 
-            expect(mockLibrary.getCollectionItems).toHaveBeenCalledWith('col1', undefined);
+            expect(mockLibrary.getCollectionItems).toHaveBeenCalledWith('col1', expect.anything());
             expect(result).toHaveLength(1);
         });
 
@@ -185,8 +306,8 @@ describe('ContentResolver', () => {
 
             const result = await resolver.resolveSource(source);
 
-            expect(mockLibrary.getCollectionItems).toHaveBeenCalledWith('col-shows', undefined);
-            expect(mockLibrary.getShowEpisodes).toHaveBeenCalledWith('show-1', undefined);
+            expect(mockLibrary.getCollectionItems).toHaveBeenCalledWith('col-shows', expect.anything());
+            expect(mockLibrary.getShowEpisodes).toHaveBeenCalledWith('show-1', expect.anything());
             expect(result).toHaveLength(2);
             expect(result[0]!.type).toBe('episode');
             expect(result[0]!.genres).toEqual(['Animation']);
@@ -222,8 +343,8 @@ describe('ContentResolver', () => {
 
             const result = await resolver.resolveSource(source);
 
-            expect(mockLibrary.getCollectionItems).toHaveBeenCalledWith('col-inline', undefined);
-            expect(mockLibrary.getShowEpisodes).toHaveBeenCalledWith('show-inline', undefined);
+            expect(mockLibrary.getCollectionItems).toHaveBeenCalledWith('col-inline', expect.anything());
+            expect(mockLibrary.getShowEpisodes).toHaveBeenCalledWith('show-inline', expect.anything());
             expect(result).toHaveLength(2);
             expect(result[0]!.type).toBe('episode');
             expect(result[0]!.showTitle).toBe('Inline Show');
@@ -275,7 +396,7 @@ describe('ContentResolver', () => {
 
             const result = await resolver.resolveSource(source);
 
-            expect(mockLibrary.getShowEpisodes).toHaveBeenCalledWith('show1', undefined);
+            expect(mockLibrary.getShowEpisodes).toHaveBeenCalledWith('show1', expect.anything());
             expect(result).toHaveLength(3);
         });
 
@@ -313,7 +434,7 @@ describe('ContentResolver', () => {
 
             const result = await resolver.resolveSource(source);
 
-            expect(mockLibrary.getPlaylistItems).toHaveBeenCalledWith('playlist1', undefined);
+            expect(mockLibrary.getPlaylistItems).toHaveBeenCalledWith('playlist1', expect.anything());
             expect(result).toHaveLength(1);
         });
 
@@ -544,7 +665,8 @@ describe('ContentResolver', () => {
                 return Promise.reject(new Error('show fetch failed'));
             });
             const nowSpy = jest.spyOn(Date, 'now');
-            nowSpy.mockReturnValueOnce(0).mockReturnValueOnce(300001);
+            let nowMs = 0;
+            nowSpy.mockImplementation(() => nowMs);
 
             const source: LibraryContentSource = {
                 type: 'library',
@@ -554,6 +676,7 @@ describe('ContentResolver', () => {
             };
 
             await resolver.resolveSource(source);
+            nowMs = 300001;
             const second = await resolver.resolveSource(source);
 
             expect(second).toHaveLength(1);
@@ -576,7 +699,8 @@ describe('ContentResolver', () => {
                 return Promise.reject({ name: 'AbortError' });
             });
             const nowSpy = jest.spyOn(Date, 'now');
-            nowSpy.mockReturnValueOnce(0).mockReturnValueOnce(300001);
+            let nowMs = 0;
+            nowSpy.mockImplementation(() => nowMs);
 
             const source: LibraryContentSource = {
                 type: 'library',
@@ -586,6 +710,7 @@ describe('ContentResolver', () => {
             };
 
             await resolver.resolveSource(source);
+            nowMs = 300001;
             await expect(resolver.resolveSource(source)).rejects.toMatchObject({ name: 'AbortError' });
             nowSpy.mockRestore();
         });
@@ -756,6 +881,31 @@ describe('ContentResolver', () => {
                 { field: 'director', operator: 'notContains', value: 'Smith' },
             ]);
             expect(result).toHaveLength(1);
+        });
+    });
+
+    describe('source cache key stability', () => {
+        it('treats optional undefined fields as omitted for cache keys', async () => {
+            mockLibrary.getLibraryItems.mockResolvedValue([createMockItem({ ratingKey: 'cache-1' })]);
+
+            const base = {
+                type: 'library',
+                libraryId: 'lib-cache',
+                libraryType: 'movie',
+                includeWatched: true,
+            } as const;
+
+            const withUndefined = ({
+                ...base,
+                libraryFilter: undefined,
+            } as unknown) as LibraryContentSource;
+
+            const omitted = (base as unknown) as LibraryContentSource;
+
+            await resolver.resolveSource(withUndefined);
+            await resolver.resolveSource(omitted);
+
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(1);
         });
     });
 

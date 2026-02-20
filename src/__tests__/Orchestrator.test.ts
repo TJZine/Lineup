@@ -1547,6 +1547,72 @@ describe('AppOrchestrator', () => {
             expect(mockEpg.setVisibleHours).toHaveBeenCalledWith(3);
             expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
         });
+
+        it('clears and refreshes schedules when aggressive preload changes while EPG visible', () => {
+            mockEpg.isVisible.mockReturnValue(true);
+            const mutable = orchestrator as unknown as {
+                _epgCoordinator?: {
+                    clearScheduleCaches: () => void;
+                    primeEpgChannels: () => void;
+                    refreshEpgSchedules: (options?: { reason?: string }) => Promise<void>;
+                };
+            };
+            const clearSpy = jest.spyOn(
+                mutable._epgCoordinator as { clearScheduleCaches: () => void },
+                'clearScheduleCaches'
+            );
+            const primeSpy = jest.spyOn(
+                mutable._epgCoordinator as { primeEpgChannels: () => void },
+                'primeEpgChannels'
+            );
+            const refreshSpy = jest
+                .spyOn(
+                    mutable._epgCoordinator as {
+                        refreshEpgSchedules: (options?: { reason?: string }) => Promise<void>;
+                    },
+                    'refreshEpgSchedules'
+                )
+                .mockResolvedValue(undefined);
+
+            orchestrator.onGuideSettingChange({ key: 'aggressivePreload', enabled: true });
+
+            expect(clearSpy).toHaveBeenCalled();
+            expect(mockEpg.clearSchedules).toHaveBeenCalled();
+            expect(primeSpy).toHaveBeenCalled();
+            expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
+        });
+
+        it('ignores aggressive preload change when EPG hidden', () => {
+            mockEpg.isVisible.mockReturnValue(false);
+            const mutable = orchestrator as unknown as {
+                _epgCoordinator?: {
+                    clearScheduleCaches: () => void;
+                    primeEpgChannels: () => void;
+                    refreshEpgSchedules: (options?: { reason?: string }) => Promise<void>;
+                };
+            };
+            const clearSpy = jest.spyOn(
+                mutable._epgCoordinator as { clearScheduleCaches: () => void },
+                'clearScheduleCaches'
+            );
+            const primeSpy = jest.spyOn(
+                mutable._epgCoordinator as { primeEpgChannels: () => void },
+                'primeEpgChannels'
+            );
+            const refreshSpy = jest.spyOn(
+                mutable._epgCoordinator as {
+                    refreshEpgSchedules: (options?: { reason?: string }) => Promise<void>;
+                },
+                'refreshEpgSchedules'
+            );
+
+            orchestrator.onGuideSettingChange({ key: 'aggressivePreload', enabled: true });
+
+            expect(clearSpy).not.toHaveBeenCalled();
+            expect(primeSpy).not.toHaveBeenCalled();
+            expect(refreshSpy).not.toHaveBeenCalled();
+            expect(mockEpg.clearSchedules).not.toHaveBeenCalled();
+        });
     });
 
     describe('Now Playing Info overlay', () => {

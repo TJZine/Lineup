@@ -95,16 +95,60 @@ export function appendEpgDebugLog(event: string, data: unknown): void {
         if (localStorage.getItem('retune_debug_epg') !== '1') {
             return;
         }
-        const raw = localStorage.getItem('retune_debug_epg_log');
-        const entries: Array<{ ts: number; event: string; data: unknown }> =
-            raw ? JSON.parse(raw) : [];
-        entries.push({ ts: Date.now(), event, data });
-        const MAX_ENTRIES = 200;
-        if (entries.length > MAX_ENTRIES) {
-            entries.splice(0, entries.length - MAX_ENTRIES);
-        }
-        localStorage.setItem('retune_debug_epg_log', JSON.stringify(entries));
+        const entry = { ts: Date.now(), event, data };
+        appendEpgDebugEntry(entry);
     } catch {
         // Ignore storage failures (webOS can throw).
     }
+}
+
+type EpgDebugEntry = { ts: number; event: string; data: unknown };
+
+const EPG_DEBUG_LOG_STORAGE_KEY = 'retune_debug_epg_log';
+const EPG_DEBUG_LOG_MAX_ENTRIES = 200;
+const EPG_DEBUG_LOG_FLUSH_DELAY_MS = 250;
+
+let epgDebugEntries: EpgDebugEntry[] | null = null;
+let epgDebugFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function loadEpgDebugEntries(): EpgDebugEntry[] {
+    if (epgDebugEntries) {
+        return epgDebugEntries;
+    }
+    try {
+        const raw = localStorage.getItem(EPG_DEBUG_LOG_STORAGE_KEY);
+        const parsed: unknown = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(parsed)) {
+            epgDebugEntries = [];
+            return epgDebugEntries;
+        }
+        epgDebugEntries = parsed as EpgDebugEntry[];
+        return epgDebugEntries;
+    } catch {
+        epgDebugEntries = [];
+        return epgDebugEntries;
+    }
+}
+
+function scheduleEpgDebugFlush(): void {
+    if (epgDebugFlushTimer) {
+        return;
+    }
+    epgDebugFlushTimer = setTimeout(() => {
+        epgDebugFlushTimer = null;
+        try {
+            localStorage.setItem(EPG_DEBUG_LOG_STORAGE_KEY, JSON.stringify(epgDebugEntries ?? []));
+        } catch {
+            // Ignore storage failures (webOS can throw).
+        }
+    }, EPG_DEBUG_LOG_FLUSH_DELAY_MS);
+}
+
+function appendEpgDebugEntry(entry: EpgDebugEntry): void {
+    const entries = loadEpgDebugEntries();
+    entries.push(entry);
+    if (entries.length > EPG_DEBUG_LOG_MAX_ENTRIES) {
+        entries.splice(0, entries.length - EPG_DEBUG_LOG_MAX_ENTRIES);
+    }
+    scheduleEpgDebugFlush();
 }
