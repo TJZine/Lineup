@@ -28,33 +28,33 @@ const makeChannel = (id: string, number: number): ChannelConfig => ({
 });
 
 const makeResolvedItem = (channelId: string, idx: number): ResolvedContentItem =>
-    ({
-        ratingKey: `${channelId}-${idx}`,
-        type: 'movie',
-        title: `Program ${idx}`,
-        fullTitle: `Program ${idx}`,
-        durationMs: 10_000,
-        thumb: null,
-        guid: null,
-        parentGuid: null,
-        grandparentGuid: null,
-        viewOffset: 0,
-        year: 0,
-        scheduledIndex: idx,
-    } as ResolvedContentItem);
+({
+    ratingKey: `${channelId}-${idx}`,
+    type: 'movie',
+    title: `Program ${idx}`,
+    fullTitle: `Program ${idx}`,
+    durationMs: 10_000,
+    thumb: null,
+    guid: null,
+    parentGuid: null,
+    grandparentGuid: null,
+    viewOffset: 0,
+    year: 0,
+    scheduledIndex: idx,
+} as ResolvedContentItem);
 
 const baseProgram = (channelId: string, idx: number): ScheduledProgram =>
-    ({
-        item: makeResolvedItem(channelId, idx),
-        scheduledStartTime: 0,
-        scheduledEndTime: 10_000,
-        elapsedMs: 0,
-        remainingMs: 10_000,
-        scheduleIndex: idx,
-        loopNumber: 0,
-        streamDescriptor: null,
-        isCurrent: false,
-    } as ScheduledProgram);
+({
+    item: makeResolvedItem(channelId, idx),
+    scheduledStartTime: 0,
+    scheduledEndTime: 10_000,
+    elapsedMs: 0,
+    remainingMs: 10_000,
+    scheduleIndex: idx,
+    loopNumber: 0,
+    streamDescriptor: null,
+    isCurrent: false,
+} as ScheduledProgram);
 
 const flushPromises = async (): Promise<void> => {
     await Promise.resolve();
@@ -158,17 +158,18 @@ const makeDeps = (
             channel: ChannelConfig,
             items: ResolvedChannelContent['items']
         ): ScheduleConfig =>
-            ({
-                channelId: channel.id,
-                anchorTime: 0,
-                content: items,
-                playbackMode: 'loop' as PlaybackMode,
-                shuffleSeed: 1,
-                loopSchedule: true,
-            } satisfies ScheduleConfig),
+        ({
+            channelId: channel.id,
+            anchorTime: 0,
+            content: items,
+            playbackMode: 'loop' as PlaybackMode,
+            shuffleSeed: 1,
+            loopSchedule: true,
+        } satisfies ScheduleConfig),
         getPreserveFocusOnOpen: () => false,
         setLastChannelChangeSourceToGuide: jest.fn(),
         switchToChannel: jest.fn().mockResolvedValue(undefined),
+        emitAppError: jest.fn(),
         ...overrides,
     };
     return { deps, epg, channelManager, scheduler };
@@ -278,10 +279,10 @@ describe('EPGCoordinator', () => {
 
         const { deps, epg } = makeDeps({
             getChannelManager: () =>
-                ({
-                    ...makeDeps().channelManager,
-                    getAllChannels: () => allChannels,
-                } as IChannelManager),
+            ({
+                ...makeDeps().channelManager,
+                getAllChannels: () => allChannels,
+            } as IChannelManager),
         });
 
         const coordinator = new EPGCoordinator(deps);
@@ -330,10 +331,10 @@ describe('EPGCoordinator', () => {
 
         const { deps, epg } = makeDeps({
             getChannelManager: () =>
-                ({
-                    ...makeDeps().channelManager,
-                    getAllChannels: () => allChannels,
-                } as IChannelManager),
+            ({
+                ...makeDeps().channelManager,
+                getAllChannels: () => allChannels,
+            } as IChannelManager),
         });
         const coordinator = new EPGCoordinator(deps);
 
@@ -374,10 +375,10 @@ describe('EPGCoordinator', () => {
 
         const { deps, epg } = makeDeps({
             getChannelManager: () =>
-                ({
-                    ...makeDeps().channelManager,
-                    getAllChannels: () => allChannels,
-                } as IChannelManager),
+            ({
+                ...makeDeps().channelManager,
+                getAllChannels: () => allChannels,
+            } as IChannelManager),
         });
         const coordinator = new EPGCoordinator(deps);
 
@@ -397,10 +398,10 @@ describe('EPGCoordinator', () => {
 
         const { deps, epg } = makeDeps({
             getChannelManager: () =>
-                ({
-                    ...makeDeps().channelManager,
-                    getAllChannels: () => allChannels,
-                } as IChannelManager),
+            ({
+                ...makeDeps().channelManager,
+                getAllChannels: () => allChannels,
+            } as IChannelManager),
         });
         const coordinator = new EPGCoordinator(deps);
 
@@ -434,10 +435,10 @@ describe('EPGCoordinator', () => {
 
         const { deps, epg } = makeDeps({
             getChannelManager: () =>
-                ({
-                    ...makeDeps().channelManager,
-                    getAllChannels: () => allChannels,
-                } as IChannelManager),
+            ({
+                ...makeDeps().channelManager,
+                getAllChannels: () => allChannels,
+            } as IChannelManager),
         });
         const coordinator = new EPGCoordinator(deps);
 
@@ -504,12 +505,12 @@ describe('EPGCoordinator', () => {
         const base = makeDeps().deps.getChannelManager()!;
         const { deps, epg } = makeDeps({
             getChannelManager: () =>
-                ({
-                    ...base,
-                    getAllChannels: () => channels,
-                    getCurrentChannel: () => channels[0],
-                    resolveChannelContent: base.resolveChannelContent,
-                } as IChannelManager),
+            ({
+                ...base,
+                getAllChannels: () => channels,
+                getCurrentChannel: () => channels[0],
+                resolveChannelContent: base.resolveChannelContent,
+            } as IChannelManager),
         });
         const coordinator = new EPGCoordinator(deps);
 
@@ -524,12 +525,12 @@ describe('EPGCoordinator', () => {
         const base = makeDeps().deps.getChannelManager()!;
         const { deps, epg } = makeDeps({
             getChannelManager: () =>
-                ({
-                    ...base,
-                    getAllChannels: () => manyChannels,
-                    getCurrentChannel: () => manyChannels[0],
-                    resolveChannelContent: base.resolveChannelContent,
-                } as IChannelManager),
+            ({
+                ...base,
+                getAllChannels: () => manyChannels,
+                getCurrentChannel: () => manyChannels[0],
+                resolveChannelContent: base.resolveChannelContent,
+            } as IChannelManager),
         });
         const coordinator = new EPGCoordinator(deps);
         (epg.isVisible as jest.Mock).mockReturnValue(true);
@@ -546,12 +547,12 @@ describe('EPGCoordinator', () => {
         const base = makeDeps().deps.getChannelManager()!;
         const { deps, epg } = makeDeps({
             getChannelManager: () =>
-                ({
-                    ...base,
-                    getAllChannels: () => manyChannels,
-                    getCurrentChannel: () => manyChannels[0],
-                    resolveChannelContent: base.resolveChannelContent,
-                } as IChannelManager),
+            ({
+                ...base,
+                getAllChannels: () => manyChannels,
+                getCurrentChannel: () => manyChannels[0],
+                resolveChannelContent: base.resolveChannelContent,
+            } as IChannelManager),
         });
         const coordinator = new EPGCoordinator(deps);
 
@@ -582,13 +583,13 @@ describe('EPGCoordinator', () => {
                 const base = makeDeps().deps.getChannelManager()!;
                 const { deps, epg } = makeDeps({
                     getChannelManager: () =>
-                        ({
-                            ...base,
-                            getAllChannels: () => manyChannels,
-                            getCurrentChannel: () => manyChannels[100],
-                            resolveChannelContent,
-                            resolveChannelItemsForSchedule,
-                        } as IChannelManager),
+                    ({
+                        ...base,
+                        getAllChannels: () => manyChannels,
+                        getCurrentChannel: () => manyChannels[100],
+                        resolveChannelContent,
+                        resolveChannelItemsForSchedule,
+                    } as IChannelManager),
                 });
 
                 (epg.getState as jest.Mock).mockReturnValue({
@@ -661,13 +662,13 @@ describe('EPGCoordinator', () => {
                 const base = makeDeps().deps.getChannelManager()!;
                 const { deps, epg } = makeDeps({
                     getChannelManager: () =>
-                        ({
-                            ...base,
-                            getAllChannels: () => manyChannels,
-                            getCurrentChannel: () => manyChannels[100],
-                            resolveChannelContent,
-                            resolveChannelItemsForSchedule,
-                        } as IChannelManager),
+                    ({
+                        ...base,
+                        getAllChannels: () => manyChannels,
+                        getCurrentChannel: () => manyChannels[100],
+                        resolveChannelContent,
+                        resolveChannelItemsForSchedule,
+                    } as IChannelManager),
                 });
 
                 (epg.getState as jest.Mock).mockReturnValue({
@@ -734,13 +735,13 @@ describe('EPGCoordinator', () => {
                 const base = makeDeps().deps.getChannelManager()!;
                 const { deps, epg } = makeDeps({
                     getChannelManager: () =>
-                        ({
-                            ...base,
-                            getAllChannels: () => manyChannels,
-                            getCurrentChannel: () => manyChannels[100],
-                            resolveChannelContent,
-                            resolveChannelItemsForSchedule,
-                        } as IChannelManager),
+                    ({
+                        ...base,
+                        getAllChannels: () => manyChannels,
+                        getCurrentChannel: () => manyChannels[100],
+                        resolveChannelContent,
+                        resolveChannelItemsForSchedule,
+                    } as IChannelManager),
                 });
 
                 (epg.getState as jest.Mock).mockReturnValue({
@@ -870,13 +871,13 @@ describe('EPGCoordinator', () => {
                     const base = makeDeps().deps.getChannelManager()!;
                     const { deps, epg } = makeDeps({
                         getChannelManager: () =>
-                            ({
-                                ...base,
-                                getAllChannels: () => manyChannels,
-                                getCurrentChannel: () => manyChannels[100],
-                                resolveChannelContent,
-                                resolveChannelItemsForSchedule,
-                            } as IChannelManager),
+                        ({
+                            ...base,
+                            getAllChannels: () => manyChannels,
+                            getCurrentChannel: () => manyChannels[100],
+                            resolveChannelContent,
+                            resolveChannelItemsForSchedule,
+                        } as IChannelManager),
                     });
 
                     (epg.getState as jest.Mock).mockReturnValue({
@@ -941,12 +942,12 @@ describe('EPGCoordinator', () => {
         const base = makeDeps().deps.getChannelManager()!;
         const { deps, epg } = makeDeps({
             getChannelManager: () =>
-                ({
-                    ...base,
-                    getAllChannels: () => channels,
-                    getCurrentChannel: () => channels[0],
-                    resolveChannelContent: base.resolveChannelContent,
-                } as IChannelManager),
+            ({
+                ...base,
+                getAllChannels: () => channels,
+                getCurrentChannel: () => channels[0],
+                resolveChannelContent: base.resolveChannelContent,
+            } as IChannelManager),
         });
         const coordinator = new EPGCoordinator(deps);
 
@@ -968,12 +969,12 @@ describe('EPGCoordinator', () => {
         const base = makeDeps().deps.getChannelManager()!;
         const { deps, epg } = makeDeps({
             getChannelManager: () =>
-                ({
-                    ...base,
-                    getAllChannels: () => channels,
-                    getCurrentChannel: () => channels[0],
-                    resolveChannelContent: base.resolveChannelContent,
-                } as IChannelManager),
+            ({
+                ...base,
+                getAllChannels: () => channels,
+                getCurrentChannel: () => channels[0],
+                resolveChannelContent: base.resolveChannelContent,
+            } as IChannelManager),
         });
         const coordinator = new EPGCoordinator(deps);
 
