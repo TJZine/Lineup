@@ -7,6 +7,7 @@
 
 import { EventEmitter } from '../../../utils/EventEmitter';
 import { fnv1a32Uint } from '../../../utils/hash';
+import { summarizeErrorForLog } from '../../../utils/errors';
 import { ContentResolver } from './ContentResolver';
 import { AppErrorCode } from '../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../lifecycle/constants';
@@ -177,6 +178,42 @@ function isValidContentSource(source: unknown, depth: number = 0): source is Cha
 function isContentUnavailableError(error: unknown): boolean {
     const code = getErrorCode(error);
     return code === AppErrorCode.CONTENT_UNAVAILABLE;
+}
+
+/**
+ * Check if error is an access-denied (403) error.
+ * Unlike network errors, 403 is persistent for the session and should NOT use cache fallback.
+ */
+function isAccessDeniedError(error: unknown): boolean {
+    const code = getErrorCode(error);
+    return code === AppErrorCode.ACCESS_DENIED;
+}
+
+function getContentSourceLogIdentity(
+    source: ChannelContentSource
+): { type: ChannelContentSource['type']; id?: string } {
+    switch (source.type) {
+        case 'library':
+            return { type: source.type, id: source.libraryId };
+        case 'collection':
+            return { type: source.type, id: source.collectionKey };
+        case 'show':
+            return { type: source.type, id: source.showKey };
+        case 'playlist':
+            return { type: source.type, id: source.playlistKey };
+        case 'mixed':
+        case 'manual':
+        default:
+            return { type: source.type };
+    }
+}
+
+function getHttpStatusForLog(error: unknown): number | undefined {
+    if (!error || typeof error !== 'object') return undefined;
+    const maybe = error as { httpStatus?: unknown; status?: unknown };
+    if (typeof maybe.httpStatus === 'number') return maybe.httpStatus;
+    if (typeof maybe.status === 'number') return maybe.status;
+    return undefined;
 }
 
 // ============================================
@@ -350,7 +387,7 @@ export class ChannelManager implements IChannelManager {
             try {
                 localStorage.setItem(this._currentChannelKey, this._state.currentChannelId);
             } catch (e) {
-                this._logger.warn('Failed to persist current channel', e);
+                this._logger.warn('Failed to persist current channel', summarizeErrorForLog(e));
             }
         }
     }
@@ -461,7 +498,10 @@ export class ChannelManager implements IChannelManager {
                 channel.lastContentRefresh = Date.now();
             }
         } catch (error) {
-            this._logger.warn(`Failed initial content resolution for channel ${channel.id}`, error);
+            this._logger.warn(
+                `Failed initial content resolution for channel ${channel.id}`,
+                summarizeErrorForLog(error)
+            );
         }
 
         // Persist and emit event
@@ -511,7 +551,10 @@ export class ChannelManager implements IChannelManager {
                 updated.totalDurationMs = content.totalDurationMs;
                 updated.lastContentRefresh = Date.now();
             } catch (error) {
-                this._logger.warn(`Failed content resolution during update for ${id}`, error);
+                this._logger.warn(
+                    `Failed content resolution during update for ${id}`,
+                    summarizeErrorForLog(error)
+                );
             }
         }
 
@@ -692,7 +735,7 @@ export class ChannelManager implements IChannelManager {
         try {
             localStorage.setItem(this._currentChannelKey, channelId);
         } catch (e) {
-            this._logger.warn('Failed to persist current channel', e);
+            this._logger.warn('Failed to persist current channel', summarizeErrorForLog(e));
         }
 
         const index = this._state.channelOrder.indexOf(channelId);
@@ -841,7 +884,7 @@ export class ChannelManager implements IChannelManager {
                             true
                         );
                     }
-                    this._logger.error('Failed to save channels after pruning cache', e2);
+                    this._logger.error('Failed to save channels after pruning cache', summarizeErrorForLog(e2));
                     throw e2;
                 }
             } else {
@@ -912,7 +955,7 @@ export class ChannelManager implements IChannelManager {
                 await this.saveChannels();
             }
         } catch (e) {
-            this._logger.error('Failed to load channels from storage', e);
+            this._logger.error('Failed to load channels from storage', summarizeErrorForLog(e));
         }
     }
 
@@ -1089,7 +1132,7 @@ export class ChannelManager implements IChannelManager {
                 if (error instanceof ChannelError && error.code === AppErrorCode.STORAGE_QUOTA_EXCEEDED) {
                     throw error;
                 }
-                this._logger.warn('Failed to persist channel metadata after resolve', error);
+                this._logger.warn('Failed to persist channel metadata after resolve', summarizeErrorForLog(error));
             }
 
             return result;
@@ -1106,7 +1149,7 @@ export class ChannelManager implements IChannelManager {
                 const isStale = this._isStale(cached);
                 this._logger.warn(
                     `Resolution failed for channel ${channel.id} due to network error, using cached content (stale: ${isStale})`,
-                    error
+                    summarizeErrorForLog(error)
                 );
                 // Issue 3 (Round 3): Queue retry for network errors
                 this._queueRetry(channel.id);
@@ -1123,7 +1166,7 @@ export class ChannelManager implements IChannelManager {
             if (isContentUnavailableError(error) && cached) {
                 this._logger.warn(
                     `Content unavailable for channel ${channel.id}, using stale cache`,
-                    error
+                    summarizeErrorForLog(error)
                 );
                 return {
                     ...cached,
@@ -1131,6 +1174,35 @@ export class ChannelManager implements IChannelManager {
                     isStale: true,
                     cacheReason: 'content_unavailable',
                 };
+            }
+
+            // Access denied (403): profile lacks library permission.
+            // Do NOT use stale cache — the 403 persists for the entire session.
+            // Note: isContentUnavailableError() and isAccessDeniedError() are mutually exclusive
+            // (they check different AppErrorCode values), so ordering here is not load-bearing.
+            if (isAccessDeniedError(error)) {
+                this._logger.warn('Access denied resolving channel content', {
+                    channelId: channel.id,
+                    contentSource: getContentSourceLogIdentity(channel.contentSource),
+                    httpStatus: getHttpStatusForLog(error),
+                    error: summarizeErrorForLog(error),
+                });
+
+                // Prevent any future cache fallback for a persistent 403.
+                this._state.resolvedContent.delete(channel.id);
+                this._contentResolver.invalidateSource(channel.contentSource);
+
+                const pendingRetry = this._pendingRetries.get(channel.id);
+                if (pendingRetry) {
+                    clearTimeout(pendingRetry);
+                    this._pendingRetries.delete(channel.id);
+                }
+
+                throw new ChannelError(
+                    AppErrorCode.ACCESS_DENIED,
+                    `Profile does not have access to this channel's content library`,
+                    false // non-recoverable within this profile session
+                );
             }
 
             // No cache fallback for other errors - re-throw
@@ -1226,7 +1298,7 @@ export class ChannelManager implements IChannelManager {
                 this._logger.warn(`Retry succeeded for channel ${channelId}`);
             })
             .catch((error) => {
-                this._logger.warn(`Retry failed for channel ${channelId}`, error);
+                this._logger.warn(`Retry failed for channel ${channelId}`, summarizeErrorForLog(error));
                 // Could implement exponential backoff here if needed
             });
     }

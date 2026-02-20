@@ -99,6 +99,7 @@ export function getRecoveryActions(
         case AppErrorCode.CHANNEL_NOT_FOUND:
         case AppErrorCode.SCHEDULER_EMPTY_CHANNEL:
         case AppErrorCode.CONTENT_UNAVAILABLE:
+        case AppErrorCode.ACCESS_DENIED:
         case AppErrorCode.RESOURCE_NOT_FOUND:
             actions.push({
                 label: 'Edit Channels',

@@ -6,9 +6,11 @@
 import { ChannelManager } from '../ChannelManager';
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
 import type { ChannelConfig, LibraryContentSource } from '../types';
+import { AppErrorCode } from '../../../lifecycle/types';
 import {
     STORAGE_KEY,
     CURRENT_CHANNEL_KEY,
+    CACHE_TTL_MS,
     MAX_CHANNELS,
 } from '../constants';
 
@@ -395,6 +397,83 @@ describe('ChannelManager', () => {
 
             // Content should be empty but not throw
             expect(channel.itemCount).toBe(0);
+        });
+
+        it('should throw ACCESS_DENIED when library returns ACCESS_DENIED (403)', async () => {
+            // First create a channel successfully
+            const channel = await manager.createChannel({
+                contentSource: createMockContentSource(),
+            });
+
+            // Now mock library to throw ACCESS_DENIED (simulating 403 for non-admin profile)
+            const accessDeniedError = Object.assign(new Error('Access denied'), {
+                code: AppErrorCode.ACCESS_DENIED,
+            });
+            mockLibrary.getLibraryItems.mockRejectedValue(accessDeniedError);
+
+            // Force re-resolve (bypass cache) — single call to avoid side-effect drift
+            try {
+                await manager.refreshChannelContent(channel.id);
+                fail('Expected error to be thrown');
+            } catch (error) {
+                expect(error).toHaveProperty('code', AppErrorCode.ACCESS_DENIED);
+                expect(error).toHaveProperty('recoverable', false);
+            }
+        });
+
+        it('clears resolved content cache and pending retry on ACCESS_DENIED', async () => {
+            const logger = { warn: jest.fn(), error: jest.fn() };
+            const localManager = new ChannelManager({ plexLibrary: mockLibrary, logger });
+
+            const channel = await localManager.createChannel({
+                contentSource: createMockContentSource(),
+            });
+
+            const state = (localManager as unknown as { _state: { resolvedContent: Map<string, unknown> } })._state;
+            state.resolvedContent.set(channel.id, {
+                channelId: channel.id,
+                resolvedAt: Date.now() - CACHE_TTL_MS - 1,
+                items: [],
+                orderedItems: [],
+                totalDurationMs: 0,
+            });
+
+            const resolver = (localManager as unknown as { _contentResolver: { invalidateSource: (s: unknown) => void } })
+                ._contentResolver;
+            resolver.invalidateSource(channel.contentSource);
+
+            const timeout = setTimeout(() => {}, 60_000);
+            try {
+                (localManager as unknown as { _pendingRetries: Map<string, ReturnType<typeof setTimeout>> })
+                    ._pendingRetries.set(channel.id, timeout);
+
+                const accessDeniedError = Object.assign(new Error('Access denied'), {
+                    code: AppErrorCode.ACCESS_DENIED,
+                    httpStatus: 403,
+                });
+                mockLibrary.getLibraryItems.mockRejectedValue(accessDeniedError);
+
+                await expect(localManager.resolveChannelContent(channel.id)).rejects.toHaveProperty(
+                    'code',
+                    AppErrorCode.ACCESS_DENIED
+                );
+
+                expect(state.resolvedContent.has(channel.id)).toBe(false);
+                expect(
+                    (localManager as unknown as { _pendingRetries: Map<string, unknown> })._pendingRetries.has(channel.id)
+                ).toBe(false);
+
+                expect(logger.warn).toHaveBeenCalledWith(
+                    'Access denied resolving channel content',
+                    expect.objectContaining({
+                        channelId: channel.id,
+                        httpStatus: 403,
+                        contentSource: { type: 'library', id: 'lib1' },
+                    })
+                );
+            } finally {
+                clearTimeout(timeout);
+            }
         });
     });
 

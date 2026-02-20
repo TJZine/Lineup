@@ -251,6 +251,16 @@ describe('ErrorRecovery', () => {
             expect(message).toBe('Cannot connect to Plex server');
         });
 
+        it('should return user-friendly message for CONTENT_UNAVAILABLE', () => {
+            const message = recovery.getUserMessage(AppErrorCode.CONTENT_UNAVAILABLE);
+            expect(message).toBe('That content is unavailable right now');
+        });
+
+        it('should return user-friendly message for ACCESS_DENIED', () => {
+            const message = recovery.getUserMessage(AppErrorCode.ACCESS_DENIED);
+            expect(message).toBe('This profile does not have access to that library');
+        });
+
         it('should return generic message for unknown error codes', () => {
             const message = recovery.getUserMessage(AppErrorCode.UNKNOWN);
             expect(message).toContain('error');

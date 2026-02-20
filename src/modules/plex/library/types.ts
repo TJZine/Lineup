@@ -160,6 +160,7 @@ export enum PlexLibraryErrorCode {
     AUTH_REQUIRED = 'AUTH_REQUIRED',
     AUTH_EXPIRED = 'AUTH_EXPIRED',
     AUTH_INVALID = 'AUTH_INVALID',
+    ACCESS_DENIED = 'ACCESS_DENIED',
     NETWORK_TIMEOUT = 'NETWORK_TIMEOUT',
     SERVER_UNREACHABLE = 'SERVER_UNREACHABLE',
     SERVER_ERROR = 'SERVER_ERROR',
@@ -178,6 +179,8 @@ export function mapPlexLibraryErrorCodeToAppErrorCode(
             return AppErrorCode.AUTH_EXPIRED;
         case PlexLibraryErrorCode.AUTH_INVALID:
             return AppErrorCode.AUTH_INVALID;
+        case PlexLibraryErrorCode.ACCESS_DENIED:
+            return AppErrorCode.ACCESS_DENIED;
         case PlexLibraryErrorCode.NETWORK_TIMEOUT:
             return AppErrorCode.NETWORK_TIMEOUT;
         case PlexLibraryErrorCode.SERVER_UNREACHABLE:

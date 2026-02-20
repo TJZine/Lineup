@@ -139,6 +139,7 @@ webos_epg_report.md
 CODE_REVIEW_CONTEXT.md
 jellyfin_webos_dv_research.md
 .desloppify/
+plex_fetch.js
 
 # Storybook
 storybook-static/

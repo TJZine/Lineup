@@ -810,6 +810,16 @@ export class PlexLibrary implements IPlexLibrary {
                     );
                 }
 
+                // Handle 403 Forbidden - valid token but insufficient permissions
+                // (e.g. managed user profile lacks access to this library section)
+                if (response.status === 403) {
+                    throw new PlexLibraryError(
+                        PlexLibraryErrorCode.ACCESS_DENIED,
+                        `Access denied: profile does not have permission for this resource (403)`,
+                        403
+                    );
+                }
+
                 // Handle 429 Rate Limited - backoff per Retry-After
                 if (response.status === 429) {
                     if (rateLimitRetries >= PLEX_LIBRARY_CONSTANTS.MAX_TIMEOUT_RETRIES) {
@@ -911,8 +921,12 @@ export class PlexLibrary implements IPlexLibrary {
                     );
                 }
 
-                // Don't retry auth errors
-                if (error instanceof PlexLibraryError && error.code === PlexLibraryErrorCode.AUTH_EXPIRED) {
+                // Don't retry auth or access-denied errors
+                if (
+                    error instanceof PlexLibraryError &&
+                    (error.code === PlexLibraryErrorCode.AUTH_EXPIRED ||
+                        error.code === PlexLibraryErrorCode.ACCESS_DENIED)
+                ) {
                     throw error;
                 }
 
