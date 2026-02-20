@@ -28,8 +28,9 @@ import { detectHdrLabel } from '../../plex/stream/hdr';
 // Content Resolver Class
 // ============================================
 
-const SHOW_CACHE_TTL_MS = 300000;
-const SOURCE_CACHE_TTL_MS = 5 * 60_000;
+const CACHE_TTL_MS = 5 * 60_000;
+const SHOW_CACHE_TTL_MS = CACHE_TTL_MS;
+const SOURCE_CACHE_TTL_MS = CACHE_TTL_MS;
 const SOURCE_CACHE_MAX_ENTRIES = 24;
 
 type SourceCacheEntry = {
@@ -159,7 +160,7 @@ export class ContentResolver {
         const resolvePromise = this._resolveSourceUncached(source, { signal: controller.signal })
             .then((items) => {
                 this._setCachedSourceItems(cacheKey, items, { epoch, generation });
-                return this._cloneResolvedItems(items);
+                return items;
             })
             .finally(() => {
                 const current = this._sourceInFlight.get(cacheKey);
@@ -575,12 +576,9 @@ export class ContentResolver {
         source: MixedContentSource,
         options?: { signal?: AbortSignal | null }
     ): Promise<ResolvedContentItem[]> {
-        const allResolved: ResolvedContentItem[][] = [];
-
-        for (const subSource of source.sources) {
-            const items = await this.resolveSource(subSource, options);
-            allResolved.push(items);
-        }
+        const allResolved = await Promise.all(
+            source.sources.map((subSource) => this.resolveSource(subSource, options))
+        );
 
         if (source.mixMode === 'sequential') {
             // Append sources in order
@@ -679,23 +677,6 @@ export class ContentResolver {
         }
         if (Array.isArray(value)) {
             return `[${value.map((entry) => this._stableSerialize(entry)).join(',')}]`;
-        }
-        if (value instanceof Date) {
-            return JSON.stringify(value.toISOString());
-        }
-        if (value instanceof Map) {
-            const entries = Array.from(value.entries())
-                .sort(([left], [right]) => {
-                    return this._stableSerialize(left).localeCompare(this._stableSerialize(right));
-                })
-                .map(([key, entry]) => `[${this._stableSerialize(key)},${this._stableSerialize(entry)}]`);
-            return `{"__type":"Map","entries":[${entries.join(',')}]}`;
-        }
-        if (value instanceof Set) {
-            const entries = Array.from(value.values())
-                .map((entry) => this._stableSerialize(entry))
-                .sort();
-            return `{"__type":"Set","values":[${entries.join(',')}]}`;
         }
 
         const entries = Object

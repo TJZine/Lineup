@@ -665,7 +665,8 @@ describe('ContentResolver', () => {
                 return Promise.reject(new Error('show fetch failed'));
             });
             const nowSpy = jest.spyOn(Date, 'now');
-            nowSpy.mockReturnValueOnce(0).mockReturnValueOnce(300001);
+            let nowMs = 0;
+            nowSpy.mockImplementation(() => nowMs);
 
             const source: LibraryContentSource = {
                 type: 'library',
@@ -675,6 +676,7 @@ describe('ContentResolver', () => {
             };
 
             await resolver.resolveSource(source);
+            nowMs = 300001;
             const second = await resolver.resolveSource(source);
 
             expect(second).toHaveLength(1);
@@ -697,7 +699,8 @@ describe('ContentResolver', () => {
                 return Promise.reject({ name: 'AbortError' });
             });
             const nowSpy = jest.spyOn(Date, 'now');
-            nowSpy.mockReturnValueOnce(0).mockReturnValueOnce(300001);
+            let nowMs = 0;
+            nowSpy.mockImplementation(() => nowMs);
 
             const source: LibraryContentSource = {
                 type: 'library',
@@ -707,6 +710,7 @@ describe('ContentResolver', () => {
             };
 
             await resolver.resolveSource(source);
+            nowMs = 300001;
             await expect(resolver.resolveSource(source)).rejects.toMatchObject({ name: 'AbortError' });
             nowSpy.mockRestore();
         });
@@ -880,22 +884,28 @@ describe('ContentResolver', () => {
         });
     });
 
-    describe('_stableSerialize', () => {
-        it('treats undefined as JSON null and omits undefined object keys', () => {
-            const stableSerialize = (resolver as unknown as { _stableSerialize: (value: unknown) => string })
-                ._stableSerialize
-                .bind(resolver) as (value: unknown) => string;
-            expect(stableSerialize(undefined)).toBe('null');
+    describe('source cache key stability', () => {
+        it('treats optional undefined fields as omitted for cache keys', async () => {
+            mockLibrary.getLibraryItems.mockResolvedValue([createMockItem({ ratingKey: 'cache-1' })]);
 
-            const json = stableSerialize({
-                a: undefined,
-                b: 1,
-                c: [undefined, 2],
-                d: { e: undefined, f: 'x' },
-            });
+            const base = {
+                type: 'library',
+                libraryId: 'lib-cache',
+                libraryType: 'movie',
+                includeWatched: true,
+            } as const;
 
-            expect(() => JSON.parse(json)).not.toThrow();
-            expect(json).toBe('{"b":1,"c":[null,2],"d":{"f":"x"}}');
+            const withUndefined = ({
+                ...base,
+                libraryFilter: undefined,
+            } as unknown) as LibraryContentSource;
+
+            const omitted = (base as unknown) as LibraryContentSource;
+
+            await resolver.resolveSource(withUndefined);
+            await resolver.resolveSource(omitted);
+
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(1);
         });
     });
 

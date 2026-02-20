@@ -648,7 +648,8 @@ export class EPGCoordinator {
     private _partitionPrefetchChannels(
         channels: ChannelConfig[],
         range: { channelStart: number; channelEnd: number },
-        ids: { liveChannelId: string | null; focusedChannelId: string | null }
+        ids: { liveChannelId: string | null; focusedChannelId: string | null },
+        caps: { visibleCount: number; maxQueuedChannels: number }
     ): {
         immediateChannels: ChannelConfig[];
         backgroundChannels: ChannelConfig[];
@@ -679,9 +680,7 @@ export class EPGCoordinator {
             addImmediate(channel);
         }
 
-        const visibleCount = Math.max(1, range.channelEnd - range.channelStart + 1);
-        const { maxQueuedChannels } = this._getBackgroundWarmQueueCaps(channels.length, visibleCount);
-        const lookAhead = this._getBackgroundLookAheadCount(channels.length, visibleCount);
+        const lookAhead = this._getBackgroundLookAheadCount(channels.length, caps.visibleCount);
         const warmStart = endIndex;
         const warmEnd = Math.min(channels.length, warmStart + lookAhead);
 
@@ -691,7 +690,7 @@ export class EPGCoordinator {
                 continue;
             }
             backgroundChannels.push(channel);
-            if (backgroundChannels.length >= maxQueuedChannels) {
+            if (backgroundChannels.length >= caps.maxQueuedChannels) {
                 break;
             }
         }
@@ -979,14 +978,22 @@ export class EPGCoordinator {
         const focusedChannelId = epgState.focusedCell
             ? channels[epgState.focusedCell.channelIndex]?.id ?? null
             : null;
-        const partitioned = this._partitionPrefetchChannels(channels, range, {
-            liveChannelId,
-            focusedChannelId,
-        });
-        const immediateChannels = partitioned.immediateChannels;
-        const backgroundChannels = partitioned.backgroundChannels;
         const visibleCount = Math.max(1, range.channelEnd - range.channelStart + 1);
         const backgroundCaps = this._getBackgroundWarmQueueCaps(channels.length, visibleCount);
+        const partitioned = this._partitionPrefetchChannels(
+            channels,
+            range,
+            {
+                liveChannelId,
+                focusedChannelId,
+            },
+            {
+                visibleCount,
+                maxQueuedChannels: backgroundCaps.maxQueuedChannels,
+            }
+        );
+        const immediateChannels = partitioned.immediateChannels;
+        const backgroundChannels = partitioned.backgroundChannels;
         const visibleStart = Math.max(0, Math.min(range.channelStart, channels.length - 1));
         const visibleEnd = Math.min(channels.length, range.channelEnd + 1);
         const visibleRangeIds = new Set(channels.slice(visibleStart, visibleEnd).map((channel) => channel.id));
@@ -1029,8 +1036,6 @@ export class EPGCoordinator {
                 cacheMisses: 0,
                 firstVisibleScheduleReadyMs: null,
             };
-        } else if (this._backgroundDebugState?.refreshId === refreshId) {
-            this._backgroundDebugState = null;
         }
 
         const applySchedule = (

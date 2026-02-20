@@ -163,6 +163,15 @@
     --z-max: 10000;
 
     /* =========================================
+       OSD / Pills
+       ========================================= */
+    --osd-pill-bg: rgba(255, 255, 255, 0.12);
+    --osd-pill-border: rgba(255, 255, 255, 0.18);
+    --osd-pill-bg-strong: rgba(255, 255, 255, 0.15);
+    --osd-pill-border-strong: rgba(255, 255, 255, 0.16);
+    --osd-pill-border-focused: rgba(255, 255, 255, 0.35);
+
+    /* =========================================
        EPG category colors (auto-setup buildStrategy)
        ========================================= */
     --epg-category-collections: #4caf50;

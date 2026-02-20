@@ -110,7 +110,6 @@ const EPG_DEBUG_LOG_FLUSH_DELAY_MS = 250;
 
 let epgDebugEntries: EpgDebugEntry[] | null = null;
 let epgDebugFlushTimer: ReturnType<typeof setTimeout> | null = null;
-let epgDebugDirty = false;
 
 function loadEpgDebugEntries(): EpgDebugEntry[] {
     if (epgDebugEntries) {
@@ -132,16 +131,11 @@ function loadEpgDebugEntries(): EpgDebugEntry[] {
 }
 
 function scheduleEpgDebugFlush(): void {
-    epgDebugDirty = true;
     if (epgDebugFlushTimer) {
         return;
     }
     epgDebugFlushTimer = setTimeout(() => {
         epgDebugFlushTimer = null;
-        if (!epgDebugDirty) {
-            return;
-        }
-        epgDebugDirty = false;
         try {
             localStorage.setItem(EPG_DEBUG_LOG_STORAGE_KEY, JSON.stringify(epgDebugEntries ?? []));
         } catch {
