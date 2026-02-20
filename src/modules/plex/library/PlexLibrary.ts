@@ -250,7 +250,7 @@ export class PlexLibrary implements IPlexLibrary {
 
         while (hasMore) {
             if (++pageCounter > PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS) {
-                this._logger.warn(`[PlexLibrary] Pagination circuit breaker tripped after ${pageCounter} iterations in getLibraryItems`);
+                this._logger.warn(`[PlexLibrary] Pagination circuit breaker tripped after maximum allowed (${PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS}) iterations in getLibraryItems`);
                 break;
             }
             const params: Record<string, string | number> = {
@@ -424,7 +424,7 @@ export class PlexLibrary implements IPlexLibrary {
 
         while (true) {
             if (++pageCounter > PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS) {
-                this._logger.warn(`[PlexLibrary] Pagination circuit breaker tripped after ${pageCounter} iterations in getShowEpisodes`);
+                this._logger.warn(`[PlexLibrary] Pagination circuit breaker tripped after maximum allowed (${PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS}) iterations in getShowEpisodes`);
                 break;
             }
             const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_METADATA_ALL_LEAVES(showKey), {
@@ -461,7 +461,7 @@ export class PlexLibrary implements IPlexLibrary {
             }
 
             // Fallback when totalSize is unavailable.
-            if (pageEpisodes.length < PLEX_LIBRARY_CONSTANTS.ALL_LEAVES_PAGE_SIZE) {
+            if (totalSize === null && pageEpisodes.length < PLEX_LIBRARY_CONSTANTS.ALL_LEAVES_PAGE_SIZE) {
                 break;
             }
         }

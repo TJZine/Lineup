@@ -452,7 +452,7 @@ describe('PlexLibrary', () => {
             const items = await library.getLibraryItems('infinite-lib');
 
             expect(fetch).toHaveBeenCalledTimes(1000);
-            expect(warn).toHaveBeenCalledWith(expect.stringContaining('Pagination circuit breaker tripped'));
+            expect(warn).toHaveBeenCalledWith(expect.stringContaining('Pagination circuit breaker tripped after maximum allowed (1000) iterations'));
             expect(items).toHaveLength(100000); // 100 items * 1000 pages
         });
     });
@@ -623,8 +623,12 @@ describe('PlexLibrary', () => {
         it('should break out of pagination loop if MAX_PAGINATION_ITERATIONS is exceeded', async () => {
             const page = {
                 MediaContainer: {
-                    // Return exactly ALL_LEAVES_PAGE_SIZE items (5000) so it queries again
-                    Metadata: Array(5000).fill({ ratingKey: 'e1', key: '/e1', type: 'episode', title: 'S1E1', duration: 2700000 })
+                    totalSize: 5000,
+                    // Return only 2 items per loop to prevent OOM
+                    Metadata: [
+                        { ratingKey: 'e1', key: '/e1', type: 'episode', title: 'S1E1', duration: 2700000 },
+                        { ratingKey: 'e2', key: '/e2', type: 'episode', title: 'S1E2', duration: 2700000 }
+                    ]
                 }
             };
 
@@ -641,8 +645,8 @@ describe('PlexLibrary', () => {
             const episodes = await library.getShowEpisodes('infinite-show');
 
             expect(fetch).toHaveBeenCalledTimes(1000);
-            expect(warn).toHaveBeenCalledWith(expect.stringContaining('Pagination circuit breaker tripped'));
-            expect(episodes).toHaveLength(5000000); // 5000 * 1000
+            expect(warn).toHaveBeenCalledWith(expect.stringContaining('Pagination circuit breaker tripped after maximum allowed (1000) iterations'));
+            expect(episodes).toHaveLength(2000); // 2 * 1000
         });
     });
 
