@@ -6,6 +6,7 @@
 import { ChannelManager } from '../ChannelManager';
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
 import type { ChannelConfig, LibraryContentSource } from '../types';
+import { AppErrorCode } from '../../../lifecycle/types';
 import {
     STORAGE_KEY,
     CURRENT_CHANNEL_KEY,
@@ -395,6 +396,28 @@ describe('ChannelManager', () => {
 
             // Content should be empty but not throw
             expect(channel.itemCount).toBe(0);
+        });
+
+        it('should throw CONTENT_UNAVAILABLE when library returns ACCESS_DENIED (403)', async () => {
+            // First create a channel successfully
+            const channel = await manager.createChannel({
+                contentSource: createMockContentSource(),
+            });
+
+            // Now mock library to throw ACCESS_DENIED (simulating 403 for non-admin profile)
+            const accessDeniedError = Object.assign(new Error('Access denied'), {
+                code: AppErrorCode.ACCESS_DENIED,
+            });
+            mockLibrary.getLibraryItems.mockRejectedValue(accessDeniedError);
+
+            // Force re-resolve (bypass cache) — single call to avoid side-effect drift
+            try {
+                await manager.refreshChannelContent(channel.id);
+                fail('Expected error to be thrown');
+            } catch (error) {
+                expect(error).toHaveProperty('code', AppErrorCode.CONTENT_UNAVAILABLE);
+                expect(error).toHaveProperty('recoverable', false);
+            }
         });
     });
 

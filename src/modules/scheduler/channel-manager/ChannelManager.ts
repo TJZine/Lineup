@@ -179,6 +179,15 @@ function isContentUnavailableError(error: unknown): boolean {
     return code === AppErrorCode.CONTENT_UNAVAILABLE;
 }
 
+/**
+ * Check if error is an access-denied (403) error.
+ * Unlike network errors, 403 is persistent for the session and should NOT use cache fallback.
+ */
+function isAccessDeniedError(error: unknown): boolean {
+    const code = getErrorCode(error);
+    return code === AppErrorCode.ACCESS_DENIED;
+}
+
 // ============================================
 // UUID Generator
 // ============================================
@@ -1131,6 +1140,18 @@ export class ChannelManager implements IChannelManager {
                     isStale: true,
                     cacheReason: 'content_unavailable',
                 };
+            }
+
+            // Access denied (403): profile lacks library permission.
+            // Do NOT use stale cache — the 403 persists for the entire session.
+            // Note: this must run after the isContentUnavailableError check above,
+            // which won't match ACCESS_DENIED errors (different code string).
+            if (isAccessDeniedError(error)) {
+                throw new ChannelError(
+                    AppErrorCode.CONTENT_UNAVAILABLE,
+                    `Profile does not have access to this channel's content library`,
+                    false // non-recoverable within this profile session
+                );
             }
 
             // No cache fallback for other errors - re-throw

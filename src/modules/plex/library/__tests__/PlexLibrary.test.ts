@@ -754,6 +754,38 @@ describe('PlexLibrary', () => {
 
             await expect(library.getLibraries()).rejects.toThrow(PlexLibraryError);
         });
+
+        it('should throw ACCESS_DENIED error code on 403', async () => {
+            mockFetchJson({ error: 'Forbidden' }, 403);
+            const library = new PlexLibrary(mockConfig);
+
+            try {
+                await library.getLibraries();
+                fail('Expected error to be thrown');
+            } catch (error) {
+                expect(error).toBeInstanceOf(PlexLibraryError);
+                expect((error as PlexLibraryError).code).toBe(PlexLibraryErrorCode.ACCESS_DENIED);
+                expect((error as PlexLibraryError).httpStatus).toBe(403);
+            }
+        });
+
+        it('should NOT emit authExpired on 403', async () => {
+            mockFetchJson({ error: 'Forbidden' }, 403);
+            const library = new PlexLibrary(mockConfig);
+            const handler = jest.fn();
+            library.on('authExpired', handler);
+
+            await expect(library.getLibraries()).rejects.toThrow(PlexLibraryError);
+            expect(handler).not.toHaveBeenCalled();
+        });
+
+        it('should NOT retry on 403', async () => {
+            mockFetchJson({ error: 'Forbidden' }, 403);
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getLibraries()).rejects.toThrow(PlexLibraryError);
+            expect(fetch).toHaveBeenCalledTimes(1);
+        });
     });
 
     describe('refreshLibrary', () => {
