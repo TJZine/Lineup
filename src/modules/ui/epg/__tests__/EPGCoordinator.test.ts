@@ -251,6 +251,24 @@ describe('EPGCoordinator', () => {
         expect(epg.focusNow).toHaveBeenCalled();
     });
 
+    it('openEPG handles promise rejection by hiding EPG and emitting error', async () => {
+        const error = new Error('Init failed');
+        const ensure = jest.fn().mockRejectedValue(error);
+        const { deps, epg } = makeDeps({
+            getEpgUiStatus: () => 'pending',
+            ensureEpgInitialized: ensure,
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.openEPG();
+        // Await microtasks to let the .catch() trigger
+        await new Promise(process.nextTick);
+
+        expect(ensure).toHaveBeenCalled();
+        expect(epg.hide).toHaveBeenCalled();
+        expect(deps.emitAppError).toHaveBeenCalledWith(error);
+    });
+
     it('primeEpgChannels applies filtering when tabs enabled and selected', () => {
         localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
         localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');

@@ -642,7 +642,16 @@ export class AppOrchestrator implements IAppOrchestrator {
             },
             switchToChannel: (channelId: string): Promise<void> => this.switchToChannel(channelId),
             emitAppError: (error: unknown): void => {
-                this.handleGlobalError(error as AppError, 'EPG_INIT');
+                const message = error instanceof Error ? error.message : String(error);
+                this.handleGlobalError(
+                    {
+                        code: AppErrorCode.INITIALIZATION_FAILED,
+                        message: `EPG Initialization failed: ${message}`,
+                        recoverable: false,
+                        context: { originalError: error },
+                    },
+                    'EPG_INIT'
+                );
             },
         });
 

@@ -257,7 +257,6 @@ export class ChannelManager implements IChannelManager {
     private static readonly RETRY_DELAY_MS = 30000; // 30 seconds
 
     private _saveTimer: ReturnType<typeof setTimeout> | null = null;
-    private _savePromise: Promise<void> | null = null;
     private _saveResolve: (() => void) | null = null;
     private _saveReject: ((error: unknown) => void) | null = null;
 
@@ -300,6 +299,7 @@ export class ChannelManager implements IChannelManager {
             throw new Error('Storage keys must be non-empty strings');
         }
         this.cancelPendingRetries();
+        this.flushSaves();
         this._storageKey = storageKey;
         this._currentChannelKey = currentChannelKey;
         this._contentResolver.clearCaches();
@@ -860,16 +860,28 @@ export class ChannelManager implements IChannelManager {
     // ============================================
 
     /**
-     * Save channels to localStorage. Multiple rapid calls will batch into a single write.
+     * Flush any pending debounced save immediately.
+     */
+    flushSaves(): void {
+        if (this._saveTimer) {
+            clearTimeout(this._saveTimer);
+            this._saveTimer = null;
+            try {
+                this._performSaveSync();
+                this._saveResolve?.();
+            } catch (e) {
+                this._saveReject?.(e);
+            } finally {
+                this._saveResolve = null;
+                this._saveReject = null;
+            }
+        }
+    }
+
+    /**
+     * Queues a debounced save to localStorage. Returns immediately.
      */
     async saveChannels(): Promise<void> {
-        if (!this._savePromise) {
-            this._savePromise = new Promise((resolve, reject) => {
-                this._saveResolve = resolve;
-                this._saveReject = reject;
-            });
-        }
-
         if (this._saveTimer) {
             clearTimeout(this._saveTimer);
         }
@@ -877,22 +889,14 @@ export class ChannelManager implements IChannelManager {
         // Debounce by 500ms to batch all closely related saves
         this._saveTimer = setTimeout(() => {
             this._saveTimer = null;
-            const resolve = this._saveResolve;
-            const reject = this._saveReject;
-
-            this._savePromise = null;
-            this._saveResolve = null;
-            this._saveReject = null;
-
             try {
                 this._performSaveSync();
-                resolve?.();
             } catch (e) {
-                reject?.(e);
+                this._logger.error('Debounced save failed', summarizeErrorForLog(e));
             }
         }, 500);
 
-        return this._savePromise;
+        return Promise.resolve();
     }
 
     private _performSaveSync(): void {
@@ -909,25 +913,13 @@ export class ChannelManager implements IChannelManager {
             localStorage.setItem(this._storageKey, json);
         } catch (e) {
             if (this._isQuotaExceeded(e)) {
-                // Issue 6: First clear content caches
-                this._state.resolvedContent.clear();
-                try {
-                    localStorage.setItem(this._storageKey, json);
-                    return;
-                } catch (e2) {
-                    if (this._isQuotaExceeded(e2)) {
-                        throw new ChannelError(
-                            AppErrorCode.STORAGE_QUOTA_EXCEEDED,
-                            STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
-                            true
-                        );
-                    }
-                    this._logger.error('Failed to save channels after pruning cache', summarizeErrorForLog(e2));
-                    throw e2;
-                }
-            } else {
-                throw e;
+                throw new ChannelError(
+                    AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+                    STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                    true
+                );
             }
+            throw e;
         }
     }
 

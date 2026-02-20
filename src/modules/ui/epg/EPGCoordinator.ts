@@ -282,7 +282,7 @@ export class EPGCoordinator {
                 show();
             })
             .catch((error: unknown) => {
-                console.error('[Orchestrator] Failed to init EPG:', summarizeErrorForLog(error));
+                console.error('[EPGCoordinator] Failed to init EPG:', summarizeErrorForLog(error));
                 this.deps.getEpg()?.hide();
                 this.deps.emitAppError(error);
             });

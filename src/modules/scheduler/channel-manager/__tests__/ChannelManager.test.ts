@@ -442,7 +442,7 @@ describe('ChannelManager', () => {
                 ._contentResolver;
             resolver.invalidateSource(channel.contentSource);
 
-            const timeout = setTimeout(() => {}, 60_000);
+            const timeout = setTimeout(() => { }, 60_000);
             try {
                 (localManager as unknown as { _pendingRetries: Map<string, ReturnType<typeof setTimeout>> })
                     ._pendingRetries.set(channel.id, timeout);
@@ -566,6 +566,7 @@ describe('ChannelManager', () => {
         it('should save channels to localStorage', async () => {
             await manager.createChannel({ contentSource: createMockContentSource() });
             await manager.saveChannels();
+            manager.flushSaves();
 
             expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
                 STORAGE_KEY,
@@ -579,6 +580,7 @@ describe('ChannelManager', () => {
                 name: 'Saved Channel',
                 contentSource: createMockContentSource(),
             });
+            manager.flushSaves();
 
             // Create new manager and load
             const newManager = new ChannelManager({ plexLibrary: mockLibrary });
