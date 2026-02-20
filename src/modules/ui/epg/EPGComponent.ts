@@ -150,7 +150,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this.channelList.initialize(this.gridElement, this.config);
             const dashboard = this.containerElement.querySelector(`.${EPG_CLASSES.DASHBOARD_BOTTOM}`) as HTMLElement | null;
             if (!dashboard) {
-                throw new Error('EPG dashboard container element not found');
+                throw new Error(EPG_ERRORS.DASHBOARD_CONTAINER_NOT_FOUND);
             }
             this.infoPanel.initialize(dashboard);
             // Keep the key legend at the very bottom (below the info panel).

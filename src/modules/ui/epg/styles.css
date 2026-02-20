@@ -585,8 +585,10 @@
 
 /* Windows High Contrast Mode support */
 @media (forced-colors: active) {
-  .epg-cell.focused {
+  .epg-cell.focused,
+  .epg-cell:focus-visible {
     outline: 3px solid CanvasText;
+    outline-offset: 2px;
   }
 }
 
@@ -953,6 +955,14 @@
   border: 1px solid rgba(255, 255, 255, 0.80);
   box-shadow: 0 0 15px rgba(255, 255, 255, 0.40);
   outline: none;
+}
+
+/* Forced-colors: restore focus outline for glass theme (higher specificity than base `.epg-cell.focused`). */
+@media (forced-colors: active) {
+  .theme-glass .epg-cell.focused {
+    outline: 3px solid CanvasText;
+    outline-offset: 2px;
+  }
 }
 
 /*

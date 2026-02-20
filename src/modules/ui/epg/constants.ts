@@ -100,6 +100,7 @@ export const EPG_CLASSES = {
  */
 export const EPG_ERRORS = {
     CONTAINER_NOT_FOUND: 'EPG container element not found',
+    DASHBOARD_CONTAINER_NOT_FOUND: 'EPG dashboard container element not found',
     NO_CHANNELS_LOADED: 'No channels loaded',
     SCHEDULE_NOT_LOADED: 'Schedule not loaded for channel',
     INVALID_CHANNEL_INDEX: 'Invalid channel index',
