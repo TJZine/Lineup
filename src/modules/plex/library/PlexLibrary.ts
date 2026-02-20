@@ -412,17 +412,51 @@ export class PlexLibrary implements IPlexLibrary {
      * @returns Promise resolving to all episodes sorted by season/episode
      */
     async getShowEpisodes(showKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]> {
-        // Get all seasons
-        const seasons = await this.getShowSeasons(showKey, options);
+        const ALL_LEAVES_PAGE_SIZE = 5000;
+        const allEpisodes: PlexMediaItem[] = [];
+        let offset = 0;
+        let totalSize: number | null = null;
 
-        // Fetch episodes for each season in parallel
-        const episodePromises = seasons.map((season) =>
-            this.getSeasonEpisodes(season.ratingKey, options)
-        );
-        const episodeArrays = await Promise.all(episodePromises);
+        while (true) {
+            const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_METADATA_ALL_LEAVES(showKey), {
+                'X-Plex-Container-Start': offset,
+                'X-Plex-Container-Size': ALL_LEAVES_PAGE_SIZE,
+            });
+            const response = await this._fetchWithRetry<PlexMediaContainer<RawMediaItem>>(url, {
+                signal: options?.signal ?? null,
+            });
 
-        // Flatten and sort by season/episode number
-        const allEpisodes = episodeArrays.flat();
+            if (!response) {
+                return allEpisodes.length > 0 ? allEpisodes : [];
+            }
+
+            const reportedTotal = response.MediaContainer.totalSize;
+            if (typeof reportedTotal === 'number' && Number.isFinite(reportedTotal)) {
+                totalSize = reportedTotal;
+            }
+
+            const metadata = response.MediaContainer.Metadata || [];
+            const pageEpisodes = parseMediaItems(metadata);
+            if (pageEpisodes.length === 0) {
+                break;
+            }
+            allEpisodes.push(...pageEpisodes);
+            offset += pageEpisodes.length;
+
+            // If Plex reports a total, continue paging until we reach it.
+            if (totalSize !== null) {
+                if (offset >= totalSize) {
+                    break;
+                }
+                continue;
+            }
+
+            // Fallback when totalSize is unavailable.
+            if (pageEpisodes.length < ALL_LEAVES_PAGE_SIZE) {
+                break;
+            }
+        }
+
         return allEpisodes.sort((a, b) => {
             const aSeason = typeof a.seasonNumber === 'number' ? a.seasonNumber : 0;
             const bSeason = typeof b.seasonNumber === 'number' ? b.seasonNumber : 0;

@@ -55,6 +55,9 @@ export const PLEX_ENDPOINTS = {
     /** Item children (append /{key}/children) */
     LIBRARY_METADATA_CHILDREN: (key: string) => `/library/metadata/${key}/children`,
 
+    /** All leaf items (episodes) for a show (append /{key}/allLeaves) */
+    LIBRARY_METADATA_ALL_LEAVES: (key: string) => `/library/metadata/${key}/allLeaves`,
+
     /** Collection children */
     COLLECTION_CHILDREN: (key: string) => `/library/collections/${key}/children`,
 
