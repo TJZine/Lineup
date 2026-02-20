@@ -719,9 +719,7 @@ export class ContentResolver {
             return;
         }
 
-        if (this._sourceCache.has(key)) {
-            this._sourceCache.delete(key);
-        }
+        this._sourceCache.delete(key);
         this._sourceCache.set(key, {
             items: this._cloneResolvedItems(items),
             cachedAt: Date.now(),

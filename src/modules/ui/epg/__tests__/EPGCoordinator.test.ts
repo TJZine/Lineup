@@ -201,6 +201,42 @@ describe('EPGCoordinator', () => {
         jest.clearAllMocks();
     });
 
+    it('partitions prefetch channels with inclusive channelEnd', () => {
+        const { deps } = makeDeps();
+        const coordinator = new EPGCoordinator(deps);
+
+        const channels: ChannelConfig[] = Array.from(
+            { length: 100 },
+            (_, i) => makeChannel(`c${i}`, i + 1)
+        );
+
+        const range = { channelStart: 10, channelEnd: 20 };
+        const caps = { visibleCount: 11, maxQueuedChannels: 120, aggressive: false };
+        const ids = { liveChannelId: null, focusedChannelId: null };
+
+        type PartitionResult = {
+            immediateChannels: ChannelConfig[];
+            backgroundChannels: ChannelConfig[];
+            overscan: number;
+            bufferedRange: { start: number; end: number };
+            backgroundRange: { start: number; end: number };
+        };
+
+        const partitioned = (coordinator as unknown as {
+            _partitionPrefetchChannels: (
+                channels: ChannelConfig[],
+                range: { channelStart: number; channelEnd: number },
+                ids: { liveChannelId: string | null; focusedChannelId: string | null },
+                caps: { visibleCount: number; maxQueuedChannels: number; aggressive: boolean }
+            ) => PartitionResult;
+        })._partitionPrefetchChannels(channels, range, ids, caps);
+
+        // channelEnd is inclusive; slice end is exclusive. For channelCount=100 and non-aggressive overscan=7:
+        // endIndex = 20 + 1 + 7 = 28
+        expect(partitioned.bufferedRange).toEqual({ start: 3, end: 28 });
+        expect(partitioned.immediateChannels[partitioned.immediateChannels.length - 1]?.id).toBe('c27');
+    });
+
     it('openEPG primes and refreshes when ready before show', async () => {
         const { deps, epg } = makeDeps();
         const coordinator = new EPGCoordinator(deps);
@@ -501,7 +537,7 @@ describe('EPGCoordinator', () => {
 
         await coordinator.refreshEpgSchedules();
 
-        expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBeLessThanOrEqual(10);
+        expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBeLessThanOrEqual(11);
         expect(epg.focusNow).toHaveBeenCalled();
     });
 

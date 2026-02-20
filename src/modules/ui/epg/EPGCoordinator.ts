@@ -658,12 +658,13 @@ export class EPGCoordinator {
         immediateChannels: ChannelConfig[];
         backgroundChannels: ChannelConfig[];
         overscan: number;
-        bufferedRange: { start: number; end: number };
-        backgroundRange: { start: number; end: number };
+        bufferedRange: { start: number; end: number }; // [start, end)
+        backgroundRange: { start: number; end: number }; // [start, end)
     } {
         const overscan = this._getChannelOverscanCount(channels.length, caps.aggressive);
+        // `range.channelEnd` is inclusive (see visibleCount computation); Array#slice end is exclusive.
         const startIndex = Math.max(0, range.channelStart - overscan);
-        const endIndex = Math.min(channels.length, range.channelEnd + overscan);
+        const endIndex = Math.min(channels.length, range.channelEnd + 1 + overscan);
 
         const immediateChannels: ChannelConfig[] = [];
         const immediateIds = new Set<string>();
@@ -918,6 +919,19 @@ export class EPGCoordinator {
                 scheduleNextBatch();
             };
 
+            const runBatchSafe = (): void => {
+                runBatch().catch((error: unknown) => {
+                    if (isAbortLikeError(error)) return;
+                    if (this._isDebugEnabled()) {
+                        appendEpgDebugLog('EPG.backgroundWarmQueue.runBatch.error', {
+                            error: summarizeErrorForLog(error),
+                        });
+                        return;
+                    }
+                    console.error('[EPG] background warm batch failed:', summarizeErrorForLog(error));
+                });
+            };
+
             const idleScheduler = globalThis as IdleSchedulerLike;
             if (typeof idleScheduler.requestIdleCallback === 'function') {
                 this._backgroundWarmQueueIdleHandle = idleScheduler.requestIdleCallback((deadline) => {
@@ -929,7 +943,7 @@ export class EPGCoordinator {
                         scheduleNextBatch();
                         return;
                     }
-                    void runBatch();
+                    runBatchSafe();
                 }, { timeout: EPG_BACKGROUND_WARM_IDLE_TIMEOUT_MS });
                 return;
             }
@@ -939,7 +953,7 @@ export class EPGCoordinator {
                 if (this._backgroundWarmQueueState !== queueState) {
                     return;
                 }
-                void runBatch();
+                runBatchSafe();
             }, EPG_BACKGROUND_WARM_TIMER_DELAY_MS);
         };
 
@@ -1212,6 +1226,13 @@ export class EPGCoordinator {
                 }
                 if ((error as { name?: string }).name === 'AbortError') {
                     return;
+                }
+                if (this._isDebugEnabled()) {
+                    appendEpgDebugLog('EPG.refreshEpgSchedulesForRange.channelLoad.error', {
+                        channelId: channel.id,
+                        phase,
+                        error: summarizeErrorForLog(error),
+                    });
                 }
             } finally {
                 const active = this._epgScheduleInFlight.get(channel.id);
