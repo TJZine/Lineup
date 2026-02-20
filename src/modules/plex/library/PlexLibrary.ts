@@ -246,8 +246,13 @@ export class PlexLibrary implements IPlexLibrary {
         let offset = options.offset ?? 0;
         const pageSize = options.limit ?? PLEX_LIBRARY_CONSTANTS.DEFAULT_PAGE_SIZE;
         let hasMore = true;
+        let pageCounter = 0;
 
         while (hasMore) {
+            if (++pageCounter > PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS) {
+                this._logger.warn(`[PlexLibrary] Pagination circuit breaker tripped after ${pageCounter} iterations in getLibraryItems`);
+                break;
+            }
             const params: Record<string, string | number> = {
                 'X-Plex-Container-Start': offset,
                 'X-Plex-Container-Size': pageSize,
@@ -415,8 +420,13 @@ export class PlexLibrary implements IPlexLibrary {
         const allEpisodes: PlexMediaItem[] = [];
         let offset = 0;
         let totalSize: number | null = null;
+        let pageCounter = 0;
 
         while (true) {
+            if (++pageCounter > PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS) {
+                this._logger.warn(`[PlexLibrary] Pagination circuit breaker tripped after ${pageCounter} iterations in getShowEpisodes`);
+                break;
+            }
             const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_METADATA_ALL_LEAVES(showKey), {
                 'X-Plex-Container-Start': offset,
                 'X-Plex-Container-Size': PLEX_LIBRARY_CONSTANTS.ALL_LEAVES_PAGE_SIZE,

@@ -427,6 +427,34 @@ describe('PlexLibrary', () => {
                 expect.any(Object)
             );
         });
+
+        it('should break out of pagination loop if MAX_PAGINATION_ITERATIONS is exceeded', async () => {
+            const page = {
+                MediaContainer: {
+                    // Return exactly matching the default page size (100) to keep hasMore=true
+                    Metadata: Array(100).fill(mockMediaItemResponse.MediaContainer.Metadata[0])
+                }
+            };
+
+            // Mock fetch to always return a full page infinite times
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: () => null },
+                json: async () => page,
+                text: async () => JSON.stringify(page),
+            });
+
+            const warn = jest.fn();
+            const library = new PlexLibrary({ ...mockConfig, logger: { warn, error: console.error } });
+
+            // Limit must not be specified so it defaults to pageSize=100 which matches pageItems length
+            const items = await library.getLibraryItems('infinite-lib');
+
+            expect(fetch).toHaveBeenCalledTimes(1000);
+            expect(warn).toHaveBeenCalledWith(expect.stringContaining('Pagination circuit breaker tripped'));
+            expect(items).toHaveLength(100000); // 100 items * 1000 pages
+        });
     });
 
     describe('getItem', () => {
@@ -590,6 +618,31 @@ describe('PlexLibrary', () => {
                 expect.stringContaining('X-Plex-Container-Start=2'),
                 expect.any(Object)
             );
+        });
+
+        it('should break out of pagination loop if MAX_PAGINATION_ITERATIONS is exceeded', async () => {
+            const page = {
+                MediaContainer: {
+                    // Return exactly ALL_LEAVES_PAGE_SIZE items (5000) so it queries again
+                    Metadata: Array(5000).fill({ ratingKey: 'e1', key: '/e1', type: 'episode', title: 'S1E1', duration: 2700000 })
+                }
+            };
+
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: () => null },
+                json: async () => page,
+                text: async () => JSON.stringify(page),
+            });
+
+            const warn = jest.fn();
+            const library = new PlexLibrary({ ...mockConfig, logger: { warn, error: console.error } });
+            const episodes = await library.getShowEpisodes('infinite-show');
+
+            expect(fetch).toHaveBeenCalledTimes(1000);
+            expect(warn).toHaveBeenCalledWith(expect.stringContaining('Pagination circuit breaker tripped'));
+            expect(episodes).toHaveLength(5000000); // 5000 * 1000
         });
     });
 

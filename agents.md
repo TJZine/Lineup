@@ -10,6 +10,7 @@
 - **Evidence accuracy**: Do not claim files were changed, commands were run, or tests passed unless you actually observed it in this workspace. Prefer “I ran `…` and it returned `…`” over vague assertions.
 - **Default workflow = 3-agent loop**: Prefer Plan → Code → Review. Reference `docs/AGENTIC_DEV_WORKFLOW.md`.
 - **Verification gate**: For UI/navigation/Orchestrator/Plex work, run `npm run verify` before concluding.
+- **Test policy** When a unit test fails, first ask yourself: is this exposing a real bug in the production code — or is the test itself flawed?
 - **Pre-MVP path policy**: Until an explicit milestone is reached (e.g., MVP launch) as declared by the project lead, or explicitly requested and approved by the project maintainer/tech lead, do not add legacy/fallback/compatibility code paths, migration shims, or dual-path "just in case" logic.
 
 ## Standard Flow

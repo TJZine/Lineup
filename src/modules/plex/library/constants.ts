@@ -31,6 +31,9 @@ export const PLEX_LIBRARY_CONSTANTS = {
 
     /** Page size for fetching all leaves (episodes) of a show */
     ALL_LEAVES_PAGE_SIZE: 5000,
+
+    /** Max iterations for any pagination loop to prevent infinite loops */
+    MAX_PAGINATION_ITERATIONS: 1000,
 } as const;
 
 /**
