@@ -1144,11 +1144,11 @@ export class ChannelManager implements IChannelManager {
 
             // Access denied (403): profile lacks library permission.
             // Do NOT use stale cache — the 403 persists for the entire session.
-            // Note: this must run after the isContentUnavailableError check above,
-            // which won't match ACCESS_DENIED errors (different code string).
+            // Note: isContentUnavailableError() and isAccessDeniedError() are mutually exclusive
+            // (they check different AppErrorCode values), so ordering here is not load-bearing.
             if (isAccessDeniedError(error)) {
                 throw new ChannelError(
-                    AppErrorCode.CONTENT_UNAVAILABLE,
+                    AppErrorCode.ACCESS_DENIED,
                     `Profile does not have access to this channel's content library`,
                     false // non-recoverable within this profile session
                 );

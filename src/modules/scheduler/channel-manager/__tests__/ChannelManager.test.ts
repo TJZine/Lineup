@@ -398,7 +398,7 @@ describe('ChannelManager', () => {
             expect(channel.itemCount).toBe(0);
         });
 
-        it('should throw CONTENT_UNAVAILABLE when library returns ACCESS_DENIED (403)', async () => {
+        it('should throw ACCESS_DENIED when library returns ACCESS_DENIED (403)', async () => {
             // First create a channel successfully
             const channel = await manager.createChannel({
                 contentSource: createMockContentSource(),
@@ -415,7 +415,7 @@ describe('ChannelManager', () => {
                 await manager.refreshChannelContent(channel.id);
                 fail('Expected error to be thrown');
             } catch (error) {
-                expect(error).toHaveProperty('code', AppErrorCode.CONTENT_UNAVAILABLE);
+                expect(error).toHaveProperty('code', AppErrorCode.ACCESS_DENIED);
                 expect(error).toHaveProperty('recoverable', false);
             }
         });

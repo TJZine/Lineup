@@ -77,6 +77,8 @@ export const ERROR_MESSAGES = {
     PLEX_UNREACHABLE: 'Cannot connect to Plex server',
     DATA_CORRUPTION: 'Settings were reset',
     PLAYBACK_FAILED: 'Unable to play content',
+    CONTENT_UNAVAILABLE: 'That content is unavailable right now.',
+    ACCESS_DENIED: 'This profile does not have access to that library.',
     OUT_OF_MEMORY: 'App needs to restart',
     STORAGE_QUOTA_EXCEEDED: 'Storage full - some settings may not be saved',
     MODULE_INIT_FAILED: 'App failed to start. Please try again.',
