@@ -121,3 +121,28 @@
 .theme-swiss .epg-info-genres {
   font-size: 16px;
 }
+
+.theme-glass {
+  --focus-color: #ffffff;
+  --focus-color-rgb: 255, 255, 255;
+
+  --color-primary: #ffffff;
+  --color-primary-rgb: 255 255 255;
+
+  --color-bg-deep: transparent;
+  --color-bg-surface: rgba(255, 255, 255, 0.05);
+  --color-bg-elevated: rgba(255, 255, 255, 0.10);
+  --color-bg-overlay: rgba(0, 0, 0, 0.40);
+
+  --panel-surface: rgba(20, 20, 25, 0.60);
+  --panel-surface-2: rgba(30, 30, 35, 0.70);
+  --panel-border: 1px solid rgba(255, 255, 255, 0.15);
+  --panel-radius: 24px;
+
+  --transition-normal: 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --epg-info-panel-fade-to: var(--panel-surface-2);
+  --panel-inner-glow: linear-gradient(180deg, rgba(255, 255, 255, 0.10), transparent);
+
+  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.50);
+  --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.60);
+}
