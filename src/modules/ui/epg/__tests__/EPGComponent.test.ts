@@ -56,10 +56,10 @@ describe('EPGComponent', () => {
         });
 
         try {
-            const dashboard = localContainer.querySelector('.epg-dashboard-bottom') as HTMLElement | null;
+            const dashboard = localContainer.querySelector(`.${EPG_CLASSES.DASHBOARD_BOTTOM}`) as HTMLElement | null;
             expect(dashboard).not.toBeNull();
-            expect(dashboard?.querySelector(`.${EPG_CLASSES.NOW_WATCHING_BANNER}`)).not.toBeNull();
-            expect(dashboard?.querySelector(`.${EPG_CLASSES.INFO_PANEL}`)).not.toBeNull();
+            expect(dashboard!.querySelector(`.${EPG_CLASSES.NOW_WATCHING_BANNER}`)).not.toBeNull();
+            expect(dashboard!.querySelector(`.${EPG_CLASSES.INFO_PANEL}`)).not.toBeNull();
         } finally {
             localEpg.destroy();
             localContainer.remove();

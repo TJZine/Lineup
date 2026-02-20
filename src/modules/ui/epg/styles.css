@@ -89,7 +89,6 @@
 .epg-now-watching-banner {
   display: flex;
   align-items: center;
-
   gap: 16px;
   padding: 10px 16px;
   background: rgba(0, 0, 0, 0.72);
@@ -907,10 +906,23 @@
   backdrop-filter: blur(40px);
 }
 
-/* Fade out grids before they hit the dashboard */
+/* Fade out grid bottom before it hits the dashboard.
+   Use a ::after overlay instead of mask-image so interactive rows
+   in the fade zone remain visible for focus/hit-testing on TV hardware. */
 .theme-glass .epg-grid {
-  -webkit-mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
-  mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+  position: relative;
+}
+
+.theme-glass .epg-grid::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 20%;
+  background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.6));
+  pointer-events: none;
+  z-index: 5;
 }
 
 /* Inner panels go transparent to let blur do the work */

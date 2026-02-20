@@ -148,7 +148,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this.virtualizer.initialize(this.programAreaElement, this.config, this.state.gridAnchorTime);
             this.timeHeader.initialize(this.gridElement, this.config, this.state.gridAnchorTime);
             this.channelList.initialize(this.gridElement, this.config);
-            const dashboard = this.containerElement.querySelector('.epg-dashboard-bottom') as HTMLElement | null;
+            const dashboard = this.containerElement.querySelector(`.${EPG_CLASSES.DASHBOARD_BOTTOM}`) as HTMLElement | null;
             if (!dashboard) {
                 throw new Error('EPG dashboard container element not found');
             }
@@ -313,7 +313,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
       <div class="${EPG_CLASSES.GRID}">
         <div class="${EPG_CLASSES.PROGRAM_AREA}"></div>
       </div>
-      <div class="epg-dashboard-bottom">
+      <div class="${EPG_CLASSES.DASHBOARD_BOTTOM}">
         <div class="${EPG_CLASSES.NOW_WATCHING_BANNER}" aria-live="polite">
           <span class="${EPG_CLASSES.NOW_WATCHING_CHANNEL}"></span>
           <span class="${EPG_CLASSES.NOW_WATCHING_PROGRAM}"></span>
