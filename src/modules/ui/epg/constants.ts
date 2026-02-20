@@ -87,6 +87,7 @@ export const EPG_CLASSES = {
     INFO_DESCRIPTION: 'epg-info-description',
     INFO_QUALITY: 'epg-info-quality',
     INFO_QUALITY_BADGE: 'epg-info-quality-badge',
+    DASHBOARD_BOTTOM: 'epg-dashboard-bottom',
     CHANNEL_LIST_WRAP_FLASH: 'wrap-flash',
     NOW_WATCHING_BANNER: 'epg-now-watching-banner',
     NOW_WATCHING_CHANNEL: 'epg-now-watching-channel',
@@ -99,6 +100,7 @@ export const EPG_CLASSES = {
  */
 export const EPG_ERRORS = {
     CONTAINER_NOT_FOUND: 'EPG container element not found',
+    DASHBOARD_CONTAINER_NOT_FOUND: 'EPG dashboard container element not found',
     NO_CHANNELS_LOADED: 'No channels loaded',
     SCHEDULE_NOT_LOADED: 'Schedule not loaded for channel',
     INVALID_CHANNEL_INDEX: 'Invalid channel index',

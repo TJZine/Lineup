@@ -148,7 +148,11 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this.virtualizer.initialize(this.programAreaElement, this.config, this.state.gridAnchorTime);
             this.timeHeader.initialize(this.gridElement, this.config, this.state.gridAnchorTime);
             this.channelList.initialize(this.gridElement, this.config);
-            this.infoPanel.initialize(this.containerElement);
+            const dashboard = this.containerElement.querySelector(`.${EPG_CLASSES.DASHBOARD_BOTTOM}`) as HTMLElement | null;
+            if (!dashboard) {
+                throw new Error(EPG_ERRORS.DASHBOARD_CONTAINER_NOT_FOUND);
+            }
+            this.infoPanel.initialize(dashboard);
             // Keep the key legend at the very bottom (below the info panel).
             const legend = this.containerElement.querySelector(`.${EPG_CLASSES.LEGEND}`);
             if (legend) {
@@ -306,13 +310,15 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         this.containerElement.className = EPG_CLASSES.CONTAINER;
         this.containerElement.innerHTML = `
-      <div class="${EPG_CLASSES.NOW_WATCHING_BANNER}" aria-live="polite">
-        <span class="${EPG_CLASSES.NOW_WATCHING_CHANNEL}"></span>
-        <span class="${EPG_CLASSES.NOW_WATCHING_PROGRAM}"></span>
-        <span class="${EPG_CLASSES.NOW_WATCHING_TIME}"></span>
-      </div>
       <div class="${EPG_CLASSES.GRID}">
         <div class="${EPG_CLASSES.PROGRAM_AREA}"></div>
+      </div>
+      <div class="${EPG_CLASSES.DASHBOARD_BOTTOM}">
+        <div class="${EPG_CLASSES.NOW_WATCHING_BANNER}" aria-live="polite">
+          <span class="${EPG_CLASSES.NOW_WATCHING_CHANNEL}"></span>
+          <span class="${EPG_CLASSES.NOW_WATCHING_PROGRAM}"></span>
+          <span class="${EPG_CLASSES.NOW_WATCHING_TIME}"></span>
+        </div>
       </div>
       <div class="${EPG_CLASSES.LEGEND}" aria-hidden="true">
         <div class="epg-legend-item"><span class="epg-legend-key">PLAY</span><span class="epg-legend-text">Jump to Now</span></div>

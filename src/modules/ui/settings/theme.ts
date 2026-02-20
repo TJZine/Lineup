@@ -8,6 +8,7 @@ export const THEME_CLASSES = {
     broadcast: 'theme-broadcast',
     swiss: 'theme-swiss',
     directv: 'theme-directv',
+    glass: 'theme-glass',
 } as const;
 
 export type ThemeName = keyof typeof THEME_CLASSES;
@@ -19,11 +20,12 @@ const THEME_LABELS = {
     broadcast: 'Broadcast Blue',
     swiss: 'Swiss Minimal',
     directv: 'DirecTV Classic',
+    glass: 'Glassmorphism (Premium)',
 } as const satisfies Record<ThemeName, string>;
 
 // IMPORTANT: Keep this list exhaustive. If you add a theme, TypeScript should fail compilation
 // until THEME_ORDER includes it (prevents themes silently disappearing from THEME_OPTIONS).
-const THEME_ORDER_RAW = ['obsidian', 'broadcast', 'swiss', 'directv'] as const satisfies ReadonlyArray<ThemeName>;
+const THEME_ORDER_RAW = ['obsidian', 'broadcast', 'swiss', 'directv', 'glass'] as const satisfies ReadonlyArray<ThemeName>;
 const THEME_ORDER = Object.freeze(THEME_ORDER_RAW);
 
 type MissingThemes = Exclude<ThemeName, (typeof THEME_ORDER_RAW)[number]>;

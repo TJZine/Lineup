@@ -29,25 +29,21 @@
 }
 
 .epg-container.layout-classic.peek .epg-grid,
-.epg-container.layout-classic.peek .epg-info-panel,
-.epg-container.layout-classic.peek .epg-now-watching-banner,
+.epg-container.layout-classic.peek .epg-dashboard-bottom,
 .epg-container.layout-classic.peek .epg-legend {
   padding-right: var(--pip-safe-right);
 }
 
-.epg-container.layout-classic.peek .epg-grid,
-.epg-container.layout-classic.peek .epg-now-watching-banner {
+.epg-container.layout-classic.peek .epg-grid {
   padding-top: var(--pip-safe-top);
 }
 
 .epg-container.peek {
-  background: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0.55) 0%,
-    rgba(0, 0, 0, 0.78) 35%,
-    rgba(0, 0, 0, 0.92) 60%,
-    rgba(0, 0, 0, 0.96) 100%
-  );
+  background: linear-gradient(to bottom,
+      rgba(0, 0, 0, 0.55) 0%,
+      rgba(0, 0, 0, 0.78) 35%,
+      rgba(0, 0, 0, 0.92) 60%,
+      rgba(0, 0, 0, 0.96) 100%);
 }
 
 .epg-container.visible {
@@ -60,6 +56,7 @@
     opacity: 0;
     transform: translate3d(-24px, 0, 0);
   }
+
   to {
     opacity: 1;
     transform: translate3d(0, 0, 0);
@@ -73,14 +70,28 @@
   }
 }
 
+/* Dashboard Zone */
+.epg-dashboard-bottom {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 10;
+  background: var(--panel-surface);
+  border-top: 1px solid var(--color-border-default);
+}
+
+.epg-dashboard-bottom .epg-now-watching-banner {
+  background: transparent;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
 /* Now Watching Banner */
 .epg-now-watching-banner {
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 10px 16px;
-  background: rgba(0, 0, 0, 0.72);
-  border-bottom: 1px solid var(--color-border-subtle);
+  background: transparent;
   font-size: var(--text-sm);
   color: var(--color-text-primary);
   flex-shrink: 0;
@@ -220,15 +231,41 @@
   border-left-style: solid;
 }
 
-.epg-channel-row[data-build-strategy="collections"] { border-left-color: var(--epg-category-collections); }
-.epg-channel-row[data-build-strategy="playlists"] { border-left-color: var(--epg-category-playlists); }
-.epg-channel-row[data-build-strategy="genres"] { border-left-color: var(--epg-category-genres); }
-.epg-channel-row[data-build-strategy="directors"] { border-left-color: var(--epg-category-directors); }
-.epg-channel-row[data-build-strategy="decades"] { border-left-color: var(--epg-category-decades); }
-.epg-channel-row[data-build-strategy="recentlyAdded"] { border-left-color: var(--epg-category-recently-added); }
-.epg-channel-row[data-build-strategy="studios"] { border-left-color: var(--epg-category-studios); }
-.epg-channel-row[data-build-strategy="actors"] { border-left-color: var(--epg-category-actors); }
-.epg-channel-row[data-build-strategy="libraryFallback"] { border-left-color: var(--epg-category-library); }
+.epg-channel-row[data-build-strategy="collections"] {
+  border-left-color: var(--epg-category-collections);
+}
+
+.epg-channel-row[data-build-strategy="playlists"] {
+  border-left-color: var(--epg-category-playlists);
+}
+
+.epg-channel-row[data-build-strategy="genres"] {
+  border-left-color: var(--epg-category-genres);
+}
+
+.epg-channel-row[data-build-strategy="directors"] {
+  border-left-color: var(--epg-category-directors);
+}
+
+.epg-channel-row[data-build-strategy="decades"] {
+  border-left-color: var(--epg-category-decades);
+}
+
+.epg-channel-row[data-build-strategy="recentlyAdded"] {
+  border-left-color: var(--epg-category-recently-added);
+}
+
+.epg-channel-row[data-build-strategy="studios"] {
+  border-left-color: var(--epg-category-studios);
+}
+
+.epg-channel-row[data-build-strategy="actors"] {
+  border-left-color: var(--epg-category-actors);
+}
+
+.epg-channel-row[data-build-strategy="libraryFallback"] {
+  border-left-color: var(--epg-category-library);
+}
 
 .epg-channel-number {
   font-size: var(--text-md);
@@ -514,12 +551,10 @@
   position: absolute;
   left: 12px;
   border-radius: 4px;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.16) 50%,
-    rgba(255, 255, 255, 0.08) 100%
-  );
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0.08) 0%,
+      rgba(255, 255, 255, 0.16) 50%,
+      rgba(255, 255, 255, 0.08) 100%);
   animation: epg-loading-shimmer 1.2s ease-in-out infinite;
 }
 
@@ -550,8 +585,10 @@
 
 /* Windows High Contrast Mode support */
 @media (forced-colors: active) {
-  .epg-cell.focused {
+  .epg-cell.focused,
+  .epg-cell:focus-visible {
     outline: 3px solid CanvasText;
+    outline-offset: 2px;
   }
 }
 
@@ -571,12 +608,14 @@
   0% {
     transform: translateX(-30%);
   }
+
   100% {
     transform: translateX(30%);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .epg-cell.loading::before,
   .epg-cell.loading::after {
     animation: none;
@@ -669,10 +708,13 @@
 }
 
 @keyframes live-pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
+
   50% {
     opacity: 0.6;
     transform: scale(1.6);
@@ -683,7 +725,7 @@
   margin-top: 20px;
 }
 
-.epg-cell.current .epg-cell-show:empty + .epg-cell-title {
+.epg-cell.current .epg-cell-show:empty+.epg-cell-title {
   margin-top: 20px;
 }
 
@@ -856,4 +898,115 @@
 
 .epg-info-button.primary {
   background: var(--color-primary);
+}
+
+/* Premium glass: overall container surface */
+.theme-glass .epg-container {
+  background: rgba(0, 0, 0, 0.4);
+  -webkit-backdrop-filter: blur(40px);
+  backdrop-filter: blur(40px);
+}
+
+/* Fade out grid bottom before it hits the dashboard.
+   Use a ::after overlay instead of mask-image so interactive rows
+   in the fade zone remain visible for focus/hit-testing on TV hardware. */
+.theme-glass .epg-grid {
+  position: relative;
+}
+
+.theme-glass .epg-grid::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 20%;
+  background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.6));
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Inner panels go transparent to let blur do the work */
+.theme-glass .epg-channel-list,
+.theme-glass .epg-time-header,
+.theme-glass .epg-library-tabs {
+  background: transparent;
+  border-right: none;
+  border-bottom: none;
+}
+
+/* Dashboard surface */
+.theme-glass .epg-dashboard-bottom {
+  background: rgba(20, 20, 25, 0.4);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Pills: program cells */
+.theme-glass .epg-cell {
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: var(--shadow-sm);
+}
+
+.theme-glass .epg-cell.focused {
+  background: rgba(255, 255, 255, 0.20);
+  border: 1px solid rgba(255, 255, 255, 0.80);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.40);
+  outline: none;
+}
+
+/* Forced-colors: restore focus outline for glass theme (higher specificity than base `.epg-cell.focused`). */
+@media (forced-colors: active) {
+  .theme-glass .epg-cell.focused {
+    outline: 3px solid CanvasText;
+    outline-offset: 2px;
+  }
+}
+
+/*
+  Pills: channel rows without margins (virtualization-safe).
+  Use an inset pseudo-element for the "floating pill" look without changing rowHeight.
+*/
+.theme-glass .epg-channel-row {
+  position: relative;
+  border-bottom: none;
+  background: transparent;
+}
+
+.theme-glass .epg-channel-row::before {
+  content: '';
+  position: absolute;
+  inset: 4px 8px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.theme-glass .epg-channel-row > * {
+  position: relative;
+  z-index: 1;
+}
+
+.theme-glass .epg-channel-row.focused {
+  box-shadow: none;
+}
+
+.theme-glass .epg-channel-row.focused::before {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.20);
+}
+
+/* Premium "laser" current time */
+.theme-glass .epg-time-indicator {
+  background: #00e5ff;
+  box-shadow: 0 0 10px #00e5ff;
+}
+
+.theme-glass .epg-time-indicator::after {
+  background: #00e5ff;
+  color: #000;
 }

@@ -50,6 +50,22 @@ describe('EPGComponent', () => {
         expect(container.lastElementChild).toBe(legend);
     });
 
+    it('renders a bottom dashboard wrapper containing banner + info panel', () => {
+        const { epg: localEpg, container: localContainer } = createEpgInstance({
+            containerId: 'epg-container-dashboard-structure',
+        });
+
+        try {
+            const dashboard = localContainer.querySelector(`.${EPG_CLASSES.DASHBOARD_BOTTOM}`) as HTMLElement | null;
+            expect(dashboard).not.toBeNull();
+            expect(dashboard!.querySelector(`.${EPG_CLASSES.NOW_WATCHING_BANNER}`)).not.toBeNull();
+            expect(dashboard!.querySelector(`.${EPG_CLASSES.INFO_PANEL}`)).not.toBeNull();
+        } finally {
+            localEpg.destroy();
+            localContainer.remove();
+        }
+    });
+
     const createMockChannel = (index: number): ChannelConfig => ({
         id: `ch${index}`,
         number: index + 1,

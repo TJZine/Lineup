@@ -1221,10 +1221,7 @@ export class EPGCoordinator {
 
                 applySchedule(channel.id, { startTime, endTime, programs }, { phase });
             } catch (error) {
-                if (controller.signal.aborted) {
-                    return;
-                }
-                if ((error as { name?: string }).name === 'AbortError') {
+                if (isAbortLikeError(error, controller.signal)) {
                     return;
                 }
                 if (this._isDebugEnabled()) {

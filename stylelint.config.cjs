@@ -22,6 +22,9 @@ module.exports = {
 
         // Keep initial rollout low-friction; tighten later once the rule budget is stable.
         'no-descending-specificity': null,
+
+        // Allow targeted WebKit enhancement for webOS while keeping the rule on elsewhere.
+        'property-no-vendor-prefix': [true, { ignoreProperties: ['/^(-webkit-)?backdrop-filter$/i'] }],
     },
     ignoreFiles: ['dist/**', 'dist-ts/**', 'coverage/**', 'node_modules/**'],
 };

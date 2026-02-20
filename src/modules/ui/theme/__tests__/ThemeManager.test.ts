@@ -51,4 +51,15 @@ describe('ThemeManager', () => {
         expect(document.body.classList.contains('theme-directv')).toBe(true);
         expect(document.body.classList.contains('theme-swiss')).toBe(false);
     });
+
+    it('applies glass theme and removes previous theme class', () => {
+        localStorage.setItem(RETUNE_STORAGE_KEYS.THEME, 'directv');
+
+        const manager = ThemeManager.getInstance();
+        expect(document.body.classList.contains('theme-directv')).toBe(true);
+
+        manager.setTheme('glass');
+        expect(document.body.classList.contains('theme-glass')).toBe(true);
+        expect(document.body.classList.contains('theme-directv')).toBe(false);
+    });
 });
