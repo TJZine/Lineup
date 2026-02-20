@@ -523,6 +523,30 @@ describe('PlexLibrary', () => {
             expect(episodes[2]!.episodeNumber).toBe(1);
         });
 
+        it('should sort episodes when allLeaves mid-pagination fetch returns null', async () => {
+            // Arrange
+            const page1 = {
+                MediaContainer: {
+                    totalSize: 4,
+                    Metadata: [
+                        { ratingKey: 'e2', key: '/e2', type: 'episode', title: 'S1E2', parentIndex: 1, index: 2, duration: 2700000 },
+                        { ratingKey: 'e1', key: '/e1', type: 'episode', title: 'S1E1', parentIndex: 1, index: 1, duration: 2700000 },
+                    ],
+                },
+            };
+            mockFetchSequence([{ json: page1 }, { json: { error: 'Not found' }, status: 404 }]);
+            const library = new PlexLibrary(mockConfig);
+
+            // Act
+            const episodes = await library.getShowEpisodes('show1');
+
+            // Assert
+            expect(episodes).toHaveLength(2);
+            expect(fetch).toHaveBeenCalledTimes(2);
+            expect(episodes[0]!.episodeNumber).toBe(1);
+            expect(episodes[1]!.episodeNumber).toBe(2);
+        });
+
         it('should return empty array when allLeaves returns null', async () => {
             mockFetchJson({ error: 'Not found' }, 404);
 

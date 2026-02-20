@@ -28,6 +28,9 @@ export const PLEX_LIBRARY_CONSTANTS = {
 
     /** Default rate limit delay when Retry-After header is missing (seconds) */
     DEFAULT_RATE_LIMIT_DELAY: 5,
+
+    /** Page size for fetching all leaves (episodes) of a show */
+    ALL_LEAVES_PAGE_SIZE: 5000,
 } as const;
 
 /**

@@ -412,7 +412,6 @@ export class PlexLibrary implements IPlexLibrary {
      * @returns Promise resolving to all episodes sorted by season/episode
      */
     async getShowEpisodes(showKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]> {
-        const ALL_LEAVES_PAGE_SIZE = 5000;
         const allEpisodes: PlexMediaItem[] = [];
         let offset = 0;
         let totalSize: number | null = null;
@@ -420,14 +419,14 @@ export class PlexLibrary implements IPlexLibrary {
         while (true) {
             const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_METADATA_ALL_LEAVES(showKey), {
                 'X-Plex-Container-Start': offset,
-                'X-Plex-Container-Size': ALL_LEAVES_PAGE_SIZE,
+                'X-Plex-Container-Size': PLEX_LIBRARY_CONSTANTS.ALL_LEAVES_PAGE_SIZE,
             });
             const response = await this._fetchWithRetry<PlexMediaContainer<RawMediaItem>>(url, {
                 signal: options?.signal ?? null,
             });
 
             if (!response) {
-                return allEpisodes.length > 0 ? allEpisodes : [];
+                break;
             }
 
             const reportedTotal = response.MediaContainer.totalSize;
@@ -452,7 +451,7 @@ export class PlexLibrary implements IPlexLibrary {
             }
 
             // Fallback when totalSize is unavailable.
-            if (pageEpisodes.length < ALL_LEAVES_PAGE_SIZE) {
+            if (pageEpisodes.length < PLEX_LIBRARY_CONSTANTS.ALL_LEAVES_PAGE_SIZE) {
                 break;
             }
         }
