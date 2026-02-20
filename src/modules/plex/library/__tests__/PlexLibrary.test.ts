@@ -135,24 +135,6 @@ const mockMediaItemResponse = {
     },
 };
 
-const mockShowSeasonsResponse = {
-    MediaContainer: {
-        Metadata: [
-            { ratingKey: 's1', key: '/library/metadata/s1/children', title: 'Season 1', index: 1, leafCount: 10, viewedLeafCount: 5, thumb: '/s1/thumb' },
-            { ratingKey: 's2', key: '/library/metadata/s2/children', title: 'Season 2', index: 2, leafCount: 8, viewedLeafCount: 0 },
-        ],
-    },
-};
-
-const mockEpisodesResponse = {
-    MediaContainer: {
-        Metadata: [
-            { ratingKey: 'e1', key: '/library/metadata/e1', type: 'episode', title: 'Pilot', parentIndex: 1, index: 1, duration: 2700000 },
-            { ratingKey: 'e2', key: '/library/metadata/e2', type: 'episode', title: 'Episode 2', parentIndex: 1, index: 2, duration: 2700000 },
-        ],
-    },
-};
-
 const mockCollectionsResponse = {
     MediaContainer: {
         Metadata: [
@@ -445,6 +427,34 @@ describe('PlexLibrary', () => {
                 expect.any(Object)
             );
         });
+
+        it('should break out of pagination loop if MAX_PAGINATION_ITERATIONS is exceeded', async () => {
+            const page = {
+                MediaContainer: {
+                    // Return exactly matching the default page size (100) to keep hasMore=true
+                    Metadata: Array(100).fill(mockMediaItemResponse.MediaContainer.Metadata[0])
+                }
+            };
+
+            // Mock fetch to always return a full page infinite times
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: () => null },
+                json: async () => page,
+                text: async () => JSON.stringify(page),
+            });
+
+            const warn = jest.fn();
+            const library = new PlexLibrary({ ...mockConfig, logger: { warn, error: console.error } });
+
+            // Limit must not be specified so it defaults to pageSize=100 which matches pageItems length
+            const items = await library.getLibraryItems('infinite-lib');
+
+            expect(fetch).toHaveBeenCalledTimes(1000);
+            expect(warn).toHaveBeenCalledWith(expect.stringContaining('Pagination circuit breaker tripped after maximum allowed (1000) iterations'));
+            expect(items).toHaveLength(100000); // 100 items * 1000 pages
+        });
     });
 
     describe('getItem', () => {
@@ -495,41 +505,40 @@ describe('PlexLibrary', () => {
     });
 
     describe('getShowEpisodes', () => {
-        it('should fetch all episodes across seasons', async () => {
-            mockFetchSequence([
-                { json: mockShowSeasonsResponse },
-                { json: mockEpisodesResponse },
-                { json: mockEpisodesResponse },
-            ]);
+        it('should fetch all episodes via allLeaves endpoint in a single call', async () => {
+            const allLeavesResponse = {
+                MediaContainer: {
+                    Metadata: [
+                        { ratingKey: 'e1', key: '/e1', type: 'episode', title: 'S1E1', parentIndex: 1, index: 1, duration: 2700000 },
+                        { ratingKey: 'e2', key: '/e2', type: 'episode', title: 'S1E2', parentIndex: 1, index: 2, duration: 2700000 },
+                        { ratingKey: 'e3', key: '/e3', type: 'episode', title: 'S2E1', parentIndex: 2, index: 1, duration: 2700000 },
+                    ],
+                },
+            };
+            mockFetchJson(allLeavesResponse);
 
             const library = new PlexLibrary(mockConfig);
             const episodes = await library.getShowEpisodes('show1');
 
-            expect(episodes).toHaveLength(4); // 2 seasons x 2 episodes
+            expect(episodes).toHaveLength(3);
+            expect(fetch).toHaveBeenCalledTimes(1);
+            expect(fetch).toHaveBeenCalledWith(
+                expect.stringContaining('/library/metadata/show1/allLeaves'),
+                expect.any(Object)
+            );
         });
 
         it('should sort episodes by season and episode number', async () => {
-            const season1Episodes = {
+            const unorderedResponse = {
                 MediaContainer: {
                     Metadata: [
+                        { ratingKey: 'e3', key: '/e3', type: 'episode', title: 'S2E1', parentIndex: 2, index: 1, duration: 2700000 },
                         { ratingKey: 'e2', key: '/e2', type: 'episode', title: 'S1E2', parentIndex: 1, index: 2, duration: 2700000 },
                         { ratingKey: 'e1', key: '/e1', type: 'episode', title: 'S1E1', parentIndex: 1, index: 1, duration: 2700000 },
                     ],
                 },
             };
-            const season2Episodes = {
-                MediaContainer: {
-                    Metadata: [
-                        { ratingKey: 'e3', key: '/e3', type: 'episode', title: 'S2E1', parentIndex: 2, index: 1, duration: 2700000 },
-                    ],
-                },
-            };
-
-            mockFetchSequence([
-                { json: mockShowSeasonsResponse },
-                { json: season1Episodes },
-                { json: season2Episodes },
-            ]);
+            mockFetchJson(unorderedResponse);
 
             const library = new PlexLibrary(mockConfig);
             const episodes = await library.getShowEpisodes('show1');
@@ -540,6 +549,104 @@ describe('PlexLibrary', () => {
             expect(episodes[1]!.episodeNumber).toBe(2);
             expect(episodes[2]!.seasonNumber).toBe(2);
             expect(episodes[2]!.episodeNumber).toBe(1);
+        });
+
+        it('should sort episodes when allLeaves mid-pagination fetch returns null', async () => {
+            // Arrange
+            const page1 = {
+                MediaContainer: {
+                    totalSize: 4,
+                    Metadata: [
+                        { ratingKey: 'e2', key: '/e2', type: 'episode', title: 'S1E2', parentIndex: 1, index: 2, duration: 2700000 },
+                        { ratingKey: 'e1', key: '/e1', type: 'episode', title: 'S1E1', parentIndex: 1, index: 1, duration: 2700000 },
+                    ],
+                },
+            };
+            mockFetchSequence([{ json: page1 }, { json: { error: 'Not found' }, status: 404 }]);
+            const library = new PlexLibrary(mockConfig);
+
+            // Act
+            const episodes = await library.getShowEpisodes('show1');
+
+            // Assert
+            expect(episodes).toHaveLength(2);
+            expect(fetch).toHaveBeenCalledTimes(2);
+            expect(episodes[0]!.episodeNumber).toBe(1);
+            expect(episodes[1]!.episodeNumber).toBe(2);
+        });
+
+        it('should return empty array when allLeaves returns null', async () => {
+            mockFetchJson({ error: 'Not found' }, 404);
+
+            const library = new PlexLibrary(mockConfig);
+            const episodes = await library.getShowEpisodes('nonexistent');
+
+            expect(episodes).toEqual([]);
+        });
+
+        it('should page allLeaves when totalSize indicates truncation', async () => {
+            const page1 = {
+                MediaContainer: {
+                    totalSize: 4,
+                    Metadata: [
+                        { ratingKey: 'e1', key: '/e1', type: 'episode', title: 'S1E1', parentIndex: 1, index: 1, duration: 2700000 },
+                        { ratingKey: 'e2', key: '/e2', type: 'episode', title: 'S1E2', parentIndex: 1, index: 2, duration: 2700000 },
+                    ],
+                },
+            };
+            const page2 = {
+                MediaContainer: {
+                    totalSize: 4,
+                    Metadata: [
+                        { ratingKey: 'e3', key: '/e3', type: 'episode', title: 'S2E1', parentIndex: 2, index: 1, duration: 2700000 },
+                        { ratingKey: 'e4', key: '/e4', type: 'episode', title: 'S2E2', parentIndex: 2, index: 2, duration: 2700000 },
+                    ],
+                },
+            };
+            mockFetchSequence([{ json: page1 }, { json: page2 }]);
+
+            const library = new PlexLibrary(mockConfig);
+            const episodes = await library.getShowEpisodes('show1');
+
+            expect(episodes).toHaveLength(4);
+            expect(fetch).toHaveBeenCalledTimes(2);
+            expect(fetch).toHaveBeenCalledWith(
+                expect.stringContaining('X-Plex-Container-Start=0'),
+                expect.any(Object)
+            );
+            expect(fetch).toHaveBeenCalledWith(
+                expect.stringContaining('X-Plex-Container-Start=2'),
+                expect.any(Object)
+            );
+        });
+
+        it('should break out of pagination loop if MAX_PAGINATION_ITERATIONS is exceeded', async () => {
+            const page = {
+                MediaContainer: {
+                    totalSize: 5000,
+                    // Return only 2 items per loop to prevent OOM
+                    Metadata: [
+                        { ratingKey: 'e1', key: '/e1', type: 'episode', title: 'S1E1', duration: 2700000 },
+                        { ratingKey: 'e2', key: '/e2', type: 'episode', title: 'S1E2', duration: 2700000 }
+                    ]
+                }
+            };
+
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: () => null },
+                json: async () => page,
+                text: async () => JSON.stringify(page),
+            });
+
+            const warn = jest.fn();
+            const library = new PlexLibrary({ ...mockConfig, logger: { warn, error: console.error } });
+            const episodes = await library.getShowEpisodes('infinite-show');
+
+            expect(fetch).toHaveBeenCalledTimes(1000);
+            expect(warn).toHaveBeenCalledWith(expect.stringContaining('Pagination circuit breaker tripped after maximum allowed (1000) iterations'));
+            expect(episodes).toHaveLength(2000); // 2 * 1000
         });
     });
 

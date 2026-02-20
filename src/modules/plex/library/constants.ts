@@ -28,6 +28,12 @@ export const PLEX_LIBRARY_CONSTANTS = {
 
     /** Default rate limit delay when Retry-After header is missing (seconds) */
     DEFAULT_RATE_LIMIT_DELAY: 5,
+
+    /** Page size for fetching all leaves (episodes) of a show */
+    ALL_LEAVES_PAGE_SIZE: 5000,
+
+    /** Max iterations for any pagination loop to prevent infinite loops */
+    MAX_PAGINATION_ITERATIONS: 1000,
 } as const;
 
 /**
@@ -54,6 +60,9 @@ export const PLEX_ENDPOINTS = {
 
     /** Item children (append /{key}/children) */
     LIBRARY_METADATA_CHILDREN: (key: string) => `/library/metadata/${key}/children`,
+
+    /** All leaf items (episodes) for a show (append /{key}/allLeaves) */
+    LIBRARY_METADATA_ALL_LEAVES: (key: string) => `/library/metadata/${key}/allLeaves`,
 
     /** Collection children */
     COLLECTION_CHILDREN: (key: string) => `/library/collections/${key}/children`,
