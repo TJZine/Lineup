@@ -1818,11 +1818,10 @@ describe('AppOrchestrator', () => {
             await orchestrator.initialize(mockConfig);
         });
 
-        it('shows warning toast when channel manager emits persistenceWarning', () => {
+        it('shows warning toast when channel manager emits persistenceWarning', async () => {
             const toastHandler = jest.fn();
             orchestrator.setNowPlayingHandler(toastHandler);
-            const mutable = orchestrator as unknown as { _setupEventWiring: () => void };
-            mutable._setupEventWiring();
+            await orchestrator.start();
 
             channelManagerHandlers.persistenceWarning?.({
                 message: 'Storage full - some settings may not be saved',

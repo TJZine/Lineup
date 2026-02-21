@@ -63,6 +63,7 @@ export const ERROR_MESSAGES = {
     ACCESS_DENIED: 'This profile does not have access to that library',
     OUT_OF_MEMORY: 'App needs to restart',
     STORAGE_QUOTA_EXCEEDED: 'Storage full - some settings may not be saved',
+    PAGINATION_LIMIT_EXCEEDED: 'Unable to load all items from that library',
     MODULE_INIT_FAILED: 'App failed to start. Please try again',
     UNRECOVERABLE: 'A critical error occurred. Please restart the app',
 } as const;

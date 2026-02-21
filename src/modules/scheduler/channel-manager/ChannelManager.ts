@@ -254,6 +254,7 @@ export class ChannelManager implements IChannelManager {
     };
 
     private _state: ChannelManagerState;
+    private readonly _reportedPersistenceFailures = new WeakSet<object>();
     /** Issue 3 (Round 3): Pending retry queue for network errors */
     private readonly _pendingRetries: Map<string, ReturnType<typeof setTimeout>> = new Map();
     private static readonly RETRY_DELAY_MS = 30000; // 30 seconds
@@ -404,6 +405,7 @@ export class ChannelManager implements IChannelManager {
                 localStorage.setItem(this._currentChannelKey, this._state.currentChannelId);
             } catch (e) {
                 this._logger.warn('Failed to persist current channel', summarizeErrorForLog(e));
+                this._emitPersistenceWarning(e);
             }
         }
 
@@ -762,6 +764,7 @@ export class ChannelManager implements IChannelManager {
             localStorage.setItem(this._currentChannelKey, channelId);
         } catch (e) {
             this._logger.warn('Failed to persist current channel', summarizeErrorForLog(e));
+            this._emitPersistenceWarning(e);
         }
 
         const index = this._state.channelOrder.indexOf(channelId);
@@ -962,8 +965,7 @@ export class ChannelManager implements IChannelManager {
     private _runPendingSaveNow(): void {
         try {
             this._performSaveSync();
-            this._nextPersistenceWarningAt = 0;
-            this._persistenceWarningBackoffMs = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
+            this._onPersistenceSuccess();
             this._resolvePendingSave();
         } catch (error) {
             this._rejectPendingSave(error);
@@ -988,7 +990,27 @@ export class ChannelManager implements IChannelManager {
         }
         this._queuedSaveCatchPromise = pendingSave;
         void pendingSave.catch((error) => {
-            this._reportPersistenceFailure('Debounced save failed', error);
+            if (this._wasPersistenceFailureReported(error)) {
+                return;
+            }
+            this._markPersistenceFailureReported(error);
+
+            const didEmitWarning = this._emitPersistenceWarning(error);
+            const isQuotaError =
+                (error instanceof ChannelError && error.code === AppErrorCode.STORAGE_QUOTA_EXCEEDED) ||
+                this._isQuotaExceeded(error);
+            const summary = summarizeErrorForLog(error);
+
+            if (isQuotaError) {
+                // Quota errors are expected and user-facing; keep logs quiet and throttled.
+                if (didEmitWarning) {
+                    this._logger.warn('Debounced save failed (quota)', summary);
+                }
+                return;
+            }
+
+            // Unexpected failures should remain error-level even if the warning is throttled.
+            this._logger.error('Debounced save failed', summary);
         });
     }
 
@@ -998,6 +1020,7 @@ export class ChannelManager implements IChannelManager {
             return;
         }
         this._performSaveSync();
+        this._onPersistenceSuccess();
     }
 
     private _shouldEmitPersistenceWarning(isQuotaError: boolean): boolean {
@@ -1020,12 +1043,12 @@ export class ChannelManager implements IChannelManager {
         return true;
     }
 
-    private _emitPersistenceWarning(error: unknown): void {
+    private _emitPersistenceWarning(error: unknown): boolean {
         const isQuotaError =
             (error instanceof ChannelError && error.code === AppErrorCode.STORAGE_QUOTA_EXCEEDED) ||
             this._isQuotaExceeded(error);
         if (!this._shouldEmitPersistenceWarning(isQuotaError)) {
-            return;
+            return false;
         }
         this._emitter.emit('persistenceWarning', {
             message: isQuotaError
@@ -1035,11 +1058,45 @@ export class ChannelManager implements IChannelManager {
             isQuotaError,
             timestamp: Date.now(),
         });
+        return true;
     }
 
     private _reportPersistenceFailure(message: string, error: unknown): void {
-        this._logger.error(message, summarizeErrorForLog(error));
-        this._emitPersistenceWarning(error);
+        this._markPersistenceFailureReported(error);
+
+        const didEmitWarning = this._emitPersistenceWarning(error);
+        const isQuotaError =
+            (error instanceof ChannelError && error.code === AppErrorCode.STORAGE_QUOTA_EXCEEDED) ||
+            this._isQuotaExceeded(error);
+        const summary = summarizeErrorForLog(error);
+
+        if (isQuotaError) {
+            // Quota errors are common on TVs; avoid log spam by tying logs to the same backoff as the warning.
+            if (didEmitWarning) {
+                this._logger.warn(message, summary);
+            }
+            return;
+        }
+
+        this._logger.error(message, summary);
+    }
+
+    private _onPersistenceSuccess(): void {
+        this._nextPersistenceWarningAt = 0;
+        this._persistenceWarningBackoffMs = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
+    }
+
+    private _markPersistenceFailureReported(error: unknown): void {
+        if (error && (typeof error === 'object' || typeof error === 'function')) {
+            this._reportedPersistenceFailures.add(error as object);
+        }
+    }
+
+    private _wasPersistenceFailureReported(error: unknown): boolean {
+        if (!error || (typeof error !== 'object' && typeof error !== 'function')) {
+            return false;
+        }
+        return this._reportedPersistenceFailures.has(error as object);
     }
 
     private _performSaveSync(): void {

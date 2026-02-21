@@ -159,6 +159,21 @@ describe('getRecoveryActions', () => {
         expect(deps.goToChannelEdit).toHaveBeenCalledTimes(1);
     });
 
+    it('returns Edit Channels for PAGINATION_LIMIT_EXCEEDED', () => {
+        const deps = createDeps();
+        const actions = getRecoveryActions(AppErrorCode.PAGINATION_LIMIT_EXCEEDED, deps);
+
+        expect(actions).toHaveLength(1);
+        expect(actions[0]).toMatchObject({
+            label: 'Edit Channels',
+            isPrimary: true,
+            requiresNetwork: false,
+        });
+
+        actions[0]!.action();
+        expect(deps.goToChannelEdit).toHaveBeenCalledTimes(1);
+    });
+
     it('returns Dismiss for unknown/default', () => {
         const deps = createDeps();
         const actions = getRecoveryActions(AppErrorCode.UNKNOWN, deps);

@@ -195,7 +195,7 @@ export function mapPlexLibraryErrorCodeToAppErrorCode(
         case PlexLibraryErrorCode.PARSE_ERROR:
             return AppErrorCode.PARSE_ERROR;
         case PlexLibraryErrorCode.PAGINATION_LIMIT_EXCEEDED:
-            return AppErrorCode.PARSE_ERROR;
+            return AppErrorCode.PAGINATION_LIMIT_EXCEEDED;
         default:
             return AppErrorCode.UNKNOWN;
     }

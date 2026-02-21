@@ -461,54 +461,59 @@ describe('ChannelManager', () => {
             const logger = { warn: jest.fn(), error: jest.fn() };
             const localManager = new ChannelManager({ plexLibrary: mockLibrary, logger });
 
-            const channel = await localManager.createChannel({
-                contentSource: createMockContentSource(),
-            });
-
-            const state = (localManager as unknown as { _state: { resolvedContent: Map<string, unknown> } })._state;
-            state.resolvedContent.set(channel.id, {
-                channelId: channel.id,
-                resolvedAt: Date.now() - CACHE_TTL_MS - 1,
-                items: [],
-                orderedItems: [],
-                totalDurationMs: 0,
-            });
-
-            const resolver = (localManager as unknown as { _contentResolver: { invalidateSource: (s: unknown) => void } })
-                ._contentResolver;
-            resolver.invalidateSource(channel.contentSource);
-
-            const timeout = setTimeout(() => { }, 60_000);
             try {
-                (localManager as unknown as { _pendingRetries: Map<string, ReturnType<typeof setTimeout>> })
-                    ._pendingRetries.set(channel.id, timeout);
-
-                const accessDeniedError = Object.assign(new Error('Access denied'), {
-                    code: AppErrorCode.ACCESS_DENIED,
-                    httpStatus: 403,
+                const channel = await localManager.createChannel({
+                    contentSource: createMockContentSource(),
                 });
-                mockLibrary.getLibraryItems.mockRejectedValue(accessDeniedError);
 
-                await expect(localManager.resolveChannelContent(channel.id)).rejects.toHaveProperty(
-                    'code',
-                    AppErrorCode.ACCESS_DENIED
-                );
+                const state = (localManager as unknown as { _state: { resolvedContent: Map<string, unknown> } })._state;
+                state.resolvedContent.set(channel.id, {
+                    channelId: channel.id,
+                    resolvedAt: Date.now() - CACHE_TTL_MS - 1,
+                    items: [],
+                    orderedItems: [],
+                    totalDurationMs: 0,
+                });
 
-                expect(state.resolvedContent.has(channel.id)).toBe(false);
-                expect(
-                    (localManager as unknown as { _pendingRetries: Map<string, unknown> })._pendingRetries.has(channel.id)
-                ).toBe(false);
+                const resolver = (localManager as unknown as { _contentResolver: { invalidateSource: (s: unknown) => void } })
+                    ._contentResolver;
+                resolver.invalidateSource(channel.contentSource);
 
-                expect(logger.warn).toHaveBeenCalledWith(
-                    'Access denied resolving channel content',
-                    expect.objectContaining({
-                        channelId: channel.id,
+                const timeout = setTimeout(() => { }, 60_000);
+                try {
+                    (localManager as unknown as { _pendingRetries: Map<string, ReturnType<typeof setTimeout>> })
+                        ._pendingRetries.set(channel.id, timeout);
+
+                    const accessDeniedError = Object.assign(new Error('Access denied'), {
+                        code: AppErrorCode.ACCESS_DENIED,
                         httpStatus: 403,
-                        contentSource: { type: 'library', id: 'lib1' },
-                    })
-                );
+                    });
+                    mockLibrary.getLibraryItems.mockRejectedValue(accessDeniedError);
+
+                    await expect(localManager.resolveChannelContent(channel.id)).rejects.toHaveProperty(
+                        'code',
+                        AppErrorCode.ACCESS_DENIED
+                    );
+
+                    expect(state.resolvedContent.has(channel.id)).toBe(false);
+                    expect(
+                        (localManager as unknown as { _pendingRetries: Map<string, unknown> })._pendingRetries.has(channel.id)
+                    ).toBe(false);
+
+                    expect(logger.warn).toHaveBeenCalledWith(
+                        'Access denied resolving channel content',
+                        expect.objectContaining({
+                            channelId: channel.id,
+                            httpStatus: 403,
+                            contentSource: { type: 'library', id: 'lib1' },
+                        })
+                    );
+                } finally {
+                    clearTimeout(timeout);
+                }
             } finally {
-                clearTimeout(timeout);
+                await localManager.flushSaves().catch(() => undefined);
+                localManager.dispose();
             }
         });
     });
