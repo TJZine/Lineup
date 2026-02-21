@@ -641,17 +641,12 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this._lastChannelChangeSource = 'guide';
             },
             switchToChannel: (channelId: string): Promise<void> => this.switchToChannel(channelId),
-            emitAppError: (error: unknown): void => {
-                const message = error instanceof Error ? error.message : String(error);
-                this.handleGlobalError(
-                    {
-                        code: AppErrorCode.INITIALIZATION_FAILED,
-                        message: `EPG Initialization failed: ${message}`,
-                        recoverable: false,
-                        context: { originalError: error },
-                    },
-                    'EPG_INIT'
-                );
+            reportEpgInitWarning: (error: unknown): void => {
+                console.warn('[EPG_INIT] Deferred guide initialization failed:', summarizeErrorForLog(error));
+                this._nowPlayingHandler?.({
+                    message: 'Guide unavailable right now. Try again.',
+                    type: 'warning',
+                });
             },
         });
 

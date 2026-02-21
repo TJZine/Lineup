@@ -169,7 +169,7 @@ const makeDeps = (
         getPreserveFocusOnOpen: () => false,
         setLastChannelChangeSourceToGuide: jest.fn(),
         switchToChannel: jest.fn().mockResolvedValue(undefined),
-        emitAppError: jest.fn(),
+        reportEpgInitWarning: jest.fn(),
         ...overrides,
     };
     return { deps, epg, channelManager, scheduler };
@@ -251,7 +251,7 @@ describe('EPGCoordinator', () => {
         expect(epg.focusNow).toHaveBeenCalled();
     });
 
-    it('openEPG handles promise rejection by hiding EPG and emitting error', async () => {
+    it('openEPG handles promise rejection by hiding EPG and reporting warning', async () => {
         const error = new Error('Init failed');
         const ensure = jest.fn().mockRejectedValue(error);
         const { deps, epg } = makeDeps({
@@ -266,7 +266,7 @@ describe('EPGCoordinator', () => {
 
         expect(ensure).toHaveBeenCalled();
         expect(epg.hide).toHaveBeenCalled();
-        expect(deps.emitAppError).toHaveBeenCalledWith(error);
+        expect(deps.reportEpgInitWarning).toHaveBeenCalledWith(error);
     });
 
     it('primeEpgChannels applies filtering when tabs enabled and selected', () => {

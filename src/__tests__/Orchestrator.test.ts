@@ -1506,6 +1506,29 @@ describe('AppOrchestrator', () => {
             expect(mockEpg.handleBack).not.toHaveBeenCalled();
         });
 
+        it('shows warning toast instead of reporting global fatal error when deferred EPG init fails', async () => {
+            const toastHandler = jest.fn();
+            orchestrator.setNowPlayingHandler(toastHandler);
+            const initError = new Error('epg init failed');
+            const mutable = orchestrator as unknown as {
+                _initCoordinator?: { ensureEPGInitialized: () => Promise<void> };
+            };
+            mutable._initCoordinator = {
+                ensureEPGInitialized: jest.fn().mockRejectedValue(initError),
+            };
+
+            orchestrator.openEPG();
+            await new Promise(process.nextTick);
+
+            expect(toastHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: expect.stringContaining('Guide unavailable'),
+                    type: 'warning',
+                })
+            );
+            expect(mockLifecycle.reportError).not.toHaveBeenCalled();
+        });
+
         it('should forward layout mode changes when EPG is visible', () => {
             mockEpg.isVisible.mockReturnValue(true);
 

@@ -37,7 +37,7 @@ export interface EPGCoordinatorDeps {
 
     setLastChannelChangeSourceToGuide: () => void;
     switchToChannel: (channelId: string) => Promise<void>;
-    emitAppError: (error: unknown) => void;
+    reportEpgInitWarning: (error: unknown) => void;
 }
 
 const EPG_SCHEDULE_CACHE_TTL_MS = 2 * 60_000;
@@ -284,7 +284,7 @@ export class EPGCoordinator {
             .catch((error: unknown) => {
                 console.error('[EPGCoordinator] Failed to init EPG:', summarizeErrorForLog(error));
                 this.deps.getEpg()?.hide();
-                this.deps.emitAppError(error);
+                this.deps.reportEpgInitWarning(error);
             });
     }
 
