@@ -384,7 +384,7 @@ export class ChannelManager implements IChannelManager {
                 ? requestedCurrent
                 : fallbackCurrent;
 
-        await this.saveChannels();
+        void this.saveChannels();
 
         if (this._state.currentChannelId) {
             try {
@@ -508,7 +508,7 @@ export class ChannelManager implements IChannelManager {
         }
 
         // Persist and emit event
-        await this.saveChannels();
+        void this.saveChannels();
         this._emitter.emit('channelCreated', channel);
 
         return channel;
@@ -588,7 +588,7 @@ export class ChannelManager implements IChannelManager {
         }
 
         // Persist and emit event
-        await this.saveChannels();
+        void this.saveChannels();
         this._emitter.emit('channelDeleted', id);
     }
 
@@ -720,7 +720,7 @@ export class ChannelManager implements IChannelManager {
         // Validate all IDs exist
         const validIds = orderedIds.filter((id) => this._state.channels.has(id));
         this._state.channelOrder = validIds;
-        await this.saveChannels();
+        void this.saveChannels();
     }
 
     /**
@@ -976,7 +976,7 @@ export class ChannelManager implements IChannelManager {
 
             // Persist normalized/migrated channel records once.
             if (didMutate) {
-                await this.saveChannels();
+                void this.saveChannels();
             }
         } catch (e) {
             this._logger.error('Failed to load channels from storage', summarizeErrorForLog(e));

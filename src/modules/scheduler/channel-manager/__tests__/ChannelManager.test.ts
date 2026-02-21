@@ -571,6 +571,27 @@ describe('ChannelManager', () => {
     });
 
     describe('persistence', () => {
+        it('should debounce saves to localStorage', async () => {
+            mockLocalStorage.setItem.mockClear();
+
+            await manager.createChannel({
+                contentSource: createMockContentSource()
+            });
+
+            // Should not be called immediately due to 500ms debounce
+            expect(mockLocalStorage.setItem).not.toHaveBeenCalledWith(
+                STORAGE_KEY,
+                expect.any(String)
+            );
+
+            // Should be called synchronously once flushed
+            manager.flushSaves();
+            expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+                STORAGE_KEY,
+                expect.any(String)
+            );
+        });
+
         it('should save channels to localStorage', async () => {
             await manager.createChannel({ contentSource: createMockContentSource() });
             manager.flushSaves();
