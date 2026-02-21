@@ -449,9 +449,15 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary({ ...mockConfig, logger: { warn, error: console.error } });
 
             // Limit must not be specified so it defaults to pageSize=100 which matches pageItems length
-            await expect(library.getLibraryItems('infinite-lib')).rejects.toThrow(
-                'Pagination guard tripped'
-            );
+            try {
+                await library.getLibraryItems('infinite-lib');
+                throw new Error('Expected getLibraryItems to throw when pagination guard is exceeded');
+            } catch (error) {
+                expect((error as PlexLibraryError).message).toContain('Pagination guard tripped');
+                expect((error as PlexLibraryError).code).toBe(
+                    PlexLibraryErrorCode.PAGINATION_LIMIT_EXCEEDED
+                );
+            }
 
             expect(fetch).toHaveBeenCalledTimes(1000);
             expect(warn).not.toHaveBeenCalledWith(
@@ -645,9 +651,15 @@ describe('PlexLibrary', () => {
 
             const warn = jest.fn();
             const library = new PlexLibrary({ ...mockConfig, logger: { warn, error: console.error } });
-            await expect(library.getShowEpisodes('infinite-show')).rejects.toThrow(
-                'Pagination guard tripped'
-            );
+            try {
+                await library.getShowEpisodes('infinite-show');
+                throw new Error('Expected getShowEpisodes to throw when pagination guard is exceeded');
+            } catch (error) {
+                expect((error as PlexLibraryError).message).toContain('Pagination guard tripped');
+                expect((error as PlexLibraryError).code).toBe(
+                    PlexLibraryErrorCode.PAGINATION_LIMIT_EXCEEDED
+                );
+            }
 
             expect(fetch).toHaveBeenCalledTimes(1000);
             expect(warn).not.toHaveBeenCalledWith(

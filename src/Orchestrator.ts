@@ -998,6 +998,13 @@ export class AppOrchestrator implements IAppOrchestrator {
                 recordTeardownFailure('channelManager.flushSaves', error);
             }
         }
+        if (this._channelManager?.dispose) {
+            try {
+                this._channelManager.dispose();
+            } catch (error) {
+                recordTeardownFailure('channelManager.dispose', error);
+            }
+        }
 
         // Shutdown lifecycle (flushes state and removes global listeners)
         if (this._lifecycle) {
@@ -2131,6 +2138,21 @@ export class AppOrchestrator implements IAppOrchestrator {
         cleanups.push(...(this._epgCoordinator?.wireEpgEvents() ?? []));
     }
 
+    private _wireChannelManagerEvents(cleanups: Array<() => void>): void {
+        const channelManager = this._channelManager;
+        if (!channelManager) {
+            return;
+        }
+        const sub = channelManager.on('persistenceWarning', ({ message }) => {
+            this._nowPlayingHandler?.({ message, type: 'warning' });
+        });
+        cleanups.push(() => {
+            if (sub && typeof (sub as { dispose?: unknown }).dispose === 'function') {
+                (sub as { dispose: () => void }).dispose();
+            }
+        });
+    }
+
     private _wireLifecycleEvents(cleanups: Array<() => void>): void {
         const lifecycle = this._lifecycle;
         if (!lifecycle) return;
@@ -2167,6 +2189,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             this._wirePlexEvents(cleanups);
             this._wireNavigationEvents(cleanups);
             this._wireEpgEvents(cleanups);
+            this._wireChannelManagerEvents(cleanups);
             this._wireLifecycleEvents(cleanups);
             this._eventUnsubscribers.push(...cleanups);
             this._eventsWired = true;

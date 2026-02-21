@@ -11,6 +11,7 @@ import type {
     ChannelManagerEventMap,
 } from './types';
 import type { PlexMediaFile } from '../../plex/library';
+import type { IDisposable } from '../../../utils/interfaces';
 
 // ============================================
 // Main Interface
@@ -160,6 +161,12 @@ export interface IChannelManager {
     flushSaves?(): Promise<void>;
 
     /**
+     * Release timers and pending async work for teardown.
+     * Optional for non-persistent test doubles.
+     */
+    dispose?(): void;
+
+    /**
      * Load channels from localStorage.
      */
     loadChannels(): Promise<void>;
@@ -190,7 +197,7 @@ export interface IChannelManager {
     on<K extends keyof ChannelManagerEventMap>(
         event: K,
         handler: (payload: ChannelManagerEventMap[K]) => void
-    ): void;
+    ): IDisposable;
 }
 
 // ============================================

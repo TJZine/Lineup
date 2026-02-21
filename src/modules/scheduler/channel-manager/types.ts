@@ -4,6 +4,8 @@
  * @version 1.0.0
  */
 
+import type { AppErrorCode } from '../../lifecycle/types';
+
 // ============================================
 // Playback & Filter Types
 // ============================================
@@ -377,6 +379,12 @@ export interface ChannelManagerEventMap {
     channelDeleted: string;
     channelSwitch: { channel: ChannelConfig; index: number };
     contentResolved: ResolvedChannelContent;
+    persistenceWarning: {
+        message: string;
+        code: AppErrorCode;
+        isQuotaError: boolean;
+        timestamp: number;
+    };
     [key: string]: unknown;
 }
 

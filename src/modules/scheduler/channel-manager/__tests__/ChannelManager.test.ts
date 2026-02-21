@@ -7,6 +7,7 @@ import { ChannelManager } from '../ChannelManager';
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
 import type { ChannelConfig, LibraryContentSource } from '../types';
 import { AppErrorCode } from '../../../lifecycle/types';
+import { STORAGE_CONFIG } from '../../../lifecycle/constants';
 import {
     STORAGE_KEY,
     CURRENT_CHANNEL_KEY,
@@ -302,6 +303,26 @@ describe('ChannelManager', () => {
 
             expect(clearCachesSpy).toHaveBeenCalledTimes(1);
         });
+
+        it('emits persistenceWarning and does not throw when pending save flush fails during key switch', async () => {
+            const warningHandler = jest.fn();
+            manager.on('persistenceWarning', warningHandler);
+            await manager.createChannel({ contentSource: createMockContentSource() });
+
+            mockLocalStorage.setItem.mockImplementation(() => {
+                throw new DOMException('quota', 'QuotaExceededError');
+            });
+
+            expect(() =>
+                manager.setStorageKeys('retune_channels_new_scope', 'retune_current_channel_new_scope')
+            ).not.toThrow();
+            expect(warningHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+                    isQuotaError: true,
+                })
+            );
+        });
     });
 
     describe('content resolution', () => {
@@ -578,6 +599,50 @@ describe('ChannelManager', () => {
     });
 
     describe('persistence', () => {
+        it('saveChannels reuses one pending promise for burst saves', async () => {
+            await manager.createChannel({ contentSource: createMockContentSource() });
+
+            mockLocalStorage.setItem.mockImplementation(() => {
+                throw new DOMException('quota', 'QuotaExceededError');
+            });
+
+            const first = manager.saveChannels();
+            const second = manager.saveChannels();
+            expect(second).toBe(first);
+
+            jest.advanceTimersByTime(500);
+
+            await expect(first).rejects.toMatchObject({
+                code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+            });
+        });
+
+        it('emits throttled persistenceWarning for debounced background save failures', async () => {
+            const warningHandler = jest.fn();
+            manager.on('persistenceWarning', warningHandler);
+
+            mockLocalStorage.setItem.mockImplementation(() => {
+                throw new DOMException('quota', 'QuotaExceededError');
+            });
+
+            const channel = await manager.createChannel({ contentSource: createMockContentSource() });
+            jest.advanceTimersByTime(500);
+            await Promise.resolve();
+
+            await manager.updateChannel(channel.id, { name: 'Updated Name' });
+            jest.advanceTimersByTime(500);
+            await Promise.resolve();
+
+            expect(warningHandler).toHaveBeenCalledTimes(1);
+            expect(warningHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+                    isQuotaError: true,
+                    message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                })
+            );
+        });
+
         it('saveChannels should reject when debounced persistence fails', async () => {
             await manager.createChannel({ contentSource: createMockContentSource() });
 
@@ -624,6 +689,15 @@ describe('ChannelManager', () => {
                 STORAGE_KEY,
                 expect.any(String)
             );
+        });
+
+        it('dispose cancels pending save timer and rejects queued promise', async () => {
+            const pendingSave = manager.saveChannels();
+
+            manager.dispose();
+            jest.advanceTimersByTime(500);
+
+            await expect(pendingSave).rejects.toThrow('ChannelManager disposed');
         });
 
         it('should save channels to localStorage', async () => {
