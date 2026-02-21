@@ -250,8 +250,11 @@ export class PlexLibrary implements IPlexLibrary {
 
         while (hasMore) {
             if (++pageCounter > PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS) {
-                this._logger.warn(`[PlexLibrary] Pagination circuit breaker tripped after maximum allowed (${PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS}) iterations in getLibraryItems`);
-                break;
+                const message =
+                    `[PlexLibrary] Pagination guard tripped in getLibraryItems ` +
+                    `(libraryId=${libraryId}, fetched=${items.length}, pageSize=${pageSize}, maxIterations=${PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS})`;
+                this._logger.error(message);
+                throw new PlexLibraryError(PlexLibraryErrorCode.PARSE_ERROR, message);
             }
             const params: Record<string, string | number> = {
                 'X-Plex-Container-Start': offset,
@@ -424,8 +427,11 @@ export class PlexLibrary implements IPlexLibrary {
 
         while (true) {
             if (++pageCounter > PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS) {
-                this._logger.warn(`[PlexLibrary] Pagination circuit breaker tripped after maximum allowed (${PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS}) iterations in getShowEpisodes`);
-                break;
+                const message =
+                    `[PlexLibrary] Pagination guard tripped in getShowEpisodes ` +
+                    `(showKey=${showKey}, fetched=${allEpisodes.length}, offset=${offset}, pageSize=${PLEX_LIBRARY_CONSTANTS.ALL_LEAVES_PAGE_SIZE}, maxIterations=${PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS})`;
+                this._logger.error(message);
+                throw new PlexLibraryError(PlexLibraryErrorCode.PARSE_ERROR, message);
             }
             const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_METADATA_ALL_LEAVES(showKey), {
                 'X-Plex-Container-Start': offset,
