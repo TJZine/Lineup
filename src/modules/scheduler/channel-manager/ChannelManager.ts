@@ -257,8 +257,6 @@ export class ChannelManager implements IChannelManager {
     private static readonly RETRY_DELAY_MS = 30000; // 30 seconds
 
     private _saveTimer: ReturnType<typeof setTimeout> | null = null;
-    private _saveResolve: (() => void) | null = null;
-    private _saveReject: ((error: unknown) => void) | null = null;
 
     /**
      * Create a new ChannelManager instance.
@@ -868,12 +866,8 @@ export class ChannelManager implements IChannelManager {
             this._saveTimer = null;
             try {
                 this._performSaveSync();
-                this._saveResolve?.();
             } catch (e) {
-                this._saveReject?.(e);
-            } finally {
-                this._saveResolve = null;
-                this._saveReject = null;
+                this._logger.error('ChannelManager.flushSaves failed during save', summarizeErrorForLog(e));
             }
         }
     }
@@ -881,7 +875,7 @@ export class ChannelManager implements IChannelManager {
     /**
      * Queues a debounced save to localStorage. Returns immediately.
      */
-    async saveChannels(): Promise<void> {
+    saveChannels(): Promise<void> {
         if (this._saveTimer) {
             clearTimeout(this._saveTimer);
         }
@@ -1156,14 +1150,7 @@ export class ChannelManager implements IChannelManager {
             channel.totalDurationMs = result.totalDurationMs;
             this._state.channels.set(channel.id, channel);
 
-            try {
-                await this.saveChannels();
-            } catch (error) {
-                if (error instanceof ChannelError && error.code === AppErrorCode.STORAGE_QUOTA_EXCEEDED) {
-                    throw error;
-                }
-                this._logger.warn('Failed to persist channel metadata after resolve', summarizeErrorForLog(error));
-            }
+            void this.saveChannels();
 
             return result;
         } catch (error) {

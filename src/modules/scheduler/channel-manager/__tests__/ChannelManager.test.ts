@@ -104,6 +104,7 @@ describe('ChannelManager', () => {
     let manager: ChannelManager;
 
     beforeEach(() => {
+        jest.useFakeTimers();
         mockLocalStorage.clear();
         jest.clearAllMocks();
 
@@ -114,6 +115,13 @@ describe('ChannelManager', () => {
         ]);
 
         manager = new ChannelManager({ plexLibrary: mockLibrary });
+    });
+
+    afterEach(() => {
+        if (manager) {
+            manager.flushSaves();
+        }
+        jest.clearAllTimers();
     });
 
     describe('CRUD operations', () => {
@@ -565,7 +573,6 @@ describe('ChannelManager', () => {
     describe('persistence', () => {
         it('should save channels to localStorage', async () => {
             await manager.createChannel({ contentSource: createMockContentSource() });
-            await manager.saveChannels();
             manager.flushSaves();
 
             expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
