@@ -107,6 +107,13 @@ describe('ChannelManager', () => {
         jest.useFakeTimers();
         mockLocalStorage.clear();
         jest.clearAllMocks();
+        mockLocalStorage.getItem.mockImplementation((key: string) => mockStorage[key] || null);
+        mockLocalStorage.setItem.mockImplementation((key: string, value: string) => {
+            mockStorage[key] = value;
+        });
+        mockLocalStorage.removeItem.mockImplementation((key: string) => {
+            delete mockStorage[key];
+        });
 
         mockLibrary = createMockLibrary();
         mockLibrary.getLibraryItems.mockResolvedValue([
@@ -117,9 +124,9 @@ describe('ChannelManager', () => {
         manager = new ChannelManager({ plexLibrary: mockLibrary });
     });
 
-    afterEach(() => {
+    afterEach(async () => {
         if (manager) {
-            manager.flushSaves();
+            await manager.flushSaves().catch(() => undefined);
         }
         jest.clearAllTimers();
     });
@@ -571,6 +578,33 @@ describe('ChannelManager', () => {
     });
 
     describe('persistence', () => {
+        it('saveChannels should reject when debounced persistence fails', async () => {
+            await manager.createChannel({ contentSource: createMockContentSource() });
+
+            mockLocalStorage.setItem.mockImplementation(() => {
+                throw new DOMException('quota', 'QuotaExceededError');
+            });
+
+            const pendingSave = manager.saveChannels();
+            jest.advanceTimersByTime(500);
+
+            await expect(pendingSave).rejects.toMatchObject({
+                code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+            });
+        });
+
+        it('flushSaves should propagate persistence failure when pending save exists', async () => {
+            await manager.createChannel({ contentSource: createMockContentSource() });
+
+            mockLocalStorage.setItem.mockImplementation(() => {
+                throw new DOMException('quota', 'QuotaExceededError');
+            });
+
+            await expect(manager.flushSaves()).rejects.toMatchObject({
+                code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+            });
+        });
+
         it('should debounce saves to localStorage', async () => {
             mockLocalStorage.setItem.mockClear();
 
@@ -585,7 +619,7 @@ describe('ChannelManager', () => {
             );
 
             // Should be called synchronously once flushed
-            manager.flushSaves();
+            await manager.flushSaves();
             expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
                 STORAGE_KEY,
                 expect.any(String)
@@ -594,7 +628,7 @@ describe('ChannelManager', () => {
 
         it('should save channels to localStorage', async () => {
             await manager.createChannel({ contentSource: createMockContentSource() });
-            manager.flushSaves();
+            await manager.flushSaves();
 
             expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
                 STORAGE_KEY,
@@ -608,7 +642,7 @@ describe('ChannelManager', () => {
                 name: 'Saved Channel',
                 contentSource: createMockContentSource(),
             });
-            manager.flushSaves();
+            await manager.flushSaves();
 
             // Create new manager and load
             const newManager = new ChannelManager({ plexLibrary: mockLibrary });

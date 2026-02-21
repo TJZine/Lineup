@@ -257,6 +257,7 @@ export class ChannelManager implements IChannelManager {
     private static readonly RETRY_DELAY_MS = 30000; // 30 seconds
 
     private _saveTimer: ReturnType<typeof setTimeout> | null = null;
+    private _saveWaiters: Array<{ resolve: () => void; reject: (error: unknown) => void }> = [];
 
     /**
      * Create a new ChannelManager instance.
@@ -297,7 +298,11 @@ export class ChannelManager implements IChannelManager {
             throw new Error('Storage keys must be non-empty strings');
         }
         this.cancelPendingRetries();
-        this.flushSaves();
+        try {
+            this._flushPendingSaveNow();
+        } catch (error) {
+            this._logger.error('ChannelManager.setStorageKeys failed while flushing pending saves', summarizeErrorForLog(error));
+        }
         this._storageKey = storageKey;
         this._currentChannelKey = currentChannelKey;
         this._contentResolver.clearCaches();
@@ -384,7 +389,7 @@ export class ChannelManager implements IChannelManager {
                 ? requestedCurrent
                 : fallbackCurrent;
 
-        void this.saveChannels();
+        this._queueSave();
 
         if (this._state.currentChannelId) {
             try {
@@ -393,6 +398,8 @@ export class ChannelManager implements IChannelManager {
                 this._logger.warn('Failed to persist current channel', summarizeErrorForLog(e));
             }
         }
+
+        await this.flushSaves();
     }
 
     // ============================================
@@ -508,7 +515,7 @@ export class ChannelManager implements IChannelManager {
         }
 
         // Persist and emit event
-        void this.saveChannels();
+        this._queueSave();
         this._emitter.emit('channelCreated', channel);
 
         return channel;
@@ -562,7 +569,7 @@ export class ChannelManager implements IChannelManager {
         }
 
         // Persist and emit event
-        await this.saveChannels();
+        this._queueSave();
         this._emitter.emit('channelUpdated', updated);
 
         return updated;
@@ -588,7 +595,7 @@ export class ChannelManager implements IChannelManager {
         }
 
         // Persist and emit event
-        void this.saveChannels();
+        this._queueSave();
         this._emitter.emit('channelDeleted', id);
     }
 
@@ -720,7 +727,7 @@ export class ChannelManager implements IChannelManager {
         // Validate all IDs exist
         const validIds = orderedIds.filter((id) => this._state.channels.has(id));
         this._state.channelOrder = validIds;
-        void this.saveChannels();
+        this._queueSave();
     }
 
     /**
@@ -860,37 +867,75 @@ export class ChannelManager implements IChannelManager {
     /**
      * Flush any pending debounced save immediately.
      */
-    flushSaves(): void {
-        if (this._saveTimer) {
-            clearTimeout(this._saveTimer);
-            this._saveTimer = null;
-            try {
-                this._performSaveSync();
-            } catch (e) {
-                this._logger.error('ChannelManager.flushSaves failed during save', summarizeErrorForLog(e));
-            }
+    flushSaves(): Promise<void> {
+        try {
+            this._flushPendingSaveNow();
+            return Promise.resolve();
+        } catch (error) {
+            return Promise.reject(error);
         }
     }
 
     /**
-     * Queues a debounced save to localStorage. Returns immediately.
+     * Queues a debounced save to localStorage.
      */
     saveChannels(): Promise<void> {
-        if (this._saveTimer) {
-            clearTimeout(this._saveTimer);
+        return new Promise((resolve, reject) => {
+            this._saveWaiters.push({ resolve, reject });
+            if (this._saveTimer) {
+                clearTimeout(this._saveTimer);
+            }
+
+            // Debounce by 500ms to batch all closely related saves
+            this._saveTimer = setTimeout(() => {
+                this._saveTimer = null;
+                try {
+                    this._runPendingSaveNow();
+                } catch {
+                    // Errors are propagated to queued waiters and handled by callers.
+                }
+            }, 500);
+        });
+    }
+
+    private _resolveSaveWaiters(): void {
+        const waiters = this._saveWaiters.splice(0, this._saveWaiters.length);
+        for (const waiter of waiters) {
+            waiter.resolve();
+        }
+    }
+
+    private _rejectSaveWaiters(error: unknown): void {
+        const waiters = this._saveWaiters.splice(0, this._saveWaiters.length);
+        for (const waiter of waiters) {
+            waiter.reject(error);
+        }
+    }
+
+    private _runPendingSaveNow(): void {
+        try {
+            this._performSaveSync();
+            this._resolveSaveWaiters();
+        } catch (error) {
+            this._rejectSaveWaiters(error);
+            throw error;
+        }
+    }
+
+    private _flushPendingSaveNow(): void {
+        if (!this._saveTimer) {
+            return;
         }
 
-        // Debounce by 500ms to batch all closely related saves
-        this._saveTimer = setTimeout(() => {
-            this._saveTimer = null;
-            try {
-                this._performSaveSync();
-            } catch (e) {
-                this._logger.error('Debounced save failed', summarizeErrorForLog(e));
-            }
-        }, 500);
+        clearTimeout(this._saveTimer);
+        this._saveTimer = null;
+        this._runPendingSaveNow();
+    }
 
-        return Promise.resolve();
+    private _queueSave(): void {
+        void this.saveChannels().catch((error) => {
+            this._logger.error('Debounced save failed', summarizeErrorForLog(error));
+        });
     }
 
     private _performSaveSync(): void {
@@ -976,7 +1021,7 @@ export class ChannelManager implements IChannelManager {
 
             // Persist normalized/migrated channel records once.
             if (didMutate) {
-                void this.saveChannels();
+                this._queueSave();
             }
         } catch (e) {
             this._logger.error('Failed to load channels from storage', summarizeErrorForLog(e));
@@ -1150,7 +1195,7 @@ export class ChannelManager implements IChannelManager {
             channel.totalDurationMs = result.totalDurationMs;
             this._state.channels.set(channel.id, channel);
 
-            void this.saveChannels();
+            this._queueSave();
 
             return result;
         } catch (error) {

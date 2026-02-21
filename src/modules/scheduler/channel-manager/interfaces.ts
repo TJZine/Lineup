@@ -154,6 +154,12 @@ export interface IChannelManager {
     saveChannels(): Promise<void>;
 
     /**
+     * Flush any pending debounced channel save immediately.
+     * Optional for non-persistent test doubles.
+     */
+    flushSaves?(): Promise<void>;
+
+    /**
      * Load channels from localStorage.
      */
     loadChannels(): Promise<void>;
