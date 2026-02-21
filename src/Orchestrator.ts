@@ -996,6 +996,14 @@ export class AppOrchestrator implements IAppOrchestrator {
         this._eventUnsubscribers = [];
         this._eventsWired = false; // Reset to allow re-wiring on retry
 
+        if (this._channelManager?.flushSaves) {
+            try {
+                await this._channelManager.flushSaves();
+            } catch (error) {
+                recordTeardownFailure('channelManager.flushSaves', error);
+            }
+        }
+
         // Shutdown lifecycle (flushes state and removes global listeners)
         if (this._lifecycle) {
             try {

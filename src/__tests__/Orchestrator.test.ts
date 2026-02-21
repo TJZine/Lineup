@@ -351,6 +351,7 @@ const mockChannel = {
 const mockChannelManager = {
     loadChannels: jest.fn().mockResolvedValue(undefined),
     setStorageKeys: jest.fn(),
+    flushSaves: jest.fn().mockResolvedValue(undefined),
     replaceAllChannels: jest.fn().mockResolvedValue(undefined),
     getAllChannels: jest.fn().mockReturnValue([mockChannel]),
     getCurrentChannel: jest.fn().mockReturnValue(mockChannel),
@@ -1782,6 +1783,12 @@ describe('AppOrchestrator', () => {
             await orchestrator.shutdown();
 
             expect(mockVideoPlayer.stop).toHaveBeenCalled();
+        });
+
+        it('flushes pending channel saves before module teardown', async () => {
+            await orchestrator.shutdown();
+
+            expect(mockChannelManager.flushSaves).toHaveBeenCalledTimes(1);
         });
 
         it('should destroy modules on shutdown', async () => {
