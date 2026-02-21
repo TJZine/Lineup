@@ -10,7 +10,8 @@ import { fnv1a32Uint } from '../../../utils/hash';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { ContentResolver } from './ContentResolver';
 import { AppErrorCode } from '../../lifecycle/types';
-import { STORAGE_CONFIG, TIMING_CONFIG } from '../../lifecycle/constants';
+import { STORAGE_CONFIG } from '../../lifecycle/constants';
+import { TIMING_CONFIG } from '../../../config/timing';
 import type { IChannelManager, ChannelManagerConfig, IPlexLibraryMinimal } from './interfaces';
 import type { IDisposable } from '../../../utils/interfaces';
 import type {
@@ -919,7 +920,7 @@ export class ChannelManager implements IChannelManager {
             } catch {
                 // Errors are propagated to pending promise and handled by callers.
             }
-        }, 500);
+        }, TIMING_CONFIG.SAVE_DEBOUNCE_MS);
 
         return pendingSave;
     }

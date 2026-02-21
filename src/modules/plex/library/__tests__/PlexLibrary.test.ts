@@ -449,15 +449,10 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary({ ...mockConfig, logger: { warn, error: console.error } });
 
             // Limit must not be specified so it defaults to pageSize=100 which matches pageItems length
-            try {
-                await library.getLibraryItems('infinite-lib');
-                throw new Error('Expected getLibraryItems to throw when pagination guard is exceeded');
-            } catch (error) {
-                expect((error as PlexLibraryError).message).toContain('Pagination guard tripped');
-                expect((error as PlexLibraryError).code).toBe(
-                    PlexLibraryErrorCode.PAGINATION_LIMIT_EXCEEDED
-                );
-            }
+            await expect(library.getLibraryItems('infinite-lib')).rejects.toMatchObject({
+                message: expect.stringContaining('Pagination guard tripped'),
+                code: PlexLibraryErrorCode.PAGINATION_LIMIT_EXCEEDED,
+            });
 
             expect(fetch).toHaveBeenCalledTimes(1000);
             expect(warn).not.toHaveBeenCalledWith(
@@ -651,15 +646,10 @@ describe('PlexLibrary', () => {
 
             const warn = jest.fn();
             const library = new PlexLibrary({ ...mockConfig, logger: { warn, error: console.error } });
-            try {
-                await library.getShowEpisodes('infinite-show');
-                throw new Error('Expected getShowEpisodes to throw when pagination guard is exceeded');
-            } catch (error) {
-                expect((error as PlexLibraryError).message).toContain('Pagination guard tripped');
-                expect((error as PlexLibraryError).code).toBe(
-                    PlexLibraryErrorCode.PAGINATION_LIMIT_EXCEEDED
-                );
-            }
+            await expect(library.getShowEpisodes('infinite-show')).rejects.toMatchObject({
+                message: expect.stringContaining('Pagination guard tripped'),
+                code: PlexLibraryErrorCode.PAGINATION_LIMIT_EXCEEDED,
+            });
 
             expect(fetch).toHaveBeenCalledTimes(1000);
             expect(warn).not.toHaveBeenCalledWith(
@@ -845,14 +835,12 @@ describe('PlexLibrary', () => {
         it('should throw AUTH_EXPIRED error code on 401', async () => {
             mockFetchJson({ error: 'Unauthorized' }, 401);
             const library = new PlexLibrary(mockConfig);
+            const request = library.getLibraries();
 
-            try {
-                await library.getLibraries();
-                fail('Expected error to be thrown');
-            } catch (error) {
-                expect(error).toBeInstanceOf(PlexLibraryError);
-                expect((error as PlexLibraryError).code).toBe(PlexLibraryErrorCode.AUTH_EXPIRED);
-            }
+            await expect(request).rejects.toBeInstanceOf(PlexLibraryError);
+            await expect(request).rejects.toMatchObject({
+                code: PlexLibraryErrorCode.AUTH_EXPIRED,
+            });
         });
 
         it('should throw SERVER_ERROR on 500', async () => {
@@ -883,15 +871,13 @@ describe('PlexLibrary', () => {
         it('should throw ACCESS_DENIED error code on 403', async () => {
             mockFetchJson({ error: 'Forbidden' }, 403);
             const library = new PlexLibrary(mockConfig);
+            const request = library.getLibraries();
 
-            try {
-                await library.getLibraries();
-                fail('Expected error to be thrown');
-            } catch (error) {
-                expect(error).toBeInstanceOf(PlexLibraryError);
-                expect((error as PlexLibraryError).code).toBe(PlexLibraryErrorCode.ACCESS_DENIED);
-                expect((error as PlexLibraryError).httpStatus).toBe(403);
-            }
+            await expect(request).rejects.toBeInstanceOf(PlexLibraryError);
+            await expect(request).rejects.toMatchObject({
+                code: PlexLibraryErrorCode.ACCESS_DENIED,
+                httpStatus: 403,
+            });
         });
 
         it('should NOT emit authExpired on 403', async () => {
