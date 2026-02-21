@@ -156,15 +156,13 @@ export interface IChannelManager {
 
     /**
      * Flush any pending debounced channel save immediately.
-     * Optional for non-persistent test doubles.
      */
-    flushSaves?(): Promise<void>;
+    flushSaves(): Promise<void>;
 
     /**
      * Release timers and pending async work for teardown.
-     * Optional for non-persistent test doubles.
      */
-    dispose?(): void;
+    dispose(): void;
 
     /**
      * Load channels from localStorage.

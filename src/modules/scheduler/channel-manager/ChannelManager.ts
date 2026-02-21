@@ -1044,6 +1044,9 @@ export class ChannelManager implements IChannelManager {
                 TIMING_CONFIG.PERSISTENCE_WARNING_MAX_BACKOFF_MS
             );
         } else {
+            // Non-quota warnings are a different failure class than quota exhaustion.
+            // Reset any quota-driven exponential backoff to the baseline so we don't suppress
+            // future warnings due to stale quota backoff state (mirrors _onPersistenceSuccess()).
             this._persistenceWarningBackoffMs = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
         }
         return true;
