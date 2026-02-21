@@ -901,7 +901,11 @@ export class ChannelManager implements IChannelManager {
             clearTimeout(this._saveTimer);
             this._saveTimer = null;
         }
-        this._rejectPendingSave(new Error('ChannelManager disposed'));
+        // Teardown is expected; do not treat cancellation as a persistence failure.
+        // Rejecting the pending save also clears internal promise state + queued catch tracking.
+        const disposedError = new Error('ChannelManager disposed');
+        this._markPersistenceFailureReported(disposedError);
+        this._rejectPendingSave(disposedError);
         this._contentResolver.clearCaches();
         this._emitter.removeAllListeners();
     }
@@ -1009,8 +1013,10 @@ export class ChannelManager implements IChannelManager {
                 return;
             }
 
-            // Unexpected failures should remain error-level even if the warning is throttled.
-            this._logger.error('Debounced save failed', summary);
+            // Unexpected failures should remain error-level, but avoid spamming logs on rapid repeats.
+            if (didEmitWarning) {
+                this._logger.error('Debounced save failed', summary);
+            }
         });
     }
 
