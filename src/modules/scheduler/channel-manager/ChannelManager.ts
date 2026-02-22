@@ -739,13 +739,14 @@ export class ChannelManager implements IChannelManager {
 
     /**
      * Reorder channels.
-     * @remarks In-memory order is updated synchronously; persistence errors propagate.
+     * @remarks In-memory order is updated synchronously; persistence is queued via debounced save.
      */
-    async reorderChannels(orderedIds: string[]): Promise<void> {
+    reorderChannels(orderedIds: string[]): Promise<void> {
         // Validate all IDs exist
         const validIds = orderedIds.filter((id) => this._state.channels.has(id));
         this._state.channelOrder = validIds;
         this._queueSave();
+        return Promise.resolve();
     }
 
     /**
@@ -1059,11 +1060,14 @@ export class ChannelManager implements IChannelManager {
         if (!this._shouldEmitPersistenceWarning(isQuotaError)) {
             return false;
         }
+        const code = isQuotaError
+            ? AppErrorCode.STORAGE_QUOTA_EXCEEDED
+            : (getErrorCode(error) ?? AppErrorCode.UNKNOWN);
         this._emitter.emit('persistenceWarning', {
             message: isQuotaError
                 ? STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED
                 : 'Failed to persist channels; some changes may not be saved',
-            code: isQuotaError ? AppErrorCode.STORAGE_QUOTA_EXCEEDED : AppErrorCode.UNKNOWN,
+            code,
             isQuotaError,
             timestamp: Date.now(),
         });
