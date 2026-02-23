@@ -61,7 +61,6 @@ export const EPG_CLASSES = {
     CELL_TIER_MEDIUM: 'epg-cell-tier-medium',
     CELL_TIER_NARROW: 'epg-cell-tier-narrow',
     CELL_TIER_TINY: 'epg-cell-tier-tiny',
-    CELL_SHOW: 'epg-cell-show',
     CELL_META: 'epg-cell-meta',
     CELL_EPISODE: 'epg-cell-episode',
     CELL_TITLE: 'epg-cell-title',
