@@ -250,25 +250,18 @@ export class ContentResolver {
                     const episode = episodes[i];
                     if (!episode) continue;
 
-                    const merged: PlexMediaItemMinimal = { ...episode };
-
-                    // Propagate show-level metadata to episodes for filtering (best-effort).
-                    if (!merged.genres && item.genres) merged.genres = item.genres;
-                    if (!merged.directors && item.directors) merged.directors = item.directors;
-                    if (!merged.contentRating && item.contentRating) merged.contentRating = item.contentRating;
-                    if ((!merged.rating || merged.rating === 0) && typeof item.rating === 'number') {
-                        merged.rating = item.rating;
-                    }
-                    if ((merged.year === 0 || !merged.year) && item.year) {
-                        merged.year = item.year;
-                    }
                     const showThumb = item.showThumb ?? item.thumb ?? null;
-                    if (!merged.grandparentThumb && showThumb) {
-                        merged.grandparentThumb = showThumb;
-                    }
-                    if (!merged.clearLogo && item.clearLogo) {
-                        merged.clearLogo = item.clearLogo;
-                    }
+                    const merged = this._decorateEpisodeFromParent(episode, {
+                        genres: item.genres,
+                        directors: item.directors,
+                        contentRating: item.contentRating,
+                        rating: item.rating,
+                        year: item.year,
+                        grandparentTitle: item.title,
+                        grandparentThumb: showThumb,
+                        art: item.art,
+                        clearLogo: item.clearLogo,
+                    });
 
                     expanded.push(this._toResolvedItem(merged, 0));
                 }
@@ -278,6 +271,36 @@ export class ContentResolver {
         }
 
         return expanded;
+    }
+
+    private _decorateEpisodeFromParent(
+        episode: PlexMediaItemMinimal,
+        parent: {
+            genres?: string[] | undefined;
+            directors?: string[] | undefined;
+            contentRating?: string | undefined;
+            rating?: number | undefined;
+            year?: number | undefined;
+            grandparentTitle?: string | undefined;
+            grandparentThumb?: string | null | undefined;
+            art?: string | null | undefined;
+            clearLogo?: string | null | undefined;
+        }
+    ): PlexMediaItemMinimal {
+        const merged: PlexMediaItemMinimal = { ...episode };
+
+        // Propagate parent metadata to episodes for filtering and display (best-effort).
+        if (!merged.genres && parent.genres) merged.genres = parent.genres;
+        if (!merged.directors && parent.directors) merged.directors = parent.directors;
+        if (!merged.contentRating && parent.contentRating) merged.contentRating = parent.contentRating;
+        if (!merged.rating && typeof parent.rating === 'number') merged.rating = parent.rating;
+        if (!merged.year && parent.year) merged.year = parent.year;
+        if (!merged.grandparentTitle && parent.grandparentTitle) merged.grandparentTitle = parent.grandparentTitle;
+        if (!merged.grandparentThumb && parent.grandparentThumb) merged.grandparentThumb = parent.grandparentThumb;
+        if (merged.art == null && parent.art) merged.art = parent.art;
+        if (!merged.clearLogo && parent.clearLogo) merged.clearLogo = parent.clearLogo;
+
+        return merged;
     }
 
     /**
@@ -448,13 +471,17 @@ export class ContentResolver {
             const parent = parentKey ? parentMap.get(parentKey) : null;
 
             if (parent) {
-                const merged: PlexMediaItemMinimal = { ...episode };
-                if (!merged.genres && parent.genres) merged.genres = parent.genres;
-                if (!merged.directors && parent.directors) merged.directors = parent.directors;
-                if (!merged.contentRating && parent.contentRating) merged.contentRating = parent.contentRating;
-                if ((!merged.year || merged.year === 0) && parent.year) merged.year = parent.year;
-                if (!merged.grandparentThumb && parent.thumb) merged.grandparentThumb = parent.thumb;
-                if (!merged.clearLogo && parent.clearLogo) merged.clearLogo = parent.clearLogo;
+                const merged = this._decorateEpisodeFromParent(episode, {
+                    genres: parent.genres,
+                    directors: parent.directors,
+                    contentRating: parent.contentRating,
+                    rating: parent.rating,
+                    year: parent.year,
+                    grandparentTitle: parent.title,
+                    grandparentThumb: parent.thumb,
+                    art: parent.art,
+                    clearLogo: parent.clearLogo,
+                });
                 decorated.push(merged);
             } else {
                 decorated.push(episode);
@@ -482,15 +509,17 @@ export class ContentResolver {
                     const episodes = await this._library.getShowEpisodes(item.ratingKey, options);
                     if (episodes.length > 0) {
                         const decorated = episodes.map((episode) => {
-                            const merged: PlexMediaItemMinimal = { ...episode };
-                            if (!merged.genres && item.genres) merged.genres = item.genres;
-                            if (!merged.directors && item.directors) merged.directors = item.directors;
-                            if (!merged.contentRating && item.contentRating) merged.contentRating = item.contentRating;
-                            if ((!merged.year || merged.year === 0) && item.year) merged.year = item.year;
-                            if (!merged.grandparentTitle && item.title) merged.grandparentTitle = item.title;
-                            if (!merged.grandparentThumb && item.thumb) merged.grandparentThumb = item.thumb;
-                            if (!merged.clearLogo && item.clearLogo) merged.clearLogo = item.clearLogo;
-                            return merged;
+                            return this._decorateEpisodeFromParent(episode, {
+                                genres: item.genres,
+                                directors: item.directors,
+                                contentRating: item.contentRating,
+                                rating: item.rating,
+                                year: item.year,
+                                grandparentTitle: item.title,
+                                grandparentThumb: item.thumb,
+                                art: item.art,
+                                clearLogo: item.clearLogo,
+                            });
                         });
                         expanded.push(...decorated);
                         continue;
@@ -769,6 +798,9 @@ export class ContentResolver {
         }
         if (item.grandparentThumb) {
             resolved.showThumb = item.grandparentThumb;
+        }
+        if (item.art !== undefined) {
+            resolved.art = item.art;
         }
         if (item.clearLogo) {
             resolved.clearLogo = item.clearLogo;

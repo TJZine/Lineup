@@ -18,10 +18,12 @@ import { formatContentRatingBadge } from '../../../utils/contentRating';
  */
 export class EPGInfoPanel implements IEPGInfoPanel {
     private containerElement: HTMLElement | null = null;
+    private backdropElement: HTMLImageElement | null = null;
     private posterElement: HTMLImageElement | null = null;
     private showTitleElement: HTMLElement | null = null;
     private titleElement: HTMLElement | null = null;
     private metaElement: HTMLElement | null = null;
+    private tagsElement: HTMLElement | null = null;
     private genresElement: HTMLElement | null = null;
     private descriptionElement: HTMLElement | null = null;
     private isVisible: boolean = false;
@@ -35,6 +37,10 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private hdrFetchToken = 0;
     private hdrFetchController: AbortController | null = null;
     private hdrFetchTimer: ReturnType<typeof setTimeout> | null = null;
+    private episodePosterCache = new Map<string, string | null>();
+    private posterFetchToken = 0;
+    private posterFetchController: AbortController | null = null;
+    private posterFetchTimer: ReturnType<typeof setTimeout> | null = null;
 
     /**
      * Set the thumb URL resolver callback.
@@ -71,6 +77,9 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.containerElement.style.opacity = '0';
         parentElement.appendChild(this.containerElement);
 
+        this.backdropElement = this.containerElement.querySelector(
+            `.${EPG_CLASSES.INFO_BACKDROP_IMG}`
+        ) as HTMLImageElement | null;
         this.posterElement = this.containerElement.querySelector(
             `.${EPG_CLASSES.INFO_POSTER}`
         ) as HTMLImageElement | null;
@@ -82,6 +91,9 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         ) as HTMLElement | null;
         this.metaElement = this.containerElement.querySelector(
             `.${EPG_CLASSES.INFO_META}`
+        ) as HTMLElement | null;
+        this.tagsElement = this.containerElement.querySelector(
+            `.${EPG_CLASSES.INFO_TAGS}`
         ) as HTMLElement | null;
         this.genresElement = this.containerElement.querySelector(
             `.${EPG_CLASSES.INFO_GENRES}`
@@ -111,13 +123,17 @@ export class EPGInfoPanel implements IEPGInfoPanel {
      */
     private createTemplate(): string {
         return `
+      <div class="${EPG_CLASSES.INFO_BACKDROP}" aria-hidden="true">
+        <img class="${EPG_CLASSES.INFO_BACKDROP_IMG}" alt="" />
+      </div>
       <div class="${EPG_CLASSES.INFO_POSTER_WRAP}">
-        <img class="${EPG_CLASSES.INFO_POSTER}" src="" alt="" />
+        <img class="${EPG_CLASSES.INFO_POSTER}" alt="" />
       </div>
       <div class="${EPG_CLASSES.INFO_CONTENT}">
-        <div class="${EPG_CLASSES.INFO_SHOW}"></div>
+        <div class="${EPG_CLASSES.INFO_SHOW} ${EPG_CLASSES.INFO_EYEBROW}"></div>
         <div class="${EPG_CLASSES.INFO_TITLE}"></div>
         <div class="${EPG_CLASSES.INFO_META}"></div>
+        <div class="${EPG_CLASSES.INFO_TAGS}"></div>
         <div class="${EPG_CLASSES.INFO_GENRES}"></div>
         <div class="${EPG_CLASSES.INFO_QUALITY}"></div>
         <div class="${EPG_CLASSES.INFO_DESCRIPTION}"></div>
@@ -130,14 +146,17 @@ export class EPGInfoPanel implements IEPGInfoPanel {
      */
     destroy(): void {
         this.clearHdrFetch();
+        this.clearPosterFetch();
         if (this.containerElement) {
             this.containerElement.remove();
             this.containerElement = null;
         }
+        this.backdropElement = null;
         this.posterElement = null;
         this.showTitleElement = null;
         this.titleElement = null;
         this.metaElement = null;
+        this.tagsElement = null;
         this.genresElement = null;
         this.descriptionElement = null;
         this.currentProgram = null;
@@ -146,6 +165,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.isVisible = false;
         this.qualityBadges = [];
         this.hdrCache.clear();
+        this.episodePosterCache.clear();
     }
 
     /**
@@ -167,6 +187,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.containerElement.style.opacity = '0';
         this.isVisible = false;
         this.clearHdrFetch();
+        this.clearPosterFetch();
     }
 
     /**
@@ -218,15 +239,22 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     ): void {
         if (!this.containerElement) return;
 
-        const { item } = program;
-
         this.updatePoster(program, 'fast');
+
+        this.updateNonPosterContent(program, { allowHdrFetch: options?.allowHdrFetch ?? false, showDescription: false });
+    }
+
+    private updateNonPosterContent(
+        program: ScheduledProgram,
+        options: { allowHdrFetch: boolean; showDescription: boolean }
+    ): void {
+        const { item } = program;
 
         // Update title
         const showTitle = this.showTitleElement;
         const title = this.titleElement;
         if (item.type === 'episode') {
-            const showText = item.showTitle ?? '';
+            const showText = this.getEffectiveShowTitle(item);
             if (showTitle) {
                 showTitle.textContent = showText;
                 showTitle.style.display = showText ? 'block' : 'none';
@@ -244,16 +272,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             }
         }
 
-        // Update meta info
-        const meta = this.metaElement;
-        if (meta) {
-            const startTime = formatTime(program.scheduledStartTime);
-            const endTime = formatTime(program.scheduledEndTime);
-            const duration = formatDuration(item.durationMs);
-            const year = item.year > 0 ? `(${item.year})` : '';
-
-            meta.textContent = `${startTime} - ${endTime} (${duration}) ${year}`;
-        }
+        this.updateMetaAndTags(program);
 
         // Update genres
         const genres = this.genresElement;
@@ -265,13 +284,19 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             genres.style.display = genreText ? 'block' : 'none';
         }
 
-        // Hide description during fast nav without updating text
         const description = this.descriptionElement;
-        if (description && description.style.display !== 'none') {
-            description.style.display = 'none';
+        if (description) {
+            if (options.showDescription) {
+                const summary = item.summary?.trim() ?? '';
+                description.textContent = summary;
+                description.style.display = summary ? 'block' : 'none';
+            } else if (description.style.display !== 'none') {
+                // Hide description during fast nav without updating text
+                description.style.display = 'none';
+            }
         }
 
-        this.updateQualityBadges(program, undefined, options);
+        this.updateQualityBadges(program, undefined, { allowHdrFetch: options.allowHdrFetch });
     }
 
     /**
@@ -280,19 +305,9 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private updateContentFull(program: ScheduledProgram): void {
         if (!this.containerElement) return;
 
-        this.updateContentFast(program, { allowHdrFetch: true });
-
-        const { item } = program;
+        this.updateNonPosterContent(program, { allowHdrFetch: true, showDescription: true });
 
         this.updatePoster(program, 'full');
-
-        // Update description
-        const description = this.descriptionElement;
-        if (description) {
-            const summary = item.summary?.trim() ?? '';
-            description.textContent = summary;
-            description.style.display = summary ? 'block' : 'none';
-        }
     }
 
     private updateQualityBadges(
@@ -434,27 +449,156 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     }
 
     private updatePoster(program: ScheduledProgram, mode: 'fast' | 'full'): void {
+        const backdrop = this.backdropElement;
         const poster = this.posterElement;
         if (!poster) return;
 
         const { item } = program;
-        const preferredThumb = item.type === 'episode'
-            ? (item.showThumb && item.showThumb.length ? item.showThumb : item.thumb)
-            : item.thumb;
+        if (backdrop) {
+            if (mode === 'full') {
+                const art = item.art ?? null;
+                if (art) {
+                    const resolvedBackdrop = this.thumbResolver?.(art, 960, 540) || null;
+                    if (resolvedBackdrop) {
+                        backdrop.src = resolvedBackdrop;
+                        backdrop.style.display = 'block';
+                    } else {
+                        backdrop.removeAttribute('src');
+                        backdrop.style.display = 'none';
+                    }
+                } else {
+                    backdrop.removeAttribute('src');
+                    backdrop.style.display = 'none';
+                }
+            } else {
+                backdrop.removeAttribute('src');
+                backdrop.style.display = 'none';
+            }
+        }
+
+        // For episodes, prefer the series poster over per-episode thumbnails to keep the guide consistent.
+        // If we don't have a series poster thumb, hide the poster rather than showing an episode still.
+        let preferredThumb: string | null = null;
+        if (item.type !== 'episode') {
+            preferredThumb = item.thumb;
+        } else {
+            const ratingKey = item.ratingKey;
+            const hasCached = this.episodePosterCache.has(ratingKey);
+            const cached = hasCached ? this.episodePosterCache.get(ratingKey) : undefined;
+            const showThumb = item.showThumb || null;
+            preferredThumb = (cached ?? showThumb) ?? null;
+            if (!preferredThumb && !hasCached && mode === 'full') {
+                this.maybeFetchEpisodePoster(program);
+            }
+        }
 
         const width = mode === 'fast' ? 160 : 320;
         const height = mode === 'fast' ? 240 : 480;
         const resolvedUrl = this.thumbResolver?.(preferredThumb, width, height) || null;
         if (resolvedUrl) {
             poster.src = resolvedUrl;
-            poster.alt = item.showTitle && item.showTitle.length ? item.showTitle : item.title;
+            const showTitle = item.type === 'episode' ? this.getEffectiveShowTitle(item) : '';
+            poster.alt = showTitle.length ? showTitle : item.title;
             poster.style.display = 'block';
             return;
         }
 
         // Hide poster when unresolved (prevents file:/// errors on webOS)
-        poster.src = '';
+        poster.removeAttribute('src');
         poster.style.display = 'none';
+    }
+
+    private extractShowTitleFromFullTitle(fullTitle: string): string | null {
+        const match = fullTitle.match(/^(.*?)\s-\sS\d{1,2}E\d{1,2}\s-/);
+        if (!match) return null;
+        const showTitle = match[1]?.trim() ?? '';
+        return showTitle.length > 0 ? showTitle : null;
+    }
+
+    private getEffectiveShowTitle(item: ScheduledProgram['item']): string {
+        const raw = (item.showTitle ?? '').trim();
+        if (raw.length > 0) return raw;
+        const derived = this.extractShowTitleFromFullTitle(item.fullTitle);
+        return derived ?? '';
+    }
+
+    private maybeFetchEpisodePoster(program: ScheduledProgram): void {
+        const ratingKey = program.item.ratingKey;
+        if (!ratingKey || !this.fetchItemDetails) {
+            return;
+        }
+        if (this.episodePosterCache.has(ratingKey)) {
+            return;
+        }
+
+        this.clearPosterFetch();
+        const fetchToken = ++this.posterFetchToken;
+        this.posterFetchController = new AbortController();
+        this.posterFetchTimer = setTimeout(() => {
+            this.posterFetchTimer = null;
+            void this.fetchItemDetails?.(ratingKey, { signal: this.posterFetchController?.signal ?? null })
+                .then((item) => {
+                    if (fetchToken !== this.posterFetchToken) return;
+                    const seriesPosterThumb = item?.grandparentThumb ?? null;
+                    this.episodePosterCache.set(ratingKey, seriesPosterThumb);
+                    const current = this.currentProgram;
+                    if (!current || current.item.ratingKey !== ratingKey) return;
+                    this.updatePoster(current, 'full');
+                })
+                .catch((error) => {
+                    if (error instanceof DOMException && error.name === 'AbortError') {
+                        return;
+                    }
+                });
+        }, 200);
+    }
+
+    private clearPosterFetch(): void {
+        if (this.posterFetchTimer !== null) {
+            clearTimeout(this.posterFetchTimer);
+            this.posterFetchTimer = null;
+        }
+        if (this.posterFetchController) {
+            this.posterFetchController.abort();
+            this.posterFetchController = null;
+        }
+        this.posterFetchToken += 1;
+    }
+
+    private updateMetaAndTags(program: ScheduledProgram): void {
+        const { item } = program;
+        const startTime = formatTime(program.scheduledStartTime);
+        const endTime = formatTime(program.scheduledEndTime);
+        const duration = formatDuration(item.durationMs);
+        const year = item.year > 0 ? `(${item.year})` : '';
+        const metaText = `${startTime} - ${endTime} (${duration}) ${year}`.trim();
+
+        const meta = this.metaElement;
+        if (meta) {
+            // Keep meta as the semantic (screen-reader) version; pills below are visual-only.
+            meta.textContent = metaText;
+            meta.classList.add('sr-only');
+        }
+
+        const tags = this.tagsElement;
+        if (!tags) return;
+
+        // Visual pills are presentational; avoid duplicate announcements.
+        tags.setAttribute('aria-hidden', 'true');
+        tags.replaceChildren();
+        const pills: string[] = [];
+        pills.push(`${startTime} - ${endTime}`);
+        pills.push(duration);
+        if (item.year > 0) {
+            pills.push(String(item.year));
+        }
+
+        for (const text of pills) {
+            const pill = document.createElement('span');
+            pill.className = EPG_CLASSES.INFO_PILL;
+            pill.textContent = text;
+            tags.appendChild(pill);
+        }
     }
 
     /**

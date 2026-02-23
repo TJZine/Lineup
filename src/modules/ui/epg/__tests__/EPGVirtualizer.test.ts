@@ -481,7 +481,7 @@ describe('EPGVirtualizer', () => {
             expect(titleLeft).toBeGreaterThanOrEqual(12);
         });
 
-        it('renders show title line for episode programs', () => {
+        it('renders show name in the title line for episode programs', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-episode';
             const schedule: ScheduleWindow = {
@@ -514,13 +514,15 @@ describe('EPGVirtualizer', () => {
             const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
             virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
 
+            const titleLine = container.querySelector('.epg-cell-title') as HTMLElement | null;
+            expect(titleLine).not.toBeNull();
+            expect(titleLine?.textContent).toBe('Great Show');
+
             const showLine = container.querySelector('.epg-cell-show') as HTMLElement | null;
-            expect(showLine).not.toBeNull();
-            expect(showLine?.textContent).toBe('Great Show');
-            expect(showLine?.style.display).toBe('block');
+            expect(showLine).toBeNull();
         });
 
-        it('hides show title line for non-episode programs', () => {
+        it('keeps movie title in the title line and does not render a show line', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-movie';
             const schedule: ScheduleWindow = {
@@ -553,10 +555,110 @@ describe('EPGVirtualizer', () => {
             const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
             virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
 
+            const titleLine = container.querySelector('.epg-cell-title') as HTMLElement | null;
+            expect(titleLine).not.toBeNull();
+            expect(titleLine?.textContent).toBe('Feature Film');
+
             const showLine = container.querySelector('.epg-cell-show') as HTMLElement | null;
-            expect(showLine).not.toBeNull();
-            expect(showLine?.textContent).toBe('');
-            expect(showLine?.style.display).toBe('none');
+            expect(showLine).toBeNull();
+        });
+
+        it('renders episode tag + subtitle line for episode programs', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-episode-tag';
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + 3600000,
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'ep-tag-1',
+                            type: 'episode',
+                            title: 'The Heist',
+                            fullTitle: 'Great Show - S01E05 - The Heist',
+                            showTitle: 'Great Show',
+                            seasonNumber: 1,
+                            episodeNumber: 5,
+                            durationMs: 3600000,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: gridAnchorTime,
+                        scheduledEndTime: gridAnchorTime + 3600000,
+                        elapsedMs: 0,
+                        remainingMs: 0,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${gridAnchorTime}"]`) as HTMLElement;
+            expect(cell).not.toBeNull();
+
+            const episodeTag = cell.querySelector('.epg-cell-episode') as HTMLElement | null;
+            expect(episodeTag).not.toBeNull();
+            expect(episodeTag?.textContent).toBe('S01E05');
+
+            const title = cell.querySelector('.epg-cell-title') as HTMLElement | null;
+            expect(title).not.toBeNull();
+            expect(title?.textContent).toBe('Great Show');
+
+            const subtitle = cell.querySelector('.epg-cell-subtitle') as HTMLElement | null;
+            expect(subtitle).not.toBeNull();
+            expect(subtitle?.textContent).toBe('The Heist');
+        });
+
+        it('hides subtitle when show title is unavailable and subtitle would duplicate title', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-episode-no-showtitle';
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + 3600000,
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'ep-no-showtitle-1',
+                            type: 'episode',
+                            title: 'Episode One',
+                            fullTitle: 'Episode One',
+                            durationMs: 60 * 60000, // 240px => wide tier
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: gridAnchorTime,
+                        scheduledEndTime: gridAnchorTime + (60 * 60000),
+                        elapsedMs: 0,
+                        remainingMs: 0,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${gridAnchorTime}"]`) as HTMLElement;
+            expect(cell).not.toBeNull();
+
+            const title = cell.querySelector('.epg-cell-title') as HTMLElement | null;
+            expect(title).not.toBeNull();
+            expect(title?.textContent).toBe('Episode One');
+
+            const subtitle = cell.querySelector('.epg-cell-subtitle') as HTMLElement | null;
+            expect(subtitle).not.toBeNull();
+            expect((subtitle?.textContent ?? '').trim()).toBe('');
+            expect(subtitle?.style.display).toBe('none');
         });
 
         it('hides time line deterministically for tiny-width cells', () => {
@@ -694,25 +796,29 @@ describe('EPGVirtualizer', () => {
 
             const wideCell = container.querySelector(`[data-key="${channelId}-${gridAnchorTime}"]`) as HTMLElement;
             expect(wideCell.classList.contains(EPG_CLASSES.CELL_TIER_WIDE)).toBe(true);
-            expect((wideCell.querySelector(`.${EPG_CLASSES.CELL_SHOW}`) as HTMLElement).style.display).toBe('block');
+            expect((wideCell.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement).style.display).toBe('flex');
+            expect((wideCell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement).style.display).toBe('block');
             expect((wideCell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement).style.display).toBe('block');
 
             const mediumStart = gridAnchorTime + (55 * 60000);
             const mediumCell = container.querySelector(`[data-key="${channelId}-${mediumStart}"]`) as HTMLElement;
             expect(mediumCell.classList.contains(EPG_CLASSES.CELL_TIER_MEDIUM)).toBe(true);
-            expect((mediumCell.querySelector(`.${EPG_CLASSES.CELL_SHOW}`) as HTMLElement).style.display).toBe('none');
+            expect((mediumCell.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement).style.display).toBe('none');
+            expect((mediumCell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement).style.display).toBe('block');
             expect((mediumCell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement).style.display).toBe('block');
 
             const narrowStart = gridAnchorTime + (90 * 60000);
             const narrowCell = container.querySelector(`[data-key="${channelId}-${narrowStart}"]`) as HTMLElement;
             expect(narrowCell.classList.contains(EPG_CLASSES.CELL_TIER_NARROW)).toBe(true);
-            expect((narrowCell.querySelector(`.${EPG_CLASSES.CELL_SHOW}`) as HTMLElement).style.display).toBe('none');
+            expect((narrowCell.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement).style.display).toBe('none');
+            expect((narrowCell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement).style.display).toBe('none');
             expect((narrowCell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement).style.display).toBe('none');
 
             const tinyStart = gridAnchorTime + (112 * 60000);
             const tinyCell = container.querySelector(`[data-key="${channelId}-${tinyStart}"]`) as HTMLElement;
             expect(tinyCell.classList.contains(EPG_CLASSES.CELL_TIER_TINY)).toBe(true);
-            expect((tinyCell.querySelector(`.${EPG_CLASSES.CELL_SHOW}`) as HTMLElement).style.display).toBe('none');
+            expect((tinyCell.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement).style.display).toBe('none');
+            expect((tinyCell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement).style.display).toBe('none');
             expect((tinyCell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement).style.display).toBe('none');
         });
 

@@ -245,7 +245,7 @@ export class EPGChannelList {
                 /^data:image\/(png|jpeg|jpg|gif|webp);/i.test(channel.icon);
             if (isValidIconUrl) {
                 const icon = document.createElement('img');
-                icon.className = 'epg-channel-icon';
+                icon.className = EPG_CLASSES.CHANNEL_ICON;
                 icon.src = channel.icon;
                 icon.alt = displayName;
                 row.appendChild(icon);
@@ -261,12 +261,12 @@ export class EPGChannelList {
 
         // Channel number
         const number = document.createElement('span');
-        number.className = 'epg-channel-number';
+        number.className = EPG_CLASSES.CHANNEL_NUMBER;
         number.textContent = channel.number.toString();
 
         // Channel name
         const name = document.createElement('span');
-        name.className = 'epg-channel-name';
+        name.className = EPG_CLASSES.CHANNEL_NAME;
         name.textContent = displayName;
 
         row.appendChild(number);

@@ -15,6 +15,8 @@ import {
     MIGRATIONS,
     DEFAULT_USER_PREFERENCES,
 } from './constants';
+import { summarizeErrorForLog } from '../../utils/errors';
+import { safeLocalStorageRemove } from '../../utils/storage';
 
 /**
  * Manages application state persistence to localStorage.
@@ -99,7 +101,7 @@ export class StateManager implements IStateManager {
                 typeof process !== 'undefined' &&
                 (process as { env?: { NODE_ENV?: string } }).env?.NODE_ENV === 'development';
             if (isDev) {
-                console.warn('[StateManager] Failed to parse persisted state:', error);
+                console.warn('[StateManager] Failed to parse persisted state:', summarizeErrorForLog(error));
             }
             return null;
         }
@@ -109,7 +111,7 @@ export class StateManager implements IStateManager {
      * Clear stored state.
      */
     public async clear(): Promise<void> {
-        localStorage.removeItem(this._storageKey);
+        safeLocalStorageRemove(this._storageKey);
     }
 
     /**

@@ -32,6 +32,7 @@ import type { IDisposable } from '../utils/interfaces';
 import { readStoredBoolean, safeLocalStorageGet } from '../utils/storage';
 import { RETUNE_STORAGE_KEYS } from '../config/storageKeys';
 import type { OrchestratorConfig, ModuleStatus } from '../Orchestrator';
+import { summarizeErrorForLog } from '../utils/errors';
 
 // ============================================
 // Types
@@ -544,7 +545,7 @@ export class InitializationCoordinator implements IInitializationCoordinator {
         try {
             await this._deps.plexDiscovery.initialize();
         } catch (error) {
-            console.error('Server discovery failed:', error);
+            console.error('Server discovery failed:', summarizeErrorForLog(error));
             this._callbacks.updateModuleStatus('plex-server-discovery', 'error');
             if (this._deps.navigation) {
                 this._deps.navigation.goTo('server-select');
@@ -888,7 +889,7 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             }
             this.clearAuthResume();
             this.runStartup(2).catch((error) => {
-                console.error('[InitializationCoordinator] Auth resume failed:', error);
+                console.error('[InitializationCoordinator] Auth resume failed:', summarizeErrorForLog(error));
             });
         });
         this._authResumeDisposable = disposable;
@@ -909,7 +910,7 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             }
             this.clearServerResume();
             this.runStartup(3).catch((error) => {
-                console.error('[InitializationCoordinator] Server resume failed:', error);
+                console.error('[InitializationCoordinator] Server resume failed:', summarizeErrorForLog(error));
             });
         });
         this._serverResumeDisposable = disposable;
@@ -930,7 +931,7 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             // before Phase 3 runs and restores server selection from localStorage.
             this._callbacks.configureDiscoveryStorage();
             this.runStartup(3).catch((error) => {
-                console.error('[InitializationCoordinator] Profile resume failed:', error);
+                console.error('[InitializationCoordinator] Profile resume failed:', summarizeErrorForLog(error));
             });
         });
         this._profileResumeDisposable = disposable;
