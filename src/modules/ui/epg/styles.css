@@ -597,6 +597,18 @@
   padding-top: 28px;
 }
 
+.epg-cell-tier-medium.current {
+  padding-top: 26px;
+}
+
+.epg-cell-tier-narrow.current {
+  padding-top: 22px;
+}
+
+.epg-cell-tier-tiny.current {
+  padding-top: 20px;
+}
+
 .epg-cell.past {
   opacity: 0.55;
 }
@@ -819,8 +831,7 @@
   object-fit: cover;
   opacity: 0.18;
   transform: scale(1.06);
-  filter: none;
-  /* filter: blur(14px); */
+  filter: none; /* Blur is too expensive on webOS for full-screen backdrops. */
 }
 
 .epg-info-poster-wrap {

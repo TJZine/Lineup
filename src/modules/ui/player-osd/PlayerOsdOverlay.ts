@@ -203,7 +203,7 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
             if (nextKey !== this.lastInfoPillsKey) {
                 const pills = parts.map(part => {
                     const pill = document.createElement('span');
-                    pill.className = 'osd-pill';
+                    pill.className = PLAYER_OSD_CLASSES.PILL;
                     pill.textContent = part;
                     return pill;
                 });
@@ -359,13 +359,13 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
               <div class="${PLAYER_OSD_CLASSES.CHANNEL}"></div>
             </div>
 
-            <div class="player-osd-zones">
-              <div class="player-osd-zone-brand">
+            <div class="${PLAYER_OSD_CLASSES.ZONES}">
+              <div class="${PLAYER_OSD_CLASSES.ZONE_BRAND}">
                 <img class="${PLAYER_OSD_CLASSES.CLEAR_LOGO}" alt="" style="display:none" />
                 <div class="${PLAYER_OSD_CLASSES.TITLE}"></div>
               </div>
 
-              <div class="player-osd-zone-details">
+              <div class="${PLAYER_OSD_CLASSES.ZONE_DETAILS}">
                 <div class="${PLAYER_OSD_CLASSES.SUBTITLE}"></div>
                 <div class="${PLAYER_OSD_CLASSES.INFO_LINE}"></div>
                 <div class="${PLAYER_OSD_CLASSES.UP_NEXT}"></div>
@@ -382,7 +382,7 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
 
             <div class="${PLAYER_OSD_CLASSES.HINT}"></div>
 
-            <div class="player-osd-progress-container">
+            <div class="${PLAYER_OSD_CLASSES.PROGRESS_CONTAINER}">
               <div class="${PLAYER_OSD_CLASSES.BAR}">
                 <div class="${PLAYER_OSD_CLASSES.BAR_BUFFER}"></div>
                 <div class="${PLAYER_OSD_CLASSES.BAR_PLAYED}"></div>

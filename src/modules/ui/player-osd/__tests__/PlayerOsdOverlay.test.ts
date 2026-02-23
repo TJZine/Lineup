@@ -90,7 +90,7 @@ describe('PlayerOsdOverlay', () => {
             'Up next • 9:30 PM — Next'
         );
         const info = container.querySelector(`.${PLAYER_OSD_CLASSES.INFO_LINE}`) as HTMLElement;
-        const pills = Array.from(info.querySelectorAll('.osd-pill')).map(el => el.textContent);
+        const pills = Array.from(info.querySelectorAll(`.${PLAYER_OSD_CLASSES.PILL}`)).map(el => el.textContent);
         expect(pills).toEqual(['Audio: Stereo', 'Subs: English']);
         expect(container.querySelector(`.${PLAYER_OSD_CLASSES.TIMECODE}`)?.textContent).toBe('0:10 / 1:40');
         expect(container.querySelector(`.${PLAYER_OSD_CLASSES.ENDS}`)?.textContent).toBe('Ends 9:15 PM');
@@ -127,6 +127,7 @@ describe('PlayerOsdOverlay', () => {
 
         expect((container.querySelector(`.${PLAYER_OSD_CLASSES.CHANNEL}`) as HTMLElement).style.display).toBe('none');
         expect((container.querySelector(`.${PLAYER_OSD_CLASSES.SUBTITLE}`) as HTMLElement).style.display).toBe('none');
+        expect((container.querySelector(`.${PLAYER_OSD_CLASSES.INFO_LINE}`) as HTMLElement).style.display).toBe('none');
         expect((container.querySelector(`.${PLAYER_OSD_CLASSES.UP_NEXT}`) as HTMLElement).style.display).toBe('none');
         expect((container.querySelector(`.${PLAYER_OSD_CLASSES.ENDS}`) as HTMLElement).style.display).toBe('none');
         expect((container.querySelector(`.${PLAYER_OSD_CLASSES.BUFFER_TEXT}`) as HTMLElement).style.display).toBe(

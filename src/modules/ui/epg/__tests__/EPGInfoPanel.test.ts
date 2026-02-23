@@ -166,7 +166,11 @@ describe('EPGInfoPanel', () => {
         });
 
         it('renders and updates a backdrop image when resolver returns a URL', () => {
-            const resolver = jest.fn().mockReturnValue('https://server/library/thumb?token=xxx');
+            const resolver = jest.fn().mockImplementation((path: string | null) => {
+                if (path === '/library/metadata/123/art') return 'https://server/library/art-123';
+                if (path === '/library/metadata/456/art') return 'https://server/library/art-456';
+                return null;
+            });
             panel.setThumbResolver(resolver);
 
             const program = createMockProgram('/library/metadata/123/thumb', {
@@ -178,7 +182,15 @@ describe('EPGInfoPanel', () => {
 
             const backdrop = container.querySelector('.epg-info-backdrop-img') as HTMLImageElement | null;
             expect(backdrop).not.toBeNull();
-            expect(backdrop?.src).toBe('https://server/library/thumb?token=xxx');
+            expect(backdrop?.style.display).not.toBe('none');
+            expect(backdrop?.src).toBe('https://server/library/art-123');
+
+            const program2 = createMockProgram('/library/metadata/456/thumb', {
+                art: '/library/metadata/456/art',
+            });
+            panel.show(program2);
+            expect(resolver).toHaveBeenCalledWith('/library/metadata/456/art', 960, 540);
+            expect(backdrop?.src).toBe('https://server/library/art-456');
 
             const pills = Array.from(container.querySelectorAll('.epg-info-tags .epg-info-pill')) as HTMLElement[];
             expect(pills.length).toBe(3);

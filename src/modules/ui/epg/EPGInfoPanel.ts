@@ -463,7 +463,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         // For episodes, prefer the series poster over per-episode thumbnails to keep the guide consistent.
         // If we don't have a showThumb, hide the poster rather than showing an episode still.
         const preferredThumb = item.type === 'episode'
-            ? (item.showThumb && item.showThumb.length ? item.showThumb : null)
+            ? (item.showThumb || null)
             : item.thumb;
 
         const width = mode === 'fast' ? 160 : 320;
