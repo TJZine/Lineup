@@ -16,6 +16,7 @@ import type { AppErrorCode } from '../../lifecycle/types';
 export type PlaybackMode =
     | 'sequential'  // Play in defined order, loop
     | 'shuffle'     // Deterministic shuffle with seed, loop
+    | 'block'       // Deterministic round-robin by show in episode blocks
     | 'random';     // True random (new order each time)
 
 /**
@@ -231,6 +232,10 @@ export interface ChannelConfig {
     playbackMode: PlaybackMode;
     /** Seed for deterministic shuffle */
     shuffleSeed?: number;
+    /**
+     * Episodes per show before switching, used when playbackMode === 'block'
+     */
+    blockSize?: number;
     /** Seed for deterministic per-channel phase offset (live drift) */
     phaseSeed?: number;
     /** Unix timestamp (ms) - schedule reference point */
