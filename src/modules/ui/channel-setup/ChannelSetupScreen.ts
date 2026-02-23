@@ -51,7 +51,13 @@ type SetupStrategyState = Record<SetupStrategyKey, {
 type ChannelExpansionState = {
     addAlternateLineups: boolean;
     alternateLineupCopies: number;
-    addSequentialVariants: boolean;
+    variantType: 'none' | 'sequential' | 'block';
+    variantBlockSize: number;
+};
+
+type SeriesOrderingState = {
+    basePlaybackMode: 'shuffle' | 'sequential' | 'block';
+    baseBlockSize: number;
 };
 
 const strategySupportsMixedScope = (key: SetupStrategyKey): boolean =>
@@ -81,7 +87,13 @@ const createDefaultStrategyOrder = (): SetupStrategyKey[] =>
 const defaultChannelExpansionState = (): ChannelExpansionState => ({
     addAlternateLineups: false,
     alternateLineupCopies: 1,
-    addSequentialVariants: false,
+    variantType: 'none',
+    variantBlockSize: 3,
+});
+
+const defaultSeriesOrderingState = (): SeriesOrderingState => ({
+    basePlaybackMode: 'shuffle',
+    baseBlockSize: 3,
 });
 
 type SetupStep = 1 | 2 | 3;
@@ -143,6 +155,7 @@ export class ChannelSetupScreen {
     private _strategies: SetupStrategyState = createDefaultStrategyState();
     private _strategyOrder: SetupStrategyKey[] = createDefaultStrategyOrder();
     private _channelExpansion: ChannelExpansionState = defaultChannelExpansionState();
+    private _seriesOrdering: SeriesOrderingState = defaultSeriesOrderingState();
     private _activeStrategyCategory: StrategyCategoryKey = 'content-sources';
     private _rememberedDetailFocusByCategory: Partial<Record<StrategyCategoryKey, string>> = {};
     private _buildMode: ChannelSetupConfig['buildMode'] = 'replace';
@@ -386,7 +399,9 @@ export class ChannelSetupScreen {
 
                 const isAdjustableControl = focusedId === STEP2_CONTROL_IDS.maxChannels
                     || focusedId === STEP2_CONTROL_IDS.minItems
-                    || focusedId === STEP2_CONTROL_IDS.alternateLineupCopies;
+                    || focusedId === STEP2_CONTROL_IDS.alternateLineupCopies
+                    || focusedId === STEP2_CONTROL_IDS.seriesBaseBlockSize
+                    || focusedId === STEP2_CONTROL_IDS.seriesVariantBlockSize;
                 if (isAdjustableControl) {
                     let previousValue = 0;
                     let nextValue = 0;
@@ -406,6 +421,20 @@ export class ChannelSetupScreen {
                         previousValue = this._channelExpansion.alternateLineupCopies;
                         nextValue = this._stepPreset([1, 2, 3], previousValue, direction, 'clamp');
                         this._channelExpansion.alternateLineupCopies = nextValue;
+                    } else if (focusedId === STEP2_CONTROL_IDS.seriesBaseBlockSize) {
+                        if (this._seriesOrdering.basePlaybackMode !== 'block') {
+                            return;
+                        }
+                        previousValue = this._seriesOrdering.baseBlockSize;
+                        nextValue = this._stepPreset([2, 3, 4, 5], previousValue, direction, 'clamp');
+                        this._seriesOrdering.baseBlockSize = nextValue;
+                    } else if (focusedId === STEP2_CONTROL_IDS.seriesVariantBlockSize) {
+                        if (this._channelExpansion.variantType !== 'block') {
+                            return;
+                        }
+                        previousValue = this._channelExpansion.variantBlockSize;
+                        nextValue = this._stepPreset([2, 3, 4, 5], previousValue, direction, 'clamp');
+                        this._channelExpansion.variantBlockSize = nextValue;
                     }
 
                     event.handled = true;
@@ -483,6 +512,7 @@ export class ChannelSetupScreen {
         this._strategies = createDefaultStrategyState();
         this._strategyOrder = createDefaultStrategyOrder();
         this._channelExpansion = defaultChannelExpansionState();
+        this._seriesOrdering = defaultSeriesOrderingState();
         this._buildMode = 'replace';
         this._actorStudioCombineMode = 'separate';
         this._activeStrategyCategory = 'content-sources';
@@ -677,6 +707,7 @@ export class ChannelSetupScreen {
                 strategies: this._strategies,
                 strategyOrder: this._strategyOrder,
                 channelExpansion: this._channelExpansion,
+                seriesOrdering: this._seriesOrdering,
                 buildMode: this._buildMode,
                 actorStudioCombineMode: this._actorStudioCombineMode,
                 maxChannels: this._maxChannels,
@@ -713,11 +744,13 @@ export class ChannelSetupScreen {
                 }, {} as SetupStrategyState);
                 const strategyOrder = [...this._strategyOrder];
                 const channelExpansion: ChannelExpansionState = { ...this._channelExpansion };
+                const seriesOrdering: SeriesOrderingState = { ...this._seriesOrdering };
                 const draft: StrategyStepMutableState = {
                     activeStrategyCategory: this._activeStrategyCategory,
                     strategies,
                     strategyOrder,
                     channelExpansion,
+                    seriesOrdering,
                     buildMode: this._buildMode,
                     actorStudioCombineMode: this._actorStudioCombineMode,
                     maxChannels: this._maxChannels,
@@ -730,6 +763,7 @@ export class ChannelSetupScreen {
                 this._strategies = draft.strategies;
                 this._strategyOrder = draft.strategyOrder;
                 this._channelExpansion = draft.channelExpansion;
+                this._seriesOrdering = draft.seriesOrdering;
                 this._buildMode = draft.buildMode;
                 this._actorStudioCombineMode = draft.actorStudioCombineMode;
                 this._maxChannels = draft.maxChannels;
@@ -807,7 +841,14 @@ export class ChannelSetupScreen {
                 STEP2_CONTROL_IDS.combineMode,
                 STEP2_CONTROL_IDS.addAlternateLineups,
                 STEP2_CONTROL_IDS.alternateLineupCopies,
-                STEP2_CONTROL_IDS.addSequentialVariants,
+            ];
+        }
+        if (category === 'series-ordering') {
+            return [
+                STEP2_CONTROL_IDS.seriesBaseMode,
+                STEP2_CONTROL_IDS.seriesBaseBlockSize,
+                STEP2_CONTROL_IDS.seriesVariantType,
+                STEP2_CONTROL_IDS.seriesVariantBlockSize,
             ];
         }
         if (category === 'priority-order') {
@@ -1167,7 +1208,12 @@ export class ChannelSetupScreen {
             channelExpansion: {
                 addAlternateLineups: this._channelExpansion.addAlternateLineups,
                 alternateLineupCopies: this._channelExpansion.alternateLineupCopies,
-                addSequentialVariants: this._channelExpansion.addSequentialVariants,
+                variantType: this._channelExpansion.variantType,
+                variantBlockSize: this._channelExpansion.variantBlockSize,
+            },
+            seriesOrdering: {
+                basePlaybackMode: this._seriesOrdering.basePlaybackMode,
+                baseBlockSize: this._seriesOrdering.baseBlockSize,
             },
             actorStudioCombineMode: this._actorStudioCombineMode,
             minItemsPerChannel: this._minItems,
@@ -1380,7 +1426,22 @@ export class ChannelSetupScreen {
             alternateLineupCopies: Number.isFinite(record.channelExpansion?.alternateLineupCopies)
                 ? Math.min(3, Math.max(1, Math.floor(Number(record.channelExpansion?.alternateLineupCopies))))
                 : 1,
-            addSequentialVariants: record.channelExpansion?.addSequentialVariants === true,
+            variantType:
+                record.channelExpansion?.variantType === 'sequential' || record.channelExpansion?.variantType === 'block'
+                    ? record.channelExpansion.variantType
+                    : 'none',
+            variantBlockSize: Number.isFinite(record.channelExpansion?.variantBlockSize)
+                ? Math.min(5, Math.max(2, Math.floor(Number(record.channelExpansion?.variantBlockSize))))
+                : 3,
+        };
+        this._seriesOrdering = {
+            basePlaybackMode:
+                record.seriesOrdering?.basePlaybackMode === 'sequential' || record.seriesOrdering?.basePlaybackMode === 'block'
+                    ? record.seriesOrdering.basePlaybackMode
+                    : 'shuffle',
+            baseBlockSize: Number.isFinite(record.seriesOrdering?.baseBlockSize)
+                ? Math.min(5, Math.max(2, Math.floor(Number(record.seriesOrdering?.baseBlockSize))))
+                : 3,
         };
         this._maxChannels = Math.min(Number.isFinite(record.maxChannels) ? record.maxChannels : DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS);
         this._minItems = Math.max(1, Math.floor(record.minItemsPerChannel || DEFAULT_MIN_ITEMS_PER_CHANNEL));

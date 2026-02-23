@@ -110,7 +110,12 @@ describe('ChannelSetupScreen contracts', () => {
         expect(container.querySelector(`#${STEP2_CONTROL_IDS.combineMode}`)).not.toBeNull();
         expect(container.querySelector(`#${STEP2_CONTROL_IDS.addAlternateLineups}`)).not.toBeNull();
         expect(container.querySelector(`#${STEP2_CONTROL_IDS.alternateLineupCopies}`)).not.toBeNull();
-        expect(container.querySelector(`#${STEP2_CONTROL_IDS.addSequentialVariants}`)).not.toBeNull();
+
+        clickButton(container, '#setup-category-series-ordering');
+        expect(container.querySelector(`#${STEP2_CONTROL_IDS.seriesBaseMode}`)).not.toBeNull();
+        expect(container.querySelector(`#${STEP2_CONTROL_IDS.seriesBaseBlockSize}`)).not.toBeNull();
+        expect(container.querySelector(`#${STEP2_CONTROL_IDS.seriesVariantType}`)).not.toBeNull();
+        expect(container.querySelector(`#${STEP2_CONTROL_IDS.seriesVariantBlockSize}`)).not.toBeNull();
 
         clickButton(container, '#setup-category-limits');
         expect(container.querySelector(`#${STEP2_CONTROL_IDS.maxChannels}`)).not.toBeNull();

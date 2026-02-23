@@ -30,7 +30,13 @@ type StrategyStateMap = Record<SetupStrategyKey, StrategyStateItem>;
 export interface ChannelExpansionState {
     addAlternateLineups: boolean;
     alternateLineupCopies: number;
-    addSequentialVariants: boolean;
+    variantType: 'none' | 'sequential' | 'block';
+    variantBlockSize: number;
+}
+
+export interface SeriesOrderingState {
+    basePlaybackMode: 'shuffle' | 'sequential' | 'block';
+    baseBlockSize: number;
 }
 
 export interface LibraryStepDeps {
@@ -58,6 +64,7 @@ export type StrategyStepMutableState = {
     strategies: StrategyStateMap;
     strategyOrder: SetupStrategyKey[];
     channelExpansion: ChannelExpansionState;
+    seriesOrdering: SeriesOrderingState;
     buildMode: ChannelSetupConfig['buildMode'];
     actorStudioCombineMode: ChannelSetupConfig['actorStudioCombineMode'];
     maxChannels: number;

@@ -20,6 +20,7 @@ export const STRATEGY_CATEGORIES = [
     'content-sources',
     'advanced-sources',
     'build-options',
+    'series-ordering',
     'limits',
     'priority-order',
 ] as const;
@@ -31,7 +32,10 @@ export const STEP2_CONTROL_IDS = {
     combineMode: 'setup-combine-mode',
     addAlternateLineups: 'setup-expansion-alternate-lineups',
     alternateLineupCopies: 'setup-expansion-copies',
-    addSequentialVariants: 'setup-expansion-sequential',
+    seriesBaseMode: 'setup-series-base-mode',
+    seriesBaseBlockSize: 'setup-series-base-block-size',
+    seriesVariantType: 'setup-series-variant-type',
+    seriesVariantBlockSize: 'setup-series-variant-block-size',
     expandLineup: 'setup-expand-lineup',
     maxChannels: 'setup-max-channels',
     minItems: 'setup-min-items',
@@ -41,4 +45,6 @@ export const STEP2_ADJUSTABLE_CONTROL_IDS = [
     STEP2_CONTROL_IDS.maxChannels,
     STEP2_CONTROL_IDS.minItems,
     STEP2_CONTROL_IDS.alternateLineupCopies,
+    STEP2_CONTROL_IDS.seriesBaseBlockSize,
+    STEP2_CONTROL_IDS.seriesVariantBlockSize,
 ] as const;
