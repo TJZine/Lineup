@@ -553,9 +553,13 @@ describe('App bootstrap smoke', () => {
         await app.start();
 
         expect(errorSpy).toHaveBeenCalledTimes(1);
-        expect(errorSpy).toHaveBeenCalledWith('App startup failed:', expect.any(Error));
-        const error = errorSpy.mock.calls[0]?.[1] as Error;
-        expect(String(error.message)).toContain('init failed');
+        expect(errorSpy).toHaveBeenCalledWith(
+            'App startup failed:',
+            expect.objectContaining({
+                name: 'Error',
+                message: expect.stringContaining('init failed'),
+            })
+        );
 
         const root = document.getElementById('app') as HTMLElement | null;
         expect(root?.textContent ?? '').toContain('Application Error');

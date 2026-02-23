@@ -407,6 +407,37 @@ describe('ContentResolver', () => {
             expect(result[0]!.clearLogo).toBe('/clearlogo/show1.png');
         });
 
+        it('propagates rating from show list to episodes in show libraries (supports rating filters)', async () => {
+            const episodes = [
+                createMockEpisode(1, 1, { ratingKey: 'ep1', grandparentRatingKey: 'show1' }),
+            ];
+            const shows = [
+                createMockItem({ ratingKey: 'show1', type: 'show', rating: 7.3 }),
+            ];
+            mockLibrary.getLibraryItems.mockImplementation((_, options) => {
+                if (options?.filter?.type === PLEX_MEDIA_TYPES.EPISODE) {
+                    return Promise.resolve(episodes);
+                }
+                return Promise.resolve(shows);
+            });
+
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'show-lib',
+                libraryType: 'show',
+                includeWatched: true,
+            };
+
+            const resolved = await resolver.resolveSource(source);
+            expect(resolved).toHaveLength(1);
+            expect(resolved[0]!.rating).toBe(7.3);
+
+            const filtered = resolver.applyFilters(resolved, [
+                { field: 'rating', operator: 'gte', value: 7 },
+            ]);
+            expect(filtered).toHaveLength(1);
+        });
+
         it('propagates art from show list to episodes in show libraries', async () => {
             const episodes = [
                 createMockEpisode(1, 1, { ratingKey: 'ep1', grandparentRatingKey: 'show1', art: null }),
@@ -431,6 +462,62 @@ describe('ContentResolver', () => {
             const result = await resolver.resolveSource(source);
             expect(result).toHaveLength(1);
             expect(result[0]!.art).toBe('/art/show1');
+        });
+
+        it("does not overwrite an episode's own art when show list has different art", async () => {
+            const episodes = [
+                createMockEpisode(1, 1, {
+                    ratingKey: 'ep1',
+                    grandparentRatingKey: 'show1',
+                    art: '/art/episode-own',
+                }),
+            ];
+            const shows = [
+                createMockItem({ ratingKey: 'show1', type: 'show', art: '/art/show1' }),
+            ];
+            mockLibrary.getLibraryItems.mockImplementation((_, options) => {
+                if (options?.filter?.type === PLEX_MEDIA_TYPES.EPISODE) {
+                    return Promise.resolve(episodes);
+                }
+                return Promise.resolve(shows);
+            });
+
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'show-lib',
+                libraryType: 'show',
+                includeWatched: true,
+            };
+
+            const result = await resolver.resolveSource(source);
+            expect(result).toHaveLength(1);
+            expect(result[0]!.art).toBe('/art/episode-own');
+        });
+
+        it('propagates rating from expanded collection show items to episodes', async () => {
+            const collectionItems = [
+                createMockItem({ ratingKey: 'show1', type: 'show', durationMs: 0, rating: 6.5 }),
+            ];
+            const episodes = [
+                createMockEpisode(1, 1, { ratingKey: 'ep1' }),
+            ];
+            mockLibrary.getCollectionItems.mockResolvedValue(collectionItems);
+            mockLibrary.getShowEpisodes.mockResolvedValue(episodes);
+
+            const source: CollectionContentSource = {
+                type: 'collection',
+                collectionKey: 'collection-1',
+                collectionName: 'Test Collection',
+            };
+
+            const resolved = await resolver.resolveSource(source);
+            expect(resolved).toHaveLength(1);
+            expect(resolved[0]!.rating).toBe(6.5);
+
+            const filtered = resolver.applyFilters(resolved, [
+                { field: 'rating', operator: 'gte', value: 6 },
+            ]);
+            expect(filtered).toHaveLength(1);
         });
 
         it('should resolve show source with all episodes', async () => {

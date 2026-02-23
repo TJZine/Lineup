@@ -595,7 +595,7 @@ export class EPGVirtualizer {
     }
 
     private extractShowTitleFromFullTitle(fullTitle: string): string | null {
-        const match = fullTitle.match(/^(.*?)\s-\sS\d{2}E\d{2}\s-/);
+        const match = fullTitle.match(/^(.*?)\s-\sS\d{1,2}E\d{1,2}\s-/);
         if (!match) return null;
         const showTitle = match[1]?.trim() ?? '';
         return showTitle.length > 0 ? showTitle : null;

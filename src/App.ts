@@ -36,6 +36,7 @@ import {
     safeLocalStorageRemove,
     safeLocalStorageSet,
 } from './utils/storage';
+import { summarizeErrorForLog } from './utils/errors';
 import type { ChannelSetupScreen } from './modules/ui/channel-setup/ChannelSetupScreen';
 import type { SettingsScreen } from './modules/ui/settings/SettingsScreen';
 import type { AudioSetupScreen } from './modules/ui/audio-setup/AudioSetupScreen';
@@ -198,7 +199,7 @@ export class App {
             // Start the orchestrator
             await this._orchestrator.start();
         } catch (error) {
-            console.error('App startup failed:', error);
+            console.error('App startup failed:', summarizeErrorForLog(error));
             this._showFatalError(error);
         }
     }

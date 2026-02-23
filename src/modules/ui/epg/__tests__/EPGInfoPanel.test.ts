@@ -59,7 +59,6 @@ describe('EPGInfoPanel', () => {
             const program = createMockProgram('/library/metadata/123/thumb');
             panel.show(program);
 
-            expect(resolver).toHaveBeenCalledWith('/library/metadata/123/thumb', 160, 240);
             expect(resolver).toHaveBeenCalledWith('/library/metadata/123/thumb', 320, 480);
             const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
             expect(poster.src).toBe('https://server/library/thumb?token=xxx');
@@ -85,7 +84,7 @@ describe('EPGInfoPanel', () => {
             const program = createMockProgram(null);
             panel.show(program);
 
-            expect(resolver).toHaveBeenCalledWith(null, 160, 240);
+            expect(resolver).toHaveBeenCalledWith(null, 320, 480);
             const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
             expect(poster.style.display).toBe('none');
         });
@@ -105,7 +104,7 @@ describe('EPGInfoPanel', () => {
             });
             panel.show(program);
 
-            expect(resolver).toHaveBeenCalledWith(null, 160, 240);
+            expect(resolver).toHaveBeenCalledWith(null, 320, 480);
             const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
             expect(poster.style.display).toBe('none');
         });
@@ -139,7 +138,7 @@ describe('EPGInfoPanel', () => {
             const programWithoutThumb = createMockProgram(null);
             panel.show(programWithoutThumb);
 
-            expect(poster.getAttribute('src')).toBe('');
+            expect(poster.getAttribute('src')).toBeNull();
             expect(poster.style.display).toBe('none');
         });
 
@@ -159,7 +158,7 @@ describe('EPGInfoPanel', () => {
             const program = createMockProgram('https://plex.tv/photo/abc123');
             panel.show(program);
 
-            expect(resolver).toHaveBeenCalledWith('https://plex.tv/photo/abc123', 160, 240);
+            expect(resolver).toHaveBeenCalledWith('https://plex.tv/photo/abc123', 320, 480);
             const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
             expect(poster.src).toBe('https://plex.tv/photo/abc123');
             expect(poster.style.display).toBe('block');
@@ -191,6 +190,15 @@ describe('EPGInfoPanel', () => {
             panel.show(program2);
             expect(resolver).toHaveBeenCalledWith('/library/metadata/456/art', 960, 540);
             expect(backdrop?.src).toBe('https://server/library/art-456');
+
+            // Negative case: when art is missing, backdrop stays hidden and resolver is not called with an art path.
+            const callsBefore = resolver.mock.calls.length;
+            const programWithoutArt = createMockProgram('/library/metadata/789/thumb', { art: null });
+            panel.show(programWithoutArt);
+            expect(backdrop?.style.display).toBe('none');
+            expect(resolver).not.toHaveBeenCalledWith(null, 960, 540);
+            expect(resolver).not.toHaveBeenCalledWith('/library/metadata/789/art', 960, 540);
+            expect(resolver.mock.calls.length).toBeGreaterThanOrEqual(callsBefore);
 
             const pills = Array.from(container.querySelectorAll('.epg-info-tags .epg-info-pill')) as HTMLElement[];
             expect(pills.length).toBe(3);

@@ -120,10 +120,10 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private createTemplate(): string {
         return `
       <div class="${EPG_CLASSES.INFO_BACKDROP}" aria-hidden="true">
-        <img class="${EPG_CLASSES.INFO_BACKDROP_IMG}" src="" alt="" />
+        <img class="${EPG_CLASSES.INFO_BACKDROP_IMG}" alt="" />
       </div>
       <div class="${EPG_CLASSES.INFO_POSTER_WRAP}">
-        <img class="${EPG_CLASSES.INFO_POSTER}" src="" alt="" />
+        <img class="${EPG_CLASSES.INFO_POSTER}" alt="" />
       </div>
       <div class="${EPG_CLASSES.INFO_CONTENT}">
         <div class="${EPG_CLASSES.INFO_SHOW} ${EPG_CLASSES.INFO_EYEBROW}"></div>
@@ -232,9 +232,16 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     ): void {
         if (!this.containerElement) return;
 
-        const { item } = program;
-
         this.updatePoster(program, 'fast');
+
+        this.updateNonPosterContent(program, { allowHdrFetch: options?.allowHdrFetch ?? false, showDescription: false });
+    }
+
+    private updateNonPosterContent(
+        program: ScheduledProgram,
+        options: { allowHdrFetch: boolean; showDescription: boolean }
+    ): void {
+        const { item } = program;
 
         // Update title
         const showTitle = this.showTitleElement;
@@ -270,13 +277,19 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             genres.style.display = genreText ? 'block' : 'none';
         }
 
-        // Hide description during fast nav without updating text
         const description = this.descriptionElement;
-        if (description && description.style.display !== 'none') {
-            description.style.display = 'none';
+        if (description) {
+            if (options.showDescription) {
+                const summary = item.summary?.trim() ?? '';
+                description.textContent = summary;
+                description.style.display = summary ? 'block' : 'none';
+            } else if (description.style.display !== 'none') {
+                // Hide description during fast nav without updating text
+                description.style.display = 'none';
+            }
         }
 
-        this.updateQualityBadges(program, undefined, options);
+        this.updateQualityBadges(program, undefined, { allowHdrFetch: options.allowHdrFetch });
     }
 
     /**
@@ -285,19 +298,9 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private updateContentFull(program: ScheduledProgram): void {
         if (!this.containerElement) return;
 
-        this.updateContentFast(program, { allowHdrFetch: true });
-
-        const { item } = program;
+        this.updateNonPosterContent(program, { allowHdrFetch: true, showDescription: true });
 
         this.updatePoster(program, 'full');
-
-        // Update description
-        const description = this.descriptionElement;
-        if (description) {
-            const summary = item.summary?.trim() ?? '';
-            description.textContent = summary;
-            description.style.display = summary ? 'block' : 'none';
-        }
     }
 
     private updateQualityBadges(
@@ -446,16 +449,22 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         const { item } = program;
         if (backdrop) {
             if (mode === 'full') {
-                const resolvedBackdrop = this.thumbResolver?.(item.art ?? null, 960, 540) || null;
-                if (resolvedBackdrop) {
-                    backdrop.src = resolvedBackdrop;
-                    backdrop.style.display = 'block';
+                const art = item.art ?? null;
+                if (art) {
+                    const resolvedBackdrop = this.thumbResolver?.(art, 960, 540) || null;
+                    if (resolvedBackdrop) {
+                        backdrop.src = resolvedBackdrop;
+                        backdrop.style.display = 'block';
+                    } else {
+                        backdrop.removeAttribute('src');
+                        backdrop.style.display = 'none';
+                    }
                 } else {
-                    backdrop.src = '';
+                    backdrop.removeAttribute('src');
                     backdrop.style.display = 'none';
                 }
             } else {
-                backdrop.src = '';
+                backdrop.removeAttribute('src');
                 backdrop.style.display = 'none';
             }
         }
@@ -477,7 +486,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         }
 
         // Hide poster when unresolved (prevents file:/// errors on webOS)
-        poster.src = '';
+        poster.removeAttribute('src');
         poster.style.display = 'none';
     }
 
@@ -487,15 +496,20 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         const endTime = formatTime(program.scheduledEndTime);
         const duration = formatDuration(item.durationMs);
         const year = item.year > 0 ? `(${item.year})` : '';
+        const metaText = `${startTime} - ${endTime} (${duration}) ${year}`.trim();
 
         const meta = this.metaElement;
         if (meta) {
-            meta.textContent = `${startTime} - ${endTime} (${duration}) ${year}`.trim();
+            // Keep meta as the semantic (screen-reader) version; pills below are visual-only.
+            meta.textContent = metaText;
+            meta.classList.add('sr-only');
         }
 
         const tags = this.tagsElement;
         if (!tags) return;
 
+        // Visual pills are presentational; avoid duplicate announcements.
+        tags.setAttribute('aria-hidden', 'true');
         tags.replaceChildren();
         const pills: string[] = [];
         pills.push(`${startTime} - ${endTime}`);

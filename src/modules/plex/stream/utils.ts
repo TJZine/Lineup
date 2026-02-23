@@ -44,50 +44,6 @@ export function getMimeType(protocol: 'hls' | 'dash' | 'direct' | 'http'): strin
 }
 
 // ============================================
-// Timeout Helper
-// ============================================
-
-/**
- * Wraps an async operation with a timeout.
- * If the operation takes longer than timeoutMs, resolves with fallback.
- * The underlying operation continues but its result is ignored.
- *
- * @param operation - Promise to wrap with timeout
- * @param timeoutMs - Maximum time to wait in milliseconds
- * @param fallback - Value to return if timeout occurs
- * @returns Promise that resolves with operation result or fallback
- *
- * @example
- * ```typescript
- * // Report progress with 100ms budget
- * await withTimeout(
- *   this.reportProgress(sessionId, itemKey, positionMs),
- *   100,
- *   undefined
- * );
- * ```
- */
-export async function withTimeout<T>(
-    operation: Promise<T>,
-    timeoutMs: number,
-    fallback: T
-): Promise<T> {
-    let timeoutId: ReturnType<typeof setTimeout>;
-
-    const timeoutPromise = new Promise<T>((resolve) => {
-        timeoutId = setTimeout(() => resolve(fallback), timeoutMs);
-    });
-
-    return Promise.race([
-        operation.then((result) => {
-            clearTimeout(timeoutId);
-            return result;
-        }),
-        timeoutPromise,
-    ]);
-}
-
-// ============================================
 // UUID Generator
 // ============================================
 

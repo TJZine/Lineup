@@ -293,8 +293,8 @@ export class ContentResolver {
         if (!merged.genres && parent.genres) merged.genres = parent.genres;
         if (!merged.directors && parent.directors) merged.directors = parent.directors;
         if (!merged.contentRating && parent.contentRating) merged.contentRating = parent.contentRating;
-        if ((!merged.rating || merged.rating === 0) && typeof parent.rating === 'number') merged.rating = parent.rating;
-        if ((merged.year === 0 || !merged.year) && parent.year) merged.year = parent.year;
+        if (!merged.rating && typeof parent.rating === 'number') merged.rating = parent.rating;
+        if (!merged.year && parent.year) merged.year = parent.year;
         if (!merged.grandparentTitle && parent.grandparentTitle) merged.grandparentTitle = parent.grandparentTitle;
         if (!merged.grandparentThumb && parent.grandparentThumb) merged.grandparentThumb = parent.grandparentThumb;
         if (merged.art == null && parent.art) merged.art = parent.art;
@@ -475,6 +475,7 @@ export class ContentResolver {
                     genres: parent.genres,
                     directors: parent.directors,
                     contentRating: parent.contentRating,
+                    rating: parent.rating,
                     year: parent.year,
                     grandparentTitle: parent.title,
                     grandparentThumb: parent.thumb,
@@ -512,6 +513,7 @@ export class ContentResolver {
                                 genres: item.genres,
                                 directors: item.directors,
                                 contentRating: item.contentRating,
+                                rating: item.rating,
                                 year: item.year,
                                 grandparentTitle: item.title,
                                 grandparentThumb: item.thumb,

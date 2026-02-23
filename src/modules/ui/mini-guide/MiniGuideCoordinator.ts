@@ -10,6 +10,7 @@ import { ScheduleCalculator, ShuffleGenerator } from '../../scheduler/scheduler'
 import type { IMiniGuideOverlay } from './interfaces';
 import type { MiniGuideChannelViewModel, MiniGuideViewModel } from './types';
 import { getChannelNameForDisplay } from '../channelDisplay';
+import { summarizeErrorForLog } from '../../../utils/errors';
 
 const ROW_COUNT = 5;
 const CENTER_INDEX = 2;
@@ -128,7 +129,7 @@ export class MiniGuideCoordinator {
         }
         this.hide();
         this.deps.switchToChannel(selected.id).catch((error) => {
-            console.warn('[MiniGuideCoordinator] Failed to switch channel:', error);
+            console.warn('[MiniGuideCoordinator] Failed to switch channel:', summarizeErrorForLog(error));
         });
     }
 
