@@ -289,6 +289,8 @@ export interface ResolvedContentItem {
     durationMs: number;
     /** Poster thumbnail URL (with token) */
     thumb: string | null;
+    /** Backdrop image path (Plex art) */
+    art?: string | null;
     /** Transparent title logo URL (raw Plex path; tokenized by UI layer as needed) */
     clearLogo?: string | null;
     /** Release year */

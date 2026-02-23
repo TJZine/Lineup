@@ -283,6 +283,21 @@ describe('ContentResolver', () => {
             expect(result[0]?.clearLogo).toBe('/clearlogo.png');
         });
 
+        it('propagates art into ResolvedContentItem when present', async () => {
+            const items = [createMockItem({ ratingKey: '1', thumb: '/thumb/1', art: '/art/1' })];
+            mockLibrary.getLibraryItems.mockResolvedValue(items);
+
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'lib1',
+                libraryType: 'movie',
+                includeWatched: true,
+            };
+
+            const result = await resolver.resolveSource(source);
+            expect(result[0]?.art).toBe('/art/1');
+        });
+
         it('should expand show containers returned by a collection source and propagate show metadata', async () => {
             const show = createMockItem({
                 ratingKey: 'show-1',

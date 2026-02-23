@@ -770,6 +770,9 @@ export class ContentResolver {
         if (item.grandparentThumb) {
             resolved.showThumb = item.grandparentThumb;
         }
+        if (item.art !== undefined) {
+            resolved.art = item.art ?? null;
+        }
         if (item.clearLogo) {
             resolved.clearLogo = item.clearLogo;
         }

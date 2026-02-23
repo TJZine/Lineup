@@ -260,6 +260,7 @@ export interface PlexMediaItemMinimal {
     year: number;
     durationMs: number;
     thumb: string | null;
+    art?: string | null;
     grandparentThumb?: string | null;
     summary?: string;
     media?: PlexMediaFile[];
