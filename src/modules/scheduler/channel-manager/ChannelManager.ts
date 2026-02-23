@@ -1342,7 +1342,8 @@ export class ChannelManager implements IChannelManager {
                 channel.playbackMode,
                 (typeof channel.shuffleSeed === 'number' && Number.isFinite(channel.shuffleSeed))
                     ? channel.shuffleSeed
-                    : fnv1a32Uint(`${channel.id}:shuffle`)
+                    : fnv1a32Uint(`${channel.id}:shuffle`),
+                channel.blockSize
             );
 
             // Build result
