@@ -23,6 +23,7 @@ import type {
     SetupStrategyKey,
     SetupStrategyConfig,
     ChannelExpansionConfig,
+    SeriesOrderingConfig,
 } from './types';
 import {
     buildChannelSetupPlan,
@@ -34,6 +35,7 @@ import {
 import {
     DEFAULT_CHANNEL_EXPANSION,
     DEFAULT_MIN_ITEMS_PER_CHANNEL,
+    DEFAULT_SERIES_ORDERING,
     DEFAULT_STRATEGY_PRIORITIES,
     MIXED_SCOPE_STRATEGY_KEYS,
     SETUP_STRATEGY_KEYS,
@@ -351,6 +353,7 @@ export class ChannelSetupCoordinator {
             selectedLibraryIds: [...normalizedConfig.selectedLibraryIds],
             strategyConfig: { ...normalizedConfig.strategyConfig },
             channelExpansion: normalizedConfig.channelExpansion ?? DEFAULT_CHANNEL_EXPANSION,
+            seriesOrdering: normalizedConfig.seriesOrdering ?? DEFAULT_SERIES_ORDERING,
             maxChannels: normalizedConfig.maxChannels,
             buildMode: normalizedConfig.buildMode,
             actorStudioCombineMode: normalizedConfig.actorStudioCombineMode,
@@ -419,7 +422,7 @@ export class ChannelSetupCoordinator {
     }
 
     private _getChannelSetupStorageKey(serverId: string): string {
-        return `retune_channel_setup_v1:${serverId}`;
+        return `retune_channel_setup_v2:${serverId}`;
     }
 
     private _normalizeConfig(config: ChannelSetupConfig): ChannelSetupConfig {
@@ -444,6 +447,7 @@ export class ChannelSetupCoordinator {
             return acc;
         }, {} as Record<SetupStrategyKey, SetupStrategyConfig>);
         const channelExpansion = this._normalizeChannelExpansion(config.channelExpansion);
+        const seriesOrdering = this._normalizeSeriesOrdering(config.seriesOrdering);
         return {
             ...config,
             maxChannels,
@@ -452,19 +456,41 @@ export class ChannelSetupCoordinator {
             actorStudioCombineMode,
             strategyConfig,
             channelExpansion,
+            seriesOrdering,
         };
     }
 
     private _normalizeChannelExpansion(expansion: ChannelExpansionConfig | undefined): ChannelExpansionConfig {
         const addAlternateLineups = expansion?.addAlternateLineups === true;
-        const addSequentialVariants = expansion?.addSequentialVariants === true;
         const alternateLineupCopies = Number.isFinite(expansion?.alternateLineupCopies)
             ? Math.min(3, Math.max(1, Math.floor(Number(expansion?.alternateLineupCopies))))
             : DEFAULT_CHANNEL_EXPANSION.alternateLineupCopies;
+        const variantType =
+            expansion?.variantType === 'sequential' || expansion?.variantType === 'block'
+                ? expansion.variantType
+                : 'none';
+        const variantBlockSize = Number.isFinite(expansion?.variantBlockSize)
+            ? Math.min(5, Math.max(2, Math.floor(Number(expansion?.variantBlockSize))))
+            : DEFAULT_CHANNEL_EXPANSION.variantBlockSize;
         return {
             addAlternateLineups,
             alternateLineupCopies,
-            addSequentialVariants,
+            variantType,
+            variantBlockSize,
+        };
+    }
+
+    private _normalizeSeriesOrdering(value: SeriesOrderingConfig | undefined): SeriesOrderingConfig {
+        const basePlaybackMode =
+            value?.basePlaybackMode === 'sequential' || value?.basePlaybackMode === 'block'
+                ? value.basePlaybackMode
+                : 'shuffle';
+        const baseBlockSize = Number.isFinite(value?.baseBlockSize)
+            ? Math.min(5, Math.max(2, Math.floor(Number(value?.baseBlockSize))))
+            : DEFAULT_SERIES_ORDERING.baseBlockSize;
+        return {
+            basePlaybackMode,
+            baseBlockSize,
         };
     }
 
@@ -863,6 +889,9 @@ export class ChannelSetupCoordinator {
             const channelExpansion = typeof parsed.channelExpansion === 'object' && parsed.channelExpansion !== null
                 ? parsed.channelExpansion as ChannelExpansionConfig
                 : undefined;
+            const seriesOrdering = typeof parsed.seriesOrdering === 'object' && parsed.seriesOrdering !== null
+                ? parsed.seriesOrdering as SeriesOrderingConfig
+                : undefined;
             const baseConfig: ChannelSetupConfig = {
                 serverId: parsed.serverId,
                 selectedLibraryIds: parsed.selectedLibraryIds,
@@ -874,6 +903,9 @@ export class ChannelSetupCoordinator {
             };
             if (channelExpansion) {
                 baseConfig.channelExpansion = channelExpansion;
+            }
+            if (seriesOrdering) {
+                baseConfig.seriesOrdering = seriesOrdering;
             }
             const normalizedConfig = this._normalizeConfig(baseConfig);
 

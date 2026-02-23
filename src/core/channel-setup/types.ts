@@ -24,7 +24,13 @@ export interface ChannelExpansionConfig {
     addAlternateLineups: boolean;
     /** Number of extra copies per generated channel (clamped to 1–3 at plan time). */
     alternateLineupCopies: number;
-    addSequentialVariants: boolean;
+    variantType: 'none' | 'sequential' | 'block';
+    variantBlockSize: number;
+}
+
+export interface SeriesOrderingConfig {
+    basePlaybackMode: 'shuffle' | 'sequential' | 'block';
+    baseBlockSize: number;
 }
 
 export interface ChannelSetupConfig {
@@ -34,6 +40,7 @@ export interface ChannelSetupConfig {
     buildMode: 'replace' | 'append' | 'merge';
     strategyConfig: Record<SetupStrategyKey, SetupStrategyConfig>;
     channelExpansion?: ChannelExpansionConfig;
+    seriesOrdering?: SeriesOrderingConfig;
     actorStudioCombineMode: 'separate' | 'combined';
     minItemsPerChannel: number;
 }

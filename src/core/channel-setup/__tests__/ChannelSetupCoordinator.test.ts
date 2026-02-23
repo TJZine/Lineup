@@ -194,7 +194,7 @@ describe('ChannelSetupCoordinator', () => {
             createdAt: 1,
             updatedAt: 2,
         };
-        storage.set('retune_channel_setup_v1:server-1', JSON.stringify(record));
+        storage.set('retune_channel_setup_v2:server-1', JSON.stringify(record));
         channelManager.getAllChannels.mockReturnValue([]);
 
         expect(coordinator.shouldRunChannelSetup()).toBe(true);
@@ -210,7 +210,7 @@ describe('ChannelSetupCoordinator', () => {
     it('shouldRunChannelSetup returns true when setup record is invalid', () => {
         const { coordinator, channelManager, storage } = createCoordinator();
         channelManager.getAllChannels.mockReturnValue([mockChannelConfig]);
-        storage.set('retune_channel_setup_v1:server-1', JSON.stringify({
+        storage.set('retune_channel_setup_v2:server-1', JSON.stringify({
             serverId: 'server-1',
             selectedLibraryIds: ['lib1', 123],
             strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
@@ -239,7 +239,7 @@ describe('ChannelSetupCoordinator', () => {
 
         coordinator.requestChannelSetupRerun();
 
-        expect(storageRemove).toHaveBeenCalledWith('retune_channel_setup_v1:server-9');
+        expect(storageRemove).toHaveBeenCalledWith('retune_channel_setup_v2:server-9');
         expect(navigation.goTo).toHaveBeenCalledWith('channel-setup');
         expect(coordinator.shouldRunChannelSetup()).toBe(true);
     });
@@ -274,14 +274,14 @@ describe('ChannelSetupCoordinator', () => {
             createdAt: 123,
             updatedAt: 456,
         };
-        storage.set('retune_channel_setup_v1:server-1', JSON.stringify(existing));
+        storage.set('retune_channel_setup_v2:server-1', JSON.stringify(existing));
         channelManager.getAllChannels.mockReturnValue([mockChannelConfig]);
 
         coordinator.requestChannelSetupRerun();
-        storage.set('retune_channel_setup_v1:server-1', JSON.stringify(existing));
+        storage.set('retune_channel_setup_v2:server-1', JSON.stringify(existing));
         coordinator.markSetupComplete('server-1', createConfig({ minItemsPerChannel: 7 }));
 
-        const stored = storage.get('retune_channel_setup_v1:server-1');
+        const stored = storage.get('retune_channel_setup_v2:server-1');
         expect(stored).toBeTruthy();
         const parsed = JSON.parse(stored as string) as ChannelSetupRecord;
         expect(parsed.createdAt).toBe(123);
@@ -307,7 +307,7 @@ describe('ChannelSetupCoordinator', () => {
 
         coordinator.markSetupComplete('server-1', config);
 
-        const raw = storage.get('retune_channel_setup_v1:server-1');
+        const raw = storage.get('retune_channel_setup_v2:server-1');
         expect(raw).toBeTruthy();
         const parsed = JSON.parse(raw as string) as Record<string, unknown>;
         const strategyConfig = parsed.strategyConfig as Record<string, { enabled: boolean }> | undefined;
@@ -322,7 +322,7 @@ describe('ChannelSetupCoordinator', () => {
 
         coordinator.markSetupComplete('server-1', createConfig());
 
-        const raw = storage.get('retune_channel_setup_v1:server-1');
+        const raw = storage.get('retune_channel_setup_v2:server-1');
         expect(raw).toBeTruthy();
         const parsed = JSON.parse(raw as string) as Record<string, unknown>;
         const strategyConfig = parsed.strategyConfig as Record<string, { priority: number; scope: string }> | undefined;
@@ -336,7 +336,8 @@ describe('ChannelSetupCoordinator', () => {
         expect(channelExpansion).toEqual({
             addAlternateLineups: false,
             alternateLineupCopies: 1,
-            addSequentialVariants: false,
+            variantType: 'none',
+            variantBlockSize: 3,
         });
     });
 
@@ -654,7 +655,8 @@ describe('ChannelSetupCoordinator', () => {
             channelExpansion: {
                 addAlternateLineups: true,
                 alternateLineupCopies: 2,
-                addSequentialVariants: false,
+                variantType: 'none',
+                variantBlockSize: 3,
             },
         }));
 
@@ -667,29 +669,33 @@ describe('ChannelSetupCoordinator', () => {
 
     it('adds sequential variants after alternate-lineup expansion', async () => {
         const { coordinator, plexLibrary } = createCoordinator();
-        plexLibrary.getLibraries.mockResolvedValue([] as PlexLibraryType[]);
-        plexLibrary.getPlaylists.mockResolvedValue([
-            { ratingKey: 'pl1', key: '/playlists/pl1', title: 'Favorites', thumb: null, duration: 0, leafCount: 10 },
+        plexLibrary.getLibraries.mockResolvedValue([
+            { id: 's1', title: 'Shows', type: 'show', contentCount: 25 },
+        ] as PlexLibraryType[]);
+        plexLibrary.getCollections.mockResolvedValue([
+            { ratingKey: 'co1', key: '/library/collections/co1', title: 'Classics', thumb: null, childCount: 10 },
         ]);
 
         await coordinator.createChannelsFromSetup(createConfig({
-            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
+            selectedLibraryIds: ['s1'],
+            strategyConfig: createStrategyConfig({ collections: { enabled: true } }),
             channelExpansion: {
                 addAlternateLineups: true,
                 alternateLineupCopies: 2,
-                addSequentialVariants: true,
+                variantType: 'sequential',
+                variantBlockSize: 3,
             },
         }));
 
         const calls = mockBuilder.createChannel.mock.calls.map(([cfg]) => cfg as ChannelConfig);
         expect(calls).toHaveLength(6);
         expect(calls.map((cfg) => cfg.name)).toEqual([
-            'Favorites',
-            'Favorites (2)',
-            'Favorites (3)',
-            'Favorites • Sequential',
-            'Favorites (2) • Sequential',
-            'Favorites (3) • Sequential',
+            'Classics',
+            'Classics (2)',
+            'Classics (3)',
+            'Classics • Sequential',
+            'Classics (2) • Sequential',
+            'Classics (3) • Sequential',
         ]);
         expect(calls.filter((cfg) => cfg.isSequentialVariant === true)).toHaveLength(3);
     });
@@ -721,7 +727,8 @@ describe('ChannelSetupCoordinator', () => {
             channelExpansion: {
                 addAlternateLineups: true,
                 alternateLineupCopies: 2,
-                addSequentialVariants: false,
+                variantType: 'none',
+                variantBlockSize: 3,
             },
         }));
 
@@ -742,7 +749,8 @@ describe('ChannelSetupCoordinator', () => {
             channelExpansion: {
                 addAlternateLineups: false,
                 alternateLineupCopies: 1,
-                addSequentialVariants: true,
+                variantType: 'sequential',
+                variantBlockSize: 3,
             },
         }));
 
