@@ -497,8 +497,11 @@ export class EPGVirtualizer {
         const element = document.createElement('div');
         element.className = EPG_CLASSES.CELL;
         element.innerHTML = `
-      <div class="${EPG_CLASSES.CELL_SHOW}"></div>
+      <div class="${EPG_CLASSES.CELL_META}">
+        <span class="${EPG_CLASSES.CELL_EPISODE}"></span>
+      </div>
       <div class="${EPG_CLASSES.CELL_TITLE}"></div>
+      <div class="${EPG_CLASSES.CELL_SUBTITLE}"></div>
       <div class="${EPG_CLASSES.CELL_TIME}"></div>
     `;
         return element;
@@ -543,19 +546,27 @@ export class EPGVirtualizer {
      * @param element - Element to reset
      */
     private resetElement(element: HTMLElement): void {
-        const show = element.querySelector(`.${EPG_CLASSES.CELL_SHOW}`) as HTMLElement | null;
+        const meta = element.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement | null;
+        const episode = element.querySelector(`.${EPG_CLASSES.CELL_EPISODE}`) as HTMLElement | null;
+        const subtitle = element.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement | null;
         const title = element.querySelector(`.${EPG_CLASSES.CELL_TITLE}`);
         const time = element.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement | null;
-        if (show) {
-            show.textContent = '';
-            show.style.display = 'none';
+        if (meta) {
+            meta.style.display = 'none';
+        }
+        if (episode) {
+            episode.textContent = '';
+        }
+        if (subtitle) {
+            subtitle.textContent = '';
+            subtitle.style.display = 'none';
         }
         if (title) title.textContent = '';
         if (time) {
             time.textContent = '';
             time.style.display = 'block';
         }
-        const liveBadge = element.querySelector('.epg-live-badge');
+        const liveBadge = element.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`);
         if (liveBadge) liveBadge.remove();
 
         // Reset positioning
@@ -586,22 +597,76 @@ export class EPGVirtualizer {
         return showTitle.length > 0 ? showTitle : null;
     }
 
-    private updateShowLine(element: HTMLElement, cellData: CellRenderData): void {
-        const show = element.querySelector(`.${EPG_CLASSES.CELL_SHOW}`) as HTMLElement | null;
-        if (!show) return;
+    private formatEpisodeTag(item: ScheduledProgram['item']): string | null {
+        if (item.type !== 'episode') return null;
 
-        if (cellData.kind === 'program' && cellData.program.item.type === 'episode') {
-            const showTitle = cellData.program.item.showTitle ??
-                this.extractShowTitleFromFullTitle(cellData.program.item.fullTitle);
-            if (showTitle) {
-                show.textContent = showTitle;
-                show.style.display = 'block';
-                return;
-            }
+        const season = item.seasonNumber;
+        const episode = item.episodeNumber;
+        if (typeof season === 'number' && typeof episode === 'number') {
+            const s = String(season).padStart(2, '0');
+            const e = String(episode).padStart(2, '0');
+            return `S${s}E${e}`;
         }
 
-        show.textContent = '';
-        show.style.display = 'none';
+        const text = `${item.title ?? ''} ${item.fullTitle ?? ''}`;
+        const match = text.match(/\bS(\d{1,2})E(\d{1,2})\b/i);
+        if (!match) return null;
+
+        const s = match[1]!.padStart(2, '0');
+        const e = match[2]!.padStart(2, '0');
+        return `S${s}E${e}`;
+    }
+
+    private normalizeEpisodeTitleForSubtitle(title: string): string {
+        return title.replace(/^\s*S\d{1,2}E\d{1,2}\s*-\s*/i, '').trim();
+    }
+
+    private updateEpisodePresentation(element: HTMLElement, cellData: CellRenderData): void {
+        const meta = element.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement | null;
+        const episode = element.querySelector(`.${EPG_CLASSES.CELL_EPISODE}`) as HTMLElement | null;
+        const subtitle = element.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement | null;
+        const title = element.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement | null;
+        if (!meta || !episode) return;
+
+        if (cellData.kind !== 'program') {
+            episode.textContent = '';
+            meta.style.display = 'none';
+            if (subtitle) {
+                subtitle.textContent = '';
+                subtitle.style.display = 'none';
+            }
+            return;
+        }
+
+        const item = cellData.program.item;
+        if (item.type !== 'episode') {
+            episode.textContent = '';
+            meta.style.display = 'none';
+            if (subtitle) {
+                subtitle.textContent = '';
+                subtitle.style.display = 'none';
+            }
+            return;
+        }
+
+        const tag = this.formatEpisodeTag(item);
+        if (tag) {
+            episode.textContent = tag;
+            meta.style.display = 'flex';
+        } else {
+            episode.textContent = '';
+            meta.style.display = 'none';
+        }
+
+        const showTitle = item.showTitle ?? this.extractShowTitleFromFullTitle(item.fullTitle) ?? '';
+        if (title) {
+            title.textContent = showTitle || item.title;
+        }
+
+        if (subtitle) {
+            subtitle.textContent = this.normalizeEpisodeTitleForSubtitle(item.title);
+            subtitle.style.display = subtitle.textContent ? 'block' : 'none';
+        }
     }
 
     private getCellWidthTier(width: number): CellWidthTier {
@@ -620,31 +685,39 @@ export class EPGVirtualizer {
         );
 
         const time = element.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement | null;
-        const show = element.querySelector(`.${EPG_CLASSES.CELL_SHOW}`) as HTMLElement | null;
+        const meta = element.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement | null;
+        const subtitle = element.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement | null;
         const tier = this.getCellWidthTier(cellData.width);
+        const hasMetaContent = (meta?.textContent ?? '').trim().length > 0;
+        const hasSubtitleContent = (subtitle?.textContent ?? '').trim().length > 0;
 
         if (tier === 'wide') {
             element.classList.add(EPG_CLASSES.CELL_TIER_WIDE);
+            if (meta) meta.style.display = hasMetaContent ? 'flex' : 'none';
+            if (subtitle) subtitle.style.display = hasSubtitleContent ? 'block' : 'none';
             if (time) time.style.display = 'block';
             return;
         }
 
         if (tier === 'medium') {
             element.classList.add(EPG_CLASSES.CELL_TIER_MEDIUM);
-            if (show) show.style.display = 'none';
+            if (meta) meta.style.display = 'none';
+            if (subtitle) subtitle.style.display = hasSubtitleContent ? 'block' : 'none';
             if (time) time.style.display = 'block';
             return;
         }
 
         if (tier === 'narrow') {
             element.classList.add(EPG_CLASSES.CELL_TIER_NARROW);
-            if (show) show.style.display = 'none';
+            if (meta) meta.style.display = 'none';
+            if (subtitle) subtitle.style.display = 'none';
             if (time) time.style.display = 'none';
             return;
         }
 
         element.classList.add(EPG_CLASSES.CELL_TIER_TINY);
-        if (show) show.style.display = 'none';
+        if (meta) meta.style.display = 'none';
+        if (subtitle) subtitle.style.display = 'none';
         if (time) time.style.display = 'none';
     }
 
@@ -738,7 +811,7 @@ export class EPGVirtualizer {
             );
             element.classList.add(EPG_CLASSES.CELL_LOADING);
         }
-        this.updateShowLine(element, cellData);
+        this.updateEpisodePresentation(element, cellData);
         this.applyWidthTierPresentation(element, cellData);
 
         if (cellData.textShiftPx > 0) {
@@ -837,11 +910,11 @@ export class EPGVirtualizer {
     }
 
     private updateLiveBadge(element: HTMLElement, isCurrent: boolean): void {
-        const existing = element.querySelector('.epg-live-badge') as HTMLElement | null;
+        const existing = element.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement | null;
         if (isCurrent) {
             if (existing) return;
             const liveBadge = document.createElement('span');
-            liveBadge.className = 'epg-live-badge';
+            liveBadge.className = EPG_CLASSES.LIVE_BADGE;
             liveBadge.textContent = 'LIVE';
             liveBadge.setAttribute('aria-label', 'Currently playing');
             element.appendChild(liveBadge);
@@ -879,7 +952,7 @@ export class EPGVirtualizer {
             );
             element.classList.add(EPG_CLASSES.CELL_LOADING);
         }
-        this.updateShowLine(element, cellData);
+        this.updateEpisodePresentation(element, cellData);
         this.applyWidthTierPresentation(element, cellData);
     }
 
