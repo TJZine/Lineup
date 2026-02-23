@@ -1,6 +1,6 @@
 import { buildChannelSetupPlan, createChannelIdentityKey, diffChannelPlans } from '../ChannelSetupPlanner';
 import type { ChannelSetupConfig, SetupStrategyConfig, SetupStrategyKey } from '../types';
-import type { PlexPlaylist } from '../../../modules/plex/library';
+import type { PlexLibraryType, PlexPlaylist } from '../../../modules/plex/library';
 import type { ChannelConfig } from '../../../modules/scheduler/channel-manager';
 import type { PendingChannel } from '../ChannelSetupPlanner';
 import { DEFAULT_STRATEGY_PRIORITIES, MIXED_SCOPE_STRATEGY_KEYS, SETUP_STRATEGY_KEYS } from '../constants';
@@ -75,6 +75,9 @@ const makeExistingChannel = (planned: PendingChannel, index: number): ChannelCon
     if (planned.isSequentialVariant !== undefined) {
         existing.isSequentialVariant = planned.isSequentialVariant;
     }
+    if (planned.blockSize !== undefined) {
+        existing.blockSize = planned.blockSize;
+    }
     return existing;
 };
 
@@ -97,7 +100,8 @@ describe('ChannelSetupPlanner', () => {
                 channelExpansion: {
                     addAlternateLineups: true,
                     alternateLineupCopies: Number.NaN,
-                    addSequentialVariants: false,
+                    variantType: 'none',
+                    variantBlockSize: 3,
                 },
             }),
             libraries: [],
@@ -133,7 +137,8 @@ describe('ChannelSetupPlanner', () => {
                 channelExpansion: {
                     addAlternateLineups: true,
                     alternateLineupCopies: 2,
-                    addSequentialVariants: true,
+                    variantType: 'sequential',
+                    variantBlockSize: 3,
                 },
             }),
             libraries: [],
@@ -155,5 +160,51 @@ describe('ChannelSetupPlanner', () => {
         const diff = diffChannelPlans(existing, plan.pendingChannels);
         expect(diff.summary).toEqual({ created: 0, removed: 0, unchanged: plan.pendingChannels.length });
         expect(diff.matchedPairs).toHaveLength(plan.pendingChannels.length);
+    });
+
+    it('generates block variants for series-derived channels with unique identity keys', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['s1'],
+                strategyConfig: createStrategyConfig({ collections: { enabled: true } }),
+                channelExpansion: {
+                    addAlternateLineups: false,
+                    alternateLineupCopies: 1,
+                    variantType: 'block',
+                    variantBlockSize: 4,
+                },
+            }),
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 10 }] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map([
+                ['s1', [{ ratingKey: 'co1', key: '/library/collections/co1', title: 'Classics', thumb: null, childCount: 10 }]],
+            ]),
+            tagItemsByLibraryId: new Map(),
+            scanItemsByLibraryId: new Map(),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        const names = plan.pendingChannels.map((channel) => channel.name);
+        expect(names).toContain('Classics');
+        expect(names).toContain('Classics • Block');
+
+        const blockVariant = plan.pendingChannels.find(
+            (channel) => channel.name === 'Classics • Block'
+        );
+        expect(blockVariant).toBeDefined();
+        expect(blockVariant?.playbackMode).toBe('block');
+        expect(blockVariant?.blockSize).toBe(4);
+        expect(blockVariant?.isSequentialVariant).toBe(true);
+
+        const sequentialVariantCandidate: PendingChannel = {
+            ...(blockVariant as PendingChannel),
+            playbackMode: 'sequential',
+        };
+        expect(createChannelIdentityKey(blockVariant as PendingChannel)).not.toBe(
+            createChannelIdentityKey(sequentialVariantCandidate)
+        );
     });
 });
