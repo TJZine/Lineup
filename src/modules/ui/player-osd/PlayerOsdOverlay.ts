@@ -36,6 +36,7 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
     private containerElement: HTMLElement | null = null;
     private isVisibleFlag = false;
     private lastStatusLabel: PlayerOsdViewModel['statusLabel'] | null = null;
+    private lastInfoPillsKey: string | null = null;
     private elements: PlayerOsdElements = {
         panel: null,
         status: null,
@@ -70,6 +71,7 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         this.containerElement.classList.remove(PLAYER_OSD_CLASSES.VISIBLE);
         this.isVisibleFlag = false;
         this.lastStatusLabel = null;
+        this.lastInfoPillsKey = null;
         this.cacheElements();
     }
 
@@ -85,6 +87,7 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         this.containerElement = null;
         this.isVisibleFlag = false;
         this.lastStatusLabel = null;
+        this.lastInfoPillsKey = null;
         this.elements = {
             panel: null,
             status: null,
@@ -196,9 +199,18 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
                 vm.audioLabel ? `Audio: ${vm.audioLabel}` : null,
                 vm.subtitleLabel ? `Subs: ${vm.subtitleLabel}` : null,
             ].filter(Boolean) as string[];
-            const text = parts.join(' | ');
-            this.elements.infoLine.textContent = text;
-            this.elements.infoLine.style.display = text ? 'block' : 'none';
+            const nextKey = parts.join('\u0000');
+            if (nextKey !== this.lastInfoPillsKey) {
+                const pills = parts.map(part => {
+                    const pill = document.createElement('span');
+                    pill.className = 'osd-pill';
+                    pill.textContent = part;
+                    return pill;
+                });
+                this.elements.infoLine.replaceChildren(...pills);
+                this.lastInfoPillsKey = nextKey;
+            }
+            this.elements.infoLine.style.display = parts.length > 0 ? '' : 'none';
         }
         if (this.elements.upNext) {
             this.elements.upNext.textContent = vm.upNextText ?? '';
@@ -342,37 +354,47 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
             { panel: {} }
         );
         panelEl.innerHTML = `
-	        <div class="${PLAYER_OSD_CLASSES.TOP}">
-	          <div class="${PLAYER_OSD_CLASSES.STATUS}" role="status"></div>
-	          <div class="${PLAYER_OSD_CLASSES.CHANNEL}"></div>
-	        </div>
+            <div class="${PLAYER_OSD_CLASSES.TOP}">
+              <div class="${PLAYER_OSD_CLASSES.STATUS}" role="status"></div>
+              <div class="${PLAYER_OSD_CLASSES.CHANNEL}"></div>
+            </div>
 
-	        <img class="${PLAYER_OSD_CLASSES.CLEAR_LOGO}" alt="" style="display:none" />
-	        <div class="${PLAYER_OSD_CLASSES.TITLE}"></div>
-	        <div class="${PLAYER_OSD_CLASSES.SUBTITLE}"></div>
-        <div class="${PLAYER_OSD_CLASSES.INFO_LINE}"></div>
-        <div class="${PLAYER_OSD_CLASSES.UP_NEXT}"></div>
+            <div class="player-osd-zones">
+              <div class="player-osd-zone-brand">
+                <img class="${PLAYER_OSD_CLASSES.CLEAR_LOGO}" alt="" style="display:none" />
+                <div class="${PLAYER_OSD_CLASSES.TITLE}"></div>
+              </div>
 
-        <div class="${PLAYER_OSD_CLASSES.ACTIONS}">
-          <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="subtitles">Subtitles</button>
-          <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="sleep">Sleep</button>
-          <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="audio">Audio</button>
-          <div class="${PLAYER_OSD_CLASSES.PLAYBACK_TAG}"></div>
-          <div class="${PLAYER_OSD_CLASSES.SLEEP_TIMER}"></div>
-        </div>
-        <div class="${PLAYER_OSD_CLASSES.HINT}"></div>
+              <div class="player-osd-zone-details">
+                <div class="${PLAYER_OSD_CLASSES.SUBTITLE}"></div>
+                <div class="${PLAYER_OSD_CLASSES.INFO_LINE}"></div>
+                <div class="${PLAYER_OSD_CLASSES.UP_NEXT}"></div>
+              </div>
+            </div>
 
-        <div class="${PLAYER_OSD_CLASSES.BAR}">
-          <div class="${PLAYER_OSD_CLASSES.BAR_BUFFER}"></div>
-          <div class="${PLAYER_OSD_CLASSES.BAR_PLAYED}"></div>
-        </div>
+            <div class="${PLAYER_OSD_CLASSES.ACTIONS}">
+              <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="subtitles">Subtitles</button>
+              <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="sleep">Sleep</button>
+              <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="audio">Audio</button>
+              <div class="${PLAYER_OSD_CLASSES.PLAYBACK_TAG}"></div>
+              <div class="${PLAYER_OSD_CLASSES.SLEEP_TIMER}"></div>
+            </div>
 
-        <div class="${PLAYER_OSD_CLASSES.META}">
-          <div class="${PLAYER_OSD_CLASSES.TIMECODE}"></div>
-          <div class="${PLAYER_OSD_CLASSES.ENDS}"></div>
-          <div class="${PLAYER_OSD_CLASSES.BUFFER_TEXT}"></div>
-        </div>
-      `;
+            <div class="${PLAYER_OSD_CLASSES.HINT}"></div>
+
+            <div class="player-osd-progress-container">
+              <div class="${PLAYER_OSD_CLASSES.BAR}">
+                <div class="${PLAYER_OSD_CLASSES.BAR_BUFFER}"></div>
+                <div class="${PLAYER_OSD_CLASSES.BAR_PLAYED}"></div>
+              </div>
+
+              <div class="${PLAYER_OSD_CLASSES.META}">
+                <div class="${PLAYER_OSD_CLASSES.TIMECODE}"></div>
+                <div class="${PLAYER_OSD_CLASSES.ENDS}"></div>
+                <div class="${PLAYER_OSD_CLASSES.BUFFER_TEXT}"></div>
+              </div>
+            </div>
+        `;
         return panelEl;
     }
 }
