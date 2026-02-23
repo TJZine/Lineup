@@ -89,6 +89,8 @@ export class EPGVirtualizer {
     /** Currently visible cells */
     private visibleCells: Map<string, CellRenderData> = new Map();
 
+    private cellChildrenCache: WeakMap<HTMLElement, CellChildren> = new WeakMap();
+
     /** Total channel count */
     private totalChannels: number = 0;
     private isDebugEnabled(): boolean {
@@ -122,6 +124,7 @@ export class EPGVirtualizer {
         this.totalChannels = 0;
         this.elementPool.clear();
         this.visibleCells.clear();
+        this.cellChildrenCache = new WeakMap();
         this.contentElement = document.createElement('div');
         this.contentElement.style.position = 'relative';
         this.contentElement.style.width = '100%';
@@ -512,6 +515,8 @@ export class EPGVirtualizer {
       <div class="${EPG_CLASSES.CELL_SUBTITLE}"></div>
       <div class="${EPG_CLASSES.CELL_TIME}"></div>
     `;
+        // Prime cache for stable cell structure to avoid repeated DOM queries in hot paths.
+        void this.getCellChildren(element);
         return element;
     }
 
@@ -626,13 +631,19 @@ export class EPGVirtualizer {
     }
 
     private getCellChildren(element: HTMLElement): CellChildren {
-        return {
+        const cached = this.cellChildrenCache.get(element);
+        if (cached) {
+            return cached;
+        }
+        const children = {
             title: element.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement | null,
             time: element.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement | null,
             meta: element.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement | null,
             episode: element.querySelector(`.${EPG_CLASSES.CELL_EPISODE}`) as HTMLElement | null,
             subtitle: element.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement | null,
         };
+        this.cellChildrenCache.set(element, children);
+        return children;
     }
 
     private updateEpisodePresentation(children: CellChildren, cellData: CellRenderData): void {

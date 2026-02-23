@@ -164,10 +164,10 @@ describe('EPGInfoPanel', () => {
             expect(poster.style.display).toBe('block');
         });
 
-        it('renders and updates a backdrop image when resolver returns a URL', () => {
+        it('renders backdrop when art path is provided', () => {
             const resolver = jest.fn().mockImplementation((path: string | null) => {
+                if (path === '/library/metadata/123/thumb') return 'https://server/library/thumb-123';
                 if (path === '/library/metadata/123/art') return 'https://server/library/art-123';
-                if (path === '/library/metadata/456/art') return 'https://server/library/art-456';
                 return null;
             });
             panel.setThumbResolver(resolver);
@@ -183,6 +183,25 @@ describe('EPGInfoPanel', () => {
             expect(backdrop).not.toBeNull();
             expect(backdrop?.style.display).not.toBe('none');
             expect(backdrop?.src).toBe('https://server/library/art-123');
+        });
+
+        it('updates backdrop when program changes', () => {
+            const resolver = jest.fn().mockImplementation((path: string | null) => {
+                if (path === '/library/metadata/123/thumb') return 'https://server/library/thumb-123';
+                if (path === '/library/metadata/456/thumb') return 'https://server/library/thumb-456';
+                if (path === '/library/metadata/123/art') return 'https://server/library/art-123';
+                if (path === '/library/metadata/456/art') return 'https://server/library/art-456';
+                return null;
+            });
+            panel.setThumbResolver(resolver);
+
+            const program = createMockProgram('/library/metadata/123/thumb', {
+                art: '/library/metadata/123/art',
+            });
+            panel.show(program);
+
+            const backdrop = container.querySelector('.epg-info-backdrop-img') as HTMLImageElement | null;
+            expect(backdrop?.src).toBe('https://server/library/art-123');
 
             const program2 = createMockProgram('/library/metadata/456/thumb', {
                 art: '/library/metadata/456/art',
@@ -190,15 +209,41 @@ describe('EPGInfoPanel', () => {
             panel.show(program2);
             expect(resolver).toHaveBeenCalledWith('/library/metadata/456/art', 960, 540);
             expect(backdrop?.src).toBe('https://server/library/art-456');
+        });
 
-            // Negative case: when art is missing, backdrop stays hidden and resolver is not called with an art path.
+        it('hides backdrop when art is null', () => {
+            const resolver = jest.fn().mockImplementation((path: string | null) => {
+                if (path === '/library/metadata/123/thumb') return 'https://server/library/thumb-123';
+                if (path === '/library/metadata/789/thumb') return 'https://server/library/thumb-789';
+                if (path === '/library/metadata/123/art') return 'https://server/library/art-123';
+                return null;
+            });
+            panel.setThumbResolver(resolver);
+
+            const program = createMockProgram('/library/metadata/123/thumb', {
+                art: '/library/metadata/123/art',
+            });
+            panel.show(program);
+
+            const backdrop = container.querySelector('.epg-info-backdrop-img') as HTMLImageElement | null;
+            expect(backdrop?.style.display).not.toBe('none');
+
+            // When art is missing, backdrop stays hidden and resolver is not called for backdrop.
             const callsBefore = resolver.mock.calls.length;
             const programWithoutArt = createMockProgram('/library/metadata/789/thumb', { art: null });
             panel.show(programWithoutArt);
             expect(backdrop?.style.display).toBe('none');
             expect(resolver).not.toHaveBeenCalledWith(null, 960, 540);
             expect(resolver).not.toHaveBeenCalledWith('/library/metadata/789/art', 960, 540);
-            expect(resolver.mock.calls.length).toBeGreaterThanOrEqual(callsBefore);
+            expect(resolver.mock.calls.length).toBe(callsBefore + 1);
+            expect(resolver).toHaveBeenLastCalledWith('/library/metadata/789/thumb', 320, 480);
+        });
+
+        it('renders three meta pills', () => {
+            const program = createMockProgram('/library/metadata/123/thumb', {
+                art: '/library/metadata/123/art',
+            });
+            panel.show(program);
 
             const pills = Array.from(container.querySelectorAll('.epg-info-tags .epg-info-pill')) as HTMLElement[];
             expect(pills.length).toBe(3);
