@@ -1110,7 +1110,7 @@ describe('AppOrchestrator', () => {
             mockChannelManager.getAllChannels.mockReturnValue([]);
             mockLocalStorage.getItem.mockImplementation((key: string) => {
                 if (key === 'retune_audio_setup_complete') return '1';
-                if (key === 'retune_channel_setup_v1:server-1') return null;
+                if (key === 'retune_channel_setup_v2:server-1') return null;
                 if (key === 'retune_channels_server_v1:server-1:user-1') return null;
                 return null;
             });
@@ -1438,7 +1438,7 @@ describe('AppOrchestrator', () => {
             orchestrator.requestChannelSetupRerun();
 
             expect(mockLocalStorage.removeItem).toHaveBeenCalledWith(
-                'retune_channel_setup_v1:server-3'
+                'retune_channel_setup_v2:server-3'
             );
             expect(mockNavigation.goTo).toHaveBeenCalledWith('channel-setup');
         });

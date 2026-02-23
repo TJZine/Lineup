@@ -41,7 +41,8 @@ export function buildScheduleIndex(
         config.content,
         config.playbackMode,
         config.shuffleSeed,
-        shuffler
+        shuffler,
+        config.blockSize
     );
 
     // Calculate cumulative start offsets
@@ -238,7 +239,8 @@ export function applyPlaybackMode(
     items: ResolvedContentItem[],
     mode: PlaybackMode,
     seed: number,
-    shuffler: IShuffleGenerator
+    shuffler: IShuffleGenerator,
+    blockSize?: number
 ): ResolvedContentItem[] {
     switch (mode) {
         case 'sequential':
@@ -251,6 +253,48 @@ export function applyPlaybackMode(
         case 'shuffle': {
             const shuffled = shuffler.shuffle(items, seed);
             return shuffled.map((item, index) => ({
+                ...item,
+                scheduledIndex: index,
+            }));
+        }
+
+        case 'block': {
+            const normalizedBlockSize =
+                typeof blockSize === 'number' && Number.isFinite(blockSize)
+                    ? blockSize
+                    : 3;
+            const effectiveBlockSize = Math.max(1, Math.floor(normalizedBlockSize));
+            const groups = new Map<string, ResolvedContentItem[]>();
+            for (const item of items) {
+                const key = item.showTitle ?? item.ratingKey;
+                const list = groups.get(key);
+                if (list) {
+                    list.push(item);
+                } else {
+                    groups.set(key, [item]);
+                }
+            }
+            const keys = shuffler.shuffle(Array.from(groups.keys()), seed);
+            const queues = keys.map((key) => ({
+                key,
+                items: [...(groups.get(key) ?? [])],
+            }));
+            const result: ResolvedContentItem[] = [];
+            while (queues.length > 0) {
+                for (let i = 0; i < queues.length; i++) {
+                    const queue = queues[i];
+                    if (!queue) {
+                        continue;
+                    }
+                    const take = queue.items.splice(0, effectiveBlockSize);
+                    result.push(...take);
+                    if (queue.items.length === 0) {
+                        queues.splice(i, 1);
+                        i--;
+                    }
+                }
+            }
+            return result.map((item, index) => ({
                 ...item,
                 scheduledIndex: index,
             }));

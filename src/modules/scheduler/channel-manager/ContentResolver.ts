@@ -379,7 +379,8 @@ export class ContentResolver {
     applyPlaybackMode(
         items: ResolvedContentItem[],
         mode: PlaybackMode,
-        seed: number
+        seed: number,
+        blockSize?: number
     ): ResolvedContentItem[] {
         switch (mode) {
             case 'sequential':
@@ -392,6 +393,47 @@ export class ContentResolver {
                     ...item,
                     scheduledIndex: index,
                 }));
+            case 'block': {
+                const normalizedBlockSize =
+                    typeof blockSize === 'number' && Number.isFinite(blockSize)
+                        ? blockSize
+                        : 3;
+                const effectiveBlockSize = Math.max(1, Math.floor(normalizedBlockSize));
+                const groups = new Map<string, ResolvedContentItem[]>();
+                for (const item of items) {
+                    const key = item.showTitle ?? item.ratingKey;
+                    const existing = groups.get(key);
+                    if (existing) {
+                        existing.push(item);
+                    } else {
+                        groups.set(key, [item]);
+                    }
+                }
+                const keys = shuffleWithSeed(Array.from(groups.keys()), seed);
+                const queues = keys.map((key) => ({
+                    key,
+                    items: [...(groups.get(key) ?? [])],
+                }));
+                const ordered: ResolvedContentItem[] = [];
+                while (queues.length > 0) {
+                    for (let index = 0; index < queues.length; index++) {
+                        const queue = queues[index];
+                        if (!queue) {
+                            continue;
+                        }
+                        const chunk = queue.items.splice(0, effectiveBlockSize);
+                        ordered.push(...chunk);
+                        if (queue.items.length === 0) {
+                            queues.splice(index, 1);
+                            index--;
+                        }
+                    }
+                }
+                return ordered.map((item, index) => ({
+                    ...item,
+                    scheduledIndex: index,
+                }));
+            }
             case 'random':
                 // Random mode uses current time as seed for different order each time
                 return shuffleWithSeed(items, Date.now()).map((item, index) => ({

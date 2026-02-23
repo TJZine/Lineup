@@ -33,6 +33,8 @@ export interface ScheduleConfig {
     playbackMode: import('../channel-manager/types').PlaybackMode;
     /** Shuffle seed for deterministic ordering */
     shuffleSeed: number;
+    /** Optional block size (used when playbackMode === 'block') */
+    blockSize?: number;
     /** Whether to loop (always true for linear channels) */
     loopSchedule: boolean;
 }

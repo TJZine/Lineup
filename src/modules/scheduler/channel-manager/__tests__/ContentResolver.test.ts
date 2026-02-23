@@ -17,6 +17,7 @@ import type {
 } from '../types';
 import { PLEX_MEDIA_TYPES } from '../../../plex/library/constants';
 import type { PlexMediaFile, PlexStream } from '../../../plex/library';
+import { shuffleWithSeed } from '../../../../utils/prng';
 
 // ============================================
 // Mock Setup
@@ -1117,6 +1118,26 @@ describe('ContentResolver', () => {
             expect(result[0]!.scheduledIndex).toBe(0);
             expect(result[1]!.scheduledIndex).toBe(1);
             expect(result[2]!.scheduledIndex).toBe(2);
+        });
+
+        it('should group by show in blocks', () => {
+            const episodes: ResolvedContentItem[] = [
+                { ratingKey: 'a1', type: 'episode', title: 'A1', fullTitle: 'A1', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 0, showTitle: 'Show A', seasonNumber: 1, episodeNumber: 1 },
+                { ratingKey: 'a2', type: 'episode', title: 'A2', fullTitle: 'A2', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 1, showTitle: 'Show A', seasonNumber: 1, episodeNumber: 2 },
+                { ratingKey: 'a3', type: 'episode', title: 'A3', fullTitle: 'A3', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 2, showTitle: 'Show A', seasonNumber: 1, episodeNumber: 3 },
+                { ratingKey: 'b1', type: 'episode', title: 'B1', fullTitle: 'B1', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 3, showTitle: 'Show B', seasonNumber: 1, episodeNumber: 1 },
+                { ratingKey: 'b2', type: 'episode', title: 'B2', fullTitle: 'B2', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 4, showTitle: 'Show B', seasonNumber: 1, episodeNumber: 2 },
+                { ratingKey: 'b3', type: 'episode', title: 'B3', fullTitle: 'B3', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 5, showTitle: 'Show B', seasonNumber: 1, episodeNumber: 3 },
+            ];
+
+            const showKeys = shuffleWithSeed(['Show A', 'Show B'], 12345);
+            const expected = showKeys[0] === 'Show A'
+                ? ['a1', 'a2', 'b1', 'b2', 'a3', 'b3']
+                : ['b1', 'b2', 'a1', 'a2', 'b3', 'a3'];
+
+            const result = resolver.applyPlaybackMode(episodes, 'block', 12345, 2);
+            expect(result.map((i) => i.ratingKey)).toEqual(expected);
+            expect(result.map((i) => i.scheduledIndex)).toEqual([0, 1, 2, 3, 4, 5]);
         });
     });
 

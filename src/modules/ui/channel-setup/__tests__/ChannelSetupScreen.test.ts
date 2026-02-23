@@ -215,6 +215,7 @@ describe('ChannelSetupScreen', () => {
             'Content Sources',
             'Advanced Sources',
             'Build Options',
+            'Series Ordering',
             'Limits',
             'Priority Order',
         ]);
@@ -258,7 +259,8 @@ describe('ChannelSetupScreen', () => {
 
         expect(nav.focusables.get('setup-category-content-sources')?.neighbors.down).toBe('setup-category-advanced-sources');
         expect(nav.focusables.get('setup-category-advanced-sources')?.neighbors.down).toBe('setup-category-build-options');
-        expect(nav.focusables.get('setup-category-build-options')?.neighbors.down).toBe('setup-category-limits');
+        expect(nav.focusables.get('setup-category-build-options')?.neighbors.down).toBe('setup-category-series-ordering');
+        expect(nav.focusables.get('setup-category-series-ordering')?.neighbors.down).toBe('setup-category-limits');
         expect(nav.focusables.get('setup-category-limits')?.neighbors.down).toBe('setup-category-priority-order');
         expect(nav.focusables.get('setup-category-priority-order')?.neighbors.down).toBe('setup-strategy-collections');
         expect(nav.focusables.get('setup-strategy-recentlyAdded')?.neighbors.down).toBe('setup-back');
@@ -662,7 +664,12 @@ describe('ChannelSetupScreen', () => {
         expect(beforeConfig.channelExpansion).toEqual({
             addAlternateLineups: false,
             alternateLineupCopies: 1,
-            addSequentialVariants: false,
+            variantType: 'none',
+            variantBlockSize: 3,
+        });
+        expect(beforeConfig.seriesOrdering).toEqual({
+            basePlaybackMode: 'shuffle',
+            baseBlockSize: 3,
         });
 
         clickButton(container, '#setup-category-priority-order');
@@ -672,7 +679,13 @@ describe('ChannelSetupScreen', () => {
         clickButton(container, '#setup-category-build-options');
         clickButton(container, '#setup-expansion-alternate-lineups');
         clickButton(container, '#setup-expansion-copies');
-        clickButton(container, '#setup-expansion-sequential');
+        clickButton(container, '#setup-category-series-ordering');
+        clickButton(container, '#setup-series-base-mode');
+        clickButton(container, '#setup-series-base-mode');
+        clickButton(container, '#setup-series-base-block-size');
+        clickButton(container, '#setup-series-variant-type');
+        clickButton(container, '#setup-series-variant-type');
+        clickButton(container, '#setup-series-variant-block-size');
 
         const afterConfig = internal._buildConfig('server-1');
         const afterKey = internal._buildPreviewKey(afterConfig);
@@ -684,7 +697,12 @@ describe('ChannelSetupScreen', () => {
         expect(afterConfig.channelExpansion).toEqual({
             addAlternateLineups: true,
             alternateLineupCopies: 2,
-            addSequentialVariants: true,
+            variantType: 'block',
+            variantBlockSize: 4,
+        });
+        expect(afterConfig.seriesOrdering).toEqual({
+            basePlaybackMode: 'block',
+            baseBlockSize: 4,
         });
         expect(afterKey).not.toBe(beforeKey);
     });
