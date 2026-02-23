@@ -283,6 +283,9 @@ export class ChannelSetupCoordinator {
                     if (p.sortOrder) {
                         channelParams.sortOrder = p.sortOrder;
                     }
+                    if (typeof p.blockSize === 'number' && Number.isFinite(p.blockSize)) {
+                        channelParams.blockSize = p.blockSize;
+                    }
                     if (p.buildStrategy !== undefined) channelParams.buildStrategy = p.buildStrategy;
                     if (p.sourceLibraryId !== undefined) channelParams.sourceLibraryId = p.sourceLibraryId;
                     if (p.sourceLibraryName !== undefined) channelParams.sourceLibraryName = p.sourceLibraryName;
@@ -795,6 +798,11 @@ export class ChannelSetupCoordinator {
             updated.sortOrder = planned.sortOrder;
         } else {
             delete updated.sortOrder;
+        }
+        if (typeof planned.blockSize === 'number' && Number.isFinite(planned.blockSize)) {
+            updated.blockSize = planned.blockSize;
+        } else {
+            delete updated.blockSize;
         }
         if (planned.buildStrategy !== undefined) {
             updated.buildStrategy = planned.buildStrategy;
