@@ -14,6 +14,7 @@ import {
 } from '../ScheduleCalculator';
 import { ShuffleGenerator } from '../ShuffleGenerator';
 import type { ScheduleConfig, ResolvedContentItem } from '../types';
+import type { IShuffleGenerator } from '../interfaces';
 import { SCHEDULER_ERROR_MESSAGES } from '../constants';
 
 describe('ScheduleCalculator', () => {
@@ -355,6 +356,28 @@ describe('ScheduleCalculator', () => {
             expect(result[0]!.scheduledIndex).toBe(0);
             expect(result[1]!.scheduledIndex).toBe(1);
             expect(result[2]!.scheduledIndex).toBe(2);
+        });
+
+        it('should group by show in blocks', () => {
+            const stableShuffler: IShuffleGenerator = {
+                shuffle: <T,>(items: T[]): T[] => [...items],
+                shuffleIndices: (count: number): number[] =>
+                    Array.from({ length: count }, (_, i) => i),
+                generateSeed: (): number => 0,
+            };
+
+            const episodes: ResolvedContentItem[] = [
+                { ratingKey: 'a1', type: 'episode', title: 'A1', fullTitle: 'A1', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 0, showTitle: 'Show A', seasonNumber: 1, episodeNumber: 1 },
+                { ratingKey: 'a2', type: 'episode', title: 'A2', fullTitle: 'A2', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 1, showTitle: 'Show A', seasonNumber: 1, episodeNumber: 2 },
+                { ratingKey: 'a3', type: 'episode', title: 'A3', fullTitle: 'A3', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 2, showTitle: 'Show A', seasonNumber: 1, episodeNumber: 3 },
+                { ratingKey: 'b1', type: 'episode', title: 'B1', fullTitle: 'B1', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 3, showTitle: 'Show B', seasonNumber: 1, episodeNumber: 1 },
+                { ratingKey: 'b2', type: 'episode', title: 'B2', fullTitle: 'B2', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 4, showTitle: 'Show B', seasonNumber: 1, episodeNumber: 2 },
+                { ratingKey: 'b3', type: 'episode', title: 'B3', fullTitle: 'B3', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 5, showTitle: 'Show B', seasonNumber: 1, episodeNumber: 3 },
+            ];
+            const result = applyPlaybackMode(episodes, 'block', 12345, stableShuffler, 2);
+
+            expect(result.map((i) => i.ratingKey)).toEqual(['a1', 'a2', 'b1', 'b2', 'a3', 'b3']);
+            expect(result.map((i) => i.scheduledIndex)).toEqual([0, 1, 2, 3, 4, 5]);
         });
     });
 
