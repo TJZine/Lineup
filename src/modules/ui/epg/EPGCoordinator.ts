@@ -37,6 +37,7 @@ export interface EPGCoordinatorDeps {
 
     setLastChannelChangeSourceToGuide: () => void;
     switchToChannel: (channelId: string) => Promise<void>;
+    reportEpgInitWarning: (error: unknown) => void;
 }
 
 const EPG_SCHEDULE_CACHE_TTL_MS = 2 * 60_000;
@@ -280,7 +281,11 @@ export class EPGCoordinator {
                 void this.refreshEpgSchedules();
                 show();
             })
-            .catch((error: unknown) => console.error('[Orchestrator] Failed to init EPG:', error));
+            .catch((error: unknown) => {
+                console.error('[EPGCoordinator] Failed to init EPG:', summarizeErrorForLog(error));
+                this.deps.getEpg()?.hide();
+                this.deps.reportEpgInitWarning(error);
+            });
     }
 
     closeEPG(): void {
@@ -1293,7 +1298,7 @@ export class EPGCoordinator {
         const focusedIsPlaceholder = focusedCell?.kind === 'placeholder';
         const focusedIsInvalidProgram = focusedProgram
             ? focusedProgram.scheduleIndex === -1 ||
-              focusedProgram.item.ratingKey.includes('-placeholder-')
+            focusedProgram.item.ratingKey.includes('-placeholder-')
             : false;
 
         if (

@@ -4,6 +4,8 @@
  * @version 1.0.0
  */
 
+export { TIMING_CONFIG } from '../../config/timing';
+
 /**
  * Storage configuration for persistent state.
  */
@@ -38,26 +40,6 @@ export const MEMORY_THRESHOLDS = {
 } as const;
 
 /**
- * Timing configuration for lifecycle operations.
- */
-export const TIMING_CONFIG = {
-    /** Maximum time to wait for pause callbacks (ms) */
-    CALLBACK_TIMEOUT_MS: 5000,
-    /** Debounce time for state saves (ms) */
-    SAVE_DEBOUNCE_MS: 500,
-    /** Minimum delay between persistence warnings (ms) */
-    PERSISTENCE_WARNING_BACKOFF_MS: 60000,
-    /** Maximum delay between persistence warnings (ms) */
-    PERSISTENCE_WARNING_MAX_BACKOFF_MS: 10 * 60000,
-    /** Network check timeout (ms) */
-    NETWORK_CHECK_TIMEOUT_MS: 5000,
-    /** Periodic network check interval (ms) */
-    NETWORK_CHECK_INTERVAL_MS: 60000,
-    /** Minimum delay between network warnings from monitoring (ms) */
-    NETWORK_WARNING_BACKOFF_MS: 300000,
-} as const;
-
-/**
  * Default user preferences.
  */
 export const DEFAULT_USER_PREFERENCES = {
@@ -81,6 +63,7 @@ export const ERROR_MESSAGES = {
     ACCESS_DENIED: 'This profile does not have access to that library',
     OUT_OF_MEMORY: 'App needs to restart',
     STORAGE_QUOTA_EXCEEDED: 'Storage full - some settings may not be saved',
+    PAGINATION_LIMIT_EXCEEDED: 'Unable to load all items from that library',
     MODULE_INIT_FAILED: 'App failed to start. Please try again',
     UNRECOVERABLE: 'A critical error occurred. Please restart the app',
 } as const;

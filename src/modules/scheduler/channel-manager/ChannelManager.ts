@@ -11,7 +11,9 @@ import { summarizeErrorForLog } from '../../../utils/errors';
 import { ContentResolver } from './ContentResolver';
 import { AppErrorCode } from '../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../lifecycle/constants';
+import { TIMING_CONFIG } from '../../../config/timing';
 import type { IChannelManager, ChannelManagerConfig, IPlexLibraryMinimal } from './interfaces';
+import type { IDisposable } from '../../../utils/interfaces';
 import type {
     ChannelConfig,
     ChannelContentSource,
@@ -252,9 +254,18 @@ export class ChannelManager implements IChannelManager {
     };
 
     private _state: ChannelManagerState;
+    private readonly _reportedPersistenceFailures = new WeakSet<object>();
     /** Issue 3 (Round 3): Pending retry queue for network errors */
     private readonly _pendingRetries: Map<string, ReturnType<typeof setTimeout>> = new Map();
     private static readonly RETRY_DELAY_MS = 30000; // 30 seconds
+
+    private _saveTimer: ReturnType<typeof setTimeout> | null = null;
+    private _pendingSavePromise: Promise<void> | null = null;
+    private _pendingSaveResolve: (() => void) | null = null;
+    private _pendingSaveReject: ((error: unknown) => void) | null = null;
+    private _queuedSaveCatchPromise: Promise<void> | null = null;
+    private _nextPersistenceWarningAt = 0;
+    private _persistenceWarningBackoffMs: number = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
 
     /**
      * Create a new ChannelManager instance.
@@ -295,6 +306,14 @@ export class ChannelManager implements IChannelManager {
             throw new Error('Storage keys must be non-empty strings');
         }
         this.cancelPendingRetries();
+        try {
+            this._flushPendingSaveNow();
+        } catch (error) {
+            this._reportPersistenceFailure(
+                'ChannelManager.setStorageKeys failed while flushing pending saves',
+                error
+            );
+        }
         this._storageKey = storageKey;
         this._currentChannelKey = currentChannelKey;
         this._contentResolver.clearCaches();
@@ -381,14 +400,23 @@ export class ChannelManager implements IChannelManager {
                 ? requestedCurrent
                 : fallbackCurrent;
 
-        await this.saveChannels();
-
         if (this._state.currentChannelId) {
             try {
                 localStorage.setItem(this._currentChannelKey, this._state.currentChannelId);
             } catch (e) {
                 this._logger.warn('Failed to persist current channel', summarizeErrorForLog(e));
+                this._emitPersistenceWarning(e);
             }
+        }
+
+        try {
+            this._persistCurrentStateNow();
+        } catch (error) {
+            this._reportPersistenceFailure(
+                'ChannelManager.replaceAllChannels failed to persist channels',
+                error
+            );
+            throw error;
         }
     }
 
@@ -505,7 +533,7 @@ export class ChannelManager implements IChannelManager {
         }
 
         // Persist and emit event
-        await this.saveChannels();
+        this._queueSave();
         this._emitter.emit('channelCreated', channel);
 
         return channel;
@@ -559,7 +587,7 @@ export class ChannelManager implements IChannelManager {
         }
 
         // Persist and emit event
-        await this.saveChannels();
+        this._queueSave();
         this._emitter.emit('channelUpdated', updated);
 
         return updated;
@@ -585,7 +613,7 @@ export class ChannelManager implements IChannelManager {
         }
 
         // Persist and emit event
-        await this.saveChannels();
+        this._queueSave();
         this._emitter.emit('channelDeleted', id);
     }
 
@@ -711,13 +739,14 @@ export class ChannelManager implements IChannelManager {
 
     /**
      * Reorder channels.
-     * @remarks In-memory order is updated synchronously; persistence errors propagate.
+     * @remarks In-memory order is updated synchronously; persistence is queued via debounced save.
      */
-    async reorderChannels(orderedIds: string[]): Promise<void> {
+    reorderChannels(orderedIds: string[]): Promise<void> {
         // Validate all IDs exist
         const validIds = orderedIds.filter((id) => this._state.channels.has(id));
         this._state.channelOrder = validIds;
-        await this.saveChannels();
+        this._queueSave();
+        return Promise.resolve();
     }
 
     /**
@@ -736,6 +765,7 @@ export class ChannelManager implements IChannelManager {
             localStorage.setItem(this._currentChannelKey, channelId);
         } catch (e) {
             this._logger.warn('Failed to persist current channel', summarizeErrorForLog(e));
+            this._emitPersistenceWarning(e);
         }
 
         const index = this._state.channelOrder.indexOf(channelId);
@@ -855,9 +885,234 @@ export class ChannelManager implements IChannelManager {
     // ============================================
 
     /**
-     * Save channels to localStorage.
+     * Flush any pending debounced save immediately.
      */
-    async saveChannels(): Promise<void> {
+    flushSaves(): Promise<void> {
+        try {
+            this._flushPendingSaveNow();
+            return Promise.resolve();
+        } catch (error) {
+            return Promise.reject(error);
+        }
+    }
+
+    dispose(): void {
+        this.cancelPendingRetries();
+        if (this._saveTimer) {
+            clearTimeout(this._saveTimer);
+            this._saveTimer = null;
+        }
+        // Teardown is expected; do not treat cancellation as a persistence failure.
+        // Rejecting the pending save also clears internal promise state + queued catch tracking.
+        const disposedError = new Error('ChannelManager disposed');
+        this._markPersistenceFailureReported(disposedError);
+        this._rejectPendingSave(disposedError);
+        this._contentResolver.clearCaches();
+        this._emitter.removeAllListeners();
+    }
+
+    /**
+     * Queues a debounced save to localStorage.
+     */
+    saveChannels(): Promise<void> {
+        const pendingSave = this._ensurePendingSavePromise();
+        if (this._saveTimer) {
+            clearTimeout(this._saveTimer);
+        }
+
+        // Debounce by 500ms to batch all closely related saves
+        this._saveTimer = setTimeout(() => {
+            this._saveTimer = null;
+            try {
+                this._runPendingSaveNow();
+            } catch {
+                // Errors are propagated to pending promise and handled by callers.
+            }
+        }, TIMING_CONFIG.SAVE_DEBOUNCE_MS);
+
+        return pendingSave;
+    }
+
+    private _ensurePendingSavePromise(): Promise<void> {
+        if (this._pendingSavePromise) {
+            return this._pendingSavePromise;
+        }
+        this._pendingSavePromise = new Promise((resolve, reject) => {
+            this._pendingSaveResolve = resolve;
+            this._pendingSaveReject = reject;
+        });
+        return this._pendingSavePromise;
+    }
+
+    private _clearPendingSavePromise(): void {
+        this._pendingSavePromise = null;
+        this._pendingSaveResolve = null;
+        this._pendingSaveReject = null;
+        this._queuedSaveCatchPromise = null;
+    }
+
+    private _resolvePendingSave(): void {
+        const resolve = this._pendingSaveResolve;
+        this._clearPendingSavePromise();
+        if (resolve) {
+            resolve();
+        }
+    }
+
+    private _rejectPendingSave(error: unknown): void {
+        const reject = this._pendingSaveReject;
+        this._clearPendingSavePromise();
+        if (reject) {
+            reject(error);
+        }
+    }
+
+    private _runPendingSaveNow(): void {
+        try {
+            this._performSaveSync();
+            this._onPersistenceSuccess();
+            this._resolvePendingSave();
+        } catch (error) {
+            this._rejectPendingSave(error);
+            throw error;
+        }
+    }
+
+    private _flushPendingSaveNow(): void {
+        if (!this._saveTimer) {
+            return;
+        }
+
+        clearTimeout(this._saveTimer);
+        this._saveTimer = null;
+        this._runPendingSaveNow();
+    }
+
+    private _queueSave(): void {
+        const pendingSave = this.saveChannels();
+        if (this._queuedSaveCatchPromise === pendingSave) {
+            return;
+        }
+        this._queuedSaveCatchPromise = pendingSave;
+        void pendingSave.catch((error) => {
+            if (this._wasPersistenceFailureReported(error)) {
+                return;
+            }
+            this._markPersistenceFailureReported(error);
+
+            const didEmitWarning = this._emitPersistenceWarning(error);
+            const isQuotaError =
+                (error instanceof ChannelError && error.code === AppErrorCode.STORAGE_QUOTA_EXCEEDED) ||
+                this._isQuotaExceeded(error);
+            const summary = summarizeErrorForLog(error);
+
+            if (isQuotaError) {
+                // Quota errors are expected and user-facing; keep logs quiet and throttled.
+                if (didEmitWarning) {
+                    this._logger.warn('Debounced save failed (quota)', summary);
+                }
+                return;
+            }
+
+            // Unexpected failures should remain error-level, but avoid spamming logs on rapid repeats.
+            if (didEmitWarning) {
+                this._logger.error('Debounced save failed', summary);
+            }
+        });
+    }
+
+    private _persistCurrentStateNow(): void {
+        if (this._saveTimer) {
+            this._flushPendingSaveNow();
+            return;
+        }
+        this._performSaveSync();
+        this._onPersistenceSuccess();
+    }
+
+    private _shouldEmitPersistenceWarning(isQuotaError: boolean): boolean {
+        const now = Date.now();
+        if (now < this._nextPersistenceWarningAt) {
+            return false;
+        }
+        const backoff = isQuotaError
+            ? this._persistenceWarningBackoffMs
+            : TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
+        this._nextPersistenceWarningAt = now + backoff;
+        if (isQuotaError) {
+            this._persistenceWarningBackoffMs = Math.min(
+                this._persistenceWarningBackoffMs * 2,
+                TIMING_CONFIG.PERSISTENCE_WARNING_MAX_BACKOFF_MS
+            );
+        } else {
+            // Non-quota warnings are a different failure class than quota exhaustion.
+            // Reset any quota-driven exponential backoff to the baseline so we don't suppress
+            // future warnings due to stale quota backoff state (mirrors _onPersistenceSuccess()).
+            this._persistenceWarningBackoffMs = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
+        }
+        return true;
+    }
+
+    private _emitPersistenceWarning(error: unknown): boolean {
+        const isQuotaError =
+            (error instanceof ChannelError && error.code === AppErrorCode.STORAGE_QUOTA_EXCEEDED) ||
+            this._isQuotaExceeded(error);
+        if (!this._shouldEmitPersistenceWarning(isQuotaError)) {
+            return false;
+        }
+        const code = isQuotaError
+            ? AppErrorCode.STORAGE_QUOTA_EXCEEDED
+            : (getErrorCode(error) ?? AppErrorCode.UNKNOWN);
+        this._emitter.emit('persistenceWarning', {
+            message: isQuotaError
+                ? STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED
+                : 'Failed to persist channels; some changes may not be saved',
+            code,
+            isQuotaError,
+            timestamp: Date.now(),
+        });
+        return true;
+    }
+
+    private _reportPersistenceFailure(message: string, error: unknown): void {
+        this._markPersistenceFailureReported(error);
+
+        const didEmitWarning = this._emitPersistenceWarning(error);
+        const isQuotaError =
+            (error instanceof ChannelError && error.code === AppErrorCode.STORAGE_QUOTA_EXCEEDED) ||
+            this._isQuotaExceeded(error);
+        const summary = summarizeErrorForLog(error);
+
+        if (isQuotaError) {
+            // Quota errors are common on TVs; avoid log spam by tying logs to the same backoff as the warning.
+            if (didEmitWarning) {
+                this._logger.warn(message, summary);
+            }
+            return;
+        }
+
+        this._logger.error(message, summary);
+    }
+
+    private _onPersistenceSuccess(): void {
+        this._nextPersistenceWarningAt = 0;
+        this._persistenceWarningBackoffMs = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
+    }
+
+    private _markPersistenceFailureReported(error: unknown): void {
+        if (error && (typeof error === 'object' || typeof error === 'function')) {
+            this._reportedPersistenceFailures.add(error as object);
+        }
+    }
+
+    private _wasPersistenceFailureReported(error: unknown): boolean {
+        if (!error || (typeof error !== 'object' && typeof error !== 'function')) {
+            return false;
+        }
+        return this._reportedPersistenceFailures.has(error as object);
+    }
+
+    private _performSaveSync(): void {
         const data: StoredChannelData = {
             channels: Array.from(this._state.channels.values()),
             channelOrder: this._state.channelOrder,
@@ -871,25 +1126,13 @@ export class ChannelManager implements IChannelManager {
             localStorage.setItem(this._storageKey, json);
         } catch (e) {
             if (this._isQuotaExceeded(e)) {
-                // Issue 6: First clear content caches
-                this._state.resolvedContent.clear();
-                try {
-                    localStorage.setItem(this._storageKey, json);
-                    return;
-                } catch (e2) {
-                    if (this._isQuotaExceeded(e2)) {
-                        throw new ChannelError(
-                            AppErrorCode.STORAGE_QUOTA_EXCEEDED,
-                            STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
-                            true
-                        );
-                    }
-                    this._logger.error('Failed to save channels after pruning cache', summarizeErrorForLog(e2));
-                    throw e2;
-                }
-            } else {
-                throw e;
+                throw new ChannelError(
+                    AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+                    STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                    true
+                );
             }
+            throw e;
         }
     }
 
@@ -952,7 +1195,7 @@ export class ChannelManager implements IChannelManager {
 
             // Persist normalized/migrated channel records once.
             if (didMutate) {
-                await this.saveChannels();
+                this._queueSave();
             }
         } catch (e) {
             this._logger.error('Failed to load channels from storage', summarizeErrorForLog(e));
@@ -1020,8 +1263,8 @@ export class ChannelManager implements IChannelManager {
     on<K extends keyof ChannelManagerEventMap>(
         event: K,
         handler: (payload: ChannelManagerEventMap[K]) => void
-    ): void {
-        this._emitter.on(event, handler);
+    ): IDisposable {
+        return this._emitter.on(event, handler);
     }
 
     // ============================================
@@ -1126,14 +1369,7 @@ export class ChannelManager implements IChannelManager {
             channel.totalDurationMs = result.totalDurationMs;
             this._state.channels.set(channel.id, channel);
 
-            try {
-                await this.saveChannels();
-            } catch (error) {
-                if (error instanceof ChannelError && error.code === AppErrorCode.STORAGE_QUOTA_EXCEEDED) {
-                    throw error;
-                }
-                this._logger.warn('Failed to persist channel metadata after resolve', summarizeErrorForLog(error));
-            }
+            this._queueSave();
 
             return result;
         } catch (error) {
@@ -1306,7 +1542,7 @@ export class ChannelManager implements IChannelManager {
     /**
      * Cancel any pending retries (useful for cleanup).
      */
-    cancelPendingRetries(): void {
+    private cancelPendingRetries(): void {
         for (const timeout of this._pendingRetries.values()) {
             clearTimeout(timeout);
         }

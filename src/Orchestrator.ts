@@ -641,6 +641,13 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this._lastChannelChangeSource = 'guide';
             },
             switchToChannel: (channelId: string): Promise<void> => this.switchToChannel(channelId),
+            reportEpgInitWarning: (error: unknown): void => {
+                console.warn('[EPG_INIT] Deferred guide initialization failed:', summarizeErrorForLog(error));
+                this._nowPlayingHandler?.({
+                    message: 'Guide unavailable right now. Try again.',
+                    type: 'warning',
+                });
+            },
         });
 
         this._channelSetup = new ChannelSetupCoordinator({
@@ -983,6 +990,21 @@ export class AppOrchestrator implements IAppOrchestrator {
         }
         this._eventUnsubscribers = [];
         this._eventsWired = false; // Reset to allow re-wiring on retry
+
+        if (this._channelManager?.flushSaves) {
+            try {
+                await this._channelManager.flushSaves();
+            } catch (error) {
+                recordTeardownFailure('channelManager.flushSaves', error);
+            }
+        }
+        if (this._channelManager?.dispose) {
+            try {
+                this._channelManager.dispose();
+            } catch (error) {
+                recordTeardownFailure('channelManager.dispose', error);
+            }
+        }
 
         // Shutdown lifecycle (flushes state and removes global listeners)
         if (this._lifecycle) {
@@ -1735,26 +1757,26 @@ export class AppOrchestrator implements IAppOrchestrator {
     // Private Methods - Initialization Phases
     // ============================================
 
-	    private _initializeModuleStatus(): void {
-	        const modules = [
-	            'event-emitter',
-	            'app-lifecycle',
-	            'navigation',
-	            'plex-auth',
-	            'plex-server-discovery',
-	            'plex-library',
-	            'plex-stream-resolver',
-	            'channel-manager',
-	            'channel-scheduler',
-	            'video-player',
-	            'epg-ui',
-	            'now-playing-info-ui',
-	            'player-osd-ui',
-	            'channel-number-overlay-ui',
-	            'mini-guide-ui',
-	            'channel-transition-ui',
-	            'playback-options-ui',
-	        ];
+    private _initializeModuleStatus(): void {
+        const modules = [
+            'event-emitter',
+            'app-lifecycle',
+            'navigation',
+            'plex-auth',
+            'plex-server-discovery',
+            'plex-library',
+            'plex-stream-resolver',
+            'channel-manager',
+            'channel-scheduler',
+            'video-player',
+            'epg-ui',
+            'now-playing-info-ui',
+            'player-osd-ui',
+            'channel-number-overlay-ui',
+            'mini-guide-ui',
+            'channel-transition-ui',
+            'playback-options-ui',
+        ];
 
         for (const id of modules) {
             this._moduleStatus.set(id, {
@@ -2116,6 +2138,21 @@ export class AppOrchestrator implements IAppOrchestrator {
         cleanups.push(...(this._epgCoordinator?.wireEpgEvents() ?? []));
     }
 
+    private _wireChannelManagerEvents(cleanups: Array<() => void>): void {
+        const channelManager = this._channelManager;
+        if (!channelManager) {
+            return;
+        }
+        const sub = channelManager.on('persistenceWarning', ({ message }) => {
+            this._nowPlayingHandler?.({ message, type: 'warning' });
+        });
+        cleanups.push(() => {
+            if (sub && typeof (sub as { dispose?: unknown }).dispose === 'function') {
+                (sub as { dispose: () => void }).dispose();
+            }
+        });
+    }
+
     private _wireLifecycleEvents(cleanups: Array<() => void>): void {
         const lifecycle = this._lifecycle;
         if (!lifecycle) return;
@@ -2152,6 +2189,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             this._wirePlexEvents(cleanups);
             this._wireNavigationEvents(cleanups);
             this._wireEpgEvents(cleanups);
+            this._wireChannelManagerEvents(cleanups);
             this._wireLifecycleEvents(cleanups);
             this._eventUnsubscribers.push(...cleanups);
             this._eventsWired = true;

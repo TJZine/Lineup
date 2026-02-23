@@ -167,6 +167,7 @@ export enum PlexLibraryErrorCode {
     ITEM_NOT_FOUND = 'ITEM_NOT_FOUND',
     RATE_LIMITED = 'RATE_LIMITED',
     PARSE_ERROR = 'PARSE_ERROR',
+    PAGINATION_LIMIT_EXCEEDED = 'PAGINATION_LIMIT_EXCEEDED',
 }
 
 export function mapPlexLibraryErrorCodeToAppErrorCode(
@@ -193,6 +194,8 @@ export function mapPlexLibraryErrorCodeToAppErrorCode(
             return AppErrorCode.RATE_LIMITED;
         case PlexLibraryErrorCode.PARSE_ERROR:
             return AppErrorCode.PARSE_ERROR;
+        case PlexLibraryErrorCode.PAGINATION_LIMIT_EXCEEDED:
+            return AppErrorCode.PAGINATION_LIMIT_EXCEEDED;
         default:
             return AppErrorCode.UNKNOWN;
     }

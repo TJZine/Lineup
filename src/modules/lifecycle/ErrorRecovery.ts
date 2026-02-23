@@ -157,6 +157,8 @@ export class ErrorRecovery implements IErrorRecovery {
                 return ERROR_MESSAGES.PLAYBACK_FAILED;
             case AppErrorCode.CONTENT_UNAVAILABLE:
                 return ERROR_MESSAGES.CONTENT_UNAVAILABLE;
+            case AppErrorCode.PAGINATION_LIMIT_EXCEEDED:
+                return ERROR_MESSAGES.PAGINATION_LIMIT_EXCEEDED;
             case AppErrorCode.ACCESS_DENIED:
                 return ERROR_MESSAGES.ACCESS_DENIED;
             case AppErrorCode.OUT_OF_MEMORY:

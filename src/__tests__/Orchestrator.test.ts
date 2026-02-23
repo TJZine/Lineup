@@ -351,6 +351,8 @@ const mockChannel = {
 const mockChannelManager = {
     loadChannels: jest.fn().mockResolvedValue(undefined),
     setStorageKeys: jest.fn(),
+    flushSaves: jest.fn().mockResolvedValue(undefined),
+    dispose: jest.fn(),
     replaceAllChannels: jest.fn().mockResolvedValue(undefined),
     getAllChannels: jest.fn().mockReturnValue([mockChannel]),
     getCurrentChannel: jest.fn().mockReturnValue(mockChannel),
@@ -367,7 +369,7 @@ const mockChannelManager = {
         totalDurationMs: 0,
         resolvedAt: Date.now(),
     }),
-    on: jest.fn(() => jest.fn()),
+    on: jest.fn(() => ({ dispose: jest.fn() })),
 };
 
 jest.mock('../modules/scheduler/channel-manager', () => ({
@@ -502,6 +504,14 @@ describe('AppOrchestrator', () => {
         modalOpen?: (payload: unknown) => void;
         modalClose?: (payload: unknown) => void;
     };
+    let channelManagerHandlers: {
+        persistenceWarning?: (payload: {
+            message: string;
+            code: AppErrorCode;
+            isQuotaError: boolean;
+            timestamp: number;
+        }) => void;
+    };
     let pauseHandler: (() => void | Promise<void>) | null;
     let resumeHandler: (() => void | Promise<void>) | null;
 
@@ -510,6 +520,7 @@ describe('AppOrchestrator', () => {
         schedulerHandlers = {};
         playerHandlers = {};
         navHandlers = {};
+        channelManagerHandlers = {};
         pauseHandler = null;
         resumeHandler = null;
 
@@ -559,6 +570,18 @@ describe('AppOrchestrator', () => {
                     navHandlers.modalClose = handler;
                 }
                 return jest.fn();
+            });
+        (mockChannelManager.on as jest.Mock).mockImplementation(
+            (event: string, handler: (payload: unknown) => void) => {
+                if (event === 'persistenceWarning') {
+                    channelManagerHandlers.persistenceWarning = handler as (payload: {
+                        message: string;
+                        code: AppErrorCode;
+                        isQuotaError: boolean;
+                        timestamp: number;
+                    }) => void;
+                }
+                return { dispose: jest.fn() };
             });
         (mockLifecycle.onPause as jest.Mock).mockImplementation(
             (handler: () => void | Promise<void>) => {
@@ -1505,6 +1528,29 @@ describe('AppOrchestrator', () => {
             expect(mockEpg.handleBack).not.toHaveBeenCalled();
         });
 
+        it('shows warning toast instead of reporting global fatal error when deferred EPG init fails', async () => {
+            const toastHandler = jest.fn();
+            orchestrator.setNowPlayingHandler(toastHandler);
+            const initError = new Error('epg init failed');
+            const mutable = orchestrator as unknown as {
+                _initCoordinator?: { ensureEPGInitialized: () => Promise<void> };
+            };
+            mutable._initCoordinator = {
+                ensureEPGInitialized: jest.fn().mockRejectedValue(initError),
+            };
+
+            orchestrator.openEPG();
+            await new Promise(process.nextTick);
+
+            expect(toastHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: expect.stringContaining('Guide unavailable'),
+                    type: 'warning',
+                })
+            );
+            expect(mockLifecycle.reportError).not.toHaveBeenCalled();
+        });
+
         it('should forward layout mode changes when EPG is visible', () => {
             mockEpg.isVisible.mockReturnValue(true);
 
@@ -1772,6 +1818,24 @@ describe('AppOrchestrator', () => {
             await orchestrator.initialize(mockConfig);
         });
 
+        it('shows warning toast when channel manager emits persistenceWarning', async () => {
+            const toastHandler = jest.fn();
+            orchestrator.setNowPlayingHandler(toastHandler);
+            await orchestrator.start();
+
+            channelManagerHandlers.persistenceWarning?.({
+                message: 'Storage full - some settings may not be saved',
+                code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+                isQuotaError: true,
+                timestamp: Date.now(),
+            });
+
+            expect(toastHandler).toHaveBeenCalledWith({
+                message: 'Storage full - some settings may not be saved',
+                type: 'warning',
+            });
+        });
+
         it('should save state before shutdown', async () => {
             await orchestrator.shutdown();
 
@@ -1782,6 +1846,18 @@ describe('AppOrchestrator', () => {
             await orchestrator.shutdown();
 
             expect(mockVideoPlayer.stop).toHaveBeenCalled();
+        });
+
+        it('flushes pending channel saves before module teardown', async () => {
+            await orchestrator.shutdown();
+
+            expect(mockChannelManager.flushSaves).toHaveBeenCalledTimes(1);
+        });
+
+        it('disposes channel manager on shutdown', async () => {
+            await orchestrator.shutdown();
+
+            expect(mockChannelManager.dispose).toHaveBeenCalledTimes(1);
         });
 
         it('should destroy modules on shutdown', async () => {

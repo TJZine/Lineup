@@ -7,6 +7,7 @@ import { ChannelManager } from '../ChannelManager';
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
 import type { ChannelConfig, LibraryContentSource } from '../types';
 import { AppErrorCode } from '../../../lifecycle/types';
+import { STORAGE_CONFIG } from '../../../lifecycle/constants';
 import {
     STORAGE_KEY,
     CURRENT_CHANNEL_KEY,
@@ -104,8 +105,16 @@ describe('ChannelManager', () => {
     let manager: ChannelManager;
 
     beforeEach(() => {
+        jest.useFakeTimers();
         mockLocalStorage.clear();
         jest.clearAllMocks();
+        mockLocalStorage.getItem.mockImplementation((key: string) => mockStorage[key] || null);
+        mockLocalStorage.setItem.mockImplementation((key: string, value: string) => {
+            mockStorage[key] = value;
+        });
+        mockLocalStorage.removeItem.mockImplementation((key: string) => {
+            delete mockStorage[key];
+        });
 
         mockLibrary = createMockLibrary();
         mockLibrary.getLibraryItems.mockResolvedValue([
@@ -114,6 +123,13 @@ describe('ChannelManager', () => {
         ]);
 
         manager = new ChannelManager({ plexLibrary: mockLibrary });
+    });
+
+    afterEach(async () => {
+        if (manager) {
+            await manager.flushSaves().catch(() => undefined);
+        }
+        jest.clearAllTimers();
     });
 
     describe('CRUD operations', () => {
@@ -287,6 +303,26 @@ describe('ChannelManager', () => {
 
             expect(clearCachesSpy).toHaveBeenCalledTimes(1);
         });
+
+        it('emits persistenceWarning and does not throw when pending save flush fails during key switch', async () => {
+            const warningHandler = jest.fn();
+            manager.on('persistenceWarning', warningHandler);
+            await manager.createChannel({ contentSource: createMockContentSource() });
+
+            mockLocalStorage.setItem.mockImplementation(() => {
+                throw new DOMException('quota', 'QuotaExceededError');
+            });
+
+            expect(() =>
+                manager.setStorageKeys('retune_channels_new_scope', 'retune_current_channel_new_scope')
+            ).not.toThrow();
+            expect(warningHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+                    isQuotaError: true,
+                })
+            );
+        });
     });
 
     describe('content resolution', () => {
@@ -425,54 +461,59 @@ describe('ChannelManager', () => {
             const logger = { warn: jest.fn(), error: jest.fn() };
             const localManager = new ChannelManager({ plexLibrary: mockLibrary, logger });
 
-            const channel = await localManager.createChannel({
-                contentSource: createMockContentSource(),
-            });
-
-            const state = (localManager as unknown as { _state: { resolvedContent: Map<string, unknown> } })._state;
-            state.resolvedContent.set(channel.id, {
-                channelId: channel.id,
-                resolvedAt: Date.now() - CACHE_TTL_MS - 1,
-                items: [],
-                orderedItems: [],
-                totalDurationMs: 0,
-            });
-
-            const resolver = (localManager as unknown as { _contentResolver: { invalidateSource: (s: unknown) => void } })
-                ._contentResolver;
-            resolver.invalidateSource(channel.contentSource);
-
-            const timeout = setTimeout(() => {}, 60_000);
             try {
-                (localManager as unknown as { _pendingRetries: Map<string, ReturnType<typeof setTimeout>> })
-                    ._pendingRetries.set(channel.id, timeout);
-
-                const accessDeniedError = Object.assign(new Error('Access denied'), {
-                    code: AppErrorCode.ACCESS_DENIED,
-                    httpStatus: 403,
+                const channel = await localManager.createChannel({
+                    contentSource: createMockContentSource(),
                 });
-                mockLibrary.getLibraryItems.mockRejectedValue(accessDeniedError);
 
-                await expect(localManager.resolveChannelContent(channel.id)).rejects.toHaveProperty(
-                    'code',
-                    AppErrorCode.ACCESS_DENIED
-                );
+                const state = (localManager as unknown as { _state: { resolvedContent: Map<string, unknown> } })._state;
+                state.resolvedContent.set(channel.id, {
+                    channelId: channel.id,
+                    resolvedAt: Date.now() - CACHE_TTL_MS - 1,
+                    items: [],
+                    orderedItems: [],
+                    totalDurationMs: 0,
+                });
 
-                expect(state.resolvedContent.has(channel.id)).toBe(false);
-                expect(
-                    (localManager as unknown as { _pendingRetries: Map<string, unknown> })._pendingRetries.has(channel.id)
-                ).toBe(false);
+                const resolver = (localManager as unknown as { _contentResolver: { invalidateSource: (s: unknown) => void } })
+                    ._contentResolver;
+                resolver.invalidateSource(channel.contentSource);
 
-                expect(logger.warn).toHaveBeenCalledWith(
-                    'Access denied resolving channel content',
-                    expect.objectContaining({
-                        channelId: channel.id,
+                const timeout = setTimeout(() => { }, 60_000);
+                try {
+                    (localManager as unknown as { _pendingRetries: Map<string, ReturnType<typeof setTimeout>> })
+                        ._pendingRetries.set(channel.id, timeout);
+
+                    const accessDeniedError = Object.assign(new Error('Access denied'), {
+                        code: AppErrorCode.ACCESS_DENIED,
                         httpStatus: 403,
-                        contentSource: { type: 'library', id: 'lib1' },
-                    })
-                );
+                    });
+                    mockLibrary.getLibraryItems.mockRejectedValue(accessDeniedError);
+
+                    await expect(localManager.resolveChannelContent(channel.id)).rejects.toHaveProperty(
+                        'code',
+                        AppErrorCode.ACCESS_DENIED
+                    );
+
+                    expect(state.resolvedContent.has(channel.id)).toBe(false);
+                    expect(
+                        (localManager as unknown as { _pendingRetries: Map<string, unknown> })._pendingRetries.has(channel.id)
+                    ).toBe(false);
+
+                    expect(logger.warn).toHaveBeenCalledWith(
+                        'Access denied resolving channel content',
+                        expect.objectContaining({
+                            channelId: channel.id,
+                            httpStatus: 403,
+                            contentSource: { type: 'library', id: 'lib1' },
+                        })
+                    );
+                } finally {
+                    clearTimeout(timeout);
+                }
             } finally {
-                clearTimeout(timeout);
+                await localManager.flushSaves().catch(() => undefined);
+                localManager.dispose();
             }
         });
     });
@@ -563,9 +604,110 @@ describe('ChannelManager', () => {
     });
 
     describe('persistence', () => {
+        it('saveChannels reuses one pending promise for burst saves', async () => {
+            await manager.createChannel({ contentSource: createMockContentSource() });
+
+            mockLocalStorage.setItem.mockImplementation(() => {
+                throw new DOMException('quota', 'QuotaExceededError');
+            });
+
+            const first = manager.saveChannels();
+            const second = manager.saveChannels();
+            expect(second).toBe(first);
+
+            jest.advanceTimersByTime(500);
+
+            await expect(first).rejects.toMatchObject({
+                code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+            });
+        });
+
+        it('emits throttled persistenceWarning for debounced background save failures', async () => {
+            const warningHandler = jest.fn();
+            manager.on('persistenceWarning', warningHandler);
+
+            mockLocalStorage.setItem.mockImplementation(() => {
+                throw new DOMException('quota', 'QuotaExceededError');
+            });
+
+            const channel = await manager.createChannel({ contentSource: createMockContentSource() });
+            jest.advanceTimersByTime(500);
+            await Promise.resolve();
+
+            await manager.updateChannel(channel.id, { name: 'Updated Name' });
+            jest.advanceTimersByTime(500);
+            await Promise.resolve();
+
+            expect(warningHandler).toHaveBeenCalledTimes(1);
+            expect(warningHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+                    isQuotaError: true,
+                    message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                })
+            );
+        });
+
+        it('saveChannels should reject when debounced persistence fails', async () => {
+            await manager.createChannel({ contentSource: createMockContentSource() });
+
+            mockLocalStorage.setItem.mockImplementation(() => {
+                throw new DOMException('quota', 'QuotaExceededError');
+            });
+
+            const pendingSave = manager.saveChannels();
+            jest.advanceTimersByTime(500);
+
+            await expect(pendingSave).rejects.toMatchObject({
+                code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+            });
+        });
+
+        it('flushSaves should propagate persistence failure when pending save exists', async () => {
+            await manager.createChannel({ contentSource: createMockContentSource() });
+
+            mockLocalStorage.setItem.mockImplementation(() => {
+                throw new DOMException('quota', 'QuotaExceededError');
+            });
+
+            await expect(manager.flushSaves()).rejects.toMatchObject({
+                code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+            });
+        });
+
+        it('should debounce saves to localStorage', async () => {
+            mockLocalStorage.setItem.mockClear();
+
+            await manager.createChannel({
+                contentSource: createMockContentSource()
+            });
+
+            // Should not be called immediately due to 500ms debounce
+            expect(mockLocalStorage.setItem).not.toHaveBeenCalledWith(
+                STORAGE_KEY,
+                expect.any(String)
+            );
+
+            // Should be called synchronously once flushed
+            await manager.flushSaves();
+            expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+                STORAGE_KEY,
+                expect.any(String)
+            );
+        });
+
+        it('dispose cancels pending save timer and rejects queued promise', async () => {
+            const pendingSave = manager.saveChannels();
+
+            manager.dispose();
+            jest.advanceTimersByTime(500);
+
+            await expect(pendingSave).rejects.toThrow('ChannelManager disposed');
+        });
+
         it('should save channels to localStorage', async () => {
             await manager.createChannel({ contentSource: createMockContentSource() });
-            await manager.saveChannels();
+            await manager.flushSaves();
 
             expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
                 STORAGE_KEY,
@@ -579,6 +721,7 @@ describe('ChannelManager', () => {
                 name: 'Saved Channel',
                 contentSource: createMockContentSource(),
             });
+            await manager.flushSaves();
 
             // Create new manager and load
             const newManager = new ChannelManager({ plexLibrary: mockLibrary });
