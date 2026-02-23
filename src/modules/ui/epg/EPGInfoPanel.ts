@@ -18,10 +18,12 @@ import { formatContentRatingBadge } from '../../../utils/contentRating';
  */
 export class EPGInfoPanel implements IEPGInfoPanel {
     private containerElement: HTMLElement | null = null;
+    private backdropElement: HTMLImageElement | null = null;
     private posterElement: HTMLImageElement | null = null;
     private showTitleElement: HTMLElement | null = null;
     private titleElement: HTMLElement | null = null;
     private metaElement: HTMLElement | null = null;
+    private tagsElement: HTMLElement | null = null;
     private genresElement: HTMLElement | null = null;
     private descriptionElement: HTMLElement | null = null;
     private isVisible: boolean = false;
@@ -71,6 +73,9 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.containerElement.style.opacity = '0';
         parentElement.appendChild(this.containerElement);
 
+        this.backdropElement = this.containerElement.querySelector(
+            `.${EPG_CLASSES.INFO_BACKDROP_IMG}`
+        ) as HTMLImageElement | null;
         this.posterElement = this.containerElement.querySelector(
             `.${EPG_CLASSES.INFO_POSTER}`
         ) as HTMLImageElement | null;
@@ -82,6 +87,9 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         ) as HTMLElement | null;
         this.metaElement = this.containerElement.querySelector(
             `.${EPG_CLASSES.INFO_META}`
+        ) as HTMLElement | null;
+        this.tagsElement = this.containerElement.querySelector(
+            `.${EPG_CLASSES.INFO_TAGS}`
         ) as HTMLElement | null;
         this.genresElement = this.containerElement.querySelector(
             `.${EPG_CLASSES.INFO_GENRES}`
@@ -111,13 +119,17 @@ export class EPGInfoPanel implements IEPGInfoPanel {
      */
     private createTemplate(): string {
         return `
+      <div class="${EPG_CLASSES.INFO_BACKDROP}" aria-hidden="true">
+        <img class="${EPG_CLASSES.INFO_BACKDROP_IMG}" src="" alt="" />
+      </div>
       <div class="${EPG_CLASSES.INFO_POSTER_WRAP}">
         <img class="${EPG_CLASSES.INFO_POSTER}" src="" alt="" />
       </div>
       <div class="${EPG_CLASSES.INFO_CONTENT}">
-        <div class="${EPG_CLASSES.INFO_SHOW}"></div>
+        <div class="${EPG_CLASSES.INFO_SHOW} ${EPG_CLASSES.INFO_EYEBROW}"></div>
         <div class="${EPG_CLASSES.INFO_TITLE}"></div>
         <div class="${EPG_CLASSES.INFO_META}"></div>
+        <div class="${EPG_CLASSES.INFO_TAGS}"></div>
         <div class="${EPG_CLASSES.INFO_GENRES}"></div>
         <div class="${EPG_CLASSES.INFO_QUALITY}"></div>
         <div class="${EPG_CLASSES.INFO_DESCRIPTION}"></div>
@@ -134,10 +146,12 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             this.containerElement.remove();
             this.containerElement = null;
         }
+        this.backdropElement = null;
         this.posterElement = null;
         this.showTitleElement = null;
         this.titleElement = null;
         this.metaElement = null;
+        this.tagsElement = null;
         this.genresElement = null;
         this.descriptionElement = null;
         this.currentProgram = null;
@@ -244,16 +258,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             }
         }
 
-        // Update meta info
-        const meta = this.metaElement;
-        if (meta) {
-            const startTime = formatTime(program.scheduledStartTime);
-            const endTime = formatTime(program.scheduledEndTime);
-            const duration = formatDuration(item.durationMs);
-            const year = item.year > 0 ? `(${item.year})` : '';
-
-            meta.textContent = `${startTime} - ${endTime} (${duration}) ${year}`;
-        }
+        this.updateMetaAndTags(program);
 
         // Update genres
         const genres = this.genresElement;
@@ -434,10 +439,27 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     }
 
     private updatePoster(program: ScheduledProgram, mode: 'fast' | 'full'): void {
+        const backdrop = this.backdropElement;
         const poster = this.posterElement;
         if (!poster) return;
 
         const { item } = program;
+        if (backdrop) {
+            if (mode === 'full') {
+                const resolvedBackdrop = this.thumbResolver?.(item.art ?? null, 960, 540) || null;
+                if (resolvedBackdrop) {
+                    backdrop.src = resolvedBackdrop;
+                    backdrop.style.display = 'block';
+                } else {
+                    backdrop.src = '';
+                    backdrop.style.display = 'none';
+                }
+            } else {
+                backdrop.src = '';
+                backdrop.style.display = 'none';
+            }
+        }
+
         const preferredThumb = item.type === 'episode'
             ? (item.showThumb && item.showThumb.length ? item.showThumb : item.thumb)
             : item.thumb;
@@ -455,6 +477,37 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         // Hide poster when unresolved (prevents file:/// errors on webOS)
         poster.src = '';
         poster.style.display = 'none';
+    }
+
+    private updateMetaAndTags(program: ScheduledProgram): void {
+        const { item } = program;
+        const startTime = formatTime(program.scheduledStartTime);
+        const endTime = formatTime(program.scheduledEndTime);
+        const duration = formatDuration(item.durationMs);
+        const year = item.year > 0 ? `(${item.year})` : '';
+
+        const meta = this.metaElement;
+        if (meta) {
+            meta.textContent = `${startTime} - ${endTime} (${duration}) ${year}`.trim();
+        }
+
+        const tags = this.tagsElement;
+        if (!tags) return;
+
+        tags.replaceChildren();
+        const pills: string[] = [];
+        pills.push(`${startTime} - ${endTime}`);
+        pills.push(duration);
+        if (item.year > 0) {
+            pills.push(String(item.year));
+        }
+
+        for (const text of pills) {
+            const pill = document.createElement('span');
+            pill.className = EPG_CLASSES.INFO_PILL;
+            pill.textContent = text;
+            tags.appendChild(pill);
+        }
     }
 
     /**

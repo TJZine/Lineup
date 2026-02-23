@@ -163,6 +163,28 @@ describe('EPGInfoPanel', () => {
             expect(poster.src).toBe('https://plex.tv/photo/abc123');
             expect(poster.style.display).toBe('block');
         });
+
+        it('renders and updates a backdrop image when resolver returns a URL', () => {
+            const resolver = jest.fn().mockReturnValue('https://server/library/thumb?token=xxx');
+            panel.setThumbResolver(resolver);
+
+            const program = createMockProgram('/library/metadata/123/thumb', {
+                art: '/library/metadata/123/art',
+            });
+            panel.show(program);
+
+            expect(resolver).toHaveBeenCalledWith('/library/metadata/123/art', 960, 540);
+
+            const backdrop = container.querySelector('.epg-info-backdrop-img') as HTMLImageElement | null;
+            expect(backdrop).not.toBeNull();
+            expect(backdrop?.src).toBe('https://server/library/thumb?token=xxx');
+
+            const pills = Array.from(container.querySelectorAll('.epg-info-tags .epg-info-pill')) as HTMLElement[];
+            expect(pills.length).toBe(3);
+            for (const pill of pills) {
+                expect((pill.textContent ?? '').trim().length).toBeGreaterThan(0);
+            }
+        });
     });
 
     describe('lifecycle', () => {
