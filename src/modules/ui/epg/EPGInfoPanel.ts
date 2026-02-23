@@ -37,6 +37,10 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private hdrFetchToken = 0;
     private hdrFetchController: AbortController | null = null;
     private hdrFetchTimer: ReturnType<typeof setTimeout> | null = null;
+    private episodePosterCache = new Map<string, string | null>();
+    private posterFetchToken = 0;
+    private posterFetchController: AbortController | null = null;
+    private posterFetchTimer: ReturnType<typeof setTimeout> | null = null;
 
     /**
      * Set the thumb URL resolver callback.
@@ -142,6 +146,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
      */
     destroy(): void {
         this.clearHdrFetch();
+        this.clearPosterFetch();
         if (this.containerElement) {
             this.containerElement.remove();
             this.containerElement = null;
@@ -160,6 +165,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.isVisible = false;
         this.qualityBadges = [];
         this.hdrCache.clear();
+        this.episodePosterCache.clear();
     }
 
     /**
@@ -181,6 +187,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.containerElement.style.opacity = '0';
         this.isVisible = false;
         this.clearHdrFetch();
+        this.clearPosterFetch();
     }
 
     /**
@@ -247,7 +254,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         const showTitle = this.showTitleElement;
         const title = this.titleElement;
         if (item.type === 'episode') {
-            const showText = item.showTitle ?? '';
+            const showText = this.getEffectiveShowTitle(item);
             if (showTitle) {
                 showTitle.textContent = showText;
                 showTitle.style.display = showText ? 'block' : 'none';
@@ -470,17 +477,28 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         }
 
         // For episodes, prefer the series poster over per-episode thumbnails to keep the guide consistent.
-        // If we don't have a showThumb, hide the poster rather than showing an episode still.
-        const preferredThumb = item.type === 'episode'
-            ? (item.showThumb || null)
-            : item.thumb;
+        // If we don't have a series poster thumb, hide the poster rather than showing an episode still.
+        let preferredThumb: string | null = null;
+        if (item.type !== 'episode') {
+            preferredThumb = item.thumb;
+        } else {
+            const ratingKey = item.ratingKey;
+            const hasCached = this.episodePosterCache.has(ratingKey);
+            const cached = hasCached ? this.episodePosterCache.get(ratingKey) : undefined;
+            const showThumb = item.showThumb || null;
+            preferredThumb = (cached ?? showThumb) ?? null;
+            if (!preferredThumb && !hasCached && mode === 'full') {
+                this.maybeFetchEpisodePoster(program);
+            }
+        }
 
         const width = mode === 'fast' ? 160 : 320;
         const height = mode === 'fast' ? 240 : 480;
         const resolvedUrl = this.thumbResolver?.(preferredThumb, width, height) || null;
         if (resolvedUrl) {
             poster.src = resolvedUrl;
-            poster.alt = item.showTitle && item.showTitle.length ? item.showTitle : item.title;
+            const showTitle = item.type === 'episode' ? this.getEffectiveShowTitle(item) : '';
+            poster.alt = showTitle.length ? showTitle : item.title;
             poster.style.display = 'block';
             return;
         }
@@ -488,6 +506,63 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         // Hide poster when unresolved (prevents file:/// errors on webOS)
         poster.removeAttribute('src');
         poster.style.display = 'none';
+    }
+
+    private extractShowTitleFromFullTitle(fullTitle: string): string | null {
+        const match = fullTitle.match(/^(.*?)\s-\sS\d{1,2}E\d{1,2}\s-/);
+        if (!match) return null;
+        const showTitle = match[1]?.trim() ?? '';
+        return showTitle.length > 0 ? showTitle : null;
+    }
+
+    private getEffectiveShowTitle(item: ScheduledProgram['item']): string {
+        const raw = (item.showTitle ?? '').trim();
+        if (raw.length > 0) return raw;
+        const derived = this.extractShowTitleFromFullTitle(item.fullTitle);
+        return derived ?? '';
+    }
+
+    private maybeFetchEpisodePoster(program: ScheduledProgram): void {
+        const ratingKey = program.item.ratingKey;
+        if (!ratingKey || !this.fetchItemDetails) {
+            return;
+        }
+        if (this.episodePosterCache.has(ratingKey)) {
+            return;
+        }
+
+        this.clearPosterFetch();
+        const fetchToken = ++this.posterFetchToken;
+        this.posterFetchController = new AbortController();
+        this.posterFetchTimer = setTimeout(() => {
+            this.posterFetchTimer = null;
+            void this.fetchItemDetails?.(ratingKey, { signal: this.posterFetchController?.signal ?? null })
+                .then((item) => {
+                    if (fetchToken !== this.posterFetchToken) return;
+                    const seriesPosterThumb = item?.grandparentThumb ?? null;
+                    this.episodePosterCache.set(ratingKey, seriesPosterThumb);
+                    const current = this.currentProgram;
+                    if (!current || current.item.ratingKey !== ratingKey) return;
+                    this.updatePoster(current, 'full');
+                })
+                .catch((error) => {
+                    if (error instanceof DOMException && error.name === 'AbortError') {
+                        return;
+                    }
+                });
+        }, 200);
+    }
+
+    private clearPosterFetch(): void {
+        if (this.posterFetchTimer !== null) {
+            clearTimeout(this.posterFetchTimer);
+            this.posterFetchTimer = null;
+        }
+        if (this.posterFetchController) {
+            this.posterFetchController.abort();
+            this.posterFetchController = null;
+        }
+        this.posterFetchToken += 1;
     }
 
     private updateMetaAndTags(program: ScheduledProgram): void {

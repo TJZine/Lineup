@@ -680,14 +680,23 @@ export class EPGVirtualizer {
             meta.style.display = 'none';
         }
 
-        const showTitle = item.showTitle ?? this.extractShowTitleFromFullTitle(item.fullTitle) ?? '';
+        const rawShowTitle = (item.showTitle ?? '').trim();
+        const showTitle =
+            rawShowTitle ||
+            this.extractShowTitleFromFullTitle(item.fullTitle) ||
+            '';
+        const subtitleText = this.normalizeEpisodeTitleForSubtitle(item.title);
+
         if (title) {
             title.textContent = showTitle || item.title;
         }
 
         if (subtitle) {
-            subtitle.textContent = this.normalizeEpisodeTitleForSubtitle(item.title);
-            subtitle.style.display = subtitle.textContent ? 'block' : 'none';
+            const shouldShowSubtitle =
+                Boolean(showTitle) ||
+                (subtitleText.length > 0 && subtitleText !== item.title);
+            subtitle.textContent = shouldShowSubtitle ? subtitleText : '';
+            subtitle.style.display = shouldShowSubtitle ? 'block' : 'none';
         }
     }
 

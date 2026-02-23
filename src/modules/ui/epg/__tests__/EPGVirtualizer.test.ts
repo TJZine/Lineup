@@ -615,6 +615,52 @@ describe('EPGVirtualizer', () => {
             expect(subtitle?.textContent).toBe('The Heist');
         });
 
+        it('hides subtitle when show title is unavailable and subtitle would duplicate title', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-episode-no-showtitle';
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + 3600000,
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'ep-no-showtitle-1',
+                            type: 'episode',
+                            title: 'Episode One',
+                            fullTitle: 'Episode One',
+                            durationMs: 60 * 60000, // 240px => wide tier
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: gridAnchorTime,
+                        scheduledEndTime: gridAnchorTime + (60 * 60000),
+                        elapsedMs: 0,
+                        remainingMs: 0,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${gridAnchorTime}"]`) as HTMLElement;
+            expect(cell).not.toBeNull();
+
+            const title = cell.querySelector('.epg-cell-title') as HTMLElement | null;
+            expect(title).not.toBeNull();
+            expect(title?.textContent).toBe('Episode One');
+
+            const subtitle = cell.querySelector('.epg-cell-subtitle') as HTMLElement | null;
+            expect(subtitle).not.toBeNull();
+            expect((subtitle?.textContent ?? '').trim()).toBe('');
+            expect(subtitle?.style.display).toBe('none');
+        });
+
         it('hides time line deterministically for tiny-width cells', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-tiny';

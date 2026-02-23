@@ -109,6 +109,53 @@ describe('EPGInfoPanel', () => {
             expect(poster.style.display).toBe('none');
         });
 
+        it('shows poster for episodes when showThumb is empty but details provide grandparentThumb', async () => {
+            jest.useFakeTimers();
+            const resolver = jest.fn((path: string | null) => (path ? 'https://server/library/thumb?token=xxx' : null));
+            panel.setThumbResolver(resolver);
+
+            const fetchItemDetails = jest.fn().mockResolvedValue({
+                ratingKey: 'test-1',
+                key: '/library/metadata/1',
+                type: 'episode',
+                title: 'Episode Title',
+                sortTitle: 'Episode Title',
+                summary: '',
+                year: 2024,
+                durationMs: 7200000,
+                addedAt: new Date(),
+                updatedAt: new Date(),
+                thumb: null,
+                art: null,
+                grandparentThumb: '/library/metadata/999/thumb',
+                media: [],
+            });
+            panel.setFetchItemDetails(fetchItemDetails);
+
+            const program = createMockProgram('/library/metadata/123/thumb', {
+                type: 'episode',
+                showThumb: '',
+                showTitle: '',
+                title: 'Episode Title',
+                fullTitle: 'Some Show - S01E01 - Episode Title',
+            });
+            panel.show(program);
+
+            expect(fetchItemDetails).not.toHaveBeenCalled();
+            expect(resolver).toHaveBeenCalledWith(null, 320, 480);
+
+            jest.advanceTimersByTime(220);
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(fetchItemDetails).toHaveBeenCalledWith('test-1', { signal: expect.any(AbortSignal) });
+            expect(resolver).toHaveBeenCalledWith('/library/metadata/999/thumb', 320, 480);
+            const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
+            expect(poster.style.display).toBe('block');
+
+            jest.useRealTimers();
+        });
+
         it('should hide poster when resolver returns empty string', () => {
             const resolver = jest.fn().mockReturnValue('');
             panel.setThumbResolver(resolver);
@@ -304,6 +351,28 @@ describe('EPGInfoPanel', () => {
             expect(showTitle.textContent).toBe('Show Name');
             expect(showTitle.style.display).toBe('block');
             expect(title.textContent).toBe('Episode Name');
+        });
+
+        it('derives series title from fullTitle when showTitle is empty', () => {
+            const resolver = jest.fn((path: string | null) => (path ? 'https://server/thumb?token=xxx' : null));
+            panel.setThumbResolver(resolver);
+
+            const program = createMockProgram('/library/metadata/123/showThumb', {
+                type: 'episode',
+                showTitle: '',
+                title: 'Episode Name',
+                fullTitle: 'Great Show - S01E01 - Episode Name',
+                showThumb: '/library/metadata/123/showThumb',
+            });
+            panel.show(program);
+
+            const showTitle = container.querySelector('.epg-info-show') as HTMLElement;
+            expect(showTitle.textContent).toBe('Great Show');
+            expect(showTitle.style.display).toBe('block');
+
+            const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
+            expect(poster.style.display).toBe('block');
+            expect(poster.alt).toBe('Great Show');
         });
     });
 
