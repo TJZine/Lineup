@@ -447,6 +447,21 @@ describe('PlayerOsdCoordinator', () => {
         expect(viewModel.upNextText).toBeUndefined();
     });
 
+    it('keeps info banner visible through transient loading/buffering/idle states', () => {
+        const { coordinator, overlay } = setup();
+
+        coordinator.showInfoBanner();
+        expect(overlay.isVisible()).toBe(true);
+
+        (overlay.hide as jest.Mock).mockClear();
+
+        coordinator.onPlayerStateChange(makeState('buffering'));
+        coordinator.onPlayerStateChange(makeState('loading'));
+        coordinator.onPlayerStateChange(makeState('idle'));
+
+        expect(overlay.hide).not.toHaveBeenCalled();
+    });
+
     it('showInfoBanner does not register focusables', () => {
         const { coordinator, navigation } = setup();
         coordinator.showInfoBanner();
