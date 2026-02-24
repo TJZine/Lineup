@@ -9,6 +9,7 @@ import {
     mapPlexStreamErrorCodeToAppErrorCode,
     type IPlexStreamResolver,
     type StreamDecision,
+    type StreamRequest,
     type StreamResolverError,
     type PlexStream,
 } from '../plex/stream';
@@ -390,6 +391,19 @@ export class PlaybackRecoveryManager {
         const itemKey = program.item.ratingKey;
         const currentDecision = this.deps.getCurrentStreamDecision?.() ?? null;
         const preserveDirectPlayPreference = currentDecision ? currentDecision.isDirectPlay : true;
+        const preReloadState = ((): ReturnType<IVideoPlayer['getState']> | null => {
+            try {
+                return player.getState();
+            } catch {
+                return null;
+            }
+        })();
+        const shouldResumeAfterReload =
+            preReloadState?.status === 'playing' || preReloadState?.status === 'buffering';
+        const activeSubtitleId =
+            typeof preReloadState?.activeSubtitleId === 'string' && preReloadState.activeSubtitleId.length > 0
+                ? preReloadState.activeSubtitleId
+                : null;
 
         console.warn('[PlaybackRecovery] Audio reload start:', {
             reason: redactSensitiveTokens(reason),
@@ -411,14 +425,7 @@ export class PlaybackRecoveryManager {
             const baseOffset = typeof livePosition === 'number' ? livePosition : program.elapsedMs;
             const clampedOffset = Math.max(0, Math.min(baseOffset, program.item.durationMs));
 
-            const request: {
-                itemKey: string;
-                startOffsetMs: number;
-                directPlay: boolean;
-                audioStreamId: string;
-                subtitleStreamId?: string;
-                subtitleMode?: 'burn';
-            } = {
+            const request: StreamRequest = {
                 itemKey,
                 startOffsetMs: clampedOffset,
                 directPlay: preserveDirectPlayPreference,
@@ -430,6 +437,8 @@ export class PlaybackRecoveryManager {
             if (typeof burnInSubtitleId === 'string' && burnInSubtitleId.length > 0) {
                 request.subtitleStreamId = burnInSubtitleId;
                 request.subtitleMode = 'burn';
+            } else if (activeSubtitleId) {
+                request.subtitleStreamId = activeSubtitleId;
             }
 
             const decision: StreamDecision = await resolver.resolveStream(request);
@@ -443,11 +452,21 @@ export class PlaybackRecoveryManager {
             }
             this.deps.setCurrentStreamDecision(decision);
 
-            const descriptor = this._buildStreamDescriptor(program, decision, clampedOffset);
+            let descriptor = this._buildStreamDescriptor(program, decision, clampedOffset);
+            if (preReloadState?.activeSubtitleId === null) {
+                descriptor = { ...descriptor, preferredSubtitleTrackId: null };
+            } else if (
+                activeSubtitleId &&
+                descriptor.subtitleTracks.some((t) => t.id === activeSubtitleId)
+            ) {
+                descriptor = { ...descriptor, preferredSubtitleTrackId: activeSubtitleId };
+            }
             this.deps.setCurrentStreamDescriptor(descriptor);
 
             await player.loadStream(descriptor);
-            await player.play();
+            if (shouldResumeAfterReload) {
+                await player.play();
+            }
             this.resetPlaybackFailureGuard();
             return true;
         } catch (error) {

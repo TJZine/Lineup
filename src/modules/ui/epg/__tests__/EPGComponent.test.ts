@@ -190,6 +190,7 @@ describe('EPGComponent', () => {
             expect(localContainer.style.getPropertyValue('--epg-row-height')).toBe('123px');
         } finally {
             localEpg.destroy();
+            expect(localContainer.style.getPropertyValue('--epg-row-height')).toBe('');
             localContainer.remove();
         }
     });

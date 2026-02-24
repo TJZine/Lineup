@@ -2231,10 +2231,23 @@ export class AppOrchestrator implements IAppOrchestrator {
 
         if (event.type === 'audio') {
             if (event.trackId && this._currentStreamDescriptor?.protocol === 'direct') {
-                void this._playbackRecovery?.attemptAudioTrackReloadForCurrentProgram?.(
+                const warnAudioReloadFailed = (): void => {
+                    if (!this._nowPlayingHandler) return;
+                    this._nowPlayingHandler({ message: 'Failed to apply audio track change', type: 'warning' });
+                };
+                const reloadPromise = this._playbackRecovery?.attemptAudioTrackReloadForCurrentProgram?.(
                     event.trackId,
                     'audio_track_change'
-                );
+                )
+                    ?? null;
+                if (reloadPromise) {
+                    void reloadPromise.then((ok) => {
+                        if (!ok) {
+                            warnAudioReloadFailed();
+                        }
+                    })
+                    .catch(() => warnAudioReloadFailed());
+                }
             }
             return;
         }

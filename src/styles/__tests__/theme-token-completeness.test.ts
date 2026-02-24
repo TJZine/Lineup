@@ -22,8 +22,10 @@ const REQUIRED_TOKENS = [
     '--panel-radius',
 ] as const;
 
+const stylesDir = path.join(process.cwd(), 'src', 'styles');
+
 function readText(relativeToStylesDir: string): string {
-    const filePath = path.join(__dirname, '..', relativeToStylesDir);
+    const filePath = path.join(stylesDir, relativeToStylesDir);
     return fs.readFileSync(filePath, 'utf8');
 }
 

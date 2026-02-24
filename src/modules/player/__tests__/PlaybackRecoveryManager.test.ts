@@ -73,6 +73,20 @@ const makeSubtitleStreams = (): PlexStream[] => [
     },
 ];
 
+const makePlayerState = (overrides: Partial<Record<string, unknown>> = {}): Record<string, unknown> => ({
+    status: 'playing',
+    currentTimeMs: 0,
+    durationMs: 60_000,
+    bufferPercent: 100,
+    volume: 1,
+    isMuted: false,
+    playbackRate: 1,
+    activeSubtitleId: null,
+    activeAudioId: null,
+    errorInfo: null,
+    ...overrides,
+});
+
 const createLocalStorageMock = (): Storage => {
     let store: Record<string, string> = {};
     return {
@@ -116,7 +130,7 @@ const setup = (overrides: Partial<PlaybackRecoveryDeps> = {}): {
     const player: IVideoPlayer = {
         loadStream: jest.fn().mockResolvedValue(undefined),
         play: jest.fn().mockResolvedValue(undefined),
-        getState: jest.fn().mockReturnValue({ activeAudioId: null }),
+        getState: jest.fn().mockReturnValue(makePlayerState()),
     } as unknown as IVideoPlayer;
     const deps: PlaybackRecoveryDeps = {
         getVideoPlayer: () => player,
@@ -247,6 +261,7 @@ describe('PlaybackRecoveryManager', () => {
         const { manager, resolver, player, deps } = setup({
             getCurrentStreamDecision: () => currentDecision,
         });
+        const setDecision = deps.setCurrentStreamDecision as jest.Mock;
         (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(nextDecision);
 
         const ok = await manager.attemptAudioTrackReloadForCurrentProgram('audio-truehd', 'audio_track_change');
@@ -260,9 +275,98 @@ describe('PlaybackRecoveryManager', () => {
                 audioStreamId: 'audio-truehd',
             })
         );
+        expect(setDecision).toHaveBeenCalledTimes(1);
+        expect(setDecision).toHaveBeenCalledWith(nextDecision);
         expect(deps.setCurrentStreamDescriptor).toHaveBeenCalled();
         expect(player.loadStream).toHaveBeenCalled();
         expect(player.play).toHaveBeenCalled();
+    });
+
+    it('preserves active subtitle id when reloading for audio track change', async () => {
+        const currentDecision = makeDecision({
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+        });
+        const nextDecision = makeDecision({
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+            availableSubtitleStreams: makeSubtitleStreams(),
+        });
+        const { manager, resolver, player } = setup({
+            getCurrentStreamDecision: () => currentDecision,
+        });
+        (player.getState as jest.Mock).mockReturnValue(makePlayerState({ activeSubtitleId: 'sub-full' }));
+        (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(nextDecision);
+
+        const ok = await manager.attemptAudioTrackReloadForCurrentProgram('audio-alt', 'audio_track_change');
+
+        expect(ok).toBe(true);
+        expect(resolver.resolveStream).toHaveBeenCalledWith(
+            expect.objectContaining({
+                audioStreamId: 'audio-alt',
+                subtitleStreamId: 'sub-full',
+            })
+        );
+        expect(player.loadStream).toHaveBeenCalledWith(
+            expect.objectContaining({ preferredSubtitleTrackId: 'sub-full' })
+        );
+        expect(player.play).toHaveBeenCalled();
+    });
+
+    it('preserves subtitles-off selection when reloading for audio track change', async () => {
+        const currentDecision = makeDecision({
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+        });
+        const nextDecision = makeDecision({
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+            availableSubtitleStreams: makeSubtitleStreams(),
+        });
+        const { manager, resolver, player } = setup({
+            getCurrentStreamDecision: () => currentDecision,
+            getPreferredSubtitleLanguage: () => 'en',
+        });
+        (player.getState as jest.Mock).mockReturnValue(makePlayerState({ activeSubtitleId: null }));
+        (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(nextDecision);
+
+        const ok = await manager.attemptAudioTrackReloadForCurrentProgram('audio-alt', 'audio_track_change');
+
+        expect(ok).toBe(true);
+        expect(resolver.resolveStream).toHaveBeenCalledWith(
+            expect.not.objectContaining({ subtitleStreamId: expect.any(String) })
+        );
+        expect(player.loadStream).toHaveBeenCalledWith(
+            expect.objectContaining({ preferredSubtitleTrackId: null })
+        );
+    });
+
+    it('does not resume playback after audio reload when previously paused', async () => {
+        const currentDecision = makeDecision({
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+        });
+        const nextDecision = makeDecision({
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+        });
+        const { manager, resolver, player } = setup({
+            getCurrentStreamDecision: () => currentDecision,
+        });
+        (player.getState as jest.Mock).mockReturnValue(makePlayerState({ status: 'paused' }));
+        (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(nextDecision);
+
+        const ok = await manager.attemptAudioTrackReloadForCurrentProgram('audio-alt', 'audio_track_change');
+
+        expect(ok).toBe(true);
+        expect(player.loadStream).toHaveBeenCalled();
+        expect(player.play).not.toHaveBeenCalled();
     });
 
     it('preserves burn-in subtitle request when reloading for audio track change', async () => {
@@ -313,6 +417,19 @@ describe('PlaybackRecoveryManager', () => {
             },
             'plex-stream'
         );
+    });
+
+    it('does not handle non-ACCESS_DENIED resolver errors', () => {
+        const { manager, deps } = setup();
+        const handleGlobalError = deps.handleGlobalError as jest.Mock;
+
+        const handled = manager.tryHandleStreamResolverPermissionError({
+            code: 'SOME_OTHER_CODE',
+            message: 'nope',
+        });
+
+        expect(handled).toBe(false);
+        expect(handleGlobalError).not.toHaveBeenCalled();
     });
 
     it('overrides Plex default flags so selectedAudioStream is the only default track', async () => {
