@@ -17,7 +17,7 @@ export type NavigationMock = {
     setMockFocus: (id: string | null) => void;
 };
 
-export const makeLibrary = (overrides: Partial<PlexLibraryType>): PlexLibraryType => {
+export const makeLibrary = (overrides: Partial<PlexLibraryType> = {}): PlexLibraryType => {
     const defaults: PlexLibraryType = {
         id: 'lib-1',
         uuid: 'uuid-1',
