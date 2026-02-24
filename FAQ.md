@@ -6,13 +6,13 @@
 
 ## General
 
-### Is Retune free?
+### Is Lineup free?
 
-Yes, Retune is open-source and free to use under the Apache License 2.0[^1].
+Yes, Lineup is open-source and free to use under the Apache License 2.0[^1].
 
 ### Do I need a Plex Pass?
 
-No! Retune works with free Plex accounts. However, some advanced Plex features (like Hardware Transcoding[^2] on the server side) require Plex Pass, which helps performance.
+No! Lineup works with free Plex accounts. However, some advanced Plex features (like Hardware Transcoding[^2] on the server side) require Plex Pass, which helps performance.
 
 ### Can I watch outside my home network?
 
@@ -22,7 +22,7 @@ Yes, as long as your Plex server is configured for "Remote Access"[^3].
 
 ### Why can't I fast forward?
 
-Retune simulates linear TV. Just like broadcast television, you can't skip ahead of the "live" broadcast time. You **can** pause and resume playback using the Play/Pause button on your remote.
+Lineup simulates linear TV. Just like broadcast television, you can't skip ahead of the "live" broadcast time. You **can** pause and resume playback using the Play/Pause button on your remote.
 
 > [!NOTE]
 > Seeking and fast-forward are intentionally disabled to preserve the live TV experience.
@@ -60,14 +60,14 @@ LG requires "Developer Mode" for sideloading apps that aren't on the official LG
 
 ### Does it support Dolby Vision?
 
-It depends on your TV model. Retune hands the stream directly to the TV's native player. If the file is direct-playable and the TV supports it, yes. For Dolby Vision MKV files that show dark letterbox bars, enable **Smart HDR10 Fallback** in Settings → HDR / Dolby Vision. See [Troubleshooting](docs/user-guide/troubleshooting.md#dolby-vision-mkv-shows-dark-letterbox-bars) for details.
+It depends on your TV model. Lineup hands the stream directly to the TV's native player. If the file is direct-playable and the TV supports it, yes. For Dolby Vision MKV files that show dark letterbox bars, enable **Smart HDR10 Fallback** in Settings → HDR / Dolby Vision. See [Troubleshooting](docs/user-guide/troubleshooting.md#dolby-vision-mkv-shows-dark-letterbox-bars) for details.
 
 ---
 
 ## Still have questions?
 
-- 💬 Ask in [GitHub Discussions](https://github.com/TJZine/Retune/discussions)
-- 🐛 Report bugs via [Issue Tracker](https://github.com/TJZine/Retune/issues)
+- 💬 Ask in [GitHub Discussions](https://github.com/TJZine/Lineup/discussions)
+- 🐛 Report bugs via [Issue Tracker](https://github.com/TJZine/Lineup/issues)
 
 ---
 

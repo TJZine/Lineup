@@ -18,7 +18,7 @@ We take security seriously. If you discover a vulnerability, please report it re
 ### How to Report
 
 1. **GitHub Security Advisories** (Preferred)
-   - Go to the [Security tab](https://github.com/TJZine/Retune/security/advisories) of this repository
+   - Go to the [Security tab](https://github.com/TJZine/Lineup/security/advisories) of this repository
    - Click "Report a vulnerability"
    - Fill out the form with details
 
@@ -52,7 +52,7 @@ We take security seriously. If you discover a vulnerability, please report it re
 
 ### In Scope
 
-The following are considered security issues for Retune:
+The following are considered security issues for Lineup:
 
 - 🔐 **Authentication issues** — Token leakage, bypass, or improper validation
 - 🔑 **Authorization issues** — Unauthorized access to data or functions
@@ -88,13 +88,13 @@ Please report these to the appropriate parties:
 
 ### Keep Updated
 
-- 📦 Update Retune when new versions are released
+- 📦 Update Lineup when new versions are released
 - 🖥️ Keep your LG TV firmware updated
 - 🎬 Keep Plex Media Server updated
 
 ---
 
-## Security Features in Retune
+## Security Features in Lineup
 
 | Feature | Description |
 |---------|-------------|
@@ -107,6 +107,6 @@ Please report these to the appropriate parties:
 
 ## Hall of Fame
 
-We appreciate security researchers who help keep Retune safe. Contributors will be acknowledged here (with permission).
+We appreciate security researchers who help keep Lineup safe. Contributors will be acknowledged here (with permission).
 
 *No reports yet—be the first!*

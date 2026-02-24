@@ -43,10 +43,10 @@ npm run build
 ares-package dist/
 
 # 3. Install to your TV
-ares-install --device my-tv com.retune.app_1.0.0_all.ipk
+ares-install --device my-tv com.lineup.app_1.0.0_all.ipk
 
 # 4. Launch
-ares-launch --device my-tv com.retune.app
+ares-launch --device my-tv com.lineup.app
 ```
 
 > [!NOTE]
@@ -56,7 +56,7 @@ ares-launch --device my-tv com.retune.app
 
 ```bash
 # Open Chrome DevTools for your TV
-ares-inspect --device my-tv --app com.retune.app --open
+ares-inspect --device my-tv --app com.lineup.app --open
 ```
 
 See [Debugging Guide](docs/development/debugging.md) for troubleshooting tips.

@@ -1,4 +1,4 @@
-# Retune - Post-MVP Todo List
+# Lineup - Post-MVP Todo List
 
 ## Technical Risks & Mitigations (Priority: High)
 
