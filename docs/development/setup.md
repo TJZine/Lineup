@@ -16,7 +16,7 @@ This project requires a specific setup to develop for LG webOS.
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/TJZine/Lineup.git
+git clone https://github.com/TJZine/Retune.git
 
 # 2. Install dependencies
 npm install

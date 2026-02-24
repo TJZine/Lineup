@@ -3,6 +3,8 @@
  * @module modules/ui/epg/utils
  */
 
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+
 /**
  * Format a timestamp as a time string (e.g., "12:30 PM").
  *
@@ -87,12 +89,12 @@ export function rafThrottle<T extends (...args: unknown[]) => void>(
 }
 
 /**
- * Append a debug log entry to localStorage when lineup_debug_epg is enabled.
+ * Append a debug log entry to localStorage when EPG debug mode is enabled.
  * Keeps a bounded log for simulator copy/paste.
  */
 export function appendEpgDebugLog(event: string, data: unknown): void {
     try {
-        if (localStorage.getItem('lineup_debug_epg') !== '1') {
+        if (localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG) !== '1') {
             return;
         }
         const entry = { ts: Date.now(), event, data };

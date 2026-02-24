@@ -1,5 +1,6 @@
 import type { PlexLibrary } from '../../../plex/library/types';
 import type { FocusableElement, KeyEvent } from '../../../navigation/interfaces';
+import { PLEX_DISCOVERY_CONSTANTS } from '../../../plex/discovery/constants';
 import type { ChannelSetupOrchestrator } from '../ChannelSetupScreen';
 
 type Focusable = Pick<FocusableElement, 'id' | 'neighbors'>;
@@ -122,7 +123,7 @@ export const createOrchestrator = (
     getLibrariesForSetup: jest.fn().mockResolvedValue([]),
     getChannelSetupRecord: jest.fn(() => null),
     getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
-    getSelectedServerStorageKey: jest.fn(() => 'lineup-selected-server-id'),
+    getSelectedServerStorageKey: jest.fn(() => PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY),
     getSelectedServerId: jest.fn(() => null),
     openServerSelect: jest.fn(),
     switchToChannelByNumber: jest.fn(),

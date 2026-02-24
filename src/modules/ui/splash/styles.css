@@ -88,7 +88,7 @@
     -webkit-background-clip: text;
     /* stylelint-disable-next-line property-no-vendor-prefix */
     -webkit-text-fill-color: transparent;
-    text-shadow: 0 10px 28px var(--lineup-logo-shadow);
+    filter: drop-shadow(0 10px 28px var(--lineup-logo-shadow));
 }
 
 .lineup-logo-accent {
@@ -99,11 +99,9 @@
 
 @media (prefers-reduced-motion: reduce) {
     .lineup-logo {
-        transition: none;
+        animation: none;
     }
-}
 
-@media (prefers-reduced-motion: reduce) {
     .splash-crt-container {
         animation: none;
         transform: none;

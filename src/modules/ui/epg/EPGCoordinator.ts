@@ -1327,7 +1327,7 @@ export class EPGCoordinator {
 
     private _isDebugEnabled(): boolean {
         try {
-            return localStorage.getItem('lineup_debug_epg') === '1';
+            return localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG) === '1';
         } catch {
             return false;
         }

@@ -154,4 +154,6 @@
   --glass-border-soft: rgba(255, 255, 255, 0.14);
   --glass-highlight: rgba(255, 255, 255, 0.18);
   --glass-shadow-deep: 0 30px 70px rgba(0, 0, 0, 0.58);
+  --glass-panel-soft-hover: rgba(255, 255, 255, 0.10);
+  --glass-backdrop-filter: blur(20px) saturate(135%);
 }

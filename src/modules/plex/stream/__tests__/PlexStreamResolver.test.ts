@@ -589,7 +589,7 @@ describe('PlexStreamResolver', () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: jest.fn((k: string) =>
-                        k === 'lineup_direct_play_audio_fallback' ? '1' : null
+                        k === LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK ? '1' : null
                     ),
                 },
                 configurable: true,

@@ -200,6 +200,12 @@
   border: 1px solid var(--glass-border-soft);
 }
 
+.theme-glass .settings-category-button:not(.active, [aria-selected="true"]):hover,
+.theme-glass .settings-category-button:not(.active, [aria-selected="true"]):focus {
+  background: var(--glass-panel-soft-hover, var(--glass-panel-soft));
+  border-color: var(--glass-border-soft);
+}
+
 .theme-glass .settings-category-button.active,
 .theme-glass .settings-category-button[aria-selected="true"] {
   border-color: rgba(255, 255, 255, 0.84);

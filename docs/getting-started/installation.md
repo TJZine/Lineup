@@ -65,6 +65,6 @@ ares-install --device my-tv com.lineup.app_1.0.0_all.ipk
 
 ## Next Steps
 
-Now that Lineup is installed, let's get it set up!
+Now that Lineup is installed, let's set it up.
 
 👉 **[Proceed to Quick Start](quick-start.md)**

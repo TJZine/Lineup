@@ -86,8 +86,8 @@ Get Lineup running in 5 minutes:
 
 ```bash
 # Clone the repository
-git clone https://github.com/TJZine/Lineup.git
-cd Lineup
+git clone https://github.com/TJZine/Retune.git
+cd Retune
 
 # Use the recommended Node version from .nvmrc
 nvm use
