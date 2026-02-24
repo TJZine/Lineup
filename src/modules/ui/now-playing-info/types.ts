@@ -28,6 +28,7 @@ export interface NowPlayingInfoViewModel {
     elapsedMs?: number;
     durationMs?: number;
     posterUrl?: string | null;
+    backdropUrl?: string | null;
     cinematic?: boolean;
     clearLogoUrl?: string | null;
     badges?: string[];
