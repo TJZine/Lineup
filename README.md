@@ -86,6 +86,7 @@ Get Lineup running in 5 minutes:
 
 ```bash
 # Clone the repository
+# Note: GitHub repo rename (Retune -> Lineup) may be in progress; follow redirects if needed.
 git clone https://github.com/TJZine/Retune.git
 cd Retune
 
