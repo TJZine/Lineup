@@ -234,6 +234,7 @@ describe('PlexLibrary', () => {
                 { json: mockLibrarySectionsResponse },
                 { json: { MediaContainer: { totalSize: 123 } } },
                 { json: { MediaContainer: { totalSize: 456 } } },
+                { json: { MediaContainer: { totalSize: 999 } } },
                 { json: { MediaContainer: { totalSize: 789 } } },
                 { json: { MediaContainer: { totalSize: 10 } } },
             ]);
@@ -243,7 +244,10 @@ describe('PlexLibrary', () => {
 
             expect(libs).toHaveLength(4);
             expect(libs[0]!.contentCount).toBe(123);
+            expect(libs[0]!.movieCount).toBe(123);
             expect(libs[1]!.contentCount).toBe(456);
+            expect(libs[1]!.showCount).toBe(456);
+            expect(libs[1]!.episodeCount).toBe(999);
             expect(libs[2]!.contentCount).toBe(789);
             expect(libs[3]!.contentCount).toBe(10);
         });

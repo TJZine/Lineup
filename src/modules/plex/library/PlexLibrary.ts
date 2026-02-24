@@ -184,6 +184,17 @@ export class PlexLibrary implements IPlexLibrary {
                     try {
                         const count = await this.getLibraryItemCount(lib.id, { signal });
                         lib.contentCount = count;
+
+                        if (lib.type === 'movie') {
+                            lib.movieCount = count;
+                        } else if (lib.type === 'show') {
+                            lib.showCount = count;
+                            const epCount = await this.getLibraryItemCount(lib.id, {
+                                signal,
+                                filter: { type: PLEX_MEDIA_TYPES.EPISODE }
+                            });
+                            lib.episodeCount = epCount;
+                        }
                     } catch (error) {
                         // Abort is intentional — skip remaining work without logging.
                         if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
