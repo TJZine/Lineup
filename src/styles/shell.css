@@ -22,6 +22,7 @@
     opacity: 0;
     transform: scale(0.97);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -232,6 +233,7 @@
 
 .screen-button {
   appearance: none;
+  position: relative;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 10px;
   padding: calc(12px * var(--onboarding-scale)) calc(18px * var(--onboarding-scale));
@@ -268,11 +270,32 @@
 .setup-toggle:focus,
 .profile-numpad-button.focused,
 .profile-numpad-button:focus {
-  outline: var(--focus-ring-width) solid var(--focus-color);
-  outline-offset: var(--focus-ring-offset);
+  outline: none;
+}
+
+.screen-button::after,
+.setup-toggle::after,
+.profile-numpad-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 0 var(--focus-color) inset;
+  transition: box-shadow 150ms ease;
+  pointer-events: none;
+}
+
+.screen-button.focused::after,
+.screen-button:focus-visible::after,
+.setup-toggle.focused::after,
+.setup-toggle:focus-visible::after,
+.profile-numpad-button.focused::after,
+.profile-numpad-button:focus-visible::after {
+  box-shadow: 0 0 0 var(--focus-ring-width, 3px) var(--focus-color) inset;
 }
 
 @media (forced-colors: active) {
+
   .profile-row.focused,
   .profile-row:focus {
     outline: 2px solid Highlight;
@@ -414,6 +437,7 @@
 
 .setup-toggle {
   display: grid;
+  position: relative;
   grid-template-columns: 1fr auto;
   grid-template-rows: auto auto;
   gap: 4px 12px;
@@ -550,6 +574,7 @@
 
 .error-button {
   appearance: none;
+  position: relative;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 10px;
   padding: 12px 18px;
@@ -562,8 +587,22 @@
 
 .error-button.focused,
 .error-button:focus {
-  outline: var(--focus-ring-width) solid var(--focus-color);
-  outline-offset: var(--focus-ring-offset);
+  outline: none;
+}
+
+.error-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 0 var(--focus-color) inset;
+  transition: box-shadow 150ms ease;
+  pointer-events: none;
+}
+
+.error-button.focused::after,
+.error-button:focus-visible::after {
+  box-shadow: 0 0 0 var(--focus-ring-width, 3px) var(--focus-color) inset;
 }
 
 .error-button.primary {
