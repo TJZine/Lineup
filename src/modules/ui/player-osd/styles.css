@@ -288,12 +288,26 @@
 
 /* Hybrid Deep Glass refinements */
 .theme-glass .player-osd-panel {
-  background: var(--glass-panel-strong);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.30)), var(--glass-panel-strong);
   border: 1px solid var(--glass-border-strong);
   box-shadow: var(--glass-shadow-deep), inset 0 1px 0 var(--glass-highlight);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
 }
 
+.theme-glass .player-osd-status,
 .theme-glass .player-osd-title {
   font-family: var(--font-family-display);
-  letter-spacing: -0.01em;
+}
+
+.theme-glass .player-osd-action {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.theme-glass .player-osd-action.focused {
+  background: rgba(255, 255, 255, 0.92);
+  color: #0a0d12;
+  border-color: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.45);
 }
