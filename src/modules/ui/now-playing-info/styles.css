@@ -224,6 +224,7 @@
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  max-height: calc(var(--text-base, 16px) * 1.35 * 4);
 }
 
 .now-playing-info-context {
@@ -271,6 +272,11 @@
 
 .now-playing-info-container.now-playing-info-cinematic {
   align-items: stretch;
+}
+
+.now-playing-info-container.now-playing-info-cinematic .now-playing-info-description {
+  -webkit-line-clamp: 2;
+  max-height: calc(var(--text-base, 16px) * 1.35 * 2);
 }
 
 .now-playing-info-container.now-playing-info-cinematic .now-playing-info-panel {
@@ -353,6 +359,7 @@
     animation: none;
   }
 }
+
 /* Hybrid Deep Glass refinements (glass theme only) */
 .theme-glass .now-playing-info-panel {
   background:

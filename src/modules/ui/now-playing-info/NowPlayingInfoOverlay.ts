@@ -242,6 +242,16 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
                 };
                 clearLogo.onload = (): void => {
                     if (clearLogo.getAttribute('src') !== expectedSrc) return;
+
+                    const rect = clearLogo.getBoundingClientRect();
+                    if (rect.height < 15) {
+                        clearLogo.onerror = null;
+                        clearLogo.onload = null;
+                        clearLogo.style.display = 'none';
+                        (title as HTMLElement).style.display = '';
+                        return;
+                    }
+
                     clearLogo.onerror = null;
                     clearLogo.onload = null;
                     (title as HTMLElement).style.display = 'none';

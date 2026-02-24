@@ -128,6 +128,8 @@
 
   --color-primary: #ffffff;
   --color-primary-rgb: 255 255 255;
+  --color-primary-dark: #cccccc;
+  --color-primary-light: #ffffff;
 
   --color-bg-deep: transparent;
   --color-bg-surface: rgba(255, 255, 255, 0.05);

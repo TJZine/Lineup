@@ -196,6 +196,10 @@ describe('PlayerOsdOverlay', () => {
         const logo = container.querySelector(`.${PLAYER_OSD_CLASSES.CLEAR_LOGO}`) as HTMLImageElement;
         const title = container.querySelector(`.${PLAYER_OSD_CLASSES.TITLE}`) as HTMLElement;
 
+        Object.defineProperty(logo, 'getBoundingClientRect', {
+            value: () => ({ height: 30 } as unknown as DOMRect),
+        });
+
         (logo.onload as unknown as (() => void))?.();
 
         expect(logo.getAttribute('src')).toBe('http://example/good.png');
@@ -215,6 +219,23 @@ describe('PlayerOsdOverlay', () => {
         overlay.setViewModel({ ...baseViewModel, clearLogoUrl: null });
         expect(logo.onerror).toBeNull();
         expect(logo.onload).toBeNull();
+    });
+
+    it('falls back to title when clear logo renders too small', () => {
+        overlay.setViewModel({ ...baseViewModel, clearLogoUrl: 'http://example/tiny.png' });
+        overlay.show();
+
+        const logo = container.querySelector(`.${PLAYER_OSD_CLASSES.CLEAR_LOGO}`) as HTMLImageElement;
+        const title = container.querySelector(`.${PLAYER_OSD_CLASSES.TITLE}`) as HTMLElement;
+
+        Object.defineProperty(logo, 'getBoundingClientRect', {
+            value: () => ({ height: 10 } as unknown as DOMRect),
+        });
+
+        (logo.onload as unknown as (() => void))?.();
+
+        expect(logo.style.display).toBe('none');
+        expect(title.style.display).toBe('');
     });
 
     it('toggles sleep timer text visibility', () => {

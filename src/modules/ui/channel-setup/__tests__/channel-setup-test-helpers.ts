@@ -17,18 +17,40 @@ export type NavigationMock = {
     setMockFocus: (id: string | null) => void;
 };
 
-export const makeLibrary = (overrides: Partial<PlexLibrary>): PlexLibrary => ({
-    id: overrides.id ?? 'lib-1',
-    uuid: overrides.uuid ?? 'uuid-1',
-    title: overrides.title ?? 'Library',
-    type: overrides.type ?? 'movie',
-    agent: overrides.agent ?? 'agent',
-    scanner: overrides.scanner ?? 'scanner',
-    contentCount: overrides.contentCount ?? 0,
-    lastScannedAt: overrides.lastScannedAt ?? new Date(0),
-    art: overrides.art ?? null,
-    thumb: overrides.thumb ?? null,
-});
+export const makeLibrary = (overrides: Partial<PlexLibrary>): PlexLibrary => {
+    const type = overrides.type ?? 'movie';
+    const contentCount = overrides.contentCount ?? 0;
+    const lib: PlexLibrary = {
+        id: overrides.id ?? 'lib-1',
+        uuid: overrides.uuid ?? 'uuid-1',
+        title: overrides.title ?? 'Library',
+        type,
+        agent: overrides.agent ?? 'agent',
+        scanner: overrides.scanner ?? 'scanner',
+        contentCount,
+        lastScannedAt: overrides.lastScannedAt ?? new Date(0),
+        art: overrides.art ?? null,
+        thumb: overrides.thumb ?? null,
+    };
+
+    if (overrides.movieCount !== undefined) {
+        lib.movieCount = overrides.movieCount;
+    } else if (type === 'movie') {
+        lib.movieCount = contentCount;
+    }
+
+    if (overrides.showCount !== undefined) {
+        lib.showCount = overrides.showCount;
+    } else if (type === 'show') {
+        lib.showCount = contentCount;
+    }
+
+    if (overrides.episodeCount !== undefined) {
+        lib.episodeCount = overrides.episodeCount;
+    }
+
+    return lib;
+};
 
 export const DEFAULT_PREVIEW = {
     estimates: {

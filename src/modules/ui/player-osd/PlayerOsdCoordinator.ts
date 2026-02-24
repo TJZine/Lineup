@@ -59,7 +59,7 @@ export class PlayerOsdCoordinator {
     private _throttledRenderTimer: number | null = null;
     private _lastThrottledRenderAt = 0;
 
-    constructor(private readonly deps: PlayerOsdCoordinatorDeps) {}
+    constructor(private readonly deps: PlayerOsdCoordinatorDeps) { }
 
     poke(reason: PlayerOsdReason): void {
         this._suppressActions = false;
@@ -148,6 +148,11 @@ export class PlayerOsdCoordinator {
             case 'loading':
             case 'buffering':
             case 'idle':
+                if (this._suppressActions === true && this.deps.getOverlay()?.isVisible() === true) {
+                    return;
+                }
+                this.hide();
+                return;
             case 'error':
             case 'ended':
             default:

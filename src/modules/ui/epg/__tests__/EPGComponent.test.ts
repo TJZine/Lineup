@@ -180,6 +180,20 @@ describe('EPGComponent', () => {
         container.remove();
     });
 
+    it('sets --epg-row-height on the container from config.rowHeight', () => {
+        const { epg: localEpg, container: localContainer } = createEpgInstance({
+            containerId: 'epg-container-row-height',
+            rowHeight: 123,
+        });
+
+        try {
+            expect(localContainer.style.getPropertyValue('--epg-row-height')).toBe('123px');
+        } finally {
+            localEpg.destroy();
+            localContainer.remove();
+        }
+    });
+
     describe('lifecycle', () => {
         it('should initialize without errors', () => {
             expect(epg.isVisible()).toBe(false);

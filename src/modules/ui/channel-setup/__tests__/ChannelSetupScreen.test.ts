@@ -83,7 +83,7 @@ describe('ChannelSetupScreen', () => {
 
         const meta = container.querySelector('#setup-lib-movies .setup-toggle-meta');
         const formattedCount = new Intl.NumberFormat().format(1234);
-        expect(meta?.textContent ?? '').toContain(`Movies • ${formattedCount} titles`);
+        expect(meta?.textContent ?? '').toContain(`${formattedCount} Movies`);
     });
 
     it('applies stagger class and delay to library cards', async () => {
