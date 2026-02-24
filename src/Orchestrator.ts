@@ -2235,11 +2235,11 @@ export class AppOrchestrator implements IAppOrchestrator {
                     if (!this._nowPlayingHandler) return;
                     this._nowPlayingHandler({ message: 'Failed to apply audio track change', type: 'warning' });
                 };
-                const reloadPromise = this._playbackRecovery?.attemptAudioTrackReloadForCurrentProgram?.(
-                    event.trackId,
-                    'audio_track_change'
-                )
-                    ?? null;
+                const reloadPromise =
+                    this._playbackRecovery?.attemptAudioTrackReloadForCurrentProgram(
+                        event.trackId,
+                        'audio_track_change'
+                    ) ?? null;
                 if (reloadPromise) {
                     void reloadPromise.then((ok) => {
                         if (!ok) {
@@ -2458,7 +2458,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 }
                 return;
             }
-            if (this._playbackRecovery?.tryHandleStreamResolverPermissionError?.(error)) {
+            if (this._playbackRecovery?.tryHandleStreamResolverPermissionError(error)) {
                 if (shouldAutoShowInfoBanner) {
                     this._shouldAutoShowInfoBannerOnNextPlay = false;
                 }

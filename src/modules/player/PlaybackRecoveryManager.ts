@@ -481,12 +481,11 @@ export class PlaybackRecoveryManager {
         if (!error || typeof error !== 'object') {
             return false;
         }
-        const maybe = error as Partial<StreamResolverError> & { code?: unknown; message?: unknown };
+        const maybe = error as { code?: unknown; message?: unknown };
         if (typeof maybe.code !== 'string' || typeof maybe.message !== 'string') {
             return false;
         }
-        const code = String(maybe.code);
-        if (code !== AppErrorCode.ACCESS_DENIED && code !== 'ACCESS_DENIED') {
+        if (maybe.code !== AppErrorCode.ACCESS_DENIED) {
             return false;
         }
         this.deps.handleGlobalError(
