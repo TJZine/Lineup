@@ -224,6 +224,12 @@
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  max-height: calc(var(--text-base, 16px) * 1.35 * 4);
+}
+
+.now-playing-info-container:not(.now-playing-info-cinematic) .now-playing-info-description {
+  -webkit-line-clamp: 6;
+  max-height: calc(var(--text-base, 16px) * 1.35 * 6);
 }
 
 .now-playing-info-context {
@@ -353,6 +359,7 @@
     animation: none;
   }
 }
+
 /* Hybrid Deep Glass refinements (glass theme only) */
 .theme-glass .now-playing-info-panel {
   background:

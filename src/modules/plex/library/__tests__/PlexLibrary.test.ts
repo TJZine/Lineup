@@ -234,6 +234,7 @@ describe('PlexLibrary', () => {
                 { json: mockLibrarySectionsResponse },
                 { json: { MediaContainer: { totalSize: 123 } } },
                 { json: { MediaContainer: { totalSize: 456 } } },
+                { json: { MediaContainer: { totalSize: 999 } } },
                 { json: { MediaContainer: { totalSize: 789 } } },
                 { json: { MediaContainer: { totalSize: 10 } } },
             ]);
@@ -244,8 +245,29 @@ describe('PlexLibrary', () => {
             expect(libs).toHaveLength(4);
             expect(libs[0]!.contentCount).toBe(123);
             expect(libs[1]!.contentCount).toBe(456);
+            expect(libs[1]!.episodeCount).toBe(999);
             expect(libs[2]!.contentCount).toBe(789);
             expect(libs[3]!.contentCount).toBe(10);
+        });
+
+        it('does not reset contentCount when episodeCount fetch fails', async () => {
+            mockFetchJson(mockLibrarySectionsResponse);
+            const library = new PlexLibrary(mockConfig);
+
+            const spy = jest.spyOn(library, 'getLibraryItemCount');
+            spy.mockImplementation(async (_libraryId, options) => {
+                const typeFilter = options?.filter?.type;
+                if (typeFilter === 4) {
+                    throw new Error('episode count failed');
+                }
+                return 456;
+            });
+
+            const libs = await library.getLibraries({ includeItemCounts: true, itemCountConcurrency: 1 });
+
+            const showLib = libs.find((lib) => lib.type === 'show');
+            expect(showLib?.contentCount).toBe(456);
+            expect(showLib?.episodeCount).toBeUndefined();
         });
 
         it('should sanitize itemCountConcurrency when includeItemCounts is enabled', async () => {

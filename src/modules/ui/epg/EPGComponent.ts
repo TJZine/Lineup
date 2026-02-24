@@ -140,6 +140,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         if (!this.containerElement) {
             throw new Error(EPG_ERRORS.CONTAINER_NOT_FOUND);
         }
+        this.containerElement.style.setProperty('--epg-row-height', `${this.config.rowHeight}px`);
 
         // Create DOM structure
         this.createDOMStructure();
@@ -223,6 +224,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this._isLibraryTabsFocused = false;
 
         if (this.containerElement) {
+            this.containerElement.style.removeProperty('--epg-row-height');
             this.containerElement.innerHTML = '';
             this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_VISIBLE);
             this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_PEEK);

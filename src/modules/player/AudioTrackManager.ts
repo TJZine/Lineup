@@ -120,14 +120,6 @@ export class AudioTrackManager {
             throw this._createError(ErrorCode.TRACK_NOT_FOUND, `Audio track ${trackId} not found`);
         }
 
-        // Check codec support before attempting switch
-        if (targetTrack.codec && !this._isCodecSupported(targetTrack.codec)) {
-            throw this._createError(
-                ErrorCode.CODEC_UNSUPPORTED,
-                `Audio codec '${targetTrack.codec}' is not supported`
-            );
-        }
-
         const videoWithTracks = this._videoElement as HTMLVideoElementWithAudioTracks;
         const audioTracks = videoWithTracks.audioTracks;
 
@@ -135,6 +127,14 @@ export class AudioTrackManager {
             // No native audio tracks - just update state
             this._activeTrackId = trackId;
             return;
+        }
+
+        // Check codec support before attempting native track switching.
+        if (targetTrack.codec && !this._isCodecSupported(targetTrack.codec)) {
+            throw this._createError(
+                ErrorCode.CODEC_UNSUPPORTED,
+                `Audio codec '${targetTrack.codec}' is not supported`
+            );
         }
 
         const previousTrackId = this._activeTrackId;

@@ -148,6 +148,11 @@ export class PlayerOsdCoordinator {
             case 'loading':
             case 'buffering':
             case 'idle':
+                if (this._suppressActions === true && this.deps.getOverlay()?.isVisible() === true) {
+                    return;
+                }
+                this.hide();
+                return;
             case 'error':
             case 'ended':
             default:

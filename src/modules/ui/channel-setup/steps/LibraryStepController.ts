@@ -75,7 +75,20 @@ export class LibraryStepController {
                 countSpan.className = 'setup-toggle-count';
                 countSpan.textContent = deps.formatCount(library.contentCount);
                 meta.appendChild(countSpan);
-                meta.appendChild(document.createTextNode(' titles'));
+                meta.appendChild(document.createTextNode(library.type === 'movie' ? ' movies' : ' series'));
+
+                if (
+                    library.type === 'show' &&
+                    typeof library.episodeCount === 'number' &&
+                    Number.isFinite(library.episodeCount)
+                ) {
+                    meta.appendChild(document.createTextNode(' • '));
+                    const epCountSpan = document.createElement('span');
+                    epCountSpan.className = 'setup-toggle-count';
+                    epCountSpan.textContent = deps.formatCount(library.episodeCount);
+                    meta.appendChild(epCountSpan);
+                    meta.appendChild(document.createTextNode(' episodes'));
+                }
             } else {
                 meta.textContent = typeLabel;
             }

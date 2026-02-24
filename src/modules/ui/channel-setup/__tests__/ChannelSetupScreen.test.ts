@@ -70,7 +70,7 @@ describe('ChannelSetupScreen', () => {
         const orchestrator = createOrchestrator({
             getLibrariesForSetup: jest.fn().mockResolvedValue([
                 makeLibrary({ id: 'movies', title: 'Movies', contentCount: 1234 }),
-                makeLibrary({ id: 'shows', title: 'Shows', type: 'show', contentCount: 56 }),
+                makeLibrary({ id: 'shows', title: 'Shows', type: 'show', contentCount: 56, episodeCount: 999 }),
             ]),
         });
 
@@ -81,9 +81,17 @@ describe('ChannelSetupScreen', () => {
         expect(container.querySelector('#setup-select-all')).not.toBeNull();
         expect(container.querySelector('#setup-clear-all')).not.toBeNull();
 
-        const meta = container.querySelector('#setup-lib-movies .setup-toggle-meta');
-        const formattedCount = new Intl.NumberFormat().format(1234);
-        expect(meta?.textContent ?? '').toContain(`Movies • ${formattedCount} titles`);
+        const formattedMovieCount = new Intl.NumberFormat().format(1234);
+        const formattedShowCount = new Intl.NumberFormat().format(56);
+        const formattedEpisodeCount = new Intl.NumberFormat().format(999);
+
+        const moviesMeta = container.querySelector('#setup-lib-movies .setup-toggle-meta');
+        expect(moviesMeta?.textContent ?? '').toContain(`Movies • ${formattedMovieCount} movies`);
+
+        const showsMeta = container.querySelector('#setup-lib-shows .setup-toggle-meta');
+        expect(showsMeta?.textContent ?? '').toContain(
+            `Shows • ${formattedShowCount} series • ${formattedEpisodeCount} episodes`
+        );
     });
 
     it('applies stagger class and delay to library cards', async () => {

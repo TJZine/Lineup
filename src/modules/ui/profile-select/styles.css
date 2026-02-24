@@ -46,12 +46,10 @@
 /* --- Active profile indicator --- */
 .profile-row.active {
     border-color: var(--color-primary);
-    background: radial-gradient(
-        ellipse at center bottom,
-        var(--color-primary-alpha-20) 0%,
-        var(--color-primary-alpha-08) 70%,
-        transparent 100%
-    );
+    background: radial-gradient(ellipse at center bottom,
+            var(--color-primary-alpha-20) 0%,
+            var(--color-primary-alpha-08) 70%,
+            transparent 100%);
     box-shadow:
         0 0 20px var(--color-primary-alpha-15),
         0 0 40px var(--color-primary-alpha-08);
@@ -235,6 +233,7 @@
 
 .profile-numpad-button {
     display: flex;
+    position: relative;
     align-items: center;
     justify-content: center;
     background: rgba(255, 255, 255, 0.08);
@@ -247,9 +246,36 @@
 
 .profile-numpad-button.focused,
 .profile-numpad-button:focus {
-    outline: var(--focus-ring-width) solid var(--focus-color);
-    outline-offset: var(--focus-ring-offset);
+    outline: none;
     background: rgba(255, 255, 255, 0.12);
+}
+
+.profile-numpad-button::after {
+    content: '';
+    position: absolute;
+    inset: calc(-1 * var(--focus-ring-offset));
+    border-radius: inherit;
+    border: var(--focus-ring-width, 3px) solid transparent;
+    transition: border-color 150ms ease;
+    pointer-events: none;
+}
+
+.profile-numpad-button.focused::after,
+.profile-numpad-button:focus::after,
+.profile-numpad-button:focus-visible::after {
+    border-color: var(--focus-color);
+}
+
+@media (forced-colors: active) {
+    .profile-numpad-button.focused,
+    .profile-numpad-button:focus {
+        outline: 2px solid Highlight;
+        outline-offset: 2px;
+    }
+
+    .profile-numpad-button::after {
+        content: none;
+    }
 }
 
 @keyframes pin-dot-pop {

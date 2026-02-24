@@ -157,6 +157,7 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
                     if (img.getAttribute('src') !== expectedSrc) return;
                     img.onerror = null;
                     img.onload = null;
+                    img.style.visibility = '';
                     img.removeAttribute('src');
                     img.alt = '';
                     img.style.display = 'none';
@@ -168,16 +169,39 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
                     if (img.getAttribute('src') !== expectedSrc) return;
                     img.onerror = null;
                     img.onload = null;
+
+                    const renderedHeight = img.getBoundingClientRect().height;
+                    const isUsable = renderedHeight >= 24;
+
+                    img.style.visibility = '';
+                    if (isUsable) {
+                        if (this.elements.title) {
+                            this.elements.title.style.display = 'none';
+                        }
+                        return;
+                    }
+
+                    // Unusable: hide logo and fall back to title.
+                    img.removeAttribute('src');
+                    img.alt = '';
+                    img.style.display = 'none';
                     if (this.elements.title) {
-                        this.elements.title.style.display = 'none';
+                        this.elements.title.style.display = '';
                     }
                 };
 
                 img.setAttribute('src', expectedSrc);
                 img.alt = vm.title || '';
-                img.style.display = '';
                 if (this.elements.title) {
-                    this.elements.title.style.display = 'none';
+                    // Keep the title visible until the logo is proven usable.
+                    this.elements.title.style.display = '';
+                }
+                // Avoid flashing an unusable logo while still allowing measurement on load.
+                img.style.visibility = 'hidden';
+                img.style.display = '';
+                // Some engines won't re-fire load for cached images when src is unchanged.
+                if (img.complete && img.naturalWidth > 0) {
+                    img.onload?.(new Event('load'));
                 }
             } else {
                 img.onerror = null;
@@ -185,6 +209,7 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
                 img.removeAttribute('src');
                 img.alt = '';
                 img.style.display = 'none';
+                img.style.visibility = '';
                 if (this.elements.title) {
                     this.elements.title.style.display = '';
                 }

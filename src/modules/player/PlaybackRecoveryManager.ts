@@ -9,6 +9,7 @@ import {
     mapPlexStreamErrorCodeToAppErrorCode,
     type IPlexStreamResolver,
     type StreamDecision,
+    type StreamRequest,
     type StreamResolverError,
     type PlexStream,
 } from '../plex/stream';
@@ -373,6 +374,129 @@ export class PlaybackRecoveryManager {
         this.deps.setCurrentStreamDecision(decision);
 
         return this._buildStreamDescriptor(program, decision, clampedOffset);
+    }
+
+    async attemptAudioTrackReloadForCurrentProgram(trackId: string, reason: string): Promise<boolean> {
+        if (this._streamRecoveryInProgress) {
+            return false;
+        }
+
+        const program = this.deps.getCurrentProgramForPlayback();
+        const player = this.deps.getVideoPlayer();
+        const resolver = this.deps.getStreamResolver();
+        if (!program || !player || !resolver) {
+            return false;
+        }
+
+        const itemKey = program.item.ratingKey;
+        const currentDecision = this.deps.getCurrentStreamDecision?.() ?? null;
+        const preserveDirectPlayPreference = currentDecision ? currentDecision.isDirectPlay : true;
+        const preReloadState = ((): ReturnType<IVideoPlayer['getState']> | null => {
+            try {
+                return player.getState();
+            } catch {
+                return null;
+            }
+        })();
+        const shouldResumeAfterReload =
+            preReloadState?.status === 'playing' || preReloadState?.status === 'buffering';
+        const activeSubtitleId =
+            typeof preReloadState?.activeSubtitleId === 'string' && preReloadState.activeSubtitleId.length > 0
+                ? preReloadState.activeSubtitleId
+                : null;
+
+        console.warn('[PlaybackRecovery] Audio reload start:', {
+            reason: redactSensitiveTokens(reason),
+            trackId,
+            itemKey,
+            preserveDirectPlayPreference,
+        });
+        this._streamRecoveryInProgress = true;
+
+        try {
+            const livePosition = ((): number | null => {
+                try {
+                    const value = player.getCurrentTimeMs();
+                    return Number.isFinite(value) ? value : null;
+                } catch {
+                    return null;
+                }
+            })();
+            const baseOffset = typeof livePosition === 'number' ? livePosition : program.elapsedMs;
+            const clampedOffset = Math.max(0, Math.min(baseOffset, program.item.durationMs));
+
+            const request: StreamRequest = {
+                itemKey,
+                startOffsetMs: clampedOffset,
+                directPlay: preserveDirectPlayPreference,
+                audioStreamId: trackId,
+            };
+            const burnInSubtitleId = currentDecision?.transcodeRequest?.subtitleMode === 'burn'
+                ? currentDecision.transcodeRequest.subtitleStreamId
+                : null;
+            if (typeof burnInSubtitleId === 'string' && burnInSubtitleId.length > 0) {
+                request.subtitleStreamId = burnInSubtitleId;
+                request.subtitleMode = 'burn';
+            } else if (activeSubtitleId) {
+                request.subtitleStreamId = activeSubtitleId;
+            }
+
+            const decision: StreamDecision = await resolver.resolveStream(request);
+            if (this.deps.getCurrentProgramForPlayback() !== program) {
+                console.warn('[PlaybackRecovery] Audio reload aborted:', {
+                    outcome: 'program_changed',
+                    trackId,
+                    itemKey,
+                });
+                return false;
+            }
+            this.deps.setCurrentStreamDecision(decision);
+
+            let descriptor = this._buildStreamDescriptor(program, decision, clampedOffset);
+            if (preReloadState?.activeSubtitleId === null) {
+                descriptor = { ...descriptor, preferredSubtitleTrackId: null };
+            } else if (
+                activeSubtitleId &&
+                descriptor.subtitleTracks.some((t) => t.id === activeSubtitleId)
+            ) {
+                descriptor = { ...descriptor, preferredSubtitleTrackId: activeSubtitleId };
+            }
+            this.deps.setCurrentStreamDescriptor(descriptor);
+
+            await player.loadStream(descriptor);
+            if (shouldResumeAfterReload) {
+                await player.play();
+            }
+            this.resetPlaybackFailureGuard();
+            return true;
+        } catch (error) {
+            console.error('[PlaybackRecovery] Audio reload failed:', summarizeErrorForLog(error));
+            return false;
+        } finally {
+            this._streamRecoveryInProgress = false;
+        }
+    }
+
+    tryHandleStreamResolverPermissionError(error: unknown): boolean {
+        if (!error || typeof error !== 'object') {
+            return false;
+        }
+        const maybe = error as { code?: unknown; message?: unknown };
+        if (typeof maybe.code !== 'string' || typeof maybe.message !== 'string') {
+            return false;
+        }
+        if (maybe.code !== AppErrorCode.ACCESS_DENIED) {
+            return false;
+        }
+        this.deps.handleGlobalError(
+            {
+                code: AppErrorCode.ACCESS_DENIED,
+                message: maybe.message,
+                recoverable: false,
+            },
+            'plex-stream'
+        );
+        return true;
     }
 
     /**

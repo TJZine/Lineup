@@ -150,6 +150,8 @@ export interface PlexAuthState {
     accountToken: PlexAuthToken | null;
     /** Active profile token (null if not authenticated) */
     activeToken: PlexAuthToken | null;
+    /** Active profile identity key used for per-profile storage scoping */
+    activeUserId: string | null;
     /** Whether token has been validated with server */
     isValidated: boolean;
     /** PIN currently being polled (null if none) */

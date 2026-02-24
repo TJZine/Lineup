@@ -205,7 +205,9 @@
 }
 
 .epg-channel-row {
-  height: 96px;
+  /* NOTE: Fallback (108px) MUST match EPG_CONSTANTS.ROW_HEIGHT (modules/ui/epg/constants.ts).
+     Used when --epg-row-height is not set (e.g., after destroy() or outside EPGComponent). */
+  height: var(--epg-row-height, 108px);
   padding: 8px 16px;
   display: flex;
   align-items: center;
@@ -515,7 +517,8 @@
 /* Program Cells */
 .epg-cell {
   position: absolute;
-  height: 90px;
+  /* NOTE: Fallback (108px) MUST match EPG_CONSTANTS.ROW_HEIGHT (modules/ui/epg/constants.ts). */
+  height: calc(var(--epg-row-height, 108px) - 6px);
   padding: 8px 12px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 4px;

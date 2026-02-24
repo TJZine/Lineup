@@ -174,17 +174,31 @@ describe('AudioTrackManager', () => {
         });
 
         it.each(['dts', 'truehd', 'dts-hd', 'wma', 'alac'])(
-            'should throw CODEC_UNSUPPORTED for: %s',
+            'should allow unsupported codec state updates when native audioTracks are unavailable: %s',
             async (codec) => {
             const tracks = [createMockTrack({ id: `track-${codec}`, codec })];
             manager.setTracks(tracks);
 
-            await expect(manager.switchTrack(`track-${codec}`)).rejects.toMatchObject({
-                code: PlayerErrorCode.CODEC_UNSUPPORTED,
-                message: expect.stringContaining(codec),
-            });
+            await expect(manager.switchTrack(`track-${codec}`)).resolves.toBeUndefined();
+            expect(manager.getActiveTrackId()).toBe(`track-${codec}`);
             }
         );
+
+        it('should throw CODEC_UNSUPPORTED when native audioTracks are present', async () => {
+            const videoEl = createMockVideoElement([
+                { id: 'track-aac', enabled: true },
+                { id: 'track-dts', enabled: false },
+            ]);
+            manager.initialize(videoEl);
+            manager.setTracks([
+                createMockTrack({ id: 'track-aac', codec: 'aac' }),
+                createMockTrack({ id: 'track-dts', codec: 'dts', default: false }),
+            ]);
+
+            await expect(manager.switchTrack('track-dts')).rejects.toMatchObject({
+                code: PlayerErrorCode.CODEC_UNSUPPORTED,
+            });
+        });
 
         it('should handle case-insensitive codec matching (AAC, EAC3)', async () => {
             const tracks = [
@@ -265,7 +279,11 @@ describe('AudioTrackManager', () => {
         });
 
         it('should not modify activeTrackId if switch fails with CODEC_UNSUPPORTED', async () => {
-            initializeWithVideo(manager);
+            const videoEl = createMockVideoElement([
+                { id: 'track-aac', enabled: true },
+                { id: 'track-dts', enabled: false },
+            ]);
+            manager.initialize(videoEl);
             manager.setTracks([
                 createMockTrack({ id: 'track-aac', codec: 'aac' }),
                 createMockTrack({ id: 'track-dts', codec: 'dts', default: false }),

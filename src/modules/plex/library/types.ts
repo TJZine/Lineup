@@ -33,6 +33,7 @@ export interface PlexLibrary {
     agent: string;
     scanner: string;
     contentCount: number;
+    episodeCount?: number;
     lastScannedAt: Date;
     art: string | null;
     thumb: string | null;

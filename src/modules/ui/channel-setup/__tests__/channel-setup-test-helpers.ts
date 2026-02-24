@@ -1,4 +1,4 @@
-import type { PlexLibrary } from '../../../plex/library/types';
+import type { PlexLibrary as PlexLibraryType } from '../../../plex/library/types';
 import type { FocusableElement, KeyEvent } from '../../../navigation/interfaces';
 import { PLEX_DISCOVERY_CONSTANTS } from '../../../plex/discovery/constants';
 import type { ChannelSetupOrchestrator } from '../ChannelSetupScreen';
@@ -17,18 +17,26 @@ export type NavigationMock = {
     setMockFocus: (id: string | null) => void;
 };
 
-export const makeLibrary = (overrides: Partial<PlexLibrary>): PlexLibrary => ({
-    id: overrides.id ?? 'lib-1',
-    uuid: overrides.uuid ?? 'uuid-1',
-    title: overrides.title ?? 'Library',
-    type: overrides.type ?? 'movie',
-    agent: overrides.agent ?? 'agent',
-    scanner: overrides.scanner ?? 'scanner',
-    contentCount: overrides.contentCount ?? 0,
-    lastScannedAt: overrides.lastScannedAt ?? new Date(0),
-    art: overrides.art ?? null,
-    thumb: overrides.thumb ?? null,
-});
+export const makeLibrary = (overrides: Partial<PlexLibraryType> = {}): PlexLibraryType => {
+    const defaults: PlexLibraryType = {
+        id: 'lib-1',
+        uuid: 'uuid-1',
+        title: 'Library',
+        type: 'movie',
+        agent: 'agent',
+        scanner: 'scanner',
+        contentCount: 0,
+        lastScannedAt: new Date(0),
+        art: null,
+        thumb: null,
+    };
+    const { episodeCount, ...rest } = overrides;
+    return {
+        ...defaults,
+        ...rest,
+        ...(episodeCount !== undefined ? { episodeCount } : {}),
+    };
+};
 
 export const DEFAULT_PREVIEW = {
     estimates: {
