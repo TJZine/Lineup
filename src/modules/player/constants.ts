@@ -40,7 +40,7 @@ export const SYNTHETIC_MEDIA_ERROR_CODE_KEY = '__retuneSyntheticMediaErrorCode';
 /**
  * ID for the main video element.
  */
-export const VIDEO_ELEMENT_ID = 'retune-video-player';
+export const VIDEO_ELEMENT_ID = 'lineup-video-player';
 
 /**
  * CSS styles for the video element.

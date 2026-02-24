@@ -4,7 +4,7 @@
 
 import { App } from '../App';
 import { AppOrchestrator, type PlaybackInfoSnapshot } from '../Orchestrator';
-import { RETUNE_STORAGE_KEYS } from '../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import { ThemeManager } from '../modules/ui/theme';
 import { STORAGE_KEYS } from '../types';
 
@@ -119,7 +119,7 @@ describe('App bootstrap smoke', () => {
     beforeEach(() => {
         localStorage.clear();
         document.body.innerHTML = '<div id="app"></div>';
-        Object.defineProperty(globalThis, '__RETUNE_DEV_BUILD__', {
+        Object.defineProperty(globalThis, '__LINEUP_DEV_BUILD__', {
             value: true,
             configurable: true,
             writable: true,
@@ -360,7 +360,7 @@ describe('App bootstrap smoke', () => {
         expect(refreshPlaybackInfoSnapshotSpy).toHaveBeenCalledTimes(3);
         expect(playbackPre?.textContent ?? '').toContain('(no stream decision yet)');
 
-        (window as unknown as { retune?: { toggleDevMenu: () => void } }).retune?.toggleDevMenu();
+        (window as unknown as { lineup?: { toggleDevMenu: () => void } }).lineup?.toggleDevMenu();
         expect(devMenu?.style.display).toBe('none');
     });
 
@@ -502,7 +502,7 @@ describe('App bootstrap smoke', () => {
         app = new App();
         await app.start();
 
-        (window as unknown as { retune?: { toggleDevMenu: () => void } }).retune?.toggleDevMenu();
+        (window as unknown as { lineup?: { toggleDevMenu: () => void } }).lineup?.toggleDevMenu();
         await flushPromises();
 
         const devMenu = document.getElementById('dev-menu') as HTMLElement | null;
@@ -567,17 +567,17 @@ describe('App bootstrap smoke', () => {
     });
 
     it('does not expose debug helpers when debug surface is disabled', async () => {
-        Object.defineProperty(globalThis, '__RETUNE_DEV_BUILD__', {
+        Object.defineProperty(globalThis, '__LINEUP_DEV_BUILD__', {
             value: false,
             configurable: true,
             writable: true,
         });
-        localStorage.removeItem(RETUNE_STORAGE_KEYS.DEBUG_LOGGING);
+        localStorage.removeItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING);
 
         app = new App();
         await app.start();
 
-        expect((window as unknown as { retune?: unknown }).retune).toBeUndefined();
+        expect((window as unknown as { lineup?: unknown }).lineup).toBeUndefined();
 
         document.dispatchEvent(
             new KeyboardEvent('keydown', {
@@ -685,7 +685,7 @@ describe('App bootstrap smoke', () => {
             await app.start();
 
             const clientId = localStorage.getItem(STORAGE_KEYS.CLIENT_ID) ?? '';
-            expect(clientId).toMatch(/^retune-[a-z0-9]+$/);
+            expect(clientId).toMatch(/^lineup-[a-z0-9]+$/);
         } finally {
             Object.defineProperty(globalThis, 'crypto', {
                 value: originalCrypto,
@@ -695,11 +695,11 @@ describe('App bootstrap smoke', () => {
     });
 
     it('uses an existing sane client id without regenerating', async () => {
-        localStorage.setItem(STORAGE_KEYS.CLIENT_ID, 'retune-existing_123');
+        localStorage.setItem(STORAGE_KEYS.CLIENT_ID, 'lineup-existing_123');
 
         app = new App();
         await app.start();
 
-        expect(localStorage.getItem(STORAGE_KEYS.CLIENT_ID)).toBe('retune-existing_123');
+        expect(localStorage.getItem(STORAGE_KEYS.CLIENT_ID)).toBe('lineup-existing_123');
     });
 });

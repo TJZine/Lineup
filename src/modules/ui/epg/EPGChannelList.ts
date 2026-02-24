@@ -392,7 +392,7 @@ export class EPGChannelList {
     private logDebugState(channelOffset: number): void {
         const shouldLog = ((): boolean => {
             try {
-                return localStorage.getItem('retune_debug_epg') === '1';
+                return localStorage.getItem('lineup_debug_epg') === '1';
             } catch {
                 return false;
             }

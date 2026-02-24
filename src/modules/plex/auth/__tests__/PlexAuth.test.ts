@@ -88,7 +88,7 @@ function createAuthData(token: PlexAuthToken): {
 describe('PlexAuth', () => {
     const mockConfig: PlexAuthConfig = {
         clientIdentifier: 'test-client-id',
-        product: 'Retune',
+        product: 'Lineup',
         version: '1.0.0',
         platform: 'webOS',
         platformVersion: '6.0',

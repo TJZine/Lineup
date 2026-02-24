@@ -165,10 +165,10 @@ function getDefaultPlexIdentity(clientIdentifier: string): Readonly<Record<strin
     return {
         'X-Plex-Client-Identifier': clientIdentifier,
         'X-Plex-Platform': 'webOS',
-        'X-Plex-Product': 'Retune',
+        'X-Plex-Product': 'Lineup',
         'X-Plex-Version': '1.0.0',
         'X-Plex-Device': 'LG Smart TV',
-        'X-Plex-Device-Name': 'Retune',
+        'X-Plex-Device-Name': 'Lineup',
         'X-Plex-Platform-Version': detectPlatformVersion(),
         'X-Plex-Model': 'LGTV',
     };

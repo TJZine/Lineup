@@ -5,7 +5,7 @@
 
 import { PlexStreamResolver } from '../PlexStreamResolver';
 import type { PlexStream } from '../types';
-import { RETUNE_STORAGE_KEYS } from '../../../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import type { PlatformIdentityService } from '../../../../platform';
 import { createMockConfig, createMockMediaItem } from './testUtils';
 
@@ -221,7 +221,7 @@ describe('PlexStreamResolver', () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: jest.fn((key: string) =>
-                        key === RETUNE_STORAGE_KEYS.SMART_HDR10_FALLBACK ? '1' : null
+                        key === LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK ? '1' : null
                     ),
                 },
                 configurable: true,
@@ -260,7 +260,7 @@ describe('PlexStreamResolver', () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: jest.fn((key: string) =>
-                        key === RETUNE_STORAGE_KEYS.SMART_HDR10_FALLBACK ? '1' : null
+                        key === LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK ? '1' : null
                     ),
                 },
                 configurable: true,
@@ -296,7 +296,7 @@ describe('PlexStreamResolver', () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: jest.fn((key: string) =>
-                        key === RETUNE_STORAGE_KEYS.DEBUG_LOGGING ? '1' : null
+                        key === LINEUP_STORAGE_KEYS.DEBUG_LOGGING ? '1' : null
                     ),
                 },
                 configurable: true,
@@ -326,8 +326,8 @@ describe('PlexStreamResolver', () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: jest.fn((key: string) => {
-                        if (key === RETUNE_STORAGE_KEYS.DEBUG_LOGGING) return '1';
-                        if (key === RETUNE_STORAGE_KEYS.FORCE_HDR10_FALLBACK) return '1';
+                        if (key === LINEUP_STORAGE_KEYS.DEBUG_LOGGING) return '1';
+                        if (key === LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK) return '1';
                         return null;
                     }),
                 },
@@ -368,7 +368,7 @@ describe('PlexStreamResolver', () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: jest.fn((key: string) =>
-                        key === RETUNE_STORAGE_KEYS.SMART_HDR10_FALLBACK ? '1' : null
+                        key === LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK ? '1' : null
                     ),
                 },
                 configurable: true,
@@ -395,7 +395,7 @@ describe('PlexStreamResolver', () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: jest.fn((key: string) =>
-                        key === RETUNE_STORAGE_KEYS.FORCE_HDR10_FALLBACK ? '1' : null
+                        key === LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK ? '1' : null
                     ),
                 },
                 configurable: true,
@@ -422,7 +422,7 @@ describe('PlexStreamResolver', () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: jest.fn((key: string) =>
-                        key === RETUNE_STORAGE_KEYS.FORCE_HDR10_FALLBACK ? '1' : null
+                        key === LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK ? '1' : null
                     ),
                 },
                 configurable: true,
@@ -451,7 +451,7 @@ describe('PlexStreamResolver', () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: jest.fn((key: string) =>
-                        key === RETUNE_STORAGE_KEYS.FORCE_HDR10_FALLBACK ? '1' : null
+                        key === LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK ? '1' : null
                     ),
                 },
                 configurable: true,
@@ -589,7 +589,7 @@ describe('PlexStreamResolver', () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: jest.fn((k: string) =>
-                        k === 'retune_direct_play_audio_fallback' ? '1' : null
+                        k === 'lineup_direct_play_audio_fallback' ? '1' : null
                     ),
                 },
                 configurable: true,
@@ -824,7 +824,7 @@ describe('PlexStreamResolver', () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: (key: string) =>
-                        key === RETUNE_STORAGE_KEYS.TRANSCODE_COMPAT ? '1' : null,
+                        key === LINEUP_STORAGE_KEYS.TRANSCODE_COMPAT ? '1' : null,
                 },
                 configurable: true,
             });
@@ -844,7 +844,7 @@ describe('PlexStreamResolver', () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: (key: string) =>
-                        key === RETUNE_STORAGE_KEYS.TRANSCODE_QUALITY ? '4000-720p' : null,
+                        key === LINEUP_STORAGE_KEYS.TRANSCODE_QUALITY ? '4000-720p' : null,
                 },
                 configurable: true,
             });
@@ -864,7 +864,7 @@ describe('PlexStreamResolver', () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: (key: string) =>
-                        key === RETUNE_STORAGE_KEYS.TRANSCODE_QUALITY ? '4000-720p' : null,
+                        key === LINEUP_STORAGE_KEYS.TRANSCODE_QUALITY ? '4000-720p' : null,
                 },
                 configurable: true,
             });
@@ -884,10 +884,10 @@ describe('PlexStreamResolver', () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: (key: string) => {
-                        if (key === RETUNE_STORAGE_KEYS.TRANSCODE_COMPAT) {
+                        if (key === LINEUP_STORAGE_KEYS.TRANSCODE_COMPAT) {
                             return '1';
                         }
-                        if (key === RETUNE_STORAGE_KEYS.TRANSCODE_QUALITY) {
+                        if (key === LINEUP_STORAGE_KEYS.TRANSCODE_QUALITY) {
                             return '2000-720p';
                         }
                         return null;

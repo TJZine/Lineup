@@ -194,7 +194,7 @@ describe('ChannelSetupCoordinator', () => {
             createdAt: 1,
             updatedAt: 2,
         };
-        storage.set('retune_channel_setup_v2:server-1', JSON.stringify(record));
+        storage.set('lineup_channel_setup_v2:server-1', JSON.stringify(record));
         channelManager.getAllChannels.mockReturnValue([]);
 
         expect(coordinator.shouldRunChannelSetup()).toBe(true);
@@ -210,7 +210,7 @@ describe('ChannelSetupCoordinator', () => {
     it('shouldRunChannelSetup returns true when setup record is invalid', () => {
         const { coordinator, channelManager, storage } = createCoordinator();
         channelManager.getAllChannels.mockReturnValue([mockChannelConfig]);
-        storage.set('retune_channel_setup_v2:server-1', JSON.stringify({
+        storage.set('lineup_channel_setup_v2:server-1', JSON.stringify({
             serverId: 'server-1',
             selectedLibraryIds: ['lib1', 123],
             strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
@@ -239,7 +239,7 @@ describe('ChannelSetupCoordinator', () => {
 
         coordinator.requestChannelSetupRerun();
 
-        expect(storageRemove).toHaveBeenCalledWith('retune_channel_setup_v2:server-9');
+        expect(storageRemove).toHaveBeenCalledWith('lineup_channel_setup_v2:server-9');
         expect(navigation.goTo).toHaveBeenCalledWith('channel-setup');
         expect(coordinator.shouldRunChannelSetup()).toBe(true);
     });
@@ -274,14 +274,14 @@ describe('ChannelSetupCoordinator', () => {
             createdAt: 123,
             updatedAt: 456,
         };
-        storage.set('retune_channel_setup_v2:server-1', JSON.stringify(existing));
+        storage.set('lineup_channel_setup_v2:server-1', JSON.stringify(existing));
         channelManager.getAllChannels.mockReturnValue([mockChannelConfig]);
 
         coordinator.requestChannelSetupRerun();
-        storage.set('retune_channel_setup_v2:server-1', JSON.stringify(existing));
+        storage.set('lineup_channel_setup_v2:server-1', JSON.stringify(existing));
         coordinator.markSetupComplete('server-1', createConfig({ minItemsPerChannel: 7 }));
 
-        const stored = storage.get('retune_channel_setup_v2:server-1');
+        const stored = storage.get('lineup_channel_setup_v2:server-1');
         expect(stored).toBeTruthy();
         const parsed = JSON.parse(stored as string) as ChannelSetupRecord;
         expect(parsed.createdAt).toBe(123);
@@ -307,7 +307,7 @@ describe('ChannelSetupCoordinator', () => {
 
         coordinator.markSetupComplete('server-1', config);
 
-        const raw = storage.get('retune_channel_setup_v2:server-1');
+        const raw = storage.get('lineup_channel_setup_v2:server-1');
         expect(raw).toBeTruthy();
         const parsed = JSON.parse(raw as string) as Record<string, unknown>;
         const strategyConfig = parsed.strategyConfig as Record<string, { enabled: boolean }> | undefined;
@@ -322,7 +322,7 @@ describe('ChannelSetupCoordinator', () => {
 
         coordinator.markSetupComplete('server-1', createConfig());
 
-        const raw = storage.get('retune_channel_setup_v2:server-1');
+        const raw = storage.get('lineup_channel_setup_v2:server-1');
         expect(raw).toBeTruthy();
         const parsed = JSON.parse(raw as string) as Record<string, unknown>;
         const strategyConfig = parsed.strategyConfig as Record<string, { priority: number; scope: string }> | undefined;

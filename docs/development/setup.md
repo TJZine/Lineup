@@ -16,7 +16,7 @@ This project requires a specific setup to develop for LG webOS.
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/TJZine/Retune.git
+git clone https://github.com/TJZine/Lineup.git
 
 # 2. Install dependencies
 npm install
@@ -43,6 +43,6 @@ Navigate to `http://localhost:5173`. Use **Arrow Keys** to simulate the remote.
    ```bash
    npm run build
    ares-package dist/
-   ares-install --device emulator com.retune.app_1.0.0_all.ipk
-   ares-launch --device emulator com.retune.app
+   ares-install --device emulator com.lineup.app_1.0.0_all.ipk
+   ares-launch --device emulator com.lineup.app
    ```

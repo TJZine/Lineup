@@ -9,7 +9,7 @@ import type {
 } from '../../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig } from '../../../scheduler/scheduler';
 import type { EPGConfig } from '../types';
-import { RETUNE_STORAGE_KEYS } from '../../../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,
@@ -270,8 +270,8 @@ describe('EPGCoordinator', () => {
     });
 
     it('primeEpgChannels applies filtering when tabs enabled and selected', () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
 
         const allChannels: ChannelConfig[] = [
             {
@@ -319,8 +319,8 @@ describe('EPGCoordinator', () => {
     });
 
     it('primeEpgChannels forces 3h for movie library filters even when default density is detailed', () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'movie-lib');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'movie-lib');
 
         const allChannels: ChannelConfig[] = [
             {
@@ -362,9 +362,9 @@ describe('EPGCoordinator', () => {
     });
 
     it('primeEpgChannels forces 2h for show library filters even when density is wide', () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
-        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'show-lib');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'show-lib');
 
         const allChannels: ChannelConfig[] = [
             {
@@ -406,8 +406,8 @@ describe('EPGCoordinator', () => {
     });
 
     it('primeEpgChannels clears filter when tabs are disabled', () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '0');
-        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '0');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
 
         const allChannels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -425,13 +425,13 @@ describe('EPGCoordinator', () => {
 
         coordinator.primeEpgChannels();
 
-        expect(localStorage.getItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
         expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
     });
 
     it('primeEpgChannels applies layout mode and now watching settings from storage', () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LAYOUT_MODE, 'classic');
-        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, '0');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, 'classic');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, '0');
 
         const { deps, epg } = makeDeps();
         const coordinator = new EPGCoordinator(deps);
@@ -443,8 +443,8 @@ describe('EPGCoordinator', () => {
     });
 
     it('primeEpgChannels clears filter when only one library remains', () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
 
         const allChannels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -462,7 +462,7 @@ describe('EPGCoordinator', () => {
 
         coordinator.primeEpgChannels();
 
-        expect(localStorage.getItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
         expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
     });
 
@@ -513,8 +513,8 @@ describe('EPGCoordinator', () => {
     });
 
     it('does not preseed when current channel is filtered out', () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib2');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib2');
 
         const channels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -873,9 +873,9 @@ describe('EPGCoordinator', () => {
                 const manyChannels = Array.from({ length: 240 }, (_, i) => makeChannel(`c${i}`, i + 1));
                 const runRefresh = async (aggressive: boolean): Promise<string[]> => {
                     if (aggressive) {
-                        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, '1');
+                        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, '1');
                     } else {
-                        localStorage.removeItem(RETUNE_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED);
+                        localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED);
                     }
 
                     const resolveChannelContent = jest.fn().mockImplementation(async (id: string) => {
@@ -950,8 +950,8 @@ describe('EPGCoordinator', () => {
     });
 
     it('refreshEpgSchedules uses filtered channels', async () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
 
         const channels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -977,8 +977,8 @@ describe('EPGCoordinator', () => {
     });
 
     it('refreshEpgSchedulesForRange uses filtered channels', async () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
 
         const channels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },

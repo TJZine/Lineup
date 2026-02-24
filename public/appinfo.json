@@ -1,10 +1,10 @@
 {
-    "id": "com.retune.app",
+    "id": "com.lineup.app",
     "version": "1.0.0",
-    "vendor": "Retune",
+    "vendor": "Lineup",
     "type": "web",
     "main": "index.html",
-    "title": "Retune",
+    "title": "Lineup",
     "resolution": "1920x1080",
     "disableBackHistoryAPI": true,
     "handlesRelaunch": true,

@@ -31,7 +31,7 @@ import {
     DEFAULT_HLS_OPTIONS,
 } from './constants';
 import { generateUUID } from './utils';
-import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import {
     isStoredTrue,
     readStoredBoolean,
@@ -101,7 +101,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     private _isSubtitleDebugEnabled(): boolean {
         try {
             return isStoredTrue(
-                safeLocalStorageGet(RETUNE_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING)
+                safeLocalStorageGet(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING)
             );
         } catch {
             return false;
@@ -165,7 +165,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             headers: Record<string, string>;
         }> = [
                 {
-                    // Closest to how Retune currently talks to PMS (token in header)
+                    // Closest to how Lineup currently talks to PMS (token in header)
                     authMode: 'header',
                     url: baseUrl,
                     headers: {
@@ -367,7 +367,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             request.audioStreamId
         );
         const videoStream = part.streams.find((s) => s.streamType === 1) ?? null;
-        // Subtitles are not user-selectable in Retune yet; do not auto-select defaults.
+        // Subtitles are not user-selectable in Lineup yet; do not auto-select defaults.
         // This prevents accidental burn-in which forces video transcoding.
         const subtitleStream =
             request.subtitleStreamId
@@ -482,7 +482,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             const allowDirectPlayAudioFallback = ((): boolean => {
                 try {
                     return isStoredTrue(
-                        safeLocalStorageGet(RETUNE_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK)
+                        safeLocalStorageGet(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK)
                     );
                 } catch {
                     return false;
@@ -858,7 +858,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         if (isDtsFamily) {
             const isDtsEnabled = ((): boolean => {
                 try {
-                    if (!isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DTS_PASSTHROUGH))) {
+                    if (!isStoredTrue(safeLocalStorageGet(LINEUP_STORAGE_KEYS.DTS_PASSTHROUGH))) {
                         return false;
                     }
                     if (typeof navigator !== 'undefined') {
@@ -932,7 +932,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             ? itemKey
             : `/library/metadata/${itemKey}`;
 
-        const compatMode = readStoredBoolean(RETUNE_STORAGE_KEYS.TRANSCODE_COMPAT, false);
+        const compatMode = readStoredBoolean(LINEUP_STORAGE_KEYS.TRANSCODE_COMPAT, false);
 
         const getOverride = (key: string): string | null => {
             try {
@@ -942,7 +942,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 return null;
             }
         };
-        const quality = getTranscodeQualityOption(getOverride(RETUNE_STORAGE_KEYS.TRANSCODE_QUALITY));
+        const quality = getTranscodeQualityOption(getOverride(LINEUP_STORAGE_KEYS.TRANSCODE_QUALITY));
         const shouldApplyQualityOverride = Boolean(quality && quality.storageValue.length > 0);
         const qualityMaxBitrate = shouldApplyQualityOverride ? quality?.maxVideoBitrateKbps : undefined;
         const effectiveMaxBitrate = typeof qualityMaxBitrate === 'number'
@@ -1017,7 +1017,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 params.set('subtitles', 'burn');
                 params.set('subtitleStreamID', options.subtitleStreamId as string);
             } else {
-                // Retune does not yet provide subtitle track selection. Avoid forcing burn-in, which can trigger video transcode.
+                // Lineup does not yet provide subtitle track selection. Avoid forcing burn-in, which can trigger video transcode.
                 params.set('subtitles', 'none');
                 // Redundant belt-and-suspenders for servers that ignore `subtitles=none`.
                 params.set('subtitleStreamID', '0');
@@ -1068,7 +1068,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         // Optional: Force the server to use a specific built-in profile name/version (advanced).
-        const forcedProfileNameRaw = getOverride(RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
+        const forcedProfileNameRaw = getOverride(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
         let forcedProfileName: string | null = null;
         if (forcedProfileNameRaw) {
             const value = forcedProfileNameRaw.trim().slice(0, 128);
@@ -1405,7 +1405,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         // advertise DTS-HD MA as well (Plex often labels it as `dca-ma`).
         const dtsEnabled = ((): boolean => {
             try {
-                return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.DTS_PASSTHROUGH));
+                return isStoredTrue(safeLocalStorageGet(LINEUP_STORAGE_KEYS.DTS_PASSTHROUGH));
             } catch {
                 return false;
             }
@@ -1527,7 +1527,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         const media = sorted[0];
         if (!media) return null;
         const mediaIndex = allMedia.findIndex((entry) => entry === media);
-        if (mediaIndex < 0 && __RETUNE_DEV_BUILD__) {
+        if (mediaIndex < 0 && __LINEUP_DEV_BUILD__) {
             console.warn(
                 '[PlexStreamResolver] _pickHighestResolution: selected media not found in allMedia, defaulting to index 0'
             );
@@ -1652,8 +1652,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
     private _getHdr10FallbackMode(): 'off' | 'smart' | 'force' {
         try {
-            const force = readStoredBoolean(RETUNE_STORAGE_KEYS.FORCE_HDR10_FALLBACK, false);
-            const smart = readStoredBoolean(RETUNE_STORAGE_KEYS.SMART_HDR10_FALLBACK, false);
+            const force = readStoredBoolean(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK, false);
+            const smart = readStoredBoolean(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK, false);
             return computeHdr10FallbackMode({ smartHdr10Fallback: smart, forceHdr10Fallback: force });
         } catch {
             return 'off';
@@ -1665,7 +1665,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        return readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
+        return readStoredBoolean(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, false);
     }
 
     private _isTrueHdCodec(codec: string | null | undefined): boolean {

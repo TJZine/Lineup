@@ -315,7 +315,7 @@ describe('ChannelManager', () => {
             const resolver = (manager as unknown as { _contentResolver: { clearCaches: () => void } })._contentResolver;
             const clearCachesSpy = jest.spyOn(resolver, 'clearCaches');
 
-            manager.setStorageKeys('retune_channels_new_scope', 'retune_current_channel_new_scope');
+            manager.setStorageKeys('lineup_channels_new_scope', 'lineup_current_channel_new_scope');
 
             expect(clearCachesSpy).toHaveBeenCalledTimes(1);
         });
@@ -330,7 +330,7 @@ describe('ChannelManager', () => {
             });
 
             expect(() =>
-                manager.setStorageKeys('retune_channels_new_scope', 'retune_current_channel_new_scope')
+                manager.setStorageKeys('lineup_channels_new_scope', 'lineup_current_channel_new_scope')
             ).not.toThrow();
             expect(warningHandler).toHaveBeenCalledWith(
                 expect.objectContaining({

@@ -1,6 +1,6 @@
 # Your First Custom Channel
 
-The magic of Retune is creating channels that feel like broadcast TV but play **your** content. Let's create a "Cinema 24/7" channel.
+The magic of Lineup is creating channels that feel like broadcast TV but play **your** content. Let's create a "Cinema 24/7" channel.
 
 ## 1. Open the Channel Editor
 
@@ -43,7 +43,7 @@ Choose how the content plays:
 You can also create channels from **Plex Collections**.
 
 1. In Plex, create a Collection named "Star Wars Universe".
-2. In Retune, New Channel -> Content Source -> **Collection**.
+2. In Lineup, New Channel -> Content Source -> **Collection**.
 3. Select "Star Wars Universe".
 4. Set Playback Mode to **Sequential**.
 

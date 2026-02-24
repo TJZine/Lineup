@@ -1,6 +1,6 @@
 # Remote Control Reference
 
-Retune is designed for the standard LG Magic Remote, but works with basic IR remotes and keyboards (for development) as well.
+Lineup is designed for the standard LG Magic Remote, but works with basic IR remotes and keyboards (for development) as well.
 
 ## Button Mapping
 
@@ -25,7 +25,7 @@ Retune is designed for the standard LG Magic Remote, but works with basic IR rem
 > [!TIP]
 > The Magic Remote pointer works like a mouse—click on any button or EPG grid item directly.
 
-Retune fully supports the LG Magic Remote pointer for click-based navigation.
+Lineup fully supports the LG Magic Remote pointer for click-based navigation.
 
 ## Menu Overlay
 

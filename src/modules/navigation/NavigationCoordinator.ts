@@ -10,7 +10,7 @@ import type { IVideoPlayer } from '../player';
 import type { IPlexAuth } from '../plex/auth';
 import { NOW_PLAYING_INFO_MODAL_ID } from '../ui/now-playing-info';
 import type { PlaybackOptionsSectionId } from '../ui/playback-options/types';
-import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import { readStoredBoolean } from '../../utils/storage';
 import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
@@ -738,11 +738,11 @@ export class NavigationCoordinator {
     }
 
     private _shouldKeepPlayingInSettings(): boolean {
-        return readStoredBoolean(RETUNE_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS, false);
+        return readStoredBoolean(LINEUP_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS, false);
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        return readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
+        return readStoredBoolean(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, false);
     }
 
     private _logInputNotHandled(

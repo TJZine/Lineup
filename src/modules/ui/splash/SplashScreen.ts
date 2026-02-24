@@ -25,8 +25,12 @@ export class SplashScreen {
         content.className = 'splash-content';
 
         const title = document.createElement('h1');
-        title.className = 'splash-title screen-title';
-        title.textContent = 'RETUNE';
+        title.className = 'splash-title screen-title lineup-logo';
+        title.textContent = 'LINE';
+        const accent = document.createElement('span');
+        accent.className = 'lineup-logo-accent';
+        accent.textContent = 'UP';
+        title.appendChild(accent);
 
         const subtitle = document.createElement('p');
         subtitle.className = 'splash-subtitle screen-subtitle';

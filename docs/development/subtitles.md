@@ -1,6 +1,6 @@
 # Subtitles (Engineering)
 
-This document is a living “what we do and why” for subtitles on webOS, plus the known failure modes and the debugging signals Retune emits.
+This document is a living “what we do and why” for subtitles on webOS, plus the known failure modes and the debugging signals Lineup emits.
 
 ## Goals
 
@@ -12,8 +12,8 @@ This document is a living “what we do and why” for subtitles on webOS, plus 
 ## Terminology
 
 - **Direct**: A subtitle stream can be fetched directly from Plex (often has a `key`).
-- **Extract**: Retune asks Plex to extract/serve the selected subtitle stream as text, then converts to WebVTT.
-- **Burn-in**: Retune asks Plex to burn subtitles into the video stream (forces transcoding).
+- **Extract**: Lineup asks Plex to extract/serve the selected subtitle stream as text, then converts to WebVTT.
+- **Burn-in**: Lineup asks Plex to burn subtitles into the video stream (forces transcoding).
 
 ## Current architecture
 
@@ -36,7 +36,7 @@ Key files:
 - Older embedded Chromium builds can fail `fetch()` on some responses (chunked encoding issues), where XHR succeeds.
 - `HTMLTrackElement` is most reliable with **WebVTT**. SRT/subrip often requires conversion.
 
-## What Retune tries (in order)
+## What Lineup tries (in order)
 
 When a user selects a subtitle track that isn’t already “ready”, `SubtitleManager` fetches the subtitle text and converts to WebVTT, then attaches it as a `blob:` URL.
 
@@ -61,11 +61,11 @@ If direct stream fails (common for keyless/embedded), request:
   - `download=1`
   - best-effort identity params (`X-Plex-*`) + token
 
-Retune then runs `normalizeSubtitleToVtt()` and uses a VTT `Blob`.
+Lineup then runs `normalizeSubtitleToVtt()` and uses a VTT `Blob`.
 
 ### Burn-in escalation (Full mode)
 
-If **Subtitle Mode = Full (Burn-in, default)**, Retune triggers a best-effort burn-in reload when needed:
+If **Subtitle Mode = Full (Burn-in, default)**, Lineup triggers a best-effort burn-in reload when needed:
 
 - immediately for burn-in formats (PGS/ASS/etc) when selected in Playback Options
 - when a fast direct-stream probe suggests a text track is not directly fetchable (avoid slow Extract UX)
@@ -84,12 +84,12 @@ Historically, the most common causes:
 4. **Transport quirks on webOS** (fetch works on desktop, fails on TV; XHR works on TV).
 5. **Non-VTT text formats** being attached directly to `<track>` (works inconsistently).
 
-Retune now carries `mediaIndex`/`partIndex` through to the universal subtitle extraction URL and avoids attaching non‑VTT sources as `<track src>`.
+Lineup now carries `mediaIndex`/`partIndex` through to the universal subtitle extraction URL and avoids attaching non‑VTT sources as `<track src>`.
 
 ## Debugging
 
 Enable:
-- `retune_subtitle_debug_logging=1` (Settings → Developer → Subtitle Debug Logging)
+- `lineup_subtitle_debug_logging=1` (Settings → Developer → Subtitle Debug Logging)
 
 Look for `[SubtitleDebug]` JSON logs. Helpful events:
 

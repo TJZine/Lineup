@@ -12,7 +12,7 @@ import type { INowPlayingInfoOverlay, NowPlayingInfoViewModel } from './index';
 import type { NowPlayingInfoConfig } from './types';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from './constants';
 import { readStoredBoolean, safeLocalStorageGet } from '../../../utils/storage';
-import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { type PlaybackInfoSnapshotLike } from '../../../utils/playbackSummary';
 import { formatAudioCodec } from '../../../utils/mediaFormat';
 import { extractHdrLabelFromPlexMedia } from '../../plex/stream/hdr';
@@ -60,7 +60,7 @@ export class NowPlayingInfoCoordinator {
         if (modalId !== this.deps.nowPlayingModalId) {
             return;
         }
-        this.cinematicNowPlaying = readStoredBoolean(RETUNE_STORAGE_KEYS.CINEMATIC_NOW_PLAYING, false);
+        this.cinematicNowPlaying = readStoredBoolean(LINEUP_STORAGE_KEYS.CINEMATIC_NOW_PLAYING, false);
         const overlay = this.deps.getNowPlayingInfo();
         const channelManager = this.deps.getChannelManager();
         if (!overlay || !channelManager) {
@@ -578,7 +578,7 @@ export class NowPlayingInfoCoordinator {
 export function getNowPlayingInfoAutoHideMs(
     config: NowPlayingInfoConfig | null | undefined
 ): number {
-    const raw = safeLocalStorageGet(RETUNE_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS);
+    const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS);
     const parsed = parseStoredNowPlayingInfoAutoHideMs(raw);
     const configured = config?.autoHideMs;
     const candidates = [

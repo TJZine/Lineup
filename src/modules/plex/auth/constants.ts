@@ -25,10 +25,10 @@ export const PLEX_AUTH_CONSTANTS = {
     HOME_USERS_ENDPOINT: '/home/users',
 
     /** localStorage key for auth data */
-    STORAGE_KEY: 'retune_plex_auth',
+    STORAGE_KEY: 'lineup_plex_auth',
 
     /** localStorage key for client identifier */
-    CLIENT_ID_KEY: 'retune_client_id',
+    CLIENT_ID_KEY: 'lineup_client_id',
 
     /** PIN polling interval (1 second) */
     PIN_POLL_INTERVAL_MS: 1000,

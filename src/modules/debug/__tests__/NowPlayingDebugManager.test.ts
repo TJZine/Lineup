@@ -1,5 +1,5 @@
 import { NowPlayingDebugManager, type NowPlayingDebugManagerDeps } from '../NowPlayingDebugManager';
-import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import type { INavigationManager } from '../../navigation';
 import type { IPlexStreamResolver, StreamDecision } from '../../plex/stream';
 import type { ScheduledProgram } from '../../scheduler/scheduler';
@@ -119,10 +119,10 @@ describe('NowPlayingDebugManager', () => {
     });
 
     const enableDebug = (): void => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG, '1');
     };
     const enableAutoShow = (): void => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW, '1');
     };
 
     it('auto-show opens modal only when debug + auto-show + player screen + no modals', () => {

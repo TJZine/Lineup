@@ -37,7 +37,7 @@ export interface PlexDeviceKey {
 export interface PlexAuthConfig {
     /** Unique app instance ID (UUID v4) - persisted across sessions */
     clientIdentifier: string;
-    /** App name shown in Plex dashboard (e.g., "Retune") */
+    /** App name shown in Plex dashboard (e.g., "Lineup") */
     product: string;
     /** App version string (e.g., "1.0.0") */
     version: string;

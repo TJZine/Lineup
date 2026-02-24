@@ -211,7 +211,7 @@ export interface StreamDecision {
 
     /**
      * Summary of the selected source media version (before any server-side transcode/remux).
-     * This is what Retune evaluated for direct play capability.
+     * This is what Lineup evaluated for direct play capability.
      */
     source?: {
         container: string;
@@ -227,7 +227,7 @@ export interface StreamDecision {
     };
 
     /**
-     * Retune's local direct-play eligibility decision for the selected media version.
+     * Lineup's local direct-play eligibility decision for the selected media version.
      * If `allowed` is false, `reasons` explains which constraint blocked direct play.
      */
     directPlay?: {
@@ -236,7 +236,7 @@ export interface StreamDecision {
     };
 
     /**
-     * When the default Plex audio track is TrueHD/MLP, Retune will prefer an AC3/EAC3/AAC
+     * When the default Plex audio track is TrueHD/MLP, Lineup will prefer an AC3/EAC3/AAC
      * fallback track (non-commentary) if available. This records that selection.
      */
     audioFallback?: {
@@ -246,7 +246,7 @@ export interface StreamDecision {
     };
 
     /**
-     * Parameters Retune used when requesting an HLS session (transcode or direct-stream).
+     * Parameters Lineup used when requesting an HLS session (transcode or direct-stream).
      * Note: Plex may still decide to direct-stream video while transcoding only audio.
      */
     transcodeRequest?: {

@@ -86,7 +86,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private _lastDebugEnabledStorageReadMs: number = 0;
     private _lastRenderGridDebugLogMs: number = 0;
     private _onStorage = (event: StorageEvent): void => {
-        if (event.key !== 'retune_debug_epg') return;
+        if (event.key !== 'lineup_debug_epg') return;
         this._debugEnabled = event.newValue === '1';
         this._lastDebugEnabledStorageReadMs = Date.now();
     };
@@ -181,7 +181,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
     private _readDebugEnabledFromStorage(): boolean {
         try {
-            return localStorage.getItem('retune_debug_epg') === '1';
+            return localStorage.getItem('lineup_debug_epg') === '1';
         } catch {
             return false;
         }

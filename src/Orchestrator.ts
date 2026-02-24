@@ -155,7 +155,7 @@ import {
     safeLocalStorageRemove,
     safeLocalStorageSet,
 } from './utils/storage';
-import { RETUNE_STORAGE_KEYS } from './config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from './config/storageKeys';
 import { getRecoveryActions as getRecoveryActionsHelper } from './core/error-recovery/RecoveryActions';
 import { toLifecycleAppError as toLifecycleAppErrorHelper } from './core/error-recovery/LifecycleErrorAdapter';
 import type { ErrorRecoveryAction } from './core/error-recovery/types';
@@ -794,7 +794,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             getServerUri: (): string | null =>
                 this._plexDiscovery?.getServerUri() ?? null,
             getPreferredSubtitleLanguage: (): string | null =>
-                safeLocalStorageGet(RETUNE_STORAGE_KEYS.SUBTITLE_LANGUAGE),
+                safeLocalStorageGet(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE),
             getPlexPreferredSubtitleLanguage: (): string | null =>
                 this._plexAuth?.getCurrentUser()?.preferredSubtitleLanguage ?? null,
             notifySubtitleUnavailable: (): void => {
@@ -1835,7 +1835,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     }
 
     private _seedSubtitleLanguageFromPlexUser(): void {
-        const existing = safeLocalStorageGet(RETUNE_STORAGE_KEYS.SUBTITLE_LANGUAGE);
+        const existing = safeLocalStorageGet(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE);
         if (typeof existing === 'string' && existing.trim().length > 0) {
             return;
         }
@@ -1847,7 +1847,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         if (normalized.length === 0) {
             return;
         }
-        safeLocalStorageSet(RETUNE_STORAGE_KEYS.SUBTITLE_LANGUAGE, normalized);
+        safeLocalStorageSet(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE, normalized);
     }
 
     private async _configureChannelManagerStorageForSelectedServer(): Promise<void> {
@@ -1884,7 +1884,7 @@ export class AppOrchestrator implements IAppOrchestrator {
 
     private _shouldRunAudioSetup(): boolean {
         // Check if audio setup has been completed
-        const completed = safeLocalStorageGet(RETUNE_STORAGE_KEYS.AUDIO_SETUP_COMPLETE);
+        const completed = safeLocalStorageGet(LINEUP_STORAGE_KEYS.AUDIO_SETUP_COMPLETE);
         return completed !== '1';
     }
 
@@ -2263,7 +2263,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         }
 
         // Only check burn-in settings for tracks that actually require burn-in.
-        const allowBurnIn = readStoredBoolean(RETUNE_STORAGE_KEYS.SUBTITLE_ALLOW_BURN_IN, true);
+        const allowBurnIn = readStoredBoolean(LINEUP_STORAGE_KEYS.SUBTITLE_ALLOW_BURN_IN, true);
         if (!allowBurnIn) {
             if (this._nowPlayingHandler) {
                 this._nowPlayingHandler({ message: 'Burn-in subtitles are disabled in Settings', type: 'warning' });

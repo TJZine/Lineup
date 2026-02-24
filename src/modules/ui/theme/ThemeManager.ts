@@ -6,7 +6,7 @@
 import { THEME_CLASSES, DEFAULT_THEME } from '../settings/theme';
 import type { ThemeName } from '../settings/theme';
 import { safeLocalStorageGet, safeLocalStorageSet } from '../../../utils/storage';
-import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 
 /**
  * Manages application theming.
@@ -36,7 +36,7 @@ export class ThemeManager {
     }
 
     private _loadSavedTheme(): void {
-        const saved = safeLocalStorageGet(RETUNE_STORAGE_KEYS.THEME);
+        const saved = safeLocalStorageGet(LINEUP_STORAGE_KEYS.THEME);
         const isThemeName = (value: string | null): value is ThemeName =>
             !!value && Object.prototype.hasOwnProperty.call(THEME_CLASSES, value);
         if (isThemeName(saved)) {
@@ -46,7 +46,7 @@ export class ThemeManager {
         }
 
         this._currentTheme = DEFAULT_THEME;
-        safeLocalStorageSet(RETUNE_STORAGE_KEYS.THEME, this._currentTheme);
+        safeLocalStorageSet(LINEUP_STORAGE_KEYS.THEME, this._currentTheme);
         this._applyTheme(this._currentTheme);
     }
 
@@ -57,7 +57,7 @@ export class ThemeManager {
     setTheme(theme: ThemeName): void {
         if (theme === this._currentTheme) return;
         this._currentTheme = theme;
-        safeLocalStorageSet(RETUNE_STORAGE_KEYS.THEME, theme);
+        safeLocalStorageSet(LINEUP_STORAGE_KEYS.THEME, theme);
         this._applyTheme(theme);
     }
 

@@ -11,7 +11,7 @@ Common issues and how to fix them.
 
 **Issue**: The app stops working after a few days.
 
-**Fix**: Open the **Developer Mode** app on your TV and click **"Extend Session"**. You do not need to reinstall Retune.
+**Fix**: Open the **Developer Mode** app on your TV and click **"Extend Session"**. You do not need to reinstall Lineup.
 
 ### "Connection Refused" when installing
 
@@ -30,7 +30,7 @@ Common issues and how to fix them.
 > 4K content requires high bandwidth. Try wired Ethernet for best results.
 
 - **Network**: Check your Wi-Fi signal strength.
-- **Server**: Your Plex server might be struggling to transcode. Retune tries to Direct Play, but sometimes transcoding is unavoidable (e.g., unsupported subtitles).
+- **Server**: Your Plex server might be struggling to transcode. Lineup tries to Direct Play, but sometimes transcoding is unavoidable (e.g., unsupported subtitles).
 
 ### Subtitles are missing or “unavailable”
 
@@ -61,11 +61,11 @@ See the dedicated guide: [Subtitles](subtitles.md).
 
 ### Wrong poster art
 
-- Retune caches images for performance. If you changed art in Plex, it might take a while to update in Retune.
+- Lineup caches images for performance. If you changed art in Plex, it might take a while to update in Lineup.
 
 ## Still stuck?
 
 > [!NOTE]
 > When opening an issue, include your TV model, webOS version, and steps to reproduce.
 
-Please [open an issue](https://github.com/TJZine/Retune/issues) on GitHub.
+Please [open an issue](https://github.com/TJZine/Lineup/issues) on GitHub.

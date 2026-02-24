@@ -1,2 +1,2 @@
-declare const __RETUNE_DEV_BUILD__: boolean;
-declare const __RETUNE_BUILD_PROFILE__: 'lean' | 'dev';
+declare const __LINEUP_DEV_BUILD__: boolean;
+declare const __LINEUP_BUILD_PROFILE__: 'lean' | 'dev';

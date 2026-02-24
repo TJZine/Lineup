@@ -5,7 +5,7 @@
  */
 
 export type TranscodeQualityOption = Readonly<{
-    /** Stored in localStorage under RETUNE_STORAGE_KEYS.TRANSCODE_QUALITY */
+    /** Stored in localStorage under LINEUP_STORAGE_KEYS.TRANSCODE_QUALITY */
     storageValue: string;
     /** User-visible label */
     label: string;

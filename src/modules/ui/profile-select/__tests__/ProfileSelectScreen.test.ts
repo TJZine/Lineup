@@ -4,7 +4,7 @@
 
 import { ProfileSelectScreen } from '../ProfileSelectScreen';
 import { AppErrorCode, PlexApiError } from '../../../plex/auth';
-import { RETUNE_STORAGE_KEYS } from '../../../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 
 type NavigationStub = {
     registerFocusable: jest.Mock;
@@ -138,7 +138,7 @@ describe('ProfileSelectScreen', () => {
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
             { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
         ];
-        localStorage.setItem(RETUNE_STORAGE_KEYS.LAST_PROFILE_ID, '2');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID, '2');
         const orchestrator = createOrchestratorStub(users);
         const container = document.createElement('div');
         document.body.appendChild(container);

@@ -211,8 +211,8 @@ export class ChannelSetupCoordinator {
         reportProgress('create_channels', 'Shuffling...', 'Setting up lineup', 0, pendingToCreate.length);
 
         const tempKeyId = String(Date.now());
-        const tempKey = `retune_channels_build_tmp_v1:${tempKeyId}`;
-        const tempCurrentKey = `retune_current_channel_build_tmp_v1:${tempKeyId}`;
+        const tempKey = `lineup_channels_build_tmp_v1:${tempKeyId}`;
+        const tempCurrentKey = `lineup_current_channel_build_tmp_v1:${tempKeyId}`;
         const builder = new ChannelManager({
             plexLibrary: plexLibrary,
             storageKey: tempKey,
@@ -401,8 +401,8 @@ export class ChannelSetupCoordinator {
         try {
             // Direct localStorage enumeration is intentional: deps only support single-key ops.
             const prefixes = [
-                'retune_channels_build_tmp_v1:',
-                'retune_current_channel_build_tmp_v1:',
+                'lineup_channels_build_tmp_v1:',
+                'lineup_current_channel_build_tmp_v1:',
             ];
             const keysToRemove: string[] = [];
             for (let i = 0; i < localStorage.length; i++) {
@@ -425,7 +425,7 @@ export class ChannelSetupCoordinator {
     }
 
     private _getChannelSetupStorageKey(serverId: string): string {
-        return `retune_channel_setup_v2:${serverId}`;
+        return `lineup_channel_setup_v2:${serverId}`;
     }
 
     private _normalizeConfig(config: ChannelSetupConfig): ChannelSetupConfig {

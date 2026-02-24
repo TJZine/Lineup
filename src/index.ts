@@ -15,6 +15,6 @@ import './modules/ui/audio-setup/styles.css';
 import './modules/ui/channel-setup/styles.css';
 import './styles/shell.css';
 
-import { installRetuneBootstrap } from './bootstrap';
+import { installLineupBootstrap } from './bootstrap';
 
-installRetuneBootstrap();
+installLineupBootstrap();

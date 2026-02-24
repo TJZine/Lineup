@@ -122,7 +122,7 @@ export const createOrchestrator = (
     getLibrariesForSetup: jest.fn().mockResolvedValue([]),
     getChannelSetupRecord: jest.fn(() => null),
     getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
-    getSelectedServerStorageKey: jest.fn(() => 'retune-selected-server-id'),
+    getSelectedServerStorageKey: jest.fn(() => 'lineup-selected-server-id'),
     getSelectedServerId: jest.fn(() => null),
     openServerSelect: jest.fn(),
     switchToChannelByNumber: jest.fn(),

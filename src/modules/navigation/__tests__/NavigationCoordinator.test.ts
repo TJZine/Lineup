@@ -5,7 +5,7 @@ import type { IVideoPlayer } from '../../player';
 import type { IPlexAuth } from '../../plex/auth';
 import { NOW_PLAYING_INFO_MODAL_ID } from '../../ui/now-playing-info';
 import { PLAYBACK_OPTIONS_MODAL_ID } from '../../ui/playback-options/constants';
-import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 
 type HandlerMap = Partial<{
     [K in keyof NavigationEventMap]: (payload: NavigationEventMap[K]) => void;
@@ -728,7 +728,7 @@ describe('NavigationCoordinator', () => {
         Object.defineProperty(globalThis, 'localStorage', {
             value: {
                 getItem: jest.fn((key: string) =>
-                    key === RETUNE_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS ? '1' : null
+                    key === LINEUP_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS ? '1' : null
                 ),
             },
             configurable: true,

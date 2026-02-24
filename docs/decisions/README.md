@@ -1,6 +1,6 @@
 # Architecture Decision Records (ADR)
 
-This directory contains records of significant architectural decisions made for Retune.
+This directory contains records of significant architectural decisions made for Lineup.
 
 ## What is an ADR?
 

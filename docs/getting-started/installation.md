@@ -1,9 +1,9 @@
 # Installation Guide
 
-This guide covers the installation of Retune on your LG Smart TV.
+This guide covers the installation of Lineup on your LG Smart TV.
 
 > [!NOTE]
-> Currently, Retune requires "Developer Mode" installation. We are working on publishing to the official LG Content Store.
+> Currently, Lineup requires "Developer Mode" installation. We are working on publishing to the official LG Content Store.
 
 ## Prerequisites
 
@@ -25,7 +25,7 @@ This guide covers the installation of Retune on your LG Smart TV.
 3. Toggle **Dev Mode Status** to **ON**.
 4. Your TV will restart.
 
-## Step 3: Install Retune via PC
+## Step 3: Install Lineup via PC
 
 We recommend using the webOS TV CLI tools, but for easier installation, you can use the **webOS Dev Manager** desktop app.
 
@@ -36,7 +36,7 @@ We recommend using the webOS TV CLI tools, but for easier installation, you can 
 3. Click **Add Device** and follow the prompts:
    - Enter the **Passphrase** shown in the TV's Developer Mode app.
    - Enter the **IP Address** shown in the TV's Developer Mode app.
-4. Once connected, drag and drop the `com.retune.app_x.x.x_all.ipk` file (downloaded from Retune Releases) into the window.
+4. Once connected, drag and drop the `com.lineup.app_x.x.x_all.ipk` file (downloaded from Lineup Releases) into the window.
 5. Click **Install**.
 
 ### Option B: Command Line Interface (Advanced)
@@ -51,13 +51,13 @@ ares-setup-device
 # (Select 'add', enter name, ip, etc.)
 
 # 3. Install the application
-ares-install --device my-tv com.retune.app_1.0.0_all.ipk
+ares-install --device my-tv com.lineup.app_1.0.0_all.ipk
 ```
 
 ## Step 4: First Launch
 
 1. Press the **Home** button on your remote.
-2. Scroll to the end of your app list to find **Retune**.
+2. Scroll to the end of your app list to find **Lineup**.
 3. Launch the app.
 
 > [!TIP]
@@ -65,6 +65,6 @@ ares-install --device my-tv com.retune.app_1.0.0_all.ipk
 
 ## Next Steps
 
-Now that Retune is installed, let's get it set up!
+Now that Lineup is installed, let's get it set up!
 
 👉 **[Proceed to Quick Start](quick-start.md)**

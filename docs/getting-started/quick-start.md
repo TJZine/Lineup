@@ -1,10 +1,10 @@
 # Quick Start Guide
 
-Get Retune up and running in 5 minutes! 🚀
+Get Lineup up and running in 5 minutes! 🚀
 
 ## 1. Connect to Plex
 
-1. Launch **Retune** on your TV.
+1. Launch **Lineup** on your TV.
 2. You will see a 4-character **PIN code**.
 3. On your phone or computer, visit **[plex.tv/link](https://plex.tv/link)**.
 4. Log in to your Plex account if requested.
@@ -13,13 +13,13 @@ Get Retune up and running in 5 minutes! 🚀
 
 ## 2. Select Your Server
 
-1. Retune will scan for available Plex Media Servers.
+1. Lineup will scan for available Plex Media Servers.
 2. Select your primary server from the list.
-3. Connection is automatic (Retune will test local and remote connections).
+3. Connection is automatic (Lineup will test local and remote connections).
 
 ## 3. Auto-Setup (First Run)
 
-On first launch, Retune can automatically create a few demo channels for you if it finds compatible content:
+On first launch, Lineup can automatically create a few demo channels for you if it finds compatible content:
 
 - It looks for "Movies" and "TV Shows" libraries.
 - If found, it creates:
