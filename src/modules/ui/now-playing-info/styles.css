@@ -291,7 +291,9 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.62);
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.12), transparent 45%),
+    linear-gradient(180deg, rgba(6, 8, 12, 0.32), rgba(6, 8, 12, 0.74));
 }
 
 .now-playing-info-container.now-playing-info-cinematic .now-playing-info-content,
@@ -304,6 +306,7 @@
     opacity: 0;
     transform: translateY(12px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -349,4 +352,24 @@
   .now-playing-info-container.now-playing-info-cinematic .now-playing-info-poster {
     animation: none;
   }
+}
+/* Hybrid Deep Glass refinements (glass theme only) */
+.theme-glass .now-playing-info-panel {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 42%, rgba(0, 0, 0, 0.24) 100%),
+    var(--glass-panel-strong);
+  border: 1px solid var(--glass-border-strong);
+  box-shadow: var(--glass-shadow-deep), inset 0 1px 0 var(--glass-highlight);
+  backdrop-filter: blur(34px) saturate(140%);
+  -webkit-backdrop-filter: blur(34px) saturate(140%);
+}
+
+.theme-glass .now-playing-info-title {
+  font-family: var(--font-family-display);
+  letter-spacing: -0.01em;
+}
+
+.theme-glass .now-playing-info-subtitle,
+.theme-glass .now-playing-info-context {
+  letter-spacing: 0.02em;
 }
