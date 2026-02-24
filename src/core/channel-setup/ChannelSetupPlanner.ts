@@ -727,6 +727,9 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
 }
 
 export function createChannelIdentityKey(candidate: ChannelIdentityCandidate): string {
+    // Identity keys are used to match planned channels to existing channels in merge/append flows.
+    // Intentionally exclude mutable playback settings like `blockSize` so changing those settings
+    // updates an existing channel rather than creating a duplicate.
     const normalized = {
         source: normalizeSource(candidate.contentSource),
         filters: normalizeFilters(candidate.contentFilters),

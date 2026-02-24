@@ -4,6 +4,13 @@ export function getBlockGroupKey(item: ResolvedContentItem): string {
     return item.showThumb ?? item.showTitle ?? item.ratingKey;
 }
 
+/**
+ * Apply "block" ordering to items by rotating through groups.
+ *
+ * Notes:
+ * - `blockSize` must be a positive integer (this function throws otherwise).
+ * - This function only orders items; callers are responsible for normalizing `scheduledIndex`.
+ */
 export function applyBlockPlaybackMode(options: {
     items: ResolvedContentItem[];
     seed: number;
@@ -11,6 +18,11 @@ export function applyBlockPlaybackMode(options: {
     shuffleKeys: (keys: string[], seed: number) => string[];
 }): ResolvedContentItem[] {
     const { items, seed, blockSize, shuffleKeys } = options;
+
+    // Guard loop invariants: blockSize must be a positive integer to ensure queues drain.
+    if (!Number.isInteger(blockSize) || blockSize <= 0) {
+        throw new RangeError(`[applyBlockPlaybackMode] Invalid blockSize=${String(blockSize)}`);
+    }
 
     const groups = new Map<string, ResolvedContentItem[]>();
     for (const item of items) {

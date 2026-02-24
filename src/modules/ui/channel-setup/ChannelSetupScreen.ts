@@ -30,7 +30,7 @@ import { LibraryStepController } from './steps/LibraryStepController';
 import { StrategyStepController } from './steps/StrategyStepController';
 import { BuildReviewStepController } from './steps/BuildReviewStepController';
 import { BuildProgressStepController } from './steps/BuildProgressStepController';
-import type { BuildReviewStateSnapshot, StrategyStepMutableState } from './steps/types';
+import type { BuildReviewStateSnapshot, SeriesOrderingState, StrategyStepMutableState } from './steps/types';
 import {
     ADVANCED_STRATEGY_KEYS,
     CONTENT_STRATEGY_KEYS,
@@ -54,11 +54,6 @@ type ChannelExpansionState = {
     alternateLineupCopies: number;
     variantType: 'none' | 'sequential' | 'block';
     variantBlockSize: number;
-};
-
-type SeriesOrderingState = {
-    basePlaybackMode: 'shuffle' | 'sequential' | 'block';
-    baseBlockSize: number;
 };
 
 const strategySupportsMixedScope = (key: SetupStrategyKey): boolean =>
