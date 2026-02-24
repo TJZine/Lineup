@@ -248,7 +248,9 @@ export class NowPlayingInfoCoordinator {
         const posterPath = item.type === 'episode'
             ? (details?.grandparentThumb ?? item.showThumb ?? item.thumb ?? null)
             : (details?.thumb ?? item.thumb ?? null);
+        const backdropPath = details?.art ?? item.art ?? null;
         let posterUrl: string | null = null;
+        let backdropUrl: string | null = null;
         if (posterPath) {
             const plexLibrary = this.deps.getPlexLibrary();
             if (plexLibrary) {
@@ -261,6 +263,9 @@ export class NowPlayingInfoCoordinator {
             if (!posterUrl) {
                 posterUrl = this.deps.buildPlexResourceUrl(posterPath);
             }
+        }
+        if (backdropPath) {
+            backdropUrl = this.deps.buildPlexResourceUrl(backdropPath);
         }
         const clearLogoPath =
             details?.clearLogo ?? (item as { clearLogo?: string | null }).clearLogo ?? null;
@@ -277,6 +282,7 @@ export class NowPlayingInfoCoordinator {
             elapsedMs: program.elapsedMs,
             durationMs: program.item.durationMs,
             posterUrl,
+            ...(backdropUrl ? { backdropUrl } : {}),
             ...(badges.length > 0 ? { badges } : {}),
             ...(metaLines.length > 0 ? { metaLines } : {}),
             ...(playbackSummary ? { playbackSummary } : {}),
