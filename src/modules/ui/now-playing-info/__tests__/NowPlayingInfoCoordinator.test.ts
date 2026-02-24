@@ -548,7 +548,7 @@ describe('NowPlayingInfoCoordinator', () => {
         const scheduler = makeScheduler();
         const { coordinator, overlay } = setup({
             getScheduler: () => scheduler,
-            buildPlexResourceUrl: jest.fn((path) => `http://mock${path}`) as any,
+            buildPlexResourceUrl: jest.fn((path) => `http://mock${path}`) as unknown as (path: string) => string,
         });
 
         coordinator.handleModalOpen(modalId);
@@ -571,7 +571,7 @@ describe('NowPlayingInfoCoordinator', () => {
         });
         const { coordinator, overlay } = setup({
             getPlexLibrary: () => plexLibrary,
-            buildPlexResourceUrl: jest.fn((path) => `http://mock${path}`) as any,
+            buildPlexResourceUrl: jest.fn((path) => `http://mock${path}`) as unknown as (path: string) => string,
         });
 
         coordinator.handleModalOpen(modalId);
