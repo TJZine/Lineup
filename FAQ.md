@@ -66,8 +66,8 @@ It depends on your TV model. Lineup hands the stream directly to the TV's native
 
 ## Still have questions?
 
-- 💬 Ask in [GitHub Discussions](https://github.com/TJZine/Retune/discussions)
-- 🐛 Report bugs via [Issue Tracker](https://github.com/TJZine/Retune/issues)
+- 💬 Ask in [GitHub Discussions](https://github.com/TJZine/Lineup/discussions)
+- 🐛 Report bugs via [Issue Tracker](https://github.com/TJZine/Lineup/issues)
  
 
 ---

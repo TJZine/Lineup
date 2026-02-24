@@ -1,4 +1,4 @@
-name: Retune CI
+name: Lineup CI
 
 on:
   push:

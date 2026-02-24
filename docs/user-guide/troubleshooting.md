@@ -68,4 +68,4 @@ See the dedicated guide: [Subtitles](subtitles.md).
 > [!NOTE]
 > When opening an issue, include your TV model, webOS version, and steps to reproduce.
 
-Please [open an issue](https://github.com/TJZine/Retune/issues) on GitHub.
+Please [open an issue](https://github.com/TJZine/Lineup/issues) on GitHub.

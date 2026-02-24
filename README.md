@@ -86,9 +86,8 @@ Get Lineup running in 5 minutes:
 
 ```bash
 # Clone the repository
-# Note: GitHub repo rename (Retune -> Lineup) may be in progress; follow redirects if needed.
-git clone https://github.com/TJZine/Retune.git
-cd Retune
+git clone https://github.com/TJZine/Lineup.git
+cd Lineup
 
 # Use the recommended Node version from .nvmrc
 nvm use
@@ -100,7 +99,8 @@ npm install
 npm run package:webos
 
 # Install to your TV (replace 'my-tv' with your device name)
-ares-install --device my-tv com.lineup.app_1.0.0_all.ipk
+# Replace <VERSION> with the filename emitted by the packaging step.
+ares-install --device my-tv com.lineup.app_<VERSION>_all.ipk
 
 # Launch the app
 ares-launch --device my-tv com.lineup.app

@@ -43,7 +43,8 @@ npm run build
 ares-package dist/
 
 # 3. Install to your TV
-ares-install --device my-tv com.lineup.app_1.0.0_all.ipk
+# Replace <VERSION> with the filename emitted by the packaging step.
+ares-install --device my-tv com.lineup.app_<VERSION>_all.ipk
 
 # 4. Launch
 ares-launch --device my-tv com.lineup.app

@@ -18,7 +18,7 @@ We take security seriously. If you discover a vulnerability, please report it re
 ### How to Report
 
 1. **GitHub Security Advisories** (Preferred)
-   - Go to the [Security tab](https://github.com/TJZine/Retune/security/advisories) of this repository
+   - Go to the [Security tab](https://github.com/TJZine/Lineup/security/advisories) of this repository
    - Click "Report a vulnerability"
    - Fill out the form with details
 

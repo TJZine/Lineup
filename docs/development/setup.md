@@ -16,8 +16,8 @@ This project requires a specific setup to develop for LG webOS.
 
 ```bash
 # 1. Clone the repository
-# Note: GitHub repo rename (Retune -> Lineup) may be in progress; follow redirects if needed.
-git clone https://github.com/TJZine/Retune.git
+git clone https://github.com/TJZine/Lineup.git
+cd Lineup
 
 # 2. Install dependencies
 npm install
@@ -41,9 +41,10 @@ Navigate to `http://localhost:5173`. Use **Arrow Keys** to simulate the remote.
 1. Start the webOS Emulator.
 2. Build and install:
 
-   ```bash
-   npm run build
-   ares-package dist/
-   ares-install --device emulator com.lineup.app_1.0.0_all.ipk
-   ares-launch --device emulator com.lineup.app
-   ```
+	   ```bash
+	   npm run build
+	   ares-package dist/
+	   # Replace <VERSION> with the filename emitted by the packaging step.
+	   ares-install --device emulator com.lineup.app_<VERSION>_all.ipk
+	   ares-launch --device emulator com.lineup.app
+	   ```

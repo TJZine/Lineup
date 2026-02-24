@@ -51,7 +51,8 @@ ares-setup-device
 # (Select 'add', enter name, ip, etc.)
 
 # 3. Install the application
-ares-install --device my-tv com.lineup.app_1.0.0_all.ipk
+# Replace <VERSION> with the filename emitted by the packaging step.
+ares-install --device my-tv com.lineup.app_<VERSION>_all.ipk
 ```
 
 ## Step 4: First Launch

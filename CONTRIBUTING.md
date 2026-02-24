@@ -48,11 +48,11 @@ Whether you're fixing bugs, adding features, improving documentation, or just as
 # 1. Fork the repository on GitHub
 
 # 2. Clone your fork
-git clone https://github.com/YOUR_USERNAME/Retune.git
-cd Retune
+git clone https://github.com/YOUR_USERNAME/Lineup.git
+cd Lineup
 
 # 3. Add upstream remote
-git remote add upstream https://github.com/TJZine/Retune.git
+git remote add upstream https://github.com/TJZine/Lineup.git
 
 # 4. Install dependencies
 npm install
