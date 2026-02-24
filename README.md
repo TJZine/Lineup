@@ -1,6 +1,6 @@
 <h1 align="center">
   <br>
-  📺 Retune
+  📺 Lineup
   <br>
 </h1>
 
@@ -25,9 +25,9 @@
 
 ---
 
-## What is Retune?
+## What is Lineup?
 
-Retune transforms your Plex media library into simulated **live television channels** on your LG Smart TV. Instead of browsing and selecting content on-demand, you can tune into curated channels that play content on a schedule—just like traditional broadcast TV.
+Lineup transforms your Plex media library into simulated **live television channels** on your LG Smart TV. Instead of browsing and selecting content on-demand, you can tune into curated channels that play content on a schedule—just like traditional broadcast TV.
 
 **Perfect for**:
 
@@ -57,7 +57,7 @@ Retune transforms your Plex media library into simulated **live television chann
 
 ## 🚀 Quick Start
 
-Get Retune running in 5 minutes:
+Get Lineup running in 5 minutes:
 
 ### Prerequisites
 
@@ -67,10 +67,10 @@ Get Retune running in 5 minutes:
 
 ### Steps
 
-1. **Install Retune** on your LG TV (see [Installation](#-installation))
+1. **Install Lineup** on your LG TV (see [Installation](#-installation))
 2. **Launch the app** and note the PIN code displayed
 3. **Visit** [plex.tv/link](https://plex.tv/link) on any device
-4. **Enter the PIN** to authorize Retune
+4. **Enter the PIN** to authorize Lineup
 5. **Select your Plex server** when prompted
 6. **Create your first channel** from any library, collection, or show
 7. **Start watching!** 🎉
@@ -86,8 +86,8 @@ Get Retune running in 5 minutes:
 
 ```bash
 # Clone the repository
-git clone https://github.com/TJZine/Retune.git
-cd Retune
+git clone https://github.com/TJZine/Lineup.git
+cd Lineup
 
 # Use the recommended Node version from .nvmrc
 nvm use
@@ -99,10 +99,11 @@ npm install
 npm run package:webos
 
 # Install to your TV (replace 'my-tv' with your device name)
-ares-install --device my-tv com.retune.app_1.0.0_all.ipk
+# Replace <VERSION> with the filename emitted by the packaging step.
+ares-install --device my-tv com.lineup.app_<VERSION>_all.ipk
 
 # Launch the app
-ares-launch --device my-tv com.retune.app
+ares-launch --device my-tv com.lineup.app
 ```
 
 > [!TIP]
@@ -133,7 +134,7 @@ ares-launch --device my-tv com.retune.app
 | **Technical** | |
 | [Architecture Overview](docs/architecture/README.md) | System design and module breakdown |
 | [Plex API Reference](docs/api/plex-integration.md) | Plex integration interface contracts |
-| [Contributing](CONTRIBUTING.md) | How to contribute to Retune |
+| [Contributing](CONTRIBUTING.md) | How to contribute to Lineup |
 
 ---
 

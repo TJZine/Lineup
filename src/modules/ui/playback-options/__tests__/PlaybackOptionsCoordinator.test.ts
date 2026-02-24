@@ -4,7 +4,7 @@ import type { INavigationManager } from '../../../navigation';
 import type { PlaybackOptionsViewModel } from '../types';
 import type { ScheduledProgram } from '../../../scheduler/scheduler';
 import type { SubtitleTrack, AudioTrack } from '../../../player/types';
-import { RETUNE_STORAGE_KEYS } from '../../../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import type { StreamDescriptor } from '../../../player/types';
 
 const makeProgram = (ratingKey = 'item-1'): ScheduledProgram =>
@@ -122,7 +122,7 @@ describe('PlaybackOptionsCoordinator', () => {
     });
 
     it('filters to direct-only subtitles when Subtitle Mode is Direct', () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'direct');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'direct');
 
         const player = createPlayer([
             makeTextTrack({ id: 'direct', fetchableViaKey: true, key: '/library/streams/1' }),
@@ -166,7 +166,7 @@ describe('PlaybackOptionsCoordinator', () => {
     });
 
     it('shows burn-in tracks only in Full mode', () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
         const player = createPlayer([makeBurnInTrack({ id: 'burn' })]);
 
@@ -207,7 +207,7 @@ describe('PlaybackOptionsCoordinator', () => {
     });
 
     it('requests burn-in immediately for burn-in subtitle formats in Full mode', async () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
         const player = createPlayer([makeBurnInTrack({ id: 'burn' })]);
         const requestBurnInSubtitle = jest.fn();
@@ -232,7 +232,7 @@ describe('PlaybackOptionsCoordinator', () => {
     });
 
     it('requests burn-in immediately for unsupported text subtitle probes in Full mode', async () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
         const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 501 });
         const { restore } = installFetchMock(fetchMock);
@@ -276,7 +276,7 @@ describe('PlaybackOptionsCoordinator', () => {
     });
 
     it('scopes subtitle probe cache by server identity', async () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
         const fetchMock = jest.fn()
             .mockResolvedValueOnce({ ok: false, status: 400 })
@@ -331,7 +331,7 @@ describe('PlaybackOptionsCoordinator', () => {
     });
 
     it('ignores stale probe results when playback item changes', async () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
         let resolveFetch: ((value: { ok: boolean; status: number }) => void) | undefined;
         const fetchMock = jest.fn().mockImplementation(() => (
@@ -384,7 +384,7 @@ describe('PlaybackOptionsCoordinator', () => {
     });
 
     it('ignores stale probe results when the user re-selects another subtitle', async () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
         let resolveFirstProbe: ((value: { ok: boolean; status: number }) => void) | undefined;
         const fetchMock = jest.fn().mockImplementation((url: string) => {
@@ -451,7 +451,7 @@ describe('PlaybackOptionsCoordinator', () => {
     });
 
     it('requests burn-in when text subtitle probe times out in Full mode', async (): Promise<void> => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
         jest.useFakeTimers();
         const fetchMock = jest.fn().mockImplementation((_url: string, init?: RequestInit) => (
@@ -503,7 +503,7 @@ describe('PlaybackOptionsCoordinator', () => {
     });
 
     it('shows a failure toast when burn-in subtitle request returns false', async () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
         const player = createPlayer([makeBurnInTrack({ id: 'burn' })]);
         const requestBurnInSubtitle = jest.fn().mockResolvedValue(false);
@@ -530,7 +530,7 @@ describe('PlaybackOptionsCoordinator', () => {
     });
 
     it('shows a failure toast when burn-in subtitle request rejects', async () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
         const player = createPlayer([makeBurnInTrack({ id: 'burn' })]);
         const requestBurnInSubtitle = jest.fn().mockRejectedValue(new Error('fail'));
@@ -575,8 +575,8 @@ describe('PlaybackOptionsCoordinator', () => {
 
         await flushPromises();
 
-        const storedItem = localStorage.getItem('retune_subtitle_pref_item:item-99');
-        const storedGlobal = localStorage.getItem('retune_subtitle_pref_global');
+        const storedItem = localStorage.getItem('lineup_subtitle_pref_item:item-99');
+        const storedGlobal = localStorage.getItem('lineup_subtitle_pref_global');
         expect(storedItem).toBeNull();
         expect(storedGlobal).toBeNull();
     });

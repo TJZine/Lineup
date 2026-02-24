@@ -1,22 +1,22 @@
 {
-    "name": "retune",
+    "name": "lineup",
     "version": "1.0.0",
     "description": "webOS Plex Virtual Channels Application",
     "author": "TJZine",
     "license": "Apache-2.0",
     "repository": {
         "type": "git",
-        "url": "https://github.com/TJZine/Retune.git"
+        "url": "https://github.com/TJZine/Lineup.git"
     },
     "private": true,
     "type": "module",
     "scripts": {
         "dev": "vite",
         "build": "npm run build:dev",
-        "build:lean": "cross-env RETUNE_BUILD_PROFILE=lean vite build",
-        "build:dev": "cross-env RETUNE_BUILD_PROFILE=dev vite build",
-        "build:analyze": "cross-env RETUNE_BUILD_PROFILE=lean ANALYZE=1 vite build",
-        "build:analyze:dev": "cross-env RETUNE_BUILD_PROFILE=dev ANALYZE=1 vite build",
+        "build:lean": "cross-env LINEUP_BUILD_PROFILE=lean vite build",
+        "build:dev": "cross-env LINEUP_BUILD_PROFILE=dev vite build",
+        "build:analyze": "cross-env LINEUP_BUILD_PROFILE=lean ANALYZE=1 vite build",
+        "build:analyze:dev": "cross-env LINEUP_BUILD_PROFILE=dev ANALYZE=1 vite build",
         "preview": "vite preview --port 5173",
         "build:ts": "tsc",
         "lint": "eslint src",

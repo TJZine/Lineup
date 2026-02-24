@@ -11,7 +11,7 @@ import { PlexApiError } from '../../plex/auth';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
 import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
-import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { safeLocalStorageGet, safeLocalStorageSet } from '../../../utils/storage';
 
 const FOCUS_RESTORE_DELAY_MS = 50;
@@ -304,7 +304,7 @@ export class ProfileSelectScreen {
         this._listEl.replaceChildren();
         this._userButtonIds = [];
         const buttonIds = this._buildUserButtonIds(users.map((user) => user.id));
-        const lastUsedId = safeLocalStorageGet(RETUNE_STORAGE_KEYS.LAST_PROFILE_ID);
+        const lastUsedId = safeLocalStorageGet(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID);
 
         users.forEach((user, index) => {
             const button = document.createElement('button');
@@ -394,7 +394,7 @@ export class ProfileSelectScreen {
         try {
             await this._orchestrator.useMainAccountProfile();
             // Clear last-used hint — main account bypasses profile cards.
-            safeLocalStorageSet(RETUNE_STORAGE_KEYS.LAST_PROFILE_ID, '');
+            safeLocalStorageSet(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID, '');
             this._navigateToServerSelect();
         } catch (error) {
             this._handleError(error, 'Unable to switch profile.');
@@ -420,7 +420,7 @@ export class ProfileSelectScreen {
         this._isSwitching = true;
         try {
             await this._orchestrator.switchHomeUser(userId, pin);
-            safeLocalStorageSet(RETUNE_STORAGE_KEYS.LAST_PROFILE_ID, userId);
+            safeLocalStorageSet(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID, userId);
             this._navigateToServerSelect();
             return true;
         } catch (error) {

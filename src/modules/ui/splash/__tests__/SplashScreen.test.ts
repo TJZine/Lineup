@@ -18,7 +18,8 @@ describe('SplashScreen', () => {
         const screen = new SplashScreen(container);
         expect(screen).toBeInstanceOf(SplashScreen);
         expect(container.className).toContain('splash-screen');
-        expect(container.querySelector('.splash-title')?.textContent).toBe('RETUNE');
+        expect(container.querySelector('.splash-title')?.textContent).toBe('LINEUP');
+        expect(container.querySelector('.lineup-logo-accent')).not.toBeNull();
         expect(container.querySelector('.splash-subtitle')?.textContent).toContain('Warming up Plex');
         expect(container.querySelector('.splash-status')?.textContent).toBe('Starting up…');
     });

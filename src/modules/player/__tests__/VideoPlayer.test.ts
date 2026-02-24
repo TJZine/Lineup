@@ -229,7 +229,7 @@ describe('VideoPlayer', () => {
 
             const videoElement = container.querySelector('video');
             expect(videoElement).not.toBeNull();
-            expect(videoElement?.id).toBe('retune-video-player');
+            expect(videoElement?.id).toBe('lineup-video-player');
 
             player.destroy();
         });

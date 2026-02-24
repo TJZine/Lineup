@@ -5,8 +5,8 @@
  */
 
 import { App } from './App';
-import { RETUNE_EVENT_NAMES } from './config/events';
-import { RETUNE_STORAGE_KEYS } from './config/storageKeys';
+import { LINEUP_EVENT_NAMES } from './config/events';
+import { LINEUP_STORAGE_KEYS } from './config/storageKeys';
 import { redactSensitiveTokens } from './utils/redact';
 import { summarizeErrorForLog } from './utils/errors';
 import {
@@ -33,8 +33,8 @@ const ORIGINAL_CONSOLE_METHODS: Record<ConsoleNoiseMethod, (...args: unknown[]) 
  * Keep console.error intact for real failure diagnostics.
  */
 function configureLoggingPolicy(): void {
-    const debugEnabled = readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
-    const shouldSuppressNoise = !__RETUNE_DEV_BUILD__ && !debugEnabled;
+    const debugEnabled = readStoredBoolean(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, false);
+    const shouldSuppressNoise = !__LINEUP_DEV_BUILD__ && !debugEnabled;
     const noop = (..._args: unknown[]): void => undefined;
     for (const method of CONSOLE_NOISE_METHODS) {
         // eslint-disable-next-line no-console
@@ -43,8 +43,8 @@ function configureLoggingPolicy(): void {
 }
 
 function migrateLegacyDebugLoggingKey(): void {
-    const primaryKey = RETUNE_STORAGE_KEYS.DEBUG_LOGGING;
-    const legacyKey = 'retune_debug_transcode';
+    const primaryKey = LINEUP_STORAGE_KEYS.DEBUG_LOGGING;
+    const legacyKey = 'lineup_debug_transcode';
 
     const primary = parseStoredBoolean(safeLocalStorageGet(primaryKey));
     if (primary !== null) return;
@@ -62,7 +62,7 @@ function logLifecycle(message: string): void {
     ORIGINAL_CONSOLE_METHODS.warn(message);
 }
 
-interface RetuneDebugApi {
+interface LineupDebugApi {
     openEPG: () => void;
     closeEPG: () => void;
     toggleEPG: () => void;
@@ -82,13 +82,13 @@ function handleDebugLoggingChanged(): void {
 
 function handleDomContentLoaded(): void {
     bootstrap().catch((error: unknown) => {
-        console.error('[Retune] bootstrap failed:', summarizeErrorForLog(error));
+        console.error('[Lineup] bootstrap failed:', summarizeErrorForLog(error));
     });
 }
 
 function handlePageHide(): void {
     cleanup().catch((error: unknown) => {
-        console.error('[Retune] cleanup failed:', summarizeErrorForLog(error));
+        console.error('[Lineup] cleanup failed:', summarizeErrorForLog(error));
     });
 }
 
@@ -97,13 +97,13 @@ function handlePageShow(event: PageTransitionEvent): void {
     if (!event.persisted) return;
     if (app) return;
     bootstrap().catch((error: unknown) => {
-        console.error('[Retune] bootstrap (pageshow) failed:', summarizeErrorForLog(error));
+        console.error('[Lineup] bootstrap (pageshow) failed:', summarizeErrorForLog(error));
     });
 }
 
 function isDebugSurfaceEnabled(): boolean {
-    const debugEnabled = readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
-    return __RETUNE_DEV_BUILD__ || debugEnabled;
+    const debugEnabled = readStoredBoolean(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, false);
+    return __LINEUP_DEV_BUILD__ || debugEnabled;
 }
 
 function toSafeErrorMessage(value: unknown): string {
@@ -117,12 +117,12 @@ function toSafeErrorMessage(value: unknown): string {
 }
 
 function syncWindowDebugApi(currentApp: App | null): void {
-    const win = window as Window & { __RETUNE__?: RetuneDebugApi };
+    const win = window as Window & { __LINEUP__?: LineupDebugApi };
     if (!currentApp || !isDebugSurfaceEnabled()) {
-        delete win.__RETUNE__;
+        delete win.__LINEUP__;
         return;
     }
-    win.__RETUNE__ = {
+    win.__LINEUP__ = {
         openEPG: (): void => {
             currentApp.getOrchestrator()?.openEPG();
         },
@@ -281,15 +281,15 @@ function describeElement(el: Element | null): unknown {
  * Initialize the application when DOM is ready.
  */
 async function bootstrap(): Promise<void> {
-    logLifecycle('[Retune] Starting...');
+    logLifecycle('[Lineup] Starting...');
 
     try {
         app = new App();
         syncWindowDebugApi(app);
         await app.start();
-        logLifecycle('[Retune] Started successfully');
+        logLifecycle('[Lineup] Started successfully');
     } catch (error) {
-        console.error('Failed to start Retune:', summarizeErrorForLog(error));
+        console.error('Failed to start Lineup:', summarizeErrorForLog(error));
         showGlobalErrorOverlay(toSafeErrorMessage(error));
         app = null;
         syncWindowDebugApi(null);
@@ -306,12 +306,12 @@ async function cleanup(): Promise<void> {
         return;
     }
 
-    logLifecycle('[Retune] Shutting down...');
+    logLifecycle('[Lineup] Shutting down...');
     try {
         await currentApp.shutdown();
-        logLifecycle('[Retune] Shut down complete');
+        logLifecycle('[Lineup] Shut down complete');
     } catch (error: unknown) {
-        console.error('[Retune] shutdown failed:', summarizeErrorForLog(error));
+        console.error('[Lineup] shutdown failed:', summarizeErrorForLog(error));
         throw error;
     } finally {
         app = null;
@@ -319,13 +319,13 @@ async function cleanup(): Promise<void> {
     }
 }
 
-export function installRetuneBootstrap(): void {
+export function installLineupBootstrap(): void {
     if (bootstrapInstalled) return;
     bootstrapInstalled = true;
 
     migrateLegacyDebugLoggingKey();
     configureLoggingPolicy();
-    window.addEventListener(RETUNE_EVENT_NAMES.DEBUG_LOGGING_CHANGED, handleDebugLoggingChanged);
+    window.addEventListener(LINEUP_EVENT_NAMES.DEBUG_LOGGING_CHANGED, handleDebugLoggingChanged);
 
     window.addEventListener('error', handleGlobalError);
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
@@ -335,7 +335,7 @@ export function installRetuneBootstrap(): void {
         document.addEventListener('DOMContentLoaded', handleDomContentLoaded, { once: true });
     } else {
         bootstrap().catch((error: unknown) => {
-            console.error('[Retune] bootstrap failed:', summarizeErrorForLog(error));
+            console.error('[Lineup] bootstrap failed:', summarizeErrorForLog(error));
         });
     }
 
@@ -345,16 +345,16 @@ export function installRetuneBootstrap(): void {
 }
 
 /**
- * Remove global handlers registered by installRetuneBootstrap().
+ * Remove global handlers registered by installLineupBootstrap().
  * @internal Primarily intended for tests and debug harnesses.
- * @remarks Call `cleanup()` first, or use `cleanupAndUninstallRetuneBootstrap()` to avoid
+ * @remarks Call `cleanup()` first, or use `cleanupAndUninstallLineupBootstrap()` to avoid
  * leaving a running app without lifecycle handlers.
  */
-function uninstallRetuneBootstrap(): void {
+function uninstallLineupBootstrap(): void {
     if (!bootstrapInstalled) return;
     bootstrapInstalled = false;
 
-    window.removeEventListener(RETUNE_EVENT_NAMES.DEBUG_LOGGING_CHANGED, handleDebugLoggingChanged);
+    window.removeEventListener(LINEUP_EVENT_NAMES.DEBUG_LOGGING_CHANGED, handleDebugLoggingChanged);
     window.removeEventListener('error', handleGlobalError);
     window.removeEventListener('unhandledrejection', handleUnhandledRejection);
     window.removeEventListener('pagehide', handlePageHide);
@@ -366,14 +366,14 @@ function uninstallRetuneBootstrap(): void {
  * Convenience helper for tests/harnesses to shutdown the app and remove global handlers.
  * @internal
  */
-export async function cleanupAndUninstallRetuneBootstrap(): Promise<void> {
+export async function cleanupAndUninstallLineupBootstrap(): Promise<void> {
     let cleanupError: unknown;
     try {
         await cleanup();
     } catch (error: unknown) {
         cleanupError = error;
     } finally {
-        uninstallRetuneBootstrap();
+        uninstallLineupBootstrap();
     }
     if (cleanupError) {
         throw cleanupError;
@@ -392,8 +392,8 @@ export const bootstrapInternals = {
     handleUnhandledRejection,
     showGlobalErrorOverlay,
     describeElement,
-    uninstallRetuneBootstrap,
-    cleanupAndUninstallRetuneBootstrap,
+    uninstallLineupBootstrap,
+    cleanupAndUninstallLineupBootstrap,
 };
 
 export { app, bootstrap, cleanup };

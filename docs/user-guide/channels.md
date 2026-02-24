@@ -1,6 +1,6 @@
 # Channel Management
 
-Channels are the core of Retune. Each channel represents a curated stream of content from your Plex library.
+Channels are the core of Lineup. Each channel represents a curated stream of content from your Plex library.
 
 ## Creating a Channel
 

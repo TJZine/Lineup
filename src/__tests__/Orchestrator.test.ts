@@ -16,7 +16,7 @@ import type { IPlexLibrary } from '../modules/plex/library';
 import type { ChannelConfig, IChannelManager } from '../modules/scheduler/channel-manager';
 import type { ScheduledProgram } from '../modules/scheduler/scheduler';
 import type { INowPlayingInfoOverlay, NowPlayingInfoConfig } from '../modules/ui/now-playing-info';
-import { RETUNE_STORAGE_KEYS } from '../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import type { PlatformServices } from '../platform';
 import { webosPlatformServices } from '../platform';
 
@@ -36,7 +36,7 @@ Object.defineProperty(global, 'localStorage', { value: mockLocalStorage, configu
 
 const mockPlexConfig = {
     clientIdentifier: 'test-client',
-    product: 'Retune',
+    product: 'Lineup',
     version: '1.0.0',
     platform: 'webOS',
     platformVersion: '6.0',
@@ -621,10 +621,10 @@ describe('AppOrchestrator', () => {
                     getDefaultPlexIdentity: jest.fn((clientIdentifier: string) => ({
                         'X-Plex-Client-Identifier': clientIdentifier,
                         'X-Plex-Platform': 'webOS',
-                        'X-Plex-Product': 'Retune',
+                        'X-Plex-Product': 'Lineup',
                         'X-Plex-Version': '1.0.0',
                         'X-Plex-Device': 'LG Smart TV',
-                        'X-Plex-Device-Name': 'Retune',
+                        'X-Plex-Device-Name': 'Lineup',
                         'X-Plex-Platform-Version': '24.0',
                         'X-Plex-Model': 'LGTV',
                     })),
@@ -795,7 +795,7 @@ describe('AppOrchestrator', () => {
             };
 
             mockLocalStorage.getItem.mockImplementation((key: string) =>
-                key === RETUNE_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS ? '0' : null
+                key === LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS ? '0' : null
             );
             await orchestrator.initialize(configWithAutoHide);
             mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
@@ -827,7 +827,7 @@ describe('AppOrchestrator', () => {
             };
 
             mockLocalStorage.getItem.mockImplementation((key: string) =>
-                key === RETUNE_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS ? '0x0' : null
+                key === LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS ? '0x0' : null
             );
             await orchestrator.initialize(configWithAutoHide);
             mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
@@ -1109,9 +1109,9 @@ describe('AppOrchestrator', () => {
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
             mockChannelManager.getAllChannels.mockReturnValue([]);
             mockLocalStorage.getItem.mockImplementation((key: string) => {
-                if (key === 'retune_audio_setup_complete') return '1';
-                if (key === 'retune_channel_setup_v2:server-1') return null;
-                if (key === 'retune_channels_server_v1:server-1:user-1') return null;
+                if (key === 'lineup_audio_setup_complete') return '1';
+                if (key === 'lineup_channel_setup_v2:server-1') return null;
+                if (key === 'lineup_channels_server_v1:server-1:user-1') return null;
                 return null;
             });
 
@@ -1128,8 +1128,8 @@ describe('AppOrchestrator', () => {
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-2' });
             mockChannelManager.getAllChannels.mockReturnValue([mockChannel]);
             mockLocalStorage.getItem.mockImplementation((key: string) => {
-                if (key === 'retune_audio_setup_complete') return '1';
-                if (key === 'retune_channels_server_v1:server-1:user-1') return 'server-1';
+                if (key === 'lineup_audio_setup_complete') return '1';
+                if (key === 'lineup_channels_server_v1:server-1:user-1') return 'server-1';
                 return null;
             });
 
@@ -1137,8 +1137,8 @@ describe('AppOrchestrator', () => {
 
             expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('channel-setup');
             expect(mockChannelManager.setStorageKeys).toHaveBeenCalledWith(
-                'retune_channels_server_v1:server-2:user-1',
-                'retune_current_channel_v4:server-2:user-1'
+                'lineup_channels_server_v1:server-2:user-1',
+                'lineup_current_channel_v4:server-2:user-1'
             );
         });
 
@@ -1438,7 +1438,7 @@ describe('AppOrchestrator', () => {
             orchestrator.requestChannelSetupRerun();
 
             expect(mockLocalStorage.removeItem).toHaveBeenCalledWith(
-                'retune_channel_setup_v2:server-3'
+                'lineup_channel_setup_v2:server-3'
             );
             expect(mockNavigation.goTo).toHaveBeenCalledWith('channel-setup');
         });
@@ -1572,7 +1572,7 @@ describe('AppOrchestrator', () => {
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
             mockLocalStorage.getItem.mockImplementation((key: string) =>
-                key === 'retune_epg_guide_density' ? 'wide' : null
+                key === 'lineup_epg_guide_density' ? 'wide' : null
             );
             mockEpg.isVisible.mockReturnValue(true);
             const mutable = orchestrator as unknown as {

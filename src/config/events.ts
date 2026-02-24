@@ -4,8 +4,8 @@
  * @version 1.0.0
  */
 
-export const RETUNE_EVENT_NAMES = {
-    DEBUG_LOGGING_CHANGED: 'retune:debug-logging-changed',
+export const LINEUP_EVENT_NAMES = {
+    DEBUG_LOGGING_CHANGED: 'lineup:debug-logging-changed',
 } as const;
 
 type DebugLoggingChangedDetail = {
@@ -14,7 +14,7 @@ type DebugLoggingChangedDetail = {
 
 export function dispatchDebugLoggingChanged(enabled: boolean): void {
     window.dispatchEvent(
-        new CustomEvent<DebugLoggingChangedDetail>(RETUNE_EVENT_NAMES.DEBUG_LOGGING_CHANGED, {
+        new CustomEvent<DebugLoggingChangedDetail>(LINEUP_EVENT_NAMES.DEBUG_LOGGING_CHANGED, {
             detail: { enabled },
         })
     );

@@ -20,6 +20,7 @@ const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgra
             year: 2024,
             contentRating: 'PG',
             thumb: '/thumb',
+            art: '/art',
         } as unknown as ScheduledProgram['item'],
         scheduledStartTime: Date.now() - 1000,
         scheduledEndTime: Date.now() + 59_000,
@@ -541,5 +542,44 @@ describe('NowPlayingInfoCoordinator', () => {
         const calls = (overlay.update as jest.Mock).mock.calls;
         const lastUpdate = calls[calls.length - 1]?.[0] as { description?: string };
         expect(lastUpdate.description).toBe('New summary');
+    });
+
+    it('handleModalOpen maps schedule art to backdropUrl', () => {
+        const scheduler = makeScheduler();
+        const { coordinator, overlay } = setup({
+            getScheduler: () => scheduler,
+            buildPlexResourceUrl: jest.fn((path) => `http://mock${path}`) as unknown as (path: string) => string,
+        });
+
+        coordinator.handleModalOpen(modalId);
+
+        const viewModel = (overlay.show as jest.Mock).mock.calls[0]?.[0] as {
+            backdropUrl?: string;
+        };
+        expect(viewModel.backdropUrl).toBe('http://mock/art');
+        coordinator.handleModalClose(modalId);
+    });
+
+    it('details art overrides schedule art for backdropUrl', async () => {
+        const plexLibrary = makePlexLibrary({
+            getItem: jest.fn().mockResolvedValue({
+                ratingKey: 'rk1',
+                title: 'Detail Title',
+                type: 'movie',
+                art: '/detail-art',
+            } as PlexMediaItem),
+        });
+        const { coordinator, overlay } = setup({
+            getPlexLibrary: () => plexLibrary,
+            buildPlexResourceUrl: jest.fn((path) => `http://mock${path}`) as unknown as (path: string) => string,
+        });
+
+        coordinator.handleModalOpen(modalId);
+        await Promise.resolve();
+
+        const updates = (overlay.update as jest.Mock).mock.calls;
+        const lastUpdate = updates[updates.length - 1]?.[0] as { backdropUrl?: string };
+        expect(lastUpdate.backdropUrl).toBe('http://mock/detail-art');
+        coordinator.handleModalClose(modalId);
     });
 });

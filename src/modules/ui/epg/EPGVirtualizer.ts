@@ -9,6 +9,7 @@
 
 import { EPG_CONSTANTS, EPG_CLASSES } from './constants';
 import { formatTimeRange, appendEpgDebugLog } from './utils';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import type {
     ScheduledProgram,
     ScheduleWindow,
@@ -95,7 +96,7 @@ export class EPGVirtualizer {
     private totalChannels: number = 0;
     private isDebugEnabled(): boolean {
         try {
-            return localStorage.getItem('retune_debug_epg') === '1';
+            return localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG) === '1';
         } catch {
             return false;
         }

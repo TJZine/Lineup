@@ -290,7 +290,7 @@ describe('PlexServerDiscovery', () => {
             const discovery = new PlexServerDiscovery(mockConfig);
 
             const staleDiscovery = discovery.discoverServers();
-            discovery.setStorageKeys('retune_selected_server_alt', 'retune_server_health_alt');
+            discovery.setStorageKeys('lineup_selected_server_alt', 'lineup_server_health_alt');
             const freshDiscovery = discovery.discoverServers();
 
             const freshResult = await freshDiscovery;

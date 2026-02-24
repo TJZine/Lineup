@@ -3,8 +3,8 @@
  */
 
 export const STORAGE_KEYS = {
-    CHANNELS_REAL: 'retune_channels_v4',
-    CHANNELS_SERVER: 'retune_channels_server_v1',
-    CLIENT_ID: 'retune_client_id',
-    CURRENT_CHANNEL: 'retune_current_channel_v4',
+    CHANNELS_REAL: 'lineup_channels_v4',
+    CHANNELS_SERVER: 'lineup_channels_server_v1',
+    CLIENT_ID: 'lineup_client_id',
+    CURRENT_CHANNEL: 'lineup_current_channel_v4',
 } as const;

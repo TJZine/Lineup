@@ -9,6 +9,9 @@
     background: var(--color-bg-deep);
     z-index: var(--z-overlay);
     overflow: hidden;
+    --lineup-logo-main: #f4f1ea;
+    --lineup-logo-accent: #bfa27a;
+    --lineup-logo-shadow: rgba(191, 162, 122, 0.28);
 }
 
 .splash-screen.visible {
@@ -72,7 +75,33 @@
     color: var(--color-text-muted, rgba(255, 255, 255, 0.5));
 }
 
+.lineup-logo {
+    font-family: Didot, 'Bodoni MT', Garamond, Georgia, serif;
+    font-size: clamp(3rem, 5.2vw, 4.5rem);
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--lineup-logo-main);
+    background: linear-gradient(115deg, var(--lineup-logo-main) 0%, var(--lineup-logo-accent) 100%);
+    background-clip: text;
+    /* stylelint-disable-next-line property-no-vendor-prefix */
+    -webkit-background-clip: text;
+    /* stylelint-disable-next-line property-no-vendor-prefix */
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 10px 28px var(--lineup-logo-shadow));
+}
+
+.lineup-logo-accent {
+    font-weight: 400;
+    opacity: 0.92;
+    letter-spacing: 0.08em;
+}
+
 @media (prefers-reduced-motion: reduce) {
+    .lineup-logo {
+        animation: none;
+    }
+
     .splash-crt-container {
         animation: none;
         transform: none;

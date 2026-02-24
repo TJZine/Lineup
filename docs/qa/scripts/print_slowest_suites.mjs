@@ -13,7 +13,7 @@ try {
     parsed = JSON.parse(raw);
 } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`[Retune][QA] Failed to read Jest results from ${RESULTS_PATH}: ${message}`);
+    console.error(`[Lineup][QA] Failed to read Jest results from ${RESULTS_PATH}: ${message}`);
     process.exit(1);
 }
 const testResults = Array.isArray(parsed.testResults) ? parsed.testResults : [];

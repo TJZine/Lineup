@@ -13,10 +13,10 @@ When running on the Emulator or a physical TV, you can use the `ares-inspect` to
 
 ```bash
 # For Emulator
-ares-inspect --device emulator --app com.retune.app --open
+ares-inspect --device emulator --app com.lineup.app --open
 
 # For Physical TV (device name 'my-tv')
-ares-inspect --device my-tv --app com.retune.app --open
+ares-inspect --device my-tv --app com.lineup.app --open
 ```
 
 ### Tips for Remote Debugging

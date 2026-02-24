@@ -2,13 +2,13 @@
  * @jest-environment jsdom
  */
 
-import { RETUNE_EVENT_NAMES } from '../config/events';
-import { RETUNE_STORAGE_KEYS } from '../config/storageKeys';
+import { LINEUP_EVENT_NAMES } from '../config/events';
+import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 
 import { flushPromises } from './helpers';
 
 const setDevBuild = (value: boolean): void => {
-    Object.defineProperty(globalThis, '__RETUNE_DEV_BUILD__', {
+    Object.defineProperty(globalThis, '__LINEUP_DEV_BUILD__', {
         value,
         configurable: true,
         writable: true,
@@ -43,7 +43,7 @@ const importBootstrapModule = async (options?: {
 
     const module = await import('../bootstrap');
     installedModule = module;
-    module.installRetuneBootstrap();
+    module.installLineupBootstrap();
     await flushPromises();
     if (options?.autoDispatchDomReady !== false && start.mock.calls.length === 0) {
         document.dispatchEvent(new Event('DOMContentLoaded'));
@@ -58,13 +58,13 @@ describe('bootstrap seam', () => {
         localStorage.clear();
         document.body.innerHTML = '<div id="app"></div>';
         setDevBuild(true);
-        delete (window as { __RETUNE__?: unknown }).__RETUNE__;
+        delete (window as { __LINEUP__?: unknown }).__LINEUP__;
     });
 
     afterEach(async () => {
         try {
             if (installedModule) {
-                await installedModule.cleanupAndUninstallRetuneBootstrap();
+                await installedModule.cleanupAndUninstallLineupBootstrap();
             }
         } finally {
             installedModule = null;
@@ -80,7 +80,7 @@ describe('bootstrap seam', () => {
         const { module, start, shutdown } = await importBootstrapModule();
 
         expect(windowAddEventListenerSpy).toHaveBeenCalledWith(
-            RETUNE_EVENT_NAMES.DEBUG_LOGGING_CHANGED,
+            LINEUP_EVENT_NAMES.DEBUG_LOGGING_CHANGED,
             expect.any(Function)
         );
         expect(windowAddEventListenerSpy).toHaveBeenCalledWith('error', expect.any(Function));
@@ -100,7 +100,7 @@ describe('bootstrap seam', () => {
 
         await expect(module.cleanup()).rejects.toThrow('shutdown failed');
         expect(module.app).toBeNull();
-        expect((window as { __RETUNE__?: unknown }).__RETUNE__).toBeUndefined();
+        expect((window as { __LINEUP__?: unknown }).__LINEUP__).toBeUndefined();
     });
 
     it('exposes debug surface and supports video visibility toggles', async () => {
@@ -118,7 +118,7 @@ describe('bootstrap seam', () => {
         module.bootstrapInternals.syncWindowDebugApi({
             getOrchestrator: () => orchestrator,
         } as never);
-        const debugApi = (window as { __RETUNE__?: {
+        const debugApi = (window as { __LINEUP__?: {
             openEPG: () => void;
             closeEPG: () => void;
             toggleEPG: () => void;
@@ -126,7 +126,7 @@ describe('bootstrap seam', () => {
             hideVideo: () => void;
             showVideo: () => void;
             orchestratorStatus: () => unknown;
-        } }).__RETUNE__;
+        } }).__LINEUP__;
         expect(debugApi).toBeDefined();
 
         const video = document.createElement('video');
@@ -151,7 +151,7 @@ describe('bootstrap seam', () => {
     it('clears debug surface when syncWindowDebugApi is called with null', async () => {
         const { module } = await importBootstrapModule();
         module.bootstrapInternals.syncWindowDebugApi(null);
-        expect((window as { __RETUNE__?: unknown }).__RETUNE__).toBeUndefined();
+        expect((window as { __LINEUP__?: unknown }).__LINEUP__).toBeUndefined();
     });
 
     it('returns null orchestratorStatus when orchestrator is absent', async () => {
@@ -159,7 +159,7 @@ describe('bootstrap seam', () => {
         module.bootstrapInternals.syncWindowDebugApi({
             getOrchestrator: () => null,
         } as never);
-        const nullStatus = (window as { __RETUNE__?: { orchestratorStatus: () => unknown } }).__RETUNE__
+        const nullStatus = (window as { __LINEUP__?: { orchestratorStatus: () => unknown } }).__LINEUP__
             ?.orchestratorStatus();
         expect(nullStatus).toBeNull();
     });
@@ -175,11 +175,11 @@ describe('bootstrap seam', () => {
         const { module } = await importBootstrapModule();
 
         setDevBuild(false);
-        localStorage.removeItem(RETUNE_STORAGE_KEYS.DEBUG_LOGGING);
+        localStorage.removeItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING);
         module.bootstrapInternals.syncWindowDebugApi({
             getOrchestrator: () => orchestrator,
         } as never);
-        expect((window as { __RETUNE__?: unknown }).__RETUNE__).toBeUndefined();
+        expect((window as { __LINEUP__?: unknown }).__LINEUP__).toBeUndefined();
     });
 
     it('normalizes safe error messages and deduplicates overlay creation', async () => {
@@ -198,8 +198,8 @@ describe('bootstrap seam', () => {
     });
 
     it('does not remove legacy debug logging key if migration write fails', async () => {
-        const primaryKey = RETUNE_STORAGE_KEYS.DEBUG_LOGGING;
-        const legacyKey = 'retune_debug_transcode';
+        const primaryKey = LINEUP_STORAGE_KEYS.DEBUG_LOGGING;
+        const legacyKey = 'lineup_debug_transcode';
         localStorage.setItem(legacyKey, '1');
 
         Object.defineProperty(document, 'readyState', { value: 'loading', configurable: true });
@@ -277,13 +277,13 @@ describe('bootstrap seam', () => {
 
     it('suppresses console noise when debug logging is off in lean mode', async () => {
         setDevBuild(false);
-        localStorage.removeItem(RETUNE_STORAGE_KEYS.DEBUG_LOGGING);
+        localStorage.removeItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING);
 
         const { module } = await importBootstrapModule();
         module.bootstrapInternals.configureLoggingPolicy();
         const suppressedLog = (globalThis as { console: { log: (...args: unknown[]) => void } }).console.log;
 
-        localStorage.setItem(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, 'true');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, 'true');
         module.bootstrapInternals.configureLoggingPolicy();
         const restoredLog = (globalThis as { console: { log: (...args: unknown[]) => void } }).console.log;
 

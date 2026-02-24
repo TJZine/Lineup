@@ -22,10 +22,10 @@ export const PLEX_DISCOVERY_CONSTANTS = {
     IDENTITY_ENDPOINT: '/identity',
 
     /** localStorage key for selected server ID */
-    SELECTED_SERVER_KEY: 'retune_selected_server',
+    SELECTED_SERVER_KEY: 'lineup_selected_server',
 
     /** localStorage key for server connection health */
-    SERVER_HEALTH_KEY: 'retune_server_health_v1',
+    SERVER_HEALTH_KEY: 'lineup_server_health_v1',
 
     /** Connection test timeout (10 seconds) */
     CONNECTION_TEST_TIMEOUT_MS: 10000,

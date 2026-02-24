@@ -1,5 +1,5 @@
-const shouldAllowConsoleOutput = process.env.RETUNE_TEST_CONSOLE === '1';
-const shouldSilenceWarningsAndErrors = process.env.RETUNE_TEST_CONSOLE_SILENT === '1';
+const shouldAllowConsoleOutput = process.env.LINEUP_TEST_CONSOLE === '1';
+const shouldSilenceWarningsAndErrors = process.env.LINEUP_TEST_CONSOLE_SILENT === '1';
 
 if (!shouldAllowConsoleOutput) {
     let consoleDebugSpy: ReturnType<typeof jest.spyOn> | null = null;

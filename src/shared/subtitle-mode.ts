@@ -4,7 +4,7 @@
  * @version 1.0.0
  */
 
-import { RETUNE_STORAGE_KEYS } from '../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import { safeLocalStorageGet, safeLocalStorageSet } from '../utils/storage';
 
 export type SubtitleMode = 'off' | 'direct' | 'standard' | 'full';
@@ -26,7 +26,7 @@ function normalizeSubtitleMode(value: string | null): SubtitleMode | null {
  * Read the effective subtitle mode.
  */
 export function getSubtitleMode(): SubtitleMode {
-    const raw = safeLocalStorageGet(RETUNE_STORAGE_KEYS.SUBTITLE_MODE);
+    const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.SUBTITLE_MODE);
     const normalized = normalizeSubtitleMode(raw);
     if (normalized) return normalized;
 
@@ -34,7 +34,7 @@ export function getSubtitleMode(): SubtitleMode {
 }
 
 export function setSubtitleMode(mode: SubtitleMode): void {
-    safeLocalStorageSet(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, mode);
+    safeLocalStorageSet(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, mode);
 }
 
 export function subtitleModeAllowsBurnIn(mode: SubtitleMode): boolean {

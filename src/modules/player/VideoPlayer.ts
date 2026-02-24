@@ -27,7 +27,7 @@ import {
     VIDEO_ELEMENT_STYLES,
     DEFAULT_CONFIG,
 } from './constants';
-import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import { isStoredTrue, safeLocalStorageGet } from '../../utils/storage';
 import { redactSensitiveTokens, safeStringifyForLog } from '../../utils/redact';
 import { summarizeErrorForLog } from '../../utils/errors';
@@ -142,7 +142,7 @@ export class VideoPlayer implements IVideoPlayer {
 
     private _isSubtitleDebugEnabled(): boolean {
         try {
-            return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING));
+            return isStoredTrue(safeLocalStorageGet(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING));
         } catch {
             return false;
         }

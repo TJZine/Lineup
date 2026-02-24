@@ -2,15 +2,15 @@ import { defineConfig, normalizePath, type PluginOption } from 'vite';
 import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig(({ command }) => {
-    const requestedProfile = (process.env.RETUNE_BUILD_PROFILE ?? '').toLowerCase();
+    const requestedProfile = (process.env.LINEUP_BUILD_PROFILE ?? '').toLowerCase();
     const isDevBuildProfile = command === 'serve' || requestedProfile === 'dev';
     const activeBuildProfile = isDevBuildProfile ? 'dev' : 'lean';
 
     return {
         base: './',
         define: {
-            __RETUNE_DEV_BUILD__: JSON.stringify(isDevBuildProfile),
-            __RETUNE_BUILD_PROFILE__: JSON.stringify(activeBuildProfile),
+            __LINEUP_DEV_BUILD__: JSON.stringify(isDevBuildProfile),
+            __LINEUP_BUILD_PROFILE__: JSON.stringify(activeBuildProfile),
         },
         plugins: [
             process.env.ANALYZE

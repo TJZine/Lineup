@@ -191,3 +191,30 @@
     animation: none;
   }
 }
+
+/* Hybrid Deep Glass refinements */
+.theme-glass .mini-guide-panel {
+  background: var(--glass-panel-strong);
+  border: 1px solid var(--glass-border-soft);
+  box-shadow: var(--glass-shadow-deep);
+  backdrop-filter: var(--glass-backdrop-filter);
+  -webkit-backdrop-filter: var(--glass-backdrop-filter);
+}
+
+.theme-glass .mini-guide-row {
+  border-bottom: 1px solid var(--glass-border-soft);
+}
+
+.theme-glass .mini-guide-row:last-child {
+  border-bottom: none;
+}
+
+.theme-glass .mini-guide-row.focused {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0.06));
+  border-left: 3px solid rgba(255, 255, 255, 0.96);
+}
+
+.theme-glass .mini-guide-footer-hint {
+  border-top: 1px solid var(--glass-border-soft);
+  background: rgba(0, 0, 0, 0.24);
+}

@@ -11,14 +11,14 @@ export { TIMING_CONFIG } from '../../config/timing';
  */
 export const STORAGE_CONFIG = {
     /** localStorage key for app state */
-    STATE_KEY: 'retune_app_state',
+    STATE_KEY: 'lineup_app_state',
     /** Current state schema version */
     STATE_VERSION: 1,
     /** Non-critical keys to remove on quota cleanup */
     CLEANUP_KEYS: [
-        'retune_focus_memory',
-        'retune_image_cache',
-        'retune_schedule_cache',
+        'lineup_focus_memory',
+        'lineup_image_cache',
+        'lineup_schedule_cache',
     ],
     /** User-facing message when storage quota is exceeded */
     STORAGE_QUOTA_EXCEEDED: 'Storage full - some settings may not be saved',

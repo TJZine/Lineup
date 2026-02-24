@@ -36,7 +36,7 @@ export class KeepAliveManager {
                 // Touch DOM to prevent webOS suspension
                 // Use custom event to avoid triggering NavigationManager click handlers
                 // which expect event.target to be an HTMLElement with .closest()
-                document.dispatchEvent(new CustomEvent('retune:keepalive'));
+                document.dispatchEvent(new CustomEvent('lineup:keepalive'));
             }
         }, KEEP_ALIVE_INTERVAL_MS);
     }

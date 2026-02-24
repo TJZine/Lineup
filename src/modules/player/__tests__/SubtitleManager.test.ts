@@ -312,7 +312,7 @@ Hello`,
                 serverUri: 'http://example.com',
                 authHeaders: {
                     'X-Plex-Token': 'token',
-                    'X-Plex-Product': 'Retune',
+                    'X-Plex-Product': 'Lineup',
                 },
             });
 
@@ -350,7 +350,7 @@ Hello`,
                 serverUri: 'http://example.com',
                 authHeaders: {
                     'X-Plex-Token': 'token',
-                    'X-Plex-Product': 'Retune',
+                    'X-Plex-Product': 'Lineup',
                 },
             });
 
@@ -652,7 +652,7 @@ Hello`;
         afterEach(() => {
             jest.useRealTimers();
             jest.restoreAllMocks();
-            localStorage.removeItem('retune_subtitle_debug_logging');
+            localStorage.removeItem('lineup_subtitle_debug_logging');
             if (originalFetch) {
                 global.fetch = originalFetch;
             } else {
@@ -736,7 +736,7 @@ Hello`;
         });
 
         it('redacts tokenized URLs in debug logs', () => {
-            localStorage.setItem('retune_subtitle_debug_logging', '1');
+            localStorage.setItem('lineup_subtitle_debug_logging', '1');
             const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
             const tracks: SubtitleTrack[] = [

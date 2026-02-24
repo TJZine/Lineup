@@ -175,7 +175,7 @@ export class AudioSetupScreen {
         helper.id = 'audio-direct-play-helper';
         helper.className = 'audio-helper';
         helper.textContent =
-            'If enabled, Retune can play a compatible audio track instead of transcoding. Recommended: On for most users.';
+            'If enabled, Lineup can play a compatible audio track instead of transcoding. Recommended: On for most users.';
         panel.appendChild(helper);
 
         // Hint

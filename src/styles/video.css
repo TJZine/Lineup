@@ -7,7 +7,7 @@
   z-index: 999;
 }
 
-.video-container.epg-pip-active #retune-video-player {
+.video-container.epg-pip-active #lineup-video-player {
   transform-origin: top right;
   transform: translate3d(-5vw, 5vh, 0) scale(0.28);
   will-change: transform;
@@ -16,7 +16,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .video-container.epg-pip-active #retune-video-player {
+  .video-container.epg-pip-active #lineup-video-player {
     transition: none;
   }
 }

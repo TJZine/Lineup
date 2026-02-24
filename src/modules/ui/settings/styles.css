@@ -178,3 +178,43 @@
 .setup-toggle.disabled .setup-toggle-arrow {
   opacity: 0.35;
 }
+
+/* Hybrid Deep Glass refinements (glass theme only) */
+.theme-glass .settings-panel {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 40%, rgba(0, 0, 0, 0.2) 100%),
+    var(--glass-panel-strong);
+  border: 1px solid var(--glass-border-strong);
+  box-shadow: var(--glass-shadow-deep), inset 0 1px 0 var(--glass-highlight);
+  backdrop-filter: var(--glass-backdrop-filter-strong, var(--glass-backdrop-filter));
+  -webkit-backdrop-filter: var(--glass-backdrop-filter-strong, var(--glass-backdrop-filter));
+}
+
+.theme-glass .settings-title,
+.theme-glass .settings-detail-title {
+  font-family: var(--font-family-display);
+}
+
+.theme-glass .settings-category-button {
+  background: var(--glass-panel-soft);
+  border: 1px solid var(--glass-border-soft);
+}
+
+.theme-glass .settings-category-button:not(.active):not([aria-selected="true"]):hover,
+.theme-glass .settings-category-button:not(.active):not([aria-selected="true"]):focus {
+  background: var(--glass-panel-soft-hover, var(--glass-panel-soft));
+  border-color: var(--glass-border-soft);
+}
+
+.theme-glass .settings-category-button.active,
+.theme-glass .settings-category-button[aria-selected="true"] {
+  border-color: rgba(255, 255, 255, 0.84);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.08));
+  color: #ffffff;
+}
+
+.theme-glass .settings-detail {
+  background: rgba(0, 0, 0, 0.34);
+  border: 1px solid var(--glass-border-soft);
+  border-radius: 16px;
+}

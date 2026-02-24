@@ -16,7 +16,7 @@ import type { IChannelScheduler, ScheduledProgram } from '../scheduler/scheduler
 import type { IVideoPlayer, StreamDescriptor } from './index';
 import type { AudioTrack, SubtitleTrack } from './types';
 import { TEXT_SUBTITLE_FORMATS } from './constants';
-import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import {
     isStoredTrue,
     safeLocalStorageGet,
@@ -84,7 +84,7 @@ export class PlaybackRecoveryManager {
     private _preferForcedSubtitles(): boolean {
         try {
             return isStoredTrue(
-                safeLocalStorageGet(RETUNE_STORAGE_KEYS.SUBTITLE_PREFER_FORCED)
+                safeLocalStorageGet(LINEUP_STORAGE_KEYS.SUBTITLE_PREFER_FORCED)
             );
         } catch {
             return false;
@@ -142,7 +142,7 @@ export class PlaybackRecoveryManager {
             return null;
         }
 
-        // Retune does not persist a specific subtitle track choice across items/channels.
+        // Lineup does not persist a specific subtitle track choice across items/channels.
         // Auto-selection is derived only from language preferences (app override, Plex user preference, or defaults).
         const appPreferredLanguage = this._getPreferredSubtitleLanguage();
         if (appPreferredLanguage) {

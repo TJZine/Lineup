@@ -28,10 +28,10 @@ import { SplashScreen } from './modules/ui/splash';
 import { ThemeManager } from './modules/ui/theme';
 import { normalizeToastInput, type ToastInput, type ToastType } from './modules/ui/toast/types';
 import { STORAGE_KEYS } from './types';
-import { RETUNE_STORAGE_KEYS } from './config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from './config/storageKeys';
 import {
     readStoredBoolean,
-    safeClearRetuneStorage,
+    safeClearLineupStorage,
     safeLocalStorageGet,
     safeLocalStorageRemove,
     safeLocalStorageSet,
@@ -47,7 +47,7 @@ import type { AudioSetupScreen } from './modules/ui/audio-setup/AudioSetupScreen
 
 const DEFAULT_PLEX_CONFIG: PlexAuthConfig = {
     clientIdentifier: '',
-    product: 'Retune',
+    product: 'Lineup',
     version: '1.0.0',
     platform: 'webOS',
     platformVersion: '6.0',
@@ -310,7 +310,7 @@ export class App {
         this._cancelSettingsPrefetch();
         this._cancelChannelSetupPrefetch();
         try {
-            delete (window as { retune?: unknown }).retune;
+            delete (window as { lineup?: unknown }).lineup;
         } catch {
             // ignore
         }
@@ -472,12 +472,12 @@ export class App {
 
         // Expose global helper only when debug surface is enabled.
         if (this._isDebugSurfaceEnabled()) {
-            (window as unknown as { retune: { toggleDevMenu: () => void } }).retune = {
+            (window as unknown as { lineup: { toggleDevMenu: () => void } }).lineup = {
                 toggleDevMenu: (): void => this._toggleDevMenu(),
             };
         } else {
             try {
-                delete (window as { retune?: unknown }).retune;
+                delete (window as { lineup?: unknown }).lineup;
             } catch {
                 // ignore
             }
@@ -844,7 +844,7 @@ export class App {
             typeof crypto.randomUUID === 'function'
         ) {
             try {
-                return `retune-${crypto.randomUUID()}`;
+                return `lineup-${crypto.randomUUID()}`;
             } catch {
                 // Fall through to Math.random fallback
             }
@@ -852,7 +852,7 @@ export class App {
 
         // Fallback to Math.random (adequate for non-security-sensitive client ID)
         const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-        let result = 'retune-';
+        let result = 'lineup-';
         for (let i = 0; i < 16; i++) {
             result += chars.charAt(Math.floor(Math.random() * chars.length));
         }
@@ -1110,10 +1110,10 @@ export class App {
     }
 
     private _isDebugSurfaceEnabled(): boolean {
-        if (__RETUNE_DEV_BUILD__) {
+        if (__LINEUP_DEV_BUILD__) {
             return true;
         }
-        return readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
+        return readStoredBoolean(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, false);
     }
 
     private _renderDevMenu(): void {
@@ -1131,16 +1131,16 @@ export class App {
                     <summary style="cursor:pointer;color:#ddd;">Plex Debug Overrides</summary>
                     <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
                         <label style="font-size:13px;color:#aaa;">
-                            <input id="dev-directplay-audio-fallback" type="checkbox" /> Try Direct Play using fallback audio track (retune_direct_play_audio_fallback=1)
+                            <input id="dev-directplay-audio-fallback" type="checkbox" /> Try Direct Play using fallback audio track (lineup_direct_play_audio_fallback=1)
                         </label>
                         <div style="margin-top:6px;font-size:12px;color:#888;">
                             Now Playing Stream Debug (overlay)
                         </div>
                         <label style="font-size:13px;color:#aaa;">
-                            <input id="dev-nowplaying-stream-debug" type="checkbox" /> Show stream decision in Show Info overlay (retune_now_playing_stream_debug=1)
+                            <input id="dev-nowplaying-stream-debug" type="checkbox" /> Show stream decision in Show Info overlay (lineup_now_playing_stream_debug=1)
                         </label>
                         <label style="font-size:13px;color:#aaa;">
-                            <input id="dev-nowplaying-stream-debug-auto" type="checkbox" /> Auto-open Show Info on tune when debug is enabled (retune_now_playing_stream_debug_auto_show=1)
+                            <input id="dev-nowplaying-stream-debug-auto" type="checkbox" /> Auto-open Show Info on tune when debug is enabled (lineup_now_playing_stream_debug_auto_show=1)
                         </label>
                         <label style="font-size:13px;color:#aaa;">
                             Forced Client Profile Name
@@ -1166,24 +1166,24 @@ export class App {
                             <button id="dev-playback-refresh" style="padding:8px;cursor:pointer;">Refresh</button>
                             <button id="dev-playback-copy-summary" style="padding:8px;cursor:pointer;">Copy Summary</button>
                             <button id="dev-playback-copy-raw" style="padding:8px;cursor:pointer;">Copy Raw</button>
-                            <span style="font-size:12px;color:#888;">Tip: Ctrl+Shift+D (desktop) or run window.retune.toggleDevMenu() in the console</span>
+                            <span style="font-size:12px;color:#888;">Tip: Ctrl+Shift+D (desktop) or run window.lineup.toggleDevMenu() in the console</span>
                         </div>
                         <pre id="dev-playback-info" style="margin:0;max-height:260px;overflow:auto;background:#111;border:1px solid #333;border-radius:6px;padding:10px;color:#ddd;font-size:12px;line-height:1.35;white-space:pre-wrap;"></pre>
                         <div style="font-size:12px;color:#888;">
-                            Shows Retune's local decision and (when transcoding) the server's universal transcode decision.
+                            Shows Lineup's local decision and (when transcoding) the server's universal transcode decision.
                         </div>
                     </div>
                 </details>
-                <button id="dev-reset-app" style="padding:10px;cursor:pointer;background:#500;color:#fff;border:none;">Reset Retune Storage</button>
+                <button id="dev-reset-app" style="padding:10px;cursor:pointer;background:#500;color:#fff;border:none;">Reset Lineup Storage</button>
                 <button id="dev-close" style="padding:10px;cursor:pointer;margin-top:10px;">Close</button>
             </div>
         `;
 
         // Bind events
         this._devMenuContainer.querySelector('#dev-reset-app')?.addEventListener('click', () => {
-            const ok = window.confirm('Reset Retune storage (channels, overrides)?');
+            const ok = window.confirm('Reset Lineup storage (channels, overrides)?');
             if (!ok) return;
-            safeClearRetuneStorage();
+            safeClearLineupStorage();
             window.location.reload();
         });
 
@@ -1210,12 +1210,12 @@ export class App {
 
         const profileNameSelect = this._devMenuContainer.querySelector('#dev-transcode-profile-name') as HTMLSelectElement | null;
         if (profileNameSelect) {
-            const storedProfileName = read(RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
+            const storedProfileName = read(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
             const isSupportedStoredProfileName = Array.from(profileNameSelect.options).some(
                 (option) => option.value === storedProfileName
             );
             if (storedProfileName.length > 0 && !isSupportedStoredProfileName) {
-                safeLocalStorageRemove(RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
+                safeLocalStorageRemove(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
                 profileNameSelect.value = '';
             } else {
                 profileNameSelect.value = storedProfileName;
@@ -1224,40 +1224,40 @@ export class App {
         const directPlayAudioFallbackEl = this._devMenuContainer.querySelector('#dev-directplay-audio-fallback') as HTMLInputElement | null;
         if (directPlayAudioFallbackEl) {
             directPlayAudioFallbackEl.checked =
-                read(RETUNE_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK) === '1';
+                read(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK) === '1';
         }
         const nowPlayingStreamDebugEl = this._devMenuContainer.querySelector('#dev-nowplaying-stream-debug') as HTMLInputElement | null;
         if (nowPlayingStreamDebugEl) {
             nowPlayingStreamDebugEl.checked =
-                read(RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG) === '1';
+                read(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG) === '1';
         }
         const nowPlayingStreamDebugAutoEl = this._devMenuContainer.querySelector('#dev-nowplaying-stream-debug-auto') as HTMLInputElement | null;
         if (nowPlayingStreamDebugAutoEl) {
             nowPlayingStreamDebugAutoEl.checked =
-                read(RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW) === '1';
+                read(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW) === '1';
         }
 
         this._devMenuContainer.querySelector('#dev-transcode-save')?.addEventListener('click', () => {
             if (directPlayAudioFallbackEl) {
                 safeLocalStorageSet(
-                    RETUNE_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK,
+                    LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK,
                     directPlayAudioFallbackEl.checked ? '1' : '0'
                 );
             }
             if (nowPlayingStreamDebugEl) {
                 safeLocalStorageSet(
-                    RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG,
+                    LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG,
                     nowPlayingStreamDebugEl.checked ? '1' : '0'
                 );
             }
             if (nowPlayingStreamDebugAutoEl) {
                 safeLocalStorageSet(
-                    RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW,
+                    LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW,
                     nowPlayingStreamDebugAutoEl.checked ? '1' : '0'
                 );
             }
             if (profileNameSelect) {
-                writeOrRemove(RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_NAME, profileNameSelect.value);
+                writeOrRemove(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME, profileNameSelect.value);
             }
             this._showToast({ message: 'Saved overrides', type: 'success' });
         });
@@ -1266,10 +1266,10 @@ export class App {
             const ok = window.confirm('Clear transcode overrides?');
             if (!ok) return;
             const keys = [
-                RETUNE_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK,
-                RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG,
-                RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW,
-                RETUNE_STORAGE_KEYS.TRANSCODE_PROFILE_NAME,
+                LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK,
+                LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG,
+                LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW,
+                LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME,
             ] as const;
             for (const k of keys) safeLocalStorageRemove(k);
             this._showToast({ message: 'Cleared overrides', type: 'success' });
@@ -1343,7 +1343,7 @@ export class App {
             } else {
                 const s = snapshot.stream;
                 lines.push(`Protocol: ${s.protocol.toUpperCase()}  MIME: ${s.mimeType}`);
-                lines.push(`Retune:    ${s.isDirectPlay ? 'DIRECT PLAY' : 'HLS SESSION REQUESTED (Plex decides copy vs transcode)'}`);
+                lines.push(`Lineup:    ${s.isDirectPlay ? 'DIRECT PLAY' : 'HLS SESSION REQUESTED (Plex decides copy vs transcode)'}`);
                 lines.push(`Target:    ${s.container}  video=${s.videoCodec}  audio=${s.audioCodec}  ${s.width}x${s.height}  ${fmtKbps(s.bitrate)}`);
                 lines.push(`Subtitles: ${s.subtitleDelivery}`);
 
@@ -1389,7 +1389,7 @@ export class App {
 
                 if (s.transcodeRequest) {
                     lines.push('');
-                    lines.push('REQUEST (Retune -> PMS)');
+                    lines.push('REQUEST (Lineup -> PMS)');
                     lines.push('-'.repeat(60));
                     lines.push(`Session: ${s.transcodeRequest.sessionId}`);
                     lines.push(`Max BR:  ${fmtKbps(s.transcodeRequest.maxBitrate)}`);

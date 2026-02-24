@@ -52,15 +52,15 @@ export function readStoredBoolean(key: string, defaultValue: boolean): boolean {
 }
 
 /**
- * Clear only Retune-owned keys (prefix-based).
+ * Clear only Lineup-owned keys (prefix-based).
  * Does not call localStorage.clear() to avoid clobbering unrelated app data.
  */
-export function safeClearRetuneStorage(): void {
+export function safeClearLineupStorage(): void {
     try {
         const keysToRemove: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
-            if (typeof k === 'string' && k.startsWith('retune_')) {
+            if (typeof k === 'string' && k.startsWith('lineup_')) {
                 keysToRemove.push(k);
             }
         }

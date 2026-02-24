@@ -1,5 +1,5 @@
 /**
- * Theme overrides for Broadcast Blue, Swiss Minimal, and DirecTV Classic.
+ * Theme overrides for Broadcast Blue, Swiss Minimal, DirecTV Classic, and Glass.
  */
 
 /* Notes:
@@ -146,4 +146,15 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.55);
   --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.50);
   --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.60);
+
+  --font-family-display: "Avenir Next", "Segoe UI", "Noto Sans", sans-serif;
+  --glass-panel-strong: rgba(16, 18, 24, 0.66);
+  --glass-panel-soft: rgba(255, 255, 255, 0.06);
+  --glass-border-strong: rgba(255, 255, 255, 0.24);
+  --glass-border-soft: rgba(255, 255, 255, 0.14);
+  --glass-highlight: rgba(255, 255, 255, 0.18);
+  --glass-shadow-deep: 0 30px 70px rgba(0, 0, 0, 0.58);
+  --glass-panel-soft-hover: rgba(255, 255, 255, 0.10);
+  --glass-backdrop-filter: blur(20px) saturate(135%);
+  --glass-backdrop-filter-strong: blur(32px) saturate(125%);
 }

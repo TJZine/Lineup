@@ -819,7 +819,7 @@ export class PlexLibrary implements IPlexLibrary {
                 let response: Response;
                 try {
                     // Plex has started warning that `X-Plex-Container-Size` must be provided as a header.
-                    // Retune historically provides paging via query params; mirror those values as headers
+                    // Lineup historically provides paging via query params; mirror those values as headers
                     // to avoid future 400s while keeping existing URL construction unchanged.
                     const pagingHeaders: Record<string, string> = {};
                     try {

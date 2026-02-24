@@ -4,7 +4,7 @@
  * @version 1.0.0
  */
 
-import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import { isStoredTrue, safeLocalStorageGet } from '../../utils/storage';
 import { summarizeErrorForLog } from '../../utils/errors';
 import type { INavigationManager } from '../navigation';
@@ -225,7 +225,7 @@ export class NowPlayingDebugManager {
 
     private _isNowPlayingStreamDebugEnabled(): boolean {
         try {
-            return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG));
+            return isStoredTrue(safeLocalStorageGet(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG));
         } catch {
             return false;
         }
@@ -235,7 +235,7 @@ export class NowPlayingDebugManager {
         try {
             return (
                 this._isNowPlayingStreamDebugEnabled() &&
-                isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW))
+                isStoredTrue(safeLocalStorageGet(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW))
             );
         } catch {
             return false;

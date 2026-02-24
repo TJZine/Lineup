@@ -11,7 +11,7 @@ import type { EPGConfig } from './types';
 import type { IChannelManager, ChannelConfig, ResolvedChannelContent } from '../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig, ScheduleWindow } from '../../scheduler/scheduler';
 import { readStoredBoolean, safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from '../../../utils/storage';
-import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 
 export type EpgUiStatus = 'pending' | 'initializing' | 'ready' | 'error' | 'disabled' | undefined;
@@ -124,15 +124,15 @@ export class EPGCoordinator {
     }
 
     private _isLibraryTabsEnabled(): boolean {
-        return readStoredBoolean(RETUNE_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, true);
+        return readStoredBoolean(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, true);
     }
 
     private _isAggressivePreloadEnabled(): boolean {
-        return readStoredBoolean(RETUNE_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, false);
+        return readStoredBoolean(LINEUP_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, false);
     }
 
     private _readSelectedLibraryId(): string | null {
-        const raw = safeLocalStorageGet(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER);
+        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
         if (!raw) return null;
         const trimmed = raw.trim();
         return trimmed ? trimmed : null;
@@ -151,7 +151,7 @@ export class EPGCoordinator {
     }
 
     private _readGuideDensity(): 'detailed' | 'wide' {
-        const raw = safeLocalStorageGet(RETUNE_STORAGE_KEYS.EPG_GUIDE_DENSITY);
+        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY);
         return raw === 'wide' ? 'wide' : DEFAULT_GUIDE_DENSITY;
     }
 
@@ -243,7 +243,7 @@ export class EPGCoordinator {
 
         if (!tabsEnabled || !hasMultipleLibraries || (selectedId && !hasSelectedMatch)) {
             if (selectedId) {
-                safeLocalStorageRemove(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER);
+                safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
             }
             selectedId = null;
         }
@@ -312,7 +312,7 @@ export class EPGCoordinator {
         const { selectedId, tabsEnabled, shouldFilter, libraries } = this._getLibraryFilterState(all);
 
         // Category colors
-        const categoryColorsEnabled = readStoredBoolean(RETUNE_STORAGE_KEYS.GUIDE_CATEGORY_COLORS, true);
+        const categoryColorsEnabled = readStoredBoolean(LINEUP_STORAGE_KEYS.GUIDE_CATEGORY_COLORS, true);
         epg.setCategoryColorsEnabled(categoryColorsEnabled);
 
         // Tabs (only show if enabled; EPGComponent will hide if <=1 library)
@@ -322,9 +322,9 @@ export class EPGCoordinator {
             epg.setLibraryTabs([], null);
         }
 
-        const storedLayoutMode = safeLocalStorageGet(RETUNE_STORAGE_KEYS.EPG_LAYOUT_MODE);
+        const storedLayoutMode = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
         const layoutMode = storedLayoutMode === 'classic' ? 'classic' : 'overlay';
-        const nowWatchingEnabled = readStoredBoolean(RETUNE_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, true);
+        const nowWatchingEnabled = readStoredBoolean(LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, true);
         epg.setLayoutMode(layoutMode);
         epg.setNowWatchingBannerEnabled(nowWatchingEnabled);
         epg.setVisibleHours(this._getVisibleHoursForCurrentFilter(all, selectedId, shouldFilter));
@@ -503,9 +503,9 @@ export class EPGCoordinator {
 
         const onFilter = (payload: { libraryId: string | null }): void => {
             if (payload.libraryId) {
-                safeLocalStorageSet(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER, payload.libraryId);
+                safeLocalStorageSet(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, payload.libraryId);
             } else {
-                safeLocalStorageRemove(RETUNE_STORAGE_KEYS.EPG_LIBRARY_FILTER);
+                safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
             }
 
             const epgInstance = this.deps.getEpg();
@@ -1327,7 +1327,7 @@ export class EPGCoordinator {
 
     private _isDebugEnabled(): boolean {
         try {
-            return localStorage.getItem('retune_debug_epg') === '1';
+            return localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG) === '1';
         } catch {
             return false;
         }

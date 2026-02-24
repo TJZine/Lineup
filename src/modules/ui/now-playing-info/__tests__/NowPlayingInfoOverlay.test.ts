@@ -24,6 +24,7 @@ describe('NowPlayingInfoOverlay', () => {
         elapsedMs: 60_000,
         durationMs: 120_000,
         posterUrl: 'https://example.com/poster.jpg',
+        backdropUrl: 'https://example.com/backdrop.jpg',
     };
 
     beforeEach(() => {
@@ -272,21 +273,34 @@ describe('NowPlayingInfoOverlay', () => {
         overlay.show({
             ...baseViewModel,
             cinematic: true,
-            posterUrl: 'https://example.com/a") , linear-gradient(red, red), url("https://evil',
+            backdropUrl: 'https://example.com/a") , linear-gradient(red, red), url("https://evil',
+            posterUrl: 'https://example.com/poster.jpg',
         });
 
         const backdrop = container.querySelector('.now-playing-info-backdrop') as HTMLElement;
         expect(backdrop.style.backgroundImage).toBe('');
     });
 
-    it('preserves legitimate poster URLs in cinematic backdrop', () => {
+    it('preserves legitimate backdrop URLs in cinematic backdrop', () => {
         overlay.show({
             ...baseViewModel,
             cinematic: true,
-            posterUrl: 'https://example.com/a',
+            backdropUrl: 'https://example.com/backdrop.jpg',
         });
 
         const backdrop = container.querySelector('.now-playing-info-backdrop') as HTMLElement;
-        expect(backdrop.style.backgroundImage).toContain('https://example.com/a');
+        expect(backdrop.style.backgroundImage).toContain('https://example.com/backdrop.jpg');
+    });
+
+    it('falls back to posterUrl when backdropUrl is missing in cinematic mode', () => {
+        overlay.show({
+            ...baseViewModel,
+            cinematic: true,
+            backdropUrl: null,
+            posterUrl: 'https://example.com/poster-fallback.jpg',
+        });
+
+        const backdrop = container.querySelector('.now-playing-info-backdrop') as HTMLElement;
+        expect(backdrop.style.backgroundImage).toContain('https://example.com/poster-fallback.jpg');
     });
 });

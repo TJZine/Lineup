@@ -200,7 +200,7 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         ) as HTMLElement | null;
         if (backdropEl) {
             const backgroundImage = viewModel.cinematic
-                ? buildSafeBackgroundImage(viewModel.posterUrl ?? null)
+                ? buildSafeBackgroundImage(viewModel.backdropUrl ?? viewModel.posterUrl ?? null)
                 : '';
             backdropEl.style.backgroundImage = backgroundImage;
         }

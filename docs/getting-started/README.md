@@ -1,6 +1,6 @@
-# Getting Started with Retune
+# Getting Started with Lineup
 
-Welcome to Retune! This guide will help you install the application, connect your Plex server, and start watching your first virtual channels.
+Welcome to Lineup! This guide will help you install the application, connect your Plex server, and start watching your first virtual channels.
 
 ## 📚 What's Inside?
 

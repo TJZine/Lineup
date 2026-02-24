@@ -7,7 +7,7 @@
 
 import type { SubtitleTrack } from './types';
 import { BURN_IN_SUBTITLE_FORMATS } from './constants';
-import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import { isStoredTrue, safeLocalStorageGet } from '../../utils/storage';
 import { redactSensitiveTokens, safeStringifyForLog } from '../../utils/redact';
 import {
@@ -75,7 +75,7 @@ export class SubtitleManager {
 
     private _isSubtitleDebugEnabled(): boolean {
         try {
-            return isStoredTrue(safeLocalStorageGet(RETUNE_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING));
+            return isStoredTrue(safeLocalStorageGet(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING));
         } catch {
             return false;
         }

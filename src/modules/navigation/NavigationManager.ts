@@ -27,7 +27,7 @@ import {
     CURSOR_HIDE_DELAY_MS,
     CHANNEL_INPUT_CONFIG,
 } from './constants';
-import { RETUNE_STORAGE_KEYS } from '../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import { readStoredBoolean } from '../../utils/storage';
 import type { PlatformInputService } from '../../platform';
 
@@ -57,7 +57,7 @@ interface NavigationInternalState {
 
 /**
  * NavigationManager coordinates screen navigation, focus management,
- * and remote control input for the Retune webOS application.
+ * and remote control input for the Lineup webOS application.
  *
  * @implements INavigationManager
  *
@@ -633,7 +633,7 @@ export class NavigationManager
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        return readStoredBoolean(RETUNE_STORAGE_KEYS.DEBUG_LOGGING, false);
+        return readStoredBoolean(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, false);
     }
 
     private _logInputSuppressed(reason: string, button?: RemoteButton): void {

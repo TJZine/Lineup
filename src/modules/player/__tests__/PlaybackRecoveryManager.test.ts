@@ -4,7 +4,7 @@ import type { IVideoPlayer, StreamDescriptor } from '../index';
 import type { IPlexStreamResolver, StreamDecision } from '../../plex/stream';
 import type { PlexStream } from '../../plex/shared/types';
 import type { IChannelScheduler, ScheduledProgram } from '../../scheduler/scheduler';
-import { RETUNE_STORAGE_KEYS } from '../../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 
 const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgram =>
     ({
@@ -151,8 +151,8 @@ describe('PlaybackRecoveryManager', () => {
     });
 
     afterEach(() => {
-        localStorage.removeItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE);
-        localStorage.removeItem(RETUNE_STORAGE_KEYS.SUBTITLE_PREFER_FORCED);
+        localStorage.removeItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE);
+        localStorage.removeItem(LINEUP_STORAGE_KEYS.SUBTITLE_PREFER_FORCED);
         jest.restoreAllMocks();
     });
     it('resets playback failure guard and resumes scheduler', () => {
@@ -363,13 +363,13 @@ describe('PlaybackRecoveryManager', () => {
     });
 
     it('ignores stored subtitle track selections (no per-item or global persistence)', async () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'standard');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'standard');
         localStorage.setItem(
-            'retune_subtitle_pref_item:item-1',
+            'lineup_subtitle_pref_item:item-1',
             JSON.stringify({ trackId: 'sub-es', language: 'es', codec: 'srt', lastUpdated: Date.now() })
         );
         localStorage.setItem(
-            'retune_subtitle_pref_global',
+            'lineup_subtitle_pref_global',
             JSON.stringify({ trackId: 'sub-es', language: 'es', codec: 'srt', lastUpdated: Date.now() })
         );
 
@@ -396,7 +396,7 @@ describe('PlaybackRecoveryManager', () => {
     });
 
     it('filters out keyless subtitles when external-only is enabled', async () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'direct');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'direct');
 
         const keylessStream: PlexStream = {
             id: 'sub-keyless',
@@ -419,7 +419,7 @@ describe('PlaybackRecoveryManager', () => {
     });
 
     it('does not escalate subtitle deactivation to burn-in in standard mode', async () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'standard');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'standard');
 
         const keylessEmbedded: PlexStream = {
             id: 'sub-keyless',
@@ -457,7 +457,7 @@ describe('PlaybackRecoveryManager', () => {
     });
 
     it('escalates subtitle deactivation to burn-in in Full mode', async () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
         const keylessText: PlexStream = {
             id: 'sub-keyless',
@@ -652,8 +652,8 @@ describe('PlaybackRecoveryManager', () => {
     });
 
     it('prefers forced subtitles when preference is enabled', async () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'standard');
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_PREFER_FORCED, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'standard');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_PREFER_FORCED, '1');
 
         const resolver: IPlexStreamResolver = {
             resolveStream: jest.fn().mockResolvedValue(
@@ -671,8 +671,8 @@ describe('PlaybackRecoveryManager', () => {
     });
 
     it('prefers full subtitles when preference is disabled', async () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_MODE, 'standard');
-        localStorage.setItem(RETUNE_STORAGE_KEYS.SUBTITLE_PREFER_FORCED, '0');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'standard');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_PREFER_FORCED, '0');
 
         const resolver: IPlexStreamResolver = {
             resolveStream: jest.fn().mockResolvedValue(

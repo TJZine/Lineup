@@ -13,6 +13,7 @@ import { EPGChannelList } from './EPGChannelList';
 import { EPGErrorBoundary } from './EPGErrorBoundary';
 import { EPGLibraryTabs } from './EPGLibraryTabs';
 import { rafThrottle, appendEpgDebugLog, formatTimeRange } from './utils';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import type { IEPGComponent } from './interfaces';
 import type {
     EPGConfig,
@@ -86,7 +87,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private _lastDebugEnabledStorageReadMs: number = 0;
     private _lastRenderGridDebugLogMs: number = 0;
     private _onStorage = (event: StorageEvent): void => {
-        if (event.key !== 'retune_debug_epg') return;
+        if (event.key !== LINEUP_STORAGE_KEYS.EPG_DEBUG) return;
         this._debugEnabled = event.newValue === '1';
         this._lastDebugEnabledStorageReadMs = Date.now();
     };
@@ -181,7 +182,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
     private _readDebugEnabledFromStorage(): boolean {
         try {
-            return localStorage.getItem('retune_debug_epg') === '1';
+            return localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG) === '1';
         } catch {
             return false;
         }

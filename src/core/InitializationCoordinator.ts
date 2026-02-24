@@ -30,7 +30,7 @@ import type { IChannelTransitionOverlay } from '../modules/ui/channel-transition
 import type { IPlaybackOptionsModal } from '../modules/ui/playback-options';
 import type { IDisposable } from '../utils/interfaces';
 import { readStoredBoolean, safeLocalStorageGet } from '../utils/storage';
-import { RETUNE_STORAGE_KEYS } from '../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import type { OrchestratorConfig, ModuleStatus } from '../Orchestrator';
 import { summarizeErrorForLog } from '../utils/errors';
 
@@ -454,7 +454,7 @@ export class InitializationCoordinator implements IInitializationCoordinator {
                     const currentScreen = this._deps.navigation.getCurrentScreen();
                     const isAuthScreen = currentScreen === 'auth';
                     const showPickerOnStartup = readStoredBoolean(
-                        RETUNE_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP,
+                        LINEUP_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP,
                         false
                     );
                     if (isAuthScreen || showPickerOnStartup) {
@@ -701,11 +701,11 @@ export class InitializationCoordinator implements IInitializationCoordinator {
         this._callbacks.updateModuleStatus('epg-ui', 'initializing');
         const init = async (): Promise<void> => {
             // Wire thumb resolver callback to convert relative Plex paths to absolute URLs
-            const storedLayoutMode = safeLocalStorageGet(RETUNE_STORAGE_KEYS.EPG_LAYOUT_MODE);
+            const storedLayoutMode = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
             const layoutMode: 'overlay' | 'classic' =
                 storedLayoutMode === 'classic' ? 'classic' : 'overlay';
             const showNowWatchingBanner = readStoredBoolean(
-                RETUNE_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED,
+                LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED,
                 true
             );
             const epgConfigWithResolver = {

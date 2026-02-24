@@ -3,7 +3,7 @@
  */
 
 import { ThemeManager } from '../ThemeManager';
-import { RETUNE_STORAGE_KEYS } from '../../../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 
 describe('ThemeManager', () => {
     beforeEach(() => {
@@ -23,12 +23,12 @@ describe('ThemeManager', () => {
         const manager = ThemeManager.getInstance();
 
         expect(manager.getTheme()).toBe('obsidian');
-        expect(localStorage.getItem(RETUNE_STORAGE_KEYS.THEME)).toBe('obsidian');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.THEME)).toBe('obsidian');
         expect(document.body.classList.contains('theme-directv')).toBe(false);
     });
 
     it('applies saved directv theme and removes other theme classes', () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.THEME, 'directv');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.THEME, 'directv');
 
         ThemeManager.getInstance();
 
@@ -38,7 +38,7 @@ describe('ThemeManager', () => {
     });
 
     it('removes previous theme class when switching themes', () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.THEME, 'broadcast');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.THEME, 'broadcast');
 
         const manager = ThemeManager.getInstance();
         expect(document.body.classList.contains('theme-broadcast')).toBe(true);
@@ -53,7 +53,7 @@ describe('ThemeManager', () => {
     });
 
     it('applies glass theme and removes previous theme class', () => {
-        localStorage.setItem(RETUNE_STORAGE_KEYS.THEME, 'directv');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.THEME, 'directv');
 
         const manager = ThemeManager.getInstance();
         expect(document.body.classList.contains('theme-directv')).toBe(true);
