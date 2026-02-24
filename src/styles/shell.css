@@ -268,33 +268,43 @@
 .screen-button:focus,
 .setup-toggle.focused,
 .setup-toggle:focus,
-.profile-numpad-button.focused,
-.profile-numpad-button:focus {
+.setup-toggle:focus-visible {
   outline: none;
 }
 
 .screen-button::after,
-.setup-toggle::after,
-.profile-numpad-button::after {
+.setup-toggle::after {
   content: '';
   position: absolute;
-  inset: 0;
+  inset: calc(-1 * var(--focus-ring-offset));
   border-radius: inherit;
-  box-shadow: 0 0 0 0 var(--focus-color) inset;
-  transition: box-shadow 150ms ease;
+  border: var(--focus-ring-width, 3px) solid transparent;
+  transition: border-color 150ms ease;
   pointer-events: none;
 }
 
 .screen-button.focused::after,
+.screen-button:focus::after,
 .screen-button:focus-visible::after,
 .setup-toggle.focused::after,
-.setup-toggle:focus-visible::after,
-.profile-numpad-button.focused::after,
-.profile-numpad-button:focus-visible::after {
-  box-shadow: 0 0 0 var(--focus-ring-width, 3px) var(--focus-color) inset;
+.setup-toggle:focus::after,
+.setup-toggle:focus-visible::after {
+  border-color: var(--focus-color);
 }
 
 @media (forced-colors: active) {
+  .screen-button.focused,
+  .screen-button:focus,
+  .setup-toggle.focused,
+  .setup-toggle:focus {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .screen-button::after,
+  .setup-toggle::after {
+    content: none;
+  }
 
   .profile-row.focused,
   .profile-row:focus {
@@ -459,8 +469,7 @@
 
 .setup-toggle.focused,
 .setup-toggle:focus {
-  outline: var(--focus-ring-width) solid var(--focus-color);
-  outline-offset: var(--focus-ring-offset);
+  outline: none;
 }
 
 .setup-toggle-label {

@@ -253,16 +253,29 @@
 .profile-numpad-button::after {
     content: '';
     position: absolute;
-    inset: 0;
+    inset: calc(-1 * var(--focus-ring-offset));
     border-radius: inherit;
-    box-shadow: 0 0 0 0 var(--focus-color) inset;
-    transition: box-shadow 150ms ease;
+    border: var(--focus-ring-width, 3px) solid transparent;
+    transition: border-color 150ms ease;
     pointer-events: none;
 }
 
 .profile-numpad-button.focused::after,
+.profile-numpad-button:focus::after,
 .profile-numpad-button:focus-visible::after {
-    box-shadow: 0 0 0 var(--focus-ring-width, 3px) var(--focus-color) inset;
+    border-color: var(--focus-color);
+}
+
+@media (forced-colors: active) {
+    .profile-numpad-button.focused,
+    .profile-numpad-button:focus {
+        outline: 2px solid Highlight;
+        outline-offset: 2px;
+    }
+
+    .profile-numpad-button::after {
+        content: none;
+    }
 }
 
 @keyframes pin-dot-pop {

@@ -235,6 +235,7 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
                     if (clearLogo.getAttribute('src') !== expectedSrc) return;
                     clearLogo.onerror = null;
                     clearLogo.onload = null;
+                    clearLogo.style.visibility = '';
                     clearLogo.removeAttribute('src');
                     clearLogo.alt = '';
                     clearLogo.style.display = 'none';
@@ -242,31 +243,43 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
                 };
                 clearLogo.onload = (): void => {
                     if (clearLogo.getAttribute('src') !== expectedSrc) return;
+                    clearLogo.onerror = null;
+                    clearLogo.onload = null;
 
-                    const rect = clearLogo.getBoundingClientRect();
-                    if (rect.height < 15) {
-                        clearLogo.onerror = null;
-                        clearLogo.onload = null;
-                        clearLogo.style.display = 'none';
-                        (title as HTMLElement).style.display = '';
+                    const renderedHeight = clearLogo.getBoundingClientRect().height;
+                    const isUsable = renderedHeight >= 32;
+
+                    clearLogo.style.visibility = '';
+                    if (isUsable) {
+                        (title as HTMLElement).style.display = 'none';
                         return;
                     }
 
-                    clearLogo.onerror = null;
-                    clearLogo.onload = null;
-                    (title as HTMLElement).style.display = 'none';
+                    // Unusable: hide logo and fall back to title.
+                    clearLogo.removeAttribute('src');
+                    clearLogo.alt = '';
+                    clearLogo.style.display = 'none';
+                    (title as HTMLElement).style.display = '';
                 };
 
                 clearLogo.setAttribute('src', expectedSrc);
                 clearLogo.alt = viewModel.title || '';
                 clearLogo.style.display = 'block';
-                (title as HTMLElement).style.display = 'none';
+                // Keep the title visible until the logo is proven usable.
+                (title as HTMLElement).style.display = '';
+                // Avoid flashing an unusable logo while still allowing measurement on load.
+                clearLogo.style.visibility = 'hidden';
+                // Some engines won't re-fire load for cached images when src is unchanged.
+                if (clearLogo.complete && clearLogo.naturalWidth > 0) {
+                    clearLogo.onload?.(new Event('load'));
+                }
             } else {
                 clearLogo.onerror = null;
                 clearLogo.onload = null;
                 clearLogo.removeAttribute('src');
                 clearLogo.alt = '';
                 clearLogo.style.display = 'none';
+                clearLogo.style.visibility = '';
                 (title as HTMLElement).style.display = '';
             }
         }

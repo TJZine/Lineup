@@ -59,7 +59,7 @@ export class PlayerOsdCoordinator {
     private _throttledRenderTimer: number | null = null;
     private _lastThrottledRenderAt = 0;
 
-    constructor(private readonly deps: PlayerOsdCoordinatorDeps) { }
+    constructor(private readonly deps: PlayerOsdCoordinatorDeps) {}
 
     poke(reason: PlayerOsdReason): void {
         this._suppressActions = false;

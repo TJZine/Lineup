@@ -161,12 +161,21 @@ describe('PlayerOsdOverlay', () => {
         const logo = container.querySelector(`.${PLAYER_OSD_CLASSES.CLEAR_LOGO}`) as HTMLImageElement;
         const title = container.querySelector(`.${PLAYER_OSD_CLASSES.TITLE}`) as HTMLElement;
         expect(logo.style.display).not.toBe('none');
+        expect(logo.style.visibility).toBe('hidden');
         expect(logo.getAttribute('src')).toBe('http://example/logo.png');
         expect(logo.getAttribute('alt')).toBe(baseViewModel.title);
+        expect(title.style.display).toBe('');
+
+        Object.defineProperty(logo, 'getBoundingClientRect', {
+            value: () => ({ height: 30 } as unknown as DOMRect),
+        });
+        (logo.onload as unknown as (() => void))?.();
+        expect(logo.style.visibility).toBe('');
         expect(title.style.display).toBe('none');
 
         overlay.setViewModel({ ...baseViewModel, clearLogoUrl: null });
         expect(logo.style.display).toBe('none');
+        expect(logo.style.visibility).toBe('');
         expect(logo.getAttribute('src')).toBeNull();
         expect(logo.getAttribute('alt')).toBe('');
         expect(title.style.display).toBe('');
@@ -178,7 +187,7 @@ describe('PlayerOsdOverlay', () => {
 
         const logo = container.querySelector(`.${PLAYER_OSD_CLASSES.CLEAR_LOGO}`) as HTMLImageElement;
         const title = container.querySelector(`.${PLAYER_OSD_CLASSES.TITLE}`) as HTMLElement;
-        expect(title.style.display).toBe('none');
+        expect(title.style.display).toBe('');
 
         (logo.onerror as unknown as (() => void))?.();
 
@@ -189,7 +198,7 @@ describe('PlayerOsdOverlay', () => {
         expect(logo.onload).toBeNull();
     });
 
-    it('clears error handler and keeps title hidden when clear logo loads', () => {
+    it('clears error handler and hides title when clear logo loads and is usable', () => {
         overlay.setViewModel({ ...baseViewModel, clearLogoUrl: 'http://example/good.png' });
         overlay.show();
 

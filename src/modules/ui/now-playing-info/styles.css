@@ -227,6 +227,11 @@
   max-height: calc(var(--text-base, 16px) * 1.35 * 4);
 }
 
+.now-playing-info-container:not(.now-playing-info-cinematic) .now-playing-info-description {
+  -webkit-line-clamp: 6;
+  max-height: calc(var(--text-base, 16px) * 1.35 * 6);
+}
+
 .now-playing-info-context {
   font-size: var(--text-sm);
   text-transform: uppercase;
@@ -272,11 +277,6 @@
 
 .now-playing-info-container.now-playing-info-cinematic {
   align-items: stretch;
-}
-
-.now-playing-info-container.now-playing-info-cinematic .now-playing-info-description {
-  -webkit-line-clamp: 2;
-  max-height: calc(var(--text-base, 16px) * 1.35 * 2);
 }
 
 .now-playing-info-container.now-playing-info-cinematic .now-playing-info-panel {

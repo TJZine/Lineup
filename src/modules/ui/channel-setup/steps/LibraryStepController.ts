@@ -68,43 +68,29 @@ export class LibraryStepController {
 
             const meta = document.createElement('span');
             meta.className = 'setup-toggle-meta';
-            let hasCounts = false;
-
-            if (library.type === 'movie' && typeof library.movieCount === 'number' && Number.isFinite(library.movieCount)) {
-                hasCounts = true;
+            const typeLabel = library.type === 'movie' ? 'Movies' : 'Shows';
+            if (typeof library.contentCount === 'number' && Number.isFinite(library.contentCount)) {
+                meta.appendChild(document.createTextNode(`${typeLabel} • `));
                 const countSpan = document.createElement('span');
                 countSpan.className = 'setup-toggle-count';
-                countSpan.textContent = deps.formatCount(library.movieCount);
+                countSpan.textContent = deps.formatCount(library.contentCount);
                 meta.appendChild(countSpan);
-                meta.appendChild(document.createTextNode(' Movies'));
-            } else if (library.type === 'show') {
-                const hasShows = typeof library.showCount === 'number' && Number.isFinite(library.showCount);
-                const hasEpisodes = typeof library.episodeCount === 'number' && Number.isFinite(library.episodeCount);
+                meta.appendChild(document.createTextNode(library.type === 'movie' ? ' movies' : ' series'));
 
-                if (hasShows || hasEpisodes) {
-                    hasCounts = true;
-                    if (hasShows) {
-                        const showCountSpan = document.createElement('span');
-                        showCountSpan.className = 'setup-toggle-count';
-                        showCountSpan.textContent = deps.formatCount(library.showCount as number);
-                        meta.appendChild(showCountSpan);
-                        meta.appendChild(document.createTextNode(' Shows'));
-                    }
-                    if (hasShows && hasEpisodes) {
-                        meta.appendChild(document.createTextNode(' • '));
-                    }
-                    if (hasEpisodes) {
-                        const epCountSpan = document.createElement('span');
-                        epCountSpan.className = 'setup-toggle-count';
-                        epCountSpan.textContent = deps.formatCount(library.episodeCount as number);
-                        meta.appendChild(epCountSpan);
-                        meta.appendChild(document.createTextNode(' Episodes'));
-                    }
+                if (
+                    library.type === 'show' &&
+                    typeof library.episodeCount === 'number' &&
+                    Number.isFinite(library.episodeCount)
+                ) {
+                    meta.appendChild(document.createTextNode(' • '));
+                    const epCountSpan = document.createElement('span');
+                    epCountSpan.className = 'setup-toggle-count';
+                    epCountSpan.textContent = deps.formatCount(library.episodeCount);
+                    meta.appendChild(epCountSpan);
+                    meta.appendChild(document.createTextNode(' episodes'));
                 }
-            }
-
-            if (!hasCounts) {
-                meta.textContent = library.type === 'movie' ? 'Movies' : 'Shows';
+            } else {
+                meta.textContent = typeLabel;
             }
 
             const state = document.createElement('span');

@@ -185,15 +185,26 @@ export class PlexLibrary implements IPlexLibrary {
                         const count = await this.getLibraryItemCount(lib.id, { signal });
                         lib.contentCount = count;
 
-                        if (lib.type === 'movie') {
-                            lib.movieCount = count;
-                        } else if (lib.type === 'show') {
-                            lib.showCount = count;
-                            const epCount = await this.getLibraryItemCount(lib.id, {
-                                signal,
-                                filter: { type: PLEX_MEDIA_TYPES.EPISODE }
-                            });
-                            lib.episodeCount = epCount;
+                        if (lib.type === 'show') {
+                            try {
+                                const epCount = await this.getLibraryItemCount(lib.id, {
+                                    signal,
+                                    filter: { type: PLEX_MEDIA_TYPES.EPISODE },
+                                });
+                                lib.episodeCount = epCount;
+                            } catch (error) {
+                                // Abort is intentional — skip remaining work without logging.
+                                if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
+                                    return;
+                                }
+                                // Non-fatal: keep the section visible even if episode counts fail.
+                                delete lib.episodeCount;
+                                const context = typeof lib.title === 'string' && lib.title ? lib.title : lib.id;
+                                this._logger.warn(
+                                    `[PlexLibrary] Failed to fetch episode count for library ${context}:`,
+                                    summarizeErrorForLog(error)
+                                );
+                            }
                         }
                     } catch (error) {
                         // Abort is intentional — skip remaining work without logging.
