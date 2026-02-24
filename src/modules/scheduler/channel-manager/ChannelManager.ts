@@ -486,6 +486,12 @@ export class ChannelManager implements IChannelManager {
         if (config.buildStrategy !== undefined) channel.buildStrategy = config.buildStrategy;
         if (config.sourceLibraryId !== undefined) channel.sourceLibraryId = config.sourceLibraryId;
         if (config.sourceLibraryName !== undefined) channel.sourceLibraryName = config.sourceLibraryName;
+        if (typeof config.lineupReplicaIndex === 'number' && Number.isFinite(config.lineupReplicaIndex)) {
+            channel.lineupReplicaIndex = Math.max(0, Math.floor(config.lineupReplicaIndex));
+        }
+        if (typeof config.isSequentialVariant === 'boolean') {
+            channel.isSequentialVariant = config.isSequentialVariant;
+        }
         if (typeof config.shuffleSeed === 'number' && Number.isFinite(config.shuffleSeed)) {
             channel.shuffleSeed = config.shuffleSeed;
         } else {
@@ -495,6 +501,13 @@ export class ChannelManager implements IChannelManager {
             channel.phaseSeed = config.phaseSeed;
         } else {
             channel.phaseSeed = fnv1a32Uint(`${channel.id}:phase`);
+        }
+        if (
+            channel.playbackMode === 'block'
+            && typeof config.blockSize === 'number'
+            && Number.isFinite(config.blockSize)
+        ) {
+            channel.blockSize = Math.max(1, Math.floor(config.blockSize));
         }
         if (config.contentFilters !== undefined) channel.contentFilters = config.contentFilters;
         if (config.sortOrder !== undefined) channel.sortOrder = config.sortOrder;

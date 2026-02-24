@@ -859,11 +859,30 @@ export class ChannelSetupScreen {
 
     private _resolveDetailFocusTarget(category: StrategyCategoryKey, availableIds: string[]): string | null {
         if (availableIds.length === 0) return null;
+        const enabledIds = availableIds.filter((id) => this._isDetailControlEnabled(category, id));
+        if (enabledIds.length === 0) {
+            return null;
+        }
         const remembered = this._rememberedDetailFocusByCategory[category];
-        if (remembered && availableIds.includes(remembered)) {
+        if (remembered && enabledIds.includes(remembered)) {
             return remembered;
         }
-        return availableIds[0] ?? null;
+        return enabledIds[0] ?? null;
+    }
+
+    private _isDetailControlEnabled(category: StrategyCategoryKey, controlId: string): boolean {
+        if (category === 'build-options' && controlId === STEP2_CONTROL_IDS.alternateLineupCopies) {
+            return this._channelExpansion.addAlternateLineups;
+        }
+        if (category === 'series-ordering') {
+            if (controlId === STEP2_CONTROL_IDS.seriesBaseBlockSize) {
+                return this._seriesOrdering.basePlaybackMode === 'block';
+            }
+            if (controlId === STEP2_CONTROL_IDS.seriesVariantBlockSize) {
+                return this._channelExpansion.variantType === 'block';
+            }
+        }
+        return true;
     }
 
     private _strategyKeyFromControlId(controlId: string, prefix: string): SetupStrategyKey | null {

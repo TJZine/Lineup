@@ -298,6 +298,61 @@ describe('ChannelSetupScreen', () => {
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-strategy-playlists');
     });
 
+    it('right transfer activates the focused category before moving to detail controls', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const orchestrator = createOrchestrator({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        expect(container.querySelector('#setup-build-mode')).toBeNull();
+
+        nav.setMockFocus('setup-category-build-options');
+        const transfer = nav.emitKeyPress('right');
+        expect(transfer.handled).toBe(true);
+        expect(container.querySelector('#setup-build-mode')).not.toBeNull();
+        expect(nav.setFocus).toHaveBeenLastCalledWith('setup-build-mode');
+    });
+
+    it('right transfer skips remembered disabled detail controls', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const orchestrator = createOrchestrator({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-series-ordering');
+
+        // Enter block mode so base block size is enabled, then click it to remember focus.
+        clickButton(container, '#setup-series-base-mode'); // shuffle -> sequential
+        clickButton(container, '#setup-series-base-mode'); // sequential -> block
+        clickButton(container, '#setup-series-base-block-size'); // remembers this control for the category
+
+        // Switch away from block mode; block size control becomes disabled.
+        clickButton(container, '#setup-series-base-mode'); // block -> shuffle
+
+        nav.setMockFocus('setup-category-series-ordering');
+        const transfer = nav.emitKeyPress('right');
+        expect(transfer.handled).toBe(true);
+        expect(nav.setFocus).toHaveBeenLastCalledWith('setup-series-base-mode');
+    });
+
     it('moves left from non-adjustable detail controls back to active category', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
