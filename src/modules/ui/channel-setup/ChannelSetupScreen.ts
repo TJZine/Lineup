@@ -43,6 +43,22 @@ import {
 import { scrollToNearest } from './focus/scrollToNearest';
 
 const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
+const SERIES_BLOCK_PRESET_MIN = SERIES_BLOCK_PRESETS.length > 0
+    ? Math.min(...SERIES_BLOCK_PRESETS)
+    : 2;
+const SERIES_BLOCK_PRESET_MAX = SERIES_BLOCK_PRESETS.length > 0
+    ? Math.max(...SERIES_BLOCK_PRESETS)
+    : 5;
+const DEFAULT_SERIES_BLOCK_PRESET = SERIES_BLOCK_PRESETS.includes(3)
+    ? 3
+    : SERIES_BLOCK_PRESETS[0] ?? 3;
+
+const clampSeriesBlockPreset = (raw: unknown): number => {
+    const numeric = typeof raw === 'number' ? raw : Number(raw);
+    if (!Number.isFinite(numeric)) return DEFAULT_SERIES_BLOCK_PRESET;
+    const value = Math.floor(numeric);
+    return Math.min(SERIES_BLOCK_PRESET_MAX, Math.max(SERIES_BLOCK_PRESET_MIN, value));
+};
 
 type SetupStrategyState = Record<SetupStrategyKey, {
     enabled: boolean;
@@ -84,12 +100,12 @@ const defaultChannelExpansionState = (): ChannelExpansionState => ({
     addAlternateLineups: false,
     alternateLineupCopies: 1,
     variantType: 'none',
-    variantBlockSize: 3,
+    variantBlockSize: DEFAULT_SERIES_BLOCK_PRESET,
 });
 
 const defaultSeriesOrderingState = (): SeriesOrderingState => ({
     basePlaybackMode: 'shuffle',
-    baseBlockSize: 3,
+    baseBlockSize: DEFAULT_SERIES_BLOCK_PRESET,
 });
 
 type SetupStep = 1 | 2 | 3;
@@ -1445,18 +1461,14 @@ export class ChannelSetupScreen {
                 record.channelExpansion?.variantType === 'sequential' || record.channelExpansion?.variantType === 'block'
                     ? record.channelExpansion.variantType
                     : 'none',
-            variantBlockSize: Number.isFinite(record.channelExpansion?.variantBlockSize)
-                ? Math.min(5, Math.max(2, Math.floor(Number(record.channelExpansion?.variantBlockSize))))
-                : 3,
+            variantBlockSize: clampSeriesBlockPreset(record.channelExpansion?.variantBlockSize),
         };
         this._seriesOrdering = {
             basePlaybackMode:
                 record.seriesOrdering?.basePlaybackMode === 'sequential' || record.seriesOrdering?.basePlaybackMode === 'block'
                     ? record.seriesOrdering.basePlaybackMode
                     : 'shuffle',
-            baseBlockSize: Number.isFinite(record.seriesOrdering?.baseBlockSize)
-                ? Math.min(5, Math.max(2, Math.floor(Number(record.seriesOrdering?.baseBlockSize))))
-                : 3,
+            baseBlockSize: clampSeriesBlockPreset(record.seriesOrdering?.baseBlockSize),
         };
         this._maxChannels = Math.min(Number.isFinite(record.maxChannels) ? record.maxChannels : DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS);
         this._minItems = Math.max(1, Math.floor(record.minItemsPerChannel || DEFAULT_MIN_ITEMS_PER_CHANNEL));

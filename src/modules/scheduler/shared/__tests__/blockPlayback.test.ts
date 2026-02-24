@@ -3,6 +3,18 @@ import type { ResolvedContentItem } from '../../channel-manager/types';
 
 describe('blockPlayback', () => {
     describe('applyBlockPlaybackMode', () => {
+        const makeItem = (ratingKey: string, showThumb: string): ResolvedContentItem => ({
+            ratingKey,
+            type: 'episode',
+            title: ratingKey,
+            fullTitle: ratingKey,
+            showThumb,
+            durationMs: 1,
+            thumb: null,
+            year: 2000,
+            scheduledIndex: 0,
+        });
+
         it('throws RangeError when blockSize is 0 (fails fast before grouping)', () => {
             expect(() => {
                 applyBlockPlaybackMode({
@@ -15,20 +27,31 @@ describe('blockPlayback', () => {
         });
 
         it('includes the invalid blockSize value in the error message', () => {
-            try {
+            const call = (): void => {
                 applyBlockPlaybackMode({
                     items: [],
                     seed: 0,
                     blockSize: 0,
                     shuffleKeys: (keys) => keys,
                 });
-                throw new Error('Expected applyBlockPlaybackMode to throw');
-            } catch (error) {
-                expect(error).toBeInstanceOf(RangeError);
-                const message = error instanceof Error ? error.message : String(error);
-                expect(message).toContain('blockSize');
-                expect(message).toContain('0');
-            }
+            };
+            expect(call).toThrow(RangeError);
+            expect(call).toThrow(/blockSize/);
+            expect(call).toThrow(/0/);
+        });
+
+        it('throws RangeError when blockSize is negative', () => {
+            const call = (): void => {
+                applyBlockPlaybackMode({
+                    items: [],
+                    seed: 0,
+                    blockSize: -1,
+                    shuffleKeys: (keys) => keys,
+                });
+            };
+            expect(call).toThrow(RangeError);
+            expect(call).toThrow(/blockSize/);
+            expect(call).toThrow(/-1/);
         });
 
         it('throws RangeError when blockSize is not an integer', () => {
@@ -61,6 +84,39 @@ describe('blockPlayback', () => {
                 shuffleKeys: (keys) => keys,
             });
             expect(result).toEqual([]);
+        });
+
+        it('emits items in round-robin blocks (blockSize=1)', () => {
+            const items = [
+                makeItem('a1', 'A'),
+                makeItem('b1', 'B'),
+                makeItem('a2', 'A'),
+                makeItem('b2', 'B'),
+            ];
+            const result = applyBlockPlaybackMode({
+                items,
+                seed: 0,
+                blockSize: 1,
+                shuffleKeys: (keys) => keys,
+            });
+            expect(result.map((item) => item.ratingKey)).toEqual(['a1', 'b1', 'a2', 'b2']);
+        });
+
+        it('emits blocks per group before rotating (blockSize=2)', () => {
+            const items = [
+                makeItem('a1', 'A'),
+                makeItem('b1', 'B'),
+                makeItem('a2', 'A'),
+                makeItem('b2', 'B'),
+                makeItem('a3', 'A'),
+            ];
+            const result = applyBlockPlaybackMode({
+                items,
+                seed: 0,
+                blockSize: 2,
+                shuffleKeys: (keys) => keys,
+            });
+            expect(result.map((item) => item.ratingKey)).toEqual(['a1', 'a2', 'b1', 'b2', 'a3']);
         });
     });
 });

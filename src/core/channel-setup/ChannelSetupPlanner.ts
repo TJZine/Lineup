@@ -627,7 +627,7 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
     const baseSeriesBlockSize = config.seriesOrdering?.baseBlockSize ?? 3;
     const baseOrdered: PendingChannel[] = baseOrderedUnadjusted.map((channel) => {
         const isSeriesDerived = isSeriesDerivedChannel(channel);
-        if (!isSeriesDerived || channel.playbackMode !== 'shuffle') {
+        if (baseSeriesMode === 'shuffle' || !isSeriesDerived || channel.playbackMode !== 'shuffle') {
             return channel;
         }
         const updated: PendingChannel = {
@@ -691,6 +691,7 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
                 ...channel,
                 name: `${channel.name} • ${variantLabel}`,
                 playbackMode: variantType,
+                // Marks this as a setup-generated playback-mode variant (sequential/block) for identity/diffing.
                 isSequentialVariant: true,
                 shuffleSeed: seedFor(`${createChannelIdentityKey(channel)}:variant:${variantType}`),
             };

@@ -220,7 +220,10 @@ export interface ChannelConfig {
     sourceLibraryName?: string;
     /** 0 = base lineup, 1..n = alternate deterministic lineup replicas */
     lineupReplicaIndex?: number;
-    /** True when this channel is the sequential variant of a generated channel */
+    /**
+     * True when this channel is a playback-mode variant generated from a setup channel
+     * (e.g., "Sequential" or "Block" variants). Used for identity/diffing in setup flows.
+     */
     isSequentialVariant?: boolean;
 
     // Content source definition
