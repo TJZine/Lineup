@@ -1,5 +1,5 @@
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
-import { ADVANCED_STRATEGY_KEYS, CONTENT_STRATEGY_KEYS, STEP2_CONTROL_IDS, STRATEGY_CATEGORIES } from './constants';
+import { ADVANCED_STRATEGY_KEYS, CONTENT_STRATEGY_KEYS, SERIES_BLOCK_PRESETS, STEP2_CONTROL_IDS, STRATEGY_CATEGORIES } from './constants';
 import type {
     SetupStrategyKey,
     StepRenderContext,
@@ -42,6 +42,7 @@ const CATEGORY_TITLES: Record<StrategyCategoryKey, string> = {
     'content-sources': 'Content Sources',
     'advanced-sources': 'Advanced Sources',
     'build-options': 'Build Options',
+    'series-ordering': 'Series Ordering',
     limits: 'Limits',
     'priority-order': 'Priority Order',
 };
@@ -210,15 +211,90 @@ export class StrategyStepController {
             },
         });
 
-        const addSequentialVariantsButton = this._createToggleButton({
-            id: STEP2_CONTROL_IDS.addSequentialVariants,
-            className: `setup-toggle${state.channelExpansion.addSequentialVariants ? ' selected' : ''}`,
-            label: 'Add Sequential Channels',
-            meta: 'Also create a sequential version for each generated channel.',
-            stateText: state.channelExpansion.addSequentialVariants ? 'On' : 'Off',
+        const baseModeOptions: Array<typeof state.seriesOrdering.basePlaybackMode> = ['shuffle', 'sequential', 'block'];
+        const variantTypeOptions: Array<typeof state.channelExpansion.variantType> = ['none', 'sequential', 'block'];
+        const blockSizeOptions = [...SERIES_BLOCK_PRESETS];
+
+        const baseModeStateText = state.seriesOrdering.basePlaybackMode === 'block'
+            ? `Block • ${state.seriesOrdering.baseBlockSize}`
+            : state.seriesOrdering.basePlaybackMode.charAt(0).toUpperCase() + state.seriesOrdering.basePlaybackMode.slice(1);
+
+        const baseModeButton = this._createToggleButton({
+            id: STEP2_CONTROL_IDS.seriesBaseMode,
+            className: `setup-toggle${state.seriesOrdering.basePlaybackMode !== 'shuffle' ? ' selected' : ''}`,
+            label: 'Base Series Mode',
+            meta: 'Default playback mode for TV-derived channels.',
+            stateText: baseModeStateText,
             onClick: () => {
-                deps.applySettingChange(STEP2_CONTROL_IDS.addSequentialVariants, (draft) => {
-                    draft.channelExpansion.addSequentialVariants = !draft.channelExpansion.addSequentialVariants;
+                deps.applySettingChange(STEP2_CONTROL_IDS.seriesBaseMode, (draft) => {
+                    const index = baseModeOptions.indexOf(draft.seriesOrdering.basePlaybackMode);
+                    const nextIndex = index >= 0 ? (index + 1) % baseModeOptions.length : 0;
+                    draft.seriesOrdering.basePlaybackMode = baseModeOptions[nextIndex] ?? 'shuffle';
+                });
+            },
+        });
+
+        const baseBlockSizeButton = this._createToggleButton({
+            id: STEP2_CONTROL_IDS.seriesBaseBlockSize,
+            className: 'setup-toggle setup-toggle--adjustable',
+            disabled: state.seriesOrdering.basePlaybackMode !== 'block',
+            label: 'Base Block Size',
+            meta: 'Episodes per show before switching in block mode.',
+            stateText: String(state.seriesOrdering.baseBlockSize),
+            onClick: () => {
+                if (state.seriesOrdering.basePlaybackMode !== 'block') {
+                    return;
+                }
+                deps.applySettingChange(STEP2_CONTROL_IDS.seriesBaseBlockSize, (draft) => {
+                    draft.seriesOrdering.baseBlockSize = deps.stepPreset(
+                        blockSizeOptions,
+                        draft.seriesOrdering.baseBlockSize,
+                        'right',
+                        'wrap'
+                    );
+                });
+            },
+        });
+
+        const variantTypeStateText = state.channelExpansion.variantType === 'none'
+            ? 'None'
+            : state.channelExpansion.variantType === 'sequential'
+                ? 'Sequential'
+                : `Block • ${state.channelExpansion.variantBlockSize}`;
+
+        const variantTypeButton = this._createToggleButton({
+            id: STEP2_CONTROL_IDS.seriesVariantType,
+            className: `setup-toggle${state.channelExpansion.variantType !== 'none' ? ' selected' : ''}`,
+            label: 'Variant Type',
+            meta: 'Optional extra series channel mode.',
+            stateText: variantTypeStateText,
+            onClick: () => {
+                deps.applySettingChange(STEP2_CONTROL_IDS.seriesVariantType, (draft) => {
+                    const index = variantTypeOptions.indexOf(draft.channelExpansion.variantType);
+                    const nextIndex = index >= 0 ? (index + 1) % variantTypeOptions.length : 0;
+                    draft.channelExpansion.variantType = variantTypeOptions[nextIndex] ?? 'none';
+                });
+            },
+        });
+
+        const variantBlockSizeButton = this._createToggleButton({
+            id: STEP2_CONTROL_IDS.seriesVariantBlockSize,
+            className: 'setup-toggle setup-toggle--adjustable',
+            disabled: state.channelExpansion.variantType !== 'block',
+            label: 'Variant Block Size',
+            meta: 'Block size for generated block variants.',
+            stateText: String(state.channelExpansion.variantBlockSize),
+            onClick: () => {
+                if (state.channelExpansion.variantType !== 'block') {
+                    return;
+                }
+                deps.applySettingChange(STEP2_CONTROL_IDS.seriesVariantBlockSize, (draft) => {
+                    draft.channelExpansion.variantBlockSize = deps.stepPreset(
+                        blockSizeOptions,
+                        draft.channelExpansion.variantBlockSize,
+                        'right',
+                        'wrap'
+                    );
                 });
             },
         });
@@ -281,8 +357,8 @@ export class StrategyStepController {
                 combineButton,
                 addAlternateLineupsButton,
                 alternateCopiesButton,
-                addSequentialVariantsButton,
             ],
+            'series-ordering': [baseModeButton, baseBlockSizeButton, variantTypeButton, variantBlockSizeButton],
             'limits': [maxButton, minItemsButton, expandLineupButton],
             'priority-order': priorityRowButtons,
         };

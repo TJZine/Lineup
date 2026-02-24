@@ -21,6 +21,7 @@ import type {
     PlexMediaType,
 } from './types';
 import { shuffleWithSeed } from '../../../utils/prng';
+import { applyBlockPlaybackMode } from '../shared/blockPlayback';
 import { PLEX_MEDIA_TYPES } from '../../plex/library/constants';
 import { detectHdrLabel } from '../../plex/stream/hdr';
 
@@ -379,7 +380,8 @@ export class ContentResolver {
     applyPlaybackMode(
         items: ResolvedContentItem[],
         mode: PlaybackMode,
-        seed: number
+        seed: number,
+        blockSize?: number
     ): ResolvedContentItem[] {
         switch (mode) {
             case 'sequential':
@@ -392,6 +394,23 @@ export class ContentResolver {
                     ...item,
                     scheduledIndex: index,
                 }));
+            case 'block': {
+                const normalizedBlockSize =
+                    typeof blockSize === 'number' && Number.isFinite(blockSize)
+                        ? blockSize
+                        : 3;
+                const effectiveBlockSize = Math.max(1, Math.floor(normalizedBlockSize));
+                const ordered = applyBlockPlaybackMode({
+                    items,
+                    seed,
+                    blockSize: effectiveBlockSize,
+                    shuffleKeys: (keys, seedValue) => shuffleWithSeed(keys, seedValue),
+                });
+                return ordered.map((item, index) => ({
+                    ...item,
+                    scheduledIndex: index,
+                }));
+            }
             case 'random':
                 // Random mode uses current time as seed for different order each time
                 return shuffleWithSeed(items, Date.now()).map((item, index) => ({

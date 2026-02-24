@@ -16,6 +16,7 @@ import type { AppErrorCode } from '../../lifecycle/types';
 export type PlaybackMode =
     | 'sequential'  // Play in defined order, loop
     | 'shuffle'     // Deterministic shuffle with seed, loop
+    | 'block'       // Deterministic round-robin by show in episode blocks
     | 'random';     // True random (new order each time)
 
 /**
@@ -219,7 +220,10 @@ export interface ChannelConfig {
     sourceLibraryName?: string;
     /** 0 = base lineup, 1..n = alternate deterministic lineup replicas */
     lineupReplicaIndex?: number;
-    /** True when this channel is the sequential variant of a generated channel */
+    /**
+     * True when this channel is a playback-mode variant generated from a setup channel
+     * (e.g., "Sequential" or "Block" variants). Used for identity/diffing in setup flows.
+     */
     isSequentialVariant?: boolean;
 
     // Content source definition
@@ -231,6 +235,10 @@ export interface ChannelConfig {
     playbackMode: PlaybackMode;
     /** Seed for deterministic shuffle */
     shuffleSeed?: number;
+    /**
+     * Episodes per show before switching, used when playbackMode === 'block'
+     */
+    blockSize?: number;
     /** Seed for deterministic per-channel phase offset (live drift) */
     phaseSeed?: number;
     /** Unix timestamp (ms) - schedule reference point */

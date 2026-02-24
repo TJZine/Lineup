@@ -1,6 +1,6 @@
 import { buildChannelSetupPlan, createChannelIdentityKey, diffChannelPlans } from '../ChannelSetupPlanner';
 import type { ChannelSetupConfig, SetupStrategyConfig, SetupStrategyKey } from '../types';
-import type { PlexPlaylist } from '../../../modules/plex/library';
+import type { PlexLibraryType, PlexPlaylist } from '../../../modules/plex/library';
 import type { ChannelConfig } from '../../../modules/scheduler/channel-manager';
 import type { PendingChannel } from '../ChannelSetupPlanner';
 import { DEFAULT_STRATEGY_PRIORITIES, MIXED_SCOPE_STRATEGY_KEYS, SETUP_STRATEGY_KEYS } from '../constants';
@@ -75,6 +75,9 @@ const makeExistingChannel = (planned: PendingChannel, index: number): ChannelCon
     if (planned.isSequentialVariant !== undefined) {
         existing.isSequentialVariant = planned.isSequentialVariant;
     }
+    if (planned.blockSize !== undefined) {
+        existing.blockSize = planned.blockSize;
+    }
     return existing;
 };
 
@@ -97,7 +100,8 @@ describe('ChannelSetupPlanner', () => {
                 channelExpansion: {
                     addAlternateLineups: true,
                     alternateLineupCopies: Number.NaN,
-                    addSequentialVariants: false,
+                    variantType: 'none',
+                    variantBlockSize: 3,
                 },
             }),
             libraries: [],
@@ -133,7 +137,8 @@ describe('ChannelSetupPlanner', () => {
                 channelExpansion: {
                     addAlternateLineups: true,
                     alternateLineupCopies: 2,
-                    addSequentialVariants: true,
+                    variantType: 'sequential',
+                    variantBlockSize: 3,
                 },
             }),
             libraries: [],
@@ -155,5 +160,190 @@ describe('ChannelSetupPlanner', () => {
         const diff = diffChannelPlans(existing, plan.pendingChannels);
         expect(diff.summary).toEqual({ created: 0, removed: 0, unchanged: plan.pendingChannels.length });
         expect(diff.matchedPairs).toHaveLength(plan.pendingChannels.length);
+    });
+
+    it('generates block variants for series-derived channels with unique identity keys', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['s1'],
+                strategyConfig: createStrategyConfig({ collections: { enabled: true } }),
+                channelExpansion: {
+                    addAlternateLineups: false,
+                    alternateLineupCopies: 1,
+                    variantType: 'block',
+                    variantBlockSize: 4,
+                },
+            }),
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 10 }] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map([
+                ['s1', [{ ratingKey: 'co1', key: '/library/collections/co1', title: 'Classics', thumb: null, childCount: 10 }]],
+            ]),
+            tagItemsByLibraryId: new Map(),
+            scanItemsByLibraryId: new Map(),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        const names = plan.pendingChannels.map((channel) => channel.name);
+        expect(names).toContain('Classics');
+        expect(names).toContain('Classics • Block');
+
+        const blockVariant = plan.pendingChannels.find(
+            (channel) => channel.name === 'Classics • Block'
+        );
+        expect(blockVariant).toBeDefined();
+        expect(blockVariant?.playbackMode).toBe('block');
+        expect(blockVariant?.blockSize).toBe(4);
+        expect(blockVariant?.isSequentialVariant).toBe(true);
+
+        const sequentialVariantCandidate: PendingChannel = {
+            ...(blockVariant as PendingChannel),
+            playbackMode: 'sequential',
+        };
+        expect(createChannelIdentityKey(blockVariant as PendingChannel)).not.toBe(
+            createChannelIdentityKey(sequentialVariantCandidate)
+        );
+    });
+
+    it('treats mixed TV-only channels as series-derived for base series ordering and variants', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['s1', 's2'],
+                strategyConfig: createStrategyConfig({ actors: { enabled: true, scope: 'cross-library' } }),
+                seriesOrdering: {
+                    basePlaybackMode: 'block',
+                    baseBlockSize: 3,
+                },
+                channelExpansion: {
+                    addAlternateLineups: false,
+                    alternateLineupCopies: 1,
+                    variantType: 'sequential',
+                    variantBlockSize: 3,
+                },
+            }),
+            libraries: [
+                { id: 's1', title: 'Shows A', type: 'show', contentCount: 10 },
+                { id: 's2', title: 'Shows B', type: 'show', contentCount: 10 },
+            ] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            tagItemsByLibraryId: new Map(),
+            scanItemsByLibraryId: new Map(),
+            actorsByLibraryId: new Map([
+                ['s1', [{ key: 'actor-1', title: 'Jane Doe', count: 10 }]],
+                ['s2', [{ key: 'actor-1', title: 'Jane Doe', count: 10 }]],
+            ]),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        const base = plan.pendingChannels.find((channel) => channel.name === 'Jane Doe');
+        expect(base).toBeDefined();
+        expect(base?.contentSource.type).toBe('mixed');
+        expect(base?.playbackMode).toBe('block');
+        expect(base?.blockSize).toBe(3);
+
+        const sequentialVariant = plan.pendingChannels.find((channel) => channel.name === 'Jane Doe • Sequential');
+        expect(sequentialVariant).toBeDefined();
+        expect(sequentialVariant?.playbackMode).toBe('sequential');
+        expect(sequentialVariant?.isSequentialVariant).toBe(true);
+    });
+
+    it('sanitizes non-finite/invalid baseBlockSize for base series ordering', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['s1'],
+                strategyConfig: createStrategyConfig({ collections: { enabled: true } }),
+                seriesOrdering: {
+                    basePlaybackMode: 'block',
+                    baseBlockSize: Number.NaN,
+                },
+            }),
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 10 }] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map([
+                ['s1', [{ ratingKey: 'co1', key: '/library/collections/co1', title: 'Classics', thumb: null, childCount: 10 }]],
+            ]),
+            tagItemsByLibraryId: new Map(),
+            scanItemsByLibraryId: new Map(),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        const base = plan.pendingChannels.find((channel) => channel.name === 'Classics');
+        expect(base).toBeDefined();
+        expect(base?.playbackMode).toBe('block');
+        expect(base?.blockSize).toBe(3);
+    });
+
+    it('sanitizes non-finite/invalid variantBlockSize for block variants', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['s1'],
+                strategyConfig: createStrategyConfig({ collections: { enabled: true } }),
+                channelExpansion: {
+                    addAlternateLineups: false,
+                    alternateLineupCopies: 1,
+                    variantType: 'block',
+                    variantBlockSize: 0,
+                },
+            }),
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 10 }] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map([
+                ['s1', [{ ratingKey: 'co1', key: '/library/collections/co1', title: 'Classics', thumb: null, childCount: 10 }]],
+            ]),
+            tagItemsByLibraryId: new Map(),
+            scanItemsByLibraryId: new Map(),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        const variant = plan.pendingChannels.find((channel) => channel.name === 'Classics • Block');
+        expect(variant).toBeDefined();
+        expect(variant?.playbackMode).toBe('block');
+        expect(variant?.blockSize).toBe(3);
+    });
+
+    it('falls back when series ordering/variant types are runtime-invalid', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['s1'],
+                strategyConfig: createStrategyConfig({ collections: { enabled: true } }),
+                seriesOrdering: {
+                    basePlaybackMode: 'bogus' as unknown as 'shuffle' | 'sequential' | 'block',
+                    baseBlockSize: 3,
+                },
+                channelExpansion: {
+                    addAlternateLineups: false,
+                    alternateLineupCopies: 1,
+                    variantType: 'bogus' as unknown as 'none' | 'sequential' | 'block',
+                    variantBlockSize: 3,
+                },
+            }),
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 10 }] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map([
+                ['s1', [{ ratingKey: 'co1', key: '/library/collections/co1', title: 'Classics', thumb: null, childCount: 10 }]],
+            ]),
+            tagItemsByLibraryId: new Map(),
+            scanItemsByLibraryId: new Map(),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(plan.pendingChannels.map((channel) => channel.name)).toEqual(['Classics']);
+        const base = plan.pendingChannels.find((channel) => channel.name === 'Classics');
+        expect(base?.playbackMode).toBe('shuffle');
     });
 });

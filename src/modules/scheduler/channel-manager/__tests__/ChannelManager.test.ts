@@ -144,6 +144,22 @@ describe('ChannelManager', () => {
             expect(channel.name).toBe('Test Channel');
         });
 
+        it('should persist blockSize and setup-variant metadata when creating channels', async () => {
+            const channel = await manager.createChannel({
+                name: 'Block Channel',
+                contentSource: createMockContentSource(),
+                playbackMode: 'block',
+                blockSize: 4,
+                lineupReplicaIndex: 2,
+                isSequentialVariant: true,
+            });
+
+            expect(channel.playbackMode).toBe('block');
+            expect(channel.blockSize).toBe(4);
+            expect(channel.lineupReplicaIndex).toBe(2);
+            expect(channel.isSequentialVariant).toBe(true);
+        });
+
         it('should assign next available channel number', async () => {
             await manager.createChannel({
                 number: 1,

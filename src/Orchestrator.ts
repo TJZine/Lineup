@@ -1937,12 +1937,10 @@ export class AppOrchestrator implements IAppOrchestrator {
                 ? channel.shuffleSeed
                 : Date.now();
 
-        const effectiveSeed =
-            channel.playbackMode === 'shuffle'
-                ? (baseSeed ^ dayKey) >>> 0
-                : baseSeed;
+        const isShuffleLike = channel.playbackMode === 'shuffle' || channel.playbackMode === 'block';
+        const effectiveSeed = isShuffleLike ? (baseSeed ^ dayKey) >>> 0 : baseSeed;
 
-        return {
+        const scheduleConfig: ScheduleConfig = {
             channelId: channel.id,
             anchorTime: dayStart - phaseOffsetMs,
             content: items,
@@ -1950,6 +1948,12 @@ export class AppOrchestrator implements IAppOrchestrator {
             shuffleSeed: effectiveSeed,
             loopSchedule: true,
         };
+
+        if (typeof channel.blockSize === 'number' && Number.isFinite(channel.blockSize)) {
+            scheduleConfig.blockSize = channel.blockSize;
+        }
+
+        return scheduleConfig;
     }
 
     private async _handleScheduleDayRollover(): Promise<void> {

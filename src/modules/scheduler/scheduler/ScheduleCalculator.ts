@@ -14,6 +14,7 @@ import type {
     PlaybackMode,
 } from './types';
 import { SCHEDULER_ERROR_MESSAGES } from './constants';
+import { applyBlockPlaybackMode } from '../shared/blockPlayback';
 
 // ============================================
 // Schedule Index Building
@@ -41,7 +42,8 @@ export function buildScheduleIndex(
         config.content,
         config.playbackMode,
         config.shuffleSeed,
-        shuffler
+        shuffler,
+        config.blockSize
     );
 
     // Calculate cumulative start offsets
@@ -238,7 +240,8 @@ export function applyPlaybackMode(
     items: ResolvedContentItem[],
     mode: PlaybackMode,
     seed: number,
-    shuffler: IShuffleGenerator
+    shuffler: IShuffleGenerator,
+    blockSize?: number
 ): ResolvedContentItem[] {
     switch (mode) {
         case 'sequential':
@@ -251,6 +254,24 @@ export function applyPlaybackMode(
         case 'shuffle': {
             const shuffled = shuffler.shuffle(items, seed);
             return shuffled.map((item, index) => ({
+                ...item,
+                scheduledIndex: index,
+            }));
+        }
+
+        case 'block': {
+            const normalizedBlockSize =
+                typeof blockSize === 'number' && Number.isFinite(blockSize)
+                    ? blockSize
+                    : 3;
+            const effectiveBlockSize = Math.max(1, Math.floor(normalizedBlockSize));
+            const ordered = applyBlockPlaybackMode({
+                items,
+                seed,
+                blockSize: effectiveBlockSize,
+                shuffleKeys: (keys, seedValue) => shuffler.shuffle(keys, seedValue),
+            });
+            return ordered.map((item, index) => ({
                 ...item,
                 scheduledIndex: index,
             }));

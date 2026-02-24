@@ -1,4 +1,4 @@
-import type { ChannelExpansionConfig, SetupStrategyKey } from './types';
+import type { ChannelExpansionConfig, SeriesOrderingConfig, SetupStrategyKey } from './types';
 
 export const DEFAULT_MIN_ITEMS_PER_CHANNEL = 5;
 
@@ -34,6 +34,11 @@ export const MIXED_SCOPE_STRATEGY_KEYS = new Set<SetupStrategyKey>([
 export const DEFAULT_CHANNEL_EXPANSION: ChannelExpansionConfig = {
     addAlternateLineups: false,
     alternateLineupCopies: 1,
-    addSequentialVariants: false,
+    variantType: 'none',
+    variantBlockSize: 3,
 };
 
+export const DEFAULT_SERIES_ORDERING: SeriesOrderingConfig = {
+    basePlaybackMode: 'shuffle',
+    baseBlockSize: 3,
+};

@@ -215,6 +215,7 @@ describe('ChannelSetupScreen', () => {
             'Content Sources',
             'Advanced Sources',
             'Build Options',
+            'Series Ordering',
             'Limits',
             'Priority Order',
         ]);
@@ -258,7 +259,8 @@ describe('ChannelSetupScreen', () => {
 
         expect(nav.focusables.get('setup-category-content-sources')?.neighbors.down).toBe('setup-category-advanced-sources');
         expect(nav.focusables.get('setup-category-advanced-sources')?.neighbors.down).toBe('setup-category-build-options');
-        expect(nav.focusables.get('setup-category-build-options')?.neighbors.down).toBe('setup-category-limits');
+        expect(nav.focusables.get('setup-category-build-options')?.neighbors.down).toBe('setup-category-series-ordering');
+        expect(nav.focusables.get('setup-category-series-ordering')?.neighbors.down).toBe('setup-category-limits');
         expect(nav.focusables.get('setup-category-limits')?.neighbors.down).toBe('setup-category-priority-order');
         expect(nav.focusables.get('setup-category-priority-order')?.neighbors.down).toBe('setup-strategy-collections');
         expect(nav.focusables.get('setup-strategy-recentlyAdded')?.neighbors.down).toBe('setup-back');
@@ -294,6 +296,61 @@ describe('ChannelSetupScreen', () => {
         const rememberedTransfer = nav.emitKeyPress('right');
         expect(rememberedTransfer.handled).toBe(true);
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-strategy-playlists');
+    });
+
+    it('right transfer activates the focused category before moving to detail controls', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const orchestrator = createOrchestrator({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        expect(container.querySelector('#setup-build-mode')).toBeNull();
+
+        nav.setMockFocus('setup-category-build-options');
+        const transfer = nav.emitKeyPress('right');
+        expect(transfer.handled).toBe(true);
+        expect(container.querySelector('#setup-build-mode')).not.toBeNull();
+        expect(nav.setFocus).toHaveBeenLastCalledWith('setup-build-mode');
+    });
+
+    it('right transfer skips remembered disabled detail controls', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const orchestrator = createOrchestrator({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-series-ordering');
+
+        // Enter block mode so base block size is enabled, then click it to remember focus.
+        clickButton(container, '#setup-series-base-mode'); // shuffle -> sequential
+        clickButton(container, '#setup-series-base-mode'); // sequential -> block
+        clickButton(container, '#setup-series-base-block-size'); // remembers this control for the category
+
+        // Switch away from block mode; block size control becomes disabled.
+        clickButton(container, '#setup-series-base-mode'); // block -> shuffle
+
+        nav.setMockFocus('setup-category-series-ordering');
+        const transfer = nav.emitKeyPress('right');
+        expect(transfer.handled).toBe(true);
+        expect(nav.setFocus).toHaveBeenLastCalledWith('setup-series-base-mode');
     });
 
     it('moves left from non-adjustable detail controls back to active category', async () => {
@@ -662,7 +719,12 @@ describe('ChannelSetupScreen', () => {
         expect(beforeConfig.channelExpansion).toEqual({
             addAlternateLineups: false,
             alternateLineupCopies: 1,
-            addSequentialVariants: false,
+            variantType: 'none',
+            variantBlockSize: 3,
+        });
+        expect(beforeConfig.seriesOrdering).toEqual({
+            basePlaybackMode: 'shuffle',
+            baseBlockSize: 3,
         });
 
         clickButton(container, '#setup-category-priority-order');
@@ -672,7 +734,13 @@ describe('ChannelSetupScreen', () => {
         clickButton(container, '#setup-category-build-options');
         clickButton(container, '#setup-expansion-alternate-lineups');
         clickButton(container, '#setup-expansion-copies');
-        clickButton(container, '#setup-expansion-sequential');
+        clickButton(container, '#setup-category-series-ordering');
+        clickButton(container, '#setup-series-base-mode');
+        clickButton(container, '#setup-series-base-mode');
+        clickButton(container, '#setup-series-base-block-size');
+        clickButton(container, '#setup-series-variant-type');
+        clickButton(container, '#setup-series-variant-type');
+        clickButton(container, '#setup-series-variant-block-size');
 
         const afterConfig = internal._buildConfig('server-1');
         const afterKey = internal._buildPreviewKey(afterConfig);
@@ -684,7 +752,12 @@ describe('ChannelSetupScreen', () => {
         expect(afterConfig.channelExpansion).toEqual({
             addAlternateLineups: true,
             alternateLineupCopies: 2,
-            addSequentialVariants: true,
+            variantType: 'block',
+            variantBlockSize: 4,
+        });
+        expect(afterConfig.seriesOrdering).toEqual({
+            basePlaybackMode: 'block',
+            baseBlockSize: 4,
         });
         expect(afterKey).not.toBe(beforeKey);
     });
