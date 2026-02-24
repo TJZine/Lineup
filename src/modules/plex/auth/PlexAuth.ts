@@ -64,6 +64,7 @@ export class PlexAuth implements IPlexAuth {
             config: configWithClientId,
             accountToken: null,
             activeToken: null,
+            activeUserId: null,
             isValidated: false,
             pendingPin: null,
         };
@@ -277,6 +278,7 @@ export class PlexAuth implements IPlexAuth {
         }
         this._state.accountToken = auth.accountToken;
         this._state.activeToken = auth.activeToken;
+        this._state.activeUserId = auth.activeUserId;
         this._state.isValidated = true;
         this._emitter.emit('authChange', true);
     }
@@ -293,6 +295,7 @@ export class PlexAuth implements IPlexAuth {
         }
         this._state.accountToken = null;
         this._state.activeToken = null;
+        this._state.activeUserId = null;
         this._state.isValidated = false;
         this._state.pendingPin = null;
         this._emitter.emit('authChange', false);
@@ -575,33 +578,35 @@ export class PlexAuth implements IPlexAuth {
             );
         }
 
-        const fromUserId = this._state.activeToken?.userId ?? null;
+        const scopedUserId = userId.trim().length > 0 ? userId.trim() : userToken.userId;
+        const fromUserId = this._state.activeUserId ?? this._state.activeToken?.userId ?? null;
         this._state.activeToken = userToken;
+        this._state.activeUserId = scopedUserId;
         this._state.isValidated = true;
 
         const stored = await this.getStoredCredentials();
         const selectedServerByUserId = {
             ...(stored?.selectedServerByUserId ?? {}),
         };
-        if (!selectedServerByUserId[userToken.userId]) {
-            selectedServerByUserId[userToken.userId] = { serverId: null, serverUri: null };
+        if (!selectedServerByUserId[scopedUserId]) {
+            selectedServerByUserId[scopedUserId] = { serverId: null, serverUri: null };
         }
 
         await this.storeCredentials({
             accountToken: accountToken,
             activeToken: userToken,
-            activeUserId: userToken.userId,
+            activeUserId: scopedUserId,
             selectedServerByUserId,
             deviceKey: stored?.deviceKey ?? null,
         });
 
-        if (fromUserId !== userToken.userId) {
-            this._emitter.emit('profileChange', { fromUserId, toUserId: userToken.userId });
+        if (fromUserId !== scopedUserId) {
+            this._emitter.emit('profileChange', { fromUserId, toUserId: scopedUserId });
         }
     }
 
     public getActiveUserId(): string | null {
-        return this._state.activeToken?.userId ?? null;
+        return this._state.activeUserId ?? this._state.activeToken?.userId ?? null;
     }
 
     public getAccountUserId(): string | null {
@@ -612,7 +617,7 @@ export class PlexAuth implements IPlexAuth {
         if (!this._state.accountToken) {
             return;
         }
-        const fromUserId = this._state.activeToken?.userId ?? null;
+        const fromUserId = this._state.activeUserId ?? this._state.activeToken?.userId ?? null;
         const toUserId = this._state.accountToken.userId;
         const stored = await this.getStoredCredentials();
         const selectedServerByUserId = {
@@ -681,6 +686,7 @@ export class PlexAuth implements IPlexAuth {
 
             this._state.accountToken = data.accountToken;
             this._state.activeToken = data.activeToken;
+            this._state.activeUserId = data.activeUserId;
             this._state.isValidated = false;
         } catch {
             // Ignore parse errors

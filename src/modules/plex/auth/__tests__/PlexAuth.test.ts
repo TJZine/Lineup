@@ -724,6 +724,50 @@ describe('PlexAuth', () => {
             expect(currentUser?.token).toBe('child-token');
             expect(handler).toHaveBeenCalledWith({ fromUserId: 'admin', toUserId: '99' });
         });
+
+        it('uses the selected Plex Home profile id for activeUserId scoping', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const handler = jest.fn();
+            auth.on('profileChange', handler);
+
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ authToken: 'child-token' }),
+                    text: async () => JSON.stringify({ authToken: 'child-token' }),
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({
+                        // Simulate a token profile payload that does not mirror the selected Home user id.
+                        id: 'owner-account-id',
+                        username: 'child',
+                        email: 'child@example.com',
+                        thumb: '',
+                    }),
+                    text: async () => JSON.stringify({ id: 'owner-account-id' }),
+                });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await auth.switchHomeUser('kid-profile');
+
+            expect(auth.getActiveUserId()).toBe('kid-profile');
+            expect(handler).toHaveBeenCalledWith({ fromUserId: 'admin', toUserId: 'kid-profile' });
+            const storedRaw = localStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY);
+            expect(storedRaw).not.toBeNull();
+            const stored = JSON.parse(storedRaw ?? '{}') as {
+                data?: { activeUserId?: string; selectedServerByUserId?: Record<string, unknown> };
+            };
+            expect(stored.data?.activeUserId).toBe('kid-profile');
+            expect(stored.data?.selectedServerByUserId).toHaveProperty('kid-profile');
+        });
     });
 
     describe('cancelPin', () => {

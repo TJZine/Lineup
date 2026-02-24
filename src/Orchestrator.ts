@@ -2229,7 +2229,17 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _handlePlayerTrackChange(event: { type: 'audio' | 'subtitle'; trackId: string | null }): void {
         this._playbackOptionsCoordinator?.refreshIfOpen();
 
-        if (event.type !== 'subtitle' || !this._videoPlayer) {
+        if (event.type === 'audio') {
+            if (event.trackId && this._currentStreamDescriptor?.protocol === 'direct') {
+                void this._playbackRecovery?.attemptAudioTrackReloadForCurrentProgram?.(
+                    event.trackId,
+                    'audio_track_change'
+                );
+            }
+            return;
+        }
+
+        if (!this._videoPlayer) {
             return;
         }
 
@@ -2430,6 +2440,12 @@ export class AppOrchestrator implements IAppOrchestrator {
             this._playbackRecovery?.resetPlaybackFailureGuard();
         } catch (error) {
             if (this._playbackRecovery?.tryHandleStreamResolverAuthError(error)) {
+                if (shouldAutoShowInfoBanner) {
+                    this._shouldAutoShowInfoBannerOnNextPlay = false;
+                }
+                return;
+            }
+            if (this._playbackRecovery?.tryHandleStreamResolverPermissionError?.(error)) {
                 if (shouldAutoShowInfoBanner) {
                     this._shouldAutoShowInfoBannerOnNextPlay = false;
                 }

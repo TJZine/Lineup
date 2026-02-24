@@ -226,6 +226,95 @@ describe('PlaybackRecoveryManager', () => {
         expect(stream.protocol).toBe('hls');
     });
 
+    it('reloads current program with requested audio track id', async () => {
+        const currentDecision = makeDecision({
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+        });
+        const nextDecision = makeDecision({
+            protocol: 'hls',
+            isDirectPlay: false,
+            isTranscoding: true,
+            transcodeRequest: {
+                sessionId: 'sess-2',
+                maxBitrate: 8000,
+                audioStreamId: 'audio-truehd',
+                mediaIndex: 0,
+                partIndex: 0,
+            },
+        });
+        const { manager, resolver, player, deps } = setup({
+            getCurrentStreamDecision: () => currentDecision,
+        });
+        (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(nextDecision);
+
+        const ok = await manager.attemptAudioTrackReloadForCurrentProgram('audio-truehd', 'audio_track_change');
+
+        expect(ok).toBe(true);
+        expect(resolver.resolveStream).toHaveBeenCalledWith(
+            expect.objectContaining({
+                itemKey: 'item-1',
+                startOffsetMs: 5000,
+                directPlay: true,
+                audioStreamId: 'audio-truehd',
+            })
+        );
+        expect(deps.setCurrentStreamDescriptor).toHaveBeenCalled();
+        expect(player.loadStream).toHaveBeenCalled();
+        expect(player.play).toHaveBeenCalled();
+    });
+
+    it('preserves burn-in subtitle request when reloading for audio track change', async () => {
+        const currentDecision = makeDecision({
+            protocol: 'hls',
+            isDirectPlay: false,
+            isTranscoding: true,
+            transcodeRequest: {
+                sessionId: 'sess-burn',
+                maxBitrate: 4000,
+                subtitleStreamId: 'sub-burn',
+                subtitleMode: 'burn',
+                mediaIndex: 0,
+                partIndex: 0,
+            },
+        });
+        const { manager, resolver } = setup({
+            getCurrentStreamDecision: () => currentDecision,
+        });
+        (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(makeDecision());
+
+        await manager.attemptAudioTrackReloadForCurrentProgram('audio-alt', 'audio_track_change');
+
+        expect(resolver.resolveStream).toHaveBeenCalledWith(
+            expect.objectContaining({
+                audioStreamId: 'audio-alt',
+                subtitleStreamId: 'sub-burn',
+                subtitleMode: 'burn',
+            })
+        );
+    });
+
+    it('maps ACCESS_DENIED resolver errors to lifecycle access denied', () => {
+        const { manager, deps } = setup();
+        const handleGlobalError = deps.handleGlobalError as jest.Mock;
+
+        const handled = manager.tryHandleStreamResolverPermissionError({
+            code: 'ACCESS_DENIED',
+            message: 'profile lacks access',
+        });
+
+        expect(handled).toBe(true);
+        expect(handleGlobalError).toHaveBeenCalledWith(
+            {
+                code: AppErrorCode.ACCESS_DENIED,
+                message: 'profile lacks access',
+                recoverable: false,
+            },
+            'plex-stream'
+        );
+    });
+
     it('overrides Plex default flags so selectedAudioStream is the only default track', async () => {
         const { manager, resolver } = setup();
 

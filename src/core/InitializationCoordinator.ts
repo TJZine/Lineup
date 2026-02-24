@@ -422,19 +422,20 @@ export class InitializationCoordinator implements IInitializationCoordinator {
                 if (activeValid) {
                     const currentToken =
                         this._deps.plexAuth.getCurrentUser() ?? storedCredentials.activeToken;
+                    const activeUserId = storedCredentials.activeUserId || currentToken.userId;
                     const accountToken = storedCredentials.accountToken.token === currentToken.token
                         ? currentToken
                         : storedCredentials.accountToken;
                     const selectedServerByUserId = {
                         ...(storedCredentials.selectedServerByUserId ?? {}),
                     };
-                    if (!selectedServerByUserId[currentToken.userId]) {
-                        selectedServerByUserId[currentToken.userId] = { serverId: null, serverUri: null };
+                    if (!selectedServerByUserId[activeUserId]) {
+                        selectedServerByUserId[activeUserId] = { serverId: null, serverUri: null };
                     }
                     await this._deps.plexAuth.storeCredentials({
                         accountToken,
                         activeToken: currentToken,
-                        activeUserId: currentToken.userId,
+                        activeUserId,
                         selectedServerByUserId,
                         deviceKey: storedCredentials.deviceKey ?? null,
                     });
