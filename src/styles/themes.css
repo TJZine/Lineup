@@ -1,5 +1,5 @@
 /**
- * Theme overrides for Broadcast Blue, Swiss Minimal, and DirecTV Classic.
+ * Theme overrides for Broadcast Blue, Swiss Minimal, DirecTV Classic, and Glass.
  */
 
 /* Notes:
@@ -156,4 +156,5 @@
   --glass-shadow-deep: 0 30px 70px rgba(0, 0, 0, 0.58);
   --glass-panel-soft-hover: rgba(255, 255, 255, 0.10);
   --glass-backdrop-filter: blur(20px) saturate(135%);
+  --glass-backdrop-filter-strong: blur(32px) saturate(125%);
 }

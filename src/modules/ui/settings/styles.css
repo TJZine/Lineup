@@ -186,8 +186,8 @@
     var(--glass-panel-strong);
   border: 1px solid var(--glass-border-strong);
   box-shadow: var(--glass-shadow-deep), inset 0 1px 0 var(--glass-highlight);
-  backdrop-filter: blur(32px) saturate(125%);
-  -webkit-backdrop-filter: blur(32px) saturate(125%);
+  backdrop-filter: var(--glass-backdrop-filter-strong, var(--glass-backdrop-filter));
+  -webkit-backdrop-filter: var(--glass-backdrop-filter-strong, var(--glass-backdrop-filter));
 }
 
 .theme-glass .settings-title,
@@ -200,8 +200,8 @@
   border: 1px solid var(--glass-border-soft);
 }
 
-.theme-glass .settings-category-button:not(.active, [aria-selected="true"]):hover,
-.theme-glass .settings-category-button:not(.active, [aria-selected="true"]):focus {
+.theme-glass .settings-category-button:not(.active):not([aria-selected="true"]):hover,
+.theme-glass .settings-category-button:not(.active):not([aria-selected="true"]):focus {
   background: var(--glass-panel-soft-hover, var(--glass-panel-soft));
   border-color: var(--glass-border-soft);
 }
