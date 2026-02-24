@@ -623,8 +623,20 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
         baseOrderedUnadjusted.push(...strategyBuckets[strategy]);
     }
 
-    const baseSeriesMode = config.seriesOrdering?.basePlaybackMode ?? 'shuffle';
-    const baseSeriesBlockSize = config.seriesOrdering?.baseBlockSize ?? 3;
+    const sanitizeBlockSize = (raw: unknown, fallback: number): number => {
+        const numeric = typeof raw === 'number' ? raw : Number(raw);
+        if (!Number.isFinite(numeric)) return fallback;
+        const value = Math.floor(numeric);
+        if (value < 1) return fallback;
+        return value;
+    };
+
+    const baseSeriesModeRaw = config.seriesOrdering?.basePlaybackMode;
+    const baseSeriesMode =
+        baseSeriesModeRaw === 'sequential' || baseSeriesModeRaw === 'block'
+            ? baseSeriesModeRaw
+            : 'shuffle';
+    const baseSeriesBlockSize = sanitizeBlockSize(config.seriesOrdering?.baseBlockSize, 3);
     const baseOrdered: PendingChannel[] = baseOrderedUnadjusted.map((channel) => {
         const isSeriesDerived = isSeriesDerivedChannel(channel);
         if (baseSeriesMode === 'shuffle' || !isSeriesDerived || channel.playbackMode !== 'shuffle') {
@@ -671,8 +683,12 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
         }
     }
 
-    const variantType = config.channelExpansion?.variantType ?? 'none';
-    const variantBlockSize = config.channelExpansion?.variantBlockSize ?? 3;
+    const variantTypeRaw = config.channelExpansion?.variantType;
+    const variantType =
+        variantTypeRaw === 'sequential' || variantTypeRaw === 'block'
+            ? variantTypeRaw
+            : 'none';
+    const variantBlockSize = sanitizeBlockSize(config.channelExpansion?.variantBlockSize, 3);
     const withVariants: PendingChannel[] = [...withAlternateLineups];
     if (variantType !== 'none') {
         const variantLabel = variantType === 'sequential' ? 'Sequential' : 'Block';
