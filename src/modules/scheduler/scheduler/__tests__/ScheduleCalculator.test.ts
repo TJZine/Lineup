@@ -379,6 +379,25 @@ describe('ScheduleCalculator', () => {
             expect(result.map((i) => i.ratingKey)).toEqual(['a1', 'a2', 'b1', 'b2', 'a3', 'b3']);
             expect(result.map((i) => i.scheduledIndex)).toEqual([0, 1, 2, 3, 4, 5]);
         });
+
+        it('does not merge distinct series with the same title in block mode', () => {
+            const stableShuffler: IShuffleGenerator = {
+                shuffle: <T,>(items: T[]): T[] => [...items],
+                shuffleIndices: (count: number): number[] =>
+                    Array.from({ length: count }, (_, i) => i),
+                generateSeed: (): number => 0,
+            };
+
+            const episodes: ResolvedContentItem[] = [
+                { ratingKey: 'a1', type: 'episode', title: 'A1', fullTitle: 'A1', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 0, showTitle: 'Same Title', showThumb: '/library/metadata/show-a/thumb' },
+                { ratingKey: 'b1', type: 'episode', title: 'B1', fullTitle: 'B1', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 1, showTitle: 'Same Title', showThumb: '/library/metadata/show-b/thumb' },
+                { ratingKey: 'a2', type: 'episode', title: 'A2', fullTitle: 'A2', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 2, showTitle: 'Same Title', showThumb: '/library/metadata/show-a/thumb' },
+                { ratingKey: 'b2', type: 'episode', title: 'B2', fullTitle: 'B2', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 3, showTitle: 'Same Title', showThumb: '/library/metadata/show-b/thumb' },
+            ];
+
+            const result = applyPlaybackMode(episodes, 'block', 12345, stableShuffler, 2);
+            expect(result.map((i) => i.ratingKey)).toEqual(['a1', 'a2', 'b1', 'b2']);
+        });
     });
 
     describe('generateScheduleWindow', () => {

@@ -48,3 +48,5 @@ export const STEP2_ADJUSTABLE_CONTROL_IDS = [
     STEP2_CONTROL_IDS.seriesBaseBlockSize,
     STEP2_CONTROL_IDS.seriesVariantBlockSize,
 ] as const;
+
+export const SERIES_BLOCK_PRESETS = [2, 3, 4, 5] as const;

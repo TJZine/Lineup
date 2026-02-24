@@ -34,6 +34,7 @@ import type { BuildReviewStateSnapshot, StrategyStepMutableState } from './steps
 import {
     ADVANCED_STRATEGY_KEYS,
     CONTENT_STRATEGY_KEYS,
+    SERIES_BLOCK_PRESETS,
     STEP2_CONTROL_IDS,
     STRATEGY_CATEGORIES,
     type SetupStrategyKey,
@@ -426,14 +427,14 @@ export class ChannelSetupScreen {
                             return;
                         }
                         previousValue = this._seriesOrdering.baseBlockSize;
-                        nextValue = this._stepPreset([2, 3, 4, 5], previousValue, direction, 'clamp');
+                        nextValue = this._stepPreset([...SERIES_BLOCK_PRESETS], previousValue, direction, 'clamp');
                         this._seriesOrdering.baseBlockSize = nextValue;
                     } else if (focusedId === STEP2_CONTROL_IDS.seriesVariantBlockSize) {
                         if (this._channelExpansion.variantType !== 'block') {
                             return;
                         }
                         previousValue = this._channelExpansion.variantBlockSize;
-                        nextValue = this._stepPreset([2, 3, 4, 5], previousValue, direction, 'clamp');
+                        nextValue = this._stepPreset([...SERIES_BLOCK_PRESETS], previousValue, direction, 'clamp');
                         this._channelExpansion.variantBlockSize = nextValue;
                     }
 

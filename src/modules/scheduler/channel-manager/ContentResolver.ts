@@ -21,6 +21,7 @@ import type {
     PlexMediaType,
 } from './types';
 import { shuffleWithSeed } from '../../../utils/prng';
+import { applyBlockPlaybackMode } from '../shared/blockPlayback';
 import { PLEX_MEDIA_TYPES } from '../../plex/library/constants';
 import { detectHdrLabel } from '../../plex/stream/hdr';
 
@@ -399,36 +400,12 @@ export class ContentResolver {
                         ? blockSize
                         : 3;
                 const effectiveBlockSize = Math.max(1, Math.floor(normalizedBlockSize));
-                const groups = new Map<string, ResolvedContentItem[]>();
-                for (const item of items) {
-                    const key = item.showTitle ?? item.ratingKey;
-                    const existing = groups.get(key);
-                    if (existing) {
-                        existing.push(item);
-                    } else {
-                        groups.set(key, [item]);
-                    }
-                }
-                const keys = shuffleWithSeed(Array.from(groups.keys()), seed);
-                const queues = keys.map((key) => ({
-                    key,
-                    items: [...(groups.get(key) ?? [])],
-                }));
-                const ordered: ResolvedContentItem[] = [];
-                while (queues.length > 0) {
-                    for (let index = 0; index < queues.length; index++) {
-                        const queue = queues[index];
-                        if (!queue) {
-                            continue;
-                        }
-                        const chunk = queue.items.splice(0, effectiveBlockSize);
-                        ordered.push(...chunk);
-                        if (queue.items.length === 0) {
-                            queues.splice(index, 1);
-                            index--;
-                        }
-                    }
-                }
+                const ordered = applyBlockPlaybackMode({
+                    items,
+                    seed,
+                    blockSize: effectiveBlockSize,
+                    shuffleKeys: (keys, seedValue) => shuffleWithSeed(keys, seedValue),
+                });
                 return ordered.map((item, index) => ({
                     ...item,
                     scheduledIndex: index,

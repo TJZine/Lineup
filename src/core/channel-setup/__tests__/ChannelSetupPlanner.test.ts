@@ -207,4 +207,49 @@ describe('ChannelSetupPlanner', () => {
             createChannelIdentityKey(sequentialVariantCandidate)
         );
     });
+
+    it('treats mixed TV-only channels as series-derived for base series ordering and variants', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['s1', 's2'],
+                strategyConfig: createStrategyConfig({ actors: { enabled: true, scope: 'cross-library' } }),
+                seriesOrdering: {
+                    basePlaybackMode: 'block',
+                    baseBlockSize: 3,
+                },
+                channelExpansion: {
+                    addAlternateLineups: false,
+                    alternateLineupCopies: 1,
+                    variantType: 'sequential',
+                    variantBlockSize: 3,
+                },
+            }),
+            libraries: [
+                { id: 's1', title: 'Shows A', type: 'show', contentCount: 10 },
+                { id: 's2', title: 'Shows B', type: 'show', contentCount: 10 },
+            ] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            tagItemsByLibraryId: new Map(),
+            scanItemsByLibraryId: new Map(),
+            actorsByLibraryId: new Map([
+                ['s1', [{ key: 'actor-1', title: 'Jane Doe', count: 10 }]],
+                ['s2', [{ key: 'actor-1', title: 'Jane Doe', count: 10 }]],
+            ]),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        const base = plan.pendingChannels.find((channel) => channel.name === 'Jane Doe');
+        expect(base).toBeDefined();
+        expect(base?.contentSource.type).toBe('mixed');
+        expect(base?.playbackMode).toBe('block');
+        expect(base?.blockSize).toBe(3);
+
+        const sequentialVariant = plan.pendingChannels.find((channel) => channel.name === 'Jane Doe • Sequential');
+        expect(sequentialVariant).toBeDefined();
+        expect(sequentialVariant?.playbackMode).toBe('sequential');
+        expect(sequentialVariant?.isSequentialVariant).toBe(true);
+    });
 });

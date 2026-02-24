@@ -1,5 +1,5 @@
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
-import { ADVANCED_STRATEGY_KEYS, CONTENT_STRATEGY_KEYS, STEP2_CONTROL_IDS, STRATEGY_CATEGORIES } from './constants';
+import { ADVANCED_STRATEGY_KEYS, CONTENT_STRATEGY_KEYS, SERIES_BLOCK_PRESETS, STEP2_CONTROL_IDS, STRATEGY_CATEGORIES } from './constants';
 import type {
     SetupStrategyKey,
     StepRenderContext,
@@ -213,7 +213,7 @@ export class StrategyStepController {
 
         const baseModeOptions: Array<typeof state.seriesOrdering.basePlaybackMode> = ['shuffle', 'sequential', 'block'];
         const variantTypeOptions: Array<typeof state.channelExpansion.variantType> = ['none', 'sequential', 'block'];
-        const blockSizeOptions = [2, 3, 4, 5];
+        const blockSizeOptions = [...SERIES_BLOCK_PRESETS];
 
         const baseModeStateText = state.seriesOrdering.basePlaybackMode === 'block'
             ? `Block • ${state.seriesOrdering.baseBlockSize}`

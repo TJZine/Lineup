@@ -598,6 +598,26 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
             .map((library) => library.id)
     );
 
+    const isTvOnlySource = (source: ChannelConfig['contentSource']): boolean => {
+        switch (source.type) {
+            case 'library':
+                return source.libraryType === 'show';
+            case 'show':
+                return true;
+            case 'mixed':
+                return source.sources.every(isTvOnlySource);
+            default:
+                return false;
+        }
+    };
+
+    const isSeriesDerivedChannel = (channel: PendingChannel): boolean => {
+        if (typeof channel.sourceLibraryId === 'string' && showLibraryIds.has(channel.sourceLibraryId)) {
+            return true;
+        }
+        return isTvOnlySource(channel.contentSource);
+    };
+
     const baseOrderedUnadjusted: PendingChannel[] = [];
     for (const strategy of orderedStrategies) {
         baseOrderedUnadjusted.push(...strategyBuckets[strategy]);
@@ -606,8 +626,7 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
     const baseSeriesMode = config.seriesOrdering?.basePlaybackMode ?? 'shuffle';
     const baseSeriesBlockSize = config.seriesOrdering?.baseBlockSize ?? 3;
     const baseOrdered: PendingChannel[] = baseOrderedUnadjusted.map((channel) => {
-        const isSeriesDerived =
-            typeof channel.sourceLibraryId === 'string' && showLibraryIds.has(channel.sourceLibraryId);
+        const isSeriesDerived = isSeriesDerivedChannel(channel);
         if (!isSeriesDerived || channel.playbackMode !== 'shuffle') {
             return channel;
         }
@@ -658,8 +677,7 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
     if (variantType !== 'none') {
         const variantLabel = variantType === 'sequential' ? 'Sequential' : 'Block';
         for (const channel of withAlternateLineups) {
-            const isSeriesDerived =
-                typeof channel.sourceLibraryId === 'string' && showLibraryIds.has(channel.sourceLibraryId);
+            const isSeriesDerived = isSeriesDerivedChannel(channel);
             if (!isSeriesDerived) {
                 continue;
             }

@@ -119,7 +119,7 @@ test-results/
 *.local.js
 .worktrees/
 worktrees/
-.agents/
+.agent/
 agent-memory/
 orchestration-docs/
 .codex/

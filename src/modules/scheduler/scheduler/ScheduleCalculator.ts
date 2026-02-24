@@ -14,6 +14,7 @@ import type {
     PlaybackMode,
 } from './types';
 import { SCHEDULER_ERROR_MESSAGES } from './constants';
+import { applyBlockPlaybackMode } from '../shared/blockPlayback';
 
 // ============================================
 // Schedule Index Building
@@ -264,37 +265,13 @@ export function applyPlaybackMode(
                     ? blockSize
                     : 3;
             const effectiveBlockSize = Math.max(1, Math.floor(normalizedBlockSize));
-            const groups = new Map<string, ResolvedContentItem[]>();
-            for (const item of items) {
-                const key = item.showTitle ?? item.ratingKey;
-                const list = groups.get(key);
-                if (list) {
-                    list.push(item);
-                } else {
-                    groups.set(key, [item]);
-                }
-            }
-            const keys = shuffler.shuffle(Array.from(groups.keys()), seed);
-            const queues = keys.map((key) => ({
-                key,
-                items: [...(groups.get(key) ?? [])],
-            }));
-            const result: ResolvedContentItem[] = [];
-            while (queues.length > 0) {
-                for (let i = 0; i < queues.length; i++) {
-                    const queue = queues[i];
-                    if (!queue) {
-                        continue;
-                    }
-                    const take = queue.items.splice(0, effectiveBlockSize);
-                    result.push(...take);
-                    if (queue.items.length === 0) {
-                        queues.splice(i, 1);
-                        i--;
-                    }
-                }
-            }
-            return result.map((item, index) => ({
+            const ordered = applyBlockPlaybackMode({
+                items,
+                seed,
+                blockSize: effectiveBlockSize,
+                shuffleKeys: (keys, seedValue) => shuffler.shuffle(keys, seedValue),
+            });
+            return ordered.map((item, index) => ({
                 ...item,
                 scheduledIndex: index,
             }));
