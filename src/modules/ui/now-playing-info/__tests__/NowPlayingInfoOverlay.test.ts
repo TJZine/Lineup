@@ -77,6 +77,24 @@ describe('NowPlayingInfoOverlay', () => {
         expect(clearLogo.getAttribute('alt')).toBe('');
     });
 
+    it('falls back to title when clear logo renders too small', () => {
+        overlay.show({ ...baseViewModel, clearLogoUrl: 'https://example.com/tiny.png' });
+
+        const clearLogo = container.querySelector(
+            `.${NOW_PLAYING_INFO_CLASSES.CLEAR_LOGO}`
+        ) as HTMLImageElement;
+        const title = container.querySelector(`.${NOW_PLAYING_INFO_CLASSES.TITLE}`) as HTMLElement;
+
+        Object.defineProperty(clearLogo, 'getBoundingClientRect', {
+            value: () => ({ height: 10 } as unknown as DOMRect),
+        });
+
+        (clearLogo.onload as unknown as (() => void))?.();
+
+        expect(clearLogo.style.display).toBe('none');
+        expect(title.style.display).toBe('');
+    });
+
     it('should show up next when provided', () => {
         const viewModel: NowPlayingInfoViewModel = {
             ...baseViewModel,

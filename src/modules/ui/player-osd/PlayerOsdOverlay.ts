@@ -166,6 +166,18 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
                 };
                 img.onload = (): void => {
                     if (img.getAttribute('src') !== expectedSrc) return;
+
+                    const rect = img.getBoundingClientRect();
+                    if (rect.height < 15) {
+                        img.onerror = null;
+                        img.onload = null;
+                        img.style.display = 'none';
+                        if (this.elements.title) {
+                            this.elements.title.style.display = '';
+                        }
+                        return;
+                    }
+
                     img.onerror = null;
                     img.onload = null;
                     if (this.elements.title) {
