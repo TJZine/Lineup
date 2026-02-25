@@ -522,9 +522,11 @@
   padding: 8px 12px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 4px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
   overflow: hidden;
   box-sizing: border-box;
   margin: 2px;
@@ -540,6 +542,7 @@
 
 .epg-cell.loading {
   background: rgba(255, 255, 255, 0.08);
+  display: flex;
 }
 
 .epg-cell.loading .epg-cell-title,
@@ -573,6 +576,10 @@
   width: 40%;
 }
 
+.epg-cell:-webkit-any(:hover) {
+  background: rgba(255, 255, 255, 0.15);
+}
+
 .epg-cell:hover {
   background: rgba(255, 255, 255, 0.15);
 }
@@ -598,19 +605,6 @@
 
 .epg-cell.current {
   border-left: 4px solid var(--color-live);
-  padding-top: 28px;
-}
-
-.epg-cell-tier-medium.current {
-  padding-top: 26px;
-}
-
-.epg-cell-tier-narrow.current {
-  padding-top: 22px;
-}
-
-.epg-cell-tier-tiny.current {
-  padding-top: 20px;
 }
 
 .epg-cell.past {
@@ -639,24 +633,39 @@
   }
 }
 
+.epg-cell-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.epg-cell-rail {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
 .epg-cell-title {
   font-size: var(--text-lg);
   font-weight: 600;
   margin-top: 0;
-  white-space: normal;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.2;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
 }
 
 .epg-cell-meta {
   display: none;
   align-items: center;
   gap: 8px;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .epg-cell-episode {
@@ -707,23 +716,17 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-top: 2px;
 }
 
-.epg-cell.text-shifted .epg-cell-title,
-.epg-cell.text-shifted .epg-cell-time,
-.epg-cell.text-shifted .epg-cell-meta,
-.epg-cell.text-shifted .epg-cell-subtitle {
+.epg-cell.text-shifted .epg-cell-content,
+.epg-cell.text-shifted .epg-cell-rail {
   transform: translateX(var(--epg-cell-text-shift-px));
 }
 
 .epg-cell-tier-narrow .epg-cell-time,
 .epg-cell-tier-tiny .epg-cell-time {
   display: none;
-}
-
-.epg-cell-tier-narrow .epg-cell-title,
-.epg-cell-tier-tiny .epg-cell-title {
-  margin-top: 0;
 }
 
 .epg-cell-tier-tiny .epg-cell-title {
@@ -734,9 +737,6 @@
    LIVE Indicator Badge
    ========================================= */
 .epg-live-badge {
-  position: absolute;
-  top: 6px;
-  left: 10px;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -747,6 +747,11 @@
   text-transform: uppercase;
   z-index: 2;
   pointer-events: none;
+  line-height: 1.2;
+}
+
+.epg-live-badge[hidden] {
+  display: none;
 }
 
 .epg-live-badge::before {
@@ -757,6 +762,8 @@
   background: var(--color-live);
   transform-origin: center;
   animation: live-pulse 1.5s ease-in-out infinite;
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 @keyframes live-pulse {
