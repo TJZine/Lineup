@@ -1030,6 +1030,167 @@ describe('EPGVirtualizer', () => {
             // Should be roughly similar to initial count (allowing some variance for buffer)
             expect(Math.abs(afterScrollCount - initialCount)).toBeLessThan(50);
         });
+
+        it('renders fixed content + right-rail structure for program cells', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-rail';
+            const start = gridAnchorTime;
+            const end = gridAnchorTime + 30 * 60 * 1000;
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                programs: [{
+                    item: {
+                        ratingKey: 'rail-1',
+                        type: 'episode',
+                        title: 'Pilot',
+                        fullTitle: 'Great Show - S01E01 - Pilot',
+                        showTitle: 'Great Show',
+                        seasonNumber: 1,
+                        episodeNumber: 1,
+                        durationMs: end - start,
+                        thumb: null,
+                        year: 2026,
+                        scheduledIndex: 0,
+                    },
+                    scheduledStartTime: start,
+                    scheduledEndTime: end,
+                    elapsedMs: 0,
+                    remainingMs: end - start,
+                    scheduleIndex: 0,
+                    loopNumber: 0,
+                    streamDescriptor: null,
+                    isCurrent: false,
+                }],
+            };
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            expect(cell.querySelector('.epg-cell-content')).not.toBeNull();
+            expect(cell.querySelector('.epg-cell-rail')).not.toBeNull();
+            expect(cell.querySelector('.epg-cell-content .epg-cell-title')).not.toBeNull();
+            expect(cell.querySelector('.epg-cell-content .epg-cell-subtitle')).not.toBeNull();
+            expect(cell.querySelector('.epg-cell-rail .epg-cell-time')).not.toBeNull();
+            expect(cell.querySelector('.epg-cell-rail .epg-live-badge')).not.toBeNull();
+        });
+
+        it('does not apply extra top padding on current cells', () => {
+            const now = gridAnchorTime + 15 * 60 * 1000;
+            jest.spyOn(Date, 'now').mockReturnValue(now);
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-current';
+            const start = gridAnchorTime;
+            const end = gridAnchorTime + 30 * 60 * 1000;
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                programs: [{
+                    item: {
+                        ratingKey: 'current-1',
+                        type: 'movie',
+                        title: 'Current Program',
+                        fullTitle: 'Current Program',
+                        durationMs: end - start,
+                        thumb: null,
+                        year: 2026,
+                        scheduledIndex: 0,
+                    },
+                    scheduledStartTime: start,
+                    scheduledEndTime: end,
+                    elapsedMs: 0,
+                    remainingMs: end - now,
+                    scheduleIndex: 0,
+                    loopNumber: 0,
+                    streamDescriptor: null,
+                    isCurrent: true,
+                }],
+            };
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            expect(cell.classList.contains('current')).toBe(true);
+            expect(cell.style.paddingTop).toBe('');
+        });
+
+        it('keeps subtitle visible in narrow and tiny tiers', () => {
+            const channelId = 'ch-subtitle';
+            const start = gridAnchorTime;
+            const end = gridAnchorTime + 30 * 60 * 1000;
+            const makeSchedule = (): ScheduleWindow => ({
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                programs: [{
+                    item: {
+                        ratingKey: 'ep-subtitle-1',
+                        type: 'episode',
+                        title: 'The Heist',
+                        fullTitle: 'Great Show - S01E05 - The Heist',
+                        showTitle: 'Great Show',
+                        seasonNumber: 1,
+                        episodeNumber: 5,
+                        durationMs: end - start,
+                        thumb: null,
+                        year: 2026,
+                        scheduledIndex: 0,
+                    },
+                    scheduledStartTime: start,
+                    scheduledEndTime: end,
+                    elapsedMs: 0,
+                    remainingMs: end - start,
+                    scheduleIndex: 0,
+                    loopNumber: 0,
+                    streamDescriptor: null,
+                    isCurrent: false,
+                }],
+            });
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, makeSchedule()]]), range);
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const subtitle = cell.querySelector('.epg-cell-subtitle') as HTMLElement;
+            expect(subtitle.textContent).toBe('The Heist');
+            expect(subtitle.style.display).toBe('block');
+        });
+
+        it('compacts live badge to dot in narrow and tiny tiers', () => {
+            const now = gridAnchorTime + 5 * 60 * 1000;
+            jest.spyOn(Date, 'now').mockReturnValue(now);
+            const channelId = 'ch-live-dot';
+            const start = gridAnchorTime;
+            const end = gridAnchorTime + 20 * 60 * 1000;
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                programs: [{
+                    item: {
+                        ratingKey: 'live-compact-1',
+                        type: 'movie',
+                        title: 'Live Program',
+                        fullTitle: 'Live Program',
+                        durationMs: end - start,
+                        thumb: null,
+                        year: 2026,
+                        scheduledIndex: 0,
+                    },
+                    scheduledStartTime: start,
+                    scheduledEndTime: end,
+                    elapsedMs: 0,
+                    remainingMs: end - now,
+                    scheduleIndex: 0,
+                    loopNumber: 0,
+                    streamDescriptor: null,
+                    isCurrent: true,
+                }],
+            };
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const badge = cell.querySelector('.epg-live-badge') as HTMLElement;
+            expect(badge.classList.contains('epg-live-badge-compact')).toBe(true);
+            expect(badge.textContent).toBe('');
+        });
     });
 
     describe('element pool management', () => {
