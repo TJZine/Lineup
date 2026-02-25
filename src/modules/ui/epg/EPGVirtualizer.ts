@@ -545,6 +545,7 @@ export class EPGVirtualizer {
         element.classList.remove(
             EPG_CLASSES.CELL_FOCUSED,
             EPG_CLASSES.CELL_CURRENT,
+            EPG_CLASSES.CELL_PAST,
             EPG_CLASSES.CELL_LOADING
         );
 

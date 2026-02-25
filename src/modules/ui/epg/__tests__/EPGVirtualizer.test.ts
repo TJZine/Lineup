@@ -1122,7 +1122,9 @@ describe('EPGVirtualizer', () => {
         it('keeps subtitle visible in narrow and tiny tiers', () => {
             const channelId = 'ch-subtitle';
             const start = gridAnchorTime;
-            const end = gridAnchorTime + 30 * 60 * 1000;
+            const narrowEnd = start + 30 * 60 * 1000; // 120px @ 4px/min => narrow tier
+            const tinyStart = narrowEnd;
+            const tinyEnd = tinyStart + 20 * 60 * 1000; // 80px @ 4px/min => tiny tier
             const makeSchedule = (): ScheduleWindow => ({
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
@@ -1135,16 +1137,38 @@ describe('EPGVirtualizer', () => {
                         showTitle: 'Great Show',
                         seasonNumber: 1,
                         episodeNumber: 5,
-                        durationMs: end - start,
+                        durationMs: narrowEnd - start,
                         thumb: null,
                         year: 2026,
                         scheduledIndex: 0,
                     },
                     scheduledStartTime: start,
-                    scheduledEndTime: end,
+                    scheduledEndTime: narrowEnd,
                     elapsedMs: 0,
-                    remainingMs: end - start,
+                    remainingMs: narrowEnd - start,
                     scheduleIndex: 0,
+                    loopNumber: 0,
+                    streamDescriptor: null,
+                    isCurrent: false,
+                }, {
+                    item: {
+                        ratingKey: 'ep-subtitle-2',
+                        type: 'episode',
+                        title: 'The Heist',
+                        fullTitle: 'Great Show - S01E05 - The Heist',
+                        showTitle: 'Great Show',
+                        seasonNumber: 1,
+                        episodeNumber: 5,
+                        durationMs: tinyEnd - tinyStart,
+                        thumb: null,
+                        year: 2026,
+                        scheduledIndex: 0,
+                    },
+                    scheduledStartTime: tinyStart,
+                    scheduledEndTime: tinyEnd,
+                    elapsedMs: 0,
+                    remainingMs: tinyEnd - tinyStart,
+                    scheduleIndex: 1,
                     loopNumber: 0,
                     streamDescriptor: null,
                     isCurrent: false,
@@ -1154,10 +1178,18 @@ describe('EPGVirtualizer', () => {
             virtualizer.setChannelCount(1);
             const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
             virtualizer.renderVisibleCells([channelId], new Map([[channelId, makeSchedule()]]), range);
-            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
-            const subtitle = cell.querySelector('.epg-cell-subtitle') as HTMLElement;
-            expect(subtitle.textContent).toBe('The Heist');
-            expect(subtitle.style.display).toBe('block');
+
+            const narrowCell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            expect(narrowCell.classList.contains(EPG_CLASSES.CELL_TIER_NARROW)).toBe(true);
+            const narrowSubtitle = narrowCell.querySelector('.epg-cell-subtitle') as HTMLElement;
+            expect(narrowSubtitle.textContent).toBe('The Heist');
+            expect(narrowSubtitle.style.display).toBe('block');
+
+            const tinyCell = container.querySelector(`[data-key="${channelId}-${tinyStart}"]`) as HTMLElement;
+            expect(tinyCell.classList.contains(EPG_CLASSES.CELL_TIER_TINY)).toBe(true);
+            const tinySubtitle = tinyCell.querySelector('.epg-cell-subtitle') as HTMLElement;
+            expect(tinySubtitle.textContent).toBe('The Heist');
+            expect(tinySubtitle.style.display).toBe('block');
         });
 
         it('compacts LIVE badge to dot for current narrow/tiny cells when not focused', () => {
