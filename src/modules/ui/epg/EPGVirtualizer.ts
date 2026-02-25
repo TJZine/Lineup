@@ -267,6 +267,7 @@ export class EPGVirtualizer {
             isPartial: false,
             isCurrent: false,
             isPast: false,
+            isFocused: false,
             textShiftPx: 0,
             cellElement: null,
         }, false);
@@ -391,6 +392,7 @@ export class EPGVirtualizer {
                         isPartial,
                         isCurrent,
                         isPast,
+                        isFocused: isFocusedCell,
                         textShiftPx,
                         cellElement: null,
                     }, isFocusedCell);
@@ -509,13 +511,18 @@ export class EPGVirtualizer {
         const element = document.createElement('div');
         element.className = EPG_CLASSES.CELL;
         element.innerHTML = `
-      <div class="${EPG_CLASSES.CELL_META}">
-        <span class="${EPG_CLASSES.CELL_EPISODE}"></span>
-      </div>
-      <div class="${EPG_CLASSES.CELL_TITLE}"></div>
-      <div class="${EPG_CLASSES.CELL_SUBTITLE}"></div>
-      <div class="${EPG_CLASSES.CELL_TIME}"></div>
-    `;
+            <div class="${EPG_CLASSES.CELL_CONTENT}">
+                <div class="${EPG_CLASSES.CELL_META}">
+                    <span class="${EPG_CLASSES.CELL_EPISODE}"></span>
+                </div>
+                <div class="${EPG_CLASSES.CELL_TITLE}"></div>
+                <div class="${EPG_CLASSES.CELL_SUBTITLE}"></div>
+            </div>
+            <div class="${EPG_CLASSES.CELL_RAIL}">
+                <span class="${EPG_CLASSES.LIVE_BADGE}" hidden aria-label="Currently playing"></span>
+                <div class="${EPG_CLASSES.CELL_TIME}"></div>
+            </div>
+        `;
         // Prime cache for stable cell structure to avoid repeated DOM queries in hot paths.
         void this.getCellChildren(element);
         return element;
@@ -576,8 +583,15 @@ export class EPGVirtualizer {
             time.textContent = '';
             time.style.display = 'block';
         }
-        const liveBadge = element.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`);
-        if (liveBadge) liveBadge.remove();
+        const liveBadge = element.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement | null;
+        if (liveBadge) {
+            liveBadge.hidden = true;
+            liveBadge.textContent = '';
+            liveBadge.classList.remove(EPG_CLASSES.CELL_LIVE_COMPACT);
+        }
+        if (time) {
+            time.classList.remove(EPG_CLASSES.CELL_TIME_COMPACT);
+        }
 
         // Reset positioning
         element.style.left = '';
@@ -858,6 +872,8 @@ export class EPGVirtualizer {
         element.style.top = `${(cellData.rowIndex - this.channelOffset) * this.config.rowHeight}px`;
         element.setAttribute('data-key', key);
 
+        element.classList.toggle(EPG_CLASSES.CELL_FOCUSED, cellData.isFocused);
+
         // Mark current program
         if (cellData.isCurrent) {
             element.classList.add(EPG_CLASSES.CELL_CURRENT);
@@ -894,6 +910,7 @@ export class EPGVirtualizer {
         element.style.width = `${cellData.width}px`;
         element.style.top = `${(cellData.rowIndex - this.channelOffset) * this.config.rowHeight}px`;
 
+        element.classList.toggle(EPG_CLASSES.CELL_FOCUSED, cellData.isFocused);
         // Update current state
         if (cellData.isCurrent) {
             element.classList.add(EPG_CLASSES.CELL_CURRENT);
@@ -940,18 +957,16 @@ export class EPGVirtualizer {
     }
 
     private updateLiveBadge(element: HTMLElement, isCurrent: boolean): void {
-        const existing = element.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement | null;
+        const badge = element.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement | null;
+        if (!badge) return;
+        badge.hidden = !isCurrent;
         if (isCurrent) {
-            if (existing) return;
-            const liveBadge = document.createElement('span');
-            liveBadge.className = EPG_CLASSES.LIVE_BADGE;
-            liveBadge.textContent = 'LIVE';
-            liveBadge.setAttribute('aria-label', 'Currently playing');
-            element.appendChild(liveBadge);
-            return;
-        }
-        if (existing) {
-            existing.remove();
+            if (!badge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)) {
+                badge.textContent = 'LIVE';
+            }
+        } else {
+            badge.textContent = '';
+            badge.classList.remove(EPG_CLASSES.CELL_LIVE_COMPACT);
         }
     }
 
