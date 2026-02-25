@@ -32,6 +32,25 @@ export function formatTimeRange(startTime: number, endTime: number): string {
     return `${formatTime(startTime)} - ${formatTime(endTime)}`;
 }
 
+export function formatTimeCompact(timestamp: number): string {
+    // 12-hour without meridiem for compact rail (e.g. 3:53)
+    const date = new Date(timestamp);
+    const hours = date.getHours() % 12 || 12;
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+}
+
+export function formatCellTimeLabel(
+    startTime: number,
+    endTime: number,
+    options: { compact: boolean; forceFull: boolean }
+): string {
+    if (options.forceFull || !options.compact) {
+        return formatTimeRange(startTime, endTime);
+    }
+    return formatTimeCompact(startTime);
+}
+
 /**
  * Format duration in human-readable form.
  *

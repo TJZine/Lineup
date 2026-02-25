@@ -691,6 +691,7 @@ describe('EPGVirtualizer', () => {
                 ],
             };
 
+            virtualizer.setChannelCount(1);
             const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
             virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
 
@@ -698,7 +699,8 @@ describe('EPGVirtualizer', () => {
             const timeLine = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
 
             expect(cell.classList.contains('epg-cell-tier-tiny')).toBe(true);
-            expect(timeLine.style.display).toBe('none');
+            expect(timeLine.style.display).toBe('block');
+            expect(timeLine.classList.contains(EPG_CLASSES.CELL_TIME_COMPACT)).toBe(true);
         });
 
         it('applies deterministic width-tier classes and line visibility at boundaries', () => {
@@ -811,15 +813,17 @@ describe('EPGVirtualizer', () => {
             const narrowCell = container.querySelector(`[data-key="${channelId}-${narrowStart}"]`) as HTMLElement;
             expect(narrowCell.classList.contains(EPG_CLASSES.CELL_TIER_NARROW)).toBe(true);
             expect((narrowCell.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement).style.display).toBe('none');
-            expect((narrowCell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement).style.display).toBe('none');
-            expect((narrowCell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement).style.display).toBe('none');
+            expect((narrowCell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement).style.display).toBe('block');
+            expect((narrowCell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement).style.display).toBe('block');
+            expect((narrowCell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement).classList.contains(EPG_CLASSES.CELL_TIME_COMPACT)).toBe(true);
 
             const tinyStart = gridAnchorTime + (112 * 60000);
             const tinyCell = container.querySelector(`[data-key="${channelId}-${tinyStart}"]`) as HTMLElement;
             expect(tinyCell.classList.contains(EPG_CLASSES.CELL_TIER_TINY)).toBe(true);
             expect((tinyCell.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement).style.display).toBe('none');
-            expect((tinyCell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement).style.display).toBe('none');
-            expect((tinyCell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement).style.display).toBe('none');
+            expect((tinyCell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement).style.display).toBe('block');
+            expect((tinyCell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement).style.display).toBe('block');
+            expect((tinyCell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement).classList.contains(EPG_CLASSES.CELL_TIME_COMPACT)).toBe(true);
         });
 
         it('renders loading placeholders when schedules are missing', () => {
@@ -1146,6 +1150,7 @@ describe('EPGVirtualizer', () => {
                 }],
             });
 
+            virtualizer.setChannelCount(1);
             const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
             virtualizer.renderVisibleCells([channelId], new Map([[channelId, makeSchedule()]]), range);
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
@@ -1184,6 +1189,7 @@ describe('EPGVirtualizer', () => {
                     isCurrent: true,
                 }],
             };
+            virtualizer.setChannelCount(1);
             const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
             virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
