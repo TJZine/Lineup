@@ -1197,6 +1197,87 @@ describe('EPGVirtualizer', () => {
             expect(badge.classList.contains('epg-live-badge-compact')).toBe(true);
             expect(badge.textContent).toBe('');
         });
+
+        it('shows LIVE text when narrow/tiny cell is focused', () => {
+            const now = gridAnchorTime + 5 * 60 * 1000;
+            jest.spyOn(Date, 'now').mockReturnValue(now);
+            const channelId = 'ch-live-focused';
+            const start = gridAnchorTime;
+            const end = gridAnchorTime + 20 * 60 * 1000;
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                programs: [{
+                    item: {
+                        ratingKey: 'live-focused-1',
+                        type: 'movie',
+                        title: 'Focused Live Program',
+                        fullTitle: 'Focused Live Program',
+                        durationMs: end - start,
+                        thumb: null,
+                        year: 2026,
+                        scheduledIndex: 0,
+                    },
+                    scheduledStartTime: start,
+                    scheduledEndTime: end,
+                    elapsedMs: 0,
+                    remainingMs: end - now,
+                    scheduleIndex: 0,
+                    loopNumber: 0,
+                    streamDescriptor: null,
+                    isCurrent: true,
+                }],
+            };
+            virtualizer.setChannelCount(1);
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range, `${channelId}-${start}`);
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const badge = cell.querySelector('.epg-live-badge') as HTMLElement;
+            expect(badge.classList.contains('epg-live-badge-compact')).toBe(false);
+            expect(badge.hidden).toBe(false);
+            expect(badge.textContent).toBe('LIVE');
+        });
+
+        it('shows full time text when tiny cell is focused', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-time-focused';
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60000),
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'tiny-time-focused',
+                            type: 'movie',
+                            title: 'Tiny Movie Focus',
+                            fullTitle: 'Tiny Movie Focus',
+                            durationMs: 20 * 60000,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: gridAnchorTime,
+                        scheduledEndTime: gridAnchorTime + (20 * 60000),
+                        elapsedMs: 0,
+                        remainingMs: 0,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range, `${channelId}-${gridAnchorTime}`);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${gridAnchorTime}"]`) as HTMLElement;
+            const timeLine = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
+
+            expect(cell.classList.contains('epg-cell-tier-tiny')).toBe(true);
+            expect(timeLine.style.display).toBe('block');
+            expect(timeLine.classList.contains(EPG_CLASSES.CELL_TIME_COMPACT)).toBe(false);
+        });
     });
 
     describe('element pool management', () => {
