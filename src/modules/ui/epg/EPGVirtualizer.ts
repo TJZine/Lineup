@@ -758,7 +758,7 @@ export class EPGVirtualizer {
 
         const liveBadge = element.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement | null;
         if (liveBadge) {
-            const shouldCompact = (tier === 'narrow' || tier === 'tiny') && !cellData.isFocused;
+            const shouldCompact = (tier === 'narrow' || tier === 'tiny') && !cellData.isFocused && !cellData.isCurrent;
             liveBadge.classList.toggle(EPG_CLASSES.CELL_LIVE_COMPACT, shouldCompact);
             if (shouldCompact) {
                 liveBadge.textContent = '';
@@ -946,6 +946,8 @@ export class EPGVirtualizer {
         for (const cellData of this.visibleCells.values()) {
             const element = cellData.cellElement;
             if (cellData.kind === 'program') {
+                const wasCurrent = cellData.isCurrent;
+                const wasPast = cellData.isPast;
                 const isCurrent = nowMs >= cellData.program.scheduledStartTime &&
                     nowMs < cellData.program.scheduledEndTime;
                 const isPast = nowMs >= cellData.program.scheduledEndTime;
@@ -961,6 +963,9 @@ export class EPGVirtualizer {
                         element.classList.add(EPG_CLASSES.CELL_PAST);
                     } else {
                         element.classList.remove(EPG_CLASSES.CELL_PAST);
+                    }
+                    if (wasCurrent !== isCurrent || wasPast !== isPast) {
+                        this.updateCellContent(cellData);
                     }
                     this.updateLiveBadge(element, isCurrent);
                 }
@@ -1055,21 +1060,14 @@ export class EPGVirtualizer {
     setFocusedCell(channelId: string, programStartTime: number, focusTimeMs?: number): HTMLElement | null {
         const key = `${channelId}-${programStartTime}`;
 
-        // Remove focus from all cells
-        for (const cellData of this.visibleCells.values()) {
-            if (cellData.cellElement) {
-                cellData.cellElement.classList.remove(EPG_CLASSES.CELL_FOCUSED);
-            }
-        }
-
-        // Add focus to target cell
-        let cellData = this.visibleCells.get(key);
-        if (!cellData) {
+        // Resolve target first so we can synchronize data + visual focus state in one pass.
+        let targetCellData = this.visibleCells.get(key);
+        if (!targetCellData) {
             const placeholderKey = `${channelId}-placeholder-${programStartTime}`;
-            cellData = this.visibleCells.get(placeholderKey);
+            targetCellData = this.visibleCells.get(placeholderKey);
         }
 
-        if (!cellData && focusTimeMs !== undefined) {
+        if (!targetCellData && focusTimeMs !== undefined) {
             for (const candidate of this.visibleCells.values()) {
                 if (candidate.channelId !== channelId) {
                     continue;
@@ -1081,14 +1079,27 @@ export class EPGVirtualizer {
                     ? candidate.program.scheduledEndTime
                     : candidate.placeholder.scheduledEndTime;
                 if (focusTimeMs >= start && focusTimeMs < end) {
-                    cellData = candidate;
+                    targetCellData = candidate;
                     break;
                 }
             }
         }
-        if (cellData && cellData.cellElement) {
-            cellData.cellElement.classList.add(EPG_CLASSES.CELL_FOCUSED);
-            return cellData.cellElement;
+
+        for (const candidate of this.visibleCells.values()) {
+            const shouldFocus = candidate === targetCellData;
+            const focusChanged = candidate.isFocused !== shouldFocus;
+            candidate.isFocused = shouldFocus;
+
+            if (!candidate.cellElement) continue;
+            candidate.cellElement.classList.toggle(EPG_CLASSES.CELL_FOCUSED, shouldFocus);
+            if (focusChanged) {
+                this.updateCellContent(candidate);
+                this.updateLiveBadge(candidate.cellElement, candidate.isCurrent);
+            }
+        }
+
+        if (targetCellData?.cellElement) {
+            return targetCellData.cellElement;
         }
 
         return null;

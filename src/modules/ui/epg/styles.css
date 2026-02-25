@@ -644,9 +644,10 @@
 .epg-cell-rail {
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: space-between;
   align-items: flex-end;
-  gap: 4px;
+  align-self: stretch;
+  min-height: 100%;
   flex-shrink: 0;
   min-width: 0;
 }
@@ -707,6 +708,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.2;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .epg-cell-subtitle {
@@ -719,14 +722,13 @@
   margin-top: 2px;
 }
 
+.epg-cell-time.epg-cell-time-compact {
+  font-size: 14px;
+}
+
 .epg-cell.text-shifted .epg-cell-content,
 .epg-cell.text-shifted .epg-cell-rail {
   transform: translateX(var(--epg-cell-text-shift-px));
-}
-
-.epg-cell-tier-narrow .epg-cell-time,
-.epg-cell-tier-tiny .epg-cell-time {
-  display: none;
 }
 
 .epg-cell-tier-tiny .epg-cell-title {
@@ -748,6 +750,16 @@
   z-index: 2;
   pointer-events: none;
   line-height: 1.2;
+}
+
+.epg-live-badge.epg-live-badge-compact {
+  font-size: 0;
+  gap: 0;
+}
+
+.epg-live-badge.epg-live-badge-compact::before {
+  width: 8px;
+  height: 8px;
 }
 
 .epg-live-badge[hidden] {
