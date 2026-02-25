@@ -1107,7 +1107,8 @@ describe('EPGVirtualizer', () => {
                     scheduleIndex: 0,
                     loopNumber: 0,
                     streamDescriptor: null,
-                    isCurrent: true,
+                    // NOTE: EPGVirtualizer recomputes "current" from Date.now(); this fixture field is ignored here.
+                    isCurrent: false,
                 }],
             };
             const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
@@ -1159,7 +1160,7 @@ describe('EPGVirtualizer', () => {
             expect(subtitle.style.display).toBe('block');
         });
 
-        it('keeps LIVE text visible for current narrow/tiny cells', () => {
+        it('compacts LIVE badge to dot for current narrow/tiny cells when not focused', () => {
             const now = gridAnchorTime + 5 * 60 * 1000;
             jest.spyOn(Date, 'now').mockReturnValue(now);
             const channelId = 'ch-live-dot';
@@ -1186,7 +1187,8 @@ describe('EPGVirtualizer', () => {
                     scheduleIndex: 0,
                     loopNumber: 0,
                     streamDescriptor: null,
-                    isCurrent: true,
+                    // NOTE: EPGVirtualizer recomputes "current" from Date.now(); this fixture field is ignored here.
+                    isCurrent: false,
                 }],
             };
             virtualizer.setChannelCount(1);
@@ -1194,9 +1196,9 @@ describe('EPGVirtualizer', () => {
             virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
             const badge = cell.querySelector('.epg-live-badge') as HTMLElement;
-            expect(badge.classList.contains('epg-live-badge-compact')).toBe(false);
+            expect(badge.classList.contains('epg-live-badge-compact')).toBe(true);
             expect(badge.hidden).toBe(false);
-            expect(badge.textContent).toBe('LIVE');
+            expect(badge.textContent).toBe('');
         });
 
         it('shows LIVE text when narrow/tiny cell is focused', () => {
@@ -1226,7 +1228,8 @@ describe('EPGVirtualizer', () => {
                     scheduleIndex: 0,
                     loopNumber: 0,
                     streamDescriptor: null,
-                    isCurrent: true,
+                    // NOTE: EPGVirtualizer recomputes "current" from Date.now(); this fixture field is ignored here.
+                    isCurrent: false,
                 }],
             };
             virtualizer.setChannelCount(1);
@@ -1376,7 +1379,8 @@ describe('EPGVirtualizer', () => {
             expect(timeLine.classList.contains(EPG_CLASSES.CELL_TIME_COMPACT)).toBe(false);
             expect(timeLine.textContent).toContain(' - ');
             expect(liveBadge.hidden).toBe(false);
-            expect(liveBadge.textContent).toBe('LIVE');
+            expect(liveBadge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
+            expect(liveBadge.textContent).toBe('');
         });
     });
 

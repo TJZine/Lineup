@@ -354,8 +354,8 @@ export class EPGVirtualizer {
                         hadVisibleOverlap = true;
                     }
 
-                    const cell = positionCell(program, this.gridAnchorTime, this.config.pixelsPerMinute);
-                    const isCurrent = now >= program.scheduledStartTime && now < program.scheduledEndTime;
+                    const cell = positionCell(program, this.gridAnchorTime, this.config.pixelsPerMinute, now);
+                    const isCurrent = cell.isCurrent;
                     const isPast = now >= program.scheduledEndTime;
                     const rawLeft = cell.left;
                     // If the program started before the visible guide window, clip to the left edge (no past).
@@ -583,14 +583,12 @@ export class EPGVirtualizer {
         if (time) {
             time.textContent = '';
             time.style.display = 'block';
+            time.classList.remove(EPG_CLASSES.CELL_TIME_COMPACT);
         }
         if (liveBadge) {
             liveBadge.hidden = true;
             liveBadge.textContent = '';
             liveBadge.classList.remove(EPG_CLASSES.CELL_LIVE_COMPACT);
-        }
-        if (time) {
-            time.classList.remove(EPG_CLASSES.CELL_TIME_COMPACT);
         }
 
         // Reset positioning
@@ -627,6 +625,31 @@ export class EPGVirtualizer {
         const forceFull = cellData.isFocused || cellData.isCurrent;
         timeEl.textContent = formatCellTimeLabel(startTimeMs, endTimeMs, { compact: isCompactTime, forceFull });
         timeEl.classList.toggle(EPG_CLASSES.CELL_TIME_COMPACT, isCompactTime && !forceFull);
+    }
+
+    private updateCellTimeLabelForCell(cellData: CellRenderData): void {
+        const element = cellData.cellElement;
+        if (!element) return;
+
+        const children = this.getCellChildren(element);
+        const tier = this.getCellWidthTier(cellData.width);
+        if (cellData.kind === 'program') {
+            this.updateCellTimeLabel(
+                children.time,
+                tier,
+                cellData,
+                cellData.program.scheduledStartTime,
+                cellData.program.scheduledEndTime
+            );
+        } else {
+            this.updateCellTimeLabel(
+                children.time,
+                tier,
+                cellData,
+                cellData.placeholder.scheduledStartTime,
+                cellData.placeholder.scheduledEndTime
+            );
+        }
     }
 
     private extractShowTitleFromFullTitle(fullTitle: string): string | null {
@@ -978,15 +1001,23 @@ export class EPGVirtualizer {
     private updateLiveBadge(element: HTMLElement, isCurrent: boolean): void {
         const badge = this.getCellChildren(element).liveBadge;
         if (!badge) return;
-        badge.hidden = !isCurrent;
-        if (isCurrent) {
-            if (!badge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)) {
-                badge.textContent = 'LIVE';
-            }
-        } else {
+
+        if (!isCurrent) {
+            badge.hidden = true;
             badge.textContent = '';
             badge.classList.remove(EPG_CLASSES.CELL_LIVE_COMPACT);
+            return;
         }
+
+        badge.hidden = false;
+        const isNarrowOrTiny =
+            element.classList.contains(EPG_CLASSES.CELL_TIER_NARROW) ||
+            element.classList.contains(EPG_CLASSES.CELL_TIER_TINY);
+        const isFocused = element.classList.contains(EPG_CLASSES.CELL_FOCUSED);
+        const shouldCompact = isNarrowOrTiny && !isFocused;
+
+        badge.classList.toggle(EPG_CLASSES.CELL_LIVE_COMPACT, shouldCompact);
+        badge.textContent = shouldCompact ? '' : 'LIVE';
     }
 
     /**
@@ -1083,7 +1114,7 @@ export class EPGVirtualizer {
             if (!candidate.cellElement) continue;
             candidate.cellElement.classList.toggle(EPG_CLASSES.CELL_FOCUSED, shouldFocus);
             if (focusChanged) {
-                this.updateCellContent(candidate);
+                this.updateCellTimeLabelForCell(candidate);
                 this.updateLiveBadge(candidate.cellElement, candidate.isCurrent);
             }
         }
