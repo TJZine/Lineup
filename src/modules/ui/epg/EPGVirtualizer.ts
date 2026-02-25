@@ -71,6 +71,7 @@ type CellChildren = {
     meta: HTMLElement | null;
     episode: HTMLElement | null;
     subtitle: HTMLElement | null;
+    liveBadge: HTMLElement | null;
 };
 
 /**
@@ -567,7 +568,7 @@ export class EPGVirtualizer {
      * @param element - Element to reset
      */
     private resetElement(element: HTMLElement): void {
-        const { meta, episode, subtitle, title, time } = this.getCellChildren(element);
+        const { meta, episode, subtitle, title, time, liveBadge } = this.getCellChildren(element);
         if (meta) {
             meta.style.display = 'none';
         }
@@ -583,7 +584,6 @@ export class EPGVirtualizer {
             time.textContent = '';
             time.style.display = 'block';
         }
-        const liveBadge = element.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement | null;
         if (liveBadge) {
             liveBadge.hidden = true;
             liveBadge.textContent = '';
@@ -612,6 +612,21 @@ export class EPGVirtualizer {
             EPG_CLASSES.CELL_TIER_TINY
         );
         element.removeAttribute('data-key');
+    }
+
+    private updateCellTimeLabel(
+        timeEl: HTMLElement | null,
+        tier: CellWidthTier,
+        cellData: CellRenderData,
+        startTimeMs: number,
+        endTimeMs: number
+    ): void {
+        if (!timeEl) return;
+
+        const isCompactTime = tier === 'narrow' || tier === 'tiny';
+        const forceFull = cellData.isFocused || cellData.isCurrent;
+        timeEl.textContent = formatCellTimeLabel(startTimeMs, endTimeMs, { compact: isCompactTime, forceFull });
+        timeEl.classList.toggle(EPG_CLASSES.CELL_TIME_COMPACT, isCompactTime && !forceFull);
     }
 
     private extractShowTitleFromFullTitle(fullTitle: string): string | null {
@@ -656,6 +671,7 @@ export class EPGVirtualizer {
             meta: element.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement | null,
             episode: element.querySelector(`.${EPG_CLASSES.CELL_EPISODE}`) as HTMLElement | null,
             subtitle: element.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement | null,
+            liveBadge: element.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement | null,
         };
         this.cellChildrenCache.set(element, children);
         return children;
@@ -722,7 +738,7 @@ export class EPGVirtualizer {
         return 'tiny';
     }
 
-    private applyWidthTierPresentation(element: HTMLElement, children: CellChildren, cellData: CellRenderData): void {
+    private applyWidthTierPresentation(element: HTMLElement, children: CellChildren, tier: CellWidthTier): void {
         element.classList.remove(
             EPG_CLASSES.CELL_TIER_WIDE,
             EPG_CLASSES.CELL_TIER_MEDIUM,
@@ -731,7 +747,6 @@ export class EPGVirtualizer {
         );
 
         const { time, meta, subtitle } = children;
-        const tier = this.getCellWidthTier(cellData.width);
         const hasMetaContent = (meta?.textContent ?? '').trim().length > 0;
         const hasSubtitleContent = (subtitle?.textContent ?? '').trim().length > 0;
 
@@ -754,17 +769,6 @@ export class EPGVirtualizer {
             if (meta) meta.style.display = 'none';
             if (subtitle) subtitle.style.display = hasSubtitleContent ? 'block' : 'none';
             if (time) time.style.display = 'block';
-        }
-
-        const liveBadge = element.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement | null;
-        if (liveBadge) {
-            const shouldCompact = (tier === 'narrow' || tier === 'tiny') && !cellData.isFocused && !cellData.isCurrent;
-            liveBadge.classList.toggle(EPG_CLASSES.CELL_LIVE_COMPACT, shouldCompact);
-            if (shouldCompact) {
-                liveBadge.textContent = '';
-            } else if (!liveBadge.hidden) {
-                liveBadge.textContent = 'LIVE';
-            }
         }
     }
 
@@ -840,40 +844,33 @@ export class EPGVirtualizer {
 
         const element = this.getOrCreateElement();
         const children = this.getCellChildren(element);
+        const tier = this.getCellWidthTier(cellData.width);
 
         // Set content
         if (cellData.kind === 'program') {
             const isEpisode = cellData.program.item.type === 'episode';
             if (children.title && !isEpisode) children.title.textContent = cellData.program.item.title;
-            if (children.time) {
-                const tier = this.getCellWidthTier(cellData.width);
-                const isCompactTime = tier === 'narrow' || tier === 'tiny';
-                const forceFull = cellData.isFocused || cellData.isCurrent;
-                children.time.textContent = formatCellTimeLabel(
-                    cellData.program.scheduledStartTime,
-                    cellData.program.scheduledEndTime,
-                    { compact: isCompactTime, forceFull }
-                );
-                children.time.classList.toggle(EPG_CLASSES.CELL_TIME_COMPACT, isCompactTime && !forceFull);
-            }
+            this.updateCellTimeLabel(
+                children.time,
+                tier,
+                cellData,
+                cellData.program.scheduledStartTime,
+                cellData.program.scheduledEndTime
+            );
             element.classList.remove(EPG_CLASSES.CELL_LOADING);
         } else {
             if (children.title) children.title.textContent = cellData.placeholder.label;
-            if (children.time) {
-                const tier = this.getCellWidthTier(cellData.width);
-                const isCompactTime = tier === 'narrow' || tier === 'tiny';
-                const forceFull = cellData.isFocused || cellData.isCurrent;
-                children.time.textContent = formatCellTimeLabel(
-                    cellData.placeholder.scheduledStartTime,
-                    cellData.placeholder.scheduledEndTime,
-                    { compact: isCompactTime, forceFull }
-                );
-                children.time.classList.toggle(EPG_CLASSES.CELL_TIME_COMPACT, isCompactTime && !forceFull);
-            }
+            this.updateCellTimeLabel(
+                children.time,
+                tier,
+                cellData,
+                cellData.placeholder.scheduledStartTime,
+                cellData.placeholder.scheduledEndTime
+            );
             element.classList.add(EPG_CLASSES.CELL_LOADING);
         }
         this.updateEpisodePresentation(children, cellData);
-        this.applyWidthTierPresentation(element, children, cellData);
+        this.applyWidthTierPresentation(element, children, tier);
 
         if (cellData.textShiftPx > 0) {
             element.classList.add(EPG_CLASSES.CELL_TEXT_SHIFTED);
@@ -979,7 +976,7 @@ export class EPGVirtualizer {
     }
 
     private updateLiveBadge(element: HTMLElement, isCurrent: boolean): void {
-        const badge = element.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement | null;
+        const badge = this.getCellChildren(element).liveBadge;
         if (!badge) return;
         badge.hidden = !isCurrent;
         if (isCurrent) {
@@ -1003,38 +1000,31 @@ export class EPGVirtualizer {
         if (!element) return;
 
         const children = this.getCellChildren(element);
+        const tier = this.getCellWidthTier(cellData.width);
         if (cellData.kind === 'program') {
             const isEpisode = cellData.program.item.type === 'episode';
             if (children.title && !isEpisode) children.title.textContent = cellData.program.item.title;
-            if (children.time) {
-                const tier = this.getCellWidthTier(cellData.width);
-                const isCompactTime = tier === 'narrow' || tier === 'tiny';
-                const forceFull = cellData.isFocused || cellData.isCurrent;
-                children.time.textContent = formatCellTimeLabel(
-                    cellData.program.scheduledStartTime,
-                    cellData.program.scheduledEndTime,
-                    { compact: isCompactTime, forceFull }
-                );
-                children.time.classList.toggle(EPG_CLASSES.CELL_TIME_COMPACT, isCompactTime && !forceFull);
-            }
+            this.updateCellTimeLabel(
+                children.time,
+                tier,
+                cellData,
+                cellData.program.scheduledStartTime,
+                cellData.program.scheduledEndTime
+            );
             element.classList.remove(EPG_CLASSES.CELL_LOADING);
         } else {
             if (children.title) children.title.textContent = cellData.placeholder.label;
-            if (children.time) {
-                const tier = this.getCellWidthTier(cellData.width);
-                const isCompactTime = tier === 'narrow' || tier === 'tiny';
-                const forceFull = cellData.isFocused || cellData.isCurrent;
-                children.time.textContent = formatCellTimeLabel(
-                    cellData.placeholder.scheduledStartTime,
-                    cellData.placeholder.scheduledEndTime,
-                    { compact: isCompactTime, forceFull }
-                );
-                children.time.classList.toggle(EPG_CLASSES.CELL_TIME_COMPACT, isCompactTime && !forceFull);
-            }
+            this.updateCellTimeLabel(
+                children.time,
+                tier,
+                cellData,
+                cellData.placeholder.scheduledStartTime,
+                cellData.placeholder.scheduledEndTime
+            );
             element.classList.add(EPG_CLASSES.CELL_LOADING);
         }
         this.updateEpisodePresentation(children, cellData);
-        this.applyWidthTierPresentation(element, children, cellData);
+        this.applyWidthTierPresentation(element, children, tier);
     }
 
     /**

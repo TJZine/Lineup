@@ -662,7 +662,7 @@ describe('EPGVirtualizer', () => {
             expect(subtitle?.style.display).toBe('none');
         });
 
-        it('hides time line deterministically for tiny-width cells', () => {
+        it('applies compact time styling deterministically for tiny-width cells', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-tiny';
             const schedule: ScheduleWindow = {
@@ -692,7 +692,6 @@ describe('EPGVirtualizer', () => {
                 ],
             };
 
-            virtualizer.setChannelCount(1);
             const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
             virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
 
@@ -1245,7 +1244,7 @@ describe('EPGVirtualizer', () => {
             const channelId = 'ch-time-focused';
             const schedule: ScheduleWindow = {
                 startTime: gridAnchorTime,
-                endTime: gridAnchorTime + (24 * 60000),
+                endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
                     {
                         item: {
