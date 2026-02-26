@@ -319,6 +319,9 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
           <span>[ ]</span><span>⏱</span><span>⚙</span><span>⏻</span>
         </div>
       </div>
+      <div class="epg-classic-chrome" aria-hidden="true">
+        <div class="epg-classic-preview-frame"></div>
+      </div>
       <div class="${EPG_CLASSES.GRID}">
         <div class="${EPG_CLASSES.PROGRAM_AREA}"></div>
       </div>

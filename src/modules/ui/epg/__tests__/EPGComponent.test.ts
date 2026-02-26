@@ -58,7 +58,20 @@ describe('EPGComponent', () => {
         expect(header).not.toBeNull();
         expect(title?.textContent).toBe('TV Listings');
         expect(grid).not.toBeNull();
-        expect(header?.nextElementSibling).toBe(grid);
+    });
+
+    it('renders classic chrome frame between header and grid', () => {
+        const header = container.querySelector('.epg-classic-header');
+        const chrome = container.querySelector('.epg-classic-chrome');
+        const frame = container.querySelector('.epg-classic-preview-frame');
+        const grid = container.querySelector(`.${EPG_CLASSES.GRID}`);
+
+        expect(header).not.toBeNull();
+        expect(chrome).not.toBeNull();
+        expect(frame).not.toBeNull();
+        expect(grid).not.toBeNull();
+        expect(header?.nextElementSibling).toBe(chrome);
+        expect(chrome?.nextElementSibling).toBe(grid);
     });
 
     it('renders a bottom dashboard wrapper containing banner + info panel', () => {
