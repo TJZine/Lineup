@@ -520,6 +520,7 @@ describe('EPGComponent', () => {
         it('keeps classic shell hidden in overlay mode (even when video is playing)', () => {
             const { epg: localEpg, container: localContainer } = createEpgInstance({
                 containerId: 'epg-container-overlay-classic-shell',
+                layoutMode: 'overlay',
                 isVideoPlaying: () => true,
             });
 
@@ -611,6 +612,7 @@ describe('EPGComponent', () => {
         it('updates layout class when setLayoutMode is called while visible', () => {
             const { epg: localEpg, container: localContainer } = createEpgInstance({
                 containerId: 'epg-container-layout-setter',
+                layoutMode: 'overlay',
             });
 
             try {
