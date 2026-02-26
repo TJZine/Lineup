@@ -8,7 +8,7 @@
  */
 
 import { EPG_CONSTANTS, EPG_CLASSES } from './constants';
-import { formatTimeRange, appendEpgDebugLog } from './utils';
+import { formatCellTimeLabel, appendEpgDebugLog } from './utils';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import type {
     ScheduledProgram,
@@ -71,6 +71,7 @@ type CellChildren = {
     meta: HTMLElement | null;
     episode: HTMLElement | null;
     subtitle: HTMLElement | null;
+    liveBadge: HTMLElement | null;
 };
 
 /**
@@ -267,6 +268,7 @@ export class EPGVirtualizer {
             isPartial: false,
             isCurrent: false,
             isPast: false,
+            isFocused: false,
             textShiftPx: 0,
             cellElement: null,
         }, false);
@@ -352,8 +354,8 @@ export class EPGVirtualizer {
                         hadVisibleOverlap = true;
                     }
 
-                    const cell = positionCell(program, this.gridAnchorTime, this.config.pixelsPerMinute);
-                    const isCurrent = now >= program.scheduledStartTime && now < program.scheduledEndTime;
+                    const cell = positionCell(program, this.gridAnchorTime, this.config.pixelsPerMinute, now);
+                    const isCurrent = cell.isCurrent;
                     const isPast = now >= program.scheduledEndTime;
                     const rawLeft = cell.left;
                     // If the program started before the visible guide window, clip to the left edge (no past).
@@ -391,6 +393,7 @@ export class EPGVirtualizer {
                         isPartial,
                         isCurrent,
                         isPast,
+                        isFocused: isFocusedCell,
                         textShiftPx,
                         cellElement: null,
                     }, isFocusedCell);
@@ -509,13 +512,18 @@ export class EPGVirtualizer {
         const element = document.createElement('div');
         element.className = EPG_CLASSES.CELL;
         element.innerHTML = `
-      <div class="${EPG_CLASSES.CELL_META}">
-        <span class="${EPG_CLASSES.CELL_EPISODE}"></span>
-      </div>
-      <div class="${EPG_CLASSES.CELL_TITLE}"></div>
-      <div class="${EPG_CLASSES.CELL_SUBTITLE}"></div>
-      <div class="${EPG_CLASSES.CELL_TIME}"></div>
-    `;
+            <div class="${EPG_CLASSES.CELL_CONTENT}">
+                <div class="${EPG_CLASSES.CELL_META}">
+                    <span class="${EPG_CLASSES.CELL_EPISODE}"></span>
+                </div>
+                <div class="${EPG_CLASSES.CELL_TITLE}"></div>
+                <div class="${EPG_CLASSES.CELL_SUBTITLE}"></div>
+            </div>
+            <div class="${EPG_CLASSES.CELL_RAIL}">
+                <span class="${EPG_CLASSES.LIVE_BADGE}" hidden aria-label="Currently playing"></span>
+                <div class="${EPG_CLASSES.CELL_TIME}"></div>
+            </div>
+        `;
         // Prime cache for stable cell structure to avoid repeated DOM queries in hot paths.
         void this.getCellChildren(element);
         return element;
@@ -537,6 +545,7 @@ export class EPGVirtualizer {
         element.classList.remove(
             EPG_CLASSES.CELL_FOCUSED,
             EPG_CLASSES.CELL_CURRENT,
+            EPG_CLASSES.CELL_PAST,
             EPG_CLASSES.CELL_LOADING
         );
 
@@ -560,7 +569,7 @@ export class EPGVirtualizer {
      * @param element - Element to reset
      */
     private resetElement(element: HTMLElement): void {
-        const { meta, episode, subtitle, title, time } = this.getCellChildren(element);
+        const { meta, episode, subtitle, title, time, liveBadge } = this.getCellChildren(element);
         if (meta) {
             meta.style.display = 'none';
         }
@@ -575,9 +584,13 @@ export class EPGVirtualizer {
         if (time) {
             time.textContent = '';
             time.style.display = 'block';
+            time.classList.remove(EPG_CLASSES.CELL_TIME_COMPACT);
         }
-        const liveBadge = element.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`);
-        if (liveBadge) liveBadge.remove();
+        if (liveBadge) {
+            liveBadge.hidden = true;
+            liveBadge.textContent = '';
+            liveBadge.classList.remove(EPG_CLASSES.CELL_LIVE_COMPACT);
+        }
 
         // Reset positioning
         element.style.left = '';
@@ -598,6 +611,46 @@ export class EPGVirtualizer {
             EPG_CLASSES.CELL_TIER_TINY
         );
         element.removeAttribute('data-key');
+    }
+
+    private updateCellTimeLabel(
+        timeEl: HTMLElement | null,
+        tier: CellWidthTier,
+        cellData: CellRenderData,
+        startTimeMs: number,
+        endTimeMs: number
+    ): void {
+        if (!timeEl) return;
+
+        const isCompactTime = tier === 'narrow' || tier === 'tiny';
+        const forceFull = cellData.isFocused || cellData.isCurrent;
+        timeEl.textContent = formatCellTimeLabel(startTimeMs, endTimeMs, { compact: isCompactTime, forceFull });
+        timeEl.classList.toggle(EPG_CLASSES.CELL_TIME_COMPACT, isCompactTime && !forceFull);
+    }
+
+    private updateCellTimeLabelForCell(cellData: CellRenderData): void {
+        const element = cellData.cellElement;
+        if (!element) return;
+
+        const children = this.getCellChildren(element);
+        const tier = this.getCellWidthTier(cellData.width);
+        if (cellData.kind === 'program') {
+            this.updateCellTimeLabel(
+                children.time,
+                tier,
+                cellData,
+                cellData.program.scheduledStartTime,
+                cellData.program.scheduledEndTime
+            );
+        } else {
+            this.updateCellTimeLabel(
+                children.time,
+                tier,
+                cellData,
+                cellData.placeholder.scheduledStartTime,
+                cellData.placeholder.scheduledEndTime
+            );
+        }
     }
 
     private extractShowTitleFromFullTitle(fullTitle: string): string | null {
@@ -642,6 +695,7 @@ export class EPGVirtualizer {
             meta: element.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement | null,
             episode: element.querySelector(`.${EPG_CLASSES.CELL_EPISODE}`) as HTMLElement | null,
             subtitle: element.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement | null,
+            liveBadge: element.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement | null,
         };
         this.cellChildrenCache.set(element, children);
         return children;
@@ -708,7 +762,7 @@ export class EPGVirtualizer {
         return 'tiny';
     }
 
-    private applyWidthTierPresentation(element: HTMLElement, children: CellChildren, cellData: CellRenderData): void {
+    private applyWidthTierPresentation(element: HTMLElement, children: CellChildren, tier: CellWidthTier): void {
         element.classList.remove(
             EPG_CLASSES.CELL_TIER_WIDE,
             EPG_CLASSES.CELL_TIER_MEDIUM,
@@ -717,7 +771,6 @@ export class EPGVirtualizer {
         );
 
         const { time, meta, subtitle } = children;
-        const tier = this.getCellWidthTier(cellData.width);
         const hasMetaContent = (meta?.textContent ?? '').trim().length > 0;
         const hasSubtitleContent = (subtitle?.textContent ?? '').trim().length > 0;
 
@@ -726,29 +779,21 @@ export class EPGVirtualizer {
             if (meta) meta.style.display = hasMetaContent ? 'flex' : 'none';
             if (subtitle) subtitle.style.display = hasSubtitleContent ? 'block' : 'none';
             if (time) time.style.display = 'block';
-            return;
-        }
-
-        if (tier === 'medium') {
+        } else if (tier === 'medium') {
             element.classList.add(EPG_CLASSES.CELL_TIER_MEDIUM);
             if (meta) meta.style.display = 'none';
             if (subtitle) subtitle.style.display = hasSubtitleContent ? 'block' : 'none';
             if (time) time.style.display = 'block';
-            return;
-        }
-
-        if (tier === 'narrow') {
-            element.classList.add(EPG_CLASSES.CELL_TIER_NARROW);
+        } else if (tier === 'narrow' || tier === 'tiny') {
+            if (tier === 'narrow') {
+                element.classList.add(EPG_CLASSES.CELL_TIER_NARROW);
+            } else {
+                element.classList.add(EPG_CLASSES.CELL_TIER_TINY);
+            }
             if (meta) meta.style.display = 'none';
-            if (subtitle) subtitle.style.display = 'none';
-            if (time) time.style.display = 'none';
-            return;
+            if (subtitle) subtitle.style.display = hasSubtitleContent ? 'block' : 'none';
+            if (time) time.style.display = 'block';
         }
-
-        element.classList.add(EPG_CLASSES.CELL_TIER_TINY);
-        if (meta) meta.style.display = 'none';
-        if (subtitle) subtitle.style.display = 'none';
-        if (time) time.style.display = 'none';
     }
 
     private computeVisibleTextMetrics(input: {
@@ -823,26 +868,33 @@ export class EPGVirtualizer {
 
         const element = this.getOrCreateElement();
         const children = this.getCellChildren(element);
+        const tier = this.getCellWidthTier(cellData.width);
 
         // Set content
         if (cellData.kind === 'program') {
             const isEpisode = cellData.program.item.type === 'episode';
             if (children.title && !isEpisode) children.title.textContent = cellData.program.item.title;
-            if (children.time) children.time.textContent = formatTimeRange(
+            this.updateCellTimeLabel(
+                children.time,
+                tier,
+                cellData,
                 cellData.program.scheduledStartTime,
                 cellData.program.scheduledEndTime
             );
             element.classList.remove(EPG_CLASSES.CELL_LOADING);
         } else {
             if (children.title) children.title.textContent = cellData.placeholder.label;
-            if (children.time) children.time.textContent = formatTimeRange(
+            this.updateCellTimeLabel(
+                children.time,
+                tier,
+                cellData,
                 cellData.placeholder.scheduledStartTime,
                 cellData.placeholder.scheduledEndTime
             );
             element.classList.add(EPG_CLASSES.CELL_LOADING);
         }
         this.updateEpisodePresentation(children, cellData);
-        this.applyWidthTierPresentation(element, children, cellData);
+        this.applyWidthTierPresentation(element, children, tier);
 
         if (cellData.textShiftPx > 0) {
             element.classList.add(EPG_CLASSES.CELL_TEXT_SHIFTED);
@@ -857,6 +909,8 @@ export class EPGVirtualizer {
         element.style.width = `${cellData.width}px`;
         element.style.top = `${(cellData.rowIndex - this.channelOffset) * this.config.rowHeight}px`;
         element.setAttribute('data-key', key);
+
+        element.classList.toggle(EPG_CLASSES.CELL_FOCUSED, cellData.isFocused);
 
         // Mark current program
         if (cellData.isCurrent) {
@@ -894,6 +948,7 @@ export class EPGVirtualizer {
         element.style.width = `${cellData.width}px`;
         element.style.top = `${(cellData.rowIndex - this.channelOffset) * this.config.rowHeight}px`;
 
+        element.classList.toggle(EPG_CLASSES.CELL_FOCUSED, cellData.isFocused);
         // Update current state
         if (cellData.isCurrent) {
             element.classList.add(EPG_CLASSES.CELL_CURRENT);
@@ -912,6 +967,8 @@ export class EPGVirtualizer {
         for (const cellData of this.visibleCells.values()) {
             const element = cellData.cellElement;
             if (cellData.kind === 'program') {
+                const wasCurrent = cellData.isCurrent;
+                const wasPast = cellData.isPast;
                 const isCurrent = nowMs >= cellData.program.scheduledStartTime &&
                     nowMs < cellData.program.scheduledEndTime;
                 const isPast = nowMs >= cellData.program.scheduledEndTime;
@@ -928,6 +985,11 @@ export class EPGVirtualizer {
                     } else {
                         element.classList.remove(EPG_CLASSES.CELL_PAST);
                     }
+                    if (wasCurrent !== isCurrent || wasPast !== isPast) {
+                        // Temporal changes only affect time label + LIVE badge presentation.
+                        // Width tier/presentation is stable (cellData.width doesn't change here).
+                        this.updateCellTimeLabelForCell(cellData);
+                    }
                     this.updateLiveBadge(element, isCurrent);
                 }
             } else if (element) {
@@ -940,19 +1002,25 @@ export class EPGVirtualizer {
     }
 
     private updateLiveBadge(element: HTMLElement, isCurrent: boolean): void {
-        const existing = element.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement | null;
-        if (isCurrent) {
-            if (existing) return;
-            const liveBadge = document.createElement('span');
-            liveBadge.className = EPG_CLASSES.LIVE_BADGE;
-            liveBadge.textContent = 'LIVE';
-            liveBadge.setAttribute('aria-label', 'Currently playing');
-            element.appendChild(liveBadge);
+        const badge = this.getCellChildren(element).liveBadge;
+        if (!badge) return;
+
+        if (!isCurrent) {
+            badge.hidden = true;
+            badge.textContent = '';
+            badge.classList.remove(EPG_CLASSES.CELL_LIVE_COMPACT);
             return;
         }
-        if (existing) {
-            existing.remove();
-        }
+
+        badge.hidden = false;
+        const isNarrowOrTiny =
+            element.classList.contains(EPG_CLASSES.CELL_TIER_NARROW) ||
+            element.classList.contains(EPG_CLASSES.CELL_TIER_TINY);
+        const isFocused = element.classList.contains(EPG_CLASSES.CELL_FOCUSED);
+        const shouldCompact = isNarrowOrTiny && !isFocused;
+
+        badge.classList.toggle(EPG_CLASSES.CELL_LIVE_COMPACT, shouldCompact);
+        badge.textContent = shouldCompact ? '' : 'LIVE';
     }
 
     /**
@@ -966,24 +1034,31 @@ export class EPGVirtualizer {
         if (!element) return;
 
         const children = this.getCellChildren(element);
+        const tier = this.getCellWidthTier(cellData.width);
         if (cellData.kind === 'program') {
             const isEpisode = cellData.program.item.type === 'episode';
             if (children.title && !isEpisode) children.title.textContent = cellData.program.item.title;
-            if (children.time) children.time.textContent = formatTimeRange(
+            this.updateCellTimeLabel(
+                children.time,
+                tier,
+                cellData,
                 cellData.program.scheduledStartTime,
                 cellData.program.scheduledEndTime
             );
             element.classList.remove(EPG_CLASSES.CELL_LOADING);
         } else {
             if (children.title) children.title.textContent = cellData.placeholder.label;
-            if (children.time) children.time.textContent = formatTimeRange(
+            this.updateCellTimeLabel(
+                children.time,
+                tier,
+                cellData,
                 cellData.placeholder.scheduledStartTime,
                 cellData.placeholder.scheduledEndTime
             );
             element.classList.add(EPG_CLASSES.CELL_LOADING);
         }
         this.updateEpisodePresentation(children, cellData);
-        this.applyWidthTierPresentation(element, children, cellData);
+        this.applyWidthTierPresentation(element, children, tier);
     }
 
     /**
@@ -1009,21 +1084,14 @@ export class EPGVirtualizer {
     setFocusedCell(channelId: string, programStartTime: number, focusTimeMs?: number): HTMLElement | null {
         const key = `${channelId}-${programStartTime}`;
 
-        // Remove focus from all cells
-        for (const cellData of this.visibleCells.values()) {
-            if (cellData.cellElement) {
-                cellData.cellElement.classList.remove(EPG_CLASSES.CELL_FOCUSED);
-            }
-        }
-
-        // Add focus to target cell
-        let cellData = this.visibleCells.get(key);
-        if (!cellData) {
+        // Resolve target first so we can synchronize data + visual focus state in one pass.
+        let targetCellData = this.visibleCells.get(key);
+        if (!targetCellData) {
             const placeholderKey = `${channelId}-placeholder-${programStartTime}`;
-            cellData = this.visibleCells.get(placeholderKey);
+            targetCellData = this.visibleCells.get(placeholderKey);
         }
 
-        if (!cellData && focusTimeMs !== undefined) {
+        if (!targetCellData && focusTimeMs !== undefined) {
             for (const candidate of this.visibleCells.values()) {
                 if (candidate.channelId !== channelId) {
                     continue;
@@ -1035,14 +1103,27 @@ export class EPGVirtualizer {
                     ? candidate.program.scheduledEndTime
                     : candidate.placeholder.scheduledEndTime;
                 if (focusTimeMs >= start && focusTimeMs < end) {
-                    cellData = candidate;
+                    targetCellData = candidate;
                     break;
                 }
             }
         }
-        if (cellData && cellData.cellElement) {
-            cellData.cellElement.classList.add(EPG_CLASSES.CELL_FOCUSED);
-            return cellData.cellElement;
+
+        for (const candidate of this.visibleCells.values()) {
+            const shouldFocus = candidate === targetCellData;
+            const focusChanged = candidate.isFocused !== shouldFocus;
+            candidate.isFocused = shouldFocus;
+
+            if (!candidate.cellElement) continue;
+            candidate.cellElement.classList.toggle(EPG_CLASSES.CELL_FOCUSED, shouldFocus);
+            if (focusChanged) {
+                this.updateCellTimeLabelForCell(candidate);
+                this.updateLiveBadge(candidate.cellElement, candidate.isCurrent);
+            }
+        }
+
+        if (targetCellData?.cellElement) {
+            return targetCellData.cellElement;
         }
 
         return null;

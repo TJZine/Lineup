@@ -1,4 +1,4 @@
-import type { PlexLibrary as PlexLibraryType } from '../../../plex/library/types';
+import type { PlexLibrary as PlexLibraryModel } from '../../../plex/library/types';
 import type { FocusableElement, KeyEvent } from '../../../navigation/interfaces';
 import { PLEX_DISCOVERY_CONSTANTS } from '../../../plex/discovery/constants';
 import type { ChannelSetupOrchestrator } from '../ChannelSetupScreen';
@@ -17,8 +17,8 @@ export type NavigationMock = {
     setMockFocus: (id: string | null) => void;
 };
 
-export const makeLibrary = (overrides: Partial<PlexLibraryType> = {}): PlexLibraryType => {
-    const defaults: PlexLibraryType = {
+export const makeLibrary = (overrides: Partial<PlexLibraryModel> = {}): PlexLibraryModel => {
+    const defaults: PlexLibraryModel = {
         id: 'lib-1',
         uuid: 'uuid-1',
         title: 'Library',
