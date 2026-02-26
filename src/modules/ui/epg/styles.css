@@ -768,7 +768,6 @@
   background: var(--color-live);
   transform-origin: center;
   animation: live-pulse 1.5s ease-in-out infinite;
-  display: inline-block;
   flex-shrink: 0;
 }
 

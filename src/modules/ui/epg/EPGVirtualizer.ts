@@ -986,7 +986,9 @@ export class EPGVirtualizer {
                         element.classList.remove(EPG_CLASSES.CELL_PAST);
                     }
                     if (wasCurrent !== isCurrent || wasPast !== isPast) {
-                        this.updateCellContent(cellData);
+                        // Temporal changes only affect time label + LIVE badge presentation.
+                        // Width tier/presentation is stable (cellData.width doesn't change here).
+                        this.updateCellTimeLabelForCell(cellData);
                     }
                     this.updateLiveBadge(element, isCurrent);
                 }
