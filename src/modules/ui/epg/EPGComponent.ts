@@ -61,6 +61,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
     // DOM elements
     private containerElement: HTMLElement | null = null;
+    private classicHeaderElement: HTMLElement | null = null;
+    private classicChromeElement: HTMLElement | null = null;
     private gridElement: HTMLElement | null = null;
     private programAreaElement: HTMLElement | null = null;
     private timeIndicatorElement: HTMLElement | null = null;
@@ -232,6 +234,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
 
         this.containerElement = null;
+        this.classicHeaderElement = null;
+        this.classicChromeElement = null;
         this.gridElement = null;
         this.programAreaElement = null;
         this.timeIndicatorElement = null;
@@ -313,13 +317,13 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         this.containerElement.className = EPG_CLASSES.CONTAINER;
         this.containerElement.innerHTML = `
-      <div class="epg-classic-header" aria-hidden="true">
+      <div class="epg-classic-header" aria-hidden="true" hidden>
         <div class="epg-classic-header-title">TV Listings</div>
         <div class="epg-classic-header-actions">
           <span>[ ]</span><span>⏱</span><span>⚙</span><span>⏻</span>
         </div>
       </div>
-      <div class="epg-classic-chrome" aria-hidden="true">
+      <div class="epg-classic-chrome" aria-hidden="true" hidden>
         <div class="epg-classic-preview-frame"></div>
       </div>
       <div class="${EPG_CLASSES.GRID}">
@@ -345,6 +349,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         this.gridElement = this.containerElement.querySelector(`.${EPG_CLASSES.GRID}`);
         this.programAreaElement = this.containerElement.querySelector(`.${EPG_CLASSES.PROGRAM_AREA}`);
+        this.classicHeaderElement = this.containerElement.querySelector('.epg-classic-header');
+        this.classicChromeElement = this.containerElement.querySelector('.epg-classic-chrome');
         this.nowWatchingBannerElement = this.containerElement.querySelector(
             `.${EPG_CLASSES.NOW_WATCHING_BANNER}`
         );
@@ -361,6 +367,22 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         if (this.nowWatchingBannerElement) {
             this.nowWatchingBannerElement.hidden = true;
         }
+    }
+
+    private syncClassicShellVisibility(): void {
+        const header = this.classicHeaderElement;
+        const chrome = this.classicChromeElement;
+        const container = this.containerElement;
+        if (!header || !chrome || !container) return;
+
+        const mode = this.config.layoutMode ?? 'overlay';
+        const isVisible = this.state.isVisible;
+        const isClassicVisible = mode === 'classic' && isVisible;
+        const isClassicPeekVisible = isClassicVisible && container.classList.contains(EPG_CLASSES.CONTAINER_PEEK);
+
+        // Keep classic chrome out of overlay mode regardless of CSS.
+        header.hidden = !isClassicVisible;
+        chrome.hidden = !isClassicPeekVisible;
     }
 
     private initializeProgramAreaOverlays(): void {
@@ -470,6 +492,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         } else {
             this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_PEEK);
         }
+        this.syncClassicShellVisibility();
     }
 
     private applyLayoutMode(): void {
@@ -486,9 +509,11 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         const pipMode: 'overlay' | 'classic' =
             mode === 'classic' && this.config.isVideoPlaying?.() === true ? 'classic' : 'overlay';
-        if (pipMode === this._appliedPipMode) return;
-        this._appliedPipMode = pipMode;
-        this.config.onLayoutModeChange?.(pipMode);
+        if (pipMode !== this._appliedPipMode) {
+            this._appliedPipMode = pipMode;
+            this.config.onLayoutModeChange?.(pipMode);
+        }
+        this.syncClassicShellVisibility();
     }
 
     /**
@@ -503,6 +528,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.syncPeekMode();
         this.applyLayoutMode();
         this.updateNowWatchingBanner();
+        this.syncClassicShellVisibility();
 
         // Start time indicator updates (paused when hidden)
         this.startTimeUpdateInterval();
@@ -563,6 +589,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         if (wasClassic) {
             this.config.onLayoutModeChange?.('overlay');
         }
+        this.syncClassicShellVisibility();
 
         // Stop time updates when hidden (CPU optimization)
         this.stopTimeUpdateInterval();
@@ -1705,7 +1732,13 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             const focusedChannel = focused ? this.state.channels[focused.channelIndex] : undefined;
             const focusedKey = this._getFocusKey(focused) ?? undefined;
 
-            this.virtualizer.renderVisibleCells(channelIds, this.state.schedules, range, focusedKey);
+            this.virtualizer.renderVisibleCells(
+                channelIds,
+                this.state.schedules,
+                range,
+                focusedKey,
+                this.state.currentTime
+            );
 
             // Ensure focus styling is applied after (re)rendering.
             if (focused && focusedChannel) {

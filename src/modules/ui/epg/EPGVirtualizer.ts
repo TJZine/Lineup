@@ -282,19 +282,21 @@ export class EPGVirtualizer {
      * @param channelIds - Ordered array of channel IDs
      * @param schedules - Map of channel ID to schedule window
      * @param range - Visible range from calculateVisibleRange
+     * @param focusedCellKey - Optional focused key to keep focused cell in DOM
+     * @param nowMs - Optional current time snapshot (Unix ms) to keep render pass consistent
      */
     renderVisibleCells(
         channelIds: string[],
         schedules: Map<string, ScheduleWindow>,
         range: VirtualizedGridState,
-        focusedCellKey?: string
+        focusedCellKey?: string,
+        nowMs: number = Date.now()
     ): void {
         if (!this.contentElement || !this.config) return;
 
         this.channelOffset = range.channelOffset;
 
         const newVisibleCells = new Map<string, CellRenderData>();
-        const now = Date.now();
         const maxDomElements = EPG_CONSTANTS.MAX_DOM_ELEMENTS;
         const visibleRowCount = Math.max(1, range.visibleRows.length);
         const perRowLimit = Math.max(1, Math.ceil(maxDomElements / visibleRowCount));
@@ -355,9 +357,9 @@ export class EPGVirtualizer {
                         hadVisibleOverlap = true;
                     }
 
-                    const cell = positionCell(program, this.gridAnchorTime, this.config.pixelsPerMinute, now);
+                    const cell = positionCell(program, this.gridAnchorTime, this.config.pixelsPerMinute, nowMs);
                     const isCurrent = cell.isCurrent;
-                    const isPast = now >= program.scheduledEndTime;
+                    const isPast = nowMs >= program.scheduledEndTime;
                     const rawLeft = cell.left;
                     // If the program started before the visible guide window, clip to the left edge (no past).
                     let left = rawLeft;
@@ -461,8 +463,6 @@ export class EPGVirtualizer {
                 this.recycleElement(key, cellData);
             }
         }
-
-        const nowMs = Date.now();
 
         // Render new cells
         for (const [key, cellData] of newVisibleCells) {

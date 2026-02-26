@@ -1274,6 +1274,54 @@ describe('EPGVirtualizer', () => {
             expect(fill.style.width).toBe('25%');
         });
 
+        it('uses provided nowMs snapshot for current/progress calculations', () => {
+            const channelId = 'ch-progress-now-snapshot';
+            const start = gridAnchorTime;
+            const end = gridAnchorTime + 20 * 60 * 1000;
+            // If renderVisibleCells accidentally reads Date.now() internally, it will treat this as non-current.
+            jest.spyOn(Date, 'now').mockReturnValue(start - 5 * 60_000);
+
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60 * 1000),
+                programs: [{
+                    item: {
+                        ratingKey: 'progress-now-snapshot-1',
+                        type: 'movie',
+                        title: 'Snapshot Program',
+                        fullTitle: 'Snapshot Program',
+                        durationMs: end - start,
+                        thumb: null,
+                        year: 2026,
+                        scheduledIndex: 0,
+                    },
+                    scheduledStartTime: start,
+                    scheduledEndTime: end,
+                    elapsedMs: 0,
+                    remainingMs: end - (start + 5 * 60_000),
+                    scheduleIndex: 0,
+                    loopNumber: 0,
+                    streamDescriptor: null,
+                    isCurrent: false,
+                }],
+            };
+
+            virtualizer.setChannelCount(1);
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells(
+                [channelId],
+                new Map([[channelId, schedule]]),
+                range,
+                undefined,
+                start + 5 * 60_000
+            );
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const fill = cell.querySelector('.epg-cell-progress-fill') as HTMLElement;
+            expect(fill).not.toBeNull();
+            expect(fill.style.width).toBe('25%');
+        });
+
         it('updates progress width when a cell becomes current via temporal refresh', () => {
             const channelId = 'ch-progress-update';
             const start = gridAnchorTime + 10 * 60 * 1000;

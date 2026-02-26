@@ -14,6 +14,12 @@
   overflow: hidden;
 }
 
+/* Classic-only chrome should never render in overlay mode (default). */
+.epg-classic-header,
+.epg-classic-chrome {
+  display: none;
+}
+
 .epg-container.layout-classic {
   --classic-bg: rgba(6, 8, 14, 0.985);
   --classic-header-title: #f2f4ff;

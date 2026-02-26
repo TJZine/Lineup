@@ -517,6 +517,26 @@ describe('EPGComponent', () => {
     });
 
     describe('layout mode', () => {
+        it('keeps classic shell hidden in overlay mode (even when video is playing)', () => {
+            const { epg: localEpg, container: localContainer } = createEpgInstance({
+                containerId: 'epg-container-overlay-classic-shell',
+                isVideoPlaying: () => true,
+            });
+
+            try {
+                localEpg.show();
+                const header = localContainer.querySelector('.epg-classic-header') as HTMLElement | null;
+                const chrome = localContainer.querySelector('.epg-classic-chrome') as HTMLElement | null;
+                expect(header).not.toBeNull();
+                expect(chrome).not.toBeNull();
+                expect(header!.hidden).toBe(true);
+                expect(chrome!.hidden).toBe(true);
+            } finally {
+                localEpg.destroy();
+                localContainer.remove();
+            }
+        });
+
         it('applies classic layout class and signals on show/hide', () => {
             const onLayoutModeChange = jest.fn();
             const { epg: localEpg, container: localContainer } = createEpgInstance({
@@ -530,10 +550,18 @@ describe('EPGComponent', () => {
                 localEpg.show();
                 expect(localContainer.classList.contains(EPG_CLASSES.CONTAINER_CLASSIC)).toBe(true);
                 expect(onLayoutModeChange).toHaveBeenCalledWith('classic');
+                const header = localContainer.querySelector('.epg-classic-header') as HTMLElement | null;
+                const chrome = localContainer.querySelector('.epg-classic-chrome') as HTMLElement | null;
+                expect(header).not.toBeNull();
+                expect(chrome).not.toBeNull();
+                expect(header!.hidden).toBe(false);
+                expect(chrome!.hidden).toBe(false);
 
                 localEpg.hide();
                 expect(localContainer.classList.contains(EPG_CLASSES.CONTAINER_CLASSIC)).toBe(false);
                 expect(onLayoutModeChange).toHaveBeenCalledWith('overlay');
+                expect(header!.hidden).toBe(true);
+                expect(chrome!.hidden).toBe(true);
             } finally {
                 localEpg.destroy();
                 localContainer.remove();
@@ -588,8 +616,14 @@ describe('EPGComponent', () => {
             try {
                 localEpg.show();
                 expect(localContainer.classList.contains(EPG_CLASSES.CONTAINER_CLASSIC)).toBe(false);
+                const header = localContainer.querySelector('.epg-classic-header') as HTMLElement;
+                const chrome = localContainer.querySelector('.epg-classic-chrome') as HTMLElement;
+                expect(header.hidden).toBe(true);
+                expect(chrome.hidden).toBe(true);
                 localEpg.setLayoutMode('classic');
                 expect(localContainer.classList.contains(EPG_CLASSES.CONTAINER_CLASSIC)).toBe(true);
+                expect(header.hidden).toBe(false);
+                expect(chrome.hidden).toBe(true);
             } finally {
                 localEpg.destroy();
                 localContainer.remove();
