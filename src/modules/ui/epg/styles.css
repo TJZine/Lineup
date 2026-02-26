@@ -15,11 +15,23 @@
 }
 
 .epg-container.layout-classic {
+  --classic-bg: rgba(6, 8, 14, 0.985);
+  --classic-header-title: #f2f4ff;
+  --classic-header-actions: #cfd5ea;
+  --classic-header-grad-top: rgba(21, 25, 39, 0.96);
+  --classic-header-grad-bottom: rgba(16, 19, 30, 0.96);
+  --classic-border-subtle: rgba(255, 255, 255, 0.08);
+  --classic-pip-frame: rgba(223, 233, 255, 0.95);
+  --classic-shadow: rgba(0, 0, 0, 0.45);
+  --classic-title-accent: #f0c000;
+  --classic-muted-text: #d2d8ea;
+  --classic-focus-fill: #6f7bff;
+  --classic-focus-outline: rgba(8, 10, 18, 0.9);
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(14, 14, 16, 0.98);
+  background: var(--classic-bg);
 }
 
 .epg-container.layout-classic.peek {
@@ -52,7 +64,10 @@
   display: none;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
+  min-height: 84px;
+  padding: 18px 28px;
+  background: linear-gradient(180deg, var(--classic-header-grad-top), var(--classic-header-grad-bottom));
+  border-bottom: 1px solid var(--classic-border-subtle);
 }
 
 .epg-container.layout-classic.visible .epg-classic-header {
@@ -61,24 +76,48 @@
 
 .epg-container.layout-classic .epg-classic-header-title {
   font-family: Georgia, serif;
-  font-size: 28px;
+  font-size: 44px;
   font-weight: 700;
-  letter-spacing: 0.5px;
-  color: #f0c000;
+  letter-spacing: 0.2px;
+  color: var(--classic-header-title);
 }
 
 .epg-container.layout-classic .epg-classic-header-actions {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  font-size: 20px;
+  gap: 10px;
+  font-size: 30px;
+  color: var(--classic-header-actions);
+}
+
+.epg-container.layout-classic .epg-classic-chrome {
+  display: none;
+  pointer-events: none;
+}
+
+.epg-container.layout-classic.peek.visible .epg-classic-chrome {
+  display: block;
+  position: absolute;
+  top: 96px;
+  right: 24px;
+  width: calc(var(--pip-safe-right) - 44px);
+  height: clamp(180px, 25vh, 320px);
+  z-index: 14;
+}
+
+.epg-container.layout-classic .epg-classic-preview-frame {
+  width: 100%;
+  height: 100%;
+  border: 8px solid var(--classic-pip-frame);
+  box-shadow: 0 12px 34px var(--classic-shadow);
+  background: transparent;
 }
 
 .epg-container.layout-classic .epg-dashboard-bottom {
   grid-area: dashboard;
   border-top: none;
   background: transparent;
-  padding: 0 24px;
+  padding: 12px 24px 8px;
 }
 
 .epg-container.layout-classic.peek .epg-grid,
