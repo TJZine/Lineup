@@ -462,6 +462,8 @@ export class EPGVirtualizer {
             }
         }
 
+        const nowMs = Date.now();
+
         // Render new cells
         for (const [key, cellData] of newVisibleCells) {
             const existing = this.visibleCells.get(key);
@@ -469,10 +471,10 @@ export class EPGVirtualizer {
                 // Reuse existing element, update position and content
                 cellData.cellElement = existing.cellElement;
                 this.updateCellPosition(cellData);
-                this.updateCellContent(cellData);
+                this.updateCellContent(cellData, nowMs);
             } else {
                 // Render new cell
-                this.renderCell(key, cellData);
+                this.renderCell(key, cellData, nowMs);
             }
         }
 
@@ -891,7 +893,7 @@ export class EPGVirtualizer {
      * @param key - Unique cell key
      * @param cellData - Cell data to render
      */
-    private renderCell(key: string, cellData: CellRenderData): void {
+    private renderCell(key: string, cellData: CellRenderData, nowMs: number): void {
         if (!this.contentElement || !this.config) return;
 
         const element = this.getOrCreateElement();
@@ -950,7 +952,7 @@ export class EPGVirtualizer {
             element.classList.remove(EPG_CLASSES.CELL_PAST);
         }
         this.updateLiveBadge(element, cellData.isCurrent);
-        this.updateProgressPresentation(this.getCellChildren(element), cellData, Date.now());
+        this.updateProgressPresentation(children, cellData, nowMs);
 
         // Append to grid
         this.contentElement.appendChild(element);
@@ -990,7 +992,6 @@ export class EPGVirtualizer {
             element.classList.remove(EPG_CLASSES.CELL_PAST);
         }
         this.updateLiveBadge(element, cellData.isCurrent);
-        this.updateProgressPresentation(this.getCellChildren(element), cellData, Date.now());
     }
 
     updateTemporalClasses(nowMs: number): void {
@@ -1061,7 +1062,7 @@ export class EPGVirtualizer {
      *
      * @param cellData - Cell data with program info
      */
-    private updateCellContent(cellData: CellRenderData): void {
+    private updateCellContent(cellData: CellRenderData, nowMs: number): void {
         const element = cellData.cellElement;
         if (!element) return;
 
@@ -1091,7 +1092,7 @@ export class EPGVirtualizer {
         }
         this.updateEpisodePresentation(children, cellData);
         this.applyWidthTierPresentation(element, children, tier);
-        this.updateProgressPresentation(children, cellData, Date.now());
+        this.updateProgressPresentation(children, cellData, nowMs);
     }
 
     /**

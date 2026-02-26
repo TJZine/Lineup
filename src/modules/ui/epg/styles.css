@@ -130,6 +130,10 @@
   padding-top: var(--pip-safe-top);
 }
 
+.epg-container.layout-classic .epg-grid {
+  grid-area: grid;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
 
 .epg-container.layout-classic .epg-legend {
   grid-area: legend;
@@ -1154,11 +1158,6 @@
 .epg-container.layout-classic .epg-info-show,
 .epg-container.layout-classic .epg-info-description {
   color: var(--classic-muted-text);
-}
-
-.epg-container.layout-classic .epg-grid {
-  grid-area: grid;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .epg-container.layout-classic .epg-time-header,
