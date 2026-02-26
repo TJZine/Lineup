@@ -50,6 +50,17 @@ describe('EPGComponent', () => {
         expect(container.lastElementChild).toBe(legend);
     });
 
+    it('renders classic header placeholder before the grid container', () => {
+        const header = container.querySelector('.epg-classic-header');
+        const title = container.querySelector('.epg-classic-header-title');
+        const grid = container.querySelector(`.${EPG_CLASSES.GRID}`);
+
+        expect(header).not.toBeNull();
+        expect(title?.textContent).toBe('TV Listings');
+        expect(grid).not.toBeNull();
+        expect(header?.nextElementSibling).toBe(grid);
+    });
+
     it('renders a bottom dashboard wrapper containing banner + info panel', () => {
         const { epg: localEpg, container: localContainer } = createEpgInstance({
             containerId: 'epg-container-dashboard-structure',

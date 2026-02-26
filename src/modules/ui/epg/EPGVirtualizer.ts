@@ -72,6 +72,7 @@ type CellChildren = {
     episode: HTMLElement | null;
     subtitle: HTMLElement | null;
     liveBadge: HTMLElement | null;
+    progressFill: HTMLElement | null;
 };
 
 /**
@@ -523,6 +524,9 @@ export class EPGVirtualizer {
                 <span class="${EPG_CLASSES.LIVE_BADGE}" hidden aria-label="Currently playing"></span>
                 <div class="${EPG_CLASSES.CELL_TIME}"></div>
             </div>
+            <div class="${EPG_CLASSES.CELL_PROGRESS}">
+                <div class="${EPG_CLASSES.CELL_PROGRESS_FILL}"></div>
+            </div>
         `;
         // Prime cache for stable cell structure to avoid repeated DOM queries in hot paths.
         void this.getCellChildren(element);
@@ -569,7 +573,7 @@ export class EPGVirtualizer {
      * @param element - Element to reset
      */
     private resetElement(element: HTMLElement): void {
-        const { meta, episode, subtitle, title, time, liveBadge } = this.getCellChildren(element);
+        const { meta, episode, subtitle, title, time, liveBadge, progressFill } = this.getCellChildren(element);
         if (meta) {
             meta.style.display = 'none';
         }
@@ -590,6 +594,9 @@ export class EPGVirtualizer {
             liveBadge.hidden = true;
             liveBadge.textContent = '';
             liveBadge.classList.remove(EPG_CLASSES.CELL_LIVE_COMPACT);
+        }
+        if (progressFill) {
+            progressFill.style.width = '0%';
         }
 
         // Reset positioning
@@ -696,9 +703,30 @@ export class EPGVirtualizer {
             episode: element.querySelector(`.${EPG_CLASSES.CELL_EPISODE}`) as HTMLElement | null,
             subtitle: element.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement | null,
             liveBadge: element.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement | null,
+            progressFill: element.querySelector(`.${EPG_CLASSES.CELL_PROGRESS_FILL}`) as HTMLElement | null,
         };
         this.cellChildrenCache.set(element, children);
         return children;
+    }
+
+    private updateProgressPresentation(children: CellChildren, cellData: CellRenderData, nowMs: number): void {
+        if (!children.progressFill) {
+            return;
+        }
+        if (cellData.kind !== 'program' || !cellData.isCurrent) {
+            children.progressFill.style.width = '0%';
+            return;
+        }
+
+        const duration = cellData.program.scheduledEndTime - cellData.program.scheduledStartTime;
+        if (duration <= 0) {
+            children.progressFill.style.width = '0%';
+            return;
+        }
+
+        const elapsed = nowMs - cellData.program.scheduledStartTime;
+        const progress = Math.max(0, Math.min(100, (elapsed / duration) * 100));
+        children.progressFill.style.width = `${progress.toFixed(2)}%`;
     }
 
     private updateEpisodePresentation(children: CellChildren, cellData: CellRenderData): void {
@@ -922,6 +950,7 @@ export class EPGVirtualizer {
             element.classList.remove(EPG_CLASSES.CELL_PAST);
         }
         this.updateLiveBadge(element, cellData.isCurrent);
+        this.updateProgressPresentation(this.getCellChildren(element), cellData, Date.now());
 
         // Append to grid
         this.contentElement.appendChild(element);
@@ -961,6 +990,7 @@ export class EPGVirtualizer {
             element.classList.remove(EPG_CLASSES.CELL_PAST);
         }
         this.updateLiveBadge(element, cellData.isCurrent);
+        this.updateProgressPresentation(this.getCellChildren(element), cellData, Date.now());
     }
 
     updateTemporalClasses(nowMs: number): void {
@@ -991,12 +1021,14 @@ export class EPGVirtualizer {
                         this.updateCellTimeLabelForCell(cellData);
                     }
                     this.updateLiveBadge(element, isCurrent);
+                    this.updateProgressPresentation(this.getCellChildren(element), cellData, nowMs);
                 }
             } else if (element) {
                 cellData.isCurrent = false;
                 cellData.isPast = false;
                 element.classList.remove(EPG_CLASSES.CELL_PAST, EPG_CLASSES.CELL_CURRENT);
                 this.updateLiveBadge(element, false);
+                this.updateProgressPresentation(this.getCellChildren(element), cellData, nowMs);
             }
         }
     }
@@ -1059,6 +1091,7 @@ export class EPGVirtualizer {
         }
         this.updateEpisodePresentation(children, cellData);
         this.applyWidthTierPresentation(element, children, tier);
+        this.updateProgressPresentation(children, cellData, Date.now());
     }
 
     /**

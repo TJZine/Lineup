@@ -313,6 +313,12 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         this.containerElement.className = EPG_CLASSES.CONTAINER;
         this.containerElement.innerHTML = `
+      <div class="epg-classic-header" aria-hidden="true">
+        <div class="epg-classic-header-title">TV Listings</div>
+        <div class="epg-classic-header-actions">
+          <span>[ ]</span><span>⏱</span><span>⚙</span><span>⏻</span>
+        </div>
+      </div>
       <div class="${EPG_CLASSES.GRID}">
         <div class="${EPG_CLASSES.PROGRAM_AREA}"></div>
       </div>

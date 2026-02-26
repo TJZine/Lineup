@@ -67,6 +67,8 @@ export const EPG_CLASSES = {
     CELL_SUBTITLE: 'epg-cell-subtitle',
     CELL_CONTENT: 'epg-cell-content',
     CELL_RAIL: 'epg-cell-rail',
+    CELL_PROGRESS: 'epg-cell-progress',
+    CELL_PROGRESS_FILL: 'epg-cell-progress-fill',
     CELL_TIME: 'epg-cell-time',
     CELL_TIME_COMPACT: 'epg-cell-time-compact',
     LIVE_BADGE: 'epg-live-badge',
