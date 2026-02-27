@@ -64,6 +64,7 @@
   position: relative;
   z-index: 1;
   mask-image: linear-gradient(to right, black 70%, transparent 100%);
+  /* stylelint-disable-next-line property-no-vendor-prefix -- required for webOS WebKit mask support */
   -webkit-mask-image: linear-gradient(to right, black 70%, transparent 100%);
 }
 
@@ -194,7 +195,7 @@
 
   85%,
   100% {
-    transform: translateY(var(--scroll-distance, 0px));
+    transform: translateY(var(--scroll-distance, 0));
   }
 }
 

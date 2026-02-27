@@ -8,6 +8,12 @@ export class ChannelBadgeOverlay implements IChannelBadgeOverlay {
     private isVisibleFlag = false;
 
     initialize(config: ChannelBadgeConfig): void {
+        if (typeof document === 'undefined') {
+            this.containerElement = null;
+            this.textElement = null;
+            this.isVisibleFlag = false;
+            return;
+        }
         const container = document.getElementById(config.containerId);
         if (!container) {
             throw new Error(`Channel badge container #${config.containerId} not found`);
