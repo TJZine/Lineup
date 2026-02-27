@@ -409,63 +409,6 @@ export class ChannelSetupScreen {
                     return;
                 }
 
-                const isAdjustableControl = focusedId === STEP2_CONTROL_IDS.maxChannels
-                    || focusedId === STEP2_CONTROL_IDS.minItems
-                    || focusedId === STEP2_CONTROL_IDS.alternateLineupCopies
-                    || focusedId === STEP2_CONTROL_IDS.seriesBaseBlockSize
-                    || focusedId === STEP2_CONTROL_IDS.seriesVariantBlockSize;
-                if (isAdjustableControl) {
-                    let previousValue = 0;
-                    let nextValue = 0;
-
-                    if (focusedId === STEP2_CONTROL_IDS.maxChannels) {
-                        previousValue = this._maxChannels;
-                        nextValue = this._stepPreset(this._channelLimitOptions, this._maxChannels, direction, 'clamp');
-                        this._maxChannels = nextValue;
-                    } else if (focusedId === STEP2_CONTROL_IDS.minItems) {
-                        previousValue = this._minItems;
-                        nextValue = this._stepPreset(this._minItemsOptions, this._minItems, direction, 'clamp');
-                        this._minItems = nextValue;
-                    } else if (focusedId === STEP2_CONTROL_IDS.alternateLineupCopies) {
-                        if (!this._channelExpansion.addAlternateLineups) {
-                            return;
-                        }
-                        previousValue = this._channelExpansion.alternateLineupCopies;
-                        nextValue = this._stepPreset([1, 2, 3], previousValue, direction, 'clamp');
-                        this._channelExpansion.alternateLineupCopies = nextValue;
-                    } else if (focusedId === STEP2_CONTROL_IDS.seriesBaseBlockSize) {
-                        if (this._seriesOrdering.basePlaybackMode !== 'block') {
-                            return;
-                        }
-                        previousValue = this._seriesOrdering.baseBlockSize;
-                        nextValue = this._stepPreset([...SERIES_BLOCK_PRESETS], previousValue, direction, 'clamp');
-                        this._seriesOrdering.baseBlockSize = nextValue;
-                    } else if (focusedId === STEP2_CONTROL_IDS.seriesVariantBlockSize) {
-                        if (this._channelExpansion.variantType !== 'block') {
-                            return;
-                        }
-                        previousValue = this._channelExpansion.variantBlockSize;
-                        nextValue = this._stepPreset([...SERIES_BLOCK_PRESETS], previousValue, direction, 'clamp');
-                        this._channelExpansion.variantBlockSize = nextValue;
-                    }
-
-                    event.handled = true;
-                    if (direction === 'left' && nextValue === previousValue) {
-                        this._preferredFocusId = activeCategoryButtonId;
-                        nav.setFocus(activeCategoryButtonId);
-                        return;
-                    }
-                    if (nextValue !== previousValue) {
-                        this._preferredFocusId = focusedId;
-                        this._rememberActiveDetailFocus(focusedId);
-                        this._review = null;
-                        this._reviewError = null;
-                        this._schedulePreview();
-                        this._renderStep();
-                    }
-                    return;
-                }
-
                 if (direction === 'left' && activeDetailIds.includes(focusedId)) {
                     event.handled = true;
                     this._preferredFocusId = activeCategoryButtonId;
