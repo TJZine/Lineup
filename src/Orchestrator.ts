@@ -714,10 +714,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             refreshPlaybackInfoSnapshot: (): Promise<PlaybackInfoSnapshot> =>
                 this.refreshPlaybackInfoSnapshot(),
             onVisibilityChange: (visible: boolean): void => {
-                // Intentionally ignore the overlay-specific visibility value: channel badge visibility is derived
-                // from combined OSD + NowPlayingInfo overlay states.
-                void visible;
-                this._syncChannelBadgeOverlay();
+                this._handleOverlayVisibilityChange(visible);
             },
         });
 
@@ -743,10 +740,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this._playbackOptionsCoordinator?.prepareModal(preferredSection) ??
                 { focusableIds: [], preferredFocusId: null },
             onVisibilityChange: (visible: boolean): void => {
-                // Intentionally ignore the overlay-specific visibility value: channel badge visibility is derived
-                // from combined OSD + NowPlayingInfo overlay states.
-                void visible;
-                this._syncChannelBadgeOverlay();
+                this._handleOverlayVisibilityChange(visible);
             },
         });
 
@@ -2524,6 +2518,13 @@ export class AppOrchestrator implements IAppOrchestrator {
             channelNumber: channel.number,
             channelName: channel.name,
         });
+    }
+
+    private _handleOverlayVisibilityChange(visible: boolean): void {
+        // Intentionally ignore the overlay-specific visibility value: channel badge visibility is derived
+        // from combined OSD + NowPlayingInfo overlay states.
+        void visible;
+        this._syncChannelBadgeOverlay();
     }
 
     private _handleProgramStartTracked(program: ScheduledProgram): Promise<void> {

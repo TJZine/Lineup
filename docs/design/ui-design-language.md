@@ -22,7 +22,7 @@ UI elements feel like they **emerge from the screen edges**, not float on top. E
 ```text
 - Edge-anchored: at least one edge flush to the screen
 - Rounded corners ONLY on edges that don't touch the screen
-- No box-shadow
+- No box-shadow on surface panels/cards (focus glow on interactive elements is allowed)
 - Gradient scrim backgrounds (transparent → semi-opaque)
 - No hard dividers — depth via spacing, opacity, and gradients
 - Minimal borders: only on non-screen-touching edges, at ≤8% white opacity
@@ -72,11 +72,14 @@ Glass theme variants use ~5% lower opacity across the board.
 
 ### Interactive Elements (Buttons/Actions)
 
+Focus styles are an explicit exception to the "no surface box-shadow" rule: interactive controls may use a soft glow
+to ensure D-pad focus remains unmistakable on TV.
+
 ```css
 /* Default state */
-background: rgba(255, 255, 255, 0.08);
-border: 1px solid rgba(255, 255, 255, 0.12);
-border-radius: 999px;
+	background: rgba(255, 255, 255, 0.08);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 999px;
 
 /* Focused (D-pad) */
 background: rgba(255, 255, 255, 0.92);
@@ -128,7 +131,6 @@ font-variant-numeric: tabular-nums;
 
 ### Player OSD — "Rising Stage"
 
-- **Plan**: `docs/plans/2026-02-27-osd-rising-stage.md`
 - Full-width bottom-anchored scrim
 - Two-column content: info left, actions right
 - Meta strip between content and progress bar
@@ -138,7 +140,6 @@ font-variant-numeric: tabular-nums;
 
 ### NowPlayingInfo — "Edge Shelf"
 
-- **Plan**: `docs/plans/2026-02-27-npi-edge-shelf.md`
 - Left+bottom edge-anchored, only top-right corner rounded
 - Two-column: poster left (with vignette), content right
 - Three-tier content hierarchy: primary→secondary→tertiary
@@ -155,7 +156,6 @@ font-variant-numeric: tabular-nums;
 
 ### Mini Guide — "Top-Edge Shelf"
 
-- **Plan**: `docs/plans/2026-02-27-mini-guide-top-edge-shelf.md`
 - Full-width top-anchored scrim, flush to top/left/right edges
 - Bottom corners rounded: `border-radius: 0 0 16px 16px`
 - Gradient: `rgba(0,0,0,0.50)` at top → transparent at bottom
@@ -184,4 +184,4 @@ Every surface has a `.theme-glass .{surface}-panel` override block. The glass th
 - Uses slightly lower scrim opacity (~5% less).
 - May add `backdrop-filter: blur(34px) saturate(140%)` for glassmorphism.
 - Uses `var(--font-family-display)` for titles.
-- Does **not** re-introduce borders, box-shadows, or border-radius that the base design removed.
+- Does **not** re-introduce surface borders, surface box-shadows, or border-radius that the base design removed.
