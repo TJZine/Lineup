@@ -727,8 +727,6 @@ export class AppOrchestrator implements IAppOrchestrator {
             ): { focusableIds: string[]; preferredFocusId: string | null } =>
                 this._playbackOptionsCoordinator?.prepareModal(preferredSection) ??
                 { focusableIds: [], preferredFocusId: null },
-            getPlaybackInfoSnapshot: (): PlaybackInfoSnapshot | null =>
-                this.getPlaybackInfoSnapshot(),
         });
 
         this._miniGuideCoordinator = new MiniGuideCoordinator({

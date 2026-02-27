@@ -179,20 +179,6 @@
   box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-color) inset;
 }
 
-.player-osd-playback {
-  margin-left: auto;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: var(--osd-pill-bg-strong);
-  border: 1px solid var(--osd-pill-border-strong);
-  color: var(--color-text-primary);
-  font-size: var(--text-md);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
 .player-osd-sleep {
   margin-left: 6px;
   padding: 4px 10px;
@@ -205,16 +191,7 @@
   white-space: nowrap;
 }
 
-.player-osd-hint {
-  margin-top: 6px;
-  font-size: var(--text-md);
-  color: var(--color-text-muted);
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-}
-
-.player-osd-panel.info-only .player-osd-actions,
-.player-osd-panel.info-only .player-osd-hint {
+.player-osd-panel.info-only .player-osd-actions {
   display: none;
 }
 

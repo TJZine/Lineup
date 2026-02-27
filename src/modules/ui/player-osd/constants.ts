@@ -30,7 +30,5 @@ export const PLAYER_OSD_CLASSES = {
     BUFFER_TEXT: 'player-osd-buffertext',
     ACTIONS: 'player-osd-actions',
     ACTION: 'player-osd-action',
-    PLAYBACK_TAG: 'player-osd-playback',
     SLEEP_TIMER: 'player-osd-sleep',
-    HINT: 'player-osd-hint',
 } as const;

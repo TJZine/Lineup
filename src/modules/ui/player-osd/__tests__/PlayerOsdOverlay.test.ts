@@ -28,7 +28,6 @@ describe('PlayerOsdOverlay', () => {
         timecode: '0:10 / 1:40',
         endsAtText: 'Ends 9:15 PM',
         bufferText: 'Buffer +30s',
-        playbackText: 'Direct Play • H.264/AAC • 1080p',
         actionIds: {
             subtitles: 'player-osd-action-subtitles',
             sleep: 'player-osd-action-sleep',
@@ -95,9 +94,8 @@ describe('PlayerOsdOverlay', () => {
         expect(container.querySelector(`.${PLAYER_OSD_CLASSES.TIMECODE}`)?.textContent).toBe('0:10 / 1:40');
         expect(container.querySelector(`.${PLAYER_OSD_CLASSES.ENDS}`)?.textContent).toBe('Ends 9:15 PM');
         expect(container.querySelector(`.${PLAYER_OSD_CLASSES.BUFFER_TEXT}`)?.textContent).toBe('Buffer +30s');
-        expect(container.querySelector(`.${PLAYER_OSD_CLASSES.PLAYBACK_TAG}`)?.textContent).toBe(
-            'Direct Play • H.264/AAC • 1080p'
-        );
+        expect(container.querySelector('.player-osd-playback')).toBeNull();
+        expect(container.querySelector('.player-osd-hint')).toBeNull();
         expect(
             (container.querySelector(`.${PLAYER_OSD_CLASSES.ACTION}[data-action="subtitles"]`) as HTMLElement).id
         ).toBe('player-osd-action-subtitles');

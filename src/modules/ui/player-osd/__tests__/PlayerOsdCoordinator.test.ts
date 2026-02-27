@@ -101,7 +101,6 @@ function makeCoordinatorOptions(
             focusableIds: ['playback-subtitle-off'],
             preferredFocusId: 'playback-subtitle-off',
         }),
-        getPlaybackInfoSnapshot: (): { stream: null } => ({ stream: null }),
         ...overrides,
     };
 }
@@ -168,7 +167,7 @@ describe('PlayerOsdCoordinator', () => {
         expect(overlay.setViewModel).toHaveBeenCalled();
     });
 
-    it('uses mediaInfo resolution for direct play and labels active tracks', () => {
+    it('labels active tracks', () => {
         const overlay = makeOverlay();
         const videoPlayer = {
             getState: jest.fn(() => ({
@@ -192,38 +191,15 @@ describe('PlayerOsdCoordinator', () => {
                     item: { ...makeProgram().item, mediaInfo: { resolution: '4K' } },
                 }),
                 getVideoPlayer: (): IVideoPlayer => videoPlayer,
-                getPlaybackInfoSnapshot: (): {
-                    stream: {
-                        isDirectPlay: boolean;
-                        isTranscoding: boolean;
-                        container: string;
-                        videoCodec: string;
-                        audioCodec: string;
-                        width: number;
-                        height: number;
-                    };
-                } => ({
-                    stream: {
-                        isDirectPlay: true,
-                        isTranscoding: false,
-                        container: 'mp4',
-                        videoCodec: 'h264',
-                        audioCodec: 'aac',
-                        width: 1920,
-                        height: 1080,
-                    },
-                }),
             })
         );
 
         coordinator.poke('play');
 
         const viewModel = (overlay.setViewModel as jest.Mock).mock.calls[0]?.[0] as {
-            playbackText?: string;
             audioLabel?: string | null;
             subtitleLabel?: string | null;
         };
-        expect(viewModel.playbackText).toContain('4K');
         expect(viewModel.audioLabel).toContain('English');
         expect(viewModel.subtitleLabel).toBe('English (SRT)');
     });
