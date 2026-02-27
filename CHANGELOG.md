@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Breaking**: The webOS app id changed from `com.retune.app` to `com.lineup.app`. This is treated as a new app install; previous app data/settings/auth do not automatically carry over.
+- **Breaking**: The webOS app id is now `com.lineup.app`. This is treated as a new app install; previous app data/settings/auth do not automatically carry over.
 - **Breaking**: Storage keys are now namespaced under `lineup_*` (no migration shims). You may need to reconfigure settings after updating.
-- Plex now sees the device as "Lineup" (`X-Plex-Product` / `X-Plex-Device-Name`). Existing "Retune" device entries in Plex will not be auto-renamed; remove stale entries at `https://plex.tv/devices` if desired.
+- Plex now sees the device as "Lineup" (`X-Plex-Product` / `X-Plex-Device-Name`). Existing legacy device entries in Plex will not be auto-renamed; remove stale entries at `https://plex.tv/devices` if desired.
 
 ## [1.0.0] - 2026-02-15
 

@@ -31,7 +31,7 @@ export const RETRY_BASE_DELAY_MS = 1000;
 /**
  * Synthetic error code key stored on the HTMLVideoElement to coordinate retries.
  */
-export const SYNTHETIC_MEDIA_ERROR_CODE_KEY = '__retuneSyntheticMediaErrorCode';
+export const SYNTHETIC_MEDIA_ERROR_CODE_KEY = '__lineupSyntheticMediaErrorCode';
 
 // ============================================
 // Video Element Configuration
