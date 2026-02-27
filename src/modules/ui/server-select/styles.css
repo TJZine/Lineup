@@ -50,8 +50,8 @@
     margin: 8px 0 2px 0;
     padding: 10px 12px;
     border-radius: 10px;
-    border: 1px solid rgba(var(--focus-color-rgb), 0.35);
-    background: linear-gradient(180deg, rgba(var(--focus-color-rgb), 0.16), rgba(var(--focus-color-rgb), 0.08));
+    border: 1px solid rgba(200, 160, 100, 0.25);
+    background: linear-gradient(180deg, rgba(200, 160, 100, 0.10), rgba(200, 160, 100, 0.04));
 }
 
 .server-autoconnect-hint.visible {
@@ -64,7 +64,7 @@
     justify-content: center;
     padding: 2px 8px;
     border-radius: 999px;
-    border: 1px solid rgba(var(--focus-color-rgb), 0.55);
+    border: 1px solid rgba(200, 160, 100, 0.45);
     background: rgba(0, 0, 0, 0.2);
     color: rgba(255, 255, 255, 0.92);
     font-size: 0.72rem;
