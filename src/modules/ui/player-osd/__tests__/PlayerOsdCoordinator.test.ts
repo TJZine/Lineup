@@ -227,6 +227,18 @@ describe('PlayerOsdCoordinator', () => {
         expect(overlay.hide).toHaveBeenCalled();
     });
 
+    it('fires visibility callback on show and hide', () => {
+        const onVisibilityChange = jest.fn();
+        const options = makeCoordinatorOptions({ onVisibilityChange });
+        const coordinator = new PlayerOsdCoordinator(options);
+
+        coordinator.poke('play');
+        expect(onVisibilityChange).toHaveBeenCalledWith(true);
+
+        coordinator.hide();
+        expect(onVisibilityChange).toHaveBeenCalledWith(false);
+    });
+
     it('timeUpdate ignored when hidden', () => {
         const { coordinator, overlay } = setup();
         overlay._visible = false;

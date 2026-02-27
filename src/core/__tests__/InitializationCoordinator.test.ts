@@ -87,6 +87,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             nowPlayingInfo: null,
             playerOsd: null,
             channelNumberOverlay: null,
+            channelBadgeOverlay: null,
             miniGuide: null,
             channelTransition: null,
             playbackOptions: null,

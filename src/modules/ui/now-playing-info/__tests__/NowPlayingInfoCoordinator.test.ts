@@ -160,6 +160,17 @@ describe('NowPlayingInfoCoordinator', () => {
         expect(navigation.closeModal).toHaveBeenCalledWith(modalId);
     });
 
+    it('fires visibility callback on modal open and close', () => {
+        const onVisibilityChange = jest.fn();
+        const { coordinator } = setup({ onVisibilityChange });
+
+        coordinator.handleModalOpen(modalId);
+        expect(onVisibilityChange).toHaveBeenCalledWith(true);
+
+        coordinator.handleModalClose(modalId);
+        expect(onVisibilityChange).toHaveBeenCalledWith(false);
+    });
+
     it('handleModalOpen includes upNext when next program starts in the future', () => {
         const nextProgram = makeProgram({
             scheduledStartTime: Date.now() + 60_000,

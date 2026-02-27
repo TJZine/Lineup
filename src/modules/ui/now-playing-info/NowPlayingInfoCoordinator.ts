@@ -41,6 +41,7 @@ interface NowPlayingInfoCoordinatorDeps {
 
     // Current program fallback (Orchestrator-owned snapshot)
     getCurrentProgramForPlayback: () => ScheduledProgram | null;
+    onVisibilityChange?: (visible: boolean) => void;
 
     // Playback snapshot for mode/details
     getPlaybackInfoSnapshot: () => PlaybackInfoSnapshotLike | null;
@@ -89,6 +90,7 @@ export class NowPlayingInfoCoordinator {
         const viewModel = this.buildNowPlayingInfoViewModel(program, channel, null);
         overlay.setAutoHideMs(this.deps.getAutoHideMs());
         overlay.show(viewModel);
+        this.deps.onVisibilityChange?.(true);
         this.startLiveUpdates();
         void this.fetchNowPlayingInfoDetails(program, channel);
         void this.refreshPlaybackSummary(program, channel);
@@ -101,6 +103,7 @@ export class NowPlayingInfoCoordinator {
         }
         this.stopLiveUpdates();
         this.deps.getNowPlayingInfo()?.hide();
+        this.deps.onVisibilityChange?.(false);
         this.cinematicNowPlaying = false;
     }
 
