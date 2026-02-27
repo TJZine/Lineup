@@ -27,12 +27,11 @@ export const NOW_PLAYING_INFO_CLASSES = {
     ACTOR_IMAGE: 'now-playing-info-actor-image',
     ACTOR_MORE: 'now-playing-info-actor-more',
     DESCRIPTION: 'now-playing-info-description',
-    CONTEXT: 'now-playing-info-context',
+    DESCRIPTION_INNER: 'now-playing-info-description-inner',
     PROGRESS: 'now-playing-info-progress',
     PROGRESS_BAR: 'now-playing-info-progress-bar',
     PROGRESS_FILL: 'now-playing-info-progress-fill',
     PROGRESS_META: 'now-playing-info-progress-meta',
-    UP_NEXT: 'now-playing-info-up-next',
 } as const;
 
 export const NOW_PLAYING_INFO_DEFAULTS = {

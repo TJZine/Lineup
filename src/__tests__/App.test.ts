@@ -182,6 +182,7 @@ describe('App bootstrap smoke', () => {
         expect(document.getElementById('video-container')).not.toBeNull();
         expect(document.getElementById('epg-container')).not.toBeNull();
         expect(document.getElementById('now-playing-info-container')).not.toBeNull();
+        expect(document.getElementById('channel-badge-container')).not.toBeNull();
         expect(document.getElementById('channel-transition-container')).not.toBeNull();
         expect(document.getElementById('playback-options-container')).not.toBeNull();
         expect(document.getElementById('splash-container')).not.toBeNull();

@@ -23,8 +23,6 @@ export interface NowPlayingInfoViewModel {
     actorTotalCount?: number;
     actorMoreCount?: number;
     description?: string;
-    channelName?: string;
-    channelNumber?: number;
     elapsedMs?: number;
     durationMs?: number;
     posterUrl?: string | null;
@@ -32,10 +30,6 @@ export interface NowPlayingInfoViewModel {
     cinematic?: boolean;
     clearLogoUrl?: string | null;
     badges?: string[];
-    upNext?: {
-        title: string;
-        startsAtMs: number;
-    };
     /**
      * Optional stream/debug information (monospace). Intended for developer use.
      * Keep short; this overlay is designed for quick-glance viewing on TVs.

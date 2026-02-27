@@ -17,20 +17,20 @@
 }
 
 .now-playing-info-panel {
-  margin: 0 5% 5% 5%;
+  margin: 0;
   display: grid;
-  grid-template-columns: clamp(260px, 22vw, 340px) minmax(0, 1fr);
+  grid-template-columns: clamp(220px, 20vw, 300px) minmax(0, 1fr);
   gap: 0;
-  height: clamp(400px, 55vh, 600px);
-  background: var(--panel-inner-glow),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.25)),
-    var(--panel-surface);
-  border: var(--panel-border);
-  border-radius: var(--panel-radius);
-  box-shadow: var(--shadow-lg);
+  height: clamp(380px, 50vh, 560px);
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.30), rgba(0, 0, 0, 0.50));
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0 16px 0 0;
+  box-shadow: none;
   padding: 0;
   max-width: 1180px;
-  width: calc(100% - 10%);
+  width: calc(100% - 5%);
   overflow: hidden;
   transform: translate3d(calc(-100% - 5vw), 0, 0);
   transition: transform var(--transition-normal, 200ms ease);
@@ -63,6 +63,9 @@
   background: rgba(255, 255, 255, 0.08);
   position: relative;
   z-index: 1;
+  mask-image: linear-gradient(to right, black 70%, transparent 100%);
+  /* stylelint-disable-next-line property-no-vendor-prefix -- required for webOS WebKit mask support */
+  -webkit-mask-image: linear-gradient(to right, black 70%, transparent 100%);
 }
 
 .now-playing-info-content {
@@ -71,8 +74,8 @@
   gap: 10px;
   min-width: 0;
   padding: clamp(20px, 2.5vw, 32px);
-  border-left: 1px solid var(--color-border-subtle);
-  overflow: auto;
+  border-left: none;
+  overflow: hidden;
   position: relative;
   z-index: 1;
 }
@@ -136,11 +139,12 @@
   flex-direction: column;
   gap: 2px;
   min-height: 0;
+  color: var(--color-text-muted);
 }
 
 .now-playing-info-playback-summary {
   font-size: var(--text-sm);
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--color-text-muted);
   font-weight: 600;
 }
 
@@ -158,6 +162,41 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.now-playing-info-description {
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+  line-height: 1.35;
+  overflow: hidden;
+  position: relative;
+  max-height: calc(var(--text-base, 16px) * 1.35 * 5);
+}
+
+.now-playing-info-description-inner {
+  transform: translateY(0);
+  animation: npi-description-scroll 20s linear 4s infinite;
+  animation-play-state: paused;
+}
+
+.now-playing-info-description[data-scroll-active='true'] .now-playing-info-description-inner {
+  animation-play-state: paused;
+}
+
+.now-playing-info-container.visible .now-playing-info-description[data-scroll-active='true'] .now-playing-info-description-inner {
+  animation-play-state: running;
+}
+
+@keyframes npi-description-scroll {
+  0%,
+  15% {
+    transform: translateY(0);
+  }
+
+  85%,
+  100% {
+    transform: translateY(var(--scroll-distance, 0));
+  }
 }
 
 .now-playing-info-actors {
@@ -216,34 +255,12 @@
   letter-spacing: 0.4px;
 }
 
-.now-playing-info-description {
-  font-size: var(--text-base);
-  color: var(--color-text-primary);
-  line-height: 1.35;
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  max-height: calc(var(--text-base, 16px) * 1.35 * 4);
-}
-
-.now-playing-info-container:not(.now-playing-info-cinematic) .now-playing-info-description {
-  -webkit-line-clamp: 6;
-  max-height: calc(var(--text-base, 16px) * 1.35 * 6);
-}
-
-.now-playing-info-context {
-  font-size: var(--text-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text-muted);
-}
-
 .now-playing-info-progress {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 6px;
+  margin-top: auto;
+  color: var(--color-text-muted);
 }
 
 .now-playing-info-progress-bar {
@@ -263,16 +280,7 @@
 
 .now-playing-info-progress-meta {
   font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-}
-
-.now-playing-info-up-next {
-  margin-top: 6px;
-  font-size: var(--text-sm);
   color: var(--color-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .now-playing-info-container.now-playing-info-cinematic {
@@ -321,7 +329,7 @@
 
 @media (max-width: 900px) {
   .now-playing-info-panel {
-    grid-template-columns: clamp(200px, 28vw, 260px) minmax(0, 1fr);
+    grid-template-columns: clamp(180px, 25vw, 240px) minmax(0, 1fr);
   }
 
   .now-playing-info-title {
@@ -341,11 +349,6 @@
   .now-playing-info-panel {
     max-width: 1500px;
   }
-
-  .now-playing-info-up-next {
-    font-size: var(--text-base);
-    font-weight: 600;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -354,19 +357,21 @@
     transform: translate3d(0, 0, 0);
   }
 
+  .now-playing-info-description-inner {
+    animation: none;
+  }
+
   .now-playing-info-container.now-playing-info-cinematic .now-playing-info-content,
   .now-playing-info-container.now-playing-info-cinematic .now-playing-info-poster {
     animation: none;
   }
 }
 
-/* Hybrid Deep Glass refinements (glass theme only) */
 .theme-glass .now-playing-info-panel {
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 42%, rgba(0, 0, 0, 0.24) 100%),
-    var(--glass-panel-strong);
-  border: 1px solid var(--glass-border-strong);
-  box-shadow: var(--glass-shadow-deep), inset 0 1px 0 var(--glass-highlight);
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.45));
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: none;
   backdrop-filter: blur(34px) saturate(140%);
   -webkit-backdrop-filter: blur(34px) saturate(140%);
 }
@@ -376,7 +381,6 @@
   letter-spacing: -0.01em;
 }
 
-.theme-glass .now-playing-info-subtitle,
-.theme-glass .now-playing-info-context {
+.theme-glass .now-playing-info-subtitle {
   letter-spacing: 0.02em;
 }

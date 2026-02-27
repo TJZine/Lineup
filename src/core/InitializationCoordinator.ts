@@ -25,6 +25,7 @@ import { formatTimeRange, type IEPGComponent } from '../modules/ui/epg';
 import type { INowPlayingInfoOverlay } from '../modules/ui/now-playing-info';
 import type { IPlayerOsdOverlay } from '../modules/ui/player-osd';
 import type { IChannelNumberOverlay } from '../modules/ui/channel-number-overlay';
+import type { IChannelBadgeOverlay } from '../modules/ui/channel-badge';
 import type { IMiniGuideOverlay } from '../modules/ui/mini-guide';
 import type { IChannelTransitionOverlay } from '../modules/ui/channel-transition';
 import type { IPlaybackOptionsModal } from '../modules/ui/playback-options';
@@ -56,6 +57,7 @@ export interface InitializationDependencies {
     nowPlayingInfo: INowPlayingInfoOverlay | null;
     playerOsd: IPlayerOsdOverlay | null;
     channelNumberOverlay: IChannelNumberOverlay | null;
+    channelBadgeOverlay: IChannelBadgeOverlay | null;
     miniGuide: IMiniGuideOverlay | null;
     channelTransition: IChannelTransitionOverlay | null;
     playbackOptions: IPlaybackOptionsModal | null;
@@ -652,6 +654,17 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             this._deps.channelNumberOverlay.initialize(this._config.channelNumberOverlayConfig.containerId);
             this._callbacks.updateModuleStatus(
                 'channel-number-overlay-ui',
+                'ready',
+                undefined,
+                Date.now() - startTime
+            );
+        }
+
+        if (this._deps.channelBadgeOverlay && this._config) {
+            this._callbacks.updateModuleStatus('channel-badge-ui', 'initializing');
+            this._deps.channelBadgeOverlay.initialize(this._config.channelBadgeConfig);
+            this._callbacks.updateModuleStatus(
+                'channel-badge-ui',
                 'ready',
                 undefined,
                 Date.now() - startTime

@@ -36,11 +36,9 @@ export interface PlayerOsdViewModel {
     endsAtText: string | null;
     bufferText: string | null;
     upNextText?: string | null;
-    playbackText?: string | null;
     actionIds?: PlayerOsdActionIds;
     audioLabel?: string | null;
     subtitleLabel?: string | null;
-    controlHint?: string | null;
     /** Sleep timer text, e.g. "Sleep 45:00" */
     sleepTimerText?: string | null;
     /** When true, OSD renders as an info banner (no focusable actions). */

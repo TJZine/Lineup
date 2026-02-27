@@ -11,7 +11,6 @@ import type { ScheduledProgram } from '../../scheduler/scheduler';
 import type { IPlayerOsdOverlay } from './interfaces';
 import type { PlayerOsdReason, PlayerOsdViewModel } from './types';
 import type { PlaybackOptionsSectionId } from '../playback-options/types';
-import { buildPlaybackSummary, type PlaybackInfoSnapshotLike } from '../../../utils/playbackSummary';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
 import { getChannelNameForDisplay } from '../channelDisplay';
 
@@ -40,11 +39,11 @@ interface PlayerOsdCoordinatorDeps {
     buildPlexResourceUrl: (pathOrUrl: string) => string | null;
     cycleSleepTimerPreset?: () => number;
     getSleepTimerRemainingMs?: () => number;
+    onVisibilityChange?: (visible: boolean) => void;
     playbackOptionsModalId: string;
     preparePlaybackOptionsModal: (
         preferredSection: PlaybackOptionsSectionId
     ) => { focusableIds: string[]; preferredFocusId: string | null };
-    getPlaybackInfoSnapshot: () => PlaybackInfoSnapshotLike | null;
 }
 
 export class PlayerOsdCoordinator {
@@ -100,6 +99,7 @@ export class PlayerOsdCoordinator {
         this._unregisterActions();
         this._suppressActions = false;
         this.deps.getOverlay()?.hide();
+        this._notifyVisibilityChange(false);
     }
 
     showInfoBanner(): void {
@@ -112,6 +112,7 @@ export class PlayerOsdCoordinator {
         this._lastReason = 'status';
         overlay.setViewModel(this._buildInfoOnlyViewModel('status'));
         overlay.show();
+        this._notifyVisibilityChange(true);
         this._clearAutoHideTimer();
         this._autoHideTimer = globalThis.setTimeout(() => {
             this._autoHideTimer = null;
@@ -192,11 +193,16 @@ export class PlayerOsdCoordinator {
         overlay.setViewModel(this._suppressActions ? this._buildInfoOnlyViewModel(reason) : this._buildViewModel(reason));
         this._lastThrottledRenderAt = Date.now();
         overlay.show();
+        this._notifyVisibilityChange(true);
         if (!this._suppressActions) {
             this._registerActions();
         } else {
             this._unregisterActions();
         }
+    }
+
+    private _notifyVisibilityChange(visible: boolean): void {
+        this.deps.onVisibilityChange?.(visible);
     }
 
     private _clearThrottledRenderTimer(): void {
@@ -244,8 +250,6 @@ export class PlayerOsdCoordinator {
         return {
             ...vm,
             infoOnly: true,
-            // Avoid setting focusable IDs/hints while actions are suppressed; banner should be informational only.
-            controlHint: null,
         };
     }
 
@@ -300,18 +304,10 @@ export class PlayerOsdCoordinator {
 
         const bufferText = formatBufferText(bufferAheadMs);
         const upNextText = this._buildUpNextText(isLive, nowMs);
-        const playbackSnapshot = this.deps.getPlaybackInfoSnapshot();
-        const directPlayResolution = playbackSnapshot?.stream?.isDirectPlay
-            ? program?.item.mediaInfo?.resolution ?? null
-            : null;
-        const playback = buildPlaybackSummary(playbackSnapshot, {
-            resolutionOverride: directPlayResolution,
-        });
 
         const state = this._lastState ?? player?.getState();
         const audioLabel = this._buildAudioLabel(player, state?.activeAudioId ?? null);
         const subtitleLabel = this._buildSubtitleLabel(player, state?.activeSubtitleId ?? null);
-        const controlHint = 'D-pad Navigate | OK Select | Back Close';
 
         return {
             reason,
@@ -329,10 +325,8 @@ export class PlayerOsdCoordinator {
             bufferText,
             ...(upNextText ? { upNextText } : {}),
             actionIds: { ...PLAYER_OSD_ACTION_IDS },
-            playbackText: playback.tag,
             audioLabel,
             subtitleLabel,
-            controlHint,
             ...(sleepTimerText ? { sleepTimerText } : {}),
             ...(clearLogoUrl ? { clearLogoUrl } : {}),
         };

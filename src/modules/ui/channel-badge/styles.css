@@ -1,0 +1,38 @@
+.channel-badge {
+  position: absolute;
+  top: 48px;
+  right: 48px;
+  z-index: 850;
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.channel-badge.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.channel-badge-text {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 10px;
+  background: linear-gradient(
+    135deg,
+    rgba(0, 0, 0, 0.30) 0%,
+    rgba(0, 0, 0, 0.40) 100%
+  );
+  color: rgba(255, 255, 255, 0.88);
+  font-size: var(--text-md);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .channel-badge {
+    transition: none;
+    transform: none;
+  }
+}

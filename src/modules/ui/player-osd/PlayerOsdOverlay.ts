@@ -13,18 +13,15 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 type PlayerOsdElements = {
     panel: HTMLElement | null;
     status: HTMLElement | null;
-    channel: HTMLElement | null;
     clearLogo: HTMLImageElement | null;
     title: HTMLElement | null;
     subtitle: HTMLElement | null;
     infoLine: HTMLElement | null;
     upNext: HTMLElement | null;
-    playbackTag: HTMLElement | null;
     actionSubtitles: HTMLElement | null;
     actionSleep: HTMLElement | null;
     actionAudio: HTMLElement | null;
     sleepTimer: HTMLElement | null;
-    hint: HTMLElement | null;
     barBuffer: HTMLElement | null;
     barPlayed: HTMLElement | null;
     timecode: HTMLElement | null;
@@ -40,18 +37,15 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
     private elements: PlayerOsdElements = {
         panel: null,
         status: null,
-        channel: null,
         clearLogo: null,
         title: null,
         subtitle: null,
         infoLine: null,
         upNext: null,
-        playbackTag: null,
         actionSubtitles: null,
         actionSleep: null,
         actionAudio: null,
         sleepTimer: null,
-        hint: null,
         barBuffer: null,
         barPlayed: null,
         timecode: null,
@@ -91,18 +85,15 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         this.elements = {
             panel: null,
             status: null,
-            channel: null,
             clearLogo: null,
             title: null,
             subtitle: null,
             infoLine: null,
             upNext: null,
-            playbackTag: null,
             actionSubtitles: null,
             actionSleep: null,
             actionAudio: null,
             sleepTimer: null,
-            hint: null,
             barBuffer: null,
             barPlayed: null,
             timecode: null,
@@ -141,10 +132,6 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
                 else this.elements.status.textContent = label;
                 this.lastStatusLabel = label;
             }
-        }
-        if (this.elements.channel) {
-            this.elements.channel.textContent = vm.channelPrefix;
-            this.elements.channel.style.display = vm.channelPrefix ? 'block' : 'none';
         }
         if (this.elements.title) {
             this.elements.title.textContent = vm.title;
@@ -241,11 +228,6 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
             this.elements.upNext.textContent = vm.upNextText ?? '';
             this.elements.upNext.style.display = vm.upNextText ? 'block' : 'none';
         }
-        if (this.elements.playbackTag) {
-            const playbackText = vm.playbackText ?? '';
-            this.elements.playbackTag.textContent = playbackText;
-            this.elements.playbackTag.style.display = playbackText ? 'inline-flex' : 'none';
-        }
         if (this.elements.actionSubtitles) {
             this.elements.actionSubtitles.id = vm.actionIds?.subtitles ?? '';
         }
@@ -258,10 +240,6 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         if (this.elements.sleepTimer) {
             this.elements.sleepTimer.textContent = vm.sleepTimerText ?? '';
             this.elements.sleepTimer.style.display = vm.sleepTimerText ? '' : 'none';
-        }
-        if (this.elements.hint) {
-            this.elements.hint.textContent = vm.controlHint ?? '';
-            this.elements.hint.style.display = vm.controlHint ? 'block' : 'none';
         }
         if (this.elements.barPlayed) {
             const playedPercent = Math.max(0, Math.min(1, vm.playedRatio)) * 100;
@@ -347,13 +325,11 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         this.elements = {
             panel: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.PANEL}`),
             status: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.STATUS}`),
-            channel: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.CHANNEL}`),
             clearLogo: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.CLEAR_LOGO}`),
             title: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.TITLE}`),
             subtitle: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.SUBTITLE}`),
             infoLine: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.INFO_LINE}`),
             upNext: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.UP_NEXT}`),
-            playbackTag: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.PLAYBACK_TAG}`),
             actionSubtitles: this.containerElement.querySelector(
                 `.${PLAYER_OSD_CLASSES.ACTION}[data-action="subtitles"]`
             ),
@@ -364,7 +340,6 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
                 `.${PLAYER_OSD_CLASSES.ACTION}[data-action="audio"]`
             ),
             sleepTimer: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.SLEEP_TIMER}`),
-            hint: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.HINT}`),
             barBuffer: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.BAR_BUFFER}`),
             barPlayed: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.BAR_PLAYED}`),
             timecode: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.TIMECODE}`),
@@ -379,44 +354,42 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
             { panel: {} }
         );
         panelEl.innerHTML = `
-            <div class="${PLAYER_OSD_CLASSES.TOP}">
-              <div class="${PLAYER_OSD_CLASSES.STATUS}" role="status"></div>
-              <div class="${PLAYER_OSD_CLASSES.CHANNEL}"></div>
-            </div>
+            <div class="${PLAYER_OSD_CLASSES.CONTENT_ROW}">
+              <div class="${PLAYER_OSD_CLASSES.INFO_COLUMN}">
+                <div class="${PLAYER_OSD_CLASSES.STATUS}" role="status"></div>
 
-            <div class="${PLAYER_OSD_CLASSES.ZONES}">
-              <div class="${PLAYER_OSD_CLASSES.ZONE_BRAND}">
-                <img class="${PLAYER_OSD_CLASSES.CLEAR_LOGO}" alt="" style="display:none" />
-                <div class="${PLAYER_OSD_CLASSES.TITLE}"></div>
+                <div class="${PLAYER_OSD_CLASSES.ZONE_BRAND}">
+                  <img class="${PLAYER_OSD_CLASSES.CLEAR_LOGO}" alt="" style="display:none" />
+                  <div class="${PLAYER_OSD_CLASSES.TITLE}"></div>
+                </div>
+
+                <div class="${PLAYER_OSD_CLASSES.ZONE_DETAILS}">
+                  <div class="${PLAYER_OSD_CLASSES.SUBTITLE}"></div>
+                  <div class="${PLAYER_OSD_CLASSES.INFO_LINE}"></div>
+                </div>
               </div>
 
-              <div class="${PLAYER_OSD_CLASSES.ZONE_DETAILS}">
-                <div class="${PLAYER_OSD_CLASSES.SUBTITLE}"></div>
-                <div class="${PLAYER_OSD_CLASSES.INFO_LINE}"></div>
-                <div class="${PLAYER_OSD_CLASSES.UP_NEXT}"></div>
+              <div class="${PLAYER_OSD_CLASSES.ACTIONS_COLUMN}">
+                <div class="${PLAYER_OSD_CLASSES.ACTIONS}">
+                  <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="subtitles">Subtitles</button>
+                  <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="sleep">Sleep</button>
+                  <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="audio">Audio</button>
+                </div>
+                <div class="${PLAYER_OSD_CLASSES.SLEEP_TIMER}"></div>
               </div>
             </div>
 
-            <div class="${PLAYER_OSD_CLASSES.ACTIONS}">
-              <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="subtitles">Subtitles</button>
-              <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="sleep">Sleep</button>
-              <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="audio">Audio</button>
-              <div class="${PLAYER_OSD_CLASSES.PLAYBACK_TAG}"></div>
-              <div class="${PLAYER_OSD_CLASSES.SLEEP_TIMER}"></div>
+            <div class="${PLAYER_OSD_CLASSES.META_STRIP}">
+              <div class="${PLAYER_OSD_CLASSES.UP_NEXT}"></div>
+              <div class="${PLAYER_OSD_CLASSES.TIMECODE}"></div>
+              <div class="${PLAYER_OSD_CLASSES.ENDS}"></div>
+              <div class="${PLAYER_OSD_CLASSES.BUFFER_TEXT}"></div>
             </div>
-
-            <div class="${PLAYER_OSD_CLASSES.HINT}"></div>
 
             <div class="${PLAYER_OSD_CLASSES.PROGRESS_CONTAINER}">
               <div class="${PLAYER_OSD_CLASSES.BAR}">
                 <div class="${PLAYER_OSD_CLASSES.BAR_BUFFER}"></div>
                 <div class="${PLAYER_OSD_CLASSES.BAR_PLAYED}"></div>
-              </div>
-
-              <div class="${PLAYER_OSD_CLASSES.META}">
-                <div class="${PLAYER_OSD_CLASSES.TIMECODE}"></div>
-                <div class="${PLAYER_OSD_CLASSES.ENDS}"></div>
-                <div class="${PLAYER_OSD_CLASSES.BUFFER_TEXT}"></div>
               </div>
             </div>
         `;

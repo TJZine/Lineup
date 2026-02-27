@@ -17,6 +17,7 @@ import type { EPGConfig } from './modules/ui/epg';
 import type { NowPlayingInfoConfig } from './modules/ui/now-playing-info';
 import type { PlayerOsdConfig } from './modules/ui/player-osd';
 import type { ChannelNumberOverlayConfig } from './modules/ui/channel-number-overlay';
+import { CHANNEL_BADGE_CONTAINER_ID, type ChannelBadgeConfig } from './modules/ui/channel-badge';
 import type { MiniGuideConfig } from './modules/ui/mini-guide';
 import type { ChannelTransitionConfig } from './modules/ui/channel-transition';
 import type { PlaybackOptionsConfig } from './modules/ui/playback-options';
@@ -97,6 +98,10 @@ const DEFAULT_PLAYER_OSD_CONFIG: PlayerOsdConfig = {
 const DEFAULT_CHANNEL_NUMBER_OVERLAY_CONFIG: ChannelNumberOverlayConfig = {
     containerId: 'channel-number-overlay-container',
     completeHideDelayMs: 650,
+};
+
+const DEFAULT_CHANNEL_BADGE_CONFIG: ChannelBadgeConfig = {
+    containerId: CHANNEL_BADGE_CONTAINER_ID,
 };
 
 const DEFAULT_MINI_GUIDE_CONFIG: MiniGuideConfig = {
@@ -353,6 +358,10 @@ export class App {
         const channelNumberOverlayContainer = document.createElement('div');
         channelNumberOverlayContainer.id = 'channel-number-overlay-container';
         root.appendChild(channelNumberOverlayContainer);
+
+        const channelBadgeContainer = document.createElement('div');
+        channelBadgeContainer.id = CHANNEL_BADGE_CONTAINER_ID;
+        root.appendChild(channelBadgeContainer);
 
         const miniGuideContainer = document.createElement('div');
         miniGuideContainer.id = 'mini-guide-container';
@@ -807,6 +816,7 @@ export class App {
             nowPlayingInfoConfig: DEFAULT_NOW_PLAYING_INFO_CONFIG,
             playerOsdConfig: DEFAULT_PLAYER_OSD_CONFIG,
             channelNumberOverlayConfig: DEFAULT_CHANNEL_NUMBER_OVERLAY_CONFIG,
+            channelBadgeConfig: DEFAULT_CHANNEL_BADGE_CONFIG,
             miniGuideConfig: DEFAULT_MINI_GUIDE_CONFIG,
             channelTransitionConfig: DEFAULT_CHANNEL_TRANSITION_CONFIG,
             playbackOptionsConfig: DEFAULT_PLAYBACK_OPTIONS_CONFIG,

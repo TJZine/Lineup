@@ -19,8 +19,6 @@ describe('NowPlayingInfoOverlay', () => {
         subtitle: '2h 10m',
         badges: ['PG-13'],
         description: 'A test description of the movie.',
-        channelNumber: 12,
-        channelName: 'Test Channel',
         elapsedMs: 60_000,
         durationMs: 120_000,
         posterUrl: 'https://example.com/poster.jpg',
@@ -60,8 +58,9 @@ describe('NowPlayingInfoOverlay', () => {
         overlay.show(baseViewModel);
         expect(container.querySelector('.now-playing-info-title')?.textContent).toBe('Test Movie');
         expect(container.querySelector('.now-playing-info-subtitle')?.textContent).toBe('2h 10m');
-        expect(container.querySelector('.now-playing-info-description')?.textContent).toBe('A test description of the movie.');
-        expect(container.querySelector('.now-playing-info-context')?.textContent).toBe('12 Test Channel');
+        expect(container.querySelector('.now-playing-info-description-inner')?.textContent).toBe('A test description of the movie.');
+        expect(container.querySelector('.now-playing-info-context')).toBeNull();
+        expect(container.querySelector('.now-playing-info-up-next')).toBeNull();
     });
 
     it('sets clear logo alt text when clearLogoUrl is shown', () => {
@@ -95,29 +94,45 @@ describe('NowPlayingInfoOverlay', () => {
         expect(title.style.display).toBe('');
     });
 
-    it('should show up next when provided', () => {
-        const viewModel: NowPlayingInfoViewModel = {
-            ...baseViewModel,
-            upNext: { title: 'Next Thing', startsAtMs: Date.now() + 60_000 },
-        };
-        overlay.show(viewModel);
-        const upNext = container.querySelector('.now-playing-info-up-next') as HTMLElement;
-        expect(upNext.style.display).toBe('block');
-        expect(upNext.textContent).toContain('Up next');
-        expect(upNext.textContent).toContain('Next Thing');
-    });
-
-    it('should hide up next when missing', () => {
-        overlay.show(baseViewModel);
-        const upNext = container.querySelector('.now-playing-info-up-next') as HTMLElement;
-        expect(upNext.style.display).toBe('none');
-    });
-
     it('should render quality badges when provided', () => {
         overlay.show({ ...baseViewModel, badges: ['4K', 'HDR', 'DD+'] });
         const badges = Array.from(container.querySelectorAll('.now-playing-info-badge'));
         const texts = badges.map((badge) => badge.textContent);
         expect(texts).toEqual(['4K', 'HDR', 'DD+']);
+    });
+
+    it('renders content hierarchy in required order', () => {
+        overlay.show(baseViewModel);
+        const content = container.querySelector('.now-playing-info-content') as HTMLElement;
+        const classes = Array.from(content.children).map((el) => el.className);
+
+        const badgesIdx = classes.indexOf('now-playing-info-badges');
+        const metaIdx = classes.indexOf('now-playing-info-meta');
+        const descIdx = classes.indexOf('now-playing-info-description');
+        const actorsIdx = classes.indexOf('now-playing-info-actors');
+
+        expect(badgesIdx).toBeGreaterThan(-1);
+        expect(metaIdx).toBeGreaterThan(-1);
+        expect(descIdx).toBeGreaterThan(-1);
+        expect(actorsIdx).toBeGreaterThan(-1);
+
+        expect(badgesIdx).toBeLessThan(metaIdx);
+        expect(metaIdx).toBeLessThan(descIdx);
+        expect(descIdx).toBeLessThan(actorsIdx);
+    });
+
+    it('sets description scroll attribute when content overflows', () => {
+        overlay.show({ ...baseViewModel, description: 'Long description' });
+        const description = container.querySelector('.now-playing-info-description') as HTMLElement;
+        const inner = container.querySelector('.now-playing-info-description-inner') as HTMLElement;
+
+        Object.defineProperty(description, 'clientHeight', { value: 40, configurable: true });
+        Object.defineProperty(inner, 'scrollHeight', { value: 180, configurable: true });
+
+        overlay.update({ ...baseViewModel, description: 'Long description (updated)' });
+
+        expect(description.dataset.scrollActive).toBe('true');
+        expect(description.style.getPropertyValue('--scroll-distance')).toBe('-140px');
     });
 
     it('should render actor headshots when provided', () => {
@@ -235,8 +250,6 @@ describe('NowPlayingInfoOverlay', () => {
             title: baseViewModel.title,
             subtitle: baseViewModel.subtitle ?? 'PG-13 • 2h 10m',
             description: baseViewModel.description ?? 'A test description of the movie.',
-            channelNumber: baseViewModel.channelNumber ?? 12,
-            channelName: baseViewModel.channelName ?? 'Test Channel',
             elapsedMs: baseViewModel.elapsedMs ?? 60_000,
             posterUrl: baseViewModel.posterUrl ?? null,
         };

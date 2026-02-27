@@ -106,6 +106,11 @@ import {
     type IChannelNumberOverlay,
     type ChannelNumberOverlayConfig,
 } from './modules/ui/channel-number-overlay';
+import {
+    ChannelBadgeOverlay,
+    type IChannelBadgeOverlay,
+    type ChannelBadgeConfig,
+} from './modules/ui/channel-badge';
 import { SleepTimerManager } from './modules/ui/sleep-timer';
 import {
     MiniGuideOverlay,
@@ -258,6 +263,7 @@ export interface OrchestratorConfig {
     playbackOptionsConfig: PlaybackOptionsConfig;
     playerOsdConfig: PlayerOsdConfig;
     channelNumberOverlayConfig: ChannelNumberOverlayConfig;
+    channelBadgeConfig: ChannelBadgeConfig;
     miniGuideConfig: MiniGuideConfig;
     channelTransitionConfig: ChannelTransitionConfig;
 }
@@ -350,6 +356,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _nowPlayingInfoCoordinator: NowPlayingInfoCoordinator | null = null;
     private _playerOsd: PlayerOsdOverlay | null = null;
     private _channelNumberOverlay: IChannelNumberOverlay | null = null;
+    private _channelBadgeOverlay: IChannelBadgeOverlay | null = null;
     private _channelTransitionOverlay: ChannelTransitionOverlay | null = null;
     private _playerOsdCoordinator: PlayerOsdCoordinator | null = null;
     private _miniGuide: IMiniGuideOverlay | null = null;
@@ -527,6 +534,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         // Player OSD overlay - no constructor args, initialize later
         this._playerOsd = new PlayerOsdOverlay();
         this._channelNumberOverlay = new ChannelNumberOverlay();
+        this._channelBadgeOverlay = new ChannelBadgeOverlay();
 
         // Mini Guide overlay - no constructor args, initialize later
         this._miniGuide = new MiniGuideOverlay();
@@ -577,6 +585,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 nowPlayingInfo: this._nowPlayingInfo,
                 playerOsd: this._playerOsd,
                 channelNumberOverlay: this._channelNumberOverlay,
+                channelBadgeOverlay: this._channelBadgeOverlay,
                 miniGuide: this._miniGuide,
                 channelTransition: this._channelTransitionOverlay,
                 playbackOptions: this._playbackOptionsModal,
@@ -704,6 +713,9 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this.getPlaybackInfoSnapshot(),
             refreshPlaybackInfoSnapshot: (): Promise<PlaybackInfoSnapshot> =>
                 this.refreshPlaybackInfoSnapshot(),
+            onVisibilityChange: (visible: boolean): void => {
+                this._handleOverlayVisibilityChange(visible);
+            },
         });
 
         this._playerOsdCoordinator = new PlayerOsdCoordinator({
@@ -727,8 +739,9 @@ export class AppOrchestrator implements IAppOrchestrator {
             ): { focusableIds: string[]; preferredFocusId: string | null } =>
                 this._playbackOptionsCoordinator?.prepareModal(preferredSection) ??
                 { focusableIds: [], preferredFocusId: null },
-            getPlaybackInfoSnapshot: (): PlaybackInfoSnapshot | null =>
-                this.getPlaybackInfoSnapshot(),
+            onVisibilityChange: (visible: boolean): void => {
+                this._handleOverlayVisibilityChange(visible);
+            },
         });
 
         this._miniGuideCoordinator = new MiniGuideCoordinator({
@@ -1078,6 +1091,14 @@ export class AppOrchestrator implements IAppOrchestrator {
                 recordTeardownFailure('channelNumberOverlay.destroy', error);
             }
             this._channelNumberOverlay = null;
+        }
+        if (this._channelBadgeOverlay) {
+            try {
+                this._channelBadgeOverlay.destroy();
+            } catch (error) {
+                recordTeardownFailure('channelBadgeOverlay.destroy', error);
+            }
+            this._channelBadgeOverlay = null;
         }
         try {
             this._miniGuideCoordinator?.hide();
@@ -1773,6 +1794,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             'now-playing-info-ui',
             'player-osd-ui',
             'channel-number-overlay-ui',
+            'channel-badge-ui',
             'mini-guide-ui',
             'channel-transition-ui',
             'playback-options-ui',
@@ -2421,6 +2443,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         }
         try {
             this._nowPlayingInfoCoordinator?.onProgramStart(program);
+            this._syncChannelBadgeOverlay();
             this._epgCoordinator?.refreshEpgScheduleForLiveChannel();
             const stream = await this._playbackRecovery?.resolveStreamForProgram(programAtStart);
             if (isStale() || this._currentProgramForPlayback !== programAtStart) {
@@ -2470,6 +2493,38 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this._shouldAutoShowInfoBannerOnNextPlay = false;
             }
         }
+    }
+
+    private _syncChannelBadgeOverlay(): void {
+        if (!this._channelBadgeOverlay) {
+            return;
+        }
+
+        const osdVisible = this._playerOsd?.isVisible() ?? false;
+        const npiVisible = this._nowPlayingInfo?.isVisible() ?? false;
+
+        if (!osdVisible && !npiVisible) {
+            this._channelBadgeOverlay.hide();
+            return;
+        }
+
+        const channel = this._channelManager?.getCurrentChannel() ?? null;
+        if (!channel) {
+            this._channelBadgeOverlay.hide();
+            return;
+        }
+
+        this._channelBadgeOverlay.show({
+            channelNumber: channel.number,
+            channelName: channel.name,
+        });
+    }
+
+    private _handleOverlayVisibilityChange(visible: boolean): void {
+        // Intentionally ignore the overlay-specific visibility value: channel badge visibility is derived
+        // from combined OSD + NowPlayingInfo overlay states.
+        void visible;
+        this._syncChannelBadgeOverlay();
     }
 
     private _handleProgramStartTracked(program: ScheduledProgram): Promise<void> {

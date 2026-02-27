@@ -41,6 +41,7 @@ interface NowPlayingInfoCoordinatorDeps {
 
     // Current program fallback (Orchestrator-owned snapshot)
     getCurrentProgramForPlayback: () => ScheduledProgram | null;
+    onVisibilityChange?: (visible: boolean) => void;
 
     // Playback snapshot for mode/details
     getPlaybackInfoSnapshot: () => PlaybackInfoSnapshotLike | null;
@@ -89,6 +90,7 @@ export class NowPlayingInfoCoordinator {
         const viewModel = this.buildNowPlayingInfoViewModel(program, channel, null);
         overlay.setAutoHideMs(this.deps.getAutoHideMs());
         overlay.show(viewModel);
+        this.deps.onVisibilityChange?.(true);
         this.startLiveUpdates();
         void this.fetchNowPlayingInfoDetails(program, channel);
         void this.refreshPlaybackSummary(program, channel);
@@ -101,6 +103,7 @@ export class NowPlayingInfoCoordinator {
         }
         this.stopLiveUpdates();
         this.deps.getNowPlayingInfo()?.hide();
+        this.deps.onVisibilityChange?.(false);
         this.cinematicNowPlaying = false;
     }
 
@@ -217,8 +220,7 @@ export class NowPlayingInfoCoordinator {
         details: PlexMediaItem | null
     ): NowPlayingInfoViewModel {
         const item = program.item;
-        const channelName = channel?.name;
-        const channelNumber = channel?.number;
+        void channel;
         const cinematic = this.cinematicNowPlaying;
 
         let title = item.title;
@@ -288,23 +290,18 @@ export class NowPlayingInfoCoordinator {
             ...(playbackSummary ? { playbackSummary } : {}),
             ...(actorHeadshots.headshots.length > 0 ? { actorHeadshots: actorHeadshots.headshots } : {}),
             ...(actorHeadshots.headshots.length > 0 ? { actorTotalCount: actorHeadshots.totalCount } : {}),
-            ...(channelName ? { channelName } : {}),
-            ...(typeof channelNumber === 'number' ? { channelNumber } : {}),
             ...(cinematic ? { cinematic: true } : {}),
             ...(clearLogoUrl ? { clearLogoUrl } : {}),
         };
 
-        const upNext = this.buildUpNext();
-        const withUpNext = upNext ? { ...baseViewModel, upNext } : baseViewModel;
-
         if (summary) {
             return {
-                ...withUpNext,
+                ...baseViewModel,
                 description: summary,
             };
         }
 
-        return withUpNext;
+        return baseViewModel;
     }
 
     private async refreshPlaybackSummary(
@@ -325,33 +322,6 @@ export class NowPlayingInfoCoordinator {
         const details = this.getCachedDetailsForProgram(program);
         const viewModel = this.buildNowPlayingInfoViewModel(program, channel, details);
         overlay.update(viewModel);
-    }
-
-    private buildUpNext(): NowPlayingInfoViewModel['upNext'] | undefined {
-        const scheduler = this.deps.getScheduler();
-        if (!scheduler) {
-            return undefined;
-        }
-        try {
-            const next = scheduler.getNextProgram();
-            if (!next) {
-                return undefined;
-            }
-            const title = next.item?.title;
-            const startsAtMs = next.scheduledStartTime;
-            if (typeof title !== 'string' || title.trim().length === 0) {
-                return undefined;
-            }
-            if (!Number.isFinite(startsAtMs)) {
-                return undefined;
-            }
-            if (startsAtMs <= Date.now()) {
-                return undefined;
-            }
-            return { title: title.trim(), startsAtMs };
-        } catch {
-            return undefined;
-        }
     }
 
     private buildMetaLines(

@@ -62,25 +62,25 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         // Static template only. Do not interpolate Plex/user-provided strings into this HTML.
         // Use `textContent` when binding viewModel data to avoid XSS foot-guns.
         content.innerHTML = `
-              <img class="${NOW_PLAYING_INFO_CLASSES.CLEAR_LOGO}" alt="" style="display:none" />
-	          <div class="${NOW_PLAYING_INFO_CLASSES.TITLE}"></div>
-	          <div class="${NOW_PLAYING_INFO_CLASSES.SUBTITLE}"></div>
-	          <div class="${NOW_PLAYING_INFO_CLASSES.BADGES}"></div>
-	          <div class="${NOW_PLAYING_INFO_CLASSES.PLAYBACK}">
-            <div class="${NOW_PLAYING_INFO_CLASSES.PLAYBACK_SUMMARY}"></div>
-          </div>
-          <div class="${NOW_PLAYING_INFO_CLASSES.META}"></div>
-          <div class="${NOW_PLAYING_INFO_CLASSES.ACTORS}"></div>
-          <div class="${NOW_PLAYING_INFO_CLASSES.CAST}"></div>
-          <div class="${NOW_PLAYING_INFO_CLASSES.DESCRIPTION}"></div>
-          <div class="${NOW_PLAYING_INFO_CLASSES.CONTEXT}"></div>
-          <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS}">
-            <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_BAR}">
-              <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_FILL}"></div>
-            </div>
-            <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_META}"></div>
-          </div>
-          <div class="${NOW_PLAYING_INFO_CLASSES.UP_NEXT}"></div>
+    <img class="${NOW_PLAYING_INFO_CLASSES.CLEAR_LOGO}" alt="" style="display:none" />
+    <div class="${NOW_PLAYING_INFO_CLASSES.TITLE}"></div>
+    <div class="${NOW_PLAYING_INFO_CLASSES.SUBTITLE}"></div>
+    <div class="${NOW_PLAYING_INFO_CLASSES.BADGES}"></div>
+    <div class="${NOW_PLAYING_INFO_CLASSES.PLAYBACK}">
+      <div class="${NOW_PLAYING_INFO_CLASSES.PLAYBACK_SUMMARY}"></div>
+    </div>
+    <div class="${NOW_PLAYING_INFO_CLASSES.META}"></div>
+    <div class="${NOW_PLAYING_INFO_CLASSES.DESCRIPTION}">
+      <div class="${NOW_PLAYING_INFO_CLASSES.DESCRIPTION_INNER}"></div>
+    </div>
+    <div class="${NOW_PLAYING_INFO_CLASSES.ACTORS}"></div>
+    <div class="${NOW_PLAYING_INFO_CLASSES.CAST}"></div>
+    <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS}">
+      <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_BAR}">
+        <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_FILL}"></div>
+      </div>
+      <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_META}"></div>
+    </div>
         `;
         panelEl.appendChild(content);
 
@@ -312,9 +312,29 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         const description = this.containerElement.querySelector(
             `.${NOW_PLAYING_INFO_CLASSES.DESCRIPTION}`
         ) as HTMLElement | null;
-        if (description) {
-            description.textContent = viewModel.description || '';
-            description.style.display = viewModel.description ? 'block' : 'none';
+        const descriptionInner = this.containerElement.querySelector(
+            `.${NOW_PLAYING_INFO_CLASSES.DESCRIPTION_INNER}`
+        ) as HTMLElement | null;
+
+        if (description && descriptionInner) {
+            const text = viewModel.description ?? '';
+            descriptionInner.textContent = text;
+            const hasText = text.trim().length > 0;
+            description.style.display = hasText ? 'block' : 'none';
+
+            if (!hasText) {
+                description.dataset.scrollActive = 'false';
+                description.style.removeProperty('--scroll-distance');
+            } else {
+                const overflowPx = Math.max(0, descriptionInner.scrollHeight - description.clientHeight);
+                if (overflowPx > 4) {
+                    description.dataset.scrollActive = 'true';
+                    description.style.setProperty('--scroll-distance', `-${overflowPx}px`);
+                } else {
+                    description.dataset.scrollActive = 'false';
+                    description.style.removeProperty('--scroll-distance');
+                }
+            }
         }
 
         const actors = this.containerElement.querySelector(
@@ -362,22 +382,6 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
             playback.style.display = shouldShow ? 'flex' : 'none';
         }
 
-        const context = this.containerElement.querySelector(
-            `.${NOW_PLAYING_INFO_CLASSES.CONTEXT}`
-        ) as HTMLElement | null;
-        if (context) {
-            const channelPrefix = ((): string => {
-                const num = viewModel.channelNumber;
-                const name = viewModel.channelName;
-                if (typeof num === 'number' && name) return `${num} ${name}`;
-                if (typeof num === 'number') return `${num}`;
-                if (name) return name;
-                return '';
-            })();
-            context.textContent = channelPrefix;
-            context.style.display = channelPrefix ? 'block' : 'none';
-        }
-
         const progress = this.containerElement.querySelector(
             `.${NOW_PLAYING_INFO_CLASSES.PROGRESS}`
         ) as HTMLElement | null;
@@ -402,20 +406,6 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
             progress.style.display = 'flex';
         } else if (progress) {
             progress.style.display = 'none';
-        }
-
-        const upNext = this.containerElement.querySelector(
-            `.${NOW_PLAYING_INFO_CLASSES.UP_NEXT}`
-        ) as HTMLElement | null;
-        if (upNext) {
-            const next = viewModel.upNext;
-            if (next) {
-                upNext.textContent = `Up next • ${formatLocalTime(next.startsAtMs)} — ${next.title}`;
-                upNext.style.display = 'block';
-            } else {
-                upNext.textContent = '';
-                upNext.style.display = 'none';
-            }
         }
     }
 
@@ -540,15 +530,6 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
             }
         }
     }
-}
-
-const TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-});
-
-function formatLocalTime(ms: number): string {
-    return TIME_FORMATTER.format(new Date(ms));
 }
 
 function formatTimecode(ms: number): string {

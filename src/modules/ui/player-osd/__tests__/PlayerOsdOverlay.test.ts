@@ -28,7 +28,6 @@ describe('PlayerOsdOverlay', () => {
         timecode: '0:10 / 1:40',
         endsAtText: 'Ends 9:15 PM',
         bufferText: 'Buffer +30s',
-        playbackText: 'Direct Play • H.264/AAC • 1080p',
         actionIds: {
             subtitles: 'player-osd-action-subtitles',
             sleep: 'player-osd-action-sleep',
@@ -83,7 +82,7 @@ describe('PlayerOsdOverlay', () => {
         const status = container.querySelector(`.${PLAYER_OSD_CLASSES.STATUS}`) as HTMLElement;
         expect(status.getAttribute('aria-label')).toBe('PLAYING');
         expect(status.querySelector('svg')).not.toBeNull();
-        expect(container.querySelector(`.${PLAYER_OSD_CLASSES.CHANNEL}`)?.textContent).toBe('12 Comedy');
+        expect(container.querySelector('.player-osd-channel')).toBeNull();
         expect(container.querySelector(`.${PLAYER_OSD_CLASSES.TITLE}`)?.textContent).toBe('Test Title');
         expect(container.querySelector(`.${PLAYER_OSD_CLASSES.SUBTITLE}`)?.textContent).toBe('Test Subtitle');
         expect(container.querySelector(`.${PLAYER_OSD_CLASSES.UP_NEXT}`)?.textContent).toBe(
@@ -95,9 +94,8 @@ describe('PlayerOsdOverlay', () => {
         expect(container.querySelector(`.${PLAYER_OSD_CLASSES.TIMECODE}`)?.textContent).toBe('0:10 / 1:40');
         expect(container.querySelector(`.${PLAYER_OSD_CLASSES.ENDS}`)?.textContent).toBe('Ends 9:15 PM');
         expect(container.querySelector(`.${PLAYER_OSD_CLASSES.BUFFER_TEXT}`)?.textContent).toBe('Buffer +30s');
-        expect(container.querySelector(`.${PLAYER_OSD_CLASSES.PLAYBACK_TAG}`)?.textContent).toBe(
-            'Direct Play • H.264/AAC • 1080p'
-        );
+        expect(container.querySelector('.player-osd-playback')).toBeNull();
+        expect(container.querySelector('.player-osd-hint')).toBeNull();
         expect(
             (container.querySelector(`.${PLAYER_OSD_CLASSES.ACTION}[data-action="subtitles"]`) as HTMLElement).id
         ).toBe('player-osd-action-subtitles');
@@ -114,6 +112,23 @@ describe('PlayerOsdOverlay', () => {
         expect(parseFloat(buffered.style.width)).toBeCloseTo(40, 2);
     });
 
+    it('renders rising-stage wrapper order (content row, meta strip, progress)', () => {
+        overlay.setViewModel(baseViewModel);
+        overlay.show();
+
+        const panel = container.querySelector(`.${PLAYER_OSD_CLASSES.PANEL}`) as HTMLElement;
+        const contentRow = panel.querySelector('.player-osd-content-row');
+        const metaStrip = panel.querySelector('.player-osd-meta-strip');
+        const progress = panel.querySelector(`.${PLAYER_OSD_CLASSES.PROGRESS_CONTAINER}`);
+
+        expect(contentRow).not.toBeNull();
+        expect(metaStrip).not.toBeNull();
+        expect(progress).not.toBeNull();
+        expect(panel.firstElementChild).toBe(contentRow);
+        expect(panel.children.item(1)).toBe(metaStrip);
+        expect(panel.lastElementChild).toBe(progress);
+    });
+
     it('hides optional fields when missing', () => {
         overlay.setViewModel({
             ...baseViewModel,
@@ -125,7 +140,6 @@ describe('PlayerOsdOverlay', () => {
         });
         overlay.show();
 
-        expect((container.querySelector(`.${PLAYER_OSD_CLASSES.CHANNEL}`) as HTMLElement).style.display).toBe('none');
         expect((container.querySelector(`.${PLAYER_OSD_CLASSES.SUBTITLE}`) as HTMLElement).style.display).toBe('none');
         expect((container.querySelector(`.${PLAYER_OSD_CLASSES.INFO_LINE}`) as HTMLElement).style.display).toBe('none');
         expect((container.querySelector(`.${PLAYER_OSD_CLASSES.UP_NEXT}`) as HTMLElement).style.display).toBe('none');
