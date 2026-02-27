@@ -73,14 +73,12 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
           <div class="${NOW_PLAYING_INFO_CLASSES.ACTORS}"></div>
           <div class="${NOW_PLAYING_INFO_CLASSES.CAST}"></div>
           <div class="${NOW_PLAYING_INFO_CLASSES.DESCRIPTION}"></div>
-          <div class="${NOW_PLAYING_INFO_CLASSES.CONTEXT}"></div>
           <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS}">
             <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_BAR}">
               <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_FILL}"></div>
             </div>
             <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_META}"></div>
           </div>
-          <div class="${NOW_PLAYING_INFO_CLASSES.UP_NEXT}"></div>
         `;
         panelEl.appendChild(content);
 
@@ -362,22 +360,6 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
             playback.style.display = shouldShow ? 'flex' : 'none';
         }
 
-        const context = this.containerElement.querySelector(
-            `.${NOW_PLAYING_INFO_CLASSES.CONTEXT}`
-        ) as HTMLElement | null;
-        if (context) {
-            const channelPrefix = ((): string => {
-                const num = viewModel.channelNumber;
-                const name = viewModel.channelName;
-                if (typeof num === 'number' && name) return `${num} ${name}`;
-                if (typeof num === 'number') return `${num}`;
-                if (name) return name;
-                return '';
-            })();
-            context.textContent = channelPrefix;
-            context.style.display = channelPrefix ? 'block' : 'none';
-        }
-
         const progress = this.containerElement.querySelector(
             `.${NOW_PLAYING_INFO_CLASSES.PROGRESS}`
         ) as HTMLElement | null;
@@ -402,20 +384,6 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
             progress.style.display = 'flex';
         } else if (progress) {
             progress.style.display = 'none';
-        }
-
-        const upNext = this.containerElement.querySelector(
-            `.${NOW_PLAYING_INFO_CLASSES.UP_NEXT}`
-        ) as HTMLElement | null;
-        if (upNext) {
-            const next = viewModel.upNext;
-            if (next) {
-                upNext.textContent = `Up next • ${formatLocalTime(next.startsAtMs)} — ${next.title}`;
-                upNext.style.display = 'block';
-            } else {
-                upNext.textContent = '';
-                upNext.style.display = 'none';
-            }
         }
     }
 
@@ -540,15 +508,6 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
             }
         }
     }
-}
-
-const TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-});
-
-function formatLocalTime(ms: number): string {
-    return TIME_FORMATTER.format(new Date(ms));
 }
 
 function formatTimecode(ms: number): string {

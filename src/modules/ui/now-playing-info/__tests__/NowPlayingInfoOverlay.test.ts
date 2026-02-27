@@ -19,8 +19,6 @@ describe('NowPlayingInfoOverlay', () => {
         subtitle: '2h 10m',
         badges: ['PG-13'],
         description: 'A test description of the movie.',
-        channelNumber: 12,
-        channelName: 'Test Channel',
         elapsedMs: 60_000,
         durationMs: 120_000,
         posterUrl: 'https://example.com/poster.jpg',
@@ -61,7 +59,8 @@ describe('NowPlayingInfoOverlay', () => {
         expect(container.querySelector('.now-playing-info-title')?.textContent).toBe('Test Movie');
         expect(container.querySelector('.now-playing-info-subtitle')?.textContent).toBe('2h 10m');
         expect(container.querySelector('.now-playing-info-description')?.textContent).toBe('A test description of the movie.');
-        expect(container.querySelector('.now-playing-info-context')?.textContent).toBe('12 Test Channel');
+        expect(container.querySelector('.now-playing-info-context')).toBeNull();
+        expect(container.querySelector('.now-playing-info-up-next')).toBeNull();
     });
 
     it('sets clear logo alt text when clearLogoUrl is shown', () => {
@@ -93,24 +92,6 @@ describe('NowPlayingInfoOverlay', () => {
 
         expect(clearLogo.style.display).toBe('none');
         expect(title.style.display).toBe('');
-    });
-
-    it('should show up next when provided', () => {
-        const viewModel: NowPlayingInfoViewModel = {
-            ...baseViewModel,
-            upNext: { title: 'Next Thing', startsAtMs: Date.now() + 60_000 },
-        };
-        overlay.show(viewModel);
-        const upNext = container.querySelector('.now-playing-info-up-next') as HTMLElement;
-        expect(upNext.style.display).toBe('block');
-        expect(upNext.textContent).toContain('Up next');
-        expect(upNext.textContent).toContain('Next Thing');
-    });
-
-    it('should hide up next when missing', () => {
-        overlay.show(baseViewModel);
-        const upNext = container.querySelector('.now-playing-info-up-next') as HTMLElement;
-        expect(upNext.style.display).toBe('none');
     });
 
     it('should render quality badges when provided', () => {
@@ -235,8 +216,6 @@ describe('NowPlayingInfoOverlay', () => {
             title: baseViewModel.title,
             subtitle: baseViewModel.subtitle ?? 'PG-13 • 2h 10m',
             description: baseViewModel.description ?? 'A test description of the movie.',
-            channelNumber: baseViewModel.channelNumber ?? 12,
-            channelName: baseViewModel.channelName ?? 'Test Channel',
             elapsedMs: baseViewModel.elapsedMs ?? 60_000,
             posterUrl: baseViewModel.posterUrl ?? null,
         };

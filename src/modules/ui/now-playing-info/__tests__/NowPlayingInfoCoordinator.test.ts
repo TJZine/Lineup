@@ -171,51 +171,6 @@ describe('NowPlayingInfoCoordinator', () => {
         expect(onVisibilityChange).toHaveBeenCalledWith(false);
     });
 
-    it('handleModalOpen includes upNext when next program starts in the future', () => {
-        const nextProgram = makeProgram({
-            scheduledStartTime: Date.now() + 60_000,
-            item: { ...makeProgram().item, title: 'Next Thing' },
-        });
-        const scheduler = makeScheduler({
-            getNextProgram: jest.fn().mockReturnValue(nextProgram),
-        });
-        const { coordinator, overlay } = setup({
-            getScheduler: () => scheduler,
-        });
-
-        coordinator.handleModalOpen(modalId);
-
-        const viewModel = (overlay.show as jest.Mock).mock.calls[0]?.[0] as {
-            upNext?: { title: string; startsAtMs: number };
-        };
-        expect(viewModel.upNext).toEqual({
-            title: 'Next Thing',
-            startsAtMs: nextProgram.scheduledStartTime,
-        });
-        coordinator.handleModalClose(modalId);
-    });
-
-    it('handleModalOpen omits upNext when next program starts at or before now', () => {
-        const nextProgram = makeProgram({
-            scheduledStartTime: Date.now(),
-            item: { ...makeProgram().item, title: 'Next Thing' },
-        });
-        const scheduler = makeScheduler({
-            getNextProgram: jest.fn().mockReturnValue(nextProgram),
-        });
-        const { coordinator, overlay } = setup({
-            getScheduler: () => scheduler,
-        });
-
-        coordinator.handleModalOpen(modalId);
-
-        const viewModel = (overlay.show as jest.Mock).mock.calls[0]?.[0] as {
-            upNext?: { title: string; startsAtMs: number };
-        };
-        expect(viewModel.upNext).toBeUndefined();
-        coordinator.handleModalClose(modalId);
-    });
-
     it('handleModalOpen uses scheduled metadata when details are unavailable', () => {
         const program = makeProgram({
             item: {
@@ -242,6 +197,8 @@ describe('NowPlayingInfoCoordinator', () => {
         // Ratings are rendered as badges; subtitle focuses on runtime/identity.
         expect(viewModel.subtitle).toBe('1m');
         expect(viewModel.badges).toEqual(['PG']);
+        const upNextlessViewModel = (overlay.show as jest.Mock).mock.calls[0]?.[0] as { upNext?: unknown };
+        expect(upNextlessViewModel.upNext).toBeUndefined();
         coordinator.handleModalClose(modalId);
     });
 
