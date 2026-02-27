@@ -354,6 +354,10 @@ export class App {
         channelNumberOverlayContainer.id = 'channel-number-overlay-container';
         root.appendChild(channelNumberOverlayContainer);
 
+        const channelBadgeContainer = document.createElement('div');
+        channelBadgeContainer.id = 'channel-badge-container';
+        root.appendChild(channelBadgeContainer);
+
         const miniGuideContainer = document.createElement('div');
         miniGuideContainer.id = 'mini-guide-container';
         root.appendChild(miniGuideContainer);
