@@ -48,6 +48,8 @@ const CATEGORY_TITLES: Record<StrategyCategoryKey, string> = {
 };
 
 export class StrategyStepController {
+    private _previewExpanded = false;
+
     private _categoryHasActiveStrategies(
         category: StrategyCategoryKey,
         state: StrategyStepDeps['state']
@@ -409,16 +411,16 @@ export class StrategyStepController {
         previewToggle.setAttribute('aria-controls', state.previewPanelId);
 
         const setExpanded = (expanded: boolean): void => {
+            this._previewExpanded = expanded;
             previewStrip.classList.toggle('is-collapsed', !expanded);
             previewToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
             previewToggle.textContent = expanded ? 'Hide Details' : 'Show Details';
             previewPanel.hidden = !expanded;
         };
 
-        setExpanded(false);
+        setExpanded(this._previewExpanded);
         previewToggle.addEventListener('click', () => {
-            const expanded = previewToggle.getAttribute('aria-expanded') !== 'true';
-            setExpanded(expanded);
+            setExpanded(!this._previewExpanded);
         });
 
         previewSummary.appendChild(previewSummaryText);

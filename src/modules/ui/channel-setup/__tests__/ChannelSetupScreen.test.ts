@@ -520,6 +520,33 @@ describe('ChannelSetupScreen', () => {
         expect(previewPanel?.hidden).toBe(true);
     });
 
+    it('keeps preview strip expanded across Step 2 re-renders', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-preview-toggle');
+        expect(container.querySelector('.setup-preview-strip')?.classList.contains('is-collapsed')).toBe(false);
+        expect(container.querySelector('#setup-preview-toggle')?.getAttribute('aria-expanded')).toBe('true');
+        expect((container.querySelector('#setup-preview-panel') as HTMLElement | null)?.hidden).toBe(false);
+
+        // Trigger a Step 2 re-render via a setting change.
+        clickButton(container, '#setup-strategy-collections');
+        await flushPromises();
+
+        expect(container.querySelector('.setup-preview-strip')?.classList.contains('is-collapsed')).toBe(false);
+        expect(container.querySelector('#setup-preview-toggle')?.getAttribute('aria-expanded')).toBe('true');
+        expect((container.querySelector('#setup-preview-panel') as HTMLElement | null)?.hidden).toBe(false);
+    });
+
     it('registers preview toggle in Step 2 focusables', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);

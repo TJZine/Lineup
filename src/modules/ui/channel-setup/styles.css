@@ -18,7 +18,7 @@
 
 .setup-progress-bar-fill {
     height: 100%;
-    background-color: var(--onboarding-accent);
+    background-color: var(--onboarding-accent, rgb(200, 160, 100));
     width: 0%;
     transition: width 0.2s ease;
 }
@@ -277,6 +277,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+    box-shadow: inset 3px 0 0 transparent;
 }
 
 .setup-category-label {
@@ -294,11 +295,11 @@
 
 .setup-category-button.selected {
     border-color: rgba(255, 255, 255, 0.10);
-    border-left: 3px solid var(--onboarding-accent);
+    box-shadow: inset 3px 0 0 var(--onboarding-accent, rgb(200, 160, 100));
 }
 
 .setup-category-button:focus {
-    outline: var(--focus-ring-width) solid var(--onboarding-accent-alpha-60);
+    outline: var(--focus-ring-width) solid var(--onboarding-accent-alpha-60, rgba(200, 160, 100, 0.60));
     outline-offset: var(--focus-ring-offset);
 }
 

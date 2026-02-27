@@ -1,6 +1,8 @@
 .audio-choice-row {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
   gap: calc(24px * var(--onboarding-scale, 1));
   margin-top: 12px;
