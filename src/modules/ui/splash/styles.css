@@ -6,7 +6,7 @@
     display: none;
     align-items: center;
     justify-content: center;
-    background: var(--color-bg-deep);
+    background: #0e1017;
     z-index: var(--z-overlay);
     overflow: hidden;
     --lineup-logo-main: #f4f1ea;
