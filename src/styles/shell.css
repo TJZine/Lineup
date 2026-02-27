@@ -4,7 +4,6 @@
   display: none;
   align-items: center;
   justify-content: center;
-  --onboarding-bg: #0e1017;
   --onboarding-accent: rgb(200, 160, 100);
   --onboarding-accent-alpha-60: rgba(200, 160, 100, 0.60);
   --onboarding-accent-alpha-20: rgba(200, 160, 100, 0.20);
@@ -14,7 +13,7 @@
   --onboarding-text-muted: rgba(240, 236, 232, 0.4);
   background: radial-gradient(circle at 20% 20%, rgba(200, 160, 100, 0.06), transparent 45%),
     radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.04), transparent 40%),
-    var(--onboarding-bg);
+    #0e1017;
   color: var(--onboarding-text);
   z-index: var(--z-overlay);
   font-family: var(--font-family-sans);
@@ -244,7 +243,7 @@
 .screen-button {
   appearance: none;
   position: relative;
-  border: 1px solid rgba(200, 160, 100, 0.20);
+  border: 1px solid rgba(200, 160, 100, 0.30);
   border-radius: 999px;
   padding: calc(12px * var(--onboarding-scale)) calc(18px * var(--onboarding-scale));
   font-size: calc(18px * var(--onboarding-scale));
@@ -256,15 +255,15 @@
 }
 
 .screen-button.secondary {
-  background: transparent;
-  border-color: rgba(200, 160, 100, 0.20);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(200, 160, 100, 0.16);
   color: var(--onboarding-text);
 }
 
 .screen-button.ghost {
   background: transparent;
+  border-color: transparent;
   color: var(--onboarding-text);
-  border-color: rgba(200, 160, 100, 0.20);
 }
 
 .screen-button.destructive {
@@ -356,8 +355,8 @@
 }
 
 .server-row.active {
-  border-color: var(--color-primary);
-  background: var(--color-primary-alpha-08);
+  border-color: var(--onboarding-accent);
+  background: var(--onboarding-accent-alpha-08);
 }
 
 .server-row.active .server-name::before {
