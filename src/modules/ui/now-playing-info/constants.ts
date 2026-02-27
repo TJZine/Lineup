@@ -27,6 +27,7 @@ export const NOW_PLAYING_INFO_CLASSES = {
     ACTOR_IMAGE: 'now-playing-info-actor-image',
     ACTOR_MORE: 'now-playing-info-actor-more',
     DESCRIPTION: 'now-playing-info-description',
+    DESCRIPTION_INNER: 'now-playing-info-description-inner',
     PROGRESS: 'now-playing-info-progress',
     PROGRESS_BAR: 'now-playing-info-progress-bar',
     PROGRESS_FILL: 'now-playing-info-progress-fill',

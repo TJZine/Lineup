@@ -62,23 +62,25 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         // Static template only. Do not interpolate Plex/user-provided strings into this HTML.
         // Use `textContent` when binding viewModel data to avoid XSS foot-guns.
         content.innerHTML = `
-              <img class="${NOW_PLAYING_INFO_CLASSES.CLEAR_LOGO}" alt="" style="display:none" />
-	          <div class="${NOW_PLAYING_INFO_CLASSES.TITLE}"></div>
-	          <div class="${NOW_PLAYING_INFO_CLASSES.SUBTITLE}"></div>
-	          <div class="${NOW_PLAYING_INFO_CLASSES.BADGES}"></div>
-	          <div class="${NOW_PLAYING_INFO_CLASSES.PLAYBACK}">
-            <div class="${NOW_PLAYING_INFO_CLASSES.PLAYBACK_SUMMARY}"></div>
-          </div>
-          <div class="${NOW_PLAYING_INFO_CLASSES.META}"></div>
-          <div class="${NOW_PLAYING_INFO_CLASSES.ACTORS}"></div>
-          <div class="${NOW_PLAYING_INFO_CLASSES.CAST}"></div>
-          <div class="${NOW_PLAYING_INFO_CLASSES.DESCRIPTION}"></div>
-          <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS}">
-            <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_BAR}">
-              <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_FILL}"></div>
-            </div>
-            <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_META}"></div>
-          </div>
+    <img class="${NOW_PLAYING_INFO_CLASSES.CLEAR_LOGO}" alt="" style="display:none" />
+    <div class="${NOW_PLAYING_INFO_CLASSES.TITLE}"></div>
+    <div class="${NOW_PLAYING_INFO_CLASSES.SUBTITLE}"></div>
+    <div class="${NOW_PLAYING_INFO_CLASSES.BADGES}"></div>
+    <div class="${NOW_PLAYING_INFO_CLASSES.PLAYBACK}">
+      <div class="${NOW_PLAYING_INFO_CLASSES.PLAYBACK_SUMMARY}"></div>
+    </div>
+    <div class="${NOW_PLAYING_INFO_CLASSES.META}"></div>
+    <div class="${NOW_PLAYING_INFO_CLASSES.DESCRIPTION}">
+      <div class="${NOW_PLAYING_INFO_CLASSES.DESCRIPTION_INNER}"></div>
+    </div>
+    <div class="${NOW_PLAYING_INFO_CLASSES.ACTORS}"></div>
+    <div class="${NOW_PLAYING_INFO_CLASSES.CAST}"></div>
+    <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS}">
+      <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_BAR}">
+        <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_FILL}"></div>
+      </div>
+      <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_META}"></div>
+    </div>
         `;
         panelEl.appendChild(content);
 
@@ -310,9 +312,29 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
         const description = this.containerElement.querySelector(
             `.${NOW_PLAYING_INFO_CLASSES.DESCRIPTION}`
         ) as HTMLElement | null;
-        if (description) {
-            description.textContent = viewModel.description || '';
-            description.style.display = viewModel.description ? 'block' : 'none';
+        const descriptionInner = this.containerElement.querySelector(
+            `.${NOW_PLAYING_INFO_CLASSES.DESCRIPTION_INNER}`
+        ) as HTMLElement | null;
+
+        if (description && descriptionInner) {
+            const text = viewModel.description ?? '';
+            descriptionInner.textContent = text;
+            const hasText = text.trim().length > 0;
+            description.style.display = hasText ? 'block' : 'none';
+
+            if (!hasText) {
+                description.dataset.scrollActive = 'false';
+                description.style.removeProperty('--scroll-distance');
+            } else {
+                const overflowPx = Math.max(0, descriptionInner.scrollHeight - description.clientHeight);
+                if (overflowPx > 4) {
+                    description.dataset.scrollActive = 'true';
+                    description.style.setProperty('--scroll-distance', `-${overflowPx}px`);
+                } else {
+                    description.dataset.scrollActive = 'false';
+                    description.style.removeProperty('--scroll-distance');
+                }
+            }
         }
 
         const actors = this.containerElement.querySelector(
