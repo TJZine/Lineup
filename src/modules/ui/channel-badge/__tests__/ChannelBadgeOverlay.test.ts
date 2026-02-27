@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import { ChannelBadgeOverlay } from '../ChannelBadgeOverlay';
-import { CHANNEL_BADGE_CLASSES } from '../constants';
+import { CHANNEL_BADGE_CLASSES, CHANNEL_BADGE_CONTAINER_ID } from '../constants';
 
 describe('ChannelBadgeOverlay', () => {
     let container: HTMLElement;
@@ -10,10 +10,10 @@ describe('ChannelBadgeOverlay', () => {
 
     beforeEach(() => {
         container = document.createElement('div');
-        container.id = 'channel-badge-container';
+        container.id = CHANNEL_BADGE_CONTAINER_ID;
         document.body.appendChild(container);
         overlay = new ChannelBadgeOverlay();
-        overlay.initialize({ containerId: 'channel-badge-container' });
+        overlay.initialize({ containerId: CHANNEL_BADGE_CONTAINER_ID });
     });
 
     afterEach(() => {

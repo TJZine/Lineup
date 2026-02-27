@@ -8,7 +8,7 @@ UI elements feel like they **emerge from the screen edges**, not float on top. E
 
 ### The Old Pattern (being replaced)
 
-```
+```text
 - Floating card with margins on all sides
 - border-radius on all corners
 - box-shadow for depth
@@ -19,7 +19,7 @@ UI elements feel like they **emerge from the screen edges**, not float on top. E
 
 ### The New Pattern
 
-```
+```text
 - Edge-anchored: at least one edge flush to the screen
 - Rounded corners ONLY on edges that don't touch the screen
 - No box-shadow

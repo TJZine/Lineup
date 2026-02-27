@@ -109,6 +109,7 @@ import {
 import {
     ChannelBadgeOverlay,
     type IChannelBadgeOverlay,
+    type ChannelBadgeConfig,
 } from './modules/ui/channel-badge';
 import { SleepTimerManager } from './modules/ui/sleep-timer';
 import {
@@ -262,6 +263,7 @@ export interface OrchestratorConfig {
     playbackOptionsConfig: PlaybackOptionsConfig;
     playerOsdConfig: PlayerOsdConfig;
     channelNumberOverlayConfig: ChannelNumberOverlayConfig;
+    channelBadgeConfig: ChannelBadgeConfig;
     miniGuideConfig: MiniGuideConfig;
     channelTransitionConfig: ChannelTransitionConfig;
 }
@@ -711,7 +713,10 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this.getPlaybackInfoSnapshot(),
             refreshPlaybackInfoSnapshot: (): Promise<PlaybackInfoSnapshot> =>
                 this.refreshPlaybackInfoSnapshot(),
-            onVisibilityChange: (): void => {
+            onVisibilityChange: (visible: boolean): void => {
+                // Intentionally ignore the overlay-specific visibility value: channel badge visibility is derived
+                // from combined OSD + NowPlayingInfo overlay states.
+                void visible;
                 this._syncChannelBadgeOverlay();
             },
         });
@@ -737,7 +742,10 @@ export class AppOrchestrator implements IAppOrchestrator {
             ): { focusableIds: string[]; preferredFocusId: string | null } =>
                 this._playbackOptionsCoordinator?.prepareModal(preferredSection) ??
                 { focusableIds: [], preferredFocusId: null },
-            onVisibilityChange: (): void => {
+            onVisibilityChange: (visible: boolean): void => {
+                // Intentionally ignore the overlay-specific visibility value: channel badge visibility is derived
+                // from combined OSD + NowPlayingInfo overlay states.
+                void visible;
                 this._syncChannelBadgeOverlay();
             },
         });

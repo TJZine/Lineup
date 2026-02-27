@@ -5,6 +5,7 @@
 import { InitializationCoordinator } from '../InitializationCoordinator';
 import type { InitializationDependencies, InitializationCallbacks } from '../InitializationCoordinator';
 import type { PlexAuthDataV2 } from '../../modules/plex/auth';
+import { CHANNEL_BADGE_CONTAINER_ID } from '../../modules/ui/channel-badge';
 
 const createStoredCredentials = (
     activeToken: string,
@@ -119,6 +120,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
                 nowPlayingInfoConfig: {} as never,
                 playerOsdConfig: {} as never,
                 channelNumberOverlayConfig: {} as never,
+                channelBadgeConfig: { containerId: CHANNEL_BADGE_CONTAINER_ID } as never,
                 miniGuideConfig: {} as never,
                 channelTransitionConfig: {} as never,
                 playbackOptionsConfig: {} as never,

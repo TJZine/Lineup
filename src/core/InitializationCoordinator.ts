@@ -57,7 +57,7 @@ export interface InitializationDependencies {
     nowPlayingInfo: INowPlayingInfoOverlay | null;
     playerOsd: IPlayerOsdOverlay | null;
     channelNumberOverlay: IChannelNumberOverlay | null;
-    channelBadgeOverlay?: IChannelBadgeOverlay | null;
+    channelBadgeOverlay: IChannelBadgeOverlay | null;
     miniGuide: IMiniGuideOverlay | null;
     channelTransition: IChannelTransitionOverlay | null;
     playbackOptions: IPlaybackOptionsModal | null;
@@ -660,9 +660,9 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             );
         }
 
-        if (this._deps.channelBadgeOverlay) {
+        if (this._deps.channelBadgeOverlay && this._config) {
             this._callbacks.updateModuleStatus('channel-badge-ui', 'initializing');
-            this._deps.channelBadgeOverlay.initialize({ containerId: 'channel-badge-container' });
+            this._deps.channelBadgeOverlay.initialize(this._config.channelBadgeConfig);
             this._callbacks.updateModuleStatus(
                 'channel-badge-ui',
                 'ready',

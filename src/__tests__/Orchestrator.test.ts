@@ -16,6 +16,7 @@ import type { IPlexLibrary } from '../modules/plex/library';
 import type { ChannelConfig, IChannelManager } from '../modules/scheduler/channel-manager';
 import type { ScheduledProgram } from '../modules/scheduler/scheduler';
 import type { INowPlayingInfoOverlay, NowPlayingInfoConfig } from '../modules/ui/now-playing-info';
+import { CHANNEL_BADGE_CONTAINER_ID } from '../modules/ui/channel-badge';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import type { PlatformServices } from '../platform';
 import { webosPlatformServices } from '../platform';
@@ -93,6 +94,10 @@ const mockChannelNumberOverlayConfig = {
     containerId: 'channel-number-overlay-container',
 };
 
+const mockChannelBadgeConfig = {
+    containerId: CHANNEL_BADGE_CONTAINER_ID,
+};
+
 const mockMiniGuideConfig = {
     containerId: 'mini-guide-container',
 };
@@ -109,6 +114,7 @@ const mockConfig: OrchestratorConfig = {
     nowPlayingInfoConfig: mockNowPlayingInfoConfig,
     playerOsdConfig: mockPlayerOsdConfig,
     channelNumberOverlayConfig: mockChannelNumberOverlayConfig,
+    channelBadgeConfig: mockChannelBadgeConfig,
     miniGuideConfig: mockMiniGuideConfig,
     channelTransitionConfig: mockChannelTransitionConfig,
     playbackOptionsConfig: mockPlaybackOptionsConfig,
