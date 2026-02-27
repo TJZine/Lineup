@@ -84,7 +84,7 @@
 .screen-subtitle {
   margin: 0 0 14px 0;
   font-size: calc(18px * var(--onboarding-scale));
-  color: var(--color-text-secondary);
+  color: var(--onboarding-text-secondary);
 }
 
 .screen-status {
@@ -93,11 +93,11 @@
 }
 
 .screen-status--neutral {
-  color: var(--color-text-primary);
+  color: var(--onboarding-text);
 }
 
 .screen-status--loading {
-  color: var(--color-text-secondary);
+  color: var(--onboarding-text-secondary);
 }
 
 .screen-status--success {
@@ -114,7 +114,7 @@
 
 .screen-detail {
   font-size: calc(16px * var(--onboarding-scale));
-  color: var(--color-text-secondary);
+  color: var(--onboarding-text-secondary);
 }
 
 .screen-error {
@@ -139,14 +139,14 @@
 
 .screen-error-message {
   font-size: calc(16px * var(--onboarding-scale));
-  color: var(--color-text-secondary);
+  color: var(--onboarding-text-secondary);
   line-height: 1.5;
 }
 
 .screen-error-hint {
   margin-top: 8px;
   font-size: calc(14px * var(--onboarding-scale));
-  color: var(--color-text-muted);
+  color: var(--onboarding-text-muted);
   line-height: 1.4;
 }
 
@@ -165,7 +165,7 @@
   margin-top: -8px;
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.25);
-  border-top-color: rgba(var(--focus-color-rgb), 0.9);
+  border-top-color: var(--onboarding-accent);
   animation: panel-spinner-spin 0.8s linear infinite;
 }
 
@@ -211,7 +211,7 @@
   font-family: var(--font-family-sans);
   font-size: 40px;
   font-weight: 700;
-  color: var(--color-text-primary);
+  color: var(--onboarding-text);
   text-transform: uppercase;
 }
 
@@ -382,7 +382,7 @@
 
 .server-meta {
   font-size: calc(15px * var(--onboarding-scale));
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--onboarding-text-secondary);
 }
 
 .server-actions {
@@ -413,7 +413,7 @@
   font-size: var(--text-md);
   text-transform: uppercase;
   letter-spacing: 1.4px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--onboarding-text-secondary);
   margin-top: 6px;
 }
 
@@ -495,7 +495,7 @@
 .setup-toggle-meta {
   grid-column: 1;
   grid-row: 2;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--onboarding-text-secondary);
   font-size: var(--text-md);
 }
 
@@ -504,17 +504,17 @@
   grid-row: 1 / span 2;
   align-self: center;
   font-size: var(--text-md);
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--onboarding-text-secondary);
 }
 
 .setup-summary {
   font-size: 18px;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--onboarding-text);
 }
 
 .setup-empty {
   font-size: 16px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--onboarding-text-secondary);
   grid-column: 1 / -1;
 }
 

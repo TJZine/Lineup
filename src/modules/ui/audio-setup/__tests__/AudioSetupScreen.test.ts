@@ -146,6 +146,7 @@ describe('AudioSetupScreen', () => {
 
         const row = container.querySelector('.audio-choice-row');
         expect(row).not.toBeNull();
+        expect(container.querySelector('.setup-grid-2col')).toBeNull();
     });
 
     it('shows direct-play helper text immediately without delayed tooltip behavior', () => {
