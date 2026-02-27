@@ -1,13 +1,19 @@
+/* ============================================================
+   Mini Guide — "Top-Edge Shelf"
+   Flush top/left/right, bottom-rounded, gradient scrim.
+   Design: docs/design/ui-design-language.md
+   ============================================================ */
+
 .mini-guide {
   position: absolute;
-  top: 5%;
-  left: 5%;
-  width: 90%;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 780;
   pointer-events: none;
   opacity: 0;
-  transform: translateY(-12px);
-  transition: opacity var(--transition-normal, 200ms ease), transform var(--transition-normal, 200ms ease);
+  transform: translateY(-100%);
+  transition: opacity 300ms ease-out, transform 300ms ease-out;
 }
 
 .mini-guide.visible {
@@ -17,11 +23,18 @@
 }
 
 .mini-guide-panel {
-  background: var(--panel-surface);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--panel-radius);
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.50) 0%,
+    rgba(0, 0, 0, 0.40) 50%,
+    rgba(0, 0, 0, 0.18) 80%,
+    transparent 100%
+  );
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0 0 16px 16px;
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .mini-guide-row {
@@ -29,17 +42,12 @@
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-3) var(--space-6);
-  border-bottom: 1px solid var(--color-border-subtle);
   color: var(--color-text-primary);
 }
 
-.mini-guide-row:last-child {
-  border-bottom: none;
-}
-
 .mini-guide-row.focused {
-  background: var(--color-surface-hover);
-  border-left: 3px solid var(--focus-color);
+  background: rgba(255, 255, 255, 0.10);
+  border-left: 3px solid rgba(255, 255, 255, 0.92);
 }
 
 .mini-guide-row:not(.focused) {
@@ -169,8 +177,6 @@
   padding: var(--space-3) var(--space-6);
   font-size: var(--text-md);
   color: var(--color-text-muted);
-  background: rgba(255, 255, 255, 0.04);
-  border-top: 1px solid var(--color-border-subtle);
 }
 
 @keyframes mini-guide-loading-shimmer {
@@ -192,29 +198,28 @@
   }
 }
 
-/* Hybrid Deep Glass refinements */
+/* ============================================================
+   Glass Theme Override
+   Lower scrim opacity (~5% less), backdrop blur, display font.
+   Does NOT re-introduce borders, box-shadows, or top border-radius.
+   ============================================================ */
+
 .theme-glass .mini-guide-panel {
-  background: var(--glass-panel-strong);
-  border: 1px solid var(--glass-border-soft);
-  box-shadow: var(--glass-shadow-deep);
-  backdrop-filter: var(--glass-backdrop-filter);
-  -webkit-backdrop-filter: var(--glass-backdrop-filter);
-}
-
-.theme-glass .mini-guide-row {
-  border-bottom: 1px solid var(--glass-border-soft);
-}
-
-.theme-glass .mini-guide-row:last-child {
-  border-bottom: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.45) 0%,
+    rgba(0, 0, 0, 0.35) 50%,
+    rgba(0, 0, 0, 0.14) 80%,
+    transparent 100%
+  );
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+  backdrop-filter: blur(34px) saturate(140%);
+  -webkit-backdrop-filter: blur(34px) saturate(140%);
 }
 
 .theme-glass .mini-guide-row.focused {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0.06));
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04));
   border-left: 3px solid rgba(255, 255, 255, 0.96);
-}
-
-.theme-glass .mini-guide-footer-hint {
-  border-top: 1px solid var(--glass-border-soft);
-  background: rgba(0, 0, 0, 0.24);
 }
