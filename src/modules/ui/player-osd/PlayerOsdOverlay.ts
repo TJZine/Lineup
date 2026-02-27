@@ -13,7 +13,6 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 type PlayerOsdElements = {
     panel: HTMLElement | null;
     status: HTMLElement | null;
-    channel: HTMLElement | null;
     clearLogo: HTMLImageElement | null;
     title: HTMLElement | null;
     subtitle: HTMLElement | null;
@@ -38,7 +37,6 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
     private elements: PlayerOsdElements = {
         panel: null,
         status: null,
-        channel: null,
         clearLogo: null,
         title: null,
         subtitle: null,
@@ -87,7 +85,6 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         this.elements = {
             panel: null,
             status: null,
-            channel: null,
             clearLogo: null,
             title: null,
             subtitle: null,
@@ -135,10 +132,6 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
                 else this.elements.status.textContent = label;
                 this.lastStatusLabel = label;
             }
-        }
-        if (this.elements.channel) {
-            this.elements.channel.textContent = vm.channelPrefix;
-            this.elements.channel.style.display = vm.channelPrefix ? 'block' : 'none';
         }
         if (this.elements.title) {
             this.elements.title.textContent = vm.title;
@@ -332,7 +325,6 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         this.elements = {
             panel: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.PANEL}`),
             status: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.STATUS}`),
-            channel: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.CHANNEL}`),
             clearLogo: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.CLEAR_LOGO}`),
             title: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.TITLE}`),
             subtitle: this.containerElement.querySelector(`.${PLAYER_OSD_CLASSES.SUBTITLE}`),
@@ -388,7 +380,6 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
             </div>
 
             <div class="${PLAYER_OSD_CLASSES.META_STRIP}">
-              <div class="${PLAYER_OSD_CLASSES.CHANNEL}"></div>
               <div class="${PLAYER_OSD_CLASSES.UP_NEXT}"></div>
               <div class="${PLAYER_OSD_CLASSES.TIMECODE}"></div>
               <div class="${PLAYER_OSD_CLASSES.ENDS}"></div>

@@ -15,7 +15,6 @@ export const PLAYER_OSD_CLASSES = {
     PROGRESS_CONTAINER: 'player-osd-progress-container',
     INFO_ONLY: 'info-only',
     STATUS: 'player-osd-status',
-    CHANNEL: 'player-osd-channel',
     CLEAR_LOGO: 'player-osd-clear-logo',
     TITLE: 'player-osd-title',
     SUBTITLE: 'player-osd-subtitle',

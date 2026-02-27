@@ -82,7 +82,7 @@ describe('PlayerOsdOverlay', () => {
         const status = container.querySelector(`.${PLAYER_OSD_CLASSES.STATUS}`) as HTMLElement;
         expect(status.getAttribute('aria-label')).toBe('PLAYING');
         expect(status.querySelector('svg')).not.toBeNull();
-        expect(container.querySelector(`.${PLAYER_OSD_CLASSES.CHANNEL}`)?.textContent).toBe('12 Comedy');
+        expect(container.querySelector('.player-osd-channel')).toBeNull();
         expect(container.querySelector(`.${PLAYER_OSD_CLASSES.TITLE}`)?.textContent).toBe('Test Title');
         expect(container.querySelector(`.${PLAYER_OSD_CLASSES.SUBTITLE}`)?.textContent).toBe('Test Subtitle');
         expect(container.querySelector(`.${PLAYER_OSD_CLASSES.UP_NEXT}`)?.textContent).toBe(
@@ -140,7 +140,6 @@ describe('PlayerOsdOverlay', () => {
         });
         overlay.show();
 
-        expect((container.querySelector(`.${PLAYER_OSD_CLASSES.CHANNEL}`) as HTMLElement).style.display).toBe('none');
         expect((container.querySelector(`.${PLAYER_OSD_CLASSES.SUBTITLE}`) as HTMLElement).style.display).toBe('none');
         expect((container.querySelector(`.${PLAYER_OSD_CLASSES.INFO_LINE}`) as HTMLElement).style.display).toBe('none');
         expect((container.querySelector(`.${PLAYER_OSD_CLASSES.UP_NEXT}`) as HTMLElement).style.display).toBe('none');
