@@ -362,41 +362,43 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
             { panel: {} }
         );
         panelEl.innerHTML = `
-            <div class="${PLAYER_OSD_CLASSES.TOP}">
-              <div class="${PLAYER_OSD_CLASSES.STATUS}" role="status"></div>
+            <div class="${PLAYER_OSD_CLASSES.CONTENT_ROW}">
+              <div class="${PLAYER_OSD_CLASSES.INFO_COLUMN}">
+                <div class="${PLAYER_OSD_CLASSES.STATUS}" role="status"></div>
+
+                <div class="${PLAYER_OSD_CLASSES.ZONE_BRAND}">
+                  <img class="${PLAYER_OSD_CLASSES.CLEAR_LOGO}" alt="" style="display:none" />
+                  <div class="${PLAYER_OSD_CLASSES.TITLE}"></div>
+                </div>
+
+                <div class="${PLAYER_OSD_CLASSES.ZONE_DETAILS}">
+                  <div class="${PLAYER_OSD_CLASSES.SUBTITLE}"></div>
+                  <div class="${PLAYER_OSD_CLASSES.INFO_LINE}"></div>
+                </div>
+              </div>
+
+              <div class="${PLAYER_OSD_CLASSES.ACTIONS_COLUMN}">
+                <div class="${PLAYER_OSD_CLASSES.ACTIONS}">
+                  <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="subtitles">Subtitles</button>
+                  <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="sleep">Sleep</button>
+                  <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="audio">Audio</button>
+                </div>
+                <div class="${PLAYER_OSD_CLASSES.SLEEP_TIMER}"></div>
+              </div>
+            </div>
+
+            <div class="${PLAYER_OSD_CLASSES.META_STRIP}">
               <div class="${PLAYER_OSD_CLASSES.CHANNEL}"></div>
-            </div>
-
-            <div class="${PLAYER_OSD_CLASSES.ZONES}">
-              <div class="${PLAYER_OSD_CLASSES.ZONE_BRAND}">
-                <img class="${PLAYER_OSD_CLASSES.CLEAR_LOGO}" alt="" style="display:none" />
-                <div class="${PLAYER_OSD_CLASSES.TITLE}"></div>
-              </div>
-
-              <div class="${PLAYER_OSD_CLASSES.ZONE_DETAILS}">
-                <div class="${PLAYER_OSD_CLASSES.SUBTITLE}"></div>
-                <div class="${PLAYER_OSD_CLASSES.INFO_LINE}"></div>
-                <div class="${PLAYER_OSD_CLASSES.UP_NEXT}"></div>
-              </div>
-            </div>
-
-            <div class="${PLAYER_OSD_CLASSES.ACTIONS}">
-              <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="subtitles">Subtitles</button>
-              <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="sleep">Sleep</button>
-              <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="audio">Audio</button>
-              <div class="${PLAYER_OSD_CLASSES.SLEEP_TIMER}"></div>
+              <div class="${PLAYER_OSD_CLASSES.UP_NEXT}"></div>
+              <div class="${PLAYER_OSD_CLASSES.TIMECODE}"></div>
+              <div class="${PLAYER_OSD_CLASSES.ENDS}"></div>
+              <div class="${PLAYER_OSD_CLASSES.BUFFER_TEXT}"></div>
             </div>
 
             <div class="${PLAYER_OSD_CLASSES.PROGRESS_CONTAINER}">
               <div class="${PLAYER_OSD_CLASSES.BAR}">
                 <div class="${PLAYER_OSD_CLASSES.BAR_BUFFER}"></div>
                 <div class="${PLAYER_OSD_CLASSES.BAR_PLAYED}"></div>
-              </div>
-
-              <div class="${PLAYER_OSD_CLASSES.META}">
-                <div class="${PLAYER_OSD_CLASSES.TIMECODE}"></div>
-                <div class="${PLAYER_OSD_CLASSES.ENDS}"></div>
-                <div class="${PLAYER_OSD_CLASSES.BUFFER_TEXT}"></div>
               </div>
             </div>
         `;

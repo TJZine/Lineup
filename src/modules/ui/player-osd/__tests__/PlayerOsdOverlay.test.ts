@@ -112,6 +112,23 @@ describe('PlayerOsdOverlay', () => {
         expect(parseFloat(buffered.style.width)).toBeCloseTo(40, 2);
     });
 
+    it('renders rising-stage wrapper order (content row, meta strip, progress)', () => {
+        overlay.setViewModel(baseViewModel);
+        overlay.show();
+
+        const panel = container.querySelector(`.${PLAYER_OSD_CLASSES.PANEL}`) as HTMLElement;
+        const contentRow = panel.querySelector('.player-osd-content-row');
+        const metaStrip = panel.querySelector('.player-osd-meta-strip');
+        const progress = panel.querySelector(`.${PLAYER_OSD_CLASSES.PROGRESS_CONTAINER}`);
+
+        expect(contentRow).not.toBeNull();
+        expect(metaStrip).not.toBeNull();
+        expect(progress).not.toBeNull();
+        expect(panel.firstElementChild).toBe(contentRow);
+        expect(panel.children.item(1)).toBe(metaStrip);
+        expect(panel.lastElementChild).toBe(progress);
+    });
+
     it('hides optional fields when missing', () => {
         overlay.setViewModel({
             ...baseViewModel,
