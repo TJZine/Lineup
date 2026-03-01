@@ -35,6 +35,7 @@ describe('EPGComponent', () => {
             rowHeight: 80,
             showCurrentTimeIndicator: true,
             autoScrollToNow: false,
+            layoutMode: overrides.layoutMode ?? 'classic',
             resolveThumbUrl: (url) => url,
             ...overrides,
         };
@@ -44,10 +45,9 @@ describe('EPGComponent', () => {
         return { epg: instance, container: instanceContainer };
     };
 
-    it('renders the key legend at the bottom of the container', () => {
+    it('does not render the legacy key legend', () => {
         const legend = container.querySelector(`.${EPG_CLASSES.LEGEND}`);
-        expect(legend).not.toBeNull();
-        expect(container.lastElementChild).toBe(legend);
+        expect(legend).toBeNull();
     });
 
     it('renders classic header placeholder before the grid container', () => {
@@ -56,34 +56,43 @@ describe('EPGComponent', () => {
         const grid = container.querySelector(`.${EPG_CLASSES.GRID}`);
 
         expect(header).not.toBeNull();
-        expect(title?.textContent).toBe('TV Listings');
+        expect(title?.textContent).toBe('LINEUP');
         expect(grid).not.toBeNull();
     });
 
-    it('renders classic chrome frame between header and grid', () => {
+    it('renders classic showcase and overlay showcase between header and grid', () => {
         const header = container.querySelector('.epg-classic-header');
-        const chrome = container.querySelector('.epg-classic-chrome');
-        const frame = container.querySelector('.epg-classic-preview-frame');
+        const showcase = container.querySelector('.epg-classic-showcase');
+        const overlayShowcase = container.querySelector(`.${EPG_CLASSES.OVERLAY_SHOWCASE}`);
+        const pip = container.querySelector('.epg-classic-showcase-pip');
+        const infoHost = container.querySelector('.epg-classic-showcase-info');
         const grid = container.querySelector(`.${EPG_CLASSES.GRID}`);
 
         expect(header).not.toBeNull();
-        expect(chrome).not.toBeNull();
-        expect(frame).not.toBeNull();
+        expect(showcase).not.toBeNull();
+        expect(overlayShowcase).not.toBeNull();
+        expect(pip).not.toBeNull();
+        expect(infoHost).not.toBeNull();
         expect(grid).not.toBeNull();
-        expect(header?.nextElementSibling).toBe(chrome);
-        expect(chrome?.nextElementSibling).toBe(grid);
+        expect(header?.nextElementSibling).toBe(showcase);
+        expect(showcase?.nextElementSibling).toBe(overlayShowcase);
+        expect(overlayShowcase?.nextElementSibling).toBe(grid);
     });
 
-    it('renders a bottom dashboard wrapper containing banner + info panel', () => {
+    it('renders overlay showcase containing info panel and dashboard with banner', () => {
         const { epg: localEpg, container: localContainer } = createEpgInstance({
             containerId: 'epg-container-dashboard-structure',
+            layoutMode: 'overlay',
         });
 
         try {
             const dashboard = localContainer.querySelector(`.${EPG_CLASSES.DASHBOARD_BOTTOM}`) as HTMLElement | null;
+            const overlayShowcase = localContainer.querySelector(`.${EPG_CLASSES.OVERLAY_SHOWCASE}`) as HTMLElement | null;
             expect(dashboard).not.toBeNull();
+            expect(overlayShowcase).not.toBeNull();
             expect(dashboard!.querySelector(`.${EPG_CLASSES.NOW_WATCHING_BANNER}`)).not.toBeNull();
-            expect(dashboard!.querySelector(`.${EPG_CLASSES.INFO_PANEL}`)).not.toBeNull();
+            expect(overlayShowcase!.querySelector(`.${EPG_CLASSES.INFO_PANEL}`)).not.toBeNull();
+            expect(dashboard!.querySelector(`.${EPG_CLASSES.INFO_PANEL}`)).toBeNull();
         } finally {
             localEpg.destroy();
             localContainer.remove();
@@ -527,11 +536,13 @@ describe('EPGComponent', () => {
             try {
                 localEpg.show();
                 const header = localContainer.querySelector('.epg-classic-header') as HTMLElement | null;
-                const chrome = localContainer.querySelector('.epg-classic-chrome') as HTMLElement | null;
+                const showcase = localContainer.querySelector('.epg-classic-showcase') as HTMLElement | null;
                 expect(header).not.toBeNull();
-                expect(chrome).not.toBeNull();
+                expect(showcase).not.toBeNull();
                 expect(header!.hidden).toBe(true);
-                expect(chrome!.hidden).toBe(true);
+                expect(showcase!.hidden).toBe(true);
+                expect(header!.getAttribute('aria-hidden')).toBe('true');
+                expect(showcase!.getAttribute('aria-hidden')).toBe('true');
             } finally {
                 localEpg.destroy();
                 localContainer.remove();
@@ -552,17 +563,21 @@ describe('EPGComponent', () => {
                 expect(localContainer.classList.contains(EPG_CLASSES.CONTAINER_CLASSIC)).toBe(true);
                 expect(onLayoutModeChange).toHaveBeenCalledWith('classic');
                 const header = localContainer.querySelector('.epg-classic-header') as HTMLElement | null;
-                const chrome = localContainer.querySelector('.epg-classic-chrome') as HTMLElement | null;
+                const showcase = localContainer.querySelector('.epg-classic-showcase') as HTMLElement | null;
                 expect(header).not.toBeNull();
-                expect(chrome).not.toBeNull();
+                expect(showcase).not.toBeNull();
                 expect(header!.hidden).toBe(false);
-                expect(chrome!.hidden).toBe(false);
+                expect(showcase!.hidden).toBe(false);
+                expect(header!.getAttribute('aria-hidden')).toBeNull();
+                expect(showcase!.getAttribute('aria-hidden')).toBeNull();
 
                 localEpg.hide();
                 expect(localContainer.classList.contains(EPG_CLASSES.CONTAINER_CLASSIC)).toBe(false);
                 expect(onLayoutModeChange).toHaveBeenCalledWith('overlay');
                 expect(header!.hidden).toBe(true);
-                expect(chrome!.hidden).toBe(true);
+                expect(showcase!.hidden).toBe(true);
+                expect(header!.getAttribute('aria-hidden')).toBe('true');
+                expect(showcase!.getAttribute('aria-hidden')).toBe('true');
             } finally {
                 localEpg.destroy();
                 localContainer.remove();
@@ -619,13 +634,37 @@ describe('EPGComponent', () => {
                 localEpg.show();
                 expect(localContainer.classList.contains(EPG_CLASSES.CONTAINER_CLASSIC)).toBe(false);
                 const header = localContainer.querySelector('.epg-classic-header') as HTMLElement;
-                const chrome = localContainer.querySelector('.epg-classic-chrome') as HTMLElement;
+                const showcase = localContainer.querySelector('.epg-classic-showcase') as HTMLElement;
                 expect(header.hidden).toBe(true);
-                expect(chrome.hidden).toBe(true);
+                expect(showcase.hidden).toBe(true);
                 localEpg.setLayoutMode('classic');
                 expect(localContainer.classList.contains(EPG_CLASSES.CONTAINER_CLASSIC)).toBe(true);
                 expect(header.hidden).toBe(false);
-                expect(chrome.hidden).toBe(true);
+                expect(showcase.hidden).toBe(false);
+            } finally {
+                localEpg.destroy();
+                localContainer.remove();
+            }
+        });
+
+        it('moves the info panel between overlay showcase and classic showcase when layout mode changes', () => {
+            const { epg: localEpg, container: localContainer } = createEpgInstance({
+                containerId: 'epg-container-info-panel-host',
+                layoutMode: 'classic',
+            });
+
+            try {
+                const overlayShowcase = localContainer.querySelector(`.${EPG_CLASSES.OVERLAY_SHOWCASE}`) as HTMLElement;
+                const showcaseInfo = localContainer.querySelector('.epg-classic-showcase-info') as HTMLElement;
+                const infoPanel = localContainer.querySelector(`.${EPG_CLASSES.INFO_PANEL}`) as HTMLElement;
+
+                expect(infoPanel.parentElement).toBe(overlayShowcase);
+
+                localEpg.show();
+                expect(infoPanel.parentElement).toBe(showcaseInfo);
+
+                localEpg.setLayoutMode('overlay');
+                expect(infoPanel.parentElement).toBe(overlayShowcase);
             } finally {
                 localEpg.destroy();
                 localContainer.remove();

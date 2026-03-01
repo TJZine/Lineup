@@ -13,6 +13,8 @@ import type { PlayerOsdReason, PlayerOsdViewModel } from './types';
 import type { PlaybackOptionsSectionId } from '../playback-options/types';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
 import { getChannelNameForDisplay } from '../channelDisplay';
+import { readStoredBoolean } from '../../../utils/storage';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 
 const RECENT_USER_ACTION_MS = 2000;
 const OSD_THROTTLE_MS = 250;
@@ -272,8 +274,9 @@ export class PlayerOsdCoordinator {
         const subtitle = program?.item.fullTitle && program.item.fullTitle !== program.item.title
             ? program.item.fullTitle
             : null;
+        const preferClearLogos = readStoredBoolean(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, true);
         const clearLogoPath = program?.item.clearLogo ?? null;
-        const clearLogoUrl = clearLogoPath
+        const clearLogoUrl = preferClearLogos && clearLogoPath
             ? this.deps.buildPlexResourceUrl(clearLogoPath)
             : null;
         const sleepTimerRemainingMs = this.deps.getSleepTimerRemainingMs?.() ?? 0;

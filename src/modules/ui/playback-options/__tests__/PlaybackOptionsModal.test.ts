@@ -104,6 +104,24 @@ describe('PlaybackOptionsModal', () => {
         expect(modal.getFocusableIds()).toEqual(['sub-1', 'sub-2', 'aud-1']);
     });
 
+    it('renders equalizer indicator on selected items only', () => {
+        const modal = new PlaybackOptionsModal();
+        modal.initialize({ containerId: 'playback-options-container' });
+
+        const { viewModel } = createViewModel();
+        viewModel.audio.options[0]!.state = 'Stereo';
+        modal.show(viewModel);
+
+        const sub1 = container.querySelector('#sub-1');
+        const aud1 = container.querySelector('#aud-1');
+        const sub1Equalizer = sub1?.querySelector('.playback-options-equalizer');
+
+        expect(sub1Equalizer).not.toBeNull();
+        expect(sub1Equalizer?.getAttribute('aria-hidden')).toBe('true');
+        expect(sub1Equalizer?.querySelectorAll('span').length).toBe(3);
+        expect(aud1?.querySelector('.playback-options-equalizer')).toBeNull();
+    });
+
     it('uses playback-options-item class, not setup-toggle', () => {
         const modal = new PlaybackOptionsModal();
         modal.initialize({ containerId: 'playback-options-container' });

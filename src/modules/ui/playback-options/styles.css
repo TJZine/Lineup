@@ -1,14 +1,18 @@
-/* Playback Options Modal */
+/* ============================================================
+   Playback Options - "Track Rail"
+   Right-edge-anchored panel for audio/subtitle track selection.
+   Design language: edge-scrim, no box-shadow, spacing-only
+   section separation.
+   ============================================================ */
+
+/* --- Container: full-screen scrim backdrop --- */
 
 .playback-options-container {
   position: absolute;
   inset: 0;
   display: none;
-  align-items: center;
-  justify-content: center;
-  background: radial-gradient(circle at 20% 20%, var(--color-primary-alpha-12), transparent 45%),
-    radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.08), transparent 40%),
-    var(--color-bg-overlay);
+  justify-content: flex-end;
+  background: rgba(0, 0, 0, 0.30);
   color: var(--color-text-primary);
   z-index: var(--z-modal);
   font-family: var(--font-family-sans);
@@ -19,43 +23,65 @@
   display: flex;
 }
 
+/* --- Panel: right-edge-anchored rail --- */
+
 .playback-options-panel {
-  width: min(860px, 92%);
-  max-height: 85vh;
-  background: var(--panel-inner-glow), var(--panel-surface);
-  border: var(--panel-border);
-  border-radius: var(--panel-radius);
-  padding: 28px 32px;
+  width: min(420px, 40vw);
+  height: 100%;
+  background: linear-gradient(
+    135deg,
+    rgba(0, 0, 0, 0.40) 0%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px 0 0 16px;
+  padding: 28px;
   overflow-y: auto;
+  animation: playback-rail-enter 300ms ease-out both;
 }
+
+@keyframes playback-rail-enter {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* --- Header --- */
 
 .playback-options-header {
   margin-bottom: 18px;
 }
 
 .playback-options-title {
-  font-size: 34px;
+  font-size: var(--text-2xl, 34px);
   font-weight: 700;
   margin: 0;
 }
+
+/* --- Sections: spacing-only separation --- */
 
 .playback-options-section {
   margin-bottom: 22px;
 }
 
+.playback-options-section + .playback-options-section {
+  margin-top: 24px;
+}
+
 .playback-options-section-title {
-  /* 10-foot UI: keep section headers readable. If shrinking, prefer --text-xs. */
   font-size: var(--text-sm);
   text-transform: uppercase;
   letter-spacing: 1.4px;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.5);
   margin: 0 0 12px 0;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .playback-options-helper {
-  /* Keep helper copy aligned with section title sizing for consistency. */
   font-size: var(--text-sm);
   line-height: 1.4;
   color: rgba(255, 255, 255, 0.7);
@@ -75,10 +101,7 @@
 }
 
 /* ============================================================
-   Playback Options Item
-   Distinct from onboarding .setup-toggle - tuned for
-   10-foot TV viewing: large text, accent-border selection,
-   inset focus ring.
+   Track Items - staggered entry animation
    ============================================================ */
 
 .playback-options-item {
@@ -99,7 +122,31 @@
   transition:
     background-color var(--transition-fast),
     border-color var(--transition-fast);
+  animation: playback-item-enter 200ms ease-out both;
 }
+
+@keyframes playback-item-enter {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.playback-options-item:nth-child(1) { animation-delay: 60ms; }
+.playback-options-item:nth-child(2) { animation-delay: 90ms; }
+.playback-options-item:nth-child(3) { animation-delay: 120ms; }
+.playback-options-item:nth-child(4) { animation-delay: 150ms; }
+.playback-options-item:nth-child(5) { animation-delay: 180ms; }
+.playback-options-item:nth-child(6) { animation-delay: 210ms; }
+.playback-options-item:nth-child(7) { animation-delay: 240ms; }
+.playback-options-item:nth-child(8) { animation-delay: 270ms; }
+.playback-options-item:nth-child(9) { animation-delay: 300ms; }
+.playback-options-item:nth-child(10) { animation-delay: 330ms; }
+.playback-options-item:nth-child(n+11) { animation-delay: 360ms; }
 
 .playback-options-item.selected {
   background: var(--color-primary-alpha-16);
@@ -151,6 +198,9 @@
   grid-column: 2;
   grid-row: 1 / span 2;
   align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: var(--text-sm);
   color: var(--color-text-muted);
   white-space: nowrap;
@@ -172,8 +222,61 @@
   pointer-events: none;
 }
 
+/* ============================================================
+   Active Track Equalizer - 3-bar bouncing animation
+   ============================================================ */
+
+.playback-options-equalizer {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.playback-options-equalizer > span {
+  display: block;
+  width: 3px;
+  background: var(--color-primary);
+  border-radius: 1px;
+  animation: equalizer-bounce 0.8s ease-in-out infinite alternate;
+}
+
+.playback-options-equalizer > span:nth-child(1) {
+  height: 40%;
+  animation-delay: 0s;
+}
+
+.playback-options-equalizer > span:nth-child(2) {
+  height: 70%;
+  animation-delay: 0.2s;
+}
+
+.playback-options-equalizer > span:nth-child(3) {
+  height: 50%;
+  animation-delay: 0.4s;
+}
+
+@keyframes equalizer-bounce {
+  0% { height: 30%; }
+  100% { height: 100%; }
+}
+
+/* ============================================================
+   Motion safety
+   ============================================================ */
+
 @media (prefers-reduced-motion: reduce) {
+  .playback-options-panel {
+    animation: none;
+  }
+
   .playback-options-item {
+    animation: none;
     transition: none;
+  }
+
+  .playback-options-equalizer > span {
+    animation: none;
   }
 }

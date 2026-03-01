@@ -323,7 +323,7 @@ export class EPGCoordinator {
         }
 
         const storedLayoutMode = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
-        const layoutMode = storedLayoutMode === 'classic' ? 'classic' : 'overlay';
+        const layoutMode = storedLayoutMode === 'overlay' ? 'overlay' : 'classic';
         const nowWatchingEnabled = readStoredBoolean(LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, true);
         epg.setLayoutMode(layoutMode);
         epg.setNowWatchingBannerEnabled(nowWatchingEnabled);

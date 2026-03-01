@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const THEMES = ['broadcast', 'swiss', 'directv', 'glass'] as const;
+const THEMES = ['broadcast', 'swiss', 'directv', 'glass', 'ember-steel'] as const;
 const REQUIRED_TOKENS = [
     '--focus-color',
     '--focus-color-rgb',

@@ -114,6 +114,10 @@ const TOGGLE_METADATA: Record<string, ToggleMetadata> = {
         storageKey: SETTINGS_STORAGE_KEYS.CINEMATIC_NOW_PLAYING,
         defaultValue: DEFAULT_SETTINGS.display.cinematicNowPlaying,
     },
+    'settings-prefer-clear-logos': {
+        storageKey: SETTINGS_STORAGE_KEYS.PREFER_CLEAR_LOGOS,
+        defaultValue: DEFAULT_SETTINGS.display.preferClearLogos,
+    },
 };
 
 const SELECT_METADATA: Record<string, SelectMetadata> = {
@@ -139,7 +143,7 @@ const SELECT_METADATA: Record<string, SelectMetadata> = {
     },
     'settings-epg-layout-mode': {
         storageKey: SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE,
-        defaultValue: 0,
+        defaultValue: 1,
     },
     'settings-epg-density': {
         storageKey: SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY,
@@ -170,6 +174,11 @@ export class SettingsScreen {
     private _detailItems: HTMLElement | null = null;
     private _switchProfileButton: HTMLButtonElement | null = null;
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
+    private _detailSwapFrame: number | null = null;
+    private _detailRevealFrame: number | null = null;
+    // When a category swap is deferred via RAF, we must preserve the focus intent
+    // (e.g., RIGHT into details) and apply it after detail items exist.
+    private _pendingFocusRestore: { categoryId: SettingsCategoryId; preferredFocusId: string | null } | null = null;
 
     constructor(
         container: HTMLElement,
@@ -214,14 +223,14 @@ export class SettingsScreen {
 
         header.appendChild(title);
         header.appendChild(hint);
-        panel.appendChild(header);
-
-        const content = document.createElement('div');
-        content.className = 'settings-content';
 
         const categoryRail = document.createElement('div');
         categoryRail.className = 'settings-categories';
         categoryRail.setAttribute('aria-label', 'Settings categories');
+        categoryRail.appendChild(header);
+
+        const content = document.createElement('div');
+        content.className = 'settings-content';
 
         const detail = document.createElement('div');
         detail.className = 'settings-detail';
@@ -246,8 +255,8 @@ export class SettingsScreen {
         }
         this._renderActiveCategory();
 
-        content.appendChild(categoryRail);
         content.appendChild(detail);
+        panel.appendChild(categoryRail);
         panel.appendChild(content);
 
         const actions = document.createElement('div');
@@ -263,7 +272,8 @@ export class SettingsScreen {
         });
         actions.appendChild(switchProfileButton);
         this._switchProfileButton = switchProfileButton;
-        detail.appendChild(actions);
+        actions.classList.add('settings-rail-actions');
+        categoryRail.appendChild(actions);
 
         this._container.appendChild(panel);
     }
@@ -517,6 +527,18 @@ export class SettingsScreen {
                         },
                     },
                     {
+                        id: 'settings-prefer-clear-logos',
+                        label: 'Use Clear Logos',
+                        description: 'Show clear logos instead of text titles when available',
+                        value: this._loadBoolSetting(
+                            SETTINGS_STORAGE_KEYS.PREFER_CLEAR_LOGOS,
+                            DEFAULT_SETTINGS.display.preferClearLogos
+                        ),
+                        onChange: (value: boolean): void => {
+                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.PREFER_CLEAR_LOGOS, value);
+                        },
+                    },
+                    {
                         id: 'settings-now-playing-timeout',
                         label: 'Now Playing Auto-Hide',
                         description: 'Info overlay hide delay',
@@ -604,13 +626,65 @@ export class SettingsScreen {
             this._detailTitle.textContent = activeCategory?.label ?? '';
         }
 
+        if (this._detailSwapFrame !== null) {
+            cancelAnimationFrame(this._detailSwapFrame);
+            this._detailSwapFrame = null;
+        }
+        if (this._detailRevealFrame !== null) {
+            cancelAnimationFrame(this._detailRevealFrame);
+            this._detailRevealFrame = null;
+        }
+
         if (this._detailItems) {
-            this._detailItems.innerHTML = '';
-            if (activeCategory) {
-                for (const item of activeCategory.items) {
-                    this._activeCategoryItemIds.push(item.id);
-                    this._detailItems.appendChild(this._createItem(item));
+            const renderItems = (): void => {
+                if (!this._detailItems) return;
+                this._detailItems.innerHTML = '';
+                if (activeCategory) {
+                    for (const item of activeCategory.items) {
+                        this._activeCategoryItemIds.push(item.id);
+                        this._detailItems.appendChild(this._createItem(item));
+                    }
                 }
+            };
+
+            const shouldCrossfade = this._detailItems.childElementCount > 0 && this._focusableIds.length > 0;
+            if (!shouldCrossfade) {
+                this._detailItems.classList.remove('transitioning');
+                renderItems();
+            } else {
+                const expectedCategoryId = this._activeCategoryId;
+                this._detailItems.classList.add('transitioning');
+
+                this._detailSwapFrame = requestAnimationFrame(() => {
+                    this._detailSwapFrame = null;
+                    if (!this._detailItems || expectedCategoryId !== this._activeCategoryId) return;
+
+                    renderItems();
+
+                    // Detail controls are recreated asynchronously; re-register focusables
+                    // so D-pad navigation reflects the active category after the swap frame.
+                    const pendingPreferredFocusId =
+                        this._pendingFocusRestore?.categoryId === expectedCategoryId
+                            ? this._pendingFocusRestore.preferredFocusId
+                            : null;
+                    // Always clear pending intent once the swap for that category has completed, even if hidden.
+                    if (this._pendingFocusRestore?.categoryId === expectedCategoryId) {
+                        this._pendingFocusRestore = null;
+                    }
+
+                    if (this._container.classList.contains('visible')) {
+                        const nav = this._getNavigation();
+                        const preferredFocusId = pendingPreferredFocusId ?? nav?.getFocusedElement()?.id ?? null;
+                        this._unregisterFocusables();
+                        this._registerFocusables(preferredFocusId);
+                    }
+
+                    this._detailRevealFrame = requestAnimationFrame(() => {
+                        this._detailRevealFrame = null;
+                        if (expectedCategoryId !== this._activeCategoryId) return;
+                        this._detailItems?.classList.remove('transitioning');
+                    });
+                });
             }
         }
 
@@ -627,6 +701,26 @@ export class SettingsScreen {
         categoryId: SettingsCategoryId,
         options: { preferredFocusId?: string | null; focusDetail?: boolean } = {}
     ): void {
+        // Focus-only path: pressing RIGHT on an already-active category should not re-render
+        // the detail pane. It should simply move focus into the detail controls.
+        if (this._activeCategoryId === categoryId && options.focusDetail) {
+            if (!this._container.classList.contains('visible')) {
+                return;
+            }
+            const preferredFocusId =
+                this._getPreferredDetailFocusId(categoryId) ?? this._getCategoryButtonId(categoryId);
+            // If a category swap is currently deferred, detail items may not exist yet. Preserve intent so
+            // the swap frame can focus the desired detail control once it is created.
+            const isDeferredSwapActive =
+                this._detailSwapFrame !== null || this._detailItems?.classList.contains('transitioning') === true;
+            if (isDeferredSwapActive && preferredFocusId !== this._getCategoryButtonId(categoryId)) {
+                this._pendingFocusRestore = { categoryId, preferredFocusId };
+            }
+            this._unregisterFocusables();
+            this._registerFocusables(preferredFocusId);
+            return;
+        }
+
         if (this._activeCategoryId === categoryId && !options.focusDetail) {
             return;
         }
@@ -636,15 +730,29 @@ export class SettingsScreen {
         if (!this._categories.some((category) => category.id === this._activeCategoryId)) {
             this._activeCategoryId = this._categories[0]?.id ?? null;
         }
-        this._renderActiveCategory();
 
-        if (!this._container.classList.contains('visible')) {
-            return;
+        const resolvedCategoryId = this._activeCategoryId;
+        const isVisible = this._container.classList.contains('visible');
+        const resolvedCategoryButtonId = resolvedCategoryId ? this._getCategoryButtonId(resolvedCategoryId) : null;
+        const resolvedCategoryConfig = resolvedCategoryId
+            ? this._categories.find((entry) => entry.id === resolvedCategoryId)
+            : undefined;
+        const preferredFocusId = !isVisible || !resolvedCategoryId || !resolvedCategoryButtonId
+            ? null
+            : options.focusDetail
+                ? this._lastFocusedItemByCategory[resolvedCategoryId] ??
+                    resolvedCategoryConfig?.items[0]?.id ??
+                    resolvedCategoryButtonId
+                : options.preferredFocusId ?? resolvedCategoryButtonId;
+        if (isVisible && resolvedCategoryId) {
+            this._pendingFocusRestore = { categoryId: resolvedCategoryId, preferredFocusId };
         }
 
-        const preferredFocusId = options.focusDetail
-            ? this._getPreferredDetailFocusId(categoryId) ?? this._getCategoryButtonId(categoryId)
-            : options.preferredFocusId ?? this._getCategoryButtonId(categoryId);
+        this._renderActiveCategory();
+
+        if (!isVisible) {
+            return;
+        }
         this._unregisterFocusables();
         this._registerFocusables(preferredFocusId);
     }
@@ -673,7 +781,13 @@ export class SettingsScreen {
             }
         }
         if (this._activeCategoryId === categoryId) {
-            return this._activeCategoryItemIds.find((id) => this._isFocusableEnabled(id)) ?? this._activeCategoryItemIds[0];
+            // During deferred detail swaps, `_activeCategoryItemIds` may not be populated yet.
+            // Prefer the first enabled detail id if available, otherwise fall back to the category config below.
+            const activeId =
+                this._activeCategoryItemIds.find((id) => this._isFocusableEnabled(id)) ?? this._activeCategoryItemIds[0];
+            if (activeId) {
+                return activeId;
+            }
         }
         const category = this._categories.find((entry) => entry.id === categoryId);
         return category?.items[0]?.id;
@@ -746,6 +860,16 @@ export class SettingsScreen {
             nav?.off('keyPress', this._navKeyHandler);
             this._navKeyHandler = null;
         }
+        if (this._detailSwapFrame !== null) {
+            cancelAnimationFrame(this._detailSwapFrame);
+            this._detailSwapFrame = null;
+        }
+        if (this._detailRevealFrame !== null) {
+            cancelAnimationFrame(this._detailRevealFrame);
+            this._detailRevealFrame = null;
+        }
+        this._detailItems?.classList.remove('transitioning');
+        this._pendingFocusRestore = null;
         this._unregisterFocusables();
     }
 
@@ -850,11 +974,18 @@ export class SettingsScreen {
             nav.registerFocusable(focusable);
         }
 
+        // If focus currently points at a different category button than the active one, do not preserve it.
+        // Preserving it would immediately trigger that button's onFocus handler and revert the active category swap.
+        const currentFocusedCategoryId = currentFocusId ? this._getCategoryIdFromButtonId(currentFocusId) : null;
+        const shouldIgnoreCurrentFocus =
+            Boolean(currentFocusedCategoryId && activeCategoryId && currentFocusedCategoryId !== activeCategoryId);
+        const usableCurrentFocusId = shouldIgnoreCurrentFocus ? null : currentFocusId;
+
         // Preserve current focus if still enabled, otherwise focus the first available
         const preferredId = preferredFocusId && focusableIds.includes(preferredFocusId)
             ? preferredFocusId
-            : currentFocusId && focusableIds.includes(currentFocusId)
-                ? currentFocusId
+            : usableCurrentFocusId && focusableIds.includes(usableCurrentFocusId)
+                ? usableCurrentFocusId
                 : activeCategoryButtonId && focusableIds.includes(activeCategoryButtonId)
                     ? activeCategoryButtonId
                     : focusableIds[0];
@@ -892,7 +1023,7 @@ export class SettingsScreen {
 
     private _loadEpgLayoutModeValue(): number {
         const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE);
-        return raw === 'classic' ? 1 : 0;
+        return raw === 'overlay' ? 0 : 1;
     }
 
     private _loadEpgGuideDensityValue(): number {
@@ -1181,6 +1312,14 @@ export class SettingsScreen {
         this._detailTitle = null;
         this._detailItems = null;
         this._switchProfileButton = null;
+        if (this._detailSwapFrame !== null) {
+            cancelAnimationFrame(this._detailSwapFrame);
+            this._detailSwapFrame = null;
+        }
+        if (this._detailRevealFrame !== null) {
+            cancelAnimationFrame(this._detailRevealFrame);
+            this._detailRevealFrame = null;
+        }
         this._container.innerHTML = '';
     }
 }

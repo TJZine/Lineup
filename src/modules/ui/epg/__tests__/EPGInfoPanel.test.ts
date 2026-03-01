@@ -7,6 +7,7 @@
  */
 
 import { EPGInfoPanel } from '../EPGInfoPanel';
+import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import type { ScheduledProgram } from '../types';
 
 describe('EPGInfoPanel', () => {
@@ -373,6 +374,54 @@ describe('EPGInfoPanel', () => {
             const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
             expect(poster.style.display).toBe('block');
             expect(poster.alt).toBe('Great Show');
+        });
+
+        it('renders clear logo in place of title when enabled', () => {
+            localStorage.setItem(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, '1');
+            try {
+                const resolver = jest.fn((path: string | null) => (path ? `https://img${path}` : null));
+                panel.setThumbResolver(resolver);
+
+                const program = createMockProgram(null, { clearLogo: '/clearlogo.png' });
+                panel.show(program);
+
+                const logo = container.querySelector('.epg-info-clear-logo') as HTMLImageElement | null;
+                const title = container.querySelector('.epg-info-title') as HTMLElement | null;
+                expect(logo?.style.display).toBe('block');
+                expect(logo?.src).toBe('https://img/clearlogo.png');
+                expect(title?.style.display).toBe('none');
+            } finally {
+                localStorage.removeItem(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS);
+            }
+        });
+
+        it('keeps episode show title hidden when clear logo fails and show title text is empty', () => {
+            localStorage.setItem(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, '1');
+            try {
+                const resolver = jest.fn((path: string | null) => (path ? `https://img${path}` : null));
+                panel.setThumbResolver(resolver);
+
+                const program = createMockProgram(null, {
+                    type: 'episode',
+                    title: 'Episode Title',
+                    fullTitle: 'Episode Title',
+                    showTitle: '',
+                    clearLogo: '/broken-logo.png',
+                });
+                panel.show(program);
+
+                const logo = container.querySelector('.epg-info-clear-logo') as HTMLImageElement | null;
+                const showTitle = container.querySelector('.epg-info-show') as HTMLElement | null;
+                expect(logo?.style.display).toBe('block');
+                expect(showTitle?.style.display).toBe('none');
+
+                (logo?.onerror as unknown as (() => void))?.();
+
+                expect(logo?.style.display).toBe('none');
+                expect(showTitle?.style.display).toBe('none');
+            } finally {
+                localStorage.removeItem(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS);
+            }
         });
     });
 

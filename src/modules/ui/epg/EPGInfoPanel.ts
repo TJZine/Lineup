@@ -11,6 +11,8 @@ import type { ScheduledProgram } from './types';
 import type { PlexMediaItem } from '../../plex/library';
 import { extractHdrLabelFromPlexMedia } from '../../plex/stream/hdr';
 import { formatContentRatingBadge } from '../../../utils/contentRating';
+import { readStoredBoolean } from '../../../utils/storage';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 
 /**
  * EPG Info Panel class.
@@ -22,6 +24,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private posterElement: HTMLImageElement | null = null;
     private showTitleElement: HTMLElement | null = null;
     private titleElement: HTMLElement | null = null;
+    private clearLogoElement: HTMLImageElement | null = null;
     private metaElement: HTMLElement | null = null;
     private tagsElement: HTMLElement | null = null;
     private genresElement: HTMLElement | null = null;
@@ -89,6 +92,9 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.titleElement = this.containerElement.querySelector(
             `.${EPG_CLASSES.INFO_TITLE}`
         ) as HTMLElement | null;
+        this.clearLogoElement = this.containerElement.querySelector(
+            `.${EPG_CLASSES.INFO_CLEAR_LOGO}`
+        ) as HTMLImageElement | null;
         this.metaElement = this.containerElement.querySelector(
             `.${EPG_CLASSES.INFO_META}`
         ) as HTMLElement | null;
@@ -130,6 +136,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         <img class="${EPG_CLASSES.INFO_POSTER}" alt="" />
       </div>
       <div class="${EPG_CLASSES.INFO_CONTENT}">
+        <img class="${EPG_CLASSES.INFO_CLEAR_LOGO}" alt="" style="display:none" />
         <div class="${EPG_CLASSES.INFO_SHOW} ${EPG_CLASSES.INFO_EYEBROW}"></div>
         <div class="${EPG_CLASSES.INFO_TITLE}"></div>
         <div class="${EPG_CLASSES.INFO_META}"></div>
@@ -155,6 +162,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.posterElement = null;
         this.showTitleElement = null;
         this.titleElement = null;
+        this.clearLogoElement = null;
         this.metaElement = null;
         this.tagsElement = null;
         this.genresElement = null;
@@ -269,6 +277,52 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             }
             if (title) {
                 title.textContent = item.fullTitle || item.title;
+            }
+        }
+        const hasShowTitleText = Boolean(showTitle?.textContent?.trim());
+
+        const preferClearLogos = readStoredBoolean(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, true);
+        const clearLogoPath = (item as { clearLogo?: string | null }).clearLogo ?? null;
+        const clearLogoUrl = preferClearLogos && clearLogoPath
+            ? (this.thumbResolver?.(clearLogoPath, 520, 84) ?? null)
+            : null;
+
+        const clearLogo = this.clearLogoElement;
+        if (clearLogoUrl && clearLogo) {
+            clearLogo.onerror = (): void => {
+                clearLogo.onerror = null;
+                clearLogo.removeAttribute('src');
+                clearLogo.alt = '';
+                clearLogo.style.display = 'none';
+                if (item.type === 'episode') {
+                    if (showTitle) showTitle.style.display = hasShowTitleText ? 'block' : 'none';
+                } else {
+                    if (title) title.style.display = '';
+                }
+            };
+
+            clearLogo.alt = item.type === 'episode'
+                ? (showTitle?.textContent ?? '')
+                : (title?.textContent ?? '');
+            clearLogo.src = clearLogoUrl;
+            clearLogo.style.display = 'block';
+
+            if (item.type === 'episode') {
+                if (showTitle) showTitle.style.display = 'none';
+                if (title) title.style.display = '';
+            } else {
+                if (title) title.style.display = 'none';
+            }
+        } else if (clearLogo) {
+            clearLogo.onerror = null;
+            clearLogo.removeAttribute('src');
+            clearLogo.style.display = 'none';
+            clearLogo.alt = '';
+            if (item.type === 'episode') {
+                if (showTitle) showTitle.style.display = hasShowTitleText ? 'block' : 'none';
+                if (title) title.style.display = '';
+            } else {
+                if (title) title.style.display = '';
             }
         }
 

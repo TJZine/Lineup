@@ -717,7 +717,7 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             // Wire thumb resolver callback to convert relative Plex paths to absolute URLs
             const storedLayoutMode = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
             const layoutMode: 'overlay' | 'classic' =
-                storedLayoutMode === 'classic' ? 'classic' : 'overlay';
+                storedLayoutMode === 'overlay' ? 'overlay' : 'classic';
             const showNowWatchingBanner = readStoredBoolean(
                 LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED,
                 true

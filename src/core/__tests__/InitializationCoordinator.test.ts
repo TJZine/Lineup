@@ -6,6 +6,7 @@ import { InitializationCoordinator } from '../InitializationCoordinator';
 import type { InitializationDependencies, InitializationCallbacks } from '../InitializationCoordinator';
 import type { PlexAuthDataV2 } from '../../modules/plex/auth';
 import { CHANNEL_BADGE_CONTAINER_ID } from '../../modules/ui/channel-badge';
+import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 
 const createStoredCredentials = (
     activeToken: string,
@@ -238,5 +239,46 @@ describe('InitializationCoordinator (Plex Home)', () => {
         // Assert: storage configured before discovery initialize reads from localStorage
         expect(order[0]).toBe('configure');
         expect(order).toContain('init');
+    });
+
+    describe('EPG layoutMode fallback injection', () => {
+        it('defaults to classic when storage is unset', async () => {
+            localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
+
+            const epg = { initialize: jest.fn() } as unknown as InitializationDependencies['epg'];
+            const { coordinator } = makeCoordinator({ epg, plexLibrary: null });
+
+            await coordinator.runStartup(5);
+
+            expect((epg as unknown as { initialize: jest.Mock }).initialize).toHaveBeenCalledWith(
+                expect.objectContaining({ layoutMode: 'classic' })
+            );
+        });
+
+        it('uses overlay only when storage is exactly overlay', async () => {
+            localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
+
+            const epg = { initialize: jest.fn() } as unknown as InitializationDependencies['epg'];
+            const { coordinator } = makeCoordinator({ epg, plexLibrary: null });
+
+            await coordinator.runStartup(5);
+
+            expect((epg as unknown as { initialize: jest.Mock }).initialize).toHaveBeenCalledWith(
+                expect.objectContaining({ layoutMode: 'overlay' })
+            );
+        });
+
+        it('treats invalid stored values as classic', async () => {
+            localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, 'weird');
+
+            const epg = { initialize: jest.fn() } as unknown as InitializationDependencies['epg'];
+            const { coordinator } = makeCoordinator({ epg, plexLibrary: null });
+
+            await coordinator.runStartup(5);
+
+            expect((epg as unknown as { initialize: jest.Mock }).initialize).toHaveBeenCalledWith(
+                expect.objectContaining({ layoutMode: 'classic' })
+            );
+        });
     });
 });

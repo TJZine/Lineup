@@ -17,4 +17,5 @@ export const PLAYBACK_OPTIONS_CLASSES = {
     LIST: 'playback-options-list',
     EMPTY: 'playback-options-empty',
     ITEM: 'playback-options-item',
+    EQUALIZER: 'playback-options-equalizer',
 } as const;

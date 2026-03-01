@@ -62,7 +62,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     // DOM elements
     private containerElement: HTMLElement | null = null;
     private classicHeaderElement: HTMLElement | null = null;
-    private classicChromeElement: HTMLElement | null = null;
+    private classicShowcaseElement: HTMLElement | null = null;
     private gridElement: HTMLElement | null = null;
     private programAreaElement: HTMLElement | null = null;
     private timeIndicatorElement: HTMLElement | null = null;
@@ -74,6 +74,9 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private nowWatchingChannelElement: HTMLElement | null = null;
     private nowWatchingProgramElement: HTMLElement | null = null;
     private nowWatchingTimeElement: HTMLElement | null = null;
+    private infoPanelElement: HTMLElement | null = null;
+    private classicShowcaseInfoElement: HTMLElement | null = null;
+    private overlayShowcaseElement: HTMLElement | null = null;
     private hasRenderedOnce: boolean = false;
     private lastVisibleRangeKey: string | null = null;
     private _isSelectInProgress: boolean = false;
@@ -153,15 +156,17 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this.timeHeader.initialize(this.gridElement, this.config, this.state.gridAnchorTime);
             this.channelList.initialize(this.gridElement, this.config);
             const dashboard = this.containerElement.querySelector(`.${EPG_CLASSES.DASHBOARD_BOTTOM}`) as HTMLElement | null;
+            const overlayShowcase = this.containerElement.querySelector(
+                `.${EPG_CLASSES.OVERLAY_SHOWCASE}`
+            ) as HTMLElement | null;
             if (!dashboard) {
                 throw new Error(EPG_ERRORS.DASHBOARD_CONTAINER_NOT_FOUND);
             }
-            this.infoPanel.initialize(dashboard);
-            // Keep the key legend at the very bottom (below the info panel).
-            const legend = this.containerElement.querySelector(`.${EPG_CLASSES.LEGEND}`);
-            if (legend) {
-                this.containerElement.appendChild(legend);
+            if (!overlayShowcase) {
+                throw new Error(EPG_ERRORS.OVERLAY_SHOWCASE_CONTAINER_NOT_FOUND);
             }
+            this.infoPanel.initialize(overlayShowcase);
+            this.infoPanelElement = this.containerElement.querySelector(`.${EPG_CLASSES.INFO_PANEL}`) as HTMLElement | null;
 
             // Wire thumb resolver to info panel
             if (this.config.resolveThumbUrl) {
@@ -235,7 +240,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         this.containerElement = null;
         this.classicHeaderElement = null;
-        this.classicChromeElement = null;
+        this.classicShowcaseElement = null;
         this.gridElement = null;
         this.programAreaElement = null;
         this.timeIndicatorElement = null;
@@ -247,6 +252,9 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.nowWatchingChannelElement = null;
         this.nowWatchingProgramElement = null;
         this.nowWatchingTimeElement = null;
+        this.infoPanelElement = null;
+        this.classicShowcaseInfoElement = null;
+        this.overlayShowcaseElement = null;
 
         this.state = {
             isInitialized: false,
@@ -317,15 +325,17 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         this.containerElement.className = EPG_CLASSES.CONTAINER;
         this.containerElement.innerHTML = `
-      <div class="epg-classic-header" aria-hidden="true" hidden>
-        <div class="epg-classic-header-title">TV Listings</div>
+      <div class="epg-classic-header" hidden>
+        <div class="epg-classic-header-title">LINEUP</div>
         <div class="epg-classic-header-actions">
-          <span>[ ]</span><span>⏱</span><span>⚙</span><span>⏻</span>
+          <span>OK Select</span><span>&middot; LEFT/RIGHT Navigate</span><span>&middot; BACK Close</span>
         </div>
       </div>
-      <div class="epg-classic-chrome" aria-hidden="true" hidden>
-        <div class="epg-classic-preview-frame"></div>
+      <div class="epg-classic-showcase" hidden>
+        <div class="epg-classic-showcase-pip"></div>
+        <div class="epg-classic-showcase-info"></div>
       </div>
+      <div class="${EPG_CLASSES.OVERLAY_SHOWCASE}"></div>
       <div class="${EPG_CLASSES.GRID}">
         <div class="${EPG_CLASSES.PROGRAM_AREA}"></div>
       </div>
@@ -336,21 +346,16 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
           <span class="${EPG_CLASSES.NOW_WATCHING_TIME}"></span>
         </div>
       </div>
-      <div class="${EPG_CLASSES.LEGEND}" aria-hidden="true">
-        <div class="epg-legend-item"><span class="epg-legend-key">PLAY</span><span class="epg-legend-text">Jump to Now</span></div>
-        <div class="epg-legend-item"><span class="epg-legend-key">OK</span><span class="epg-legend-text">Select</span></div>
-        <div class="epg-legend-item"><span class="epg-legend-key">CH +/-</span><span class="epg-legend-text">Page</span></div>
-        <div class="epg-legend-item"><span class="epg-legend-key">BACK</span><span class="epg-legend-text">Close</span></div>
-        <div class="epg-legend-item"><span class="epg-legend-swatch green"></span><span class="epg-legend-text">Guide</span></div>
-        <div class="epg-legend-item"><span class="epg-legend-swatch yellow"></span><span class="epg-legend-text">Settings</span></div>
-        <div class="epg-legend-item"><span class="epg-legend-swatch red"></span><span class="epg-legend-text">Now Playing</span></div>
-      </div>
     `;
 
         this.gridElement = this.containerElement.querySelector(`.${EPG_CLASSES.GRID}`);
         this.programAreaElement = this.containerElement.querySelector(`.${EPG_CLASSES.PROGRAM_AREA}`);
         this.classicHeaderElement = this.containerElement.querySelector('.epg-classic-header');
-        this.classicChromeElement = this.containerElement.querySelector('.epg-classic-chrome');
+        this.classicShowcaseElement = this.containerElement.querySelector('.epg-classic-showcase');
+        this.classicShowcaseInfoElement = this.containerElement.querySelector('.epg-classic-showcase-info');
+        this.overlayShowcaseElement = this.containerElement.querySelector(
+            `.${EPG_CLASSES.OVERLAY_SHOWCASE}`
+        );
         this.nowWatchingBannerElement = this.containerElement.querySelector(
             `.${EPG_CLASSES.NOW_WATCHING_BANNER}`
         );
@@ -369,20 +374,41 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
     }
 
+    private syncInfoPanelHost(): void {
+        const infoPanel = this.infoPanelElement;
+        const showcaseInfo = this.classicShowcaseInfoElement;
+        const overlayShowcase = this.overlayShowcaseElement;
+        if (!infoPanel || !showcaseInfo || !overlayShowcase) return;
+
+        const mode: 'overlay' | 'classic' = this.config.layoutMode ?? 'classic';
+        const target = mode === 'classic' ? showcaseInfo : overlayShowcase;
+        if (infoPanel.parentElement !== target) {
+            target.appendChild(infoPanel);
+        }
+    }
+
+    private setAriaHidden(element: HTMLElement, hidden: boolean): void {
+        if (hidden) {
+            element.setAttribute('aria-hidden', 'true');
+        } else {
+            element.removeAttribute('aria-hidden');
+        }
+    }
+
     private syncClassicShellVisibility(): void {
         const header = this.classicHeaderElement;
-        const chrome = this.classicChromeElement;
+        const showcase = this.classicShowcaseElement;
         const container = this.containerElement;
-        if (!header || !chrome || !container) return;
+        if (!header || !showcase || !container) return;
 
-        const mode = this.config.layoutMode ?? 'overlay';
+        const mode: 'overlay' | 'classic' = this.config.layoutMode ?? 'classic';
         const isVisible = this.state.isVisible;
         const isClassicVisible = mode === 'classic' && isVisible;
-        const isClassicPeekVisible = isClassicVisible && container.classList.contains(EPG_CLASSES.CONTAINER_PEEK);
 
-        // Keep classic chrome out of overlay mode regardless of CSS.
         header.hidden = !isClassicVisible;
-        chrome.hidden = !isClassicPeekVisible;
+        showcase.hidden = !isClassicVisible;
+        this.setAriaHidden(header, !isClassicVisible);
+        this.setAriaHidden(showcase, !isClassicVisible);
     }
 
     private initializeProgramAreaOverlays(): void {
@@ -497,7 +523,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
     private applyLayoutMode(): void {
         if (!this.containerElement) return;
-        const mode = this.config.layoutMode ?? 'overlay';
+        const mode: 'overlay' | 'classic' = this.config.layoutMode ?? 'classic';
         if (mode !== this._appliedLayoutMode) {
             this._appliedLayoutMode = mode;
             if (mode === 'classic') {
@@ -513,6 +539,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this._appliedPipMode = pipMode;
             this.config.onLayoutModeChange?.(pipMode);
         }
+        this.syncInfoPanelHost();
         this.syncClassicShellVisibility();
     }
 

@@ -31,6 +31,8 @@ export const SETTINGS_STORAGE_KEYS = {
     THEME: LINEUP_STORAGE_KEYS.THEME,
     /** Cinematic layout for Now Playing overlay */
     CINEMATIC_NOW_PLAYING: LINEUP_STORAGE_KEYS.CINEMATIC_NOW_PLAYING,
+    /** Prefer clear logos over text titles when available */
+    PREFER_CLEAR_LOGOS: LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS,
     /** Debug logging enabled */
     DEBUG_LOGGING: LINEUP_STORAGE_KEYS.DEBUG_LOGGING,
     /** Subtitle debug logging enabled */
@@ -80,6 +82,7 @@ export const DEFAULT_SETTINGS: SettingsConfig = {
         theme: DEFAULT_THEME,
         nowPlayingInfoAutoHideMs: 0,
         cinematicNowPlaying: false,
+        preferClearLogos: true,
     },
     developer: {
         debugLogging: false,

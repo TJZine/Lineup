@@ -164,12 +164,26 @@ export class PlaybackOptionsModal implements IPlaybackOptionsModal {
         }
         button.appendChild(meta);
 
-        if (item.state) {
-            const state = document.createElement('span');
-            state.className = 'playback-options-item-state';
-            state.textContent = item.state;
-            button.appendChild(state);
+        const stateContainer = document.createElement('span');
+        stateContainer.className = 'playback-options-item-state';
+
+        if (item.selected) {
+            const equalizer = document.createElement('span');
+            equalizer.className = PLAYBACK_OPTIONS_CLASSES.EQUALIZER;
+            equalizer.setAttribute('aria-hidden', 'true');
+
+            for (let i = 0; i < 3; i += 1) {
+                equalizer.appendChild(document.createElement('span'));
+            }
+
+            stateContainer.appendChild(equalizer);
         }
+
+        if (item.state) {
+            stateContainer.appendChild(document.createTextNode(item.state));
+        }
+
+        button.appendChild(stateContainer);
 
         button.addEventListener('click', () => {
             if (item.disabled) return;

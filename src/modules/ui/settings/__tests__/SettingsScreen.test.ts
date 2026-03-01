@@ -16,6 +16,8 @@ type StubFocusable = {
 };
 
 const ALL_THEME_CLASSES = Object.values(THEME_CLASSES).filter(Boolean);
+const REAL_REQUEST_ANIMATION_FRAME = window.requestAnimationFrame;
+const REAL_CANCEL_ANIMATION_FRAME = window.cancelAnimationFrame;
 
 const createNavigationStub = (): {
     focusables: Map<string, StubFocusable>;
@@ -72,6 +74,35 @@ const activateCategory = (container: HTMLElement, categoryId: string): void => {
     button.click();
 };
 
+beforeEach(() => {
+    Object.defineProperty(window, 'requestAnimationFrame', {
+        configurable: true,
+        writable: true,
+        value: (cb: FrameRequestCallback): number => {
+            cb(16);
+            return 1;
+        },
+    });
+    Object.defineProperty(window, 'cancelAnimationFrame', {
+        configurable: true,
+        writable: true,
+        value: (): void => {},
+    });
+});
+
+afterEach(() => {
+    Object.defineProperty(window, 'requestAnimationFrame', {
+        configurable: true,
+        writable: true,
+        value: REAL_REQUEST_ANIMATION_FRAME,
+    });
+    Object.defineProperty(window, 'cancelAnimationFrame', {
+        configurable: true,
+        writable: true,
+        value: REAL_CANCEL_ANIMATION_FRAME,
+    });
+});
+
 describe('SettingsScreen (Guide settings)', () => {
     beforeEach(() => {
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE);
@@ -87,6 +118,7 @@ describe('SettingsScreen (Guide settings)', () => {
     it('writes layout mode and emits change', () => {
         const onGuideSettingChange = jest.fn();
         const { container, screen } = createScreen(onGuideSettingChange);
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
 
         screen.show();
         activateCategory(container, 'appearance');
@@ -140,6 +172,23 @@ describe('SettingsScreen (Guide settings)', () => {
         expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'aggressivePreload', enabled: true });
     });
 
+    it('writes prefer clear logos toggle', () => {
+        const { container, screen } = createScreen(jest.fn());
+        localStorage.removeItem(SETTINGS_STORAGE_KEYS.PREFER_CLEAR_LOGOS);
+
+        screen.show();
+        activateCategory(container, 'appearance');
+
+        const toggle = container.querySelector('#settings-prefer-clear-logos') as HTMLButtonElement | null;
+        if (!toggle) throw new Error('Prefer clear logos toggle not found');
+
+        toggle.click();
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_CLEAR_LOGOS)).toBe('0');
+
+        toggle.click();
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_CLEAR_LOGOS)).toBe('1');
+    });
+
     it('renders aggressive preload toggle in appearance category', () => {
         const { container, screen } = createScreen(jest.fn());
 
@@ -157,14 +206,27 @@ describe('SettingsScreen (Guide settings)', () => {
         activateCategory(container, 'appearance');
 
         localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, '1');
-        (screen as unknown as { _refreshValues: () => void })._refreshValues();
+        screen.hide();
+        screen.show();
+        activateCategory(container, 'appearance');
         const onState = container.querySelector('#settings-epg-aggressive-preload .setup-toggle-state');
         expect(onState?.textContent?.trim()).toBe('On');
 
         localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, '0');
-        (screen as unknown as { _refreshValues: () => void })._refreshValues();
+        screen.hide();
+        screen.show();
+        activateCategory(container, 'appearance');
         const offState = container.querySelector('#settings-epg-aggressive-preload .setup-toggle-state');
         expect(offState?.textContent?.trim()).toBe('Off');
+    });
+
+    it('defaults the guide layout selector to classic when storage is unset', () => {
+        const { container, screen } = createScreen(jest.fn());
+
+        screen.show();
+        activateCategory(container, 'appearance');
+        const value = container.querySelector('#settings-epg-layout-mode .setup-toggle-value') as HTMLElement | null;
+        expect(value?.textContent?.trim()).toBe('Classic (PIP)');
     });
 
     it('does not change select value on OK', () => {
@@ -185,6 +247,7 @@ describe('SettingsScreen (Guide settings)', () => {
     it('cycles select with left/right keys and returns to rail at left edge', () => {
         const onGuideSettingChange = jest.fn();
         const { container, nav, screen } = createScreen(onGuideSettingChange);
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
 
         screen.show();
         activateCategory(container, 'appearance');
@@ -280,6 +343,194 @@ describe('SettingsScreen (Two-pane layout)', () => {
         expect(container.querySelector('#settings-keep-playing')).not.toBeNull();
         expect(container.querySelector('#settings-hdr10-fallback-mode')).not.toBeNull();
         expect(container.querySelector('#settings-dts-passthrough')).toBeNull();
+    });
+
+    it('moves focus into details when pressing RIGHT on the active category button', () => {
+        const { container, nav, screen } = createScreen(jest.fn());
+
+        screen.show();
+        activateCategory(container, 'appearance');
+        nav.setFocus('settings-category-appearance');
+
+        const keyHandler = nav.on.mock.calls.find((call) => call[0] === 'keyPress')?.[1];
+        expect(typeof keyHandler).toBe('function');
+
+        keyHandler?.({ handled: false, button: 'right' });
+        expect(nav.getFocusedElement()?.id).toBe('settings-guide-category-colors');
+    });
+
+    it('moves focus into the newly-rendered detail pane when RIGHT is pressed during a deferred category swap', () => {
+        const rafQueue: FrameRequestCallback[] = [];
+        jest.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback): number => {
+            rafQueue.push(cb);
+            return rafQueue.length;
+        });
+        jest.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+
+        const { container, nav, screen } = createScreen(jest.fn());
+        screen.show();
+
+        // Trigger a deferred swap by switching categories while detail items exist.
+        const appearanceButton = container.querySelector('#settings-category-appearance') as HTMLButtonElement | null;
+        if (!appearanceButton) {
+            throw new Error('Appearance category not found');
+        }
+        appearanceButton.click();
+
+        // Focus the newly selected category and press RIGHT before the swap frame runs.
+        nav.setFocus('settings-category-appearance');
+        const keyHandler = nav.on.mock.calls.find((call) => call[0] === 'keyPress')?.[1];
+        expect(typeof keyHandler).toBe('function');
+        keyHandler?.({ handled: false, button: 'right' });
+
+        const swapFrame = rafQueue.shift();
+        if (!swapFrame) {
+            throw new Error('Expected swap frame');
+        }
+        swapFrame(16);
+
+        // After detail items exist, focus should transfer into the detail pane.
+        expect(nav.getFocusedElement()?.id).toBe('settings-guide-category-colors');
+    });
+
+    it('cancels deferred swap work and clears pending intent on hide', () => {
+        const rafQueue: FrameRequestCallback[] = [];
+        jest.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback): number => {
+            rafQueue.push(cb);
+            return rafQueue.length;
+        });
+        const cancelSpy = jest.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+
+        const { container, screen } = createScreen(jest.fn());
+        screen.show();
+
+        // Queue a deferred swap.
+        const appearanceButton = container.querySelector('#settings-category-appearance') as HTMLButtonElement | null;
+        if (!appearanceButton) {
+            throw new Error('Appearance category not found');
+        }
+        appearanceButton.click();
+        expect(rafQueue.length).toBeGreaterThan(0);
+
+        screen.hide();
+        expect(cancelSpy).toHaveBeenCalled();
+        const detailItems = container.querySelector('.settings-detail-items') as HTMLElement | null;
+        expect(detailItems?.classList.contains('transitioning')).toBe(false);
+        expect((screen as unknown as { _pendingFocusRestore: unknown })._pendingFocusRestore).toBeNull();
+    });
+
+    it('renders header and switch profile actions inside the left rail', () => {
+        const { container, screen } = createScreen(jest.fn());
+        screen.show();
+
+        const rail = container.querySelector('.settings-categories') as HTMLElement | null;
+        expect(rail).not.toBeNull();
+
+        const header = rail?.querySelector('.settings-header');
+        expect(header).not.toBeNull();
+        expect((header?.querySelector('.settings-title') as HTMLElement | null)?.textContent).toContain('Settings');
+
+        const switchProfileButton = rail?.querySelector('#settings-switch-profile');
+        expect(switchProfileButton).not.toBeNull();
+    });
+
+    it('applies transitioning class during category detail swap and removes it after reveal frame', () => {
+        const rafQueue: FrameRequestCallback[] = [];
+        const rafSpy = jest
+            .spyOn(window, 'requestAnimationFrame')
+            .mockImplementation((cb: FrameRequestCallback): number => {
+                rafQueue.push(cb);
+                return rafQueue.length;
+            });
+        const cancelSpy = jest.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+
+        try {
+            const { container, screen } = createScreen(jest.fn());
+            screen.show();
+
+            const detailItems = container.querySelector('.settings-detail-items') as HTMLElement | null;
+            if (!detailItems) {
+                throw new Error('settings-detail-items not found');
+            }
+
+            const playbackCategory = container.querySelector(
+                '#settings-category-playback_hdr'
+            ) as HTMLButtonElement | null;
+            if (!playbackCategory) {
+                throw new Error('Playback category not found');
+            }
+
+            playbackCategory.click();
+
+            expect(detailItems.classList.contains('transitioning')).toBe(true);
+            expect(container.querySelector('#settings-keep-playing')).toBeNull();
+
+            const swapFrame = rafQueue.shift();
+            if (!swapFrame) {
+                throw new Error('Expected swap frame');
+            }
+            swapFrame(16);
+            expect(container.querySelector('#settings-keep-playing')).not.toBeNull();
+            expect(detailItems.classList.contains('transitioning')).toBe(true);
+
+            const revealFrame = rafQueue.shift();
+            if (!revealFrame) {
+                throw new Error('Expected reveal frame');
+            }
+            revealFrame(32);
+            expect(detailItems.classList.contains('transitioning')).toBe(false);
+        } finally {
+            rafSpy.mockRestore();
+            cancelSpy.mockRestore();
+        }
+    });
+
+    it('re-registers active detail focusables after deferred category swap', () => {
+        const rafQueue: FrameRequestCallback[] = [];
+        const rafSpy = jest
+            .spyOn(window, 'requestAnimationFrame')
+            .mockImplementation((cb: FrameRequestCallback): number => {
+                rafQueue.push(cb);
+                return rafQueue.length;
+            });
+        const cancelSpy = jest.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+
+        try {
+            const { container, nav, screen } = createScreen(jest.fn());
+            screen.show();
+
+            const playbackCategory = container.querySelector(
+                '#settings-category-playback_hdr'
+            ) as HTMLButtonElement | null;
+            if (!playbackCategory) {
+                throw new Error('Playback category not found');
+            }
+
+            playbackCategory.click();
+
+            // Before swap frame runs, only rail focusables are registered.
+            expect(nav.focusables.has('settings-keep-playing')).toBe(false);
+
+            const swapFrame = rafQueue.shift();
+            if (!swapFrame) {
+                throw new Error('Expected swap frame');
+            }
+            swapFrame(16);
+
+            // After deferred render, detail focusables must be present for D-pad navigation.
+            expect(nav.focusables.has('settings-keep-playing')).toBe(true);
+            const categoryFocusable = nav.focusables.get('settings-category-playback_hdr');
+            expect(categoryFocusable?.neighbors.right).toBe('settings-keep-playing');
+
+            const revealFrame = rafQueue.shift();
+            if (!revealFrame) {
+                throw new Error('Expected reveal frame');
+            }
+            revealFrame(32);
+        } finally {
+            rafSpy.mockRestore();
+            cancelSpy.mockRestore();
+        }
     });
 
     it('wires left/right pane transfer and per-category remembered focus', () => {

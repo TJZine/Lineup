@@ -1,5 +1,9 @@
+/**
+ * @jest-environment jsdom
+ */
 import { NowPlayingInfoCoordinator } from '../NowPlayingInfoCoordinator';
 import { NOW_PLAYING_INFO_DEFAULTS } from '../constants';
+import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import type { INavigationManager } from '../../../navigation';
 import type { IChannelScheduler, ScheduledProgram } from '../../../scheduler/scheduler';
 import type { IChannelManager, ChannelConfig } from '../../../scheduler/channel-manager';
@@ -549,5 +553,25 @@ describe('NowPlayingInfoCoordinator', () => {
         const lastUpdate = updates[updates.length - 1]?.[0] as { backdropUrl?: string };
         expect(lastUpdate.backdropUrl).toBe('http://mock/detail-art');
         coordinator.handleModalClose(modalId);
+    });
+
+    it('omits clearLogoUrl when prefer clear logos is disabled', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, '0');
+        try {
+            const program = makeProgram({
+                item: { ...makeProgram().item, clearLogo: '/logo' } as unknown as ScheduledProgram['item'],
+            });
+            const { coordinator, overlay } = setup({
+                getScheduler: () => makeScheduler({ getCurrentProgram: jest.fn().mockReturnValue(program) }),
+                buildPlexResourceUrl: jest.fn((path) => `http://mock${path}`) as unknown as (path: string) => string,
+            });
+
+            coordinator.handleModalOpen(modalId);
+
+            const vm = (overlay.show as jest.Mock).mock.calls[0]?.[0] as { clearLogoUrl?: string | null };
+            expect(vm.clearLogoUrl).toBeUndefined();
+        } finally {
+            localStorage.removeItem(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS);
+        }
     });
 });

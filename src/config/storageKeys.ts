@@ -32,6 +32,7 @@ export const LINEUP_STORAGE_KEYS = {
     // Display
     THEME: 'lineup_theme',
     CINEMATIC_NOW_PLAYING: 'lineup_cinematic_now_playing',
+    PREFER_CLEAR_LOGOS: 'lineup_prefer_clear_logos',
     NOW_PLAYING_INFO_AUTO_HIDE_MS: 'lineup_now_playing_info_auto_hide_ms',
     NOW_PLAYING_STREAM_DEBUG: 'lineup_now_playing_stream_debug',
     NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW: 'lineup_now_playing_stream_debug_auto_show',

@@ -28,7 +28,7 @@
   --panel-surface-2: rgb(10 14 22 / 94%);
   --panel-border: 1px solid rgba(255, 255, 255, 0.18);
   --panel-border: 1px solid rgb(255 255 255 / 18%);
-  --panel-radius: 0px;
+  --panel-radius: 2px;
   --panel-inner-glow: linear-gradient(180deg, rgba(229, 160, 13, 0.04), transparent);
   --panel-inner-glow: linear-gradient(180deg, rgb(229 160 13 / 4%), transparent);
   --transition-normal: 120ms ease-out;
@@ -36,6 +36,7 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.55);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.65);
   --shadow-lg: 0 10px 32px rgba(0, 0, 0, 0.72);
+  --scrim-tint-rgb: 6 10 18;
   --text-xs: 13px;
   --text-sm: 15px;
 }
@@ -61,13 +62,14 @@
   --panel-border: 1px solid rgba(255, 255, 255, 0.06);
   --panel-border: 1px solid rgb(255 255 255 / 6%);
   --panel-radius: 14px;
-  --transition-normal: 280ms ease-in-out;
+  --transition-normal: 220ms ease-in-out;
   --epg-info-panel-fade-to: var(--panel-surface-2);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.15);
   --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.22);
   --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.30);
   --panel-inner-glow: linear-gradient(180deg, rgba(52, 211, 153, 0.05), transparent);
   --panel-inner-glow: linear-gradient(180deg, rgb(52 211 153 / 5%), transparent);
+  --scrim-tint-rgb: 16 18 20;
 }
 
 .theme-directv {
@@ -89,7 +91,7 @@
   --panel-surface-2: rgb(0 28 56 / 94%);
   --panel-border: 1px solid rgba(0, 166, 214, 0.30);
   --panel-border: 1px solid rgb(0 166 214 / 30%);
-  --panel-radius: 4px;
+  --panel-radius: 2px;
   --transition-normal: 150ms ease;
   --epg-info-panel-fade-to: var(--panel-surface-2);
   --panel-inner-glow: linear-gradient(180deg, rgba(0, 166, 214, 0.08), transparent);
@@ -97,6 +99,7 @@
   --shadow-sm: 0 1px 2px rgba(0, 10, 30, 0.55);
   --shadow-md: 0 4px 12px rgba(0, 10, 30, 0.7);
   --shadow-lg: 0 10px 30px rgba(0, 10, 30, 0.8);
+  --scrim-tint-rgb: 0 20 40;
 }
 
 .theme-swiss .now-playing-info-title {
@@ -126,10 +129,10 @@
   --focus-color: #ffffff;
   --focus-color-rgb: 255, 255, 255;
 
-  --color-primary: #ffffff;
-  --color-primary-rgb: 255 255 255;
-  --color-primary-dark: #cccccc;
-  --color-primary-light: #ffffff;
+  --color-primary: #e0e7ff;
+  --color-primary-rgb: 224 231 255;
+  --color-primary-dark: #b8c0e0;
+  --color-primary-light: #f0f3ff;
 
   --color-bg-deep: transparent;
   --color-bg-surface: rgba(255, 255, 255, 0.05);
@@ -159,4 +162,42 @@
   --glass-panel-soft-hover: rgba(255, 255, 255, 0.10);
   --glass-backdrop-filter: blur(20px) saturate(135%);
   --glass-backdrop-filter-strong: blur(32px) saturate(125%);
+  --glass-scrim-gradient: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.01) 40%,
+    rgba(0, 0, 0, 0.2) 100%
+  );
+  --scrim-tint-rgb: 16 18 24;
+}
+
+.theme-ember-steel {
+  --focus-color: #d4a07a;
+  --focus-color-rgb: 212, 160, 122;
+
+  --color-primary: #d4a07a;
+  --color-primary-rgb: 212 160 122;
+  --color-primary-dark: #b8845e;
+  --color-primary-light: #e8c0a0;
+
+  --color-bg-deep: #12141a;
+  --color-bg-surface: rgba(22, 25, 34, 0.92);
+  --color-bg-elevated: rgba(28, 31, 40, 0.94);
+  --color-bg-overlay: rgba(14, 16, 22, 0.86);
+
+  --panel-surface: rgba(22, 25, 34, 0.92);
+  --panel-surface-2: rgba(28, 31, 40, 0.94);
+  --panel-border: 1px solid rgba(255, 255, 255, 0.10);
+  --panel-radius: 4px;
+
+  --transition-normal: 180ms ease-out;
+  --panel-inner-glow: linear-gradient(180deg, rgba(212, 160, 122, 0.04), transparent);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.65);
+  --color-live: var(--color-live-warm);
+  --scrim-tint-rgb: 22 25 34;
+
+  --font-family-display: "Avenir Next", "Segoe UI", "Noto Sans", sans-serif;
 }
