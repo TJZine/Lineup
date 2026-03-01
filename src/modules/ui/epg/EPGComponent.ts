@@ -153,10 +153,16 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this.timeHeader.initialize(this.gridElement, this.config, this.state.gridAnchorTime);
             this.channelList.initialize(this.gridElement, this.config);
             const dashboard = this.containerElement.querySelector(`.${EPG_CLASSES.DASHBOARD_BOTTOM}`) as HTMLElement | null;
+            const overlayShowcase = this.containerElement.querySelector(
+                `.${EPG_CLASSES.OVERLAY_SHOWCASE}`
+            ) as HTMLElement | null;
             if (!dashboard) {
                 throw new Error(EPG_ERRORS.DASHBOARD_CONTAINER_NOT_FOUND);
             }
-            this.infoPanel.initialize(dashboard);
+            if (!overlayShowcase) {
+                throw new Error(EPG_ERRORS.OVERLAY_SHOWCASE_CONTAINER_NOT_FOUND);
+            }
+            this.infoPanel.initialize(overlayShowcase);
 
             // Wire thumb resolver to info panel
             if (this.config.resolveThumbUrl) {
@@ -322,6 +328,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         <div class="epg-classic-showcase-pip"></div>
         <div class="epg-classic-showcase-info"></div>
       </div>
+      <div class="${EPG_CLASSES.OVERLAY_SHOWCASE}"></div>
       <div class="${EPG_CLASSES.GRID}">
         <div class="${EPG_CLASSES.PROGRAM_AREA}"></div>
       </div>
@@ -361,11 +368,13 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         const infoPanel = this.containerElement.querySelector(`.${EPG_CLASSES.INFO_PANEL}`) as HTMLElement | null;
         const showcaseInfo = this.containerElement.querySelector('.epg-classic-showcase-info') as HTMLElement | null;
-        const dashboard = this.containerElement.querySelector(`.${EPG_CLASSES.DASHBOARD_BOTTOM}`) as HTMLElement | null;
-        if (!infoPanel || !showcaseInfo || !dashboard) return;
+        const overlayShowcase = this.containerElement.querySelector(
+            `.${EPG_CLASSES.OVERLAY_SHOWCASE}`
+        ) as HTMLElement | null;
+        if (!infoPanel || !showcaseInfo || !overlayShowcase) return;
 
         const mode = this.config.layoutMode ?? 'overlay';
-        const target = mode === 'classic' ? showcaseInfo : dashboard;
+        const target = mode === 'classic' ? showcaseInfo : overlayShowcase;
         if (infoPanel.parentElement !== target) {
             target.appendChild(infoPanel);
         }

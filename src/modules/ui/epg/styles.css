@@ -138,6 +138,16 @@
   }
 }
 
+/* Overlay showcase hosts top info panel in overlay mode only. */
+.epg-overlay-showcase {
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.epg-container.layout-classic .epg-overlay-showcase {
+  display: none;
+}
+
 /* Dashboard Zone */
 .epg-dashboard-bottom {
   display: flex;
@@ -1289,6 +1299,16 @@
   background: var(--glass-panel-strong);
   border-top: 1px solid var(--glass-border-soft);
   box-shadow: 0 -14px 34px rgba(0, 0, 0, 0.52);
+}
+
+.theme-glass .epg-overlay-showcase {
+  background: var(--glass-scrim-gradient, transparent), rgba(16, 18, 24, 0.50);
+  border-bottom: 1px solid var(--glass-border-soft);
+}
+
+.theme-glass .epg-overlay-showcase .epg-info-panel {
+  background: transparent;
+  border-bottom: none;
 }
 
 .theme-glass .epg-container.layout-classic .epg-classic-showcase {

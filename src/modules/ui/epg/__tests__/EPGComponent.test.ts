@@ -60,32 +60,38 @@ describe('EPGComponent', () => {
         expect(grid).not.toBeNull();
     });
 
-    it('renders classic showcase between header and grid', () => {
+    it('renders classic showcase and overlay showcase between header and grid', () => {
         const header = container.querySelector('.epg-classic-header');
         const showcase = container.querySelector('.epg-classic-showcase');
+        const overlayShowcase = container.querySelector(`.${EPG_CLASSES.OVERLAY_SHOWCASE}`);
         const pip = container.querySelector('.epg-classic-showcase-pip');
         const infoHost = container.querySelector('.epg-classic-showcase-info');
         const grid = container.querySelector(`.${EPG_CLASSES.GRID}`);
 
         expect(header).not.toBeNull();
         expect(showcase).not.toBeNull();
+        expect(overlayShowcase).not.toBeNull();
         expect(pip).not.toBeNull();
         expect(infoHost).not.toBeNull();
         expect(grid).not.toBeNull();
         expect(header?.nextElementSibling).toBe(showcase);
-        expect(showcase?.nextElementSibling).toBe(grid);
+        expect(showcase?.nextElementSibling).toBe(overlayShowcase);
+        expect(overlayShowcase?.nextElementSibling).toBe(grid);
     });
 
-    it('renders a bottom dashboard wrapper containing banner + info panel', () => {
+    it('renders overlay showcase containing info panel and dashboard with banner', () => {
         const { epg: localEpg, container: localContainer } = createEpgInstance({
             containerId: 'epg-container-dashboard-structure',
         });
 
         try {
             const dashboard = localContainer.querySelector(`.${EPG_CLASSES.DASHBOARD_BOTTOM}`) as HTMLElement | null;
+            const overlayShowcase = localContainer.querySelector(`.${EPG_CLASSES.OVERLAY_SHOWCASE}`) as HTMLElement | null;
             expect(dashboard).not.toBeNull();
+            expect(overlayShowcase).not.toBeNull();
             expect(dashboard!.querySelector(`.${EPG_CLASSES.NOW_WATCHING_BANNER}`)).not.toBeNull();
-            expect(dashboard!.querySelector(`.${EPG_CLASSES.INFO_PANEL}`)).not.toBeNull();
+            expect(overlayShowcase!.querySelector(`.${EPG_CLASSES.INFO_PANEL}`)).not.toBeNull();
+            expect(dashboard!.querySelector(`.${EPG_CLASSES.INFO_PANEL}`)).toBeNull();
         } finally {
             localEpg.destroy();
             localContainer.remove();
@@ -634,24 +640,24 @@ describe('EPGComponent', () => {
             }
         });
 
-        it('moves the info panel between dashboard and showcase when layout mode changes', () => {
+        it('moves the info panel between overlay showcase and classic showcase when layout mode changes', () => {
             const { epg: localEpg, container: localContainer } = createEpgInstance({
                 containerId: 'epg-container-info-panel-host',
                 layoutMode: 'classic',
             });
 
             try {
-                const dashboard = localContainer.querySelector(`.${EPG_CLASSES.DASHBOARD_BOTTOM}`) as HTMLElement;
+                const overlayShowcase = localContainer.querySelector(`.${EPG_CLASSES.OVERLAY_SHOWCASE}`) as HTMLElement;
                 const showcaseInfo = localContainer.querySelector('.epg-classic-showcase-info') as HTMLElement;
                 const infoPanel = localContainer.querySelector(`.${EPG_CLASSES.INFO_PANEL}`) as HTMLElement;
 
-                expect(infoPanel.parentElement).toBe(dashboard);
+                expect(infoPanel.parentElement).toBe(overlayShowcase);
 
                 localEpg.show();
                 expect(infoPanel.parentElement).toBe(showcaseInfo);
 
                 localEpg.setLayoutMode('overlay');
-                expect(infoPanel.parentElement).toBe(dashboard);
+                expect(infoPanel.parentElement).toBe(overlayShowcase);
             } finally {
                 localEpg.destroy();
                 localContainer.remove();
