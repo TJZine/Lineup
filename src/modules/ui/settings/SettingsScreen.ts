@@ -647,18 +647,20 @@ export class SettingsScreen {
 
                     // Detail controls are recreated asynchronously; re-register focusables
                     // so D-pad navigation reflects the active category after the swap frame.
+                    const pendingPreferredFocusId =
+                        this._pendingFocusRestore?.categoryId === expectedCategoryId
+                            ? this._pendingFocusRestore.preferredFocusId
+                            : null;
+                    // Always clear pending intent once the swap for that category has completed, even if hidden.
+                    if (this._pendingFocusRestore?.categoryId === expectedCategoryId) {
+                        this._pendingFocusRestore = null;
+                    }
+
                     if (this._container.classList.contains('visible')) {
-                        const pendingPreferredFocusId =
-                            this._pendingFocusRestore?.categoryId === expectedCategoryId
-                                ? this._pendingFocusRestore.preferredFocusId
-                                : null;
                         const nav = this._getNavigation();
                         const preferredFocusId = pendingPreferredFocusId ?? nav?.getFocusedElement()?.id ?? null;
                         this._unregisterFocusables();
                         this._registerFocusables(preferredFocusId);
-                        if (this._pendingFocusRestore?.categoryId === expectedCategoryId) {
-                            this._pendingFocusRestore = null;
-                        }
                     }
 
                     this._detailRevealFrame = requestAnimationFrame(() => {
@@ -691,6 +693,13 @@ export class SettingsScreen {
             }
             const preferredFocusId =
                 this._getPreferredDetailFocusId(categoryId) ?? this._getCategoryButtonId(categoryId);
+            // If a category swap is currently deferred, detail items may not exist yet. Preserve intent so
+            // the swap frame can focus the desired detail control once it is created.
+            const isDeferredSwapActive =
+                this._detailSwapFrame !== null || this._detailItems?.classList.contains('transitioning') === true;
+            if (isDeferredSwapActive && preferredFocusId !== this._getCategoryButtonId(categoryId)) {
+                this._pendingFocusRestore = { categoryId, preferredFocusId };
+            }
             this._unregisterFocusables();
             this._registerFocusables(preferredFocusId);
             return;
@@ -835,6 +844,16 @@ export class SettingsScreen {
             nav?.off('keyPress', this._navKeyHandler);
             this._navKeyHandler = null;
         }
+        if (this._detailSwapFrame !== null) {
+            cancelAnimationFrame(this._detailSwapFrame);
+            this._detailSwapFrame = null;
+        }
+        if (this._detailRevealFrame !== null) {
+            cancelAnimationFrame(this._detailRevealFrame);
+            this._detailRevealFrame = null;
+        }
+        this._detailItems?.classList.remove('transitioning');
+        this._pendingFocusRestore = null;
         this._unregisterFocusables();
     }
 

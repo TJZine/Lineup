@@ -74,6 +74,9 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private nowWatchingChannelElement: HTMLElement | null = null;
     private nowWatchingProgramElement: HTMLElement | null = null;
     private nowWatchingTimeElement: HTMLElement | null = null;
+    private infoPanelElement: HTMLElement | null = null;
+    private classicShowcaseInfoElement: HTMLElement | null = null;
+    private overlayShowcaseElement: HTMLElement | null = null;
     private hasRenderedOnce: boolean = false;
     private lastVisibleRangeKey: string | null = null;
     private _isSelectInProgress: boolean = false;
@@ -163,6 +166,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
                 throw new Error(EPG_ERRORS.OVERLAY_SHOWCASE_CONTAINER_NOT_FOUND);
             }
             this.infoPanel.initialize(overlayShowcase);
+            this.infoPanelElement = this.containerElement.querySelector(`.${EPG_CLASSES.INFO_PANEL}`) as HTMLElement | null;
 
             // Wire thumb resolver to info panel
             if (this.config.resolveThumbUrl) {
@@ -248,6 +252,9 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.nowWatchingChannelElement = null;
         this.nowWatchingProgramElement = null;
         this.nowWatchingTimeElement = null;
+        this.infoPanelElement = null;
+        this.classicShowcaseInfoElement = null;
+        this.overlayShowcaseElement = null;
 
         this.state = {
             isInitialized: false,
@@ -345,6 +352,10 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.programAreaElement = this.containerElement.querySelector(`.${EPG_CLASSES.PROGRAM_AREA}`);
         this.classicHeaderElement = this.containerElement.querySelector('.epg-classic-header');
         this.classicShowcaseElement = this.containerElement.querySelector('.epg-classic-showcase');
+        this.classicShowcaseInfoElement = this.containerElement.querySelector('.epg-classic-showcase-info');
+        this.overlayShowcaseElement = this.containerElement.querySelector(
+            `.${EPG_CLASSES.OVERLAY_SHOWCASE}`
+        );
         this.nowWatchingBannerElement = this.containerElement.querySelector(
             `.${EPG_CLASSES.NOW_WATCHING_BANNER}`
         );
@@ -364,13 +375,9 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     }
 
     private syncInfoPanelHost(): void {
-        if (!this.containerElement) return;
-
-        const infoPanel = this.containerElement.querySelector(`.${EPG_CLASSES.INFO_PANEL}`) as HTMLElement | null;
-        const showcaseInfo = this.containerElement.querySelector('.epg-classic-showcase-info') as HTMLElement | null;
-        const overlayShowcase = this.containerElement.querySelector(
-            `.${EPG_CLASSES.OVERLAY_SHOWCASE}`
-        ) as HTMLElement | null;
+        const infoPanel = this.infoPanelElement;
+        const showcaseInfo = this.classicShowcaseInfoElement;
+        const overlayShowcase = this.overlayShowcaseElement;
         if (!infoPanel || !showcaseInfo || !overlayShowcase) return;
 
         const mode: 'overlay' | 'classic' = this.config.layoutMode ?? 'classic';
