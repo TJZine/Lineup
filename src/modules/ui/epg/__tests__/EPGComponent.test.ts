@@ -35,7 +35,7 @@ describe('EPGComponent', () => {
             rowHeight: 80,
             showCurrentTimeIndicator: true,
             autoScrollToNow: false,
-            layoutMode: 'overlay',
+            layoutMode: overrides.layoutMode ?? 'classic',
             resolveThumbUrl: (url) => url,
             ...overrides,
         };
@@ -82,6 +82,7 @@ describe('EPGComponent', () => {
     it('renders overlay showcase containing info panel and dashboard with banner', () => {
         const { epg: localEpg, container: localContainer } = createEpgInstance({
             containerId: 'epg-container-dashboard-structure',
+            layoutMode: 'overlay',
         });
 
         try {
@@ -540,6 +541,8 @@ describe('EPGComponent', () => {
                 expect(showcase).not.toBeNull();
                 expect(header!.hidden).toBe(true);
                 expect(showcase!.hidden).toBe(true);
+                expect(header!.getAttribute('aria-hidden')).toBe('true');
+                expect(showcase!.getAttribute('aria-hidden')).toBe('true');
             } finally {
                 localEpg.destroy();
                 localContainer.remove();
@@ -565,12 +568,16 @@ describe('EPGComponent', () => {
                 expect(showcase).not.toBeNull();
                 expect(header!.hidden).toBe(false);
                 expect(showcase!.hidden).toBe(false);
+                expect(header!.getAttribute('aria-hidden')).toBeNull();
+                expect(showcase!.getAttribute('aria-hidden')).toBeNull();
 
                 localEpg.hide();
                 expect(localContainer.classList.contains(EPG_CLASSES.CONTAINER_CLASSIC)).toBe(false);
                 expect(onLayoutModeChange).toHaveBeenCalledWith('overlay');
                 expect(header!.hidden).toBe(true);
                 expect(showcase!.hidden).toBe(true);
+                expect(header!.getAttribute('aria-hidden')).toBe('true');
+                expect(showcase!.getAttribute('aria-hidden')).toBe('true');
             } finally {
                 localEpg.destroy();
                 localContainer.remove();

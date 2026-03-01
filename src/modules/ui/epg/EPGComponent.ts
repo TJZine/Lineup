@@ -318,13 +318,13 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         this.containerElement.className = EPG_CLASSES.CONTAINER;
         this.containerElement.innerHTML = `
-      <div class="epg-classic-header" aria-hidden="true" hidden>
+      <div class="epg-classic-header" hidden>
         <div class="epg-classic-header-title">LINEUP</div>
         <div class="epg-classic-header-actions">
           <span>OK Select</span><span>&middot; LEFT/RIGHT Navigate</span><span>&middot; BACK Close</span>
         </div>
       </div>
-      <div class="epg-classic-showcase" aria-hidden="true" hidden>
+      <div class="epg-classic-showcase" hidden>
         <div class="epg-classic-showcase-pip"></div>
         <div class="epg-classic-showcase-info"></div>
       </div>
@@ -373,10 +373,18 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         ) as HTMLElement | null;
         if (!infoPanel || !showcaseInfo || !overlayShowcase) return;
 
-        const mode = this.config.layoutMode ?? 'overlay';
+        const mode: 'overlay' | 'classic' = this.config.layoutMode ?? 'classic';
         const target = mode === 'classic' ? showcaseInfo : overlayShowcase;
         if (infoPanel.parentElement !== target) {
             target.appendChild(infoPanel);
+        }
+    }
+
+    private setAriaHidden(element: HTMLElement, hidden: boolean): void {
+        if (hidden) {
+            element.setAttribute('aria-hidden', 'true');
+        } else {
+            element.removeAttribute('aria-hidden');
         }
     }
 
@@ -386,12 +394,14 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         const container = this.containerElement;
         if (!header || !showcase || !container) return;
 
-        const mode = this.config.layoutMode ?? 'overlay';
+        const mode: 'overlay' | 'classic' = this.config.layoutMode ?? 'classic';
         const isVisible = this.state.isVisible;
         const isClassicVisible = mode === 'classic' && isVisible;
 
         header.hidden = !isClassicVisible;
         showcase.hidden = !isClassicVisible;
+        this.setAriaHidden(header, !isClassicVisible);
+        this.setAriaHidden(showcase, !isClassicVisible);
     }
 
     private initializeProgramAreaOverlays(): void {
@@ -506,7 +516,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
     private applyLayoutMode(): void {
         if (!this.containerElement) return;
-        const mode = this.config.layoutMode ?? 'overlay';
+        const mode: 'overlay' | 'classic' = this.config.layoutMode ?? 'classic';
         if (mode !== this._appliedLayoutMode) {
             this._appliedLayoutMode = mode;
             if (mode === 'classic') {

@@ -14,6 +14,11 @@
   overflow: hidden;
 }
 
+/* Ensure `hidden` always wins even when layout-specific rules set display. */
+.epg-container [hidden] {
+  display: none !important;
+}
+
 /* Classic-only shell should never render in overlay mode. */
 .epg-classic-header,
 .epg-classic-showcase {

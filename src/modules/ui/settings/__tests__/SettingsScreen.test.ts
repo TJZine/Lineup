@@ -321,6 +321,38 @@ describe('SettingsScreen (Two-pane layout)', () => {
         expect(container.querySelector('#settings-dts-passthrough')).toBeNull();
     });
 
+    it('moves focus into details when pressing RIGHT on the active category button', () => {
+        const { container, nav, screen } = createScreen(jest.fn());
+
+        screen.show();
+        activateCategory(container, 'appearance');
+        nav.setFocus('settings-category-appearance');
+
+        const keyHandler = nav.on.mock.calls.find((call) => call[0] === 'keyPress')?.[1];
+        expect(typeof keyHandler).toBe('function');
+
+        keyHandler?.({ handled: false, button: 'right' });
+        expect(nav.getFocusedElement()?.id).toBe('settings-guide-category-colors');
+    });
+
+    it('preserves focus intent when switching categories with focusDetail during deferred swap', () => {
+        const { nav, screen } = createScreen(jest.fn());
+
+        screen.show();
+        nav.setFocus('settings-category-audio_subtitles');
+
+        (screen as unknown as {
+            _setActiveCategory: (
+                id: string,
+                options: { focusDetail: boolean }
+            ) => void;
+        })._setActiveCategory('appearance', { focusDetail: true });
+
+        expect((screen as unknown as { _activeCategoryId: string | null })._activeCategoryId).toBe('appearance');
+        expect(nav.focusables.has('settings-guide-category-colors')).toBe(true);
+        expect(nav.getFocusedElement()?.id).toBe('settings-guide-category-colors');
+    });
+
     it('renders header and switch profile actions inside the left rail', () => {
         const { container, screen } = createScreen(jest.fn());
         screen.show();

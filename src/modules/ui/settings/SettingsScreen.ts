@@ -172,6 +172,9 @@ export class SettingsScreen {
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
     private _detailSwapFrame: number | null = null;
     private _detailRevealFrame: number | null = null;
+    // When a category swap is deferred via RAF, we must preserve the focus intent
+    // (e.g., RIGHT into details) and apply it after detail items exist.
+    private _pendingFocusRestore: { categoryId: SettingsCategoryId; preferredFocusId: string | null } | null = null;
 
     constructor(
         container: HTMLElement,
@@ -645,10 +648,17 @@ export class SettingsScreen {
                     // Detail controls are recreated asynchronously; re-register focusables
                     // so D-pad navigation reflects the active category after the swap frame.
                     if (this._container.classList.contains('visible')) {
+                        const pendingPreferredFocusId =
+                            this._pendingFocusRestore?.categoryId === expectedCategoryId
+                                ? this._pendingFocusRestore.preferredFocusId
+                                : null;
                         const nav = this._getNavigation();
-                        const preferredFocusId = nav?.getFocusedElement()?.id ?? null;
+                        const preferredFocusId = pendingPreferredFocusId ?? nav?.getFocusedElement()?.id ?? null;
                         this._unregisterFocusables();
                         this._registerFocusables(preferredFocusId);
+                        if (this._pendingFocusRestore?.categoryId === expectedCategoryId) {
+                            this._pendingFocusRestore = null;
+                        }
                     }
 
                     this._detailRevealFrame = requestAnimationFrame(() => {
@@ -673,6 +683,19 @@ export class SettingsScreen {
         categoryId: SettingsCategoryId,
         options: { preferredFocusId?: string | null; focusDetail?: boolean } = {}
     ): void {
+        // Focus-only path: pressing RIGHT on an already-active category should not re-render
+        // the detail pane. It should simply move focus into the detail controls.
+        if (this._activeCategoryId === categoryId && options.focusDetail) {
+            if (!this._container.classList.contains('visible')) {
+                return;
+            }
+            const preferredFocusId =
+                this._getPreferredDetailFocusId(categoryId) ?? this._getCategoryButtonId(categoryId);
+            this._unregisterFocusables();
+            this._registerFocusables(preferredFocusId);
+            return;
+        }
+
         if (this._activeCategoryId === categoryId && !options.focusDetail) {
             return;
         }
@@ -682,15 +705,29 @@ export class SettingsScreen {
         if (!this._categories.some((category) => category.id === this._activeCategoryId)) {
             this._activeCategoryId = this._categories[0]?.id ?? null;
         }
-        this._renderActiveCategory();
 
-        if (!this._container.classList.contains('visible')) {
-            return;
+        const resolvedCategoryId = this._activeCategoryId;
+        const isVisible = this._container.classList.contains('visible');
+        const resolvedCategoryButtonId = resolvedCategoryId ? this._getCategoryButtonId(resolvedCategoryId) : null;
+        const resolvedCategoryConfig = resolvedCategoryId
+            ? this._categories.find((entry) => entry.id === resolvedCategoryId)
+            : undefined;
+        const preferredFocusId = !isVisible || !resolvedCategoryId || !resolvedCategoryButtonId
+            ? null
+            : options.focusDetail
+                ? this._lastFocusedItemByCategory[resolvedCategoryId] ??
+                    resolvedCategoryConfig?.items[0]?.id ??
+                    resolvedCategoryButtonId
+                : options.preferredFocusId ?? resolvedCategoryButtonId;
+        if (isVisible && resolvedCategoryId) {
+            this._pendingFocusRestore = { categoryId: resolvedCategoryId, preferredFocusId };
         }
 
-        const preferredFocusId = options.focusDetail
-            ? this._getPreferredDetailFocusId(categoryId) ?? this._getCategoryButtonId(categoryId)
-            : options.preferredFocusId ?? this._getCategoryButtonId(categoryId);
+        this._renderActiveCategory();
+
+        if (!isVisible) {
+            return;
+        }
         this._unregisterFocusables();
         this._registerFocusables(preferredFocusId);
     }
@@ -719,7 +756,13 @@ export class SettingsScreen {
             }
         }
         if (this._activeCategoryId === categoryId) {
-            return this._activeCategoryItemIds.find((id) => this._isFocusableEnabled(id)) ?? this._activeCategoryItemIds[0];
+            // During deferred detail swaps, `_activeCategoryItemIds` may not be populated yet.
+            // Prefer the first enabled detail id if available, otherwise fall back to the category config below.
+            const activeId =
+                this._activeCategoryItemIds.find((id) => this._isFocusableEnabled(id)) ?? this._activeCategoryItemIds[0];
+            if (activeId) {
+                return activeId;
+            }
         }
         const category = this._categories.find((entry) => entry.id === categoryId);
         return category?.items[0]?.id;
@@ -896,11 +939,18 @@ export class SettingsScreen {
             nav.registerFocusable(focusable);
         }
 
+        // If focus currently points at a different category button than the active one, do not preserve it.
+        // Preserving it would immediately trigger that button's onFocus handler and revert the active category swap.
+        const currentFocusedCategoryId = currentFocusId ? this._getCategoryIdFromButtonId(currentFocusId) : null;
+        const shouldIgnoreCurrentFocus =
+            Boolean(currentFocusedCategoryId && activeCategoryId && currentFocusedCategoryId !== activeCategoryId);
+        const usableCurrentFocusId = shouldIgnoreCurrentFocus ? null : currentFocusId;
+
         // Preserve current focus if still enabled, otherwise focus the first available
         const preferredId = preferredFocusId && focusableIds.includes(preferredFocusId)
             ? preferredFocusId
-            : currentFocusId && focusableIds.includes(currentFocusId)
-                ? currentFocusId
+            : usableCurrentFocusId && focusableIds.includes(usableCurrentFocusId)
+                ? usableCurrentFocusId
                 : activeCategoryButtonId && focusableIds.includes(activeCategoryButtonId)
                     ? activeCategoryButtonId
                     : focusableIds[0];
