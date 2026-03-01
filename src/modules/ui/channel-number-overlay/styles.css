@@ -21,9 +21,11 @@
   min-width: 132px;
   padding: 8px 12px;
   border-radius: 10px;
-  border: var(--panel-border);
-  background: rgba(0, 0, 0, 0.72);
-  box-shadow: var(--shadow-md);
+  background: linear-gradient(
+    135deg,
+    rgba(0, 0, 0, 0.30) 0%,
+    rgba(0, 0, 0, 0.40) 100%
+  );
   color: var(--color-text-primary);
 }
 
@@ -42,8 +44,7 @@
 }
 
 .channel-number-overlay.channel-number-error .channel-number-panel {
-  border-color: rgba(255, 106, 106, 0.8);
-  box-shadow: 0 0 0 1px rgba(255, 106, 106, 0.35), var(--shadow-md);
+  border: 1px solid rgba(255, 106, 106, 0.8);
 }
 
 .channel-number-overlay.channel-number-error .channel-number-digits {
