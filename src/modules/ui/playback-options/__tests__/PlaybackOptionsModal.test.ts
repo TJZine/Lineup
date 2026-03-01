@@ -104,6 +104,20 @@ describe('PlaybackOptionsModal', () => {
         expect(modal.getFocusableIds()).toEqual(['sub-1', 'sub-2', 'aud-1']);
     });
 
+    it('renders equalizer indicator on selected items only', () => {
+        const modal = new PlaybackOptionsModal();
+        modal.initialize({ containerId: 'playback-options-container' });
+
+        const { viewModel } = createViewModel();
+        modal.show(viewModel);
+
+        const sub1 = container.querySelector('#sub-1');
+        const aud1 = container.querySelector('#aud-1');
+
+        expect(sub1?.querySelector('.playback-options-equalizer')).not.toBeNull();
+        expect(aud1?.querySelector('.playback-options-equalizer')).toBeNull();
+    });
+
     it('uses playback-options-item class, not setup-toggle', () => {
         const modal = new PlaybackOptionsModal();
         modal.initialize({ containerId: 'playback-options-container' });
