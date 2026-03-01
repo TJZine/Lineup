@@ -140,7 +140,7 @@ export const DEFAULT_EPG_CONFIG = {
     rowHeight: EPG_CONSTANTS.ROW_HEIGHT,
     showCurrentTimeIndicator: true,
     autoScrollToNow: true,
-    layoutMode: 'overlay',
+    layoutMode: 'classic',
     showNowWatchingBanner: true,
     debugStorageRefreshIntervalMs: 500,
     debugRenderGridLogIntervalMs: 1000,

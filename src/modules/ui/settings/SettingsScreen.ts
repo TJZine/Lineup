@@ -139,7 +139,7 @@ const SELECT_METADATA: Record<string, SelectMetadata> = {
     },
     'settings-epg-layout-mode': {
         storageKey: SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE,
-        defaultValue: 0,
+        defaultValue: 1,
     },
     'settings-epg-density': {
         storageKey: SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY,
@@ -892,7 +892,7 @@ export class SettingsScreen {
 
     private _loadEpgLayoutModeValue(): number {
         const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE);
-        return raw === 'classic' ? 1 : 0;
+        return raw === 'overlay' ? 0 : 1;
     }
 
     private _loadEpgGuideDensityValue(): number {

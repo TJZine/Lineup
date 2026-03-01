@@ -87,6 +87,7 @@ describe('SettingsScreen (Guide settings)', () => {
     it('writes layout mode and emits change', () => {
         const onGuideSettingChange = jest.fn();
         const { container, screen } = createScreen(onGuideSettingChange);
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
 
         screen.show();
         activateCategory(container, 'appearance');
@@ -167,6 +168,12 @@ describe('SettingsScreen (Guide settings)', () => {
         expect(offState?.textContent?.trim()).toBe('Off');
     });
 
+    it('defaults the guide layout selector to classic when storage is unset', () => {
+        const { screen } = createScreen(jest.fn());
+
+        expect((screen as unknown as { _loadEpgLayoutModeValue: () => number })._loadEpgLayoutModeValue()).toBe(1);
+    });
+
     it('does not change select value on OK', () => {
         const onGuideSettingChange = jest.fn();
         const { container, nav, screen } = createScreen(onGuideSettingChange);
@@ -185,6 +192,7 @@ describe('SettingsScreen (Guide settings)', () => {
     it('cycles select with left/right keys and returns to rail at left edge', () => {
         const onGuideSettingChange = jest.fn();
         const { container, nav, screen } = createScreen(onGuideSettingChange);
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
 
         screen.show();
         activateCategory(container, 'appearance');

@@ -442,6 +442,15 @@ describe('EPGCoordinator', () => {
         expect(epg.setNowWatchingBannerEnabled).toHaveBeenCalledWith(false);
     });
 
+    it('primeEpgChannels defaults to classic layout when no layout is stored', () => {
+        const { deps, epg } = makeDeps();
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.primeEpgChannels();
+
+        expect(epg.setLayoutMode).toHaveBeenCalledWith('classic');
+    });
+
     it('primeEpgChannels clears filter when only one library remains', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
