@@ -26,7 +26,7 @@
 }
 
 .epg-container.layout-classic {
-  --classic-showcase-pip-width: clamp(280px, 35%, 480px);
+  --classic-showcase-pip-width: var(--classic-guide-pip-width);
   --classic-showcase-gap: 24px;
   --classic-header-height: 56px;
   --classic-cell-radius: 4px;

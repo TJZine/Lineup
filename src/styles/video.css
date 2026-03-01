@@ -5,14 +5,26 @@
 
 .video-container.epg-pip-active {
   z-index: 999;
+  --classic-guide-pip-left: 24px;
+  --classic-guide-pip-top: 72px;
 }
 
 .video-container.epg-pip-active #lineup-video-player {
-  transform-origin: top right;
-  transform: translate3d(-5vw, 5vh, 0) scale(0.28);
-  will-change: transform;
+  /* The player sets inline geometry; !important is required for deterministic PiP placement. */
+  top: var(--classic-guide-pip-top) !important;
+  left: var(--classic-guide-pip-left) !important;
+  width: var(--classic-guide-pip-width) !important;
+  height: calc(var(--classic-guide-pip-width) * 9 / 16) !important;
+  transform: none !important;
+  transform-origin: top left;
+  object-fit: cover;
+  border-radius: 8px;
   outline: 1px solid rgba(255, 255, 255, 0.08);
-  transition: transform var(--transition-normal, 200ms ease);
+  transition:
+    top var(--transition-normal, 200ms ease),
+    left var(--transition-normal, 200ms ease),
+    width var(--transition-normal, 200ms ease),
+    height var(--transition-normal, 200ms ease);
 }
 
 @media (prefers-reduced-motion: reduce) {

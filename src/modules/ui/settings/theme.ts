@@ -14,7 +14,7 @@ export const THEME_CLASSES = {
 
 export type ThemeName = keyof typeof THEME_CLASSES;
 
-export const DEFAULT_THEME: ThemeName = 'obsidian';
+export const DEFAULT_THEME: ThemeName = 'ember-steel';
 
 const THEME_LABELS = {
     obsidian: 'Obsidian Glass',
@@ -27,7 +27,7 @@ const THEME_LABELS = {
 
 // IMPORTANT: Keep this list exhaustive. If you add a theme, TypeScript should fail compilation
 // until THEME_ORDER includes it (prevents themes silently disappearing from THEME_OPTIONS).
-const THEME_ORDER_RAW = ['obsidian', 'broadcast', 'swiss', 'directv', 'glass', 'ember-steel'] as const satisfies ReadonlyArray<ThemeName>;
+const THEME_ORDER_RAW = ['ember-steel', 'obsidian', 'broadcast', 'swiss', 'directv', 'glass'] as const satisfies ReadonlyArray<ThemeName>;
 const THEME_ORDER = Object.freeze(THEME_ORDER_RAW);
 
 type MissingThemes = Exclude<ThemeName, (typeof THEME_ORDER_RAW)[number]>;

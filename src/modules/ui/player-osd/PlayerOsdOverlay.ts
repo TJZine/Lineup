@@ -376,11 +376,11 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
                   <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="audio">Audio</button>
                 </div>
                 <div class="${PLAYER_OSD_CLASSES.SLEEP_TIMER}"></div>
+                <div class="${PLAYER_OSD_CLASSES.UP_NEXT}"></div>
               </div>
             </div>
 
             <div class="${PLAYER_OSD_CLASSES.META_STRIP}">
-              <div class="${PLAYER_OSD_CLASSES.UP_NEXT}"></div>
               <div class="${PLAYER_OSD_CLASSES.TIMECODE}"></div>
               <div class="${PLAYER_OSD_CLASSES.ENDS}"></div>
               <div class="${PLAYER_OSD_CLASSES.BUFFER_TEXT}"></div>

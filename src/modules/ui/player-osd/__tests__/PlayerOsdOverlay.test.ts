@@ -129,6 +129,23 @@ describe('PlayerOsdOverlay', () => {
         expect(panel.lastElementChild).toBe(progress);
     });
 
+    it('places up-next in the upper content area instead of the meta strip', () => {
+        overlay.setViewModel({
+            ...baseViewModel,
+            upNextText: 'Up next • 9:30 PM — Next',
+        });
+        overlay.show();
+
+        const panel = container.querySelector(`.${PLAYER_OSD_CLASSES.PANEL}`) as HTMLElement;
+        const upNext = panel.querySelector(`.${PLAYER_OSD_CLASSES.UP_NEXT}`) as HTMLElement;
+        const actionsColumn = panel.querySelector(`.${PLAYER_OSD_CLASSES.ACTIONS_COLUMN}`);
+        const metaStrip = panel.querySelector(`.${PLAYER_OSD_CLASSES.META_STRIP}`);
+
+        expect(upNext).not.toBeNull();
+        expect(actionsColumn?.contains(upNext)).toBe(true);
+        expect(metaStrip?.contains(upNext)).toBe(false);
+    });
+
     it('hides optional fields when missing', () => {
         overlay.setViewModel({
             ...baseViewModel,

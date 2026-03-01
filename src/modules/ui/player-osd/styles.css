@@ -57,7 +57,8 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 8px;
+  gap: 10px;
+  max-width: min(46vw, 760px);
 }
 
 .player-osd-zone-brand {
@@ -146,14 +147,20 @@
 }
 
 .player-osd-up-next {
-  flex: 1 1 auto;
-  min-width: 0;
-  text-align: center;
+  min-width: min(26vw, 380px);
+  max-width: 100%;
+  text-align: right;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: var(--text-md);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.25px;
   color: var(--color-text-muted);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 8px;
+  padding: 6px 10px;
 }
 
 .player-osd-actions {
@@ -192,13 +199,14 @@
 }
 
 .player-osd-panel.info-only .player-osd-actions,
-.player-osd-panel.info-only .player-osd-actions-column {
+.player-osd-panel.info-only .player-osd-sleep {
   display: none;
 }
 
 .player-osd-meta-strip {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 18px;
   padding: 8px var(--osd-safe-margin);
   font-variant-numeric: tabular-nums;
