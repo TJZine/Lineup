@@ -172,6 +172,23 @@ describe('SettingsScreen (Guide settings)', () => {
         expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'aggressivePreload', enabled: true });
     });
 
+    it('writes prefer clear logos toggle', () => {
+        const { container, screen } = createScreen(jest.fn());
+        localStorage.removeItem(SETTINGS_STORAGE_KEYS.PREFER_CLEAR_LOGOS);
+
+        screen.show();
+        activateCategory(container, 'appearance');
+
+        const toggle = container.querySelector('#settings-prefer-clear-logos') as HTMLButtonElement | null;
+        if (!toggle) throw new Error('Prefer clear logos toggle not found');
+
+        toggle.click();
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_CLEAR_LOGOS)).toBe('0');
+
+        toggle.click();
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_CLEAR_LOGOS)).toBe('1');
+    });
+
     it('renders aggressive preload toggle in appearance category', () => {
         const { container, screen } = createScreen(jest.fn());
 

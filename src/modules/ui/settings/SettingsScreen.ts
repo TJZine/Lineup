@@ -114,6 +114,10 @@ const TOGGLE_METADATA: Record<string, ToggleMetadata> = {
         storageKey: SETTINGS_STORAGE_KEYS.CINEMATIC_NOW_PLAYING,
         defaultValue: DEFAULT_SETTINGS.display.cinematicNowPlaying,
     },
+    'settings-prefer-clear-logos': {
+        storageKey: SETTINGS_STORAGE_KEYS.PREFER_CLEAR_LOGOS,
+        defaultValue: DEFAULT_SETTINGS.display.preferClearLogos,
+    },
 };
 
 const SELECT_METADATA: Record<string, SelectMetadata> = {
@@ -520,6 +524,18 @@ export class SettingsScreen {
                         ),
                         onChange: (value: boolean): void => {
                             this._saveBoolSetting(SETTINGS_STORAGE_KEYS.CINEMATIC_NOW_PLAYING, value);
+                        },
+                    },
+                    {
+                        id: 'settings-prefer-clear-logos',
+                        label: 'Use Clear Logos',
+                        description: 'Show clear logos instead of text titles when available',
+                        value: this._loadBoolSetting(
+                            SETTINGS_STORAGE_KEYS.PREFER_CLEAR_LOGOS,
+                            DEFAULT_SETTINGS.display.preferClearLogos
+                        ),
+                        onChange: (value: boolean): void => {
+                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.PREFER_CLEAR_LOGOS, value);
                         },
                     },
                     {

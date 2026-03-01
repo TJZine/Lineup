@@ -38,6 +38,8 @@ export interface DisplaySettings {
     nowPlayingInfoAutoHideMs: number;
     /** Cinematic Now Playing overlay layout toggle */
     cinematicNowPlaying: boolean;
+    /** Prefer clear logos over text titles when available */
+    preferClearLogos: boolean;
 }
 
 /**
