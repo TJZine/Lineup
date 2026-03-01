@@ -279,6 +279,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
                 title.textContent = item.fullTitle || item.title;
             }
         }
+        const hasShowTitleText = Boolean(showTitle?.textContent?.trim());
 
         const preferClearLogos = readStoredBoolean(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, true);
         const clearLogoPath = (item as { clearLogo?: string | null }).clearLogo ?? null;
@@ -294,7 +295,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
                 clearLogo.alt = '';
                 clearLogo.style.display = 'none';
                 if (item.type === 'episode') {
-                    if (showTitle) showTitle.style.display = 'block';
+                    if (showTitle) showTitle.style.display = hasShowTitleText ? 'block' : 'none';
                 } else {
                     if (title) title.style.display = '';
                 }
@@ -318,7 +319,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             clearLogo.style.display = 'none';
             clearLogo.alt = '';
             if (item.type === 'episode') {
-                if (showTitle && showTitle.textContent) showTitle.style.display = 'block';
+                if (showTitle) showTitle.style.display = hasShowTitleText ? 'block' : 'none';
                 if (title) title.style.display = '';
             } else {
                 if (title) title.style.display = '';
