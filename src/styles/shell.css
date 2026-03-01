@@ -4,10 +4,17 @@
   display: none;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at 20% 20%, var(--color-primary-alpha-15), transparent 45%),
-    radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.08), transparent 40%),
-    var(--color-bg-overlay);
-  color: var(--color-text-primary);
+  --onboarding-accent: rgb(200, 160, 100);
+  --onboarding-accent-alpha-60: rgba(200, 160, 100, 0.60);
+  --onboarding-accent-alpha-20: rgba(200, 160, 100, 0.20);
+  --onboarding-accent-alpha-08: rgba(200, 160, 100, 0.08);
+  --onboarding-text: #f0ece8;
+  --onboarding-text-secondary: rgba(240, 236, 232, 0.6);
+  --onboarding-text-muted: rgba(240, 236, 232, 0.4);
+  background: radial-gradient(circle at 20% 20%, rgba(200, 160, 100, 0.06), transparent 45%),
+    radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.04), transparent 40%),
+    #0e1017;
+  color: var(--onboarding-text);
   z-index: var(--z-overlay);
   font-family: var(--font-family-sans);
 }
@@ -38,10 +45,12 @@
 .screen-panel {
   width: min(1440px, 92vw);
   --onboarding-scale: 1;
-  background: var(--panel-inner-glow), var(--panel-surface);
-  border: var(--panel-border);
-  border-radius: var(--panel-radius);
+  background: rgba(255, 255, 255, 0.03);
+  border: none;
+  border-bottom: 1px solid rgba(200, 160, 100, 0.08);
+  border-radius: 16px;
   padding: var(--space-8) var(--space-8);
+  color: var(--onboarding-text);
 }
 
 .screen-hero {
@@ -75,7 +84,7 @@
 .screen-subtitle {
   margin: 0 0 14px 0;
   font-size: calc(18px * var(--onboarding-scale));
-  color: var(--color-text-secondary);
+  color: var(--onboarding-text-secondary);
 }
 
 .screen-status {
@@ -84,11 +93,11 @@
 }
 
 .screen-status--neutral {
-  color: var(--color-text-primary);
+  color: var(--onboarding-text);
 }
 
 .screen-status--loading {
-  color: var(--color-text-secondary);
+  color: var(--onboarding-text-secondary);
 }
 
 .screen-status--success {
@@ -105,7 +114,7 @@
 
 .screen-detail {
   font-size: calc(16px * var(--onboarding-scale));
-  color: var(--color-text-secondary);
+  color: var(--onboarding-text-secondary);
 }
 
 .screen-error {
@@ -130,14 +139,14 @@
 
 .screen-error-message {
   font-size: calc(16px * var(--onboarding-scale));
-  color: var(--color-text-secondary);
+  color: var(--onboarding-text-secondary);
   line-height: 1.5;
 }
 
 .screen-error-hint {
   margin-top: 8px;
   font-size: calc(14px * var(--onboarding-scale));
-  color: var(--color-text-muted);
+  color: var(--onboarding-text-muted);
   line-height: 1.4;
 }
 
@@ -156,7 +165,7 @@
   margin-top: -8px;
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.25);
-  border-top-color: rgba(var(--focus-color-rgb), 0.9);
+  border-top-color: var(--onboarding-accent);
   animation: panel-spinner-spin 0.8s linear infinite;
 }
 
@@ -202,7 +211,7 @@
   font-family: var(--font-family-sans);
   font-size: 40px;
   font-weight: 700;
-  color: var(--color-text-primary);
+  color: var(--onboarding-text);
   text-transform: uppercase;
 }
 
@@ -234,29 +243,33 @@
 .screen-button {
   appearance: none;
   position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 10px;
+  border: 1px solid rgba(200, 160, 100, 0.30);
+  border-radius: 999px;
   padding: calc(12px * var(--onboarding-scale)) calc(18px * var(--onboarding-scale));
   font-size: calc(18px * var(--onboarding-scale));
   font-weight: 600;
-  color: #ffffff;
-  background: var(--color-primary);
+  color: #0e1017;
+  background: var(--onboarding-accent);
   cursor: pointer;
   transition: background 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out;
 }
 
 .screen-button.secondary {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(200, 160, 100, 0.16);
+  color: var(--onboarding-text);
 }
 
 .screen-button.ghost {
   background: transparent;
+  border-color: transparent;
+  color: var(--onboarding-text);
 }
 
 .screen-button.destructive {
   background: var(--color-error);
   border-color: var(--color-error);
+  color: #ffffff;
 }
 
 .screen-button:disabled {
@@ -289,7 +302,7 @@
 .setup-toggle.focused::after,
 .setup-toggle:focus::after,
 .setup-toggle:focus-visible::after {
-  border-color: var(--focus-color);
+  border-color: var(--onboarding-accent-alpha-60);
 }
 
 @media (forced-colors: active) {
@@ -342,8 +355,8 @@
 }
 
 .server-row.active {
-  border-color: var(--color-primary);
-  background: var(--color-primary-alpha-08);
+  border-color: var(--onboarding-accent);
+  background: var(--onboarding-accent-alpha-08);
 }
 
 .server-row.active .server-name::before {
@@ -369,7 +382,7 @@
 
 .server-meta {
   font-size: calc(15px * var(--onboarding-scale));
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--onboarding-text-secondary);
 }
 
 .server-actions {
@@ -400,7 +413,7 @@
   font-size: var(--text-md);
   text-transform: uppercase;
   letter-spacing: 1.4px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--onboarding-text-secondary);
   margin-top: 6px;
 }
 
@@ -463,8 +476,8 @@
 }
 
 .setup-toggle.selected {
-  background: var(--color-primary-alpha-20);
-  border-color: var(--color-primary-alpha-60);
+  background: var(--onboarding-accent-alpha-20);
+  border-color: var(--onboarding-accent-alpha-60);
 }
 
 .setup-toggle.focused,
@@ -482,7 +495,7 @@
 .setup-toggle-meta {
   grid-column: 1;
   grid-row: 2;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--onboarding-text-secondary);
   font-size: var(--text-md);
 }
 
@@ -491,25 +504,17 @@
   grid-row: 1 / span 2;
   align-self: center;
   font-size: var(--text-md);
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.setup-toggle--adjustable .setup-toggle-state::before {
-  content: '◀ ';
-}
-
-.setup-toggle--adjustable .setup-toggle-state::after {
-  content: ' ▶';
+  color: var(--onboarding-text-secondary);
 }
 
 .setup-summary {
   font-size: 18px;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--onboarding-text);
 }
 
 .setup-empty {
   font-size: 16px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--onboarding-text-secondary);
   grid-column: 1 / -1;
 }
 

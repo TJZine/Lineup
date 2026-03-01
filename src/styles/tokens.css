@@ -37,6 +37,7 @@
 
     /* Background */
     --color-bg-deep: #06080a;
+    --color-onboarding-bg-deep: #0e1017;
     --color-bg-surface: rgba(10, 12, 14, 0.92);
     --color-bg-elevated: rgba(16, 20, 24, 0.94);
     --color-bg-overlay: rgba(6, 8, 10, 0.86);

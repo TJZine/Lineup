@@ -110,7 +110,7 @@ export class AudioSetupScreen {
 
         // Choices
         const choicesList = document.createElement('div');
-        choicesList.className = 'setup-grid-2col';
+        choicesList.className = 'audio-choice-row';
 
         for (const choice of AUDIO_CHOICES) {
             const button = document.createElement('button');

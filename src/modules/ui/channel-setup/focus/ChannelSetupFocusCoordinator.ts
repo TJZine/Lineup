@@ -1,9 +1,6 @@
 import type { FocusableElement } from '../../../navigation/interfaces';
-import { STEP2_ADJUSTABLE_CONTROL_IDS } from '../steps/constants';
 import { scrollToNearest } from './scrollToNearest';
 import type { FocusCoordinatorDeps } from './types';
-
-const STEP2_ADJUSTABLE_IDS = new Set<string>(STEP2_ADJUSTABLE_CONTROL_IDS);
 
 export class ChannelSetupFocusCoordinator {
     private readonly _deps: FocusCoordinatorDeps;
@@ -64,8 +61,7 @@ export class ChannelSetupFocusCoordinator {
             }
 
             const isDetailButton = detailIdSet.has(button.id);
-            const isAdjustable = STEP2_ADJUSTABLE_IDS.has(button.id);
-            if (isDetailButton && !isAdjustable) {
+            if (isDetailButton) {
                 neighbors.left = activeCategoryId;
             }
 

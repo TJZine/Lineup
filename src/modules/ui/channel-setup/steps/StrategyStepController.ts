@@ -48,6 +48,21 @@ const CATEGORY_TITLES: Record<StrategyCategoryKey, string> = {
 };
 
 export class StrategyStepController {
+    private _previewExpanded = false;
+
+    private _categoryHasActiveStrategies(
+        category: StrategyCategoryKey,
+        state: StrategyStepDeps['state']
+    ): boolean {
+        if (category === 'content-sources') {
+            return CONTENT_STRATEGY_KEYS.some((key) => state.strategies[key].enabled);
+        }
+        if (category === 'advanced-sources') {
+            return ADVANCED_STRATEGY_KEYS.some((key) => state.strategies[key].enabled);
+        }
+        return false;
+    }
+
     private _createToggleButton(options: {
         id: string;
         className: string;
@@ -59,6 +74,7 @@ export class StrategyStepController {
     }): HTMLButtonElement {
         const button = document.createElement('button');
         button.id = options.id;
+        button.type = 'button';
         button.className = options.className;
         button.disabled = options.disabled ?? false;
 
@@ -370,11 +386,51 @@ export class StrategyStepController {
         const previewPanel = this._renderPreviewPanel(deps, state);
 
         right.appendChild(detailScroll);
-        right.appendChild(previewPanel);
         split.appendChild(left);
         split.appendChild(right);
         ctx.contentEl.appendChild(split);
-        this._renderFooterActions(ctx, deps, state, categoryButtons, activeControls);
+
+        const previewStrip = document.createElement('section');
+        previewStrip.className = 'setup-preview-strip is-collapsed';
+        previewStrip.setAttribute('aria-label', 'Estimate summary');
+
+        const previewSummary = document.createElement('div');
+        previewSummary.className = 'setup-preview-strip-summary';
+
+        const previewSummaryText = document.createElement('span');
+        previewSummaryText.className = 'setup-preview-strip-summary-text';
+        const totalEstimate = state.preview?.estimates.total;
+        previewSummaryText.textContent = Number.isFinite(totalEstimate)
+            ? `Est. ${totalEstimate} channels`
+            : 'Estimate pending';
+
+        const previewToggle = document.createElement('button');
+        previewToggle.id = 'setup-preview-toggle';
+        previewToggle.type = 'button';
+        previewToggle.className = 'screen-button secondary setup-preview-strip-toggle';
+        previewToggle.setAttribute('aria-controls', state.previewPanelId);
+
+        const setExpanded = (expanded: boolean): void => {
+            this._previewExpanded = expanded;
+            previewStrip.classList.toggle('is-collapsed', !expanded);
+            previewToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            previewToggle.textContent = expanded ? 'Hide Details' : 'Show Details';
+            previewPanel.hidden = !expanded;
+        };
+
+        setExpanded(this._previewExpanded);
+        previewToggle.addEventListener('click', () => {
+            setExpanded(!this._previewExpanded);
+        });
+
+        previewSummary.appendChild(previewSummaryText);
+        previewSummary.appendChild(previewToggle);
+        previewStrip.appendChild(previewSummary);
+        previewStrip.appendChild(previewPanel);
+        ctx.contentEl.appendChild(previewStrip);
+
+        const detailFocusables = [...activeControls, previewToggle];
+        this._renderFooterActions(ctx, deps, state, categoryButtons, detailFocusables);
     }
 
     private _renderCategoryRail(
@@ -391,7 +447,19 @@ export class StrategyStepController {
             const button = document.createElement('button');
             button.id = deps.categoryButtonId(category.key);
             button.className = `setup-category-button${state.activeStrategyCategory === category.key ? ' selected' : ''}`;
-            button.textContent = category.title;
+
+            const label = document.createElement('span');
+            label.className = 'setup-category-label';
+            label.textContent = category.title;
+            button.appendChild(label);
+
+            if (this._categoryHasActiveStrategies(category.key, state)) {
+                const dot = document.createElement('span');
+                dot.className = 'setup-category-dot';
+                dot.setAttribute('aria-hidden', 'true');
+                button.appendChild(dot);
+            }
+
             button.addEventListener('click', () => {
                 deps.applyCategoryChange(category.key, button.id);
             });

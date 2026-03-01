@@ -135,6 +135,20 @@ describe('AudioSetupScreen', () => {
         expect(container.textContent).not.toContain('📺');
     });
 
+    it('renders audio choices inside horizontal row container', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationStub();
+        const screen = new AudioSetupScreen(container, () => nav as unknown as never, jest.fn());
+
+        screen.show();
+
+        const row = container.querySelector('.audio-choice-row');
+        expect(row).not.toBeNull();
+        expect(container.querySelector('.setup-grid-2col')).toBeNull();
+    });
+
     it('shows direct-play helper text immediately without delayed tooltip behavior', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);

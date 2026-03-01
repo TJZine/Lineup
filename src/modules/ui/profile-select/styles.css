@@ -18,7 +18,7 @@
 
 .profile-row {
     appearance: none;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 16px;
     padding: calc(16px * var(--onboarding-scale, 1)) calc(12px * var(--onboarding-scale, 1)) calc(14px * var(--onboarding-scale, 1));
     display: flex;
@@ -26,7 +26,7 @@
     align-items: center;
     gap: calc(10px * var(--onboarding-scale, 1));
     width: calc(140px * var(--onboarding-scale, 1));
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.03);
     color: inherit;
     text-align: center;
     cursor: pointer;
@@ -36,29 +36,28 @@
 .profile-row.focused,
 .profile-row:focus {
     outline: none;
-    transform: scale(1.06);
+    transform: scale(1.04);
     box-shadow:
-        0 0 0 2px var(--color-primary-alpha-60),
-        0 0 24px var(--color-primary-alpha-20),
-        0 0 50px var(--color-primary-alpha-08);
+        0 0 0 2px var(--onboarding-accent-alpha-60, rgba(200, 160, 100, 0.60)),
+        0 0 24px rgba(200, 160, 100, 0.12);
 }
 
 /* --- Active profile indicator --- */
 .profile-row.active {
-    border-color: var(--color-primary);
+    border-color: var(--onboarding-accent, rgb(200, 160, 100));
     background: radial-gradient(ellipse at center bottom,
-            var(--color-primary-alpha-20) 0%,
-            var(--color-primary-alpha-08) 70%,
+            rgba(200, 160, 100, 0.12) 0%,
+            rgba(200, 160, 100, 0.04) 70%,
             transparent 100%);
     box-shadow:
-        0 0 20px var(--color-primary-alpha-15),
-        0 0 40px var(--color-primary-alpha-08);
+        0 0 20px rgba(200, 160, 100, 0.10),
+        0 0 40px rgba(200, 160, 100, 0.05);
 }
 
 .profile-row.active .profile-avatar {
     transform: scale(1.12);
-    border: 2px solid var(--color-primary);
-    box-shadow: 0 4px 16px var(--color-primary-alpha-20);
+    border: 2px solid var(--onboarding-accent, rgb(200, 160, 100));
+    box-shadow: 0 4px 16px rgba(200, 160, 100, 0.15);
     transition: transform 200ms ease-out, box-shadow 200ms ease-out;
 }
 
@@ -69,9 +68,9 @@
     gap: 6px;
     padding: 2px 8px;
     border-radius: 999px;
-    border: 1px solid var(--color-primary-alpha-60);
-    background: var(--color-primary-alpha-16);
-    color: var(--color-primary);
+    border: 1px solid rgba(200, 160, 100, 0.50);
+    background: rgba(200, 160, 100, 0.12);
+    color: var(--onboarding-accent, rgb(200, 160, 100));
     font-weight: 600;
     letter-spacing: 0.04em;
 }
@@ -263,7 +262,7 @@
 .profile-numpad-button.focused::after,
 .profile-numpad-button:focus::after,
 .profile-numpad-button:focus-visible::after {
-    border-color: var(--focus-color);
+    border-color: var(--onboarding-accent-alpha-60, rgba(200, 160, 100, 0.60));
 }
 
 @media (forced-colors: active) {

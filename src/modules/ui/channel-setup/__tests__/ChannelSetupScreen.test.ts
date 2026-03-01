@@ -271,7 +271,8 @@ describe('ChannelSetupScreen', () => {
         expect(nav.focusables.get('setup-category-series-ordering')?.neighbors.down).toBe('setup-category-limits');
         expect(nav.focusables.get('setup-category-limits')?.neighbors.down).toBe('setup-category-priority-order');
         expect(nav.focusables.get('setup-category-priority-order')?.neighbors.down).toBe('setup-strategy-collections');
-        expect(nav.focusables.get('setup-strategy-recentlyAdded')?.neighbors.down).toBe('setup-back');
+        expect(nav.focusables.get('setup-strategy-recentlyAdded')?.neighbors.down).toBe('setup-preview-toggle');
+        expect(nav.focusables.get('setup-preview-toggle')?.neighbors.down).toBe('setup-back');
         expect(nav.focusables.get('setup-back')?.neighbors.down).toBe('setup-next');
         expect(nav.focusables.get('setup-next')?.neighbors.up).toBe('setup-back');
     });
@@ -382,7 +383,171 @@ describe('ChannelSetupScreen', () => {
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-category-content-sources');
     });
 
-    it('moves left from adjustable controls to category when value is already at clamp minimum', async () => {
+    it('moves left from adjustable controls to active category without mutating value', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const orchestrator = createOrchestrator({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-limits');
+
+        const getConfig = (): { minItemsPerChannel: number } =>
+            (
+                screen as unknown as {
+                    _buildConfig: (serverId: string) => { minItemsPerChannel: number };
+                }
+            )._buildConfig('server-1');
+        expect(getConfig().minItemsPerChannel).toBe(DEFAULT_MIN_ITEMS_PER_CHANNEL);
+
+        nav.setMockFocus('setup-min-items');
+        const event = nav.emitKeyPress('left');
+
+        expect(event.handled).toBe(true);
+        expect(nav.setFocus).toHaveBeenLastCalledWith('setup-category-limits');
+        expect(getConfig().minItemsPerChannel).toBe(DEFAULT_MIN_ITEMS_PER_CHANNEL);
+    });
+
+    it('cycles adjustable values on click with wrap behavior', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-limits');
+
+        const getConfig = (): { minItemsPerChannel: number } =>
+            (
+                screen as unknown as {
+                    _buildConfig: (serverId: string) => { minItemsPerChannel: number };
+                }
+            )._buildConfig('server-1');
+
+        expect(getConfig().minItemsPerChannel).toBe(DEFAULT_MIN_ITEMS_PER_CHANNEL);
+
+        const minItemsButton = container.querySelector('#setup-min-items') as HTMLButtonElement | null;
+        expect(minItemsButton?.disabled).toBe(false);
+
+        clickButton(container, '#setup-min-items');
+        expect(getConfig().minItemsPerChannel).toBe(10);
+
+        clickButton(container, '#setup-min-items');
+        expect(getConfig().minItemsPerChannel).toBe(20);
+
+        clickButton(container, '#setup-min-items');
+        expect(getConfig().minItemsPerChannel).toBe(50);
+
+        clickButton(container, '#setup-min-items');
+        expect(getConfig().minItemsPerChannel).toBe(1);
+    });
+
+    it('renders preview strip below split and collapsed by default', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        const split = container.querySelector('.setup-split');
+        const strip = container.querySelector('.setup-preview-strip');
+        expect(split).not.toBeNull();
+        expect(strip).not.toBeNull();
+        expect(split?.nextElementSibling).toBe(strip);
+
+        expect(container.querySelector('.setup-detail-pane #setup-preview-panel')).toBeNull();
+        const previewPanel = strip?.querySelector('#setup-preview-panel') as HTMLElement | null;
+        expect(previewPanel).not.toBeNull();
+
+        const toggle = container.querySelector('#setup-preview-toggle') as HTMLButtonElement | null;
+        expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+        expect(toggle?.getAttribute('aria-controls')).toBe('setup-preview-panel');
+        expect(strip?.classList.contains('is-collapsed')).toBe(true);
+        expect(previewPanel?.hidden).toBe(true);
+    });
+
+    it('toggles preview strip details with the preview toggle button', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        const strip = container.querySelector('.setup-preview-strip');
+        const toggle = container.querySelector('#setup-preview-toggle') as HTMLButtonElement | null;
+        const previewPanel = container.querySelector('#setup-preview-panel') as HTMLElement | null;
+
+        expect(strip?.classList.contains('is-collapsed')).toBe(true);
+        expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+        expect(previewPanel?.hidden).toBe(true);
+
+        clickButton(container, '#setup-preview-toggle');
+        expect(strip?.classList.contains('is-collapsed')).toBe(false);
+        expect(toggle?.getAttribute('aria-expanded')).toBe('true');
+        expect(previewPanel?.hidden).toBe(false);
+
+        clickButton(container, '#setup-preview-toggle');
+        expect(strip?.classList.contains('is-collapsed')).toBe(true);
+        expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+        expect(previewPanel?.hidden).toBe(true);
+    });
+
+    it('keeps preview strip expanded across Step 2 re-renders', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-preview-toggle');
+        expect(container.querySelector('.setup-preview-strip')?.classList.contains('is-collapsed')).toBe(false);
+        expect(container.querySelector('#setup-preview-toggle')?.getAttribute('aria-expanded')).toBe('true');
+        expect((container.querySelector('#setup-preview-panel') as HTMLElement | null)?.hidden).toBe(false);
+
+        // Trigger a Step 2 re-render via a setting change.
+        clickButton(container, '#setup-strategy-collections');
+        await flushPromises();
+
+        expect(container.querySelector('.setup-preview-strip')?.classList.contains('is-collapsed')).toBe(false);
+        expect(container.querySelector('#setup-preview-toggle')?.getAttribute('aria-expanded')).toBe('true');
+        expect((container.querySelector('#setup-preview-panel') as HTMLElement | null)?.hidden).toBe(false);
+    });
+
+    it('registers preview toggle in Step 2 focusables', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -397,17 +562,32 @@ describe('ChannelSetupScreen', () => {
         await flushPromises();
         await enterStep2(container);
 
-        clickButton(container, '#setup-category-limits');
+        expect(nav.focusables.has('setup-preview-toggle')).toBe(true);
+        expect(nav.focusables.get('setup-preview-toggle')?.neighbors.down).toBe('setup-back');
+    });
 
-        nav.setMockFocus('setup-min-items');
-        nav.emitKeyPress('left'); // 10 -> 5
-        nav.setMockFocus('setup-min-items');
-        nav.emitKeyPress('left'); // 5 -> 1
-        nav.setMockFocus('setup-min-items');
-        const event = nav.emitKeyPress('left'); // 1 -> clamp + transfer
+    it('shows category activity dots only for strategy categories with enabled strategies', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
 
-        expect(event.handled).toBe(true);
-        expect(nav.setFocus).toHaveBeenLastCalledWith('setup-category-limits');
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        expect(container.querySelector('#setup-category-content-sources .setup-category-dot')).not.toBeNull();
+        expect(container.querySelector('#setup-category-advanced-sources .setup-category-dot')).not.toBeNull();
+        expect(container.querySelector('#setup-category-limits .setup-category-dot')).toBeNull();
+
+        clickButton(container, '#setup-strategy-collections');
+        clickButton(container, '#setup-strategy-playlists');
+        clickButton(container, '#setup-strategy-recentlyAdded');
+
+        expect(container.querySelector('#setup-category-content-sources .setup-category-dot')).toBeNull();
     });
 
     it('uses Build Channels fast-path for first-time setup without loading review', async () => {
