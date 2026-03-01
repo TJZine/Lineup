@@ -16,6 +16,8 @@ type StubFocusable = {
 };
 
 const ALL_THEME_CLASSES = Object.values(THEME_CLASSES).filter(Boolean);
+const REAL_REQUEST_ANIMATION_FRAME = window.requestAnimationFrame;
+const REAL_CANCEL_ANIMATION_FRAME = window.cancelAnimationFrame;
 
 const createNavigationStub = (): {
     focusables: Map<string, StubFocusable>;
@@ -71,6 +73,35 @@ const activateCategory = (container: HTMLElement, categoryId: string): void => {
     }
     button.click();
 };
+
+beforeEach(() => {
+    Object.defineProperty(window, 'requestAnimationFrame', {
+        configurable: true,
+        writable: true,
+        value: (cb: FrameRequestCallback): number => {
+            cb(16);
+            return 1;
+        },
+    });
+    Object.defineProperty(window, 'cancelAnimationFrame', {
+        configurable: true,
+        writable: true,
+        value: (): void => {},
+    });
+});
+
+afterEach(() => {
+    Object.defineProperty(window, 'requestAnimationFrame', {
+        configurable: true,
+        writable: true,
+        value: REAL_REQUEST_ANIMATION_FRAME,
+    });
+    Object.defineProperty(window, 'cancelAnimationFrame', {
+        configurable: true,
+        writable: true,
+        value: REAL_CANCEL_ANIMATION_FRAME,
+    });
+});
 
 describe('SettingsScreen (Guide settings)', () => {
     beforeEach(() => {
@@ -288,6 +319,70 @@ describe('SettingsScreen (Two-pane layout)', () => {
         expect(container.querySelector('#settings-keep-playing')).not.toBeNull();
         expect(container.querySelector('#settings-hdr10-fallback-mode')).not.toBeNull();
         expect(container.querySelector('#settings-dts-passthrough')).toBeNull();
+    });
+
+    it('renders header and switch profile actions inside the left rail', () => {
+        const { container, screen } = createScreen(jest.fn());
+        screen.show();
+
+        const rail = container.querySelector('.settings-categories') as HTMLElement | null;
+        expect(rail).not.toBeNull();
+
+        const header = rail?.querySelector('.settings-header');
+        expect(header).not.toBeNull();
+        expect((header?.querySelector('.settings-title') as HTMLElement | null)?.textContent).toContain('Settings');
+
+        const switchProfileButton = rail?.querySelector('#settings-switch-profile');
+        expect(switchProfileButton).not.toBeNull();
+    });
+
+    it('applies transitioning class during category detail swap and removes it after reveal frame', () => {
+        const rafQueue: FrameRequestCallback[] = [];
+        const rafSpy = jest
+            .spyOn(window, 'requestAnimationFrame')
+            .mockImplementation((cb: FrameRequestCallback): number => {
+                rafQueue.push(cb);
+                return rafQueue.length;
+            });
+        const cancelSpy = jest.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+
+        const { container, screen } = createScreen(jest.fn());
+        screen.show();
+
+        const detailItems = container.querySelector('.settings-detail-items') as HTMLElement | null;
+        if (!detailItems) {
+            throw new Error('settings-detail-items not found');
+        }
+
+        const playbackCategory = container.querySelector(
+            '#settings-category-playback_hdr'
+        ) as HTMLButtonElement | null;
+        if (!playbackCategory) {
+            throw new Error('Playback category not found');
+        }
+
+        playbackCategory.click();
+
+        expect(detailItems.classList.contains('transitioning')).toBe(true);
+        expect(container.querySelector('#settings-keep-playing')).toBeNull();
+
+        const swapFrame = rafQueue.shift();
+        if (!swapFrame) {
+            throw new Error('Expected swap frame');
+        }
+        swapFrame(16);
+        expect(container.querySelector('#settings-keep-playing')).not.toBeNull();
+        expect(detailItems.classList.contains('transitioning')).toBe(true);
+
+        const revealFrame = rafQueue.shift();
+        if (!revealFrame) {
+            throw new Error('Expected reveal frame');
+        }
+        revealFrame(32);
+        expect(detailItems.classList.contains('transitioning')).toBe(false);
+
+        rafSpy.mockRestore();
+        cancelSpy.mockRestore();
     });
 
     it('wires left/right pane transfer and per-category remembered focus', () => {

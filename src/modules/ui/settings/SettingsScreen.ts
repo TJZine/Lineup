@@ -170,6 +170,8 @@ export class SettingsScreen {
     private _detailItems: HTMLElement | null = null;
     private _switchProfileButton: HTMLButtonElement | null = null;
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
+    private _detailSwapFrame: number | null = null;
+    private _detailRevealFrame: number | null = null;
 
     constructor(
         container: HTMLElement,
@@ -214,14 +216,14 @@ export class SettingsScreen {
 
         header.appendChild(title);
         header.appendChild(hint);
-        panel.appendChild(header);
-
-        const content = document.createElement('div');
-        content.className = 'settings-content';
 
         const categoryRail = document.createElement('div');
         categoryRail.className = 'settings-categories';
         categoryRail.setAttribute('aria-label', 'Settings categories');
+        categoryRail.appendChild(header);
+
+        const content = document.createElement('div');
+        content.className = 'settings-content';
 
         const detail = document.createElement('div');
         detail.className = 'settings-detail';
@@ -246,8 +248,8 @@ export class SettingsScreen {
         }
         this._renderActiveCategory();
 
-        content.appendChild(categoryRail);
         content.appendChild(detail);
+        panel.appendChild(categoryRail);
         panel.appendChild(content);
 
         const actions = document.createElement('div');
@@ -263,7 +265,8 @@ export class SettingsScreen {
         });
         actions.appendChild(switchProfileButton);
         this._switchProfileButton = switchProfileButton;
-        detail.appendChild(actions);
+        actions.classList.add('settings-rail-actions');
+        categoryRail.appendChild(actions);
 
         this._container.appendChild(panel);
     }
@@ -604,13 +607,47 @@ export class SettingsScreen {
             this._detailTitle.textContent = activeCategory?.label ?? '';
         }
 
+        if (this._detailSwapFrame !== null) {
+            cancelAnimationFrame(this._detailSwapFrame);
+            this._detailSwapFrame = null;
+        }
+        if (this._detailRevealFrame !== null) {
+            cancelAnimationFrame(this._detailRevealFrame);
+            this._detailRevealFrame = null;
+        }
+
         if (this._detailItems) {
-            this._detailItems.innerHTML = '';
-            if (activeCategory) {
-                for (const item of activeCategory.items) {
-                    this._activeCategoryItemIds.push(item.id);
-                    this._detailItems.appendChild(this._createItem(item));
+            const renderItems = (): void => {
+                if (!this._detailItems) return;
+                this._detailItems.innerHTML = '';
+                if (activeCategory) {
+                    for (const item of activeCategory.items) {
+                        this._activeCategoryItemIds.push(item.id);
+                        this._detailItems.appendChild(this._createItem(item));
+                    }
                 }
+            };
+
+            const shouldCrossfade = this._detailItems.childElementCount > 0 && this._focusableIds.length > 0;
+            if (!shouldCrossfade) {
+                this._detailItems.classList.remove('transitioning');
+                renderItems();
+            } else {
+                const expectedCategoryId = this._activeCategoryId;
+                this._detailItems.classList.add('transitioning');
+
+                this._detailSwapFrame = requestAnimationFrame(() => {
+                    this._detailSwapFrame = null;
+                    if (!this._detailItems || expectedCategoryId !== this._activeCategoryId) return;
+
+                    renderItems();
+
+                    this._detailRevealFrame = requestAnimationFrame(() => {
+                        this._detailRevealFrame = null;
+                        if (expectedCategoryId !== this._activeCategoryId) return;
+                        this._detailItems?.classList.remove('transitioning');
+                    });
+                });
             }
         }
 
@@ -1181,6 +1218,14 @@ export class SettingsScreen {
         this._detailTitle = null;
         this._detailItems = null;
         this._switchProfileButton = null;
+        if (this._detailSwapFrame !== null) {
+            cancelAnimationFrame(this._detailSwapFrame);
+            this._detailSwapFrame = null;
+        }
+        if (this._detailRevealFrame !== null) {
+            cancelAnimationFrame(this._detailRevealFrame);
+            this._detailRevealFrame = null;
+        }
         this._container.innerHTML = '';
     }
 }
