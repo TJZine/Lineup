@@ -97,6 +97,7 @@ export const EPG_CLASSES = {
     INFO_SHOW: 'epg-info-show',
     INFO_EYEBROW: 'epg-info-eyebrow',
     INFO_TITLE: 'epg-info-title',
+    INFO_CLEAR_LOGO: 'epg-info-clear-logo',
     INFO_META: 'epg-info-meta',
     INFO_TAGS: 'epg-info-tags',
     INFO_PILL: 'epg-info-pill',

@@ -996,6 +996,14 @@
   max-width: 100%;
 }
 
+.epg-info-clear-logo {
+  max-height: 54px;
+  max-width: min(520px, 100%);
+  object-fit: contain;
+  object-position: left center;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.55));
+}
+
 .epg-info-show {
   font-size: var(--text-base);
   color: var(--color-text-secondary);
