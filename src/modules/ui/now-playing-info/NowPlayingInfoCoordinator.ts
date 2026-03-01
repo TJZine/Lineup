@@ -269,9 +269,12 @@ export class NowPlayingInfoCoordinator {
         if (backdropPath) {
             backdropUrl = this.deps.buildPlexResourceUrl(backdropPath);
         }
+        const preferClearLogos = readStoredBoolean(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, true);
         const clearLogoPath =
             details?.clearLogo ?? (item as { clearLogo?: string | null }).clearLogo ?? null;
-        const clearLogoUrl = clearLogoPath ? this.deps.buildPlexResourceUrl(clearLogoPath) : null;
+        const clearLogoUrl = preferClearLogos && clearLogoPath
+            ? this.deps.buildPlexResourceUrl(clearLogoPath)
+            : null;
 
         const badges = this.buildQualityBadges(item, details, contentRating);
         const metaLines = this.buildMetaLines(item, details);
