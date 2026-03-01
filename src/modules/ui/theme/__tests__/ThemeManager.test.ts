@@ -62,4 +62,15 @@ describe('ThemeManager', () => {
         expect(document.body.classList.contains('theme-glass')).toBe(true);
         expect(document.body.classList.contains('theme-directv')).toBe(false);
     });
+
+    it('applies ember-steel theme and removes previous theme class', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.THEME, 'glass');
+
+        const manager = ThemeManager.getInstance();
+        expect(document.body.classList.contains('theme-glass')).toBe(true);
+
+        manager.setTheme('ember-steel');
+        expect(document.body.classList.contains('theme-ember-steel')).toBe(true);
+        expect(document.body.classList.contains('theme-glass')).toBe(false);
+    });
 });

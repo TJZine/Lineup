@@ -1292,6 +1292,7 @@
 }
 
 .theme-glass .epg-container.layout-classic .epg-classic-showcase {
+  -webkit-backdrop-filter: var(--glass-backdrop-filter);
   backdrop-filter: var(--glass-backdrop-filter);
   background: var(--glass-panel-strong);
   border-radius: var(--panel-radius);

@@ -633,6 +633,30 @@ describe('EPGComponent', () => {
                 localContainer.remove();
             }
         });
+
+        it('moves the info panel between dashboard and showcase when layout mode changes', () => {
+            const { epg: localEpg, container: localContainer } = createEpgInstance({
+                containerId: 'epg-container-info-panel-host',
+                layoutMode: 'classic',
+            });
+
+            try {
+                const dashboard = localContainer.querySelector(`.${EPG_CLASSES.DASHBOARD_BOTTOM}`) as HTMLElement;
+                const showcaseInfo = localContainer.querySelector('.epg-classic-showcase-info') as HTMLElement;
+                const infoPanel = localContainer.querySelector(`.${EPG_CLASSES.INFO_PANEL}`) as HTMLElement;
+
+                expect(infoPanel.parentElement).toBe(dashboard);
+
+                localEpg.show();
+                expect(infoPanel.parentElement).toBe(showcaseInfo);
+
+                localEpg.setLayoutMode('overlay');
+                expect(infoPanel.parentElement).toBe(dashboard);
+            } finally {
+                localEpg.destroy();
+                localContainer.remove();
+            }
+        });
     });
 
     describe('auto-fit pixelsPerMinute', () => {
