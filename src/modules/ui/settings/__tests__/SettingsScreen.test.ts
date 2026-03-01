@@ -346,43 +346,93 @@ describe('SettingsScreen (Two-pane layout)', () => {
             });
         const cancelSpy = jest.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
 
-        const { container, screen } = createScreen(jest.fn());
-        screen.show();
+        try {
+            const { container, screen } = createScreen(jest.fn());
+            screen.show();
 
-        const detailItems = container.querySelector('.settings-detail-items') as HTMLElement | null;
-        if (!detailItems) {
-            throw new Error('settings-detail-items not found');
+            const detailItems = container.querySelector('.settings-detail-items') as HTMLElement | null;
+            if (!detailItems) {
+                throw new Error('settings-detail-items not found');
+            }
+
+            const playbackCategory = container.querySelector(
+                '#settings-category-playback_hdr'
+            ) as HTMLButtonElement | null;
+            if (!playbackCategory) {
+                throw new Error('Playback category not found');
+            }
+
+            playbackCategory.click();
+
+            expect(detailItems.classList.contains('transitioning')).toBe(true);
+            expect(container.querySelector('#settings-keep-playing')).toBeNull();
+
+            const swapFrame = rafQueue.shift();
+            if (!swapFrame) {
+                throw new Error('Expected swap frame');
+            }
+            swapFrame(16);
+            expect(container.querySelector('#settings-keep-playing')).not.toBeNull();
+            expect(detailItems.classList.contains('transitioning')).toBe(true);
+
+            const revealFrame = rafQueue.shift();
+            if (!revealFrame) {
+                throw new Error('Expected reveal frame');
+            }
+            revealFrame(32);
+            expect(detailItems.classList.contains('transitioning')).toBe(false);
+        } finally {
+            rafSpy.mockRestore();
+            cancelSpy.mockRestore();
         }
+    });
 
-        const playbackCategory = container.querySelector(
-            '#settings-category-playback_hdr'
-        ) as HTMLButtonElement | null;
-        if (!playbackCategory) {
-            throw new Error('Playback category not found');
+    it('re-registers active detail focusables after deferred category swap', () => {
+        const rafQueue: FrameRequestCallback[] = [];
+        const rafSpy = jest
+            .spyOn(window, 'requestAnimationFrame')
+            .mockImplementation((cb: FrameRequestCallback): number => {
+                rafQueue.push(cb);
+                return rafQueue.length;
+            });
+        const cancelSpy = jest.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+
+        try {
+            const { container, nav, screen } = createScreen(jest.fn());
+            screen.show();
+
+            const playbackCategory = container.querySelector(
+                '#settings-category-playback_hdr'
+            ) as HTMLButtonElement | null;
+            if (!playbackCategory) {
+                throw new Error('Playback category not found');
+            }
+
+            playbackCategory.click();
+
+            // Before swap frame runs, only rail focusables are registered.
+            expect(nav.focusables.has('settings-keep-playing')).toBe(false);
+
+            const swapFrame = rafQueue.shift();
+            if (!swapFrame) {
+                throw new Error('Expected swap frame');
+            }
+            swapFrame(16);
+
+            // After deferred render, detail focusables must be present for D-pad navigation.
+            expect(nav.focusables.has('settings-keep-playing')).toBe(true);
+            const categoryFocusable = nav.focusables.get('settings-category-playback_hdr');
+            expect(categoryFocusable?.neighbors.right).toBe('settings-keep-playing');
+
+            const revealFrame = rafQueue.shift();
+            if (!revealFrame) {
+                throw new Error('Expected reveal frame');
+            }
+            revealFrame(32);
+        } finally {
+            rafSpy.mockRestore();
+            cancelSpy.mockRestore();
         }
-
-        playbackCategory.click();
-
-        expect(detailItems.classList.contains('transitioning')).toBe(true);
-        expect(container.querySelector('#settings-keep-playing')).toBeNull();
-
-        const swapFrame = rafQueue.shift();
-        if (!swapFrame) {
-            throw new Error('Expected swap frame');
-        }
-        swapFrame(16);
-        expect(container.querySelector('#settings-keep-playing')).not.toBeNull();
-        expect(detailItems.classList.contains('transitioning')).toBe(true);
-
-        const revealFrame = rafQueue.shift();
-        if (!revealFrame) {
-            throw new Error('Expected reveal frame');
-        }
-        revealFrame(32);
-        expect(detailItems.classList.contains('transitioning')).toBe(false);
-
-        rafSpy.mockRestore();
-        cancelSpy.mockRestore();
     });
 
     it('wires left/right pane transfer and per-category remembered focus', () => {

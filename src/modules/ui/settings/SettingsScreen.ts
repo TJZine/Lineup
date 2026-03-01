@@ -642,6 +642,15 @@ export class SettingsScreen {
 
                     renderItems();
 
+                    // Detail controls are recreated asynchronously; re-register focusables
+                    // so D-pad navigation reflects the active category after the swap frame.
+                    if (this._container.classList.contains('visible')) {
+                        const nav = this._getNavigation();
+                        const preferredFocusId = nav?.getFocusedElement()?.id ?? null;
+                        this._unregisterFocusables();
+                        this._registerFocusables(preferredFocusId);
+                    }
+
                     this._detailRevealFrame = requestAnimationFrame(() => {
                         this._detailRevealFrame = null;
                         if (expectedCategoryId !== this._activeCategoryId) return;
