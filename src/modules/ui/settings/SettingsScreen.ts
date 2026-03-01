@@ -614,6 +614,17 @@ export class SettingsScreen {
         return button;
     }
 
+    private _cancelDetailFrames(): void {
+        if (this._detailSwapFrame !== null) {
+            cancelAnimationFrame(this._detailSwapFrame);
+            this._detailSwapFrame = null;
+        }
+        if (this._detailRevealFrame !== null) {
+            cancelAnimationFrame(this._detailRevealFrame);
+            this._detailRevealFrame = null;
+        }
+    }
+
     private _renderActiveCategory(): void {
         const activeCategory = this._getActiveCategory();
         this._toggleElements.clear();
@@ -626,14 +637,7 @@ export class SettingsScreen {
             this._detailTitle.textContent = activeCategory?.label ?? '';
         }
 
-        if (this._detailSwapFrame !== null) {
-            cancelAnimationFrame(this._detailSwapFrame);
-            this._detailSwapFrame = null;
-        }
-        if (this._detailRevealFrame !== null) {
-            cancelAnimationFrame(this._detailRevealFrame);
-            this._detailRevealFrame = null;
-        }
+        this._cancelDetailFrames();
 
         if (this._detailItems) {
             const renderItems = (): void => {
@@ -860,14 +864,7 @@ export class SettingsScreen {
             nav?.off('keyPress', this._navKeyHandler);
             this._navKeyHandler = null;
         }
-        if (this._detailSwapFrame !== null) {
-            cancelAnimationFrame(this._detailSwapFrame);
-            this._detailSwapFrame = null;
-        }
-        if (this._detailRevealFrame !== null) {
-            cancelAnimationFrame(this._detailRevealFrame);
-            this._detailRevealFrame = null;
-        }
+        this._cancelDetailFrames();
         this._detailItems?.classList.remove('transitioning');
         this._pendingFocusRestore = null;
         this._unregisterFocusables();
@@ -1312,14 +1309,7 @@ export class SettingsScreen {
         this._detailTitle = null;
         this._detailItems = null;
         this._switchProfileButton = null;
-        if (this._detailSwapFrame !== null) {
-            cancelAnimationFrame(this._detailSwapFrame);
-            this._detailSwapFrame = null;
-        }
-        if (this._detailRevealFrame !== null) {
-            cancelAnimationFrame(this._detailRevealFrame);
-            this._detailRevealFrame = null;
-        }
+        this._cancelDetailFrames();
         this._container.innerHTML = '';
     }
 }
