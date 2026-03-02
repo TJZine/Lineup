@@ -174,8 +174,42 @@ describe('SettingsScreen (Guide settings)', () => {
 
         select.click();
 
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE)).toBe('2');
+        expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'infoBackgroundMode', mode: 2 });
+    });
+
+    it('renders the info background mode options in the locked order', () => {
+        const { container, screen } = createScreen(jest.fn());
+
+        screen.show();
+        activateCategory(container, 'appearance');
+
+        const select = container.querySelector('#settings-epg-info-background-mode') as HTMLButtonElement | null;
+        if (!select) {
+            throw new Error('Info background mode select not found');
+        }
+
+        expect(select.textContent).toContain('Artwork Bleed');
+
+        select.click();
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE)).toBe('2');
+
+        select.click();
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE)).toBe('1');
-        expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'infoBackgroundMode', mode: 1 });
+    });
+
+    it('preserves stored theme default semantics for value 1', () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '1');
+        const { container, screen } = createScreen(jest.fn());
+
+        screen.show();
+        activateCategory(container, 'appearance');
+
+        const value = container.querySelector(
+            '#settings-epg-info-background-mode .setup-toggle-value'
+        ) as HTMLElement | null;
+
+        expect(value?.textContent?.trim()).toBe('Theme Default');
     });
 
     it('sanitizes invalid info background mode values from storage', () => {

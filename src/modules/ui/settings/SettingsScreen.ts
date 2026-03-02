@@ -538,6 +538,7 @@ export class SettingsScreen {
                         value: this._loadEpgInfoBackgroundModeValue(),
                         options: [
                             { label: 'Artwork Bleed', value: 0 },
+                            { label: 'Artwork', value: 2 },
                             { label: 'Theme Default', value: 1 },
                         ],
                         onChange: (value: number): void => {
@@ -1082,10 +1083,11 @@ export class SettingsScreen {
         return 0;
     }
 
-    private _loadEpgInfoBackgroundModeValue(): 0 | 1 {
+    private _loadEpgInfoBackgroundModeValue(): 0 | 1 | 2 {
         const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
         if (raw === '0') return 0;
         if (raw === '1') return 1;
+        if (raw === '2') return 2;
         if (raw !== null) {
             safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
         }
@@ -1161,8 +1163,8 @@ export class SettingsScreen {
         return option.storageValue;
     }
 
-    private _saveEpgInfoBackgroundModeValue(value: number): 0 | 1 {
-        const mode: 0 | 1 = value === 1 ? 1 : 0;
+    private _saveEpgInfoBackgroundModeValue(value: number): 0 | 1 | 2 {
+        const mode: 0 | 1 | 2 = value === 2 ? 2 : value === 1 ? 1 : 0;
         safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, String(mode));
         return mode;
     }
