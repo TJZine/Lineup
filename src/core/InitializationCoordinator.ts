@@ -703,14 +703,16 @@ export class InitializationCoordinator implements IInitializationCoordinator {
      */
     private async _initPhase5(): Promise<void> {
         if (this._callbacks.getModuleStatus('epg-ui') === 'ready') {
-            await this._initNowPlayingInfoUI();
+            await this._ensureCorePlayerUiInitialized();
             return;
         }
         if (this._epgInitPromise) {
             await this._epgInitPromise;
+            await this._ensureCorePlayerUiInitialized();
             return;
         }
         if (!this._deps.epg || !this._config) {
+            await this._ensureCorePlayerUiInitialized();
             return;
         }
 
@@ -813,7 +815,13 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             });
 
         await this._epgInitPromise;
+        await this._ensureCorePlayerUiInitialized();
+    }
+
+    private async _ensureCorePlayerUiInitialized(): Promise<void> {
         await this._initNowPlayingInfoUI();
+        await this._initPlaybackOptionsUI();
+        await this._initExitConfirmUI();
     }
 
     private async _initNowPlayingInfoUI(): Promise<void> {
@@ -849,8 +857,6 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             });
 
         await this._nowPlayingInfoInitPromise;
-        await this._initPlaybackOptionsUI();
-        await this._initExitConfirmUI();
     }
 
     private async _initPlaybackOptionsUI(): Promise<void> {
