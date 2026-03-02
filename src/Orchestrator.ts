@@ -944,9 +944,8 @@ export class AppOrchestrator implements IAppOrchestrator {
             hidePlaybackOptionsModal: (): void =>
                 this._playbackOptionsCoordinator?.handleModalClose(PLAYBACK_OPTIONS_MODAL_ID),
             exitConfirmModalId: EXIT_CONFIRM_MODAL_ID,
-            prepareExitConfirmModal: (): { focusableIds: string[]; preferredFocusId: string | null } => ({
+            prepareExitConfirmModal: (): { focusableIds: string[] } => ({
                 focusableIds: [...EXIT_CONFIRM_FOCUSABLE_IDS],
-                preferredFocusId: EXIT_CONFIRM_FOCUSABLE_IDS[0] ?? null,
             }),
             showExitConfirmModal: (): void =>
                 this._exitConfirmCoordinator?.handleModalOpen(EXIT_CONFIRM_MODAL_ID),
@@ -1169,6 +1168,11 @@ export class AppOrchestrator implements IAppOrchestrator {
                 } catch (error) {
                     recordTeardownFailure('navigation.closeModal(exit-confirm)', error);
                 }
+            }
+            try {
+                this._exitConfirmCoordinator?.handleModalClose(EXIT_CONFIRM_MODAL_ID);
+            } catch (error) {
+                recordTeardownFailure('exitConfirmCoordinator.handleModalClose', error);
             }
             try {
                 this._exitConfirmModal.destroy();
