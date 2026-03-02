@@ -392,15 +392,18 @@ describe('NavigationManager', () => {
             nav.replaceScreen('player');
             const closeSpy = jest.spyOn(window, 'close').mockImplementation(() => undefined);
 
-            nav.on('keyPress', (event) => {
-                event.handled = true;
-            });
+            try {
+                nav.on('keyPress', (event) => {
+                    event.handled = true;
+                });
 
-            // Back button (keyCode 461) would normally exit at player root.
-            dispatchKeyEvent(461);
+                // Back button (keyCode 461) would normally exit at player root.
+                dispatchKeyEvent(461);
 
-            expect(closeSpy).not.toHaveBeenCalled();
-            closeSpy.mockRestore();
+                expect(closeSpy).not.toHaveBeenCalled();
+            } finally {
+                closeSpy.mockRestore();
+            }
         });
 
         it('should move focus on arrow keys', () => {
@@ -728,36 +731,45 @@ describe('NavigationManager', () => {
         it('should exit to Home on splash root', () => {
             const closeSpy = jest.spyOn(window, 'close').mockImplementation(() => undefined);
 
-            nav.replaceScreen('splash');
+            try {
+                nav.replaceScreen('splash');
 
-            // Press Back
-            dispatchKeyEvent(461);
+                // Press Back
+                dispatchKeyEvent(461);
 
-            expect(closeSpy).toHaveBeenCalledTimes(1);
-            closeSpy.mockRestore();
+                expect(closeSpy).toHaveBeenCalledTimes(1);
+            } finally {
+                closeSpy.mockRestore();
+            }
         });
 
         it('should exit to Home on player root (fallback)', () => {
             const closeSpy = jest.spyOn(window, 'close').mockImplementation(() => undefined);
 
-            nav.replaceScreen('player');
+            try {
+                nav.replaceScreen('player');
 
-            // Press Back
-            dispatchKeyEvent(461);
+                // Press Back
+                dispatchKeyEvent(461);
 
-            expect(closeSpy).toHaveBeenCalledTimes(1);
-            closeSpy.mockRestore();
+                expect(closeSpy).toHaveBeenCalledTimes(1);
+            } finally {
+                closeSpy.mockRestore();
+            }
         });
 
         it('should exit to Home on auth root', () => {
             const closeSpy = jest.spyOn(window, 'close').mockImplementation(() => undefined);
 
-            nav.replaceScreen('auth');
+            try {
+                nav.replaceScreen('auth');
 
-            dispatchKeyEvent(461);
+                dispatchKeyEvent(461);
 
-            expect(closeSpy).toHaveBeenCalledTimes(1);
-            closeSpy.mockRestore();
+                expect(closeSpy).toHaveBeenCalledTimes(1);
+            } finally {
+                closeSpy.mockRestore();
+            }
         });
 
         it('should navigate to auth from server-select root', () => {
