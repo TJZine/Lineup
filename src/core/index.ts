@@ -12,6 +12,8 @@ export { ChannelSetupCoordinator } from './channel-setup';
 export type { ChannelSetupCoordinatorDeps } from './channel-setup';
 export { OrchestratorStorageContext } from './orchestrator/OrchestratorStorageContext';
 export type { OrchestratorStorageContextDeps } from './orchestrator/OrchestratorStorageContext';
+export { OrchestratorEventBinder } from './orchestrator/OrchestratorEventBinder';
+export type { OrchestratorEventBinderDeps } from './orchestrator/OrchestratorEventBinder';
 export type {
     ChannelSetupConfig,
     ChannelBuildSummary,

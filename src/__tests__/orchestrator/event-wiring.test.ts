@@ -1,107 +1,147 @@
-import { AppOrchestrator } from '../../Orchestrator';
+import {
+    OrchestratorEventBinder,
+    type OrchestratorEventBinderDeps,
+} from '../../core';
 import type { IAppLifecycle } from '../../modules/lifecycle';
 import type { INavigationManager } from '../../modules/navigation';
 import type { IVideoPlayer } from '../../modules/player';
 import type { IPlexLibrary } from '../../modules/plex/library';
 import type { IPlexStreamResolver } from '../../modules/plex/stream';
+import type { IChannelManager } from '../../modules/scheduler/channel-manager';
 import type { IChannelScheduler } from '../../modules/scheduler/scheduler';
 import { createDeferred, flushPromises } from '../helpers';
 
+type BinderHarness = {
+    binder: OrchestratorEventBinder;
+    deps: OrchestratorEventBinderDeps;
+    scheduler: IChannelScheduler;
+    videoPlayer: IVideoPlayer;
+    plexLibrary: IPlexLibrary;
+    plexStreamResolver: IPlexStreamResolver;
+    navigation: INavigationManager;
+    lifecycle: IAppLifecycle;
+    channelManager: IChannelManager;
+    navigationCleanup: jest.Mock;
+    epgCleanup: jest.Mock;
+    persistenceDispose: jest.Mock;
+    pauseDispose: jest.Mock;
+    resumeDispose: jest.Mock;
+    getPauseCallback: () => (() => void | Promise<void>) | null;
+    getResumeCallback: () => (() => void | Promise<void>) | null;
+};
+
+const makeBinder = (overrides: Partial<OrchestratorEventBinderDeps> = {}): BinderHarness => {
+    let pauseCallback: (() => void | Promise<void>) | null = null;
+    let resumeCallback: (() => void | Promise<void>) | null = null;
+
+    const navigationCleanup = jest.fn();
+    const epgCleanup = jest.fn();
+    const persistenceDispose = jest.fn();
+    const pauseDispose = jest.fn();
+    const resumeDispose = jest.fn();
+
+    const scheduler = {
+        on: jest.fn(),
+        off: jest.fn(),
+    } as unknown as IChannelScheduler;
+    const videoPlayer = {
+        on: jest.fn(),
+        off: jest.fn(),
+    } as unknown as IVideoPlayer;
+    const plexLibrary = {
+        on: jest.fn(),
+        off: jest.fn(),
+    } as unknown as IPlexLibrary;
+    const plexStreamResolver = {
+        on: jest.fn(),
+        off: jest.fn(),
+    } as unknown as IPlexStreamResolver;
+    const navigation = {
+        on: jest.fn(),
+        off: jest.fn(),
+    } as unknown as INavigationManager;
+    const lifecycle = {
+        onPause: jest.fn((callback: () => void | Promise<void>) => {
+            pauseCallback = callback;
+            return { dispose: pauseDispose };
+        }),
+        onResume: jest.fn((callback: () => void | Promise<void>) => {
+            resumeCallback = callback;
+            return { dispose: resumeDispose };
+        }),
+    } as unknown as IAppLifecycle;
+    const channelManager = {
+        on: jest.fn(() => ({ dispose: persistenceDispose })),
+    } as unknown as IChannelManager;
+
+    const deps: OrchestratorEventBinderDeps = {
+        getScheduler: () => scheduler,
+        getVideoPlayer: () => videoPlayer,
+        getPlexLibrary: () => plexLibrary,
+        getPlexStreamResolver: () => plexStreamResolver,
+        getNavigation: () => navigation,
+        getLifecycle: () => lifecycle,
+        getChannelManager: () => channelManager,
+        wireNavigationCoordinatorEvents: () => [navigationCleanup],
+        wireEpgCoordinatorEvents: () => [epgCleanup],
+        handleProgramStartTracked: jest.fn(async () => undefined),
+        handleScheduleDayRollover: jest.fn(async () => undefined),
+        handlePlayerEnded: jest.fn(),
+        handlePlayerTrackChange: jest.fn(),
+        handlePlaybackError: jest.fn(),
+        handlePlayerStateChange: jest.fn(),
+        handlePlayerTimeUpdate: jest.fn(),
+        handlePlayerBufferUpdate: jest.fn(),
+        handlePlexLibraryAuthExpired: jest.fn(),
+        handlePlexStreamError: jest.fn(),
+        handleScreenChange: jest.fn(),
+        handleLifecyclePause: jest.fn(async () => undefined),
+        handleLifecycleResume: jest.fn(async () => undefined),
+        reportPersistenceWarning: jest.fn(),
+        ...overrides,
+    };
+
+    return {
+        binder: new OrchestratorEventBinder(deps),
+        deps,
+        scheduler,
+        videoPlayer,
+        plexLibrary,
+        plexStreamResolver,
+        navigation,
+        lifecycle,
+        channelManager,
+        navigationCleanup,
+        epgCleanup,
+        persistenceDispose,
+        pauseDispose,
+        resumeDispose,
+        getPauseCallback: () => pauseCallback,
+        getResumeCallback: () => resumeCallback,
+    };
+};
+
 describe('AppOrchestrator event wiring', () => {
-    it('returns cleanups that unsubscribe all wired handlers', () => {
-        let pauseCallback: (() => void | Promise<void>) | null = null;
-        let resumeCallback: (() => void | Promise<void>) | null = null;
-        const pauseDispose = jest.fn();
-        const resumeDispose = jest.fn();
+    it('bind registers every handler and dispose unwires every cleanup', () => {
+        const {
+            binder,
+            scheduler,
+            videoPlayer,
+            plexLibrary,
+            plexStreamResolver,
+            navigation,
+            lifecycle,
+            channelManager,
+            navigationCleanup,
+            epgCleanup,
+            persistenceDispose,
+            pauseDispose,
+            resumeDispose,
+            getPauseCallback,
+            getResumeCallback,
+        } = makeBinder();
 
-        const scheduler = {
-            on: jest.fn(),
-            off: jest.fn(),
-        } as unknown as IChannelScheduler;
-        const videoPlayer = {
-            on: jest.fn(),
-            off: jest.fn(),
-        } as unknown as IVideoPlayer;
-        const plexLibrary = {
-            on: jest.fn(),
-            off: jest.fn(),
-        } as unknown as IPlexLibrary;
-        const plexStreamResolver = {
-            on: jest.fn(),
-            off: jest.fn(),
-        } as unknown as IPlexStreamResolver;
-        const navigation = {
-            on: jest.fn(),
-            off: jest.fn(),
-        } as unknown as INavigationManager;
-        const lifecycle = {
-            onPause: jest.fn((callback: () => void | Promise<void>) => {
-                pauseCallback = callback;
-                return { dispose: pauseDispose };
-            }),
-            onResume: jest.fn((callback: () => void | Promise<void>) => {
-                resumeCallback = callback;
-                return { dispose: resumeDispose };
-            }),
-        } as unknown as IAppLifecycle;
-
-        const navigationCleanup = jest.fn();
-        const epgCleanup = jest.fn();
-
-        const orchestrator = new AppOrchestrator() as unknown as {
-            _scheduler: IChannelScheduler | null;
-            _videoPlayer: IVideoPlayer | null;
-            _plexLibrary: IPlexLibrary | null;
-            _plexStreamResolver: IPlexStreamResolver | null;
-            _navigation: INavigationManager | null;
-            _lifecycle: IAppLifecycle | null;
-            _navigationCoordinator: { wireNavigationEvents: () => Array<() => void> } | null;
-            _epgCoordinator: { wireEpgEvents: () => Array<() => void> } | null;
-            _eventsWired: boolean;
-            _eventUnsubscribers: Array<() => void>;
-            _setupEventWiring: () => void;
-
-            _handleProgramStartTracked: jest.Mock;
-            _handleScheduleDayRollover: jest.Mock;
-            _handlePlayerEnded: jest.Mock;
-            _handlePlayerTrackChange: jest.Mock;
-            _handlePlaybackError: jest.Mock;
-            _handlePlayerStateChange: jest.Mock;
-            _handlePlayerTimeUpdate: jest.Mock;
-            _handlePlayerBufferUpdate: jest.Mock;
-            _handlePlexLibraryAuthExpired: jest.Mock;
-            _handlePlexStreamError: jest.Mock;
-            _handleScreenChange: jest.Mock;
-            _handleLifecyclePause: jest.Mock;
-            _handleLifecycleResume: jest.Mock;
-        };
-
-        orchestrator._scheduler = scheduler;
-        orchestrator._videoPlayer = videoPlayer;
-        orchestrator._plexLibrary = plexLibrary;
-        orchestrator._plexStreamResolver = plexStreamResolver;
-        orchestrator._navigation = navigation;
-        orchestrator._lifecycle = lifecycle;
-        orchestrator._navigationCoordinator = { wireNavigationEvents: (): Array<() => void> => [navigationCleanup] };
-        orchestrator._epgCoordinator = { wireEpgEvents: (): Array<() => void> => [epgCleanup] };
-
-        orchestrator._handleProgramStartTracked = jest.fn(async () => undefined);
-        orchestrator._handleScheduleDayRollover = jest.fn(async () => undefined);
-        orchestrator._handlePlayerEnded = jest.fn();
-        orchestrator._handlePlayerTrackChange = jest.fn();
-        orchestrator._handlePlaybackError = jest.fn();
-        orchestrator._handlePlayerStateChange = jest.fn();
-        orchestrator._handlePlayerTimeUpdate = jest.fn();
-        orchestrator._handlePlayerBufferUpdate = jest.fn();
-        orchestrator._handlePlexLibraryAuthExpired = jest.fn();
-        orchestrator._handlePlexStreamError = jest.fn();
-        orchestrator._handleScreenChange = jest.fn();
-        orchestrator._handleLifecyclePause = jest.fn(async () => undefined);
-        orchestrator._handleLifecycleResume = jest.fn(async () => undefined);
-
-        orchestrator._eventsWired = false;
-        orchestrator._eventUnsubscribers = [];
-        orchestrator._setupEventWiring();
+        binder.bind();
 
         expect(scheduler.on).toHaveBeenCalledWith('programStart', expect.any(Function));
         expect(scheduler.on).toHaveBeenCalledWith('scheduleSync', expect.any(Function));
@@ -111,17 +151,16 @@ describe('AppOrchestrator event wiring', () => {
         expect(videoPlayer.on).toHaveBeenCalledWith('stateChange', expect.any(Function));
         expect(videoPlayer.on).toHaveBeenCalledWith('timeUpdate', expect.any(Function));
         expect(videoPlayer.on).toHaveBeenCalledWith('bufferUpdate', expect.any(Function));
-        expect(navigation.on).toHaveBeenCalledWith('screenChange', expect.any(Function));
         expect(plexLibrary.on).toHaveBeenCalledWith('authExpired', expect.any(Function));
         expect(plexStreamResolver.on).toHaveBeenCalledWith('error', expect.any(Function));
+        expect(navigation.on).toHaveBeenCalledWith('screenChange', expect.any(Function));
+        expect(channelManager.on).toHaveBeenCalledWith('persistenceWarning', expect.any(Function));
         expect(lifecycle.onPause).toHaveBeenCalledTimes(1);
         expect(lifecycle.onResume).toHaveBeenCalledTimes(1);
-        expect(typeof pauseCallback).toBe('function');
-        expect(typeof resumeCallback).toBe('function');
+        expect(typeof getPauseCallback()).toBe('function');
+        expect(typeof getResumeCallback()).toBe('function');
 
-        for (const cleanup of orchestrator._eventUnsubscribers) {
-            cleanup();
-        }
+        binder.dispose();
 
         expect(scheduler.off).toHaveBeenCalledWith('programStart', expect.any(Function));
         expect(scheduler.off).toHaveBeenCalledWith('scheduleSync', expect.any(Function));
@@ -131,11 +170,12 @@ describe('AppOrchestrator event wiring', () => {
         expect(videoPlayer.off).toHaveBeenCalledWith('stateChange', expect.any(Function));
         expect(videoPlayer.off).toHaveBeenCalledWith('timeUpdate', expect.any(Function));
         expect(videoPlayer.off).toHaveBeenCalledWith('bufferUpdate', expect.any(Function));
-        expect(navigation.off).toHaveBeenCalledWith('screenChange', expect.any(Function));
         expect(plexLibrary.off).toHaveBeenCalledWith('authExpired', expect.any(Function));
         expect(plexStreamResolver.off).toHaveBeenCalledWith('error', expect.any(Function));
+        expect(navigation.off).toHaveBeenCalledWith('screenChange', expect.any(Function));
         expect(navigationCleanup).toHaveBeenCalledTimes(1);
         expect(epgCleanup).toHaveBeenCalledTimes(1);
+        expect(persistenceDispose).toHaveBeenCalledTimes(1);
         expect(pauseDispose).toHaveBeenCalledTimes(1);
         expect(resumeDispose).toHaveBeenCalledTimes(1);
     });
@@ -144,36 +184,15 @@ describe('AppOrchestrator event wiring', () => {
         const pauseDeferred = createDeferred<void>();
         const resumeDeferred = createDeferred<void>();
 
-        let pauseCallback: (() => void | Promise<void>) | null = null;
-        let resumeCallback: (() => void | Promise<void>) | null = null;
+        const { binder, getPauseCallback, getResumeCallback } = makeBinder({
+            handleLifecyclePause: jest.fn(() => pauseDeferred.promise),
+            handleLifecycleResume: jest.fn(() => resumeDeferred.promise),
+        });
 
-        const lifecycle = {
-            onPause: jest.fn((cb: () => void | Promise<void>) => {
-                pauseCallback = cb;
-                return { dispose: (): void => undefined };
-            }),
-            onResume: jest.fn((cb: () => void | Promise<void>) => {
-                resumeCallback = cb;
-                return { dispose: (): void => undefined };
-            }),
-        } as unknown as IAppLifecycle;
+        binder.bind();
 
-        const orchestrator = new AppOrchestrator() as unknown as {
-            _lifecycle: IAppLifecycle | null;
-            _eventsWired: boolean;
-            _eventUnsubscribers: Array<() => void>;
-            _setupEventWiring: () => void;
-            _handleLifecyclePause: jest.Mock;
-            _handleLifecycleResume: jest.Mock;
-        };
-
-        orchestrator._lifecycle = lifecycle;
-        orchestrator._handleLifecyclePause = jest.fn(() => pauseDeferred.promise);
-        orchestrator._handleLifecycleResume = jest.fn(() => resumeDeferred.promise);
-        orchestrator._eventsWired = false;
-        orchestrator._eventUnsubscribers = [];
-
-        orchestrator._setupEventWiring();
+        const pauseCallback = getPauseCallback();
+        const resumeCallback = getResumeCallback();
 
         expect(typeof pauseCallback).toBe('function');
         expect(typeof resumeCallback).toBe('function');
@@ -184,7 +203,7 @@ describe('AppOrchestrator event wiring', () => {
             throw new Error('Expected resume callback to be registered');
         }
 
-        const pausePromise = Promise.resolve((pauseCallback as () => void | Promise<void>)());
+        const pausePromise = Promise.resolve(pauseCallback());
         let pauseSettled = false;
         void pausePromise.then(() => {
             pauseSettled = true;
@@ -196,7 +215,7 @@ describe('AppOrchestrator event wiring', () => {
         await pausePromise;
         expect(pauseSettled).toBe(true);
 
-        const resumePromise = Promise.resolve((resumeCallback as () => void | Promise<void>)());
+        const resumePromise = Promise.resolve(resumeCallback());
         let resumeSettled = false;
         void resumePromise.then(() => {
             resumeSettled = true;
@@ -209,40 +228,69 @@ describe('AppOrchestrator event wiring', () => {
         expect(resumeSettled).toBe(true);
     });
 
-    it('rolls back partial wiring when a wiring stage throws', () => {
-        const schedulerCleanup = jest.fn();
-        const navigationCleanup = jest.fn();
-        const orchestrator = new AppOrchestrator() as unknown as {
-            _eventsWired: boolean;
-            _eventUnsubscribers: Array<() => void>;
-            _setupEventWiring: () => void;
-            _wireSchedulerEvents: (cleanups: Array<() => void>) => void;
-            _wirePlayerEvents: (cleanups: Array<() => void>) => void;
-            _wirePlexEvents: (cleanups: Array<() => void>) => void;
-            _wireNavigationEvents: (cleanups: Array<() => void>) => void;
-            _wireEpgEvents: (cleanups: Array<() => void>) => void;
-            _wireLifecycleEvents: (cleanups: Array<() => void>) => void;
-        };
+    it('bind is idempotent until dispose is called', () => {
+        const { binder, scheduler } = makeBinder();
 
-        orchestrator._eventsWired = false;
-        orchestrator._eventUnsubscribers = [];
-        orchestrator._wireSchedulerEvents = (cleanups): void => {
-            cleanups.push(schedulerCleanup);
-        };
-        orchestrator._wirePlayerEvents = (): void => {
-            throw new Error('wire-player-failed');
-        };
-        orchestrator._wirePlexEvents = (): void => undefined;
-        orchestrator._wireNavigationEvents = (cleanups): void => {
-            cleanups.push(navigationCleanup);
-        };
-        orchestrator._wireEpgEvents = (): void => undefined;
-        orchestrator._wireLifecycleEvents = (): void => undefined;
+        binder.bind();
+        binder.bind();
 
-        expect(() => orchestrator._setupEventWiring()).toThrow('wire-player-failed');
-        expect(schedulerCleanup).toHaveBeenCalledTimes(1);
-        expect(navigationCleanup).not.toHaveBeenCalled();
-        expect(orchestrator._eventsWired).toBe(false);
-        expect(orchestrator._eventUnsubscribers).toHaveLength(0);
+        expect(scheduler.on).toHaveBeenCalledTimes(2);
+
+        binder.dispose();
+        binder.bind();
+
+        expect(scheduler.on).toHaveBeenCalledTimes(4);
+    });
+
+    it('bind rolls back partial wiring when a later stage throws and can be retried', () => {
+        const scheduler = {
+            on: jest.fn(),
+            off: jest.fn(),
+        } as unknown as IChannelScheduler;
+        const videoPlayer = {
+            on: jest
+                .fn()
+                .mockImplementationOnce(() => {
+                    throw new Error('wire-player-failed');
+                })
+                .mockImplementation(() => undefined),
+            off: jest.fn(),
+        } as unknown as IVideoPlayer;
+
+        const { binder } = makeBinder({
+            getScheduler: () => scheduler,
+            getVideoPlayer: () => videoPlayer,
+        });
+
+        expect(() => binder.bind()).toThrow('wire-player-failed');
+        expect(scheduler.off).toHaveBeenCalledWith('programStart', expect.any(Function));
+        expect(scheduler.off).toHaveBeenCalledWith('scheduleSync', expect.any(Function));
+        expect(videoPlayer.off).not.toHaveBeenCalled();
+
+        binder.bind();
+
+        expect(scheduler.on).toHaveBeenCalledTimes(4);
+    });
+
+    it('dispose forwards cleanup failures to the supplied sink and resets wiring state', () => {
+        const onCleanupError = jest.fn();
+        const throwingCleanup = jest.fn(() => {
+            throw new Error('cleanup-failed');
+        });
+
+        const { binder, scheduler } = makeBinder({
+            wireNavigationCoordinatorEvents: () => [throwingCleanup],
+            getNavigation: () => null,
+        });
+
+        binder.bind();
+
+        expect(() => binder.dispose(onCleanupError)).not.toThrow();
+        expect(onCleanupError).toHaveBeenCalledTimes(1);
+        expect(onCleanupError).toHaveBeenCalledWith(expect.any(Error));
+
+        binder.bind();
+
+        expect(scheduler.on).toHaveBeenCalledTimes(4);
     });
 });
