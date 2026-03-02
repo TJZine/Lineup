@@ -20,5 +20,7 @@ export type {
     ChannelSetupPreview,
     ChannelSetupReview,
 } from './channel-setup';
+export { PlaybackStartController } from './PlaybackStartController';
+export type { PlaybackStartControllerDeps } from './PlaybackStartController';
 // Note: InitializationDependencies and InitializationCallbacks are intentionally
 // NOT exported. They are internal implementation details used only by Orchestrator.
