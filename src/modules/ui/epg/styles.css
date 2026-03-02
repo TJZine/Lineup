@@ -1217,6 +1217,13 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .epg-info-description-inner {
+    animation: none;
+    transform: none;
+  }
+}
+
 .epg-info-quality {
   display: flex;
   gap: 10px;

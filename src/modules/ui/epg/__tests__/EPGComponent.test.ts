@@ -452,7 +452,7 @@ describe('EPGComponent', () => {
                 const channel = localContainer.querySelector(`.${EPG_CLASSES.NOW_WATCHING_CHANNEL}`) as HTMLElement;
                 const program = localContainer.querySelector(`.${EPG_CLASSES.NOW_WATCHING_PROGRAM}`) as HTMLElement;
                 const time = localContainer.querySelector(`.${EPG_CLASSES.NOW_WATCHING_TIME}`) as HTMLElement;
-                const live = localContainer.querySelector('.epg-now-watching-live') as HTMLElement | null;
+                const live = localContainer.querySelector(`.${EPG_CLASSES.NOW_WATCHING_LIVE}`) as HTMLElement | null;
 
                 expect(banner.hidden).toBe(false);
                 expect(live).not.toBeNull();
