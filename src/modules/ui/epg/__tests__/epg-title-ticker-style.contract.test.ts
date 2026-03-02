@@ -11,6 +11,8 @@ describe('EPG title ticker style contract', () => {
 
         expect(css).toMatch(/@keyframes\s+epg-title-ticker/s);
         expect(css).toMatch(/\.epg-cell-title\.epg-cell-title-ticker-running\s*\{[^}]*animation:/s);
-        expect(css).toMatch(/\.epg-cell-title\.epg-cell-title-ticker-ready[\s\S]*text-overflow:\s*clip;/s);
+        expect(css).toMatch(
+            /\.epg-cell-title\.epg-cell-title-ticker-ready[^{]*\{[^}]*text-overflow:\s*clip;[^}]*\}/s
+        );
     });
 });

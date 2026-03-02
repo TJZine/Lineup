@@ -372,8 +372,13 @@ export class EPGInfoPanel implements IEPGInfoPanel {
                         description.style.removeProperty('--scroll-distance');
                     }
                 }
-            } else if (description.style.display !== 'none') {
-                description.style.display = 'none';
+            } else {
+                if (descriptionInner.textContent) {
+                    descriptionInner.textContent = '';
+                }
+                if (description.style.display !== 'none') {
+                    description.style.display = 'none';
+                }
                 description.dataset.scrollActive = 'false';
                 description.style.removeProperty('--scroll-distance');
             }

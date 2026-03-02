@@ -456,6 +456,25 @@ describe('EPGInfoPanel', () => {
             expect(description.style.getPropertyValue('--scroll-distance')).toBe('-140px');
         });
 
+        it('does not activate description auto-scroll when summary fits', () => {
+            const program = createMockProgram('/library/metadata/123/thumb', {
+                summary: 'Short summary.',
+            });
+
+            panel.show(program);
+
+            const description = container.querySelector('.epg-info-description') as HTMLElement;
+            const inner = container.querySelector('.epg-info-description-inner') as HTMLElement;
+
+            Object.defineProperty(description, 'clientHeight', { value: 100, configurable: true });
+            Object.defineProperty(inner, 'scrollHeight', { value: 50, configurable: true });
+
+            panel.update(program);
+
+            expect(description.dataset.scrollActive).toBe('false');
+            expect(description.style.getPropertyValue('--scroll-distance')).toBe('');
+        });
+
         it('renders genres and hides when empty', () => {
             const program = createMockProgram(null, { genres: ['Drama', 'Comedy'] });
             panel.show(program);
