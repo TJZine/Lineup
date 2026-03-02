@@ -11,7 +11,8 @@ import type { ScheduledProgram } from './types';
 import type { PlexMediaItem } from '../../plex/library';
 import { extractHdrLabelFromPlexMedia } from '../../plex/stream/hdr';
 import { formatContentRatingBadge } from '../../../utils/contentRating';
-import { readStoredBoolean } from '../../../utils/storage';
+import { safeLocalStorageGet, readStoredBoolean } from '../../../utils/storage';
+import { extractDominantColor } from '../../../utils/color/extractDominantColor';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 
 /**
@@ -45,6 +46,11 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private posterFetchToken = 0;
     private posterFetchController: AbortController | null = null;
     private posterFetchTimer: ReturnType<typeof setTimeout> | null = null;
+    private gradientAElement: HTMLElement | null = null;
+    private gradientBElement: HTMLElement | null = null;
+    private activeGradientSlot: 'a' | 'b' = 'a';
+    private colorExtractTimer: ReturnType<typeof setTimeout> | null = null;
+    private colorCache = new Map<string, string>();
 
     /**
      * Set the thumb URL resolver callback.
@@ -84,6 +90,12 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.backdropElement = this.containerElement.querySelector(
             `.${EPG_CLASSES.INFO_BACKDROP_IMG}`
         ) as HTMLImageElement | null;
+        this.gradientAElement = this.containerElement.querySelector(
+            `.${EPG_CLASSES.INFO_GRADIENT_A}`
+        ) as HTMLElement | null;
+        this.gradientBElement = this.containerElement.querySelector(
+            `.${EPG_CLASSES.INFO_GRADIENT_B}`
+        ) as HTMLElement | null;
         this.posterElement = this.containerElement.querySelector(
             `.${EPG_CLASSES.INFO_POSTER}`
         ) as HTMLImageElement | null;
@@ -134,6 +146,8 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private createTemplate(): string {
         return `
   <div class="${EPG_CLASSES.INFO_BACKDROP}" aria-hidden="true">
+    <div class="${EPG_CLASSES.INFO_GRADIENT_A} ${EPG_CLASSES.INFO_GRADIENT_ACTIVE}"></div>
+    <div class="${EPG_CLASSES.INFO_GRADIENT_B}"></div>
     <img class="${EPG_CLASSES.INFO_BACKDROP_IMG}" alt="" />
   </div>
   <div class="${EPG_CLASSES.INFO_POSTER_WRAP}">
@@ -180,6 +194,11 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.genresElement = null;
         this.descriptionElement = null;
         this.descriptionInnerElement = null;
+        this.clearColorExtractTimer();
+        this.gradientAElement = null;
+        this.gradientBElement = null;
+        this.activeGradientSlot = 'a';
+        this.colorCache.clear();
         this.currentProgram = null;
         this.thumbResolver = null;
         this.fetchItemDetails = null;
@@ -206,6 +225,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
 
         this.containerElement.style.visibility = 'hidden';
         this.containerElement.style.opacity = '0';
+        this.clearColorExtractTimer();
         this.isVisible = false;
         this.clearHdrFetch();
         this.clearPosterFetch();
@@ -536,6 +556,84 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         return null;
     }
 
+    private clearColorExtractTimer(): void {
+        if (this.colorExtractTimer !== null) {
+            clearTimeout(this.colorExtractTimer);
+            this.colorExtractTimer = null;
+        }
+    }
+
+    private readInfoBackgroundMode(): 0 | 1 {
+        return safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE) === '1' ? 1 : 0;
+    }
+
+    private clearDynamicColor(): void {
+        this.clearColorExtractTimer();
+
+        if (this.gradientAElement) {
+            this.gradientAElement.style.removeProperty('--dynamic-info-bg');
+            this.gradientAElement.classList.add(EPG_CLASSES.INFO_GRADIENT_ACTIVE);
+        }
+
+        if (this.gradientBElement) {
+            this.gradientBElement.style.removeProperty('--dynamic-info-bg');
+            this.gradientBElement.classList.remove(EPG_CLASSES.INFO_GRADIENT_ACTIVE);
+        }
+
+        this.activeGradientSlot = 'a';
+    }
+
+    private applyDynamicColor(color: string): void {
+        const incoming = this.activeGradientSlot === 'a' ? this.gradientBElement : this.gradientAElement;
+        const outgoing = this.activeGradientSlot === 'a' ? this.gradientAElement : this.gradientBElement;
+
+        if (!incoming || !outgoing) {
+            return;
+        }
+
+        incoming.style.setProperty('--dynamic-info-bg', color);
+        incoming.classList.add(EPG_CLASSES.INFO_GRADIENT_ACTIVE);
+        outgoing.classList.remove(EPG_CLASSES.INFO_GRADIENT_ACTIVE);
+        this.activeGradientSlot = this.activeGradientSlot === 'a' ? 'b' : 'a';
+    }
+
+    private scheduleDynamicColor(program: ScheduledProgram, attempt: number = 0): void {
+        this.clearColorExtractTimer();
+
+        const poster = this.posterElement;
+        if (!poster) {
+            this.clearDynamicColor();
+            return;
+        }
+
+        const cacheKey = program.item.ratingKey;
+        const cachedColor = this.colorCache.get(cacheKey);
+        if (cachedColor) {
+            this.applyDynamicColor(cachedColor);
+            return;
+        }
+        this.colorExtractTimer = setTimeout(() => {
+            const current = this.currentProgram;
+            if (!current || current.item.ratingKey !== program.item.ratingKey) {
+                return;
+            }
+
+            const color = extractDominantColor(poster);
+            if (color) {
+                this.colorCache.set(cacheKey, color);
+                this.applyDynamicColor(color);
+                return;
+            }
+
+            if (!poster.complete && attempt < 3) {
+                this.scheduleDynamicColor(program, attempt + 1);
+                return;
+            }
+
+            this.clearDynamicColor();
+        }, 120);
+    }
+
     private updatePoster(program: ScheduledProgram, mode: 'fast' | 'full'): void {
         const backdrop = this.backdropElement;
         const poster = this.posterElement;
@@ -588,12 +686,22 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             const showTitle = item.type === 'episode' ? this.getEffectiveShowTitle(item) : '';
             poster.alt = showTitle.length ? showTitle : item.title;
             poster.style.display = 'block';
+            if (mode === 'full') {
+                if (this.readInfoBackgroundMode() === 0) {
+                    this.scheduleDynamicColor(program);
+                } else {
+                    this.clearDynamicColor();
+                }
+            }
             return;
         }
 
         // Hide poster when unresolved (prevents file:/// errors on webOS)
         poster.removeAttribute('src');
         poster.style.display = 'none';
+        if (mode === 'full') {
+            this.clearDynamicColor();
+        }
     }
 
     private extractShowTitleFromFullTitle(fullTitle: string): string | null {

@@ -8,7 +8,10 @@
 
 import { EPGInfoPanel } from '../EPGInfoPanel';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
+import { extractDominantColor } from '../../../../utils/color/extractDominantColor';
 import type { ScheduledProgram } from '../types';
+
+jest.mock('../../../../utils/color/extractDominantColor');
 
 describe('EPGInfoPanel', () => {
     let panel: EPGInfoPanel;
@@ -321,6 +324,35 @@ describe('EPGInfoPanel', () => {
 
             const title = container.querySelector('.epg-info-title');
             expect(title?.textContent).toBe('Test Movie');
+        });
+
+        it('applies extracted color to the inactive gradient layer when artwork bleed is enabled', () => {
+            jest.useFakeTimers();
+
+            try {
+                (extractDominantColor as jest.Mock).mockReturnValue('rgba(100, 50, 50, 0.32)');
+                localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
+
+                const resolver = jest.fn((path: string | null) => (path ? 'https://img.example/thumb.jpg' : null));
+                panel.setThumbResolver(resolver);
+
+                const program = createMockProgram('/library/metadata/1/thumb');
+                panel.show(program);
+
+                jest.runAllTimers();
+
+                const layerB = container.querySelector('.epg-info-gradient-b') as HTMLElement | null;
+                if (!layerB) {
+                    throw new Error('Gradient layer B not found');
+                }
+
+                expect(layerB.style.getPropertyValue('--dynamic-info-bg')).toBe('rgba(100, 50, 50, 0.32)');
+                expect(layerB.classList.contains('epg-info-gradient-active')).toBe(true);
+            } finally {
+                localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+                jest.runOnlyPendingTimers();
+                jest.useRealTimers();
+            }
         });
 
         it('should hide series title for non-episode programs', () => {
