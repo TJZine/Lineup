@@ -1030,10 +1030,14 @@
   inset: 0;
   pointer-events: none;
   opacity: 0;
-  will-change: opacity;
   transition: opacity 400ms ease-out;
   background:
     radial-gradient(circle at 112px 50%, var(--dynamic-info-bg, transparent) 0%, var(--color-bg-deep) 62%);
+}
+
+.epg-info-gradient-a.epg-info-gradient-active,
+.epg-info-gradient-b.epg-info-gradient-active {
+  will-change: opacity;
 }
 
 .epg-info-gradient-active {

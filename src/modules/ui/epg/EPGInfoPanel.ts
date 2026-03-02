@@ -16,6 +16,7 @@ import { extractDominantColor } from '../../../utils/color/extractDominantColor'
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 
 const MAX_DYNAMIC_COLOR_CACHE_ENTRIES = 128;
+const DYNAMIC_COLOR_FAILURE_COOLDOWN_MS = 60_000;
 
 /**
  * EPG Info Panel class.
@@ -53,6 +54,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private activeGradientSlot: 'a' | 'b' = 'a';
     private colorExtractTimer: ReturnType<typeof setTimeout> | null = null;
     private colorCache = new Map<string, string>();
+    private colorFailureCache = new Map<string, number>();
 
     /**
      * Set the thumb URL resolver callback.
@@ -227,10 +229,10 @@ export class EPGInfoPanel implements IEPGInfoPanel {
 
         this.containerElement.style.visibility = 'hidden';
         this.containerElement.style.opacity = '0';
-        this.clearColorExtractTimer();
         this.isVisible = false;
         this.clearHdrFetch();
         this.clearPosterFetch();
+        this.clearDynamicColor();
     }
 
     /**
@@ -581,6 +583,18 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         }
     }
 
+    private markDynamicColorFailure(cacheKey: string): void {
+        this.colorFailureCache.set(cacheKey, Date.now());
+        if (this.colorFailureCache.size <= MAX_DYNAMIC_COLOR_CACHE_ENTRIES) {
+            return;
+        }
+
+        const oldestKey = this.colorFailureCache.keys().next().value;
+        if (typeof oldestKey === 'string') {
+            this.colorFailureCache.delete(oldestKey);
+        }
+    }
+
     private clearDynamicColor(): void {
         this.clearColorExtractTimer();
 
@@ -611,7 +625,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.activeGradientSlot = this.activeGradientSlot === 'a' ? 'b' : 'a';
     }
 
-    private scheduleDynamicColor(program: ScheduledProgram, attempt: number = 0): void {
+    private scheduleDynamicColor(program: ScheduledProgram): void {
         this.clearColorExtractTimer();
 
         const poster = this.posterElement;
@@ -626,25 +640,50 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             this.applyDynamicColor(cachedColor);
             return;
         }
+
+        const lastFailure = this.colorFailureCache.get(cacheKey) ?? null;
+        if (lastFailure !== null && (Date.now() - lastFailure) < DYNAMIC_COLOR_FAILURE_COOLDOWN_MS) {
+            this.clearDynamicColor();
+            return;
+        }
         this.colorExtractTimer = setTimeout(() => {
             const current = this.currentProgram;
             if (!current || current.item.ratingKey !== program.item.ratingKey) {
                 return;
             }
 
-            const color = extractDominantColor(poster);
-            if (color) {
-                this.storeDynamicColor(cacheKey, color);
-                this.applyDynamicColor(color);
+            const sampleUrl = poster.currentSrc || poster.src;
+            if (!sampleUrl) {
+                this.markDynamicColorFailure(cacheKey);
+                this.clearDynamicColor();
                 return;
             }
 
-            if (!poster.complete && attempt < 3) {
-                this.scheduleDynamicColor(program, attempt + 1);
-                return;
-            }
-
-            this.clearDynamicColor();
+            const sampler = new Image();
+            sampler.crossOrigin = 'anonymous';
+            sampler.onload = (): void => {
+                const stillCurrent = this.currentProgram;
+                if (!stillCurrent || stillCurrent.item.ratingKey !== program.item.ratingKey) {
+                    return;
+                }
+                const color = extractDominantColor(sampler);
+                if (color) {
+                    this.storeDynamicColor(cacheKey, color);
+                    this.applyDynamicColor(color);
+                    return;
+                }
+                this.markDynamicColorFailure(cacheKey);
+                this.clearDynamicColor();
+            };
+            sampler.onerror = (): void => {
+                const stillCurrent = this.currentProgram;
+                if (!stillCurrent || stillCurrent.item.ratingKey !== program.item.ratingKey) {
+                    return;
+                }
+                this.markDynamicColorFailure(cacheKey);
+                this.clearDynamicColor();
+            };
+            sampler.src = sampleUrl;
         }, 120);
     }
 

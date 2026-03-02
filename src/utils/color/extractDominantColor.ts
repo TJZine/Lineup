@@ -66,7 +66,14 @@ export function extractDominantColor(img: HTMLImageElement): string | null {
         b = Math.round((b * SOURCE_WEIGHT) + (BLEND_BASE_B * BASE_WEIGHT));
 
         return `rgba(${r}, ${g}, ${b}, ${OUTPUT_ALPHA})`;
-    } catch {
+    } catch (error: unknown) {
+        if (__LINEUP_DEV_BUILD__) {
+            if (error instanceof DOMException && error.name === 'SecurityError') {
+                console.warn('extractDominantColor: canvas pixel sampling blocked (cross-origin / tainted canvas).');
+            } else {
+                console.warn('extractDominantColor: failed to sample canvas pixels.');
+            }
+        }
         return null;
     }
 }

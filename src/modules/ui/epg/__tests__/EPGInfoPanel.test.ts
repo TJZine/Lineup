@@ -16,6 +16,7 @@ jest.mock('../../../../utils/color/extractDominantColor');
 describe('EPGInfoPanel', () => {
     let panel: EPGInfoPanel;
     let container: HTMLElement;
+    const RealImage = globalThis.Image;
 
     const createMockProgram = (
         thumbPath: string | null,
@@ -43,6 +44,27 @@ describe('EPGInfoPanel', () => {
     });
 
     beforeEach(() => {
+        class MockImage {
+            crossOrigin: string | null = null;
+            onload: ((this: GlobalEventHandlers, ev: Event) => unknown) | null = null;
+            onerror: ((this: GlobalEventHandlers, ev: Event) => unknown) | null = null;
+            private _src: string = '';
+
+            get src(): string {
+                return this._src;
+            }
+
+            set src(value: string) {
+                this._src = value;
+                this.onload?.call(this as unknown as GlobalEventHandlers, new Event('load'));
+            }
+        }
+        Object.defineProperty(globalThis, 'Image', {
+            configurable: true,
+            writable: true,
+            value: MockImage as unknown as typeof Image,
+        });
+
         container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -53,6 +75,11 @@ describe('EPGInfoPanel', () => {
     afterEach(() => {
         panel.destroy();
         container.remove();
+        Object.defineProperty(globalThis, 'Image', {
+            configurable: true,
+            writable: true,
+            value: RealImage,
+        });
     });
 
     describe('thumb resolver', () => {
@@ -348,6 +375,41 @@ describe('EPGInfoPanel', () => {
 
                 expect(layerB.style.getPropertyValue('--dynamic-info-bg')).toBe('rgba(100, 50, 50, 0.32)');
                 expect(layerB.classList.contains('epg-info-gradient-active')).toBe(true);
+            } finally {
+                localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+                jest.runOnlyPendingTimers();
+                jest.useRealTimers();
+            }
+        });
+
+        it('clears dynamic tint state when hidden', () => {
+            jest.useFakeTimers();
+
+            try {
+                (extractDominantColor as jest.Mock).mockReturnValue('rgba(100, 50, 50, 0.32)');
+                localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
+
+                const resolver = jest.fn((path: string | null) => (path ? 'https://img.example/thumb.jpg' : null));
+                panel.setThumbResolver(resolver);
+
+                const program = createMockProgram('/library/metadata/1/thumb');
+                panel.show(program);
+
+                jest.runAllTimers();
+
+                const layerA = container.querySelector('.epg-info-gradient-a') as HTMLElement | null;
+                const layerB = container.querySelector('.epg-info-gradient-b') as HTMLElement | null;
+                if (!layerA || !layerB) {
+                    throw new Error('Gradient layers not found');
+                }
+                expect(layerB.classList.contains('epg-info-gradient-active')).toBe(true);
+
+                panel.hide();
+
+                expect(layerA.style.getPropertyValue('--dynamic-info-bg')).toBe('');
+                expect(layerB.style.getPropertyValue('--dynamic-info-bg')).toBe('');
+                expect(layerA.classList.contains('epg-info-gradient-active')).toBe(true);
+                expect(layerB.classList.contains('epg-info-gradient-active')).toBe(false);
             } finally {
                 localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
                 jest.runOnlyPendingTimers();
