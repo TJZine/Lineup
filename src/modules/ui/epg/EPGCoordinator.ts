@@ -207,10 +207,6 @@ export class EPGCoordinator {
 
         for (const channel of channels) {
             const source = channel.contentSource;
-            if (!source) {
-                unknownVotes++;
-                continue;
-            }
             if (source.type === 'library') {
                 if (source.libraryType === 'movie') {
                     movieVotes++;

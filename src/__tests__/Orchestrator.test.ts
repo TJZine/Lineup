@@ -348,10 +348,18 @@ const mockChannel = {
     id: 'ch1',
     name: 'Test Channel',
     number: 1,
+    contentSource: { type: 'manual', items: [] as unknown[] },
     startTimeAnchor: 0,
     playbackMode: 'sequential' as const,
     shuffleSeed: 12345,
     phaseSeed: 4242,
+    skipIntros: false,
+    skipCredits: false,
+    createdAt: 0,
+    updatedAt: 0,
+    lastContentRefresh: 0,
+    itemCount: 0,
+    totalDurationMs: 0,
 };
 
 const mockChannelManager = {
@@ -1464,7 +1472,7 @@ describe('AppOrchestrator', () => {
 
         it('returns existing when selected server has channels', () => {
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-4' });
-            mockChannelManager.getAllChannels.mockReturnValue([{ id: 'channel-1' }]);
+            mockChannelManager.getAllChannels.mockReturnValue([{ ...mockChannel, id: 'channel-1' }]);
 
             expect(orchestrator.getSetupContextForSelectedServer()).toBe('existing');
         });
