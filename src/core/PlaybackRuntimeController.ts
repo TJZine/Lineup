@@ -21,6 +21,12 @@ export interface PlaybackRuntimeControllerDeps {
     getActiveTranscodeSessionId(): string | null;
     stopTranscodeSession(sessionId: string): void;
     skipToNextProgram(): void;
+    pausePlayer(): void;
+    playPlayer(): Promise<void>;
+    pauseSchedulerSync(): void;
+    resumeSchedulerSync(): void;
+    syncSchedulerToCurrentTime(): void;
+    saveLifecycleState(): Promise<void>;
     handleGlobalError(error: AppError, context: string): void;
     handlePlaybackFailure(context: string, error: unknown): void;
     onPlayerStateChange(state: PlaybackState): void;
@@ -32,7 +38,39 @@ export interface PlaybackRuntimeControllerDeps {
 }
 
 export class PlaybackRuntimeController {
+    private _lastProgramStartPromise: Promise<void> | null = null;
+
     constructor(private readonly _deps: PlaybackRuntimeControllerDeps) {}
+
+    public trackProgramStart(promise: Promise<void>): Promise<void> {
+        this._lastProgramStartPromise = promise;
+        return promise;
+    }
+
+    public async handleLifecyclePause(): Promise<void> {
+        this._deps.pausePlayer();
+        this._deps.pauseSchedulerSync();
+        await this._deps.saveLifecycleState();
+    }
+
+    public async handleLifecycleResume(): Promise<void> {
+        const lastProgramStartBefore = this._lastProgramStartPromise;
+
+        this._deps.resumeSchedulerSync();
+        this._deps.syncSchedulerToCurrentTime();
+
+        const lastProgramStartAfter = this._lastProgramStartPromise;
+
+        if (
+            lastProgramStartAfter &&
+            lastProgramStartAfter !== lastProgramStartBefore
+        ) {
+            await lastProgramStartAfter;
+            return;
+        }
+
+        await this._deps.playPlayer();
+    }
 
     public handlePlayerEnded(): void {
         if (this._deps.isStreamRecoveryInProgress()) {
