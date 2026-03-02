@@ -1698,6 +1698,10 @@ export class AppOrchestrator implements IAppOrchestrator {
             return;
         }
 
+        if (change.key === 'infoBackgroundMode') {
+            return;
+        }
+
         if (change.key === 'libraryTabs' || change.key === 'aggressivePreload' || change.key === 'pastItemsWindow') {
             epgCoordinator.clearScheduleCaches();
             epg.clearSchedules();
