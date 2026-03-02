@@ -160,10 +160,47 @@ describe('PlaybackRuntimeController', () => {
 
         controller.handlePlayerStateChange(state);
 
+        const stateChangeCall = deps.onPlayerStateChange.mock.invocationCallOrder[0];
+        const clearCall = deps.clearAutoShowInfoBannerOnNextPlay.mock.invocationCallOrder[0];
+        const showCall = deps.showInfoBanner.mock.invocationCallOrder[0];
+
         expect(deps.onPlayerStateChange).toHaveBeenCalledTimes(1);
         expect(deps.onPlayerStateChange).toHaveBeenCalledWith(state);
         expect(deps.clearAutoShowInfoBannerOnNextPlay).toHaveBeenCalledTimes(1);
         expect(deps.showInfoBanner).toHaveBeenCalledTimes(1);
+        expect(stateChangeCall).toBeDefined();
+        expect(clearCall).toBeDefined();
+        expect(showCall).toBeDefined();
+        if (stateChangeCall === undefined || clearCall === undefined || showCall === undefined) {
+            throw new Error('Expected state-change and info-banner callbacks to run');
+        }
+        expect(stateChangeCall).toBeLessThan(clearCall);
+        expect(clearCall).toBeLessThan(showCall);
+    });
+
+    it('does not consume the auto-show info banner flag before playback reaches playing', () => {
+        const state: PlaybackState = {
+            status: 'paused',
+            currentTimeMs: 1000,
+            durationMs: 5000,
+            bufferPercent: 75,
+            volume: 1,
+            isMuted: false,
+            playbackRate: 1,
+            activeSubtitleId: null,
+            activeAudioId: 'audio-1',
+            errorInfo: null,
+        };
+        const { controller, deps } = makeSetup({
+            shouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(true),
+        });
+
+        controller.handlePlayerStateChange(state);
+
+        expect(deps.onPlayerStateChange).toHaveBeenCalledTimes(1);
+        expect(deps.onPlayerStateChange).toHaveBeenCalledWith(state);
+        expect(deps.clearAutoShowInfoBannerOnNextPlay).not.toHaveBeenCalled();
+        expect(deps.showInfoBanner).not.toHaveBeenCalled();
     });
 
     it('forwards time updates to the OSD callback without reshaping the payload', () => {
