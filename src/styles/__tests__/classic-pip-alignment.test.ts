@@ -13,7 +13,7 @@ describe('classic PiP alignment contract', () => {
         const epgCss = read('src/modules/ui/epg/styles.css');
         const videoCss = read('src/styles/video.css');
 
-        expect(tokensCss).toContain('--classic-guide-pip-width: 560px;');
+        expect(tokensCss).toContain('--classic-guide-pip-width: 640px;');
         expect(tokensCss).not.toContain('--classic-guide-pip-width: clamp(');
         expect(epgCss).toContain('--classic-showcase-pip-width: var(--classic-guide-pip-width);');
         expect(videoCss).toContain('width: var(--classic-guide-pip-width) !important;');
