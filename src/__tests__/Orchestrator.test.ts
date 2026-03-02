@@ -1581,6 +1581,40 @@ describe('AppOrchestrator', () => {
             expect(mockEpg.setNowWatchingBannerEnabled).toHaveBeenCalledWith(false);
         });
 
+        it('ignores info background mode changes while EPG is visible', () => {
+            mockEpg.isVisible.mockReturnValue(true);
+            const mutable = orchestrator as unknown as {
+                _epgCoordinator?: {
+                    clearScheduleCaches: () => void;
+                    primeEpgChannels: () => void;
+                    refreshEpgSchedules: (options?: { reason?: string }) => Promise<void>;
+                };
+            };
+            const clearSpy = jest.spyOn(
+                mutable._epgCoordinator as { clearScheduleCaches: () => void },
+                'clearScheduleCaches'
+            );
+            const primeSpy = jest.spyOn(
+                mutable._epgCoordinator as { primeEpgChannels: () => void },
+                'primeEpgChannels'
+            );
+            const refreshSpy = jest.spyOn(
+                mutable._epgCoordinator as {
+                    refreshEpgSchedules: (options?: { reason?: string }) => Promise<void>;
+                },
+                'refreshEpgSchedules'
+            );
+
+            orchestrator.onGuideSettingChange({ key: 'infoBackgroundMode', mode: 1 });
+
+            expect(clearSpy).not.toHaveBeenCalled();
+            expect(primeSpy).not.toHaveBeenCalled();
+            expect(refreshSpy).not.toHaveBeenCalled();
+            expect(mockEpg.clearSchedules).not.toHaveBeenCalled();
+            expect(mockEpg.setLayoutMode).not.toHaveBeenCalled();
+            expect(mockEpg.setNowWatchingBannerEnabled).not.toHaveBeenCalled();
+        });
+
         it('refreshes schedules when guide density changes while EPG is visible', async () => {
             mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);

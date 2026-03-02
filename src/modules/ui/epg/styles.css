@@ -1021,6 +1021,47 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  background: linear-gradient(to top, var(--panel-surface-2), var(--panel-surface));
+}
+
+.epg-info-gradient-a,
+.epg-info-gradient-b {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 400ms ease-out;
+  background:
+    radial-gradient(circle at 112px 50%, var(--dynamic-info-bg, transparent) 0%, var(--color-bg-deep) 62%);
+}
+
+.epg-info-gradient-a.epg-info-gradient-active,
+.epg-info-gradient-b.epg-info-gradient-active {
+  will-change: opacity;
+}
+
+.epg-info-gradient-active {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .epg-info-gradient-a,
+  .epg-info-gradient-b {
+    transition: none;
+  }
+
+  .epg-info-gradient-a.epg-info-gradient-active,
+  .epg-info-gradient-b.epg-info-gradient-active {
+    will-change: auto;
+  }
+}
+
+.epg-info-title,
+.epg-info-show,
+.epg-info-description-inner,
+.epg-info-pill,
+.epg-info-genres {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
 }
 
 .epg-info-backdrop-img {

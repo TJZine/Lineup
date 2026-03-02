@@ -8,11 +8,15 @@
 
 import { EPGInfoPanel } from '../EPGInfoPanel';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
+import { extractDominantColor } from '../../../../utils/color/extractDominantColor';
 import type { ScheduledProgram } from '../types';
+
+jest.mock('../../../../utils/color/extractDominantColor');
 
 describe('EPGInfoPanel', () => {
     let panel: EPGInfoPanel;
     let container: HTMLElement;
+    const RealImage = globalThis.Image;
 
     const createMockProgram = (
         thumbPath: string | null,
@@ -40,6 +44,27 @@ describe('EPGInfoPanel', () => {
     });
 
     beforeEach(() => {
+        class MockImage {
+            crossOrigin: string | null = null;
+            onload: ((this: GlobalEventHandlers, ev: Event) => unknown) | null = null;
+            onerror: ((this: GlobalEventHandlers, ev: Event) => unknown) | null = null;
+            private _src: string = '';
+
+            get src(): string {
+                return this._src;
+            }
+
+            set src(value: string) {
+                this._src = value;
+                this.onload?.call(this as unknown as GlobalEventHandlers, new Event('load'));
+            }
+        }
+        Object.defineProperty(globalThis, 'Image', {
+            configurable: true,
+            writable: true,
+            value: MockImage as unknown as typeof Image,
+        });
+
         container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -48,8 +73,15 @@ describe('EPGInfoPanel', () => {
     });
 
     afterEach(() => {
+        jest.useRealTimers();
+        jest.mocked(extractDominantColor).mockReset();
         panel.destroy();
         container.remove();
+        Object.defineProperty(globalThis, 'Image', {
+            configurable: true,
+            writable: true,
+            value: RealImage,
+        });
     });
 
     describe('thumb resolver', () => {
@@ -267,6 +299,7 @@ describe('EPGInfoPanel', () => {
                 return null;
             });
             panel.setThumbResolver(resolver);
+            localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '1');
 
             const program = createMockProgram('/library/metadata/123/thumb', {
                 art: '/library/metadata/123/art',
@@ -285,6 +318,7 @@ describe('EPGInfoPanel', () => {
             expect(resolver).not.toHaveBeenCalledWith('/library/metadata/789/art', 960, 540);
             expect(resolver.mock.calls.length).toBe(callsBefore + 1);
             expect(resolver).toHaveBeenLastCalledWith('/library/metadata/789/thumb', 320, 480);
+            localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
         });
 
         it('renders three meta pills', () => {
@@ -321,6 +355,243 @@ describe('EPGInfoPanel', () => {
 
             const title = container.querySelector('.epg-info-title');
             expect(title?.textContent).toBe('Test Movie');
+        });
+
+        it('applies extracted color to the inactive gradient layer when artwork bleed is enabled', () => {
+            jest.useFakeTimers();
+
+            try {
+                (extractDominantColor as jest.Mock).mockReturnValue('rgba(100, 50, 50, 0.32)');
+                localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
+
+                const resolver = jest.fn((path: string | null) => (path ? 'https://img.example/thumb.jpg' : null));
+                panel.setThumbResolver(resolver);
+
+                const program = createMockProgram('/library/metadata/1/thumb');
+                panel.show(program);
+
+                jest.runAllTimers();
+
+                const layerB = container.querySelector('.epg-info-gradient-b') as HTMLElement | null;
+                if (!layerB) {
+                    throw new Error('Gradient layer B not found');
+                }
+
+                expect(layerB.style.getPropertyValue('--dynamic-info-bg')).toBe('rgba(100, 50, 50, 0.32)');
+                expect(layerB.classList.contains('epg-info-gradient-active')).toBe(true);
+            } finally {
+                localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+                jest.runOnlyPendingTimers();
+                jest.useRealTimers();
+            }
+        });
+
+        it('does not apply extracted color after the panel is hidden', () => {
+            jest.useFakeTimers();
+
+            const createdImages: {
+                onload: ((this: GlobalEventHandlers, ev: Event) => unknown) | null;
+                src: string;
+            }[] = [];
+
+            class DelayedMockImage {
+                crossOrigin: string | null = null;
+                onload: ((this: GlobalEventHandlers, ev: Event) => unknown) | null = null;
+                onerror: ((this: GlobalEventHandlers, ev: Event) => unknown) | null = null;
+                private _src: string = '';
+
+                get src(): string {
+                    return this._src;
+                }
+
+                set src(value: string) {
+                    this._src = value;
+                    createdImages.push(this);
+                }
+            }
+
+            Object.defineProperty(globalThis, 'Image', {
+                configurable: true,
+                writable: true,
+                value: DelayedMockImage as unknown as typeof Image,
+            });
+
+            try {
+                (extractDominantColor as jest.Mock).mockReturnValue('rgba(100, 50, 50, 0.32)');
+                localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
+
+                const resolver = jest.fn((path: string | null, width?: number, height?: number) => {
+                    if (!path) return null;
+                    if (width === 32 && height === 32) return 'https://img.example/thumb-32.jpg';
+                    return 'https://img.example/thumb.jpg';
+                });
+                panel.setThumbResolver(resolver);
+
+                const program = createMockProgram('/library/metadata/1/thumb');
+                panel.show(program);
+
+                jest.advanceTimersByTime(150);
+
+                expect(createdImages.length).toBe(1);
+
+                panel.hide();
+
+                const layerA = container.querySelector('.epg-info-gradient-a') as HTMLElement | null;
+                const layerB = container.querySelector('.epg-info-gradient-b') as HTMLElement | null;
+                if (!layerA || !layerB) {
+                    throw new Error('Gradient layers not found');
+                }
+
+                expect(layerA.classList.contains('epg-info-gradient-active')).toBe(true);
+                expect(layerB.classList.contains('epg-info-gradient-active')).toBe(false);
+
+                createdImages[0]?.onload?.call(createdImages[0] as unknown as GlobalEventHandlers, new Event('load'));
+
+                expect(layerA.classList.contains('epg-info-gradient-active')).toBe(true);
+                expect(layerB.classList.contains('epg-info-gradient-active')).toBe(false);
+                expect(layerA.style.getPropertyValue('--dynamic-info-bg')).toBe('');
+                expect(layerB.style.getPropertyValue('--dynamic-info-bg')).toBe('');
+            } finally {
+                localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+                jest.runOnlyPendingTimers();
+                jest.useRealTimers();
+                Object.defineProperty(globalThis, 'Image', {
+                    configurable: true,
+                    writable: true,
+                    value: RealImage,
+                });
+            }
+        });
+
+        it('clears dynamic tint state when hidden', () => {
+            jest.useFakeTimers();
+
+            try {
+                (extractDominantColor as jest.Mock).mockReturnValue('rgba(100, 50, 50, 0.32)');
+                localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
+
+                const resolver = jest.fn((path: string | null) => (path ? 'https://img.example/thumb.jpg' : null));
+                panel.setThumbResolver(resolver);
+
+                const program = createMockProgram('/library/metadata/1/thumb');
+                panel.show(program);
+
+                jest.runAllTimers();
+
+                const layerA = container.querySelector('.epg-info-gradient-a') as HTMLElement | null;
+                const layerB = container.querySelector('.epg-info-gradient-b') as HTMLElement | null;
+                if (!layerA || !layerB) {
+                    throw new Error('Gradient layers not found');
+                }
+                expect(layerB.classList.contains('epg-info-gradient-active')).toBe(true);
+
+                panel.hide();
+
+                expect(layerA.style.getPropertyValue('--dynamic-info-bg')).toBe('');
+                expect(layerB.style.getPropertyValue('--dynamic-info-bg')).toBe('');
+                expect(layerA.classList.contains('epg-info-gradient-active')).toBe(true);
+                expect(layerB.classList.contains('epg-info-gradient-active')).toBe(false);
+            } finally {
+                localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+                jest.runOnlyPendingTimers();
+                jest.useRealTimers();
+            }
+        });
+
+        it('clears dynamic tint state when updating in fast mode', () => {
+            jest.useFakeTimers();
+
+            try {
+                (extractDominantColor as jest.Mock).mockReturnValue('rgba(100, 50, 50, 0.32)');
+                localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
+
+                const resolver = jest.fn((path: string | null) => (path ? 'https://img.example/thumb.jpg' : null));
+                panel.setThumbResolver(resolver);
+
+                const program = createMockProgram('/library/metadata/1/thumb');
+                panel.show(program);
+                jest.runAllTimers();
+
+                const layerA = container.querySelector('.epg-info-gradient-a') as HTMLElement | null;
+                const layerB = container.querySelector('.epg-info-gradient-b') as HTMLElement | null;
+                if (!layerA || !layerB) {
+                    throw new Error('Gradient layers not found');
+                }
+                expect(layerB.classList.contains('epg-info-gradient-active')).toBe(true);
+
+                const nextProgram = createMockProgram('/library/metadata/2/thumb', { ratingKey: 'test-2', title: 'Next' });
+                panel.updateFast(nextProgram);
+
+                expect(layerA.style.getPropertyValue('--dynamic-info-bg')).toBe('');
+                expect(layerB.style.getPropertyValue('--dynamic-info-bg')).toBe('');
+                expect(layerA.classList.contains('epg-info-gradient-active')).toBe(true);
+                expect(layerB.classList.contains('epg-info-gradient-active')).toBe(false);
+            } finally {
+                localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+                jest.runOnlyPendingTimers();
+                jest.useRealTimers();
+            }
+        });
+
+        it('clears dynamic color caches on destroy', () => {
+            jest.useFakeTimers();
+
+            try {
+                (extractDominantColor as jest.Mock).mockReturnValue(null);
+                localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
+
+                const resolver = jest.fn((path: string | null) => (path ? 'https://img.example/thumb.jpg' : null));
+                panel.setThumbResolver(resolver);
+
+                const program = createMockProgram('/library/metadata/1/thumb');
+                panel.show(program);
+                jest.runAllTimers();
+
+                const caches = panel as unknown as {
+                    colorCache: Map<string, string>;
+                    colorFailureCache: Map<string, number>;
+                };
+                expect(caches.colorFailureCache.size).toBeGreaterThan(0);
+
+                panel.destroy();
+
+                expect(caches.colorCache.size).toBe(0);
+                expect(caches.colorFailureCache.size).toBe(0);
+            } finally {
+                localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+                jest.runOnlyPendingTimers();
+                jest.useRealTimers();
+            }
+        });
+
+        it('caps the dynamic color cache to avoid unbounded growth', () => {
+            jest.useFakeTimers();
+
+            try {
+                (extractDominantColor as jest.Mock).mockReturnValue('rgba(100, 50, 50, 0.32)');
+                localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
+
+                const resolver = jest.fn((path: string | null) => (path ? 'https://img.example/thumb.jpg' : null));
+                panel.setThumbResolver(resolver);
+
+                for (let index = 0; index < 130; index += 1) {
+                    const program = createMockProgram('/library/metadata/1/thumb', {
+                        ratingKey: `cache-${index}`,
+                    });
+                    panel.show(program);
+                    jest.runAllTimers();
+                }
+
+                const cache = (panel as unknown as { colorCache: Map<string, string> }).colorCache;
+                expect(cache.size).toBe(128);
+                expect(cache.has('cache-0')).toBe(false);
+                expect(cache.has('cache-1')).toBe(false);
+                expect(cache.has('cache-129')).toBe(true);
+            } finally {
+                localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+                jest.runOnlyPendingTimers();
+                jest.useRealTimers();
+            }
         });
 
         it('should hide series title for non-episode programs', () => {

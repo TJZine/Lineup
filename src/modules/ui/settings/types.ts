@@ -40,6 +40,8 @@ export interface DisplaySettings {
     cinematicNowPlaying: boolean;
     /** Prefer clear logos over text titles when available */
     preferClearLogos: boolean;
+    /** EPG info panel background mode */
+    epgInfoBackgroundMode: 0 | 1;
 }
 
 /**
@@ -152,7 +154,8 @@ export type GuideSettingChange =
     | { key: 'categoryColors' | 'libraryTabs' | 'nowWatchingBanner' | 'aggressivePreload'; enabled: boolean }
     | { key: 'layoutMode'; mode: 'overlay' | 'classic' }
     | { key: 'guideDensity'; density: 'detailed' | 'wide' }
-    | { key: 'pastItemsWindow'; value: EpgPastItemsWindowSetting };
+    | { key: 'pastItemsWindow'; value: EpgPastItemsWindowSetting }
+    | { key: 'infoBackgroundMode'; mode: 0 | 1 };
 
 /**
  * Settings category configuration.
