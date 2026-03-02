@@ -79,7 +79,6 @@ import {
     type PlaybackState,
     type PlaybackError,
     type TimeRange,
-    mapPlayerErrorCodeToAppErrorCode,
 } from './modules/player';
 import { BURN_IN_SUBTITLE_FORMATS } from './modules/player/constants';
 import { PlaybackRecoveryManager } from './modules/player/PlaybackRecoveryManager';
@@ -141,6 +140,7 @@ import {
     ChannelTuningCoordinator,
     OrchestratorStorageContext,
     PlaybackStartController,
+    PlaybackRuntimeController,
     type IInitializationCoordinator,
 } from './core';
 import { ChannelSetupCoordinator } from './core/channel-setup';
@@ -395,6 +395,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _initCoordinator: IInitializationCoordinator | null = null;
     private _channelSetup: ChannelSetupCoordinator | null = null;
     private _playbackStartController: PlaybackStartController | null = null;
+    private _playbackRuntimeController: PlaybackRuntimeController | null = null;
 
     private _currentProgramForPlayback: ScheduledProgram | null = null;
     private _currentStreamDescriptor: StreamDescriptor | null = null;
@@ -579,6 +580,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         }
         this._channelSetup?.cleanupStaleChannelBuildKeys();
         this._ensurePlaybackStartController();
+        this._ensurePlaybackRuntimeController();
 
         // Create InitializationCoordinator with dependencies and callbacks
         this._initCoordinator = new InitializationCoordinator(
@@ -2291,13 +2293,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     }
 
     private _handlePlayerEnded(): void {
-        // Stream reload/recovery can trigger spurious 'ended' events on webOS (especially when tearing down src).
-        // Never advance the schedule during an intentional reload.
-        if (this._playbackRecovery?.isStreamRecoveryInProgress()) {
-            return;
-        }
-        this._stopActiveTranscodeSession();
-        this._scheduler?.skipToNext();
+        this._ensurePlaybackRuntimeController().handlePlayerEnded();
     }
 
     private _handlePlayerTrackChange(event: { type: 'audio' | 'subtitle'; trackId: string | null }): void {
@@ -2376,37 +2372,19 @@ export class AppOrchestrator implements IAppOrchestrator {
     }
 
     private _handlePlaybackError(error: PlaybackError): void {
-        if (error.recoverable) {
-            const mappedCode = mapPlayerErrorCodeToAppErrorCode(error.code);
-            this.handleGlobalError(
-                {
-                    code: mappedCode,
-                    message: error.message,
-                    recoverable: true,
-                },
-                'video-player'
-            );
-            return;
-        }
-
-        this._playbackRecovery?.handlePlaybackFailure('video-player', error);
+        this._ensurePlaybackRuntimeController().handlePlaybackError(error);
     }
 
     private _handlePlayerStateChange(state: PlaybackState): void {
-        this._playerOsdCoordinator?.onPlayerStateChange(state);
-        this._channelTransitionCoordinator?.onPlayerStateChange(state);
-        if (state.status === 'playing' && this._shouldAutoShowInfoBannerOnNextPlay) {
-            this._shouldAutoShowInfoBannerOnNextPlay = false;
-            this._playerOsdCoordinator?.showInfoBanner();
-        }
+        this._ensurePlaybackRuntimeController().handlePlayerStateChange(state);
     }
 
     private _handlePlayerTimeUpdate(payload: { currentTimeMs: number; durationMs: number }): void {
-        this._playerOsdCoordinator?.onTimeUpdate(payload);
+        this._ensurePlaybackRuntimeController().handlePlayerTimeUpdate(payload);
     }
 
     private _handlePlayerBufferUpdate(payload: { percent: number; bufferedRanges: TimeRange[] }): void {
-        this._playerOsdCoordinator?.onBufferUpdate(payload);
+        this._ensurePlaybackRuntimeController().handlePlayerBufferUpdate(payload);
     }
 
     private _handlePlexLibraryAuthExpired(): void {
@@ -2514,6 +2492,56 @@ export class AppOrchestrator implements IAppOrchestrator {
         return this._playbackStartController;
     }
 
+    private _ensurePlaybackRuntimeController(): PlaybackRuntimeController {
+        if (this._playbackRuntimeController) {
+            return this._playbackRuntimeController;
+        }
+
+        this._playbackRuntimeController = new PlaybackRuntimeController({
+            isStreamRecoveryInProgress: (): boolean =>
+                this._playbackRecovery?.isStreamRecoveryInProgress() ?? false,
+            getActiveTranscodeSessionId: (): string | null => {
+                const decision = this._currentStreamDecision;
+                if (!decision || !decision.isTranscoding || !decision.sessionId) {
+                    return null;
+                }
+                return decision.sessionId;
+            },
+            stopTranscodeSession: (sessionId): void => {
+                void this._plexStreamResolver?.stopTranscodeSession(sessionId);
+            },
+            skipToNextProgram: (): void => {
+                this._scheduler?.skipToNext();
+            },
+            handleGlobalError: (error, context): void => {
+                this.handleGlobalError(error, context);
+            },
+            handlePlaybackFailure: (context, error): void => {
+                this._playbackRecovery?.handlePlaybackFailure?.(context, error);
+            },
+            onPlayerStateChange: (state): void => {
+                this._playerOsdCoordinator?.onPlayerStateChange(state);
+                this._channelTransitionCoordinator?.onPlayerStateChange(state);
+            },
+            shouldAutoShowInfoBannerOnNextPlay: (): boolean =>
+                this._shouldAutoShowInfoBannerOnNextPlay,
+            clearAutoShowInfoBannerOnNextPlay: (): void => {
+                this._shouldAutoShowInfoBannerOnNextPlay = false;
+            },
+            showInfoBanner: (): void => {
+                this._playerOsdCoordinator?.showInfoBanner();
+            },
+            onPlayerTimeUpdate: (payload): void => {
+                this._playerOsdCoordinator?.onTimeUpdate(payload);
+            },
+            onPlayerBufferUpdate: (payload): void => {
+                this._playerOsdCoordinator?.onBufferUpdate(payload);
+            },
+        });
+
+        return this._playbackRuntimeController;
+    }
+
     private async _handleLifecycleResume(): Promise<void> {
         const lastProgramStartBefore =
             this._playbackStartController?.getLastProgramStartPromise() ?? null;
@@ -2584,11 +2612,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     }
 
     private _stopActiveTranscodeSession(): void {
-        const decision = this._currentStreamDecision;
-        if (!decision || !decision.isTranscoding || !decision.sessionId) {
-            return;
-        }
-        void this._plexStreamResolver?.stopTranscodeSession(decision.sessionId);
+        this._ensurePlaybackRuntimeController().stopActiveTranscodeSession();
     }
 
     private _stopPlayback(): void {
