@@ -117,6 +117,7 @@ describe('SettingsScreen (Guide settings)', () => {
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE);
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY);
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW);
+        localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED);
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED);
     });
@@ -152,6 +153,24 @@ describe('SettingsScreen (Guide settings)', () => {
 
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW)).toBe('0');
         expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'pastItemsWindow', value: '0' });
+    });
+
+    it('writes info background mode select and emits guide-setting change', () => {
+        const onGuideSettingChange = jest.fn();
+        const { container, screen } = createScreen(onGuideSettingChange);
+
+        screen.show();
+        activateCategory(container, 'appearance');
+
+        const select = container.querySelector('#settings-epg-info-background-mode') as HTMLButtonElement | null;
+        if (!select) {
+            throw new Error('Info background mode select not found');
+        }
+
+        select.click();
+
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE)).toBe('1');
+        expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'infoBackgroundMode', mode: 1 });
     });
 
     it('writes guide density and emits change', () => {

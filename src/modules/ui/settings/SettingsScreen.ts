@@ -160,6 +160,10 @@ const SELECT_METADATA: Record<string, SelectMetadata> = {
         storageKey: SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW,
         defaultValue: 0,
     },
+    'settings-epg-info-background-mode': {
+        storageKey: SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE,
+        defaultValue: DEFAULT_SETTINGS.display.epgInfoBackgroundMode,
+    },
 };
 
 /**
@@ -525,6 +529,24 @@ export class SettingsScreen {
                         onChange: (value: number): void => {
                             const stored = this._saveEpgPastItemsWindowValue(value);
                             this._onGuideSettingChange?.({ key: 'pastItemsWindow', value: stored });
+                        },
+                    },
+                    {
+                        id: 'settings-epg-info-background-mode',
+                        label: 'Info Box Background',
+                        description: 'Artwork Bleed adds a subtle poster-derived color wash; Theme Default keeps the clean Ember & Steel overlay',
+                        value: this._loadNumberSetting(
+                            SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE,
+                            DEFAULT_SETTINGS.display.epgInfoBackgroundMode
+                        ),
+                        options: [
+                            { label: 'Artwork Bleed', value: 0 },
+                            { label: 'Theme Default', value: 1 },
+                        ],
+                        onChange: (value: number): void => {
+                            const mode: 0 | 1 = value === 1 ? 1 : 0;
+                            this._saveNumberSetting(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, mode);
+                            this._onGuideSettingChange?.({ key: 'infoBackgroundMode', mode });
                         },
                     },
                     {
