@@ -526,9 +526,6 @@ export class NavigationCoordinator {
                 // Player back should not traverse setup/server screen history.
                 const prep = this.deps.prepareExitConfirmModal();
                 navigation.openModal(this.deps.exitConfirmModalId, prep.focusableIds);
-                if (prep.preferredFocusId) {
-                    navigation.setFocus(prep.preferredFocusId, { persist: false });
-                }
                 event.handled = true;
                 event.originalEvent.preventDefault();
                 return;

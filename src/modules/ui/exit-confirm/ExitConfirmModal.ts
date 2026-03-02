@@ -20,7 +20,7 @@ export class ExitConfirmModal {
             throw new Error(`ExitConfirmModal container #${config.containerId} not found`);
         }
 
-        el.className = 'exit-confirm-container';
+        el.classList.add('exit-confirm-container');
         el.classList.remove('visible');
         el.setAttribute('role', 'dialog');
         el.setAttribute('aria-modal', 'true');

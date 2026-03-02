@@ -480,6 +480,13 @@ export class NavigationManager
             return;
         }
 
+        if (this._state.modalStack.includes(modalId)) {
+            if (focusableIds && focusableIds.length > 0) {
+                this._state.modalFocusableIds.set(modalId, focusableIds);
+            }
+            return;
+        }
+
         // Save pre-modal focus
         this._focusManager.savePreModalFocus();
 

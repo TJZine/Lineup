@@ -22,6 +22,15 @@ export class ExitConfirmCoordinator {
         const modal = this._deps.getModal();
         if (!navigation || !modal) return;
 
+        for (const id of this._registeredIds) {
+            try {
+                navigation.unregisterFocusable(id);
+            } catch {
+                // ignore cleanup errors
+            }
+        }
+        this._registeredIds = [];
+
         modal.show({
             title: 'Exit Lineup?',
             message: 'You will return to the Home screen.',
@@ -32,6 +41,11 @@ export class ExitConfirmCoordinator {
         const cancelEl = document.getElementById(EXIT_CONFIRM_ACTION_IDS.cancel);
         const exitEl = document.getElementById(EXIT_CONFIRM_ACTION_IDS.exit);
         if (!(cancelEl instanceof HTMLElement) || !(exitEl instanceof HTMLElement)) {
+            try {
+                navigation.closeModal(EXIT_CONFIRM_MODAL_ID);
+            } catch {
+                // ignore close errors
+            }
             return;
         }
 

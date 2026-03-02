@@ -465,7 +465,7 @@ describe('NavigationCoordinator', () => {
 
         expect(deps.prepareExitConfirmModal).toHaveBeenCalledTimes(1);
         expect(navigation.openModal).toHaveBeenCalledWith(deps.exitConfirmModalId, focus.focusableIds);
-        expect(navigation.setFocus).toHaveBeenCalledWith(focus.preferredFocusId, { persist: false });
+        expect(navigation.setFocus).not.toHaveBeenCalled();
         expect(event.handled).toBe(true);
         expect(event.originalEvent.preventDefault).toHaveBeenCalled();
     });

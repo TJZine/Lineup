@@ -1163,6 +1163,13 @@ export class AppOrchestrator implements IAppOrchestrator {
             }
         }
         if (this._exitConfirmModal) {
+            if (this._navigation?.isModalOpen(EXIT_CONFIRM_MODAL_ID)) {
+                try {
+                    this._navigation.closeModal(EXIT_CONFIRM_MODAL_ID);
+                } catch (error) {
+                    recordTeardownFailure('navigation.closeModal(exit-confirm)', error);
+                }
+            }
             try {
                 this._exitConfirmModal.destroy();
             } catch (error) {

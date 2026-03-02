@@ -462,6 +462,17 @@ describe('NavigationManager', () => {
             expect(handler).toHaveBeenCalledWith({ modalId: 'confirm' });
         });
 
+        it('should ignore duplicate opens for the same modal', () => {
+            const handler = jest.fn();
+            nav.on('modalOpen', handler);
+
+            nav.openModal('confirm');
+            nav.openModal('confirm');
+
+            expect(handler).toHaveBeenCalledTimes(1);
+            expect(nav.getState().modalStack).toEqual(['confirm']);
+        });
+
         it('should close modal and emit event', () => {
             const handler = jest.fn();
             nav.on('modalClose', handler);
