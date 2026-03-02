@@ -535,17 +535,13 @@ export class SettingsScreen {
                         id: 'settings-epg-info-background-mode',
                         label: 'Info Box Background',
                         description: 'Artwork Bleed adds a subtle poster-derived color wash; Theme Default keeps the clean Ember & Steel overlay',
-                        value: this._loadNumberSetting(
-                            SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE,
-                            DEFAULT_SETTINGS.display.epgInfoBackgroundMode
-                        ),
+                        value: this._loadEpgInfoBackgroundModeValue(),
                         options: [
                             { label: 'Artwork Bleed', value: 0 },
                             { label: 'Theme Default', value: 1 },
                         ],
                         onChange: (value: number): void => {
-                            const mode: 0 | 1 = value === 1 ? 1 : 0;
-                            this._saveNumberSetting(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, mode);
+                            const mode = this._saveEpgInfoBackgroundModeValue(value);
                             this._onGuideSettingChange?.({ key: 'infoBackgroundMode', mode });
                         },
                     },
@@ -1086,6 +1082,16 @@ export class SettingsScreen {
         return 0;
     }
 
+    private _loadEpgInfoBackgroundModeValue(): 0 | 1 {
+        const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+        if (raw === '0') return 0;
+        if (raw === '1') return 1;
+        if (raw !== null) {
+            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+        }
+        return DEFAULT_SETTINGS.display.epgInfoBackgroundMode;
+    }
+
     private _loadSubtitleLanguageValue(): number {
         const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE);
         if (raw === null) return 0;
@@ -1153,6 +1159,12 @@ export class SettingsScreen {
         const option = EPG_PAST_ITEMS_OPTIONS[value] ?? EPG_PAST_ITEMS_OPTIONS[0]!;
         safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, option.storageValue);
         return option.storageValue;
+    }
+
+    private _saveEpgInfoBackgroundModeValue(value: number): 0 | 1 {
+        const mode: 0 | 1 = value === 1 ? 1 : 0;
+        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, String(mode));
+        return mode;
     }
 
     private _mapEpgGuideDensityValue(value: number): 'wide' | 'detailed' {
@@ -1230,6 +1242,7 @@ export class SettingsScreen {
             'settings-epg-density': () => this._loadEpgGuideDensityValue(),
             'settings-epg-layout-mode': () => this._loadEpgLayoutModeValue(),
             'settings-epg-past-items': () => this._loadEpgPastItemsWindowValue(),
+            'settings-epg-info-background-mode': () => this._loadEpgInfoBackgroundModeValue(),
         };
         for (const [id, meta] of this._toggleMetadata.entries()) {
             const toggle = this._toggleElements.get(id);

@@ -355,6 +355,36 @@ describe('EPGInfoPanel', () => {
             }
         });
 
+        it('caps the dynamic color cache to avoid unbounded growth', () => {
+            jest.useFakeTimers();
+
+            try {
+                (extractDominantColor as jest.Mock).mockReturnValue('rgba(100, 50, 50, 0.32)');
+                localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
+
+                const resolver = jest.fn((path: string | null) => (path ? 'https://img.example/thumb.jpg' : null));
+                panel.setThumbResolver(resolver);
+
+                for (let index = 0; index < 130; index += 1) {
+                    const program = createMockProgram('/library/metadata/1/thumb', {
+                        ratingKey: `cache-${index}`,
+                    });
+                    panel.show(program);
+                    jest.runAllTimers();
+                }
+
+                const cache = (panel as unknown as { colorCache: Map<string, string> }).colorCache;
+                expect(cache.size).toBe(128);
+                expect(cache.has('cache-0')).toBe(false);
+                expect(cache.has('cache-1')).toBe(false);
+                expect(cache.has('cache-129')).toBe(true);
+            } finally {
+                localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+                jest.runOnlyPendingTimers();
+                jest.useRealTimers();
+            }
+        });
+
         it('should hide series title for non-episode programs', () => {
             const program = createMockProgram(null, {
                 type: 'movie',

@@ -173,6 +173,21 @@ describe('SettingsScreen (Guide settings)', () => {
         expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'infoBackgroundMode', mode: 1 });
     });
 
+    it('sanitizes invalid info background mode values from storage', () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '999');
+        const { container, screen } = createScreen(jest.fn());
+
+        screen.show();
+        activateCategory(container, 'appearance');
+
+        const value = container.querySelector(
+            '#settings-epg-info-background-mode .setup-toggle-value'
+        ) as HTMLElement | null;
+
+        expect(value?.textContent?.trim()).toBe('Artwork Bleed');
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE)).toBeNull();
+    });
+
     it('writes guide density and emits change', () => {
         const onGuideSettingChange = jest.fn();
         const { container, screen } = createScreen(onGuideSettingChange);

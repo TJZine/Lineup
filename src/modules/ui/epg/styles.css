@@ -1021,7 +1021,7 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: var(--surface-overlay);
+  background: linear-gradient(to top, var(--panel-surface-2), var(--panel-surface));
 }
 
 .epg-info-gradient-a,
