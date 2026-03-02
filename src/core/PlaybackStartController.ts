@@ -34,6 +34,10 @@ export class PlaybackStartController {
 
     public handleProgramStartTracked(program: ScheduledProgram): Promise<void> {
         const promise = this.handleProgramStart(program);
+        return this.trackProgramStart(promise);
+    }
+
+    public trackProgramStart(promise: Promise<void>): Promise<void> {
         this._lastProgramStartPromise = promise;
         return promise;
     }

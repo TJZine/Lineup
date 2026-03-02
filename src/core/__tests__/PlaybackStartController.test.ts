@@ -152,4 +152,14 @@ describe('PlaybackStartController', () => {
 
         await promise;
     });
+
+    it('tracks an externally created program-start promise', async () => {
+        const { controller } = makeSetup();
+        const promise = Promise.resolve();
+
+        expect(controller.trackProgramStart(promise)).toBe(promise);
+        expect(controller.getLastProgramStartPromise()).toBe(promise);
+
+        await promise;
+    });
 });

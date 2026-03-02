@@ -2542,7 +2542,7 @@ export class AppOrchestrator implements IAppOrchestrator {
      * Handle program start event from scheduler.
      */
     private async _handleProgramStart(program: ScheduledProgram): Promise<void> {
-        await this._ensurePlaybackStartController().handleProgramStartTracked(program);
+        await this._ensurePlaybackStartController().handleProgramStart(program);
     }
 
     private _syncChannelBadgeOverlay(): void {
@@ -2578,7 +2578,9 @@ export class AppOrchestrator implements IAppOrchestrator {
     }
 
     private _handleProgramStartTracked(program: ScheduledProgram): Promise<void> {
-        return this._handleProgramStart(program);
+        const controller = this._ensurePlaybackStartController();
+        const promise = this._handleProgramStart(program);
+        return controller.trackProgramStart(promise);
     }
 
     private _stopActiveTranscodeSession(): void {
