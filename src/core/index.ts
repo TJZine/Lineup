@@ -22,5 +22,7 @@ export type {
 } from './channel-setup';
 export { PlaybackStartController } from './PlaybackStartController';
 export type { PlaybackStartControllerDeps } from './PlaybackStartController';
+export { PlaybackRuntimeController } from './PlaybackRuntimeController';
+export type { PlaybackRuntimeControllerDeps } from './PlaybackRuntimeController';
 // Note: InitializationDependencies and InitializationCallbacks are intentionally
 // NOT exported. They are internal implementation details used only by Orchestrator.
