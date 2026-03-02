@@ -18,6 +18,7 @@ type StubFocusable = {
 const ALL_THEME_CLASSES = Object.values(THEME_CLASSES).filter(Boolean);
 const REAL_REQUEST_ANIMATION_FRAME = window.requestAnimationFrame;
 const REAL_CANCEL_ANIMATION_FRAME = window.cancelAnimationFrame;
+const CREATED_CONTAINERS: HTMLElement[] = [];
 
 const setupQueuedRaf = (): { rafQueue: FrameRequestCallback[]; restore: () => void } => {
     const rafQueue: FrameRequestCallback[] = [];
@@ -65,6 +66,7 @@ const createScreen = (onGuideSettingChange: (change: GuideSettingChange) => void
 } => {
     const container = document.createElement('div');
     document.body.appendChild(container);
+    CREATED_CONTAINERS.push(container);
     const nav = createNavigationStub();
     const screen = new SettingsScreen(
         container,
@@ -110,6 +112,9 @@ afterEach(() => {
         writable: true,
         value: REAL_CANCEL_ANIMATION_FRAME,
     });
+    for (const container of CREATED_CONTAINERS.splice(0, CREATED_CONTAINERS.length)) {
+        container.remove();
+    }
 });
 
 describe('SettingsScreen (Guide settings)', () => {
@@ -175,7 +180,8 @@ describe('SettingsScreen (Guide settings)', () => {
 
     it('sanitizes invalid info background mode values from storage', () => {
         localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '999');
-        const { container, screen } = createScreen(jest.fn());
+        const onGuideSettingChange = jest.fn();
+        const { container, screen } = createScreen(onGuideSettingChange);
 
         screen.show();
         activateCategory(container, 'appearance');
@@ -186,6 +192,7 @@ describe('SettingsScreen (Guide settings)', () => {
 
         expect(value?.textContent?.trim()).toBe('Artwork Bleed');
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE)).toBeNull();
+        expect(onGuideSettingChange).not.toHaveBeenCalled();
     });
 
     it('writes guide density and emits change', () => {
