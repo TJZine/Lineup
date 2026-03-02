@@ -1634,6 +1634,36 @@ describe('AppOrchestrator', () => {
             expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
         });
 
+        it('clears and refreshes schedules when past-items window changes while EPG visible', () => {
+            mockEpg.isVisible.mockReturnValue(true);
+            const mutable = orchestrator as unknown as {
+                _epgCoordinator?: {
+                    clearScheduleCaches: () => void;
+                    primeEpgChannels: () => void;
+                    refreshEpgSchedules: (options?: { reason?: string }) => Promise<void>;
+                };
+            };
+            const clearSpy = jest.spyOn(
+                mutable._epgCoordinator as { clearScheduleCaches: () => void },
+                'clearScheduleCaches'
+            );
+            const primeSpy = jest.spyOn(
+                mutable._epgCoordinator as { primeEpgChannels: () => void },
+                'primeEpgChannels'
+            );
+            const refreshSpy = jest.spyOn(
+                mutable._epgCoordinator as { refreshEpgSchedules: (options?: { reason?: string }) => Promise<void> },
+                'refreshEpgSchedules'
+            ).mockResolvedValue(undefined);
+
+            orchestrator.onGuideSettingChange({ key: 'pastItemsWindow', value: '15' });
+
+            expect(clearSpy).toHaveBeenCalled();
+            expect(mockEpg.clearSchedules).toHaveBeenCalled();
+            expect(primeSpy).toHaveBeenCalled();
+            expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
+        });
+
         it('ignores aggressive preload change when EPG hidden', () => {
             mockEpg.isVisible.mockReturnValue(false);
             const mutable = orchestrator as unknown as {

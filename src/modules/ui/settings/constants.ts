@@ -57,6 +57,8 @@ export const SETTINGS_STORAGE_KEYS = {
     EPG_LAYOUT_MODE: LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE,
     /** EPG guide density (detailed/wide) */
     EPG_GUIDE_DENSITY: LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY,
+    /** EPG past-items window setting */
+    EPG_PAST_ITEMS_WINDOW: LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW,
     /** EPG now watching banner enabled */
     EPG_NOW_WATCHING_ENABLED: LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED,
     /** EPG aggressive preload enabled */

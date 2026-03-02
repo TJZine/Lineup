@@ -64,6 +64,8 @@ export const EPG_CLASSES = {
     CELL_META: 'epg-cell-meta',
     CELL_EPISODE: 'epg-cell-episode',
     CELL_TITLE: 'epg-cell-title',
+    CELL_TITLE_TICKER_READY: 'epg-cell-title-ticker-ready',
+    CELL_TITLE_TICKER_RUNNING: 'epg-cell-title-ticker-running',
     CELL_SUBTITLE: 'epg-cell-subtitle',
     CELL_CONTENT: 'epg-cell-content',
     CELL_RAIL: 'epg-cell-rail',

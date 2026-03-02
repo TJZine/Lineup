@@ -116,6 +116,7 @@ describe('SettingsScreen (Guide settings)', () => {
     beforeEach(() => {
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE);
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY);
+        localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW);
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED);
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED);
     });
@@ -137,6 +138,20 @@ describe('SettingsScreen (Guide settings)', () => {
 
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('classic');
         expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'layoutMode', mode: 'classic' });
+    });
+
+    it('writes past items select and emits guide-setting change', () => {
+        const onGuideSettingChange = jest.fn();
+        const { container, screen } = createScreen(onGuideSettingChange);
+
+        screen.show();
+        activateCategory(container, 'appearance');
+
+        const select = container.querySelector('#settings-epg-past-items') as HTMLButtonElement;
+        select.click();
+
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW)).toBe('0');
+        expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'pastItemsWindow', value: '0' });
     });
 
     it('writes guide density and emits change', () => {

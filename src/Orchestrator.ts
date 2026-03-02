@@ -1653,7 +1653,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             return;
         }
 
-        if (change.key === 'libraryTabs' || change.key === 'aggressivePreload') {
+        if (change.key === 'libraryTabs' || change.key === 'aggressivePreload' || change.key === 'pastItemsWindow') {
             epgCoordinator.clearScheduleCaches();
             epg.clearSchedules();
         }
@@ -1662,7 +1662,8 @@ export class AppOrchestrator implements IAppOrchestrator {
         if (
             change.key === 'libraryTabs' ||
             change.key === 'guideDensity' ||
-            change.key === 'aggressivePreload'
+            change.key === 'aggressivePreload' ||
+            change.key === 'pastItemsWindow'
         ) {
             void epgCoordinator.refreshEpgSchedules({ reason: 'guide-settings' });
         }

@@ -61,6 +61,19 @@ const flushPromises = async (): Promise<void> => {
     await Promise.resolve();
 };
 
+const expectPastWindowMinutes = (
+    range: { startTime: number; endTime: number } | null,
+    nowMs: number,
+    expectedMinutes: number,
+    slotMinutes: number
+): void => {
+    expect(range).not.toBeNull();
+    if (!range) return;
+    const deltaMinutes = (nowMs - range.startTime) / 60_000;
+    expect(deltaMinutes).toBeGreaterThanOrEqual(expectedMinutes);
+    expect(deltaMinutes).toBeLessThan(expectedMinutes + slotMinutes);
+};
+
 const advanceWarmQueueTimers = async (steps = 24): Promise<void> => {
     for (let i = 0; i < steps; i++) {
         jest.advanceTimersByTime(50);
@@ -403,6 +416,178 @@ describe('EPGCoordinator', () => {
         coordinator.primeEpgChannels();
 
         expect(epg.setVisibleHours).toHaveBeenCalledWith(2);
+    });
+
+    it('uses auto past-window = 0m for show library filter', () => {
+        const now = new Date('2026-01-07T10:40:00.000Z').getTime();
+        jest.spyOn(Date, 'now').mockReturnValue(now);
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, 'auto');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'show-lib');
+
+        const channels = [
+            {
+                ...makeChannel('show-1', 1),
+                sourceLibraryId: 'show-lib',
+                sourceLibraryName: 'Shows',
+                contentSource: {
+                    type: 'library',
+                    libraryId: 'show-lib',
+                    libraryType: 'show',
+                    includeWatched: true,
+                },
+            },
+            {
+                ...makeChannel('movie-1', 2),
+                sourceLibraryId: 'movie-lib',
+                sourceLibraryName: 'Movies',
+                contentSource: {
+                    type: 'library',
+                    libraryId: 'movie-lib',
+                    libraryType: 'movie',
+                    includeWatched: true,
+                },
+            },
+        ];
+
+        const base = makeDeps().deps.getChannelManager()!;
+        const { deps } = makeDeps({
+            getChannelManager: () => ({ ...base, getAllChannels: () => channels } as IChannelManager),
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        const range = (coordinator as unknown as {
+            _getEpgScheduleRangeMs: () => { startTime: number; endTime: number } | null;
+        })._getEpgScheduleRangeMs();
+
+        expectPastWindowMinutes(range, now, 0, 30);
+    });
+
+    it('uses auto past-window = 15m for movie-only, mixed, and unknown library mixes', () => {
+        const now = new Date('2026-01-07T10:40:00.000Z').getTime();
+        jest.spyOn(Date, 'now').mockReturnValue(now);
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, 'auto');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        const getRange = (selectedLibraryId: string, channels: ChannelConfig[]): { startTime: number; endTime: number } | null => {
+            localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, selectedLibraryId);
+            const base = makeDeps().deps.getChannelManager()!;
+            const { deps } = makeDeps({
+                getChannelManager: () => ({ ...base, getAllChannels: () => channels } as IChannelManager),
+            });
+            const coordinator = new EPGCoordinator(deps);
+            return (coordinator as unknown as {
+                _getEpgScheduleRangeMs: () => { startTime: number; endTime: number } | null;
+            })._getEpgScheduleRangeMs();
+        };
+
+        const movieOnlyRange = getRange('movie-lib', [
+            {
+                ...makeChannel('movie-1', 1),
+                sourceLibraryId: 'movie-lib',
+                sourceLibraryName: 'Movies',
+                contentSource: {
+                    type: 'library',
+                    libraryId: 'movie-lib',
+                    libraryType: 'movie',
+                    includeWatched: true,
+                },
+            },
+            {
+                ...makeChannel('show-1', 2),
+                sourceLibraryId: 'show-lib',
+                sourceLibraryName: 'Shows',
+                contentSource: {
+                    type: 'library',
+                    libraryId: 'show-lib',
+                    libraryType: 'show',
+                    includeWatched: true,
+                },
+            },
+        ]);
+        expectPastWindowMinutes(movieOnlyRange, now, 15, 30);
+
+        const mixedRange = getRange('mixed-lib', [
+            {
+                ...makeChannel('mixed-show', 1),
+                sourceLibraryId: 'mixed-lib',
+                sourceLibraryName: 'Mixed',
+                contentSource: {
+                    type: 'library',
+                    libraryId: 'mixed-lib',
+                    libraryType: 'show',
+                    includeWatched: true,
+                },
+            },
+            {
+                ...makeChannel('mixed-movie', 2),
+                sourceLibraryId: 'mixed-lib',
+                sourceLibraryName: 'Mixed',
+                contentSource: {
+                    type: 'library',
+                    libraryId: 'mixed-lib',
+                    libraryType: 'movie',
+                    includeWatched: true,
+                },
+            },
+            {
+                ...makeChannel('show-2', 3),
+                sourceLibraryId: 'show-lib',
+                sourceLibraryName: 'Shows',
+                contentSource: {
+                    type: 'library',
+                    libraryId: 'show-lib',
+                    libraryType: 'show',
+                    includeWatched: true,
+                },
+            },
+        ]);
+        expectPastWindowMinutes(mixedRange, now, 15, 30);
+
+        const unknownRange = getRange('unknown-lib', [
+            {
+                ...makeChannel('unknown-manual', 1),
+                sourceLibraryId: 'unknown-lib',
+                sourceLibraryName: 'Unknown',
+                contentSource: { type: 'manual', items: [] },
+            },
+            {
+                ...makeChannel('movie-2', 2),
+                sourceLibraryId: 'movie-lib',
+                sourceLibraryName: 'Movies',
+                contentSource: {
+                    type: 'library',
+                    libraryId: 'movie-lib',
+                    libraryType: 'movie',
+                    includeWatched: true,
+                },
+            },
+        ]);
+        expectPastWindowMinutes(unknownRange, now, 15, 30);
+    });
+
+    it('respects manual past-window overrides 0/15/30', () => {
+        const now = new Date('2026-01-07T10:40:00.000Z').getTime();
+        jest.spyOn(Date, 'now').mockReturnValue(now);
+        const { deps } = makeDeps();
+        const coordinator = new EPGCoordinator(deps);
+
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, '0');
+        const range0 = (coordinator as unknown as {
+            _getEpgScheduleRangeMs: () => { startTime: number; endTime: number } | null;
+        })._getEpgScheduleRangeMs();
+        expectPastWindowMinutes(range0, now, 0, 30);
+
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, '15');
+        const range15 = (coordinator as unknown as {
+            _getEpgScheduleRangeMs: () => { startTime: number; endTime: number } | null;
+        })._getEpgScheduleRangeMs();
+        expectPastWindowMinutes(range15, now, 15, 30);
+
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, '30');
+        const range30 = (coordinator as unknown as {
+            _getEpgScheduleRangeMs: () => { startTime: number; endTime: number } | null;
+        })._getEpgScheduleRangeMs();
+        expectPastWindowMinutes(range30, now, 30, 30);
     });
 
     it('primeEpgChannels clears filter when tabs are disabled', () => {
@@ -1056,6 +1241,56 @@ describe('EPGCoordinator', () => {
             endTime: 20,
             programs: windowPrograms,
         });
+    });
+
+    it('uses conservative warm-queue caps only at very-large-guide threshold (260+)', () => {
+        const { deps } = makeDeps();
+        const coordinator = new EPGCoordinator(deps);
+
+        const getCaps = (
+            channelCount: number,
+            aggressive: boolean
+        ): { maxQueuedChannels: number; maxConcurrency: number } =>
+            (coordinator as unknown as {
+                _getBackgroundWarmQueueCaps: (
+                    c: number,
+                    v: number,
+                    a: boolean
+                ) => { maxQueuedChannels: number; maxConcurrency: number };
+            })._getBackgroundWarmQueueCaps(channelCount, 10, aggressive);
+
+        expect(getCaps(240, false)).toEqual({ maxQueuedChannels: 120, maxConcurrency: 2 });
+        expect(getCaps(240, true)).toEqual({ maxQueuedChannels: 200, maxConcurrency: 3 });
+
+        expect(getCaps(260, false)).toEqual({ maxQueuedChannels: 96, maxConcurrency: 1 });
+        expect(getCaps(260, true)).toEqual({ maxQueuedChannels: 140, maxConcurrency: 2 });
+    });
+
+    it('keeps loaded-range short-circuit unchanged across overlay/classic layout mode flips', async () => {
+        const range = { channelStart: 0, channelEnd: 2, timeStartMs: 0, timeEndMs: 0 };
+        const resolveChannelContent = jest.fn().mockImplementation(async (id: string) => {
+            const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
+            return { items } as ResolvedChannelContent;
+        });
+
+        const base = makeDeps().deps.getChannelManager()!;
+        const { deps, epg } = makeDeps({
+            getChannelManager: () => ({ ...base, resolveChannelContent } as IChannelManager),
+        });
+
+        const coordinator = new EPGCoordinator(deps);
+
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
+        await coordinator.refreshEpgSchedulesForRange(range, { debounceMs: 0, reason: 'visible-range' });
+        const firstResolveCount = resolveChannelContent.mock.calls.length;
+        expect(firstResolveCount).toBeGreaterThan(0);
+
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, 'classic');
+        (epg.loadScheduleForChannel as jest.Mock).mockClear();
+        await coordinator.refreshEpgSchedulesForRange(range, { debounceMs: 0, reason: 'visible-range' });
+
+        expect(resolveChannelContent.mock.calls.length).toBe(firstResolveCount);
+        expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBe(0);
     });
 
     it('wireEpgEvents returns unsubscribers and triggers switch when program eligible', () => {
