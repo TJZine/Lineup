@@ -9,6 +9,7 @@ import './modules/ui/channel-badge/styles.css';
 import './modules/ui/mini-guide/styles.css';
 import './modules/ui/channel-transition/styles.css';
 import './modules/ui/playback-options/styles.css';
+import './modules/ui/exit-confirm/styles.css';
 import './modules/ui/settings/styles.css';
 import './modules/ui/profile-select/styles.css';
 import './modules/ui/server-select/styles.css';

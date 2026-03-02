@@ -390,16 +390,20 @@ describe('NavigationManager', () => {
 
         it('should stop navigation handling when keyPress prevents default', () => {
             nav.replaceScreen('player');
-            const openModalSpy = jest.spyOn(nav, 'openModal');
+            const closeSpy = jest.spyOn(window, 'close').mockImplementation(() => undefined);
 
-            nav.on('keyPress', (event) => {
-                event.handled = true;
-            });
+            try {
+                nav.on('keyPress', (event) => {
+                    event.handled = true;
+                });
 
-            // Back button (keyCode 461) would normally open exit-confirm at player root.
-            dispatchKeyEvent(461);
+                // Back button (keyCode 461) would normally exit at player root.
+                dispatchKeyEvent(461);
 
-            expect(openModalSpy).not.toHaveBeenCalled();
+                expect(closeSpy).not.toHaveBeenCalled();
+            } finally {
+                closeSpy.mockRestore();
+            }
         });
 
         it('should move focus on arrow keys', () => {
@@ -459,6 +463,17 @@ describe('NavigationManager', () => {
             expect(nav.isModalOpen()).toBe(true);
             expect(nav.isModalOpen('confirm')).toBe(true);
             expect(handler).toHaveBeenCalledWith({ modalId: 'confirm' });
+        });
+
+        it('should ignore duplicate opens for the same modal', () => {
+            const handler = jest.fn();
+            nav.on('modalOpen', handler);
+
+            nav.openModal('confirm');
+            nav.openModal('confirm');
+
+            expect(handler).toHaveBeenCalledTimes(1);
+            expect(nav.getState().modalStack).toEqual(['confirm']);
         });
 
         it('should close modal and emit event', () => {
@@ -713,21 +728,48 @@ describe('NavigationManager', () => {
     });
 
     describe('root screen Back behavior', () => {
-        it('should open exit-confirm modal on player root', () => {
-            nav.replaceScreen('player');
+        it('should exit to Home on splash root', () => {
+            const closeSpy = jest.spyOn(window, 'close').mockImplementation(() => undefined);
 
-            // Press Back
-            dispatchKeyEvent(461);
+            try {
+                nav.replaceScreen('splash');
 
-            expect(nav.isModalOpen('exit-confirm')).toBe(true);
+                // Press Back
+                dispatchKeyEvent(461);
+
+                expect(closeSpy).toHaveBeenCalledTimes(1);
+            } finally {
+                closeSpy.mockRestore();
+            }
         });
 
-        it('should open exit-confirm modal on auth root', () => {
-            nav.replaceScreen('auth');
+        it('should exit to Home on player root (fallback)', () => {
+            const closeSpy = jest.spyOn(window, 'close').mockImplementation(() => undefined);
 
-            dispatchKeyEvent(461);
+            try {
+                nav.replaceScreen('player');
 
-            expect(nav.isModalOpen('exit-confirm')).toBe(true);
+                // Press Back
+                dispatchKeyEvent(461);
+
+                expect(closeSpy).toHaveBeenCalledTimes(1);
+            } finally {
+                closeSpy.mockRestore();
+            }
+        });
+
+        it('should exit to Home on auth root', () => {
+            const closeSpy = jest.spyOn(window, 'close').mockImplementation(() => undefined);
+
+            try {
+                nav.replaceScreen('auth');
+
+                dispatchKeyEvent(461);
+
+                expect(closeSpy).toHaveBeenCalledTimes(1);
+            } finally {
+                closeSpy.mockRestore();
+            }
         });
 
         it('should navigate to auth from server-select root', () => {

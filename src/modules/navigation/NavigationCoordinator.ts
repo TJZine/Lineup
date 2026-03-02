@@ -56,6 +56,11 @@ export interface NavigationCoordinatorDeps {
     showPlaybackOptionsModal: () => void;
     hidePlaybackOptionsModal: () => void;
 
+    exitConfirmModalId: string;
+    prepareExitConfirmModal: () => { focusableIds: string[] };
+    showExitConfirmModal: () => void;
+    hideExitConfirmModal: () => void;
+
     setLastChannelChangeSourceRemote: () => void;
     setLastChannelChangeSourceNumber: () => void;
 
@@ -212,6 +217,9 @@ export class NavigationCoordinator {
             if (payload.modalId === this.deps.playbackOptionsModalId) {
                 this.deps.showPlaybackOptionsModal();
             }
+            if (payload.modalId === this.deps.exitConfirmModalId) {
+                this.deps.showExitConfirmModal();
+            }
         };
         const modalCloseHandler = (payload: { modalId: string }): void => {
             if (payload.modalId === NOW_PLAYING_INFO_MODAL_ID) {
@@ -219,6 +227,9 @@ export class NavigationCoordinator {
             }
             if (payload.modalId === this.deps.playbackOptionsModalId) {
                 this.deps.hidePlaybackOptionsModal();
+            }
+            if (payload.modalId === this.deps.exitConfirmModalId) {
+                this.deps.hideExitConfirmModal();
             }
         };
         navigation.on('modalOpen', modalOpenHandler);
@@ -513,7 +524,8 @@ export class NavigationCoordinator {
                     return;
                 }
                 // Player back should not traverse setup/server screen history.
-                navigation.openModal('exit-confirm');
+                const prep = this.deps.prepareExitConfirmModal();
+                navigation.openModal(this.deps.exitConfirmModalId, prep.focusableIds);
                 event.handled = true;
                 event.originalEvent.preventDefault();
                 return;

@@ -480,6 +480,13 @@ export class NavigationManager
             return;
         }
 
+        if (this._state.modalStack.includes(modalId)) {
+            if (focusableIds && focusableIds.length > 0) {
+                this._state.modalFocusableIds.set(modalId, focusableIds);
+            }
+            return;
+        }
+
         // Save pre-modal focus
         this._focusManager.savePreModalFocus();
 
@@ -908,10 +915,15 @@ export class NavigationManager
         // without pushing to history, which is appropriate for root back transitions.
         const screen = this._state.currentScreen;
         switch (screen) {
+            case 'splash':
+                // Mandatory webOS UX guideline: Back on entry screen must exit to Home.
+                window.close();
+                break;
             case 'player':
             case 'auth':
-                // Show exit confirmation modal
-                this.openModal('exit-confirm');
+                // Exit to Home when at a root screen without wired navigation coordinators.
+                // (Player context overrides this via NavigationCoordinator with an in-app confirmation modal.)
+                window.close();
                 break;
             case 'server-select':
                 // Navigate back to auth

@@ -93,6 +93,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             miniGuide: null,
             channelTransition: null,
             playbackOptions: null,
+            exitConfirm: null,
             ...depsOverrides,
         };
 

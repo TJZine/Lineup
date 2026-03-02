@@ -131,6 +131,12 @@ import {
     PLAYBACK_OPTIONS_MODAL_ID,
 } from './modules/ui/playback-options';
 import {
+    ExitConfirmCoordinator,
+    ExitConfirmModal,
+    EXIT_CONFIRM_FOCUSABLE_IDS,
+    EXIT_CONFIRM_MODAL_ID,
+} from './modules/ui/exit-confirm';
+import {
     InitializationCoordinator,
     ChannelTuningCoordinator,
     OrchestratorStorageContext,
@@ -364,6 +370,8 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _channelTransitionCoordinator: ChannelTransitionCoordinator | null = null;
     private _playbackOptionsModal: IPlaybackOptionsModal | null = null;
     private _playbackOptionsCoordinator: PlaybackOptionsCoordinator | null = null;
+    private _exitConfirmModal: ExitConfirmModal | null = null;
+    private _exitConfirmCoordinator: ExitConfirmCoordinator | null = null;
     private _sleepTimer: SleepTimerManager | null = null;
     private _nowPlayingDebugManager: NowPlayingDebugManager | null = null;
     private _playbackRecovery: PlaybackRecoveryManager | null = null;
@@ -544,6 +552,9 @@ export class AppOrchestrator implements IAppOrchestrator {
 
         // Playback Options modal - no constructor args, initialize later
         this._playbackOptionsModal = new PlaybackOptionsModal();
+
+        // Exit confirmation modal - initialize later
+        this._exitConfirmModal = new ExitConfirmModal();
         this._sleepTimer = new SleepTimerManager({
             onWarning: (): void => undefined,
             onSleep: (): void => {
@@ -589,6 +600,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 miniGuide: this._miniGuide,
                 channelTransition: this._channelTransitionOverlay,
                 playbackOptions: this._playbackOptionsModal,
+                exitConfirm: this._exitConfirmModal,
             },
             {
                 updateModuleStatus: this._updateModuleStatus.bind(this),
@@ -786,6 +798,11 @@ export class AppOrchestrator implements IAppOrchestrator {
             },
         });
 
+        this._exitConfirmCoordinator = new ExitConfirmCoordinator({
+            getNavigation: (): INavigationManager | null => this._navigation,
+            getModal: (): ExitConfirmModal | null => this._exitConfirmModal,
+        });
+
         this._playbackRecovery = new PlaybackRecoveryManager({
             getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
             getStreamResolver: (): IPlexStreamResolver | null => this._plexStreamResolver,
@@ -926,6 +943,14 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this._playbackOptionsCoordinator?.handleModalOpen(PLAYBACK_OPTIONS_MODAL_ID),
             hidePlaybackOptionsModal: (): void =>
                 this._playbackOptionsCoordinator?.handleModalClose(PLAYBACK_OPTIONS_MODAL_ID),
+            exitConfirmModalId: EXIT_CONFIRM_MODAL_ID,
+            prepareExitConfirmModal: (): { focusableIds: string[] } => ({
+                focusableIds: [...EXIT_CONFIRM_FOCUSABLE_IDS],
+            }),
+            showExitConfirmModal: (): void =>
+                this._exitConfirmCoordinator?.handleModalOpen(EXIT_CONFIRM_MODAL_ID),
+            hideExitConfirmModal: (): void =>
+                this._exitConfirmCoordinator?.handleModalClose(EXIT_CONFIRM_MODAL_ID),
             setLastChannelChangeSourceRemote: (): void => {
                 this._lastChannelChangeSource = 'remote';
             },
@@ -1135,6 +1160,26 @@ export class AppOrchestrator implements IAppOrchestrator {
             } catch (error) {
                 recordTeardownFailure('playbackOptionsModal.destroy', error);
             }
+        }
+        if (this._exitConfirmModal) {
+            if (this._navigation?.isModalOpen(EXIT_CONFIRM_MODAL_ID)) {
+                try {
+                    this._navigation.closeModal(EXIT_CONFIRM_MODAL_ID);
+                } catch (error) {
+                    recordTeardownFailure('navigation.closeModal(exit-confirm)', error);
+                }
+            }
+            try {
+                this._exitConfirmCoordinator?.handleModalClose(EXIT_CONFIRM_MODAL_ID);
+            } catch (error) {
+                recordTeardownFailure('exitConfirmCoordinator.handleModalClose', error);
+            }
+            try {
+                this._exitConfirmModal.destroy();
+            } catch (error) {
+                recordTeardownFailure('exitConfirmModal.destroy', error);
+            }
+            this._exitConfirmModal = null;
         }
         if (this._videoPlayer) {
             try {
@@ -1799,6 +1844,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             'mini-guide-ui',
             'channel-transition-ui',
             'playback-options-ui',
+            'exit-confirm-ui',
         ];
 
         for (const id of modules) {

@@ -1250,6 +1250,58 @@ describe('EPGVirtualizer', () => {
             }
         });
 
+        it('keeps ticker-ready class applied for focused tiny overflowing title before run delay', () => {
+            jest.useFakeTimers();
+            try {
+                const channelId = 'ch-ticker-ready-tiny';
+                const start = gridAnchorTime;
+                const end = start + 20 * 60 * 1000;
+
+                const schedule: ScheduleWindow = {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                    programs: [{
+                        item: {
+                            ratingKey: 'ticker-ready-1',
+                            type: 'movie',
+                            title: 'A Very Long Title That Must Scroll In Tiny Tier',
+                            fullTitle: 'A Very Long Title That Must Scroll In Tiny Tier',
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    }],
+                };
+
+                virtualizer.setChannelCount(1);
+                const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+                virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+                const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+                const title = cell.querySelector('.epg-cell-title') as HTMLElement;
+                Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 320 });
+                Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
+
+                virtualizer.setFocusedCell(channelId, start);
+
+                expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(true);
+                expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
+                jest.advanceTimersByTime(899);
+                expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
         it('suppresses focused ticker when prefers-reduced-motion is enabled', () => {
             jest.useFakeTimers();
             const realMatchMedia = globalThis.matchMedia;

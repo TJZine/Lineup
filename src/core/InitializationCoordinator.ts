@@ -29,6 +29,7 @@ import type { IChannelBadgeOverlay } from '../modules/ui/channel-badge';
 import type { IMiniGuideOverlay } from '../modules/ui/mini-guide';
 import type { IChannelTransitionOverlay } from '../modules/ui/channel-transition';
 import type { IPlaybackOptionsModal } from '../modules/ui/playback-options';
+import { ExitConfirmModal, EXIT_CONFIRM_CONTAINER_ID } from '../modules/ui/exit-confirm';
 import type { IDisposable } from '../utils/interfaces';
 import { readStoredBoolean, safeLocalStorageGet } from '../utils/storage';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
@@ -61,6 +62,7 @@ export interface InitializationDependencies {
     miniGuide: IMiniGuideOverlay | null;
     channelTransition: IChannelTransitionOverlay | null;
     playbackOptions: IPlaybackOptionsModal | null;
+    exitConfirm: ExitConfirmModal | null;
 }
 
 /**
@@ -166,6 +168,7 @@ export class InitializationCoordinator implements IInitializationCoordinator {
     private _epgInitPromise: Promise<void> | null = null;
     private _nowPlayingInfoInitPromise: Promise<void> | null = null;
     private _playbackOptionsInitPromise: Promise<void> | null = null;
+    private _exitConfirmInitPromise: Promise<void> | null = null;
 
     constructor(
         private readonly _config: OrchestratorConfig,
@@ -700,14 +703,16 @@ export class InitializationCoordinator implements IInitializationCoordinator {
      */
     private async _initPhase5(): Promise<void> {
         if (this._callbacks.getModuleStatus('epg-ui') === 'ready') {
-            await this._initNowPlayingInfoUI();
+            await this._ensureCorePlayerUiInitialized();
             return;
         }
         if (this._epgInitPromise) {
             await this._epgInitPromise;
+            await this._ensureCorePlayerUiInitialized();
             return;
         }
         if (!this._deps.epg || !this._config) {
+            await this._ensureCorePlayerUiInitialized();
             return;
         }
 
@@ -810,7 +815,13 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             });
 
         await this._epgInitPromise;
+        await this._ensureCorePlayerUiInitialized();
+    }
+
+    private async _ensureCorePlayerUiInitialized(): Promise<void> {
         await this._initNowPlayingInfoUI();
+        await this._initPlaybackOptionsUI();
+        await this._initExitConfirmUI();
     }
 
     private async _initNowPlayingInfoUI(): Promise<void> {
@@ -846,7 +857,6 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             });
 
         await this._nowPlayingInfoInitPromise;
-        await this._initPlaybackOptionsUI();
     }
 
     private async _initPlaybackOptionsUI(): Promise<void> {
@@ -882,6 +892,41 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             });
 
         await this._playbackOptionsInitPromise;
+    }
+
+    private async _initExitConfirmUI(): Promise<void> {
+        if (this._callbacks.getModuleStatus('exit-confirm-ui') === 'ready') {
+            return;
+        }
+        if (this._exitConfirmInitPromise) {
+            await this._exitConfirmInitPromise;
+            return;
+        }
+        if (!this._deps.exitConfirm) {
+            return;
+        }
+
+        const startTime = Date.now();
+        this._callbacks.updateModuleStatus('exit-confirm-ui', 'initializing');
+        const init = async (): Promise<void> => {
+            this._deps.exitConfirm!.initialize({ containerId: EXIT_CONFIRM_CONTAINER_ID });
+            this._callbacks.updateModuleStatus(
+                'exit-confirm-ui',
+                'ready',
+                undefined,
+                Date.now() - startTime
+            );
+        };
+        this._exitConfirmInitPromise = init()
+            .catch((e) => {
+                this._callbacks.updateModuleStatus('exit-confirm-ui', 'error');
+                throw e;
+            })
+            .finally(() => {
+                this._exitConfirmInitPromise = null;
+            });
+
+        await this._exitConfirmInitPromise;
     }
 
     // ============================================

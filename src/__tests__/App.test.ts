@@ -6,6 +6,7 @@ import { App } from '../App';
 import { AppOrchestrator, type PlaybackInfoSnapshot } from '../Orchestrator';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import { ThemeManager } from '../modules/ui/theme';
+import { EXIT_CONFIRM_CONTAINER_ID } from '../modules/ui/exit-confirm';
 import { STORAGE_KEYS } from '../types';
 
 import { flushPromises } from './helpers';
@@ -126,8 +127,8 @@ describe('App bootstrap smoke', () => {
         });
 
         jest.spyOn(ThemeManager, 'getInstance').mockReturnValue({
-            getTheme: jest.fn().mockReturnValue('obsidian'),
-            applyTheme: jest.fn(),
+            getTheme: jest.fn().mockReturnValue('ember-steel'),
+            setTheme: jest.fn(),
         } as never);
         initializeSpy = jest.spyOn(AppOrchestrator.prototype, 'initialize').mockResolvedValue(undefined);
         startSpy = jest.spyOn(AppOrchestrator.prototype, 'start').mockResolvedValue(undefined);
@@ -185,6 +186,7 @@ describe('App bootstrap smoke', () => {
         expect(document.getElementById('channel-badge-container')).not.toBeNull();
         expect(document.getElementById('channel-transition-container')).not.toBeNull();
         expect(document.getElementById('playback-options-container')).not.toBeNull();
+        expect(document.getElementById(EXIT_CONFIRM_CONTAINER_ID)).not.toBeNull();
         expect(document.getElementById('splash-container')).not.toBeNull();
     });
 
