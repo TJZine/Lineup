@@ -99,7 +99,7 @@ Other review signals:
 - Primary work units:
   - [x] P1-W1 - Extract program-start sequencing into a focused playback-start controller (done 2026-03-02; plan: docs/plans/2026-03-02-playback-start-controller-implementation.md)
   - [x] P1-W2 - Move player event handlers into a playback runtime controller while keeping subscriptions in place (done 2026-03-02; plan: docs/plans/2026-03-02-playback-runtime-controller-implementation.md)
-  - [ ] P1-W3 - Move pause/resume and in-flight playback coordination into the same runtime boundary
+  - [x] P1-W3 - Move pause/resume and in-flight playback coordination into the same runtime boundary (done 2026-03-02; plan: docs/plans/2026-03-02-playback-runtime-lifecycle-coordination-implementation.md)
   - [ ] P1-W4 - Extract `_setupEventWiring()` and the `_wire*Events()` methods into a dedicated event binder
   - [ ] P1-W5 - Extract remaining overlay/runtime helper policies (badge visibility, modal toggles, profile-switch cleanup)
   - [ ] P1-W6 - Cleanup pass for Priority 1: remove temporary delegation shims, transitional fields, obsolete helper methods, and no-longer-needed compatibility wiring created during the P1 refactors
