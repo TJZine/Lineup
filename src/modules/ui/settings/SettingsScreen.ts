@@ -534,7 +534,7 @@ export class SettingsScreen {
                     {
                         id: 'settings-epg-info-background-mode',
                         label: 'Info Box Background',
-                        description: 'Artwork Bleed adds a subtle poster-derived color wash; Theme Default keeps the clean Ember & Steel overlay',
+                        description: 'Artwork Bleed uses poster color, Artwork shows backdrop art, Theme Default keeps the clean Ember & Steel overlay',
                         value: this._loadEpgInfoBackgroundModeValue(),
                         options: [
                             { label: 'Artwork Bleed', value: 0 },

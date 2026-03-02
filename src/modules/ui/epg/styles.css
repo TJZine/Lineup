@@ -1136,6 +1136,13 @@
   display: none;
 }
 
+.epg-info-panel.epg-info-mode-artwork .epg-info-gradient-a,
+.epg-info-panel.epg-info-mode-artwork .epg-info-gradient-b,
+.epg-info-panel.epg-info-mode-theme-default .epg-info-gradient-a,
+.epg-info-panel.epg-info-mode-theme-default .epg-info-gradient-b {
+  opacity: 0;
+}
+
 .epg-info-poster-wrap {
   position: relative;
   width: var(--epg-info-poster-width);

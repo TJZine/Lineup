@@ -779,6 +779,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         const { item } = program;
         const infoBackgroundMode = this.resolveInfoBackgroundMode();
         const shouldShowVisiblePoster = this.presentationMode === 'overlay';
+        const preserveBleedDuringFastPath = mode !== 'full' && infoBackgroundMode === 0;
 
         if (backdrop) {
             if (mode === 'full' && infoBackgroundMode === 2) {
@@ -806,6 +807,10 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             poster.removeAttribute('src');
             poster.style.display = 'none';
 
+            if (preserveBleedDuringFastPath) {
+                return;
+            }
+
             if (infoBackgroundMode === 0) {
                 const sampleUrl = this.resolvePosterSampleUrl(program);
                 if (!sampleUrl) {
@@ -830,6 +835,10 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             const showTitle = item.type === 'episode' ? this.getEffectiveShowTitle(item) : '';
             poster.alt = showTitle.length ? showTitle : item.title;
             poster.style.display = 'block';
+            if (preserveBleedDuringFastPath) {
+                return;
+            }
+
             if (mode !== 'full') {
                 this.clearDynamicColor();
                 return;
@@ -852,6 +861,11 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         // Hide poster when unresolved (prevents file:/// errors on webOS)
         poster.removeAttribute('src');
         poster.style.display = 'none';
+
+        if (preserveBleedDuringFastPath) {
+            return;
+        }
+
         this.clearDynamicColor();
     }
 

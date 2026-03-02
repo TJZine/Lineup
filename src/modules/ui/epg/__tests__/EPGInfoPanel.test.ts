@@ -593,12 +593,13 @@ describe('EPGInfoPanel', () => {
             }
         });
 
-        it('clears dynamic tint state when updating in fast mode', () => {
+        it('preserves dynamic tint state and skips new sampling on fast updates in artwork bleed mode', () => {
             jest.useFakeTimers();
 
             try {
                 (extractDominantColor as jest.Mock).mockReturnValue('rgba(100, 50, 50, 0.32)');
                 localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
+                panel.setPresentationMode('classic');
 
                 const resolver = jest.fn((path: string | null) => (path ? 'https://img.example/thumb.jpg' : null));
                 panel.setThumbResolver(resolver);
@@ -613,14 +614,18 @@ describe('EPGInfoPanel', () => {
                     throw new Error('Gradient layers not found');
                 }
                 expect(layerB.classList.contains('epg-info-gradient-active')).toBe(true);
+                expect(layerB.style.getPropertyValue('--dynamic-info-bg')).toBe('rgba(100, 50, 50, 0.32)');
+                expect(extractDominantColor).toHaveBeenCalledTimes(1);
 
                 const nextProgram = createMockProgram('/library/metadata/2/thumb', { ratingKey: 'test-2', title: 'Next' });
                 panel.updateFast(nextProgram);
+                jest.runAllTimers();
 
+                expect(extractDominantColor).toHaveBeenCalledTimes(1);
                 expect(layerA.style.getPropertyValue('--dynamic-info-bg')).toBe('');
-                expect(layerB.style.getPropertyValue('--dynamic-info-bg')).toBe('');
-                expect(layerA.classList.contains('epg-info-gradient-active')).toBe(true);
-                expect(layerB.classList.contains('epg-info-gradient-active')).toBe(false);
+                expect(layerB.style.getPropertyValue('--dynamic-info-bg')).toBe('rgba(100, 50, 50, 0.32)');
+                expect(layerA.classList.contains('epg-info-gradient-active')).toBe(false);
+                expect(layerB.classList.contains('epg-info-gradient-active')).toBe(true);
             } finally {
                 localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
                 jest.runOnlyPendingTimers();
