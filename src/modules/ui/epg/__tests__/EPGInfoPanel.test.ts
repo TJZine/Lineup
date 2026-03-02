@@ -426,6 +426,36 @@ describe('EPGInfoPanel', () => {
     });
 
     describe('metadata rendering', () => {
+        it('renders schedule/duration/year pills inside top-right meta cluster', () => {
+            const program = createMockProgram('/library/metadata/123/thumb');
+            panel.show(program);
+
+            const cluster = container.querySelector('.epg-info-meta-cluster') as HTMLElement | null;
+            const pills = Array.from(container.querySelectorAll('.epg-info-meta-cluster .epg-info-pill')) as HTMLElement[];
+
+            expect(cluster).not.toBeNull();
+            expect(pills.length).toBeGreaterThanOrEqual(2);
+        });
+
+        it('activates description auto-scroll only when summary overflows', () => {
+            const program = createMockProgram('/library/metadata/123/thumb', {
+                summary: 'Long summary text that should overflow once dimensions are mocked.',
+            });
+
+            panel.show(program);
+
+            const description = container.querySelector('.epg-info-description') as HTMLElement;
+            const inner = container.querySelector('.epg-info-description-inner') as HTMLElement;
+
+            Object.defineProperty(description, 'clientHeight', { value: 40, configurable: true });
+            Object.defineProperty(inner, 'scrollHeight', { value: 180, configurable: true });
+
+            panel.update(program);
+
+            expect(description.dataset.scrollActive).toBe('true');
+            expect(description.style.getPropertyValue('--scroll-distance')).toBe('-140px');
+        });
+
         it('renders genres and hides when empty', () => {
             const program = createMockProgram(null, { genres: ['Drama', 'Comedy'] });
             panel.show(program);
@@ -445,7 +475,7 @@ describe('EPGInfoPanel', () => {
             panel.show(program);
 
             const description = container.querySelector('.epg-info-description') as HTMLElement;
-            expect(description.textContent).toBe('A concise summary.');
+            expect(description.textContent?.trim()).toBe('A concise summary.');
             expect(description.style.display).toBe('block');
         });
 

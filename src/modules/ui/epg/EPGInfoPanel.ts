@@ -29,6 +29,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private tagsElement: HTMLElement | null = null;
     private genresElement: HTMLElement | null = null;
     private descriptionElement: HTMLElement | null = null;
+    private descriptionInnerElement: HTMLElement | null = null;
     private isVisible: boolean = false;
     private currentProgram: ScheduledProgram | null = null;
     private thumbResolver:
@@ -107,6 +108,9 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.descriptionElement = this.containerElement.querySelector(
             `.${EPG_CLASSES.INFO_DESCRIPTION}`
         ) as HTMLElement | null;
+        this.descriptionInnerElement = this.containerElement.querySelector(
+            `.${EPG_CLASSES.INFO_DESCRIPTION_INNER}`
+        ) as HTMLElement | null;
 
         const qualityContainer = this.containerElement.querySelector(
             `.${EPG_CLASSES.INFO_QUALITY}`
@@ -129,23 +133,31 @@ export class EPGInfoPanel implements IEPGInfoPanel {
      */
     private createTemplate(): string {
         return `
-      <div class="${EPG_CLASSES.INFO_BACKDROP}" aria-hidden="true">
-        <img class="${EPG_CLASSES.INFO_BACKDROP_IMG}" alt="" />
-      </div>
-      <div class="${EPG_CLASSES.INFO_POSTER_WRAP}">
-        <img class="${EPG_CLASSES.INFO_POSTER}" alt="" />
-      </div>
-      <div class="${EPG_CLASSES.INFO_CONTENT}">
+  <div class="${EPG_CLASSES.INFO_BACKDROP}" aria-hidden="true">
+    <img class="${EPG_CLASSES.INFO_BACKDROP_IMG}" alt="" />
+  </div>
+  <div class="${EPG_CLASSES.INFO_POSTER_WRAP}">
+    <img class="${EPG_CLASSES.INFO_POSTER}" alt="" />
+  </div>
+  <div class="${EPG_CLASSES.INFO_CONTENT}">
+    <div class="${EPG_CLASSES.INFO_HEADER}">
+      <div class="${EPG_CLASSES.INFO_HEADING}">
         <img class="${EPG_CLASSES.INFO_CLEAR_LOGO}" alt="" style="display:none" />
         <div class="${EPG_CLASSES.INFO_SHOW} ${EPG_CLASSES.INFO_EYEBROW}"></div>
         <div class="${EPG_CLASSES.INFO_TITLE}"></div>
-        <div class="${EPG_CLASSES.INFO_META}"></div>
+      </div>
+      <div class="${EPG_CLASSES.INFO_META_CLUSTER}" aria-hidden="true">
         <div class="${EPG_CLASSES.INFO_TAGS}"></div>
         <div class="${EPG_CLASSES.INFO_GENRES}"></div>
-        <div class="${EPG_CLASSES.INFO_QUALITY}"></div>
-        <div class="${EPG_CLASSES.INFO_DESCRIPTION}"></div>
       </div>
-    `;
+    </div>
+    <div class="${EPG_CLASSES.INFO_META}"></div>
+    <div class="${EPG_CLASSES.INFO_QUALITY}"></div>
+    <div class="${EPG_CLASSES.INFO_DESCRIPTION}">
+      <div class="${EPG_CLASSES.INFO_DESCRIPTION_INNER}"></div>
+    </div>
+  </div>
+`;
     }
 
     /**
@@ -167,6 +179,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.tagsElement = null;
         this.genresElement = null;
         this.descriptionElement = null;
+        this.descriptionInnerElement = null;
         this.currentProgram = null;
         this.thumbResolver = null;
         this.fetchItemDetails = null;
@@ -339,14 +352,30 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         }
 
         const description = this.descriptionElement;
-        if (description) {
+        const descriptionInner = this.descriptionInnerElement;
+        if (description && descriptionInner) {
             if (options.showDescription) {
                 const summary = item.summary?.trim() ?? '';
-                description.textContent = summary;
+                descriptionInner.textContent = summary;
                 description.style.display = summary ? 'block' : 'none';
+
+                if (!summary) {
+                    description.dataset.scrollActive = 'false';
+                    description.style.removeProperty('--scroll-distance');
+                } else {
+                    const overflowPx = Math.max(0, descriptionInner.scrollHeight - description.clientHeight);
+                    if (overflowPx > 4) {
+                        description.dataset.scrollActive = 'true';
+                        description.style.setProperty('--scroll-distance', `-${overflowPx}px`);
+                    } else {
+                        description.dataset.scrollActive = 'false';
+                        description.style.removeProperty('--scroll-distance');
+                    }
+                }
             } else if (description.style.display !== 'none') {
-                // Hide description during fast nav without updating text
                 description.style.display = 'none';
+                description.dataset.scrollActive = 'false';
+                description.style.removeProperty('--scroll-distance');
             }
         }
 
