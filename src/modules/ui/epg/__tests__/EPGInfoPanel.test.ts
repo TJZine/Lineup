@@ -75,6 +75,8 @@ describe('EPGInfoPanel', () => {
     afterEach(() => {
         jest.useRealTimers();
         jest.mocked(extractDominantColor).mockReset();
+        localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+        localStorage.removeItem(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS);
         panel.destroy();
         container.remove();
         Object.defineProperty(globalThis, 'Image', {
@@ -82,6 +84,14 @@ describe('EPGInfoPanel', () => {
             writable: true,
             value: RealImage,
         });
+    });
+
+    it('tracks presentation mode explicitly', () => {
+        panel.setPresentationMode('classic');
+        expect(panel.getPresentationMode()).toBe('classic');
+
+        panel.setPresentationMode('overlay');
+        expect(panel.getPresentationMode()).toBe('overlay');
     });
 
     describe('thumb resolver', () => {
@@ -251,6 +261,7 @@ describe('EPGInfoPanel', () => {
                 return null;
             });
             panel.setThumbResolver(resolver);
+            localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '2');
 
             const program = createMockProgram('/library/metadata/123/thumb', {
                 art: '/library/metadata/123/art',
@@ -274,6 +285,7 @@ describe('EPGInfoPanel', () => {
                 return null;
             });
             panel.setThumbResolver(resolver);
+            localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '2');
 
             const program = createMockProgram('/library/metadata/123/thumb', {
                 art: '/library/metadata/123/art',
@@ -291,6 +303,76 @@ describe('EPGInfoPanel', () => {
             expect(backdrop?.src).toBe('https://server/library/art-456');
         });
 
+        it('does not render a visible poster in classic artwork bleed mode', () => {
+            localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
+            panel.setPresentationMode('classic');
+
+            const resolver = jest.fn((path: string | null, width?: number, height?: number) => {
+                if (!path) return null;
+                if (width === 32 && height === 32) return 'https://img.example/poster-sample.jpg';
+                return 'https://img.example/poster-full.jpg';
+            });
+            panel.setThumbResolver(resolver);
+
+            panel.show(createMockProgram('/library/metadata/123/thumb'));
+
+            const poster = container.querySelector('.epg-info-poster') as HTMLImageElement | null;
+            expect(poster?.style.display).toBe('none');
+        });
+
+        it('does not resolve a visible poster asset in classic artwork bleed mode', () => {
+            localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
+            panel.setPresentationMode('classic');
+
+            const resolver = jest.fn((path: string | null, width?: number, height?: number) => {
+                if (!path) return null;
+                if (width === 32 && height === 32) return 'https://img.example/poster-sample.jpg';
+                if (width === 320 && height === 480) return 'https://img.example/poster-full.jpg';
+                return null;
+            });
+            panel.setThumbResolver(resolver);
+
+            panel.show(createMockProgram('/library/metadata/123/thumb'));
+
+            expect(resolver).toHaveBeenCalledWith('/library/metadata/123/thumb', 32, 32);
+            expect(resolver).not.toHaveBeenCalledWith('/library/metadata/123/thumb', 320, 480);
+        });
+
+        it('does not display backdrop art in artwork bleed mode', () => {
+            localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
+            panel.setPresentationMode('overlay');
+            panel.show(createMockProgram('/library/metadata/123/thumb', { art: '/library/metadata/123/art' }));
+
+            const backdrop = container.querySelector('.epg-info-backdrop-img') as HTMLImageElement | null;
+            expect(backdrop?.style.display).toBe('none');
+        });
+
+        it('does not fall back to the visible poster asset when the bleed sample is unavailable', () => {
+            jest.useFakeTimers();
+
+            try {
+                localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
+                panel.setPresentationMode('overlay');
+
+                const resolver = jest.fn((path: string | null, width?: number, height?: number) => {
+                    if (!path) return null;
+                    if (width === 32 && height === 32) return null;
+                    return 'https://img.example/poster-full.jpg';
+                });
+                panel.setThumbResolver(resolver);
+                jest.mocked(extractDominantColor).mockReturnValue('rgba(10, 20, 30, 0.7)');
+
+                panel.show(createMockProgram('/library/metadata/123/thumb'));
+                jest.runAllTimers();
+
+                expect(extractDominantColor).not.toHaveBeenCalled();
+            } finally {
+                localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+                jest.runOnlyPendingTimers();
+                jest.useRealTimers();
+            }
+        });
+
         it('hides backdrop when art is null', () => {
             const resolver = jest.fn().mockImplementation((path: string | null) => {
                 if (path === '/library/metadata/123/thumb') return 'https://server/library/thumb-123';
@@ -299,7 +381,7 @@ describe('EPGInfoPanel', () => {
                 return null;
             });
             panel.setThumbResolver(resolver);
-            localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '1');
+            localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '2');
 
             try {
                 const program = createMockProgram('/library/metadata/123/thumb', {
@@ -339,6 +421,16 @@ describe('EPGInfoPanel', () => {
     });
 
     describe('lifecycle', () => {
+        it('marks the panel as borderless in artwork bleed mode', () => {
+            localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
+            panel.setPresentationMode('classic');
+
+            panel.show(createMockProgram('/library/metadata/123/thumb'));
+
+            const infoPanel = container.querySelector('.epg-info-panel') as HTMLElement | null;
+            expect(infoPanel?.classList.contains('epg-info-mode-bleed')).toBe(true);
+        });
+
         it('should initialize without errors', () => {
             expect(panel.getIsVisible()).toBe(false);
         });
@@ -700,6 +792,20 @@ describe('EPGInfoPanel', () => {
     });
 
     describe('metadata rendering', () => {
+        it('renders genres directly below the title block and above the time pills', () => {
+            panel.show(createMockProgram('/library/metadata/123/thumb'));
+
+            const heading = container.querySelector('.epg-info-heading') as HTMLElement | null;
+            const genres = container.querySelector('.epg-info-genres') as HTMLElement | null;
+            const tags = container.querySelector('.epg-info-tags') as HTMLElement | null;
+
+            expect(heading).not.toBeNull();
+            expect(genres).not.toBeNull();
+            expect(tags).not.toBeNull();
+            expect(heading?.contains(genres as Node)).toBe(true);
+            expect(heading?.contains(tags as Node)).toBe(false);
+        });
+
         it('renders schedule/duration/year pills inside top-right meta cluster', () => {
             const program = createMockProgram('/library/metadata/123/thumb');
             panel.show(program);

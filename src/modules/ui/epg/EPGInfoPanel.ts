@@ -56,6 +56,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private colorExtractTimer: ReturnType<typeof setTimeout> | null = null;
     private colorCache = new Map<string, string>();
     private colorFailureCache = new Map<string, number>();
+    private presentationMode: 'classic' | 'overlay' = 'overlay';
 
     /**
      * Set the thumb URL resolver callback.
@@ -76,6 +77,14 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         fetcher: ((ratingKey: string, options?: { signal?: AbortSignal | null }) => Promise<PlexMediaItem | null>) | null
     ): void {
         this.fetchItemDetails = fetcher;
+    }
+
+    setPresentationMode(mode: 'classic' | 'overlay'): void {
+        this.presentationMode = mode;
+    }
+
+    getPresentationMode(): 'classic' | 'overlay' {
+        return this.presentationMode;
     }
 
     /**
@@ -159,15 +168,15 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     <img class="${EPG_CLASSES.INFO_POSTER}" alt="" />
   </div>
   <div class="${EPG_CLASSES.INFO_CONTENT}">
-    <div class="${EPG_CLASSES.INFO_HEADER}">
+      <div class="${EPG_CLASSES.INFO_HEADER}">
       <div class="${EPG_CLASSES.INFO_HEADING}">
         <img class="${EPG_CLASSES.INFO_CLEAR_LOGO}" alt="" style="display:none" />
         <div class="${EPG_CLASSES.INFO_SHOW} ${EPG_CLASSES.INFO_EYEBROW}"></div>
         <div class="${EPG_CLASSES.INFO_TITLE}"></div>
+        <div class="${EPG_CLASSES.INFO_GENRES}"></div>
       </div>
       <div class="${EPG_CLASSES.INFO_META_CLUSTER}">
         <div class="${EPG_CLASSES.INFO_TAGS}" aria-hidden="true"></div>
-        <div class="${EPG_CLASSES.INFO_GENRES}"></div>
       </div>
     </div>
     <div class="${EPG_CLASSES.INFO_META}"></div>
@@ -287,6 +296,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     ): void {
         if (!this.containerElement) return;
 
+        this.applyModeClass(this.resolveInfoBackgroundMode());
         this.updatePoster(program, 'fast');
 
         this.updateNonPosterContent(program, { allowHdrFetch: options?.allowHdrFetch ?? false, showDescription: false });
@@ -420,9 +430,34 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private updateContentFull(program: ScheduledProgram): void {
         if (!this.containerElement) return;
 
+        this.applyModeClass(this.resolveInfoBackgroundMode());
         this.updateNonPosterContent(program, { allowHdrFetch: true, showDescription: true });
 
         this.updatePoster(program, 'full');
+    }
+
+    private applyModeClass(mode: 0 | 1 | 2): void {
+        if (!this.containerElement) {
+            return;
+        }
+
+        this.containerElement.classList.remove(
+            EPG_CLASSES.INFO_MODE_BLEED,
+            EPG_CLASSES.INFO_MODE_THEME_DEFAULT,
+            EPG_CLASSES.INFO_MODE_ARTWORK
+        );
+
+        if (mode === 0) {
+            this.containerElement.classList.add(EPG_CLASSES.INFO_MODE_BLEED);
+            return;
+        }
+
+        if (mode === 2) {
+            this.containerElement.classList.add(EPG_CLASSES.INFO_MODE_ARTWORK);
+            return;
+        }
+
+        this.containerElement.classList.add(EPG_CLASSES.INFO_MODE_THEME_DEFAULT);
     }
 
     private updateQualityBadges(
@@ -570,8 +605,20 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         }
     }
 
-    private readInfoBackgroundMode(): 0 | 1 {
-        return safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE) === '1' ? 1 : 0;
+    private resolveInfoBackgroundMode(): 0 | 1 | 2 {
+        const stored = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+        if (stored === '1') {
+            return 1;
+        }
+        if (stored === '2') {
+            return 2;
+        }
+        return 0;
+    }
+
+    private resolvePosterSampleUrl(program: ScheduledProgram): string | null {
+        const preferredThumb = this.resolvePreferredPosterThumb(program, 'full');
+        return preferredThumb ? (this.thumbResolver?.(preferredThumb, 32, 32) ?? null) : null;
     }
 
     private ensureCacheUnderLimit<T>(map: Map<string, T>, limit: number): void {
@@ -707,14 +754,34 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         }, 120);
     }
 
+    private resolvePreferredPosterThumb(program: ScheduledProgram, mode: 'fast' | 'full'): string | null {
+        const { item } = program;
+        if (item.type !== 'episode') {
+            return item.thumb;
+        } else {
+            const ratingKey = item.ratingKey;
+            const hasCached = this.episodePosterCache.has(ratingKey);
+            const cached = hasCached ? this.episodePosterCache.get(ratingKey) : undefined;
+            const showThumb = item.showThumb || null;
+            const preferredThumb = (cached ?? showThumb) ?? null;
+            if (!preferredThumb && !hasCached && mode === 'full') {
+                this.maybeFetchEpisodePoster(program);
+            }
+            return preferredThumb;
+        }
+    }
+
     private updatePoster(program: ScheduledProgram, mode: 'fast' | 'full'): void {
         const backdrop = this.backdropElement;
         const poster = this.posterElement;
         if (!poster) return;
 
         const { item } = program;
+        const infoBackgroundMode = this.resolveInfoBackgroundMode();
+        const shouldShowVisiblePoster = this.presentationMode === 'overlay';
+
         if (backdrop) {
-            if (mode === 'full') {
+            if (mode === 'full' && infoBackgroundMode === 2) {
                 const art = item.art ?? null;
                 if (art) {
                     const resolvedBackdrop = this.thumbResolver?.(art, 960, 540) || null;
@@ -735,21 +802,25 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             }
         }
 
-        // For episodes, prefer the series poster over per-episode thumbnails to keep the guide consistent.
-        // If we don't have a series poster thumb, hide the poster rather than showing an episode still.
-        let preferredThumb: string | null = null;
-        if (item.type !== 'episode') {
-            preferredThumb = item.thumb;
-        } else {
-            const ratingKey = item.ratingKey;
-            const hasCached = this.episodePosterCache.has(ratingKey);
-            const cached = hasCached ? this.episodePosterCache.get(ratingKey) : undefined;
-            const showThumb = item.showThumb || null;
-            preferredThumb = (cached ?? showThumb) ?? null;
-            if (!preferredThumb && !hasCached && mode === 'full') {
-                this.maybeFetchEpisodePoster(program);
+        if (!shouldShowVisiblePoster) {
+            poster.removeAttribute('src');
+            poster.style.display = 'none';
+
+            if (infoBackgroundMode === 0) {
+                const sampleUrl = this.resolvePosterSampleUrl(program);
+                if (!sampleUrl) {
+                    this.clearDynamicColor();
+                    return;
+                }
+                this.scheduleDynamicColor(program, sampleUrl);
+                return;
             }
+
+            this.clearDynamicColor();
+            return;
         }
+
+        const preferredThumb = this.resolvePreferredPosterThumb(program, mode);
 
         const width = mode === 'fast' ? 160 : 320;
         const height = mode === 'fast' ? 240 : 480;
@@ -764,14 +835,17 @@ export class EPGInfoPanel implements IEPGInfoPanel {
                 return;
             }
 
-            if (this.readInfoBackgroundMode() === 0) {
-                const resolvedSampleUrl =
-                    (preferredThumb ? this.thumbResolver?.(preferredThumb, 32, 32) : null) ||
-                    resolvedUrl;
-                this.scheduleDynamicColor(program, resolvedSampleUrl);
-            } else {
-                this.clearDynamicColor();
+            if (infoBackgroundMode === 0) {
+                const sampleUrl = this.resolvePosterSampleUrl(program);
+                if (!sampleUrl) {
+                    this.clearDynamicColor();
+                    return;
+                }
+                this.scheduleDynamicColor(program, sampleUrl);
+                return;
             }
+
+            this.clearDynamicColor();
             return;
         }
 
