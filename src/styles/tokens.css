@@ -129,7 +129,7 @@
     --epg-info-panel-height: clamp(300px, 34vh, 420px);
     --epg-info-poster-width: clamp(230px, 20vw, 340px);
     --epg-info-panel-fade-to: var(--panel-surface-2);
-    --classic-guide-pip-width: clamp(640px, 40vw, 960px);
+    --classic-guide-pip-width: 560px;
 
     /* =========================================
        Shadows
