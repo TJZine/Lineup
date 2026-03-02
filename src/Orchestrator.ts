@@ -139,6 +139,7 @@ import {
     InitializationCoordinator,
     ChannelTuningCoordinator,
     OrchestratorStorageContext,
+    OrchestratorEventBinder,
     PlaybackStartController,
     PlaybackRuntimeController,
     type IInitializationCoordinator,
@@ -389,8 +390,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _config: OrchestratorConfig | null = null;
     private _moduleStatus: Map<string, ModuleStatus> = new Map();
     private _errorHandlers: Map<string, (error: AppError) => boolean> = new Map();
-    private _eventUnsubscribers: Array<() => void> = [];
-    private _eventsWired: boolean = false;
+    private _eventBinder: OrchestratorEventBinder | null = null;
     private _ready: boolean = false;
     private _initCoordinator: IInitializationCoordinator | null = null;
     private _channelSetup: ChannelSetupCoordinator | null = null;
@@ -610,7 +610,9 @@ export class AppOrchestrator implements IAppOrchestrator {
                 getModuleStatus: (id: string): ModuleStatus['status'] | undefined => this._moduleStatus.get(id)?.status,
                 handleGlobalError: this.handleGlobalError.bind(this),
                 setReady: (ready: boolean): void => { this._ready = ready; },
-                setupEventWiring: this._setupEventWiring.bind(this),
+                setupEventWiring: (): void => {
+                    this._ensureEventBinder().bind();
+                },
                 configureDiscoveryStorage: this._configureDiscoveryStorageKeysForActiveUser.bind(this),
                 configureChannelManagerStorage: this._configureChannelManagerStorageForSelectedServer.bind(this),
                 getSelectedServerId: this._getSelectedServerId.bind(this),
@@ -1021,16 +1023,9 @@ export class AppOrchestrator implements IAppOrchestrator {
         }
         this._pendingDayRolloverDayKey = null;
 
-        // Unregister all event subscriptions (resilient to throwing handlers)
-        for (const unsubscribe of this._eventUnsubscribers) {
-            try {
-                unsubscribe();
-            } catch (error) {
-                recordTeardownFailure('events.unsubscribe', error);
-            }
-        }
-        this._eventUnsubscribers = [];
-        this._eventsWired = false; // Reset to allow re-wiring on retry
+        this._eventBinder?.dispose((error: unknown): void => {
+            recordTeardownFailure('events.unsubscribe', error);
+        });
 
         if (this._channelManager?.flushSaves) {
             try {
@@ -2106,192 +2101,6 @@ export class AppOrchestrator implements IAppOrchestrator {
         this._pendingDayRolloverDayKey = null;
     }
 
-    // ============================================
-    // Private Methods - Event Wiring
-    // ============================================
-
-    private _wireSchedulerEvents(cleanups: Array<() => void>): void {
-        const scheduler = this._scheduler;
-        if (!scheduler) return;
-
-        const programStartHandler = (program: ScheduledProgram): void => {
-            this._handleProgramStartTracked(program).catch((error) => {
-                console.error('[Orchestrator] Unhandled error in program start:', summarizeErrorForLog(error));
-            });
-        };
-        scheduler.on('programStart', programStartHandler);
-
-        const scheduleSyncHandler = (): void => {
-            this._handleScheduleDayRollover().catch((error) => {
-                console.error('[Orchestrator] Unhandled error in scheduleSync handler:', summarizeErrorForLog(error));
-            });
-        };
-        scheduler.on('scheduleSync', scheduleSyncHandler);
-
-        cleanups.push(() => {
-            scheduler.off('programStart', programStartHandler);
-            scheduler.off('scheduleSync', scheduleSyncHandler);
-        });
-    }
-
-    private _wirePlayerEvents(cleanups: Array<() => void>): void {
-        const videoPlayer = this._videoPlayer;
-        if (!videoPlayer) return;
-
-        const endedHandler = (): void => {
-            this._handlePlayerEnded();
-        };
-        const trackChangeHandler = (event: { type: 'audio' | 'subtitle'; trackId: string | null }): void => {
-            this._handlePlayerTrackChange(event);
-        };
-        const errorHandler = (error: PlaybackError): void => {
-            this._handlePlaybackError(error);
-        };
-        const stateChangeHandler = (state: PlaybackState): void => {
-            this._handlePlayerStateChange(state);
-        };
-        const timeUpdateHandler = (payload: { currentTimeMs: number; durationMs: number }): void => {
-            this._handlePlayerTimeUpdate(payload);
-        };
-        const bufferUpdateHandler = (payload: { percent: number; bufferedRanges: TimeRange[] }): void => {
-            this._handlePlayerBufferUpdate(payload);
-        };
-
-        videoPlayer.on('ended', endedHandler);
-        videoPlayer.on('trackChange', trackChangeHandler);
-        videoPlayer.on('error', errorHandler);
-        videoPlayer.on('stateChange', stateChangeHandler);
-        videoPlayer.on('timeUpdate', timeUpdateHandler);
-        videoPlayer.on('bufferUpdate', bufferUpdateHandler);
-
-        cleanups.push(() => {
-            videoPlayer.off('ended', endedHandler);
-            videoPlayer.off('trackChange', trackChangeHandler);
-            videoPlayer.off('error', errorHandler);
-            videoPlayer.off('stateChange', stateChangeHandler);
-            videoPlayer.off('timeUpdate', timeUpdateHandler);
-            videoPlayer.off('bufferUpdate', bufferUpdateHandler);
-        });
-    }
-
-    private _wirePlexEvents(cleanups: Array<() => void>): void {
-        const plexLibrary = this._plexLibrary;
-        if (plexLibrary) {
-            const authExpiredHandler = (): void => {
-                this._handlePlexLibraryAuthExpired();
-            };
-            plexLibrary.on('authExpired', authExpiredHandler);
-            cleanups.push(() => {
-                plexLibrary.off('authExpired', authExpiredHandler);
-            });
-        }
-
-        const plexStreamResolver = this._plexStreamResolver;
-        if (plexStreamResolver) {
-            const plexStreamErrorHandler = (error: StreamResolverError): void => {
-                this._handlePlexStreamError(error);
-            };
-            plexStreamResolver.on('error', plexStreamErrorHandler);
-            cleanups.push(() => {
-                plexStreamResolver.off('error', plexStreamErrorHandler);
-            });
-        }
-    }
-
-    private _wireNavigationEvents(cleanups: Array<() => void>): void {
-        cleanups.push(...(this._navigationCoordinator?.wireNavigationEvents() ?? []));
-        const navigation = this._navigation;
-        if (!navigation) {
-            return;
-        }
-
-        const screenChangeHandler = (payload: { from: string; to: string }): void => {
-            this._handleScreenChange(payload);
-        };
-        navigation.on('screenChange', screenChangeHandler);
-        cleanups.push(() => {
-            navigation.off('screenChange', screenChangeHandler);
-        });
-    }
-
-    private _wireEpgEvents(cleanups: Array<() => void>): void {
-        cleanups.push(...(this._epgCoordinator?.wireEpgEvents() ?? []));
-    }
-
-    private _wireChannelManagerEvents(cleanups: Array<() => void>): void {
-        const channelManager = this._channelManager;
-        if (!channelManager) {
-            return;
-        }
-        const sub = channelManager.on('persistenceWarning', ({ message }) => {
-            this._nowPlayingHandler?.({ message, type: 'warning' });
-        });
-        cleanups.push(() => {
-            if (sub && typeof (sub as { dispose?: unknown }).dispose === 'function') {
-                (sub as { dispose: () => void }).dispose();
-            }
-        });
-    }
-
-    private _wireLifecycleEvents(cleanups: Array<() => void>): void {
-        const lifecycle = this._lifecycle;
-        if (!lifecycle) return;
-
-        const pauseSub = lifecycle.onPause(() => {
-            return this._handleLifecyclePause().catch((error) => {
-                console.error('[Orchestrator] Unhandled error in lifecycle pause handler:', summarizeErrorForLog(error));
-            });
-        });
-
-        const resumeSub = lifecycle.onResume(() => {
-            return this._handleLifecycleResume().catch((error) => {
-                console.error('[Orchestrator] Unhandled error in lifecycle resume handler:', summarizeErrorForLog(error));
-            });
-        });
-
-        cleanups.push(() => pauseSub.dispose());
-        cleanups.push(() => resumeSub.dispose());
-    }
-
-    /**
-     * Wire up all cross-module events per integration contracts.
-     * Idempotent: guards against duplicate wiring on retries.
-     */
-    private _setupEventWiring(): void {
-        // Guard against duplicate wiring on retries
-        if (this._eventsWired) {
-            return;
-        }
-        const cleanups: Array<() => void> = [];
-        try {
-            this._wireSchedulerEvents(cleanups);
-            this._wirePlayerEvents(cleanups);
-            this._wirePlexEvents(cleanups);
-            this._wireNavigationEvents(cleanups);
-            this._wireEpgEvents(cleanups);
-            this._wireChannelManagerEvents(cleanups);
-            this._wireLifecycleEvents(cleanups);
-            this._eventUnsubscribers.push(...cleanups);
-            this._eventsWired = true;
-        } catch (error) {
-            const cleanupFailures: Array<{ step: string; error: unknown }> = [];
-            for (const cleanup of cleanups) {
-                try {
-                    cleanup();
-                } catch (cleanupError) {
-                    cleanupFailures.push({
-                        step: 'event-wiring.cleanup',
-                        error: summarizeErrorForLog(cleanupError),
-                    });
-                }
-            }
-            if (cleanupFailures.length > 0) {
-                console.warn('[Orchestrator] Event wiring rollback failures:', cleanupFailures);
-            }
-            throw error;
-        }
-    }
-
     private _handlePlayerEnded(): void {
         this._ensurePlaybackRuntimeController().handlePlayerEnded();
     }
@@ -2422,6 +2231,44 @@ export class AppOrchestrator implements IAppOrchestrator {
 
     private async _handleLifecyclePause(): Promise<void> {
         await this._ensurePlaybackRuntimeController().handleLifecyclePause();
+    }
+
+    private _ensureEventBinder(): OrchestratorEventBinder {
+        if (this._eventBinder) {
+            return this._eventBinder;
+        }
+
+        this._eventBinder = new OrchestratorEventBinder({
+            getScheduler: (): IChannelScheduler | null => this._scheduler,
+            getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
+            getPlexLibrary: (): IPlexLibrary | null => this._plexLibrary,
+            getPlexStreamResolver: (): IPlexStreamResolver | null => this._plexStreamResolver,
+            getNavigation: (): INavigationManager | null => this._navigation,
+            getLifecycle: (): IAppLifecycle | null => this._lifecycle,
+            getChannelManager: (): IChannelManager | null => this._channelManager,
+            wireNavigationCoordinatorEvents: (): Array<() => void> =>
+                this._navigationCoordinator?.wireNavigationEvents() ?? [],
+            wireEpgCoordinatorEvents: (): Array<() => void> =>
+                this._epgCoordinator?.wireEpgEvents() ?? [],
+            handleProgramStartTracked: (program): Promise<void> => this._handleProgramStartTracked(program),
+            handleScheduleDayRollover: (): Promise<void> => this._handleScheduleDayRollover(),
+            handlePlayerEnded: (): void => this._handlePlayerEnded(),
+            handlePlayerTrackChange: (event): void => this._handlePlayerTrackChange(event),
+            handlePlaybackError: (error): void => this._handlePlaybackError(error),
+            handlePlayerStateChange: (state): void => this._handlePlayerStateChange(state),
+            handlePlayerTimeUpdate: (payload): void => this._handlePlayerTimeUpdate(payload),
+            handlePlayerBufferUpdate: (payload): void => this._handlePlayerBufferUpdate(payload),
+            handlePlexLibraryAuthExpired: (): void => this._handlePlexLibraryAuthExpired(),
+            handlePlexStreamError: (error): void => this._handlePlexStreamError(error),
+            handleScreenChange: (payload): void => this._handleScreenChange(payload),
+            handleLifecyclePause: (): Promise<void> => this._handleLifecyclePause(),
+            handleLifecycleResume: (): Promise<void> => this._handleLifecycleResume(),
+            reportPersistenceWarning: (message): void => {
+                this._nowPlayingHandler?.({ message, type: 'warning' });
+            },
+        });
+
+        return this._eventBinder;
     }
 
     private _ensurePlaybackStartController(): PlaybackStartController {

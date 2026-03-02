@@ -1,4 +1,5 @@
 import { AppOrchestrator } from '../../Orchestrator';
+import type { OrchestratorEventBinder } from '../../core';
 import type { IAppLifecycle } from '../../modules/lifecycle';
 import type { IVideoPlayer } from '../../modules/player';
 import type { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryManager';
@@ -9,7 +10,7 @@ type OrchestratorTestInternals = {
     _videoPlayer: IVideoPlayer | null;
     _lifecycle: IAppLifecycle | null;
     _playbackRecovery: PlaybackRecoveryManager | null;
-    _setupEventWiring: () => void;
+    _ensureEventBinder: () => OrchestratorEventBinder;
 };
 
 type TestScheduler = Pick<IChannelScheduler, 'resumeSyncTimer' | 'syncToCurrentTime'> & {
@@ -36,16 +37,16 @@ export const createWiredTestOrchestrator = (overrides: {
     const orchestrator = new AppOrchestrator();
 
     // NOTE: This harness intentionally couples to AppOrchestrator private internals.
-    // It relies on constructor defaults for fields that _setupEventWiring() depends on:
-    // - `_eventWiringCoordinator` (used to register core handlers)
-    // - `_eventsWired` (idempotency guard)
-    // - `_eventUnsubscribers` (cleanup collection)
+    // It relies on constructor defaults for fields that _ensureEventBinder() reads:
+    // - `_eventBinder` starts as null and is created lazily
+    // - `_navigationCoordinator` / `_epgCoordinator` may remain null here
+    // - the supplied scheduler, player, lifecycle, and playbackRecovery are enough
     // If AppOrchestrator changes those invariants, update this helper accordingly.
     const internals = orchestrator as unknown as OrchestratorTestInternals;
     internals._scheduler = overrides.scheduler as unknown as IChannelScheduler;
     internals._videoPlayer = overrides.videoPlayer as unknown as IVideoPlayer;
     internals._lifecycle = overrides.lifecycle as unknown as IAppLifecycle;
     internals._playbackRecovery = overrides.playbackRecovery as unknown as PlaybackRecoveryManager;
-    internals._setupEventWiring();
+    internals._ensureEventBinder().bind();
     return orchestrator;
 };
