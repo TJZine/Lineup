@@ -199,6 +199,37 @@ export class EPGCoordinator {
         return { movieVotes, showVotes };
     }
 
+    private _countLibraryTypeVotesAcrossAllChannels(
+        channels: ChannelConfig[]
+    ): { movieVotes: number; showVotes: number; unknownVotes: number } {
+        let movieVotes = 0;
+        let showVotes = 0;
+        let unknownVotes = 0;
+
+        for (const channel of channels) {
+            const source = channel.contentSource;
+            if (!source) {
+                unknownVotes++;
+                continue;
+            }
+            if (source.type === 'library') {
+                if (source.libraryType === 'movie') {
+                    movieVotes++;
+                } else {
+                    showVotes++;
+                }
+                continue;
+            }
+            if (source.type === 'show') {
+                showVotes++;
+                continue;
+            }
+            unknownVotes++;
+        }
+
+        return { movieVotes, showVotes, unknownVotes };
+    }
+
     private _getEffectivePastWindowMinutes(allChannels: ChannelConfig[]): number {
         const setting = this._readPastItemsWindowSetting();
         if (setting !== 'auto') {
@@ -207,6 +238,10 @@ export class EPGCoordinator {
 
         const { selectedId, shouldFilter } = this._getLibraryFilterState(allChannels);
         if (!shouldFilter || !selectedId) {
+            const { movieVotes, showVotes, unknownVotes } = this._countLibraryTypeVotesAcrossAllChannels(allChannels);
+            if (unknownVotes === 0 && showVotes > 0 && movieVotes === 0) {
+                return 0;
+            }
             return 15;
         }
 

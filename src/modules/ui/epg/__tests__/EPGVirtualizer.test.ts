@@ -1250,6 +1250,75 @@ describe('EPGVirtualizer', () => {
             }
         });
 
+        it('suppresses focused ticker when prefers-reduced-motion is enabled', () => {
+            jest.useFakeTimers();
+            const realMatchMedia = globalThis.matchMedia;
+            Object.defineProperty(globalThis, 'matchMedia', {
+                configurable: true,
+                writable: true,
+                value: (query: string): MediaQueryList =>
+                    ({
+                        matches: query === '(prefers-reduced-motion: reduce)',
+                    }) as unknown as MediaQueryList,
+            });
+            try {
+                const channelId = 'ch-ticker-reduced-motion';
+                const start = gridAnchorTime;
+                const end = start + 20 * 60 * 1000; // tiny width
+
+                const schedule: ScheduleWindow = {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                    programs: [{
+                        item: {
+                            ratingKey: 'ticker-reduce-1',
+                            type: 'movie',
+                            title: 'An Extremely Long Program Title That Must Overflow',
+                            fullTitle: 'An Extremely Long Program Title That Must Overflow',
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    }],
+                };
+
+                virtualizer.setChannelCount(1);
+                const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+                virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+                const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+                const title = cell.querySelector('.epg-cell-title') as HTMLElement;
+
+                Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 300 });
+                Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
+
+                virtualizer.setFocusedCell(channelId, start);
+
+                expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(false);
+                expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
+
+                jest.advanceTimersByTime(900);
+                expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(false);
+                expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
+            } finally {
+                Object.defineProperty(globalThis, 'matchMedia', {
+                    configurable: true,
+                    writable: true,
+                    value: realMatchMedia,
+                });
+                jest.useRealTimers();
+            }
+        });
+
         it('resets ticker immediately when focus moves away', () => {
             jest.useFakeTimers();
             try {

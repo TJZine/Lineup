@@ -118,6 +118,7 @@ export class EPGVirtualizer {
         config: EPGConfig,
         gridAnchorTime: number
     ): void {
+        this._clearFocusedTitleTicker();
         if (this.contentElement) {
             this.contentElement.remove();
             this.contentElement = null;
@@ -1154,6 +1155,7 @@ export class EPGVirtualizer {
      * Force recycle all elements when memory pressure detected.
      */
     forceRecycleAll(): void {
+        this._clearFocusedTitleTicker();
         for (const [key, cellData] of this.visibleCells) {
             this.recycleElement(key, cellData);
         }

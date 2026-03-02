@@ -1057,7 +1057,11 @@ export class SettingsScreen {
     private _loadEpgPastItemsWindowValue(): number {
         const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW);
         const index = EPG_PAST_ITEMS_OPTIONS.findIndex((o) => o.storageValue === raw);
-        return index >= 0 ? index : 0;
+        if (index >= 0) return index;
+        if (raw !== null) {
+            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW);
+        }
+        return 0;
     }
 
     private _loadSubtitleLanguageValue(): number {

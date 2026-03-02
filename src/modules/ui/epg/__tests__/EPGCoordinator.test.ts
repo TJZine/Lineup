@@ -212,6 +212,7 @@ describe('EPGCoordinator', () => {
 
     afterEach(() => {
         clearLocalStorage();
+        jest.restoreAllMocks();
         jest.clearAllMocks();
     });
 
@@ -461,6 +462,108 @@ describe('EPGCoordinator', () => {
         })._getEpgScheduleRangeMs();
 
         expectPastWindowMinutes(range, now, 0, 30);
+    });
+
+    it('uses auto past-window = 0m for show-only lineups even when tabs are disabled', () => {
+        const now = new Date('2026-01-07T10:40:00.000Z').getTime();
+        jest.spyOn(Date, 'now').mockReturnValue(now);
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, 'auto');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '0');
+
+        const channels: ChannelConfig[] = [
+            {
+                ...makeChannel('show-1', 1),
+                sourceLibraryId: 'show-lib',
+                sourceLibraryName: 'Shows',
+                contentSource: {
+                    type: 'library',
+                    libraryId: 'show-lib',
+                    libraryType: 'show',
+                    includeWatched: true,
+                },
+            },
+        ];
+
+        const base = makeDeps().deps.getChannelManager()!;
+        const { deps } = makeDeps({
+            getChannelManager: () => ({ ...base, getAllChannels: () => channels } as IChannelManager),
+        });
+        const coordinator = new EPGCoordinator(deps);
+        const range = (coordinator as unknown as {
+            _getEpgScheduleRangeMs: () => { startTime: number; endTime: number } | null;
+        })._getEpgScheduleRangeMs();
+
+        expectPastWindowMinutes(range, now, 0, 30);
+    });
+
+    it('uses auto past-window = 15m for mixed show/movie lineups when no library filter is active', () => {
+        const now = new Date('2026-01-07T10:40:00.000Z').getTime();
+        jest.spyOn(Date, 'now').mockReturnValue(now);
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, 'auto');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '0');
+
+        const channels: ChannelConfig[] = [
+            {
+                ...makeChannel('show-1', 1),
+                sourceLibraryId: 'show-lib',
+                sourceLibraryName: 'Shows',
+                contentSource: {
+                    type: 'library',
+                    libraryId: 'show-lib',
+                    libraryType: 'show',
+                    includeWatched: true,
+                },
+            },
+            {
+                ...makeChannel('movie-1', 2),
+                sourceLibraryId: 'movie-lib',
+                sourceLibraryName: 'Movies',
+                contentSource: {
+                    type: 'library',
+                    libraryId: 'movie-lib',
+                    libraryType: 'movie',
+                    includeWatched: true,
+                },
+            },
+        ];
+
+        const base = makeDeps().deps.getChannelManager()!;
+        const { deps } = makeDeps({
+            getChannelManager: () => ({ ...base, getAllChannels: () => channels } as IChannelManager),
+        });
+        const coordinator = new EPGCoordinator(deps);
+        const range = (coordinator as unknown as {
+            _getEpgScheduleRangeMs: () => { startTime: number; endTime: number } | null;
+        })._getEpgScheduleRangeMs();
+
+        expectPastWindowMinutes(range, now, 15, 30);
+    });
+
+    it('uses auto past-window = 15m when lineup content sources are not reliably inferable', () => {
+        const now = new Date('2026-01-07T10:40:00.000Z').getTime();
+        jest.spyOn(Date, 'now').mockReturnValue(now);
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, 'auto');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '0');
+
+        const channels: ChannelConfig[] = [
+            {
+                ...makeChannel('manual-1', 1),
+                sourceLibraryId: 'unknown-lib',
+                sourceLibraryName: 'Unknown',
+                contentSource: { type: 'manual', items: [] },
+            },
+        ];
+
+        const base = makeDeps().deps.getChannelManager()!;
+        const { deps } = makeDeps({
+            getChannelManager: () => ({ ...base, getAllChannels: () => channels } as IChannelManager),
+        });
+        const coordinator = new EPGCoordinator(deps);
+        const range = (coordinator as unknown as {
+            _getEpgScheduleRangeMs: () => { startTime: number; endTime: number } | null;
+        })._getEpgScheduleRangeMs();
+
+        expectPastWindowMinutes(range, now, 15, 30);
     });
 
     it('uses auto past-window = 15m for movie-only, mixed, and unknown library mixes', () => {
