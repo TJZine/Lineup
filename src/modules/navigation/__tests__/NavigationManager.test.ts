@@ -390,16 +390,17 @@ describe('NavigationManager', () => {
 
         it('should stop navigation handling when keyPress prevents default', () => {
             nav.replaceScreen('player');
-            const openModalSpy = jest.spyOn(nav, 'openModal');
+            const closeSpy = jest.spyOn(window, 'close').mockImplementation(() => undefined);
 
             nav.on('keyPress', (event) => {
                 event.handled = true;
             });
 
-            // Back button (keyCode 461) would normally open exit-confirm at player root.
+            // Back button (keyCode 461) would normally exit at player root.
             dispatchKeyEvent(461);
 
-            expect(openModalSpy).not.toHaveBeenCalled();
+            expect(closeSpy).not.toHaveBeenCalled();
+            closeSpy.mockRestore();
         });
 
         it('should move focus on arrow keys', () => {
@@ -713,21 +714,39 @@ describe('NavigationManager', () => {
     });
 
     describe('root screen Back behavior', () => {
-        it('should open exit-confirm modal on player root', () => {
+        it('should exit to Home on splash root', () => {
+            const closeSpy = jest.spyOn(window, 'close').mockImplementation(() => undefined);
+
+            nav.replaceScreen('splash');
+
+            // Press Back
+            dispatchKeyEvent(461);
+
+            expect(closeSpy).toHaveBeenCalledTimes(1);
+            closeSpy.mockRestore();
+        });
+
+        it('should exit to Home on player root (fallback)', () => {
+            const closeSpy = jest.spyOn(window, 'close').mockImplementation(() => undefined);
+
             nav.replaceScreen('player');
 
             // Press Back
             dispatchKeyEvent(461);
 
-            expect(nav.isModalOpen('exit-confirm')).toBe(true);
+            expect(closeSpy).toHaveBeenCalledTimes(1);
+            closeSpy.mockRestore();
         });
 
-        it('should open exit-confirm modal on auth root', () => {
+        it('should exit to Home on auth root', () => {
+            const closeSpy = jest.spyOn(window, 'close').mockImplementation(() => undefined);
+
             nav.replaceScreen('auth');
 
             dispatchKeyEvent(461);
 
-            expect(nav.isModalOpen('exit-confirm')).toBe(true);
+            expect(closeSpy).toHaveBeenCalledTimes(1);
+            closeSpy.mockRestore();
         });
 
         it('should navigate to auth from server-select root', () => {

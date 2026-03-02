@@ -113,6 +113,13 @@ const setup = (overrides: Partial<NavigationCoordinatorDeps> = {}): {
         }),
         showPlaybackOptionsModal: jest.fn(),
         hidePlaybackOptionsModal: jest.fn(),
+        exitConfirmModalId: 'exit-confirm',
+        prepareExitConfirmModal: jest.fn().mockReturnValue({
+            focusableIds: ['exit-confirm-cancel', 'exit-confirm-exit'],
+            preferredFocusId: 'exit-confirm-cancel',
+        }),
+        showExitConfirmModal: jest.fn(),
+        hideExitConfirmModal: jest.fn(),
         setLastChannelChangeSourceRemote: jest.fn(),
         setLastChannelChangeSourceNumber: jest.fn(),
         switchToNextChannel: jest.fn(),
@@ -445,12 +452,20 @@ describe('NavigationCoordinator', () => {
     });
 
     it('opens exit-confirm on back from player when no modal is open', () => {
-        const { handlers, navigation } = setup();
+        const focus = {
+            focusableIds: ['exit-confirm-cancel', 'exit-confirm-exit'],
+            preferredFocusId: 'exit-confirm-cancel',
+        };
+        const { handlers, navigation, deps } = setup({
+            prepareExitConfirmModal: jest.fn().mockReturnValue(focus),
+        });
         const event = makeKeyEvent('back');
 
         handlers.keyPress?.(event);
 
-        expect(navigation.openModal).toHaveBeenCalledWith('exit-confirm');
+        expect(deps.prepareExitConfirmModal).toHaveBeenCalledTimes(1);
+        expect(navigation.openModal).toHaveBeenCalledWith(deps.exitConfirmModalId, focus.focusableIds);
+        expect(navigation.setFocus).toHaveBeenCalledWith(focus.preferredFocusId, { persist: false });
         expect(event.handled).toBe(true);
         expect(event.originalEvent.preventDefault).toHaveBeenCalled();
     });
@@ -470,7 +485,13 @@ describe('NavigationCoordinator', () => {
     });
 
     it('still opens exit-confirm on back from player even when back stack is available', () => {
-        const { handlers, navigation } = setup();
+        const focus = {
+            focusableIds: ['exit-confirm-cancel', 'exit-confirm-exit'],
+            preferredFocusId: 'exit-confirm-cancel',
+        };
+        const { handlers, navigation, deps } = setup({
+            prepareExitConfirmModal: jest.fn().mockReturnValue(focus),
+        });
         (navigation.getState as jest.Mock).mockReturnValue({
             currentScreen: 'player',
             screenStack: ['server-select'],
@@ -482,7 +503,7 @@ describe('NavigationCoordinator', () => {
 
         handlers.keyPress?.(event);
 
-        expect(navigation.openModal).toHaveBeenCalledWith('exit-confirm');
+        expect(navigation.openModal).toHaveBeenCalledWith(deps.exitConfirmModalId, focus.focusableIds);
         expect(event.handled).toBe(true);
         expect(event.originalEvent.preventDefault).toHaveBeenCalled();
     });

@@ -9,5 +9,6 @@
     "disableBackHistoryAPI": true,
     "handlesRelaunch": true,
     "icon": "icon.png",
-    "largeIcon": "largeIcon.png"
+    "largeIcon": "largeIcon.png",
+    "splashBackground": "splashBackground.png"
 }

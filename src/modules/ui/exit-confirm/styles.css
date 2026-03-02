@@ -1,0 +1,133 @@
+.exit-confirm-container {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: flex-end;
+  justify-content: stretch;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.70);
+  background: linear-gradient(
+    180deg,
+    rgb(var(--scrim-tint-rgb) / 0%) 0%,
+    rgb(var(--scrim-tint-rgb) / 34%) 52%,
+    rgb(var(--scrim-tint-rgb) / 76%) 100%
+  );
+  z-index: var(--z-modal);
+}
+
+.exit-confirm-container.visible {
+  display: flex;
+}
+
+.exit-confirm-panel {
+  width: 100%;
+  padding: 26px 40px 34px;
+  border-radius: 18px 18px 0 0;
+  background: rgba(0, 0, 0, 0.45);
+  background: linear-gradient(
+    180deg,
+    rgb(var(--scrim-tint-rgb) / 66%) 0%,
+    rgb(var(--scrim-tint-rgb) / 78%) 56%,
+    rgb(var(--scrim-tint-rgb) / 88%) 100%
+  );
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  transform: translate3d(0, 18px, 0);
+  opacity: 0;
+  transition:
+    transform 350ms ease-out,
+    opacity 350ms ease-out;
+}
+
+.exit-confirm-container.visible .exit-confirm-panel {
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+}
+
+.exit-confirm-inner {
+  max-width: 1160px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 18px 26px;
+}
+
+.exit-confirm-copy {
+  min-width: 0;
+}
+
+.exit-confirm-title {
+  margin: 0 0 8px 0;
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  color: var(--color-text-primary);
+  letter-spacing: 0.2px;
+}
+
+.exit-confirm-message {
+  margin: 0;
+  font-size: var(--text-lg);
+  color: var(--color-text-secondary);
+  line-height: 1.35;
+}
+
+.exit-confirm-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.exit-confirm-action {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 12px 18px;
+  font-size: var(--text-base);
+  font-weight: 700;
+  letter-spacing: 0.15px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-primary);
+  min-width: 152px;
+}
+
+.exit-confirm-action.exit {
+  border-color: rgba(var(--focus-color-rgb), 0.30);
+  background: rgba(var(--focus-color-rgb), 0.10);
+}
+
+.exit-confirm-action.focused {
+  background: rgba(255, 255, 255, 0.92);
+  color: #0a0d12;
+  border-color: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.30);
+}
+
+.exit-confirm-action.exit.focused {
+  box-shadow: 0 0 18px rgba(var(--focus-color-rgb), 0.38);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exit-confirm-panel {
+    transform: none;
+    transition: opacity 150ms ease-out;
+  }
+}
+
+@media (forced-colors: active) {
+  .exit-confirm-action {
+    border: 1px solid ButtonText;
+    background: Canvas;
+    color: ButtonText;
+  }
+  .exit-confirm-action.focused {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}
+
+.theme-glass .exit-confirm-panel {
+  background: var(--glass-scrim-gradient, transparent), rgba(16, 18, 24, 0.55);
+  -webkit-backdrop-filter: var(--glass-backdrop-filter-strong, var(--glass-backdrop-filter));
+  backdrop-filter: var(--glass-backdrop-filter-strong, var(--glass-backdrop-filter));
+}

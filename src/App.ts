@@ -21,6 +21,7 @@ import { CHANNEL_BADGE_CONTAINER_ID, type ChannelBadgeConfig } from './modules/u
 import type { MiniGuideConfig } from './modules/ui/mini-guide';
 import type { ChannelTransitionConfig } from './modules/ui/channel-transition';
 import type { PlaybackOptionsConfig } from './modules/ui/playback-options';
+import { EXIT_CONFIRM_CONTAINER_ID } from './modules/ui/exit-confirm';
 import type { PlexAuthConfig } from './modules/plex/auth';
 import { AuthScreen } from './modules/ui/auth';
 import { ProfileSelectScreen } from './modules/ui/profile-select';
@@ -386,6 +387,11 @@ export class App {
         const playbackOptionsContainer = document.createElement('div');
         playbackOptionsContainer.id = 'playback-options-container';
         root.appendChild(playbackOptionsContainer);
+
+        // Exit confirmation modal container
+        const exitConfirmContainer = document.createElement('div');
+        exitConfirmContainer.id = EXIT_CONFIRM_CONTAINER_ID;
+        root.appendChild(exitConfirmContainer);
 
         // Splash container (startup screen)
         const splashContainer = document.createElement('div');
