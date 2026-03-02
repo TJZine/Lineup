@@ -142,24 +142,4 @@ describe('PlaybackStartController', () => {
         expect(deps.handlePlaybackFailure).not.toHaveBeenCalled();
     });
 
-    it('tracks the last in-flight promise when using handleProgramStartTracked', async () => {
-        const program = makeProgram();
-        const { controller } = makeSetup();
-
-        const promise = controller.handleProgramStartTracked(program);
-
-        expect(controller.getLastProgramStartPromise()).toBe(promise);
-
-        await promise;
-    });
-
-    it('tracks an externally created program-start promise', async () => {
-        const { controller } = makeSetup();
-        const promise = Promise.resolve();
-
-        expect(controller.trackProgramStart(promise)).toBe(promise);
-        expect(controller.getLastProgramStartPromise()).toBe(promise);
-
-        await promise;
-    });
 });

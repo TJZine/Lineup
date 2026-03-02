@@ -23,24 +23,9 @@ export interface PlaybackStartControllerDeps {
 }
 
 export class PlaybackStartController {
-    private _lastProgramStartPromise: Promise<void> | null = null;
     private _programStartSequence = 0;
 
     constructor(private readonly _deps: PlaybackStartControllerDeps) {}
-
-    public getLastProgramStartPromise(): Promise<void> | null {
-        return this._lastProgramStartPromise;
-    }
-
-    public handleProgramStartTracked(program: ScheduledProgram): Promise<void> {
-        const promise = this.handleProgramStart(program);
-        return this.trackProgramStart(promise);
-    }
-
-    public trackProgramStart(promise: Promise<void>): Promise<void> {
-        this._lastProgramStartPromise = promise;
-        return promise;
-    }
 
     public async handleProgramStart(program: ScheduledProgram): Promise<void> {
         const sequence = ++this._programStartSequence;
