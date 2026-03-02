@@ -178,6 +178,9 @@
   padding: 8px 16px;
   border-radius: 999px;
   cursor: pointer;
+  --osd-focus-outline: 2px solid rgba(255, 255, 255, 0.9);
+  --osd-focus-outline-offset: 2px;
+  --osd-focus-shadow: 0 0 0 3px rgba(0, 0, 0, 0.35);
 }
 
 .player-osd-action.focused {
@@ -189,9 +192,9 @@
 }
 
 .player-osd-action:focus:not(.focused) {
-  outline: 2px solid rgba(255, 255, 255, 0.9);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.35);
+  outline: var(--osd-focus-outline);
+  outline-offset: var(--osd-focus-outline-offset);
+  box-shadow: var(--osd-focus-shadow);
 }
 
 @supports selector(:focus-visible) {
@@ -201,9 +204,9 @@
   }
 
   .player-osd-action:focus-visible:not(.focused) {
-    outline: 2px solid rgba(255, 255, 255, 0.9);
-    outline-offset: 2px;
-    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.35);
+    outline: var(--osd-focus-outline);
+    outline-offset: var(--osd-focus-outline-offset);
+    box-shadow: var(--osd-focus-shadow);
   }
 }
 
