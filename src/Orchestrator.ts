@@ -2460,23 +2460,26 @@ export class AppOrchestrator implements IAppOrchestrator {
         }
 
         this._playbackStartController = new PlaybackStartController({
-            getVideoPlayer: () => this._videoPlayer,
-            resolveStreamForProgram: (program) =>
+            getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
+            resolveStreamForProgram: (program): Promise<StreamDescriptor | null> =>
                 this._playbackRecovery?.resolveStreamForProgram?.(program) ?? Promise.resolve(null),
-            resetPlaybackFailureGuard: () => {
+            resetPlaybackFailureGuard: (): void => {
                 this._playbackRecovery?.resetPlaybackFailureGuard?.();
             },
-            tryHandleStreamResolverAuthError: (error) =>
+            tryHandleStreamResolverAuthError: (error): boolean =>
                 this._playbackRecovery?.tryHandleStreamResolverAuthError?.(error) ?? false,
-            tryHandleStreamResolverPermissionError: (error) =>
+            tryHandleStreamResolverPermissionError: (error): boolean =>
                 this._playbackRecovery?.tryHandleStreamResolverPermissionError?.(error) ?? false,
-            handlePlaybackFailure: (context, error) => {
+            handlePlaybackFailure: (context, error): void => {
                 this._playbackRecovery?.handlePlaybackFailure?.(context, error);
             },
-            logPlaybackStartFailure: (error) => {
+            logPlaybackStartFailure: (error): void => {
                 console.error('Failed to load stream:', summarizeErrorForLog(error));
             },
-            markProgramStarting: (program) => {
+            markProgramStarting: (program): {
+                programAtStart: ScheduledProgram;
+                shouldResetAutoShowInfoBannerOnAbort: boolean;
+            } => {
                 this._currentProgramForPlayback = program;
                 const shouldResetAutoShowInfoBannerOnAbort =
                     this._pendingNowPlayingChannelId !== null;
@@ -2491,19 +2494,19 @@ export class AppOrchestrator implements IAppOrchestrator {
                     shouldResetAutoShowInfoBannerOnAbort,
                 };
             },
-            isProgramStillCurrent: (program) =>
+            isProgramStillCurrent: (program): boolean =>
                 this._currentProgramForPlayback === program,
-            handleProgramStartUiSideEffects: (program) => {
+            handleProgramStartUiSideEffects: (program): void => {
                 this._nowPlayingInfoCoordinator?.onProgramStart(program);
                 this._syncChannelBadgeOverlay();
                 this._epgCoordinator?.refreshEpgScheduleForLiveChannel();
             },
-            handleStreamResolved: (stream) => {
+            handleStreamResolved: (stream): void => {
                 this._currentStreamDescriptor = stream;
                 this._nowPlayingDebugManager?.maybeAutoShowNowPlayingStreamDebugHud();
                 void this._nowPlayingDebugManager?.maybeFetchNowPlayingStreamDecisionForDebugHud();
             },
-            clearAutoShowInfoBannerAfterAbortedStart: () => {
+            clearAutoShowInfoBannerAfterAbortedStart: (): void => {
                 this._shouldAutoShowInfoBannerOnNextPlay = false;
             },
         });
