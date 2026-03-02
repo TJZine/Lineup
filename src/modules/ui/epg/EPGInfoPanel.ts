@@ -139,21 +139,21 @@ export class EPGInfoPanel implements IEPGInfoPanel {
   <div class="${EPG_CLASSES.INFO_POSTER_WRAP}">
     <img class="${EPG_CLASSES.INFO_POSTER}" alt="" />
   </div>
-  <div class="${EPG_CLASSES.INFO_CONTENT}">
-    <div class="${EPG_CLASSES.INFO_HEADER}">
-      <div class="${EPG_CLASSES.INFO_HEADING}">
-        <img class="${EPG_CLASSES.INFO_CLEAR_LOGO}" alt="" style="display:none" />
-        <div class="${EPG_CLASSES.INFO_SHOW} ${EPG_CLASSES.INFO_EYEBROW}"></div>
-        <div class="${EPG_CLASSES.INFO_TITLE}"></div>
-      </div>
-      <div class="${EPG_CLASSES.INFO_META_CLUSTER}" aria-hidden="true">
-        <div class="${EPG_CLASSES.INFO_TAGS}"></div>
-        <div class="${EPG_CLASSES.INFO_GENRES}"></div>
-      </div>
-    </div>
-    <div class="${EPG_CLASSES.INFO_META}"></div>
-    <div class="${EPG_CLASSES.INFO_QUALITY}"></div>
-    <div class="${EPG_CLASSES.INFO_DESCRIPTION}">
+	  <div class="${EPG_CLASSES.INFO_CONTENT}">
+	    <div class="${EPG_CLASSES.INFO_HEADER}">
+	      <div class="${EPG_CLASSES.INFO_HEADING}">
+	        <img class="${EPG_CLASSES.INFO_CLEAR_LOGO}" alt="" style="display:none" />
+	        <div class="${EPG_CLASSES.INFO_SHOW} ${EPG_CLASSES.INFO_EYEBROW}"></div>
+	        <div class="${EPG_CLASSES.INFO_TITLE}"></div>
+	      </div>
+	      <div class="${EPG_CLASSES.INFO_META_CLUSTER}">
+	        <div class="${EPG_CLASSES.INFO_TAGS}" aria-hidden="true"></div>
+	        <div class="${EPG_CLASSES.INFO_GENRES}"></div>
+	      </div>
+	    </div>
+	    <div class="${EPG_CLASSES.INFO_META}"></div>
+	    <div class="${EPG_CLASSES.INFO_QUALITY}"></div>
+	    <div class="${EPG_CLASSES.INFO_DESCRIPTION}">
       <div class="${EPG_CLASSES.INFO_DESCRIPTION_INNER}"></div>
     </div>
   </div>

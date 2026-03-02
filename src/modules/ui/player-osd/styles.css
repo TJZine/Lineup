@@ -188,19 +188,23 @@
   outline: none;
 }
 
-.player-osd-action:focus {
-  outline: none;
-}
-
-.player-osd-action:focus-visible {
+.player-osd-action:focus:not(.focused) {
   outline: 2px solid rgba(255, 255, 255, 0.9);
   outline-offset: 2px;
   box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.35);
 }
 
-.player-osd-action:focus-visible.focused {
-  outline: none;
-  box-shadow: none;
+@supports selector(:focus-visible) {
+  .player-osd-action:focus {
+    outline: none;
+    box-shadow: none;
+  }
+
+  .player-osd-action:focus-visible:not(.focused) {
+    outline: 2px solid rgba(255, 255, 255, 0.9);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.35);
+  }
 }
 
 @media (forced-colors: active) {
