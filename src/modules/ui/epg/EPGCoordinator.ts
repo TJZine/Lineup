@@ -10,6 +10,7 @@ import type { IEPGComponent } from './interfaces';
 import type { EPGConfig } from './types';
 import type { IChannelManager, ChannelConfig, ResolvedChannelContent } from '../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig, ScheduleWindow } from '../../scheduler/scheduler';
+import type { EpgPastItemsWindowSetting } from '../settings/types';
 import { readStoredBoolean, safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from '../../../utils/storage';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
@@ -79,8 +80,6 @@ type BackgroundWarmQueueState = {
     concurrency: number;
     cursor: number;
 };
-
-type EpgPastItemsWindowSetting = 'auto' | '0' | '15' | '30';
 
 export class EPGCoordinator {
     private _epgScheduleLoadToken = 0;
@@ -236,7 +235,7 @@ export class EPGCoordinator {
             return Number(setting);
         }
 
-        const { selectedId, shouldFilter } = this._getLibraryFilterState(allChannels);
+        const { selectedId, shouldFilter } = this._getLibraryFilterSnapshot(allChannels);
         if (!shouldFilter || !selectedId) {
             const { movieVotes, showVotes, unknownVotes } = this._countLibraryTypeVotesAcrossAllChannels(allChannels);
             if (unknownVotes === 0 && showVotes > 0 && movieVotes === 0) {
@@ -259,6 +258,9 @@ export class EPGCoordinator {
         const { movieVotes, showVotes } = this._countLibraryTypeVotes(channels, selectedId);
 
         if (movieVotes === 0 && showVotes === 0) {
+            return null;
+        }
+        if (movieVotes === showVotes) {
             return null;
         }
         return movieVotes > showVotes ? 'movie' : 'show';
@@ -293,7 +295,7 @@ export class EPGCoordinator {
         });
     }
 
-    private _getLibraryFilterState(all: ChannelConfig[]): {
+    private _computeLibraryFilterState(all: ChannelConfig[], options: { mutateStorage: boolean }): {
         selectedId: string | null;
         tabsEnabled: boolean;
         shouldFilter: boolean;
@@ -312,7 +314,7 @@ export class EPGCoordinator {
             : false;
 
         if (!tabsEnabled || !hasMultipleLibraries || (selectedId && !hasSelectedMatch)) {
-            if (selectedId) {
+            if (options.mutateStorage && selectedId) {
                 safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
             }
             selectedId = null;
@@ -320,6 +322,24 @@ export class EPGCoordinator {
 
         const shouldFilter = tabsEnabled && hasMultipleLibraries && Boolean(selectedId);
         return { selectedId, tabsEnabled, shouldFilter, libraries };
+    }
+
+    private _getLibraryFilterState(all: ChannelConfig[]): {
+        selectedId: string | null;
+        tabsEnabled: boolean;
+        shouldFilter: boolean;
+        libraries: Array<{ id: string; name: string }>;
+    } {
+        return this._computeLibraryFilterState(all, { mutateStorage: true });
+    }
+
+    private _getLibraryFilterSnapshot(all: ChannelConfig[]): {
+        selectedId: string | null;
+        tabsEnabled: boolean;
+        shouldFilter: boolean;
+        libraries: Array<{ id: string; name: string }>;
+    } {
+        return this._computeLibraryFilterState(all, { mutateStorage: false });
     }
 
     openEPG(): void {

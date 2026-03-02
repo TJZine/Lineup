@@ -717,6 +717,31 @@ describe('EPGCoordinator', () => {
         expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
     });
 
+    it('does not clear stored library filter during schedule range computations', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, 'auto');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '0');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+
+        const allChannels: ChannelConfig[] = [
+            { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
+            { ...makeChannel('c2', 2), sourceLibraryId: 'lib2', sourceLibraryName: 'TV' },
+        ];
+
+        const { deps } = makeDeps({
+            getChannelManager: () =>
+            ({
+                ...makeDeps().channelManager,
+                getAllChannels: () => allChannels,
+            } as IChannelManager),
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        (coordinator as unknown as { _getEpgScheduleRangeMs: () => { startTime: number; endTime: number } | null })
+            ._getEpgScheduleRangeMs();
+
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBe('lib1');
+    });
+
     it('primeEpgChannels applies layout mode and now watching settings from storage', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, 'classic');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, '0');
