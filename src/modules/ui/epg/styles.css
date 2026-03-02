@@ -1044,6 +1044,18 @@
   opacity: 1;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .epg-info-gradient-a,
+  .epg-info-gradient-b {
+    transition: none;
+  }
+
+  .epg-info-gradient-a.epg-info-gradient-active,
+  .epg-info-gradient-b.epg-info-gradient-active {
+    will-change: auto;
+  }
+}
+
 .epg-info-title,
 .epg-info-show,
 .epg-info-description-inner,
