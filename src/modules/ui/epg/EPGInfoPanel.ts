@@ -203,6 +203,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.gradientBElement = null;
         this.activeGradientSlot = 'a';
         this.colorCache.clear();
+        this.colorFailureCache.clear();
         this.currentProgram = null;
         this.thumbResolver = null;
         this.fetchItemDetails = null;
@@ -572,6 +573,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     }
 
     private storeDynamicColor(cacheKey: string, color: string): void {
+        this.colorFailureCache.delete(cacheKey);
         this.colorCache.set(cacheKey, color);
         if (this.colorCache.size <= MAX_DYNAMIC_COLOR_CACHE_ENTRIES) {
             return;
@@ -625,7 +627,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.activeGradientSlot = this.activeGradientSlot === 'a' ? 'b' : 'a';
     }
 
-    private scheduleDynamicColor(program: ScheduledProgram): void {
+    private scheduleDynamicColor(program: ScheduledProgram, sampleUrl: string): void {
         this.clearColorExtractTimer();
 
         const poster = this.posterElement;
@@ -652,7 +654,6 @@ export class EPGInfoPanel implements IEPGInfoPanel {
                 return;
             }
 
-            const sampleUrl = poster.currentSrc || poster.src;
             if (!sampleUrl) {
                 this.markDynamicColorFailure(cacheKey);
                 this.clearDynamicColor();
@@ -739,12 +740,18 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             const showTitle = item.type === 'episode' ? this.getEffectiveShowTitle(item) : '';
             poster.alt = showTitle.length ? showTitle : item.title;
             poster.style.display = 'block';
-            if (mode === 'full') {
-                if (this.readInfoBackgroundMode() === 0) {
-                    this.scheduleDynamicColor(program);
-                } else {
-                    this.clearDynamicColor();
-                }
+            if (mode !== 'full') {
+                this.clearDynamicColor();
+                return;
+            }
+
+            if (this.readInfoBackgroundMode() === 0) {
+                const resolvedSampleUrl =
+                    (preferredThumb ? this.thumbResolver?.(preferredThumb, 32, 32) : null) ||
+                    resolvedUrl;
+                this.scheduleDynamicColor(program, resolvedSampleUrl);
+            } else {
+                this.clearDynamicColor();
             }
             return;
         }
@@ -752,9 +759,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         // Hide poster when unresolved (prevents file:/// errors on webOS)
         poster.removeAttribute('src');
         poster.style.display = 'none';
-        if (mode === 'full') {
-            this.clearDynamicColor();
-        }
+        this.clearDynamicColor();
     }
 
     private extractShowTitleFromFullTitle(fullTitle: string): string | null {
