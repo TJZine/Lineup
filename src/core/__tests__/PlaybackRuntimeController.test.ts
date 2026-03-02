@@ -1,4 +1,5 @@
 import { AppErrorCode } from '../../types/app-errors';
+import { createDeferred } from '../../__tests__/helpers';
 import {
     PlayerErrorCode,
     type PlaybackError,
@@ -35,6 +36,24 @@ const makeSetup = (
         showInfoBanner: jest.fn<void, []>(),
         onPlayerTimeUpdate: jest.fn<void, Parameters<PlaybackRuntimeControllerDeps['onPlayerTimeUpdate']>>(),
         onPlayerBufferUpdate: jest.fn<void, Parameters<PlaybackRuntimeControllerDeps['onPlayerBufferUpdate']>>(),
+        pausePlayer: jest.fn<void, []>(() => {
+            callOrder.push('pause-player');
+        }),
+        playPlayer: jest.fn<Promise<void>, []>(async () => {
+            callOrder.push('play-player');
+        }),
+        pauseSchedulerSync: jest.fn<void, []>(() => {
+            callOrder.push('pause-scheduler');
+        }),
+        resumeSchedulerSync: jest.fn<void, []>(() => {
+            callOrder.push('resume-scheduler');
+        }),
+        syncSchedulerToCurrentTime: jest.fn<void, []>(() => {
+            callOrder.push('sync-scheduler');
+        }),
+        saveLifecycleState: jest.fn<Promise<void>, []>(async () => {
+            callOrder.push('save-lifecycle-state');
+        }),
         ...overrides,
     } as jest.Mocked<PlaybackRuntimeControllerDeps>;
 
@@ -222,5 +241,71 @@ describe('PlaybackRuntimeController', () => {
 
         expect(deps.onPlayerBufferUpdate).toHaveBeenCalledTimes(1);
         expect(deps.onPlayerBufferUpdate).toHaveBeenCalledWith(payload);
+    });
+
+    it('trackProgramStart stores and returns the provided promise', async () => {
+        const { controller } = makeSetup();
+        const deferred = createDeferred<void>();
+
+        expect(controller.trackProgramStart(deferred.promise)).toBe(deferred.promise);
+
+        deferred.resolve(undefined);
+        await deferred.promise;
+    });
+
+    it('handleLifecyclePause pauses playback, pauses scheduler sync, and then saves lifecycle state', async () => {
+        const { controller, deps, callOrder } = makeSetup();
+
+        await controller.handleLifecyclePause();
+
+        expect(deps.pausePlayer).toHaveBeenCalledTimes(1);
+        expect(deps.pauseSchedulerSync).toHaveBeenCalledTimes(1);
+        expect(deps.saveLifecycleState).toHaveBeenCalledTimes(1);
+        expect(callOrder).toEqual([
+            'pause-player',
+            'pause-scheduler',
+            'save-lifecycle-state',
+        ]);
+    });
+
+    it('handleLifecycleResume awaits a newer tracked program start triggered during sync and skips play', async () => {
+        const originalStart = createDeferred<void>();
+        const replacementStart = createDeferred<void>();
+        const { controller, deps } = makeSetup({
+            syncSchedulerToCurrentTime: jest.fn(() => {
+                controller.trackProgramStart(replacementStart.promise);
+            }),
+        });
+
+        controller.trackProgramStart(originalStart.promise);
+
+        const resumePromise = controller.handleLifecycleResume();
+
+        expect(deps.resumeSchedulerSync).toHaveBeenCalledTimes(1);
+        expect(deps.syncSchedulerToCurrentTime).toHaveBeenCalledTimes(1);
+        expect(deps.playPlayer).not.toHaveBeenCalled();
+
+        replacementStart.resolve(undefined);
+        await resumePromise;
+
+        expect(deps.playPlayer).not.toHaveBeenCalled();
+
+        originalStart.resolve(undefined);
+        await originalStart.promise;
+    });
+
+    it('handleLifecycleResume calls play when sync does not install a newer tracked program start', async () => {
+        const { controller, deps, callOrder } = makeSetup();
+
+        await controller.handleLifecycleResume();
+
+        expect(deps.resumeSchedulerSync).toHaveBeenCalledTimes(1);
+        expect(deps.syncSchedulerToCurrentTime).toHaveBeenCalledTimes(1);
+        expect(deps.playPlayer).toHaveBeenCalledTimes(1);
+        expect(callOrder).toEqual([
+            'resume-scheduler',
+            'sync-scheduler',
+            'play-player',
+        ]);
     });
 });

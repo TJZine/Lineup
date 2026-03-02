@@ -2421,15 +2421,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     }
 
     private async _handleLifecyclePause(): Promise<void> {
-        if (this._videoPlayer) {
-            this._videoPlayer.pause();
-        }
-        if (this._scheduler) {
-            this._scheduler.pauseSyncTimer();
-        }
-        if (this._lifecycle) {
-            await this._lifecycle.saveState();
-        }
+        await this._ensurePlaybackRuntimeController().handleLifecyclePause();
     }
 
     private _ensurePlaybackStartController(): PlaybackStartController {
@@ -2513,6 +2505,22 @@ export class AppOrchestrator implements IAppOrchestrator {
             skipToNextProgram: (): void => {
                 this._scheduler?.skipToNext();
             },
+            pausePlayer: (): void => {
+                this._videoPlayer?.pause();
+            },
+            playPlayer: (): Promise<void> =>
+                this._videoPlayer?.play() ?? Promise.resolve(),
+            pauseSchedulerSync: (): void => {
+                this._scheduler?.pauseSyncTimer();
+            },
+            resumeSchedulerSync: (): void => {
+                this._scheduler?.resumeSyncTimer();
+            },
+            syncSchedulerToCurrentTime: (): void => {
+                this._scheduler?.syncToCurrentTime();
+            },
+            saveLifecycleState: (): Promise<void> =>
+                this._lifecycle?.saveState() ?? Promise.resolve(),
             handleGlobalError: (error, context): void => {
                 this.handleGlobalError(error, context);
             },
@@ -2543,24 +2551,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     }
 
     private async _handleLifecycleResume(): Promise<void> {
-        const lastProgramStartBefore =
-            this._playbackStartController?.getLastProgramStartPromise() ?? null;
-        if (this._scheduler) {
-            this._scheduler.resumeSyncTimer();
-            this._scheduler.syncToCurrentTime();
-        }
-        const lastProgramStartAfter =
-            this._playbackStartController?.getLastProgramStartPromise() ?? null;
-        if (
-            lastProgramStartAfter &&
-            lastProgramStartAfter !== lastProgramStartBefore
-        ) {
-            await lastProgramStartAfter;
-            return;
-        }
-        if (this._videoPlayer) {
-            await this._videoPlayer.play();
-        }
+        await this._ensurePlaybackRuntimeController().handleLifecycleResume();
     }
 
     // ========================================
@@ -2606,9 +2597,8 @@ export class AppOrchestrator implements IAppOrchestrator {
     }
 
     private _handleProgramStartTracked(program: ScheduledProgram): Promise<void> {
-        const controller = this._ensurePlaybackStartController();
         const promise = this._handleProgramStart(program);
-        return controller.trackProgramStart(promise);
+        return this._ensurePlaybackRuntimeController().trackProgramStart(promise);
     }
 
     private _stopActiveTranscodeSession(): void {
