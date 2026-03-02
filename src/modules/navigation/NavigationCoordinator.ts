@@ -57,7 +57,7 @@ export interface NavigationCoordinatorDeps {
     hidePlaybackOptionsModal: () => void;
 
     exitConfirmModalId: string;
-    prepareExitConfirmModal: () => { focusableIds: string[]; preferredFocusId: string | null };
+    prepareExitConfirmModal: () => { focusableIds: string[] };
     showExitConfirmModal: () => void;
     hideExitConfirmModal: () => void;
 

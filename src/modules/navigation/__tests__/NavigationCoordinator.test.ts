@@ -116,7 +116,6 @@ const setup = (overrides: Partial<NavigationCoordinatorDeps> = {}): {
         exitConfirmModalId: 'exit-confirm',
         prepareExitConfirmModal: jest.fn().mockReturnValue({
             focusableIds: ['exit-confirm-cancel', 'exit-confirm-exit'],
-            preferredFocusId: 'exit-confirm-cancel',
         }),
         showExitConfirmModal: jest.fn(),
         hideExitConfirmModal: jest.fn(),
@@ -454,7 +453,6 @@ describe('NavigationCoordinator', () => {
     it('opens exit-confirm on back from player when no modal is open', () => {
         const focus = {
             focusableIds: ['exit-confirm-cancel', 'exit-confirm-exit'],
-            preferredFocusId: 'exit-confirm-cancel',
         };
         const { handlers, navigation, deps } = setup({
             prepareExitConfirmModal: jest.fn().mockReturnValue(focus),
@@ -487,7 +485,6 @@ describe('NavigationCoordinator', () => {
     it('still opens exit-confirm on back from player even when back stack is available', () => {
         const focus = {
             focusableIds: ['exit-confirm-cancel', 'exit-confirm-exit'],
-            preferredFocusId: 'exit-confirm-cancel',
         };
         const { handlers, navigation, deps } = setup({
             prepareExitConfirmModal: jest.fn().mockReturnValue(focus),
@@ -787,6 +784,16 @@ describe('NavigationCoordinator', () => {
 
         handlers.modalClose?.({ modalId: NOW_PLAYING_INFO_MODAL_ID });
         expect(deps.hideNowPlayingInfoOverlay).toHaveBeenCalled();
+    });
+
+    it('modal open/close triggers exit-confirm handlers', () => {
+        const { handlers, deps } = setup();
+
+        handlers.modalOpen?.({ modalId: deps.exitConfirmModalId });
+        expect(deps.showExitConfirmModal).toHaveBeenCalled();
+
+        handlers.modalClose?.({ modalId: deps.exitConfirmModalId });
+        expect(deps.hideExitConfirmModal).toHaveBeenCalled();
     });
 
     it('modal open hides mini-guide', () => {
