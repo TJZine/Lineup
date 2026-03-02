@@ -140,6 +140,7 @@ import {
     InitializationCoordinator,
     ChannelTuningCoordinator,
     OrchestratorStorageContext,
+    PlaybackStartController,
     type IInitializationCoordinator,
 } from './core';
 import { ChannelSetupCoordinator } from './core/channel-setup';
@@ -393,8 +394,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _ready: boolean = false;
     private _initCoordinator: IInitializationCoordinator | null = null;
     private _channelSetup: ChannelSetupCoordinator | null = null;
-    private _lastProgramStartPromise: Promise<void> | null = null;
-    private _programStartSequence: number = 0;
+    private _playbackStartController: PlaybackStartController | null = null;
 
     private _currentProgramForPlayback: ScheduledProgram | null = null;
     private _currentStreamDescriptor: StreamDescriptor | null = null;
@@ -578,6 +578,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             };
         }
         this._channelSetup?.cleanupStaleChannelBuildKeys();
+        this._ensurePlaybackStartController();
 
         // Create InitializationCoordinator with dependencies and callbacks
         this._initCoordinator = new InitializationCoordinator(
@@ -2453,13 +2454,72 @@ export class AppOrchestrator implements IAppOrchestrator {
         }
     }
 
+    private _ensurePlaybackStartController(): PlaybackStartController {
+        if (this._playbackStartController) {
+            return this._playbackStartController;
+        }
+
+        this._playbackStartController = new PlaybackStartController({
+            getVideoPlayer: () => this._videoPlayer,
+            resolveStreamForProgram: (program) =>
+                this._playbackRecovery?.resolveStreamForProgram?.(program) ?? Promise.resolve(null),
+            resetPlaybackFailureGuard: () => {
+                this._playbackRecovery?.resetPlaybackFailureGuard?.();
+            },
+            tryHandleStreamResolverAuthError: (error) =>
+                this._playbackRecovery?.tryHandleStreamResolverAuthError?.(error) ?? false,
+            tryHandleStreamResolverPermissionError: (error) =>
+                this._playbackRecovery?.tryHandleStreamResolverPermissionError?.(error) ?? false,
+            handlePlaybackFailure: (context, error) => {
+                this._playbackRecovery?.handlePlaybackFailure?.(context, error);
+            },
+            logPlaybackStartFailure: (error) => {
+                console.error('Failed to load stream:', summarizeErrorForLog(error));
+            },
+            markProgramStarting: (program) => {
+                this._currentProgramForPlayback = program;
+                const shouldResetAutoShowInfoBannerOnAbort =
+                    this._pendingNowPlayingChannelId !== null;
+
+                if (shouldResetAutoShowInfoBannerOnAbort) {
+                    this._shouldAutoShowInfoBannerOnNextPlay = true;
+                    this._pendingNowPlayingChannelId = null;
+                }
+
+                return {
+                    programAtStart: program,
+                    shouldResetAutoShowInfoBannerOnAbort,
+                };
+            },
+            isProgramStillCurrent: (program) =>
+                this._currentProgramForPlayback === program,
+            handleProgramStartUiSideEffects: (program) => {
+                this._nowPlayingInfoCoordinator?.onProgramStart(program);
+                this._syncChannelBadgeOverlay();
+                this._epgCoordinator?.refreshEpgScheduleForLiveChannel();
+            },
+            handleStreamResolved: (stream) => {
+                this._currentStreamDescriptor = stream;
+                this._nowPlayingDebugManager?.maybeAutoShowNowPlayingStreamDebugHud();
+                void this._nowPlayingDebugManager?.maybeFetchNowPlayingStreamDecisionForDebugHud();
+            },
+            clearAutoShowInfoBannerAfterAbortedStart: () => {
+                this._shouldAutoShowInfoBannerOnNextPlay = false;
+            },
+        });
+
+        return this._playbackStartController;
+    }
+
     private async _handleLifecycleResume(): Promise<void> {
-        const lastProgramStartBefore = this._lastProgramStartPromise;
+        const lastProgramStartBefore =
+            this._playbackStartController?.getLastProgramStartPromise() ?? null;
         if (this._scheduler) {
             this._scheduler.resumeSyncTimer();
             this._scheduler.syncToCurrentTime();
         }
-        const lastProgramStartAfter = this._lastProgramStartPromise;
+        const lastProgramStartAfter =
+            this._playbackStartController?.getLastProgramStartPromise() ?? null;
         if (
             lastProgramStartAfter &&
             lastProgramStartAfter !== lastProgramStartBefore
@@ -2479,71 +2539,7 @@ export class AppOrchestrator implements IAppOrchestrator {
      * Handle program start event from scheduler.
      */
     private async _handleProgramStart(program: ScheduledProgram): Promise<void> {
-        const sequence = ++this._programStartSequence;
-        const isStale = (): boolean => sequence !== this._programStartSequence;
-        if (!this._videoPlayer) {
-            return;
-        }
-
-        this._currentProgramForPlayback = program;
-        const programAtStart = program;
-        const shouldAutoShowInfoBanner = this._pendingNowPlayingChannelId !== null;
-        if (shouldAutoShowInfoBanner) {
-            this._shouldAutoShowInfoBannerOnNextPlay = true;
-            this._pendingNowPlayingChannelId = null;
-        }
-        try {
-            this._nowPlayingInfoCoordinator?.onProgramStart(program);
-            this._syncChannelBadgeOverlay();
-            this._epgCoordinator?.refreshEpgScheduleForLiveChannel();
-            const stream = await this._playbackRecovery?.resolveStreamForProgram(programAtStart);
-            if (isStale() || this._currentProgramForPlayback !== programAtStart) {
-                if (shouldAutoShowInfoBanner) {
-                    this._shouldAutoShowInfoBannerOnNextPlay = false;
-                }
-                return;
-            }
-            if (!stream) {
-                if (shouldAutoShowInfoBanner) {
-                    this._shouldAutoShowInfoBannerOnNextPlay = false;
-                }
-                return;
-            }
-            this._currentStreamDescriptor = stream;
-
-            // Optional developer aid: show a compact "stream decision" HUD when tuning a channel,
-            // and fetch PMS transcode decision in the background to explain why video/audio transcodes.
-            this._nowPlayingDebugManager?.maybeAutoShowNowPlayingStreamDebugHud();
-            void this._nowPlayingDebugManager?.maybeFetchNowPlayingStreamDecisionForDebugHud();
-
-            await this._videoPlayer.loadStream(stream);
-            if (isStale() || this._currentProgramForPlayback !== programAtStart) {
-                if (shouldAutoShowInfoBanner) {
-                    this._shouldAutoShowInfoBannerOnNextPlay = false;
-                }
-                return;
-            }
-            await this._videoPlayer.play();
-            this._playbackRecovery?.resetPlaybackFailureGuard();
-        } catch (error) {
-            if (this._playbackRecovery?.tryHandleStreamResolverAuthError(error)) {
-                if (shouldAutoShowInfoBanner) {
-                    this._shouldAutoShowInfoBannerOnNextPlay = false;
-                }
-                return;
-            }
-            if (this._playbackRecovery?.tryHandleStreamResolverPermissionError(error)) {
-                if (shouldAutoShowInfoBanner) {
-                    this._shouldAutoShowInfoBannerOnNextPlay = false;
-                }
-                return;
-            }
-            console.error('Failed to load stream:', summarizeErrorForLog(error));
-            this._playbackRecovery?.handlePlaybackFailure('programStart', error);
-            if (shouldAutoShowInfoBanner) {
-                this._shouldAutoShowInfoBannerOnNextPlay = false;
-            }
-        }
+        await this._ensurePlaybackStartController().handleProgramStartTracked(program);
     }
 
     private _syncChannelBadgeOverlay(): void {
@@ -2579,9 +2575,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     }
 
     private _handleProgramStartTracked(program: ScheduledProgram): Promise<void> {
-        const promise = this._handleProgramStart(program);
-        this._lastProgramStartPromise = promise;
-        return promise;
+        return this._handleProgramStart(program);
     }
 
     private _stopActiveTranscodeSession(): void {
