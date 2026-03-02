@@ -341,6 +341,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
       </div>
       <div class="${EPG_CLASSES.DASHBOARD_BOTTOM}">
         <div class="${EPG_CLASSES.NOW_WATCHING_BANNER}" aria-live="polite">
+          <span class="${EPG_CLASSES.NOW_WATCHING_LIVE}">LIVE</span>
           <span class="${EPG_CLASSES.NOW_WATCHING_CHANNEL}"></span>
           <span class="${EPG_CLASSES.NOW_WATCHING_PROGRAM}"></span>
           <span class="${EPG_CLASSES.NOW_WATCHING_TIME}"></span>

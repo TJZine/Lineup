@@ -115,6 +115,7 @@ export const EPG_CLASSES = {
     DASHBOARD_BOTTOM: 'epg-dashboard-bottom',
     CHANNEL_LIST_WRAP_FLASH: 'wrap-flash',
     NOW_WATCHING_BANNER: 'epg-now-watching-banner',
+    NOW_WATCHING_LIVE: 'epg-now-watching-live',
     NOW_WATCHING_CHANNEL: 'epg-now-watching-channel',
     NOW_WATCHING_PROGRAM: 'epg-now-watching-program',
     NOW_WATCHING_TIME: 'epg-now-watching-time',
