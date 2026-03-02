@@ -49,6 +49,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private posterFetchToken = 0;
     private posterFetchController: AbortController | null = null;
     private posterFetchTimer: ReturnType<typeof setTimeout> | null = null;
+    private dynamicColorToken = 0;
     private gradientAElement: HTMLElement | null = null;
     private gradientBElement: HTMLElement | null = null;
     private activeGradientSlot: 'a' | 'b' = 'a';
@@ -198,6 +199,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.genresElement = null;
         this.descriptionElement = null;
         this.descriptionInnerElement = null;
+        this.dynamicColorToken += 1;
         this.clearColorExtractTimer();
         this.gradientAElement = null;
         this.gradientBElement = null;
@@ -598,6 +600,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     }
 
     private clearDynamicColor(): void {
+        this.dynamicColorToken += 1;
         this.clearColorExtractTimer();
 
         if (this.gradientAElement) {
@@ -648,9 +651,16 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             this.clearDynamicColor();
             return;
         }
+        const token = ++this.dynamicColorToken;
         this.colorExtractTimer = setTimeout(() => {
+            if (token !== this.dynamicColorToken) {
+                return;
+            }
             const current = this.currentProgram;
             if (!current || current.item.ratingKey !== program.item.ratingKey) {
+                return;
+            }
+            if (!this.isVisible) {
                 return;
             }
 
@@ -663,6 +673,12 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             const sampler = new Image();
             sampler.crossOrigin = 'anonymous';
             sampler.onload = (): void => {
+                if (token !== this.dynamicColorToken) {
+                    return;
+                }
+                if (!this.isVisible) {
+                    return;
+                }
                 const stillCurrent = this.currentProgram;
                 if (!stillCurrent || stillCurrent.item.ratingKey !== program.item.ratingKey) {
                     return;
@@ -677,6 +693,12 @@ export class EPGInfoPanel implements IEPGInfoPanel {
                 this.clearDynamicColor();
             };
             sampler.onerror = (): void => {
+                if (token !== this.dynamicColorToken) {
+                    return;
+                }
+                if (!this.isVisible) {
+                    return;
+                }
                 const stillCurrent = this.currentProgram;
                 if (!stillCurrent || stillCurrent.item.ratingKey !== program.item.ratingKey) {
                     return;

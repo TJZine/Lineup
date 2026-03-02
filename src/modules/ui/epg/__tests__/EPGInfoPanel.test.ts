@@ -73,6 +73,8 @@ describe('EPGInfoPanel', () => {
     });
 
     afterEach(() => {
+        jest.useRealTimers();
+        jest.mocked(extractDominantColor).mockReset();
         panel.destroy();
         container.remove();
         Object.defineProperty(globalThis, 'Image', {
@@ -381,6 +383,83 @@ describe('EPGInfoPanel', () => {
                 localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
                 jest.runOnlyPendingTimers();
                 jest.useRealTimers();
+            }
+        });
+
+        it('does not apply extracted color after the panel is hidden', () => {
+            jest.useFakeTimers();
+
+            const createdImages: {
+                onload: ((this: GlobalEventHandlers, ev: Event) => unknown) | null;
+                src: string;
+            }[] = [];
+
+            class DelayedMockImage {
+                crossOrigin: string | null = null;
+                onload: ((this: GlobalEventHandlers, ev: Event) => unknown) | null = null;
+                onerror: ((this: GlobalEventHandlers, ev: Event) => unknown) | null = null;
+                private _src: string = '';
+
+                get src(): string {
+                    return this._src;
+                }
+
+                set src(value: string) {
+                    this._src = value;
+                    createdImages.push(this);
+                }
+            }
+
+            Object.defineProperty(globalThis, 'Image', {
+                configurable: true,
+                writable: true,
+                value: DelayedMockImage as unknown as typeof Image,
+            });
+
+            try {
+                (extractDominantColor as jest.Mock).mockReturnValue('rgba(100, 50, 50, 0.32)');
+                localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
+
+                const resolver = jest.fn((path: string | null, width?: number, height?: number) => {
+                    if (!path) return null;
+                    if (width === 32 && height === 32) return 'https://img.example/thumb-32.jpg';
+                    return 'https://img.example/thumb.jpg';
+                });
+                panel.setThumbResolver(resolver);
+
+                const program = createMockProgram('/library/metadata/1/thumb');
+                panel.show(program);
+
+                jest.advanceTimersByTime(150);
+
+                expect(createdImages.length).toBe(1);
+
+                panel.hide();
+
+                const layerA = container.querySelector('.epg-info-gradient-a') as HTMLElement | null;
+                const layerB = container.querySelector('.epg-info-gradient-b') as HTMLElement | null;
+                if (!layerA || !layerB) {
+                    throw new Error('Gradient layers not found');
+                }
+
+                expect(layerA.classList.contains('epg-info-gradient-active')).toBe(true);
+                expect(layerB.classList.contains('epg-info-gradient-active')).toBe(false);
+
+                createdImages[0]?.onload?.call(createdImages[0] as unknown as GlobalEventHandlers, new Event('load'));
+
+                expect(layerA.classList.contains('epg-info-gradient-active')).toBe(true);
+                expect(layerB.classList.contains('epg-info-gradient-active')).toBe(false);
+                expect(layerA.style.getPropertyValue('--dynamic-info-bg')).toBe('');
+                expect(layerB.style.getPropertyValue('--dynamic-info-bg')).toBe('');
+            } finally {
+                localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+                jest.runOnlyPendingTimers();
+                jest.useRealTimers();
+                Object.defineProperty(globalThis, 'Image', {
+                    configurable: true,
+                    writable: true,
+                    value: RealImage,
+                });
             }
         });
 
