@@ -44,6 +44,13 @@ const SUBTITLE_MODE_OPTIONS: Array<{ label: string; mode: SubtitleMode }> = [
     { label: 'Full (Burn-in, default)', mode: 'full' },
 ];
 
+const EPG_PAST_ITEMS_OPTIONS = [
+    { label: 'Auto (Recommended)', storageValue: 'auto' as const },
+    { label: 'Now (0m)', storageValue: '0' as const },
+    { label: '15m', storageValue: '15' as const },
+    { label: '30m', storageValue: '30' as const },
+];
+
 const DEFAULT_THEME_VALUE = Math.max(
     0,
     THEME_OPTIONS.findIndex((option) => option.theme === DEFAULT_THEME)
@@ -147,6 +154,10 @@ const SELECT_METADATA: Record<string, SelectMetadata> = {
     },
     'settings-epg-density': {
         storageKey: SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY,
+        defaultValue: 0,
+    },
+    'settings-epg-past-items': {
+        storageKey: SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW,
         defaultValue: 0,
     },
 };
@@ -295,6 +306,7 @@ export class SettingsScreen {
         const subtitleMode = this._valueToSubtitleMode(subtitleModeValue);
         const subtitlesEnabled = subtitleMode !== 'off';
         const epgLayoutModeValue = this._loadEpgLayoutModeValue();
+        const epgPastItemsValue = this._loadEpgPastItemsWindowValue();
         const epgGuideDensityValue = this._loadEpgGuideDensityValue();
         const preferForcedSubtitles = this._loadBoolSetting(
             SETTINGS_STORAGE_KEYS.SUBTITLE_PREFER_FORCED,
@@ -502,6 +514,20 @@ export class SettingsScreen {
                         },
                     },
                     {
+                        id: 'settings-epg-past-items',
+                        label: 'Past Items',
+                        description: 'Auto uses Shows: 0m, Movies: 15m',
+                        value: epgPastItemsValue,
+                        options: EPG_PAST_ITEMS_OPTIONS.map((option, index) => ({
+                            label: option.label,
+                            value: index,
+                        })),
+                        onChange: (value: number): void => {
+                            const stored = this._saveEpgPastItemsWindowValue(value);
+                            this._onGuideSettingChange?.({ key: 'pastItemsWindow', value: stored });
+                        },
+                    },
+                    {
                         id: 'settings-theme',
                         label: 'Theme',
                         description: 'Visual style of the application',
@@ -614,6 +640,17 @@ export class SettingsScreen {
         return button;
     }
 
+    private _cancelDetailFrames(): void {
+        if (this._detailSwapFrame !== null) {
+            cancelAnimationFrame(this._detailSwapFrame);
+            this._detailSwapFrame = null;
+        }
+        if (this._detailRevealFrame !== null) {
+            cancelAnimationFrame(this._detailRevealFrame);
+            this._detailRevealFrame = null;
+        }
+    }
+
     private _renderActiveCategory(): void {
         const activeCategory = this._getActiveCategory();
         this._toggleElements.clear();
@@ -626,14 +663,7 @@ export class SettingsScreen {
             this._detailTitle.textContent = activeCategory?.label ?? '';
         }
 
-        if (this._detailSwapFrame !== null) {
-            cancelAnimationFrame(this._detailSwapFrame);
-            this._detailSwapFrame = null;
-        }
-        if (this._detailRevealFrame !== null) {
-            cancelAnimationFrame(this._detailRevealFrame);
-            this._detailRevealFrame = null;
-        }
+        this._cancelDetailFrames();
 
         if (this._detailItems) {
             const renderItems = (): void => {
@@ -860,14 +890,7 @@ export class SettingsScreen {
             nav?.off('keyPress', this._navKeyHandler);
             this._navKeyHandler = null;
         }
-        if (this._detailSwapFrame !== null) {
-            cancelAnimationFrame(this._detailSwapFrame);
-            this._detailSwapFrame = null;
-        }
-        if (this._detailRevealFrame !== null) {
-            cancelAnimationFrame(this._detailRevealFrame);
-            this._detailRevealFrame = null;
-        }
+        this._cancelDetailFrames();
         this._detailItems?.classList.remove('transitioning');
         this._pendingFocusRestore = null;
         this._unregisterFocusables();
@@ -1031,6 +1054,16 @@ export class SettingsScreen {
         return raw === 'wide' ? 1 : 0;
     }
 
+    private _loadEpgPastItemsWindowValue(): number {
+        const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW);
+        const index = EPG_PAST_ITEMS_OPTIONS.findIndex((o) => o.storageValue === raw);
+        if (index >= 0) return index;
+        if (raw !== null) {
+            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW);
+        }
+        return 0;
+    }
+
     private _loadSubtitleLanguageValue(): number {
         const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE);
         if (raw === null) return 0;
@@ -1092,6 +1125,12 @@ export class SettingsScreen {
     private _saveEpgGuideDensityValue(value: number): void {
         const density = this._mapEpgGuideDensityValue(value);
         safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY, density);
+    }
+
+    private _saveEpgPastItemsWindowValue(value: number): 'auto' | '0' | '15' | '30' {
+        const option = EPG_PAST_ITEMS_OPTIONS[value] ?? EPG_PAST_ITEMS_OPTIONS[0]!;
+        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, option.storageValue);
+        return option.storageValue;
     }
 
     private _mapEpgGuideDensityValue(value: number): 'wide' | 'detailed' {
@@ -1168,6 +1207,7 @@ export class SettingsScreen {
             'settings-transcode-quality': () => this._loadTranscodeQualityValue(),
             'settings-epg-density': () => this._loadEpgGuideDensityValue(),
             'settings-epg-layout-mode': () => this._loadEpgLayoutModeValue(),
+            'settings-epg-past-items': () => this._loadEpgPastItemsWindowValue(),
         };
         for (const [id, meta] of this._toggleMetadata.entries()) {
             const toggle = this._toggleElements.get(id);
@@ -1312,14 +1352,7 @@ export class SettingsScreen {
         this._detailTitle = null;
         this._detailItems = null;
         this._switchProfileButton = null;
-        if (this._detailSwapFrame !== null) {
-            cancelAnimationFrame(this._detailSwapFrame);
-            this._detailSwapFrame = null;
-        }
-        if (this._detailRevealFrame !== null) {
-            cancelAnimationFrame(this._detailRevealFrame);
-            this._detailRevealFrame = null;
-        }
+        this._cancelDetailFrames();
         this._container.innerHTML = '';
     }
 }

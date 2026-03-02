@@ -96,6 +96,8 @@ export class EPGVirtualizer {
 
     /** Total channel count */
     private totalChannels: number = 0;
+    private _focusedTickerTimer: ReturnType<typeof setTimeout> | null = null;
+    private _focusedTickerTitle: HTMLElement | null = null;
     private isDebugEnabled(): boolean {
         try {
             return localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG) === '1';
@@ -116,6 +118,7 @@ export class EPGVirtualizer {
         config: EPGConfig,
         gridAnchorTime: number
     ): void {
+        this._clearFocusedTitleTicker();
         if (this.contentElement) {
             this.contentElement.remove();
             this.contentElement = null;
@@ -139,6 +142,7 @@ export class EPGVirtualizer {
      * Destroy the virtualizer and clean up resources.
      */
     destroy(): void {
+        this._clearFocusedTitleTicker();
         this.forceRecycleAll();
         this.elementPool.clear();
         this.visibleCells.clear();
@@ -479,6 +483,7 @@ export class EPGVirtualizer {
         }
 
         this.visibleCells = newVisibleCells;
+        this._syncFocusedTitleTickerForVisibleFocus();
 
         if (this.isDebugEnabled()) {
             let placeholderCount = 0;
@@ -576,6 +581,7 @@ export class EPGVirtualizer {
      */
     private resetElement(element: HTMLElement): void {
         const { meta, episode, subtitle, title, time, liveBadge, progressFill } = this.getCellChildren(element);
+        this._clearFocusedTitleTickerForTitle(title);
         if (meta) {
             meta.style.display = 'none';
         }
@@ -632,7 +638,7 @@ export class EPGVirtualizer {
         if (!timeEl) return;
 
         const isCompactTime = tier === 'narrow' || tier === 'tiny';
-        const forceFull = cellData.isFocused || cellData.isCurrent;
+        const forceFull = !isCompactTime && (cellData.isFocused || cellData.isCurrent);
         timeEl.textContent = formatCellTimeLabel(startTimeMs, endTimeMs, { compact: isCompactTime, forceFull });
         timeEl.classList.toggle(EPG_CLASSES.CELL_TIME_COMPACT, isCompactTime && !forceFull);
     }
@@ -815,14 +821,10 @@ export class EPGVirtualizer {
             if (subtitle) subtitle.style.display = hasSubtitleContent ? 'block' : 'none';
             if (time) time.style.display = 'block';
         } else if (tier === 'narrow' || tier === 'tiny') {
-            if (tier === 'narrow') {
-                element.classList.add(EPG_CLASSES.CELL_TIER_NARROW);
-            } else {
-                element.classList.add(EPG_CLASSES.CELL_TIER_TINY);
-            }
+            element.classList.add(tier === 'narrow' ? EPG_CLASSES.CELL_TIER_NARROW : EPG_CLASSES.CELL_TIER_TINY);
             if (meta) meta.style.display = 'none';
-            if (subtitle) subtitle.style.display = hasSubtitleContent ? 'block' : 'none';
-            if (time) time.style.display = 'block';
+            if (subtitle) subtitle.style.display = 'none';
+            if (time) time.style.display = 'none';
         }
     }
 
@@ -1049,11 +1051,65 @@ export class EPGVirtualizer {
         const isNarrowOrTiny =
             element.classList.contains(EPG_CLASSES.CELL_TIER_NARROW) ||
             element.classList.contains(EPG_CLASSES.CELL_TIER_TINY);
-        const isFocused = element.classList.contains(EPG_CLASSES.CELL_FOCUSED);
-        const shouldCompact = isNarrowOrTiny && !isFocused;
+        const shouldCompact = isNarrowOrTiny;
 
         badge.classList.toggle(EPG_CLASSES.CELL_LIVE_COMPACT, shouldCompact);
         badge.textContent = shouldCompact ? '' : 'LIVE';
+    }
+
+    private _clearFocusedTitleTicker(): void {
+        if (this._focusedTickerTimer) {
+            clearTimeout(this._focusedTickerTimer);
+            this._focusedTickerTimer = null;
+        }
+        if (this._focusedTickerTitle) {
+            this._focusedTickerTitle.classList.remove(
+                EPG_CLASSES.CELL_TITLE_TICKER_READY,
+                EPG_CLASSES.CELL_TITLE_TICKER_RUNNING
+            );
+            this._focusedTickerTitle.style.removeProperty('--epg-title-ticker-duration-ms');
+            this._focusedTickerTitle.style.removeProperty('--epg-title-ticker-distance-px');
+            this._focusedTickerTitle.style.transform = '';
+            this._focusedTickerTitle = null;
+        }
+    }
+
+    private _clearFocusedTitleTickerForTitle(title: HTMLElement | null): void {
+        if (title && this._focusedTickerTitle && this._focusedTickerTitle !== title) {
+            return;
+        }
+        this._clearFocusedTitleTicker();
+    }
+
+    private _prefersReducedMotion(): boolean {
+        return globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+    }
+
+    private _syncFocusedTitleTickerForVisibleFocus(): void {
+        this._clearFocusedTitleTicker();
+        if (this._prefersReducedMotion()) return;
+
+        const focusedCell = Array.from(this.visibleCells.values()).find(
+            (cell) => cell.isFocused && Boolean(cell.cellElement)
+        );
+        if (!focusedCell?.cellElement) return;
+
+        const title = this.getCellChildren(focusedCell.cellElement).title;
+        if (!title) return;
+
+        const overflowPx = title.scrollWidth - title.clientWidth;
+        if (overflowPx <= 12) return;
+
+        const durationMs = Math.max(1600, Math.min(3200, overflowPx * 30));
+        title.classList.add(EPG_CLASSES.CELL_TITLE_TICKER_READY);
+        title.style.setProperty('--epg-title-ticker-duration-ms', `${durationMs}ms`);
+        title.style.setProperty('--epg-title-ticker-distance-px', `${overflowPx}px`);
+
+        this._focusedTickerTitle = title;
+        this._focusedTickerTimer = setTimeout(() => {
+            if (!this._focusedTickerTitle) return;
+            this._focusedTickerTitle.classList.add(EPG_CLASSES.CELL_TITLE_TICKER_RUNNING);
+        }, 900);
     }
 
     /**
@@ -1099,6 +1155,7 @@ export class EPGVirtualizer {
      * Force recycle all elements when memory pressure detected.
      */
     forceRecycleAll(): void {
+        this._clearFocusedTitleTicker();
         for (const [key, cellData] of this.visibleCells) {
             this.recycleElement(key, cellData);
         }
@@ -1155,6 +1212,7 @@ export class EPGVirtualizer {
                 this.updateLiveBadge(candidate.cellElement, candidate.isCurrent);
             }
         }
+        this._syncFocusedTitleTickerForVisibleFocus();
 
         if (targetCellData?.cellElement) {
             return targetCellData.cellElement;

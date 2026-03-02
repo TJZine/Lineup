@@ -55,6 +55,7 @@ export const LINEUP_STORAGE_KEYS = {
     EPG_LIBRARY_FILTER: 'lineup_epg_library_filter',
     EPG_LAYOUT_MODE: 'lineup_epg_layout_mode',
     EPG_GUIDE_DENSITY: 'lineup_epg_guide_density',
+    EPG_PAST_ITEMS_WINDOW: 'lineup_epg_past_items_window',
     EPG_NOW_WATCHING_ENABLED: 'lineup_epg_now_watching_enabled',
     EPG_AGGRESSIVE_PRELOAD_ENABLED: 'lineup_epg_aggressive_preload_enabled',
     /** Show Plex Home profile picker on startup */

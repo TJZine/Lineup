@@ -348,10 +348,18 @@ const mockChannel = {
     id: 'ch1',
     name: 'Test Channel',
     number: 1,
+    contentSource: { type: 'manual', items: [] as unknown[] },
     startTimeAnchor: 0,
     playbackMode: 'sequential' as const,
     shuffleSeed: 12345,
     phaseSeed: 4242,
+    skipIntros: false,
+    skipCredits: false,
+    createdAt: 0,
+    updatedAt: 0,
+    lastContentRefresh: 0,
+    itemCount: 0,
+    totalDurationMs: 0,
 };
 
 const mockChannelManager = {
@@ -1464,7 +1472,7 @@ describe('AppOrchestrator', () => {
 
         it('returns existing when selected server has channels', () => {
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-4' });
-            mockChannelManager.getAllChannels.mockReturnValue([{ id: 'channel-1' }]);
+            mockChannelManager.getAllChannels.mockReturnValue([{ ...mockChannel, id: 'channel-1' }]);
 
             expect(orchestrator.getSetupContextForSelectedServer()).toBe('existing');
         });
@@ -1627,6 +1635,36 @@ describe('AppOrchestrator', () => {
                 .mockResolvedValue(undefined);
 
             orchestrator.onGuideSettingChange({ key: 'aggressivePreload', enabled: true });
+
+            expect(clearSpy).toHaveBeenCalled();
+            expect(mockEpg.clearSchedules).toHaveBeenCalled();
+            expect(primeSpy).toHaveBeenCalled();
+            expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
+        });
+
+        it('clears and refreshes schedules when past-items window changes while EPG visible', () => {
+            mockEpg.isVisible.mockReturnValue(true);
+            const mutable = orchestrator as unknown as {
+                _epgCoordinator?: {
+                    clearScheduleCaches: () => void;
+                    primeEpgChannels: () => void;
+                    refreshEpgSchedules: (options?: { reason?: string }) => Promise<void>;
+                };
+            };
+            const clearSpy = jest.spyOn(
+                mutable._epgCoordinator as { clearScheduleCaches: () => void },
+                'clearScheduleCaches'
+            );
+            const primeSpy = jest.spyOn(
+                mutable._epgCoordinator as { primeEpgChannels: () => void },
+                'primeEpgChannels'
+            );
+            const refreshSpy = jest.spyOn(
+                mutable._epgCoordinator as { refreshEpgSchedules: (options?: { reason?: string }) => Promise<void> },
+                'refreshEpgSchedules'
+            ).mockResolvedValue(undefined);
+
+            orchestrator.onGuideSettingChange({ key: 'pastItemsWindow', value: '15' });
 
             expect(clearSpy).toHaveBeenCalled();
             expect(mockEpg.clearSchedules).toHaveBeenCalled();

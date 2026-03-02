@@ -22,9 +22,10 @@ describe('ThemeManager', () => {
 
         const manager = ThemeManager.getInstance();
 
-        expect(manager.getTheme()).toBe('obsidian');
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.THEME)).toBe('obsidian');
+        expect(manager.getTheme()).toBe('ember-steel');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.THEME)).toBe('ember-steel');
         expect(document.body.classList.contains('theme-directv')).toBe(false);
+        expect(document.body.classList.contains('theme-ember-steel')).toBe(true);
     });
 
     it('applies saved directv theme and removes other theme classes', () => {
