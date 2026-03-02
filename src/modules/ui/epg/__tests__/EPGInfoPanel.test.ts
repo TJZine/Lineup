@@ -301,24 +301,27 @@ describe('EPGInfoPanel', () => {
             panel.setThumbResolver(resolver);
             localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '1');
 
-            const program = createMockProgram('/library/metadata/123/thumb', {
-                art: '/library/metadata/123/art',
-            });
-            panel.show(program);
+            try {
+                const program = createMockProgram('/library/metadata/123/thumb', {
+                    art: '/library/metadata/123/art',
+                });
+                panel.show(program);
 
-            const backdrop = container.querySelector('.epg-info-backdrop-img') as HTMLImageElement | null;
-            expect(backdrop?.style.display).not.toBe('none');
+                const backdrop = container.querySelector('.epg-info-backdrop-img') as HTMLImageElement | null;
+                expect(backdrop?.style.display).not.toBe('none');
 
-            // When art is missing, backdrop stays hidden and resolver is not called for backdrop.
-            const callsBefore = resolver.mock.calls.length;
-            const programWithoutArt = createMockProgram('/library/metadata/789/thumb', { art: null });
-            panel.show(programWithoutArt);
-            expect(backdrop?.style.display).toBe('none');
-            expect(resolver).not.toHaveBeenCalledWith(null, 960, 540);
-            expect(resolver).not.toHaveBeenCalledWith('/library/metadata/789/art', 960, 540);
-            expect(resolver.mock.calls.length).toBe(callsBefore + 1);
-            expect(resolver).toHaveBeenLastCalledWith('/library/metadata/789/thumb', 320, 480);
-            localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+                // When art is missing, backdrop stays hidden and resolver is not called for backdrop.
+                const callsBefore = resolver.mock.calls.length;
+                const programWithoutArt = createMockProgram('/library/metadata/789/thumb', { art: null });
+                panel.show(programWithoutArt);
+                expect(backdrop?.style.display).toBe('none');
+                expect(resolver).not.toHaveBeenCalledWith(null, 960, 540);
+                expect(resolver).not.toHaveBeenCalledWith('/library/metadata/789/art', 960, 540);
+                expect(resolver.mock.calls.length).toBe(callsBefore + 1);
+                expect(resolver).toHaveBeenLastCalledWith('/library/metadata/789/thumb', 320, 480);
+            } finally {
+                localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+            }
         });
 
         it('renders three meta pills', () => {

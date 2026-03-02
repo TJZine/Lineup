@@ -574,29 +574,26 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         return safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE) === '1' ? 1 : 0;
     }
 
-    private storeDynamicColor(cacheKey: string, color: string): void {
-        this.colorFailureCache.delete(cacheKey);
-        this.colorCache.set(cacheKey, color);
-        if (this.colorCache.size <= MAX_DYNAMIC_COLOR_CACHE_ENTRIES) {
+    private ensureCacheUnderLimit<T>(map: Map<string, T>, limit: number): void {
+        if (map.size <= limit) {
             return;
         }
 
-        const oldestKey = this.colorCache.keys().next().value;
+        const oldestKey = map.keys().next().value;
         if (typeof oldestKey === 'string') {
-            this.colorCache.delete(oldestKey);
+            map.delete(oldestKey);
         }
+    }
+
+    private storeDynamicColor(cacheKey: string, color: string): void {
+        this.colorFailureCache.delete(cacheKey);
+        this.colorCache.set(cacheKey, color);
+        this.ensureCacheUnderLimit(this.colorCache, MAX_DYNAMIC_COLOR_CACHE_ENTRIES);
     }
 
     private markDynamicColorFailure(cacheKey: string): void {
         this.colorFailureCache.set(cacheKey, Date.now());
-        if (this.colorFailureCache.size <= MAX_DYNAMIC_COLOR_CACHE_ENTRIES) {
-            return;
-        }
-
-        const oldestKey = this.colorFailureCache.keys().next().value;
-        if (typeof oldestKey === 'string') {
-            this.colorFailureCache.delete(oldestKey);
-        }
+        this.ensureCacheUnderLimit(this.colorFailureCache, MAX_DYNAMIC_COLOR_CACHE_ENTRIES);
     }
 
     private clearDynamicColor(): void {
