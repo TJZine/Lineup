@@ -301,6 +301,7 @@ Other review signals:
 - Why it matters: tests that need private access are a sign the production seams are not clean enough.
 - Target outcomes:
   - More behavior tested through public APIs or extracted collaborators
+  - audit of any overengineered or redundant/unhelpful test for deletion
   - Less need for frozen private-probe debt
 - Likely files:
   - `src/__tests__/policy/AntiPatterns.policy.test.ts`
@@ -318,7 +319,7 @@ Other review signals:
   - [ ] P8-W1 - Reduce private probing in the orchestrator playback tests by routing through the first extracted controller
   - [ ] P8-W2 - Reduce one private-probe-heavy UI test after the corresponding UI extraction lands
   - [ ] P8-W3 - Tighten the anti-pattern baseline once at least one hotspot suite no longer needs the old probe path
-  - [ ] P8-W4 - Cleanup pass for Priority 8: remove obsolete test helpers, dead probe utilities, and transitional assertions after the new public seams are stable
+  - [ ] P8-W4 - Cleanup pass for Priority 8: remove obsolete test helpers, dead probe utilities, overengineered/redundant/unhelpful tests, and transitional assertions after the new public seams are stable
 
 ## Suggested Execution Order
 
