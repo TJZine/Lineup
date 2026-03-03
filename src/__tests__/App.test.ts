@@ -75,8 +75,8 @@ jest.mock('../modules/ui/settings/SettingsScreen', () => {
     settingsScreenChunkLoaded();
     return {
         SettingsScreen: class SettingsScreen {
-            constructor() {
-                settingsScreenConstructed();
+            constructor(...args: unknown[]) {
+                settingsScreenConstructed(args);
             }
             show(): void {
                 return;
@@ -97,8 +97,8 @@ jest.mock('../modules/ui/channel-setup/ChannelSetupScreen', () => {
     channelSetupScreenChunkLoaded();
     return {
         ChannelSetupScreen: class ChannelSetupScreen {
-            constructor() {
-                channelSetupScreenConstructed();
+            constructor(...args: unknown[]) {
+                channelSetupScreenConstructed(args);
             }
             show(): void {
                 return;
