@@ -3,6 +3,7 @@
  */
 
 import { ServerSelectScreen } from '../ServerSelectScreen';
+import { flushPromisesAndTimers } from '../../../../__tests__/helpers';
 
 type NavigationStub = {
     registerFocusable: jest.Mock;
@@ -46,7 +47,12 @@ const createOrchestratorStub = (): OrchestratorStub => {
 };
 
 describe('ServerSelectScreen', () => {
+    beforeEach(() => {
+        jest.useFakeTimers();
+    });
+
     afterEach(() => {
+        jest.useRealTimers();
         localStorage.clear();
         document.body.innerHTML = '';
         jest.clearAllMocks();
@@ -71,7 +77,7 @@ describe('ServerSelectScreen', () => {
         const screen = new ServerSelectScreen(container, orchestrator as never);
         screen.show({ allowAutoConnect: false });
 
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await flushPromisesAndTimers();
 
         const pill = container.querySelector('.server-status-pill') as HTMLElement;
         expect(pill.textContent).toContain('Slow • 250ms');
@@ -97,7 +103,7 @@ describe('ServerSelectScreen', () => {
         const screen = new ServerSelectScreen(container, orchestrator as never);
         screen.show({ allowAutoConnect: false });
 
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await flushPromisesAndTimers();
 
         const pill = container.querySelector('.server-status-pill') as HTMLElement;
         expect(pill.textContent).toContain('Very Slow • 500ms');
@@ -124,7 +130,7 @@ describe('ServerSelectScreen', () => {
         const screen = new ServerSelectScreen(container, orchestrator as never);
         screen.show({ allowAutoConnect: false });
 
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await flushPromisesAndTimers();
 
         const activeRow = container.querySelector('.server-row.active') as HTMLElement;
         expect(activeRow).toBeTruthy();
@@ -157,7 +163,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator as never);
         screen.show({ allowAutoConnect: false });
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await flushPromisesAndTimers();
 
         const serverIds = nav.registerFocusable.mock.calls
             .map((call) => (call[0] as { id?: string })?.id)
@@ -183,7 +189,7 @@ describe('ServerSelectScreen', () => {
         const screen = new ServerSelectScreen(container, orchestrator as never);
         screen.show();
 
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await flushPromisesAndTimers();
 
         expect(orchestrator.selectServer).not.toHaveBeenCalled();
         const status = container.querySelector('.screen-status') as HTMLElement;
@@ -214,7 +220,7 @@ describe('ServerSelectScreen', () => {
         expect(status?.textContent).toContain('Reconnecting to saved server');
 
         resolveDiscovery([{ id: 'srv-1', name: 'Server One', owned: true }]);
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await flushPromisesAndTimers();
 
         expect(hint?.classList.contains('visible')).toBe(false);
     });
@@ -240,7 +246,7 @@ describe('ServerSelectScreen', () => {
         const screen = new ServerSelectScreen(container, orchestrator as never);
         screen.show({ allowAutoConnect: true });
 
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await flushPromisesAndTimers();
 
         const activeRow = container.querySelector('.server-row.active') as HTMLElement;
         const button = activeRow.querySelector('button') as HTMLButtonElement;
@@ -263,7 +269,7 @@ describe('ServerSelectScreen', () => {
         const screen = new ServerSelectScreen(container, orchestrator as never);
         screen.show({ allowAutoConnect: true });
 
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await flushPromisesAndTimers();
 
         const status = container.querySelector('.screen-status') as HTMLElement;
         expect(orchestrator.selectServer).not.toHaveBeenCalled();
@@ -281,7 +287,7 @@ describe('ServerSelectScreen', () => {
         const screen = new ServerSelectScreen(container, orchestrator as never);
         screen.show({ allowAutoConnect: false });
 
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await flushPromisesAndTimers();
 
         const emptyState = container.querySelector('.server-empty-state');
         expect(emptyState).toBeTruthy();
@@ -314,7 +320,7 @@ describe('ServerSelectScreen', () => {
         const screen = new ServerSelectScreen(container, orchestrator as never);
         screen.show({ allowAutoConnect: false });
 
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await flushPromisesAndTimers();
 
         const unregisteredIds = nav.unregisterFocusable.mock.calls.map((call) => call[0] as string | undefined);
         expect(unregisteredIds).not.toContain('btn-server-refresh');
@@ -340,10 +346,10 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator as never);
         screen.show({ allowAutoConnect: false });
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await flushPromisesAndTimers();
 
         await screen.refresh();
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await flushPromisesAndTimers();
 
         const unregisteredIds = nav.unregisterFocusable.mock.calls.map((call) => call[0] as string | undefined);
         expect(unregisteredIds).toContain('btn-server-select-srv-1');
@@ -362,9 +368,8 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator as never);
         screen.show({ allowAutoConnect: false });
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await flushPromisesAndTimers();
 
-        jest.useFakeTimers();
         nav.setFocus.mockClear();
 
         const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
@@ -380,7 +385,6 @@ describe('ServerSelectScreen', () => {
 
         jest.advanceTimersByTime(60);
         expect(nav.setFocus).toHaveBeenCalledWith('btn-server-refresh');
-        jest.useRealTimers();
     });
 
     it('uses navigation restore entrypoint before refresh-button fallback', async () => {
@@ -396,9 +400,8 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator as never);
         screen.show({ allowAutoConnect: false });
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await flushPromisesAndTimers();
 
-        jest.useFakeTimers();
         nav.setFocus.mockClear();
         nav.restoreFocusForCurrentScreen.mockClear();
 
@@ -408,6 +411,5 @@ describe('ServerSelectScreen', () => {
         jest.advanceTimersByTime(60);
         expect(nav.restoreFocusForCurrentScreen).toHaveBeenCalledTimes(1);
         expect(nav.setFocus).not.toHaveBeenCalledWith('btn-server-refresh');
-        jest.useRealTimers();
     });
 });

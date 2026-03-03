@@ -9,6 +9,7 @@ import { StateManager } from '../StateManager';
 import { ErrorRecovery } from '../ErrorRecovery';
 import { AppErrorCode, PersistentState } from '../types';
 import type { PlatformLifecycleService } from '../../../platform';
+import { flushPromisesAndTimers } from '../../../__tests__/helpers';
 
 describe('AppLifecycle', () => {
     let lifecycle: AppLifecycle;
@@ -18,6 +19,7 @@ describe('AppLifecycle', () => {
     let removeEventListenerSpy: jest.SpyInstance;
 
     beforeEach(() => {
+        jest.useFakeTimers();
         // Mock StateManager
         mockStateManager = {
             save: jest.fn().mockResolvedValue(undefined),
@@ -306,9 +308,9 @@ describe('AppLifecycle', () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
             lifecycle.setPhase('loading_data');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
             lifecycle.setPhase('ready');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             const pauseCallback = jest.fn();
             lifecycle.onPause(pauseCallback);
@@ -318,7 +320,7 @@ describe('AppLifecycle', () => {
             document.dispatchEvent(new Event('visibilitychange'));
 
             // Wait for async callbacks
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             expect(pauseCallback).toHaveBeenCalled();
         });
@@ -327,9 +329,9 @@ describe('AppLifecycle', () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
             lifecycle.setPhase('loading_data');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
             lifecycle.setPhase('ready');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             const pauseCallback = jest.fn();
             const subscription = lifecycle.onPause(pauseCallback) as unknown as { dispose?: () => void };
@@ -341,7 +343,7 @@ describe('AppLifecycle', () => {
             document.dispatchEvent(new Event('visibilitychange'));
 
             // Wait for async callbacks
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             expect(pauseCallback).not.toHaveBeenCalled();
         });
@@ -350,9 +352,9 @@ describe('AppLifecycle', () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
             lifecycle.setPhase('loading_data');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
             lifecycle.setPhase('ready');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             const resumeCallback = jest.fn();
             lifecycle.onResume(resumeCallback);
@@ -360,12 +362,12 @@ describe('AppLifecycle', () => {
             // First hide
             Object.defineProperty(document, 'hidden', { value: true, configurable: true });
             document.dispatchEvent(new Event('visibilitychange'));
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             // Then show
             Object.defineProperty(document, 'hidden', { value: false, configurable: true });
             document.dispatchEvent(new Event('visibilitychange'));
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             expect(resumeCallback).toHaveBeenCalled();
         });
@@ -374,9 +376,9 @@ describe('AppLifecycle', () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
             lifecycle.setPhase('loading_data');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
             lifecycle.setPhase('ready');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             const resumeCallback = jest.fn();
             const subscription = lifecycle.onResume(resumeCallback) as unknown as { dispose?: () => void };
@@ -386,12 +388,12 @@ describe('AppLifecycle', () => {
             // First hide
             Object.defineProperty(document, 'hidden', { value: true, configurable: true });
             document.dispatchEvent(new Event('visibilitychange'));
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             // Then show
             Object.defineProperty(document, 'hidden', { value: false, configurable: true });
             document.dispatchEvent(new Event('visibilitychange'));
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             expect(resumeCallback).not.toHaveBeenCalled();
         });
@@ -400,9 +402,9 @@ describe('AppLifecycle', () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
             lifecycle.setPhase('loading_data');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
             lifecycle.setPhase('ready');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             const handler = jest.fn();
             lifecycle.on('visibilityChange', handler);
@@ -410,7 +412,7 @@ describe('AppLifecycle', () => {
             Object.defineProperty(document, 'hidden', { value: true, configurable: true });
             document.dispatchEvent(new Event('visibilitychange'));
 
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             expect(handler).toHaveBeenCalledWith({ isVisible: false });
         });
@@ -419,14 +421,14 @@ describe('AppLifecycle', () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
             lifecycle.setPhase('loading_data');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
             lifecycle.setPhase('ready');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             Object.defineProperty(document, 'hidden', { value: true, configurable: true });
             document.dispatchEvent(new Event('visibilitychange'));
 
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             expect(lifecycle.getPhase()).toBe('backgrounded');
         });
@@ -451,16 +453,16 @@ describe('AppLifecycle', () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
             lifecycle.setPhase('loading_data');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
             lifecycle.setPhase('ready');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             lifecycle.reportError({
                 code: AppErrorCode.AUTH_EXPIRED,
                 message: 'Session expired',
                 recoverable: true,
             });
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             expect(lifecycle.getPhase()).toBe('error');
         });
@@ -563,7 +565,7 @@ describe('AppLifecycle', () => {
             lifecycle.on('phaseChange', handler);
 
             lifecycle.setPhase('loading_data');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             expect(handler).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -577,13 +579,13 @@ describe('AppLifecycle', () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data
             lifecycle.setPhase('loading_data');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             const handler = jest.fn();
             lifecycle.on('phaseChange', handler);
 
             lifecycle.setPhase('loading_data');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             expect(handler).not.toHaveBeenCalled();
         });
@@ -592,9 +594,9 @@ describe('AppLifecycle', () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
             lifecycle.setPhase('loading_data');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
             lifecycle.setPhase('ready');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             const state = lifecycle.getState();
 
@@ -617,7 +619,7 @@ describe('AppLifecycle', () => {
 
             // Try to jump directly to 'ready' (invalid: should go through loading_data)
             lifecycle.setPhase('ready');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             // Phase should NOT have changed
             expect(lifecycle.getPhase()).toBe('authenticating');
@@ -632,9 +634,9 @@ describe('AppLifecycle', () => {
             await lifecycle.initialize();
             // Progress through valid transitions to reach 'ready'
             lifecycle.setPhase('loading_data');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
             lifecycle.setPhase('ready');
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromisesAndTimers();
 
             expect(lifecycle.getPhase()).toBe('ready');
 

@@ -7,6 +7,17 @@ export const flushPromises = async (rounds: number = 2): Promise<void> => {
     }
 };
 
+export const flushPromisesAndTimers = async (
+    promiseRounds: number = 2,
+    timerPasses: number = 1
+): Promise<void> => {
+    for (let i = 0; i < timerPasses; i++) {
+        await flushPromises(promiseRounds);
+        await jest.advanceTimersByTimeAsync(0);
+    }
+    await flushPromises(promiseRounds);
+};
+
 export type Deferred<T> = {
     promise: Promise<T>;
     resolve: (value: T | PromiseLike<T>) => void;
