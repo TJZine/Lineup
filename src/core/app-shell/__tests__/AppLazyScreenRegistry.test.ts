@@ -110,13 +110,9 @@ describe('AppLazyScreenRegistry', () => {
 
     it('wires the audio setup completion callback through the registry-owned constructor path', async () => {
         const audioSetupScreen = makeScreen();
-        let capturedOnComplete: (() => void) | null = null;
 
         const AudioSetupScreen = jest.fn().mockImplementation(
-            (_container: HTMLElement, _getNavigation: () => unknown, onComplete: () => void) => {
-                capturedOnComplete = onComplete;
-                return audioSetupScreen;
-            }
+            (_container: HTMLElement, _getNavigation: () => unknown, _onComplete: () => void) => audioSetupScreen
         );
 
         const onAudioSetupComplete = jest.fn();
@@ -141,7 +137,9 @@ describe('AppLazyScreenRegistry', () => {
         expect(first).toBe(audioSetupScreen as never);
         expect(second).toBe(audioSetupScreen as never);
 
-        capturedOnComplete?.();
+        const maybeOnComplete = AudioSetupScreen.mock.calls[0]?.[2] as (() => void) | undefined;
+        expect(maybeOnComplete).toBeDefined();
+        maybeOnComplete?.();
         expect(onAudioSetupComplete).toHaveBeenCalledTimes(1);
     });
 
@@ -231,13 +229,14 @@ describe('AppLazyScreenRegistry', () => {
             },
         });
 
-        await registry.ensureAudioSetupScreen();
-        await registry.ensureChannelSetupScreen();
-        await registry.ensureSettingsScreen();
         registry.scheduleSettingsPrefetch();
         registry.scheduleChannelSetupPrefetch();
 
         expect(jest.getTimerCount()).toBe(2);
+
+        await registry.ensureAudioSetupScreen();
+        await registry.ensureChannelSetupScreen();
+        await registry.ensureSettingsScreen();
 
         registry.destroy();
 
