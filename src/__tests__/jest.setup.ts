@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 const shouldAllowConsoleOutput = process.env.LINEUP_TEST_CONSOLE === '1';
 const shouldSilenceWarningsAndErrors = process.env.LINEUP_TEST_CONSOLE_SILENT === '1';
 
@@ -31,3 +32,4 @@ if (!shouldAllowConsoleOutput) {
         console.error = originalConsole.error;
     });
 }
+/* eslint-enable no-console */

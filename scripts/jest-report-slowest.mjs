@@ -7,14 +7,31 @@ if (!file) {
     process.exit(1);
 }
 
-const results = JSON.parse(fs.readFileSync(file, 'utf8'));
+let results;
+try {
+    results = JSON.parse(fs.readFileSync(file, 'utf8'));
+} catch (error) {
+    console.error(`Failed to parse Jest JSON results file: ${String(error)}`);
+    process.exit(2);
+}
 
-const suites = results.testResults
-    .map((suite) => ({
-        file: suite.name,
-        durationMs: suite.endTime - suite.startTime,
-        testCount: suite.assertionResults.length,
-    }))
+const testResults = Array.isArray(results?.testResults) ? results.testResults : [];
+
+const suites = testResults
+    .map((suite) => {
+        const startTime = Number(suite?.startTime);
+        const endTime = Number(suite?.endTime);
+        const durationMs = Number.isFinite(startTime) && Number.isFinite(endTime)
+            ? endTime - startTime
+            : 0;
+        const testCount = Array.isArray(suite?.assertionResults) ? suite.assertionResults.length : 0;
+
+        return {
+            file: String(suite?.name ?? '<unknown suite>'),
+            durationMs,
+            testCount,
+        };
+    })
     .sort((a, b) => b.durationMs - a.durationMs)
     .slice(0, 10);
 

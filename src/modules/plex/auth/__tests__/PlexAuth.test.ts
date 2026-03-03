@@ -156,8 +156,7 @@ describe('PlexAuth', () => {
                     code: 'SERVER_UNREACHABLE',
                 });
 
-                await jest.advanceTimersByTimeAsync(1000);
-                await jest.advanceTimersByTimeAsync(2000);
+                await jest.runAllTimersAsync();
 
                 await rejection;
             } finally {
