@@ -20,7 +20,7 @@ import { CHANNEL_BADGE_CONTAINER_ID, type ChannelBadgeConfig } from './modules/u
 import type { MiniGuideConfig } from './modules/ui/mini-guide';
 import type { ChannelTransitionConfig } from './modules/ui/channel-transition';
 import type { PlaybackOptionsConfig } from './modules/ui/playback-options';
-import { createAppContainers } from './core/app-shell/AppContainerFactory';
+import { createAppContainers, type AppContainerRefs } from './core/app-shell/AppContainerFactory';
 import { AppLazyScreenRegistry } from './core/app-shell/AppLazyScreenRegistry';
 import {
     AppBlockingErrorOverlayPresenter,
@@ -34,7 +34,6 @@ import { ProfileSelectScreen } from './modules/ui/profile-select';
 import { ServerSelectScreen } from './modules/ui/server-select';
 import { SplashScreen } from './modules/ui/splash';
 import { ThemeManager } from './modules/ui/theme';
-import type { ToastInput } from './modules/ui/toast/types';
 import { STORAGE_KEYS } from './types';
 import {
     safeLocalStorageGet,
@@ -140,33 +139,21 @@ const ERROR_OVERLAY_MODAL_ID = 'modal:error-overlay';
 export class App {
     private _orchestrator: AppOrchestrator | null = null;
     private readonly _blockingErrorOverlayPresenter = new AppBlockingErrorOverlayPresenter({
-        getNavigation: (): INavigationManager | null => this._getSafeNavigation(),
+        getNavigation: (): INavigationManager | null => this._orchestrator?.getNavigation() ?? null,
         modalId: ERROR_OVERLAY_MODAL_ID,
     });
     private readonly _toastPresenter = new AppToastPresenter();
     private readonly _diagnosticsSurface = new AppDiagnosticsSurface({
         getOrchestrator: (): AppOrchestrator | null => this._orchestrator,
-        showToast: (toast): void => this._showToast(toast),
+        showToast: (toast): void => this._toastPresenter.show(toast),
     });
-    private _authContainer: HTMLElement | null = null;
-    private _profileSelectContainer: HTMLElement | null = null;
-    private _serverSelectContainer: HTMLElement | null = null;
-    private _channelSetupContainer: HTMLElement | null = null;
     private _authScreen: AuthScreen | null = null;
     private _profileSelectScreen: ProfileSelectScreen | null = null;
     private _serverSelectScreen: ServerSelectScreen | null = null;
     private _lazyScreenRegistry: AppLazyScreenRegistry | null = null;
-    private _audioSetupContainer: HTMLElement | null = null;
-    private _settingsContainer: HTMLElement | null = null;
-
-    private _splashContainer: HTMLElement | null = null;
     private _splashScreen: SplashScreen | null = null;
     private _screenUnsubscribe: (() => void) | null = null;
     private _phaseUnsubscribe: (() => void) | null = null;
-
-    private _getSafeNavigation(): INavigationManager | null {
-        return this._orchestrator?.getNavigation() ?? null;
-    }
 
     /**
      * Initialize and start the application.
@@ -176,7 +163,7 @@ export class App {
             ThemeManager.getInstance();
 
             // Create root containers
-            this._createContainers();
+            const containerRefs = this._createContainers();
 
             // Build configuration
             const config = this._buildConfig();
@@ -186,13 +173,15 @@ export class App {
             await this._orchestrator.initialize(config);
 
             // Initialize minimal auth/server screens before startup
-            this._initializeScreens();
+            this._initializeScreens(containerRefs);
             this._wireScreenVisibility();
 
             // Wire up lifecycle error events before starting
             this._subscribeToLifecycleErrors();
             this._subscribeToLifecycleWarnings();
-            this._wireNowPlayingToasts();
+            this._orchestrator.setNowPlayingHandler((toast) => {
+                this._toastPresenter.show(toast);
+            });
 
             // Start the orchestrator
             await this._orchestrator.start();
@@ -224,7 +213,7 @@ export class App {
                 };
             if (!this._shouldUseBlockingOverlay(lifecycleError)) {
                 this.hideErrorOverlay();
-                this._showToast({
+                this._toastPresenter.show({
                     message: this._getNonBlockingToastMessage(lifecycleError),
                     type: 'warning',
                 });
@@ -258,18 +247,11 @@ export class App {
         if (!this._orchestrator) return;
 
         this._orchestrator.onLifecycleEvent('persistenceWarning', () => {
-            this._showToast({ message: 'Some settings could not be saved.', type: 'warning' });
+            this._toastPresenter.show({ message: 'Some settings could not be saved.', type: 'warning' });
         });
 
         this._orchestrator.onLifecycleEvent('networkWarning', () => {
-            this._showToast({ message: 'Network connection looks unstable.', type: 'warning' });
-        });
-    }
-
-    private _wireNowPlayingToasts(): void {
-        if (!this._orchestrator) return;
-        this._orchestrator.setNowPlayingHandler((toast) => {
-            this._showToast(toast);
+            this._toastPresenter.show({ message: 'Network connection looks unstable.', type: 'warning' });
         });
     }
 
@@ -318,7 +300,7 @@ export class App {
     /**
      * Create DOM containers for modules that need them.
      */
-    private _createContainers(): void {
+    private _createContainers(): AppContainerRefs {
         const root = document.getElementById('app');
         if (!root) {
             throw new Error('Root element #app not found');
@@ -326,38 +308,23 @@ export class App {
 
         const refs = createAppContainers(root);
 
-        this._splashContainer = refs.splashContainer;
-        this._authContainer = refs.authContainer;
-        this._profileSelectContainer = refs.profileSelectContainer;
-        this._serverSelectContainer = refs.serverSelectContainer;
-        this._channelSetupContainer = refs.channelSetupContainer;
-        this._audioSetupContainer = refs.audioSetupContainer;
-        this._settingsContainer = refs.settingsContainer;
         this._blockingErrorOverlayPresenter.setContainer(refs.errorOverlay);
         this._diagnosticsSurface.setContainer(refs.devMenuContainer);
         this._diagnosticsSurface.initialize();
         this._toastPresenter.setContainer(refs.toastContainer);
+
+        return refs;
     }
 
-    private _initializeScreens(): void {
+    private _initializeScreens(containerRefs: AppContainerRefs): void {
         if (!this._orchestrator) {
             return;
         }
-        if (this._splashContainer) {
-            this._splashScreen = new SplashScreen(this._splashContainer);
-        }
-        if (
-            !this._authContainer ||
-            !this._profileSelectContainer ||
-            !this._serverSelectContainer ||
-            !this._channelSetupContainer
-        ) {
-            return;
-        }
-        this._authScreen = new AuthScreen(this._authContainer, this._orchestrator);
-        this._profileSelectScreen = new ProfileSelectScreen(this._profileSelectContainer, this._orchestrator);
+        this._splashScreen = new SplashScreen(containerRefs.splashContainer);
+        this._authScreen = new AuthScreen(containerRefs.authContainer, this._orchestrator);
+        this._profileSelectScreen = new ProfileSelectScreen(containerRefs.profileSelectContainer, this._orchestrator);
         this._serverSelectScreen = new ServerSelectScreen(
-            this._serverSelectContainer,
+            containerRefs.serverSelectContainer,
             this._orchestrator
         );
         // Audio setup, Channel setup, and Settings remain lazy-loaded to
@@ -366,19 +333,14 @@ export class App {
         this._lazyScreenRegistry = new AppLazyScreenRegistry({
             getOrchestrator: (): AppOrchestrator | null => this._orchestrator,
             containers: {
-                audioSetupContainer: this._audioSetupContainer,
-                channelSetupContainer: this._channelSetupContainer,
-                settingsContainer: this._settingsContainer,
+                audioSetupContainer: containerRefs.audioSetupContainer,
+                channelSetupContainer: containerRefs.channelSetupContainer,
+                settingsContainer: containerRefs.settingsContainer,
             },
-            onAudioSetupComplete: (): void => this._onAudioSetupComplete(),
+            onAudioSetupComplete: (): void => {
+                this._orchestrator?.getNavigation()?.replaceScreen('channel-setup');
+            },
         });
-    }
-
-    private _onAudioSetupComplete(): void {
-        // Navigate to channel-setup after audio setup
-        if (this._orchestrator) {
-            this._orchestrator.getNavigation()?.replaceScreen('channel-setup');
-        }
     }
 
     private _wireScreenVisibility(): void {
@@ -632,13 +594,6 @@ export class App {
 
             root.appendChild(container);
         }
-    }
-
-    /**
-     * Show a non-blocking toast message.
-     */
-    private _showToast(input: ToastInput): void {
-        this._toastPresenter.show(input);
     }
 
 }
