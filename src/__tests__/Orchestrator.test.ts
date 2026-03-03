@@ -1980,6 +1980,32 @@ describe('AppOrchestrator', () => {
             }
         });
 
+        it('records event cleanup failures under events.unsubscribe and continues shutdown', async () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const pauseDispose = jest.fn(() => {
+                throw new Error('pause cleanup failed');
+            });
+
+            (mockLifecycle.onPause as jest.Mock).mockImplementationOnce(
+                (handler: () => void | Promise<void>) => {
+                    pauseHandler = handler;
+                    return { dispose: pauseDispose };
+                }
+            );
+
+            await orchestrator.start();
+            await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+
+            expect(pauseDispose).toHaveBeenCalledTimes(1);
+            expect(mockNavigation.destroy).toHaveBeenCalled();
+            expect(warnSpy).toHaveBeenCalledWith(
+                '[Orchestrator] Shutdown teardown failures:',
+                expect.arrayContaining([
+                    expect.objectContaining({ step: 'events.unsubscribe' }),
+                ])
+            );
+        });
+
         it('should set ready to false after shutdown', async () => {
             // First start to set ready
             mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('t'));
