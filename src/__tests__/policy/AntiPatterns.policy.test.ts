@@ -108,15 +108,12 @@ describe('AntiPatterns policy (frozen suites)', () => {
         const baseline = readPrivateBaseline();
         if (!baseline) {
             throw new Error(
-                'Missing policy baseline files. Expected:\n' +
+                'Missing policy baseline file. Expected:\n' +
                 `- ${BASELINE_PRIVATE_ALLOWLIST}\n` +
-                `- ${BASELINE_SLEEP_REPORT}\n` +
                 'Re-generate baselines by running:\n' +
                 '  npm run test:contracts -- src/__tests__/policy/AntiPatterns.policy.test.ts\n' +
-                'Then copy the generated reports from:\n' +
-                `- ${CURRENT_PRIVATE_ALLOWLIST}\n` +
-                `- ${CURRENT_PRIVATE_REPORT}\n` +
-                `- ${CURRENT_SLEEP_REPORT}`
+                'Then copy the generated allowlist from:\n' +
+                `- ${CURRENT_PRIVATE_ALLOWLIST}`
             );
         }
 

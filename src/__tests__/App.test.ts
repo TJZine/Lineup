@@ -216,6 +216,14 @@ describe('App bootstrap smoke', () => {
         });
     };
 
+    const bootstrapApp = async (configure?: () => void): Promise<App> => {
+        installStartupSpies();
+        configure?.();
+        app = new App();
+        await app.start();
+        return app;
+    };
+
     afterEach(async () => {
         if (app) {
             await app.shutdown();
@@ -228,9 +236,7 @@ describe('App bootstrap smoke', () => {
     });
 
     it('creates root containers and starts orchestrator', async () => {
-        installStartupSpies();
-        app = new App();
-        await app.start();
+        await bootstrapApp();
 
         expect(initializeSpy).toHaveBeenCalledTimes(1);
         expect(startSpy).toHaveBeenCalledTimes(1);
@@ -702,9 +708,7 @@ describe('App bootstrap smoke', () => {
             writable: true,
         });
         localStorage.removeItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING);
-        installStartupSpies();
-        app = new App();
-        await app.start();
+        await bootstrapApp();
 
         expect((window as unknown as { lineup?: unknown }).lineup).toBeUndefined();
 
@@ -726,9 +730,7 @@ describe('App bootstrap smoke', () => {
         const toggleServerSelectSpy = jest
             .spyOn(AppOrchestrator.prototype, 'toggleServerSelect')
             .mockImplementation(() => undefined);
-        installStartupSpies();
-        app = new App();
-        await app.start();
+        await bootstrapApp();
 
         document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyI' }));
         expect(toggleServerSelectSpy).toHaveBeenCalledTimes(1);
@@ -738,15 +740,13 @@ describe('App bootstrap smoke', () => {
         const toggleServerSelectSpy = jest
             .spyOn(AppOrchestrator.prototype, 'toggleServerSelect')
             .mockImplementation(() => undefined);
-        installStartupSpies();
-        app = new App();
-        await app.start();
+        const startedApp = await bootstrapApp();
 
         document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyI' }));
         expect(toggleServerSelectSpy).toHaveBeenCalledTimes(1);
         expect(typeof (window as { lineup?: { toggleDevMenu: () => void } }).lineup?.toggleDevMenu).toBe('function');
 
-        await app.shutdown();
+        await startedApp.shutdown();
         app = null;
 
         document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyI' }));
@@ -911,9 +911,7 @@ describe('App bootstrap smoke', () => {
             });
 
             localStorage.setItem(STORAGE_KEYS.CLIENT_ID, '');
-            installStartupSpies();
-            app = new App();
-            await app.start();
+            await bootstrapApp();
 
             const clientId = localStorage.getItem(STORAGE_KEYS.CLIENT_ID) ?? '';
             expect(clientId).toMatch(/^lineup-[a-z0-9]+$/);
@@ -927,9 +925,7 @@ describe('App bootstrap smoke', () => {
 
     it('uses an existing sane client id without regenerating', async () => {
         localStorage.setItem(STORAGE_KEYS.CLIENT_ID, 'lineup-existing_123');
-        installStartupSpies();
-        app = new App();
-        await app.start();
+        await bootstrapApp();
 
         expect(localStorage.getItem(STORAGE_KEYS.CLIENT_ID)).toBe('lineup-existing_123');
     });

@@ -526,18 +526,29 @@ describe('EPGInfoPanel', () => {
             const realCreateObjectURL = URL.createObjectURL;
             const realRevokeObjectURL = URL.revokeObjectURL;
             const sampleBlob = new Blob(['sample'], { type: 'image/jpeg' });
-            const firstFetch = new Promise<Response>(() => {});
-            const observedSignals: AbortSignal[] = [];
+            const observedSignals: Array<AbortSignal | undefined> = [];
 
             try {
                 const fetchMock = jest
                     .fn()
                     .mockImplementationOnce((_url: string, init?: RequestInit) => {
-                        observedSignals.push(init?.signal as AbortSignal);
-                        return firstFetch;
+                        const signal = init?.signal as AbortSignal | undefined;
+                        observedSignals.push(signal);
+
+                        return new Promise<Response>((_resolve, reject) => {
+                            if (!signal) {
+                                reject(new Error('Missing abort signal'));
+                                return;
+                            }
+                            signal.addEventListener(
+                                'abort',
+                                () => reject(new DOMException('Aborted', 'AbortError')),
+                                { once: true }
+                            );
+                        });
                     })
                     .mockImplementationOnce((_url: string, init?: RequestInit) => {
-                        observedSignals.push(init?.signal as AbortSignal);
+                        observedSignals.push(init?.signal as AbortSignal | undefined);
                         return Promise.resolve({
                             ok: true,
                             blob: async () => sampleBlob,
