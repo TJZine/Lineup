@@ -22,6 +22,7 @@ import type { MiniGuideConfig } from './modules/ui/mini-guide';
 import type { ChannelTransitionConfig } from './modules/ui/channel-transition';
 import type { PlaybackOptionsConfig } from './modules/ui/playback-options';
 import { createAppContainers } from './core/app-shell/AppContainerFactory';
+import { AppLazyScreenRegistry } from './core/app-shell/AppLazyScreenRegistry';
 import type { PlexAuthConfig } from './modules/plex/auth';
 import { AuthScreen } from './modules/ui/auth';
 import { ProfileSelectScreen } from './modules/ui/profile-select';
@@ -39,9 +40,6 @@ import {
     safeLocalStorageSet,
 } from './utils/storage';
 import { summarizeErrorForLog } from './utils/errors';
-import type { ChannelSetupScreen } from './modules/ui/channel-setup/ChannelSetupScreen';
-import type { SettingsScreen } from './modules/ui/settings/SettingsScreen';
-import type { AudioSetupScreen } from './modules/ui/audio-setup/AudioSetupScreen';
 
 // ============================================
 // Configuration Defaults
@@ -154,16 +152,9 @@ export class App {
     private _authScreen: AuthScreen | null = null;
     private _profileSelectScreen: ProfileSelectScreen | null = null;
     private _serverSelectScreen: ServerSelectScreen | null = null;
-    private _channelSetupScreen: ChannelSetupScreen | null = null;
-    private _channelSetupScreenLoad: Promise<ChannelSetupScreen> | null = null;
-    private _channelSetupPrefetchTimerId: number | null = null;
+    private _lazyScreenRegistry: AppLazyScreenRegistry | null = null;
     private _audioSetupContainer: HTMLElement | null = null;
-    private _audioSetupScreen: AudioSetupScreen | null = null;
-    private _audioSetupScreenLoad: Promise<AudioSetupScreen> | null = null;
     private _settingsContainer: HTMLElement | null = null;
-    private _settingsScreen: SettingsScreen | null = null;
-    private _settingsScreenLoad: Promise<SettingsScreen> | null = null;
-    private _settingsPrefetchTimerId: number | null = null;
 
     private _splashContainer: HTMLElement | null = null;
     private _splashScreen: SplashScreen | null = null;
@@ -306,15 +297,8 @@ export class App {
         this._profileSelectScreen = null;
         this._serverSelectScreen?.destroy();
         this._serverSelectScreen = null;
-        this._audioSetupScreen?.destroy();
-        this._audioSetupScreen = null;
-        this._channelSetupScreen?.destroy();
-        this._channelSetupScreen = null;
-        this._settingsScreen?.destroy();
-        this._settingsScreen = null;
-
-        this._cancelSettingsPrefetch();
-        this._cancelChannelSetupPrefetch();
+        this._lazyScreenRegistry?.destroy();
+        this._lazyScreenRegistry = null;
         try {
             delete (window as { lineup?: unknown }).lineup;
         } catch {
@@ -410,8 +394,18 @@ export class App {
             this._serverSelectContainer,
             this._orchestrator
         );
-        // Audio setup, Channel setup, and Settings are intentionally lazy-loaded to
-        // reduce initial JS parse/compile cost on webOS.
+        // Audio setup, Channel setup, and Settings remain lazy-loaded to
+        // reduce initial JS parse/compile cost on webOS. The registry owns
+        // all lazy-screen state, timers, and cleanup for those screens.
+        this._lazyScreenRegistry = new AppLazyScreenRegistry({
+            getOrchestrator: () => this._orchestrator,
+            containers: {
+                audioSetupContainer: this._audioSetupContainer,
+                channelSetupContainer: this._channelSetupContainer,
+                settingsContainer: this._settingsContainer,
+            },
+            onAudioSetupComplete: () => this._onAudioSetupComplete(),
+        });
     }
 
     private _onAudioSetupComplete(): void {
@@ -461,10 +455,10 @@ export class App {
             this._authScreen?.hide();
             this._profileSelectScreen?.hide();
             this._serverSelectScreen?.hide();
-            this._audioSetupScreen?.hide();
-            this._channelSetupScreen?.hide();
-            this._settingsScreen?.hide();
-            this._scheduleSettingsPrefetch();
+            this._lazyScreenRegistry?.getAudioSetupScreen()?.hide();
+            this._lazyScreenRegistry?.getChannelSetupScreen()?.hide();
+            this._lazyScreenRegistry?.getSettingsScreen()?.hide();
+            this._lazyScreenRegistry?.scheduleSettingsPrefetch();
             return;
         }
         const showSplash = screen === 'splash';
@@ -507,165 +501,48 @@ export class App {
                     ? { allowAutoConnect }
                     : undefined;
                 this._serverSelectScreen.show(showOptions);
-                this._scheduleChannelSetupPrefetch();
+                this._lazyScreenRegistry?.scheduleChannelSetupPrefetch();
             } else {
                 this._serverSelectScreen.hide();
-                this._cancelChannelSetupPrefetch();
+                this._lazyScreenRegistry?.cancelChannelSetupPrefetch();
             }
         }
 
         if (showAudioSetup) {
             void this._showAudioSetupScreen();
         } else {
-            this._audioSetupScreen?.hide();
+            this._lazyScreenRegistry?.getAudioSetupScreen()?.hide();
         }
 
         if (showChannelSetup) {
             void this._showChannelSetupScreen();
         } else {
-            this._channelSetupScreen?.hide();
+            this._lazyScreenRegistry?.getChannelSetupScreen()?.hide();
         }
 
         if (showSettings) {
             void this._showSettingsScreen();
         } else {
-            this._settingsScreen?.hide();
+            this._lazyScreenRegistry?.getSettingsScreen()?.hide();
         }
-    }
-
-    private _cancelSettingsPrefetch(): void {
-        if (this._settingsPrefetchTimerId !== null) {
-            window.clearTimeout(this._settingsPrefetchTimerId);
-            this._settingsPrefetchTimerId = null;
-        }
-    }
-
-    private _cancelChannelSetupPrefetch(): void {
-        if (this._channelSetupPrefetchTimerId !== null) {
-            window.clearTimeout(this._channelSetupPrefetchTimerId);
-            this._channelSetupPrefetchTimerId = null;
-        }
-    }
-
-    /**
-     * Prefetch Settings shortly after entering the player experience.
-     * This keeps Settings opening instant while still keeping the initial entry chunk smaller.
-     */
-    private _scheduleSettingsPrefetch(): void {
-        if (this._settingsScreen || this._settingsScreenLoad) return;
-        if (this._settingsPrefetchTimerId !== null) return;
-        this._settingsPrefetchTimerId = window.setTimeout(() => {
-            this._settingsPrefetchTimerId = null;
-            if (this._settingsScreen || this._settingsScreenLoad) return;
-            void import('./modules/ui/settings/SettingsScreen').catch(() => {
-                // Best-effort prefetch only.
-            });
-        }, 1200);
-    }
-
-    /**
-     * Prefetch the channel setup chunk shortly after Server Select becomes visible.
-     * This keeps onboarding UX snappy (no long delay when channel-setup is needed),
-     * while still keeping initial entry chunk smaller at app boot.
-     */
-    private _scheduleChannelSetupPrefetch(): void {
-        if (this._channelSetupScreen || this._channelSetupScreenLoad) return;
-        if (this._channelSetupPrefetchTimerId !== null) return;
-        this._channelSetupPrefetchTimerId = window.setTimeout(() => {
-            this._channelSetupPrefetchTimerId = null;
-            if (this._channelSetupScreen || this._channelSetupScreenLoad) return;
-            void import('./modules/ui/channel-setup/ChannelSetupScreen').catch(() => {
-                // Best-effort prefetch only.
-            });
-        }, 500);
-    }
-
-    private async _ensureChannelSetupScreen(): Promise<ChannelSetupScreen | null> {
-        if (this._channelSetupScreen) return this._channelSetupScreen;
-        if (!this._orchestrator || !this._channelSetupContainer) return null;
-
-        if (!this._channelSetupScreenLoad) {
-            this._channelSetupScreenLoad = import('./modules/ui/channel-setup/ChannelSetupScreen')
-                .then(({ ChannelSetupScreen }) => {
-                    const screen = new ChannelSetupScreen(this._channelSetupContainer!, this._orchestrator!);
-                    this._channelSetupScreen = screen;
-                    return screen;
-                })
-                .finally(() => {
-                    this._channelSetupScreenLoad = null;
-                });
-        }
-        return this._channelSetupScreenLoad;
     }
 
     private async _showChannelSetupScreen(): Promise<void> {
-        const screen = await this._ensureChannelSetupScreen();
+        const screen = await this._lazyScreenRegistry?.ensureChannelSetupScreen();
         if (!screen) return;
         if (this._orchestrator?.getCurrentScreen() !== 'channel-setup') return;
         screen.show();
     }
 
-    private async _ensureAudioSetupScreen(): Promise<AudioSetupScreen | null> {
-        if (this._audioSetupScreen) return this._audioSetupScreen;
-        if (!this._orchestrator || !this._audioSetupContainer) return null;
-
-        if (!this._audioSetupScreenLoad) {
-            this._audioSetupScreenLoad = import('./modules/ui/audio-setup')
-                .then(({ AudioSetupScreen }) => {
-                    const screen = new AudioSetupScreen(
-                        this._audioSetupContainer!,
-                        () => this._orchestrator?.getNavigation() ?? null,
-                        () => this._onAudioSetupComplete()
-                    );
-                    this._audioSetupScreen = screen;
-                    return screen;
-                })
-                .finally(() => {
-                    this._audioSetupScreenLoad = null;
-                });
-        }
-
-        return this._audioSetupScreenLoad;
-    }
-
     private async _showAudioSetupScreen(): Promise<void> {
-        const screen = await this._ensureAudioSetupScreen();
+        const screen = await this._lazyScreenRegistry?.ensureAudioSetupScreen();
         if (!screen) return;
         if (this._orchestrator?.getCurrentScreen() !== 'audio-setup') return;
         screen.show();
     }
 
-    private async _ensureSettingsScreen(): Promise<SettingsScreen | null> {
-        if (this._settingsScreen) return this._settingsScreen;
-        if (!this._orchestrator || !this._settingsContainer) return null;
-
-        if (!this._settingsScreenLoad) {
-            this._settingsScreenLoad = import('./modules/ui/settings/SettingsScreen')
-                .then(({ SettingsScreen }) => {
-                    const screen = new SettingsScreen(
-                        this._settingsContainer!,
-                        () => this._orchestrator?.getNavigation() ?? null,
-                        (mode): void => {
-                            if (mode !== 'off') return;
-                            void this._orchestrator?.setSubtitleTrack(null);
-                        },
-                        (change): void => {
-                            this._orchestrator?.onGuideSettingChange(change);
-                        }
-                    );
-                    this._settingsScreen = screen;
-                    return screen;
-                })
-                .finally(() => {
-                    this._settingsScreenLoad = null;
-                });
-        }
-
-        return this._settingsScreenLoad;
-    }
-
     private async _showSettingsScreen(): Promise<void> {
-        const screen = await this._ensureSettingsScreen();
+        const screen = await this._lazyScreenRegistry?.ensureSettingsScreen();
         if (!screen) return;
         if (this._orchestrator?.getCurrentScreen() !== 'settings') return;
         screen.show();
