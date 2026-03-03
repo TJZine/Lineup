@@ -1454,6 +1454,7 @@ describe('EPGCoordinator', () => {
             switchToChannel,
         }).deps;
         const coordinator = new EPGCoordinator(deps);
+        jest.spyOn(Date, 'now').mockReturnValue(5_000);
 
         const [unsubChannel, unsubFilter] = coordinator.wireEpgEvents();
         expect(typeof unsubChannel).toBe('function');
@@ -1462,7 +1463,11 @@ describe('EPGCoordinator', () => {
         const handler = (epg.on as jest.Mock).mock.calls[0][1];
         handler({
             channel: makeChannel('c1', 1),
-            program: { ...baseProgram('c1', 0), scheduledStartTime: 0 } as ScheduledProgram,
+            program: {
+                ...baseProgram('c1', 0),
+                scheduledStartTime: 4_000,
+                scheduledEndTime: 6_000,
+            } as ScheduledProgram,
         });
 
         expect(setSource).toHaveBeenCalled();
@@ -1477,6 +1482,57 @@ describe('EPGCoordinator', () => {
         if (filterHandler) {
             expect(epg.off).toHaveBeenCalledWith('libraryFilterChanged', filterHandler);
         }
+    });
+
+    it('wireEpgEvents does not switch when selected program already ended', () => {
+        const hide = jest.fn();
+        const epg: IEPGComponent = {
+            on: jest.fn(),
+            off: jest.fn(),
+            hide,
+            getState: jest.fn().mockReturnValue({
+                isVisible: false,
+                focusedCell: null,
+                scrollPosition: { channelOffset: 0, timeOffset: 0 },
+                viewWindow: {
+                    startTime: 0,
+                    endTime: 0,
+                    startChannelIndex: 0,
+                    endChannelIndex: 0,
+                },
+                currentTime: 0,
+            }),
+            clearSchedules: jest.fn(),
+            setCategoryColorsEnabled: jest.fn(),
+            setVisibleHours: jest.fn(),
+            setLibraryTabs: jest.fn(),
+            scrollToChannel: jest.fn(),
+            focusChannel: jest.fn(),
+        } as unknown as IEPGComponent;
+        const switchToChannel = jest.fn().mockResolvedValue(undefined);
+        const setSource = jest.fn();
+        const deps = makeDeps({
+            getEpg: () => epg,
+            setLastChannelChangeSourceToGuide: setSource,
+            switchToChannel,
+        }).deps;
+        const coordinator = new EPGCoordinator(deps);
+        jest.spyOn(Date, 'now').mockReturnValue(5_000);
+
+        coordinator.wireEpgEvents();
+        const handler = (epg.on as jest.Mock).mock.calls[0][1];
+        handler({
+            channel: makeChannel('c1', 1),
+            program: {
+                ...baseProgram('c1', 0),
+                scheduledStartTime: 1_000,
+                scheduledEndTime: 4_000,
+            } as ScheduledProgram,
+        });
+
+        expect(setSource).not.toHaveBeenCalled();
+        expect(hide).not.toHaveBeenCalled();
+        expect(switchToChannel).not.toHaveBeenCalled();
     });
 
     it('library filter change clears schedules, primes, and refreshes', () => {
