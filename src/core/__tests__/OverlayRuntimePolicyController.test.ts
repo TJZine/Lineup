@@ -162,15 +162,14 @@ describe('OverlayRuntimePolicyController', () => {
     });
 
     it('closes the now playing modal when it is already open', () => {
-        const { controller, deps } = makeOverlayHarness({
-            isModalOpen: jest.fn().mockImplementation((modalId?: string) => modalId === 'now-playing-info'),
-        });
+        const { controller, deps } = makeOverlayHarness();
+        deps.isModalOpen.mockImplementation((modalId?: string) => modalId === deps.nowPlayingModalId);
 
         controller.toggleNowPlayingInfoOverlay();
 
-        expect(deps.isModalOpen).toHaveBeenCalledWith('now-playing-info');
+        expect(deps.isModalOpen).toHaveBeenCalledWith(deps.nowPlayingModalId);
         expect(deps.closeModal).toHaveBeenCalledTimes(1);
-        expect(deps.closeModal).toHaveBeenCalledWith('now-playing-info');
+        expect(deps.closeModal).toHaveBeenCalledWith(deps.nowPlayingModalId);
         expect(deps.openModal).not.toHaveBeenCalled();
     });
 
@@ -181,7 +180,7 @@ describe('OverlayRuntimePolicyController', () => {
 
         controller.toggleNowPlayingInfoOverlay();
 
-        expect(deps.isModalOpen).toHaveBeenNthCalledWith(1, 'now-playing-info');
+        expect(deps.isModalOpen).toHaveBeenNthCalledWith(1, deps.nowPlayingModalId);
         expect(deps.isModalOpen).toHaveBeenNthCalledWith(2, undefined);
         expect(deps.openModal).not.toHaveBeenCalled();
         expect(deps.closeModal).not.toHaveBeenCalled();
@@ -192,10 +191,10 @@ describe('OverlayRuntimePolicyController', () => {
 
         controller.toggleNowPlayingInfoOverlay();
 
-        expect(deps.isModalOpen).toHaveBeenNthCalledWith(1, 'now-playing-info');
+        expect(deps.isModalOpen).toHaveBeenNthCalledWith(1, deps.nowPlayingModalId);
         expect(deps.isModalOpen).toHaveBeenNthCalledWith(2, undefined);
         expect(deps.openModal).toHaveBeenCalledTimes(1);
-        expect(deps.openModal).toHaveBeenCalledWith('now-playing-info');
+        expect(deps.openModal).toHaveBeenCalledWith(deps.nowPlayingModalId);
         expect(deps.closeModal).not.toHaveBeenCalled();
     });
 });
