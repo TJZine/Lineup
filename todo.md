@@ -85,6 +85,7 @@
 - [ ] Endpoint cleanup pass: capture live webOS + desktop traces for Plex Home profile fetch + subtitle extraction, pick canonical endpoint/path variants, and remove fallback branches that never succeed
 - [ ] EPG guide focus rule: preserve guide focus unless last change was channel up/down; decide number-entry behavior
 - [ ] EPG: Custom per-category colors (buildStrategy) via Settings (persist per-category color map; apply by updating CSS variables, still allow per-channel `channel.color` to override)
+- [ ] Theme pass follow-up: playback-options modal needs per-theme tint calibration so selected vs focused states stay distinct at 10-foot distance (especially Glass, DirecTV, Ember-Steel); include forced-colors fallback focus treatment and define whether panel gradient should use `--scrim-tint-rgb` tokenization vs targeted per-theme overrides.
 - [ ] AbortController-based channel switching (abort previous resolve when user rapidly switches channels)
 - [ ] Clear Cache feature (actual cache clearing via Settings screen - common QOL feature in Plex apps)
 - [ ] Keyboard quick reference overlay (Info button)
