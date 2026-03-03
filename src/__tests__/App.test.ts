@@ -180,14 +180,33 @@ describe('App bootstrap smoke', () => {
 
         expect(initializeSpy).toHaveBeenCalledTimes(1);
         expect(startSpy).toHaveBeenCalledTimes(1);
-        expect(document.getElementById('video-container')).not.toBeNull();
-        expect(document.getElementById('epg-container')).not.toBeNull();
-        expect(document.getElementById('now-playing-info-container')).not.toBeNull();
-        expect(document.getElementById('channel-badge-container')).not.toBeNull();
-        expect(document.getElementById('channel-transition-container')).not.toBeNull();
-        expect(document.getElementById('playback-options-container')).not.toBeNull();
+        const requiredContainerIds = [
+            'video-container',
+            'player-osd-container',
+            'channel-number-overlay-container',
+            'channel-badge-container',
+            'mini-guide-container',
+            'channel-transition-container',
+            'epg-container',
+            'now-playing-info-container',
+            'playback-options-container',
+            'splash-container',
+            'auth-container',
+            'profile-select-container',
+            'server-select-container',
+            'channel-setup-container',
+            'audio-setup-container',
+            'settings-container',
+            'error-overlay',
+            'dev-menu',
+            'app-toast',
+        ];
+
+        for (const id of requiredContainerIds) {
+            expect(document.getElementById(id)).not.toBeNull();
+        }
+
         expect(document.getElementById(EXIT_CONFIRM_CONTAINER_ID)).not.toBeNull();
-        expect(document.getElementById('splash-container')).not.toBeNull();
     });
 
     const createPlaybackSnapshots = (): {
