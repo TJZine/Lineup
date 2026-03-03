@@ -1432,7 +1432,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             throw new Error('PlexAuth not initialized');
         }
 
-        this._profileSwitchCleanupController!.prepareForProfileSwitch();
+        this._requireProfileSwitchCleanupController().prepareForProfileSwitch();
         // Profile-switch startup is resumed explicitly below; avoid duplicate
         // queued startup runs from a stale profile-resume listener.
         this._initCoordinator?.clearProfileResume();
@@ -1451,7 +1451,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             throw new Error('PlexAuth not initialized');
         }
 
-        this._profileSwitchCleanupController!.prepareForProfileSwitch();
+        this._requireProfileSwitchCleanupController().prepareForProfileSwitch();
         // Same as switchHomeUser: avoid duplicate startup runs when an old
         // profile-resume listener is still registered.
         this._initCoordinator?.clearProfileResume();
@@ -2461,6 +2461,13 @@ export class AppOrchestrator implements IAppOrchestrator {
             throw new Error('OverlayRuntimePolicyController not initialized');
         }
         return this._overlayRuntimePolicyController;
+    }
+
+    private _requireProfileSwitchCleanupController(): ProfileSwitchCleanupController {
+        if (!this._profileSwitchCleanupController) {
+            throw new Error('ProfileSwitchCleanupController not initialized');
+        }
+        return this._profileSwitchCleanupController;
     }
 
     private _requirePlaybackStartController(): PlaybackStartController {
