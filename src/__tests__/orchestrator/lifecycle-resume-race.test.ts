@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
 import type { StreamDescriptor } from '../../modules/player';
 import type { ScheduledProgram } from '../../modules/scheduler/scheduler';
 import type { IAppLifecycle } from '../../modules/lifecycle';

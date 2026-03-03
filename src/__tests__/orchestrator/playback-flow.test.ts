@@ -71,6 +71,13 @@ describe('AppOrchestrator playback flow suite', () => {
         const handlePlaybackFailure = jest.fn();
 
         const orchestratorAny = orchestrator as unknown as {
+            _scheduler: {
+                skipToNext: () => void;
+                pauseSyncTimer: () => void;
+                resumeSyncTimer: () => void;
+                syncToCurrentTime: () => void;
+            } | null;
+            _lifecycle: { saveState: () => Promise<void> } | null;
             _videoPlayer: { loadStream: (stream: unknown) => Promise<void>; play: () => Promise<void> } | null;
             _playbackRecovery: {
                 resolveStreamForProgram: (program: ScheduledProgram) => Promise<unknown>;
@@ -79,7 +86,17 @@ describe('AppOrchestrator playback flow suite', () => {
                 tryHandleStreamResolverPermissionError: (error: unknown) => boolean;
                 handlePlaybackFailure: (context: string, error: unknown) => void;
             } | null;
-            _handleProgramStart: (program: ScheduledProgram) => Promise<void>;
+            _initializePriorityOneControllers: () => void;
+            _playbackStartController: { handleProgramStart: (program: ScheduledProgram) => Promise<void> } | null;
+        };
+        orchestratorAny._scheduler = {
+            skipToNext: jest.fn(),
+            pauseSyncTimer: jest.fn(),
+            resumeSyncTimer: jest.fn(),
+            syncToCurrentTime: jest.fn(),
+        };
+        orchestratorAny._lifecycle = {
+            saveState: jest.fn().mockResolvedValue(undefined),
         };
         orchestratorAny._videoPlayer = {
             loadStream: jest.fn().mockResolvedValue(undefined),
@@ -92,8 +109,9 @@ describe('AppOrchestrator playback flow suite', () => {
             tryHandleStreamResolverPermissionError,
             handlePlaybackFailure,
         };
+        orchestratorAny._initializePriorityOneControllers();
 
-        await orchestratorAny._handleProgramStart(makeProgram());
+        await orchestratorAny._playbackStartController!.handleProgramStart(makeProgram());
 
         expect(tryHandleStreamResolverAuthError).toHaveBeenCalledWith({ code: 'ACCESS_DENIED', message: 'no access' });
         expect(tryHandleStreamResolverPermissionError).toHaveBeenCalledWith({ code: 'ACCESS_DENIED', message: 'no access' });
