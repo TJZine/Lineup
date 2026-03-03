@@ -748,8 +748,8 @@
 /* Windows High Contrast Mode support */
 @media (forced-colors: active) {
 
-  .epg-cell.focused,
-  .epg-cell:focus-visible {
+  .epg-cell.focused {
+    background: Canvas;
     outline: 3px solid CanvasText;
     outline-offset: 2px;
   }
@@ -1511,7 +1511,7 @@
 .epg-container.layout-classic .epg-cell.focused {
   background: rgba(var(--focus-color-rgb), 0.25);
   border-color: rgba(var(--focus-color-rgb), 0.12);
-  box-shadow: 0 0 12px rgba(var(--focus-color-rgb), 0.08);
+  box-shadow: none;
   outline: none;
 }
 
