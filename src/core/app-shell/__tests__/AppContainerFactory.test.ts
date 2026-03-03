@@ -17,11 +17,13 @@ const SCREEN_CONTAINER_IDS = [
 
 describe('createAppContainers', () => {
     beforeEach(() => {
-        document.body.innerHTML = '<div id="app"></div>';
+        const appDiv = document.createElement('div');
+        appDiv.id = 'app';
+        document.body.replaceChildren(appDiv);
     });
 
     afterEach(() => {
-        document.body.innerHTML = '';
+        document.body.replaceChildren();
     });
 
     it('creates all required app-shell containers in stable append order', () => {
