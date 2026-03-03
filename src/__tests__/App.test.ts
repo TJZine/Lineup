@@ -428,6 +428,54 @@ describe('App bootstrap smoke', () => {
         expect(overlay?.classList.contains('hidden')).toBe(true);
     });
 
+    it('routes blocking overlay presentation through navigation modal APIs', async () => {
+        const openModal = jest.fn();
+        const closeModal = jest.fn();
+        const isModalOpen = jest.fn().mockReturnValue(false);
+        const registerFocusable = jest.fn();
+        const unregisterFocusable = jest.fn();
+        const setFocus = jest.fn();
+        const on = jest.fn();
+        const off = jest.fn();
+
+        jest.spyOn(AppOrchestrator.prototype, 'getNavigation').mockReturnValue({
+            openModal,
+            closeModal,
+            isModalOpen,
+            registerFocusable,
+            unregisterFocusable,
+            setFocus,
+            on,
+            off,
+        } as never);
+        getRecoveryActionsSpy.mockReturnValue([
+            { label: 'Retry', isPrimary: true, action: jest.fn() },
+        ]);
+
+        app = new App();
+        await app.start();
+
+        app.showErrorOverlay({
+            code: 'TEST_ERROR',
+            message: 'Boom',
+            userMessage: 'Something failed',
+            recoverable: true,
+            phase: 'error',
+            timestamp: Date.now(),
+            actions: [],
+        } as never);
+
+        expect(openModal).toHaveBeenCalledWith('modal:error-overlay', ['error-overlay-action-0']);
+        expect(registerFocusable).toHaveBeenCalledTimes(1);
+        expect(setFocus).toHaveBeenCalledWith('error-overlay-action-0', { persist: false });
+
+        app.hideErrorOverlay();
+
+        expect(closeModal).toHaveBeenCalledWith('modal:error-overlay');
+        expect(unregisterFocusable).toHaveBeenCalledWith('error-overlay-action-0');
+        expect(off).toHaveBeenCalledWith('modalClose', expect.any(Function));
+    });
+
     it.each([
         ['CHANNEL_NOT_FOUND', 'That channel is unavailable.'],
         ['SCHEDULER_EMPTY_CHANNEL', 'No scheduled content is available for that channel.'],
@@ -519,6 +567,23 @@ describe('App bootstrap smoke', () => {
         jest.setSystemTime(14_000);
         persistenceWarning?.({});
         expect(toastEl?.textContent ?? '').toContain('Some settings could not be saved.');
+    });
+
+    it('clears delegated toast timers during shutdown', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(0);
+
+        app = new App();
+        await app.start();
+
+        jest.setSystemTime(10_000);
+        nowPlayingHandler?.({ message: 'Hello', type: 'info' });
+        expect(jest.getTimerCount()).toBeGreaterThan(0);
+
+        await app.shutdown();
+        app = null;
+
+        expect(jest.getTimerCount()).toBe(0);
     });
 
     it('copies dev playback info via clipboard and shows toast when blocked/unsupported', async () => {
