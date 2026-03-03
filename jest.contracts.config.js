@@ -4,11 +4,11 @@ export default {
     testEnvironment: 'node',
     setupFilesAfterEnv: ['<rootDir>/src/__tests__/jest.setup.ts'],
     roots: ['<rootDir>/src'],
-    testMatch: ['**/__tests__/**/*.test.ts', '**/*.test.ts'],
-    testPathIgnorePatterns: [
-        '/node_modules/',
-        '\\.(contracts?|policy|types)\\.test\\.ts$',
-        '/types\\.test\\.ts$',
+    testMatch: [
+        '**/*.contract.test.ts',
+        '**/*.contracts.test.ts',
+        '**/*.policy.test.ts',
+        '**/types.test.ts',
     ],
     transform: {
         '^.+\\.tsx?$': ['ts-jest', {
@@ -23,11 +23,4 @@ export default {
         '^@config/(.*)$': '<rootDir>/src/config/$1',
     },
     extensionsToTreatAsEsm: ['.ts'],
-    collectCoverageFrom: [
-        'src/**/*.ts',
-        '!src/**/*.test.ts',
-        '!src/**/__tests__/**',
-    ],
-    coverageDirectory: 'coverage',
-    coverageReporters: ['text', 'lcov'],
 };
