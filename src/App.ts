@@ -276,6 +276,8 @@ export class App {
         this._blockingErrorOverlayPresenter.dispose();
         this._toastPresenter.dispose();
 
+        this._splashScreen?.hide();
+        this._splashScreen = null;
         this._authScreen?.destroy();
         this._authScreen = null;
         this._profileSelectScreen?.destroy();
@@ -286,8 +288,10 @@ export class App {
         this._lazyScreenRegistry = null;
         this._diagnosticsSurface.dispose();
         if (this._orchestrator) {
-            this._orchestrator.setNowPlayingHandler(null);
-            await this._orchestrator.shutdown();
+            const orchestrator = this._orchestrator;
+            orchestrator.setNowPlayingHandler(null);
+            await orchestrator.shutdown();
+            this._orchestrator = null;
         }
     }
 

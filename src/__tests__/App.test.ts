@@ -6,10 +6,10 @@ import { App } from '../App';
 import { AppOrchestrator, type PlaybackInfoSnapshot } from '../Orchestrator';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import { ThemeManager } from '../modules/ui/theme';
-import { EXIT_CONFIRM_CONTAINER_ID } from '../modules/ui/exit-confirm';
 import { STORAGE_KEYS } from '../types';
 
 import { flushPromises } from './helpers';
+import { EXPECTED_CONTAINER_IDS } from './fixtures/appShellContainerIds';
 
 jest.mock('../modules/ui/splash', () => ({
     SplashScreen: class SplashScreen {
@@ -217,33 +217,9 @@ describe('App bootstrap smoke', () => {
 
         expect(initializeSpy).toHaveBeenCalledTimes(1);
         expect(startSpy).toHaveBeenCalledTimes(1);
-        const requiredContainerIds = [
-            'video-container',
-            'player-osd-container',
-            'channel-number-overlay-container',
-            'channel-badge-container',
-            'mini-guide-container',
-            'channel-transition-container',
-            'epg-container',
-            'now-playing-info-container',
-            'playback-options-container',
-            'splash-container',
-            'auth-container',
-            'profile-select-container',
-            'server-select-container',
-            'channel-setup-container',
-            'audio-setup-container',
-            'settings-container',
-            'error-overlay',
-            'dev-menu',
-            'app-toast',
-        ];
-
-        for (const id of requiredContainerIds) {
+        for (const id of EXPECTED_CONTAINER_IDS) {
             expect(document.getElementById(id)).not.toBeNull();
         }
-
-        expect(document.getElementById(EXIT_CONFIRM_CONTAINER_ID)).not.toBeNull();
     });
 
     const createPlaybackSnapshots = (): {
