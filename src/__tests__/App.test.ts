@@ -693,6 +693,52 @@ describe('App bootstrap smoke', () => {
         expect(channelSetupScreenChunkLoaded).toHaveBeenCalledTimes(1);
     });
 
+    it('reuses lazy-loaded settings and channel-setup screens across repeated visibility changes', async () => {
+        let currentScreen: string | null = null;
+        (AppOrchestrator.prototype.getCurrentScreen as unknown as jest.Mock).mockImplementation(() => currentScreen);
+
+        app = new App();
+        await app.start();
+
+        const settingsBefore = settingsScreenChunkLoaded.mock.calls.length;
+        currentScreen = 'settings';
+        screenChangeHandler?.('player', 'settings');
+        await flushPromises();
+        const settingsAfterFirst = settingsScreenChunkLoaded.mock.calls.length;
+        screenChangeHandler?.('settings', 'settings');
+        await flushPromises();
+        expect(settingsScreenChunkLoaded.mock.calls.length).toBe(settingsAfterFirst);
+        expect(settingsAfterFirst - settingsBefore).toBeLessThanOrEqual(1);
+
+        const channelBefore = channelSetupScreenChunkLoaded.mock.calls.length;
+        currentScreen = 'channel-setup';
+        screenChangeHandler?.('auth', 'channel-setup');
+        await flushPromises();
+        const channelAfterFirst = channelSetupScreenChunkLoaded.mock.calls.length;
+        screenChangeHandler?.('channel-setup', 'channel-setup');
+        await flushPromises();
+        expect(channelSetupScreenChunkLoaded.mock.calls.length).toBe(channelAfterFirst);
+        expect(channelAfterFirst - channelBefore).toBeLessThanOrEqual(1);
+    });
+
+    it('clears delegated lazy-screen prefetch timers during shutdown', async () => {
+        jest.useFakeTimers();
+        isReadySpy.mockReturnValue(true);
+
+        app = new App();
+        await app.start();
+
+        screenChangeHandler?.('splash', 'server-select');
+        screenChangeHandler?.('auth', 'player');
+
+        expect(jest.getTimerCount()).toBe(2);
+
+        await app.shutdown();
+        app = null;
+
+        expect(jest.getTimerCount()).toBe(0);
+    });
+
     it('generates and persists a client id when missing/invalid (fallback path)', async () => {
         const originalCrypto = globalThis.crypto;
         try {
