@@ -118,6 +118,8 @@
   gap: var(--classic-showcase-gap);
   padding: 16px 24px;
   align-items: start;
+  position: relative;
+  z-index: 0;
 }
 
 .epg-container.layout-classic .epg-classic-showcase-pip {
@@ -125,10 +127,14 @@
   overflow: hidden;
   aspect-ratio: 16 / 9;
   background: rgba(0, 0, 0, 0.4);
+  position: relative;
+  z-index: 2;
 }
 
 .epg-container.layout-classic .epg-classic-showcase-info {
   min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .epg-container.layout-classic .epg-dashboard-bottom {
@@ -1051,6 +1057,8 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
   background: linear-gradient(to top, var(--panel-surface-2), var(--panel-surface));
 }
 
@@ -1062,7 +1070,14 @@
   opacity: 0;
   transition: opacity 400ms ease-out;
   background:
-    radial-gradient(circle at calc(100% + 120px) 50%, var(--dynamic-info-bg, transparent) 0%, rgba(8, 10, 12, 0.12) 28%, rgba(8, 10, 12, 0.84) 62%, rgba(8, 10, 12, 0.96) 100%);
+    radial-gradient(
+      circle at calc(100% + 48px) 50%,
+      var(--dynamic-info-bg, transparent) 0%,
+      var(--dynamic-info-bg, transparent) 22%,
+      rgba(8, 10, 12, 0.18) 48%,
+      rgba(8, 10, 12, 0.82) 74%,
+      rgba(8, 10, 12, 0.96) 100%
+    );
 }
 
 .epg-info-gradient-a.epg-info-gradient-active,
@@ -1095,13 +1110,18 @@
 }
 
 .epg-info-backdrop-img {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  top: -4%;
+  right: -4%;
+  width: 108%;
+  height: 108%;
+  max-width: none;
   object-fit: cover;
-  opacity: 0.18;
-  transform: scale(1.06);
+  object-position: right center;
+  opacity: 0.2;
+  transform: none;
   filter: none;
-  /* Blur is too expensive on webOS for full-screen backdrops. */
+  /* Blur is too expensive on webOS for large animated backdrops. */
 }
 
 .epg-info-panel.epg-info-mode-bleed {
@@ -1386,11 +1406,31 @@
 
 .epg-container.layout-classic .epg-info-panel {
   min-height: 190px;
-  background: linear-gradient(135deg, var(--panel-surface), var(--panel-surface-2));
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.epg-container.layout-classic .epg-info-backdrop {
+  left: calc(-1 * (var(--classic-showcase-pip-width) + var(--classic-showcase-gap) + 24px));
+  right: -24px;
+  top: -16px;
+  bottom: -16px;
+  border-radius: 0;
 }
 
 .epg-container.layout-classic .epg-info-backdrop-img {
-  opacity: 0.2;
+  top: 0;
+  right: 0;
+  width: calc(100% + var(--classic-showcase-pip-width) + var(--classic-showcase-gap) + 48px);
+  max-width: none;
+  height: 100%;
+  object-fit: cover;
+  object-position: right center;
+  opacity: 0.24;
+  transform: none;
 }
 
 .epg-container.layout-classic .epg-info-poster-wrap {
