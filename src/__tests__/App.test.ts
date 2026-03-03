@@ -70,10 +70,14 @@ jest.mock('../modules/ui/server-select', () => ({
 }));
 
 const settingsScreenChunkLoaded = jest.fn();
+const settingsScreenConstructed = jest.fn();
 jest.mock('../modules/ui/settings/SettingsScreen', () => {
     settingsScreenChunkLoaded();
     return {
         SettingsScreen: class SettingsScreen {
+            constructor() {
+                settingsScreenConstructed();
+            }
             show(): void {
                 return;
             }
@@ -88,10 +92,14 @@ jest.mock('../modules/ui/settings/SettingsScreen', () => {
 });
 
 const channelSetupScreenChunkLoaded = jest.fn();
+const channelSetupScreenConstructed = jest.fn();
 jest.mock('../modules/ui/channel-setup/ChannelSetupScreen', () => {
     channelSetupScreenChunkLoaded();
     return {
         ChannelSetupScreen: class ChannelSetupScreen {
+            constructor() {
+                channelSetupScreenConstructed();
+            }
             show(): void {
                 return;
             }
@@ -138,7 +146,9 @@ describe('App bootstrap smoke', () => {
             .mockResolvedValue({} as never);
         getRecoveryActionsSpy = jest.spyOn(AppOrchestrator.prototype, 'getRecoveryActions').mockReturnValue([]);
         settingsScreenChunkLoaded.mockClear();
+        settingsScreenConstructed.mockClear();
         channelSetupScreenChunkLoaded.mockClear();
+        channelSetupScreenConstructed.mockClear();
         appShellErrorHandler = null;
         jest.spyOn(AppOrchestrator.prototype, 'registerErrorHandler').mockImplementation((moduleId, handler) => {
             if (moduleId === 'app-shell') {
@@ -700,25 +710,19 @@ describe('App bootstrap smoke', () => {
         app = new App();
         await app.start();
 
-        const settingsBefore = settingsScreenChunkLoaded.mock.calls.length;
         currentScreen = 'settings';
         screenChangeHandler?.('player', 'settings');
         await flushPromises();
-        const settingsAfterFirst = settingsScreenChunkLoaded.mock.calls.length;
         screenChangeHandler?.('settings', 'settings');
         await flushPromises();
-        expect(settingsScreenChunkLoaded.mock.calls.length).toBe(settingsAfterFirst);
-        expect(settingsAfterFirst - settingsBefore).toBeLessThanOrEqual(1);
+        expect(settingsScreenConstructed).toHaveBeenCalledTimes(1);
 
-        const channelBefore = channelSetupScreenChunkLoaded.mock.calls.length;
         currentScreen = 'channel-setup';
         screenChangeHandler?.('auth', 'channel-setup');
         await flushPromises();
-        const channelAfterFirst = channelSetupScreenChunkLoaded.mock.calls.length;
         screenChangeHandler?.('channel-setup', 'channel-setup');
         await flushPromises();
-        expect(channelSetupScreenChunkLoaded.mock.calls.length).toBe(channelAfterFirst);
-        expect(channelAfterFirst - channelBefore).toBeLessThanOrEqual(1);
+        expect(channelSetupScreenConstructed).toHaveBeenCalledTimes(1);
     });
 
     it('clears delegated lazy-screen prefetch timers during shutdown', async () => {

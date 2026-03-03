@@ -204,6 +204,40 @@ describe('AppLazyScreenRegistry', () => {
         expect(loadSettingsScreen).toHaveBeenCalledTimes(1);
     });
 
+    it('returns null without constructing a screen when an in-flight load resolves after destroy', async () => {
+        const settingsScreen = makeScreen();
+        const SettingsScreen = jest.fn().mockImplementation(() => settingsScreen);
+        type DeferredSettingsModule = {
+            SettingsScreen: new (...args: unknown[]) => unknown;
+        };
+        let resolveLoad!: (value: DeferredSettingsModule) => void;
+        const loadPromise = new Promise<DeferredSettingsModule>((resolve) => {
+            resolveLoad = resolve;
+        });
+        const loadSettingsScreen = jest.fn().mockReturnValue(loadPromise);
+
+        const registry = new AppLazyScreenRegistry({
+            getOrchestrator: makeOrchestrator,
+            containers: {
+                settingsContainer: document.createElement('div'),
+            },
+            loaders: {
+                loadSettingsScreen,
+            },
+        });
+
+        const pendingScreen = registry.ensureSettingsScreen();
+
+        expect(loadSettingsScreen).toHaveBeenCalledTimes(1);
+
+        registry.destroy();
+        resolveLoad({ SettingsScreen });
+
+        await expect(pendingScreen).resolves.toBeNull();
+        expect(SettingsScreen).not.toHaveBeenCalled();
+        expect(settingsScreen.destroy).not.toHaveBeenCalled();
+    });
+
     it('destroy clears timers, destroys cached screens, and blocks future ensures', async () => {
         const audioSetupScreen = makeScreen();
         const channelSetupScreen = makeScreen();
