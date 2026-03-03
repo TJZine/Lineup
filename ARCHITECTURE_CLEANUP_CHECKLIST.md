@@ -135,7 +135,7 @@ Other review signals:
   - [x] P2-W2 - Extract screen loading and lazy-screen caching into a screen registry/loader (done 2026-03-03; plan: docs/plans/2026-03-03-p2-w2-screen-registry-loader-implementation.md)
   - [x] P2-W3 - Extract toast and blocking error overlay presentation out of `App` (done 2026-03-03; plan: docs/plans/2026-03-03-p2-w3-toast-blocking-error-overlay-presentation-extraction-implementation.md)
   - [x] P2-W4 - Isolate the dev menu / diagnostics surface from the runtime app shell (done 2026-03-03; plan: docs/plans/2026-03-03-p2-w4-dev-menu-diagnostics-surface-isolation-implementation.md)
-  - [ ] P2-W5 - Cleanup pass for Priority 2: remove temporary pass-through helpers, dead container references, and transitional app-shell glue introduced while splitting `App`
+  - [x] P2-W5 - Cleanup pass for Priority 2: remove temporary pass-through helpers, dead container references, and transitional app-shell glue introduced while splitting `App` (done 2026-03-03; plan: docs/plans/2026-03-03-p2-w5-priority-2-app-shell-cleanup-pass-implementation.md)
 
 ## Priority 3: Introduce Real Persistence Boundaries
 
