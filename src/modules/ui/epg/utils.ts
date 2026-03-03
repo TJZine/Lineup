@@ -125,7 +125,7 @@ export function appendEpgDebugLog(event: string, data: unknown): void {
 
 type EpgDebugEntry = { ts: number; event: string; data: unknown };
 
-const EPG_DEBUG_LOG_STORAGE_KEY = 'lineup_debug_epg_log';
+const EPG_DEBUG_LOG_STORAGE_KEY = LINEUP_STORAGE_KEYS.EPG_DEBUG_LOG;
 const EPG_DEBUG_LOG_MAX_ENTRIES = 200;
 const EPG_DEBUG_LOG_FLUSH_DELAY_MS = 250;
 

@@ -11,6 +11,7 @@ import { PLEX_MEDIA_TYPES } from '../../modules/plex/library';
 import type { INavigationManager } from '../../modules/navigation';
 import type { AppError } from '../../modules/lifecycle';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS, MAX_CHANNEL_NUMBER } from '../../modules/scheduler/channel-manager/constants';
+import { redactSensitiveTokens } from '../../utils/redact';
 
 import type {
     ChannelSetupConfig,
@@ -945,13 +946,6 @@ function summarizeErrorForLog(error: unknown): { name?: string; code?: unknown; 
         ...('code' in e ? { code: e.code } : {}),
         ...(typeof e.message === 'string' ? { message: redactSensitiveTokens(e.message) } : {}),
     };
-}
-
-function redactSensitiveTokens(value: string): string {
-    return value
-        .replace(/X-Plex-Token=[^&\s]*/gi, 'X-Plex-Token=REDACTED')
-        .replace(/access_token=[^&\s]*/gi, 'access_token=REDACTED')
-        .replace(/\btoken=[^&\s]*/gi, 'token=REDACTED');
 }
 
 function isAbortLike(error: unknown, signal?: AbortSignal): boolean {
