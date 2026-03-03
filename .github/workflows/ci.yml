@@ -75,6 +75,10 @@ jobs:
       
       - name: Run tests
         run: npm test -- --coverage
+
+      - name: Run governance tests (contracts/policy/types)
+        if: matrix.node-version == '22.19.0'
+        run: npm run test:contracts
       
       - name: Upload coverage
         if: matrix.node-version == '22.19.0'
