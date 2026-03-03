@@ -867,7 +867,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this._playbackRecovery?.resetDirectFallbackAttempts();
             },
             stopActiveTranscodeSession: (): void => {
-                this._playbackRuntimeController!.stopActiveTranscodeSession();
+                this._requirePlaybackRuntimeController().stopActiveTranscodeSession();
             },
             armChannelTransitionForSwitch: (prefix: string): void => {
                 this._channelTransitionCoordinator?.armForChannelSwitch(prefix);
@@ -934,7 +934,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 return isOpen;
             },
             toggleNowPlayingInfoOverlay: (): void =>
-                this._overlayRuntimePolicyController!.toggleNowPlayingInfoOverlay(),
+                this._requireOverlayRuntimePolicyController().toggleNowPlayingInfoOverlay(),
             showNowPlayingInfoOverlay: (): void =>
                 this._nowPlayingInfoCoordinator?.handleModalOpen(NOW_PLAYING_INFO_MODAL_ID),
             hideNowPlayingInfoOverlay: (): void =>
@@ -2292,7 +2292,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this._currentProgramForPlayback === program,
             handleProgramStartUiSideEffects: (program): void => {
                 this._nowPlayingInfoCoordinator?.onProgramStart(program);
-                this._overlayRuntimePolicyController!.syncChannelBadgeOverlay();
+                this._requireOverlayRuntimePolicyController().syncChannelBadgeOverlay();
                 this._epgCoordinator?.refreshEpgScheduleForLiveChannel();
             },
             handleStreamResolved: (stream): void => {
