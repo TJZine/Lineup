@@ -135,7 +135,7 @@ describe('AppBlockingErrorOverlayPresenter', () => {
 
         presenter.show(createError(), createActions());
 
-        expect(nav.off).toHaveBeenCalled();
+        expect(nav.off).toHaveBeenCalledTimes(1);
         expect(nav.closeModal).toHaveBeenCalledWith('modal:error-overlay');
         expect(nav.openModal).toHaveBeenCalledWith('modal:error-overlay', [
             'error-overlay-action-0',

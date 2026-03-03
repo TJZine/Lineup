@@ -79,7 +79,7 @@ export class AppBlockingErrorOverlayPresenter {
             button.textContent = action.label;
             button.addEventListener('click', () => {
                 this.hide();
-                action.action();
+                void action.action();
             });
 
             if (action.isPrimary && !primaryButton) {
@@ -119,6 +119,7 @@ export class AppBlockingErrorOverlayPresenter {
         if (nav && modalWasOpen) {
             if (this._modalCloseHandler) {
                 nav.off('modalClose', this._modalCloseHandler);
+                this._modalCloseHandler = null;
             }
             nav.closeModal(this._modalId);
         }
