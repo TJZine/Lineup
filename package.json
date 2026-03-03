@@ -28,6 +28,7 @@
         "test:coverage": "jest --config jest.config.js --coverage",
         "test:contracts": "jest --config jest.contracts.config.js --runInBand",
         "test:all": "npm test && npm run test:contracts",
+        "test:timings": "jest --config jest.config.js --runInBand --json --outputFile /tmp/retune-jest-results.json && node scripts/jest-report-slowest.mjs /tmp/retune-jest-results.json",
         "typecheck": "tsc --noEmit",
         "verify": "npm run typecheck && npm run lint && npm run lint:css && npm run test:all && npm run build",
         "verify:quick": "npm run typecheck && npm run test:all",
