@@ -47,7 +47,7 @@ export class AppLazyScreenRegistry {
     constructor(options: AppLazyScreenRegistryOptions) {
         this._getOrchestrator = options.getOrchestrator;
         this._containers = options.containers;
-        this._onAudioSetupComplete = options.onAudioSetupComplete ?? (() => {});
+        this._onAudioSetupComplete = options.onAudioSetupComplete ?? (() : void => {});
         this._loaders = {
             ...DEFAULT_LOADERS,
             ...options.loaders,

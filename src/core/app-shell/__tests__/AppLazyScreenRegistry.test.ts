@@ -39,7 +39,7 @@ describe('AppLazyScreenRegistry', () => {
 
     it('returns null when required dependencies are missing', async () => {
         const registry = new AppLazyScreenRegistry({
-            getOrchestrator: () => null,
+            getOrchestrator: (): null => null,
             containers: {},
         });
 

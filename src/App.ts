@@ -398,13 +398,13 @@ export class App {
         // reduce initial JS parse/compile cost on webOS. The registry owns
         // all lazy-screen state, timers, and cleanup for those screens.
         this._lazyScreenRegistry = new AppLazyScreenRegistry({
-            getOrchestrator: () => this._orchestrator,
+            getOrchestrator: (): AppOrchestrator | null => this._orchestrator,
             containers: {
                 audioSetupContainer: this._audioSetupContainer,
                 channelSetupContainer: this._channelSetupContainer,
                 settingsContainer: this._settingsContainer,
             },
-            onAudioSetupComplete: () => this._onAudioSetupComplete(),
+            onAudioSetupComplete: (): void => this._onAudioSetupComplete(),
         });
     }
 
