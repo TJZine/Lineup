@@ -11,7 +11,7 @@ describe('player OSD style contract', () => {
 
         expect(css).toMatch(/\.player-osd-action\.focused\s*\{[^}]*box-shadow:\s*none;/s);
         expect(css).toMatch(/\.player-osd-action\.focused\s*\{[^}]*outline:\s*none;/s);
-        expect(css).toMatch(/\.player-osd-up-next\s*\{[^}]*border:\s*none;/s);
+        expect(css).toMatch(/\.player-osd-up-next\s*\{[^}]*border:\s*(?:none|0);/s);
         expect(css).toMatch(/@media\s*\(forced-colors:\s*active\)/);
     });
 });
