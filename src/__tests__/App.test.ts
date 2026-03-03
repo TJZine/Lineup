@@ -113,6 +113,30 @@ jest.mock('../modules/ui/channel-setup/ChannelSetupScreen', () => {
     };
 });
 
+const audioSetupScreenChunkLoaded = jest.fn();
+const audioSetupScreenConstructed = jest.fn();
+let capturedAudioSetupComplete: (() => void) | null = null;
+jest.mock('../modules/ui/audio-setup', () => {
+    audioSetupScreenChunkLoaded();
+    return {
+        AudioSetupScreen: class AudioSetupScreen {
+            constructor(_container: HTMLElement, _getNavigation: () => unknown, onComplete: () => void) {
+                audioSetupScreenConstructed();
+                capturedAudioSetupComplete = onComplete;
+            }
+            show(): void {
+                return;
+            }
+            hide(): void {
+                return;
+            }
+            destroy(): void {
+                return;
+            }
+        },
+    };
+});
+
 describe('App bootstrap smoke', () => {
     let app: App | null = null;
     let initializeSpy: jest.SpyInstance;
@@ -149,6 +173,9 @@ describe('App bootstrap smoke', () => {
         settingsScreenConstructed.mockClear();
         channelSetupScreenChunkLoaded.mockClear();
         channelSetupScreenConstructed.mockClear();
+        audioSetupScreenChunkLoaded.mockClear();
+        audioSetupScreenConstructed.mockClear();
+        capturedAudioSetupComplete = null;
         appShellErrorHandler = null;
         jest.spyOn(AppOrchestrator.prototype, 'registerErrorHandler').mockImplementation((moduleId, handler) => {
             if (moduleId === 'app-shell') {
@@ -808,6 +835,40 @@ describe('App bootstrap smoke', () => {
         screenChangeHandler?.('channel-setup', 'channel-setup');
         await flushPromises();
         expect(channelSetupScreenConstructed).toHaveBeenCalledTimes(1);
+    });
+
+    it('routes audio setup completion to channel-setup through the lazy-screen callback', async () => {
+        const replaceScreen = jest.fn();
+        jest.spyOn(AppOrchestrator.prototype, 'getNavigation').mockReturnValue({
+            replaceScreen,
+            getScreenParams: jest.fn().mockReturnValue({}),
+            openModal: jest.fn(),
+            closeModal: jest.fn(),
+            isModalOpen: jest.fn().mockReturnValue(false),
+            registerFocusable: jest.fn(),
+            unregisterFocusable: jest.fn(),
+            setFocus: jest.fn(),
+            on: jest.fn(),
+            off: jest.fn(),
+        } as never);
+
+        let currentScreen: string | null = null;
+        (AppOrchestrator.prototype.getCurrentScreen as unknown as jest.Mock).mockImplementation(() => currentScreen);
+
+        app = new App();
+        await app.start();
+
+        currentScreen = 'audio-setup';
+        screenChangeHandler?.('auth', 'audio-setup');
+        await flushPromises();
+
+        expect(audioSetupScreenChunkLoaded).toHaveBeenCalledTimes(1);
+        expect(audioSetupScreenConstructed).toHaveBeenCalledTimes(1);
+        expect(capturedAudioSetupComplete).not.toBeNull();
+
+        capturedAudioSetupComplete?.();
+
+        expect(replaceScreen).toHaveBeenCalledWith('channel-setup');
     });
 
     it('clears delegated lazy-screen prefetch timers during shutdown', async () => {
