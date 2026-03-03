@@ -8,6 +8,12 @@ We use **Jest** for unit testing.
 # Run all tests
 npm test
 
+# Run governance suites (contracts/policy/types)
+npm run test:contracts
+
+# Run fast + governance (what `npm run verify` uses)
+npm run test:all
+
 # Run tests in watch mode
 npm run test:watch
 
@@ -54,9 +60,18 @@ node docs/qa/scripts/print_slowest_suites.mjs
 - Do not probe private members on the SUT (no underscore-field pokes via casted internals).
 - Do not use real-time wait helpers based on `setTimeout`/`setInterval` in tests.
 - Use `jest.useFakeTimers()` with explicit advancement (`advanceTimersByTime`, `runOnlyPendingTimers`) for timing assertions.
-- Policy enforcement runs via `src/__tests__/policy/AntiPatterns.policy.test.ts` and writes reports to:
-  - `/tmp/current-private-probes.json`
-  - `/tmp/current-sleeps.txt`
+- Policy enforcement runs via `src/__tests__/policy/AntiPatterns.policy.test.ts`.
+- Baselines live in `src/__tests__/policy/baselines/` (`private-probes.allowlist.txt`, `sleeps-ast.txt`).
+- The policy test also writes debug reports to your OS temp directory:
+  - `current-private-probes.json`
+  - `current-sleeps.txt`
+
+### Console output during tests
+
+By default, Jest setup silences `console.debug`, `console.log`, and `console.info` to keep test output readable.
+
+- `LINEUP_TEST_CONSOLE=1` enables normal console output.
+- `LINEUP_TEST_CONSOLE_SILENT=1` additionally silences `console.warn` and `console.error`.
 
 *Manual and integration verification still complement unit tests, especially for webOS device behavior.*
 
