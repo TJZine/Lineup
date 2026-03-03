@@ -2447,7 +2447,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     }
 
     private _stopPlayback(): void {
-        this._playbackRuntimeController!.stopActiveTranscodeSession();
+        this._playbackRuntimeController?.stopActiveTranscodeSession();
         this._videoPlayer?.stop();
     }
 
