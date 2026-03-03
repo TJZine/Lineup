@@ -97,21 +97,24 @@ describe('OverlayRuntimePolicyController', () => {
         });
     });
 
-    it('recomputes badge visibility from derived overlay state and ignores the callback boolean', () => {
-        const { controller, deps } = makeOverlayHarness({
-            getPlayerOsdVisible: jest.fn().mockReturnValue(false),
-            getNowPlayingInfoVisible: jest.fn().mockReturnValue(true),
-            getCurrentChannel: jest.fn().mockReturnValue({ number: 9, name: 'News' }),
-        });
+    it.each([true, false])(
+        'recomputes badge visibility from derived overlay state and ignores the callback boolean (%s)',
+        (visible) => {
+            const { controller, deps } = makeOverlayHarness({
+                getPlayerOsdVisible: jest.fn().mockReturnValue(false),
+                getNowPlayingInfoVisible: jest.fn().mockReturnValue(true),
+                getCurrentChannel: jest.fn().mockReturnValue({ number: 9, name: 'News' }),
+            });
 
-        controller.handleOverlayVisibilityChange(false);
+            controller.handleOverlayVisibilityChange(visible);
 
-        expect(deps.showChannelBadge).toHaveBeenCalledTimes(1);
-        expect(deps.showChannelBadge).toHaveBeenCalledWith({
-            channelNumber: 9,
-            channelName: 'News',
-        });
-    });
+            expect(deps.showChannelBadge).toHaveBeenCalledTimes(1);
+            expect(deps.showChannelBadge).toHaveBeenCalledWith({
+                channelNumber: 9,
+                channelName: 'News',
+            });
+        }
+    );
 
     it('does nothing when navigation is unavailable', () => {
         const { controller, deps } = makeOverlayHarness({
