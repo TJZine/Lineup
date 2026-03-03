@@ -66,7 +66,7 @@ export class ThemeManager {
         const root = document.body ?? document.documentElement;
         if (!root) return;
 
-        const classes = Object.values(THEME_CLASSES).filter((value) => value !== '');
+        const classes = Object.values(THEME_CLASSES);
         if (classes.length > 0) {
             root.classList.remove(...classes);
         }
