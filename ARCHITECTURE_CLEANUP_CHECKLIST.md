@@ -132,7 +132,7 @@ Other review signals:
   - [ ] Verify screen visibility and overlay behavior still match current flow
 - Primary work units:
   - [x] P2-W1 - Extract app container creation into a dedicated factory/helper (done 2026-03-03; plan: docs/plans/2026-03-03-p2-w1-app-container-factory-implementation.md)
-  - [ ] P2-W2 - Extract screen loading and lazy-screen caching into a screen registry/loader
+  - [x] P2-W2 - Extract screen loading and lazy-screen caching into a screen registry/loader (done 2026-03-03; plan: docs/plans/2026-03-03-p2-w2-screen-registry-loader-implementation.md)
   - [ ] P2-W3 - Extract toast and blocking error overlay presentation out of `App`
   - [ ] P2-W4 - Isolate the dev menu / diagnostics surface from the runtime app shell
   - [ ] P2-W5 - Cleanup pass for Priority 2: remove temporary pass-through helpers, dead container references, and transitional app-shell glue introduced while splitting `App`
