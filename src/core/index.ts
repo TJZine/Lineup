@@ -26,5 +26,7 @@ export { PlaybackStartController } from './PlaybackStartController';
 export type { PlaybackStartControllerDeps } from './PlaybackStartController';
 export { PlaybackRuntimeController } from './PlaybackRuntimeController';
 export type { PlaybackRuntimeControllerDeps } from './PlaybackRuntimeController';
+export { OverlayRuntimePolicyController } from './orchestrator/OverlayRuntimePolicyController';
+export type { OverlayRuntimePolicyControllerDeps } from './orchestrator/OverlayRuntimePolicyController';
 // Note: InitializationDependencies and InitializationCallbacks are intentionally
 // NOT exported. They are internal implementation details used only by Orchestrator.
