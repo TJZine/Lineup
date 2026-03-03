@@ -27,10 +27,10 @@ const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgra
 type TestVideoPlayer = Pick<IVideoPlayer, 'loadStream' | 'play'>;
 
 const makeSetup = (
-    overrides: Partial<PlaybackStartControllerDeps> = {}
+    overrides: Partial<jest.Mocked<PlaybackStartControllerDeps>> = {}
 ): {
     controller: PlaybackStartController;
-    deps: PlaybackStartControllerDeps;
+    deps: jest.Mocked<PlaybackStartControllerDeps>;
     videoPlayer: TestVideoPlayer;
 } => {
     const videoPlayer: TestVideoPlayer = {
@@ -38,8 +38,8 @@ const makeSetup = (
         play: jest.fn().mockResolvedValue(undefined),
     };
 
-    const deps: PlaybackStartControllerDeps = {
-        getVideoPlayer: () => videoPlayer,
+    const deps = {
+        getVideoPlayer: jest.fn(() => videoPlayer),
         resolveStreamForProgram: jest.fn().mockResolvedValue(
             { url: 'https://example.invalid/stream.m3u8' } as unknown as StreamDescriptor
         ),
@@ -57,7 +57,7 @@ const makeSetup = (
         handleStreamResolved: jest.fn(),
         clearAutoShowInfoBannerAfterAbortedStart: jest.fn(),
         ...overrides,
-    };
+    } as unknown as jest.Mocked<PlaybackStartControllerDeps>;
 
     return {
         controller: new PlaybackStartController(deps),
@@ -110,7 +110,7 @@ describe('PlaybackStartController', () => {
             play: jest.fn().mockResolvedValue(undefined),
         };
         const { controller } = makeSetup({
-            getVideoPlayer: () => videoPlayer,
+            getVideoPlayer: jest.fn(() => videoPlayer),
             resolveStreamForProgram: jest.fn()
                 .mockResolvedValueOnce({ url: 'https://example.invalid/a.m3u8' } as unknown as StreamDescriptor)
                 .mockResolvedValueOnce({ url: 'https://example.invalid/b.m3u8' } as unknown as StreamDescriptor),

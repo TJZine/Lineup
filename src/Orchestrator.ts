@@ -2442,8 +2442,8 @@ export class AppOrchestrator implements IAppOrchestrator {
         });
     }
 
-    private _handleScreenChange(payload: { from: string; to: string }): void {
-        this._channelTransitionCoordinator?.onScreenChange(payload.to as Screen);
+    private _handleScreenChange(payload: { from: Screen; to: Screen }): void {
+        this._channelTransitionCoordinator?.onScreenChange(payload.to);
     }
 
     private _stopPlayback(): void {

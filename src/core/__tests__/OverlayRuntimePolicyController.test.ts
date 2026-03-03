@@ -25,12 +25,7 @@ const makeOverlayHarness = (
         hasNowPlayingInfoOverlay: jest.fn<boolean, []>().mockReturnValue(true),
         getCurrentScreen: jest.fn<string | null, []>().mockReturnValue('player'),
         hasCurrentProgramForPlayback: jest.fn<boolean, []>().mockReturnValue(true),
-        isModalOpen: jest.fn<boolean, [string?]>().mockImplementation((modalId?: string) => {
-            if (modalId) {
-                return false;
-            }
-            return false;
-        }),
+        isModalOpen: jest.fn<boolean, [string?]>().mockReturnValue(false),
         openModal: jest.fn<void, [string]>(),
         closeModal: jest.fn<void, [string]>(),
         nowPlayingModalId: 'now-playing-info',

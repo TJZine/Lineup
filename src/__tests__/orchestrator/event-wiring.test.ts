@@ -250,6 +250,8 @@ describe('AppOrchestrator event wiring', () => {
         const videoPlayer = {
             on: jest
                 .fn()
+                .mockImplementationOnce(() => undefined)
+                .mockImplementationOnce(() => undefined)
                 .mockImplementationOnce(() => {
                     throw new Error('wire-player-failed');
                 })
@@ -265,11 +267,13 @@ describe('AppOrchestrator event wiring', () => {
         expect(() => binder.bind()).toThrow('wire-player-failed');
         expect(scheduler.off).toHaveBeenCalledWith('programStart', expect.any(Function));
         expect(scheduler.off).toHaveBeenCalledWith('scheduleSync', expect.any(Function));
-        expect(videoPlayer.off).not.toHaveBeenCalled();
+        expect(videoPlayer.off).toHaveBeenCalledWith('ended', expect.any(Function));
+        expect(videoPlayer.off).toHaveBeenCalledWith('trackChange', expect.any(Function));
 
         binder.bind();
 
         expect(scheduler.on).toHaveBeenCalledTimes(4);
+        expect(videoPlayer.on).toHaveBeenCalledWith('bufferUpdate', expect.any(Function));
     });
 
     it('dispose forwards cleanup failures to the supplied sink and resets wiring state', () => {

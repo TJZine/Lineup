@@ -1,5 +1,5 @@
 import type { IAppLifecycle } from '../../modules/lifecycle';
-import type { INavigationManager } from '../../modules/navigation';
+import type { INavigationManager, Screen } from '../../modules/navigation';
 import type {
     IVideoPlayer,
     PlaybackError,
@@ -38,7 +38,7 @@ export interface OrchestratorEventBinderDeps {
     handlePlayerBufferUpdate: (payload: { percent: number; bufferedRanges: TimeRange[] }) => void;
     handlePlexLibraryAuthExpired: () => void;
     handlePlexStreamError: (error: StreamResolverError) => void;
-    handleScreenChange: (payload: { from: string; to: string }) => void;
+    handleScreenChange: (payload: { from: Screen; to: Screen }) => void;
     handleLifecyclePause: () => Promise<void>;
     handleLifecycleResume: () => Promise<void>;
     reportPersistenceWarning: (message: string) => void;
@@ -85,7 +85,8 @@ export class OrchestratorEventBinder {
     ): void {
         const cleanupFailures: Array<{ step: string; error: unknown }> = [];
 
-        for (const cleanup of cleanups) {
+        for (let i = cleanups.length - 1; i >= 0; i--) {
+            const cleanup = cleanups[i]!;
             try {
                 cleanup();
             } catch (cleanupError) {
@@ -116,6 +117,9 @@ export class OrchestratorEventBinder {
             });
         };
         scheduler.on('programStart', programStartHandler);
+        cleanups.push(() => {
+            scheduler.off('programStart', programStartHandler);
+        });
 
         const scheduleSyncHandler = (): void => {
             this._deps.handleScheduleDayRollover().catch((error) => {
@@ -123,9 +127,7 @@ export class OrchestratorEventBinder {
             });
         };
         scheduler.on('scheduleSync', scheduleSyncHandler);
-
         cleanups.push(() => {
-            scheduler.off('programStart', programStartHandler);
             scheduler.off('scheduleSync', scheduleSyncHandler);
         });
     }
@@ -154,18 +156,27 @@ export class OrchestratorEventBinder {
         };
 
         videoPlayer.on('ended', endedHandler);
-        videoPlayer.on('trackChange', trackChangeHandler);
-        videoPlayer.on('error', errorHandler);
-        videoPlayer.on('stateChange', stateChangeHandler);
-        videoPlayer.on('timeUpdate', timeUpdateHandler);
-        videoPlayer.on('bufferUpdate', bufferUpdateHandler);
-
         cleanups.push(() => {
             videoPlayer.off('ended', endedHandler);
+        });
+        videoPlayer.on('trackChange', trackChangeHandler);
+        cleanups.push(() => {
             videoPlayer.off('trackChange', trackChangeHandler);
+        });
+        videoPlayer.on('error', errorHandler);
+        cleanups.push(() => {
             videoPlayer.off('error', errorHandler);
+        });
+        videoPlayer.on('stateChange', stateChangeHandler);
+        cleanups.push(() => {
             videoPlayer.off('stateChange', stateChangeHandler);
+        });
+        videoPlayer.on('timeUpdate', timeUpdateHandler);
+        cleanups.push(() => {
             videoPlayer.off('timeUpdate', timeUpdateHandler);
+        });
+        videoPlayer.on('bufferUpdate', bufferUpdateHandler);
+        cleanups.push(() => {
             videoPlayer.off('bufferUpdate', bufferUpdateHandler);
         });
     }
@@ -201,7 +212,7 @@ export class OrchestratorEventBinder {
             return;
         }
 
-        const screenChangeHandler = (payload: { from: string; to: string }): void => {
+        const screenChangeHandler = (payload: { from: Screen; to: Screen }): void => {
             this._deps.handleScreenChange(payload);
         };
         navigation.on('screenChange', screenChangeHandler);
@@ -238,14 +249,13 @@ export class OrchestratorEventBinder {
                 console.error('[Orchestrator] Unhandled error in lifecycle pause handler:', summarizeErrorForLog(error));
             });
         });
+        cleanups.push(() => pauseSub.dispose());
 
         const resumeSub = lifecycle.onResume(() => {
             return this._deps.handleLifecycleResume().catch((error) => {
                 console.error('[Orchestrator] Unhandled error in lifecycle resume handler:', summarizeErrorForLog(error));
             });
         });
-
-        cleanups.push(() => pauseSub.dispose());
         cleanups.push(() => resumeSub.dispose());
     }
 }
