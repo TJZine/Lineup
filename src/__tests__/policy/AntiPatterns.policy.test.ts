@@ -20,17 +20,44 @@ const FROZEN_SUITES = [
 
 const CURRENT_PRIVATE_REPORT = path.join(os.tmpdir(), 'current-private-probes.json');
 const CURRENT_SLEEP_REPORT = path.join(os.tmpdir(), 'current-sleeps.txt');
-const BASELINE_PRIVATE_REPORT = path.join(os.tmpdir(), 'baseline-private-probes.json');
-const BASELINE_SLEEP_REPORT = path.join(os.tmpdir(), 'baseline-sleeps-ast.txt');
+const CURRENT_PRIVATE_ALLOWLIST = path.join(os.tmpdir(), 'current-private-probes.allowlist.txt');
+const BASELINE_PRIVATE_ALLOWLIST = path.join(process.cwd(), 'src/__tests__/policy/baselines/private-probes.allowlist.txt');
+const BASELINE_SLEEP_REPORT = path.join(process.cwd(), 'src/__tests__/policy/baselines/sleeps-ast.txt');
 
 const toAbsolute = (file: string): string => path.join(process.cwd(), file);
 
-const readPrivateBaseline = (): PrivateProbe[] | null => {
-    if (!fs.existsSync(BASELINE_PRIVATE_REPORT)) {
+type PrivateProbeBaseline = {
+    allowlist: Set<string>;
+    maxCount: number;
+};
+
+const readPrivateBaseline = (): PrivateProbeBaseline | null => {
+    if (!fs.existsSync(BASELINE_PRIVATE_ALLOWLIST)) {
         return null;
     }
-    const parsed = JSON.parse(fs.readFileSync(BASELINE_PRIVATE_REPORT, 'utf8')) as { probes?: PrivateProbe[] };
-    return parsed.probes ?? [];
+
+    const allowlist: Set<string> = new Set();
+    let maxCount: number | null = null;
+    const lines = fs.readFileSync(BASELINE_PRIVATE_ALLOWLIST, 'utf8').split('\n');
+
+    for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line) continue;
+        if (line.startsWith('#')) {
+            const match = line.match(/maxCount\s*=\s*(\d+)/i);
+            if (match) {
+                maxCount = Number(match[1]);
+            }
+            continue;
+        }
+        allowlist.add(line);
+    }
+
+    if (maxCount === null || !Number.isFinite(maxCount)) {
+        throw new Error(`Invalid allowlist header: expected "# maxCount=<number>" in ${BASELINE_PRIVATE_ALLOWLIST}`);
+    }
+
+    return { allowlist, maxCount };
 };
 
 const readSleepBaseline = (): string[] | null => {
@@ -65,32 +92,56 @@ describe('AntiPatterns policy (frozen suites)', () => {
         };
         fs.writeFileSync(CURRENT_PRIVATE_REPORT, JSON.stringify(privateReport, null, 2));
 
+        const currentKeys = Array.from(
+            new Set(sortedPrivateProbes.map((probe) => `${probe.file}|${probe.receiver}|${probe.property}`))
+        ).sort();
+        fs.writeFileSync(
+            CURRENT_PRIVATE_ALLOWLIST,
+            `# maxCount=${sortedPrivateProbes.length}\n` + currentKeys.join('\n')
+        );
+
         const sleepLines = sortedSleepProbes.map(
             (probe) => `${probe.file}:${probe.line}:${probe.column} [${probe.kind}] ${probe.snippet}`
         );
         fs.writeFileSync(CURRENT_SLEEP_REPORT, sleepLines.join('\n'));
 
-        const baselinePrivateProbes = readPrivateBaseline();
-        if (baselinePrivateProbes) {
-            const baselineCount = baselinePrivateProbes.length;
-            // Equality is permitted: we ratchet by disallowing count increases and by asserting
-            // that no new probe keys were introduced (see `newProbes` below).
-            expect(sortedPrivateProbes.length).toBeLessThanOrEqual(baselineCount);
-
-            const baselineSet = new Set(
-                baselinePrivateProbes.map((probe) => `${probe.file}|${probe.receiver}|${probe.property}`)
+        const baseline = readPrivateBaseline();
+        if (!baseline) {
+            throw new Error(
+                'Missing policy baseline files. Expected:\n' +
+                `- ${BASELINE_PRIVATE_ALLOWLIST}\n` +
+                `- ${BASELINE_SLEEP_REPORT}\n` +
+                'Re-generate baselines by running:\n' +
+                '  npm run test:contracts -- src/__tests__/policy/AntiPatterns.policy.test.ts\n' +
+                'Then copy the generated reports from:\n' +
+                `- ${CURRENT_PRIVATE_ALLOWLIST}\n` +
+                `- ${CURRENT_PRIVATE_REPORT}\n` +
+                `- ${CURRENT_SLEEP_REPORT}`
             );
-            const newProbes = sortedPrivateProbes.filter(
-                (probe) => !baselineSet.has(`${probe.file}|${probe.receiver}|${probe.property}`)
-            );
-            expect(newProbes).toEqual([]);
         }
+
+        // Equality is permitted: we ratchet by disallowing count increases and by asserting
+        // that no new probe keys were introduced (see `newProbes` below).
+        expect(sortedPrivateProbes.length).toBeLessThanOrEqual(baseline.maxCount);
+
+        const newProbes = sortedPrivateProbes.filter(
+            (probe) => !baseline.allowlist.has(`${probe.file}|${probe.receiver}|${probe.property}`)
+        );
+        expect(newProbes).toEqual([]);
 
         const baselineSleepLines = readSleepBaseline();
-        if (baselineSleepLines) {
-            // Sleep-based waits are zero-tolerance once a baseline is established.
-            // (Unlike private probes, which are ratcheted by baseline comparison + new-probe detection.)
-            expect(sortedSleepProbes.length).toBe(0);
+        if (!baselineSleepLines) {
+            throw new Error(
+                'Missing sleep-probes baseline file. Expected:\n' +
+                `- ${BASELINE_SLEEP_REPORT}\n` +
+                'Re-generate baselines by running:\n' +
+                '  npm run test:contracts -- src/__tests__/policy/AntiPatterns.policy.test.ts\n' +
+                'Then copy the generated report from:\n' +
+                `- ${CURRENT_SLEEP_REPORT}`
+            );
         }
+        // Sleep-based waits are zero-tolerance once a baseline is established.
+        // (Unlike private probes, which are ratcheted by baseline comparison + new-probe detection.)
+        expect(sortedSleepProbes.length).toBe(0);
     });
 });
