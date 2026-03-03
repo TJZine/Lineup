@@ -102,7 +102,7 @@ Other review signals:
   - [x] P1-W3 - Move pause/resume and in-flight playback coordination into the same runtime boundary (done 2026-03-02; plan: docs/plans/2026-03-02-playback-runtime-lifecycle-coordination-implementation.md)
   - [x] P1-W4 - Extract `_setupEventWiring()` and the `_wire*Events()` methods into a dedicated event binder (done 2026-03-02; plan: docs/plans/2026-03-02-orchestrator-event-binder-implementation.md)
   - [x] P1-W5 - Extract remaining overlay/runtime helper policies (badge visibility, modal toggles, profile-switch cleanup) (done 2026-03-03; plan: docs/plans/2026-03-03-p1-w5-overlay-runtime-policy-extraction-implementation.md)
-  - [ ] P1-W6 - Cleanup pass for Priority 1: remove temporary delegation shims, transitional fields, obsolete helper methods, and no-longer-needed compatibility wiring created during the P1 refactors
+  - [x] P1-W6 - Cleanup pass for Priority 1: remove temporary delegation shims, transitional fields, obsolete helper methods, and no-longer-needed compatibility wiring created during the P1 refactors (done 2026-03-03; plan: docs/plans/2026-03-03-p1-w6-priority-1-cleanup-pass-implementation.md)
 
 ## Priority 2: Split App Shell Responsibilities
 
