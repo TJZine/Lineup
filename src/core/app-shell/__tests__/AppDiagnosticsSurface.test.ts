@@ -4,7 +4,7 @@
 
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { flushPromises } from '../../../__tests__/helpers';
-import { AppDiagnosticsSurface } from '../AppDiagnosticsSurface';
+import { AppDiagnosticsSurface, type DiagnosticsOrchestrator } from '../AppDiagnosticsSurface';
 
 const createContainer = (): HTMLDivElement => {
     const el = document.createElement('div');
@@ -13,7 +13,7 @@ const createContainer = (): HTMLDivElement => {
     return el;
 };
 
-const createSnapshot = () => ({
+const createSnapshot = (): { channel: null; program: null; stream: null } => ({
     channel: null,
     program: null,
     stream: null,
@@ -53,7 +53,7 @@ describe('AppDiagnosticsSurface', () => {
         document.body.appendChild(container);
 
         surface = new AppDiagnosticsSurface({
-            getOrchestrator: () => ({ toggleServerSelect, refreshPlaybackInfoSnapshot }),
+            getOrchestrator: (): DiagnosticsOrchestrator => ({ toggleServerSelect, refreshPlaybackInfoSnapshot }),
             showToast,
         });
         surface.setContainer(container);
@@ -83,7 +83,7 @@ describe('AppDiagnosticsSurface', () => {
         document.body.appendChild(container);
 
         surface = new AppDiagnosticsSurface({
-            getOrchestrator: () => ({ toggleServerSelect, refreshPlaybackInfoSnapshot }),
+            getOrchestrator: (): DiagnosticsOrchestrator => ({ toggleServerSelect, refreshPlaybackInfoSnapshot }),
             showToast: jest.fn(),
         });
         surface.setContainer(container);
@@ -106,7 +106,7 @@ describe('AppDiagnosticsSurface', () => {
         document.body.appendChild(container);
 
         surface = new AppDiagnosticsSurface({
-            getOrchestrator: () => ({ toggleServerSelect: jest.fn(), refreshPlaybackInfoSnapshot }),
+            getOrchestrator: (): DiagnosticsOrchestrator => ({ toggleServerSelect: jest.fn(), refreshPlaybackInfoSnapshot }),
             showToast: jest.fn(),
         });
         surface.setContainer(container);
@@ -135,7 +135,7 @@ describe('AppDiagnosticsSurface', () => {
         document.body.appendChild(container);
 
         surface = new AppDiagnosticsSurface({
-            getOrchestrator: () => ({ toggleServerSelect, refreshPlaybackInfoSnapshot }),
+            getOrchestrator: (): DiagnosticsOrchestrator => ({ toggleServerSelect, refreshPlaybackInfoSnapshot }),
             showToast: jest.fn(),
         });
         surface.setContainer(container);

@@ -145,7 +145,7 @@ export class App {
     });
     private readonly _toastPresenter = new AppToastPresenter();
     private readonly _diagnosticsSurface = new AppDiagnosticsSurface({
-        getOrchestrator: () => this._orchestrator,
+        getOrchestrator: (): AppOrchestrator | null => this._orchestrator,
         showToast: (toast): void => this._showToast(toast),
     });
     private _authContainer: HTMLElement | null = null;
