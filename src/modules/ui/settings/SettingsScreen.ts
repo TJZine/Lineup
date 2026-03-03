@@ -17,7 +17,13 @@ import type {
     GuideSettingChange,
 } from './types';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from '../now-playing-info';
-import { readStoredBoolean, safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from '../../../utils/storage';
+import {
+    parseStoredEpgInfoBackgroundMode,
+    readStoredBoolean,
+    safeLocalStorageGet,
+    safeLocalStorageRemove,
+    safeLocalStorageSet,
+} from '../../../utils/storage';
 import { ThemeManager } from '../theme';
 import { getSubtitleMode, setSubtitleMode, type SubtitleMode } from '../../../shared/subtitle-mode';
 import { dispatchDebugLoggingChanged } from '../../../config/events';
@@ -1085,9 +1091,8 @@ export class SettingsScreen {
 
     private _loadEpgInfoBackgroundModeValue(): 0 | 1 | 2 {
         const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
-        if (raw === '0') return 0;
-        if (raw === '1') return 1;
-        if (raw === '2') return 2;
+        const parsed = parseStoredEpgInfoBackgroundMode(raw);
+        if (parsed !== null) return parsed;
         if (raw !== null) {
             safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
         }

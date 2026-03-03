@@ -11,7 +11,12 @@ import type { ScheduledProgram } from './types';
 import type { PlexMediaItem } from '../../plex/library';
 import { extractHdrLabelFromPlexMedia } from '../../plex/stream/hdr';
 import { formatContentRatingBadge } from '../../../utils/contentRating';
-import { safeLocalStorageGet, readStoredBoolean } from '../../../utils/storage';
+import {
+    parseStoredEpgInfoBackgroundMode,
+    readStoredBoolean,
+    safeLocalStorageGet,
+    safeLocalStorageRemove,
+} from '../../../utils/storage';
 import { extractDominantColor } from '../../../utils/color/extractDominantColor';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 
@@ -296,8 +301,9 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     ): void {
         if (!this.containerElement) return;
 
-        this.applyModeClass(this.resolveInfoBackgroundMode());
-        this.updatePoster(program, 'fast');
+        const infoBackgroundMode = this.resolveInfoBackgroundMode();
+        this.applyModeClass(infoBackgroundMode);
+        this.updatePoster(program, 'fast', infoBackgroundMode);
 
         this.updateNonPosterContent(program, { allowHdrFetch: options?.allowHdrFetch ?? false, showDescription: false });
     }
@@ -430,10 +436,11 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private updateContentFull(program: ScheduledProgram): void {
         if (!this.containerElement) return;
 
-        this.applyModeClass(this.resolveInfoBackgroundMode());
+        const infoBackgroundMode = this.resolveInfoBackgroundMode();
+        this.applyModeClass(infoBackgroundMode);
         this.updateNonPosterContent(program, { allowHdrFetch: true, showDescription: true });
 
-        this.updatePoster(program, 'full');
+        this.updatePoster(program, 'full', infoBackgroundMode);
     }
 
     private applyModeClass(mode: 0 | 1 | 2): void {
@@ -606,18 +613,19 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     }
 
     private resolveInfoBackgroundMode(): 0 | 1 | 2 {
-        const stored = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
-        if (stored === '1') {
-            return 1;
+        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+        const parsed = parseStoredEpgInfoBackgroundMode(raw);
+        if (parsed !== null) {
+            return parsed;
         }
-        if (stored === '2') {
-            return 2;
+        if (raw !== null) {
+            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
         }
         return 0;
     }
 
     private resolvePosterSampleUrl(program: ScheduledProgram): string | null {
-        const preferredThumb = this.resolvePreferredPosterThumb(program, 'full');
+        const preferredThumb = this.resolvePreferredPosterThumb(program, 'fast');
         return preferredThumb ? (this.thumbResolver?.(preferredThumb, 32, 32) ?? null) : null;
     }
 
@@ -771,13 +779,17 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         }
     }
 
-    private updatePoster(program: ScheduledProgram, mode: 'fast' | 'full'): void {
+    private updatePoster(
+        program: ScheduledProgram,
+        mode: 'fast' | 'full',
+        infoBackgroundModeOverride?: 0 | 1 | 2
+    ): void {
         const backdrop = this.backdropElement;
         const poster = this.posterElement;
         if (!poster) return;
 
         const { item } = program;
-        const infoBackgroundMode = this.resolveInfoBackgroundMode();
+        const infoBackgroundMode = infoBackgroundModeOverride ?? this.resolveInfoBackgroundMode();
         const shouldShowVisiblePoster = this.presentationMode === 'overlay';
         const preserveBleedDuringFastPath = mode !== 'full' && infoBackgroundMode === 0;
 
