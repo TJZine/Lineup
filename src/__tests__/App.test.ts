@@ -175,7 +175,12 @@ describe('App bootstrap smoke', () => {
         isReadySpy = jest.spyOn(AppOrchestrator.prototype, 'isReady').mockReturnValue(false);
     });
 
-    const installStartupSpies = () => ({
+    const installStartupSpies = (): {
+        initializeSpy: jest.SpyInstance;
+        startSpy: jest.SpyInstance;
+        shutdownSpy: jest.SpyInstance;
+        themeSpy: jest.SpyInstance;
+    } => ({
         initializeSpy: (initializeSpy = jest.spyOn(AppOrchestrator.prototype, 'initialize').mockResolvedValue(undefined)),
         startSpy: (startSpy = jest.spyOn(AppOrchestrator.prototype, 'start').mockResolvedValue(undefined)),
         shutdownSpy: jest.spyOn(AppOrchestrator.prototype, 'shutdown').mockResolvedValue(undefined),
@@ -185,13 +190,17 @@ describe('App bootstrap smoke', () => {
         } as never),
     });
 
-    const installPlaybackSnapshotSpy = () => ({
+    const installPlaybackSnapshotSpy = (): {
+        refreshPlaybackInfoSnapshotSpy: jest.SpyInstance;
+    } => ({
         refreshPlaybackInfoSnapshotSpy: (refreshPlaybackInfoSnapshotSpy = jest
             .spyOn(AppOrchestrator.prototype, 'refreshPlaybackInfoSnapshot')
             .mockResolvedValue({} as never)),
     });
 
-    const installRecoveryActionSpy = () => ({
+    const installRecoveryActionSpy = (): {
+        getRecoveryActionsSpy: jest.SpyInstance;
+    } => ({
         getRecoveryActionsSpy: (getRecoveryActionsSpy = jest
             .spyOn(AppOrchestrator.prototype, 'getRecoveryActions')
             .mockReturnValue([])),
