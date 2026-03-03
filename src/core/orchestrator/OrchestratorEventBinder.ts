@@ -74,9 +74,13 @@ export class OrchestratorEventBinder {
     }
 
     public dispose(onCleanupError?: (error: unknown) => void): void {
-        this._runCleanups(this._cleanups, onCleanupError);
-        this._cleanups = [];
-        this._wired = false;
+        const cleanups = this._cleanups;
+        try {
+            this._runCleanups(cleanups, onCleanupError);
+        } finally {
+            this._cleanups = [];
+            this._wired = false;
+        }
     }
 
     private _runCleanups(
@@ -91,7 +95,14 @@ export class OrchestratorEventBinder {
                 cleanup();
             } catch (cleanupError) {
                 if (onCleanupError) {
-                    onCleanupError(cleanupError);
+                    try {
+                        onCleanupError(cleanupError);
+                    } catch (onCleanupErrorFailure) {
+                        cleanupFailures.push({
+                            step: 'event-wiring.onCleanupError',
+                            error: summarizeErrorForLog(onCleanupErrorFailure),
+                        });
+                    }
                     continue;
                 }
 
@@ -102,7 +113,11 @@ export class OrchestratorEventBinder {
             }
         }
 
-        if (!onCleanupError && cleanupFailures.length > 0) {
+        const onCleanupErrorFailed = cleanupFailures.some(
+            (failure) => failure.step === 'event-wiring.onCleanupError'
+        );
+
+        if ((onCleanupErrorFailed || !onCleanupError) && cleanupFailures.length > 0) {
             console.warn('[Orchestrator] Event wiring rollback failures:', cleanupFailures);
         }
     }
