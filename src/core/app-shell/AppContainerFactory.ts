@@ -14,108 +14,91 @@ export interface AppContainerRefs {
     toastContainer: HTMLElement;
 }
 
+function getOrCreateDiv(root: HTMLElement, id: string): HTMLDivElement {
+    const matches = Array.from(root.querySelectorAll<HTMLElement>(`#${id}`));
+    const first = matches[0] ?? null;
+    for (const extra of matches.slice(1)) {
+        extra.remove();
+    }
+
+    if (first) {
+        if (first.tagName.toLowerCase() === 'div') {
+            return first as HTMLDivElement;
+        }
+        first.remove();
+    }
+
+    const el = document.createElement('div');
+    el.id = id;
+    root.appendChild(el);
+    return el;
+}
+
 export function createAppContainers(root: HTMLElement): AppContainerRefs {
     // Video container
-    const videoContainer = document.createElement('div');
-    videoContainer.id = 'video-container';
+    const videoContainer = getOrCreateDiv(root, 'video-container');
     videoContainer.className = 'video-container';
-    root.appendChild(videoContainer);
 
-    const playerOsdContainer = document.createElement('div');
-    playerOsdContainer.id = 'player-osd-container';
-    root.appendChild(playerOsdContainer);
+    void getOrCreateDiv(root, 'player-osd-container');
 
-    const channelNumberOverlayContainer = document.createElement('div');
-    channelNumberOverlayContainer.id = 'channel-number-overlay-container';
-    root.appendChild(channelNumberOverlayContainer);
+    void getOrCreateDiv(root, 'channel-number-overlay-container');
 
-    const channelBadgeContainer = document.createElement('div');
-    channelBadgeContainer.id = CHANNEL_BADGE_CONTAINER_ID;
-    root.appendChild(channelBadgeContainer);
+    void getOrCreateDiv(root, CHANNEL_BADGE_CONTAINER_ID);
 
-    const miniGuideContainer = document.createElement('div');
-    miniGuideContainer.id = 'mini-guide-container';
-    root.appendChild(miniGuideContainer);
+    void getOrCreateDiv(root, 'mini-guide-container');
 
-    const channelTransitionContainer = document.createElement('div');
-    channelTransitionContainer.id = 'channel-transition-container';
-    root.appendChild(channelTransitionContainer);
+    void getOrCreateDiv(root, 'channel-transition-container');
 
     // EPG container
-    const epgContainer = document.createElement('div');
-    epgContainer.id = 'epg-container';
+    const epgContainer = getOrCreateDiv(root, 'epg-container');
     epgContainer.className = 'epg-container';
-    root.appendChild(epgContainer);
 
     // Now Playing Info overlay container
-    const nowPlayingContainer = document.createElement('div');
-    nowPlayingContainer.id = 'now-playing-info-container';
-    root.appendChild(nowPlayingContainer);
+    void getOrCreateDiv(root, 'now-playing-info-container');
 
     // Playback Options modal container
-    const playbackOptionsContainer = document.createElement('div');
-    playbackOptionsContainer.id = 'playback-options-container';
-    root.appendChild(playbackOptionsContainer);
+    void getOrCreateDiv(root, 'playback-options-container');
 
     // Exit confirmation modal container
-    const exitConfirmContainer = document.createElement('div');
-    exitConfirmContainer.id = EXIT_CONFIRM_CONTAINER_ID;
-    root.appendChild(exitConfirmContainer);
+    void getOrCreateDiv(root, EXIT_CONFIRM_CONTAINER_ID);
 
     // Splash container (startup screen)
-    const splashContainer = document.createElement('div');
-    splashContainer.id = 'splash-container';
+    const splashContainer = getOrCreateDiv(root, 'splash-container');
     splashContainer.className = 'screen';
-    root.appendChild(splashContainer);
 
     // Auth container (minimal screen)
-    const authContainer = document.createElement('div');
-    authContainer.id = 'auth-container';
+    const authContainer = getOrCreateDiv(root, 'auth-container');
     authContainer.className = 'screen';
-    root.appendChild(authContainer);
 
     // Profile select container (Plex Home)
-    const profileSelectContainer = document.createElement('div');
-    profileSelectContainer.id = 'profile-select-container';
+    const profileSelectContainer = getOrCreateDiv(root, 'profile-select-container');
     profileSelectContainer.className = 'screen';
-    root.appendChild(profileSelectContainer);
 
     // Server select container (minimal screen)
-    const serverSelectContainer = document.createElement('div');
-    serverSelectContainer.id = 'server-select-container';
+    const serverSelectContainer = getOrCreateDiv(root, 'server-select-container');
     serverSelectContainer.className = 'screen';
-    root.appendChild(serverSelectContainer);
 
     // Channel setup container
-    const channelSetupContainer = document.createElement('div');
-    channelSetupContainer.id = 'channel-setup-container';
+    const channelSetupContainer = getOrCreateDiv(root, 'channel-setup-container');
     channelSetupContainer.className = 'screen';
-    root.appendChild(channelSetupContainer);
 
     // Audio setup container
-    const audioSetupContainer = document.createElement('div');
-    audioSetupContainer.id = 'audio-setup-container';
+    const audioSetupContainer = getOrCreateDiv(root, 'audio-setup-container');
     audioSetupContainer.className = 'screen';
-    root.appendChild(audioSetupContainer);
 
     // Settings container
-    const settingsContainer = document.createElement('div');
-    settingsContainer.id = 'settings-container';
+    const settingsContainer = getOrCreateDiv(root, 'settings-container');
     settingsContainer.className = 'screen';
-    root.appendChild(settingsContainer);
 
     // Error overlay container
-    const errorOverlay = document.createElement('div');
-    errorOverlay.id = 'error-overlay';
+    const errorOverlay = getOrCreateDiv(root, 'error-overlay');
     errorOverlay.className = 'error-overlay hidden';
     errorOverlay.setAttribute('role', 'dialog');
     errorOverlay.setAttribute('aria-modal', 'true');
     errorOverlay.setAttribute('aria-label', 'Error');
-    root.appendChild(errorOverlay);
 
     // Dev Menu Container
-    const devMenu = document.createElement('div');
-    devMenu.id = 'dev-menu';
+    const devMenu = getOrCreateDiv(root, 'dev-menu');
     devMenu.style.position = 'absolute';
     devMenu.style.top = '50%';
     devMenu.style.left = '50%';
@@ -128,11 +111,9 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
     devMenu.style.display = 'none';
     devMenu.style.boxShadow = '0 0 20px rgba(0,0,0,0.5)';
     devMenu.style.minWidth = '300px';
-    root.appendChild(devMenu);
 
     // Toast container (non-blocking warnings)
-    const toastContainer = document.createElement('div');
-    toastContainer.id = 'app-toast';
+    const toastContainer = getOrCreateDiv(root, 'app-toast');
     toastContainer.className = 'app-toast';
     toastContainer.setAttribute('role', 'status');
     toastContainer.setAttribute('aria-live', 'polite');
@@ -156,7 +137,6 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
     toastContainer.style.pointerEvents = 'none';
     toastContainer.style.zIndex = '9999';
     toastContainer.style.display = 'none';
-    root.appendChild(toastContainer);
 
     return {
         splashContainer,

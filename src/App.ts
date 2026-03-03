@@ -187,6 +187,11 @@ export class App {
             await this._orchestrator.start();
         } catch (error) {
             console.error('App startup failed:', summarizeErrorForLog(error));
+            try {
+                await this.shutdown();
+            } catch (shutdownError) {
+                console.error('App shutdown after startup failure failed:', summarizeErrorForLog(shutdownError));
+            }
             this._showFatalError(error);
         }
     }

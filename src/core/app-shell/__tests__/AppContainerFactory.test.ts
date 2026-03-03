@@ -52,8 +52,24 @@ describe('createAppContainers', () => {
         const root = document.getElementById('app') as HTMLElement;
 
         createAppContainers(root);
+        createAppContainers(root);
 
         expect(Array.from(root.children, (child) => (child as HTMLElement).id)).toEqual(EXPECTED_CONTAINER_IDS);
+    });
+
+    it('is idempotent when called repeatedly (no duplicate IDs)', () => {
+        const root = document.getElementById('app') as HTMLElement;
+
+        const first = createAppContainers(root);
+        const second = createAppContainers(root);
+
+        for (const id of EXPECTED_CONTAINER_IDS) {
+            expect(root.querySelectorAll(`#${id}`).length).toBe(1);
+        }
+
+        expect(first.toastContainer).toBe(second.toastContainer);
+        expect(first.errorOverlay).toBe(second.errorOverlay);
+        expect(first.splashContainer).toBe(second.splashContainer);
     });
 
     it('applies required classes, attributes, and returned refs', () => {

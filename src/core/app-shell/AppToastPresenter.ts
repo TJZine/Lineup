@@ -19,6 +19,7 @@ export class AppToastPresenter {
     }
 
     setContainer(container: HTMLElement | null): void {
+        this._clearTimers();
         this._container = container;
     }
 
@@ -48,17 +49,15 @@ export class AppToastPresenter {
 
         this._clearTimers();
 
+        const target = this._container;
         this._fadeStartTimer = window.setTimeout(() => {
-            if (this._container === null) {
+            if (!target) {
                 return;
             }
 
-            this._container.style.opacity = '0';
-            const container = this._container;
+            target.style.opacity = '0';
             this._hideCompleteTimer = window.setTimeout(() => {
-                if (container) {
-                    container.style.display = 'none';
-                }
+                target.style.display = 'none';
                 this._hideCompleteTimer = null;
             }, 200);
 
