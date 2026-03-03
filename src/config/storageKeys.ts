@@ -51,6 +51,7 @@ export const LINEUP_STORAGE_KEYS = {
     // Guide / EPG
     GUIDE_CATEGORY_COLORS: 'lineup_guide_category_colors',
     EPG_DEBUG: 'lineup_debug_epg',
+    EPG_DEBUG_LOG: 'lineup_debug_epg_log',
     EPG_LIBRARY_TABS_ENABLED: 'lineup_epg_library_tabs_enabled',
     EPG_LIBRARY_FILTER: 'lineup_epg_library_filter',
     EPG_LAYOUT_MODE: 'lineup_epg_layout_mode',

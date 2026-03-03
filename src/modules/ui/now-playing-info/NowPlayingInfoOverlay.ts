@@ -59,29 +59,62 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
 
         const content = document.createElement('div');
         content.className = NOW_PLAYING_INFO_CLASSES.CONTENT;
-        // Static template only. Do not interpolate Plex/user-provided strings into this HTML.
-        // Use `textContent` when binding viewModel data to avoid XSS foot-guns.
-        content.innerHTML = `
-    <img class="${NOW_PLAYING_INFO_CLASSES.CLEAR_LOGO}" alt="" style="display:none" />
-    <div class="${NOW_PLAYING_INFO_CLASSES.TITLE}"></div>
-    <div class="${NOW_PLAYING_INFO_CLASSES.SUBTITLE}"></div>
-    <div class="${NOW_PLAYING_INFO_CLASSES.BADGES}"></div>
-    <div class="${NOW_PLAYING_INFO_CLASSES.PLAYBACK}">
-      <div class="${NOW_PLAYING_INFO_CLASSES.PLAYBACK_SUMMARY}"></div>
-    </div>
-    <div class="${NOW_PLAYING_INFO_CLASSES.META}"></div>
-    <div class="${NOW_PLAYING_INFO_CLASSES.DESCRIPTION}">
-      <div class="${NOW_PLAYING_INFO_CLASSES.DESCRIPTION_INNER}"></div>
-    </div>
-    <div class="${NOW_PLAYING_INFO_CLASSES.ACTORS}"></div>
-    <div class="${NOW_PLAYING_INFO_CLASSES.CAST}"></div>
-    <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS}">
-      <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_BAR}">
-        <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_FILL}"></div>
-      </div>
-      <div class="${NOW_PLAYING_INFO_CLASSES.PROGRESS_META}"></div>
-    </div>
-        `;
+        const clearLogo = document.createElement('img');
+        clearLogo.className = NOW_PLAYING_INFO_CLASSES.CLEAR_LOGO;
+        clearLogo.setAttribute('alt', '');
+        clearLogo.style.display = 'none';
+        content.appendChild(clearLogo);
+
+        const title = document.createElement('div');
+        title.className = NOW_PLAYING_INFO_CLASSES.TITLE;
+        content.appendChild(title);
+
+        const subtitle = document.createElement('div');
+        subtitle.className = NOW_PLAYING_INFO_CLASSES.SUBTITLE;
+        content.appendChild(subtitle);
+
+        const badges = document.createElement('div');
+        badges.className = NOW_PLAYING_INFO_CLASSES.BADGES;
+        content.appendChild(badges);
+
+        const playback = document.createElement('div');
+        playback.className = NOW_PLAYING_INFO_CLASSES.PLAYBACK;
+        const playbackSummary = document.createElement('div');
+        playbackSummary.className = NOW_PLAYING_INFO_CLASSES.PLAYBACK_SUMMARY;
+        playback.appendChild(playbackSummary);
+        content.appendChild(playback);
+
+        const meta = document.createElement('div');
+        meta.className = NOW_PLAYING_INFO_CLASSES.META;
+        content.appendChild(meta);
+
+        const description = document.createElement('div');
+        description.className = NOW_PLAYING_INFO_CLASSES.DESCRIPTION;
+        const descriptionInner = document.createElement('div');
+        descriptionInner.className = NOW_PLAYING_INFO_CLASSES.DESCRIPTION_INNER;
+        description.appendChild(descriptionInner);
+        content.appendChild(description);
+
+        const actors = document.createElement('div');
+        actors.className = NOW_PLAYING_INFO_CLASSES.ACTORS;
+        content.appendChild(actors);
+
+        const cast = document.createElement('div');
+        cast.className = NOW_PLAYING_INFO_CLASSES.CAST;
+        content.appendChild(cast);
+
+        const progress = document.createElement('div');
+        progress.className = NOW_PLAYING_INFO_CLASSES.PROGRESS;
+        const progressBar = document.createElement('div');
+        progressBar.className = NOW_PLAYING_INFO_CLASSES.PROGRESS_BAR;
+        const progressFill = document.createElement('div');
+        progressFill.className = NOW_PLAYING_INFO_CLASSES.PROGRESS_FILL;
+        progressBar.appendChild(progressFill);
+        progress.appendChild(progressBar);
+        const progressMeta = document.createElement('div');
+        progressMeta.className = NOW_PLAYING_INFO_CLASSES.PROGRESS_META;
+        progress.appendChild(progressMeta);
+        content.appendChild(progress);
         panelEl.appendChild(content);
 
         return panelEl;

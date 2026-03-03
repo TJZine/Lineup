@@ -353,46 +353,116 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
             { panel: PLAYER_OSD_CLASSES.PANEL },
             { panel: {} }
         );
-        panelEl.innerHTML = `
-            <div class="${PLAYER_OSD_CLASSES.CONTENT_ROW}">
-              <div class="${PLAYER_OSD_CLASSES.INFO_COLUMN}">
-                <div class="${PLAYER_OSD_CLASSES.STATUS}" role="status"></div>
 
-                <div class="${PLAYER_OSD_CLASSES.ZONE_BRAND}">
-                  <img class="${PLAYER_OSD_CLASSES.CLEAR_LOGO}" alt="" style="display:none" />
-                  <div class="${PLAYER_OSD_CLASSES.TITLE}"></div>
-                </div>
+        const contentRow = document.createElement('div');
+        contentRow.className = PLAYER_OSD_CLASSES.CONTENT_ROW;
 
-                <div class="${PLAYER_OSD_CLASSES.ZONE_DETAILS}">
-                  <div class="${PLAYER_OSD_CLASSES.SUBTITLE}"></div>
-                  <div class="${PLAYER_OSD_CLASSES.INFO_LINE}"></div>
-                </div>
-              </div>
+        const infoColumn = document.createElement('div');
+        infoColumn.className = PLAYER_OSD_CLASSES.INFO_COLUMN;
+        contentRow.appendChild(infoColumn);
 
-              <div class="${PLAYER_OSD_CLASSES.ACTIONS_COLUMN}">
-                <div class="${PLAYER_OSD_CLASSES.ACTIONS}">
-                  <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="subtitles">Subtitles</button>
-                  <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="sleep">Sleep</button>
-                  <button type="button" class="${PLAYER_OSD_CLASSES.ACTION}" data-action="audio">Audio</button>
-                </div>
-                <div class="${PLAYER_OSD_CLASSES.SLEEP_TIMER}"></div>
-                <div class="${PLAYER_OSD_CLASSES.UP_NEXT}"></div>
-              </div>
-            </div>
+        const status = document.createElement('div');
+        status.className = PLAYER_OSD_CLASSES.STATUS;
+        status.setAttribute('role', 'status');
+        infoColumn.appendChild(status);
 
-            <div class="${PLAYER_OSD_CLASSES.META_STRIP}">
-              <div class="${PLAYER_OSD_CLASSES.TIMECODE}"></div>
-              <div class="${PLAYER_OSD_CLASSES.ENDS}"></div>
-              <div class="${PLAYER_OSD_CLASSES.BUFFER_TEXT}"></div>
-            </div>
+        const zoneBrand = document.createElement('div');
+        zoneBrand.className = PLAYER_OSD_CLASSES.ZONE_BRAND;
+        infoColumn.appendChild(zoneBrand);
 
-            <div class="${PLAYER_OSD_CLASSES.PROGRESS_CONTAINER}">
-              <div class="${PLAYER_OSD_CLASSES.BAR}">
-                <div class="${PLAYER_OSD_CLASSES.BAR_BUFFER}"></div>
-                <div class="${PLAYER_OSD_CLASSES.BAR_PLAYED}"></div>
-              </div>
-            </div>
-        `;
+        const clearLogo = document.createElement('img');
+        clearLogo.className = PLAYER_OSD_CLASSES.CLEAR_LOGO;
+        clearLogo.setAttribute('alt', '');
+        clearLogo.style.display = 'none';
+        zoneBrand.appendChild(clearLogo);
+
+        const title = document.createElement('div');
+        title.className = PLAYER_OSD_CLASSES.TITLE;
+        zoneBrand.appendChild(title);
+
+        const zoneDetails = document.createElement('div');
+        zoneDetails.className = PLAYER_OSD_CLASSES.ZONE_DETAILS;
+        infoColumn.appendChild(zoneDetails);
+
+        const subtitle = document.createElement('div');
+        subtitle.className = PLAYER_OSD_CLASSES.SUBTITLE;
+        zoneDetails.appendChild(subtitle);
+
+        const infoLine = document.createElement('div');
+        infoLine.className = PLAYER_OSD_CLASSES.INFO_LINE;
+        zoneDetails.appendChild(infoLine);
+
+        const actionsColumn = document.createElement('div');
+        actionsColumn.className = PLAYER_OSD_CLASSES.ACTIONS_COLUMN;
+        contentRow.appendChild(actionsColumn);
+
+        const actions = document.createElement('div');
+        actions.className = PLAYER_OSD_CLASSES.ACTIONS;
+        actionsColumn.appendChild(actions);
+
+        const subtitlesBtn = document.createElement('button');
+        subtitlesBtn.type = 'button';
+        subtitlesBtn.className = PLAYER_OSD_CLASSES.ACTION;
+        subtitlesBtn.dataset.action = 'subtitles';
+        subtitlesBtn.textContent = 'Subtitles';
+        actions.appendChild(subtitlesBtn);
+
+        const sleepBtn = document.createElement('button');
+        sleepBtn.type = 'button';
+        sleepBtn.className = PLAYER_OSD_CLASSES.ACTION;
+        sleepBtn.dataset.action = 'sleep';
+        sleepBtn.textContent = 'Sleep';
+        actions.appendChild(sleepBtn);
+
+        const audioBtn = document.createElement('button');
+        audioBtn.type = 'button';
+        audioBtn.className = PLAYER_OSD_CLASSES.ACTION;
+        audioBtn.dataset.action = 'audio';
+        audioBtn.textContent = 'Audio';
+        actions.appendChild(audioBtn);
+
+        const sleepTimer = document.createElement('div');
+        sleepTimer.className = PLAYER_OSD_CLASSES.SLEEP_TIMER;
+        actionsColumn.appendChild(sleepTimer);
+
+        const upNext = document.createElement('div');
+        upNext.className = PLAYER_OSD_CLASSES.UP_NEXT;
+        actionsColumn.appendChild(upNext);
+
+        panelEl.appendChild(contentRow);
+
+        const metaStrip = document.createElement('div');
+        metaStrip.className = PLAYER_OSD_CLASSES.META_STRIP;
+        panelEl.appendChild(metaStrip);
+
+        const timecode = document.createElement('div');
+        timecode.className = PLAYER_OSD_CLASSES.TIMECODE;
+        metaStrip.appendChild(timecode);
+
+        const ends = document.createElement('div');
+        ends.className = PLAYER_OSD_CLASSES.ENDS;
+        metaStrip.appendChild(ends);
+
+        const bufferText = document.createElement('div');
+        bufferText.className = PLAYER_OSD_CLASSES.BUFFER_TEXT;
+        metaStrip.appendChild(bufferText);
+
+        const progressContainer = document.createElement('div');
+        progressContainer.className = PLAYER_OSD_CLASSES.PROGRESS_CONTAINER;
+        panelEl.appendChild(progressContainer);
+
+        const bar = document.createElement('div');
+        bar.className = PLAYER_OSD_CLASSES.BAR;
+        progressContainer.appendChild(bar);
+
+        const barBuffer = document.createElement('div');
+        barBuffer.className = PLAYER_OSD_CLASSES.BAR_BUFFER;
+        bar.appendChild(barBuffer);
+
+        const barPlayed = document.createElement('div');
+        barPlayed.className = PLAYER_OSD_CLASSES.BAR_PLAYED;
+        bar.appendChild(barPlayed);
+
         return panelEl;
     }
 }

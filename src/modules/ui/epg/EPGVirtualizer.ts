@@ -519,22 +519,47 @@ export class EPGVirtualizer {
         // Create new element if pool is empty
         const element = document.createElement('div');
         element.className = EPG_CLASSES.CELL;
-        element.innerHTML = `
-            <div class="${EPG_CLASSES.CELL_CONTENT}">
-                <div class="${EPG_CLASSES.CELL_META}">
-                    <span class="${EPG_CLASSES.CELL_EPISODE}"></span>
-                </div>
-                <div class="${EPG_CLASSES.CELL_TITLE}"></div>
-                <div class="${EPG_CLASSES.CELL_SUBTITLE}"></div>
-            </div>
-            <div class="${EPG_CLASSES.CELL_RAIL}">
-                <span class="${EPG_CLASSES.LIVE_BADGE}" hidden aria-label="Currently playing"></span>
-                <div class="${EPG_CLASSES.CELL_TIME}"></div>
-            </div>
-            <div class="${EPG_CLASSES.CELL_PROGRESS}">
-                <div class="${EPG_CLASSES.CELL_PROGRESS_FILL}"></div>
-            </div>
-        `;
+        const content = document.createElement('div');
+        content.className = EPG_CLASSES.CELL_CONTENT;
+        element.appendChild(content);
+
+        const meta = document.createElement('div');
+        meta.className = EPG_CLASSES.CELL_META;
+        content.appendChild(meta);
+
+        const episode = document.createElement('span');
+        episode.className = EPG_CLASSES.CELL_EPISODE;
+        meta.appendChild(episode);
+
+        const title = document.createElement('div');
+        title.className = EPG_CLASSES.CELL_TITLE;
+        content.appendChild(title);
+
+        const subtitle = document.createElement('div');
+        subtitle.className = EPG_CLASSES.CELL_SUBTITLE;
+        content.appendChild(subtitle);
+
+        const rail = document.createElement('div');
+        rail.className = EPG_CLASSES.CELL_RAIL;
+        element.appendChild(rail);
+
+        const liveBadge = document.createElement('span');
+        liveBadge.className = EPG_CLASSES.LIVE_BADGE;
+        liveBadge.hidden = true;
+        liveBadge.setAttribute('aria-label', 'Currently playing');
+        rail.appendChild(liveBadge);
+
+        const time = document.createElement('div');
+        time.className = EPG_CLASSES.CELL_TIME;
+        rail.appendChild(time);
+
+        const progress = document.createElement('div');
+        progress.className = EPG_CLASSES.CELL_PROGRESS;
+        element.appendChild(progress);
+
+        const progressFill = document.createElement('div');
+        progressFill.className = EPG_CLASSES.CELL_PROGRESS_FILL;
+        progress.appendChild(progressFill);
         // Prime cache for stable cell structure to avoid repeated DOM queries in hot paths.
         void this.getCellChildren(element);
         return element;

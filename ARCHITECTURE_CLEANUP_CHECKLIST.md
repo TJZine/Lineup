@@ -28,7 +28,7 @@ Completion rule: every implementation plan that finishes a `P#-W#` work unit mus
 
 - Start with the superpowers workflow: `using-superpowers`, then `brainstorming`, then the matching repo-local architecture skill(s).
 - Do a repo evidence sweep before planning.
-- Produce or refresh a concrete plan using the writing-plans skill under `docs/plans/` for the selected work unit before coding. The plan should have 0 decision points and be explicit enough for a less intelligent agent to implement.
+- Produce or refresh a concrete, decision-point-free plan under `docs/plans/` (use the writing-plans skill) before coding. The plan must be explicit enough for less-capable agents to execute without ambiguity.
 - Keep scope limited to one work unit at a time.
 - In every plan, explicitly state how the selected `P#-W#` advances the durable end-state of its parent Priority section.
 - Favor durable collaborators/stores/binders that later work units can extend; avoid temporary adapters or one-off abstractions that will need immediate replacement inside the same Priority section.
@@ -131,11 +131,11 @@ Other review signals:
   - [ ] Reduce app shell knowledge of feature-specific UI details
   - [ ] Verify screen visibility and overlay behavior still match current flow
 - Primary work units:
-  - [ ] P2-W1 - Extract app container creation into a dedicated factory/helper
-  - [ ] P2-W2 - Extract screen loading and lazy-screen caching into a screen registry/loader
-  - [ ] P2-W3 - Extract toast and blocking error overlay presentation out of `App`
-  - [ ] P2-W4 - Isolate the dev menu / diagnostics surface from the runtime app shell
-  - [ ] P2-W5 - Cleanup pass for Priority 2: remove temporary pass-through helpers, dead container references, and transitional app-shell glue introduced while splitting `App`
+  - [x] P2-W1 - Extract app container creation into a dedicated factory/helper (done 2026-03-03; plan: docs/plans/2026-03-03-p2-w1-app-container-factory-implementation.md)
+  - [x] P2-W2 - Extract screen loading and lazy-screen caching into a screen registry/loader (done 2026-03-03; plan: docs/plans/2026-03-03-p2-w2-screen-registry-loader-implementation.md)
+  - [x] P2-W3 - Extract toast and blocking error overlay presentation out of `App` (done 2026-03-03; plan: docs/plans/2026-03-03-p2-w3-toast-blocking-error-overlay-presentation-extraction-implementation.md)
+  - [x] P2-W4 - Isolate the dev menu / diagnostics surface from the runtime app shell (done 2026-03-03; plan: docs/plans/2026-03-03-p2-w4-dev-menu-diagnostics-surface-isolation-implementation.md)
+  - [x] P2-W5 - Cleanup pass for Priority 2: remove temporary pass-through helpers, dead container references, and transitional app-shell glue introduced while splitting `App` (done 2026-03-03; plan: docs/plans/2026-03-03-p2-w5-priority-2-app-shell-cleanup-pass-implementation.md)
 
 ## Priority 3: Introduce Real Persistence Boundaries
 
@@ -301,6 +301,7 @@ Other review signals:
 - Why it matters: tests that need private access are a sign the production seams are not clean enough.
 - Target outcomes:
   - More behavior tested through public APIs or extracted collaborators
+  - audit of any overengineered or redundant/unhelpful tests for deletion
   - Less need for frozen private-probe debt
 - Likely files:
   - `src/__tests__/policy/AntiPatterns.policy.test.ts`
@@ -318,7 +319,7 @@ Other review signals:
   - [ ] P8-W1 - Reduce private probing in the orchestrator playback tests by routing through the first extracted controller
   - [ ] P8-W2 - Reduce one private-probe-heavy UI test after the corresponding UI extraction lands
   - [ ] P8-W3 - Tighten the anti-pattern baseline once at least one hotspot suite no longer needs the old probe path
-  - [ ] P8-W4 - Cleanup pass for Priority 8: remove obsolete test helpers, dead probe utilities, and transitional assertions after the new public seams are stable
+  - [ ] P8-W4 - Cleanup pass for Priority 8: remove obsolete test helpers, dead probe utilities, overengineered/redundant/unhelpful tests, and transitional assertions after the new public seams are stable
 
 ## Suggested Execution Order
 

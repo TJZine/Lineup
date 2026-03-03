@@ -109,25 +109,28 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         let lastUrl = '';
 
         try {
-            const baseUrl = PLEX_DISCOVERY_CONSTANTS.PLEX_TV_BASE_URL +
-                PLEX_DISCOVERY_CONSTANTS.RESOURCES_ENDPOINT +
-                '?' + PLEX_DISCOVERY_CONSTANTS.RESOURCES_PARAMS;
+            const baseUrl = new URL(
+                PLEX_DISCOVERY_CONSTANTS.PLEX_TV_BASE_URL + PLEX_DISCOVERY_CONSTANTS.RESOURCES_ENDPOINT
+            );
+            baseUrl.search = `?${PLEX_DISCOVERY_CONSTANTS.RESOURCES_PARAMS}`;
 
             const headers = this._getAuthHeaders();
             const token = headers['X-Plex-Token'];
-            const urlWithToken = token
-                ? baseUrl + '&X-Plex-Token=' + encodeURIComponent(token)
-                : baseUrl;
-            const clientsBaseUrl = 'https://clients.plex.tv/api/v2/resources' +
-                '?' + PLEX_DISCOVERY_CONSTANTS.RESOURCES_PARAMS +
-                (token ? '&X-Plex-Token=' + encodeURIComponent(token) : '');
+            const baseUrlString = baseUrl.toString();
+            const clientsBaseUrl = new URL('https://clients.plex.tv/api/v2/resources');
+            clientsBaseUrl.search = `?${PLEX_DISCOVERY_CONSTANTS.RESOURCES_PARAMS}`;
 
             const variants: Array<{ url: string; headers?: Record<string, string> }> = [
-                { url: baseUrl, headers: headers },
+                { url: baseUrlString, headers: headers },
             ];
             if (token) {
-                variants.push({ url: urlWithToken });
-                variants.push({ url: clientsBaseUrl });
+                const urlWithToken = new URL(baseUrlString);
+                urlWithToken.searchParams.set('X-Plex-Token', token);
+                variants.push({ url: urlWithToken.toString() });
+
+                const clientsUrlWithToken = new URL(clientsBaseUrl.toString());
+                clientsUrlWithToken.searchParams.set('X-Plex-Token', token);
+                variants.push({ url: clientsUrlWithToken.toString() });
             }
 
             const maxAttempts = PLEX_DISCOVERY_CONSTANTS.MAX_DISCOVERY_ATTEMPTS;

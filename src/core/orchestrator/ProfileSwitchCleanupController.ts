@@ -19,7 +19,7 @@ export interface ProfileSwitchCleanupControllerDeps {
 export class ProfileSwitchCleanupController {
     constructor(private readonly _deps: ProfileSwitchCleanupControllerDeps) {}
 
-    public prepareForProfileSwitch(): void {
+    public prepareForProfileSwitchAttempt(): void {
         const pendingTimer = this._deps.getPendingDayRolloverTimer();
         if (pendingTimer !== null) {
             this._deps.clearPendingDayRolloverTimer(pendingTimer);
@@ -28,11 +28,19 @@ export class ProfileSwitchCleanupController {
 
         this._deps.setPendingDayRolloverDayKey(null);
         this._deps.stopPlayback();
+    }
+
+    public finalizeProfileSwitch(): void {
         this._deps.unloadCurrentChannel();
         this._deps.setPendingNowPlayingChannelId(null);
         this._deps.setShouldAutoShowInfoBannerOnNextPlay(false);
         this._deps.setCurrentProgramForPlayback(null);
         this._deps.setCurrentStreamDescriptor(null);
         this._deps.setCurrentStreamDecision(null);
+    }
+
+    public prepareForProfileSwitch(): void {
+        this.prepareForProfileSwitchAttempt();
+        this.finalizeProfileSwitch();
     }
 }

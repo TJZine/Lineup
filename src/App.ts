@@ -7,7 +7,6 @@
 import {
     AppOrchestrator,
     type OrchestratorConfig,
-    type ErrorRecoveryAction,
     AppErrorCode,
 } from './Orchestrator';
 import type { LifecycleAppError, AppPhase } from './modules/lifecycle/types';
@@ -21,27 +20,26 @@ import { CHANNEL_BADGE_CONTAINER_ID, type ChannelBadgeConfig } from './modules/u
 import type { MiniGuideConfig } from './modules/ui/mini-guide';
 import type { ChannelTransitionConfig } from './modules/ui/channel-transition';
 import type { PlaybackOptionsConfig } from './modules/ui/playback-options';
-import { EXIT_CONFIRM_CONTAINER_ID } from './modules/ui/exit-confirm';
+import { createAppContainers, type AppContainerRefs } from './core/app-shell/AppContainerFactory';
+import { AppLazyScreenRegistry } from './core/app-shell/AppLazyScreenRegistry';
+import {
+    AppBlockingErrorOverlayPresenter,
+    type BlockingErrorOverlayAction,
+} from './core/app-shell/AppBlockingErrorOverlayPresenter';
+import { AppDiagnosticsSurface } from './core/app-shell/AppDiagnosticsSurface';
+import { AppToastPresenter } from './core/app-shell/AppToastPresenter';
 import type { PlexAuthConfig } from './modules/plex/auth';
 import { AuthScreen } from './modules/ui/auth';
 import { ProfileSelectScreen } from './modules/ui/profile-select';
 import { ServerSelectScreen } from './modules/ui/server-select';
 import { SplashScreen } from './modules/ui/splash';
 import { ThemeManager } from './modules/ui/theme';
-import { normalizeToastInput, type ToastInput, type ToastType } from './modules/ui/toast/types';
 import { STORAGE_KEYS } from './types';
-import { LINEUP_STORAGE_KEYS } from './config/storageKeys';
 import {
-    readStoredBoolean,
-    safeClearLineupStorage,
     safeLocalStorageGet,
-    safeLocalStorageRemove,
     safeLocalStorageSet,
 } from './utils/storage';
 import { summarizeErrorForLog } from './utils/errors';
-import type { ChannelSetupScreen } from './modules/ui/channel-setup/ChannelSetupScreen';
-import type { SettingsScreen } from './modules/ui/settings/SettingsScreen';
-import type { AudioSetupScreen } from './modules/ui/audio-setup/AudioSetupScreen';
 
 // ============================================
 // Configuration Defaults
@@ -140,41 +138,22 @@ const ERROR_OVERLAY_MODAL_ID = 'modal:error-overlay';
  */
 export class App {
     private _orchestrator: AppOrchestrator | null = null;
-    private _errorOverlay: HTMLElement | null = null;
-    private _errorOverlayFocusableIds: string[] = [];
-    private _errorOverlayPreferredFocusId: string | null = null;
-    private _errorOverlayModalCloseHandler: ((payload: { modalId: string }) => void) | null = null;
-    private _toastContainer: HTMLElement | null = null;
-    private _toastHideTimer: number | null = null;
-    private _lastToastAt: number = 0;
-    private _authContainer: HTMLElement | null = null;
-    private _profileSelectContainer: HTMLElement | null = null;
-    private _serverSelectContainer: HTMLElement | null = null;
-    private _channelSetupContainer: HTMLElement | null = null;
+    private readonly _blockingErrorOverlayPresenter = new AppBlockingErrorOverlayPresenter({
+        getNavigation: (): INavigationManager | null => this._orchestrator?.getNavigation() ?? null,
+        modalId: ERROR_OVERLAY_MODAL_ID,
+    });
+    private readonly _toastPresenter = new AppToastPresenter();
+    private readonly _diagnosticsSurface = new AppDiagnosticsSurface({
+        getOrchestrator: (): AppOrchestrator | null => this._orchestrator,
+        showToast: (toast): void => this._toastPresenter.show(toast),
+    });
     private _authScreen: AuthScreen | null = null;
     private _profileSelectScreen: ProfileSelectScreen | null = null;
     private _serverSelectScreen: ServerSelectScreen | null = null;
-    private _channelSetupScreen: ChannelSetupScreen | null = null;
-    private _channelSetupScreenLoad: Promise<ChannelSetupScreen> | null = null;
-    private _channelSetupPrefetchTimerId: number | null = null;
-    private _audioSetupContainer: HTMLElement | null = null;
-    private _audioSetupScreen: AudioSetupScreen | null = null;
-    private _audioSetupScreenLoad: Promise<AudioSetupScreen> | null = null;
-    private _settingsContainer: HTMLElement | null = null;
-    private _settingsScreen: SettingsScreen | null = null;
-    private _settingsScreenLoad: Promise<SettingsScreen> | null = null;
-    private _settingsPrefetchTimerId: number | null = null;
-
-    private _splashContainer: HTMLElement | null = null;
+    private _lazyScreenRegistry: AppLazyScreenRegistry | null = null;
     private _splashScreen: SplashScreen | null = null;
-    private _devMenuContainer: HTMLElement | null = null;
     private _screenUnsubscribe: (() => void) | null = null;
     private _phaseUnsubscribe: (() => void) | null = null;
-    private _globalKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
-
-    private _getSafeNavigation(): INavigationManager | null {
-        return this._orchestrator?.getNavigation() ?? null;
-    }
 
     /**
      * Initialize and start the application.
@@ -184,7 +163,7 @@ export class App {
             ThemeManager.getInstance();
 
             // Create root containers
-            this._createContainers();
+            const containerRefs = this._createContainers();
 
             // Build configuration
             const config = this._buildConfig();
@@ -194,18 +173,25 @@ export class App {
             await this._orchestrator.initialize(config);
 
             // Initialize minimal auth/server screens before startup
-            this._initializeScreens();
+            this._initializeScreens(containerRefs);
             this._wireScreenVisibility();
 
             // Wire up lifecycle error events before starting
             this._subscribeToLifecycleErrors();
             this._subscribeToLifecycleWarnings();
-            this._wireNowPlayingToasts();
+            this._orchestrator.setNowPlayingHandler((toast) => {
+                this._toastPresenter.show(toast);
+            });
 
             // Start the orchestrator
             await this._orchestrator.start();
         } catch (error) {
             console.error('App startup failed:', summarizeErrorForLog(error));
+            try {
+                await this.shutdown();
+            } catch (shutdownError) {
+                console.error('App shutdown after startup failure failed:', summarizeErrorForLog(shutdownError));
+            }
             this._showFatalError(error);
         }
     }
@@ -232,7 +218,7 @@ export class App {
                 };
             if (!this._shouldUseBlockingOverlay(lifecycleError)) {
                 this.hideErrorOverlay();
-                this._showToast({
+                this._toastPresenter.show({
                     message: this._getNonBlockingToastMessage(lifecycleError),
                     type: 'warning',
                 });
@@ -266,18 +252,11 @@ export class App {
         if (!this._orchestrator) return;
 
         this._orchestrator.onLifecycleEvent('persistenceWarning', () => {
-            this._showToast({ message: 'Some settings could not be saved.', type: 'warning' });
+            this._toastPresenter.show({ message: 'Some settings could not be saved.', type: 'warning' });
         });
 
         this._orchestrator.onLifecycleEvent('networkWarning', () => {
-            this._showToast({ message: 'Network connection looks unstable.', type: 'warning' });
-        });
-    }
-
-    private _wireNowPlayingToasts(): void {
-        if (!this._orchestrator) return;
-        this._orchestrator.setNowPlayingHandler((toast) => {
-            this._showToast(toast);
+            this._toastPresenter.show({ message: 'Network connection looks unstable.', type: 'warning' });
         });
     }
 
@@ -293,36 +272,26 @@ export class App {
             this._phaseUnsubscribe();
             this._phaseUnsubscribe = null;
         }
-        if (this._globalKeydownHandler) {
-            document.removeEventListener('keydown', this._globalKeydownHandler);
-            this._globalKeydownHandler = null;
-        }
 
-        this.hideErrorOverlay();
+        this._blockingErrorOverlayPresenter.dispose();
+        this._toastPresenter.dispose();
 
+        this._splashScreen?.hide();
+        this._splashScreen = null;
         this._authScreen?.destroy();
         this._authScreen = null;
         this._profileSelectScreen?.destroy();
         this._profileSelectScreen = null;
         this._serverSelectScreen?.destroy();
         this._serverSelectScreen = null;
-        this._audioSetupScreen?.destroy();
-        this._audioSetupScreen = null;
-        this._channelSetupScreen?.destroy();
-        this._channelSetupScreen = null;
-        this._settingsScreen?.destroy();
-        this._settingsScreen = null;
-
-        this._cancelSettingsPrefetch();
-        this._cancelChannelSetupPrefetch();
-        try {
-            delete (window as { lineup?: unknown }).lineup;
-        } catch {
-            // ignore
-        }
+        this._lazyScreenRegistry?.destroy();
+        this._lazyScreenRegistry = null;
+        this._diagnosticsSurface.dispose();
         if (this._orchestrator) {
-            this._orchestrator.setNowPlayingHandler(null);
-            await this._orchestrator.shutdown();
+            const orchestrator = this._orchestrator;
+            orchestrator.setNowPlayingHandler(null);
+            await orchestrator.shutdown();
+            this._orchestrator = null;
         }
     }
 
@@ -340,224 +309,47 @@ export class App {
     /**
      * Create DOM containers for modules that need them.
      */
-    private _createContainers(): void {
+    private _createContainers(): AppContainerRefs {
         const root = document.getElementById('app');
         if (!root) {
             throw new Error('Root element #app not found');
         }
 
-        // Video container
-        const videoContainer = document.createElement('div');
-        videoContainer.id = 'video-container';
-        videoContainer.className = 'video-container';
-        root.appendChild(videoContainer);
+        const refs = createAppContainers(root);
 
-        const playerOsdContainer = document.createElement('div');
-        playerOsdContainer.id = 'player-osd-container';
-        root.appendChild(playerOsdContainer);
+        this._blockingErrorOverlayPresenter.setContainer(refs.errorOverlay);
+        this._diagnosticsSurface.setContainer(refs.devMenuContainer);
+        this._diagnosticsSurface.initialize();
+        this._toastPresenter.setContainer(refs.toastContainer);
 
-        const channelNumberOverlayContainer = document.createElement('div');
-        channelNumberOverlayContainer.id = 'channel-number-overlay-container';
-        root.appendChild(channelNumberOverlayContainer);
-
-        const channelBadgeContainer = document.createElement('div');
-        channelBadgeContainer.id = CHANNEL_BADGE_CONTAINER_ID;
-        root.appendChild(channelBadgeContainer);
-
-        const miniGuideContainer = document.createElement('div');
-        miniGuideContainer.id = 'mini-guide-container';
-        root.appendChild(miniGuideContainer);
-
-        const channelTransitionContainer = document.createElement('div');
-        channelTransitionContainer.id = 'channel-transition-container';
-        root.appendChild(channelTransitionContainer);
-
-        // EPG container
-        const epgContainer = document.createElement('div');
-        epgContainer.id = 'epg-container';
-        epgContainer.className = 'epg-container';
-        root.appendChild(epgContainer);
-
-        // Now Playing Info overlay container
-        const nowPlayingContainer = document.createElement('div');
-        nowPlayingContainer.id = 'now-playing-info-container';
-        root.appendChild(nowPlayingContainer);
-
-        // Playback Options modal container
-        const playbackOptionsContainer = document.createElement('div');
-        playbackOptionsContainer.id = 'playback-options-container';
-        root.appendChild(playbackOptionsContainer);
-
-        // Exit confirmation modal container
-        const exitConfirmContainer = document.createElement('div');
-        exitConfirmContainer.id = EXIT_CONFIRM_CONTAINER_ID;
-        root.appendChild(exitConfirmContainer);
-
-        // Splash container (startup screen)
-        const splashContainer = document.createElement('div');
-        splashContainer.id = 'splash-container';
-        splashContainer.className = 'screen';
-        root.appendChild(splashContainer);
-        this._splashContainer = splashContainer;
-
-        // Auth container (minimal screen)
-        const authContainer = document.createElement('div');
-        authContainer.id = 'auth-container';
-        authContainer.className = 'screen';
-        root.appendChild(authContainer);
-        this._authContainer = authContainer;
-
-        // Profile select container (Plex Home)
-        const profileSelectContainer = document.createElement('div');
-        profileSelectContainer.id = 'profile-select-container';
-        profileSelectContainer.className = 'screen';
-        root.appendChild(profileSelectContainer);
-        this._profileSelectContainer = profileSelectContainer;
-
-        // Server select container (minimal screen)
-        const serverSelectContainer = document.createElement('div');
-        serverSelectContainer.id = 'server-select-container';
-        serverSelectContainer.className = 'screen';
-        root.appendChild(serverSelectContainer);
-        this._serverSelectContainer = serverSelectContainer;
-
-        // Channel setup container
-        const channelSetupContainer = document.createElement('div');
-        channelSetupContainer.id = 'channel-setup-container';
-        channelSetupContainer.className = 'screen';
-        root.appendChild(channelSetupContainer);
-        this._channelSetupContainer = channelSetupContainer;
-
-        // Audio setup container
-        const audioSetupContainer = document.createElement('div');
-        audioSetupContainer.id = 'audio-setup-container';
-        audioSetupContainer.className = 'screen';
-        root.appendChild(audioSetupContainer);
-        this._audioSetupContainer = audioSetupContainer;
-
-        // Settings container
-        const settingsContainer = document.createElement('div');
-        settingsContainer.id = 'settings-container';
-        settingsContainer.className = 'screen';
-        root.appendChild(settingsContainer);
-        this._settingsContainer = settingsContainer;
-
-        // Error overlay container
-        const errorOverlay = document.createElement('div');
-        errorOverlay.id = 'error-overlay';
-        errorOverlay.className = 'error-overlay hidden';
-        errorOverlay.setAttribute('role', 'dialog');
-        errorOverlay.setAttribute('aria-modal', 'true');
-        errorOverlay.setAttribute('aria-label', 'Error');
-        root.appendChild(errorOverlay);
-        this._errorOverlay = errorOverlay;
-
-        // Global debug key handlers
-        if (this._globalKeydownHandler) {
-            document.removeEventListener('keydown', this._globalKeydownHandler);
-        }
-        this._globalKeydownHandler = (e: KeyboardEvent): void => {
-            if (this._isDebugSurfaceEnabled() && e.code === 'KeyI') {
-                this._orchestrator?.toggleServerSelect();
-            }
-            // Dev Menu: Ctrl+Shift+D
-            if (this._isDebugSurfaceEnabled() && e.code === 'KeyD' && e.ctrlKey && e.shiftKey) {
-                this._toggleDevMenu();
-            }
-        };
-        document.addEventListener('keydown', this._globalKeydownHandler);
-
-        // Dev Menu Container
-        const devMenu = document.createElement('div');
-        devMenu.id = 'dev-menu';
-        devMenu.style.position = 'absolute';
-        devMenu.style.top = '50%';
-        devMenu.style.left = '50%';
-        devMenu.style.transform = 'translate(-50%, -50%)';
-        devMenu.style.background = '#222';
-        devMenu.style.color = '#fff';
-        devMenu.style.padding = '20px';
-        devMenu.style.borderRadius = '8px';
-        devMenu.style.zIndex = '10000';
-        devMenu.style.display = 'none';
-        devMenu.style.boxShadow = '0 0 20px rgba(0,0,0,0.5)';
-        devMenu.style.minWidth = '300px';
-        root.appendChild(devMenu);
-        this._devMenuContainer = devMenu;
-
-        // Expose global helper only when debug surface is enabled.
-        if (this._isDebugSurfaceEnabled()) {
-            (window as unknown as { lineup: { toggleDevMenu: () => void } }).lineup = {
-                toggleDevMenu: (): void => this._toggleDevMenu(),
-            };
-        } else {
-            try {
-                delete (window as { lineup?: unknown }).lineup;
-            } catch {
-                // ignore
-            }
-        }
-
-        // Toast container (non-blocking warnings)
-        const toastContainer = document.createElement('div');
-        toastContainer.id = 'app-toast';
-        toastContainer.className = 'app-toast';
-        toastContainer.setAttribute('role', 'status');
-        toastContainer.setAttribute('aria-live', 'polite');
-        toastContainer.setAttribute('aria-atomic', 'true');
-        toastContainer.style.position = 'fixed';
-        toastContainer.style.left = '50%';
-        toastContainer.style.bottom = '64px';
-        toastContainer.style.transform = 'translateX(-50%)';
-        toastContainer.style.maxWidth = '70%';
-        toastContainer.style.background = 'rgba(0, 0, 0, 0.8)';
-        toastContainer.style.color = '#fff';
-        toastContainer.style.padding = '12px 20px';
-        toastContainer.style.borderLeft = '4px solid transparent';
-        toastContainer.style.boxSizing = 'border-box';
-        toastContainer.style.borderRadius = '8px';
-        toastContainer.style.fontSize = '20px';
-        toastContainer.style.lineHeight = '1.2';
-        toastContainer.style.textAlign = 'left';
-        toastContainer.style.opacity = '0';
-        toastContainer.style.transition = 'opacity 200ms ease';
-        toastContainer.style.pointerEvents = 'none';
-        toastContainer.style.zIndex = '9999';
-        toastContainer.style.display = 'none';
-        root.appendChild(toastContainer);
-        this._toastContainer = toastContainer;
+        return refs;
     }
 
-    private _initializeScreens(): void {
+    private _initializeScreens(containerRefs: AppContainerRefs): void {
         if (!this._orchestrator) {
             return;
         }
-        if (this._splashContainer) {
-            this._splashScreen = new SplashScreen(this._splashContainer);
-        }
-        if (
-            !this._authContainer ||
-            !this._profileSelectContainer ||
-            !this._serverSelectContainer ||
-            !this._channelSetupContainer
-        ) {
-            return;
-        }
-        this._authScreen = new AuthScreen(this._authContainer, this._orchestrator);
-        this._profileSelectScreen = new ProfileSelectScreen(this._profileSelectContainer, this._orchestrator);
+        this._splashScreen = new SplashScreen(containerRefs.splashContainer);
+        this._authScreen = new AuthScreen(containerRefs.authContainer, this._orchestrator);
+        this._profileSelectScreen = new ProfileSelectScreen(containerRefs.profileSelectContainer, this._orchestrator);
         this._serverSelectScreen = new ServerSelectScreen(
-            this._serverSelectContainer,
+            containerRefs.serverSelectContainer,
             this._orchestrator
         );
-        // Audio setup, Channel setup, and Settings are intentionally lazy-loaded to
-        // reduce initial JS parse/compile cost on webOS.
-    }
-
-    private _onAudioSetupComplete(): void {
-        // Navigate to channel-setup after audio setup
-        if (this._orchestrator) {
-            this._orchestrator.getNavigation()?.replaceScreen('channel-setup');
-        }
+        // Audio setup, Channel setup, and Settings remain lazy-loaded to
+        // reduce initial JS parse/compile cost on webOS. The registry owns
+        // all lazy-screen state, timers, and cleanup for those screens.
+        this._lazyScreenRegistry = new AppLazyScreenRegistry({
+            getOrchestrator: (): AppOrchestrator | null => this._orchestrator,
+            containers: {
+                audioSetupContainer: containerRefs.audioSetupContainer,
+                channelSetupContainer: containerRefs.channelSetupContainer,
+                settingsContainer: containerRefs.settingsContainer,
+            },
+            onAudioSetupComplete: (): void => {
+                this._orchestrator?.getNavigation()?.replaceScreen('channel-setup');
+            },
+        });
     }
 
     private _wireScreenVisibility(): void {
@@ -600,10 +392,10 @@ export class App {
             this._authScreen?.hide();
             this._profileSelectScreen?.hide();
             this._serverSelectScreen?.hide();
-            this._audioSetupScreen?.hide();
-            this._channelSetupScreen?.hide();
-            this._settingsScreen?.hide();
-            this._scheduleSettingsPrefetch();
+            this._lazyScreenRegistry?.getAudioSetupScreen()?.hide();
+            this._lazyScreenRegistry?.getChannelSetupScreen()?.hide();
+            this._lazyScreenRegistry?.getSettingsScreen()?.hide();
+            this._lazyScreenRegistry?.scheduleSettingsPrefetch();
             return;
         }
         const showSplash = screen === 'splash';
@@ -646,165 +438,48 @@ export class App {
                     ? { allowAutoConnect }
                     : undefined;
                 this._serverSelectScreen.show(showOptions);
-                this._scheduleChannelSetupPrefetch();
+                this._lazyScreenRegistry?.scheduleChannelSetupPrefetch();
             } else {
                 this._serverSelectScreen.hide();
-                this._cancelChannelSetupPrefetch();
+                this._lazyScreenRegistry?.cancelChannelSetupPrefetch();
             }
         }
 
         if (showAudioSetup) {
             void this._showAudioSetupScreen();
         } else {
-            this._audioSetupScreen?.hide();
+            this._lazyScreenRegistry?.getAudioSetupScreen()?.hide();
         }
 
         if (showChannelSetup) {
             void this._showChannelSetupScreen();
         } else {
-            this._channelSetupScreen?.hide();
+            this._lazyScreenRegistry?.getChannelSetupScreen()?.hide();
         }
 
         if (showSettings) {
             void this._showSettingsScreen();
         } else {
-            this._settingsScreen?.hide();
+            this._lazyScreenRegistry?.getSettingsScreen()?.hide();
         }
-    }
-
-    private _cancelSettingsPrefetch(): void {
-        if (this._settingsPrefetchTimerId !== null) {
-            window.clearTimeout(this._settingsPrefetchTimerId);
-            this._settingsPrefetchTimerId = null;
-        }
-    }
-
-    private _cancelChannelSetupPrefetch(): void {
-        if (this._channelSetupPrefetchTimerId !== null) {
-            window.clearTimeout(this._channelSetupPrefetchTimerId);
-            this._channelSetupPrefetchTimerId = null;
-        }
-    }
-
-    /**
-     * Prefetch Settings shortly after entering the player experience.
-     * This keeps Settings opening instant while still keeping the initial entry chunk smaller.
-     */
-    private _scheduleSettingsPrefetch(): void {
-        if (this._settingsScreen || this._settingsScreenLoad) return;
-        if (this._settingsPrefetchTimerId !== null) return;
-        this._settingsPrefetchTimerId = window.setTimeout(() => {
-            this._settingsPrefetchTimerId = null;
-            if (this._settingsScreen || this._settingsScreenLoad) return;
-            void import('./modules/ui/settings/SettingsScreen').catch(() => {
-                // Best-effort prefetch only.
-            });
-        }, 1200);
-    }
-
-    /**
-     * Prefetch the channel setup chunk shortly after Server Select becomes visible.
-     * This keeps onboarding UX snappy (no long delay when channel-setup is needed),
-     * while still keeping initial entry chunk smaller at app boot.
-     */
-    private _scheduleChannelSetupPrefetch(): void {
-        if (this._channelSetupScreen || this._channelSetupScreenLoad) return;
-        if (this._channelSetupPrefetchTimerId !== null) return;
-        this._channelSetupPrefetchTimerId = window.setTimeout(() => {
-            this._channelSetupPrefetchTimerId = null;
-            if (this._channelSetupScreen || this._channelSetupScreenLoad) return;
-            void import('./modules/ui/channel-setup/ChannelSetupScreen').catch(() => {
-                // Best-effort prefetch only.
-            });
-        }, 500);
-    }
-
-    private async _ensureChannelSetupScreen(): Promise<ChannelSetupScreen | null> {
-        if (this._channelSetupScreen) return this._channelSetupScreen;
-        if (!this._orchestrator || !this._channelSetupContainer) return null;
-
-        if (!this._channelSetupScreenLoad) {
-            this._channelSetupScreenLoad = import('./modules/ui/channel-setup/ChannelSetupScreen')
-                .then(({ ChannelSetupScreen }) => {
-                    const screen = new ChannelSetupScreen(this._channelSetupContainer!, this._orchestrator!);
-                    this._channelSetupScreen = screen;
-                    return screen;
-                })
-                .finally(() => {
-                    this._channelSetupScreenLoad = null;
-                });
-        }
-        return this._channelSetupScreenLoad;
     }
 
     private async _showChannelSetupScreen(): Promise<void> {
-        const screen = await this._ensureChannelSetupScreen();
+        const screen = await this._lazyScreenRegistry?.ensureChannelSetupScreen();
         if (!screen) return;
         if (this._orchestrator?.getCurrentScreen() !== 'channel-setup') return;
         screen.show();
     }
 
-    private async _ensureAudioSetupScreen(): Promise<AudioSetupScreen | null> {
-        if (this._audioSetupScreen) return this._audioSetupScreen;
-        if (!this._orchestrator || !this._audioSetupContainer) return null;
-
-        if (!this._audioSetupScreenLoad) {
-            this._audioSetupScreenLoad = import('./modules/ui/audio-setup')
-                .then(({ AudioSetupScreen }) => {
-                    const screen = new AudioSetupScreen(
-                        this._audioSetupContainer!,
-                        () => this._orchestrator?.getNavigation() ?? null,
-                        () => this._onAudioSetupComplete()
-                    );
-                    this._audioSetupScreen = screen;
-                    return screen;
-                })
-                .finally(() => {
-                    this._audioSetupScreenLoad = null;
-                });
-        }
-
-        return this._audioSetupScreenLoad;
-    }
-
     private async _showAudioSetupScreen(): Promise<void> {
-        const screen = await this._ensureAudioSetupScreen();
+        const screen = await this._lazyScreenRegistry?.ensureAudioSetupScreen();
         if (!screen) return;
         if (this._orchestrator?.getCurrentScreen() !== 'audio-setup') return;
         screen.show();
     }
 
-    private async _ensureSettingsScreen(): Promise<SettingsScreen | null> {
-        if (this._settingsScreen) return this._settingsScreen;
-        if (!this._orchestrator || !this._settingsContainer) return null;
-
-        if (!this._settingsScreenLoad) {
-            this._settingsScreenLoad = import('./modules/ui/settings/SettingsScreen')
-                .then(({ SettingsScreen }) => {
-                    const screen = new SettingsScreen(
-                        this._settingsContainer!,
-                        () => this._orchestrator?.getNavigation() ?? null,
-                        (mode): void => {
-                            if (mode !== 'off') return;
-                            void this._orchestrator?.setSubtitleTrack(null);
-                        },
-                        (change): void => {
-                            this._orchestrator?.onGuideSettingChange(change);
-                        }
-                    );
-                    this._settingsScreen = screen;
-                    return screen;
-                })
-                .finally(() => {
-                    this._settingsScreenLoad = null;
-                });
-        }
-
-        return this._settingsScreenLoad;
-    }
-
     private async _showSettingsScreen(): Promise<void> {
-        const screen = await this._ensureSettingsScreen();
+        const screen = await this._lazyScreenRegistry?.ensureSettingsScreen();
         if (!screen) return;
         if (this._orchestrator?.getCurrentScreen() !== 'settings') return;
         screen.show();
@@ -879,150 +554,22 @@ export class App {
      * Show error overlay with recovery actions.
      */
     showErrorOverlay(error: LifecycleAppError): void {
-        if (!this._errorOverlay || !this._orchestrator) {
+        if (!this._orchestrator) {
             return;
         }
 
-        const nav = this._getSafeNavigation();
-        const modalWasOpen = nav?.isModalOpen(ERROR_OVERLAY_MODAL_ID) ?? false;
-        if (nav && modalWasOpen) {
-            // Refresh modal focus trap membership on re-render without closing the overlay.
-            if (this._errorOverlayModalCloseHandler) {
-                nav.off('modalClose', this._errorOverlayModalCloseHandler);
-            }
-            nav.closeModal(ERROR_OVERLAY_MODAL_ID);
-        }
-
-        const actions =
+        const actions: BlockingErrorOverlayAction[] =
             error.actions.length > 0
                 ? error.actions
                 : this._orchestrator.getRecoveryActions(error.code as AppErrorCode);
-        this._renderErrorOverlay(error, actions);
-        this._errorOverlay.classList.remove('hidden');
-
-        if (nav && this._errorOverlayFocusableIds.length > 0) {
-            if (!this._errorOverlayModalCloseHandler) {
-                this._errorOverlayModalCloseHandler = ({ modalId }): void => {
-                    if (modalId !== ERROR_OVERLAY_MODAL_ID) return;
-                    this.hideErrorOverlay({ fromModalClose: true });
-                };
-                nav.on('modalClose', this._errorOverlayModalCloseHandler);
-            }
-            if (!nav.isModalOpen(ERROR_OVERLAY_MODAL_ID)) {
-                nav.openModal(ERROR_OVERLAY_MODAL_ID, this._errorOverlayFocusableIds);
-            }
-            const preferred = this._errorOverlayPreferredFocusId ?? this._errorOverlayFocusableIds[0] ?? null;
-            if (preferred) {
-                nav.setFocus(preferred, { persist: false });
-            }
-        }
+        this._blockingErrorOverlayPresenter.show(error, actions);
     }
 
     /**
      * Hide error overlay.
      */
     hideErrorOverlay(options?: { fromModalClose?: boolean }): void {
-        if (this._errorOverlay) {
-            this._errorOverlay.classList.add('hidden');
-        }
-        const nav = this._getSafeNavigation();
-        if (nav) {
-            if (!options?.fromModalClose) {
-                nav.closeModal(ERROR_OVERLAY_MODAL_ID);
-            }
-            this._teardownErrorOverlayNavigation(nav);
-        }
-    }
-
-    private _teardownErrorOverlayNavigation(nav: INavigationManager): void {
-        if (this._errorOverlayModalCloseHandler) {
-            nav.off('modalClose', this._errorOverlayModalCloseHandler);
-            this._errorOverlayModalCloseHandler = null;
-        }
-        for (const id of this._errorOverlayFocusableIds) {
-            nav.unregisterFocusable(id);
-        }
-        this._errorOverlayFocusableIds = [];
-        this._errorOverlayPreferredFocusId = null;
-    }
-
-    /**
-     * Render error overlay content.
-     */
-    private _renderErrorOverlay(
-        error: LifecycleAppError,
-        actions: ErrorRecoveryAction[]
-    ): void {
-        if (!this._errorOverlay) return;
-
-        // Clear existing content
-        this._errorOverlay.innerHTML = '';
-
-        // Error container
-        const container = document.createElement('div');
-        container.className = 'error-content';
-
-        // Title
-        const title = document.createElement('h2');
-        title.className = 'error-title';
-        title.textContent = 'Something went wrong';
-        container.appendChild(title);
-
-        // Message
-        const message = document.createElement('p');
-        message.className = 'error-message';
-        message.textContent = error.userMessage || error.message;
-        container.appendChild(message);
-
-        // Actions
-        const actionsContainer = document.createElement('div');
-        actionsContainer.className = 'error-actions';
-
-        const nav = this._getSafeNavigation();
-        if (nav) {
-            // Re-render replaces elements; ensure we unregister any prior focusables first.
-            this._teardownErrorOverlayNavigation(nav);
-        }
-
-        let primaryButton: HTMLButtonElement | null = null;
-        const focusableIds: string[] = [];
-
-        for (const action of actions) {
-            const id = `error-overlay-action-${focusableIds.length}`;
-            const button = document.createElement('button');
-            button.className = action.isPrimary
-                ? 'error-button primary'
-                : 'error-button secondary';
-            button.textContent = action.label;
-            button.addEventListener('click', () => {
-                this.hideErrorOverlay();
-                action.action();
-            });
-            if (action.isPrimary && !primaryButton) {
-                primaryButton = button;
-            }
-            actionsContainer.appendChild(button);
-
-            if (nav) {
-                focusableIds.push(id);
-                nav.registerFocusable({
-                    id,
-                    element: button,
-                    group: ERROR_OVERLAY_MODAL_ID,
-                    neighbors: {},
-                });
-            }
-        }
-
-        container.appendChild(actionsContainer);
-        this._errorOverlay.appendChild(container);
-
-        // Ensure focus is visible even if Navigation is not available yet (e.g. during partial init / tests).
-        (primaryButton ?? actionsContainer.querySelector('button'))?.focus();
-
-        this._errorOverlayFocusableIds = focusableIds;
-        const primaryIndex = actions.findIndex((a) => a.isPrimary);
-        this._errorOverlayPreferredFocusId = focusableIds[primaryIndex] ?? focusableIds[0] ?? null;
+        this._blockingErrorOverlayPresenter.hide(options);
     }
 
     /**
@@ -1055,379 +602,6 @@ export class App {
             container.appendChild(instructPara);
 
             root.appendChild(container);
-        }
-    }
-
-    /**
-     * Show a non-blocking toast message.
-     */
-    private _showToast(input: ToastInput): void {
-        if (!this._toastContainer) {
-            return;
-        }
-
-        const now = Date.now();
-        if (now - this._lastToastAt < 1500) {
-            return;
-        }
-        this._lastToastAt = now;
-
-        const { message, type } = normalizeToastInput(input);
-        const iconByType: Record<ToastType, string> = {
-            info: 'ℹ️',
-            success: '✓',
-            warning: '⚠️',
-            error: '❌',
-        };
-        const icon = iconByType[type] ?? 'ℹ️';
-
-        this._toastContainer.dataset.toastType = type;
-        this._toastContainer.textContent = `${icon} ${message}`;
-        this._toastContainer.style.display = 'block';
-        this._toastContainer.style.opacity = '1';
-
-        if (this._toastHideTimer !== null) {
-            clearTimeout(this._toastHideTimer);
-        }
-        this._toastHideTimer = window.setTimeout(() => {
-            if (!this._toastContainer) return;
-            this._toastContainer.style.opacity = '0';
-            const container = this._toastContainer;
-            window.setTimeout(() => {
-                if (container) {
-                    container.style.display = 'none';
-                }
-            }, 200) as unknown as number;
-        }, 5000) as unknown as number;
-    }
-
-    private async _copyToClipboard(text: string): Promise<boolean> {
-        try {
-            if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-                await navigator.clipboard.writeText(text);
-                return true;
-            }
-            return false;
-        } catch {
-            return false;
-        }
-    }
-
-    private _toggleDevMenu(): void {
-        if (!this._isDebugSurfaceEnabled()) return;
-        if (!this._devMenuContainer) return;
-
-        if (this._devMenuContainer.style.display === 'none') {
-            this._renderDevMenu();
-            this._devMenuContainer.style.display = 'block';
-        } else {
-            this._devMenuContainer.style.display = 'none';
-        }
-    }
-
-    private _isDebugSurfaceEnabled(): boolean {
-        if (__LINEUP_DEV_BUILD__) {
-            return true;
-        }
-        return readStoredBoolean(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, false);
-    }
-
-    private _renderDevMenu(): void {
-        if (!this._devMenuContainer) return;
-
-        // Dev-only: keep all interpolations here strictly to controlled constants/flags.
-        // Do NOT interpolate Plex/user-provided strings into innerHTML to avoid future XSS foot-guns.
-        this._devMenuContainer.innerHTML = `
-            <h2 style="margin-top:0;border-bottom:1px solid #444;padding-bottom:10px;">Dev Menu</h2>
-            <div style="margin-bottom:15px;color:#aaa;font-size:13px;">
-                Storage keys: <code>${STORAGE_KEYS.CHANNELS_REAL}</code>, <code>${STORAGE_KEYS.CURRENT_CHANNEL}</code>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:10px;">
-                <details style="border:1px solid #333;border-radius:8px;padding:10px;">
-                    <summary style="cursor:pointer;color:#ddd;">Plex Debug Overrides</summary>
-                    <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
-                        <label style="font-size:13px;color:#aaa;">
-                            <input id="dev-directplay-audio-fallback" type="checkbox" /> Try Direct Play using fallback audio track (lineup_direct_play_audio_fallback=1)
-                        </label>
-                        <div style="margin-top:6px;font-size:12px;color:#888;">
-                            Now Playing Stream Debug (overlay)
-                        </div>
-                        <label style="font-size:13px;color:#aaa;">
-                            <input id="dev-nowplaying-stream-debug" type="checkbox" /> Show stream decision in Show Info overlay (lineup_now_playing_stream_debug=1)
-                        </label>
-                        <label style="font-size:13px;color:#aaa;">
-                            <input id="dev-nowplaying-stream-debug-auto" type="checkbox" /> Auto-open Show Info on tune when debug is enabled (lineup_now_playing_stream_debug_auto_show=1)
-                        </label>
-                        <label style="font-size:13px;color:#aaa;">
-                            Forced Client Profile Name
-                            <select id="dev-transcode-profile-name" style="margin-left:8px;padding:6px;">
-                                <option value="">(default)</option>
-                                <option value="HTML TV App">HTML TV App</option>
-                                <option value="Generic">Generic</option>
-                            </select>
-                        </label>
-                        <div style="display:flex;gap:10px;margin-top:6px;">
-                            <button id="dev-transcode-save" style="padding:8px;cursor:pointer;">Save Overrides</button>
-                            <button id="dev-transcode-clear" style="padding:8px;cursor:pointer;background:#500;color:#fff;border:none;">Clear Overrides</button>
-                        </div>
-                        <div style="font-size:12px;color:#888;margin-top:6px;">
-                            Forced profile affects only transcode URL generation. Tokens are never shown.
-                        </div>
-                    </div>
-                </details>
-                <details style="border:1px solid #333;border-radius:8px;padding:10px;">
-                    <summary style="cursor:pointer;color:#ddd;">Playback Info (PMS Decision)</summary>
-                    <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
-                        <div style="display:flex;gap:10px;align-items:center;">
-                            <button id="dev-playback-refresh" style="padding:8px;cursor:pointer;">Refresh</button>
-                            <button id="dev-playback-copy-summary" style="padding:8px;cursor:pointer;">Copy Summary</button>
-                            <button id="dev-playback-copy-raw" style="padding:8px;cursor:pointer;">Copy Raw</button>
-                            <span style="font-size:12px;color:#888;">Tip: Ctrl+Shift+D (desktop) or run window.lineup.toggleDevMenu() in the console</span>
-                        </div>
-                        <pre id="dev-playback-info" style="margin:0;max-height:260px;overflow:auto;background:#111;border:1px solid #333;border-radius:6px;padding:10px;color:#ddd;font-size:12px;line-height:1.35;white-space:pre-wrap;"></pre>
-                        <div style="font-size:12px;color:#888;">
-                            Shows Lineup's local decision and (when transcoding) the server's universal transcode decision.
-                        </div>
-                    </div>
-                </details>
-                <button id="dev-reset-app" style="padding:10px;cursor:pointer;background:#500;color:#fff;border:none;">Reset Lineup Storage</button>
-                <button id="dev-close" style="padding:10px;cursor:pointer;margin-top:10px;">Close</button>
-            </div>
-        `;
-
-        // Bind events
-        this._devMenuContainer.querySelector('#dev-reset-app')?.addEventListener('click', () => {
-            const ok = window.confirm('Reset Lineup storage (channels, overrides)?');
-            if (!ok) return;
-            safeClearLineupStorage();
-            window.location.reload();
-        });
-
-        this._devMenuContainer.querySelector('#dev-close')?.addEventListener('click', () => {
-            this._devMenuContainer!.style.display = 'none';
-        });
-
-        this._devMenuContainer.querySelector('#dev-playback-refresh')?.addEventListener('click', () => {
-            void this._refreshDevPlaybackInfo();
-        });
-        void this._refreshDevPlaybackInfo();
-
-        // Transcode override controls (real mode only)
-        const read = (k: string): string => safeLocalStorageGet(k) ?? '';
-        const clamp = (v: string): string => v.trim().slice(0, 128);
-        const writeOrRemove = (k: string, v: string): void => {
-            const value = clamp(v);
-            if (value.length === 0) {
-                safeLocalStorageRemove(k);
-            } else {
-                safeLocalStorageSet(k, value);
-            }
-        };
-
-        const profileNameSelect = this._devMenuContainer.querySelector('#dev-transcode-profile-name') as HTMLSelectElement | null;
-        if (profileNameSelect) {
-            const storedProfileName = read(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
-            const isSupportedStoredProfileName = Array.from(profileNameSelect.options).some(
-                (option) => option.value === storedProfileName
-            );
-            if (storedProfileName.length > 0 && !isSupportedStoredProfileName) {
-                safeLocalStorageRemove(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
-                profileNameSelect.value = '';
-            } else {
-                profileNameSelect.value = storedProfileName;
-            }
-        }
-        const directPlayAudioFallbackEl = this._devMenuContainer.querySelector('#dev-directplay-audio-fallback') as HTMLInputElement | null;
-        if (directPlayAudioFallbackEl) {
-            directPlayAudioFallbackEl.checked =
-                read(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK) === '1';
-        }
-        const nowPlayingStreamDebugEl = this._devMenuContainer.querySelector('#dev-nowplaying-stream-debug') as HTMLInputElement | null;
-        if (nowPlayingStreamDebugEl) {
-            nowPlayingStreamDebugEl.checked =
-                read(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG) === '1';
-        }
-        const nowPlayingStreamDebugAutoEl = this._devMenuContainer.querySelector('#dev-nowplaying-stream-debug-auto') as HTMLInputElement | null;
-        if (nowPlayingStreamDebugAutoEl) {
-            nowPlayingStreamDebugAutoEl.checked =
-                read(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW) === '1';
-        }
-
-        this._devMenuContainer.querySelector('#dev-transcode-save')?.addEventListener('click', () => {
-            if (directPlayAudioFallbackEl) {
-                safeLocalStorageSet(
-                    LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK,
-                    directPlayAudioFallbackEl.checked ? '1' : '0'
-                );
-            }
-            if (nowPlayingStreamDebugEl) {
-                safeLocalStorageSet(
-                    LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG,
-                    nowPlayingStreamDebugEl.checked ? '1' : '0'
-                );
-            }
-            if (nowPlayingStreamDebugAutoEl) {
-                safeLocalStorageSet(
-                    LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW,
-                    nowPlayingStreamDebugAutoEl.checked ? '1' : '0'
-                );
-            }
-            if (profileNameSelect) {
-                writeOrRemove(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME, profileNameSelect.value);
-            }
-            this._showToast({ message: 'Saved overrides', type: 'success' });
-        });
-
-        this._devMenuContainer.querySelector('#dev-transcode-clear')?.addEventListener('click', () => {
-            const ok = window.confirm('Clear transcode overrides?');
-            if (!ok) return;
-            const keys = [
-                LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK,
-                LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG,
-                LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW,
-                LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME,
-            ] as const;
-            for (const k of keys) safeLocalStorageRemove(k);
-            this._showToast({ message: 'Cleared overrides', type: 'success' });
-            // Re-render to reflect cleared state
-            this._renderDevMenu();
-        });
-
-        this._devMenuContainer.querySelector('#dev-playback-copy-summary')?.addEventListener('click', async () => {
-            const pre = this._devMenuContainer?.querySelector('#dev-playback-info') as HTMLPreElement | null;
-            const text = pre?.dataset?.summary ?? '';
-            if (!text) {
-                this._showToast({ message: 'Nothing to copy (refresh first)', type: 'warning' });
-                return;
-            }
-            const ok = await this._copyToClipboard(text);
-            this._showToast({ message: ok ? 'Copied summary' : 'Copy not supported', type: ok ? 'success' : 'warning' });
-        });
-
-        this._devMenuContainer.querySelector('#dev-playback-copy-raw')?.addEventListener('click', async () => {
-            const pre = this._devMenuContainer?.querySelector('#dev-playback-info') as HTMLPreElement | null;
-            const text = pre?.dataset?.raw ?? '';
-            if (!text) {
-                this._showToast({ message: 'Nothing to copy (refresh first)', type: 'warning' });
-                return;
-            }
-            const ok = await this._copyToClipboard(text);
-            this._showToast({ message: ok ? 'Copied raw JSON' : 'Copy not supported', type: ok ? 'success' : 'warning' });
-        });
-    }
-
-    private async _refreshDevPlaybackInfo(): Promise<void> {
-        if (!this._devMenuContainer || !this._orchestrator) return;
-        const pre = this._devMenuContainer.querySelector('#dev-playback-info') as HTMLPreElement | null;
-        if (!pre) return;
-
-        pre.textContent = 'Loading...';
-        pre.dataset.summary = '';
-        pre.dataset.raw = '';
-        try {
-            const snapshot = await this._orchestrator.refreshPlaybackInfoSnapshot();
-            const fmtMs = (ms: number): string => {
-                const totalSec = Math.max(0, Math.floor(ms / 1000));
-                const h = Math.floor(totalSec / 3600);
-                const m = Math.floor((totalSec % 3600) / 60);
-                const s = totalSec % 60;
-                if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-                return `${m}:${String(s).padStart(2, '0')}`;
-            };
-            const fmtKbps = (kbps: number): string => {
-                if (!Number.isFinite(kbps)) return 'unknown';
-                if (kbps >= 1000) return `${(kbps / 1000).toFixed(1)} Mbps`;
-                return `${kbps} kbps`;
-            };
-
-            const rawJson = JSON.stringify(snapshot, null, 2);
-
-            const lines: string[] = [];
-            lines.push('PLAYBACK INFO');
-            lines.push('='.repeat(60));
-            lines.push(`Channel: ${snapshot.channel ? `${snapshot.channel.number} ${snapshot.channel.name}` : '(none)'}`);
-            lines.push(`Item:    ${snapshot.program ? snapshot.program.title : '(none)'}`);
-            if (snapshot.program) {
-                lines.push(`Time:    elapsed ${fmtMs(snapshot.program.elapsedMs)} / remaining ${fmtMs(snapshot.program.remainingMs)}`);
-            }
-
-            lines.push('');
-            lines.push('DELIVERY (what the TV receives)');
-            lines.push('-'.repeat(60));
-            if (!snapshot.stream) {
-                lines.push('(no stream decision yet)');
-            } else {
-                const s = snapshot.stream;
-                lines.push(`Protocol: ${s.protocol.toUpperCase()}  MIME: ${s.mimeType}`);
-                lines.push(`Lineup:    ${s.isDirectPlay ? 'DIRECT PLAY' : 'HLS SESSION REQUESTED (Plex decides copy vs transcode)'}`);
-                lines.push(`Target:    ${s.container}  video=${s.videoCodec}  audio=${s.audioCodec}  ${s.width}x${s.height}  ${fmtKbps(s.bitrate)}`);
-                lines.push(`Subtitles: ${s.subtitleDelivery}`);
-
-                if (s.serverDecision) {
-                    const sd = s.serverDecision;
-                    const parts = [
-                        sd.videoDecision ? `video=${sd.videoDecision}` : null,
-                        sd.audioDecision ? `audio=${sd.audioDecision}` : null,
-                        sd.subtitleDecision ? `subtitles=${sd.subtitleDecision}` : null,
-                    ].filter(Boolean);
-                    if (parts.length > 0) {
-                        lines.push(`PMS:       ${parts.join(' ')}`);
-                    }
-                    if (sd.decisionText) {
-                        lines.push(`PMS text:  ${sd.decisionText}`);
-                    }
-                } else if (!s.isDirectPlay) {
-                    lines.push('PMS:       (decision not fetched; press Refresh again)');
-                }
-
-                if (s.directPlay && s.directPlay.reasons.length > 0) {
-                    lines.push('');
-                    lines.push(`Direct Play blocked by: ${s.directPlay.reasons.join(', ')}`);
-                }
-
-                lines.push('');
-                lines.push('SOURCE (selected Plex media version)');
-                lines.push('-'.repeat(60));
-                if (s.source) {
-                    lines.push(`Source: ${s.source.container}  video=${s.source.videoCodec}  audio=${s.source.audioCodec}  ${s.source.width}x${s.source.height}  ${fmtKbps(s.source.bitrate)}`);
-                } else {
-                    lines.push('(unknown)');
-                }
-
-                lines.push('');
-                lines.push('TRACKS');
-                lines.push('-'.repeat(60));
-                lines.push(`Audio:    ${s.selectedAudio ? `${s.selectedAudio.codec ?? 'unknown'}${typeof s.selectedAudio.channels === 'number' ? ` ${s.selectedAudio.channels}ch` : ''}${s.selectedAudio.language ? ` (${s.selectedAudio.language})` : ''}` : '(none)'}`);
-                lines.push(`Subtitle: ${s.selectedSubtitle ? `${s.selectedSubtitle.codec ?? 'unknown'}${s.selectedSubtitle.language ? ` (${s.selectedSubtitle.language})` : ''}` : '(none)'}`);
-                if (s.audioFallback) {
-                    lines.push(`Fallback: ${s.audioFallback.fromCodec} -> ${s.audioFallback.toCodec} (${s.audioFallback.reason})`);
-                }
-
-                if (s.transcodeRequest) {
-                    lines.push('');
-                    lines.push('REQUEST (Lineup -> PMS)');
-                    lines.push('-'.repeat(60));
-                    lines.push(`Session: ${s.transcodeRequest.sessionId}`);
-                    lines.push(`Max BR:  ${fmtKbps(s.transcodeRequest.maxBitrate)}`);
-                    lines.push(`AudioID: ${s.transcodeRequest.audioStreamId ?? '(none)'}`);
-                }
-            }
-
-            lines.push('');
-            lines.push('RAW');
-            lines.push('-'.repeat(60));
-            lines.push(rawJson);
-
-            pre.textContent = lines.join('\n');
-            const rawHeaderIdx = lines.findIndex((l) => l === 'RAW');
-            const summary =
-                rawHeaderIdx > 0 ? lines.slice(0, Math.max(0, rawHeaderIdx - 1)).join('\n') : pre.textContent;
-            pre.dataset.summary = summary ?? '';
-            pre.dataset.raw = rawJson;
-        } catch (error) {
-            pre.textContent = `Failed to load playback info: ${error instanceof Error ? error.message : String(error)}`;
-            pre.dataset.summary = '';
-            pre.dataset.raw = '';
         }
     }
 

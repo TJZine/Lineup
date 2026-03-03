@@ -397,6 +397,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _playbackRuntimeController: PlaybackRuntimeController | null = null;
     private _overlayRuntimePolicyController: OverlayRuntimePolicyController | null = null;
     private _profileSwitchCleanupController: ProfileSwitchCleanupController | null = null;
+    private _priorityOneControllersInitializing = false;
 
     private _currentProgramForPlayback: ScheduledProgram | null = null;
     private _currentStreamDescriptor: StreamDescriptor | null = null;
@@ -1432,11 +1433,13 @@ export class AppOrchestrator implements IAppOrchestrator {
             throw new Error('PlexAuth not initialized');
         }
 
-        this._requireProfileSwitchCleanupController().prepareForProfileSwitch();
+        const cleanupController = this._requireProfileSwitchCleanupController();
+        cleanupController.prepareForProfileSwitchAttempt();
         // Profile-switch startup is resumed explicitly below; avoid duplicate
         // queued startup runs from a stale profile-resume listener.
         this._initCoordinator?.clearProfileResume();
         await this._plexAuth.switchHomeUser(userId, { pin: pin ?? null });
+        cleanupController.finalizeProfileSwitch();
         this._configureDiscoveryStorageKeysForActiveUser();
 
         if (this._initCoordinator) {
@@ -1451,11 +1454,13 @@ export class AppOrchestrator implements IAppOrchestrator {
             throw new Error('PlexAuth not initialized');
         }
 
-        this._requireProfileSwitchCleanupController().prepareForProfileSwitch();
+        const cleanupController = this._requireProfileSwitchCleanupController();
+        cleanupController.prepareForProfileSwitchAttempt();
         // Same as switchHomeUser: avoid duplicate startup runs when an old
         // profile-resume listener is still registered.
         this._initCoordinator?.clearProfileResume();
         await this._plexAuth.logoutActiveUser();
+        cleanupController.finalizeProfileSwitch();
         this._configureDiscoveryStorageKeysForActiveUser();
 
         if (this._initCoordinator) {
@@ -2207,6 +2212,14 @@ export class AppOrchestrator implements IAppOrchestrator {
     }
 
     private _initializePriorityOneControllers(): void {
+        if (this._eventBinder) {
+            return;
+        }
+        if (this._priorityOneControllersInitializing) {
+            return;
+        }
+        this._priorityOneControllersInitializing = true;
+        try {
         if (!this._scheduler) {
             throw new Error('Priority 1 controller initialization requires scheduler');
         }
@@ -2443,6 +2456,9 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this._nowPlayingHandler?.({ message, type: 'warning' });
             },
         });
+        } finally {
+            this._priorityOneControllersInitializing = false;
+        }
     }
 
     private _handleScreenChange(payload: { from: Screen; to: Screen }): void {

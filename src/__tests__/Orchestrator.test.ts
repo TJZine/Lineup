@@ -994,6 +994,72 @@ describe('AppOrchestrator', () => {
 
             clearTimeoutSpy.mockRestore();
         });
+
+        it('does not reset channel state when switchHomeUser fails', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            mockPlexAuth.switchHomeUser.mockRejectedValueOnce(new Error('switch failed'));
+
+            const initCoordinator = {
+                clearProfileResume: jest.fn(),
+                runStartup: jest.fn().mockResolvedValue(undefined),
+            };
+
+            const mutable = orchestrator as unknown as {
+                _initCoordinator?: typeof initCoordinator;
+                _pendingNowPlayingChannelId?: string | null;
+                _shouldAutoShowInfoBannerOnNextPlay?: boolean;
+                _currentStreamDescriptor?: unknown;
+                _currentStreamDecision?: unknown;
+            };
+
+            mutable._initCoordinator = initCoordinator;
+            mutable._pendingNowPlayingChannelId = 'ch-1';
+            mutable._shouldAutoShowInfoBannerOnNextPlay = true;
+            mutable._currentStreamDescriptor = { id: 'stream' };
+            mutable._currentStreamDecision = { sessionId: 'sess', isTranscoding: true };
+
+            await expect(orchestrator.switchHomeUser('user-2')).rejects.toThrow('switch failed');
+
+            expect(mockScheduler.unloadChannel).not.toHaveBeenCalled();
+            expect(mutable._pendingNowPlayingChannelId).toBe('ch-1');
+            expect(mutable._shouldAutoShowInfoBannerOnNextPlay).toBe(true);
+            expect(mutable._currentStreamDescriptor).toEqual({ id: 'stream' });
+            expect(mutable._currentStreamDecision).toEqual({ sessionId: 'sess', isTranscoding: true });
+        });
+
+        it('does not reset channel state when useMainAccountProfile fails', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            mockPlexAuth.logoutActiveUser.mockRejectedValueOnce(new Error('logout failed'));
+
+            const initCoordinator = {
+                clearProfileResume: jest.fn(),
+                runStartup: jest.fn().mockResolvedValue(undefined),
+            };
+
+            const mutable = orchestrator as unknown as {
+                _initCoordinator?: typeof initCoordinator;
+                _pendingNowPlayingChannelId?: string | null;
+                _shouldAutoShowInfoBannerOnNextPlay?: boolean;
+                _currentStreamDescriptor?: unknown;
+                _currentStreamDecision?: unknown;
+            };
+
+            mutable._initCoordinator = initCoordinator;
+            mutable._pendingNowPlayingChannelId = 'ch-2';
+            mutable._shouldAutoShowInfoBannerOnNextPlay = true;
+            mutable._currentStreamDescriptor = { id: 'stream-2' };
+            mutable._currentStreamDecision = { sessionId: 'sess-2', isTranscoding: true };
+
+            await expect(orchestrator.useMainAccountProfile()).rejects.toThrow('logout failed');
+
+            expect(mockScheduler.unloadChannel).not.toHaveBeenCalled();
+            expect(mutable._pendingNowPlayingChannelId).toBe('ch-2');
+            expect(mutable._shouldAutoShowInfoBannerOnNextPlay).toBe(true);
+            expect(mutable._currentStreamDescriptor).toEqual({ id: 'stream-2' });
+            expect(mutable._currentStreamDecision).toEqual({ sessionId: 'sess-2', isTranscoding: true });
+        });
     });
 
     describe('start', () => {

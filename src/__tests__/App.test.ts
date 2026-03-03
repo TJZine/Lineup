@@ -6,10 +6,10 @@ import { App } from '../App';
 import { AppOrchestrator, type PlaybackInfoSnapshot } from '../Orchestrator';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import { ThemeManager } from '../modules/ui/theme';
-import { EXIT_CONFIRM_CONTAINER_ID } from '../modules/ui/exit-confirm';
 import { STORAGE_KEYS } from '../types';
 
 import { flushPromises } from './helpers';
+import { EXPECTED_CONTAINER_IDS } from './fixtures/appShellContainerIds';
 
 jest.mock('../modules/ui/splash', () => ({
     SplashScreen: class SplashScreen {
@@ -70,10 +70,14 @@ jest.mock('../modules/ui/server-select', () => ({
 }));
 
 const settingsScreenChunkLoaded = jest.fn();
+const settingsScreenConstructed = jest.fn();
 jest.mock('../modules/ui/settings/SettingsScreen', () => {
     settingsScreenChunkLoaded();
     return {
         SettingsScreen: class SettingsScreen {
+            constructor(...args: unknown[]) {
+                settingsScreenConstructed(args);
+            }
             show(): void {
                 return;
             }
@@ -88,10 +92,38 @@ jest.mock('../modules/ui/settings/SettingsScreen', () => {
 });
 
 const channelSetupScreenChunkLoaded = jest.fn();
+const channelSetupScreenConstructed = jest.fn();
 jest.mock('../modules/ui/channel-setup/ChannelSetupScreen', () => {
     channelSetupScreenChunkLoaded();
     return {
         ChannelSetupScreen: class ChannelSetupScreen {
+            constructor(...args: unknown[]) {
+                channelSetupScreenConstructed(args);
+            }
+            show(): void {
+                return;
+            }
+            hide(): void {
+                return;
+            }
+            destroy(): void {
+                return;
+            }
+        },
+    };
+});
+
+const audioSetupScreenChunkLoaded = jest.fn();
+const audioSetupScreenConstructed = jest.fn();
+let capturedAudioSetupComplete: (() => void) | null = null;
+jest.mock('../modules/ui/audio-setup', () => {
+    audioSetupScreenChunkLoaded();
+    return {
+        AudioSetupScreen: class AudioSetupScreen {
+            constructor(_container: HTMLElement, _getNavigation: () => unknown, onComplete: () => void) {
+                audioSetupScreenConstructed();
+                capturedAudioSetupComplete = onComplete;
+            }
             show(): void {
                 return;
             }
@@ -138,7 +170,12 @@ describe('App bootstrap smoke', () => {
             .mockResolvedValue({} as never);
         getRecoveryActionsSpy = jest.spyOn(AppOrchestrator.prototype, 'getRecoveryActions').mockReturnValue([]);
         settingsScreenChunkLoaded.mockClear();
+        settingsScreenConstructed.mockClear();
         channelSetupScreenChunkLoaded.mockClear();
+        channelSetupScreenConstructed.mockClear();
+        audioSetupScreenChunkLoaded.mockClear();
+        audioSetupScreenConstructed.mockClear();
+        capturedAudioSetupComplete = null;
         appShellErrorHandler = null;
         jest.spyOn(AppOrchestrator.prototype, 'registerErrorHandler').mockImplementation((moduleId, handler) => {
             if (moduleId === 'app-shell') {
@@ -180,14 +217,9 @@ describe('App bootstrap smoke', () => {
 
         expect(initializeSpy).toHaveBeenCalledTimes(1);
         expect(startSpy).toHaveBeenCalledTimes(1);
-        expect(document.getElementById('video-container')).not.toBeNull();
-        expect(document.getElementById('epg-container')).not.toBeNull();
-        expect(document.getElementById('now-playing-info-container')).not.toBeNull();
-        expect(document.getElementById('channel-badge-container')).not.toBeNull();
-        expect(document.getElementById('channel-transition-container')).not.toBeNull();
-        expect(document.getElementById('playback-options-container')).not.toBeNull();
-        expect(document.getElementById(EXIT_CONFIRM_CONTAINER_ID)).not.toBeNull();
-        expect(document.getElementById('splash-container')).not.toBeNull();
+        for (const id of EXPECTED_CONTAINER_IDS) {
+            expect(document.getElementById(id)).not.toBeNull();
+        }
     });
 
     const createPlaybackSnapshots = (): {
@@ -399,6 +431,54 @@ describe('App bootstrap smoke', () => {
         expect(overlay?.classList.contains('hidden')).toBe(true);
     });
 
+    it('routes blocking overlay presentation through navigation modal APIs', async () => {
+        const openModal = jest.fn();
+        const closeModal = jest.fn();
+        const isModalOpen = jest.fn().mockReturnValue(false);
+        const registerFocusable = jest.fn();
+        const unregisterFocusable = jest.fn();
+        const setFocus = jest.fn();
+        const on = jest.fn();
+        const off = jest.fn();
+
+        jest.spyOn(AppOrchestrator.prototype, 'getNavigation').mockReturnValue({
+            openModal,
+            closeModal,
+            isModalOpen,
+            registerFocusable,
+            unregisterFocusable,
+            setFocus,
+            on,
+            off,
+        } as never);
+        getRecoveryActionsSpy.mockReturnValue([
+            { label: 'Retry', isPrimary: true, action: jest.fn() },
+        ]);
+
+        app = new App();
+        await app.start();
+
+        app.showErrorOverlay({
+            code: 'TEST_ERROR',
+            message: 'Boom',
+            userMessage: 'Something failed',
+            recoverable: true,
+            phase: 'error',
+            timestamp: Date.now(),
+            actions: [],
+        } as never);
+
+        expect(openModal).toHaveBeenCalledWith('modal:error-overlay', ['error-overlay-action-0']);
+        expect(registerFocusable).toHaveBeenCalledTimes(1);
+        expect(setFocus).toHaveBeenCalledWith('error-overlay-action-0', { persist: false });
+
+        app.hideErrorOverlay();
+
+        expect(closeModal).toHaveBeenCalledWith('modal:error-overlay');
+        expect(unregisterFocusable).toHaveBeenCalledWith('error-overlay-action-0');
+        expect(off).toHaveBeenCalledWith('modalClose', expect.any(Function));
+    });
+
     it.each([
         ['CHANNEL_NOT_FOUND', 'That channel is unavailable.'],
         ['SCHEDULER_EMPTY_CHANNEL', 'No scheduled content is available for that channel.'],
@@ -490,6 +570,23 @@ describe('App bootstrap smoke', () => {
         jest.setSystemTime(14_000);
         persistenceWarning?.({});
         expect(toastEl?.textContent ?? '').toContain('Some settings could not be saved.');
+    });
+
+    it('clears delegated toast timers during shutdown', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(0);
+
+        app = new App();
+        await app.start();
+
+        jest.setSystemTime(10_000);
+        nowPlayingHandler?.({ message: 'Hello', type: 'info' });
+        expect(jest.getTimerCount()).toBeGreaterThan(0);
+
+        await app.shutdown();
+        app = null;
+
+        expect(jest.getTimerCount()).toBe(0);
     });
 
     it('copies dev playback info via clipboard and shows toast when blocked/unsupported', async () => {
@@ -608,6 +705,26 @@ describe('App bootstrap smoke', () => {
         expect(toggleServerSelectSpy).toHaveBeenCalledTimes(1);
     });
 
+    it('removes diagnostics bindings on shutdown', async () => {
+        const toggleServerSelectSpy = jest
+            .spyOn(AppOrchestrator.prototype, 'toggleServerSelect')
+            .mockImplementation(() => undefined);
+
+        app = new App();
+        await app.start();
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyI' }));
+        expect(toggleServerSelectSpy).toHaveBeenCalledTimes(1);
+        expect(typeof (window as { lineup?: { toggleDevMenu: () => void } }).lineup?.toggleDevMenu).toBe('function');
+
+        await app.shutdown();
+        app = null;
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyI' }));
+        expect(toggleServerSelectSpy).toHaveBeenCalledTimes(1);
+        expect((window as { lineup?: unknown }).lineup).toBeUndefined();
+    });
+
     it('applies screen visibility and schedules/cancels prefetches', async () => {
         jest.useFakeTimers();
 
@@ -672,6 +789,80 @@ describe('App bootstrap smoke', () => {
         await flushPromises();
 
         expect(channelSetupScreenChunkLoaded).toHaveBeenCalledTimes(1);
+    });
+
+    it('reuses lazy-loaded settings and channel-setup screens across repeated visibility changes', async () => {
+        let currentScreen: string | null = null;
+        (AppOrchestrator.prototype.getCurrentScreen as unknown as jest.Mock).mockImplementation(() => currentScreen);
+
+        app = new App();
+        await app.start();
+
+        currentScreen = 'settings';
+        screenChangeHandler?.('player', 'settings');
+        await flushPromises();
+        screenChangeHandler?.('settings', 'settings');
+        await flushPromises();
+        expect(settingsScreenConstructed).toHaveBeenCalledTimes(1);
+
+        currentScreen = 'channel-setup';
+        screenChangeHandler?.('auth', 'channel-setup');
+        await flushPromises();
+        screenChangeHandler?.('channel-setup', 'channel-setup');
+        await flushPromises();
+        expect(channelSetupScreenConstructed).toHaveBeenCalledTimes(1);
+    });
+
+    it('routes audio setup completion to channel-setup through the lazy-screen callback', async () => {
+        const replaceScreen = jest.fn();
+        jest.spyOn(AppOrchestrator.prototype, 'getNavigation').mockReturnValue({
+            replaceScreen,
+            getScreenParams: jest.fn().mockReturnValue({}),
+            openModal: jest.fn(),
+            closeModal: jest.fn(),
+            isModalOpen: jest.fn().mockReturnValue(false),
+            registerFocusable: jest.fn(),
+            unregisterFocusable: jest.fn(),
+            setFocus: jest.fn(),
+            on: jest.fn(),
+            off: jest.fn(),
+        } as never);
+
+        let currentScreen: string | null = null;
+        (AppOrchestrator.prototype.getCurrentScreen as unknown as jest.Mock).mockImplementation(() => currentScreen);
+
+        app = new App();
+        await app.start();
+
+        currentScreen = 'audio-setup';
+        screenChangeHandler?.('auth', 'audio-setup');
+        await flushPromises();
+
+        expect(audioSetupScreenChunkLoaded).toHaveBeenCalledTimes(1);
+        expect(audioSetupScreenConstructed).toHaveBeenCalledTimes(1);
+        expect(capturedAudioSetupComplete).not.toBeNull();
+
+        capturedAudioSetupComplete?.();
+
+        expect(replaceScreen).toHaveBeenCalledWith('channel-setup');
+    });
+
+    it('clears delegated lazy-screen prefetch timers during shutdown', async () => {
+        jest.useFakeTimers();
+        isReadySpy.mockReturnValue(true);
+
+        app = new App();
+        await app.start();
+
+        screenChangeHandler?.('splash', 'server-select');
+        screenChangeHandler?.('auth', 'player');
+
+        expect(jest.getTimerCount()).toBe(2);
+
+        await app.shutdown();
+        app = null;
+
+        expect(jest.getTimerCount()).toBe(0);
     });
 
     it('generates and persists a client id when missing/invalid (fallback path)', async () => {
