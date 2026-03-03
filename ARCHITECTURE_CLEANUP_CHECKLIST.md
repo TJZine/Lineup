@@ -28,7 +28,7 @@ Completion rule: every implementation plan that finishes a `P#-W#` work unit mus
 
 - Start with the superpowers workflow: `using-superpowers`, then `brainstorming`, then the matching repo-local architecture skill(s).
 - Do a repo evidence sweep before planning.
-- Produce or refresh a concrete plan using the writing-plans skill under `docs/plans/` for the selected work unit before coding. The plan should have 0 decision points and be explicit enough for a less intelligent agent to implement.
+- Produce or refresh a concrete plan using the writing-plans skill under `docs/plans/` for the selected work unit before coding. The plan should have 0 decision points and be sure this plan is extremely explicit if i have a less smart agent implement it. there should be no decision points so a less smart agent wont run into any issues.
 - Keep scope limited to one work unit at a time.
 - In every plan, explicitly state how the selected `P#-W#` advances the durable end-state of its parent Priority section.
 - Favor durable collaborators/stores/binders that later work units can extend; avoid temporary adapters or one-off abstractions that will need immediate replacement inside the same Priority section.
