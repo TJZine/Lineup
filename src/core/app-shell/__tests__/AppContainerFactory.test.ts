@@ -106,6 +106,11 @@ describe('createAppContainers', () => {
         expect(devMenu.style.transform).toBe('translate(-50%, -50%)');
         expect(devMenu.style.display).toBe('none');
         expect(devMenu.style.minWidth).toBe('300px');
+        expect(devMenu.style.backgroundColor).toBe('rgb(34, 34, 34)');
+        expect(devMenu.style.color).toBe('rgb(255, 255, 255)');
+        expect(devMenu.style.padding).toBe('20px');
+        expect(devMenu.style.borderRadius).toBe('8px');
+        expect(devMenu.style.boxShadow.replace(/\s+/g, '')).toBe('0020pxrgba(0,0,0,0.5)');
         expect(devMenu.style.zIndex).toBe('10000');
 
         expect(toastContainer.style.position).toBe('fixed');
@@ -113,6 +118,17 @@ describe('createAppContainers', () => {
         expect(toastContainer.style.bottom).toBe('64px');
         expect(toastContainer.style.transform).toBe('translateX(-50%)');
         expect(toastContainer.style.maxWidth).toBe('70%');
+        expect(toastContainer.style.backgroundColor).toBe('rgba(0, 0, 0, 0.8)');
+        expect(toastContainer.style.color).toBe('rgb(255, 255, 255)');
+        expect(toastContainer.style.padding).toBe('12px 20px');
+        expect(toastContainer.style.borderLeftWidth).toBe('4px');
+        expect(toastContainer.style.borderLeftStyle).toBe('solid');
+        expect(toastContainer.style.boxSizing).toBe('border-box');
+        expect(toastContainer.style.borderRadius).toBe('8px');
+        expect(toastContainer.style.fontSize).toBe('20px');
+        expect(toastContainer.style.lineHeight).toBe('1.2');
+        expect(toastContainer.style.textAlign).toBe('left');
+        expect(toastContainer.style.opacity).toBe('0');
         expect(toastContainer.style.transition).toBe('opacity 200ms ease');
         expect(toastContainer.style.pointerEvents).toBe('none');
         expect(toastContainer.style.display).toBe('none');
