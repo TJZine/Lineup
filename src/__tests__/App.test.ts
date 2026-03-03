@@ -702,6 +702,26 @@ describe('App bootstrap smoke', () => {
         expect(toggleServerSelectSpy).toHaveBeenCalledTimes(1);
     });
 
+    it('removes diagnostics bindings on shutdown', async () => {
+        const toggleServerSelectSpy = jest
+            .spyOn(AppOrchestrator.prototype, 'toggleServerSelect')
+            .mockImplementation(() => undefined);
+
+        app = new App();
+        await app.start();
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyI' }));
+        expect(toggleServerSelectSpy).toHaveBeenCalledTimes(1);
+        expect(typeof (window as { lineup?: { toggleDevMenu: () => void } }).lineup?.toggleDevMenu).toBe('function');
+
+        await app.shutdown();
+        app = null;
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyI' }));
+        expect(toggleServerSelectSpy).toHaveBeenCalledTimes(1);
+        expect((window as { lineup?: unknown }).lineup).toBeUndefined();
+    });
+
     it('applies screen visibility and schedules/cancels prefetches', async () => {
         jest.useFakeTimers();
 
