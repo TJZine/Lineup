@@ -28,7 +28,7 @@ Completion rule: every implementation plan that finishes a `P#-W#` work unit mus
 
 - Start with the superpowers workflow: `using-superpowers`, then `brainstorming`, then the matching repo-local architecture skill(s).
 - Do a repo evidence sweep before planning.
-- Produce or refresh a concrete plan using the writing-plans skill under `docs/plans/` for the selected work unit before coding. The plan should have 0 decision points and be sure this plan is extremely explicit if i have a less smart agent implement it. there should be no decision points so a less smart agent wont run into any issues.
+- Produce or refresh a concrete, decision-point-free plan under `docs/plans/` (use the writing-plans skill) before coding. The plan must be explicit enough for less-capable agents to execute without ambiguity.
 - Keep scope limited to one work unit at a time.
 - In every plan, explicitly state how the selected `P#-W#` advances the durable end-state of its parent Priority section.
 - Favor durable collaborators/stores/binders that later work units can extend; avoid temporary adapters or one-off abstractions that will need immediate replacement inside the same Priority section.
@@ -301,7 +301,7 @@ Other review signals:
 - Why it matters: tests that need private access are a sign the production seams are not clean enough.
 - Target outcomes:
   - More behavior tested through public APIs or extracted collaborators
-  - audit of any overengineered or redundant/unhelpful test for deletion
+  - audit of any overengineered or redundant/unhelpful tests for deletion
   - Less need for frozen private-probe debt
 - Likely files:
   - `src/__tests__/policy/AntiPatterns.policy.test.ts`
