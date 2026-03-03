@@ -141,6 +141,7 @@ import {
     OrchestratorStorageContext,
     OrchestratorEventBinder,
     OverlayRuntimePolicyController,
+    ProfileSwitchCleanupController,
     PlaybackStartController,
     PlaybackRuntimeController,
     type IInitializationCoordinator,
@@ -398,6 +399,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _playbackStartController: PlaybackStartController | null = null;
     private _playbackRuntimeController: PlaybackRuntimeController | null = null;
     private _overlayRuntimePolicyController: OverlayRuntimePolicyController | null = null;
+    private _profileSwitchCleanupController: ProfileSwitchCleanupController | null = null;
 
     private _currentProgramForPlayback: ScheduledProgram | null = null;
     private _currentStreamDescriptor: StreamDescriptor | null = null;
@@ -1434,7 +1436,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             throw new Error('PlexAuth not initialized');
         }
 
-        this._prepareForProfileSwitch();
+        this._ensureProfileSwitchCleanupController().prepareForProfileSwitch();
         // Profile-switch startup is resumed explicitly below; avoid duplicate
         // queued startup runs from a stale profile-resume listener.
         this._initCoordinator?.clearProfileResume();
@@ -1453,7 +1455,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             throw new Error('PlexAuth not initialized');
         }
 
-        this._prepareForProfileSwitch();
+        this._ensureProfileSwitchCleanupController().prepareForProfileSwitch();
         // Same as switchHomeUser: avoid duplicate startup runs when an old
         // profile-resume listener is still registered.
         this._initCoordinator?.clearProfileResume();
@@ -2441,6 +2443,49 @@ export class AppOrchestrator implements IAppOrchestrator {
         return this._overlayRuntimePolicyController;
     }
 
+    private _ensureProfileSwitchCleanupController(): ProfileSwitchCleanupController {
+        if (this._profileSwitchCleanupController) {
+            return this._profileSwitchCleanupController;
+        }
+
+        this._profileSwitchCleanupController = new ProfileSwitchCleanupController({
+            getPendingDayRolloverTimer: (): ReturnType<typeof setTimeout> | null =>
+                this._pendingDayRolloverTimer,
+            clearPendingDayRolloverTimer: (timer): void => {
+                globalThis.clearTimeout(timer);
+            },
+            setPendingDayRolloverTimer: (timer): void => {
+                this._pendingDayRolloverTimer = timer;
+            },
+            setPendingDayRolloverDayKey: (dayKey): void => {
+                this._pendingDayRolloverDayKey = dayKey;
+            },
+            stopPlayback: (): void => {
+                this._stopPlayback();
+            },
+            unloadCurrentChannel: (): void => {
+                this._scheduler?.unloadChannel();
+            },
+            setPendingNowPlayingChannelId: (channelId): void => {
+                this._pendingNowPlayingChannelId = channelId;
+            },
+            setShouldAutoShowInfoBannerOnNextPlay: (value): void => {
+                this._shouldAutoShowInfoBannerOnNextPlay = value;
+            },
+            setCurrentProgramForPlayback: (program): void => {
+                this._currentProgramForPlayback = program;
+            },
+            setCurrentStreamDescriptor: (stream): void => {
+                this._currentStreamDescriptor = stream;
+            },
+            setCurrentStreamDecision: (decision): void => {
+                this._currentStreamDecision = decision;
+            },
+        });
+
+        return this._profileSwitchCleanupController;
+    }
+
     private async _handleLifecycleResume(): Promise<void> {
         await this._ensurePlaybackRuntimeController().handleLifecycleResume();
     }
@@ -2467,21 +2512,6 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _stopPlayback(): void {
         this._stopActiveTranscodeSession();
         this._videoPlayer?.stop();
-    }
-
-    private _prepareForProfileSwitch(): void {
-        if (this._pendingDayRolloverTimer !== null) {
-            globalThis.clearTimeout(this._pendingDayRolloverTimer);
-            this._pendingDayRolloverTimer = null;
-        }
-        this._pendingDayRolloverDayKey = null;
-        this._stopPlayback();
-        this._scheduler?.unloadChannel();
-        this._pendingNowPlayingChannelId = null;
-        this._shouldAutoShowInfoBannerOnNextPlay = false;
-        this._currentProgramForPlayback = null;
-        this._currentStreamDescriptor = null;
-        this._currentStreamDecision = null;
     }
 
     private _buildPlexResourceUrl(pathOrUrl: string): string | null {
