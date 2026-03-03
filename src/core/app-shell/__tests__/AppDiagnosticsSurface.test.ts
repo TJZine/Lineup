@@ -152,4 +152,30 @@ describe('AppDiagnosticsSurface', () => {
         document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyI' }));
         expect(toggleServerSelect).toHaveBeenCalledTimes(1);
     });
+
+    it('keeps the close button safe after dispose when the menu was already rendered', async () => {
+        const refreshPlaybackInfoSnapshot = jest.fn().mockResolvedValue(createSnapshot());
+        const container = createContainer();
+        document.body.appendChild(container);
+
+        surface = new AppDiagnosticsSurface({
+            getOrchestrator: (): DiagnosticsOrchestrator => ({ toggleServerSelect: jest.fn(), refreshPlaybackInfoSnapshot }),
+            showToast: jest.fn(),
+        });
+        surface.setContainer(container);
+        surface.initialize();
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyD', ctrlKey: true, shiftKey: true }));
+        await flushPromises();
+
+        const closeButton = container.querySelector('#dev-close');
+        expect(closeButton).toBeInstanceOf(HTMLButtonElement);
+        expect(container.style.display).toBe('block');
+
+        surface.dispose();
+        surface = null;
+
+        expect(() => (closeButton as HTMLButtonElement).click()).not.toThrow();
+        expect(container.style.display).toBe('none');
+    });
 });

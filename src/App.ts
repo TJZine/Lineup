@@ -557,7 +557,6 @@ export class App {
      * Uses crypto.randomUUID if available, falls back to Math.random.
      */
     private _generateClientId(): string {
-        const prefix = `line${'up'}-`;
         // Prefer crypto.randomUUID() if available (Chromium 92+)
         // Note: Some webOS versions may not support this despite Chromium version
         if (
@@ -565,7 +564,7 @@ export class App {
             typeof crypto.randomUUID === 'function'
         ) {
             try {
-                return `${prefix}${crypto.randomUUID()}`;
+                return `lineup-${crypto.randomUUID()}`;
             } catch {
                 // Fall through to Math.random fallback
             }
@@ -573,7 +572,7 @@ export class App {
 
         // Fallback to Math.random (adequate for non-security-sensitive client ID)
         const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-        let result = prefix;
+        let result = 'lineup-';
         for (let i = 0; i < 16; i++) {
             result += chars.charAt(Math.floor(Math.random() * chars.length));
         }

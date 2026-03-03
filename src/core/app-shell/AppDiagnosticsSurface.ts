@@ -117,10 +117,11 @@ export class AppDiagnosticsSurface {
 
     private _renderDevMenu(): void {
         if (!this._container) return;
+        const container = this._container;
 
         // Dev-only: keep all interpolations here strictly to controlled constants/flags.
         // Do NOT interpolate Plex/user-provided strings into innerHTML to avoid future XSS foot-guns.
-        this._container.innerHTML = `
+        container.innerHTML = `
             <h2 style="margin-top:0;border-bottom:1px solid #444;padding-bottom:10px;">Dev Menu</h2>
             <div style="margin-bottom:15px;color:#aaa;font-size:13px;">
                 Storage keys: <code id="dev-storage-key-channels"></code>, <code id="dev-storage-key-current"></code>
@@ -177,28 +178,28 @@ export class AppDiagnosticsSurface {
                 <button id="dev-close" style="padding:10px;cursor:pointer;margin-top:10px;">Close</button>
             </div>
         `;
-        const channelsKey = this._container.querySelector('#dev-storage-key-channels');
+        const channelsKey = container.querySelector('#dev-storage-key-channels');
         if (channelsKey) {
             channelsKey.textContent = STORAGE_KEYS.CHANNELS_REAL;
         }
-        const currentChannelKey = this._container.querySelector('#dev-storage-key-current');
+        const currentChannelKey = container.querySelector('#dev-storage-key-current');
         if (currentChannelKey) {
             currentChannelKey.textContent = STORAGE_KEYS.CURRENT_CHANNEL;
         }
 
         // Bind events
-        this._container.querySelector('#dev-reset-app')?.addEventListener('click', () => {
+        container.querySelector('#dev-reset-app')?.addEventListener('click', () => {
             const ok = window.confirm('Reset Lineup storage (channels, overrides)?');
             if (!ok) return;
             safeClearLineupStorage();
             window.location.reload();
         });
 
-        this._container.querySelector('#dev-close')?.addEventListener('click', () => {
-            this._container!.style.display = 'none';
+        container.querySelector('#dev-close')?.addEventListener('click', () => {
+            container.style.display = 'none';
         });
 
-        this._container.querySelector('#dev-playback-refresh')?.addEventListener('click', () => {
+        container.querySelector('#dev-playback-refresh')?.addEventListener('click', () => {
             void this._refreshDevPlaybackInfo();
         });
         void this._refreshDevPlaybackInfo();
@@ -215,7 +216,7 @@ export class AppDiagnosticsSurface {
             }
         };
 
-        const profileNameSelect = this._container.querySelector('#dev-transcode-profile-name') as HTMLSelectElement | null;
+        const profileNameSelect = container.querySelector('#dev-transcode-profile-name') as HTMLSelectElement | null;
         if (profileNameSelect) {
             const storedProfileName = read(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
             const isSupportedStoredProfileName = Array.from(profileNameSelect.options).some(
@@ -228,23 +229,23 @@ export class AppDiagnosticsSurface {
                 profileNameSelect.value = storedProfileName;
             }
         }
-        const directPlayAudioFallbackEl = this._container.querySelector('#dev-directplay-audio-fallback') as HTMLInputElement | null;
+        const directPlayAudioFallbackEl = container.querySelector('#dev-directplay-audio-fallback') as HTMLInputElement | null;
         if (directPlayAudioFallbackEl) {
             directPlayAudioFallbackEl.checked =
                 read(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK) === '1';
         }
-        const nowPlayingStreamDebugEl = this._container.querySelector('#dev-nowplaying-stream-debug') as HTMLInputElement | null;
+        const nowPlayingStreamDebugEl = container.querySelector('#dev-nowplaying-stream-debug') as HTMLInputElement | null;
         if (nowPlayingStreamDebugEl) {
             nowPlayingStreamDebugEl.checked =
                 read(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG) === '1';
         }
-        const nowPlayingStreamDebugAutoEl = this._container.querySelector('#dev-nowplaying-stream-debug-auto') as HTMLInputElement | null;
+        const nowPlayingStreamDebugAutoEl = container.querySelector('#dev-nowplaying-stream-debug-auto') as HTMLInputElement | null;
         if (nowPlayingStreamDebugAutoEl) {
             nowPlayingStreamDebugAutoEl.checked =
                 read(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW) === '1';
         }
 
-        this._container.querySelector('#dev-transcode-save')?.addEventListener('click', () => {
+        container.querySelector('#dev-transcode-save')?.addEventListener('click', () => {
             if (directPlayAudioFallbackEl) {
                 safeLocalStorageSet(
                     LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK,
@@ -269,7 +270,7 @@ export class AppDiagnosticsSurface {
             this._showToast({ message: 'Saved overrides', type: 'success' });
         });
 
-        this._container.querySelector('#dev-transcode-clear')?.addEventListener('click', () => {
+        container.querySelector('#dev-transcode-clear')?.addEventListener('click', () => {
             const ok = window.confirm('Clear transcode overrides?');
             if (!ok) return;
             const keys = [
@@ -284,8 +285,8 @@ export class AppDiagnosticsSurface {
             this._renderDevMenu();
         });
 
-        this._container.querySelector('#dev-playback-copy-summary')?.addEventListener('click', async () => {
-            const pre = this._container?.querySelector('#dev-playback-info') as HTMLPreElement | null;
+        container.querySelector('#dev-playback-copy-summary')?.addEventListener('click', async () => {
+            const pre = container.querySelector('#dev-playback-info') as HTMLPreElement | null;
             const text = pre?.dataset?.summary ?? '';
             if (!text) {
                 this._showToast({ message: 'Nothing to copy (refresh first)', type: 'warning' });
@@ -295,8 +296,8 @@ export class AppDiagnosticsSurface {
             this._showToast({ message: ok ? 'Copied summary' : 'Copy not supported', type: ok ? 'success' : 'warning' });
         });
 
-        this._container.querySelector('#dev-playback-copy-raw')?.addEventListener('click', async () => {
-            const pre = this._container?.querySelector('#dev-playback-info') as HTMLPreElement | null;
+        container.querySelector('#dev-playback-copy-raw')?.addEventListener('click', async () => {
+            const pre = container.querySelector('#dev-playback-info') as HTMLPreElement | null;
             const text = pre?.dataset?.raw ?? '';
             if (!text) {
                 this._showToast({ message: 'Nothing to copy (refresh first)', type: 'warning' });
