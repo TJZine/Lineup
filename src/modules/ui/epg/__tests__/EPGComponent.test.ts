@@ -7,6 +7,7 @@
  */
 
 import { EPGComponent } from '../EPGComponent';
+import { EPGInfoPanel } from '../EPGInfoPanel';
 import { EPG_CLASSES } from '../constants';
 import type { ScheduledProgram, ScheduleWindow, ChannelConfig, EPGConfig } from '../types';
 
@@ -93,6 +94,35 @@ describe('EPGComponent', () => {
             expect(dashboard!.querySelector(`.${EPG_CLASSES.NOW_WATCHING_BANNER}`)).not.toBeNull();
             expect(overlayShowcase!.querySelector(`.${EPG_CLASSES.INFO_PANEL}`)).not.toBeNull();
             expect(dashboard!.querySelector(`.${EPG_CLASSES.INFO_PANEL}`)).toBeNull();
+        } finally {
+            localEpg.destroy();
+            localContainer.remove();
+        }
+    });
+
+    it('wires the resolved layout mode into the shared info panel presentation mode', () => {
+        const { epg: localEpg, container: localContainer } = createEpgInstance({
+            containerId: 'epg-container-presentation-mode-plumbing',
+            layoutMode: 'classic',
+            getCurrentChannelInfo: () => ({
+                channelNumber: 7,
+                channelName: 'News',
+                programTitle: 'Morning Report',
+                timeLabel: '8:00 - 9:00',
+            }),
+        });
+
+        try {
+            const setPresentationModeSpy = jest.spyOn(
+                (localEpg as unknown as { infoPanel: EPGInfoPanel }).infoPanel,
+                'setPresentationMode'
+            );
+
+            localEpg.show();
+            expect(setPresentationModeSpy).toHaveBeenCalledWith('classic');
+
+            localEpg.setLayoutMode('overlay');
+            expect(setPresentationModeSpy).toHaveBeenLastCalledWith('overlay');
         } finally {
             localEpg.destroy();
             localContainer.remove();
@@ -438,6 +468,7 @@ describe('EPGComponent', () => {
         it('shows banner when enabled and info available', () => {
             const { epg: localEpg, container: localContainer } = createEpgInstance({
                 containerId: 'epg-container-now-watching',
+                layoutMode: 'overlay',
                 getCurrentChannelInfo: () => ({
                     channelNumber: 7,
                     channelName: 'News',
@@ -456,10 +487,39 @@ describe('EPGComponent', () => {
 
                 expect(banner.hidden).toBe(false);
                 expect(live).not.toBeNull();
-                expect((live?.textContent ?? '').trim()).toBe('LIVE');
+                expect((live?.textContent ?? '').trim()).toBe('NOW PLAYING');
                 expect(channel.textContent).toBe('7 • News');
                 expect(program.textContent).toBe('Morning Report');
                 expect(time.textContent).toBe('8:00 - 9:00');
+            } finally {
+                localEpg.destroy();
+                localContainer.remove();
+            }
+        });
+
+        it('renders classic now playing status in the top rail and hides the lower banner in classic mode', () => {
+            const { epg: localEpg, container: localContainer } = createEpgInstance({
+                containerId: 'epg-container-classic-now-playing-rail',
+                layoutMode: 'classic',
+                getCurrentChannelInfo: () => ({
+                    channelNumber: 7,
+                    channelName: 'News',
+                    programTitle: 'Morning Report',
+                    timeLabel: '8:00 - 9:00',
+                }),
+            });
+
+            try {
+                localEpg.show();
+
+                const rail = localContainer.querySelector('.epg-classic-now-playing') as HTMLElement | null;
+                const banner = localContainer.querySelector(`.${EPG_CLASSES.NOW_WATCHING_BANNER}`) as HTMLElement | null;
+                const bannerLabel = localContainer.querySelector(`.${EPG_CLASSES.NOW_WATCHING_LIVE}`) as HTMLElement | null;
+
+                expect(rail).not.toBeNull();
+                expect((rail?.textContent ?? '')).toContain('NOW PLAYING');
+                expect(banner?.hidden).toBe(true);
+                expect(bannerLabel?.textContent).toBe('NOW PLAYING');
             } finally {
                 localEpg.destroy();
                 localContainer.remove();
@@ -507,6 +567,7 @@ describe('EPGComponent', () => {
         it('sanitizes invalid time labels', () => {
             const { epg: localEpg, container: localContainer } = createEpgInstance({
                 containerId: 'epg-container-now-watching-invalid-time',
+                layoutMode: 'overlay',
                 getCurrentChannelInfo: () => ({
                     channelNumber: 12,
                     channelName: 'Retro',
@@ -673,6 +734,25 @@ describe('EPGComponent', () => {
                 localContainer.remove();
             }
         });
+
+        it('refreshes the focused info panel content when switching from classic to overlay mode', () => {
+            const channel = createMockChannel(0);
+            epg.loadChannels([channel]);
+            epg.loadScheduleForChannel(channel.id, createDetailedSchedule(channel.id));
+
+            epg.setLayoutMode('classic');
+            epg.show();
+            epg.focusProgram(0, 0);
+
+            const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
+            expect(poster.style.display).toBe('none');
+            expect(poster.getAttribute('src')).toBeNull();
+
+            epg.setLayoutMode('overlay');
+
+            expect(poster.style.display).toBe('block');
+            expect(poster.getAttribute('src')).toContain('poster-a.jpg');
+        });
     });
 
     describe('auto-fit pixelsPerMinute', () => {
@@ -734,6 +814,7 @@ describe('EPGComponent', () => {
             const channel = createMockChannel(0);
             epg.loadChannels([channel]);
             epg.loadScheduleForChannel(channel.id, createDetailedSchedule(channel.id));
+            epg.setLayoutMode('overlay');
             epg.show();
 
             epg.focusProgram(0, 0);
@@ -762,6 +843,7 @@ describe('EPGComponent', () => {
             const channel = createMockChannel(0);
             epg.loadChannels([channel]);
             epg.loadScheduleForChannel(channel.id, createDetailedSchedule(channel.id));
+            epg.setLayoutMode('overlay');
             epg.show();
 
             epg.focusProgram(0, 0);

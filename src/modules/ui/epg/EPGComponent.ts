@@ -62,6 +62,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     // DOM elements
     private containerElement: HTMLElement | null = null;
     private classicHeaderElement: HTMLElement | null = null;
+    private classicNowPlayingElement: HTMLElement | null = null;
+    private classicNowPlayingChannelElement: HTMLElement | null = null;
     private classicShowcaseElement: HTMLElement | null = null;
     private gridElement: HTMLElement | null = null;
     private programAreaElement: HTMLElement | null = null;
@@ -240,6 +242,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         this.containerElement = null;
         this.classicHeaderElement = null;
+        this.classicNowPlayingElement = null;
+        this.classicNowPlayingChannelElement = null;
         this.classicShowcaseElement = null;
         this.gridElement = null;
         this.programAreaElement = null;
@@ -326,7 +330,13 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.containerElement.className = EPG_CLASSES.CONTAINER;
         this.containerElement.innerHTML = `
       <div class="epg-classic-header" hidden>
-        <div class="epg-classic-header-title">LINEUP</div>
+        <div class="epg-classic-header-brand">
+          <div class="epg-classic-header-title">LINEUP</div>
+          <div class="epg-classic-now-playing" hidden>
+            <span class="epg-classic-now-playing-label">NOW PLAYING</span>
+            <span class="epg-classic-now-playing-channel"></span>
+          </div>
+        </div>
         <div class="epg-classic-header-actions">
           <span>OK Select</span><span>&middot; LEFT/RIGHT Navigate</span><span>&middot; BACK Close</span>
         </div>
@@ -341,7 +351,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
       </div>
       <div class="${EPG_CLASSES.DASHBOARD_BOTTOM}">
         <div class="${EPG_CLASSES.NOW_WATCHING_BANNER}" aria-live="polite">
-          <span class="${EPG_CLASSES.NOW_WATCHING_LIVE}">LIVE</span>
+          <span class="${EPG_CLASSES.NOW_WATCHING_LIVE}">NOW PLAYING</span>
           <span class="${EPG_CLASSES.NOW_WATCHING_CHANNEL}"></span>
           <span class="${EPG_CLASSES.NOW_WATCHING_PROGRAM}"></span>
           <span class="${EPG_CLASSES.NOW_WATCHING_TIME}"></span>
@@ -352,6 +362,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.gridElement = this.containerElement.querySelector(`.${EPG_CLASSES.GRID}`);
         this.programAreaElement = this.containerElement.querySelector(`.${EPG_CLASSES.PROGRAM_AREA}`);
         this.classicHeaderElement = this.containerElement.querySelector('.epg-classic-header');
+        this.classicNowPlayingElement = this.containerElement.querySelector('.epg-classic-now-playing');
+        this.classicNowPlayingChannelElement = this.containerElement.querySelector('.epg-classic-now-playing-channel');
         this.classicShowcaseElement = this.containerElement.querySelector('.epg-classic-showcase');
         this.classicShowcaseInfoElement = this.containerElement.querySelector('.epg-classic-showcase-info');
         this.overlayShowcaseElement = this.containerElement.querySelector(
@@ -525,7 +537,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private applyLayoutMode(): void {
         if (!this.containerElement) return;
         const mode: 'overlay' | 'classic' = this.config.layoutMode ?? 'classic';
-        if (mode !== this._appliedLayoutMode) {
+        const didLayoutModeChange = mode !== this._appliedLayoutMode;
+        if (didLayoutModeChange) {
             this._appliedLayoutMode = mode;
             if (mode === 'classic') {
                 this.containerElement.classList.add(EPG_CLASSES.CONTAINER_CLASSIC);
@@ -540,7 +553,14 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this._appliedPipMode = pipMode;
             this.config.onLayoutModeChange?.(pipMode);
         }
+        this.infoPanel?.setPresentationMode(mode);
         this.syncInfoPanelHost();
+        if (didLayoutModeChange && this.state.isVisible) {
+            const focusedCell = this.state.focusedCell;
+            if (focusedCell?.kind === 'program') {
+                this._scheduleInfoPanelUpdate(focusedCell.program);
+            }
+        }
         this.syncClassicShellVisibility();
     }
 
@@ -842,21 +862,30 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private updateNowWatchingBanner(): void {
         const banner = this.nowWatchingBannerElement;
         if (!banner) return;
+        const classicRail = this.classicNowPlayingElement;
+        const classicRailChannel = this.classicNowPlayingChannelElement;
+        const mode: 'overlay' | 'classic' = this.config.layoutMode ?? 'classic';
 
         if (!this.config.showNowWatchingBanner || !this.config.getCurrentChannelInfo) {
+            if (classicRail) {
+                classicRail.hidden = true;
+            }
             if (!banner.hidden) {
                 banner.hidden = true;
-                this._lastNowWatchingTuple = null;
             }
+            this._lastNowWatchingTuple = null;
             return;
         }
 
         const info = this.config.getCurrentChannelInfo();
         if (!info) {
+            if (classicRail) {
+                classicRail.hidden = true;
+            }
             if (!banner.hidden) {
                 banner.hidden = true;
-                this._lastNowWatchingTuple = null;
             }
+            this._lastNowWatchingTuple = null;
             return;
         }
 
@@ -873,12 +902,25 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this._lastNowWatchingTuple[1] === programText &&
             this._lastNowWatchingTuple[2] === timeText
         ) {
-            if (banner.hidden) {
-                banner.hidden = false;
+            if (mode === 'classic') {
+                if (classicRail) {
+                    classicRail.hidden = false;
+                }
+                banner.hidden = true;
+            } else {
+                if (classicRail) {
+                    classicRail.hidden = true;
+                }
+                if (banner.hidden) {
+                    banner.hidden = false;
+                }
             }
             return;
         }
 
+        if (classicRailChannel) {
+            classicRailChannel.textContent = channelText;
+        }
         if (this.nowWatchingChannelElement) {
             this.nowWatchingChannelElement.textContent = channelText;
         }
@@ -888,7 +930,17 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         if (this.nowWatchingTimeElement) {
             this.nowWatchingTimeElement.textContent = timeText;
         }
-        banner.hidden = false;
+        if (mode === 'classic') {
+            if (classicRail) {
+                classicRail.hidden = false;
+            }
+            banner.hidden = true;
+        } else {
+            if (classicRail) {
+                classicRail.hidden = true;
+            }
+            banner.hidden = false;
+        }
         this._lastNowWatchingTuple = nextTuple;
     }
 

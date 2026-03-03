@@ -41,7 +41,7 @@ export interface DisplaySettings {
     /** Prefer clear logos over text titles when available */
     preferClearLogos: boolean;
     /** EPG info panel background mode */
-    epgInfoBackgroundMode: 0 | 1;
+    epgInfoBackgroundMode: 0 | 1 | 2;
 }
 
 /**
@@ -155,7 +155,7 @@ export type GuideSettingChange =
     | { key: 'layoutMode'; mode: 'overlay' | 'classic' }
     | { key: 'guideDensity'; density: 'detailed' | 'wide' }
     | { key: 'pastItemsWindow'; value: EpgPastItemsWindowSetting }
-    | { key: 'infoBackgroundMode'; mode: 0 | 1 };
+    | { key: 'infoBackgroundMode'; mode: 0 | 1 | 2 };
 
 /**
  * Settings category configuration.

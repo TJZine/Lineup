@@ -12,6 +12,7 @@
 - **Verification gate**: For UI/navigation/Orchestrator/Plex work, run `npm run verify` before concluding.
 - **Test policy**: When a unit test fails, first ask yourself: is this exposing a real bug in the production code — or is the test itself flawed?
 - **Pre-MVP path policy**: Until an explicit milestone is reached (e.g., MVP launch) as declared by the project lead, or explicitly requested and approved by the project maintainer/tech lead, do not add legacy/fallback/compatibility code paths, migration shims, or dual-path "just in case" logic.
+- **Architecture guardrails**: For architecture-affecting work, load the repo skills that match the change before coding: `architecture-boundaries` for module ownership and composition roots, `ui-composition-patterns` for screens/overlays, and `persistence-boundaries` for local storage or persisted state. New code should prefer focused collaborators, explicit ownership, and centralized persistence instead of growing hotspot classes.
 
 ## Standard Flow
 
@@ -55,3 +56,4 @@
 
 - **Antigravity / other agents (repo-local)**: source skills live in `.agent/skills/`.
 - **Codex CLI (repo-local)**: Codex loads repo skills from `.codex/skills/`.
+- **Repo-local skill publishing order**: When adding or editing repo-local skills, create or update `.codex/skills/<skill>/` first, then mirror the same files into `.agent/skills/<skill>/` so Codex and Antigravity stay aligned.

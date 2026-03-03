@@ -15,4 +15,12 @@ describe('EPG title ticker style contract', () => {
             /\.epg-cell-title\.epg-cell-title-ticker-ready[^{]*\{[^}]*text-overflow:\s*clip;[^}]*\}/s
         );
     });
+
+    it('limits the dynamic bleed wash to bleed mode only', () => {
+        const css = read('src/modules/ui/epg/styles.css');
+
+        expect(css).toMatch(
+            /\.epg-info-panel\.epg-info-mode-artwork\s+\.epg-info-gradient-a,\s*\.epg-info-panel\.epg-info-mode-artwork\s+\.epg-info-gradient-b,\s*\.epg-info-panel\.epg-info-mode-theme-default\s+\.epg-info-gradient-a,\s*\.epg-info-panel\.epg-info-mode-theme-default\s+\.epg-info-gradient-b\s*\{[^}]*opacity:\s*0;[^}]*\}/s
+        );
+    });
 });

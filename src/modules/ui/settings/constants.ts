@@ -59,6 +59,7 @@ export const SETTINGS_STORAGE_KEYS = {
     EPG_GUIDE_DENSITY: LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY,
     /** EPG past-items window setting */
     EPG_PAST_ITEMS_WINDOW: LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW,
+    /** Shared EPG info background mode (0 bleed, 1 theme default, 2 artwork) */
     EPG_INFO_BACKGROUND_MODE: LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE,
     /** EPG now watching banner enabled */
     EPG_NOW_WATCHING_ENABLED: LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED,

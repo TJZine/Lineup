@@ -1,7 +1,117 @@
 import type { StreamDescriptor } from '../../modules/player';
 import type { ScheduledProgram } from '../../modules/scheduler/scheduler';
+import type { IAppLifecycle } from '../../modules/lifecycle';
+import type { IVideoPlayer } from '../../modules/player';
+import type { IChannelScheduler } from '../../modules/scheduler/scheduler';
+import {
+    OrchestratorEventBinder,
+    PlaybackRuntimeController,
+    PlaybackStartController,
+} from '../../core';
 import { createDeferred, flushPromises } from '../helpers';
-import { createWiredTestOrchestrator } from './orchestratorTestHarness';
+
+const wireLifecycleResumeHarness = (overrides: {
+    scheduler: {
+        on: (event: 'programStart' | 'programEnd' | 'scheduleSync', handler: unknown) => void;
+        off: (event: 'programStart' | 'programEnd' | 'scheduleSync', handler: unknown) => void;
+        resumeSyncTimer: () => void;
+        syncToCurrentTime: () => void;
+    };
+    videoPlayer: {
+        on: (event: string, handler: unknown) => void;
+        off: (event: string, handler: unknown) => void;
+        loadStream: (stream: StreamDescriptor) => Promise<void>;
+        play: () => Promise<void>;
+    };
+    lifecycle: Pick<IAppLifecycle, 'onPause' | 'onResume'>;
+    playbackRecovery: {
+        resolveStreamForProgram: (program: ScheduledProgram) => Promise<StreamDescriptor | null | undefined>;
+        resetPlaybackFailureGuard: () => void;
+        tryHandleStreamResolverAuthError: (error: unknown) => boolean;
+        handlePlaybackFailure: (context: string, error: unknown) => void;
+    };
+}): void => {
+    let currentProgram: ScheduledProgram | null = null;
+
+    const playbackStartController = new PlaybackStartController({
+        getVideoPlayer: (): typeof overrides.videoPlayer => overrides.videoPlayer,
+        resolveStreamForProgram: (program): Promise<StreamDescriptor | null | undefined> =>
+            overrides.playbackRecovery.resolveStreamForProgram(program),
+        resetPlaybackFailureGuard: (): void => overrides.playbackRecovery.resetPlaybackFailureGuard(),
+        tryHandleStreamResolverAuthError: (error): boolean =>
+            overrides.playbackRecovery.tryHandleStreamResolverAuthError(error),
+        tryHandleStreamResolverPermissionError: (): boolean => false,
+        handlePlaybackFailure: (context, error): void =>
+            overrides.playbackRecovery.handlePlaybackFailure(context, error),
+        logPlaybackStartFailure: (): void => undefined,
+        markProgramStarting: (program): {
+            programAtStart: ScheduledProgram;
+            shouldResetAutoShowInfoBannerOnAbort: boolean;
+        } => {
+            currentProgram = program;
+            return {
+                programAtStart: program,
+                shouldResetAutoShowInfoBannerOnAbort: false,
+            };
+        },
+        isProgramStillCurrent: (program): boolean => currentProgram === program,
+        handleProgramStartUiSideEffects: (): void => undefined,
+        handleStreamResolved: (): void => undefined,
+        clearAutoShowInfoBannerAfterAbortedStart: (): void => undefined,
+    });
+
+    const playbackRuntimeController = new PlaybackRuntimeController({
+        isStreamRecoveryInProgress: (): boolean => false,
+        getActiveTranscodeSessionId: (): string | null => null,
+        stopTranscodeSession: (): void => undefined,
+        skipToNextProgram: (): void => undefined,
+        pausePlayer: (): void => undefined,
+        playPlayer: (): Promise<void> => overrides.videoPlayer.play(),
+        pauseSchedulerSync: (): void => undefined,
+        resumeSchedulerSync: (): void => overrides.scheduler.resumeSyncTimer(),
+        syncSchedulerToCurrentTime: (): void => overrides.scheduler.syncToCurrentTime(),
+        saveLifecycleState: async (): Promise<void> => undefined,
+        handleGlobalError: (): void => undefined,
+        handlePlaybackFailure: (): void => undefined,
+        onPlayerStateChange: (): void => undefined,
+        shouldAutoShowInfoBannerOnNextPlay: (): boolean => false,
+        clearAutoShowInfoBannerOnNextPlay: (): void => undefined,
+        showInfoBanner: (): void => undefined,
+        onPlayerTimeUpdate: (): void => undefined,
+        onPlayerBufferUpdate: (): void => undefined,
+    });
+
+    const binder = new OrchestratorEventBinder({
+        getScheduler: (): IChannelScheduler => overrides.scheduler as unknown as IChannelScheduler,
+        getVideoPlayer: (): IVideoPlayer => overrides.videoPlayer as unknown as IVideoPlayer,
+        getPlexLibrary: (): null => null,
+        getPlexStreamResolver: (): null => null,
+        getNavigation: (): null => null,
+        getLifecycle: (): IAppLifecycle => overrides.lifecycle as unknown as IAppLifecycle,
+        getChannelManager: (): null => null,
+        wireNavigationCoordinatorEvents: (): Array<() => void> => [],
+        wireEpgCoordinatorEvents: (): Array<() => void> => [],
+        handleProgramStartTracked: (program): Promise<void> => {
+            const promise = playbackStartController.handleProgramStart(program);
+            return playbackRuntimeController.trackProgramStart(promise);
+        },
+        handleScheduleDayRollover: async (): Promise<void> => undefined,
+        handlePlayerEnded: (): void => undefined,
+        handlePlayerTrackChange: (): void => undefined,
+        handlePlaybackError: (): void => undefined,
+        handlePlayerStateChange: (): void => undefined,
+        handlePlayerTimeUpdate: (): void => undefined,
+        handlePlayerBufferUpdate: (): void => undefined,
+        handlePlexLibraryAuthExpired: (): void => undefined,
+        handlePlexStreamError: (): void => undefined,
+        handleScreenChange: (): void => undefined,
+        handleLifecyclePause: (): Promise<void> => playbackRuntimeController.handleLifecyclePause(),
+        handleLifecycleResume: (): Promise<void> => playbackRuntimeController.handleLifecycleResume(),
+        reportPersistenceWarning: (): void => undefined,
+    });
+
+    binder.bind();
+};
 
 describe('AppOrchestrator lifecycle resume', () => {
     it('does not call videoPlayer.play() on resume when sync triggers programStart handling', async () => {
@@ -25,18 +135,18 @@ describe('AppOrchestrator lifecycle resume', () => {
         };
 
         let registeredProgramStart = false;
-        let programStartHandler: (p: ScheduledProgram) => void = () => {
+        let programStartHandler: (p: ScheduledProgram) => void = (): void => {
             throw new Error('Expected scheduler programStart handler to be registered');
         };
         const scheduler: SchedulerLike = {
-            on: jest.fn((event: 'programStart' | 'programEnd' | 'scheduleSync', handler: unknown) => {
+            on: jest.fn((event: 'programStart' | 'programEnd' | 'scheduleSync', handler: unknown): void => {
                 if (event !== 'programStart') return;
                 registeredProgramStart = true;
                 programStartHandler = handler as (program: ScheduledProgram) => void;
             }),
             off: jest.fn(),
             resumeSyncTimer: jest.fn(),
-            syncToCurrentTime: jest.fn(() => {
+            syncToCurrentTime: jest.fn((): void => {
                 programStartHandler(program);
             }),
         };
@@ -50,12 +160,12 @@ describe('AppOrchestrator lifecycle resume', () => {
         };
 
         let registeredResume = false;
-        let resumeCallback: () => Promise<void> = () => {
+        let resumeCallback: () => Promise<void> = async (): Promise<void> => {
             throw new Error('Expected lifecycle onResume callback to be registered');
         };
         const lifecycle = {
-            onPause: jest.fn(() => ({ dispose: (): void => undefined })),
-            onResume: jest.fn((callback: () => Promise<void>) => {
+            onPause: jest.fn((): { dispose: () => void } => ({ dispose: (): void => undefined })),
+            onResume: jest.fn((callback: () => Promise<void>): { dispose: () => void } => {
                 registeredResume = true;
                 resumeCallback = callback;
                 return { dispose: (): void => undefined };
@@ -69,7 +179,7 @@ describe('AppOrchestrator lifecycle resume', () => {
             handlePlaybackFailure: jest.fn(),
         };
 
-        createWiredTestOrchestrator({ scheduler, videoPlayer, lifecycle, playbackRecovery });
+        wireLifecycleResumeHarness({ scheduler, videoPlayer, lifecycle, playbackRecovery });
 
         expect(registeredProgramStart).toBe(true);
         expect(registeredResume).toBe(true);
@@ -116,11 +226,11 @@ describe('AppOrchestrator lifecycle resume', () => {
         };
 
         let registeredProgramStart = false;
-        let programStartHandler: (p: ScheduledProgram) => void = () => {
+        let programStartHandler: (p: ScheduledProgram) => void = (): void => {
             throw new Error('Expected scheduler programStart handler to be registered');
         };
         const scheduler: SchedulerLike = {
-            on: jest.fn((event: 'programStart' | 'programEnd' | 'scheduleSync', handler: unknown) => {
+            on: jest.fn((event: 'programStart' | 'programEnd' | 'scheduleSync', handler: unknown): void => {
                 if (event !== 'programStart') return;
                 registeredProgramStart = true;
                 programStartHandler = handler as (program: ScheduledProgram) => void;
@@ -135,14 +245,14 @@ describe('AppOrchestrator lifecycle resume', () => {
             on: jest.fn(),
             off: jest.fn(),
             loadStream: jest.fn()
-                .mockImplementationOnce(() => loadA.promise)
+                .mockImplementationOnce((): Promise<void> => loadA.promise)
                 .mockResolvedValueOnce(undefined),
             play: jest.fn().mockResolvedValue(undefined),
         };
 
         const lifecycle = {
-            onPause: jest.fn(() => ({ dispose: (): void => undefined })),
-            onResume: jest.fn(() => ({ dispose: (): void => undefined })),
+            onPause: jest.fn((): { dispose: () => void } => ({ dispose: (): void => undefined })),
+            onResume: jest.fn((): { dispose: () => void } => ({ dispose: (): void => undefined })),
         };
 
         const playbackRecovery = {
@@ -154,7 +264,7 @@ describe('AppOrchestrator lifecycle resume', () => {
             handlePlaybackFailure: jest.fn(),
         };
 
-        createWiredTestOrchestrator({ scheduler, videoPlayer, lifecycle, playbackRecovery });
+        wireLifecycleResumeHarness({ scheduler, videoPlayer, lifecycle, playbackRecovery });
 
         expect(registeredProgramStart).toBe(true);
 

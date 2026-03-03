@@ -17,7 +17,13 @@ import type {
     GuideSettingChange,
 } from './types';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from '../now-playing-info';
-import { readStoredBoolean, safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from '../../../utils/storage';
+import {
+    parseStoredEpgInfoBackgroundMode,
+    readStoredBoolean,
+    safeLocalStorageGet,
+    safeLocalStorageRemove,
+    safeLocalStorageSet,
+} from '../../../utils/storage';
 import { ThemeManager } from '../theme';
 import { getSubtitleMode, setSubtitleMode, type SubtitleMode } from '../../../shared/subtitle-mode';
 import { dispatchDebugLoggingChanged } from '../../../config/events';
@@ -534,10 +540,11 @@ export class SettingsScreen {
                     {
                         id: 'settings-epg-info-background-mode',
                         label: 'Info Box Background',
-                        description: 'Artwork Bleed adds a subtle poster-derived color wash; Theme Default keeps the clean Ember & Steel overlay',
+                        description: 'Artwork Bleed uses poster color, Artwork shows backdrop art, Theme Default keeps the clean Ember & Steel overlay',
                         value: this._loadEpgInfoBackgroundModeValue(),
                         options: [
                             { label: 'Artwork Bleed', value: 0 },
+                            { label: 'Artwork', value: 2 },
                             { label: 'Theme Default', value: 1 },
                         ],
                         onChange: (value: number): void => {
@@ -1082,10 +1089,10 @@ export class SettingsScreen {
         return 0;
     }
 
-    private _loadEpgInfoBackgroundModeValue(): 0 | 1 {
+    private _loadEpgInfoBackgroundModeValue(): 0 | 1 | 2 {
         const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
-        if (raw === '0') return 0;
-        if (raw === '1') return 1;
+        const parsed = parseStoredEpgInfoBackgroundMode(raw);
+        if (parsed !== null) return parsed;
         if (raw !== null) {
             safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
         }
@@ -1161,8 +1168,8 @@ export class SettingsScreen {
         return option.storageValue;
     }
 
-    private _saveEpgInfoBackgroundModeValue(value: number): 0 | 1 {
-        const mode: 0 | 1 = value === 1 ? 1 : 0;
+    private _saveEpgInfoBackgroundModeValue(value: number): 0 | 1 | 2 {
+        const mode: 0 | 1 | 2 = value === 2 ? 2 : value === 1 ? 1 : 0;
         safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, String(mode));
         return mode;
     }

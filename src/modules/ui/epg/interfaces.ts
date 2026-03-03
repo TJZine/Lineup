@@ -211,6 +211,10 @@ export interface IEPGComponent {
  * Program details overlay.
  */
 export interface IEPGInfoPanel {
+    setPresentationMode(mode: 'classic' | 'overlay'): void;
+
+    getPresentationMode(): 'classic' | 'overlay';
+
     /**
      * Show the info panel with program details.
      * @param program - Program to display

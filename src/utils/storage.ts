@@ -41,6 +41,13 @@ export function parseStoredBoolean(value: string | null): boolean | null {
     return null;
 }
 
+export function parseStoredEpgInfoBackgroundMode(value: string | null): 0 | 1 | 2 | null {
+    if (value === '0') return 0;
+    if (value === '1') return 1;
+    if (value === '2') return 2;
+    return null;
+}
+
 export function isStoredTrue(value: string | null): boolean {
     return value === '1';
 }

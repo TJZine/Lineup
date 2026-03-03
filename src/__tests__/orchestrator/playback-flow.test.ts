@@ -1,5 +1,7 @@
 import { AppOrchestrator } from '../../Orchestrator';
+import { PlaybackStartController } from '../../core';
 import type { ScheduledProgram } from '../../modules/scheduler/scheduler';
+import { flushPromises } from '../helpers';
 
 const makeProgram = (): ScheduledProgram =>
     ({
@@ -21,6 +23,25 @@ describe('AppOrchestrator playback flow suite', () => {
         const orchestrator = new AppOrchestrator();
         await expect(orchestrator.switchToChannel('channel-1')).resolves.toBeUndefined();
         await expect(orchestrator.switchToChannelByNumber(101)).resolves.toBeUndefined();
+    });
+
+    it('stops the video player during shutdown even before priority1 controllers are initialized', async () => {
+        const orchestrator = new AppOrchestrator();
+        const stop = jest.fn();
+        const destroy = jest.fn();
+
+        const orchestratorAny = orchestrator as unknown as {
+            _videoPlayer: { stop: () => void; destroy: () => void } | null;
+        };
+        orchestratorAny._videoPlayer = {
+            stop,
+            destroy,
+        };
+
+        await orchestrator.shutdown();
+
+        expect(stop).toHaveBeenCalledTimes(1);
+        expect(destroy).toHaveBeenCalledTimes(1);
     });
 
     it('shows a toast when setSubtitleTrack fails', async () => {
@@ -65,38 +86,106 @@ describe('AppOrchestrator playback flow suite', () => {
     });
 
     it('does not route permission-denied stream errors into playback-failure guard', async () => {
+        const tryHandleStreamResolverAuthError = jest.fn().mockReturnValue(false);
+        const tryHandleStreamResolverPermissionError = jest.fn().mockReturnValue(true);
+        const handlePlaybackFailure = jest.fn();
+        const permissionError = { code: 'ACCESS_DENIED', message: 'no access' };
+        const videoPlayer = {
+            loadStream: jest.fn().mockResolvedValue(undefined),
+            play: jest.fn().mockResolvedValue(undefined),
+        };
+        let currentProgram: ScheduledProgram | null = null;
+
+        const playbackStartController = new PlaybackStartController({
+            getVideoPlayer: (): typeof videoPlayer => videoPlayer,
+            resolveStreamForProgram: async (): Promise<never> => {
+                throw permissionError;
+            },
+            resetPlaybackFailureGuard: jest.fn(),
+            tryHandleStreamResolverAuthError,
+            tryHandleStreamResolverPermissionError,
+            handlePlaybackFailure,
+            logPlaybackStartFailure: (): void => undefined,
+            markProgramStarting: (program): {
+                programAtStart: ScheduledProgram;
+                shouldResetAutoShowInfoBannerOnAbort: boolean;
+            } => {
+                currentProgram = program;
+                return {
+                    programAtStart: program,
+                    shouldResetAutoShowInfoBannerOnAbort: false,
+                };
+            },
+            isProgramStillCurrent: (program): boolean => currentProgram === program,
+            handleProgramStartUiSideEffects: (): void => undefined,
+            handleStreamResolved: (): void => undefined,
+            clearAutoShowInfoBannerAfterAbortedStart: (): void => undefined,
+        });
+
+        await playbackStartController.handleProgramStart(makeProgram());
+
+        expect(tryHandleStreamResolverAuthError).toHaveBeenCalledWith(permissionError);
+        expect(tryHandleStreamResolverPermissionError).toHaveBeenCalledWith(permissionError);
+        expect(handlePlaybackFailure).not.toHaveBeenCalled();
+    });
+
+    it('does not route permission-denied errors into playback-failure guard when triggered via binder wiring', async () => {
         const orchestrator = new AppOrchestrator();
+        const permissionError = { code: 'ACCESS_DENIED', message: 'no access' };
         const tryHandleStreamResolverAuthError = jest.fn().mockReturnValue(false);
         const tryHandleStreamResolverPermissionError = jest.fn().mockReturnValue(true);
         const handlePlaybackFailure = jest.fn();
 
+        let programStartHandler: ((program: ScheduledProgram) => void) | null = null;
+        const scheduler = {
+            on: jest.fn((event: 'programStart' | 'scheduleSync', handler: unknown) => {
+                if (event === 'programStart') {
+                    programStartHandler = handler as (program: ScheduledProgram) => void;
+                }
+            }),
+            off: jest.fn(),
+        };
+        const videoPlayer = {
+            on: jest.fn(),
+            off: jest.fn(),
+            loadStream: jest.fn(),
+            play: jest.fn(),
+            pause: jest.fn(),
+        };
+        const lifecycle = {
+            onPause: jest.fn(() => ({ dispose: jest.fn() })),
+            onResume: jest.fn(() => ({ dispose: jest.fn() })),
+        };
+
         const orchestratorAny = orchestrator as unknown as {
-            _videoPlayer: { loadStream: (stream: unknown) => Promise<void>; play: () => Promise<void> } | null;
-            _playbackRecovery: {
-                resolveStreamForProgram: (program: ScheduledProgram) => Promise<unknown>;
-                resetPlaybackFailureGuard: () => void;
-                tryHandleStreamResolverAuthError: (error: unknown) => boolean;
-                tryHandleStreamResolverPermissionError: (error: unknown) => boolean;
-                handlePlaybackFailure: (context: string, error: unknown) => void;
-            } | null;
-            _handleProgramStart: (program: ScheduledProgram) => Promise<void>;
+            _scheduler: unknown;
+            _videoPlayer: unknown;
+            _lifecycle: unknown;
+            _playbackRecovery: unknown;
+            _eventBinder: { bind: () => void } | null;
+            _initializePriorityOneControllers: () => void;
         };
-        orchestratorAny._videoPlayer = {
-            loadStream: jest.fn().mockResolvedValue(undefined),
-            play: jest.fn().mockResolvedValue(undefined),
-        };
+        orchestratorAny._scheduler = scheduler;
+        orchestratorAny._videoPlayer = videoPlayer;
+        orchestratorAny._lifecycle = lifecycle;
         orchestratorAny._playbackRecovery = {
-            resolveStreamForProgram: jest.fn().mockRejectedValue({ code: 'ACCESS_DENIED', message: 'no access' }),
+            resolveStreamForProgram: async (): Promise<never> => {
+                throw permissionError;
+            },
             resetPlaybackFailureGuard: jest.fn(),
             tryHandleStreamResolverAuthError,
             tryHandleStreamResolverPermissionError,
             handlePlaybackFailure,
         };
 
-        await orchestratorAny._handleProgramStart(makeProgram());
+        orchestratorAny._initializePriorityOneControllers();
+        orchestratorAny._eventBinder!.bind();
 
-        expect(tryHandleStreamResolverAuthError).toHaveBeenCalledWith({ code: 'ACCESS_DENIED', message: 'no access' });
-        expect(tryHandleStreamResolverPermissionError).toHaveBeenCalledWith({ code: 'ACCESS_DENIED', message: 'no access' });
+        programStartHandler!(makeProgram());
+        await flushPromises(1);
+
+        expect(tryHandleStreamResolverAuthError).toHaveBeenCalledWith(permissionError);
+        expect(tryHandleStreamResolverPermissionError).toHaveBeenCalledWith(permissionError);
         expect(handlePlaybackFailure).not.toHaveBeenCalled();
     });
 });

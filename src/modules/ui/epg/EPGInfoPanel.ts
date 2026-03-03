@@ -11,7 +11,12 @@ import type { ScheduledProgram } from './types';
 import type { PlexMediaItem } from '../../plex/library';
 import { extractHdrLabelFromPlexMedia } from '../../plex/stream/hdr';
 import { formatContentRatingBadge } from '../../../utils/contentRating';
-import { safeLocalStorageGet, readStoredBoolean } from '../../../utils/storage';
+import {
+    parseStoredEpgInfoBackgroundMode,
+    readStoredBoolean,
+    safeLocalStorageGet,
+    safeLocalStorageRemove,
+} from '../../../utils/storage';
 import { extractDominantColor } from '../../../utils/color/extractDominantColor';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 
@@ -56,6 +61,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private colorExtractTimer: ReturnType<typeof setTimeout> | null = null;
     private colorCache = new Map<string, string>();
     private colorFailureCache = new Map<string, number>();
+    private presentationMode: 'classic' | 'overlay' = 'overlay';
 
     /**
      * Set the thumb URL resolver callback.
@@ -76,6 +82,14 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         fetcher: ((ratingKey: string, options?: { signal?: AbortSignal | null }) => Promise<PlexMediaItem | null>) | null
     ): void {
         this.fetchItemDetails = fetcher;
+    }
+
+    setPresentationMode(mode: 'classic' | 'overlay'): void {
+        this.presentationMode = mode;
+    }
+
+    getPresentationMode(): 'classic' | 'overlay' {
+        return this.presentationMode;
     }
 
     /**
@@ -159,15 +173,15 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     <img class="${EPG_CLASSES.INFO_POSTER}" alt="" />
   </div>
   <div class="${EPG_CLASSES.INFO_CONTENT}">
-    <div class="${EPG_CLASSES.INFO_HEADER}">
+      <div class="${EPG_CLASSES.INFO_HEADER}">
       <div class="${EPG_CLASSES.INFO_HEADING}">
         <img class="${EPG_CLASSES.INFO_CLEAR_LOGO}" alt="" style="display:none" />
         <div class="${EPG_CLASSES.INFO_SHOW} ${EPG_CLASSES.INFO_EYEBROW}"></div>
         <div class="${EPG_CLASSES.INFO_TITLE}"></div>
+        <div class="${EPG_CLASSES.INFO_GENRES}"></div>
       </div>
       <div class="${EPG_CLASSES.INFO_META_CLUSTER}">
         <div class="${EPG_CLASSES.INFO_TAGS}" aria-hidden="true"></div>
-        <div class="${EPG_CLASSES.INFO_GENRES}"></div>
       </div>
     </div>
     <div class="${EPG_CLASSES.INFO_META}"></div>
@@ -287,7 +301,9 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     ): void {
         if (!this.containerElement) return;
 
-        this.updatePoster(program, 'fast');
+        const infoBackgroundMode = this.resolveInfoBackgroundMode();
+        this.applyModeClass(infoBackgroundMode);
+        this.updatePoster(program, 'fast', infoBackgroundMode);
 
         this.updateNonPosterContent(program, { allowHdrFetch: options?.allowHdrFetch ?? false, showDescription: false });
     }
@@ -420,9 +436,35 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private updateContentFull(program: ScheduledProgram): void {
         if (!this.containerElement) return;
 
+        const infoBackgroundMode = this.resolveInfoBackgroundMode();
+        this.applyModeClass(infoBackgroundMode);
         this.updateNonPosterContent(program, { allowHdrFetch: true, showDescription: true });
 
-        this.updatePoster(program, 'full');
+        this.updatePoster(program, 'full', infoBackgroundMode);
+    }
+
+    private applyModeClass(mode: 0 | 1 | 2): void {
+        if (!this.containerElement) {
+            return;
+        }
+
+        this.containerElement.classList.remove(
+            EPG_CLASSES.INFO_MODE_BLEED,
+            EPG_CLASSES.INFO_MODE_THEME_DEFAULT,
+            EPG_CLASSES.INFO_MODE_ARTWORK
+        );
+
+        if (mode === 0) {
+            this.containerElement.classList.add(EPG_CLASSES.INFO_MODE_BLEED);
+            return;
+        }
+
+        if (mode === 2) {
+            this.containerElement.classList.add(EPG_CLASSES.INFO_MODE_ARTWORK);
+            return;
+        }
+
+        this.containerElement.classList.add(EPG_CLASSES.INFO_MODE_THEME_DEFAULT);
     }
 
     private updateQualityBadges(
@@ -570,33 +612,43 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         }
     }
 
-    private readInfoBackgroundMode(): 0 | 1 {
-        return safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE) === '1' ? 1 : 0;
+    private resolveInfoBackgroundMode(): 0 | 1 | 2 {
+        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+        const parsed = parseStoredEpgInfoBackgroundMode(raw);
+        if (parsed !== null) {
+            return parsed;
+        }
+        if (raw !== null) {
+            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+        }
+        return 0;
+    }
+
+    private resolvePosterSampleUrl(program: ScheduledProgram): string | null {
+        const preferredThumb = this.resolvePreferredPosterThumb(program, 'fast');
+        return preferredThumb ? (this.thumbResolver?.(preferredThumb, 32, 32) ?? null) : null;
+    }
+
+    private ensureCacheUnderLimit<T>(map: Map<string, T>, limit: number): void {
+        if (map.size <= limit) {
+            return;
+        }
+
+        const oldestKey = map.keys().next().value;
+        if (typeof oldestKey === 'string') {
+            map.delete(oldestKey);
+        }
     }
 
     private storeDynamicColor(cacheKey: string, color: string): void {
         this.colorFailureCache.delete(cacheKey);
         this.colorCache.set(cacheKey, color);
-        if (this.colorCache.size <= MAX_DYNAMIC_COLOR_CACHE_ENTRIES) {
-            return;
-        }
-
-        const oldestKey = this.colorCache.keys().next().value;
-        if (typeof oldestKey === 'string') {
-            this.colorCache.delete(oldestKey);
-        }
+        this.ensureCacheUnderLimit(this.colorCache, MAX_DYNAMIC_COLOR_CACHE_ENTRIES);
     }
 
     private markDynamicColorFailure(cacheKey: string): void {
         this.colorFailureCache.set(cacheKey, Date.now());
-        if (this.colorFailureCache.size <= MAX_DYNAMIC_COLOR_CACHE_ENTRIES) {
-            return;
-        }
-
-        const oldestKey = this.colorFailureCache.keys().next().value;
-        if (typeof oldestKey === 'string') {
-            this.colorFailureCache.delete(oldestKey);
-        }
+        this.ensureCacheUnderLimit(this.colorFailureCache, MAX_DYNAMIC_COLOR_CACHE_ENTRIES);
     }
 
     private clearDynamicColor(): void {
@@ -710,14 +762,39 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         }, 120);
     }
 
-    private updatePoster(program: ScheduledProgram, mode: 'fast' | 'full'): void {
+    private resolvePreferredPosterThumb(program: ScheduledProgram, mode: 'fast' | 'full'): string | null {
+        const { item } = program;
+        if (item.type !== 'episode') {
+            return item.thumb;
+        } else {
+            const ratingKey = item.ratingKey;
+            const hasCached = this.episodePosterCache.has(ratingKey);
+            const cached = hasCached ? this.episodePosterCache.get(ratingKey) : undefined;
+            const showThumb = item.showThumb || null;
+            const preferredThumb = (cached ?? showThumb) ?? null;
+            if (!preferredThumb && !hasCached && mode === 'full') {
+                this.maybeFetchEpisodePoster(program);
+            }
+            return preferredThumb;
+        }
+    }
+
+    private updatePoster(
+        program: ScheduledProgram,
+        mode: 'fast' | 'full',
+        infoBackgroundModeOverride?: 0 | 1 | 2
+    ): void {
         const backdrop = this.backdropElement;
         const poster = this.posterElement;
         if (!poster) return;
 
         const { item } = program;
+        const infoBackgroundMode = infoBackgroundModeOverride ?? this.resolveInfoBackgroundMode();
+        const shouldShowVisiblePoster = this.presentationMode === 'overlay';
+        const preserveBleedDuringFastPath = mode !== 'full' && infoBackgroundMode === 0;
+
         if (backdrop) {
-            if (mode === 'full') {
+            if (mode === 'full' && infoBackgroundMode === 2) {
                 const art = item.art ?? null;
                 if (art) {
                     const resolvedBackdrop = this.thumbResolver?.(art, 960, 540) || null;
@@ -738,21 +815,29 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             }
         }
 
-        // For episodes, prefer the series poster over per-episode thumbnails to keep the guide consistent.
-        // If we don't have a series poster thumb, hide the poster rather than showing an episode still.
-        let preferredThumb: string | null = null;
-        if (item.type !== 'episode') {
-            preferredThumb = item.thumb;
-        } else {
-            const ratingKey = item.ratingKey;
-            const hasCached = this.episodePosterCache.has(ratingKey);
-            const cached = hasCached ? this.episodePosterCache.get(ratingKey) : undefined;
-            const showThumb = item.showThumb || null;
-            preferredThumb = (cached ?? showThumb) ?? null;
-            if (!preferredThumb && !hasCached && mode === 'full') {
-                this.maybeFetchEpisodePoster(program);
+        if (!shouldShowVisiblePoster) {
+            poster.removeAttribute('src');
+            poster.style.display = 'none';
+
+            if (preserveBleedDuringFastPath) {
+                return;
             }
+
+            if (infoBackgroundMode === 0) {
+                const sampleUrl = this.resolvePosterSampleUrl(program);
+                if (!sampleUrl) {
+                    this.clearDynamicColor();
+                    return;
+                }
+                this.scheduleDynamicColor(program, sampleUrl);
+                return;
+            }
+
+            this.clearDynamicColor();
+            return;
         }
+
+        const preferredThumb = this.resolvePreferredPosterThumb(program, mode);
 
         const width = mode === 'fast' ? 160 : 320;
         const height = mode === 'fast' ? 240 : 480;
@@ -762,25 +847,37 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             const showTitle = item.type === 'episode' ? this.getEffectiveShowTitle(item) : '';
             poster.alt = showTitle.length ? showTitle : item.title;
             poster.style.display = 'block';
+            if (preserveBleedDuringFastPath) {
+                return;
+            }
+
             if (mode !== 'full') {
                 this.clearDynamicColor();
                 return;
             }
 
-            if (this.readInfoBackgroundMode() === 0) {
-                const resolvedSampleUrl =
-                    (preferredThumb ? this.thumbResolver?.(preferredThumb, 32, 32) : null) ||
-                    resolvedUrl;
-                this.scheduleDynamicColor(program, resolvedSampleUrl);
-            } else {
-                this.clearDynamicColor();
+            if (infoBackgroundMode === 0) {
+                const sampleUrl = this.resolvePosterSampleUrl(program);
+                if (!sampleUrl) {
+                    this.clearDynamicColor();
+                    return;
+                }
+                this.scheduleDynamicColor(program, sampleUrl);
+                return;
             }
+
+            this.clearDynamicColor();
             return;
         }
 
         // Hide poster when unresolved (prevents file:/// errors on webOS)
         poster.removeAttribute('src');
         poster.style.display = 'none';
+
+        if (preserveBleedDuringFastPath) {
+            return;
+        }
+
         this.clearDynamicColor();
     }
 
