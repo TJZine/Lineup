@@ -1,6 +1,7 @@
 import { AppOrchestrator } from '../../Orchestrator';
 import { PlaybackStartController } from '../../core';
 import type { ScheduledProgram } from '../../modules/scheduler/scheduler';
+import { flushPromises } from '../helpers';
 
 const makeProgram = (): ScheduledProgram =>
     ({
@@ -122,6 +123,66 @@ describe('AppOrchestrator playback flow suite', () => {
         });
 
         await playbackStartController.handleProgramStart(makeProgram());
+
+        expect(tryHandleStreamResolverAuthError).toHaveBeenCalledWith(permissionError);
+        expect(tryHandleStreamResolverPermissionError).toHaveBeenCalledWith(permissionError);
+        expect(handlePlaybackFailure).not.toHaveBeenCalled();
+    });
+
+    it('does not route permission-denied errors into playback-failure guard when triggered via binder wiring', async () => {
+        const orchestrator = new AppOrchestrator();
+        const permissionError = { code: 'ACCESS_DENIED', message: 'no access' };
+        const tryHandleStreamResolverAuthError = jest.fn().mockReturnValue(false);
+        const tryHandleStreamResolverPermissionError = jest.fn().mockReturnValue(true);
+        const handlePlaybackFailure = jest.fn();
+
+        let programStartHandler: ((program: ScheduledProgram) => void) | null = null;
+        const scheduler = {
+            on: jest.fn((event: 'programStart' | 'scheduleSync', handler: unknown) => {
+                if (event === 'programStart') {
+                    programStartHandler = handler as (program: ScheduledProgram) => void;
+                }
+            }),
+            off: jest.fn(),
+        };
+        const videoPlayer = {
+            on: jest.fn(),
+            off: jest.fn(),
+            loadStream: jest.fn(),
+            play: jest.fn(),
+            pause: jest.fn(),
+        };
+        const lifecycle = {
+            onPause: jest.fn(() => ({ dispose: jest.fn() })),
+            onResume: jest.fn(() => ({ dispose: jest.fn() })),
+        };
+
+        const orchestratorAny = orchestrator as unknown as {
+            _scheduler: unknown;
+            _videoPlayer: unknown;
+            _lifecycle: unknown;
+            _playbackRecovery: unknown;
+            _eventBinder: { bind: () => void } | null;
+            _initializePriorityOneControllers: () => void;
+        };
+        orchestratorAny._scheduler = scheduler;
+        orchestratorAny._videoPlayer = videoPlayer;
+        orchestratorAny._lifecycle = lifecycle;
+        orchestratorAny._playbackRecovery = {
+            resolveStreamForProgram: async (): Promise<never> => {
+                throw permissionError;
+            },
+            resetPlaybackFailureGuard: jest.fn(),
+            tryHandleStreamResolverAuthError,
+            tryHandleStreamResolverPermissionError,
+            handlePlaybackFailure,
+        };
+
+        orchestratorAny._initializePriorityOneControllers();
+        orchestratorAny._eventBinder!.bind();
+
+        programStartHandler!(makeProgram());
+        await flushPromises(1);
 
         expect(tryHandleStreamResolverAuthError).toHaveBeenCalledWith(permissionError);
         expect(tryHandleStreamResolverPermissionError).toHaveBeenCalledWith(permissionError);

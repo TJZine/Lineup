@@ -611,7 +611,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 handleGlobalError: this.handleGlobalError.bind(this),
                 setReady: (ready: boolean): void => { this._ready = ready; },
                 setupEventWiring: (): void => {
-                    this._eventBinder!.bind();
+                    this._requireEventBinder().bind();
                 },
                 configureDiscoveryStorage: this._configureDiscoveryStorageKeysForActiveUser.bind(this),
                 configureChannelManagerStorage: this._configureChannelManagerStorageForSelectedServer.bind(this),
@@ -731,7 +731,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             refreshPlaybackInfoSnapshot: (): Promise<PlaybackInfoSnapshot> =>
                 this.refreshPlaybackInfoSnapshot(),
             onVisibilityChange: (visible: boolean): void => {
-                this._overlayRuntimePolicyController!.handleOverlayVisibilityChange(visible);
+                this._requireOverlayRuntimePolicyController().handleOverlayVisibilityChange(visible);
             },
         });
 
@@ -757,7 +757,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this._playbackOptionsCoordinator?.prepareModal(preferredSection) ??
                 { focusableIds: [], preferredFocusId: null },
             onVisibilityChange: (visible: boolean): void => {
-                this._overlayRuntimePolicyController!.handleOverlayVisibilityChange(visible);
+                this._requireOverlayRuntimePolicyController().handleOverlayVisibilityChange(visible);
             },
         });
 
@@ -2398,6 +2398,9 @@ export class AppOrchestrator implements IAppOrchestrator {
             },
         });
 
+        const playbackStartController = this._requirePlaybackStartController();
+        const playbackRuntimeController = this._requirePlaybackRuntimeController();
+
         this._eventBinder = new OrchestratorEventBinder({
             getScheduler: (): IChannelScheduler | null => this._scheduler,
             getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
@@ -2411,31 +2414,31 @@ export class AppOrchestrator implements IAppOrchestrator {
             wireEpgCoordinatorEvents: (): Array<() => void> =>
                 this._epgCoordinator?.wireEpgEvents() ?? [],
             handleProgramStartTracked: (program): Promise<void> => {
-                const promise = this._playbackStartController!.handleProgramStart(program);
-                return this._playbackRuntimeController!.trackProgramStart(promise);
+                const promise = playbackStartController.handleProgramStart(program);
+                return playbackRuntimeController.trackProgramStart(promise);
             },
             handleScheduleDayRollover: (): Promise<void> => this._handleScheduleDayRollover(),
             handlePlayerEnded: (): void => {
-                this._playbackRuntimeController!.handlePlayerEnded();
+                playbackRuntimeController.handlePlayerEnded();
             },
             handlePlayerTrackChange: (event): void => this._handlePlayerTrackChange(event),
             handlePlaybackError: (error): void => {
-                this._playbackRuntimeController!.handlePlaybackError(error);
+                playbackRuntimeController.handlePlaybackError(error);
             },
             handlePlayerStateChange: (state): void => {
-                this._playbackRuntimeController!.handlePlayerStateChange(state);
+                playbackRuntimeController.handlePlayerStateChange(state);
             },
             handlePlayerTimeUpdate: (payload): void => {
-                this._playbackRuntimeController!.handlePlayerTimeUpdate(payload);
+                playbackRuntimeController.handlePlayerTimeUpdate(payload);
             },
             handlePlayerBufferUpdate: (payload): void => {
-                this._playbackRuntimeController!.handlePlayerBufferUpdate(payload);
+                playbackRuntimeController.handlePlayerBufferUpdate(payload);
             },
             handlePlexLibraryAuthExpired: (): void => this._handlePlexLibraryAuthExpired(),
             handlePlexStreamError: (error): void => this._handlePlexStreamError(error),
             handleScreenChange: (payload): void => this._handleScreenChange(payload),
-            handleLifecyclePause: (): Promise<void> => this._playbackRuntimeController!.handleLifecyclePause(),
-            handleLifecycleResume: (): Promise<void> => this._playbackRuntimeController!.handleLifecycleResume(),
+            handleLifecyclePause: (): Promise<void> => playbackRuntimeController.handleLifecyclePause(),
+            handleLifecycleResume: (): Promise<void> => playbackRuntimeController.handleLifecycleResume(),
             reportPersistenceWarning: (message): void => {
                 this._nowPlayingHandler?.({ message, type: 'warning' });
             },
@@ -2444,6 +2447,34 @@ export class AppOrchestrator implements IAppOrchestrator {
 
     private _handleScreenChange(payload: { from: Screen; to: Screen }): void {
         this._channelTransitionCoordinator?.onScreenChange(payload.to);
+    }
+
+    private _requireEventBinder(): OrchestratorEventBinder {
+        if (!this._eventBinder) {
+            throw new Error('OrchestratorEventBinder not initialized');
+        }
+        return this._eventBinder;
+    }
+
+    private _requireOverlayRuntimePolicyController(): OverlayRuntimePolicyController {
+        if (!this._overlayRuntimePolicyController) {
+            throw new Error('OverlayRuntimePolicyController not initialized');
+        }
+        return this._overlayRuntimePolicyController;
+    }
+
+    private _requirePlaybackStartController(): PlaybackStartController {
+        if (!this._playbackStartController) {
+            throw new Error('PlaybackStartController not initialized');
+        }
+        return this._playbackStartController;
+    }
+
+    private _requirePlaybackRuntimeController(): PlaybackRuntimeController {
+        if (!this._playbackRuntimeController) {
+            throw new Error('PlaybackRuntimeController not initialized');
+        }
+        return this._playbackRuntimeController;
     }
 
     private _stopPlayback(): void {
