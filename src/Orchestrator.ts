@@ -140,6 +140,7 @@ import {
     ChannelTuningCoordinator,
     OrchestratorStorageContext,
     OrchestratorEventBinder,
+    OverlayRuntimePolicyController,
     PlaybackStartController,
     PlaybackRuntimeController,
     type IInitializationCoordinator,
@@ -396,6 +397,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _channelSetup: ChannelSetupCoordinator | null = null;
     private _playbackStartController: PlaybackStartController | null = null;
     private _playbackRuntimeController: PlaybackRuntimeController | null = null;
+    private _overlayRuntimePolicyController: OverlayRuntimePolicyController | null = null;
 
     private _currentProgramForPlayback: ScheduledProgram | null = null;
     private _currentStreamDescriptor: StreamDescriptor | null = null;
@@ -731,7 +733,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             refreshPlaybackInfoSnapshot: (): Promise<PlaybackInfoSnapshot> =>
                 this.refreshPlaybackInfoSnapshot(),
             onVisibilityChange: (visible: boolean): void => {
-                this._handleOverlayVisibilityChange(visible);
+                this._ensureOverlayRuntimePolicyController().handleOverlayVisibilityChange(visible);
             },
         });
 
@@ -757,7 +759,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this._playbackOptionsCoordinator?.prepareModal(preferredSection) ??
                 { focusableIds: [], preferredFocusId: null },
             onVisibilityChange: (visible: boolean): void => {
-                this._handleOverlayVisibilityChange(visible);
+                this._ensureOverlayRuntimePolicyController().handleOverlayVisibilityChange(visible);
             },
         });
 
@@ -933,7 +935,8 @@ export class AppOrchestrator implements IAppOrchestrator {
                 }
                 return isOpen;
             },
-            toggleNowPlayingInfoOverlay: (): void => this._toggleNowPlayingInfoOverlay(),
+            toggleNowPlayingInfoOverlay: (): void =>
+                this._ensureOverlayRuntimePolicyController().toggleNowPlayingInfoOverlay(),
             showNowPlayingInfoOverlay: (): void =>
                 this._nowPlayingInfoCoordinator?.handleModalOpen(NOW_PLAYING_INFO_MODAL_ID),
             hideNowPlayingInfoOverlay: (): void =>
@@ -2315,7 +2318,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this._currentProgramForPlayback === program,
             handleProgramStartUiSideEffects: (program): void => {
                 this._nowPlayingInfoCoordinator?.onProgramStart(program);
-                this._syncChannelBadgeOverlay();
+                this._ensureOverlayRuntimePolicyController().syncChannelBadgeOverlay();
                 this._epgCoordinator?.refreshEpgScheduleForLiveChannel();
             },
             handleStreamResolved: (stream): void => {
@@ -2397,6 +2400,47 @@ export class AppOrchestrator implements IAppOrchestrator {
         return this._playbackRuntimeController;
     }
 
+    private _ensureOverlayRuntimePolicyController(): OverlayRuntimePolicyController {
+        if (this._overlayRuntimePolicyController) {
+            return this._overlayRuntimePolicyController;
+        }
+
+        this._overlayRuntimePolicyController = new OverlayRuntimePolicyController({
+            hasChannelBadgeOverlay: (): boolean => this._channelBadgeOverlay !== null,
+            getPlayerOsdVisible: (): boolean => this._playerOsd?.isVisible() ?? false,
+            getNowPlayingInfoVisible: (): boolean => this._nowPlayingInfo?.isVisible() ?? false,
+            getCurrentChannel: (): { number: number; name: string } | null => {
+                const channel = this._channelManager?.getCurrentChannel() ?? null;
+                return channel
+                    ? {
+                        number: channel.number,
+                        name: channel.name,
+                    }
+                    : null;
+            },
+            showChannelBadge: (input): void => {
+                this._channelBadgeOverlay?.show(input);
+            },
+            hideChannelBadge: (): void => {
+                this._channelBadgeOverlay?.hide();
+            },
+            hasNavigation: (): boolean => this._navigation !== null,
+            hasNowPlayingInfoOverlay: (): boolean => this._nowPlayingInfo !== null,
+            getCurrentScreen: (): string | null => this._navigation?.getCurrentScreen() ?? null,
+            hasCurrentProgramForPlayback: (): boolean => this._currentProgramForPlayback !== null,
+            isModalOpen: (modalId?: string): boolean => this._navigation?.isModalOpen(modalId) ?? false,
+            openModal: (modalId: string): void => {
+                this._navigation?.openModal(modalId);
+            },
+            closeModal: (modalId: string): void => {
+                this._navigation?.closeModal(modalId);
+            },
+            nowPlayingModalId: NOW_PLAYING_INFO_MODAL_ID,
+        });
+
+        return this._overlayRuntimePolicyController;
+    }
+
     private async _handleLifecycleResume(): Promise<void> {
         await this._ensurePlaybackRuntimeController().handleLifecycleResume();
     }
@@ -2409,38 +2453,6 @@ export class AppOrchestrator implements IAppOrchestrator {
      */
     private async _handleProgramStart(program: ScheduledProgram): Promise<void> {
         await this._ensurePlaybackStartController().handleProgramStart(program);
-    }
-
-    private _syncChannelBadgeOverlay(): void {
-        if (!this._channelBadgeOverlay) {
-            return;
-        }
-
-        const osdVisible = this._playerOsd?.isVisible() ?? false;
-        const npiVisible = this._nowPlayingInfo?.isVisible() ?? false;
-
-        if (!osdVisible && !npiVisible) {
-            this._channelBadgeOverlay.hide();
-            return;
-        }
-
-        const channel = this._channelManager?.getCurrentChannel() ?? null;
-        if (!channel) {
-            this._channelBadgeOverlay.hide();
-            return;
-        }
-
-        this._channelBadgeOverlay.show({
-            channelNumber: channel.number,
-            channelName: channel.name,
-        });
-    }
-
-    private _handleOverlayVisibilityChange(visible: boolean): void {
-        // Intentionally ignore the overlay-specific visibility value: channel badge visibility is derived
-        // from combined OSD + NowPlayingInfo overlay states.
-        void visible;
-        this._syncChannelBadgeOverlay();
     }
 
     private _handleProgramStartTracked(program: ScheduledProgram): Promise<void> {
@@ -2470,29 +2482,6 @@ export class AppOrchestrator implements IAppOrchestrator {
         this._currentProgramForPlayback = null;
         this._currentStreamDescriptor = null;
         this._currentStreamDecision = null;
-    }
-
-    private _toggleNowPlayingInfoOverlay(): void {
-        if (!this._navigation || !this._nowPlayingInfo) {
-            return;
-        }
-        const currentScreen = this._navigation.getCurrentScreen();
-        if (currentScreen !== 'player') {
-            return;
-        }
-        if (!this._currentProgramForPlayback) {
-            return;
-        }
-
-        if (this._navigation.isModalOpen(NOW_PLAYING_INFO_MODAL_ID)) {
-            this._navigation.closeModal(NOW_PLAYING_INFO_MODAL_ID);
-            return;
-        }
-        if (this._navigation.isModalOpen()) {
-            return;
-        }
-
-        this._navigation.openModal(NOW_PLAYING_INFO_MODAL_ID);
     }
 
     private _buildPlexResourceUrl(pathOrUrl: string): string | null {
