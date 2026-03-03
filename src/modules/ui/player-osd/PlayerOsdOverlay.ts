@@ -432,7 +432,7 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         panelEl.appendChild(metaStrip);
 
         const metaLeft = document.createElement('div');
-        metaLeft.className = 'player-osd-meta-left';
+        metaLeft.className = PLAYER_OSD_CLASSES.META_LEFT;
         metaStrip.appendChild(metaLeft);
 
         const timecode = document.createElement('div');
@@ -448,7 +448,7 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         metaLeft.appendChild(bufferText);
 
         const metaRight = document.createElement('div');
-        metaRight.className = 'player-osd-meta-right';
+        metaRight.className = PLAYER_OSD_CLASSES.META_RIGHT;
         metaStrip.appendChild(metaRight);
 
         const upNext = document.createElement('div');
