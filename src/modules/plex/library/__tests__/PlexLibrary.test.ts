@@ -866,18 +866,26 @@ describe('PlexLibrary', () => {
         });
 
         it('should throw SERVER_ERROR on 500', async () => {
-            // Mock all retries to fail with 500
-            const fetchMock = jest.fn().mockResolvedValue({
-                ok: false,
-                status: 500,
-                headers: { get: () => null },
-                json: async () => ({ error: 'Server error' }),
-            });
-            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+            jest.useFakeTimers();
+            try {
+                const fetchMock = jest.fn().mockResolvedValue({
+                    ok: false,
+                    status: 500,
+                    headers: { get: () => null },
+                    json: async () => ({ error: 'Server error' }),
+                });
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
 
-            const library = new PlexLibrary(mockConfig);
+                const library = new PlexLibrary(mockConfig);
+                const promise = library.getLibraries();
+                const rejection = expect(promise).rejects.toThrow();
 
-            await expect(library.getLibraries()).rejects.toThrow();
+                await jest.advanceTimersByTimeAsync(2000);
+
+                await rejection;
+            } finally {
+                jest.useRealTimers();
+            }
         });
 
         it('should throw when no server URI available', async () => {

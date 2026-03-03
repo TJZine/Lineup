@@ -146,12 +146,23 @@ describe('PlexAuth', () => {
         });
 
         it('should throw SERVER_UNREACHABLE on connection failure', async () => {
-            const auth = new PlexAuth(mockConfig);
-            mockFetchFailure(new Error('Network error'));
+            jest.useFakeTimers();
+            try {
+                const auth = new PlexAuth(mockConfig);
+                mockFetchFailure(new Error('Network error'));
 
-            await expect(auth.requestPin()).rejects.toMatchObject({
-                code: 'SERVER_UNREACHABLE',
-            });
+                const promise = auth.requestPin();
+                const rejection = expect(promise).rejects.toMatchObject({
+                    code: 'SERVER_UNREACHABLE',
+                });
+
+                await jest.advanceTimersByTimeAsync(1000);
+                await jest.advanceTimersByTimeAsync(2000);
+
+                await rejection;
+            } finally {
+                jest.useRealTimers();
+            }
         });
     });
 
