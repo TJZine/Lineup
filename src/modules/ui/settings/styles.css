@@ -113,8 +113,8 @@
 
 .settings-category-button:focus {
   border-color: var(--focus-color);
-  outline: var(--focus-ring-width) solid var(--focus-color);
-  outline-offset: var(--focus-ring-offset);
+  background: rgba(255, 255, 255, 0.12);
+  outline: none;
 }
 
 .settings-content {

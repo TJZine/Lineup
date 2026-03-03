@@ -619,9 +619,6 @@ export class ProfileSelectScreen {
                 id,
                 element,
                 neighbors: neighbors[id] ?? {},
-                onSelect: () => {
-                    (element as HTMLElement).click();
-                },
             });
         });
 
@@ -690,9 +687,6 @@ export class ProfileSelectScreen {
                 id,
                 element: element as HTMLElement,
                 neighbors,
-                onSelect: () => {
-                    (element as HTMLElement).click();
-                },
             };
             const userIndex = this._userButtonIds.indexOf(id);
             if (userIndex >= 0) {

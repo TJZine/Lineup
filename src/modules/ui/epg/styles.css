@@ -526,8 +526,8 @@
 }
 
 .epg-library-picker-item.selected {
-  background: var(--color-primary-alpha-16);
-  border-color: var(--color-primary-alpha-45);
+  background: rgba(var(--focus-color-rgb, 96, 164, 255), 0.16);
+  border-color: rgba(var(--focus-color-rgb, 96, 164, 255), 0.45);
 }
 
 .epg-time-header-slots {
@@ -715,9 +715,7 @@
   background: var(--focus-color, #00a8e1);
   z-index: 10;
   box-shadow: none;
-  outline: 2px solid rgba(0, 0, 0, 0.55);
-  outline-offset: 2px;
-  /* Visible in high-contrast mode */
+  outline: none;
 }
 
 .epg-cell-progress {
@@ -1473,7 +1471,7 @@
   background: rgba(var(--focus-color-rgb), 0.25);
   border-color: rgba(var(--focus-color-rgb), 0.12);
   box-shadow: 0 0 12px rgba(var(--focus-color-rgb), 0.08);
-  outline: 2px solid rgba(var(--focus-color-rgb), 0.12);
+  outline: none;
 }
 
 .epg-container.layout-classic .epg-cell-title {

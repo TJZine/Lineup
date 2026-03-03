@@ -245,6 +245,16 @@
     min-height: 0;
 }
 
+#channel-setup-container .setup-panel {
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#channel-setup-container .setup-preview-strip,
+#channel-setup-container .setup-body > .button-row {
+    flex-shrink: 0;
+}
+
 .setup-category-rail {
     display: flex;
     flex-direction: column;
@@ -298,9 +308,13 @@
     box-shadow: inset 3px 0 0 var(--onboarding-accent, rgb(200, 160, 100));
 }
 
-.setup-category-button:focus {
-    outline: var(--focus-ring-width) solid var(--onboarding-accent-alpha-60, rgba(200, 160, 100, 0.60));
-    outline-offset: var(--focus-ring-offset);
+.setup-category-button.focused,
+.setup-category-button:focus,
+.setup-category-button:focus-visible {
+    border-color: rgba(255, 255, 255, 0.16);
+    box-shadow: inset 3px 0 0 var(--onboarding-accent, rgb(200, 160, 100));
+    background: rgba(255, 255, 255, 0.08);
+    outline: none;
 }
 
 .setup-detail-pane {
@@ -312,7 +326,6 @@
 .setup-detail-scroll {
     overflow-y: auto;
     min-height: 0;
-    animation: setup-fade-in 150ms ease-out;
 }
 
 .setup-detail-header {
@@ -350,16 +363,6 @@
 
 .setup-priority-row--move-down {
     animation: setup-priority-move-down 150ms ease-out;
-}
-
-@keyframes setup-fade-in {
-    from {
-        opacity: 0;
-    }
-
-    to {
-        opacity: 1;
-    }
 }
 
 @keyframes setup-priority-move-up {

@@ -96,6 +96,11 @@
   background: rgba(var(--focus-color-rgb), 0.10);
 }
 
+.exit-confirm-action:focus,
+.exit-confirm-action:focus-visible {
+  outline: none;
+}
+
 .exit-confirm-action.focused {
   background: rgba(255, 255, 255, 0.92);
   color: #0a0d12;
