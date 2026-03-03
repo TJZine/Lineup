@@ -1001,7 +1001,7 @@ export class App {
         this._devMenuContainer.innerHTML = `
             <h2 style="margin-top:0;border-bottom:1px solid #444;padding-bottom:10px;">Dev Menu</h2>
             <div style="margin-bottom:15px;color:#aaa;font-size:13px;">
-                Storage keys: <code>${STORAGE_KEYS.CHANNELS_REAL}</code>, <code>${STORAGE_KEYS.CURRENT_CHANNEL}</code>
+                Storage keys: <code id="dev-storage-key-channels"></code>, <code id="dev-storage-key-current"></code>
             </div>
             <div style="display:flex;flex-direction:column;gap:10px;">
                 <details style="border:1px solid #333;border-radius:8px;padding:10px;">
@@ -1055,6 +1055,14 @@ export class App {
                 <button id="dev-close" style="padding:10px;cursor:pointer;margin-top:10px;">Close</button>
             </div>
         `;
+        const channelsKey = this._devMenuContainer.querySelector('#dev-storage-key-channels');
+        if (channelsKey) {
+            channelsKey.textContent = STORAGE_KEYS.CHANNELS_REAL;
+        }
+        const currentChannelKey = this._devMenuContainer.querySelector('#dev-storage-key-current');
+        if (currentChannelKey) {
+            currentChannelKey.textContent = STORAGE_KEYS.CURRENT_CHANNEL;
+        }
 
         // Bind events
         this._devMenuContainer.querySelector('#dev-reset-app')?.addEventListener('click', () => {

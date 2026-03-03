@@ -328,59 +328,113 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         if (!this.containerElement) return;
 
         this.containerElement.className = EPG_CLASSES.CONTAINER;
-        this.containerElement.innerHTML = `
-      <div class="epg-classic-header" hidden>
-        <div class="epg-classic-header-brand">
-          <div class="epg-classic-header-title">LINEUP</div>
-          <div class="epg-classic-now-playing" hidden>
-            <span class="epg-classic-now-playing-label">NOW PLAYING</span>
-            <span class="epg-classic-now-playing-channel"></span>
-          </div>
-        </div>
-        <div class="epg-classic-header-actions">
-          <span>OK Select</span><span>&middot; LEFT/RIGHT Navigate</span><span>&middot; BACK Close</span>
-        </div>
-      </div>
-      <div class="epg-classic-showcase" hidden>
-        <div class="epg-classic-showcase-pip"></div>
-        <div class="epg-classic-showcase-info"></div>
-      </div>
-      <div class="${EPG_CLASSES.OVERLAY_SHOWCASE}"></div>
-      <div class="${EPG_CLASSES.GRID}">
-        <div class="${EPG_CLASSES.PROGRAM_AREA}"></div>
-      </div>
-      <div class="${EPG_CLASSES.DASHBOARD_BOTTOM}">
-        <div class="${EPG_CLASSES.NOW_WATCHING_BANNER}" aria-live="polite">
-          <span class="${EPG_CLASSES.NOW_WATCHING_LIVE}">NOW PLAYING</span>
-          <span class="${EPG_CLASSES.NOW_WATCHING_CHANNEL}"></span>
-          <span class="${EPG_CLASSES.NOW_WATCHING_PROGRAM}"></span>
-          <span class="${EPG_CLASSES.NOW_WATCHING_TIME}"></span>
-        </div>
-      </div>
-    `;
 
-        this.gridElement = this.containerElement.querySelector(`.${EPG_CLASSES.GRID}`);
-        this.programAreaElement = this.containerElement.querySelector(`.${EPG_CLASSES.PROGRAM_AREA}`);
-        this.classicHeaderElement = this.containerElement.querySelector('.epg-classic-header');
-        this.classicNowPlayingElement = this.containerElement.querySelector('.epg-classic-now-playing');
-        this.classicNowPlayingChannelElement = this.containerElement.querySelector('.epg-classic-now-playing-channel');
-        this.classicShowcaseElement = this.containerElement.querySelector('.epg-classic-showcase');
-        this.classicShowcaseInfoElement = this.containerElement.querySelector('.epg-classic-showcase-info');
-        this.overlayShowcaseElement = this.containerElement.querySelector(
-            `.${EPG_CLASSES.OVERLAY_SHOWCASE}`
+        const classicHeader = document.createElement('div');
+        classicHeader.className = 'epg-classic-header';
+        classicHeader.hidden = true;
+
+        const classicHeaderBrand = document.createElement('div');
+        classicHeaderBrand.className = 'epg-classic-header-brand';
+        classicHeader.appendChild(classicHeaderBrand);
+
+        const classicHeaderTitle = document.createElement('div');
+        classicHeaderTitle.className = 'epg-classic-header-title';
+        classicHeaderTitle.textContent = 'LINEUP';
+        classicHeaderBrand.appendChild(classicHeaderTitle);
+
+        const classicNowPlaying = document.createElement('div');
+        classicNowPlaying.className = 'epg-classic-now-playing';
+        classicNowPlaying.hidden = true;
+        classicHeaderBrand.appendChild(classicNowPlaying);
+
+        const classicNowPlayingLabel = document.createElement('span');
+        classicNowPlayingLabel.className = 'epg-classic-now-playing-label';
+        classicNowPlayingLabel.textContent = 'NOW PLAYING';
+        classicNowPlaying.appendChild(classicNowPlayingLabel);
+
+        const classicNowPlayingChannel = document.createElement('span');
+        classicNowPlayingChannel.className = 'epg-classic-now-playing-channel';
+        classicNowPlaying.appendChild(classicNowPlayingChannel);
+
+        const classicHeaderActions = document.createElement('div');
+        classicHeaderActions.className = 'epg-classic-header-actions';
+        classicHeader.appendChild(classicHeaderActions);
+
+        const actionOk = document.createElement('span');
+        actionOk.textContent = 'OK Select';
+        const actionNavigate = document.createElement('span');
+        actionNavigate.textContent = '· LEFT/RIGHT Navigate';
+        const actionBack = document.createElement('span');
+        actionBack.textContent = '· BACK Close';
+        classicHeaderActions.append(actionOk, actionNavigate, actionBack);
+
+        const classicShowcase = document.createElement('div');
+        classicShowcase.className = 'epg-classic-showcase';
+        classicShowcase.hidden = true;
+
+        const classicShowcasePip = document.createElement('div');
+        classicShowcasePip.className = 'epg-classic-showcase-pip';
+        classicShowcase.appendChild(classicShowcasePip);
+
+        const classicShowcaseInfo = document.createElement('div');
+        classicShowcaseInfo.className = 'epg-classic-showcase-info';
+        classicShowcase.appendChild(classicShowcaseInfo);
+
+        const overlayShowcase = document.createElement('div');
+        overlayShowcase.className = EPG_CLASSES.OVERLAY_SHOWCASE;
+
+        const grid = document.createElement('div');
+        grid.className = EPG_CLASSES.GRID;
+
+        const programArea = document.createElement('div');
+        programArea.className = EPG_CLASSES.PROGRAM_AREA;
+        grid.appendChild(programArea);
+
+        const dashboardBottom = document.createElement('div');
+        dashboardBottom.className = EPG_CLASSES.DASHBOARD_BOTTOM;
+
+        const nowWatchingBanner = document.createElement('div');
+        nowWatchingBanner.className = EPG_CLASSES.NOW_WATCHING_BANNER;
+        nowWatchingBanner.setAttribute('aria-live', 'polite');
+        dashboardBottom.appendChild(nowWatchingBanner);
+
+        const nowWatchingLive = document.createElement('span');
+        nowWatchingLive.className = EPG_CLASSES.NOW_WATCHING_LIVE;
+        nowWatchingLive.textContent = 'NOW PLAYING';
+        nowWatchingBanner.appendChild(nowWatchingLive);
+
+        const nowWatchingChannel = document.createElement('span');
+        nowWatchingChannel.className = EPG_CLASSES.NOW_WATCHING_CHANNEL;
+        nowWatchingBanner.appendChild(nowWatchingChannel);
+
+        const nowWatchingProgram = document.createElement('span');
+        nowWatchingProgram.className = EPG_CLASSES.NOW_WATCHING_PROGRAM;
+        nowWatchingBanner.appendChild(nowWatchingProgram);
+
+        const nowWatchingTime = document.createElement('span');
+        nowWatchingTime.className = EPG_CLASSES.NOW_WATCHING_TIME;
+        nowWatchingBanner.appendChild(nowWatchingTime);
+
+        this.containerElement.replaceChildren(
+            classicHeader,
+            classicShowcase,
+            overlayShowcase,
+            grid,
+            dashboardBottom
         );
-        this.nowWatchingBannerElement = this.containerElement.querySelector(
-            `.${EPG_CLASSES.NOW_WATCHING_BANNER}`
-        );
-        this.nowWatchingChannelElement = this.containerElement.querySelector(
-            `.${EPG_CLASSES.NOW_WATCHING_CHANNEL}`
-        );
-        this.nowWatchingProgramElement = this.containerElement.querySelector(
-            `.${EPG_CLASSES.NOW_WATCHING_PROGRAM}`
-        );
-        this.nowWatchingTimeElement = this.containerElement.querySelector(
-            `.${EPG_CLASSES.NOW_WATCHING_TIME}`
-        );
+
+        this.gridElement = grid;
+        this.programAreaElement = programArea;
+        this.classicHeaderElement = classicHeader;
+        this.classicNowPlayingElement = classicNowPlaying;
+        this.classicNowPlayingChannelElement = classicNowPlayingChannel;
+        this.classicShowcaseElement = classicShowcase;
+        this.classicShowcaseInfoElement = classicShowcaseInfo;
+        this.overlayShowcaseElement = overlayShowcase;
+        this.nowWatchingBannerElement = nowWatchingBanner;
+        this.nowWatchingChannelElement = nowWatchingChannel;
+        this.nowWatchingProgramElement = nowWatchingProgram;
+        this.nowWatchingTimeElement = nowWatchingTime;
         this.initializeProgramAreaOverlays();
         if (this.nowWatchingBannerElement) {
             this.nowWatchingBannerElement.hidden = true;
