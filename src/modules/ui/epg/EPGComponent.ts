@@ -537,7 +537,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private applyLayoutMode(): void {
         if (!this.containerElement) return;
         const mode: 'overlay' | 'classic' = this.config.layoutMode ?? 'classic';
-        if (mode !== this._appliedLayoutMode) {
+        const didLayoutModeChange = mode !== this._appliedLayoutMode;
+        if (didLayoutModeChange) {
             this._appliedLayoutMode = mode;
             if (mode === 'classic') {
                 this.containerElement.classList.add(EPG_CLASSES.CONTAINER_CLASSIC);
@@ -554,6 +555,12 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
         this.infoPanel?.setPresentationMode(mode);
         this.syncInfoPanelHost();
+        if (didLayoutModeChange && this.state.isVisible) {
+            const focusedCell = this.state.focusedCell;
+            if (focusedCell?.kind === 'program') {
+                this._scheduleInfoPanelUpdate(focusedCell.program);
+            }
+        }
         this.syncClassicShellVisibility();
     }
 

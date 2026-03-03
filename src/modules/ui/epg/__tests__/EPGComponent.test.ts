@@ -734,6 +734,25 @@ describe('EPGComponent', () => {
                 localContainer.remove();
             }
         });
+
+        it('refreshes the focused info panel content when switching from classic to overlay mode', () => {
+            const channel = createMockChannel(0);
+            epg.loadChannels([channel]);
+            epg.loadScheduleForChannel(channel.id, createDetailedSchedule(channel.id));
+
+            epg.setLayoutMode('classic');
+            epg.show();
+            epg.focusProgram(0, 0);
+
+            const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
+            expect(poster.style.display).toBe('none');
+            expect(poster.getAttribute('src')).toBeNull();
+
+            epg.setLayoutMode('overlay');
+
+            expect(poster.style.display).toBe('block');
+            expect(poster.getAttribute('src')).toContain('poster-a.jpg');
+        });
     });
 
     describe('auto-fit pixelsPerMinute', () => {
