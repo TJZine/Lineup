@@ -175,36 +175,27 @@ describe('App bootstrap smoke', () => {
         isReadySpy = jest.spyOn(AppOrchestrator.prototype, 'isReady').mockReturnValue(false);
     });
 
-    const installStartupSpies = (): {
-        initializeSpy: jest.SpyInstance;
-        startSpy: jest.SpyInstance;
-        shutdownSpy: jest.SpyInstance;
-        themeSpy: jest.SpyInstance;
-    } => ({
-        initializeSpy: (initializeSpy = jest.spyOn(AppOrchestrator.prototype, 'initialize').mockResolvedValue(undefined)),
-        startSpy: (startSpy = jest.spyOn(AppOrchestrator.prototype, 'start').mockResolvedValue(undefined)),
-        shutdownSpy: jest.spyOn(AppOrchestrator.prototype, 'shutdown').mockResolvedValue(undefined),
-        themeSpy: jest.spyOn(ThemeManager, 'getInstance').mockReturnValue({
+    const installStartupSpies = (): void => {
+        initializeSpy = jest.spyOn(AppOrchestrator.prototype, 'initialize').mockResolvedValue(undefined);
+        startSpy = jest.spyOn(AppOrchestrator.prototype, 'start').mockResolvedValue(undefined);
+        jest.spyOn(AppOrchestrator.prototype, 'shutdown').mockResolvedValue(undefined);
+        jest.spyOn(ThemeManager, 'getInstance').mockReturnValue({
             getTheme: jest.fn().mockReturnValue('ember-steel'),
             setTheme: jest.fn(),
-        } as never),
-    });
+        } as never);
+    };
 
-    const installPlaybackSnapshotSpy = (): {
-        refreshPlaybackInfoSnapshotSpy: jest.SpyInstance;
-    } => ({
-        refreshPlaybackInfoSnapshotSpy: (refreshPlaybackInfoSnapshotSpy = jest
+    const installPlaybackSnapshotSpy = (): void => {
+        refreshPlaybackInfoSnapshotSpy = jest
             .spyOn(AppOrchestrator.prototype, 'refreshPlaybackInfoSnapshot')
-            .mockResolvedValue({} as never)),
-    });
+            .mockResolvedValue({} as never);
+    };
 
-    const installRecoveryActionSpy = (): {
-        getRecoveryActionsSpy: jest.SpyInstance;
-    } => ({
-        getRecoveryActionsSpy: (getRecoveryActionsSpy = jest
+    const installRecoveryActionSpy = (): void => {
+        getRecoveryActionsSpy = jest
             .spyOn(AppOrchestrator.prototype, 'getRecoveryActions')
-            .mockReturnValue([])),
-    });
+            .mockReturnValue([]);
+    };
 
     const installLifecycleWiringSpies = (): void => {
         jest.spyOn(AppOrchestrator.prototype, 'registerErrorHandler').mockImplementation((moduleId, handler) => {

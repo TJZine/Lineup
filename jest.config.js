@@ -7,7 +7,7 @@ export default {
     testMatch: ['**/__tests__/**/*.test.ts', '**/*.test.ts'],
     testPathIgnorePatterns: [
         '/node_modules/',
-        '\\.(contracts?|policy|types)\\.test\\.ts$',
+        '\\.(contracts?|policy)\\.test\\.ts$',
         '/types\\.test\\.ts$',
     ],
     transform: {
