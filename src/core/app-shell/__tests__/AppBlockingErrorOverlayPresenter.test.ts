@@ -35,7 +35,16 @@ const createActions = (primaryAction?: jest.Mock): BlockingErrorOverlayAction[] 
     },
 ];
 
-const createNavigation = () => {
+const createNavigation = (): {
+    openModal: jest.Mock;
+    closeModal: jest.Mock;
+    isModalOpen: jest.Mock;
+    registerFocusable: jest.Mock;
+    unregisterFocusable: jest.Mock;
+    setFocus: jest.Mock;
+    on: jest.Mock;
+    off: jest.Mock;
+} => {
     return {
         openModal: jest.fn(),
         closeModal: jest.fn(),
@@ -50,14 +59,14 @@ const createNavigation = () => {
 
 describe('AppBlockingErrorOverlayPresenter', () => {
     it('no-ops when no container is set', () => {
-        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: () => null });
+        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: (): null => null });
         expect(() => presenter.show(createError(), createActions())).not.toThrow();
         expect(() => presenter.hide()).not.toThrow();
     });
 
     it('renders title, message, actions, and unhides the overlay', () => {
         const overlay = createOverlayContainer();
-        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: () => null });
+        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: (): null => null });
         presenter.setContainer(overlay);
 
         presenter.show(createError(), createActions());
@@ -75,7 +84,7 @@ describe('AppBlockingErrorOverlayPresenter', () => {
     it('focuses the primary button even when navigation is unavailable', () => {
         const overlay = createOverlayContainer();
         document.body.appendChild(overlay);
-        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: () => null });
+        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: (): null => null });
         presenter.setContainer(overlay);
 
         presenter.show(createError(), createActions());
@@ -87,7 +96,7 @@ describe('AppBlockingErrorOverlayPresenter', () => {
     it('registers focusables, opens the modal, and sets focus when navigation exists', () => {
         const overlay = createOverlayContainer();
         const nav = createNavigation();
-        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: () => nav as never });
+        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: (): never => nav as never });
         presenter.setContainer(overlay);
 
         presenter.show(createError(), createActions());
@@ -113,7 +122,7 @@ describe('AppBlockingErrorOverlayPresenter', () => {
     it('refreshes modal membership when show is called again while the modal is already open', () => {
         const overlay = createOverlayContainer();
         const nav = createNavigation();
-        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: () => nav as never });
+        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: (): never => nav as never });
         presenter.setContainer(overlay);
 
         presenter.show(createError(), createActions());
@@ -137,7 +146,7 @@ describe('AppBlockingErrorOverlayPresenter', () => {
     it('hide closes the modal, unregisters focusables, and re-hides the overlay', () => {
         const overlay = createOverlayContainer();
         const nav = createNavigation();
-        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: () => nav as never });
+        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: (): never => nav as never });
         presenter.setContainer(overlay);
         presenter.show(createError(), createActions());
 
@@ -152,7 +161,7 @@ describe('AppBlockingErrorOverlayPresenter', () => {
     it('modalClose hides without recursively closing the modal', () => {
         const overlay = createOverlayContainer();
         const nav = createNavigation();
-        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: () => nav as never });
+        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: (): never => nav as never });
         presenter.setContainer(overlay);
         presenter.show(createError(), createActions());
 
@@ -171,7 +180,7 @@ describe('AppBlockingErrorOverlayPresenter', () => {
     it('dispose hides, removes listeners, and clears focusable registrations', () => {
         const overlay = createOverlayContainer();
         const nav = createNavigation();
-        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: () => nav as never });
+        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: (): never => nav as never });
         presenter.setContainer(overlay);
         presenter.show(createError(), createActions());
 
