@@ -7,7 +7,6 @@
 import {
     AppOrchestrator,
     type OrchestratorConfig,
-    type ErrorRecoveryAction,
     AppErrorCode,
 } from './Orchestrator';
 import type { LifecycleAppError, AppPhase } from './modules/lifecycle/types';
@@ -23,13 +22,18 @@ import type { ChannelTransitionConfig } from './modules/ui/channel-transition';
 import type { PlaybackOptionsConfig } from './modules/ui/playback-options';
 import { createAppContainers } from './core/app-shell/AppContainerFactory';
 import { AppLazyScreenRegistry } from './core/app-shell/AppLazyScreenRegistry';
+import {
+    AppBlockingErrorOverlayPresenter,
+    type BlockingErrorOverlayAction,
+} from './core/app-shell/AppBlockingErrorOverlayPresenter';
+import { AppToastPresenter } from './core/app-shell/AppToastPresenter';
 import type { PlexAuthConfig } from './modules/plex/auth';
 import { AuthScreen } from './modules/ui/auth';
 import { ProfileSelectScreen } from './modules/ui/profile-select';
 import { ServerSelectScreen } from './modules/ui/server-select';
 import { SplashScreen } from './modules/ui/splash';
 import { ThemeManager } from './modules/ui/theme';
-import { normalizeToastInput, type ToastInput, type ToastType } from './modules/ui/toast/types';
+import type { ToastInput } from './modules/ui/toast/types';
 import { STORAGE_KEYS } from './types';
 import { LINEUP_STORAGE_KEYS } from './config/storageKeys';
 import {
@@ -138,13 +142,11 @@ const ERROR_OVERLAY_MODAL_ID = 'modal:error-overlay';
  */
 export class App {
     private _orchestrator: AppOrchestrator | null = null;
-    private _errorOverlay: HTMLElement | null = null;
-    private _errorOverlayFocusableIds: string[] = [];
-    private _errorOverlayPreferredFocusId: string | null = null;
-    private _errorOverlayModalCloseHandler: ((payload: { modalId: string }) => void) | null = null;
-    private _toastContainer: HTMLElement | null = null;
-    private _toastHideTimer: number | null = null;
-    private _lastToastAt: number = 0;
+    private readonly _blockingErrorOverlayPresenter = new AppBlockingErrorOverlayPresenter({
+        getNavigation: (): INavigationManager | null => this._getSafeNavigation(),
+        modalId: ERROR_OVERLAY_MODAL_ID,
+    });
+    private readonly _toastPresenter = new AppToastPresenter();
     private _authContainer: HTMLElement | null = null;
     private _profileSelectContainer: HTMLElement | null = null;
     private _serverSelectContainer: HTMLElement | null = null;
@@ -289,7 +291,8 @@ export class App {
             this._globalKeydownHandler = null;
         }
 
-        this.hideErrorOverlay();
+        this._blockingErrorOverlayPresenter.dispose();
+        this._toastPresenter.dispose();
 
         this._authScreen?.destroy();
         this._authScreen = null;
@@ -339,9 +342,9 @@ export class App {
         this._channelSetupContainer = refs.channelSetupContainer;
         this._audioSetupContainer = refs.audioSetupContainer;
         this._settingsContainer = refs.settingsContainer;
-        this._errorOverlay = refs.errorOverlay;
+        this._blockingErrorOverlayPresenter.setContainer(refs.errorOverlay);
         this._devMenuContainer = refs.devMenuContainer;
-        this._toastContainer = refs.toastContainer;
+        this._toastPresenter.setContainer(refs.toastContainer);
 
         // Global debug key handlers
         if (this._globalKeydownHandler) {
@@ -617,150 +620,22 @@ export class App {
      * Show error overlay with recovery actions.
      */
     showErrorOverlay(error: LifecycleAppError): void {
-        if (!this._errorOverlay || !this._orchestrator) {
+        if (!this._orchestrator) {
             return;
         }
 
-        const nav = this._getSafeNavigation();
-        const modalWasOpen = nav?.isModalOpen(ERROR_OVERLAY_MODAL_ID) ?? false;
-        if (nav && modalWasOpen) {
-            // Refresh modal focus trap membership on re-render without closing the overlay.
-            if (this._errorOverlayModalCloseHandler) {
-                nav.off('modalClose', this._errorOverlayModalCloseHandler);
-            }
-            nav.closeModal(ERROR_OVERLAY_MODAL_ID);
-        }
-
-        const actions =
+        const actions: BlockingErrorOverlayAction[] =
             error.actions.length > 0
                 ? error.actions
                 : this._orchestrator.getRecoveryActions(error.code as AppErrorCode);
-        this._renderErrorOverlay(error, actions);
-        this._errorOverlay.classList.remove('hidden');
-
-        if (nav && this._errorOverlayFocusableIds.length > 0) {
-            if (!this._errorOverlayModalCloseHandler) {
-                this._errorOverlayModalCloseHandler = ({ modalId }): void => {
-                    if (modalId !== ERROR_OVERLAY_MODAL_ID) return;
-                    this.hideErrorOverlay({ fromModalClose: true });
-                };
-                nav.on('modalClose', this._errorOverlayModalCloseHandler);
-            }
-            if (!nav.isModalOpen(ERROR_OVERLAY_MODAL_ID)) {
-                nav.openModal(ERROR_OVERLAY_MODAL_ID, this._errorOverlayFocusableIds);
-            }
-            const preferred = this._errorOverlayPreferredFocusId ?? this._errorOverlayFocusableIds[0] ?? null;
-            if (preferred) {
-                nav.setFocus(preferred, { persist: false });
-            }
-        }
+        this._blockingErrorOverlayPresenter.show(error, actions);
     }
 
     /**
      * Hide error overlay.
      */
     hideErrorOverlay(options?: { fromModalClose?: boolean }): void {
-        if (this._errorOverlay) {
-            this._errorOverlay.classList.add('hidden');
-        }
-        const nav = this._getSafeNavigation();
-        if (nav) {
-            if (!options?.fromModalClose) {
-                nav.closeModal(ERROR_OVERLAY_MODAL_ID);
-            }
-            this._teardownErrorOverlayNavigation(nav);
-        }
-    }
-
-    private _teardownErrorOverlayNavigation(nav: INavigationManager): void {
-        if (this._errorOverlayModalCloseHandler) {
-            nav.off('modalClose', this._errorOverlayModalCloseHandler);
-            this._errorOverlayModalCloseHandler = null;
-        }
-        for (const id of this._errorOverlayFocusableIds) {
-            nav.unregisterFocusable(id);
-        }
-        this._errorOverlayFocusableIds = [];
-        this._errorOverlayPreferredFocusId = null;
-    }
-
-    /**
-     * Render error overlay content.
-     */
-    private _renderErrorOverlay(
-        error: LifecycleAppError,
-        actions: ErrorRecoveryAction[]
-    ): void {
-        if (!this._errorOverlay) return;
-
-        // Clear existing content
-        this._errorOverlay.innerHTML = '';
-
-        // Error container
-        const container = document.createElement('div');
-        container.className = 'error-content';
-
-        // Title
-        const title = document.createElement('h2');
-        title.className = 'error-title';
-        title.textContent = 'Something went wrong';
-        container.appendChild(title);
-
-        // Message
-        const message = document.createElement('p');
-        message.className = 'error-message';
-        message.textContent = error.userMessage || error.message;
-        container.appendChild(message);
-
-        // Actions
-        const actionsContainer = document.createElement('div');
-        actionsContainer.className = 'error-actions';
-
-        const nav = this._getSafeNavigation();
-        if (nav) {
-            // Re-render replaces elements; ensure we unregister any prior focusables first.
-            this._teardownErrorOverlayNavigation(nav);
-        }
-
-        let primaryButton: HTMLButtonElement | null = null;
-        const focusableIds: string[] = [];
-
-        for (const action of actions) {
-            const id = `error-overlay-action-${focusableIds.length}`;
-            const button = document.createElement('button');
-            button.className = action.isPrimary
-                ? 'error-button primary'
-                : 'error-button secondary';
-            button.textContent = action.label;
-            button.addEventListener('click', () => {
-                this.hideErrorOverlay();
-                action.action();
-            });
-            if (action.isPrimary && !primaryButton) {
-                primaryButton = button;
-            }
-            actionsContainer.appendChild(button);
-
-            if (nav) {
-                focusableIds.push(id);
-                nav.registerFocusable({
-                    id,
-                    element: button,
-                    group: ERROR_OVERLAY_MODAL_ID,
-                    neighbors: {},
-                });
-            }
-        }
-
-        container.appendChild(actionsContainer);
-        this._errorOverlay.appendChild(container);
-
-        // Ensure focus is visible even if Navigation is not available yet (e.g. during partial init / tests).
-        (primaryButton ?? actionsContainer.querySelector('button'))?.focus();
-
-        this._errorOverlayFocusableIds = focusableIds;
-        const primaryIndex = actions.findIndex((a) => a.isPrimary);
-        this._errorOverlayPreferredFocusId = focusableIds[primaryIndex] ?? focusableIds[0] ?? null;
+        this._blockingErrorOverlayPresenter.hide(options);
     }
 
     /**
@@ -800,43 +675,7 @@ export class App {
      * Show a non-blocking toast message.
      */
     private _showToast(input: ToastInput): void {
-        if (!this._toastContainer) {
-            return;
-        }
-
-        const now = Date.now();
-        if (now - this._lastToastAt < 1500) {
-            return;
-        }
-        this._lastToastAt = now;
-
-        const { message, type } = normalizeToastInput(input);
-        const iconByType: Record<ToastType, string> = {
-            info: 'ℹ️',
-            success: '✓',
-            warning: '⚠️',
-            error: '❌',
-        };
-        const icon = iconByType[type] ?? 'ℹ️';
-
-        this._toastContainer.dataset.toastType = type;
-        this._toastContainer.textContent = `${icon} ${message}`;
-        this._toastContainer.style.display = 'block';
-        this._toastContainer.style.opacity = '1';
-
-        if (this._toastHideTimer !== null) {
-            clearTimeout(this._toastHideTimer);
-        }
-        this._toastHideTimer = window.setTimeout(() => {
-            if (!this._toastContainer) return;
-            this._toastContainer.style.opacity = '0';
-            const container = this._toastContainer;
-            window.setTimeout(() => {
-                if (container) {
-                    container.style.display = 'none';
-                }
-            }, 200) as unknown as number;
-        }, 5000) as unknown as number;
+        this._toastPresenter.show(input);
     }
 
     private async _copyToClipboard(text: string): Promise<boolean> {
