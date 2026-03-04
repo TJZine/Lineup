@@ -189,6 +189,54 @@ describe('EPGVirtualizer', () => {
     });
 
     describe('DOM element virtualization', () => {
+        it('skips DOM rewrites when rendering the same visible data twice', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-stable';
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60000),
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'stable-1',
+                            type: 'movie',
+                            title: 'Stable Program',
+                            fullTitle: 'Stable Program',
+                            durationMs: 60 * 60000,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: gridAnchorTime,
+                        scheduledEndTime: gridAnchorTime + (60 * 60000),
+                        elapsedMs: 0,
+                        remainingMs: 0,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+            const schedules = new Map<string, ScheduleWindow>([[channelId, schedule]]);
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            const anyVirtualizer = virtualizer as unknown as {
+                updateCellPosition: (cellData: unknown) => void;
+                updateCellContent: (cellData: unknown, nowMs: number) => void;
+            };
+            const positionSpy = jest.spyOn(anyVirtualizer, 'updateCellPosition');
+            const contentSpy = jest.spyOn(anyVirtualizer, 'updateCellContent');
+
+            virtualizer.renderVisibleCells([channelId], schedules, range, undefined, gridAnchorTime + 5000);
+            positionSpy.mockClear();
+            contentSpy.mockClear();
+
+            virtualizer.renderVisibleCells([channelId], schedules, range, undefined, gridAnchorTime + 5000);
+
+            expect(positionSpy).not.toHaveBeenCalled();
+            expect(contentSpy).not.toHaveBeenCalled();
+        });
+
         it('renders a row at top 0 when channelOffset matches rowIndex', () => {
             const channelIds = Array.from({ length: 15 }, (_, i) => `ch${i}`);
             const schedules = new Map<string, ScheduleWindow>();

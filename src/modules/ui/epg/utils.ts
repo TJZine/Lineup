@@ -112,15 +112,11 @@ export function rafThrottle<T extends (...args: unknown[]) => void>(
  * Keeps a bounded log for simulator copy/paste.
  */
 export function appendEpgDebugLog(event: string, data: unknown): void {
-    try {
-        if (localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG) !== '1') {
-            return;
-        }
-        const entry = { ts: Date.now(), event, data };
-        appendEpgDebugEntry(entry);
-    } catch {
-        // Ignore storage failures (webOS can throw).
+    if (!isEpgDebugEnabled()) {
+        return;
     }
+    const entry = { ts: Date.now(), event, data };
+    appendEpgDebugEntry(entry);
 }
 
 type EpgDebugEntry = { ts: number; event: string; data: unknown };
@@ -128,9 +124,29 @@ type EpgDebugEntry = { ts: number; event: string; data: unknown };
 const EPG_DEBUG_LOG_STORAGE_KEY = LINEUP_STORAGE_KEYS.EPG_DEBUG_LOG;
 const EPG_DEBUG_LOG_MAX_ENTRIES = 200;
 const EPG_DEBUG_LOG_FLUSH_DELAY_MS = 250;
+const EPG_DEBUG_FLAG_REFRESH_MS = 500;
 
 let epgDebugEntries: EpgDebugEntry[] | null = null;
 let epgDebugFlushTimer: ReturnType<typeof setTimeout> | null = null;
+let epgDebugEnabledCache: boolean | null = null;
+let epgDebugEnabledCacheReadMs = 0;
+
+function isEpgDebugEnabled(): boolean {
+    const now = Date.now();
+    if (
+        epgDebugEnabledCache !== null &&
+        now - epgDebugEnabledCacheReadMs < EPG_DEBUG_FLAG_REFRESH_MS
+    ) {
+        return epgDebugEnabledCache;
+    }
+    epgDebugEnabledCacheReadMs = now;
+    try {
+        epgDebugEnabledCache = localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG) === '1';
+    } catch {
+        epgDebugEnabledCache = false;
+    }
+    return epgDebugEnabledCache;
+}
 
 function loadEpgDebugEntries(): EpgDebugEntry[] {
     if (epgDebugEntries) {
@@ -172,4 +188,14 @@ function appendEpgDebugEntry(entry: EpgDebugEntry): void {
         entries.splice(0, entries.length - EPG_DEBUG_LOG_MAX_ENTRIES);
     }
     scheduleEpgDebugFlush();
+}
+
+export function __resetEpgDebugStateForTests(): void {
+    if (epgDebugFlushTimer) {
+        clearTimeout(epgDebugFlushTimer);
+        epgDebugFlushTimer = null;
+    }
+    epgDebugEntries = null;
+    epgDebugEnabledCache = null;
+    epgDebugEnabledCacheReadMs = 0;
 }
