@@ -59,7 +59,10 @@ const createNavigationStub = (): {
     };
 };
 
-const createScreen = (onGuideSettingChange: (change: GuideSettingChange) => void): {
+const createScreen = (
+    onGuideSettingChange: (change: GuideSettingChange) => void,
+    getActiveUsername?: () => string | null
+): {
     container: HTMLElement;
     nav: ReturnType<typeof createNavigationStub>;
     screen: SettingsScreen;
@@ -72,7 +75,8 @@ const createScreen = (onGuideSettingChange: (change: GuideSettingChange) => void
         container,
         () => nav as unknown as never,
         undefined,
-        onGuideSettingChange
+        onGuideSettingChange,
+        getActiveUsername
     );
     return { container, nav, screen };
 };
@@ -529,8 +533,8 @@ describe('SettingsScreen (Two-pane layout)', () => {
         }
     });
 
-    it('renders header and switch profile actions inside the left rail', () => {
-        const { container, screen } = createScreen(jest.fn());
+    it('renders header and profile identity row inside the left rail', () => {
+        const { container, screen } = createScreen(jest.fn(), () => 'TestUser');
         screen.show();
 
         const rail = container.querySelector('.settings-categories') as HTMLElement | null;
@@ -540,8 +544,33 @@ describe('SettingsScreen (Two-pane layout)', () => {
         expect(header).not.toBeNull();
         expect((header?.querySelector('.settings-title') as HTMLElement | null)?.textContent).toContain('Settings');
 
-        const switchProfileButton = rail?.querySelector('#settings-switch-profile');
-        expect(switchProfileButton).not.toBeNull();
+        const profileRow = rail?.querySelector('#settings-switch-profile') as HTMLElement | null;
+        expect(profileRow).not.toBeNull();
+        expect(profileRow?.classList.contains('settings-profile-row')).toBe(true);
+        expect(profileRow?.querySelector('.settings-profile-name')?.textContent).toBe('TestUser');
+        expect(profileRow?.querySelector('.settings-profile-action')?.textContent).toBe('Switch Profile →');
+    });
+
+    it('falls back to "Profile" when getActiveUsername returns null', () => {
+        const { container, screen } = createScreen(jest.fn(), () => null);
+        screen.show();
+
+        const profileRow = container.querySelector('#settings-switch-profile') as HTMLElement | null;
+        expect(profileRow?.querySelector('.settings-profile-name')?.textContent).toBe('Profile');
+    });
+
+    it('refreshes profile name on show', () => {
+        let username: string | null = 'FirstUser';
+        const { container, screen } = createScreen(jest.fn(), () => username);
+        screen.show();
+
+        expect(container.querySelector('.settings-profile-name')?.textContent).toBe('FirstUser');
+
+        screen.hide();
+        username = 'SecondUser';
+        screen.show();
+
+        expect(container.querySelector('.settings-profile-name')?.textContent).toBe('SecondUser');
     });
 
     it('applies transitioning class during category detail swap and removes it after reveal frame', () => {

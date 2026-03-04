@@ -21,6 +21,7 @@ const makeOrchestrator = (): AppOrchestrator => ({
     getNavigation: jest.fn().mockReturnValue(null),
     setSubtitleTrack: jest.fn(),
     onGuideSettingChange: jest.fn(),
+    getActiveUsername: jest.fn().mockReturnValue('UnitTestUser'),
 } as never);
 
 const flushMicrotasks = async (): Promise<void> => {

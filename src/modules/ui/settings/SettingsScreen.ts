@@ -181,6 +181,7 @@ export class SettingsScreen {
     private _getNavigation: () => INavigationManager | null;
     private _onSubtitleModeChange: ((mode: SubtitleMode) => void) | null = null;
     private _onGuideSettingChange: ((change: GuideSettingChange) => void) | null = null;
+    private _getActiveUsername: (() => string | null) | null = null;
     private _categories: SettingsCategoryConfig[] = [];
     private _activeCategoryId: SettingsCategoryId | null = null;
     private _lastFocusedItemByCategory: Partial<Record<SettingsCategoryId, string>> = {};
@@ -205,12 +206,14 @@ export class SettingsScreen {
         container: HTMLElement,
         getNavigation: () => INavigationManager | null,
         onSubtitleModeChange?: (mode: SubtitleMode) => void,
-        onGuideSettingChange?: (change: GuideSettingChange) => void
+        onGuideSettingChange?: (change: GuideSettingChange) => void,
+        getActiveUsername?: () => string | null
     ) {
         this._container = container;
         this._getNavigation = getNavigation;
         this._onSubtitleModeChange = onSubtitleModeChange ?? null;
         this._onGuideSettingChange = onGuideSettingChange ?? null;
+        this._getActiveUsername = getActiveUsername ?? null;
         this._buildUI();
     }
 
@@ -280,21 +283,38 @@ export class SettingsScreen {
         panel.appendChild(categoryRail);
         panel.appendChild(content);
 
-        const actions = document.createElement('div');
-        actions.className = 'settings-actions';
-
-        const switchProfileButton = document.createElement('button');
-        switchProfileButton.id = 'settings-switch-profile';
-        switchProfileButton.className = 'screen-button';
-        switchProfileButton.textContent = 'Switch Profile';
-        switchProfileButton.addEventListener('click', () => {
+        const profileRow = document.createElement('button');
+        profileRow.id = 'settings-switch-profile';
+        profileRow.className = 'settings-profile-row';
+        profileRow.addEventListener('click', () => {
             const nav = this._getNavigation();
             nav?.replaceScreen('profile-select');
         });
-        actions.appendChild(switchProfileButton);
-        this._switchProfileButton = switchProfileButton;
-        actions.classList.add('settings-rail-actions');
-        categoryRail.appendChild(actions);
+
+        const profileIcon = document.createElement('span');
+        profileIcon.className = 'settings-profile-icon';
+        profileIcon.textContent = '👤';
+        profileIcon.setAttribute('aria-hidden', 'true');
+
+        const profileText = document.createElement('div');
+        profileText.className = 'settings-profile-text';
+
+        const profileName = document.createElement('span');
+        profileName.className = 'settings-profile-name';
+        profileName.textContent = this._getActiveUsername?.() ?? 'Profile';
+
+        const profileAction = document.createElement('span');
+        profileAction.className = 'settings-profile-action';
+        profileAction.textContent = 'Switch Profile →';
+
+        profileText.appendChild(profileName);
+        profileText.appendChild(profileAction);
+        profileRow.appendChild(profileIcon);
+        profileRow.appendChild(profileText);
+        profileRow.setAttribute('aria-label', `Switch profile. Current: ${profileName.textContent}`);
+
+        this._switchProfileButton = profileRow;
+        categoryRail.appendChild(profileRow);
 
         this._container.appendChild(panel);
     }
@@ -863,6 +883,12 @@ export class SettingsScreen {
         }
         this._renderActiveCategory();
         this._refreshValues();
+        if (this._switchProfileButton && this._getActiveUsername) {
+            const username = this._getActiveUsername() ?? 'Profile';
+            const nameEl = this._switchProfileButton.querySelector('.settings-profile-name');
+            if (nameEl) nameEl.textContent = username;
+            this._switchProfileButton.setAttribute('aria-label', `Switch profile. Current: ${username}`);
+        }
         const nav = this._getNavigation();
         if (nav && !this._navKeyHandler) {
             this._navKeyHandler = (event: KeyEvent): void => {
