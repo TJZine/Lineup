@@ -44,9 +44,9 @@ const readPrivateBaseline = (): PrivateProbeBaseline | null => {
         const line = rawLine.trim();
         if (!line) continue;
         if (line.startsWith('#')) {
-            const match = line.match(/maxCount\s*=\s*(\d+)/i);
+            const match = line.match(/^#\s*maxCount\s*=\s*(\d+)\s*$/i);
             if (match) {
-                maxCount = Number(match[1]);
+                maxCount = Number.parseInt(match[1]!, 10);
             }
             continue;
         }
@@ -58,17 +58,6 @@ const readPrivateBaseline = (): PrivateProbeBaseline | null => {
     }
 
     return { allowlist, maxCount };
-};
-
-const readSleepBaseline = (): string[] | null => {
-    if (!fs.existsSync(BASELINE_SLEEP_REPORT)) {
-        return null;
-    }
-    const content = fs.readFileSync(BASELINE_SLEEP_REPORT, 'utf8');
-    return content
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean);
 };
 
 describe('AntiPatterns policy (frozen suites)', () => {
@@ -126,8 +115,7 @@ describe('AntiPatterns policy (frozen suites)', () => {
         );
         expect(newProbes).toEqual([]);
 
-        const baselineSleepLines = readSleepBaseline();
-        if (!baselineSleepLines) {
+        if (!fs.existsSync(BASELINE_SLEEP_REPORT)) {
             throw new Error(
                 'Missing sleep-probes baseline file. Expected:\n' +
                 `- ${BASELINE_SLEEP_REPORT}\n` +
