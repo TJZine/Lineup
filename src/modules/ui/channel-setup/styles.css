@@ -339,9 +339,14 @@
 
 .setup-priority-row {
     display: grid;
-    grid-template-columns: 3ch 1fr auto;
+    grid-template-columns: 3ch 1fr auto auto auto;
     gap: 12px;
     align-items: center;
+    transition:
+        background-color 160ms ease,
+        border-color 160ms ease,
+        transform 150ms ease,
+        box-shadow 150ms ease;
 }
 
 .setup-priority-rank {
@@ -355,6 +360,52 @@
 
 .setup-priority-state {
     opacity: 0.8;
+}
+
+.setup-priority-grip {
+  font-size: 16px;
+  opacity: 0.3;
+  transition: opacity 160ms ease;
+}
+
+.setup-priority-row:focus .setup-priority-grip,
+.setup-priority-row.focused .setup-priority-grip {
+  opacity: 0.7;
+}
+
+.setup-priority-arrows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10px;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.setup-priority-row:focus .setup-priority-arrows,
+.setup-priority-row.focused .setup-priority-arrows {
+  opacity: 0.6;
+}
+
+.setup-priority-arrow--hidden {
+  visibility: hidden;
+}
+
+.setup-priority-row--grabbed {
+  background: var(--onboarding-accent-alpha-20, rgba(200, 160, 100, 0.20));
+  border-color: var(--onboarding-accent-alpha-60, rgba(200, 160, 100, 0.60));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  transform: scale(1.02);
+  z-index: 1;
+}
+
+.setup-priority-row--grabbed .setup-priority-arrows {
+  opacity: 1;
+}
+
+.setup-priority-row--grabbed .setup-priority-grip {
+  opacity: 1;
+  color: var(--onboarding-accent, rgb(200, 160, 100));
 }
 
 .setup-priority-row--move-up {

@@ -527,9 +527,30 @@ export class StrategyStepController {
             rowState.textContent = stateText;
             rowState.setAttribute('aria-hidden', 'true');
 
+            const grip = document.createElement('span');
+            grip.className = 'setup-priority-grip';
+            grip.textContent = '⠿';
+            grip.setAttribute('aria-hidden', 'true');
+
+            const arrows = document.createElement('span');
+            arrows.className = 'setup-priority-arrows';
+            const arrowUp = document.createElement('span');
+            arrowUp.className = 'setup-priority-arrow-up';
+            arrowUp.textContent = '▲';
+            if (index === 0) arrowUp.classList.add('setup-priority-arrow--hidden');
+            const arrowDown = document.createElement('span');
+            arrowDown.className = 'setup-priority-arrow-down';
+            arrowDown.textContent = '▼';
+            if (index === state.strategyOrder.length - 1) arrowDown.classList.add('setup-priority-arrow--hidden');
+            arrows.appendChild(arrowUp);
+            arrows.appendChild(arrowDown);
+            arrows.setAttribute('aria-hidden', 'true');
+
             button.appendChild(rank);
             button.appendChild(label);
             button.appendChild(rowState);
+            button.appendChild(grip);
+            button.appendChild(arrows);
             button.addEventListener('click', () => {
                 deps.applySettingChange(rowId, (draft) => {
                     draft.strategies[key].enabled = !draft.strategies[key].enabled;

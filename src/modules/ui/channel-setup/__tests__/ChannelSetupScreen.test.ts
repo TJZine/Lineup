@@ -1038,7 +1038,7 @@ describe('ChannelSetupScreen', () => {
         expect([...observedPriorityRows].sort()).toEqual(expected);
     });
 
-    it('reorders priority rows with channel keys and derives strategy priorities from strategy order', async () => {
+    it('reorders priority rows only while grabbed with OK + up/down', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -1079,29 +1079,25 @@ describe('ChannelSetupScreen', () => {
 
         nav.setMockFocus(`setup-priority-row-${movedKey}`);
 
+        const dpadDownBeforeGrab = nav.emitKeyPress('down');
+        expect(dpadDownBeforeGrab.handled).toBeFalsy();
+        expect(orderFromConfig(internal._buildConfig('server-1'))).toEqual(beforeOrder);
+
+        const grab = nav.emitKeyPress('ok');
+        expect(grab.handled).toBe(true);
+
         const dpadDown = nav.emitKeyPress('down');
-        expect(dpadDown.handled).toBeFalsy();
+        expect(dpadDown.handled).toBe(true);
 
-        const afterDpadConfig = internal._buildConfig('server-1');
-        const afterDpadOrder = orderFromConfig(afterDpadConfig);
-        expect(afterDpadOrder).toEqual(beforeOrder);
-
-        nav.setMockFocus(`setup-priority-row-${movedKey}`);
-        const channelDown = nav.emitKeyPress('channelDown');
-        expect(channelDown.handled).toBe(true);
-
-        const afterDownConfig = internal._buildConfig('server-1');
-        const afterDownOrder = orderFromConfig(afterDownConfig);
+        const afterDownOrder = orderFromConfig(internal._buildConfig('server-1'));
         expect(afterDownOrder[moveIndex]).toBe(swappedKey);
         expect(afterDownOrder[moveIndex + 1]).toBe(movedKey);
 
-        nav.setMockFocus(`setup-priority-row-${movedKey}`);
-        const channelUp = nav.emitKeyPress('channelUp');
-        expect(channelUp.handled).toBe(true);
+        const drop = nav.emitKeyPress('ok');
+        expect(drop.handled).toBe(true);
 
-        const afterUpConfig = internal._buildConfig('server-1');
-        const afterUpOrder = orderFromConfig(afterUpConfig);
-        expect(afterUpOrder).toEqual(beforeOrder);
+        const dpadUpAfterDrop = nav.emitKeyPress('up');
+        expect(dpadUpAfterDrop.handled).toBeFalsy();
     });
 
     it('Expand Lineup quick action sets max to MAX_CHANNELS and min items to 1', async () => {

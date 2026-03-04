@@ -203,6 +203,7 @@ export class ChannelSetupScreen {
     private _recordApplied = false;
     private _setupContext: ChannelSetupContext = 'unknown';
     private _lastReorder: { key: SetupStrategyKey; dir: 'up' | 'down' } | null = null;
+    private _grabbedPriorityKey: SetupStrategyKey | null = null;
 
     private _getNearestOptionIndex(options: number[], current: number): number {
         const first = options[0];
@@ -330,35 +331,64 @@ export class ChannelSetupScreen {
                 const focusedId = nav.getFocusedElement()?.id ?? null;
                 if (!focusedId) return;
 
+                // Grab/drop toggle for priority reorder
                 if (
                     this._activeStrategyCategory === 'priority-order'
                     && focusedId.startsWith('setup-priority-row-')
-                    && (event.button === 'channelUp' || event.button === 'channelDown')
+                    && event.button === 'ok'
+                ) {
+                    event.handled = true;
+                    event.originalEvent.preventDefault();
+                    const strategy = this._strategyKeyFromControlId(focusedId, 'setup-priority-row-');
+                    if (!strategy) return;
+
+                    if (this._grabbedPriorityKey === strategy) {
+                        // Drop: exit grab mode
+                        this._grabbedPriorityKey = null;
+                        const el = document.getElementById(focusedId);
+                        el?.classList.remove('setup-priority-row--grabbed');
+                        el?.setAttribute('aria-grabbed', 'false');
+                    } else {
+                        // Grab: enter grab mode (release any previous)
+                        if (this._grabbedPriorityKey) {
+                            const prevId = this._priorityRowId(this._grabbedPriorityKey);
+                            const prevEl = document.getElementById(prevId);
+                            prevEl?.classList.remove('setup-priority-row--grabbed');
+                            prevEl?.setAttribute('aria-grabbed', 'false');
+                        }
+                        this._grabbedPriorityKey = strategy;
+                        const el = document.getElementById(focusedId);
+                        el?.classList.add('setup-priority-row--grabbed');
+                        el?.setAttribute('aria-grabbed', 'true');
+                    }
+                    return;
+                }
+
+                // D-pad up/down reorder when grabbed
+                if (
+                    this._activeStrategyCategory === 'priority-order'
+                    && focusedId.startsWith('setup-priority-row-')
+                    && this._grabbedPriorityKey !== null
+                    && (event.button === 'up' || event.button === 'down')
                 ) {
                     if (event.isRepeat || event.isLongPress) {
                         event.handled = true;
                         event.originalEvent.preventDefault();
                         return;
                     }
-                    const strategy = this._strategyKeyFromControlId(focusedId, 'setup-priority-row-');
-                    if (!strategy) {
-                        event.handled = true;
-                        event.originalEvent.preventDefault();
-                        return;
-                    }
+                    const strategy = this._grabbedPriorityKey;
                     const currentIndex = this._strategyOrder.indexOf(strategy);
                     if (currentIndex < 0) {
                         event.handled = true;
                         event.originalEvent.preventDefault();
                         return;
                     }
-                    const targetIndex = event.button === 'channelUp' ? currentIndex - 1 : currentIndex + 1;
+                    const targetIndex = event.button === 'up' ? currentIndex - 1 : currentIndex + 1;
                     if (targetIndex < 0 || targetIndex >= this._strategyOrder.length) {
                         event.handled = true;
                         event.originalEvent.preventDefault();
                         return;
                     }
-                    const movedKey = this._strategyOrder[currentIndex] ?? strategy;
                     const targetKey = this._strategyOrder[targetIndex];
                     if (!targetKey) {
                         event.handled = true;
@@ -368,18 +398,19 @@ export class ChannelSetupScreen {
                     event.handled = true;
                     event.originalEvent.preventDefault();
                     this._strategyOrder[currentIndex] = targetKey;
-                    this._strategyOrder[targetIndex] = movedKey;
-                    // Fire-once render hint: set transient reorder state for the next synchronous render only
-                    // (used by the priority list to animate the move), then clear immediately so it doesn't
-                    // persist across future renders.
-                    this._lastReorder = { key: movedKey, dir: event.button === 'channelUp' ? 'up' : 'down' };
-                    this._preferredFocusId = this._priorityRowId(movedKey);
+                    this._strategyOrder[targetIndex] = strategy;
+                    this._lastReorder = { key: strategy, dir: event.button === 'up' ? 'up' : 'down' };
+                    this._preferredFocusId = this._priorityRowId(strategy);
                     this._rememberedDetailFocusByCategory['priority-order'] = this._preferredFocusId;
                     this._review = null;
                     this._reviewError = null;
                     this._schedulePreview();
                     this._renderStep();
                     this._lastReorder = null;
+                    // Re-apply grabbed state after render
+                    const newEl = document.getElementById(this._priorityRowId(strategy));
+                    newEl?.classList.add('setup-priority-row--grabbed');
+                    newEl?.setAttribute('aria-grabbed', 'true');
                     return;
                 }
 
@@ -481,6 +512,7 @@ export class ChannelSetupScreen {
         this._recordApplied = false;
         this._setupContext = 'unknown';
         this._lastReorder = null;
+        this._grabbedPriorityKey = null;
         this._errorEl.textContent = '';
     }
 
