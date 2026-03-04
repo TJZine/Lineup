@@ -1,7 +1,12 @@
 /**
  * @jest-environment jsdom
  */
-import { __resetEpgDebugStateForTests, appendEpgDebugLog, formatCellTimeLabel } from '../utils';
+import {
+    __resetEpgDebugStateForTests,
+    appendEpgDebugLog,
+    formatCellTimeLabel,
+    isEpgDebugLoggingEnabled,
+} from '../utils';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 
 describe('formatCellTimeLabel', () => {
@@ -39,6 +44,20 @@ describe('appendEpgDebugLog', () => {
         const debugReads = getItemSpy.mock.calls
             .map(([key]) => key)
             .filter((key) => key === LINEUP_STORAGE_KEYS.EPG_DEBUG).length;
+        expect(debugReads).toBe(1);
+    });
+
+    it('shares one cached debug-flag read across helper and append calls in same refresh window', () => {
+        const getItemSpy = jest.spyOn(Storage.prototype, 'getItem');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_DEBUG, '1');
+
+        expect(isEpgDebugLoggingEnabled()).toBe(true);
+        appendEpgDebugLog('event:cached', { ok: true });
+
+        const debugReads = getItemSpy.mock.calls
+            .map(([key]) => key)
+            .filter((key) => key === LINEUP_STORAGE_KEYS.EPG_DEBUG).length;
+
         expect(debugReads).toBe(1);
     });
 });

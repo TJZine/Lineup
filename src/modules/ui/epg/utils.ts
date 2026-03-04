@@ -112,7 +112,7 @@ export function rafThrottle<T extends (...args: unknown[]) => void>(
  * Keeps a bounded log for simulator copy/paste.
  */
 export function appendEpgDebugLog(event: string, data: unknown): void {
-    if (!isEpgDebugEnabled()) {
+    if (!isEpgDebugLoggingEnabled()) {
         return;
     }
     const entry = { ts: Date.now(), event, data };
@@ -131,7 +131,7 @@ let epgDebugFlushTimer: ReturnType<typeof setTimeout> | null = null;
 let epgDebugEnabledCache: boolean | null = null;
 let epgDebugEnabledCacheReadMs = 0;
 
-function isEpgDebugEnabled(): boolean {
+export function isEpgDebugLoggingEnabled(): boolean {
     const now = Date.now();
     if (
         epgDebugEnabledCache !== null &&
