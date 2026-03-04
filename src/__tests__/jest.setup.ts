@@ -1,35 +1,35 @@
+/* eslint-disable no-console */
 const shouldAllowConsoleOutput = process.env.LINEUP_TEST_CONSOLE === '1';
 const shouldSilenceWarningsAndErrors = process.env.LINEUP_TEST_CONSOLE_SILENT === '1';
 
-if (!shouldAllowConsoleOutput) {
-    let consoleDebugSpy: ReturnType<typeof jest.spyOn> | null = null;
-    let consoleLogSpy: ReturnType<typeof jest.spyOn> | null = null;
-    let consoleInfoSpy: ReturnType<typeof jest.spyOn> | null = null;
-    let consoleWarnSpy: ReturnType<typeof jest.spyOn> | null = null;
-    let consoleErrorSpy: ReturnType<typeof jest.spyOn> | null = null;
+const originalConsole = {
+    debug: console.debug,
+    log: console.log,
+    info: console.info,
+    warn: console.warn,
+    error: console.error,
+};
 
-    beforeEach(() => {
-        consoleDebugSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
-        consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
-        consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => undefined);
+const noop = (): void => undefined;
+
+if (!shouldAllowConsoleOutput) {
+    beforeAll(() => {
+        console.debug = noop;
+        console.log = noop;
+        console.info = noop;
 
         if (shouldSilenceWarningsAndErrors) {
-            consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-            consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+            console.warn = noop;
+            console.error = noop;
         }
     });
 
-    afterEach(() => {
-        consoleDebugSpy?.mockRestore();
-        consoleLogSpy?.mockRestore();
-        consoleInfoSpy?.mockRestore();
-        consoleWarnSpy?.mockRestore();
-        consoleErrorSpy?.mockRestore();
-
-        consoleDebugSpy = null;
-        consoleLogSpy = null;
-        consoleInfoSpy = null;
-        consoleWarnSpy = null;
-        consoleErrorSpy = null;
+    afterAll(() => {
+        console.debug = originalConsole.debug;
+        console.log = originalConsole.log;
+        console.info = originalConsole.info;
+        console.warn = originalConsole.warn;
+        console.error = originalConsole.error;
     });
 }
+/* eslint-enable no-console */

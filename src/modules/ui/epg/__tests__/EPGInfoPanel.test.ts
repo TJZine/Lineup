@@ -8,15 +8,24 @@
 
 import { EPGInfoPanel } from '../EPGInfoPanel';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
+import { flushPromises } from '../../../../__tests__/helpers';
 import { extractDominantColor } from '../../../../utils/color/extractDominantColor';
 import type { ScheduledProgram } from '../types';
 
 jest.mock('../../../../utils/color/extractDominantColor');
 
 describe('EPGInfoPanel', () => {
+    const DEFAULT_FLUSH_COUNT = 4;
+    const waitForFlush = async (count: number = DEFAULT_FLUSH_COUNT): Promise<void> => {
+        await flushPromises(count);
+    };
+
     let panel: EPGInfoPanel;
     let container: HTMLElement;
     const RealImage = globalThis.Image;
+    const RealFetch = globalThis.fetch;
+    const OriginalCreateObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+    const OriginalRevokeObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
 
     const createMockProgram = (
         thumbPath: string | null,
@@ -64,6 +73,24 @@ describe('EPGInfoPanel', () => {
             writable: true,
             value: MockImage as unknown as typeof Image,
         });
+        Object.defineProperty(globalThis, 'fetch', {
+            configurable: true,
+            writable: true,
+            value: jest.fn().mockResolvedValue({
+                ok: true,
+                blob: async () => new Blob(['sample'], { type: 'image/jpeg' }),
+            } as Response),
+        });
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            writable: true,
+            value: jest.fn().mockReturnValue('blob:epg-sample'),
+        });
+        Object.defineProperty(URL, 'revokeObjectURL', {
+            configurable: true,
+            writable: true,
+            value: jest.fn(),
+        });
 
         container = document.createElement('div');
         document.body.appendChild(container);
@@ -84,6 +111,21 @@ describe('EPGInfoPanel', () => {
             writable: true,
             value: RealImage,
         });
+        Object.defineProperty(globalThis, 'fetch', {
+            configurable: true,
+            writable: true,
+            value: RealFetch,
+        });
+        if (OriginalCreateObjectUrlDescriptor) {
+            Object.defineProperty(URL, 'createObjectURL', OriginalCreateObjectUrlDescriptor);
+        } else {
+            delete (URL as { createObjectURL?: unknown }).createObjectURL;
+        }
+        if (OriginalRevokeObjectUrlDescriptor) {
+            Object.defineProperty(URL, 'revokeObjectURL', OriginalRevokeObjectUrlDescriptor);
+        } else {
+            delete (URL as { revokeObjectURL?: unknown }).revokeObjectURL;
+        }
     });
 
     it('tracks presentation mode explicitly', () => {
@@ -188,8 +230,7 @@ describe('EPGInfoPanel', () => {
             expect(resolver).toHaveBeenCalledWith(null, 320, 480);
 
             jest.advanceTimersByTime(220);
-            await Promise.resolve();
-            await Promise.resolve();
+            await waitForFlush(2);
 
             expect(fetchItemDetails).toHaveBeenCalledWith('test-1', { signal: expect.any(AbortSignal) });
             expect(resolver).toHaveBeenCalledWith('/library/metadata/999/thumb', 320, 480);
@@ -452,7 +493,7 @@ describe('EPGInfoPanel', () => {
             expect(title?.textContent).toBe('Test Movie');
         });
 
-        it('applies extracted color to the inactive gradient layer when artwork bleed is enabled', () => {
+        it('applies extracted color to the inactive gradient layer when artwork bleed is enabled', async () => {
             jest.useFakeTimers();
 
             try {
@@ -466,6 +507,7 @@ describe('EPGInfoPanel', () => {
                 panel.show(program);
 
                 jest.runAllTimers();
+                await waitForFlush();
 
                 const layerB = container.querySelector('.epg-info-gradient-b') as HTMLElement | null;
                 if (!layerB) {
@@ -481,7 +523,109 @@ describe('EPGInfoPanel', () => {
             }
         });
 
-        it('does not apply extracted color after the panel is hidden', () => {
+        it('aborts stale bleed sample fetches when focus moves to a new program', async () => {
+            jest.useFakeTimers();
+
+            const realFetch = globalThis.fetch;
+            const realCreateObjectURL = URL.createObjectURL;
+            const realRevokeObjectURL = URL.revokeObjectURL;
+            const sampleBlob = new Blob(['sample'], { type: 'image/jpeg' });
+            const observedSignals: Array<AbortSignal | undefined> = [];
+
+            try {
+                const fetchMock = jest
+                    .fn()
+                    .mockImplementationOnce((_url: string, init?: RequestInit) => {
+                        const signal = init?.signal as AbortSignal | undefined;
+                        observedSignals.push(signal);
+
+                        return new Promise<Response>((_resolve, reject) => {
+                            if (!signal) {
+                                reject(new Error('Missing abort signal'));
+                                return;
+                            }
+                            signal.addEventListener(
+                                'abort',
+                                () => reject(new DOMException('Aborted', 'AbortError')),
+                                { once: true }
+                            );
+                        });
+                    })
+                    .mockImplementationOnce((_url: string, init?: RequestInit) => {
+                        observedSignals.push(init?.signal as AbortSignal | undefined);
+                        return Promise.resolve({
+                            ok: true,
+                            blob: async () => sampleBlob,
+                        } as Response);
+                    });
+                const createObjectURLMock = jest.fn().mockReturnValue('blob:epg-sample-2');
+                const revokeObjectURLMock = jest.fn();
+
+                Object.defineProperty(globalThis, 'fetch', {
+                    configurable: true,
+                    writable: true,
+                    value: fetchMock,
+                });
+                Object.defineProperty(URL, 'createObjectURL', {
+                    configurable: true,
+                    writable: true,
+                    value: createObjectURLMock,
+                });
+                Object.defineProperty(URL, 'revokeObjectURL', {
+                    configurable: true,
+                    writable: true,
+                    value: revokeObjectURLMock,
+                });
+
+                (extractDominantColor as jest.Mock).mockReturnValue('rgba(100, 50, 50, 0.32)');
+                localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
+
+                const resolver = jest.fn((path: string | null, width?: number, height?: number) => {
+                    if (!path) return null;
+                    if (width === 32 && height === 32) return `https://img.example${path}-32.jpg`;
+                    return `https://img.example${path}.jpg`;
+                });
+                panel.setThumbResolver(resolver);
+
+                panel.show(createMockProgram('/library/metadata/1/thumb', { ratingKey: 'first' }));
+                jest.advanceTimersByTime(150);
+                await waitForFlush(1);
+
+                expect(fetchMock).toHaveBeenCalledTimes(1);
+                expect(observedSignals[0]?.aborted).toBe(false);
+
+                panel.show(createMockProgram('/library/metadata/2/thumb', { ratingKey: 'second' }));
+                jest.advanceTimersByTime(150);
+                await waitForFlush(2);
+
+                expect(fetchMock).toHaveBeenCalledTimes(2);
+                expect(observedSignals[0]?.aborted).toBe(true);
+                expect(extractDominantColor).toHaveBeenCalledTimes(1);
+                expect(createObjectURLMock).toHaveBeenCalledWith(sampleBlob);
+                expect(revokeObjectURLMock).toHaveBeenCalledWith('blob:epg-sample-2');
+            } finally {
+                localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+                jest.runOnlyPendingTimers();
+                jest.useRealTimers();
+                Object.defineProperty(globalThis, 'fetch', {
+                    configurable: true,
+                    writable: true,
+                    value: realFetch,
+                });
+                Object.defineProperty(URL, 'createObjectURL', {
+                    configurable: true,
+                    writable: true,
+                    value: realCreateObjectURL,
+                });
+                Object.defineProperty(URL, 'revokeObjectURL', {
+                    configurable: true,
+                    writable: true,
+                    value: realRevokeObjectURL,
+                });
+            }
+        });
+
+        it('does not apply extracted color after the panel is hidden', async () => {
             jest.useFakeTimers();
 
             const createdImages: {
@@ -526,6 +670,7 @@ describe('EPGInfoPanel', () => {
                 panel.show(program);
 
                 jest.advanceTimersByTime(150);
+                await waitForFlush();
 
                 expect(createdImages.length).toBe(1);
 
@@ -558,7 +703,7 @@ describe('EPGInfoPanel', () => {
             }
         });
 
-        it('clears dynamic tint state when hidden', () => {
+        it('clears dynamic tint state when hidden', async () => {
             jest.useFakeTimers();
 
             try {
@@ -572,6 +717,7 @@ describe('EPGInfoPanel', () => {
                 panel.show(program);
 
                 jest.runAllTimers();
+                await waitForFlush();
 
                 const layerA = container.querySelector('.epg-info-gradient-a') as HTMLElement | null;
                 const layerB = container.querySelector('.epg-info-gradient-b') as HTMLElement | null;
@@ -593,7 +739,7 @@ describe('EPGInfoPanel', () => {
             }
         });
 
-        it('preserves dynamic tint state and skips new sampling on fast updates in artwork bleed mode', () => {
+        it('preserves dynamic tint state and skips new sampling on fast updates in artwork bleed mode', async () => {
             jest.useFakeTimers();
 
             try {
@@ -607,6 +753,7 @@ describe('EPGInfoPanel', () => {
                 const program = createMockProgram('/library/metadata/1/thumb');
                 panel.show(program);
                 jest.runAllTimers();
+                await waitForFlush();
 
                 const layerA = container.querySelector('.epg-info-gradient-a') as HTMLElement | null;
                 const layerB = container.querySelector('.epg-info-gradient-b') as HTMLElement | null;
@@ -620,6 +767,7 @@ describe('EPGInfoPanel', () => {
                 const nextProgram = createMockProgram('/library/metadata/2/thumb', { ratingKey: 'test-2', title: 'Next' });
                 panel.updateFast(nextProgram);
                 jest.runAllTimers();
+                await waitForFlush();
 
                 expect(extractDominantColor).toHaveBeenCalledTimes(1);
                 expect(layerA.style.getPropertyValue('--dynamic-info-bg')).toBe('');
@@ -633,7 +781,7 @@ describe('EPGInfoPanel', () => {
             }
         });
 
-        it('clears dynamic color caches on destroy', () => {
+        it('clears dynamic color caches on destroy', async () => {
             jest.useFakeTimers();
 
             try {
@@ -646,6 +794,7 @@ describe('EPGInfoPanel', () => {
                 const program = createMockProgram('/library/metadata/1/thumb');
                 panel.show(program);
                 jest.runAllTimers();
+                await waitForFlush();
 
                 const caches = panel as unknown as {
                     colorCache: Map<string, string>;
@@ -664,7 +813,7 @@ describe('EPGInfoPanel', () => {
             }
         });
 
-        it('caps the dynamic color cache to avoid unbounded growth', () => {
+        it('caps the dynamic color cache to avoid unbounded growth', async () => {
             jest.useFakeTimers();
 
             try {
@@ -680,6 +829,7 @@ describe('EPGInfoPanel', () => {
                     });
                     panel.show(program);
                     jest.runAllTimers();
+                    await waitForFlush();
                 }
 
                 const cache = (panel as unknown as { colorCache: Map<string, string> }).colorCache;
@@ -1002,8 +1152,7 @@ describe('EPGInfoPanel', () => {
 
             expect(fetchItemDetails).not.toHaveBeenCalled();
             jest.advanceTimersByTime(220);
-            await Promise.resolve();
-            await Promise.resolve();
+            await waitForFlush(2);
 
             expect(fetchItemDetails).toHaveBeenCalledWith('test-1', { signal: expect.any(AbortSignal) });
             const badges = Array.from(

@@ -88,7 +88,7 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
 
     // Settings container
     const settingsContainer = getOrCreateDiv(root, 'settings-container');
-    settingsContainer.className = 'screen';
+    settingsContainer.className = 'settings-screen';
 
     // Error overlay container
     const errorOverlay = getOrCreateDiv(root, 'error-overlay');

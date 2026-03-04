@@ -693,11 +693,23 @@ export class EPGVirtualizer {
         }
     }
 
-    private extractShowTitleFromFullTitle(fullTitle: string): string | null {
-        const match = fullTitle.match(/^(.*?)\s-\sS\d{1,2}E\d{1,2}\s-/);
-        if (!match) return null;
-        const showTitle = match[1]?.trim() ?? '';
-        return showTitle.length > 0 ? showTitle : null;
+    private extractShowTitleFromFullTitle(fullTitle: string, episodeTitle?: string): string | null {
+        const withEpisodeCode = fullTitle.match(/^(.*?)\s-\sS\d{1,2}E\d{1,2}\s-/i);
+        if (withEpisodeCode) {
+            const showTitle = withEpisodeCode[1]?.trim() ?? '';
+            return showTitle.length > 0 ? showTitle : null;
+        }
+
+        const trimmedEpisodeTitle = episodeTitle?.trim() ?? '';
+        if (trimmedEpisodeTitle.length > 0) {
+            const episodeSuffix = ` - ${trimmedEpisodeTitle}`;
+            if (fullTitle.endsWith(episodeSuffix)) {
+                const showTitle = fullTitle.slice(0, -episodeSuffix.length).trim();
+                return showTitle.length > 0 ? showTitle : null;
+            }
+        }
+
+        return null;
     }
 
     private formatEpisodeTag(item: ScheduledProgram['item']): string | null {
@@ -799,7 +811,7 @@ export class EPGVirtualizer {
         const rawShowTitle = (item.showTitle ?? '').trim();
         const showTitle =
             rawShowTitle ||
-            this.extractShowTitleFromFullTitle(item.fullTitle) ||
+            this.extractShowTitleFromFullTitle(item.fullTitle, item.title) ||
             '';
         const subtitleText = this.normalizeEpisodeTitleForSubtitle(item.title);
 

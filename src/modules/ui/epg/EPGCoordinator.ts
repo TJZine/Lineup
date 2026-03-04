@@ -568,7 +568,6 @@ export class EPGCoordinator {
         if (!epg) return [];
 
         const handler = (payload: { channel: ChannelConfig; program: ScheduledProgram }): void => {
-            this.deps.setLastChannelChangeSourceToGuide();
             const now = Date.now();
             if (
                 payload.program.scheduleIndex === -1 ||
@@ -576,9 +575,17 @@ export class EPGCoordinator {
             ) {
                 return;
             }
-            if (now < payload.program.scheduledStartTime) {
+            const { scheduledStartTime, scheduledEndTime } = payload.program;
+            if (!Number.isFinite(scheduledStartTime) || !Number.isFinite(scheduledEndTime)) {
                 return;
             }
+            if (scheduledStartTime >= scheduledEndTime) {
+                return;
+            }
+            if (now < scheduledStartTime || now >= scheduledEndTime) {
+                return;
+            }
+            this.deps.setLastChannelChangeSourceToGuide();
             this.closeEPG();
             this.deps.switchToChannel(payload.channel.id).catch((error: unknown) => {
                 if (isAbortLikeError(error)) return;

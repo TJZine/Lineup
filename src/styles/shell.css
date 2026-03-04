@@ -1,13 +1,22 @@
 .screen {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: none;
   align-items: center;
   justify-content: center;
   --onboarding-accent: rgb(200, 160, 100);
+  --onboarding-accent-alpha-72: rgba(200, 160, 100, 0.72);
   --onboarding-accent-alpha-60: rgba(200, 160, 100, 0.60);
+  --onboarding-accent-alpha-45: rgba(200, 160, 100, 0.45);
+  --onboarding-accent-alpha-30: rgba(200, 160, 100, 0.30);
+  --onboarding-accent-alpha-24: rgba(200, 160, 100, 0.24);
   --onboarding-accent-alpha-20: rgba(200, 160, 100, 0.20);
+  --onboarding-accent-alpha-16: rgba(200, 160, 100, 0.16);
   --onboarding-accent-alpha-08: rgba(200, 160, 100, 0.08);
+  --onboarding-focus-bg: rgba(255, 255, 255, 0.16);
   --onboarding-text: #f0ece8;
   --onboarding-text-secondary: rgba(240, 236, 232, 0.6);
   --onboarding-text-muted: rgba(240, 236, 232, 0.4);
@@ -243,7 +252,7 @@
 .screen-button {
   appearance: none;
   position: relative;
-  border: 1px solid rgba(200, 160, 100, 0.30);
+  border: 1px solid var(--onboarding-accent-alpha-30, rgba(200, 160, 100, 0.30));
   border-radius: 999px;
   padding: calc(12px * var(--onboarding-scale)) calc(18px * var(--onboarding-scale));
   font-size: calc(18px * var(--onboarding-scale));
@@ -256,7 +265,7 @@
 
 .screen-button.secondary {
   background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(200, 160, 100, 0.16);
+  border-color: var(--onboarding-accent-alpha-16, rgba(200, 160, 100, 0.16));
   color: var(--onboarding-text);
 }
 
@@ -279,10 +288,16 @@
 
 .screen-button.focused,
 .screen-button:focus,
+.screen-button:focus-visible,
 .setup-toggle.focused,
 .setup-toggle:focus,
 .setup-toggle:focus-visible {
   outline: none;
+  background: var(--onboarding-focus-bg, rgba(255, 255, 255, 0.16));
+  border-color: var(--onboarding-accent-alpha-45, rgba(200, 160, 100, 0.45));
+  box-shadow:
+    0 0 0 1px var(--onboarding-accent-alpha-24, rgba(200, 160, 100, 0.24)),
+    0 8px 24px var(--onboarding-accent-alpha-16, rgba(200, 160, 100, 0.16));
 }
 
 .screen-button::after,
@@ -302,7 +317,7 @@
 .setup-toggle.focused::after,
 .setup-toggle:focus::after,
 .setup-toggle:focus-visible::after {
-  border-color: var(--onboarding-accent-alpha-60);
+  border-color: var(--onboarding-accent-alpha-72, rgba(200, 160, 100, 0.72));
 }
 
 @media (forced-colors: active) {
@@ -544,7 +559,10 @@
 
 .error-overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -607,7 +625,10 @@
 .error-button::after {
   content: '';
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   border-radius: inherit;
   box-shadow: 0 0 0 0 var(--focus-color) inset;
   transition: box-shadow 150ms ease;

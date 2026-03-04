@@ -59,6 +59,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private gradientBElement: HTMLElement | null = null;
     private activeGradientSlot: 'a' | 'b' = 'a';
     private colorExtractTimer: ReturnType<typeof setTimeout> | null = null;
+    private colorFetchController: AbortController | null = null;
     private colorCache = new Map<string, string>();
     private colorFailureCache = new Map<string, number>();
     private presentationMode: 'classic' | 'overlay' = 'overlay';
@@ -214,6 +215,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.descriptionElement = null;
         this.descriptionInnerElement = null;
         this.dynamicColorToken += 1;
+        this.clearColorFetch();
         this.clearColorExtractTimer();
         this.gradientAElement = null;
         this.gradientBElement = null;
@@ -612,6 +614,13 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         }
     }
 
+    private clearColorFetch(): void {
+        if (this.colorFetchController) {
+            this.colorFetchController.abort();
+            this.colorFetchController = null;
+        }
+    }
+
     private resolveInfoBackgroundMode(): 0 | 1 | 2 {
         const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
         const parsed = parseStoredEpgInfoBackgroundMode(raw);
@@ -654,6 +663,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private clearDynamicColor(): void {
         this.dynamicColorToken += 1;
         this.clearColorExtractTimer();
+        this.clearColorFetch();
 
         if (this.gradientAElement) {
             this.gradientAElement.style.removeProperty('--dynamic-info-bg');
@@ -682,8 +692,108 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.activeGradientSlot = this.activeGradientSlot === 'a' ? 'b' : 'a';
     }
 
+    private isDynamicColorRequestCurrent(program: ScheduledProgram, token: number): boolean {
+        if (token !== this.dynamicColorToken) {
+            return false;
+        }
+        if (!this.isVisible) {
+            return false;
+        }
+
+        const current = this.currentProgram;
+        return Boolean(current && current.item.ratingKey === program.item.ratingKey);
+    }
+
+    private async loadDynamicColorFromSampleUrl(
+        program: ScheduledProgram,
+        cacheKey: string,
+        token: number,
+        sampleUrl: string,
+        controller: AbortController
+    ): Promise<void> {
+        try {
+            if (typeof fetch !== 'function') {
+                throw new Error('fetch unavailable');
+            }
+            if (typeof URL.createObjectURL !== 'function' || typeof URL.revokeObjectURL !== 'function') {
+                throw new Error('blob url unavailable');
+            }
+
+            const response = await fetch(sampleUrl, { signal: controller.signal });
+            if (!response.ok) {
+                throw new Error(`sample fetch failed: ${response.status}`);
+            }
+            if (!this.isDynamicColorRequestCurrent(program, token) || this.colorFetchController !== controller) {
+                return;
+            }
+
+            const blob = await response.blob();
+            if (!this.isDynamicColorRequestCurrent(program, token) || this.colorFetchController !== controller) {
+                return;
+            }
+
+            const blobUrl = URL.createObjectURL(blob);
+            const sampler = new Image();
+
+            const finalize = (): void => {
+                URL.revokeObjectURL(blobUrl);
+                if (this.colorFetchController === controller) {
+                    this.colorFetchController = null;
+                }
+            };
+
+            sampler.onload = (): void => {
+                finalize();
+                if (!this.isDynamicColorRequestCurrent(program, token)) {
+                    return;
+                }
+
+                const color = extractDominantColor(sampler);
+                if (color) {
+                    this.storeDynamicColor(cacheKey, color);
+                    this.applyDynamicColor(color);
+                    return;
+                }
+
+                this.markDynamicColorFailure(cacheKey);
+                this.clearDynamicColor();
+            };
+
+            sampler.onerror = (): void => {
+                finalize();
+                if (!this.isDynamicColorRequestCurrent(program, token)) {
+                    return;
+                }
+
+                this.markDynamicColorFailure(cacheKey);
+                this.clearDynamicColor();
+            };
+
+            sampler.src = blobUrl;
+        } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                if (this.colorFetchController === controller) {
+                    this.colorFetchController = null;
+                }
+                return;
+            }
+
+            if (this.colorFetchController === controller) {
+                this.colorFetchController = null;
+            }
+
+            if (!this.isDynamicColorRequestCurrent(program, token)) {
+                return;
+            }
+
+            this.markDynamicColorFailure(cacheKey);
+            this.clearDynamicColor();
+        }
+    }
+
     private scheduleDynamicColor(program: ScheduledProgram, sampleUrl: string): void {
         this.clearColorExtractTimer();
+        this.clearColorFetch();
 
         const poster = this.posterElement;
         if (!poster) {
@@ -721,44 +831,9 @@ export class EPGInfoPanel implements IEPGInfoPanel {
                 this.clearDynamicColor();
                 return;
             }
-
-            const sampler = new Image();
-            sampler.crossOrigin = 'anonymous';
-            sampler.onload = (): void => {
-                if (token !== this.dynamicColorToken) {
-                    return;
-                }
-                if (!this.isVisible) {
-                    return;
-                }
-                const stillCurrent = this.currentProgram;
-                if (!stillCurrent || stillCurrent.item.ratingKey !== program.item.ratingKey) {
-                    return;
-                }
-                const color = extractDominantColor(sampler);
-                if (color) {
-                    this.storeDynamicColor(cacheKey, color);
-                    this.applyDynamicColor(color);
-                    return;
-                }
-                this.markDynamicColorFailure(cacheKey);
-                this.clearDynamicColor();
-            };
-            sampler.onerror = (): void => {
-                if (token !== this.dynamicColorToken) {
-                    return;
-                }
-                if (!this.isVisible) {
-                    return;
-                }
-                const stillCurrent = this.currentProgram;
-                if (!stillCurrent || stillCurrent.item.ratingKey !== program.item.ratingKey) {
-                    return;
-                }
-                this.markDynamicColorFailure(cacheKey);
-                this.clearDynamicColor();
-            };
-            sampler.src = sampleUrl;
+            const controller = new AbortController();
+            this.colorFetchController = controller;
+            void this.loadDynamicColorFromSampleUrl(program, cacheKey, token, sampleUrl, controller);
         }, 120);
     }
 
@@ -882,7 +957,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     }
 
     private extractShowTitleFromFullTitle(fullTitle: string): string | null {
-        const match = fullTitle.match(/^(.*?)\s-\sS\d{1,2}E\d{1,2}\s-/);
+        const match = fullTitle.match(/^(.*?)\s-\sS\d{1,2}E\d{1,2}\s-/i);
         if (!match) return null;
         const showTitle = match[1]?.trim() ?? '';
         return showTitle.length > 0 ? showTitle : null;

@@ -2,7 +2,10 @@
 
 .now-playing-info-container {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: flex;
   align-items: flex-end;
   justify-content: flex-start;
@@ -41,7 +44,10 @@
 
 .now-playing-info-backdrop {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 0;
   opacity: 0;
   background-position: center;
@@ -304,7 +310,10 @@
 .now-playing-info-container.now-playing-info-cinematic .now-playing-info-backdrop::after {
   content: '';
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   background:
     radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.12), transparent 45%),
     linear-gradient(180deg, rgba(6, 8, 12, 0.32), rgba(6, 8, 12, 0.74));

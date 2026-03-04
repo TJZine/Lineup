@@ -662,6 +662,52 @@ describe('EPGVirtualizer', () => {
             expect(subtitle?.style.display).toBe('none');
         });
 
+        it('derives episode show title from fullTitle when showTitle is missing', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-episode-fulltitle-fallback';
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + 3600000,
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'ep-fulltitle-fallback-1',
+                            type: 'episode',
+                            title: 'Scavengers',
+                            fullTitle: 'Scavengers Reign - Scavengers',
+                            durationMs: 60 * 60000, // 240px => wide tier
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: gridAnchorTime,
+                        scheduledEndTime: gridAnchorTime + (60 * 60000),
+                        elapsedMs: 0,
+                        remainingMs: 0,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${gridAnchorTime}"]`) as HTMLElement;
+            expect(cell).not.toBeNull();
+
+            const title = cell.querySelector('.epg-cell-title') as HTMLElement | null;
+            expect(title).not.toBeNull();
+            expect(title?.textContent).toBe('Scavengers Reign');
+
+            const subtitle = cell.querySelector('.epg-cell-subtitle') as HTMLElement | null;
+            expect(subtitle).not.toBeNull();
+            expect(subtitle?.textContent).toBe('Scavengers');
+            expect(subtitle?.style.display).toBe('block');
+        });
+
         it('keeps time hidden for tiny-width cells', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-tiny';

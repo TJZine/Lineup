@@ -12,16 +12,19 @@ const SCREEN_CONTAINER_IDS = [
     'server-select-container',
     'channel-setup-container',
     'audio-setup-container',
-    'settings-container',
 ];
+
+const SETTINGS_CONTAINER_ID = 'settings-container';
 
 describe('createAppContainers', () => {
     beforeEach(() => {
-        document.body.innerHTML = '<div id="app"></div>';
+        const appDiv = document.createElement('div');
+        appDiv.id = 'app';
+        document.body.replaceChildren(appDiv);
     });
 
     afterEach(() => {
-        document.body.innerHTML = '';
+        document.body.replaceChildren();
     });
 
     it('creates all required app-shell containers in stable append order', () => {
@@ -61,6 +64,7 @@ describe('createAppContainers', () => {
         for (const id of SCREEN_CONTAINER_IDS) {
             expect((document.getElementById(id) as HTMLElement).className).toBe('screen');
         }
+        expect((document.getElementById(SETTINGS_CONTAINER_ID) as HTMLElement).className).toBe('settings-screen');
 
         expect(errorOverlay.getAttribute('role')).toBe('dialog');
         expect(errorOverlay.getAttribute('aria-modal')).toBe('true');

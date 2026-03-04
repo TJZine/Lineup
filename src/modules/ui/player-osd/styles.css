@@ -1,19 +1,19 @@
 .player-osd {
   position: absolute;
-  left: 0;
+  top: 0;
   right: 0;
   bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-end;
   z-index: 800;
   pointer-events: none;
   opacity: 0;
-  transform: translateY(100%);
-  transition: opacity 350ms ease-out, transform 350ms ease-out;
+  transition: opacity 350ms ease-out;
 }
 
 .player-osd.visible {
   opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
 }
 
 .player-osd-panel {
@@ -34,6 +34,13 @@
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   color: var(--color-text-primary);
+  pointer-events: auto;
+  transform: translateY(100%);
+  transition: transform 350ms ease-out;
+}
+
+.player-osd.visible .player-osd-panel {
+  transform: translateY(0);
 }
 
 .player-osd-content-row {
@@ -147,20 +154,20 @@
 }
 
 .player-osd-up-next {
-  min-width: min(26vw, 380px);
-  max-width: 100%;
+  min-width: 0;
+  max-width: min(26vw, 380px);
   text-align: right;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: var(--text-sm);
+  font-size: inherit;
   font-weight: 700;
   letter-spacing: 0.25px;
   color: var(--color-text-muted);
-  background: rgba(0, 0, 0, 0.28);
-  border: none;
-  border-radius: 8px;
-  padding: 6px 10px;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
 }
 
 .player-osd-actions {
@@ -239,13 +246,29 @@
 .player-osd-meta-strip {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 18px;
   padding: 8px var(--osd-safe-margin);
   font-variant-numeric: tabular-nums;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: var(--text-md);
   color: var(--color-text-secondary);
+}
+
+.player-osd-meta-left {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.player-osd-meta-right {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .player-osd-timecode {
@@ -260,7 +283,7 @@
 
 .player-osd-buffertext {
   flex: 0 1 auto;
-  margin-left: auto;
+  margin-left: 0;
   text-align: right;
   white-space: nowrap;
   overflow: hidden;
@@ -300,6 +323,10 @@
 
 @media (prefers-reduced-motion: reduce) {
   .player-osd {
+    transition: none;
+  }
+
+  .player-osd-panel {
     transition: none;
   }
 

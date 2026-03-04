@@ -425,27 +425,35 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         sleepTimer.className = PLAYER_OSD_CLASSES.SLEEP_TIMER;
         actionsColumn.appendChild(sleepTimer);
 
-        const upNext = document.createElement('div');
-        upNext.className = PLAYER_OSD_CLASSES.UP_NEXT;
-        actionsColumn.appendChild(upNext);
-
         panelEl.appendChild(contentRow);
 
         const metaStrip = document.createElement('div');
         metaStrip.className = PLAYER_OSD_CLASSES.META_STRIP;
         panelEl.appendChild(metaStrip);
 
+        const metaLeft = document.createElement('div');
+        metaLeft.className = PLAYER_OSD_CLASSES.META_LEFT;
+        metaStrip.appendChild(metaLeft);
+
         const timecode = document.createElement('div');
         timecode.className = PLAYER_OSD_CLASSES.TIMECODE;
-        metaStrip.appendChild(timecode);
+        metaLeft.appendChild(timecode);
 
         const ends = document.createElement('div');
         ends.className = PLAYER_OSD_CLASSES.ENDS;
-        metaStrip.appendChild(ends);
+        metaLeft.appendChild(ends);
 
         const bufferText = document.createElement('div');
         bufferText.className = PLAYER_OSD_CLASSES.BUFFER_TEXT;
-        metaStrip.appendChild(bufferText);
+        metaLeft.appendChild(bufferText);
+
+        const metaRight = document.createElement('div');
+        metaRight.className = PLAYER_OSD_CLASSES.META_RIGHT;
+        metaStrip.appendChild(metaRight);
+
+        const upNext = document.createElement('div');
+        upNext.className = PLAYER_OSD_CLASSES.UP_NEXT;
+        metaRight.appendChild(upNext);
 
         const progressContainer = document.createElement('div');
         progressContainer.className = PLAYER_OSD_CLASSES.PROGRESS_CONTAINER;

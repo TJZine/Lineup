@@ -218,7 +218,7 @@ export class SettingsScreen {
      * Build the settings UI.
      */
     private _buildUI(): void {
-        this._container.className = 'settings-screen screen';
+        this._container.className = 'settings-screen';
         this._container.id = 'settings-screen';
         this._categoryButtons.clear();
         this._toggleElements.clear();

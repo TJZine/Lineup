@@ -1,6 +1,9 @@
 .exit-confirm-container {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: none;
   align-items: flex-end;
   justify-content: stretch;
@@ -96,14 +99,21 @@
   background: rgba(var(--focus-color-rgb), 0.10);
 }
 
-.exit-confirm-action.focused {
+.exit-confirm-action:focus,
+.exit-confirm-action:focus-visible {
+  outline: none;
+}
+
+.exit-confirm-action.focused,
+.exit-confirm-action:focus-visible:not(.focused) {
   background: rgba(255, 255, 255, 0.92);
   color: #0a0d12;
   border-color: rgba(255, 255, 255, 0.92);
   box-shadow: 0 0 16px rgba(255, 255, 255, 0.30);
 }
 
-.exit-confirm-action.exit.focused {
+.exit-confirm-action.exit.focused,
+.exit-confirm-action.exit:focus-visible:not(.focused) {
   box-shadow: 0 0 18px rgba(var(--focus-color-rgb), 0.38);
 }
 
@@ -120,7 +130,8 @@
     background: Canvas;
     color: ButtonText;
   }
-  .exit-confirm-action.focused {
+  .exit-confirm-action.focused,
+  .exit-confirm-action:focus-visible:not(.focused) {
     outline: 2px solid Highlight;
     outline-offset: 2px;
   }

@@ -287,11 +287,11 @@ export class App {
         this._lazyScreenRegistry?.destroy();
         this._lazyScreenRegistry = null;
         this._diagnosticsSurface.dispose();
-        if (this._orchestrator) {
-            const orchestrator = this._orchestrator;
+        const orchestrator = this._orchestrator;
+        if (orchestrator) {
+            this._orchestrator = null;
             orchestrator.setNowPlayingHandler(null);
             await orchestrator.shutdown();
-            this._orchestrator = null;
         }
     }
 

@@ -70,6 +70,23 @@ describe('PlayerOsdOverlay', () => {
         expect(container.classList.contains(PLAYER_OSD_CLASSES.VISIBLE)).toBe(false);
     });
 
+    it('keeps a stable overlay root and renders a single inner panel tray', () => {
+        const root = container;
+        const panel = container.querySelector(`.${PLAYER_OSD_CLASSES.PANEL}`) as HTMLElement | null;
+
+        expect(root.classList.contains(PLAYER_OSD_CLASSES.CONTAINER)).toBe(true);
+        expect(panel).not.toBeNull();
+        expect(container.querySelectorAll(`.${PLAYER_OSD_CLASSES.PANEL}`)).toHaveLength(1);
+        expect(root.contains(panel)).toBe(true);
+
+        overlay.setViewModel(baseViewModel);
+        overlay.show();
+        expect(root.classList.contains(PLAYER_OSD_CLASSES.VISIBLE)).toBe(true);
+
+        overlay.hide();
+        expect(root.classList.contains(PLAYER_OSD_CLASSES.VISIBLE)).toBe(false);
+    });
+
     it('renders text and progress values', () => {
         overlay.setViewModel({
             ...baseViewModel,
@@ -129,21 +146,34 @@ describe('PlayerOsdOverlay', () => {
         expect(panel.lastElementChild).toBe(progress);
     });
 
-    it('places up-next in the upper content area instead of the meta strip', () => {
+    it('places up-next on the right side of the meta strip and keeps timing metadata on the left', () => {
         overlay.setViewModel({
             ...baseViewModel,
             upNextText: 'Up next • 9:30 PM — Next',
+            bufferText: 'Buffer +30s',
+            endsAtText: 'Ends 9:15 PM',
         });
         overlay.show();
 
         const panel = container.querySelector(`.${PLAYER_OSD_CLASSES.PANEL}`) as HTMLElement;
         const upNext = panel.querySelector(`.${PLAYER_OSD_CLASSES.UP_NEXT}`) as HTMLElement;
-        const actionsColumn = panel.querySelector(`.${PLAYER_OSD_CLASSES.ACTIONS_COLUMN}`);
-        const metaStrip = panel.querySelector(`.${PLAYER_OSD_CLASSES.META_STRIP}`);
+        const metaStrip = panel.querySelector(`.${PLAYER_OSD_CLASSES.META_STRIP}`) as HTMLElement;
+        const actionsColumn = panel.querySelector(`.${PLAYER_OSD_CLASSES.ACTIONS_COLUMN}`) as HTMLElement;
+        const metaLeft = metaStrip.querySelector('.player-osd-meta-left') as HTMLElement | null;
+        const metaRight = metaStrip.querySelector('.player-osd-meta-right') as HTMLElement | null;
+        const timecode = panel.querySelector(`.${PLAYER_OSD_CLASSES.TIMECODE}`) as HTMLElement;
+        const endsAt = panel.querySelector(`.${PLAYER_OSD_CLASSES.ENDS}`) as HTMLElement;
+        const buffer = panel.querySelector(`.${PLAYER_OSD_CLASSES.BUFFER_TEXT}`) as HTMLElement;
 
         expect(upNext).not.toBeNull();
-        expect(actionsColumn?.contains(upNext)).toBe(true);
-        expect(metaStrip?.contains(upNext)).toBe(false);
+        expect(metaStrip).not.toBeNull();
+        expect(metaLeft).not.toBeNull();
+        expect(metaRight).not.toBeNull();
+        expect(metaRight?.contains(upNext)).toBe(true);
+        expect(metaLeft?.contains(timecode)).toBe(true);
+        expect(metaLeft?.contains(endsAt)).toBe(true);
+        expect(metaLeft?.contains(buffer)).toBe(true);
+        expect(actionsColumn.contains(upNext)).toBe(false);
     });
 
     it('hides optional fields when missing', () => {

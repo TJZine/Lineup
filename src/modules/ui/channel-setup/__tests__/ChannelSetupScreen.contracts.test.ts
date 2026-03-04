@@ -4,7 +4,7 @@
 
 import { ChannelSetupScreen } from '../ChannelSetupScreen';
 import type { INavigationManager } from '../../../navigation/interfaces';
-import { flushPromises } from '../../../../__tests__/helpers';
+import { flushPromises, flushPromisesAndTimers } from '../../../../__tests__/helpers';
 import { MIXED_SCOPE_STRATEGY_KEYS } from '../../../../core/channel-setup/constants';
 import {
     ADVANCED_STRATEGY_KEYS,
@@ -20,33 +20,17 @@ import {
     makeLibrary,
 } from './channel-setup-test-helpers';
 
-const waitForSelector = async (root: ParentNode, selector: string, maxRounds: number = 10): Promise<void> => {
-    for (let i = 0; i < maxRounds; i++) {
-        if (root.querySelector(selector) !== null) {
-            return;
-        }
-        await flushPromises();
-        await new Promise<void>((resolve) => {
-            setTimeout(resolve, 0);
-        });
-        if (root.querySelector(selector) !== null) {
-            return;
-        }
-    }
-    throw new Error(`Timed out waiting for selector: ${selector}`);
-};
-
 describe('ChannelSetupScreen contracts', () => {
     let activeScreen: ChannelSetupScreen | null = null;
 
     beforeEach(() => {
-        // This suite's polling helper uses real `setTimeout` ticks; keep timers real to avoid hangs.
-        jest.useRealTimers();
+        jest.useFakeTimers();
     });
 
     afterEach(() => {
         activeScreen?.destroy();
         activeScreen = null;
+        jest.useRealTimers();
         jest.clearAllMocks();
         document.body.innerHTML = '';
     });
@@ -123,10 +107,10 @@ describe('ChannelSetupScreen contracts', () => {
         expect(container.querySelector(`#${STEP2_CONTROL_IDS.expandLineup}`)).not.toBeNull();
 
         clickButton(container, '#setup-next');
-        await waitForSelector(container, '#setup-confirm');
+        await flushPromisesAndTimers(2, 2);
         expect(container.querySelector('#setup-back')).not.toBeNull();
         expect(container.querySelector('#setup-confirm')).not.toBeNull();
-        await waitForSelector(container, '#setup-replace-confirm');
+        await flushPromisesAndTimers(2, 2);
         expect(container.querySelector('#setup-replace-confirm')).not.toBeNull();
     });
 

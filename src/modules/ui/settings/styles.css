@@ -5,7 +5,10 @@
 
 .settings-screen {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: none;
   background: rgba(0, 0, 0, 0.50);
   color: var(--color-text-primary);
@@ -27,6 +30,8 @@
   display: flex;
   width: 100%;
   height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .settings-categories {
@@ -113,8 +118,8 @@
 
 .settings-category-button:focus {
   border-color: var(--focus-color);
-  outline: var(--focus-ring-width) solid var(--focus-color);
-  outline-offset: var(--focus-ring-offset);
+  background: rgba(255, 255, 255, 0.12);
+  outline: none;
 }
 
 .settings-content {
@@ -122,6 +127,8 @@
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .settings-detail {
@@ -129,6 +136,7 @@
   min-height: 0;
   padding: 28px 40px;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .settings-detail-title {

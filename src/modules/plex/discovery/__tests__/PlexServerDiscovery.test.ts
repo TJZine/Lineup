@@ -163,10 +163,19 @@ describe('PlexServerDiscovery', () => {
         });
 
         it('should handle network errors gracefully', async () => {
-            mockFetchJson({ error: 'Server Error' }, 500);
-            const discovery = new PlexServerDiscovery(mockConfig);
+            jest.useFakeTimers();
+            try {
+                mockFetchJson({ error: 'Server Error' }, 500);
+                const discovery = new PlexServerDiscovery(mockConfig);
+                const promise = discovery.discoverServers();
+                const rejection = expect(promise).rejects.toThrow();
 
-            await expect(discovery.discoverServers()).rejects.toThrow();
+                await jest.advanceTimersByTimeAsync(500);
+
+                await rejection;
+            } finally {
+                jest.useRealTimers();
+            }
         });
 
         it('should filter for server capability only', async () => {

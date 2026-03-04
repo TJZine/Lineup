@@ -25,6 +25,8 @@ export const PLAYER_OSD_CLASSES = {
     BAR_BUFFER: 'player-osd-bar-buffer',
     BAR_PLAYED: 'player-osd-bar-played',
     META_STRIP: 'player-osd-meta-strip',
+    META_LEFT: 'player-osd-meta-left',
+    META_RIGHT: 'player-osd-meta-right',
     TIMECODE: 'player-osd-timecode',
     ENDS: 'player-osd-ends',
     BUFFER_TEXT: 'player-osd-buffertext',

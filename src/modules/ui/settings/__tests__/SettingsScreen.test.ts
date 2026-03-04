@@ -131,6 +131,15 @@ describe('SettingsScreen (Guide settings)', () => {
         document.body.innerHTML = '';
     });
 
+    it('uses a dedicated settings root class without inheriting the onboarding screen shell', () => {
+        const { container, screen } = createScreen(jest.fn());
+
+        screen.show();
+
+        expect(container.classList.contains('settings-screen')).toBe(true);
+        expect(container.classList.contains('screen')).toBe(false);
+    });
+
     it('writes layout mode and emits change', () => {
         const onGuideSettingChange = jest.fn();
         const { container, screen } = createScreen(onGuideSettingChange);
