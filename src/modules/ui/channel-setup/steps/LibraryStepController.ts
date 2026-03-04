@@ -159,4 +159,43 @@ export class LibraryStepController {
 
         ctx.detailEl.textContent = `Selected ${deps.selectedLibraryIds.size} of ${deps.libraries.length}.`;
     }
+
+    /**
+     * Update a single library toggle button in-place (no DOM rebuild).
+     * Returns the updated button element, or null if not found.
+     */
+    updateLibraryToggle(
+        container: HTMLElement,
+        libraryId: string,
+        isSelected: boolean,
+        toDomId: (raw: string) => string
+    ): HTMLButtonElement | null {
+        const buttonId = `setup-lib-${toDomId(libraryId)}`;
+        const button = container.querySelector(`#${buttonId}`) as HTMLButtonElement | null;
+        if (!button) return null;
+
+        button.classList.toggle('selected', isSelected);
+        button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+
+        const stateEl = button.querySelector('.setup-toggle-state');
+        if (stateEl) {
+            stateEl.textContent = '';
+            if (isSelected) {
+                const stateIcon = document.createElement('span');
+                stateIcon.className = 'setup-toggle-state-icon';
+                stateIcon.setAttribute('aria-hidden', 'true');
+                stateIcon.textContent = '✓';
+
+                const srOnly = document.createElement('span');
+                srOnly.className = 'sr-only';
+                srOnly.textContent = 'Selected';
+
+                stateEl.appendChild(stateIcon);
+                stateEl.appendChild(srOnly);
+            } else {
+                stateEl.textContent = 'Off';
+            }
+        }
+        return button;
+    }
 }

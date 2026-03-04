@@ -539,6 +539,24 @@ export class StrategyStepController {
         });
     }
 
+    updatePriorityRowState(
+        container: HTMLElement,
+        rowId: string,
+        enabled: boolean
+    ): HTMLButtonElement | null {
+        const row = container.querySelector(`#${rowId}`) as HTMLButtonElement | null;
+        if (!row) return null;
+
+        row.classList.toggle('selected', enabled);
+        row.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+
+        const stateEl = row.querySelector('.setup-priority-state') as HTMLElement | null;
+        if (stateEl) {
+            stateEl.textContent = enabled ? 'On' : 'Off';
+        }
+        return row;
+    }
+
     private _renderPreviewPanel(deps: StrategyStepDeps, state: StrategyStepDeps['state']): HTMLElement {
         const previewPanel = document.createElement('div');
         previewPanel.id = state.previewPanelId;

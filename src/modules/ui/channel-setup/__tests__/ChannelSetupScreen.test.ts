@@ -140,6 +140,29 @@ describe('ChannelSetupScreen', () => {
         expect((container.querySelector('#setup-next') as HTMLButtonElement | null)?.disabled).toBe(false);
     });
 
+    it('updates library toggle in place without replacing the button node', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([
+                makeLibrary({ id: 'movies' }),
+            ]),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+
+        const before = container.querySelector('#setup-lib-movies') as HTMLButtonElement | null;
+        expect(before).not.toBeNull();
+
+        clickButton(container, '#setup-lib-movies');
+
+        const after = container.querySelector('#setup-lib-movies') as HTMLButtonElement | null;
+        expect(after).toBe(before);
+    });
+
     it('wires bulk-action focus neighbors to each other and first tile', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -948,6 +971,31 @@ describe('ChannelSetupScreen', () => {
             baseBlockSize: 4,
         });
         expect(afterKey).not.toBe(beforeKey);
+    });
+
+    it('updates priority row enabled state in place without replacing the row node', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-priority-order');
+
+        const rowId = '#setup-priority-row-playlists';
+        const before = container.querySelector(rowId) as HTMLButtonElement | null;
+        expect(before).not.toBeNull();
+
+        clickButton(container, rowId);
+
+        const after = container.querySelector(rowId) as HTMLButtonElement | null;
+        expect(after).toBe(before);
     });
 
     it('renders strategy toggles and priority rows for every setup strategy key with no extras', async () => {

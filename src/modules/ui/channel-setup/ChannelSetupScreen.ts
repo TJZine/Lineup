@@ -558,7 +558,8 @@ export class ChannelSetupScreen {
             toDomId: (raw) => this._toDomId(raw),
             onToggleLibrary: (libraryId, focusId) => {
                 this._preferredFocusId = focusId;
-                if (this._selectedLibraryIds.has(libraryId)) {
+                const wasSelected = this._selectedLibraryIds.has(libraryId);
+                if (wasSelected) {
                     this._selectedLibraryIds.delete(libraryId);
                 } else {
                     this._selectedLibraryIds.add(libraryId);
@@ -566,7 +567,25 @@ export class ChannelSetupScreen {
                 this._review = null;
                 this._reviewError = null;
                 this._replaceConfirm = false;
-                this._renderStep();
+
+                // Surgical update: toggle the single button in-place.
+                const updated = this._libraryStep.updateLibraryToggle(
+                    this._contentEl,
+                    libraryId,
+                    !wasSelected,
+                    (raw) => this._toDomId(raw)
+                );
+                if (updated) {
+                    const count = this._selectedLibraryIds.size;
+                    const total = this._libraries.length;
+                    this._detailEl.textContent = `Selected ${count} of ${total}.`;
+                    const nextButton = this._contentEl.querySelector('#setup-next') as HTMLButtonElement | null;
+                    if (nextButton) {
+                        nextButton.disabled = this._libraries.length === 0 || this._selectedLibraryIds.size === 0;
+                    }
+                } else {
+                    this._renderStep();
+                }
             },
             onSelectAll: (focusId) => {
                 this._selectedLibraryIds = new Set(this._libraries.map((library) => library.id));
@@ -727,6 +746,21 @@ export class ChannelSetupScreen {
                 this._reviewError = null;
                 this._replaceConfirm = false;
                 this._schedulePreview();
+
+                if (focusId.startsWith('setup-priority-row-')) {
+                    const strategy = this._strategyKeyFromControlId(focusId, 'setup-priority-row-');
+                    if (strategy) {
+                        const updated = this._strategyStep.updatePriorityRowState(
+                            this._contentEl,
+                            this._priorityRowId(strategy),
+                            this._strategies[strategy].enabled
+                        );
+                        if (updated) {
+                            return;
+                        }
+                    }
+                }
+
                 this._renderStep();
             },
             onBack: () => {
