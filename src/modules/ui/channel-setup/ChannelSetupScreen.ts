@@ -427,6 +427,9 @@ export class ChannelSetupScreen {
 
                 if (focusedCategory && direction === 'right') {
                     if (focusedCategory !== this._activeStrategyCategory) {
+                        if (focusedCategory !== 'priority-order') {
+                            this._grabbedPriorityKey = null;
+                        }
                         this._activeStrategyCategory = focusedCategory;
                     }
                     const detailIds = this._getDetailControlIdsForCategory(focusedCategory);
@@ -738,6 +741,9 @@ export class ChannelSetupScreen {
             buildPreviewRow: (label, value, key) => this._buildPreviewRow(label, value, key),
             renderCappedWarnings: (warnings, container) => this._renderCappedWarnings(warnings, container),
             applyCategoryChange: (category, focusId) => {
+                if (category !== 'priority-order') {
+                    this._grabbedPriorityKey = null;
+                }
                 this._activeStrategyCategory = category;
                 this._preferredFocusId = focusId;
                 this._renderStep();
@@ -796,10 +802,12 @@ export class ChannelSetupScreen {
                 this._renderStep();
             },
             onBack: () => {
+                this._grabbedPriorityKey = null;
                 this._step = 1;
                 this._renderStep();
             },
             onNext: () => {
+                this._grabbedPriorityKey = null;
                 this._cleanupStep2AsyncState();
                 this._isBuilding = this._setupContext === 'first-time';
                 this._step = 3;

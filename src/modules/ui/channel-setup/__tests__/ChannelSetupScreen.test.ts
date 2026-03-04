@@ -991,11 +991,15 @@ describe('ChannelSetupScreen', () => {
         const rowId = '#setup-priority-row-playlists';
         const before = container.querySelector(rowId) as HTMLButtonElement | null;
         expect(before).not.toBeNull();
+        const beforeLabel = before?.getAttribute('aria-label');
+        expect(beforeLabel).toContain(', On');
 
         clickButton(container, rowId);
 
         const after = container.querySelector(rowId) as HTMLButtonElement | null;
         expect(after).toBe(before);
+        const afterLabel = after?.getAttribute('aria-label');
+        expect(afterLabel).toContain(', Off');
     });
 
     it('renders strategy toggles and priority rows for every setup strategy key with no extras', async () => {
@@ -1098,6 +1102,47 @@ describe('ChannelSetupScreen', () => {
 
         const dpadUpAfterDrop = nav.emitKeyPress('up');
         expect(dpadUpAfterDrop.handled).toBeFalsy();
+    });
+
+    it('clears grabbed priority state when leaving and re-entering priority category', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const orchestrator = createOrchestrator({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+        clickButton(container, '#setup-category-priority-order');
+
+        const beforeOrder = Array.from(
+            container.querySelectorAll<HTMLButtonElement>('[id^="setup-priority-row-"]')
+        ).map((row) => row.id.replace('setup-priority-row-', ''));
+        const focusKey = beforeOrder[1] ?? beforeOrder[0];
+        expect(focusKey).toBeTruthy();
+
+        nav.setMockFocus(`setup-priority-row-${focusKey}`);
+        const grab = nav.emitKeyPress('ok');
+        expect(grab.handled).toBe(true);
+
+        // Leave priority-order category, then come back.
+        clickButton(container, '#setup-category-content-sources');
+        clickButton(container, '#setup-category-priority-order');
+        nav.setMockFocus(`setup-priority-row-${focusKey}`);
+
+        // Should not move unless grabbed again.
+        const moveWithoutRegrab = nav.emitKeyPress('down');
+        expect(moveWithoutRegrab.handled).toBeFalsy();
+        const afterOrder = Array.from(
+            container.querySelectorAll<HTMLButtonElement>('[id^="setup-priority-row-"]')
+        ).map((row) => row.id.replace('setup-priority-row-', ''));
+        expect(afterOrder).toEqual(beforeOrder);
     });
 
     it('Expand Lineup quick action sets max to MAX_CHANNELS and min items to 1', async () => {

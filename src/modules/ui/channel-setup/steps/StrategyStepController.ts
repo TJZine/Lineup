@@ -575,6 +575,13 @@ export class StrategyStepController {
         if (stateEl) {
             stateEl.textContent = enabled ? 'On' : 'Off';
         }
+
+        const rankText = row.querySelector('.setup-priority-rank')?.textContent?.trim();
+        const labelText = row.querySelector('.setup-priority-label')?.textContent?.trim();
+        if (rankText && labelText) {
+            const stateText = enabled ? 'On' : 'Off';
+            row.setAttribute('aria-label', `Priority ${rankText}: ${labelText}, ${stateText}`);
+        }
         return row;
     }
 

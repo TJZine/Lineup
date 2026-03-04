@@ -395,6 +395,21 @@ describe('SettingsScreen (Guide settings)', () => {
         expect(onGuideSettingChange).not.toHaveBeenCalled();
     });
 
+    it('closes an open dropdown when switching categories', () => {
+        const { container, nav, screen } = createScreen(jest.fn());
+
+        screen.show();
+        activateCategory(container, 'appearance');
+        nav.setFocus('settings-epg-layout-mode');
+
+        const focusable = nav.focusables.get('settings-epg-layout-mode');
+        focusable?.onSelect?.();
+        expect(container.querySelector('#settings-dropdown')).not.toBeNull();
+
+        activateCategory(container, 'account');
+        expect(container.querySelector('#settings-dropdown')).toBeNull();
+    });
+
     it('cycles select with left/right keys and returns to rail at left edge', () => {
         const onGuideSettingChange = jest.fn();
         const { container, nav, screen } = createScreen(onGuideSettingChange);

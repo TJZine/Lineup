@@ -778,6 +778,10 @@ export class SettingsScreen {
         categoryId: SettingsCategoryId,
         options: { preferredFocusId?: string | null; focusDetail?: boolean } = {}
     ): void {
+        if (this._activeDropdown) {
+            this._closeDropdown();
+        }
+
         // Focus-only path: pressing RIGHT on an already-active category should not re-render
         // the detail pane. It should simply move focus into the detail controls.
         if (this._activeCategoryId === categoryId && options.focusDetail) {
