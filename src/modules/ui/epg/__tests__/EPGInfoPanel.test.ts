@@ -15,6 +15,11 @@ import type { ScheduledProgram } from '../types';
 jest.mock('../../../../utils/color/extractDominantColor');
 
 describe('EPGInfoPanel', () => {
+    const DEFAULT_FLUSH_COUNT = 4;
+    const waitForFlush = async (count: number = DEFAULT_FLUSH_COUNT): Promise<void> => {
+        await flushPromises(count);
+    };
+
     let panel: EPGInfoPanel;
     let container: HTMLElement;
     const RealImage = globalThis.Image;
@@ -503,7 +508,7 @@ describe('EPGInfoPanel', () => {
                 panel.show(program);
 
                 jest.runAllTimers();
-                await flushPromises(4);
+                await waitForFlush();
 
                 const layerB = container.querySelector('.epg-info-gradient-b') as HTMLElement | null;
                 if (!layerB) {
@@ -667,7 +672,7 @@ describe('EPGInfoPanel', () => {
                 panel.show(program);
 
                 jest.advanceTimersByTime(150);
-                await flushPromises(4);
+                await waitForFlush();
 
                 expect(createdImages.length).toBe(1);
 
@@ -714,7 +719,7 @@ describe('EPGInfoPanel', () => {
                 panel.show(program);
 
                 jest.runAllTimers();
-                await flushPromises(4);
+                await waitForFlush();
 
                 const layerA = container.querySelector('.epg-info-gradient-a') as HTMLElement | null;
                 const layerB = container.querySelector('.epg-info-gradient-b') as HTMLElement | null;
@@ -750,7 +755,7 @@ describe('EPGInfoPanel', () => {
                 const program = createMockProgram('/library/metadata/1/thumb');
                 panel.show(program);
                 jest.runAllTimers();
-                await flushPromises(4);
+                await waitForFlush();
 
                 const layerA = container.querySelector('.epg-info-gradient-a') as HTMLElement | null;
                 const layerB = container.querySelector('.epg-info-gradient-b') as HTMLElement | null;
@@ -764,7 +769,7 @@ describe('EPGInfoPanel', () => {
                 const nextProgram = createMockProgram('/library/metadata/2/thumb', { ratingKey: 'test-2', title: 'Next' });
                 panel.updateFast(nextProgram);
                 jest.runAllTimers();
-                await flushPromises(4);
+                await waitForFlush();
 
                 expect(extractDominantColor).toHaveBeenCalledTimes(1);
                 expect(layerA.style.getPropertyValue('--dynamic-info-bg')).toBe('');
@@ -791,7 +796,7 @@ describe('EPGInfoPanel', () => {
                 const program = createMockProgram('/library/metadata/1/thumb');
                 panel.show(program);
                 jest.runAllTimers();
-                await flushPromises(4);
+                await waitForFlush();
 
                 const caches = panel as unknown as {
                     colorCache: Map<string, string>;
@@ -826,7 +831,7 @@ describe('EPGInfoPanel', () => {
                     });
                     panel.show(program);
                     jest.runAllTimers();
-                    await flushPromises(4);
+                    await waitForFlush();
                 }
 
                 const cache = (panel as unknown as { colorCache: Map<string, string> }).colorCache;

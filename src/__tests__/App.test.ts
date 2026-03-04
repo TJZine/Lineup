@@ -186,6 +186,8 @@ describe('App bootstrap smoke', () => {
     };
 
     const installPlaybackSnapshotSpy = (): void => {
+        // Default stub: callers should `mockReset()` (or re-mock) before using `mockResolvedValueOnce()`
+        // when they need a specific snapshot sequence (e.g., before `createPlaybackSnapshots()` + `App.start()`).
         refreshPlaybackInfoSnapshotSpy = jest
             .spyOn(AppOrchestrator.prototype, 'refreshPlaybackInfoSnapshot')
             .mockResolvedValue({} as never);
