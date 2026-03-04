@@ -976,8 +976,11 @@ export class SettingsScreen {
             options: select.getOptions(),
             currentValue: select.getValue(),
             onSelect: (value: number): void => {
-                select.setValue(value);
-                this._closeDropdown();
+                try {
+                    select.setValue(value);
+                } finally {
+                    this._closeDropdown();
+                }
                 if (nav) {
                     nav.setFocus(selectId);
                 }

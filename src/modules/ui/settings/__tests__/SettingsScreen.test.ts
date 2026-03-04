@@ -370,6 +370,37 @@ describe('SettingsScreen (Guide settings)', () => {
         expect(container.querySelector('#settings-dropdown')).toBeNull();
     });
 
+    it('closes dropdown even if applying a selection throws', () => {
+        const onGuideSettingChange = jest.fn(() => {
+            throw new Error('boom');
+        });
+        const { container, nav, screen } = createScreen(onGuideSettingChange);
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
+
+        screen.show();
+        activateCategory(container, 'appearance');
+
+        const focusable = nav.focusables.get('settings-epg-layout-mode');
+        focusable?.onSelect?.();
+
+        const dropdown = container.querySelector('#settings-dropdown') as HTMLElement | null;
+        expect(dropdown).not.toBeNull();
+
+        const firstNonSelected = dropdown?.querySelector(
+            '.settings-dropdown-option:not(.settings-dropdown-option--selected)'
+        ) as HTMLButtonElement | null;
+        expect(firstNonSelected).not.toBeNull();
+
+        try {
+            const optionId = firstNonSelected?.id ?? '';
+            nav.focusables.get(optionId)?.onSelect?.();
+        } catch {
+            // Expected.
+        }
+
+        expect(container.querySelector('#settings-dropdown')).toBeNull();
+    });
+
     it('dismisses dropdown on back without mutating the setting', () => {
         const onGuideSettingChange = jest.fn();
         const { container, nav, screen } = createScreen(onGuideSettingChange);
