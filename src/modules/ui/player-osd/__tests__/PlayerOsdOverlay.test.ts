@@ -70,6 +70,23 @@ describe('PlayerOsdOverlay', () => {
         expect(container.classList.contains(PLAYER_OSD_CLASSES.VISIBLE)).toBe(false);
     });
 
+    it('keeps a stable overlay root and renders a single inner panel tray', () => {
+        const root = container;
+        const panel = container.querySelector(`.${PLAYER_OSD_CLASSES.PANEL}`) as HTMLElement | null;
+
+        expect(root.classList.contains(PLAYER_OSD_CLASSES.CONTAINER)).toBe(true);
+        expect(panel).not.toBeNull();
+        expect(container.querySelectorAll(`.${PLAYER_OSD_CLASSES.PANEL}`)).toHaveLength(1);
+        expect(root.contains(panel)).toBe(true);
+
+        overlay.setViewModel(baseViewModel);
+        overlay.show();
+        expect(root.classList.contains(PLAYER_OSD_CLASSES.VISIBLE)).toBe(true);
+
+        overlay.hide();
+        expect(root.classList.contains(PLAYER_OSD_CLASSES.VISIBLE)).toBe(false);
+    });
+
     it('renders text and progress values', () => {
         overlay.setViewModel({
             ...baseViewModel,
