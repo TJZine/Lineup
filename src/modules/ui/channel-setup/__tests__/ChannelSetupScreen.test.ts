@@ -156,11 +156,13 @@ describe('ChannelSetupScreen', () => {
 
         const before = container.querySelector('#setup-lib-movies') as HTMLButtonElement | null;
         expect(before).not.toBeNull();
+        expect(before?.getAttribute('aria-pressed')).toBe('true');
 
         clickButton(container, '#setup-lib-movies');
 
         const after = container.querySelector('#setup-lib-movies') as HTMLButtonElement | null;
         expect(after).toBe(before);
+        expect(after?.getAttribute('aria-pressed')).toBe('false');
     });
 
     it('wires bulk-action focus neighbors to each other and first tile', async () => {
@@ -993,6 +995,7 @@ describe('ChannelSetupScreen', () => {
         expect(before).not.toBeNull();
         const beforeLabel = before?.getAttribute('aria-label');
         expect(beforeLabel).toContain(', On');
+        expect(before?.classList.contains('selected')).toBe(true);
 
         clickButton(container, rowId);
 
@@ -1000,6 +1003,7 @@ describe('ChannelSetupScreen', () => {
         expect(after).toBe(before);
         const afterLabel = after?.getAttribute('aria-label');
         expect(afterLabel).toContain(', Off');
+        expect(after?.classList.contains('selected')).toBe(false);
     });
 
     it('renders strategy toggles and priority rows for every setup strategy key with no extras', async () => {

@@ -505,4 +505,14 @@
     .setup-priority-row--move-down {
         animation: none;
     }
+
+    .setup-priority-row,
+    .setup-priority-grip,
+    .setup-priority-arrows {
+        transition: none;
+    }
+
+    .setup-priority-row--grabbed {
+        transform: none;
+    }
 }

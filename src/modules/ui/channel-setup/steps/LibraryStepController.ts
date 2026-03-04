@@ -53,6 +53,7 @@ export class LibraryStepController {
             const button = document.createElement('button');
             button.id = `setup-lib-${deps.toDomId(library.id)}`;
             button.className = `setup-toggle${isSelected ? ' selected' : ''}`;
+            button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
             button.classList.add('library-toggle');
             button.classList.add('setup-stagger-in');
             button.style.animationDelay = `${index * 50}ms`;

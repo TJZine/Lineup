@@ -611,6 +611,7 @@ export class ChannelSetupScreen {
                     (raw) => this._toDomId(raw)
                 );
                 if (updated) {
+                    this._preferredFocusId = null;
                     const count = this._selectedLibraryIds.size;
                     const total = this._libraries.length;
                     this._detailEl.textContent = `Selected ${count} of ${total}.`;

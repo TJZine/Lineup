@@ -502,6 +502,7 @@ export class StrategyStepController {
             const button = document.createElement('button');
             button.id = rowId;
             button.className = 'setup-toggle setup-priority-row';
+            button.classList.toggle('selected', strategyState.enabled);
             const labelText = strategy?.label ?? String(key);
             const stateText = strategyState.enabled ? 'On' : 'Off';
             button.setAttribute('aria-label', `Priority ${index + 1}: ${labelText}, ${stateText}`);
