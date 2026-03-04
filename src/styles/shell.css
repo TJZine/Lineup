@@ -279,10 +279,16 @@
 
 .screen-button.focused,
 .screen-button:focus,
+.screen-button:focus-visible,
 .setup-toggle.focused,
 .setup-toggle:focus,
 .setup-toggle:focus-visible {
   outline: none;
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(200, 160, 100, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(200, 160, 100, 0.24),
+    0 8px 24px rgba(200, 160, 100, 0.16);
 }
 
 .screen-button::after,
@@ -302,7 +308,7 @@
 .setup-toggle.focused::after,
 .setup-toggle:focus::after,
 .setup-toggle:focus-visible::after {
-  border-color: var(--onboarding-accent-alpha-60);
+  border-color: rgba(200, 160, 100, 0.72);
 }
 
 @media (forced-colors: active) {
