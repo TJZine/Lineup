@@ -9,6 +9,7 @@ import type {
 } from '../../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig } from '../../../scheduler/scheduler';
 import type { EPGConfig } from '../types';
+import * as epgUtils from '../utils';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
@@ -214,6 +215,17 @@ describe('EPGCoordinator', () => {
         clearLocalStorage();
         jest.restoreAllMocks();
         jest.clearAllMocks();
+    });
+
+    it('uses shared debug helper for coordinator debug gating', () => {
+        const { deps } = makeDeps();
+        const coordinator = new EPGCoordinator(deps);
+        const helperSpy = jest.spyOn(epgUtils, 'isEpgDebugLoggingEnabled').mockReturnValue(true);
+
+        const debugEnabled = (coordinator as unknown as { _isDebugEnabled: () => boolean })._isDebugEnabled();
+
+        expect(debugEnabled).toBe(true);
+        expect(helperSpy).toHaveBeenCalledTimes(1);
     });
 
     it('partitions prefetch channels with inclusive channelEnd', () => {

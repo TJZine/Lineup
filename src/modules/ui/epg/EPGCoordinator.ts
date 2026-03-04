@@ -5,7 +5,7 @@
  */
 
 import { ShuffleGenerator, ScheduleCalculator } from '../../scheduler/scheduler';
-import { appendEpgDebugLog } from './utils';
+import { appendEpgDebugLog, isEpgDebugLoggingEnabled } from './utils';
 import type { IEPGComponent } from './interfaces';
 import type { EPGConfig } from './types';
 import type { IChannelManager, ChannelConfig, ResolvedChannelContent } from '../../scheduler/channel-manager';
@@ -1428,10 +1428,6 @@ export class EPGCoordinator {
     }
 
     private _isDebugEnabled(): boolean {
-        try {
-            return localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG) === '1';
-        } catch {
-            return false;
-        }
+        return isEpgDebugLoggingEnabled();
     }
 }
