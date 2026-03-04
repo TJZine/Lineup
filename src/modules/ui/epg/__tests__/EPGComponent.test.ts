@@ -879,6 +879,41 @@ describe('EPGComponent', () => {
             epg.focusProgram(0, 0);
             expect(epg.getFocusedProgram()).not.toBeNull();
         });
+
+        it('reuses the same channel id array reference across consecutive render passes', () => {
+            const channels = [createMockChannel(0), createMockChannel(1), createMockChannel(2)];
+            epg.loadChannels(channels);
+            channels.forEach((channel) => {
+                epg.loadScheduleForChannel(channel.id, createMockSchedule(channel.id, 3));
+            });
+            epg.show();
+
+            const anyEpg = epg as unknown as {
+                renderGridInternal: () => void;
+                virtualizer: {
+                    renderVisibleCells: (
+                        channelIds: string[],
+                        schedules: Map<string, ScheduleWindow>,
+                        range: unknown,
+                        focusedCellKey?: string,
+                        currentTime?: number
+                    ) => void;
+                };
+            };
+
+            const renderSpy = jest.spyOn(anyEpg.virtualizer, 'renderVisibleCells');
+            renderSpy.mockClear();
+
+            anyEpg.renderGridInternal();
+            anyEpg.renderGridInternal();
+
+            expect(renderSpy).toHaveBeenCalledTimes(2);
+
+            const firstChannelIds = renderSpy.mock.calls[0]?.[0] as string[];
+            const secondChannelIds = renderSpy.mock.calls[1]?.[0] as string[];
+
+            expect(firstChannelIds).toBe(secondChannelIds);
+        });
     });
 
     describe('navigation', () => {
