@@ -8,8 +8,7 @@
  */
 
 import { EPG_CONSTANTS, EPG_CLASSES } from './constants';
-import { formatCellTimeLabel, appendEpgDebugLog } from './utils';
-import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import { formatCellTimeLabel, appendEpgDebugLog, isEpgDebugLoggingEnabled } from './utils';
 import type {
     ScheduledProgram,
     ScheduleWindow,
@@ -100,11 +99,7 @@ export class EPGVirtualizer {
     private _focusedTickerTimer: ReturnType<typeof setTimeout> | null = null;
     private _focusedTickerTitle: HTMLElement | null = null;
     private isDebugEnabled(): boolean {
-        try {
-            return localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG) === '1';
-        } catch {
-            return false;
-        }
+        return isEpgDebugLoggingEnabled();
     }
 
     /**

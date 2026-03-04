@@ -5,8 +5,7 @@
  */
 
 import { EPG_CLASSES, EPG_CONSTANTS } from './constants';
-import { appendEpgDebugLog } from './utils';
-import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import { appendEpgDebugLog, isEpgDebugLoggingEnabled } from './utils';
 import type { EPGConfig, ChannelConfig } from './types';
 import { getChannelNameForDisplay } from '../channelDisplay';
 import { getChannelBrandingIcon } from '../common/channelBrandingIcons';
@@ -454,13 +453,7 @@ export class EPGChannelList {
     }
 
     private logDebugState(channelOffset: number): void {
-        const shouldLog = ((): boolean => {
-            try {
-                return localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG) === '1';
-            } catch {
-                return false;
-            }
-        })();
+        const shouldLog = isEpgDebugLoggingEnabled();
 
         if (!shouldLog || !this.contentElement) return;
 
