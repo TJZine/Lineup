@@ -22,6 +22,7 @@ import {
 } from './types';
 import { AppErrorCode } from '../../lifecycle/types';
 import { PlexApiError } from '../auth/helpers';
+import { redactSensitiveTokens, redactUrlForLog } from '../../../utils/redact';
 
 // Re-export for consumers
 export { AppErrorCode, PlexApiError };
@@ -202,9 +203,11 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                 if (lastNonOkResponse) {
                     this._handleResponseError(lastNonOkResponse);
                 }
-                const message = lastError instanceof Error
-                    ? lastError.message
-                    : 'unknown error';
+                const message = redactSensitiveTokens(
+                    lastError instanceof Error
+                        ? lastError.message
+                        : 'unknown error'
+                );
                 throw new PlexApiError(
                     AppErrorCode.SERVER_UNREACHABLE,
                     `Failed to discover servers: ${message} (last url: ${this._redactUrl(lastUrl) || 'unknown'})`,
@@ -235,7 +238,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                 console.error(`[Discovery] Discovery failed (API Error): ${error.message} (last url: ${lastUrlInfo})`);
                 throw error;
             }
-            const message = error instanceof Error ? error.message : String(error);
+            const message = redactSensitiveTokens(error instanceof Error ? error.message : String(error));
             console.error(`[Discovery] Discovery failed (Network/Other): ${message} (last url: ${lastUrlInfo})`);
             throw new PlexApiError(
                 AppErrorCode.SERVER_UNREACHABLE,
@@ -926,37 +929,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
     private _redactUrl(url: string | undefined): string {
         if (!url) return '';
-        try {
-            const parsed = new URL(url);
-            const sensitiveKeys = ['X-Plex-Token', 'token', 'access_token'];
-            parsed.username = '';
-            parsed.password = '';
-
-            // Redact query parameters
-            for (const key of sensitiveKeys) {
-                if (parsed.searchParams.has(key)) {
-                    parsed.searchParams.set(key, 'REDACTED');
-                }
-            }
-
-            // Redact fragment (Plex sometimes passes tokens in hash)
-            if (parsed.hash) {
-                for (const key of sensitiveKeys) {
-                    if (parsed.hash.includes(`${key}=`)) {
-                        parsed.hash = '#REDACTED_FRAGMENT';
-                        break;
-                    }
-                }
-            }
-
-            return parsed.toString();
-        } catch {
-            // Fallback for malformed URLs
-            return url
-                .replace(/X-Plex-Token=[^&]*/g, 'X-Plex-Token=REDACTED')
-                .replace(/access_token=[^&]*/g, 'access_token=REDACTED')
-                .replace(/token=[^&]*/g, 'token=REDACTED');
-        }
+        return redactUrlForLog(url);
     }
 
     /**

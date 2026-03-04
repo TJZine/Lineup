@@ -38,7 +38,7 @@ import {
     safeLocalStorageGet,
 } from '../../../utils/storage';
 import { summarizeErrorForLog } from '../../../utils/errors';
-import { redactSensitiveTokens, safeStringifyForLog } from '../../../utils/redact';
+import { redactSensitiveTokens, redactUrlForLog, safeStringifyForLog } from '../../../utils/redact';
 import { detectHdrLabel } from './hdr';
 import { getTranscodeQualityOption } from '../../../config/transcodeQuality';
 import {
@@ -176,7 +176,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             ];
 
         for (const variant of variants) {
-            const redactedUrl = redactSensitiveTokens(variant.url.toString());
+            const redactedUrl = redactUrlForLog(variant.url.toString());
             const redactedTrackSrcQueryAuth = ((): string | null => {
                 // NOTE: <track src="..."> cannot send X-Plex-Token headers. Prefer a blob URL
                 // created from an authenticated fetch to avoid token-in-URL and CORS issues.
@@ -184,7 +184,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 try {
                     const u = new URL(baseUrl.toString());
                     if (!u.searchParams.has('X-Plex-Token')) u.searchParams.set('X-Plex-Token', tokenFromHeader);
-                    return redactSensitiveTokens(u.toString());
+                    return redactUrlForLog(u.toString());
                 } catch {
                     return null;
                 }
@@ -212,7 +212,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 const accessControlExposeHeaders = response.headers.get('access-control-expose-headers');
                 const responseType = response.type;
                 const redirected = response.redirected;
-                const finalUrl = redactSensitiveTokens(response.url);
+                const finalUrl = redactUrlForLog(response.url);
 
                 let detected: 'webvtt' | 'srt' | 'unknown' = 'unknown';
                 let sampleLength = 0;
