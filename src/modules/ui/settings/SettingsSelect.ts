@@ -78,10 +78,13 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
     const setValue = (nextValue: number): boolean => {
         if (config.disabled) return false;
         const previousValue = config.value;
-        update(nextValue);
+        if (!config.options.some((option) => option.value === nextValue)) {
+            return false;
+        }
         if (nextValue === previousValue) {
             return false;
         }
+        update(nextValue);
         config.onChange(nextValue);
         return true;
     };
