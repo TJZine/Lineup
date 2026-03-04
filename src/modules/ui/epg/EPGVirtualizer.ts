@@ -296,7 +296,9 @@ export class EPGVirtualizer {
     ): void {
         if (!this.contentElement || !this.config) return;
 
+        const previousChannelOffset = this.channelOffset;
         this.channelOffset = range.channelOffset;
+        const channelOffsetChanged = previousChannelOffset !== this.channelOffset;
 
         const newVisibleCells = new Map<string, CellRenderData>();
         const maxDomElements = EPG_CONSTANTS.MAX_DOM_ELEMENTS;
@@ -472,7 +474,7 @@ export class EPGVirtualizer {
             if (existing && existing.cellElement) {
                 // Reuse existing element, update position and content
                 cellData.cellElement = existing.cellElement;
-                if (this.hasCellPositionDelta(existing, cellData)) {
+                if (channelOffsetChanged || this.hasCellPositionDelta(existing, cellData)) {
                     this.updateCellPosition(cellData);
                 }
                 if (this.hasCellContentDelta(existing, cellData)) {

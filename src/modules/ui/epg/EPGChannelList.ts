@@ -405,7 +405,6 @@ export class EPGChannelList {
         if (!this.contentElement || !this.config) return;
 
         if (channelOffset === this.channelOffset) {
-            this.logDebugState(channelOffset);
             return;
         }
         this.channelOffset = channelOffset;
