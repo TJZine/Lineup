@@ -1418,7 +1418,7 @@
 
 .epg-container.layout-classic .epg-info-panel {
   height: auto;
-  min-height: calc(var(--classic-showcase-pip-width) * 9 / 16);
+  min-height: calc(var(--classic-showcase-pip-width, var(--classic-guide-pip-width, 672px)) * 9 / 16);
   background: transparent;
   border: none;
   border-radius: 0;
@@ -1427,7 +1427,11 @@
 }
 
 .epg-container.layout-classic .epg-info-backdrop {
-  left: calc(-1 * (var(--classic-showcase-pip-width) + var(--classic-showcase-gap) + 24px));
+  left: calc(-1 * (
+    var(--classic-showcase-pip-width, var(--classic-guide-pip-width, 672px)) +
+    var(--classic-showcase-gap) +
+    24px
+  ));
   right: -24px;
   top: -16px;
   bottom: -16px;
@@ -1437,7 +1441,12 @@
 .epg-container.layout-classic .epg-info-backdrop-img {
   top: 0;
   right: 0;
-  width: calc(100% + var(--classic-showcase-pip-width) + var(--classic-showcase-gap) + 48px);
+  width: calc(
+    100% +
+    var(--classic-showcase-pip-width, var(--classic-guide-pip-width, 672px)) +
+    var(--classic-showcase-gap) +
+    48px
+  );
   max-width: none;
   height: 100%;
   object-fit: cover;

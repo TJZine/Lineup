@@ -230,8 +230,7 @@ describe('EPGInfoPanel', () => {
             expect(resolver).toHaveBeenCalledWith(null, 320, 480);
 
             jest.advanceTimersByTime(220);
-            await Promise.resolve();
-            await Promise.resolve();
+            await waitForFlush(2);
 
             expect(fetchItemDetails).toHaveBeenCalledWith('test-1', { signal: expect.any(AbortSignal) });
             expect(resolver).toHaveBeenCalledWith('/library/metadata/999/thumb', 320, 480);
@@ -590,15 +589,14 @@ describe('EPGInfoPanel', () => {
 
                 panel.show(createMockProgram('/library/metadata/1/thumb', { ratingKey: 'first' }));
                 jest.advanceTimersByTime(150);
-                await Promise.resolve();
+                await waitForFlush(1);
 
                 expect(fetchMock).toHaveBeenCalledTimes(1);
                 expect(observedSignals[0]?.aborted).toBe(false);
 
                 panel.show(createMockProgram('/library/metadata/2/thumb', { ratingKey: 'second' }));
                 jest.advanceTimersByTime(150);
-                await Promise.resolve();
-                await Promise.resolve();
+                await waitForFlush(2);
 
                 expect(fetchMock).toHaveBeenCalledTimes(2);
                 expect(observedSignals[0]?.aborted).toBe(true);
@@ -1154,8 +1152,7 @@ describe('EPGInfoPanel', () => {
 
             expect(fetchItemDetails).not.toHaveBeenCalled();
             jest.advanceTimersByTime(220);
-            await Promise.resolve();
-            await Promise.resolve();
+            await waitForFlush(2);
 
             expect(fetchItemDetails).toHaveBeenCalledWith('test-1', { signal: expect.any(AbortSignal) });
             const badges = Array.from(
