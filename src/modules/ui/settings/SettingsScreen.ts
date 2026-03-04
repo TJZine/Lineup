@@ -196,7 +196,7 @@ export class SettingsScreen {
     private _detailTitle: HTMLHeadingElement | null = null;
     private _detailItems: HTMLElement | null = null;
     private _switchProfileButton: HTMLButtonElement | null = null;
-    private _activeDropdown: { destroy: () => void } | null = null;
+    private _activeDropdown: { destroy: () => void; dismiss: () => void } | null = null;
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
     private _detailSwapFrame: number | null = null;
     private _detailRevealFrame: number | null = null;
@@ -903,7 +903,7 @@ export class SettingsScreen {
                 // Dismiss dropdown on Back key.
                 if (this._activeDropdown && event.button === 'back') {
                     event.handled = true;
-                    this._closeDropdown();
+                    this._dismissDropdown();
                     return;
                 }
 
@@ -983,13 +983,19 @@ export class SettingsScreen {
                 }
             },
             onDismiss: (): void => {
-                this._closeDropdown();
                 if (nav) {
                     nav.setFocus(selectId);
                 }
             },
             nav,
         });
+    }
+
+    private _dismissDropdown(): void {
+        if (!this._activeDropdown) return;
+        const dropdown = this._activeDropdown;
+        this._activeDropdown = null;
+        dropdown.dismiss();
     }
 
     private _closeDropdown(): void {
@@ -1461,6 +1467,7 @@ export class SettingsScreen {
             this._getNavigation()?.off('keyPress', this._navKeyHandler);
             this._navKeyHandler = null;
         }
+        this._closeDropdown();
         this._unregisterFocusables();
         this._categories = [];
         this._activeCategoryId = null;

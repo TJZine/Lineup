@@ -37,6 +37,7 @@ const DROPDOWN_CONTAINER_ID = 'settings-dropdown';
 
 export function createSettingsDropdown(config: SettingsDropdownConfig): {
     destroy: () => void;
+    dismiss: () => void;
 } {
     // Remove any existing dropdown first.
     const existing = config.container.querySelector(`#${DROPDOWN_CONTAINER_ID}`);
@@ -140,7 +141,12 @@ export function createSettingsDropdown(config: SettingsDropdownConfig): {
         }
     }
 
+    let destroyed = false;
+    let dismissed = false;
+
     const destroy = (): void => {
+        if (destroyed) return;
+        destroyed = true;
         if (config.nav) {
             for (const id of optionIds) {
                 config.nav.unregisterFocusable(id);
@@ -149,5 +155,12 @@ export function createSettingsDropdown(config: SettingsDropdownConfig): {
         overlay.remove();
     };
 
-    return { destroy };
+    const dismiss = (): void => {
+        if (dismissed || destroyed) return;
+        dismissed = true;
+        config.onDismiss();
+        destroy();
+    };
+
+    return { destroy, dismiss };
 }

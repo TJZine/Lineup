@@ -117,7 +117,7 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
         cyclePrev,
         cycleNext,
         setValue,
-        getOptions: (): SettingsSelectConfig['options'] => config.options,
+        getOptions: (): SettingsSelectConfig['options'] => [...config.options],
         getValue: (): number => config.value,
     };
 }

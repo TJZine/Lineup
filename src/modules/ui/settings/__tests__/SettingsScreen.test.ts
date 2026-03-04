@@ -393,6 +393,25 @@ describe('SettingsScreen (Guide settings)', () => {
         expect(container.querySelector('#settings-dropdown')).toBeNull();
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('overlay');
         expect(onGuideSettingChange).not.toHaveBeenCalled();
+        expect(nav.getFocusedElement()?.id).toBe('settings-epg-layout-mode');
+    });
+
+    it('closes and unregisters dropdown option focusables on destroy', () => {
+        const { container, nav, screen } = createScreen(jest.fn());
+
+        screen.show();
+        activateCategory(container, 'appearance');
+        nav.setFocus('settings-epg-layout-mode');
+
+        const focusable = nav.focusables.get('settings-epg-layout-mode');
+        focusable?.onSelect?.();
+        expect(container.querySelector('#settings-dropdown')).not.toBeNull();
+        expect([...nav.focusables.keys()].some((key) => key.startsWith('settings-dropdown-option-'))).toBe(true);
+
+        screen.destroy();
+
+        expect(container.querySelector('#settings-dropdown')).toBeNull();
+        expect([...nav.focusables.keys()].some((key) => key.startsWith('settings-dropdown-option-'))).toBe(false);
     });
 
     it('closes an open dropdown when switching categories', () => {
