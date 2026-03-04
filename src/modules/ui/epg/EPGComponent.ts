@@ -81,6 +81,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private overlayShowcaseElement: HTMLElement | null = null;
     private hasRenderedOnce: boolean = false;
     private lastVisibleRangeKey: string | null = null;
+    private channelIds: string[] = [];
     private _isSelectInProgress: boolean = false;
     private _placeholderAutoFocusKeys: Set<string> = new Set();
     private _infoPanelFullUpdateTimer: ReturnType<typeof setTimeout> | null = null;
@@ -275,6 +276,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             scrubLabelProgramKey: null,
             lastRenderTime: 0,
         };
+        this.channelIds = [];
         this.hasRenderedOnce = false;
         this._isSelectInProgress = false;
         this._placeholderAutoFocusKeys.clear();
@@ -737,6 +739,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
      */
     loadChannels(channels: ChannelConfig[]): void {
         this.state.channels = channels;
+        this.channelIds = channels.map((c) => c.id);
         this.virtualizer.setChannelCount(channels.length);
         this.channelList.updateChannels(channels);
         this._placeholderAutoFocusKeys.clear();
@@ -1861,7 +1864,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this.virtualizer.updateScrollPosition(this.state.scrollPosition.timeOffset);
             const range = this.virtualizer.calculateVisibleRange(this.state.scrollPosition);
             this.maybeEmitVisibleRange();
-            const channelIds = this.state.channels.map((c) => c.id);
+            const channelIds = this.channelIds;
             const focused = this.state.focusedCell;
             const focusedChannel = focused ? this.state.channels[focused.channelIndex] : undefined;
             const focusedKey = this._getFocusKey(focused) ?? undefined;
