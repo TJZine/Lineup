@@ -356,16 +356,13 @@ describe('App bootstrap smoke', () => {
     };
 
     it('renders dev menu and playback info when debug surface is enabled', async () => {
-        installStartupSpies();
-        installPlaybackSnapshotSpy();
-        refreshPlaybackInfoSnapshotSpy.mockReset();
-
         const { snapshotWithDecision } = createPlaybackSnapshots();
 
-        refreshPlaybackInfoSnapshotSpy
-            .mockResolvedValueOnce(snapshotWithDecision);
-        app = new App();
-        await app.start();
+        await bootstrapApp(() => {
+            installPlaybackSnapshotSpy();
+            refreshPlaybackInfoSnapshotSpy.mockReset();
+            refreshPlaybackInfoSnapshotSpy.mockResolvedValueOnce(snapshotWithDecision);
+        });
 
         const { devMenu, playbackPre } = await openDevMenu();
         expect(refreshPlaybackInfoSnapshotSpy).toHaveBeenCalledTimes(1);
@@ -377,16 +374,15 @@ describe('App bootstrap smoke', () => {
     });
 
     it('refresh updates the PMS decision area and handles missing decision', async () => {
-        installStartupSpies();
-        installPlaybackSnapshotSpy();
-        refreshPlaybackInfoSnapshotSpy.mockReset();
         const { snapshotWithDecision, snapshotNoDecision } = createPlaybackSnapshots();
 
-        refreshPlaybackInfoSnapshotSpy
-            .mockResolvedValueOnce(snapshotWithDecision)
-            .mockResolvedValueOnce(snapshotNoDecision);
-        app = new App();
-        await app.start();
+        await bootstrapApp(() => {
+            installPlaybackSnapshotSpy();
+            refreshPlaybackInfoSnapshotSpy.mockReset();
+            refreshPlaybackInfoSnapshotSpy
+                .mockResolvedValueOnce(snapshotWithDecision)
+                .mockResolvedValueOnce(snapshotNoDecision);
+        });
 
         const { playbackPre, refreshButton } = await openDevMenu();
         expect(refreshPlaybackInfoSnapshotSpy).toHaveBeenCalledTimes(1);
@@ -399,17 +395,16 @@ describe('App bootstrap smoke', () => {
     });
 
     it('refresh handles missing stream and allows toggling the dev menu', async () => {
-        installStartupSpies();
-        installPlaybackSnapshotSpy();
-        refreshPlaybackInfoSnapshotSpy.mockReset();
         const { snapshotWithDecision, snapshotNoDecision, snapshotNoStream } = createPlaybackSnapshots();
 
-        refreshPlaybackInfoSnapshotSpy
-            .mockResolvedValueOnce(snapshotWithDecision)
-            .mockResolvedValueOnce(snapshotNoDecision)
-            .mockResolvedValueOnce(snapshotNoStream);
-        app = new App();
-        await app.start();
+        await bootstrapApp(() => {
+            installPlaybackSnapshotSpy();
+            refreshPlaybackInfoSnapshotSpy.mockReset();
+            refreshPlaybackInfoSnapshotSpy
+                .mockResolvedValueOnce(snapshotWithDecision)
+                .mockResolvedValueOnce(snapshotNoDecision)
+                .mockResolvedValueOnce(snapshotNoStream);
+        });
 
         const { devMenu, playbackPre, refreshButton } = await openDevMenu();
         expect(refreshPlaybackInfoSnapshotSpy).toHaveBeenCalledTimes(1);
@@ -428,17 +423,16 @@ describe('App bootstrap smoke', () => {
     });
 
     it('shows an error overlay with recovery actions and hides on action click', async () => {
-        installStartupSpies();
-        installRecoveryActionSpy();
         const action = jest.fn();
-        getRecoveryActionsSpy.mockReturnValue([
-            { label: 'Retry', isPrimary: true, action },
-            { label: 'Cancel', isPrimary: false, action: jest.fn() },
-        ]);
-        app = new App();
-        await app.start();
+        const startedApp = await bootstrapApp(() => {
+            installRecoveryActionSpy();
+            getRecoveryActionsSpy.mockReturnValue([
+                { label: 'Retry', isPrimary: true, action },
+                { label: 'Cancel', isPrimary: false, action: jest.fn() },
+            ]);
+        });
 
-        app.showErrorOverlay({
+        startedApp.showErrorOverlay({
             code: 'TEST_ERROR',
             message: 'Boom',
             userMessage: 'Something failed',
@@ -461,8 +455,6 @@ describe('App bootstrap smoke', () => {
     });
 
     it('routes blocking overlay presentation through navigation modal APIs', async () => {
-        installStartupSpies();
-        installRecoveryActionSpy();
         const openModal = jest.fn();
         const closeModal = jest.fn();
         const isModalOpen = jest.fn().mockReturnValue(false);
@@ -472,23 +464,24 @@ describe('App bootstrap smoke', () => {
         const on = jest.fn();
         const off = jest.fn();
 
-        jest.spyOn(AppOrchestrator.prototype, 'getNavigation').mockReturnValue({
-            openModal,
-            closeModal,
-            isModalOpen,
-            registerFocusable,
-            unregisterFocusable,
-            setFocus,
-            on,
-            off,
-        } as never);
-        getRecoveryActionsSpy.mockReturnValue([
-            { label: 'Retry', isPrimary: true, action: jest.fn() },
-        ]);
-        app = new App();
-        await app.start();
+        const startedApp = await bootstrapApp(() => {
+            installRecoveryActionSpy();
+            jest.spyOn(AppOrchestrator.prototype, 'getNavigation').mockReturnValue({
+                openModal,
+                closeModal,
+                isModalOpen,
+                registerFocusable,
+                unregisterFocusable,
+                setFocus,
+                on,
+                off,
+            } as never);
+            getRecoveryActionsSpy.mockReturnValue([
+                { label: 'Retry', isPrimary: true, action: jest.fn() },
+            ]);
+        });
 
-        app.showErrorOverlay({
+        startedApp.showErrorOverlay({
             code: 'TEST_ERROR',
             message: 'Boom',
             userMessage: 'Something failed',
@@ -502,7 +495,7 @@ describe('App bootstrap smoke', () => {
         expect(registerFocusable).toHaveBeenCalledTimes(1);
         expect(setFocus).toHaveBeenCalledWith('error-overlay-action-0', { persist: false });
 
-        app.hideErrorOverlay();
+        startedApp.hideErrorOverlay();
 
         expect(closeModal).toHaveBeenCalledWith('modal:error-overlay');
         expect(unregisterFocusable).toHaveBeenCalledWith('error-overlay-action-0');
@@ -517,12 +510,11 @@ describe('App bootstrap smoke', () => {
     ])(
         'app-shell error handler suppresses blocking overlay for recoverable code %s',
         async (code, expectedMessage) => {
-            installStartupSpies();
-            installLifecycleWiringSpies();
-            app = new App();
-            await app.start();
+            const startedApp = await bootstrapApp(() => {
+                installLifecycleWiringSpies();
+            });
 
-            app.showErrorOverlay({
+            startedApp.showErrorOverlay({
                 code: 'TEST_ERROR',
                 message: 'Boom',
                 userMessage: 'Something failed',
@@ -551,10 +543,9 @@ describe('App bootstrap smoke', () => {
     );
 
     it('app-shell error handler still shows overlay for auth-required blocking errors', async () => {
-        installStartupSpies();
-        installLifecycleWiringSpies();
-        app = new App();
-        await app.start();
+        await bootstrapApp(() => {
+            installLifecycleWiringSpies();
+        });
 
         expect(appShellErrorHandler).not.toBeNull();
         const handled = appShellErrorHandler?.({
@@ -571,10 +562,9 @@ describe('App bootstrap smoke', () => {
     it('shows, throttles, and hides toasts via orchestrator hooks', async () => {
         jest.useFakeTimers();
         jest.setSystemTime(0);
-        installStartupSpies();
-        installLifecycleWiringSpies();
-        app = new App();
-        await app.start();
+        await bootstrapApp(() => {
+            installLifecycleWiringSpies();
+        });
 
         expect(typeof nowPlayingHandler).toBe('function');
         const toastEl = document.getElementById('app-toast') as HTMLElement | null;
@@ -610,16 +600,15 @@ describe('App bootstrap smoke', () => {
     it('clears delegated toast timers during shutdown', async () => {
         jest.useFakeTimers();
         jest.setSystemTime(0);
-        installStartupSpies();
-        installLifecycleWiringSpies();
-        app = new App();
-        await app.start();
+        const startedApp = await bootstrapApp(() => {
+            installLifecycleWiringSpies();
+        });
 
         jest.setSystemTime(10_000);
         nowPlayingHandler?.({ message: 'Hello', type: 'info' });
         expect(jest.getTimerCount()).toBeGreaterThan(0);
 
-        await app.shutdown();
+        await startedApp.shutdown();
         app = null;
 
         expect(jest.getTimerCount()).toBe(0);
@@ -628,16 +617,14 @@ describe('App bootstrap smoke', () => {
     it('copies dev playback info via clipboard and shows toast when blocked/unsupported', async () => {
         jest.useFakeTimers();
         jest.setSystemTime(0);
-        installStartupSpies();
-        installPlaybackSnapshotSpy();
-
-        refreshPlaybackInfoSnapshotSpy.mockResolvedValueOnce({
-            channel: null,
-            program: null,
-            stream: null,
-        } satisfies PlaybackInfoSnapshot);
-        app = new App();
-        await app.start();
+        await bootstrapApp(() => {
+            installPlaybackSnapshotSpy();
+            refreshPlaybackInfoSnapshotSpy.mockResolvedValueOnce({
+                channel: null,
+                program: null,
+                stream: null,
+            } satisfies PlaybackInfoSnapshot);
+        });
 
         (window as unknown as { lineup?: { toggleDevMenu: () => void } }).lineup?.toggleDevMenu();
         await flushPromises();
@@ -682,12 +669,11 @@ describe('App bootstrap smoke', () => {
     });
 
     it('renders a fatal error when startup fails', async () => {
-        installStartupSpies();
-        initializeSpy.mockReset();
-        initializeSpy.mockRejectedValueOnce(new Error('init failed'));
         const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
-        app = new App();
-        await app.start();
+        await bootstrapApp(() => {
+            initializeSpy.mockReset();
+            initializeSpy.mockRejectedValueOnce(new Error('init failed'));
+        });
 
         expect(errorSpy).toHaveBeenCalledTimes(1);
         expect(errorSpy).toHaveBeenCalledWith(
@@ -774,10 +760,9 @@ describe('App bootstrap smoke', () => {
             on: jest.fn(),
             off: jest.fn(),
         } as never);
-        installStartupSpies();
-        installLifecycleWiringSpies();
-        app = new App();
-        await app.start();
+        await bootstrapApp(() => {
+            installLifecycleWiringSpies();
+        });
 
         expect(typeof screenChangeHandler).toBe('function');
 
@@ -800,11 +785,10 @@ describe('App bootstrap smoke', () => {
 
     it('prefetches SettingsScreen after player entry delay', async () => {
         jest.useFakeTimers();
-        installStartupSpies();
-        installLifecycleWiringSpies();
         isReadySpy.mockReturnValue(true);
-        app = new App();
-        await app.start();
+        await bootstrapApp(() => {
+            installLifecycleWiringSpies();
+        });
 
         screenChangeHandler?.('auth', 'player');
         jest.advanceTimersByTime(1200);
@@ -815,10 +799,9 @@ describe('App bootstrap smoke', () => {
 
     it('prefetches ChannelSetupScreen after server-select delay', async () => {
         jest.useFakeTimers();
-        installStartupSpies();
-        installLifecycleWiringSpies();
-        app = new App();
-        await app.start();
+        await bootstrapApp(() => {
+            installLifecycleWiringSpies();
+        });
 
         screenChangeHandler?.('splash', 'server-select');
         jest.advanceTimersByTime(500);
@@ -830,10 +813,9 @@ describe('App bootstrap smoke', () => {
     it('reuses lazy-loaded settings and channel-setup screens across repeated visibility changes', async () => {
         let currentScreen: string | null = null;
         (AppOrchestrator.prototype.getCurrentScreen as unknown as jest.Mock).mockImplementation(() => currentScreen);
-        installStartupSpies();
-        installLifecycleWiringSpies();
-        app = new App();
-        await app.start();
+        await bootstrapApp(() => {
+            installLifecycleWiringSpies();
+        });
 
         currentScreen = 'settings';
         screenChangeHandler?.('player', 'settings');
@@ -867,10 +849,9 @@ describe('App bootstrap smoke', () => {
 
         let currentScreen: string | null = null;
         (AppOrchestrator.prototype.getCurrentScreen as unknown as jest.Mock).mockImplementation(() => currentScreen);
-        installStartupSpies();
-        installLifecycleWiringSpies();
-        app = new App();
-        await app.start();
+        await bootstrapApp(() => {
+            installLifecycleWiringSpies();
+        });
 
         currentScreen = 'audio-setup';
         screenChangeHandler?.('auth', 'audio-setup');
@@ -887,18 +868,17 @@ describe('App bootstrap smoke', () => {
 
     it('clears delegated lazy-screen prefetch timers during shutdown', async () => {
         jest.useFakeTimers();
-        installStartupSpies();
-        installLifecycleWiringSpies();
         isReadySpy.mockReturnValue(true);
-        app = new App();
-        await app.start();
+        const startedApp = await bootstrapApp(() => {
+            installLifecycleWiringSpies();
+        });
 
         screenChangeHandler?.('splash', 'server-select');
         screenChangeHandler?.('auth', 'player');
 
         expect(jest.getTimerCount()).toBe(2);
 
-        await app.shutdown();
+        await startedApp.shutdown();
         app = null;
 
         expect(jest.getTimerCount()).toBe(0);
