@@ -795,6 +795,7 @@ export class ChannelSetupScreen {
                             this._strategies[strategy].enabled
                         );
                         if (updated) {
+                            this._preferredFocusId = null;
                             return;
                         }
                     }

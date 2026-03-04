@@ -1006,6 +1006,39 @@ describe('ChannelSetupScreen', () => {
         expect(after?.classList.contains('selected')).toBe(false);
     });
 
+    it('does not snap focus back to a stale priority row during preview rerenders', async () => {
+        jest.useFakeTimers();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const getSetupPreview = jest.fn().mockResolvedValue(DEFAULT_PREVIEW);
+        const orchestrator = createOrchestrator({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+            getSetupPreview,
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-priority-order');
+        nav.setFocus.mockClear();
+
+        clickButton(container, '#setup-priority-row-playlists');
+        nav.setMockFocus('setup-category-priority-order');
+
+        jest.advanceTimersByTime(450);
+        await flushPromises();
+
+        expect(getSetupPreview).toHaveBeenCalled();
+        const lastFocused = nav.setFocus.mock.calls.at(-1)?.[0];
+        expect(lastFocused).toBe('setup-category-priority-order');
+    });
+
     it('renders strategy toggles and priority rows for every setup strategy key with no extras', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
