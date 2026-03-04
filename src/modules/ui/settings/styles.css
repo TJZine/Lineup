@@ -328,3 +328,138 @@
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.08));
   color: #ffffff;
 }
+
+.theme-glass .settings-profile-row {
+  background: var(--glass-panel-soft);
+  border: 1px solid var(--glass-border-soft);
+}
+
+.theme-glass .settings-profile-row:hover {
+  background: var(--glass-panel-soft-hover, var(--glass-panel-soft));
+}
+
+.theme-glass .settings-profile-row:focus {
+  border-color: var(--focus-color);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ============================================================
+   Dropdown Popover
+   ============================================================ */
+
+.settings-dropdown {
+  position: absolute;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: var(--panel-surface, rgba(22, 25, 34, 0.92));
+  border: var(--panel-border, 1px solid rgba(255, 255, 255, 0.10));
+  border-radius: var(--panel-radius, 10px);
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.55));
+  max-height: 320px;
+  overflow-y: auto;
+  animation: settings-dropdown-enter 150ms ease-out both;
+}
+
+@keyframes settings-dropdown-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.settings-dropdown-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: calc(var(--panel-radius, 10px) - 4px);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 18px;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.settings-dropdown-option:hover,
+.settings-dropdown-option:focus {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.12);
+  outline: none;
+}
+
+.settings-dropdown-option.focused {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.12);
+  outline: none;
+}
+
+.settings-dropdown-option--selected {
+  background: rgb(var(--color-primary-rgb, 212 160 122) / 16%);
+  color: var(--color-primary-light, #e8c0a0);
+}
+
+.settings-dropdown-option--selected:hover,
+.settings-dropdown-option--selected:focus,
+.settings-dropdown-option--selected.focused {
+  background: rgb(var(--color-primary-rgb, 212 160 122) / 24%);
+}
+
+.settings-dropdown-option-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-dropdown-option-check {
+  flex-shrink: 0;
+  font-size: 16px;
+  color: var(--color-primary, #d4a07a);
+}
+
+.setup-toggle-chevron {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-left: 6px;
+}
+
+/* Glass theme dropdown overrides */
+.theme-glass .settings-dropdown {
+  background: var(--glass-panel-strong, rgba(16, 18, 24, 0.66));
+  border: 1px solid var(--glass-border-strong, rgba(255, 255, 255, 0.24));
+  backdrop-filter: var(--glass-backdrop-filter);
+  -webkit-backdrop-filter: var(--glass-backdrop-filter);
+}
+
+.theme-glass .settings-dropdown-option:hover,
+.theme-glass .settings-dropdown-option:focus,
+.theme-glass .settings-dropdown-option.focused {
+  background: var(--glass-panel-soft-hover, rgba(255, 255, 255, 0.10));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-dropdown {
+    animation: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .settings-dropdown {
+    border: 2px solid ButtonText;
+  }
+
+  .settings-dropdown-option:focus {
+    outline: 2px solid Highlight;
+  }
+}

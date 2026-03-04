@@ -7,6 +7,7 @@
 import type { INavigationManager, FocusableElement, KeyEvent } from '../../navigation';
 import { createSettingsToggle } from './SettingsToggle';
 import { createSettingsSelect } from './SettingsSelect';
+import { createSettingsDropdown } from './SettingsDropdown';
 import { SETTINGS_STORAGE_KEYS, DEFAULT_SETTINGS } from './constants';
 import { DEFAULT_THEME, THEME_OPTIONS } from './theme';
 import type {
@@ -195,6 +196,7 @@ export class SettingsScreen {
     private _detailTitle: HTMLHeadingElement | null = null;
     private _detailItems: HTMLElement | null = null;
     private _switchProfileButton: HTMLButtonElement | null = null;
+    private _activeDropdown: { destroy: () => void } | null = null;
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
     private _detailSwapFrame: number | null = null;
     private _detailRevealFrame: number | null = null;
@@ -893,6 +895,14 @@ export class SettingsScreen {
         if (nav && !this._navKeyHandler) {
             this._navKeyHandler = (event: KeyEvent): void => {
                 if (event.handled) return;
+
+                // Dismiss dropdown on Back key.
+                if (this._activeDropdown && event.button === 'back') {
+                    event.handled = true;
+                    this._closeDropdown();
+                    return;
+                }
+
                 const focusedId = nav.getFocusedElement()?.id;
                 if (!focusedId) return;
                 const focusedCategoryId = this._getCategoryIdFromButtonId(focusedId);
@@ -935,6 +945,7 @@ export class SettingsScreen {
      * Hide the settings screen and unregister focusables.
      */
     public hide(): void {
+        this._closeDropdown();
         this._container.classList.remove('visible');
         if (this._navKeyHandler) {
             const nav = this._getNavigation();
@@ -945,6 +956,43 @@ export class SettingsScreen {
         this._detailItems?.classList.remove('transitioning');
         this._pendingFocusRestore = null;
         this._unregisterFocusables();
+    }
+
+    private _openDropdownForSelect(selectId: string): void {
+        // Close any existing dropdown.
+        this._closeDropdown();
+
+        const select = this._selectElements.get(selectId);
+        if (!select || select.isDisabled()) return;
+
+        const nav = this._getNavigation();
+        this._activeDropdown = createSettingsDropdown({
+            anchor: select.element,
+            container: this._container,
+            options: select.getOptions(),
+            currentValue: select.getValue(),
+            onSelect: (value: number): void => {
+                select.setValue(value);
+                this._closeDropdown();
+                if (nav) {
+                    nav.setFocus(selectId);
+                }
+            },
+            onDismiss: (): void => {
+                this._closeDropdown();
+                if (nav) {
+                    nav.setFocus(selectId);
+                }
+            },
+            nav,
+        });
+    }
+
+    private _closeDropdown(): void {
+        if (this._activeDropdown) {
+            this._activeDropdown.destroy();
+            this._activeDropdown = null;
+        }
     }
 
     /**
@@ -1018,7 +1066,9 @@ export class SettingsScreen {
                 };
                 const isSelect = this._selectElements.has(id);
                 onSelect = isSelect
-                    ? (): void => { }
+                    ? (): void => {
+                        this._openDropdownForSelect(id);
+                    }
                     : (): void => {
                         element.click();
                     };

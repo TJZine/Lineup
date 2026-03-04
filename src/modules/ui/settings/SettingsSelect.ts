@@ -13,6 +13,9 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
     getId: () => string;
     cyclePrev: () => boolean;
     cycleNext: () => boolean;
+    setValue: (value: number) => boolean;
+    getOptions: () => SettingsSelectConfig['options'];
+    getValue: () => number;
 } {
     const button = document.createElement('button');
     button.id = config.id;
@@ -35,7 +38,14 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
     const valueEl = document.createElement('span');
     valueEl.className = 'setup-toggle-value';
     valueEl.textContent = resolveOptionLabel(config.options, config.value);
+
+    const chevron = document.createElement('span');
+    chevron.className = 'setup-toggle-chevron';
+    chevron.textContent = '▾';
+    chevron.setAttribute('aria-hidden', 'true');
+
     state.appendChild(valueEl);
+    state.appendChild(chevron);
 
     button.appendChild(label);
     button.appendChild(meta);
@@ -57,6 +67,17 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
         if (config.disabled) return false;
         const previousValue = config.value;
         const nextValue = getNextValueClamped(config.options, config.value);
+        update(nextValue);
+        if (nextValue === previousValue) {
+            return false;
+        }
+        config.onChange(nextValue);
+        return true;
+    };
+
+    const setValue = (nextValue: number): boolean => {
+        if (config.disabled) return false;
+        const previousValue = config.value;
         update(nextValue);
         if (nextValue === previousValue) {
             return false;
@@ -95,6 +116,9 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
         getId: (): string => config.id,
         cyclePrev,
         cycleNext,
+        setValue,
+        getOptions: (): SettingsSelectConfig['options'] => config.options,
+        getValue: (): number => config.value,
     };
 }
 

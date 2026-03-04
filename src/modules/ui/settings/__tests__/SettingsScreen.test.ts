@@ -341,9 +341,39 @@ describe('SettingsScreen (Guide settings)', () => {
         expect(value?.textContent?.trim()).toBe('Classic (PIP)');
     });
 
-    it('does not change select value on OK', () => {
+    it('opens dropdown on select activation and applies selection explicitly', () => {
         const onGuideSettingChange = jest.fn();
         const { container, nav, screen } = createScreen(onGuideSettingChange);
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
+
+        screen.show();
+        activateCategory(container, 'appearance');
+
+        const focusable = nav.focusables.get('settings-epg-layout-mode');
+        expect(focusable?.onSelect).toBeDefined();
+        focusable?.onSelect?.();
+
+        const dropdown = container.querySelector('#settings-dropdown') as HTMLElement | null;
+        expect(dropdown).not.toBeNull();
+        expect(dropdown?.querySelectorAll('.settings-dropdown-option')?.length).toBeGreaterThan(0);
+
+        // No change until explicit option click.
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('overlay');
+
+        const firstNonSelected = dropdown?.querySelector(
+            '.settings-dropdown-option:not(.settings-dropdown-option--selected)'
+        ) as HTMLButtonElement | null;
+        expect(firstNonSelected).not.toBeNull();
+        firstNonSelected?.click();
+
+        expect(onGuideSettingChange).toHaveBeenCalled();
+        expect(container.querySelector('#settings-dropdown')).toBeNull();
+    });
+
+    it('dismisses dropdown on back without mutating the setting', () => {
+        const onGuideSettingChange = jest.fn();
+        const { container, nav, screen } = createScreen(onGuideSettingChange);
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
 
         screen.show();
         activateCategory(container, 'appearance');
@@ -351,8 +381,17 @@ describe('SettingsScreen (Guide settings)', () => {
 
         const focusable = nav.focusables.get('settings-epg-layout-mode');
         focusable?.onSelect?.();
+        expect(container.querySelector('#settings-dropdown')).not.toBeNull();
 
-        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBeNull();
+        const keyHandler = nav.on.mock.calls.find((call) => call[0] === 'keyPress')?.[1];
+        expect(typeof keyHandler).toBe('function');
+
+        const backEvent = { handled: false, button: 'back' };
+        keyHandler?.(backEvent);
+
+        expect(backEvent.handled).toBe(true);
+        expect(container.querySelector('#settings-dropdown')).toBeNull();
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('overlay');
         expect(onGuideSettingChange).not.toHaveBeenCalled();
     });
 
