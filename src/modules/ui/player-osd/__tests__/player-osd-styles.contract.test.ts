@@ -18,7 +18,7 @@ describe('player OSD style contract', () => {
     it('animates the inner tray instead of the full root container', () => {
         const css = read('src/modules/ui/player-osd/styles.css');
 
-        expect(css).toMatch(/\.player-osd\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0;[^}]*display:\s*flex;[^}]*align-items:\s*flex-end;/s);
+        expect(css).toMatch(/\.player-osd\s*\{[^}]*position:\s*absolute;[^}]*top:\s*0;[^}]*right:\s*0;[^}]*bottom:\s*0;[^}]*left:\s*0;[^}]*display:\s*flex;[^}]*align-items:\s*flex-end;/s);
         expect(css).not.toMatch(/\.player-osd\s*\{[^}]*transform:\s*translateY\(100%\);/s);
         expect(css).toMatch(/\.player-osd-panel\s*\{[^}]*transform:\s*translateY\(100%\);/s);
         expect(css).toMatch(/\.player-osd\.visible\s+\.player-osd-panel\s*\{[^}]*transform:\s*translateY\(0\);/s);

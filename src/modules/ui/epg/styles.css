@@ -487,13 +487,19 @@
 
 .epg-library-picker-overlay {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: var(--z-modal);
 }
 
 .epg-library-picker-scrim {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   background: rgba(0, 0, 0, 0.55);
 }
 
@@ -1054,7 +1060,10 @@
 
 .epg-info-backdrop {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
@@ -1065,7 +1074,10 @@
 .epg-info-gradient-a,
 .epg-info-gradient-b {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   pointer-events: none;
   opacity: 0;
   transition: opacity 400ms ease-out;
