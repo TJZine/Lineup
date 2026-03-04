@@ -694,7 +694,7 @@ export class EPGVirtualizer {
     }
 
     private extractShowTitleFromFullTitle(fullTitle: string, episodeTitle?: string): string | null {
-        const withEpisodeCode = fullTitle.match(/^(.*?)\s-\sS\d{1,2}E\d{1,2}\s-/);
+        const withEpisodeCode = fullTitle.match(/^(.*?)\s-\sS\d{1,2}E\d{1,2}\s-/i);
         if (withEpisodeCode) {
             const showTitle = withEpisodeCode[1]?.trim() ?? '';
             return showTitle.length > 0 ? showTitle : null;
