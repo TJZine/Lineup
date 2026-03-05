@@ -15,7 +15,7 @@ import {
 import type { AppOrchestrator } from '../../../Orchestrator';
 import type { PlexLibraryType } from '../../plex/library';
 import type { FocusableElement, KeyEvent } from '../../navigation';
-import { safeLocalStorageGet } from '../../../utils/storage';
+import { ServerSelectionStore } from '../../plex/discovery/ServerSelectionStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../scheduler/channel-manager/constants';
 import {
@@ -125,6 +125,7 @@ export type ChannelSetupOrchestrator = Pick<
     | 'getSetupReview'
     | 'getSetupContextForSelectedServer'
     | 'getSelectedServerStorageKey'
+    | 'getServerHealthStorageKey'
     | 'getSelectedServerId'
 >;
 
@@ -150,6 +151,7 @@ const SHOW_SVG = `
 export class ChannelSetupScreen {
     private _container: HTMLElement;
     private _orchestrator: ChannelSetupOrchestrator;
+    private readonly _serverSelectionStore: ServerSelectionStore;
     private readonly _focus: ChannelSetupFocusCoordinator;
     private _destroyScreenShell: (() => void) | null = null;
     private readonly _libraryStep = new LibraryStepController();
@@ -277,6 +279,8 @@ export class ChannelSetupScreen {
     constructor(container: HTMLElement, orchestrator: ChannelSetupOrchestrator) {
         this._container = container;
         this._orchestrator = orchestrator;
+        this._serverSelectionStore = new ServerSelectionStore();
+        this._syncServerSelectionStoreKeys();
         this._focus = new ChannelSetupFocusCoordinator({
             getNavigation: (): ReturnType<ChannelSetupOrchestrator['getNavigation']> => this._orchestrator.getNavigation(),
         });
@@ -1503,11 +1507,19 @@ export class ChannelSetupScreen {
     }
 
     private _getSelectedServerId(): string | null {
-        const stored = safeLocalStorageGet(this._orchestrator.getSelectedServerStorageKey());
+        this._syncServerSelectionStoreKeys();
+        const stored = this._serverSelectionStore.readSelectedServerId();
         if (stored) {
             return stored;
         }
         return this._orchestrator.getSelectedServerId();
+    }
+
+    private _syncServerSelectionStoreKeys(): void {
+        this._serverSelectionStore.setStorageKeys(
+            this._orchestrator.getSelectedServerStorageKey(),
+            this._orchestrator.getServerHealthStorageKey()
+        );
     }
 
     private _registerFocusables(buttons: HTMLElement[], mode: 'linear' | 'spatial' = 'linear'): void {
