@@ -1,13 +1,11 @@
 import type { IAppOrchestrator } from '../../Orchestrator';
 import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
+import { AudioSettingsStore } from '../../modules/settings/AudioSettingsStore';
 import type { ToastInput } from '../../modules/ui/toast/types';
 import {
     readStoredBoolean,
     safeClearLineupStorage,
-    safeLocalStorageGet,
-    safeLocalStorageRemove,
-    safeLocalStorageSet,
 } from '../../utils/storage';
 import { STORAGE_KEYS } from '../../types';
 
@@ -34,6 +32,7 @@ export class AppDiagnosticsSurface {
     private readonly _getOrchestrator: () => DiagnosticsOrchestrator | null;
     private readonly _showToast: (input: ToastInput) => void;
     private readonly _debugOverridesStore: DebugOverridesStore;
+    private readonly _audioSettingsStore = new AudioSettingsStore();
     private _container: HTMLElement | null = null;
     private _globalKeydownHandler: ((event: KeyboardEvent) => void) | null = null;
 
@@ -224,8 +223,7 @@ export class AppDiagnosticsSurface {
         }
         const directPlayAudioFallbackEl = container.querySelector('#dev-directplay-audio-fallback') as HTMLInputElement | null;
         if (directPlayAudioFallbackEl) {
-            directPlayAudioFallbackEl.checked =
-                (safeLocalStorageGet(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK) ?? '') === '1';
+            directPlayAudioFallbackEl.checked = this._audioSettingsStore.readDirectPlayAudioFallbackEnabled();
         }
         const nowPlayingStreamDebugEl = container.querySelector('#dev-nowplaying-stream-debug') as HTMLInputElement | null;
         if (nowPlayingStreamDebugEl) {
@@ -238,10 +236,7 @@ export class AppDiagnosticsSurface {
 
         container.querySelector('#dev-transcode-save')?.addEventListener('click', () => {
             if (directPlayAudioFallbackEl) {
-                safeLocalStorageSet(
-                    LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK,
-                    directPlayAudioFallbackEl.checked ? '1' : '0'
-                );
+                this._audioSettingsStore.writeDirectPlayAudioFallbackEnabled(directPlayAudioFallbackEl.checked);
             }
             if (nowPlayingStreamDebugEl) {
                 this._debugOverridesStore.writeNowPlayingStreamDebugEnabled(nowPlayingStreamDebugEl.checked);
@@ -260,7 +255,7 @@ export class AppDiagnosticsSurface {
         container.querySelector('#dev-transcode-clear')?.addEventListener('click', () => {
             const ok = window.confirm('Clear transcode overrides?');
             if (!ok) return;
-            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK);
+            this._audioSettingsStore.clearDirectPlayAudioFallbackEnabled();
             this._debugOverridesStore.clearDebugOverrides();
             this._showToast({ message: 'Cleared overrides', type: 'success' });
             // Re-render to reflect cleared state

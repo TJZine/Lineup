@@ -1109,7 +1109,8 @@ export class SettingsScreen {
     }
 
     private _saveEpgLayoutModeValue(value: number): void {
-        this._settingsStore.writeEpgLayoutModeValue(value);
+        const normalized: 0 | 1 = value === 0 ? 0 : 1;
+        this._settingsStore.writeEpgLayoutModeValue(normalized);
     }
 
     private _saveEpgGuideDensityValue(value: number): void {

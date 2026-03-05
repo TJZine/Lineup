@@ -32,6 +32,7 @@ import {
 } from './constants';
 import { generateUUID } from './utils';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
 import {
     isStoredTrue,
     readStoredBoolean,
@@ -61,6 +62,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     private readonly _config: PlexStreamResolverConfig;
     private readonly _emitter: EventEmitter<StreamResolverEventMap>;
     private readonly _identityService: PlatformIdentityService;
+    private readonly _audioSettingsStore = new AudioSettingsStore();
 
     /**
      * Create a new PlexStreamResolver instance.
@@ -479,15 +481,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         const sessionId = generateUUID();
 
         // 4. Check direct play compatibility ON THE SELECTED MEDIA VERSION
-            const allowDirectPlayAudioFallback = ((): boolean => {
-                try {
-                    return isStoredTrue(
-                        safeLocalStorageGet(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK)
-                    );
-                } catch {
-                    return false;
-                }
-            })();
+            const allowDirectPlayAudioFallback = this._audioSettingsStore.readDirectPlayAudioFallbackEnabled();
 
             let directDecision = this._getDirectPlayDecision(media);
             let directPlayAudioStreamId: string | undefined;

@@ -1,8 +1,8 @@
 import { TRANSCODE_QUALITY_OPTIONS } from '../../../config/transcodeQuality';
 import { NOW_PLAYING_INFO_DEFAULTS } from '../now-playing-info/constants';
+import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
 import {
     parseStoredEpgInfoBackgroundMode,
-    readStoredBoolean,
     safeLocalStorageGet,
     safeLocalStorageRemove,
     safeLocalStorageSet,
@@ -72,11 +72,28 @@ const TOGGLE_DEFAULT_BY_ID: Record<ToggleSettingId, boolean> = {
 };
 
 export class SettingsStore {
+    private readonly _audioSettingsStore = new AudioSettingsStore();
+
     readToggleSetting(id: ToggleSettingId): boolean {
-        return readStoredBoolean(TOGGLE_STORAGE_KEY_BY_ID[id], TOGGLE_DEFAULT_BY_ID[id]);
+        if (id === 'dtsPassthrough') {
+            return this._audioSettingsStore.readDtsPassthroughEnabled();
+        }
+        if (id === 'directPlayAudioFallback') {
+            return this._audioSettingsStore.readDirectPlayAudioFallbackEnabled();
+        }
+
+        return this._readBooleanKey(TOGGLE_STORAGE_KEY_BY_ID[id], TOGGLE_DEFAULT_BY_ID[id]);
     }
 
     writeToggleSetting(id: ToggleSettingId, value: boolean): void {
+        if (id === 'dtsPassthrough') {
+            this._audioSettingsStore.writeDtsPassthroughEnabled(value);
+            return;
+        }
+        if (id === 'directPlayAudioFallback') {
+            this._audioSettingsStore.writeDirectPlayAudioFallbackEnabled(value);
+            return;
+        }
         safeLocalStorageSet(TOGGLE_STORAGE_KEY_BY_ID[id], value ? '1' : '0');
     }
 
@@ -107,12 +124,27 @@ export class SettingsStore {
         }
     }
 
-    readEpgLayoutModeValue(): number {
-        const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE);
-        return raw === 'overlay' ? 0 : 1;
+    private _readBooleanKey(key: string, fallback: boolean): boolean {
+        const raw = safeLocalStorageGet(key);
+        if (raw === '1') return true;
+        if (raw === '0') return false;
+
+        if (raw !== null) {
+            safeLocalStorageRemove(key);
+        }
+
+        return fallback;
     }
 
-    writeEpgLayoutModeValue(value: number): void {
+    readEpgLayoutModeValue(): 0 | 1 {
+        const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE);
+        if (raw === 'overlay') return 0;
+        if (raw === 'classic' || raw === null) return 1;
+        safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE);
+        return 1;
+    }
+
+    writeEpgLayoutModeValue(value: 0 | 1): void {
         const mode = value === 1 ? 'classic' : 'overlay';
         safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, mode);
     }
