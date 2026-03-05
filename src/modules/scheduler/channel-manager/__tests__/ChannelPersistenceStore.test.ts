@@ -98,6 +98,26 @@ describe('ChannelPersistenceStore', () => {
         setSpy.mockRestore();
     });
 
+    it('returns quota-exceeded from writeStoredChannelData when quota is signaled via legacy DOMException code', () => {
+        const store = new ChannelPersistenceStore();
+        const quotaLikeError = Object.create(DOMException.prototype) as DOMException;
+        Object.defineProperty(quotaLikeError, 'code', { value: 22 });
+        Object.defineProperty(quotaLikeError, 'name', { value: 'SecurityError' });
+        const setSpy = jest.spyOn(mockLocalStorage, 'setItem').mockImplementation(() => {
+            throw quotaLikeError;
+        });
+
+        const result = store.writeStoredChannelData({
+            channels: [],
+            channelOrder: [],
+            currentChannelId: null,
+            savedAt: Date.now(),
+        });
+
+        expect(result).toBe('quota-exceeded');
+        setSpy.mockRestore();
+    });
+
     it('treats blocked storage as non-fatal', () => {
         const store = new ChannelPersistenceStore();
 

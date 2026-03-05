@@ -98,11 +98,16 @@ export class ChannelPersistenceStore {
     }
 
     private _isQuotaExceeded(error: unknown): boolean {
-        if (!(error instanceof DOMException)) {
+        if (
+            typeof DOMException === 'undefined' ||
+            !(error instanceof DOMException)
+        ) {
             return false;
         }
 
         return (
+            error.code === 22 ||
+            error.code === 1014 ||
             error.name === 'QuotaExceededError' ||
             error.name === 'NS_ERROR_DOM_QUOTA_REACHED'
         );
