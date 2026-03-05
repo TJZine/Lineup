@@ -255,6 +255,13 @@ export class ChannelSetupScreen {
         return `setup-priority-row-${this._toDomId(String(strategy))}`;
     }
 
+    private _setPriorityRowGrabbedVisual(strategy: SetupStrategyKey | null, grabbed: boolean): void {
+        if (!strategy) return;
+        const el = document.getElementById(this._priorityRowId(strategy));
+        el?.classList.toggle('setup-priority-row--grabbed', grabbed);
+        el?.setAttribute('aria-grabbed', grabbed ? 'true' : 'false');
+    }
+
     private _scopeButtonId(strategy: SetupStrategyKey): string {
         return `setup-scope-${this._toDomId(String(strategy))}`;
     }
@@ -344,22 +351,15 @@ export class ChannelSetupScreen {
 
                     if (this._grabbedPriorityKey === strategy) {
                         // Drop: exit grab mode
+                        this._setPriorityRowGrabbedVisual(strategy, false);
                         this._grabbedPriorityKey = null;
-                        const el = document.getElementById(focusedId);
-                        el?.classList.remove('setup-priority-row--grabbed');
-                        el?.setAttribute('aria-grabbed', 'false');
                     } else {
                         // Grab: enter grab mode (release any previous)
                         if (this._grabbedPriorityKey) {
-                            const prevId = this._priorityRowId(this._grabbedPriorityKey);
-                            const prevEl = document.getElementById(prevId);
-                            prevEl?.classList.remove('setup-priority-row--grabbed');
-                            prevEl?.setAttribute('aria-grabbed', 'false');
+                            this._setPriorityRowGrabbedVisual(this._grabbedPriorityKey, false);
                         }
                         this._grabbedPriorityKey = strategy;
-                        const el = document.getElementById(focusedId);
-                        el?.classList.add('setup-priority-row--grabbed');
-                        el?.setAttribute('aria-grabbed', 'true');
+                        this._setPriorityRowGrabbedVisual(strategy, true);
                     }
                     return;
                 }
@@ -408,9 +408,7 @@ export class ChannelSetupScreen {
                     this._renderStep();
                     this._lastReorder = null;
                     // Re-apply grabbed state after render
-                    const newEl = document.getElementById(this._priorityRowId(strategy));
-                    newEl?.classList.add('setup-priority-row--grabbed');
-                    newEl?.setAttribute('aria-grabbed', 'true');
+                    this._setPriorityRowGrabbedVisual(strategy, true);
                     return;
                 }
 
@@ -446,10 +444,7 @@ export class ChannelSetupScreen {
                 if (direction === 'left' && activeDetailIds.includes(focusedId)) {
                     event.handled = true;
                     if (this._activeStrategyCategory === 'priority-order' && this._grabbedPriorityKey) {
-                        const grabbedId = this._priorityRowId(this._grabbedPriorityKey);
-                        const grabbedEl = document.getElementById(grabbedId);
-                        grabbedEl?.classList.remove('setup-priority-row--grabbed');
-                        grabbedEl?.setAttribute('aria-grabbed', 'false');
+                        this._setPriorityRowGrabbedVisual(this._grabbedPriorityKey, false);
                         this._grabbedPriorityKey = null;
                     }
                     this._preferredFocusId = activeCategoryButtonId;
