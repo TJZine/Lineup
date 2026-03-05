@@ -4,13 +4,12 @@
  * @version 1.0.0
  */
 
-import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
-import { isStoredTrue, safeLocalStorageGet } from '../../utils/storage';
 import { summarizeErrorForLog } from '../../utils/errors';
 import type { INavigationManager } from '../navigation';
 import type { IPlexStreamResolver, StreamDecision } from '../plex/stream';
 import type { ScheduledProgram } from '../scheduler/scheduler';
 import type { INowPlayingInfoOverlay } from '../ui/now-playing-info';
+import { DebugOverridesStore } from './DebugOverridesStore';
 
 export interface NowPlayingDebugManagerDeps {
     nowPlayingModalId: string;
@@ -20,6 +19,7 @@ export interface NowPlayingDebugManagerDeps {
 
     getCurrentProgram: () => ScheduledProgram | null;
     getCurrentStreamDecision: () => StreamDecision | null;
+    debugOverridesStore: DebugOverridesStore;
 
     // Called ONLY from debug-gated fetch after serverDecision applied AND modal is open.
     requestNowPlayingOverlayRefresh: () => void;
@@ -224,22 +224,14 @@ export class NowPlayingDebugManager {
     }
 
     private _isNowPlayingStreamDebugEnabled(): boolean {
-        try {
-            return isStoredTrue(safeLocalStorageGet(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG));
-        } catch {
-            return false;
-        }
+        return this.deps.debugOverridesStore.readNowPlayingStreamDebugEnabled();
     }
 
     private _isNowPlayingStreamDebugAutoShowEnabled(): boolean {
-        try {
-            return (
-                this._isNowPlayingStreamDebugEnabled() &&
-                isStoredTrue(safeLocalStorageGet(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW))
-            );
-        } catch {
-            return false;
-        }
+        return (
+            this._isNowPlayingStreamDebugEnabled() &&
+            this.deps.debugOverridesStore.readNowPlayingStreamDebugAutoShowEnabled()
+        );
     }
 
     private _formatKbps(kbps: number): string {

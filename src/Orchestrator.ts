@@ -154,6 +154,7 @@ import type {
     ChannelSetupReview,
 } from './core/channel-setup/types';
 import { NowPlayingDebugManager } from './modules/debug/NowPlayingDebugManager';
+import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
 import {
     NowPlayingInfoCoordinator,
     getNowPlayingInfoAutoHideMs,
@@ -405,6 +406,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _currentStreamDecision: StreamDecision | null = null;
     private readonly _platformServices: PlatformServices;
     private readonly _storageContext: OrchestratorStorageContext;
+    private readonly _debugOverridesStore = new DebugOverridesStore();
 
     constructor(platformServices?: PlatformServices) {
         this._platformServices = platformServices ?? webosPlatformServices;
@@ -704,6 +706,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             getCurrentProgram: (): ScheduledProgram | null =>
                 this._scheduler?.getCurrentProgram() ?? this._currentProgramForPlayback,
             getCurrentStreamDecision: (): StreamDecision | null => this._currentStreamDecision,
+            debugOverridesStore: this._debugOverridesStore,
             requestNowPlayingOverlayRefresh: (): void =>
                 this._nowPlayingInfoCoordinator?.refreshIfOpen(),
         });
