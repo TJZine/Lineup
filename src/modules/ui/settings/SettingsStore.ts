@@ -1,5 +1,5 @@
 import { TRANSCODE_QUALITY_OPTIONS } from '../../../config/transcodeQuality';
-import { NOW_PLAYING_INFO_DEFAULTS } from '../now-playing-info';
+import { NOW_PLAYING_INFO_DEFAULTS } from '../now-playing-info/constants';
 import {
     parseStoredEpgInfoBackgroundMode,
     readStoredBoolean,

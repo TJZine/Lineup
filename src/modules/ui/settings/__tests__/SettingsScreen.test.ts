@@ -165,6 +165,7 @@ describe('SettingsScreen (Guide settings)', () => {
     it('uses injected SettingsStore without changing visible settings behavior', () => {
         const onGuideSettingChange = jest.fn();
         const injectedStore = new SettingsStore();
+        const writeLayoutModeSpy = jest.spyOn(injectedStore, 'writeEpgLayoutModeValue');
         const { container, screen } = createScreen(onGuideSettingChange, undefined, injectedStore);
         localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
 
@@ -175,6 +176,7 @@ describe('SettingsScreen (Guide settings)', () => {
         layoutSelect.click();
 
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('classic');
+        expect(writeLayoutModeSpy).toHaveBeenCalledWith(1);
         expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'layoutMode', mode: 'classic' });
     });
 

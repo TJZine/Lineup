@@ -1,7 +1,6 @@
 import type { AppOrchestrator } from '../../Orchestrator';
 import type { AudioSetupScreen } from '../../modules/ui/audio-setup/AudioSetupScreen';
 import type { ChannelSetupScreen } from '../../modules/ui/channel-setup/ChannelSetupScreen';
-import { SettingsStore } from '../../modules/ui/settings/SettingsStore';
 import type { SettingsScreen } from '../../modules/ui/settings/SettingsScreen';
 
 export interface AppLazyScreenRegistryContainers {
@@ -189,32 +188,34 @@ export class AppLazyScreenRegistry {
         if (!orchestrator || !container) return null;
 
         if (!this._settingsScreenLoad) {
-            this._settingsScreenLoad = this._loaders.loadSettingsScreen()
-                .then(({ SettingsScreen }) => {
-                    if (this._destroyed) return null;
+            this._settingsScreenLoad = Promise.all([
+                this._loaders.loadSettingsScreen(),
+                import('../../modules/ui/settings/SettingsStore'),
+            ]).then(([{ SettingsScreen }, { SettingsStore }]) => {
+                if (this._destroyed) return null;
 
-                    const screen = new SettingsScreen(
-                        container,
-                        () => this._getOrchestrator()?.getNavigation() ?? null,
-                        (mode): void => {
-                            if (mode !== 'off') return;
-                            void this._getOrchestrator()?.setSubtitleTrack(null);
-                        },
-                        (change): void => {
-                            this._getOrchestrator()?.onGuideSettingChange(change);
-                        },
-                        (): string | null => this._getOrchestrator()?.getActiveUsername() ?? null,
-                        new SettingsStore()
-                    );
+                const screen = new SettingsScreen(
+                    container,
+                    () => this._getOrchestrator()?.getNavigation() ?? null,
+                    (mode): void => {
+                        if (mode !== 'off') return;
+                        void this._getOrchestrator()?.setSubtitleTrack(null);
+                    },
+                    (change): void => {
+                        this._getOrchestrator()?.onGuideSettingChange(change);
+                    },
+                    (): string | null => this._getOrchestrator()?.getActiveUsername() ?? null,
+                    new SettingsStore()
+                );
 
-                    if (this._destroyed) {
-                        screen.destroy();
-                        return null;
-                    }
+                if (this._destroyed) {
+                    screen.destroy();
+                    return null;
+                }
 
-                    this._settingsScreen = screen;
-                    return screen;
-                })
+                this._settingsScreen = screen;
+                return screen;
+            })
                 .finally(() => {
                     this._settingsScreenLoad = null;
                 });
