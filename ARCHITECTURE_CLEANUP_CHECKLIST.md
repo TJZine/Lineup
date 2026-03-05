@@ -171,8 +171,8 @@ Other review signals:
   - [ ] Add tests for valid, invalid, default, and blocked-storage cases
 - Primary work units:
   - [x] P3-W1 - Introduce `SettingsStore` and remove direct settings parsing from `SettingsScreen` (done 2026-03-04; plan: docs/plans/2026-03-04-p3-w1-settings-store-implementation.md)
-- [x] P3-W2 - Extract debug-override storage into a dedicated store (done 2026-03-04; plan: docs/plans/2026-03-05-p3-w2-debug-overrides-store-implementation.md)
-  - [ ] P3-W3 - Add a repository/store for selected server and server health state
+  - [x] P3-W2 - Extract debug-override storage into a dedicated store (done 2026-03-04; plan: docs/plans/2026-03-05-p3-w2-debug-overrides-store-implementation.md)
+  - [x] P3-W3 - Add a repository/store for selected server and server health state (done 2026-03-05; plan: docs/plans/2026-03-05-p3-w3-server-selection-health-store-implementation.md)
   - [ ] P3-W4 - Introduce a dedicated channel persistence boundary and route one caller through it
   - [ ] P3-W5 - Cleanup pass for Priority 3: remove leftover raw storage access, duplicate key knowledge, temporary adapters, and obsolete parsing helpers after the persistence boundaries are in place
 
