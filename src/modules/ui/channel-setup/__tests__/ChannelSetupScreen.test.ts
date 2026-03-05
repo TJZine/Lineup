@@ -1006,6 +1006,49 @@ describe('ChannelSetupScreen', () => {
         expect(after?.classList.contains('selected')).toBe(false);
     });
 
+    it('drops grabbed priority state when moving left back to the category rail', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const orchestrator = createOrchestrator({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+        clickButton(container, '#setup-category-priority-order');
+
+        nav.setMockFocus('setup-priority-row-playlists');
+        const grab = nav.emitKeyPress('ok');
+        expect(grab.handled).toBe(true);
+        expect(
+            (container.querySelector('#setup-priority-row-playlists') as HTMLButtonElement | null)?.classList.contains(
+                'setup-priority-row--grabbed'
+            )
+        ).toBe(true);
+
+        const left = nav.emitKeyPress('left');
+        expect(left.handled).toBe(true);
+        expect(
+            (container.querySelector('#setup-priority-row-playlists') as HTMLButtonElement | null)?.classList.contains(
+                'setup-priority-row--grabbed'
+            )
+        ).toBe(false);
+
+        nav.setMockFocus('setup-category-priority-order');
+        const right = nav.emitKeyPress('right');
+        expect(right.handled).toBe(true);
+
+        nav.setMockFocus('setup-priority-row-playlists');
+        const moveWithoutGrab = nav.emitKeyPress('down');
+        expect(moveWithoutGrab.handled).toBeFalsy();
+    });
+
     it('does not snap focus back to a stale priority row during preview rerenders', async () => {
         jest.useFakeTimers();
         const container = document.createElement('div');

@@ -445,6 +445,13 @@ export class ChannelSetupScreen {
 
                 if (direction === 'left' && activeDetailIds.includes(focusedId)) {
                     event.handled = true;
+                    if (this._activeStrategyCategory === 'priority-order' && this._grabbedPriorityKey) {
+                        const grabbedId = this._priorityRowId(this._grabbedPriorityKey);
+                        const grabbedEl = document.getElementById(grabbedId);
+                        grabbedEl?.classList.remove('setup-priority-row--grabbed');
+                        grabbedEl?.setAttribute('aria-grabbed', 'false');
+                        this._grabbedPriorityKey = null;
+                    }
                     this._preferredFocusId = activeCategoryButtonId;
                     nav.setFocus(activeCategoryButtonId);
                 }
