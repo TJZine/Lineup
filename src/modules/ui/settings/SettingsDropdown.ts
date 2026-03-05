@@ -4,6 +4,7 @@
  */
 
 import type { SettingsSelectOption } from './types';
+import type { FocusableElement, INavigationManager } from '../../navigation/interfaces';
 
 export interface SettingsDropdownConfig {
     /** Anchor element to position the dropdown relative to */
@@ -19,17 +20,7 @@ export interface SettingsDropdownConfig {
     /** Callback when the dropdown is dismissed without selection */
     onDismiss: () => void;
     /** Navigation manager for focus registration */
-    nav: {
-        registerFocusable: (element: {
-            id: string;
-            element: HTMLElement;
-            neighbors: { up?: string; down?: string; left?: string; right?: string };
-            onFocus?: () => void;
-            onSelect?: () => void;
-        }) => void;
-        unregisterFocusable: (id: string) => void;
-        setFocus: (id: string) => void;
-    } | null;
+    nav: Pick<INavigationManager, 'registerFocusable' | 'unregisterFocusable' | 'setFocus'> | null;
 }
 
 const DROPDOWN_ID_PREFIX = 'settings-dropdown-option-';
@@ -128,7 +119,7 @@ export function createSettingsDropdown(config: SettingsDropdownConfig): {
             if (upId) neighbors.up = upId;
             if (downId) neighbors.down = downId;
 
-            config.nav.registerFocusable({
+            const focusable: FocusableElement = {
                 id: optionId,
                 element,
                 neighbors,
@@ -136,7 +127,8 @@ export function createSettingsDropdown(config: SettingsDropdownConfig): {
                     const option = config.options[i];
                     if (option) config.onSelect(option.value);
                 },
-            });
+            };
+            config.nav.registerFocusable(focusable);
         }
 
         // Focus the currently selected option.
