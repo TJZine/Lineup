@@ -8,7 +8,7 @@ import { AppOrchestrator } from '../../../Orchestrator';
 import type { PlexServer } from '../../plex/discovery/types';
 import { PlexApiError } from '../../plex/auth';
 import type { FocusableElement } from '../../navigation';
-import { safeLocalStorageGet } from '../../../utils/storage';
+import { ServerSelectionStore, type ServerHealthMap } from '../../plex/discovery/ServerSelectionStore';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
@@ -34,10 +34,15 @@ export class ServerSelectScreen {
     private _restoreFocusTimeoutId: ReturnType<typeof setTimeout> | null = null;
     private _registeredServerButtonIds: string[] = [];
     private _lastDiscoveredServers: PlexServer[] = [];
+    private _serverSelectionStore: ServerSelectionStore;
 
     constructor(container: HTMLElement, orchestrator: AppOrchestrator) {
         this._container = container;
         this._orchestrator = orchestrator;
+        this._serverSelectionStore = new ServerSelectionStore(() => ({
+            selectedServerKey: this._orchestrator.getSelectedServerStorageKey(),
+            serverHealthKey: this._orchestrator.getServerHealthStorageKey(),
+        }));
         this._container.classList.add('screen');
         this._container.style.position = 'absolute';
         this._container.style.inset = '0';
@@ -170,7 +175,7 @@ export class ServerSelectScreen {
         this._isLoading = true;
         this._unregisterServerListFocusables();
         this._listEl.replaceChildren();
-        const savedId = safeLocalStorageGet(this._orchestrator.getSelectedServerStorageKey());
+        const savedId = this._serverSelectionStore.readSelectedServerId();
         const isAutoConnectAttempt = options.autoSelect && Boolean(savedId);
         this._setAutoConnectHintVisible(isAutoConnectAttempt);
         this._setStatus(
@@ -304,26 +309,7 @@ export class ServerSelectScreen {
     ): void {
         const savedServerUnavailable = options?.savedServerUnavailable === true;
         const emptyStateReason = options?.emptyStateReason ?? 'no_servers';
-        const rawHealth = safeLocalStorageGet(this._orchestrator.getServerHealthStorageKey());
-        let healthMap: Record<string, { status?: string; type?: string; latencyMs?: number; testedAt?: number } | undefined> = {};
-        let parsedHealth: unknown = {};
-        if (rawHealth) {
-            try {
-                parsedHealth = JSON.parse(rawHealth);
-            } catch {
-                parsedHealth = null;
-            }
-        }
-
-        if (parsedHealth && typeof parsedHealth === 'object' && !Array.isArray(parsedHealth)) {
-            healthMap = parsedHealth as Record<string, { status?: string; type?: string; latencyMs?: number; testedAt?: number } | undefined>;
-        } else if (rawHealth) {
-            try {
-                localStorage.removeItem(this._orchestrator.getServerHealthStorageKey());
-            } catch {
-                // ignore storage errors
-            }
-        }
+        const healthMap: ServerHealthMap = this._serverSelectionStore.readServerHealthMap();
 
         this._unregisterServerListFocusables();
         this._listEl.replaceChildren();

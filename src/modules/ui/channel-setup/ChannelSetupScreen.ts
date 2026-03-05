@@ -15,7 +15,7 @@ import {
 import type { AppOrchestrator } from '../../../Orchestrator';
 import type { PlexLibraryType } from '../../plex/library';
 import type { FocusableElement, KeyEvent } from '../../navigation';
-import { safeLocalStorageGet } from '../../../utils/storage';
+import { ServerSelectionStore } from '../../plex/discovery/ServerSelectionStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../scheduler/channel-manager/constants';
 import {
@@ -125,6 +125,7 @@ export type ChannelSetupOrchestrator = Pick<
     | 'getSetupReview'
     | 'getSetupContextForSelectedServer'
     | 'getSelectedServerStorageKey'
+    | 'getServerHealthStorageKey'
     | 'getSelectedServerId'
 >;
 
@@ -150,6 +151,7 @@ const SHOW_SVG = `
 export class ChannelSetupScreen {
     private _container: HTMLElement;
     private _orchestrator: ChannelSetupOrchestrator;
+    private readonly _serverSelectionStore: ServerSelectionStore;
     private readonly _focus: ChannelSetupFocusCoordinator;
     private _destroyScreenShell: (() => void) | null = null;
     private readonly _libraryStep = new LibraryStepController();
@@ -255,6 +257,13 @@ export class ChannelSetupScreen {
         return `setup-priority-row-${this._toDomId(String(strategy))}`;
     }
 
+    private _setPriorityRowGrabbedVisual(strategy: SetupStrategyKey | null, grabbed: boolean): void {
+        if (!strategy) return;
+        const el = document.getElementById(this._priorityRowId(strategy));
+        el?.classList.toggle('setup-priority-row--grabbed', grabbed);
+        el?.setAttribute('aria-grabbed', grabbed ? 'true' : 'false');
+    }
+
     private _scopeButtonId(strategy: SetupStrategyKey): string {
         return `setup-scope-${this._toDomId(String(strategy))}`;
     }
@@ -270,6 +279,10 @@ export class ChannelSetupScreen {
     constructor(container: HTMLElement, orchestrator: ChannelSetupOrchestrator) {
         this._container = container;
         this._orchestrator = orchestrator;
+        this._serverSelectionStore = new ServerSelectionStore(() => ({
+            selectedServerKey: this._orchestrator.getSelectedServerStorageKey(),
+            serverHealthKey: this._orchestrator.getServerHealthStorageKey(),
+        }));
         this._focus = new ChannelSetupFocusCoordinator({
             getNavigation: (): ReturnType<ChannelSetupOrchestrator['getNavigation']> => this._orchestrator.getNavigation(),
         });
@@ -344,22 +357,15 @@ export class ChannelSetupScreen {
 
                     if (this._grabbedPriorityKey === strategy) {
                         // Drop: exit grab mode
+                        this._setPriorityRowGrabbedVisual(strategy, false);
                         this._grabbedPriorityKey = null;
-                        const el = document.getElementById(focusedId);
-                        el?.classList.remove('setup-priority-row--grabbed');
-                        el?.setAttribute('aria-grabbed', 'false');
                     } else {
                         // Grab: enter grab mode (release any previous)
                         if (this._grabbedPriorityKey) {
-                            const prevId = this._priorityRowId(this._grabbedPriorityKey);
-                            const prevEl = document.getElementById(prevId);
-                            prevEl?.classList.remove('setup-priority-row--grabbed');
-                            prevEl?.setAttribute('aria-grabbed', 'false');
+                            this._setPriorityRowGrabbedVisual(this._grabbedPriorityKey, false);
                         }
                         this._grabbedPriorityKey = strategy;
-                        const el = document.getElementById(focusedId);
-                        el?.classList.add('setup-priority-row--grabbed');
-                        el?.setAttribute('aria-grabbed', 'true');
+                        this._setPriorityRowGrabbedVisual(strategy, true);
                     }
                     return;
                 }
@@ -408,9 +414,7 @@ export class ChannelSetupScreen {
                     this._renderStep();
                     this._lastReorder = null;
                     // Re-apply grabbed state after render
-                    const newEl = document.getElementById(this._priorityRowId(strategy));
-                    newEl?.classList.add('setup-priority-row--grabbed');
-                    newEl?.setAttribute('aria-grabbed', 'true');
+                    this._setPriorityRowGrabbedVisual(strategy, true);
                     return;
                 }
 
@@ -446,10 +450,7 @@ export class ChannelSetupScreen {
                 if (direction === 'left' && activeDetailIds.includes(focusedId)) {
                     event.handled = true;
                     if (this._activeStrategyCategory === 'priority-order' && this._grabbedPriorityKey) {
-                        const grabbedId = this._priorityRowId(this._grabbedPriorityKey);
-                        const grabbedEl = document.getElementById(grabbedId);
-                        grabbedEl?.classList.remove('setup-priority-row--grabbed');
-                        grabbedEl?.setAttribute('aria-grabbed', 'false');
+                        this._setPriorityRowGrabbedVisual(this._grabbedPriorityKey, false);
                         this._grabbedPriorityKey = null;
                     }
                     this._preferredFocusId = activeCategoryButtonId;
@@ -1508,7 +1509,7 @@ export class ChannelSetupScreen {
     }
 
     private _getSelectedServerId(): string | null {
-        const stored = safeLocalStorageGet(this._orchestrator.getSelectedServerStorageKey());
+        const stored = this._serverSelectionStore.readSelectedServerId();
         if (stored) {
             return stored;
         }

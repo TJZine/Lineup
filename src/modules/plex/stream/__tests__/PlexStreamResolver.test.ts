@@ -739,6 +739,32 @@ describe('PlexStreamResolver', () => {
             expect(url).toContain('start.m3u8');
         });
 
+        it('uses injected debug override profile name when provided', () => {
+            const readTranscodeProfileName = jest.fn(() => 'Generic');
+            const resolver = new PlexStreamResolver(
+                createMockConfig({
+                    debugOverridesStore: { readTranscodeProfileName },
+                })
+            );
+
+            const parsed = new URL(resolver.getTranscodeUrl('12345', {}));
+
+            expect(readTranscodeProfileName).toHaveBeenCalledTimes(1);
+            expect(parsed.searchParams.get('X-Plex-Client-Profile-Name')).toBe('Generic');
+        });
+
+        it('falls back to HTML TV App when injected profile override is absent', () => {
+            const resolver = new PlexStreamResolver(
+                createMockConfig({
+                    debugOverridesStore: { readTranscodeProfileName: () => null },
+                })
+            );
+
+            const parsed = new URL(resolver.getTranscodeUrl('12345', {}));
+
+            expect(parsed.searchParams.get('X-Plex-Client-Profile-Name')).toBe('HTML TV App');
+        });
+
         it('preserves identity precedence: auth headers > platform defaults', () => {
             const identityService: PlatformIdentityService = {
                 isWebOs: jest.fn(() => true),

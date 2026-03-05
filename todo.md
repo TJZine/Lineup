@@ -1,179 +1,142 @@
-# Lineup - Post-MVP Todo List
+# Lineup Backlog (Post-MVP)
 
-## Technical Risks & Mitigations (Priority: High)
+Updated: 2026-03-04
 
-### 1. EPG Virtualization Performance
+This file tracks active and validated backlog work only.
+Implemented work has been moved to the "Completed / Removed" section to keep priorities clear.
 
-**Analysis:** Implementing a performant virtualized grid (5 channels x 3 hours) on generic TV hardware is the highest technical risk. DOM element count must stay under 200 to maintain 60fps.
+## Priority 0 (Active)
 
-**Configuration:** `EPG_CONFIG.MAX_DOM_ELEMENTS = 200`
+### Endpoint Canonicalization Pass (Plex auth + subtitles)
 
-#### Strategy A: CSS Containment (Recommended)
+- [ ] Collect live traces on webOS and desktop for Plex Home profile fetch and subtitle extraction flows.
+- [ ] Choose canonical endpoint/path variants and remove fallback branches that never succeed.
+- [ ] Add/update tests to lock the selected endpoint behavior.
+- [ ] Update docs (`docs/development/subtitles.md` and auth docs) with the canonical paths.
 
-- **Pros:** Native browser optimization, minimal code complexity.
-- **Cons:** Support varies on very old webOS versions (pre-4.0).
-- **Implementation:** Apply `contain: strict` to grid cells to isolate layout reflows.
+Rationale:
+- Known endpoint TODOs are still in code (`PlexAuth.getHomeUsers` and `SubtitleManager` fallback paths).
+- This is a high-ROI reliability + maintenance cleanup.
 
-#### Strategy B: Object Pooling
+### Settings "Clear Cache" Action (real cache clear, not just navigation)
 
-- **Pros:** Nullifies garbage collection pauses, constant memory usage.
-- **Cons:** High complexity to implement, harder to debug.
-- **Implementation:** Recycle DOM nodes instead of destroying/creating them during scroll events.
+- [ ] Add a user-facing Settings action that triggers cache cleanup.
+- [ ] Wire it to existing cache cleanup ownership (`AppLifecycle` and cache-owning modules).
+- [ ] Ensure post-clear behavior is deterministic (toast/result + safe re-fetch behavior).
+- [ ] Add tests for success/failure paths.
 
-#### Strategy C: Paginated Fallback
+Rationale:
+- Cache cleanup infrastructure exists, but there is no clear user action in Settings today.
 
-- **Pros:** Guaranteed performance, simple implementation.
-- **Cons:** Worse user experience (page-by-page instead of smooth scroll).
-- **Implementation:** Use as fallback if `requestAnimationFrame` drops below 30fps consistently.
+### Keep-Alive Device Validation (webOS)
 
-### 2. Mixed Content Handling (HTTPS vs HTTP)
+- [ ] Validate long-duration playback behavior on real webOS hardware (2+ hour run).
+- [ ] Confirm whether current keepalive event approach is sufficient under idle conditions.
+- [ ] If not sufficient, define a supported webOS-specific alternative and rollout plan.
 
-**Analysis:** The app will likely be served via HTTPS (locally or hosted), but Plex servers often run on HTTP (local IP) or HTTPS with self-signed certs (`plex.direct`). webOS may block mixed content requests.
+Rationale:
+- Mechanism is empirical and platform-sensitive; must be validated on device.
 
-#### Strategy A: Prioritize Secure Connections (Recommended)
+### Telemetry Foundation (Opt-in, Privacy-first)
 
-- **Pros:** Compliant with modern browser security, no special config needed.
-- **Cons:** May add latency if using public relay when local secure connection fails.
-- **Implementation:** In `PlexServerDiscovery`, prioritize connections with `protocol: 'https'` and `local: true` (DNS rebinding relies on router support).
+- [ ] Create an opt-in telemetry module aligned with `docs/qa/baselines/2026-02-17-observability-contract.md`.
+- [ ] Implement minimal crash/error reporting with strict redaction.
+- [ ] Add user-facing opt-in setting and default it to off.
+- [ ] Document data handling and privacy policy requirements.
 
-#### Strategy B: Relay Fallback
-
-- **Pros:** Guaranteed to work via `relay.plex.tv` (HTTPS).
-- **Cons:** Bandwidth limits (2Mbps for free users), high latency.
-- **Implementation:** Fallback to `relay` connection type if local direct connection fails.
-
-#### Strategy C: Local Proxy / Auth-less (Not Recommended)
-
-- **Pros:** Works on old devices.
-- **Cons:** Security risk, requires user to disable "Secure Connections" in PMS.
-
----
-
-## Plex JWT Authentication (Future - Per ADR-006)
-
-> Currently using legacy PIN flow. JWT is the recommended Plex auth flow.
-> Track JWT auth work as a standalone doc under `docs/` when ready (flow + endpoints + rollback).
-
-- [ ] JWK generation and persistence (Ed25519 key pair)
-- [ ] Device JWT signing for PIN polling
-- [ ] Token refresh flow (`/auth/nonce` → signed JWT → `/auth/token`)
-- [ ] `/auth/jwk` registration endpoint (for migrating existing tokens)
+Rationale:
+- Needed for production diagnostics, but must stay privacy-compliant and bounded.
 
 ---
 
-## Future Enhancements
+## Priority 1 (Active)
 
-### Telemetry Module (Priority: Medium)
+### Favorites + Reordering UX
 
-- [ ] Create opt-in telemetry module for error reporting
-- [ ] Implement crash reporting (Sentry or similar)
-- [ ] Add performance metrics collection
-- [ ] Create privacy-compliant data handling
-- [ ] Add user-facing opt-in toggle in settings
-- [ ] Document in privacy policy for app store submission
+- [ ] Implement favorite channels feature (data model + UX + persistence).
+- [ ] Add channel reordering UI in Settings/Channel Setup using existing `reorderChannels` capability.
+- [ ] Add focused tests for ordering persistence and navigation behavior.
 
-### Storybook UI Testing (Priority: Low)
+### EPG Focus + Number Entry Spec Tightening
 
-- [ ] Add Storybook configuration
-- [ ] Create stories for main UI components
-- [ ] Add visual regression testing
+- [ ] Finalize and document focus rules for guide open/reopen across source changes (`guide`, `remote`, `number`).
+- [ ] Explicitly define number-entry behavior while guide is visible.
+- [ ] Align tests/docs with final behavior contract.
 
-### Other Nice-to-Haves
+### Playback Options Accessibility/Theme Follow-up
 
-- [ ] Repo-wide legacy/compat cleanup pass: inventory all \"legacy/backward-compat/migration\" paths and decide what to keep/remove after a deeper review (channel-setup legacy/compat has been removed already).
-- [ ] Memory diagnostics per module (`ModuleStatus.memoryUsageMB`) for testing and debugging
-- [ ] Endpoint cleanup pass: capture live webOS + desktop traces for Plex Home profile fetch + subtitle extraction, pick canonical endpoint/path variants, and remove fallback branches that never succeed
-- [ ] EPG guide focus rule: preserve guide focus unless last change was channel up/down; decide number-entry behavior
-- [ ] EPG: Custom per-category colors (buildStrategy) via Settings (persist per-category color map; apply by updating CSS variables, still allow per-channel `channel.color` to override)
-- [ ] Theme pass follow-up: playback-options modal needs per-theme tint calibration so selected vs focused states stay distinct at 10-foot distance (especially Glass, DirecTV, Ember-Steel); include forced-colors fallback focus treatment and define whether panel gradient should use `--scrim-tint-rgb` tokenization vs targeted per-theme overrides.
-- [ ] AbortController-based channel switching (abort previous resolve when user rapidly switches channels)
-- [ ] Clear Cache feature (actual cache clearing via Settings screen - common QOL feature in Plex apps)
-- [ ] Keyboard quick reference overlay (Info button)
-- [ ] Rate limiting module (if Plex API issues arise)
-- [ ] Favorite channels feature
-- [ ] Channel reordering in settings
-- [ ] Multiple user profile support
+- [ ] Add forced-colors treatment for playback-options focused/selected states.
+- [ ] Verify selected-vs-focused contrast across Glass, DirecTV, Ember-Steel on TV distance.
+
+### Legacy/Compat Cleanup Pass
+
+- [ ] Inventory remaining compatibility and fallback branches.
+- [ ] Remove branches without real-world value or supporting evidence.
+- [ ] Keep only paths with explicit current justification.
 
 ---
 
-## webOS Device Testing Required
+## Priority 2 (Deferred / Scoped)
 
-> These issues require empirical testing on actual webOS hardware before making code changes.
+### Plex JWT Authentication Track (Design-gated)
 
-### Player: Retry Seek Position Preservation (#5)
+- [ ] Create/confirm ADR and migration plan for JWT flow (current runtime remains PIN flow).
+- [ ] Plan JWK/device-key lifecycle and rollback strategy.
+- [ ] Define implementation checkpoints before touching auth runtime.
 
-**Background**: The `RetryManager._retryPlayback()` sets `currentTime` after `load()`. Per HTML5 spec, `load()` resets `currentTime` to 0. The correct pattern is to wait for `loadedmetadata` before seeking.
+Note:
+- Keep this as a gated design track until endpoint/canonicalization and reliability priorities are complete.
 
-**Current Code** (RetryManager.ts:162-168):
+### EPG Per-Category Custom Color Map
 
-```typescript
-this._videoElement.load();
-this._videoElement.currentTime = currentTime;  // May be overwritten by load() reset
-this._videoElement.play();
-```
+- [ ] Add optional per-category color overrides in Settings.
+- [ ] Persist validated category-color map and apply through CSS variables.
+- [ ] Preserve `channel.color` override precedence.
 
-**Test Procedure**:
+### Keyboard Quick Reference Overlay
 
-1. Start playback, seek to 5+ minutes
-2. Simulate network error (disconnect/reconnect WiFi or use Plex bandwidth limits)
-3. Observe: Does playback resume at the same position or restart from 0?
+- [ ] Define final key ownership (Info/Blue/Guide) before implementing overlay trigger.
+- [ ] Implement contextual quick-reference UI only after ownership is finalized.
 
-**Expected Behavior**: Playback should resume at the position before the error.
+### Storybook Evaluation (Decision, not commitment)
 
-**If Broken - Recommended Fix**:
-
-```typescript
-this._videoElement.load();
-const seekPosition = currentTime;
-const onMetadata = () => {
-    this._videoElement.removeEventListener('loadedmetadata', onMetadata);
-    this._videoElement.currentTime = seekPosition;
-    this._videoElement.play();
-};
-this._videoElement.addEventListener('loadedmetadata', onMetadata);
-```
+- [ ] Run a short decision spike: Storybook vs current test stack for this vanilla TS UI architecture.
+- [ ] If chosen, scope a minimal setup and visual regression path.
 
 ---
 
-### Player: Keep-Alive Mechanism Validation (#6)
+## Device Validation Required
 
-**Background**: `KeepAliveManager` dispatches synthetic `click` events on `document` every 30s to prevent webOS app suspension. LG documentation confirms this is NOT an officially supported mechanism.
+### Retry Seek Position Preservation
 
-**Current Code** (KeepAliveManager.ts:36-37):
+- [ ] Validate on real webOS device: playback resumes at pre-error position after retry.
+- [ ] Keep current implementation unless hardware evidence shows regressions.
 
-```typescript
-document.dispatchEvent(new Event('click'));
-```
+Note:
+- RetryManager already waits for `loadedmetadata` before seek; this is now a validation task, not a code-fix task.
 
-**Test Procedure**:
+### Keep-Alive Behavior
 
-1. Start playback of long content (2+ hours)
-2. Leave TV idle (no remote input) for 30+ minutes
-3. Observe: Does playback continue or does webOS suspend the app?
-
-**Alternative Approaches to Test if Current Fails**:
-
-- `document.dispatchEvent(new CustomEvent('__keepalive__', { bubbles: false }))`
-- `document.body.focus()` (focus manipulation)
-- `window.dispatchEvent(new Event('mousemove'))` (mouse simulation)
-- webOS Luna Service API: `com.webos.service.power/setState`
-
-**If All Fail**: May need to implement proper webOS media session via `webOS.service.request` to `com.webos.media`
+- [ ] Validate idle playback survival on hardware across extended sessions.
+- [ ] Record pass/fail and platform/version in QA notes.
 
 ---
 
-## Notes
+## Completed / Removed From Active Backlog
 
-### Telemetry Implementation Plan
+These were previously listed as TODO items but are already implemented or no longer recommended as active backlog items:
 
-```text
-Phase 1: Basic crash reporting (Sentry free tier)
-- Capture unhandled exceptions
-- Capture playback errors
-- No user identification
+- EPG virtualization baseline (DOM cap, pooling, virtualized rendering) is implemented.
+- Mixed-content handling strategy (HTTPS-first with fallback ordering) is implemented.
+- AbortController-based channel switching (latest-wins queue/abort semantics) is implemented.
+- Rate-limiting behavior exists across Plex modules (library/auth/discovery).
+- Multiple user profile support (Plex Home profile fetch/switch/select UI) is implemented.
+- EPG strategy proposals that imply new fallback paths (for example paginated fallback) are removed from active backlog.
 
-Phase 2: Usage analytics (optional, opt-in)
-- Feature usage counts
-- Session duration
-- Performance metrics
-```
+---
+
+## References
+
+- `docs/plans/2026-03-04-epg-performance-risk-register.md`
+- `docs/qa/baselines/2026-02-17-observability-contract.md`
+- `docs/development/subtitles.md`

@@ -8,6 +8,7 @@ import type { INavigationManager, FocusableElement } from '../../navigation';
 import { SETTINGS_STORAGE_KEYS, DEFAULT_SETTINGS } from '../settings/constants';
 import { safeLocalStorageSet, readStoredBoolean } from '../../../utils/storage';
 import { setTrustedInlineSvg } from '../../../utils/inlineSvg';
+import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
 
 /**
  * Audio choice configuration.
@@ -65,6 +66,7 @@ export class AudioSetupScreen {
     private _fallbackFocusable: FocusableElement | null = null;
     private _directPlayFallbackEnabled: boolean;
     private _didUserExplicitlyChoose: boolean = false;
+    private readonly _audioSettingsStore = new AudioSettingsStore();
 
     constructor(
         container: HTMLElement,
@@ -74,8 +76,7 @@ export class AudioSetupScreen {
         this._container = container;
         this._getNavigation = getNavigation;
         this._onComplete = onComplete;
-        this._directPlayFallbackEnabled = readStoredBoolean(
-            SETTINGS_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK,
+        this._directPlayFallbackEnabled = this._audioSettingsStore.readDirectPlayAudioFallbackEnabled(
             DEFAULT_SETTINGS.audio.directPlayAudioFallback
         );
         this._buildUI();
@@ -236,19 +237,16 @@ export class AudioSetupScreen {
         // Apply settings based on choice
         if (this._selectedChoice === 'external') {
             // External receiver: enable DTS passthrough
-            safeLocalStorageSet(SETTINGS_STORAGE_KEYS.DTS_PASSTHROUGH, '1');
+            this._audioSettingsStore.writeDtsPassthroughEnabled(true);
         } else {
             // TV speakers: disable DTS passthrough
-            safeLocalStorageSet(SETTINGS_STORAGE_KEYS.DTS_PASSTHROUGH, '0');
+            this._audioSettingsStore.writeDtsPassthroughEnabled(false);
         }
 
         // Mark audio setup as complete
         // Store as '1'
         safeLocalStorageSet(SETTINGS_STORAGE_KEYS.AUDIO_SETUP_COMPLETE, '1');
-        safeLocalStorageSet(
-            SETTINGS_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK,
-            this._directPlayFallbackEnabled ? '1' : '0'
-        );
+        this._audioSettingsStore.writeDirectPlayAudioFallbackEnabled(this._directPlayFallbackEnabled);
 
         this._onComplete();
     }
@@ -382,10 +380,7 @@ export class AudioSetupScreen {
             }
             return;
         }
-        const dtsEnabled = readStoredBoolean(
-            SETTINGS_STORAGE_KEYS.DTS_PASSTHROUGH,
-            DEFAULT_SETTINGS.audio.dtsPassthrough
-        );
+        const dtsEnabled = this._audioSettingsStore.readDtsPassthroughEnabled(DEFAULT_SETTINGS.audio.dtsPassthrough);
         this._selectedChoice = dtsEnabled ? 'external' : 'tv-speakers';
         this._lastFocusedChoiceId = `audio-choice-${this._selectedChoice}`;
 

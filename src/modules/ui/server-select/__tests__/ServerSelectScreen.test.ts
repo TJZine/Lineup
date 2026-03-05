@@ -56,6 +56,7 @@ describe('ServerSelectScreen', () => {
         localStorage.clear();
         document.body.innerHTML = '';
         jest.clearAllMocks();
+        jest.restoreAllMocks();
     });
 
     it('appends latency and applies slow class for ok status', async () => {
@@ -108,6 +109,52 @@ describe('ServerSelectScreen', () => {
         const pill = container.querySelector('.server-status-pill') as HTMLElement;
         expect(pill.textContent).toContain('Very Slow • 500ms');
         expect(pill.classList.contains('latency-very-slow')).toBe(true);
+    });
+
+    it('ignores malformed persisted health payload when rendering server list', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([
+            { id: 'srv-1', name: 'Server One', owned: true },
+        ]);
+
+        localStorage.setItem(orchestrator.getServerHealthStorageKey(), '{not-json');
+
+        const screen = new ServerSelectScreen(container, orchestrator as never);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        const pill = container.querySelector('.server-status-pill') as HTMLElement;
+        expect(pill.textContent).toContain('Unknown');
+        expect(localStorage.getItem(orchestrator.getServerHealthStorageKey())).toBeNull();
+    });
+
+    it('does not mutate persisted selection/health keys during show/refresh when storage is empty', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        orchestrator.discoverServers.mockResolvedValue([{ id: 'srv-1', name: 'Server One', owned: true }]);
+
+        const setSpy = jest.spyOn(Storage.prototype, 'setItem');
+        const removeSpy = jest.spyOn(Storage.prototype, 'removeItem');
+        const selectedKey = orchestrator.getSelectedServerStorageKey();
+        const healthKey = orchestrator.getServerHealthStorageKey();
+
+        const screen = new ServerSelectScreen(container, orchestrator as never);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+        await screen.refresh();
+        await flushPromisesAndTimers();
+
+        expect(setSpy).not.toHaveBeenCalledWith(selectedKey, expect.any(String));
+        expect(setSpy).not.toHaveBeenCalledWith(healthKey, expect.any(String));
+        expect(removeSpy).not.toHaveBeenCalledWith(selectedKey);
+        expect(removeSpy).not.toHaveBeenCalledWith(healthKey);
+
+        setSpy.mockRestore();
+        removeSpy.mockRestore();
     });
 
     it('marks saved server row as active and keeps reconnect enabled when healthy', async () => {

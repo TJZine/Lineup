@@ -606,6 +606,61 @@ describe('PlexServerDiscovery', () => {
             expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srv1');
         });
 
+        it('persists server health record after successful selection', async () => {
+            const mockServers = [
+                {
+                    clientIdentifier: 'srv1',
+                    name: 'Test Server',
+                    sourceTitle: 'testuser',
+                    ownerId: 'owner1',
+                    owned: true,
+                    provides: 'server',
+                    connections: [
+                        {
+                            uri: 'https://test:32400',
+                            protocol: 'https',
+                            address: 'test',
+                            port: 32400,
+                            local: true,
+                            relay: false,
+                        },
+                    ],
+                },
+            ];
+
+            const fetchMock = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: async () => mockServers,
+                headers: { get: () => null },
+                text: async () => JSON.stringify(mockServers),
+            });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            const discovery = new PlexServerDiscovery(mockConfig);
+            await discovery.discoverServers();
+
+            fetchMock.mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: async () => ({ machineIdentifier: 'srv1' }),
+                headers: { get: () => null },
+                text: async () => JSON.stringify({ machineIdentifier: 'srv1' }),
+            });
+
+            await discovery.selectServer('srv1');
+
+            const rawHealth = mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY);
+            expect(rawHealth).toBeTruthy();
+            const parsed = rawHealth ? JSON.parse(rawHealth) : {};
+            expect(parsed['srv1']).toEqual(
+                expect.objectContaining({
+                    status: 'ok',
+                    type: 'local',
+                })
+            );
+        });
+
         it('should emit serverChange event', async () => {
             const mockServers = [
                 {

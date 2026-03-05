@@ -8,7 +8,6 @@ import type { INavigationManager, FocusableElement, KeyEvent } from '../../navig
 import { createSettingsToggle } from './SettingsToggle';
 import { createSettingsSelect } from './SettingsSelect';
 import { createSettingsDropdown } from './SettingsDropdown';
-import { SETTINGS_STORAGE_KEYS, DEFAULT_SETTINGS } from './constants';
 import { DEFAULT_THEME, THEME_OPTIONS } from './theme';
 import type {
     SettingsCategoryConfig,
@@ -18,13 +17,7 @@ import type {
     GuideSettingChange,
 } from './types';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from '../now-playing-info';
-import {
-    parseStoredEpgInfoBackgroundMode,
-    readStoredBoolean,
-    safeLocalStorageGet,
-    safeLocalStorageRemove,
-    safeLocalStorageSet,
-} from '../../../utils/storage';
+import { SettingsStore, type ToggleSettingId } from './SettingsStore';
 import { ThemeManager } from '../theme';
 import { getSubtitleMode, setSubtitleMode, type SubtitleMode } from '../../../shared/subtitle-mode';
 import { dispatchDebugLoggingChanged } from '../../../config/events';
@@ -64,113 +57,69 @@ const DEFAULT_THEME_VALUE = Math.max(
 );
 
 type ToggleMetadata = {
-    storageKey: string;
-    defaultValue: boolean;
+    toggleSettingId: ToggleSettingId;
     onRefresh?: (value: boolean) => void;
 };
 
 type SelectMetadata = {
-    storageKey: string;
-    defaultValue: number;
     onRefresh?: (value: number) => void;
 };
 
 const TOGGLE_METADATA: Record<string, ToggleMetadata> = {
     'settings-dts-passthrough': {
-        storageKey: SETTINGS_STORAGE_KEYS.DTS_PASSTHROUGH,
-        defaultValue: DEFAULT_SETTINGS.audio.dtsPassthrough,
+        toggleSettingId: 'dtsPassthrough',
     },
     'settings-direct-play-audio-fallback': {
-        storageKey: SETTINGS_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK,
-        defaultValue: DEFAULT_SETTINGS.audio.directPlayAudioFallback,
+        toggleSettingId: 'directPlayAudioFallback',
     },
     'settings-keep-playing': {
-        storageKey: SETTINGS_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS,
-        defaultValue: DEFAULT_SETTINGS.playback.keepPlayingInSettings,
+        toggleSettingId: 'keepPlayingInSettings',
     },
     'settings-transcode-compat': {
-        storageKey: SETTINGS_STORAGE_KEYS.TRANSCODE_COMPAT,
-        defaultValue: false,
+        toggleSettingId: 'transcodeCompat',
     },
     'settings-debug-logging': {
-        storageKey: SETTINGS_STORAGE_KEYS.DEBUG_LOGGING,
-        defaultValue: DEFAULT_SETTINGS.developer.debugLogging,
+        toggleSettingId: 'debugLogging',
     },
     'settings-subtitle-debug-logging': {
-        storageKey: SETTINGS_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING,
-        defaultValue: DEFAULT_SETTINGS.developer.subtitleDebugLogging,
+        toggleSettingId: 'subtitleDebugLogging',
     },
     'settings-subtitles-prefer-forced': {
-        storageKey: SETTINGS_STORAGE_KEYS.SUBTITLE_PREFER_FORCED,
-        defaultValue: DEFAULT_SETTINGS.subtitles.preferForced,
+        toggleSettingId: 'subtitlePreferForced',
     },
     'settings-guide-category-colors': {
-        storageKey: SETTINGS_STORAGE_KEYS.GUIDE_CATEGORY_COLORS,
-        defaultValue: true,
+        toggleSettingId: 'guideCategoryColors',
     },
     'settings-guide-library-tabs': {
-        storageKey: SETTINGS_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED,
-        defaultValue: true,
+        toggleSettingId: 'epgLibraryTabsEnabled',
     },
     'settings-epg-now-watching': {
-        storageKey: SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED,
-        defaultValue: true,
+        toggleSettingId: 'epgNowWatchingEnabled',
     },
     'settings-epg-aggressive-preload': {
-        storageKey: SETTINGS_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED,
-        defaultValue: false,
+        toggleSettingId: 'epgAggressivePreloadEnabled',
     },
     'settings-profile-picker-startup': {
-        storageKey: SETTINGS_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP,
-        defaultValue: DEFAULT_SETTINGS.account.showProfilePickerOnStartup,
+        toggleSettingId: 'showProfilePickerOnStartup',
     },
     'settings-cinematic-now-playing': {
-        storageKey: SETTINGS_STORAGE_KEYS.CINEMATIC_NOW_PLAYING,
-        defaultValue: DEFAULT_SETTINGS.display.cinematicNowPlaying,
+        toggleSettingId: 'cinematicNowPlaying',
     },
     'settings-prefer-clear-logos': {
-        storageKey: SETTINGS_STORAGE_KEYS.PREFER_CLEAR_LOGOS,
-        defaultValue: DEFAULT_SETTINGS.display.preferClearLogos,
+        toggleSettingId: 'preferClearLogos',
     },
 };
 
 const SELECT_METADATA: Record<string, SelectMetadata> = {
-    'settings-now-playing-timeout': {
-        storageKey: SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS,
-        defaultValue: DEFAULT_SETTINGS.display.nowPlayingInfoAutoHideMs,
-    },
-    'settings-subtitle-mode': {
-        storageKey: SETTINGS_STORAGE_KEYS.SUBTITLE_MODE,
-        defaultValue: 3, // Full (Burn-in, default)
-    },
-    'settings-subtitle-language': {
-        storageKey: SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE,
-        defaultValue: 0,
-    },
-    'settings-hdr10-fallback-mode': {
-        storageKey: SETTINGS_STORAGE_KEYS.SMART_HDR10_FALLBACK,
-        defaultValue: 0,
-    },
-    'settings-transcode-quality': {
-        storageKey: SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY,
-        defaultValue: 0,
-    },
-    'settings-epg-layout-mode': {
-        storageKey: SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE,
-        defaultValue: 1,
-    },
-    'settings-epg-density': {
-        storageKey: SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY,
-        defaultValue: 0,
-    },
-    'settings-epg-past-items': {
-        storageKey: SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW,
-        defaultValue: 0,
-    },
-    'settings-epg-info-background-mode': {
-        storageKey: SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE,
-        defaultValue: DEFAULT_SETTINGS.display.epgInfoBackgroundMode,
-    },
+    'settings-now-playing-timeout': {},
+    'settings-subtitle-mode': {},
+    'settings-subtitle-language': {},
+    'settings-hdr10-fallback-mode': {},
+    'settings-transcode-quality': {},
+    'settings-epg-layout-mode': {},
+    'settings-epg-density': {},
+    'settings-epg-past-items': {},
+    'settings-epg-info-background-mode': {},
 };
 
 /**
@@ -200,6 +149,7 @@ export class SettingsScreen {
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
     private _detailSwapFrame: number | null = null;
     private _detailRevealFrame: number | null = null;
+    private readonly _settingsStore: SettingsStore;
     // When a category swap is deferred via RAF, we must preserve the focus intent
     // (e.g., RIGHT into details) and apply it after detail items exist.
     private _pendingFocusRestore: { categoryId: SettingsCategoryId; preferredFocusId: string | null } | null = null;
@@ -209,13 +159,15 @@ export class SettingsScreen {
         getNavigation: () => INavigationManager | null,
         onSubtitleModeChange?: (mode: SubtitleMode) => void,
         onGuideSettingChange?: (change: GuideSettingChange) => void,
-        getActiveUsername?: () => string | null
+        getActiveUsername?: () => string | null,
+        settingsStore: SettingsStore = new SettingsStore()
     ) {
         this._container = container;
         this._getNavigation = getNavigation;
         this._onSubtitleModeChange = onSubtitleModeChange ?? null;
         this._onGuideSettingChange = onGuideSettingChange ?? null;
         this._getActiveUsername = getActiveUsername ?? null;
+        this._settingsStore = settingsStore;
         this._buildUI();
     }
 
@@ -327,28 +279,19 @@ export class SettingsScreen {
     private _buildCategories(): SettingsCategoryConfig[] {
         const nowPlayingAutoHide = this._loadClampedNowPlayingAutoHide();
         const selectedThemeValue = this._getThemeIndex(ThemeManager.getInstance().getTheme());
-        const keepPlayingInSettings = this._loadBoolSetting(
-            SETTINGS_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS,
-            DEFAULT_SETTINGS.playback.keepPlayingInSettings
-        );
-        const transcodeCompat = this._loadBoolSetting(SETTINGS_STORAGE_KEYS.TRANSCODE_COMPAT, false);
+        const keepPlayingInSettings = this._settingsStore.readToggleSetting('keepPlayingInSettings');
+        const transcodeCompat = this._settingsStore.readToggleSetting('transcodeCompat');
         const transcodeQualityValue = this._loadTranscodeQualityValue();
-        const hdr10FallbackValue = this._readHdr10FallbackSelectValue();
+        const hdr10FallbackValue = this._settingsStore.readHdr10FallbackModeValue();
         const subtitleModeValue = this._loadSubtitleModeValue();
         const subtitleMode = this._valueToSubtitleMode(subtitleModeValue);
         const subtitlesEnabled = subtitleMode !== 'off';
         const epgLayoutModeValue = this._loadEpgLayoutModeValue();
         const epgPastItemsValue = this._loadEpgPastItemsWindowValue();
         const epgGuideDensityValue = this._loadEpgGuideDensityValue();
-        const preferForcedSubtitles = this._loadBoolSetting(
-            SETTINGS_STORAGE_KEYS.SUBTITLE_PREFER_FORCED,
-            DEFAULT_SETTINGS.subtitles.preferForced
-        );
+        const preferForcedSubtitles = this._settingsStore.readToggleSetting('subtitlePreferForced');
         const subtitleLanguageValue = this._loadSubtitleLanguageValue();
-        const showProfilePickerOnStartup = this._loadBoolSetting(
-            SETTINGS_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP,
-            DEFAULT_SETTINGS.account.showProfilePickerOnStartup
-        );
+        const showProfilePickerOnStartup = this._settingsStore.readToggleSetting('showProfilePickerOnStartup');
 
         return [
             {
@@ -359,20 +302,17 @@ export class SettingsScreen {
                         id: 'settings-dts-passthrough',
                         label: 'DTS Passthrough',
                         description: 'Enable if you have an eARC receiver',
-                        value: this._loadBoolSetting(SETTINGS_STORAGE_KEYS.DTS_PASSTHROUGH, DEFAULT_SETTINGS.audio.dtsPassthrough),
+                        value: this._settingsStore.readToggleSetting('dtsPassthrough'),
                         onChange: (value: boolean) =>
-                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.DTS_PASSTHROUGH, value),
+                            this._settingsStore.writeToggleSetting('dtsPassthrough', value),
                     },
                     {
                         id: 'settings-direct-play-audio-fallback',
                         label: 'Direct Play Audio Fallback',
                         description: 'Allow Direct Play using a compatible fallback audio track',
-                        value: this._loadBoolSetting(
-                            SETTINGS_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK,
-                            DEFAULT_SETTINGS.audio.directPlayAudioFallback
-                        ),
+                        value: this._settingsStore.readToggleSetting('directPlayAudioFallback'),
                         onChange: (value: boolean) =>
-                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK, value),
+                            this._settingsStore.writeToggleSetting('directPlayAudioFallback', value),
                     },
                     {
                         id: 'settings-subtitle-mode',
@@ -413,10 +353,7 @@ export class SettingsScreen {
                         disabled: !subtitlesEnabled,
                         disabledReason: 'Enable Subtitle Mode first',
                         onChange: (value: boolean): void => {
-                            this._saveBoolSetting(
-                                SETTINGS_STORAGE_KEYS.SUBTITLE_PREFER_FORCED,
-                                value
-                            );
+                            this._settingsStore.writeToggleSetting('subtitlePreferForced', value);
                         },
                     },
                 ],
@@ -431,7 +368,7 @@ export class SettingsScreen {
                         description: 'Avoid pausing video when opening Settings (uses more CPU/GPU)',
                         value: keepPlayingInSettings,
                         onChange: (value: boolean) =>
-                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS, value),
+                            this._settingsStore.writeToggleSetting('keepPlayingInSettings', value),
                     },
                     {
                         id: 'settings-hdr10-fallback-mode',
@@ -445,7 +382,7 @@ export class SettingsScreen {
                             { label: 'Force', value: 2 },
                         ],
                         onChange: (value: number) =>
-                            this._applyHdr10FallbackSelectValue(value as 0 | 1 | 2),
+                            this._settingsStore.writeHdr10FallbackModeValue(value as 0 | 1 | 2),
                     },
                     {
                         id: 'settings-transcode-quality',
@@ -466,7 +403,7 @@ export class SettingsScreen {
                         description: 'Advanced: only use if transcoding fails; sends a minimal parameter set to Plex',
                         value: transcodeCompat,
                         onChange: (value: boolean): void => {
-                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.TRANSCODE_COMPAT, value);
+                            this._settingsStore.writeToggleSetting('transcodeCompat', value);
                         },
                     },
                 ],
@@ -479,9 +416,9 @@ export class SettingsScreen {
                         id: 'settings-guide-category-colors',
                         label: 'Category Colors',
                         description: 'Show colored left border for auto-setup channel types',
-                        value: this._loadBoolSetting(SETTINGS_STORAGE_KEYS.GUIDE_CATEGORY_COLORS, true),
+                        value: this._settingsStore.readToggleSetting('guideCategoryColors'),
                         onChange: (value: boolean): void => {
-                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.GUIDE_CATEGORY_COLORS, value);
+                            this._settingsStore.writeToggleSetting('guideCategoryColors', value);
                             this._onGuideSettingChange?.({ key: 'categoryColors', enabled: value });
                         },
                     },
@@ -489,9 +426,9 @@ export class SettingsScreen {
                         id: 'settings-guide-library-tabs',
                         label: 'Library Tabs',
                         description: 'Filter the guide by source library',
-                        value: this._loadBoolSetting(SETTINGS_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, true),
+                        value: this._settingsStore.readToggleSetting('epgLibraryTabsEnabled'),
                         onChange: (value: boolean): void => {
-                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, value);
+                            this._settingsStore.writeToggleSetting('epgLibraryTabsEnabled', value);
                             this._onGuideSettingChange?.({ key: 'libraryTabs', enabled: value });
                         },
                     },
@@ -499,9 +436,9 @@ export class SettingsScreen {
                         id: 'settings-epg-now-watching',
                         label: 'Now Watching Banner',
                         description: 'Show current channel/program above the guide',
-                        value: this._loadBoolSetting(SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, true),
+                        value: this._settingsStore.readToggleSetting('epgNowWatchingEnabled'),
                         onChange: (value: boolean): void => {
-                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, value);
+                            this._settingsStore.writeToggleSetting('epgNowWatchingEnabled', value);
                             this._onGuideSettingChange?.({ key: 'nowWatchingBanner', enabled: value });
                         },
                     },
@@ -509,9 +446,9 @@ export class SettingsScreen {
                         id: 'settings-epg-aggressive-preload',
                         label: 'Aggressive Guide Preload (Experimental)',
                         description: 'Uses more memory to reduce loading in very large guides',
-                        value: this._loadBoolSetting(SETTINGS_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, false),
+                        value: this._settingsStore.readToggleSetting('epgAggressivePreloadEnabled'),
                         onChange: (value: boolean): void => {
-                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, value);
+                            this._settingsStore.writeToggleSetting('epgAggressivePreloadEnabled', value);
                             this._onGuideSettingChange?.({ key: 'aggressivePreload', enabled: value });
                         },
                     },
@@ -525,7 +462,7 @@ export class SettingsScreen {
                             { label: 'Wide (3h)', value: 1 },
                         ],
                         onChange: (value: number): void => {
-                            const density = this._mapEpgGuideDensityValue(value);
+                            const density = value === 1 ? 'wide' : 'detailed';
                             this._saveEpgGuideDensityValue(value);
                             this._onGuideSettingChange?.({ key: 'guideDensity', density });
                         },
@@ -591,24 +528,18 @@ export class SettingsScreen {
                         id: 'settings-cinematic-now-playing',
                         label: 'Cinematic Now Playing',
                         description: 'Full-screen layout with blurred backdrop and large poster',
-                        value: this._loadBoolSetting(
-                            SETTINGS_STORAGE_KEYS.CINEMATIC_NOW_PLAYING,
-                            DEFAULT_SETTINGS.display.cinematicNowPlaying
-                        ),
+                        value: this._settingsStore.readToggleSetting('cinematicNowPlaying'),
                         onChange: (value: boolean): void => {
-                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.CINEMATIC_NOW_PLAYING, value);
+                            this._settingsStore.writeToggleSetting('cinematicNowPlaying', value);
                         },
                     },
                     {
                         id: 'settings-prefer-clear-logos',
                         label: 'Use Clear Logos',
                         description: 'Show clear logos instead of text titles when available',
-                        value: this._loadBoolSetting(
-                            SETTINGS_STORAGE_KEYS.PREFER_CLEAR_LOGOS,
-                            DEFAULT_SETTINGS.display.preferClearLogos
-                        ),
+                        value: this._settingsStore.readToggleSetting('preferClearLogos'),
                         onChange: (value: boolean): void => {
-                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.PREFER_CLEAR_LOGOS, value);
+                            this._settingsStore.writeToggleSetting('preferClearLogos', value);
                         },
                     },
                     {
@@ -621,7 +552,7 @@ export class SettingsScreen {
                             value,
                         })),
                         onChange: (value: number): void => {
-                            this._saveNumberSetting(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, value);
+                            this._settingsStore.writeNowPlayingAutoHideValue(value);
                         },
                     },
                 ],
@@ -636,10 +567,7 @@ export class SettingsScreen {
                         description: 'When enabled, prompt for a Plex Home profile on launch',
                         value: showProfilePickerOnStartup,
                         onChange: (value: boolean): void => {
-                            this._saveBoolSetting(
-                                SETTINGS_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP,
-                                value
-                            );
+                            this._settingsStore.writeToggleSetting('showProfilePickerOnStartup', value);
                         },
                     },
                 ],
@@ -652,9 +580,9 @@ export class SettingsScreen {
                         id: 'settings-debug-logging',
                         label: 'Debug Logging',
                         description: 'Enable verbose console output (applies immediately)',
-                        value: this._loadBoolSetting(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING, DEFAULT_SETTINGS.developer.debugLogging),
+                        value: this._settingsStore.readToggleSetting('debugLogging'),
                         onChange: (value: boolean): void => {
-                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING, value);
+                            this._settingsStore.writeToggleSetting('debugLogging', value);
                             this._notifyDebugLoggingChanged(value);
                         },
                     },
@@ -662,12 +590,9 @@ export class SettingsScreen {
                         id: 'settings-subtitle-debug-logging',
                         label: 'Subtitle Debug Logging',
                         description: 'Log subtitle tracks and native textTracks state (tokens redacted)',
-                        value: this._loadBoolSetting(
-                            SETTINGS_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING,
-                            DEFAULT_SETTINGS.developer.subtitleDebugLogging
-                        ),
+                        value: this._settingsStore.readToggleSetting('subtitleDebugLogging'),
                         onChange: (value: boolean) =>
-                            this._saveBoolSetting(SETTINGS_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING, value),
+                            this._settingsStore.writeToggleSetting('subtitleDebugLogging', value),
                     },
                 ],
             },
@@ -1151,97 +1076,32 @@ export class SettingsScreen {
         this._focusableIds = [];
     }
 
-    /**
-     * Load a boolean setting from localStorage.
-     */
-    private _loadBoolSetting(key: string, defaultValue: boolean): boolean {
-        return readStoredBoolean(key, defaultValue);
-    }
-
-    private _loadNumberSetting(key: string, defaultValue: number): number {
-        const raw = safeLocalStorageGet(key);
-        if (raw === null) return defaultValue;
-        const parsed = Number(raw);
-        return Number.isFinite(parsed) ? parsed : defaultValue;
-    }
-
     private _loadEpgLayoutModeValue(): number {
-        const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE);
-        return raw === 'overlay' ? 0 : 1;
+        return this._settingsStore.readEpgLayoutModeValue();
     }
 
     private _loadEpgGuideDensityValue(): number {
-        const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY);
-        return raw === 'wide' ? 1 : 0;
+        return this._settingsStore.readEpgGuideDensityValue();
     }
 
     private _loadEpgPastItemsWindowValue(): number {
-        const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW);
-        const index = EPG_PAST_ITEMS_OPTIONS.findIndex((o) => o.storageValue === raw);
-        if (index >= 0) return index;
-        if (raw !== null) {
-            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW);
-        }
-        return 0;
+        return this._settingsStore.readEpgPastItemsWindowValue();
     }
 
     private _loadEpgInfoBackgroundModeValue(): 0 | 1 | 2 {
-        const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
-        const parsed = parseStoredEpgInfoBackgroundMode(raw);
-        if (parsed !== null) return parsed;
-        if (raw !== null) {
-            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
-        }
-        return DEFAULT_SETTINGS.display.epgInfoBackgroundMode;
+        return this._settingsStore.readEpgInfoBackgroundModeValue();
     }
 
     private _loadSubtitleLanguageValue(): number {
-        const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE);
-        if (raw === null) return 0;
-        const normalized = raw.trim().toLowerCase();
-        if (!normalized) {
-            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE);
-            return 0;
-        }
-        const index = SUBTITLE_LANGUAGE_OPTIONS.findIndex((option) => {
-            if (!option.code) return false;
-            return option.code.toLowerCase() === normalized;
-        });
-        if (index >= 0) return index;
-        safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE);
-        return 0;
-    }
-
-    /**
-     * Save a boolean setting to localStorage.
-     */
-    private _saveBoolSetting(key: string, value: boolean): void {
-        safeLocalStorageSet(key, value ? '1' : '0');
-    }
-
-    private _saveNumberSetting(key: string, value: number): void {
-        safeLocalStorageSet(key, String(value));
+        return this._settingsStore.readSubtitleLanguageValue(SUBTITLE_LANGUAGE_OPTIONS);
     }
 
     private _loadTranscodeQualityValue(): number {
-        const stored = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY) ?? '';
-        const matchIndex = TRANSCODE_QUALITY_OPTIONS.findIndex((option) => option.storageValue === stored);
-        if (matchIndex >= 0) {
-            return matchIndex;
-        }
-        if (stored) {
-            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY);
-        }
-        return 0;
+        return this._settingsStore.readTranscodeQualityValue(TRANSCODE_QUALITY_OPTIONS);
     }
 
     private _saveTranscodeQualityValue(value: number): void {
-        const option = TRANSCODE_QUALITY_OPTIONS[value] ?? TRANSCODE_QUALITY_OPTIONS[0];
-        if (!option || option.storageValue.length === 0) {
-            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY);
-            return;
-        }
-        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY, option.storageValue);
+        this._settingsStore.writeTranscodeQualityValue(value, TRANSCODE_QUALITY_OPTIONS);
     }
 
     private _notifyDebugLoggingChanged(enabled: boolean): void {
@@ -1249,38 +1109,24 @@ export class SettingsScreen {
     }
 
     private _saveEpgLayoutModeValue(value: number): void {
-        const mode = value === 1 ? 'classic' : 'overlay';
-        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, mode);
+        const normalized: 0 | 1 = value === 0 ? 0 : 1;
+        this._settingsStore.writeEpgLayoutModeValue(normalized);
     }
 
     private _saveEpgGuideDensityValue(value: number): void {
-        const density = this._mapEpgGuideDensityValue(value);
-        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY, density);
+        this._settingsStore.writeEpgGuideDensityValue(value);
     }
 
     private _saveEpgPastItemsWindowValue(value: number): 'auto' | '0' | '15' | '30' {
-        const option = EPG_PAST_ITEMS_OPTIONS[value] ?? EPG_PAST_ITEMS_OPTIONS[0]!;
-        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, option.storageValue);
-        return option.storageValue;
+        return this._settingsStore.writeEpgPastItemsWindowValue(value);
     }
 
     private _saveEpgInfoBackgroundModeValue(value: number): 0 | 1 | 2 {
-        const mode: 0 | 1 | 2 = value === 2 ? 2 : value === 1 ? 1 : 0;
-        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, String(mode));
-        return mode;
-    }
-
-    private _mapEpgGuideDensityValue(value: number): 'wide' | 'detailed' {
-        return value === 1 ? 'wide' : 'detailed';
+        return this._settingsStore.writeEpgInfoBackgroundModeValue(value);
     }
 
     private _saveSubtitleLanguageValue(value: number): void {
-        const option = SUBTITLE_LANGUAGE_OPTIONS[value];
-        if (!option || !option.code) {
-            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE);
-            return;
-        }
-        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE, option.code);
+        this._settingsStore.writeSubtitleLanguageValue(value, SUBTITLE_LANGUAGE_OPTIONS);
     }
 
     private _subtitleModeToValue(mode: SubtitleMode): number {
@@ -1303,44 +1149,12 @@ export class SettingsScreen {
         setSubtitleMode(mode);
     }
 
-    private _readHdr10FallbackSelectValue(): 0 | 1 | 2 {
-        const force = this._loadBoolSetting(
-            SETTINGS_STORAGE_KEYS.FORCE_HDR10_FALLBACK,
-            DEFAULT_SETTINGS.playback.forceHdr10Fallback
-        );
-        if (force) return 2;
-        const smart = this._loadBoolSetting(
-            SETTINGS_STORAGE_KEYS.SMART_HDR10_FALLBACK,
-            DEFAULT_SETTINGS.playback.smartHdr10Fallback
-        );
-        if (smart) return 1;
-        return 0;
-    }
-
-    private _applyHdr10FallbackSelectValue(value: 0 | 1 | 2): void {
-        switch (value) {
-            case 1:
-                this._saveBoolSetting(SETTINGS_STORAGE_KEYS.SMART_HDR10_FALLBACK, true);
-                this._saveBoolSetting(SETTINGS_STORAGE_KEYS.FORCE_HDR10_FALLBACK, false);
-                return;
-            case 2:
-                this._saveBoolSetting(SETTINGS_STORAGE_KEYS.SMART_HDR10_FALLBACK, false);
-                this._saveBoolSetting(SETTINGS_STORAGE_KEYS.FORCE_HDR10_FALLBACK, true);
-                return;
-            case 0:
-            default:
-                this._saveBoolSetting(SETTINGS_STORAGE_KEYS.SMART_HDR10_FALLBACK, false);
-                this._saveBoolSetting(SETTINGS_STORAGE_KEYS.FORCE_HDR10_FALLBACK, false);
-        }
-    }
-
-
     private _refreshValues(): void {
         const selectLoaders: Record<string, () => number> = {
             'settings-now-playing-timeout': () => this._loadClampedNowPlayingAutoHide(),
             'settings-subtitle-mode': () => this._loadSubtitleModeValue(),
             'settings-subtitle-language': () => this._loadSubtitleLanguageValue(),
-            'settings-hdr10-fallback-mode': () => this._readHdr10FallbackSelectValue(),
+            'settings-hdr10-fallback-mode': () => this._settingsStore.readHdr10FallbackModeValue(),
             'settings-transcode-quality': () => this._loadTranscodeQualityValue(),
             'settings-epg-density': () => this._loadEpgGuideDensityValue(),
             'settings-epg-layout-mode': () => this._loadEpgLayoutModeValue(),
@@ -1350,7 +1164,7 @@ export class SettingsScreen {
         for (const [id, meta] of this._toggleMetadata.entries()) {
             const toggle = this._toggleElements.get(id);
             if (!toggle) continue;
-            const value = this._loadBoolSetting(meta.storageKey, meta.defaultValue);
+            const value = this._settingsStore.readToggleSetting(meta.toggleSettingId);
             toggle.update(value);
             meta.onRefresh?.(value);
         }
@@ -1358,9 +1172,10 @@ export class SettingsScreen {
             const select = this._selectElements.get(id);
             if (!select) continue;
             const loader = selectLoaders[id];
-            const value = loader
-                ? loader()
-                : this._loadNumberSetting(meta.storageKey, meta.defaultValue);
+            if (!loader) {
+                throw new Error(`Missing select loader for ${id}`);
+            }
+            const value = loader();
             select.update(value);
             meta.onRefresh?.(value);
         }
@@ -1410,16 +1225,10 @@ export class SettingsScreen {
     }
 
     private _loadClampedNowPlayingAutoHide(): number {
-        const rawValue = this._loadNumberSetting(
-            SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS,
-            DEFAULT_SETTINGS.display.nowPlayingInfoAutoHideMs
+        return this._settingsStore.readClampedNowPlayingAutoHideValue(
+            NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS,
+            NOW_PLAYING_INFO_DEFAULTS.autoHideMs
         );
-        if (NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS.includes(rawValue as (typeof NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS)[number])) {
-            return rawValue;
-        }
-        const fallback = NOW_PLAYING_INFO_DEFAULTS.autoHideMs;
-        this._saveNumberSetting(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, fallback);
-        return fallback;
     }
 
     private _inferToggleMetadata(

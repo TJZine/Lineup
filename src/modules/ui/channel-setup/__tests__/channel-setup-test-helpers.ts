@@ -132,6 +132,7 @@ export const createOrchestrator = (
     getChannelSetupRecord: jest.fn(() => null),
     getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
     getSelectedServerStorageKey: jest.fn(() => PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY),
+    getServerHealthStorageKey: jest.fn(() => PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY),
     getSelectedServerId: jest.fn(() => null),
     openServerSelect: jest.fn(),
     switchToChannelByNumber: jest.fn(),

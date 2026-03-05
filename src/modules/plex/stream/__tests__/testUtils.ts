@@ -12,6 +12,9 @@ export function createMockConfig(
         getServerUri: () => 'http://192.168.1.100:32400',
         getHttpsConnection: () => null,
         getRelayConnection: () => null,
+        debugOverridesStore: {
+            readTranscodeProfileName: () => null,
+        },
         getItem: jest.fn().mockResolvedValue(null),
         clientIdentifier: 'test-client-id',
         ...overrides,
@@ -106,4 +109,3 @@ export function createMockMediaItem(
         media: [media],
     };
 }
-

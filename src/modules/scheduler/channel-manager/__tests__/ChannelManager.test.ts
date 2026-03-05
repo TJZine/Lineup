@@ -4,6 +4,7 @@
  */
 
 import { ChannelManager } from '../ChannelManager';
+import { ChannelPersistenceStore } from '../ChannelPersistenceStore';
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
 import type { ChannelConfig, LibraryContentSource } from '../types';
 import { AppErrorCode } from '../../../lifecycle/types';
@@ -130,6 +131,7 @@ describe('ChannelManager', () => {
             await manager.flushSaves().catch(() => undefined);
         }
         jest.clearAllTimers();
+        jest.restoreAllMocks();
     });
 
     describe('CRUD operations', () => {
@@ -308,6 +310,15 @@ describe('ChannelManager', () => {
 
             expect(clearCachesSpy).toHaveBeenCalledTimes(1);
         });
+
+        it('routes replaceAllChannels current-channel persistence through ChannelPersistenceStore.writeCurrentChannelId', async () => {
+            const writeCurrentSpy = jest.spyOn(ChannelPersistenceStore.prototype, 'writeCurrentChannelId');
+            const channels = [createBaseChannel({ id: 'replace-1', number: 10 })];
+
+            await manager.replaceAllChannels(channels, { currentChannelId: 'replace-1' });
+
+            expect(writeCurrentSpy).toHaveBeenCalledWith('replace-1');
+        });
     });
 
     describe('storage key updates', () => {
@@ -318,6 +329,19 @@ describe('ChannelManager', () => {
             manager.setStorageKeys('lineup_channels_new_scope', 'lineup_current_channel_new_scope');
 
             expect(clearCachesSpy).toHaveBeenCalledTimes(1);
+        });
+
+        it('forwards storage key changes to ChannelPersistenceStore', () => {
+            const setKeysSpy = jest.spyOn(ChannelPersistenceStore.prototype, 'setStorageKeys');
+
+            manager.setStorageKeys('lineup_channels_new_scope', 'lineup_current_channel_new_scope');
+
+            expect(setKeysSpy).toHaveBeenCalledWith(
+                'lineup_channels_new_scope',
+                'lineup_current_channel_new_scope'
+            );
+
+            setKeysSpy.mockRestore();
         });
 
         it('emits persistenceWarning and does not throw when pending save flush fails during key switch', async () => {
@@ -581,6 +605,16 @@ describe('ChannelManager', () => {
             );
         });
 
+        it('routes setCurrentChannel persistence through ChannelPersistenceStore.writeCurrentChannelId', async () => {
+            const ch1 = await manager.createChannel({ name: 'Ch1', contentSource: createMockContentSource() });
+            const writeCurrentSpy = jest.spyOn(ChannelPersistenceStore.prototype, 'writeCurrentChannelId');
+
+            manager.setCurrentChannel(ch1.id);
+
+            expect(writeCurrentSpy).toHaveBeenCalledWith(ch1.id);
+            expect(writeCurrentSpy).toHaveBeenCalledTimes(1);
+        });
+
         it('should get next and previous channels', async () => {
             const ch1 = await manager.createChannel({
                 name: 'Ch1',
@@ -620,6 +654,36 @@ describe('ChannelManager', () => {
     });
 
     describe('persistence', () => {
+        it('loads persisted channels through ChannelPersistenceStore boundary', async () => {
+            const persistedChannel = createBaseChannel({
+                id: 'persisted-1',
+                number: 42,
+                name: 'Persisted Channel',
+            });
+
+            mockStorage[STORAGE_KEY] = JSON.stringify({
+                channels: [persistedChannel],
+                channelOrder: [persistedChannel.id],
+                currentChannelId: persistedChannel.id,
+                savedAt: Date.now(),
+            });
+            mockStorage[CURRENT_CHANNEL_KEY] = persistedChannel.id;
+
+            const readStoredSpy = jest.spyOn(ChannelPersistenceStore.prototype, 'readStoredChannelData');
+            const readCurrentSpy = jest.spyOn(ChannelPersistenceStore.prototype, 'readCurrentChannelId');
+
+            await manager.loadChannels();
+
+            expect(readStoredSpy).toHaveBeenCalledTimes(1);
+            expect(readCurrentSpy).toHaveBeenCalledTimes(1);
+            expect(manager.getAllChannels()).toHaveLength(1);
+            expect(manager.getAllChannels()[0]?.id).toBe('persisted-1');
+            expect(manager.getCurrentChannel()?.id).toBe('persisted-1');
+
+            readStoredSpy.mockRestore();
+            readCurrentSpy.mockRestore();
+        });
+
         it('saveChannels reuses one pending promise for burst saves', async () => {
             await manager.createChannel({ contentSource: createMockContentSource() });
 
@@ -636,6 +700,24 @@ describe('ChannelManager', () => {
             await expect(first).rejects.toMatchObject({
                 code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
             });
+        });
+
+        it('routes debounced channel blob writes through ChannelPersistenceStore.writeStoredChannelData', async () => {
+            const channel = await manager.createChannel({ contentSource: createMockContentSource() });
+            const writeStoredSpy = jest.spyOn(ChannelPersistenceStore.prototype, 'writeStoredChannelData');
+            manager.setCurrentChannel(channel.id);
+
+            await manager.flushSaves();
+
+            expect(writeStoredSpy).toHaveBeenCalledTimes(1);
+            expect(writeStoredSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    channels: expect.any(Array),
+                    channelOrder: expect.any(Array),
+                    currentChannelId: expect.anything(),
+                    savedAt: expect.any(Number),
+                })
+            );
         });
 
         it('emits throttled persistenceWarning for debounced background save failures', async () => {
@@ -965,5 +1047,21 @@ describe('ChannelManager', () => {
 
             expect(channel.itemCount).toBe(1);
         });
+    });
+});
+
+describe('ChannelManager constructor validation', () => {
+    it('throws when currentChannelKey is provided as an empty string', () => {
+        const plexLibrary = createMockLibrary();
+        expect(() => new ChannelManager({ plexLibrary, currentChannelKey: '' })).toThrow(
+            'Storage keys must be non-empty strings'
+        );
+    });
+
+    it('throws when storageKey is provided as whitespace', () => {
+        const plexLibrary = createMockLibrary();
+        expect(() => new ChannelManager({ plexLibrary, storageKey: '   ' })).toThrow(
+            'Storage keys must be non-empty strings'
+        );
     });
 });

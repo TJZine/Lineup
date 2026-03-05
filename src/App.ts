@@ -28,6 +28,7 @@ import {
 } from './core/app-shell/AppBlockingErrorOverlayPresenter';
 import { AppDiagnosticsSurface } from './core/app-shell/AppDiagnosticsSurface';
 import { AppToastPresenter } from './core/app-shell/AppToastPresenter';
+import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
 import type { PlexAuthConfig } from './modules/plex/auth';
 import { AuthScreen } from './modules/ui/auth';
 import { ProfileSelectScreen } from './modules/ui/profile-select';
@@ -138,6 +139,7 @@ const ERROR_OVERLAY_MODAL_ID = 'modal:error-overlay';
  */
 export class App {
     private _orchestrator: AppOrchestrator | null = null;
+    private readonly _debugOverridesStore = new DebugOverridesStore();
     private readonly _blockingErrorOverlayPresenter = new AppBlockingErrorOverlayPresenter({
         getNavigation: (): INavigationManager | null => this._orchestrator?.getNavigation() ?? null,
         modalId: ERROR_OVERLAY_MODAL_ID,
@@ -146,6 +148,7 @@ export class App {
     private readonly _diagnosticsSurface = new AppDiagnosticsSurface({
         getOrchestrator: (): AppOrchestrator | null => this._orchestrator,
         showToast: (toast): void => this._toastPresenter.show(toast),
+        debugOverridesStore: this._debugOverridesStore,
     });
     private _authScreen: AuthScreen | null = null;
     private _profileSelectScreen: ProfileSelectScreen | null = null;

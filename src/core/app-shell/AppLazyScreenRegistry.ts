@@ -13,6 +13,7 @@ export interface AppLazyScreenRegistryLoaders {
     loadAudioSetupScreen: () => Promise<typeof import('../../modules/ui/audio-setup')>;
     loadChannelSetupScreen: () => Promise<typeof import('../../modules/ui/channel-setup/ChannelSetupScreen')>;
     loadSettingsScreen: () => Promise<typeof import('../../modules/ui/settings/SettingsScreen')>;
+    loadSettingsStore: () => Promise<typeof import('../../modules/ui/settings/SettingsStore')>;
 }
 
 export interface AppLazyScreenRegistryOptions {
@@ -26,6 +27,7 @@ const DEFAULT_LOADERS: AppLazyScreenRegistryLoaders = {
     loadAudioSetupScreen: () => import('../../modules/ui/audio-setup'),
     loadChannelSetupScreen: () => import('../../modules/ui/channel-setup/ChannelSetupScreen'),
     loadSettingsScreen: () => import('../../modules/ui/settings/SettingsScreen'),
+    loadSettingsStore: () => import('../../modules/ui/settings/SettingsStore'),
 };
 
 export class AppLazyScreenRegistry {
@@ -89,7 +91,10 @@ export class AppLazyScreenRegistry {
             this._settingsPrefetchTimerId = null;
             if (this._destroyed) return;
             if (this._settingsScreen || this._settingsScreenLoad) return;
-            void this._loaders.loadSettingsScreen().catch(() => {
+            void Promise.all([
+                this._loaders.loadSettingsScreen(),
+                this._loaders.loadSettingsStore(),
+            ]).catch(() => {
                 // Best-effort prefetch only.
             });
         }, 1200);
@@ -188,31 +193,34 @@ export class AppLazyScreenRegistry {
         if (!orchestrator || !container) return null;
 
         if (!this._settingsScreenLoad) {
-            this._settingsScreenLoad = this._loaders.loadSettingsScreen()
-                .then(({ SettingsScreen }) => {
-                    if (this._destroyed) return null;
+            this._settingsScreenLoad = Promise.all([
+                this._loaders.loadSettingsScreen(),
+                this._loaders.loadSettingsStore(),
+            ]).then(([{ SettingsScreen }, { SettingsStore }]) => {
+                if (this._destroyed) return null;
 
-                    const screen = new SettingsScreen(
-                        container,
-                        () => this._getOrchestrator()?.getNavigation() ?? null,
-                        (mode): void => {
-                            if (mode !== 'off') return;
-                            void this._getOrchestrator()?.setSubtitleTrack(null);
-                        },
-                        (change): void => {
-                            this._getOrchestrator()?.onGuideSettingChange(change);
-                        },
-                        (): string | null => this._getOrchestrator()?.getActiveUsername() ?? null
-                    );
+                const screen = new SettingsScreen(
+                    container,
+                    () => this._getOrchestrator()?.getNavigation() ?? null,
+                    (mode): void => {
+                        if (mode !== 'off') return;
+                        void this._getOrchestrator()?.setSubtitleTrack(null);
+                    },
+                    (change): void => {
+                        this._getOrchestrator()?.onGuideSettingChange(change);
+                    },
+                    (): string | null => this._getOrchestrator()?.getActiveUsername() ?? null,
+                    new SettingsStore()
+                );
 
-                    if (this._destroyed) {
-                        screen.destroy();
-                        return null;
-                    }
+                if (this._destroyed) {
+                    screen.destroy();
+                    return null;
+                }
 
-                    this._settingsScreen = screen;
-                    return screen;
-                })
+                this._settingsScreen = screen;
+                return screen;
+            })
                 .finally(() => {
                     this._settingsScreenLoad = null;
                 });

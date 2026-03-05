@@ -32,6 +32,7 @@ import {
 } from './constants';
 import { generateUUID } from './utils';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
 import {
     isStoredTrue,
     readStoredBoolean,
@@ -61,6 +62,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     private readonly _config: PlexStreamResolverConfig;
     private readonly _emitter: EventEmitter<StreamResolverEventMap>;
     private readonly _identityService: PlatformIdentityService;
+    private readonly _audioSettingsStore = new AudioSettingsStore();
 
     /**
      * Create a new PlexStreamResolver instance.
@@ -479,15 +481,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         const sessionId = generateUUID();
 
         // 4. Check direct play compatibility ON THE SELECTED MEDIA VERSION
-            const allowDirectPlayAudioFallback = ((): boolean => {
-                try {
-                    return isStoredTrue(
-                        safeLocalStorageGet(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK)
-                    );
-                } catch {
-                    return false;
-                }
-            })();
+            const allowDirectPlayAudioFallback = this._audioSettingsStore.readDirectPlayAudioFallbackEnabled();
 
             let directDecision = this._getDirectPlayDecision(media);
             let directPlayAudioStreamId: string | undefined;
@@ -934,15 +928,12 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
         const compatMode = readStoredBoolean(LINEUP_STORAGE_KEYS.TRANSCODE_COMPAT, false);
 
-        const getOverride = (key: string): string | null => {
-            try {
-                const value = localStorage.getItem(key);
-                return typeof value === 'string' && value.length > 0 ? value : null;
-            } catch {
-                return null;
-            }
-        };
-        const quality = getTranscodeQualityOption(getOverride(LINEUP_STORAGE_KEYS.TRANSCODE_QUALITY));
+        const storedQualityValue = safeLocalStorageGet(LINEUP_STORAGE_KEYS.TRANSCODE_QUALITY);
+        const quality = getTranscodeQualityOption(
+            typeof storedQualityValue === 'string' && storedQualityValue.length > 0
+                ? storedQualityValue
+                : null
+        );
         const shouldApplyQualityOverride = Boolean(quality && quality.storageValue.length > 0);
         const qualityMaxBitrate = shouldApplyQualityOverride ? quality?.maxVideoBitrateKbps : undefined;
         const effectiveMaxBitrate = typeof qualityMaxBitrate === 'number'
@@ -1068,14 +1059,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         // Optional: Force the server to use a specific built-in profile name/version (advanced).
-        const forcedProfileNameRaw = getOverride(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
-        let forcedProfileName: string | null = null;
-        if (forcedProfileNameRaw) {
-            const value = forcedProfileNameRaw.trim().slice(0, 128);
-            if (value.length > 0 && !/[\r\n\0]/.test(value)) {
-                forcedProfileName = value;
-            }
-        }
+        const forcedProfileName = this._config.debugOverridesStore.readTranscodeProfileName();
         if (forcedProfileName) {
             params.set('X-Plex-Client-Profile-Name', forcedProfileName);
         } else {

@@ -1,5 +1,6 @@
 import { NowPlayingDebugManager, type NowPlayingDebugManagerDeps } from '../NowPlayingDebugManager';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import { DebugOverridesStore } from '../DebugOverridesStore';
 import type { INavigationManager } from '../../navigation';
 import type { IPlexStreamResolver, StreamDecision } from '../../plex/stream';
 import type { ScheduledProgram } from '../../scheduler/scheduler';
@@ -85,6 +86,7 @@ const setup = (overrides: Partial<NowPlayingDebugManagerDeps> = {}): {
         getNowPlayingInfo: () => nowPlayingInfo,
         getCurrentProgram: () => program,
         getCurrentStreamDecision: () => decision,
+        debugOverridesStore: new DebugOverridesStore(),
         requestNowPlayingOverlayRefresh: jest.fn(),
         ...overrides,
     };
@@ -221,6 +223,7 @@ describe('NowPlayingDebugManager', () => {
             getNowPlayingInfo: () => ({} as INowPlayingInfoOverlay),
             getCurrentProgram: () => makeProgram(),
             getCurrentStreamDecision: () => openDecision,
+            debugOverridesStore: new DebugOverridesStore(),
             requestNowPlayingOverlayRefresh: jest.fn(),
         };
         const managerOpen = new NowPlayingDebugManager(openDeps);
@@ -252,6 +255,7 @@ describe('NowPlayingDebugManager', () => {
             getNowPlayingInfo: () => ({} as INowPlayingInfoOverlay),
             getCurrentProgram: () => makeProgram(),
             getCurrentStreamDecision: () => decision,
+            debugOverridesStore: new DebugOverridesStore(),
             requestNowPlayingOverlayRefresh: jest.fn(),
         };
         const manager = new NowPlayingDebugManager(deps);

@@ -6,6 +6,7 @@
 
 // Export main class and error
 export { ChannelManager, ChannelError } from './ChannelManager';
+export { ChannelPersistenceStore } from './ChannelPersistenceStore';
 export { ContentResolver } from './ContentResolver';
 export { AppErrorCode } from '../../lifecycle/types';
 export type { IChannelManager, ChannelManagerConfig, IPlexLibraryMinimal } from './interfaces';
