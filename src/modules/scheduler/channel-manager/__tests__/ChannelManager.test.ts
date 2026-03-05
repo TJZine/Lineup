@@ -309,6 +309,15 @@ describe('ChannelManager', () => {
 
             expect(clearCachesSpy).toHaveBeenCalledTimes(1);
         });
+
+        it('routes replaceAllChannels current-channel persistence through ChannelPersistenceStore.writeCurrentChannelId', async () => {
+            const writeCurrentSpy = jest.spyOn(ChannelPersistenceStore.prototype, 'writeCurrentChannelId');
+            const channels = [createBaseChannel({ id: 'replace-1', number: 10 })];
+
+            await manager.replaceAllChannels(channels, { currentChannelId: 'replace-1' });
+
+            expect(writeCurrentSpy).toHaveBeenCalledWith('replace-1');
+        });
     });
 
     describe('storage key updates', () => {
@@ -595,6 +604,16 @@ describe('ChannelManager', () => {
             );
         });
 
+        it('routes setCurrentChannel persistence through ChannelPersistenceStore.writeCurrentChannelId', async () => {
+            const ch1 = await manager.createChannel({ name: 'Ch1', contentSource: createMockContentSource() });
+            const writeCurrentSpy = jest.spyOn(ChannelPersistenceStore.prototype, 'writeCurrentChannelId');
+
+            manager.setCurrentChannel(ch1.id);
+
+            expect(writeCurrentSpy).toHaveBeenCalledWith(ch1.id);
+            expect(writeCurrentSpy).toHaveBeenCalledTimes(1);
+        });
+
         it('should get next and previous channels', async () => {
             const ch1 = await manager.createChannel({
                 name: 'Ch1',
@@ -680,6 +699,24 @@ describe('ChannelManager', () => {
             await expect(first).rejects.toMatchObject({
                 code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
             });
+        });
+
+        it('routes debounced channel blob writes through ChannelPersistenceStore.writeStoredChannelData', async () => {
+            const channel = await manager.createChannel({ contentSource: createMockContentSource() });
+            const writeStoredSpy = jest.spyOn(ChannelPersistenceStore.prototype, 'writeStoredChannelData');
+            manager.setCurrentChannel(channel.id);
+
+            await manager.flushSaves();
+
+            expect(writeStoredSpy).toHaveBeenCalledTimes(1);
+            expect(writeStoredSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    channels: expect.any(Array),
+                    channelOrder: expect.any(Array),
+                    currentChannelId: expect.anything(),
+                    savedAt: expect.any(Number),
+                })
+            );
         });
 
         it('emits throttled persistenceWarning for debounced background save failures', async () => {

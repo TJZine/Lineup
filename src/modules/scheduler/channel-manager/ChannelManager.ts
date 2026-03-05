@@ -247,8 +247,6 @@ export class ChannelManager implements IChannelManager {
     private readonly _emitter: EventEmitter<ChannelManagerEventMap>;
     private readonly _contentResolver: ContentResolver;
     private readonly _library: IPlexLibraryMinimal;
-    private _storageKey: string;
-    private _currentChannelKey: string;
     private readonly _persistenceStore: ChannelPersistenceStore;
     private readonly _logger: {
         warn: (message: string, ...args: unknown[]) => void;
@@ -280,16 +278,14 @@ export class ChannelManager implements IChannelManager {
             warn: console.warn.bind(console),
             error: console.error.bind(console),
         };
-        this._storageKey = config.storageKey || STORAGE_KEY;
-        if (config.currentChannelKey) {
-            this._currentChannelKey = config.currentChannelKey;
-        } else if (this._storageKey === STORAGE_KEY) {
-            this._currentChannelKey = CURRENT_CHANNEL_KEY;
-        } else {
-            // Namespaced to avoid demo/real and multi-server clobbering.
-            this._currentChannelKey = `${CURRENT_CHANNEL_KEY}:${this._storageKey}`;
-        }
-        this._persistenceStore = new ChannelPersistenceStore(this._storageKey, this._currentChannelKey);
+        const initialStorageKey = config.storageKey || STORAGE_KEY;
+        const initialCurrentChannelKey = config.currentChannelKey
+            ? config.currentChannelKey
+            : initialStorageKey === STORAGE_KEY
+                ? CURRENT_CHANNEL_KEY
+                : `${CURRENT_CHANNEL_KEY}:${initialStorageKey}`;
+
+        this._persistenceStore = new ChannelPersistenceStore(initialStorageKey, initialCurrentChannelKey);
         this._contentResolver = new ContentResolver(this._library, this._logger);
 
         this._state = {
@@ -317,8 +313,6 @@ export class ChannelManager implements IChannelManager {
                 error
             );
         }
-        this._storageKey = storageKey;
-        this._currentChannelKey = currentChannelKey;
         this._persistenceStore.setStorageKeys(storageKey, currentChannelKey);
         this._contentResolver.clearCaches();
         this._state.channels.clear();
@@ -406,7 +400,10 @@ export class ChannelManager implements IChannelManager {
 
         if (this._state.currentChannelId) {
             try {
-                localStorage.setItem(this._currentChannelKey, this._state.currentChannelId);
+                const result = this._persistenceStore.writeCurrentChannelId(this._state.currentChannelId);
+                if (result === 'unavailable') {
+                    throw new Error('Failed to persist current channel');
+                }
             } catch (e) {
                 this._logger.warn('Failed to persist current channel', summarizeErrorForLog(e));
                 this._emitPersistenceWarning(e);
@@ -779,7 +776,10 @@ export class ChannelManager implements IChannelManager {
 
         // Persist current channel separately (namespaced to the active store)
         try {
-            localStorage.setItem(this._currentChannelKey, channelId);
+            const result = this._persistenceStore.writeCurrentChannelId(channelId);
+            if (result === 'unavailable') {
+                throw new Error('Failed to persist current channel');
+            }
         } catch (e) {
             this._logger.warn('Failed to persist current channel', summarizeErrorForLog(e));
             this._emitPersistenceWarning(e);
@@ -1137,19 +1137,17 @@ export class ChannelManager implements IChannelManager {
             savedAt: Date.now(),
         };
 
-        const json = JSON.stringify(data);
+        const writeResult = this._persistenceStore.writeStoredChannelData(data);
 
-        try {
-            localStorage.setItem(this._storageKey, json);
-        } catch (e) {
-            if (this._isQuotaExceeded(e)) {
-                throw new ChannelError(
-                    AppErrorCode.STORAGE_QUOTA_EXCEEDED,
-                    STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
-                    true
-                );
-            }
-            throw e;
+        if (writeResult === 'quota-exceeded') {
+            throw new ChannelError(
+                AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+                STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                true
+            );
+        }
+        if (writeResult === 'unavailable') {
+            throw new Error('Failed to persist channels to storage');
         }
     }
 

@@ -24,6 +24,16 @@ describe('ChannelPersistenceStore', () => {
         expect(store.readCurrentChannelId()).toBe('channel-9');
     });
 
+    it('normalizes writeCurrentChannelId by trimming and removing empty values', () => {
+        const store = new ChannelPersistenceStore();
+
+        store.writeCurrentChannelId('  channel-1  ');
+        expect(mockLocalStorage.getItem(CURRENT_CHANNEL_KEY)).toBe('channel-1');
+
+        store.writeCurrentChannelId('   ');
+        expect(mockLocalStorage.getItem(CURRENT_CHANNEL_KEY)).toBeNull();
+    });
+
     it('trims current channel id and rewrites normalized value', () => {
         const store = new ChannelPersistenceStore();
         mockLocalStorage.setItem(CURRENT_CHANNEL_KEY, '  channel-trim  ');
@@ -69,6 +79,23 @@ describe('ChannelPersistenceStore', () => {
 
         expect(mockLocalStorage.getItem('lineup_current_channel_v4:server-a:user-a')).toBe('channel-1');
         expect(mockLocalStorage.getItem(CURRENT_CHANNEL_KEY)).toBeNull();
+    });
+
+    it('returns quota-exceeded from writeStoredChannelData when localStorage throws QuotaExceededError', () => {
+        const store = new ChannelPersistenceStore();
+        const setSpy = jest.spyOn(mockLocalStorage, 'setItem').mockImplementation(() => {
+            throw new DOMException('quota', 'QuotaExceededError');
+        });
+
+        const result = store.writeStoredChannelData({
+            channels: [],
+            channelOrder: [],
+            currentChannelId: null,
+            savedAt: Date.now(),
+        });
+
+        expect(result).toBe('quota-exceeded');
+        setSpy.mockRestore();
     });
 
     it('treats blocked storage as non-fatal', () => {
