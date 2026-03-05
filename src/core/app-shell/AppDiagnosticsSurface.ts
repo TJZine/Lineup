@@ -1,5 +1,6 @@
 import type { IAppOrchestrator } from '../../Orchestrator';
 import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
+import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import type { ToastInput } from '../../modules/ui/toast/types';
 import {
     readStoredBoolean,
@@ -26,17 +27,20 @@ export type DiagnosticsOrchestrator = Pick<
 export interface AppDiagnosticsSurfaceOptions {
     getOrchestrator: () => DiagnosticsOrchestrator | null;
     showToast: (input: ToastInput) => void;
+    debugOverridesStore: DebugOverridesStore;
 }
 
 export class AppDiagnosticsSurface {
     private readonly _getOrchestrator: () => DiagnosticsOrchestrator | null;
     private readonly _showToast: (input: ToastInput) => void;
+    private readonly _debugOverridesStore: DebugOverridesStore;
     private _container: HTMLElement | null = null;
     private _globalKeydownHandler: ((event: KeyboardEvent) => void) | null = null;
 
     constructor(options: AppDiagnosticsSurfaceOptions) {
         this._getOrchestrator = options.getOrchestrator;
         this._showToast = options.showToast;
+        this._debugOverridesStore = options.debugOverridesStore;
     }
 
     setContainer(container: HTMLElement | null): void {
@@ -205,44 +209,31 @@ export class AppDiagnosticsSurface {
         void this._refreshDevPlaybackInfo();
 
         // Transcode override controls (real mode only)
-        const read = (k: string): string => safeLocalStorageGet(k) ?? '';
-        const clamp = (v: string): string => v.trim().slice(0, 128);
-        const writeOrRemove = (k: string, v: string): void => {
-            const value = clamp(v);
-            if (value.length === 0) {
-                safeLocalStorageRemove(k);
-            } else {
-                safeLocalStorageSet(k, value);
-            }
-        };
-
         const profileNameSelect = container.querySelector('#dev-transcode-profile-name') as HTMLSelectElement | null;
         if (profileNameSelect) {
-            const storedProfileName = read(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
+            const storedProfileName = this._debugOverridesStore.readTranscodeProfileName();
             const isSupportedStoredProfileName = Array.from(profileNameSelect.options).some(
                 (option) => option.value === storedProfileName
             );
-            if (storedProfileName.length > 0 && !isSupportedStoredProfileName) {
-                safeLocalStorageRemove(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
+            if (storedProfileName && !isSupportedStoredProfileName) {
+                this._debugOverridesStore.clearTranscodeProfileName();
                 profileNameSelect.value = '';
             } else {
-                profileNameSelect.value = storedProfileName;
+                profileNameSelect.value = storedProfileName ?? '';
             }
         }
         const directPlayAudioFallbackEl = container.querySelector('#dev-directplay-audio-fallback') as HTMLInputElement | null;
         if (directPlayAudioFallbackEl) {
             directPlayAudioFallbackEl.checked =
-                read(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK) === '1';
+                (safeLocalStorageGet(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK) ?? '') === '1';
         }
         const nowPlayingStreamDebugEl = container.querySelector('#dev-nowplaying-stream-debug') as HTMLInputElement | null;
         if (nowPlayingStreamDebugEl) {
-            nowPlayingStreamDebugEl.checked =
-                read(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG) === '1';
+            nowPlayingStreamDebugEl.checked = this._debugOverridesStore.readNowPlayingStreamDebugEnabled();
         }
         const nowPlayingStreamDebugAutoEl = container.querySelector('#dev-nowplaying-stream-debug-auto') as HTMLInputElement | null;
         if (nowPlayingStreamDebugAutoEl) {
-            nowPlayingStreamDebugAutoEl.checked =
-                read(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW) === '1';
+            nowPlayingStreamDebugAutoEl.checked = this._debugOverridesStore.readNowPlayingStreamDebugAutoShowEnabled();
         }
 
         container.querySelector('#dev-transcode-save')?.addEventListener('click', () => {
@@ -253,19 +244,15 @@ export class AppDiagnosticsSurface {
                 );
             }
             if (nowPlayingStreamDebugEl) {
-                safeLocalStorageSet(
-                    LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG,
-                    nowPlayingStreamDebugEl.checked ? '1' : '0'
-                );
+                this._debugOverridesStore.writeNowPlayingStreamDebugEnabled(nowPlayingStreamDebugEl.checked);
             }
             if (nowPlayingStreamDebugAutoEl) {
-                safeLocalStorageSet(
-                    LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW,
-                    nowPlayingStreamDebugAutoEl.checked ? '1' : '0'
+                this._debugOverridesStore.writeNowPlayingStreamDebugAutoShowEnabled(
+                    nowPlayingStreamDebugAutoEl.checked
                 );
             }
             if (profileNameSelect) {
-                writeOrRemove(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME, profileNameSelect.value);
+                this._debugOverridesStore.writeTranscodeProfileName(profileNameSelect.value);
             }
             this._showToast({ message: 'Saved overrides', type: 'success' });
         });
@@ -273,13 +260,8 @@ export class AppDiagnosticsSurface {
         container.querySelector('#dev-transcode-clear')?.addEventListener('click', () => {
             const ok = window.confirm('Clear transcode overrides?');
             if (!ok) return;
-            const keys = [
-                LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK,
-                LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG,
-                LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW,
-                LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME,
-            ] as const;
-            for (const k of keys) safeLocalStorageRemove(k);
+            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK);
+            this._debugOverridesStore.clearDebugOverrides();
             this._showToast({ message: 'Cleared overrides', type: 'success' });
             // Re-render to reflect cleared state
             this._renderDevMenu();

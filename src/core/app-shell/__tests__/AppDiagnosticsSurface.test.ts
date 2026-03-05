@@ -4,6 +4,7 @@
 
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { flushPromises } from '../../../__tests__/helpers';
+import { DebugOverridesStore } from '../../../modules/debug/DebugOverridesStore';
 import { AppDiagnosticsSurface, type DiagnosticsOrchestrator } from '../AppDiagnosticsSurface';
 
 const createContainer = (): HTMLDivElement => {
@@ -55,6 +56,7 @@ describe('AppDiagnosticsSurface', () => {
         surface = new AppDiagnosticsSurface({
             getOrchestrator: (): DiagnosticsOrchestrator => ({ toggleServerSelect, refreshPlaybackInfoSnapshot }),
             showToast,
+            debugOverridesStore: new DebugOverridesStore(),
         });
         surface.setContainer(container);
         surface.initialize();
@@ -85,6 +87,7 @@ describe('AppDiagnosticsSurface', () => {
         surface = new AppDiagnosticsSurface({
             getOrchestrator: (): DiagnosticsOrchestrator => ({ toggleServerSelect, refreshPlaybackInfoSnapshot }),
             showToast: jest.fn(),
+            debugOverridesStore: new DebugOverridesStore(),
         });
         surface.setContainer(container);
         surface.initialize();
@@ -108,6 +111,7 @@ describe('AppDiagnosticsSurface', () => {
         surface = new AppDiagnosticsSurface({
             getOrchestrator: (): DiagnosticsOrchestrator => ({ toggleServerSelect: jest.fn(), refreshPlaybackInfoSnapshot }),
             showToast: jest.fn(),
+            debugOverridesStore: new DebugOverridesStore(),
         });
         surface.setContainer(container);
         surface.initialize();
@@ -137,6 +141,7 @@ describe('AppDiagnosticsSurface', () => {
         surface = new AppDiagnosticsSurface({
             getOrchestrator: (): DiagnosticsOrchestrator => ({ toggleServerSelect, refreshPlaybackInfoSnapshot }),
             showToast: jest.fn(),
+            debugOverridesStore: new DebugOverridesStore(),
         });
         surface.setContainer(container);
         surface.initialize();
@@ -161,6 +166,7 @@ describe('AppDiagnosticsSurface', () => {
         surface = new AppDiagnosticsSurface({
             getOrchestrator: (): DiagnosticsOrchestrator => ({ toggleServerSelect: jest.fn(), refreshPlaybackInfoSnapshot }),
             showToast: jest.fn(),
+            debugOverridesStore: new DebugOverridesStore(),
         });
         surface.setContainer(container);
         surface.initialize();
@@ -177,5 +183,40 @@ describe('AppDiagnosticsSurface', () => {
 
         expect(() => (closeButton as HTMLButtonElement).click()).not.toThrow();
         expect(container.style.display).toBe('none');
+    });
+
+    it('writes debug override keys through DebugOverridesStore-backed flow', async () => {
+        const showToast = jest.fn();
+        const container = createContainer();
+        document.body.appendChild(container);
+
+        surface = new AppDiagnosticsSurface({
+            getOrchestrator: (): DiagnosticsOrchestrator => ({
+                toggleServerSelect: jest.fn(),
+                refreshPlaybackInfoSnapshot: jest.fn().mockResolvedValue(createSnapshot()),
+            }),
+            showToast,
+            debugOverridesStore: new DebugOverridesStore(),
+        });
+        surface.setContainer(container);
+        surface.initialize();
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyD', ctrlKey: true, shiftKey: true }));
+        await flushPromises();
+
+        const debugToggle = container.querySelector('#dev-nowplaying-stream-debug') as HTMLInputElement;
+        const autoToggle = container.querySelector('#dev-nowplaying-stream-debug-auto') as HTMLInputElement;
+        const profileSelect = container.querySelector('#dev-transcode-profile-name') as HTMLSelectElement;
+        const saveButton = container.querySelector('#dev-transcode-save') as HTMLButtonElement;
+
+        debugToggle.checked = true;
+        autoToggle.checked = true;
+        profileSelect.value = 'Generic';
+        saveButton.click();
+
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG)).toBe('1');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW)).toBe('1');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME)).toBe('Generic');
+        expect(showToast).toHaveBeenCalledWith({ message: 'Saved overrides', type: 'success' });
     });
 });
