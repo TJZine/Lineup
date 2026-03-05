@@ -15,24 +15,96 @@ type EpgPastItemsStorageValue = (typeof EPG_PAST_ITEMS_STORAGE_VALUES)[number];
 type SubtitleLanguageOption = Readonly<{ code: string | null }>;
 type TranscodeQualityOption = Readonly<{ storageValue: string }>;
 
+export type ToggleSettingId =
+    | 'dtsPassthrough'
+    | 'directPlayAudioFallback'
+    | 'keepPlayingInSettings'
+    | 'transcodeCompat'
+    | 'debugLogging'
+    | 'subtitleDebugLogging'
+    | 'subtitlePreferForced'
+    | 'guideCategoryColors'
+    | 'epgLibraryTabsEnabled'
+    | 'epgNowWatchingEnabled'
+    | 'epgAggressivePreloadEnabled'
+    | 'showProfilePickerOnStartup'
+    | 'cinematicNowPlaying'
+    | 'preferClearLogos'
+    | 'smartHdr10Fallback'
+    | 'forceHdr10Fallback';
+
+const TOGGLE_STORAGE_KEY_BY_ID: Record<ToggleSettingId, string> = {
+    dtsPassthrough: SETTINGS_STORAGE_KEYS.DTS_PASSTHROUGH,
+    directPlayAudioFallback: SETTINGS_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK,
+    keepPlayingInSettings: SETTINGS_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS,
+    transcodeCompat: SETTINGS_STORAGE_KEYS.TRANSCODE_COMPAT,
+    debugLogging: SETTINGS_STORAGE_KEYS.DEBUG_LOGGING,
+    subtitleDebugLogging: SETTINGS_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING,
+    subtitlePreferForced: SETTINGS_STORAGE_KEYS.SUBTITLE_PREFER_FORCED,
+    guideCategoryColors: SETTINGS_STORAGE_KEYS.GUIDE_CATEGORY_COLORS,
+    epgLibraryTabsEnabled: SETTINGS_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED,
+    epgNowWatchingEnabled: SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED,
+    epgAggressivePreloadEnabled: SETTINGS_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED,
+    showProfilePickerOnStartup: SETTINGS_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP,
+    cinematicNowPlaying: SETTINGS_STORAGE_KEYS.CINEMATIC_NOW_PLAYING,
+    preferClearLogos: SETTINGS_STORAGE_KEYS.PREFER_CLEAR_LOGOS,
+    smartHdr10Fallback: SETTINGS_STORAGE_KEYS.SMART_HDR10_FALLBACK,
+    forceHdr10Fallback: SETTINGS_STORAGE_KEYS.FORCE_HDR10_FALLBACK,
+};
+
+const TOGGLE_DEFAULT_BY_ID: Record<ToggleSettingId, boolean> = {
+    dtsPassthrough: DEFAULT_SETTINGS.audio.dtsPassthrough,
+    directPlayAudioFallback: DEFAULT_SETTINGS.audio.directPlayAudioFallback,
+    keepPlayingInSettings: DEFAULT_SETTINGS.playback.keepPlayingInSettings,
+    transcodeCompat: false,
+    debugLogging: DEFAULT_SETTINGS.developer.debugLogging,
+    subtitleDebugLogging: DEFAULT_SETTINGS.developer.subtitleDebugLogging,
+    subtitlePreferForced: DEFAULT_SETTINGS.subtitles.preferForced,
+    guideCategoryColors: true,
+    epgLibraryTabsEnabled: true,
+    epgNowWatchingEnabled: true,
+    epgAggressivePreloadEnabled: false,
+    showProfilePickerOnStartup: DEFAULT_SETTINGS.account.showProfilePickerOnStartup,
+    cinematicNowPlaying: DEFAULT_SETTINGS.display.cinematicNowPlaying,
+    preferClearLogos: DEFAULT_SETTINGS.display.preferClearLogos,
+    smartHdr10Fallback: DEFAULT_SETTINGS.playback.smartHdr10Fallback,
+    forceHdr10Fallback: DEFAULT_SETTINGS.playback.forceHdr10Fallback,
+};
+
 export class SettingsStore {
-    readBool(key: string, defaultValue: boolean): boolean {
-        return readStoredBoolean(key, defaultValue);
+    readToggleSetting(id: ToggleSettingId): boolean {
+        return readStoredBoolean(TOGGLE_STORAGE_KEY_BY_ID[id], TOGGLE_DEFAULT_BY_ID[id]);
     }
 
-    writeBool(key: string, value: boolean): void {
-        safeLocalStorageSet(key, value ? '1' : '0');
+    writeToggleSetting(id: ToggleSettingId, value: boolean): void {
+        safeLocalStorageSet(TOGGLE_STORAGE_KEY_BY_ID[id], value ? '1' : '0');
     }
 
-    readNumber(key: string, defaultValue: number): number {
-        const raw = safeLocalStorageGet(key);
-        if (raw === null) return defaultValue;
-        const parsed = Number(raw);
-        return Number.isFinite(parsed) ? parsed : defaultValue;
+    readHdr10FallbackModeValue(): 0 | 1 | 2 {
+        if (this.readToggleSetting('forceHdr10Fallback')) {
+            return 2;
+        }
+        if (this.readToggleSetting('smartHdr10Fallback')) {
+            return 1;
+        }
+        return 0;
     }
 
-    writeNumber(key: string, value: number): void {
-        safeLocalStorageSet(key, String(value));
+    writeHdr10FallbackModeValue(value: 0 | 1 | 2): void {
+        switch (value) {
+            case 1:
+                this.writeToggleSetting('smartHdr10Fallback', true);
+                this.writeToggleSetting('forceHdr10Fallback', false);
+                return;
+            case 2:
+                this.writeToggleSetting('smartHdr10Fallback', false);
+                this.writeToggleSetting('forceHdr10Fallback', true);
+                return;
+            case 0:
+            default:
+                this.writeToggleSetting('smartHdr10Fallback', false);
+                this.writeToggleSetting('forceHdr10Fallback', false);
+        }
     }
 
     readEpgLayoutModeValue(): number {
@@ -137,16 +209,19 @@ export class SettingsStore {
     }
 
     readClampedNowPlayingAutoHideValue(validOptions: readonly number[], fallback: number = NOW_PLAYING_INFO_DEFAULTS.autoHideMs): number {
-        const rawValue = this.readNumber(
-            SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS,
-            DEFAULT_SETTINGS.display.nowPlayingInfoAutoHideMs
-        );
+        const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS);
+        const parsed = raw === null ? NaN : Number(raw);
+        const rawValue = Number.isFinite(parsed) ? parsed : DEFAULT_SETTINGS.display.nowPlayingInfoAutoHideMs;
 
         if (validOptions.includes(rawValue)) {
             return rawValue;
         }
 
-        this.writeNumber(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, fallback);
+        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, String(fallback));
         return fallback;
+    }
+
+    writeNowPlayingAutoHideValue(value: number): void {
+        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, String(value));
     }
 }

@@ -180,6 +180,16 @@ describe('SettingsScreen (Guide settings)', () => {
         expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'layoutMode', mode: 'classic' });
     });
 
+    it('refresh delegates settings-debug-logging toggle reads to SettingsStore.readToggleSetting', () => {
+        const injectedStore = new SettingsStore();
+        const readToggleSpy = jest.spyOn(injectedStore, 'readToggleSetting');
+        const { screen } = createScreen(jest.fn(), undefined, injectedStore);
+
+        screen.show();
+
+        expect(readToggleSpy).toHaveBeenCalledWith('debugLogging');
+    });
+
     it('writes past items select and emits guide-setting change', () => {
         const onGuideSettingChange = jest.fn();
         const { container, screen } = createScreen(onGuideSettingChange);

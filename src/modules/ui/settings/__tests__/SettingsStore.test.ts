@@ -25,15 +25,37 @@ describe('SettingsStore', () => {
         store = new SettingsStore();
     });
 
-    it('reads booleans with defaults and writes booleans as 1/0', () => {
-        expect(store.readBool(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING, false)).toBe(false);
+    it('reads/writes debugLogging toggle through semantic API', () => {
+        expect(store.readToggleSetting('debugLogging')).toBe(DEFAULT_SETTINGS.developer.debugLogging);
 
-        store.writeBool(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING, true);
+        store.writeToggleSetting('debugLogging', true);
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING)).toBe('1');
-        expect(store.readBool(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING, false)).toBe(true);
+        expect(store.readToggleSetting('debugLogging')).toBe(true);
 
-        store.writeBool(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING, false);
+        store.writeToggleSetting('debugLogging', false);
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING)).toBe('0');
+    });
+
+    it('defaults epgNowWatchingEnabled toggle to true when missing', () => {
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED)).toBeNull();
+        expect(store.readToggleSetting('epgNowWatchingEnabled')).toBe(true);
+    });
+
+    it('reads/writes hdr10 fallback mode values 0/1/2 via semantic helpers', () => {
+        store.writeHdr10FallbackModeValue(1);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.SMART_HDR10_FALLBACK)).toBe('1');
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.FORCE_HDR10_FALLBACK)).toBe('0');
+        expect(store.readHdr10FallbackModeValue()).toBe(1);
+
+        store.writeHdr10FallbackModeValue(2);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.SMART_HDR10_FALLBACK)).toBe('0');
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.FORCE_HDR10_FALLBACK)).toBe('1');
+        expect(store.readHdr10FallbackModeValue()).toBe(2);
+
+        store.writeHdr10FallbackModeValue(0);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.SMART_HDR10_FALLBACK)).toBe('0');
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.FORCE_HDR10_FALLBACK)).toBe('0');
+        expect(store.readHdr10FallbackModeValue()).toBe(0);
     });
 
     it('normalizes invalid EPG info background mode by removing invalid persisted value', () => {
@@ -78,7 +100,7 @@ describe('SettingsStore', () => {
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS)).toBe('0');
     });
 
-    it('treats blocked storage as non-fatal and returns defaults', () => {
+    it('semantic toggle methods remain non-fatal when storage is blocked', () => {
         const getSpy = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
             throw new DOMException('Blocked', 'SecurityError');
         });
@@ -86,9 +108,9 @@ describe('SettingsStore', () => {
             throw new DOMException('Blocked', 'SecurityError');
         });
 
-        expect(() => store.readBool(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING, false)).not.toThrow();
-        expect(store.readBool(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING, false)).toBe(false);
-        expect(() => store.writeBool(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING, true)).not.toThrow();
+        expect(() => store.readToggleSetting('debugLogging')).not.toThrow();
+        expect(store.readToggleSetting('debugLogging')).toBe(DEFAULT_SETTINGS.developer.debugLogging);
+        expect(() => store.writeToggleSetting('debugLogging', true)).not.toThrow();
 
         getSpy.mockRestore();
         setSpy.mockRestore();
