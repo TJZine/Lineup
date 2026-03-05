@@ -39,8 +39,10 @@ export class ServerSelectScreen {
     constructor(container: HTMLElement, orchestrator: AppOrchestrator) {
         this._container = container;
         this._orchestrator = orchestrator;
-        this._serverSelectionStore = new ServerSelectionStore();
-        this._syncServerSelectionStoreKeys();
+        this._serverSelectionStore = new ServerSelectionStore(() => ({
+            selectedServerKey: this._orchestrator.getSelectedServerStorageKey(),
+            serverHealthKey: this._orchestrator.getServerHealthStorageKey(),
+        }));
         this._container.classList.add('screen');
         this._container.style.position = 'absolute';
         this._container.style.inset = '0';
@@ -173,7 +175,6 @@ export class ServerSelectScreen {
         this._isLoading = true;
         this._unregisterServerListFocusables();
         this._listEl.replaceChildren();
-        this._syncServerSelectionStoreKeys();
         const savedId = this._serverSelectionStore.readSelectedServerId();
         const isAutoConnectAttempt = options.autoSelect && Boolean(savedId);
         this._setAutoConnectHintVisible(isAutoConnectAttempt);
@@ -301,13 +302,6 @@ export class ServerSelectScreen {
         this._autoConnectHintEl.setAttribute('hidden', 'true');
     }
 
-    private _syncServerSelectionStoreKeys(): void {
-        this._serverSelectionStore.setStorageKeys(
-            this._orchestrator.getSelectedServerStorageKey(),
-            this._orchestrator.getServerHealthStorageKey()
-        );
-    }
-
     private _renderServers(
         servers: PlexServer[],
         savedId: string | null,
@@ -315,7 +309,6 @@ export class ServerSelectScreen {
     ): void {
         const savedServerUnavailable = options?.savedServerUnavailable === true;
         const emptyStateReason = options?.emptyStateReason ?? 'no_servers';
-        this._syncServerSelectionStoreKeys();
         const healthMap: ServerHealthMap = this._serverSelectionStore.readServerHealthMap();
 
         this._unregisterServerListFocusables();

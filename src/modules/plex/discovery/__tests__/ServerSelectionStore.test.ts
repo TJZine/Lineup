@@ -117,18 +117,19 @@ describe('ServerSelectionStore', () => {
         });
     });
 
-    it('supports switching storage keys', () => {
-        const store = new ServerSelectionStore();
+    it('uses provider keys dynamically across writes and reads', () => {
+        let selectedServerKey = 'selected-a';
+        let serverHealthKey = 'health-a';
+        const store = new ServerSelectionStore(() => ({ selectedServerKey, serverHealthKey }));
 
-        store.setStorageKeys('selected-a', 'health-a');
         store.writeSelectedServerId('srv-a');
-
-        store.setStorageKeys('selected-b', 'health-b');
-        expect(store.readSelectedServerId()).toBeNull();
-
-        store.writeSelectedServerId('srv-b');
-
         expect(mockLocalStorage.getItem('selected-a')).toBe('srv-a');
+
+        selectedServerKey = 'selected-b';
+        serverHealthKey = 'health-b';
+
+        expect(store.readSelectedServerId()).toBeNull();
+        store.writeSelectedServerId('srv-b');
         expect(mockLocalStorage.getItem('selected-b')).toBe('srv-b');
     });
 

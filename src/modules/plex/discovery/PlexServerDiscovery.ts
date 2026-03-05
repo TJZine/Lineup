@@ -42,6 +42,8 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     private _pendingServerId: string | undefined;
     private _discoveryPromise: Promise<PlexServer[]> | null = null;
     private _discoveryContextVersion = 0;
+    private _selectedServerStorageKey: string;
+    private _serverHealthStorageKey: string;
 
     /**
      * Create a new PlexServerDiscovery instance.
@@ -51,7 +53,12 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         this._getAuthHeaders = config.getAuthHeaders;
         this._emitter = new EventEmitter<PlexServerDiscoveryEvents>();
         this._mixedContentConfig = { ...DEFAULT_MIXED_CONTENT_CONFIG };
-        this._serverSelectionStore = new ServerSelectionStore();
+        this._selectedServerStorageKey = PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY;
+        this._serverHealthStorageKey = PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY;
+        this._serverSelectionStore = new ServerSelectionStore(() => ({
+            selectedServerKey: this._selectedServerStorageKey,
+            serverHealthKey: this._serverHealthStorageKey,
+        }));
         this._state = {
             servers: [],
             selectedServer: null,
@@ -631,7 +638,8 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         // previous profile/user storage namespace.
         this._discoveryContextVersion += 1;
         this._discoveryPromise = null;
-        this._serverSelectionStore.setStorageKeys(selectedServerKey, serverHealthKey);
+        this._selectedServerStorageKey = selectedServerKey;
+        this._serverHealthStorageKey = serverHealthKey;
         this._pendingServerId = undefined;
         this._state.selectedServer = null;
         this._state.selectedConnection = null;

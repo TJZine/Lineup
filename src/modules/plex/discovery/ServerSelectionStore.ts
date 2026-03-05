@@ -29,69 +29,66 @@ export type WriteServerHealthRecordInput = {
     testedAt?: number;
 };
 
+type ServerSelectionStorageKeys = { selectedServerKey: string; serverHealthKey: string };
+
 const SERVER_HEALTH_RECORD_KEYS = new Set(['status', 'type', 'latencyMs', 'testedAt']);
 
 export class ServerSelectionStore {
-    private _selectedServerKey: string;
-    private _serverHealthKey: string;
-
-    constructor() {
-        this._selectedServerKey = PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY;
-        this._serverHealthKey = PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY;
-    }
-
-    setStorageKeys(selectedServerKey: string, serverHealthKey: string): void {
-        if (!selectedServerKey || !serverHealthKey) {
-            throw new Error('Storage keys must be non-empty strings');
-        }
-        this._selectedServerKey = selectedServerKey;
-        this._serverHealthKey = serverHealthKey;
-    }
+    constructor(
+        private readonly _getStorageKeys: () => ServerSelectionStorageKeys = () => ({
+            selectedServerKey: PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY,
+            serverHealthKey: PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY,
+        })
+    ) {}
 
     readSelectedServerId(): string | null {
-        const raw = safeLocalStorageGet(this._selectedServerKey);
+        const { selectedServerKey } = this._keys();
+        const raw = safeLocalStorageGet(selectedServerKey);
         if (raw === null) return null;
 
         const normalized = raw.trim();
         if (normalized.length === 0) {
-            safeLocalStorageRemove(this._selectedServerKey);
+            safeLocalStorageRemove(selectedServerKey);
             return null;
         }
 
         if (normalized !== raw) {
-            safeLocalStorageSet(this._selectedServerKey, normalized);
+            safeLocalStorageSet(selectedServerKey, normalized);
         }
 
         return normalized;
     }
 
     writeSelectedServerId(serverId: string): void {
+        const { selectedServerKey } = this._keys();
         const normalized = serverId.trim();
         if (normalized.length === 0) {
-            safeLocalStorageRemove(this._selectedServerKey);
+            safeLocalStorageRemove(selectedServerKey);
             return;
         }
-        safeLocalStorageSet(this._selectedServerKey, normalized);
+        safeLocalStorageSet(selectedServerKey, normalized);
     }
 
     clearSelectedServerId(): void {
-        safeLocalStorageRemove(this._selectedServerKey);
+        const { selectedServerKey } = this._keys();
+        safeLocalStorageRemove(selectedServerKey);
     }
 
     readServerHealthMap(): ServerHealthMap {
-        const raw = safeLocalStorageGet(this._serverHealthKey);
+        const { serverHealthKey } = this._keys();
+        const raw = safeLocalStorageGet(serverHealthKey);
         if (!raw) return {};
 
         let parsed: unknown;
         try {
             parsed = JSON.parse(raw);
         } catch {
-            safeLocalStorageRemove(this._serverHealthKey);
+            safeLocalStorageRemove(serverHealthKey);
             return {};
         }
 
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-            safeLocalStorageRemove(this._serverHealthKey);
+            safeLocalStorageRemove(serverHealthKey);
             return {};
         }
 
@@ -132,9 +129,9 @@ export class ServerSelectionStore {
 
         if (changed) {
             if (Object.keys(normalized).length === 0) {
-                safeLocalStorageRemove(this._serverHealthKey);
+                safeLocalStorageRemove(serverHealthKey);
             } else {
-                safeLocalStorageSet(this._serverHealthKey, JSON.stringify(normalized));
+                safeLocalStorageSet(serverHealthKey, JSON.stringify(normalized));
             }
         }
 
@@ -142,6 +139,7 @@ export class ServerSelectionStore {
     }
 
     writeServerHealthRecord(input: WriteServerHealthRecordInput): void {
+        const { serverHealthKey } = this._keys();
         const serverId = input.serverId.trim();
         if (serverId.length === 0) return;
 
@@ -175,11 +173,28 @@ export class ServerSelectionStore {
         }
 
         healthMap[serverId] = nextRecord;
-        safeLocalStorageSet(this._serverHealthKey, JSON.stringify(healthMap));
+        safeLocalStorageSet(serverHealthKey, JSON.stringify(healthMap));
     }
 
     clearServerHealthMap(): void {
-        safeLocalStorageRemove(this._serverHealthKey);
+        const { serverHealthKey } = this._keys();
+        safeLocalStorageRemove(serverHealthKey);
+    }
+
+    private _keys(): ServerSelectionStorageKeys {
+        const { selectedServerKey, serverHealthKey } = this._getStorageKeys();
+        if (
+            typeof selectedServerKey !== 'string' ||
+            typeof serverHealthKey !== 'string' ||
+            selectedServerKey.trim().length === 0 ||
+            serverHealthKey.trim().length === 0
+        ) {
+            throw new Error('Storage keys must be non-empty strings');
+        }
+        return {
+            selectedServerKey,
+            serverHealthKey,
+        };
     }
 
     private _normalizeHealthRecord(value: unknown): ServerHealthRecord | null {

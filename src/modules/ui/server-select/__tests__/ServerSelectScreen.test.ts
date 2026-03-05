@@ -3,6 +3,7 @@
  */
 
 import { ServerSelectScreen } from '../ServerSelectScreen';
+import { ServerSelectionStore } from '../../../plex/discovery/ServerSelectionStore';
 import { flushPromisesAndTimers } from '../../../../__tests__/helpers';
 
 type NavigationStub = {
@@ -128,6 +129,21 @@ describe('ServerSelectScreen', () => {
         const pill = container.querySelector('.server-status-pill') as HTMLElement;
         expect(pill.textContent).toContain('Unknown');
         expect(localStorage.getItem(orchestrator.getServerHealthStorageKey())).toBeNull();
+    });
+
+    it('does not call ServerSelectionStore.setStorageKeys during show/refresh', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        orchestrator.discoverServers.mockResolvedValue([{ id: 'srv-1', name: 'Server One', owned: true }]);
+
+        expect('setStorageKeys' in ServerSelectionStore.prototype).toBe(false);
+
+        const screen = new ServerSelectScreen(container, orchestrator as never);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+        await screen.refresh();
+        await flushPromisesAndTimers();
     });
 
     it('marks saved server row as active and keeps reconnect enabled when healthy', async () => {

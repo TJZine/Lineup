@@ -279,8 +279,10 @@ export class ChannelSetupScreen {
     constructor(container: HTMLElement, orchestrator: ChannelSetupOrchestrator) {
         this._container = container;
         this._orchestrator = orchestrator;
-        this._serverSelectionStore = new ServerSelectionStore();
-        this._syncServerSelectionStoreKeys();
+        this._serverSelectionStore = new ServerSelectionStore(() => ({
+            selectedServerKey: this._orchestrator.getSelectedServerStorageKey(),
+            serverHealthKey: this._orchestrator.getServerHealthStorageKey(),
+        }));
         this._focus = new ChannelSetupFocusCoordinator({
             getNavigation: (): ReturnType<ChannelSetupOrchestrator['getNavigation']> => this._orchestrator.getNavigation(),
         });
@@ -1507,19 +1509,11 @@ export class ChannelSetupScreen {
     }
 
     private _getSelectedServerId(): string | null {
-        this._syncServerSelectionStoreKeys();
         const stored = this._serverSelectionStore.readSelectedServerId();
         if (stored) {
             return stored;
         }
         return this._orchestrator.getSelectedServerId();
-    }
-
-    private _syncServerSelectionStoreKeys(): void {
-        this._serverSelectionStore.setStorageKeys(
-            this._orchestrator.getSelectedServerStorageKey(),
-            this._orchestrator.getServerHealthStorageKey()
-        );
     }
 
     private _registerFocusables(buttons: HTMLElement[], mode: 'linear' | 'spatial' = 'linear'): void {
