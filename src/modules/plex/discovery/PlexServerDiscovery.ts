@@ -23,6 +23,7 @@ import {
 import { AppErrorCode } from '../../lifecycle/types';
 import { PlexApiError } from '../auth/helpers';
 import { redactSensitiveTokens, redactUrlForLog } from '../../../utils/redact';
+import { ServerSelectionStore } from './ServerSelectionStore';
 
 // Re-export for consumers
 export { AppErrorCode, PlexApiError };
@@ -37,8 +38,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     private _emitter: EventEmitter<PlexServerDiscoveryEvents>;
     private _getAuthHeaders: () => Record<string, string>;
     private _mixedContentConfig: MixedContentConfig;
-    private _selectedServerKey: string;
-    private _serverHealthKey: string;
+    private _serverSelectionStore: ServerSelectionStore;
     private _pendingServerId: string | undefined;
     private _discoveryPromise: Promise<PlexServer[]> | null = null;
     private _discoveryContextVersion = 0;
@@ -51,8 +51,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         this._getAuthHeaders = config.getAuthHeaders;
         this._emitter = new EventEmitter<PlexServerDiscoveryEvents>();
         this._mixedContentConfig = { ...DEFAULT_MIXED_CONTENT_CONFIG };
-        this._selectedServerKey = PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY;
-        this._serverHealthKey = PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY;
+        this._serverSelectionStore = new ServerSelectionStore();
         this._state = {
             servers: [],
             selectedServer: null,
@@ -463,15 +462,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         this._state.selectedServer = serverWithConnection;
         this._state.selectedConnection = connection;
 
-        // Persist to localStorage
-        try {
-            localStorage.setItem(
-                this._selectedServerKey,
-                serverId
-            );
-        } catch {
-            // localStorage may be unavailable, continue anyway
-        }
+        this._serverSelectionStore.writeSelectedServerId(serverId);
 
         // Emit events
         this._emitter.emit('serverChange', serverWithConnection);
@@ -567,11 +558,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         this._state.selectedServer = null;
         this._state.selectedConnection = null;
         this._pendingServerId = undefined;
-        try {
-            localStorage.removeItem(this._selectedServerKey);
-        } catch {
-            // localStorage may be unavailable, continue anyway
-        }
+        this._serverSelectionStore.clearSelectedServerId();
         this._emitter.emit('serverChange', null);
         this._emitter.emit('connectionChange', null);
     }
@@ -644,8 +631,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         // previous profile/user storage namespace.
         this._discoveryContextVersion += 1;
         this._discoveryPromise = null;
-        this._selectedServerKey = selectedServerKey;
-        this._serverHealthKey = serverHealthKey;
+        this._serverSelectionStore.setStorageKeys(selectedServerKey, serverHealthKey);
         this._pendingServerId = undefined;
         this._state.selectedServer = null;
         this._state.selectedConnection = null;
@@ -893,38 +879,13 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         status: 'ok' | 'unreachable' | 'auth_required',
         details?: { connection?: PlexConnection; latency?: number }
     ): void {
-        try {
-            const raw = localStorage.getItem(this._serverHealthKey);
-            let healthMap: Record<string, { type?: string; latencyMs?: number }> = {};
-            if (raw) {
-                try {
-                    healthMap = JSON.parse(raw);
-                } catch {
-                    healthMap = {};
-                }
-            }
-            const previous = healthMap[serverId];
-
-            const record = {
-                status,
-                type: details?.connection
-                    ? details.connection.relay
-                        ? 'relay'
-                        : details.connection.local
-                            ? 'local'
-                            : 'remote'
-                    : previous?.type || 'unknown',
-                latencyMs: typeof details?.latency === 'number'
-                    ? details.latency
-                    : (previous?.latencyMs || 0),
-                testedAt: Date.now(),
-            };
-
-            healthMap[serverId] = record;
-            localStorage.setItem(this._serverHealthKey, JSON.stringify(healthMap));
-        } catch {
-            // ignore
-        }
+        const input = {
+            serverId,
+            status,
+            testedAt: Date.now(),
+            ...(details ? { details } : {}),
+        };
+        this._serverSelectionStore.writeServerHealthRecord(input);
     }
 
     private _redactUrl(url: string | undefined): string {
@@ -936,17 +897,9 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
      * Restore saved server selection synchronously (for constructor).
      */
     private _restoreSelection(): void {
-        try {
-            const savedServerId = localStorage.getItem(
-                this._selectedServerKey
-            );
-            // Just note that there's a saved selection; actual restoration
-            // happens in initialize() when we have server data
-            if (savedServerId) {
-                this._pendingServerId = savedServerId;
-            }
-        } catch {
-            // localStorage not available
+        const savedServerId = this._serverSelectionStore.readSelectedServerId();
+        if (savedServerId) {
+            this._pendingServerId = savedServerId;
         }
     }
 
