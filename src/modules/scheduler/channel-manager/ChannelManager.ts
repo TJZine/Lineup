@@ -301,7 +301,9 @@ export class ChannelManager implements IChannelManager {
      * Does not implicitly load; caller should invoke loadChannels().
      */
     setStorageKeys(storageKey: string, currentChannelKey: string): void {
-        if (!storageKey || !currentChannelKey) {
+        const normalizedStorageKey = storageKey.trim();
+        const normalizedCurrentChannelKey = currentChannelKey.trim();
+        if (normalizedStorageKey.length === 0 || normalizedCurrentChannelKey.length === 0) {
             throw new Error('Storage keys must be non-empty strings');
         }
         this.cancelPendingRetries();
@@ -313,7 +315,7 @@ export class ChannelManager implements IChannelManager {
                 error
             );
         }
-        this._persistenceStore.setStorageKeys(storageKey, currentChannelKey);
+        this._persistenceStore.setStorageKeys(normalizedStorageKey, normalizedCurrentChannelKey);
         this._contentResolver.clearCaches();
         this._state.channels.clear();
         this._state.resolvedContent.clear();

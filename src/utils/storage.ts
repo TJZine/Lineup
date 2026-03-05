@@ -24,6 +24,17 @@ export function safeLocalStorageSet(key: string, value: string): boolean {
     }
 }
 
+export type SafeLocalStorageSetResult = { ok: true } | { ok: false; reason: 'quota-exceeded' | 'unavailable' };
+
+export function safeLocalStorageSetWithResult(key: string, value: string): SafeLocalStorageSetResult {
+    try {
+        localStorage.setItem(key, value);
+        return { ok: true };
+    } catch (error: unknown) {
+        return { ok: false, reason: isQuotaExceededError(error) ? 'quota-exceeded' : 'unavailable' };
+    }
+}
+
 export function safeLocalStorageRemove(key: string): boolean {
     try {
         localStorage.removeItem(key);
@@ -77,4 +88,20 @@ export function safeClearLineupStorage(): void {
     } catch {
         // Ignore storage failures (storage may be blocked)
     }
+}
+
+function isQuotaExceededError(error: unknown): boolean {
+    if (
+        typeof DOMException === 'undefined' ||
+        !(error instanceof DOMException)
+    ) {
+        return false;
+    }
+
+    return (
+        error.code === 22 ||
+        error.code === 1014 ||
+        error.name === 'QuotaExceededError' ||
+        error.name === 'NS_ERROR_DOM_QUOTA_REACHED'
+    );
 }

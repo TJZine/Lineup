@@ -631,15 +631,20 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     }
 
     public setStorageKeys(selectedServerKey: string, serverHealthKey: string): void {
-        if (!selectedServerKey || !serverHealthKey) {
-            throw new Error('Storage keys must be non-empty strings');
+        const normalizedSelectedServerKey = selectedServerKey.trim();
+        if (normalizedSelectedServerKey.length === 0) {
+            throw new Error('selectedServerKey must be a non-empty string');
+        }
+        const normalizedServerHealthKey = serverHealthKey.trim();
+        if (normalizedServerHealthKey.length === 0) {
+            throw new Error('serverHealthKey must be a non-empty string');
         }
         // Bump context to invalidate any in-flight discovery started under the
         // previous profile/user storage namespace.
         this._discoveryContextVersion += 1;
         this._discoveryPromise = null;
-        this._selectedServerStorageKey = selectedServerKey;
-        this._serverHealthStorageKey = serverHealthKey;
+        this._selectedServerStorageKey = normalizedSelectedServerKey;
+        this._serverHealthStorageKey = normalizedServerHealthKey;
         this._pendingServerId = undefined;
         this._state.selectedServer = null;
         this._state.selectedConnection = null;

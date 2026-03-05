@@ -1,4 +1,9 @@
-import { safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from '../../../utils/storage';
+import {
+    safeLocalStorageGet,
+    safeLocalStorageRemove,
+    safeLocalStorageSet,
+    safeLocalStorageSetWithResult,
+} from '../../../utils/storage';
 import { CURRENT_CHANNEL_KEY, STORAGE_KEY } from './constants';
 import type { StoredChannelData } from './types';
 
@@ -10,16 +15,19 @@ export class ChannelPersistenceStore {
     private _currentChannelKey: string;
 
     constructor(storageKey: string = STORAGE_KEY, currentChannelKey: string = CURRENT_CHANNEL_KEY) {
-        this._storageKey = storageKey;
-        this._currentChannelKey = currentChannelKey;
+        this._storageKey = STORAGE_KEY;
+        this._currentChannelKey = CURRENT_CHANNEL_KEY;
+        this.setStorageKeys(storageKey, currentChannelKey);
     }
 
     setStorageKeys(storageKey: string, currentChannelKey: string): void {
-        if (!storageKey || !currentChannelKey) {
+        const normalizedStorageKey = storageKey.trim();
+        const normalizedCurrentChannelKey = currentChannelKey.trim();
+        if (normalizedStorageKey.length === 0 || normalizedCurrentChannelKey.length === 0) {
             throw new Error('Storage keys must be non-empty strings');
         }
-        this._storageKey = storageKey;
-        this._currentChannelKey = currentChannelKey;
+        this._storageKey = normalizedStorageKey;
+        this._currentChannelKey = normalizedCurrentChannelKey;
     }
 
     readStoredChannelData(): Partial<StoredChannelData> | null {
@@ -45,15 +53,11 @@ export class ChannelPersistenceStore {
     }
 
     writeStoredChannelData(data: StoredChannelData): StoredChannelWriteResult {
-        try {
-            localStorage.setItem(this._storageKey, JSON.stringify(data));
+        const result = safeLocalStorageSetWithResult(this._storageKey, JSON.stringify(data));
+        if (result.ok) {
             return 'ok';
-        } catch (error) {
-            if (this._isQuotaExceeded(error)) {
-                return 'quota-exceeded';
-            }
-            return 'unavailable';
         }
+        return result.reason;
     }
 
     clearStoredChannelData(): void {
@@ -97,19 +101,4 @@ export class ChannelPersistenceStore {
         return Array.isArray(record.channels) && Array.isArray(record.channelOrder);
     }
 
-    private _isQuotaExceeded(error: unknown): boolean {
-        if (
-            typeof DOMException === 'undefined' ||
-            !(error instanceof DOMException)
-        ) {
-            return false;
-        }
-
-        return (
-            error.code === 22 ||
-            error.code === 1014 ||
-            error.name === 'QuotaExceededError' ||
-            error.name === 'NS_ERROR_DOM_QUOTA_REACHED'
-        );
-    }
 }
