@@ -129,7 +129,7 @@ These were previously listed as TODO items but are already implemented or no lon
 - EPG virtualization baseline (DOM cap, pooling, virtualized rendering) is implemented.
 - Mixed-content handling strategy (HTTPS-first with fallback ordering) is implemented.
 - AbortController-based channel switching (latest-wins queue/abort semantics) is implemented.
-- Rate limiting behavior exists across Plex modules (library/auth/discovery).
+- Rate-limiting behavior exists across Plex modules (library/auth/discovery).
 - Multiple user profile support (Plex Home profile fetch/switch/select UI) is implemented.
 - EPG strategy proposals that imply new fallback paths (for example paginated fallback) are removed from active backlog.
 

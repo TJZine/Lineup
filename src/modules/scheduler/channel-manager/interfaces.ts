@@ -150,7 +150,7 @@ export interface IChannelManager {
     // Persistence
 
     /**
-     * Persist channels through persistence boundary.
+     * Persist channels to storage (via ChannelPersistenceStore).
      */
     saveChannels(): Promise<void>;
 
@@ -165,7 +165,7 @@ export interface IChannelManager {
     dispose(): void;
 
     /**
-     * Load channels through persistence boundary.
+     * Load channels from storage (via ChannelPersistenceStore).
      */
     loadChannels(): Promise<void>;
 
