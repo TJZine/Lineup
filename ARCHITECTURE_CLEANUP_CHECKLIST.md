@@ -170,7 +170,7 @@ Other review signals:
   - [ ] Replace direct feature-module storage access with injected boundary
   - [ ] Add tests for valid, invalid, default, and blocked-storage cases
 - Primary work units:
-  - [ ] P3-W1 - Introduce `SettingsStore` and remove direct settings parsing from `SettingsScreen`
+  - [x] P3-W1 - Introduce `SettingsStore` and remove direct settings parsing from `SettingsScreen` (done 2026-03-04; plan: docs/plans/2026-03-04-p3-w1-settings-store-implementation.md)
   - [ ] P3-W2 - Extract debug-override storage into a dedicated store
   - [ ] P3-W3 - Add a repository/store for selected server and server health state
   - [ ] P3-W4 - Introduce a dedicated channel persistence boundary and route one caller through it
