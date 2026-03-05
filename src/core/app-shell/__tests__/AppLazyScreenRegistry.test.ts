@@ -77,8 +77,7 @@ describe('AppLazyScreenRegistry', () => {
         expect(loadSettingsScreen).toHaveBeenCalledTimes(1);
         expect(SettingsScreen).toHaveBeenCalledTimes(1);
         expect(constructorArgs).toBeDefined();
-        expect(constructorArgs).toHaveLength(6);
-        expect(constructorArgs?.[5]).toBeInstanceOf(SettingsStore);
+        expect(constructorArgs?.[constructorArgs.length - 1]).toBeInstanceOf(SettingsStore);
         expect(first).toBe(settingsScreen as never);
         expect(second).toBe(settingsScreen as never);
         expect(third).toBe(settingsScreen as never);

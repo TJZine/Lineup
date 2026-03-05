@@ -13,6 +13,7 @@ export interface AppLazyScreenRegistryLoaders {
     loadAudioSetupScreen: () => Promise<typeof import('../../modules/ui/audio-setup')>;
     loadChannelSetupScreen: () => Promise<typeof import('../../modules/ui/channel-setup/ChannelSetupScreen')>;
     loadSettingsScreen: () => Promise<typeof import('../../modules/ui/settings/SettingsScreen')>;
+    loadSettingsStore: () => Promise<typeof import('../../modules/ui/settings/SettingsStore')>;
 }
 
 export interface AppLazyScreenRegistryOptions {
@@ -26,6 +27,7 @@ const DEFAULT_LOADERS: AppLazyScreenRegistryLoaders = {
     loadAudioSetupScreen: () => import('../../modules/ui/audio-setup'),
     loadChannelSetupScreen: () => import('../../modules/ui/channel-setup/ChannelSetupScreen'),
     loadSettingsScreen: () => import('../../modules/ui/settings/SettingsScreen'),
+    loadSettingsStore: () => import('../../modules/ui/settings/SettingsStore'),
 };
 
 export class AppLazyScreenRegistry {
@@ -190,7 +192,7 @@ export class AppLazyScreenRegistry {
         if (!this._settingsScreenLoad) {
             this._settingsScreenLoad = Promise.all([
                 this._loaders.loadSettingsScreen(),
-                import('../../modules/ui/settings/SettingsStore'),
+                this._loaders.loadSettingsStore(),
             ]).then(([{ SettingsScreen }, { SettingsStore }]) => {
                 if (this._destroyed) return null;
 
