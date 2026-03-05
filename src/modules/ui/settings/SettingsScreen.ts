@@ -18,13 +18,7 @@ import type {
     GuideSettingChange,
 } from './types';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from '../now-playing-info';
-import {
-    parseStoredEpgInfoBackgroundMode,
-    readStoredBoolean,
-    safeLocalStorageGet,
-    safeLocalStorageRemove,
-    safeLocalStorageSet,
-} from '../../../utils/storage';
+import { SettingsStore } from './SettingsStore';
 import { ThemeManager } from '../theme';
 import { getSubtitleMode, setSubtitleMode, type SubtitleMode } from '../../../shared/subtitle-mode';
 import { dispatchDebugLoggingChanged } from '../../../config/events';
@@ -200,6 +194,7 @@ export class SettingsScreen {
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
     private _detailSwapFrame: number | null = null;
     private _detailRevealFrame: number | null = null;
+    private readonly _settingsStore: SettingsStore;
     // When a category swap is deferred via RAF, we must preserve the focus intent
     // (e.g., RIGHT into details) and apply it after detail items exist.
     private _pendingFocusRestore: { categoryId: SettingsCategoryId; preferredFocusId: string | null } | null = null;
@@ -209,13 +204,15 @@ export class SettingsScreen {
         getNavigation: () => INavigationManager | null,
         onSubtitleModeChange?: (mode: SubtitleMode) => void,
         onGuideSettingChange?: (change: GuideSettingChange) => void,
-        getActiveUsername?: () => string | null
+        getActiveUsername?: () => string | null,
+        settingsStore: SettingsStore = new SettingsStore()
     ) {
         this._container = container;
         this._getNavigation = getNavigation;
         this._onSubtitleModeChange = onSubtitleModeChange ?? null;
         this._onGuideSettingChange = onGuideSettingChange ?? null;
         this._getActiveUsername = getActiveUsername ?? null;
+        this._settingsStore = settingsStore;
         this._buildUI();
     }
 
@@ -525,7 +522,7 @@ export class SettingsScreen {
                             { label: 'Wide (3h)', value: 1 },
                         ],
                         onChange: (value: number): void => {
-                            const density = this._mapEpgGuideDensityValue(value);
+                            const density = value === 1 ? 'wide' : 'detailed';
                             this._saveEpgGuideDensityValue(value);
                             this._onGuideSettingChange?.({ key: 'guideDensity', density });
                         },
@@ -1155,93 +1152,50 @@ export class SettingsScreen {
      * Load a boolean setting from localStorage.
      */
     private _loadBoolSetting(key: string, defaultValue: boolean): boolean {
-        return readStoredBoolean(key, defaultValue);
+        return this._settingsStore.readBool(key, defaultValue);
     }
 
     private _loadNumberSetting(key: string, defaultValue: number): number {
-        const raw = safeLocalStorageGet(key);
-        if (raw === null) return defaultValue;
-        const parsed = Number(raw);
-        return Number.isFinite(parsed) ? parsed : defaultValue;
+        return this._settingsStore.readNumber(key, defaultValue);
     }
 
     private _loadEpgLayoutModeValue(): number {
-        const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE);
-        return raw === 'overlay' ? 0 : 1;
+        return this._settingsStore.readEpgLayoutModeValue();
     }
 
     private _loadEpgGuideDensityValue(): number {
-        const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY);
-        return raw === 'wide' ? 1 : 0;
+        return this._settingsStore.readEpgGuideDensityValue();
     }
 
     private _loadEpgPastItemsWindowValue(): number {
-        const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW);
-        const index = EPG_PAST_ITEMS_OPTIONS.findIndex((o) => o.storageValue === raw);
-        if (index >= 0) return index;
-        if (raw !== null) {
-            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW);
-        }
-        return 0;
+        return this._settingsStore.readEpgPastItemsWindowValue();
     }
 
     private _loadEpgInfoBackgroundModeValue(): 0 | 1 | 2 {
-        const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
-        const parsed = parseStoredEpgInfoBackgroundMode(raw);
-        if (parsed !== null) return parsed;
-        if (raw !== null) {
-            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
-        }
-        return DEFAULT_SETTINGS.display.epgInfoBackgroundMode;
+        return this._settingsStore.readEpgInfoBackgroundModeValue();
     }
 
     private _loadSubtitleLanguageValue(): number {
-        const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE);
-        if (raw === null) return 0;
-        const normalized = raw.trim().toLowerCase();
-        if (!normalized) {
-            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE);
-            return 0;
-        }
-        const index = SUBTITLE_LANGUAGE_OPTIONS.findIndex((option) => {
-            if (!option.code) return false;
-            return option.code.toLowerCase() === normalized;
-        });
-        if (index >= 0) return index;
-        safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE);
-        return 0;
+        return this._settingsStore.readSubtitleLanguageValue(SUBTITLE_LANGUAGE_OPTIONS);
     }
 
     /**
      * Save a boolean setting to localStorage.
      */
     private _saveBoolSetting(key: string, value: boolean): void {
-        safeLocalStorageSet(key, value ? '1' : '0');
+        this._settingsStore.writeBool(key, value);
     }
 
     private _saveNumberSetting(key: string, value: number): void {
-        safeLocalStorageSet(key, String(value));
+        this._settingsStore.writeNumber(key, value);
     }
 
     private _loadTranscodeQualityValue(): number {
-        const stored = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY) ?? '';
-        const matchIndex = TRANSCODE_QUALITY_OPTIONS.findIndex((option) => option.storageValue === stored);
-        if (matchIndex >= 0) {
-            return matchIndex;
-        }
-        if (stored) {
-            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY);
-        }
-        return 0;
+        return this._settingsStore.readTranscodeQualityValue(TRANSCODE_QUALITY_OPTIONS);
     }
 
     private _saveTranscodeQualityValue(value: number): void {
-        const option = TRANSCODE_QUALITY_OPTIONS[value] ?? TRANSCODE_QUALITY_OPTIONS[0];
-        if (!option || option.storageValue.length === 0) {
-            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY);
-            return;
-        }
-        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY, option.storageValue);
+        this._settingsStore.writeTranscodeQualityValue(value, TRANSCODE_QUALITY_OPTIONS);
     }
 
     private _notifyDebugLoggingChanged(enabled: boolean): void {
@@ -1249,38 +1203,23 @@ export class SettingsScreen {
     }
 
     private _saveEpgLayoutModeValue(value: number): void {
-        const mode = value === 1 ? 'classic' : 'overlay';
-        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, mode);
+        this._settingsStore.writeEpgLayoutModeValue(value);
     }
 
     private _saveEpgGuideDensityValue(value: number): void {
-        const density = this._mapEpgGuideDensityValue(value);
-        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY, density);
+        this._settingsStore.writeEpgGuideDensityValue(value);
     }
 
     private _saveEpgPastItemsWindowValue(value: number): 'auto' | '0' | '15' | '30' {
-        const option = EPG_PAST_ITEMS_OPTIONS[value] ?? EPG_PAST_ITEMS_OPTIONS[0]!;
-        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, option.storageValue);
-        return option.storageValue;
+        return this._settingsStore.writeEpgPastItemsWindowValue(value);
     }
 
     private _saveEpgInfoBackgroundModeValue(value: number): 0 | 1 | 2 {
-        const mode: 0 | 1 | 2 = value === 2 ? 2 : value === 1 ? 1 : 0;
-        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, String(mode));
-        return mode;
-    }
-
-    private _mapEpgGuideDensityValue(value: number): 'wide' | 'detailed' {
-        return value === 1 ? 'wide' : 'detailed';
+        return this._settingsStore.writeEpgInfoBackgroundModeValue(value);
     }
 
     private _saveSubtitleLanguageValue(value: number): void {
-        const option = SUBTITLE_LANGUAGE_OPTIONS[value];
-        if (!option || !option.code) {
-            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE);
-            return;
-        }
-        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE, option.code);
+        this._settingsStore.writeSubtitleLanguageValue(value, SUBTITLE_LANGUAGE_OPTIONS);
     }
 
     private _subtitleModeToValue(mode: SubtitleMode): number {
@@ -1410,16 +1349,10 @@ export class SettingsScreen {
     }
 
     private _loadClampedNowPlayingAutoHide(): number {
-        const rawValue = this._loadNumberSetting(
-            SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS,
-            DEFAULT_SETTINGS.display.nowPlayingInfoAutoHideMs
+        return this._settingsStore.readClampedNowPlayingAutoHideValue(
+            NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS,
+            NOW_PLAYING_INFO_DEFAULTS.autoHideMs
         );
-        if (NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS.includes(rawValue as (typeof NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS)[number])) {
-            return rawValue;
-        }
-        const fallback = NOW_PLAYING_INFO_DEFAULTS.autoHideMs;
-        this._saveNumberSetting(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, fallback);
-        return fallback;
     }
 
     private _inferToggleMetadata(

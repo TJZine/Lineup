@@ -3,6 +3,7 @@
  */
 
 import { SettingsScreen } from '../SettingsScreen';
+import { SettingsStore } from '../SettingsStore';
 import { SETTINGS_STORAGE_KEYS } from '../constants';
 import type { GuideSettingChange } from '../types';
 import { ThemeManager } from '../../theme';
@@ -61,7 +62,8 @@ const createNavigationStub = (): {
 
 const createScreen = (
     onGuideSettingChange: (change: GuideSettingChange) => void,
-    getActiveUsername?: () => string | null
+    getActiveUsername?: () => string | null,
+    settingsStore?: SettingsStore
 ): {
     container: HTMLElement;
     nav: ReturnType<typeof createNavigationStub>;
@@ -76,7 +78,8 @@ const createScreen = (
         () => nav as unknown as never,
         undefined,
         onGuideSettingChange,
-        getActiveUsername
+        getActiveUsername,
+        settingsStore
     );
     return { container, nav, screen };
 };
@@ -147,6 +150,22 @@ describe('SettingsScreen (Guide settings)', () => {
     it('writes layout mode and emits change', () => {
         const onGuideSettingChange = jest.fn();
         const { container, screen } = createScreen(onGuideSettingChange);
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
+
+        screen.show();
+        activateCategory(container, 'appearance');
+
+        const layoutSelect = container.querySelector('#settings-epg-layout-mode') as HTMLButtonElement;
+        layoutSelect.click();
+
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('classic');
+        expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'layoutMode', mode: 'classic' });
+    });
+
+    it('uses injected SettingsStore without changing visible settings behavior', () => {
+        const onGuideSettingChange = jest.fn();
+        const injectedStore = new SettingsStore();
+        const { container, screen } = createScreen(onGuideSettingChange, undefined, injectedStore);
         localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
 
         screen.show();
