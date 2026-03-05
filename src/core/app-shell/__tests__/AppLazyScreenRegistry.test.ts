@@ -3,6 +3,7 @@
  */
 
 import type { AppOrchestrator } from '../../../Orchestrator';
+import { SettingsStore } from '../../../modules/ui/settings/SettingsStore';
 import { AppLazyScreenRegistry } from '../AppLazyScreenRegistry';
 
 type MockScreen = {
@@ -71,9 +72,13 @@ describe('AppLazyScreenRegistry', () => {
             registry.ensureSettingsScreen(),
         ]);
         const third = await registry.ensureSettingsScreen();
+        const constructorArgs = SettingsScreen.mock.calls[0];
 
         expect(loadSettingsScreen).toHaveBeenCalledTimes(1);
         expect(SettingsScreen).toHaveBeenCalledTimes(1);
+        expect(constructorArgs).toBeDefined();
+        expect(constructorArgs).toHaveLength(6);
+        expect(constructorArgs?.[5]).toBeInstanceOf(SettingsStore);
         expect(first).toBe(settingsScreen as never);
         expect(second).toBe(settingsScreen as never);
         expect(third).toBe(settingsScreen as never);

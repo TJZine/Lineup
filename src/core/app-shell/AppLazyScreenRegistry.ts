@@ -1,6 +1,7 @@
 import type { AppOrchestrator } from '../../Orchestrator';
 import type { AudioSetupScreen } from '../../modules/ui/audio-setup/AudioSetupScreen';
 import type { ChannelSetupScreen } from '../../modules/ui/channel-setup/ChannelSetupScreen';
+import { SettingsStore } from '../../modules/ui/settings/SettingsStore';
 import type { SettingsScreen } from '../../modules/ui/settings/SettingsScreen';
 
 export interface AppLazyScreenRegistryContainers {
@@ -202,7 +203,8 @@ export class AppLazyScreenRegistry {
                         (change): void => {
                             this._getOrchestrator()?.onGuideSettingChange(change);
                         },
-                        (): string | null => this._getOrchestrator()?.getActiveUsername() ?? null
+                        (): string | null => this._getOrchestrator()?.getActiveUsername() ?? null,
+                        new SettingsStore()
                     );
 
                     if (this._destroyed) {
