@@ -517,6 +517,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 return null;
             },
             clientIdentifier: config.plexConfig.clientIdentifier,
+            debugOverridesStore: this._debugOverridesStore,
             identityService: this._platformServices.identity,
         };
         const plexStreamResolver = new PlexStreamResolver(streamResolverConfig);

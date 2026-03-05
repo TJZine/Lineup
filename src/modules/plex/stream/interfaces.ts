@@ -53,6 +53,10 @@ export interface StreamResolverEventMap {
 /**
  * Configuration for PlexStreamResolver.
  */
+export interface PlexStreamDebugOverridesReader {
+    readTranscodeProfileName(): string | null;
+}
+
 export interface PlexStreamResolverConfig {
     /** Function to get auth headers for Plex API requests */
     getAuthHeaders: () => Record<string, string>;
@@ -71,6 +75,8 @@ export interface PlexStreamResolverConfig {
     getItem: (ratingKey: string) => Promise<PlexMediaItem | null>;
     /** Client identifier for session tracking */
     clientIdentifier: string;
+    /** Debug override reader seam for profile-name injection */
+    debugOverridesStore: PlexStreamDebugOverridesReader;
     /** Optional platform identity abstraction */
     identityService?: PlatformIdentityService;
 }
