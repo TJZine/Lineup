@@ -980,9 +980,11 @@ export class SettingsScreen {
                     select.setValue(value);
                 } finally {
                     this._closeDropdown();
-                }
-                if (nav) {
-                    nav.setFocus(selectId);
+                    try {
+                        nav?.setFocus(selectId);
+                    } catch {
+                        // Ignore focus restore failures.
+                    }
                 }
             },
             onDismiss: (): void => {
@@ -997,8 +999,13 @@ export class SettingsScreen {
     private _dismissDropdown(): void {
         if (!this._activeDropdown) return;
         const dropdown = this._activeDropdown;
-        this._activeDropdown = null;
-        dropdown.dismiss();
+        try {
+            dropdown.dismiss();
+        } finally {
+            if (this._activeDropdown === dropdown) {
+                this._activeDropdown = null;
+            }
+        }
     }
 
     private _closeDropdown(): void {

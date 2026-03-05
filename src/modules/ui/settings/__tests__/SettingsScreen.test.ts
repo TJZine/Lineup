@@ -379,6 +379,7 @@ describe('SettingsScreen (Guide settings)', () => {
 
         screen.show();
         activateCategory(container, 'appearance');
+        nav.setFocus('settings-epg-layout-mode');
 
         const focusable = nav.focusables.get('settings-epg-layout-mode');
         focusable?.onSelect?.();
@@ -399,6 +400,7 @@ describe('SettingsScreen (Guide settings)', () => {
         }
 
         expect(container.querySelector('#settings-dropdown')).toBeNull();
+        expect(nav.getFocusedElement()?.id).toBe('settings-epg-layout-mode');
     });
 
     it('dismisses dropdown on back without mutating the setting', () => {
