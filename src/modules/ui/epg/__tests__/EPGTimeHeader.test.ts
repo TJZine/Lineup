@@ -8,6 +8,7 @@
 
 import { EPGTimeHeader } from '../EPGTimeHeader';
 import { EPG_CLASSES } from '../constants';
+import * as epgUtils from '../utils';
 import type { EPGConfig } from '../types';
 
 describe('EPGTimeHeader', () => {
@@ -53,5 +54,15 @@ describe('EPGTimeHeader', () => {
         expect(slots.style.transform).toContain('translateX(');
         expect(header.style.transform).toBe('');
         expect(sticky.textContent).toBe('1:00 AM');
+    });
+
+    it('does not append debug log when debug logging is disabled', () => {
+        const debugEnabledSpy = jest.spyOn(epgUtils, 'isEpgDebugLoggingEnabled').mockReturnValue(false);
+        const appendSpy = jest.spyOn(epgUtils, 'appendEpgDebugLog').mockImplementation(() => {});
+
+        timeHeader.updateScrollPosition(75);
+
+        expect(debugEnabledSpy).toHaveBeenCalledTimes(1);
+        expect(appendSpy).not.toHaveBeenCalled();
     });
 });

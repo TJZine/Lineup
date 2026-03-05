@@ -140,6 +140,31 @@ describe('ChannelSetupScreen', () => {
         expect((container.querySelector('#setup-next') as HTMLButtonElement | null)?.disabled).toBe(false);
     });
 
+    it('updates library toggle in place without replacing the button node', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([
+                makeLibrary({ id: 'movies' }),
+            ]),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+
+        const before = container.querySelector('#setup-lib-movies') as HTMLButtonElement | null;
+        expect(before).not.toBeNull();
+        expect(before?.getAttribute('aria-pressed')).toBe('true');
+
+        clickButton(container, '#setup-lib-movies');
+
+        const after = container.querySelector('#setup-lib-movies') as HTMLButtonElement | null;
+        expect(after).toBe(before);
+        expect(after?.getAttribute('aria-pressed')).toBe('false');
+    });
+
     it('wires bulk-action focus neighbors to each other and first tile', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -950,6 +975,113 @@ describe('ChannelSetupScreen', () => {
         expect(afterKey).not.toBe(beforeKey);
     });
 
+    it('updates priority row enabled state in place without replacing the row node', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-priority-order');
+
+        const rowId = '#setup-priority-row-playlists';
+        const before = container.querySelector(rowId) as HTMLButtonElement | null;
+        expect(before).not.toBeNull();
+        const beforeLabel = before?.getAttribute('aria-label');
+        expect(beforeLabel).toContain(', On');
+        expect(before?.classList.contains('selected')).toBe(true);
+
+        clickButton(container, rowId);
+
+        const after = container.querySelector(rowId) as HTMLButtonElement | null;
+        expect(after).toBe(before);
+        const afterLabel = after?.getAttribute('aria-label');
+        expect(afterLabel).toContain(', Off');
+        expect(after?.classList.contains('selected')).toBe(false);
+    });
+
+    it('drops grabbed priority state when moving left back to the category rail', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const orchestrator = createOrchestrator({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+        clickButton(container, '#setup-category-priority-order');
+
+        nav.setMockFocus('setup-priority-row-playlists');
+        const grab = nav.emitKeyPress('ok');
+        expect(grab.handled).toBe(true);
+        expect(
+            (container.querySelector('#setup-priority-row-playlists') as HTMLButtonElement | null)?.classList.contains(
+                'setup-priority-row--grabbed'
+            )
+        ).toBe(true);
+
+        const left = nav.emitKeyPress('left');
+        expect(left.handled).toBe(true);
+        expect(
+            (container.querySelector('#setup-priority-row-playlists') as HTMLButtonElement | null)?.classList.contains(
+                'setup-priority-row--grabbed'
+            )
+        ).toBe(false);
+
+        nav.setMockFocus('setup-category-priority-order');
+        const right = nav.emitKeyPress('right');
+        expect(right.handled).toBe(true);
+
+        nav.setMockFocus('setup-priority-row-playlists');
+        const moveWithoutGrab = nav.emitKeyPress('down');
+        expect(moveWithoutGrab.handled).toBeFalsy();
+    });
+
+    it('does not snap focus back to a stale priority row during preview rerenders', async () => {
+        jest.useFakeTimers();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const getSetupPreview = jest.fn().mockResolvedValue(DEFAULT_PREVIEW);
+        const orchestrator = createOrchestrator({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+            getSetupPreview,
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-priority-order');
+        nav.setFocus.mockClear();
+
+        clickButton(container, '#setup-priority-row-playlists');
+        nav.setMockFocus('setup-category-priority-order');
+
+        jest.advanceTimersByTime(450);
+        await flushPromises();
+
+        expect(getSetupPreview).toHaveBeenCalled();
+        const lastFocused = nav.setFocus.mock.calls.at(-1)?.[0];
+        expect(lastFocused).toBe('setup-category-priority-order');
+    });
+
     it('renders strategy toggles and priority rows for every setup strategy key with no extras', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -990,7 +1122,7 @@ describe('ChannelSetupScreen', () => {
         expect([...observedPriorityRows].sort()).toEqual(expected);
     });
 
-    it('reorders priority rows with channel keys and derives strategy priorities from strategy order', async () => {
+    it('reorders priority rows only while grabbed with OK + up/down', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -1031,29 +1163,66 @@ describe('ChannelSetupScreen', () => {
 
         nav.setMockFocus(`setup-priority-row-${movedKey}`);
 
+        const dpadDownBeforeGrab = nav.emitKeyPress('down');
+        expect(dpadDownBeforeGrab.handled).toBeFalsy();
+        expect(orderFromConfig(internal._buildConfig('server-1'))).toEqual(beforeOrder);
+
+        const grab = nav.emitKeyPress('ok');
+        expect(grab.handled).toBe(true);
+
         const dpadDown = nav.emitKeyPress('down');
-        expect(dpadDown.handled).toBeFalsy();
+        expect(dpadDown.handled).toBe(true);
 
-        const afterDpadConfig = internal._buildConfig('server-1');
-        const afterDpadOrder = orderFromConfig(afterDpadConfig);
-        expect(afterDpadOrder).toEqual(beforeOrder);
-
-        nav.setMockFocus(`setup-priority-row-${movedKey}`);
-        const channelDown = nav.emitKeyPress('channelDown');
-        expect(channelDown.handled).toBe(true);
-
-        const afterDownConfig = internal._buildConfig('server-1');
-        const afterDownOrder = orderFromConfig(afterDownConfig);
+        const afterDownOrder = orderFromConfig(internal._buildConfig('server-1'));
         expect(afterDownOrder[moveIndex]).toBe(swappedKey);
         expect(afterDownOrder[moveIndex + 1]).toBe(movedKey);
 
-        nav.setMockFocus(`setup-priority-row-${movedKey}`);
-        const channelUp = nav.emitKeyPress('channelUp');
-        expect(channelUp.handled).toBe(true);
+        const drop = nav.emitKeyPress('ok');
+        expect(drop.handled).toBe(true);
 
-        const afterUpConfig = internal._buildConfig('server-1');
-        const afterUpOrder = orderFromConfig(afterUpConfig);
-        expect(afterUpOrder).toEqual(beforeOrder);
+        const dpadUpAfterDrop = nav.emitKeyPress('up');
+        expect(dpadUpAfterDrop.handled).toBeFalsy();
+    });
+
+    it('clears grabbed priority state when leaving and re-entering priority category', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const orchestrator = createOrchestrator({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+        clickButton(container, '#setup-category-priority-order');
+
+        const beforeOrder = Array.from(
+            container.querySelectorAll<HTMLButtonElement>('[id^="setup-priority-row-"]')
+        ).map((row) => row.id.replace('setup-priority-row-', ''));
+        const focusKey = beforeOrder[1] ?? beforeOrder[0];
+        expect(focusKey).toBeTruthy();
+
+        nav.setMockFocus(`setup-priority-row-${focusKey}`);
+        const grab = nav.emitKeyPress('ok');
+        expect(grab.handled).toBe(true);
+
+        // Leave priority-order category, then come back.
+        clickButton(container, '#setup-category-content-sources');
+        clickButton(container, '#setup-category-priority-order');
+        nav.setMockFocus(`setup-priority-row-${focusKey}`);
+
+        // Should not move unless grabbed again.
+        const moveWithoutRegrab = nav.emitKeyPress('down');
+        expect(moveWithoutRegrab.handled).toBeFalsy();
+        const afterOrder = Array.from(
+            container.querySelectorAll<HTMLButtonElement>('[id^="setup-priority-row-"]')
+        ).map((row) => row.id.replace('setup-priority-row-', ''));
+        expect(afterOrder).toEqual(beforeOrder);
     });
 
     it('Expand Lineup quick action sets max to MAX_CHANNELS and min items to 1', async () => {

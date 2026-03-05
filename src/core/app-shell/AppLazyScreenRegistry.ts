@@ -201,7 +201,8 @@ export class AppLazyScreenRegistry {
                         },
                         (change): void => {
                             this._getOrchestrator()?.onGuideSettingChange(change);
-                        }
+                        },
+                        (): string | null => this._getOrchestrator()?.getActiveUsername() ?? null
                     );
 
                     if (this._destroyed) {

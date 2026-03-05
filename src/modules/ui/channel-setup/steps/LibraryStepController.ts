@@ -53,6 +53,7 @@ export class LibraryStepController {
             const button = document.createElement('button');
             button.id = `setup-lib-${deps.toDomId(library.id)}`;
             button.className = `setup-toggle${isSelected ? ' selected' : ''}`;
+            button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
             button.classList.add('library-toggle');
             button.classList.add('setup-stagger-in');
             button.style.animationDelay = `${index * 50}ms`;
@@ -158,5 +159,44 @@ export class LibraryStepController {
         deps.registerBulkActionNeighbors(selectAllButton, clearAllButton, listButtons);
 
         ctx.detailEl.textContent = `Selected ${deps.selectedLibraryIds.size} of ${deps.libraries.length}.`;
+    }
+
+    /**
+     * Update a single library toggle button in-place (no DOM rebuild).
+     * Returns the updated button element, or null if not found.
+     */
+    updateLibraryToggle(
+        container: HTMLElement,
+        libraryId: string,
+        isSelected: boolean,
+        toDomId: (raw: string) => string
+    ): HTMLButtonElement | null {
+        const buttonId = `setup-lib-${toDomId(libraryId)}`;
+        const button = container.querySelector(`#${buttonId}`) as HTMLButtonElement | null;
+        if (!button) return null;
+
+        button.classList.toggle('selected', isSelected);
+        button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+
+        const stateEl = button.querySelector('.setup-toggle-state');
+        if (stateEl) {
+            stateEl.textContent = '';
+            if (isSelected) {
+                const stateIcon = document.createElement('span');
+                stateIcon.className = 'setup-toggle-state-icon';
+                stateIcon.setAttribute('aria-hidden', 'true');
+                stateIcon.textContent = '✓';
+
+                const srOnly = document.createElement('span');
+                srOnly.className = 'sr-only';
+                srOnly.textContent = 'Selected';
+
+                stateEl.appendChild(stateIcon);
+                stateEl.appendChild(srOnly);
+            } else {
+                stateEl.textContent = 'Off';
+            }
+        }
+        return button;
     }
 }

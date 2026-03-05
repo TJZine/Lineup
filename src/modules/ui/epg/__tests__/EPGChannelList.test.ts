@@ -85,6 +85,30 @@ describe('EPGChannelList', () => {
         expect(name?.textContent).toBe('Channel 13');
     });
 
+    it('reuses existing row child nodes when virtualized rows are remapped', () => {
+        const list = new EPGChannelList();
+        const config = createConfig({ rowHeight: 50, visibleChannels: 4 });
+
+        list.initialize(parent, config);
+        list.updateChannels(Array.from({ length: 20 }, (_, i) => createMockChannel(i)));
+
+        const firstRenderedRow = parent.querySelector('.epg-channel-row') as HTMLElement;
+        const firstNumberNode = firstRenderedRow.querySelector('.epg-channel-number');
+        const firstNameNode = firstRenderedRow.querySelector('.epg-channel-name');
+        expect(firstNumberNode).not.toBeNull();
+        expect(firstNameNode).not.toBeNull();
+
+        list.updateScrollPosition(8);
+
+        const remappedFirstRow = parent.querySelector('.epg-channel-row') as HTMLElement;
+        const remappedNumberNode = remappedFirstRow.querySelector('.epg-channel-number');
+        const remappedNameNode = remappedFirstRow.querySelector('.epg-channel-name');
+
+        expect(remappedFirstRow).toBe(firstRenderedRow);
+        expect(remappedNumberNode).toBe(firstNumberNode);
+        expect(remappedNameNode).toBe(firstNameNode);
+    });
+
     it('clears buildStrategy dataset when category colors are disabled', () => {
         const list = new EPGChannelList();
         const config = createConfig({ visibleChannels: 2 });

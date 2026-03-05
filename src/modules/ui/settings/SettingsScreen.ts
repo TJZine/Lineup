@@ -7,6 +7,7 @@
 import type { INavigationManager, FocusableElement, KeyEvent } from '../../navigation';
 import { createSettingsToggle } from './SettingsToggle';
 import { createSettingsSelect } from './SettingsSelect';
+import { createSettingsDropdown } from './SettingsDropdown';
 import { SETTINGS_STORAGE_KEYS, DEFAULT_SETTINGS } from './constants';
 import { DEFAULT_THEME, THEME_OPTIONS } from './theme';
 import type {
@@ -181,6 +182,7 @@ export class SettingsScreen {
     private _getNavigation: () => INavigationManager | null;
     private _onSubtitleModeChange: ((mode: SubtitleMode) => void) | null = null;
     private _onGuideSettingChange: ((change: GuideSettingChange) => void) | null = null;
+    private _getActiveUsername: (() => string | null) | null = null;
     private _categories: SettingsCategoryConfig[] = [];
     private _activeCategoryId: SettingsCategoryId | null = null;
     private _lastFocusedItemByCategory: Partial<Record<SettingsCategoryId, string>> = {};
@@ -194,6 +196,7 @@ export class SettingsScreen {
     private _detailTitle: HTMLHeadingElement | null = null;
     private _detailItems: HTMLElement | null = null;
     private _switchProfileButton: HTMLButtonElement | null = null;
+    private _activeDropdown: { destroy: () => void; dismiss: () => void } | null = null;
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
     private _detailSwapFrame: number | null = null;
     private _detailRevealFrame: number | null = null;
@@ -205,12 +208,14 @@ export class SettingsScreen {
         container: HTMLElement,
         getNavigation: () => INavigationManager | null,
         onSubtitleModeChange?: (mode: SubtitleMode) => void,
-        onGuideSettingChange?: (change: GuideSettingChange) => void
+        onGuideSettingChange?: (change: GuideSettingChange) => void,
+        getActiveUsername?: () => string | null
     ) {
         this._container = container;
         this._getNavigation = getNavigation;
         this._onSubtitleModeChange = onSubtitleModeChange ?? null;
         this._onGuideSettingChange = onGuideSettingChange ?? null;
+        this._getActiveUsername = getActiveUsername ?? null;
         this._buildUI();
     }
 
@@ -280,21 +285,38 @@ export class SettingsScreen {
         panel.appendChild(categoryRail);
         panel.appendChild(content);
 
-        const actions = document.createElement('div');
-        actions.className = 'settings-actions';
-
-        const switchProfileButton = document.createElement('button');
-        switchProfileButton.id = 'settings-switch-profile';
-        switchProfileButton.className = 'screen-button';
-        switchProfileButton.textContent = 'Switch Profile';
-        switchProfileButton.addEventListener('click', () => {
+        const profileRow = document.createElement('button');
+        profileRow.id = 'settings-switch-profile';
+        profileRow.className = 'settings-profile-row';
+        profileRow.addEventListener('click', () => {
             const nav = this._getNavigation();
             nav?.replaceScreen('profile-select');
         });
-        actions.appendChild(switchProfileButton);
-        this._switchProfileButton = switchProfileButton;
-        actions.classList.add('settings-rail-actions');
-        categoryRail.appendChild(actions);
+
+        const profileIcon = document.createElement('span');
+        profileIcon.className = 'settings-profile-icon';
+        profileIcon.textContent = '👤';
+        profileIcon.setAttribute('aria-hidden', 'true');
+
+        const profileText = document.createElement('div');
+        profileText.className = 'settings-profile-text';
+
+        const profileName = document.createElement('span');
+        profileName.className = 'settings-profile-name';
+        profileName.textContent = this._getActiveUsername?.() ?? 'Profile';
+
+        const profileAction = document.createElement('span');
+        profileAction.className = 'settings-profile-action';
+        profileAction.textContent = 'Switch Profile →';
+
+        profileText.appendChild(profileName);
+        profileText.appendChild(profileAction);
+        profileRow.appendChild(profileIcon);
+        profileRow.appendChild(profileText);
+        profileRow.setAttribute('aria-label', `Switch profile. Current: ${profileName.textContent}`);
+
+        this._switchProfileButton = profileRow;
+        categoryRail.appendChild(profileRow);
 
         this._container.appendChild(panel);
     }
@@ -756,6 +778,10 @@ export class SettingsScreen {
         categoryId: SettingsCategoryId,
         options: { preferredFocusId?: string | null; focusDetail?: boolean } = {}
     ): void {
+        if (this._activeDropdown) {
+            this._closeDropdown();
+        }
+
         // Focus-only path: pressing RIGHT on an already-active category should not re-render
         // the detail pane. It should simply move focus into the detail controls.
         if (this._activeCategoryId === categoryId && options.focusDetail) {
@@ -863,10 +889,24 @@ export class SettingsScreen {
         }
         this._renderActiveCategory();
         this._refreshValues();
+        if (this._switchProfileButton && this._getActiveUsername) {
+            const username = this._getActiveUsername() ?? 'Profile';
+            const nameEl = this._switchProfileButton.querySelector('.settings-profile-name');
+            if (nameEl) nameEl.textContent = username;
+            this._switchProfileButton.setAttribute('aria-label', `Switch profile. Current: ${username}`);
+        }
         const nav = this._getNavigation();
         if (nav && !this._navKeyHandler) {
             this._navKeyHandler = (event: KeyEvent): void => {
                 if (event.handled) return;
+
+                // Dismiss dropdown on Back key.
+                if (this._activeDropdown && event.button === 'back') {
+                    event.handled = true;
+                    this._dismissDropdown();
+                    return;
+                }
+
                 const focusedId = nav.getFocusedElement()?.id;
                 if (!focusedId) return;
                 const focusedCategoryId = this._getCategoryIdFromButtonId(focusedId);
@@ -909,6 +949,7 @@ export class SettingsScreen {
      * Hide the settings screen and unregister focusables.
      */
     public hide(): void {
+        this._closeDropdown();
         this._container.classList.remove('visible');
         if (this._navKeyHandler) {
             const nav = this._getNavigation();
@@ -919,6 +960,59 @@ export class SettingsScreen {
         this._detailItems?.classList.remove('transitioning');
         this._pendingFocusRestore = null;
         this._unregisterFocusables();
+    }
+
+    private _openDropdownForSelect(selectId: string): void {
+        // Close any existing dropdown.
+        this._closeDropdown();
+
+        const select = this._selectElements.get(selectId);
+        if (!select || select.isDisabled()) return;
+
+        const nav = this._getNavigation();
+        this._activeDropdown = createSettingsDropdown({
+            anchor: select.element,
+            container: this._container,
+            options: select.getOptions(),
+            currentValue: select.getValue(),
+            onSelect: (value: number): void => {
+                try {
+                    select.setValue(value);
+                } finally {
+                    this._closeDropdown();
+                    try {
+                        nav?.setFocus(selectId);
+                    } catch {
+                        // Ignore focus restore failures.
+                    }
+                }
+            },
+            onDismiss: (): void => {
+                if (nav) {
+                    nav.setFocus(selectId);
+                }
+            },
+            nav,
+        });
+    }
+
+    private _dismissDropdown(): void {
+        if (!this._activeDropdown) return;
+        const dropdown = this._activeDropdown;
+        try {
+            dropdown.dismiss();
+        } finally {
+            if (this._activeDropdown === dropdown) {
+                this._activeDropdown = null;
+            }
+        }
+    }
+
+    private _closeDropdown(): void {
+        if (this._activeDropdown) {
+            this._activeDropdown.destroy();
+            this._activeDropdown = null;
+        }
     }
 
     /**
@@ -992,7 +1086,9 @@ export class SettingsScreen {
                 };
                 const isSelect = this._selectElements.has(id);
                 onSelect = isSelect
-                    ? (): void => { }
+                    ? (): void => {
+                        this._openDropdownForSelect(id);
+                    }
                     : (): void => {
                         element.click();
                     };
@@ -1381,6 +1477,7 @@ export class SettingsScreen {
             this._getNavigation()?.off('keyPress', this._navKeyHandler);
             this._navKeyHandler = null;
         }
+        this._closeDropdown();
         this._unregisterFocusables();
         this._categories = [];
         this._activeCategoryId = null;

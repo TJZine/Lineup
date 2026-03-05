@@ -70,3 +70,51 @@ export function safeStringifyForLog(
         }
     }
 }
+
+/**
+ * Redact sensitive tokens from a URL-like string for safe logging.
+ *
+ * - Removes basic-auth userinfo (username/password).
+ * - Redacts token query params (case-insensitive) for common Plex patterns.
+ * - Redacts fragments when they appear to contain sensitive tokens.
+ *
+ * Intended for logging only.
+ */
+export function redactUrlForLog(url: string): string {
+    const isSensitiveKey = (key: string): boolean => {
+        const k = key.toLowerCase();
+        return k === 'x-plex-token' || k === 'access_token' || k === 'token';
+    };
+
+    try {
+        const parsed = new URL(url);
+        parsed.username = '';
+        parsed.password = '';
+
+        for (const key of [...parsed.searchParams.keys()]) {
+            if (isSensitiveKey(key)) {
+                parsed.searchParams.set(key, 'REDACTED');
+            }
+        }
+
+        if (parsed.hash) {
+            const hashLower = parsed.hash.toLowerCase();
+            if (
+                hashLower.includes('x-plex-token=') ||
+                hashLower.includes('access_token=') ||
+                hashLower.includes('token=')
+            ) {
+                parsed.hash = '#REDACTED_FRAGMENT';
+            }
+        }
+
+        return parsed.toString();
+    } catch {
+        const withoutUserinfo = url.replace(/\/\/[^@/]*@/g, '//');
+        const redacted = redactSensitiveTokens(withoutUserinfo);
+        if (/#.*(x-plex-token|access_token|token)=/i.test(redacted)) {
+            return redacted.replace(/#.*$/i, '#REDACTED_FRAGMENT');
+        }
+        return redacted;
+    }
+}

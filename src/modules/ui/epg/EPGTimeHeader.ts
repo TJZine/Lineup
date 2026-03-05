@@ -5,7 +5,7 @@
  */
 
 import { EPG_CLASSES } from './constants';
-import { appendEpgDebugLog } from './utils';
+import { appendEpgDebugLog, isEpgDebugLoggingEnabled } from './utils';
 import type { EPGConfig, TimeSlot } from './types';
 
 /**
@@ -159,10 +159,12 @@ export class EPGTimeHeader {
         this.slotsElement.style.transform = `translateX(${translateX}px)`;
         this.updateStickyLabel(timeOffset);
 
-        appendEpgDebugLog('EPGTimeHeader.scroll', {
-            timeOffset,
-            transform: this.slotsElement.style.transform,
-        });
+        if (isEpgDebugLoggingEnabled()) {
+            appendEpgDebugLog('EPGTimeHeader.scroll', {
+                timeOffset,
+                transform: this.slotsElement.style.transform,
+            });
+        }
     }
 
     /**

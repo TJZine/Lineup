@@ -1,4 +1,4 @@
-import { redactSensitiveTokens, safeStringifyForLog } from '../redact';
+import { redactSensitiveTokens, redactUrlForLog, safeStringifyForLog } from '../redact';
 
 describe('redactSensitiveTokens', () => {
     it('redacts Plex token query params', () => {
@@ -79,5 +79,21 @@ describe('safeStringifyForLog', () => {
         const out = safeStringifyForLog(a);
         expect(typeof out).toBe('string');
         expect(out).toContain('"unserializable":true');
+    });
+});
+
+describe('redactUrlForLog', () => {
+    it('removes URL userinfo and redacts sensitive query params (case-insensitive)', () => {
+        const url = 'https://user:pass@example.com/path?x-plex-token=abc123&ok=1';
+        expect(redactUrlForLog(url)).toBe('https://example.com/path?x-plex-token=REDACTED&ok=1');
+    });
+
+    it('redacts sensitive tokens in URL fragments', () => {
+        const url = 'https://example.com/path#access_token=abc123';
+        expect(redactUrlForLog(url)).toBe('https://example.com/path#REDACTED_FRAGMENT');
+    });
+
+    it('handles malformed URLs by falling back to string redaction', () => {
+        expect(redactUrlForLog('not a url?X-Plex-Token=abc123')).toBe('not a url?X-Plex-Token=REDACTED');
     });
 });

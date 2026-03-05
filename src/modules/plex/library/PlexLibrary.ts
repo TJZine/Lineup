@@ -9,6 +9,7 @@ import { EventEmitter } from '../../../utils/EventEmitter';
 import type { IDisposable } from '../../../utils/interfaces';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { fnv1a32Hex } from '../../../utils/hash';
+import { redactUrlForLog } from '../../../utils/redact';
 import type { IPlexLibrary, PlexLibraryConfig } from './interfaces';
 import type {
     PlexLibrary as PlexLibraryType,
@@ -118,20 +119,7 @@ export class PlexLibrary implements IPlexLibrary {
     }
 
     private _redactUrlForLog(url: string): string {
-        const shouldRedact = (key: string): boolean =>
-            ['x-plex-token', 'access_token', 'token'].includes(key.toLowerCase());
-
-        try {
-            const parsed = new URL(url);
-            for (const key of [...parsed.searchParams.keys()]) {
-                if (shouldRedact(key)) {
-                    parsed.searchParams.set(key, 'REDACTED');
-                }
-            }
-            return parsed.toString();
-        } catch {
-            return url.replace(/([?&])(X-Plex-Token|access_token|token)=[^&]*/gi, '$1$2=REDACTED');
-        }
+        return redactUrlForLog(url);
     }
 
     // ============================================

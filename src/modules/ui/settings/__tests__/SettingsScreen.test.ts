@@ -59,7 +59,10 @@ const createNavigationStub = (): {
     };
 };
 
-const createScreen = (onGuideSettingChange: (change: GuideSettingChange) => void): {
+const createScreen = (
+    onGuideSettingChange: (change: GuideSettingChange) => void,
+    getActiveUsername?: () => string | null
+): {
     container: HTMLElement;
     nav: ReturnType<typeof createNavigationStub>;
     screen: SettingsScreen;
@@ -72,7 +75,8 @@ const createScreen = (onGuideSettingChange: (change: GuideSettingChange) => void
         container,
         () => nav as unknown as never,
         undefined,
-        onGuideSettingChange
+        onGuideSettingChange,
+        getActiveUsername
     );
     return { container, nav, screen };
 };
@@ -337,9 +341,41 @@ describe('SettingsScreen (Guide settings)', () => {
         expect(value?.textContent?.trim()).toBe('Classic (PIP)');
     });
 
-    it('does not change select value on OK', () => {
+    it('opens dropdown on select activation and applies selection explicitly', () => {
         const onGuideSettingChange = jest.fn();
         const { container, nav, screen } = createScreen(onGuideSettingChange);
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
+
+        screen.show();
+        activateCategory(container, 'appearance');
+
+        const focusable = nav.focusables.get('settings-epg-layout-mode');
+        expect(focusable?.onSelect).toBeDefined();
+        focusable?.onSelect?.();
+
+        const dropdown = container.querySelector('#settings-dropdown') as HTMLElement | null;
+        expect(dropdown).not.toBeNull();
+        expect(dropdown?.querySelectorAll('.settings-dropdown-option')?.length).toBeGreaterThan(0);
+
+        // No change until explicit option click.
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('overlay');
+
+        const firstNonSelected = dropdown?.querySelector(
+            '.settings-dropdown-option:not(.settings-dropdown-option--selected)'
+        ) as HTMLButtonElement | null;
+        expect(firstNonSelected).not.toBeNull();
+        firstNonSelected?.click();
+
+        expect(onGuideSettingChange).toHaveBeenCalled();
+        expect(container.querySelector('#settings-dropdown')).toBeNull();
+    });
+
+    it('closes dropdown even if applying a selection throws', () => {
+        const onGuideSettingChange = jest.fn(() => {
+            throw new Error('boom');
+        });
+        const { container, nav, screen } = createScreen(onGuideSettingChange);
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
 
         screen.show();
         activateCategory(container, 'appearance');
@@ -348,8 +384,82 @@ describe('SettingsScreen (Guide settings)', () => {
         const focusable = nav.focusables.get('settings-epg-layout-mode');
         focusable?.onSelect?.();
 
-        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBeNull();
+        const dropdown = container.querySelector('#settings-dropdown') as HTMLElement | null;
+        expect(dropdown).not.toBeNull();
+
+        const firstNonSelected = dropdown?.querySelector(
+            '.settings-dropdown-option:not(.settings-dropdown-option--selected)'
+        ) as HTMLButtonElement | null;
+        expect(firstNonSelected).not.toBeNull();
+
+        try {
+            const optionId = firstNonSelected?.id ?? '';
+            nav.focusables.get(optionId)?.onSelect?.();
+        } catch {
+            // Expected.
+        }
+
+        expect(container.querySelector('#settings-dropdown')).toBeNull();
+        expect(nav.getFocusedElement()?.id).toBe('settings-epg-layout-mode');
+    });
+
+    it('dismisses dropdown on back without mutating the setting', () => {
+        const onGuideSettingChange = jest.fn();
+        const { container, nav, screen } = createScreen(onGuideSettingChange);
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
+
+        screen.show();
+        activateCategory(container, 'appearance');
+        nav.setFocus('settings-epg-layout-mode');
+
+        const focusable = nav.focusables.get('settings-epg-layout-mode');
+        focusable?.onSelect?.();
+        expect(container.querySelector('#settings-dropdown')).not.toBeNull();
+
+        const keyHandler = nav.on.mock.calls.find((call) => call[0] === 'keyPress')?.[1];
+        expect(typeof keyHandler).toBe('function');
+
+        const backEvent = { handled: false, button: 'back' };
+        keyHandler?.(backEvent);
+
+        expect(backEvent.handled).toBe(true);
+        expect(container.querySelector('#settings-dropdown')).toBeNull();
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('overlay');
         expect(onGuideSettingChange).not.toHaveBeenCalled();
+        expect(nav.getFocusedElement()?.id).toBe('settings-epg-layout-mode');
+    });
+
+    it('closes and unregisters dropdown option focusables on destroy', () => {
+        const { container, nav, screen } = createScreen(jest.fn());
+
+        screen.show();
+        activateCategory(container, 'appearance');
+        nav.setFocus('settings-epg-layout-mode');
+
+        const focusable = nav.focusables.get('settings-epg-layout-mode');
+        focusable?.onSelect?.();
+        expect(container.querySelector('#settings-dropdown')).not.toBeNull();
+        expect([...nav.focusables.keys()].some((key) => key.startsWith('settings-dropdown-option-'))).toBe(true);
+
+        screen.destroy();
+
+        expect(container.querySelector('#settings-dropdown')).toBeNull();
+        expect([...nav.focusables.keys()].some((key) => key.startsWith('settings-dropdown-option-'))).toBe(false);
+    });
+
+    it('closes an open dropdown when switching categories', () => {
+        const { container, nav, screen } = createScreen(jest.fn());
+
+        screen.show();
+        activateCategory(container, 'appearance');
+        nav.setFocus('settings-epg-layout-mode');
+
+        const focusable = nav.focusables.get('settings-epg-layout-mode');
+        focusable?.onSelect?.();
+        expect(container.querySelector('#settings-dropdown')).not.toBeNull();
+
+        activateCategory(container, 'account');
+        expect(container.querySelector('#settings-dropdown')).toBeNull();
     });
 
     it('cycles select with left/right keys and returns to rail at left edge', () => {
@@ -529,8 +639,8 @@ describe('SettingsScreen (Two-pane layout)', () => {
         }
     });
 
-    it('renders header and switch profile actions inside the left rail', () => {
-        const { container, screen } = createScreen(jest.fn());
+    it('renders header and profile identity row inside the left rail', () => {
+        const { container, screen } = createScreen(jest.fn(), () => 'TestUser');
         screen.show();
 
         const rail = container.querySelector('.settings-categories') as HTMLElement | null;
@@ -540,8 +650,33 @@ describe('SettingsScreen (Two-pane layout)', () => {
         expect(header).not.toBeNull();
         expect((header?.querySelector('.settings-title') as HTMLElement | null)?.textContent).toContain('Settings');
 
-        const switchProfileButton = rail?.querySelector('#settings-switch-profile');
-        expect(switchProfileButton).not.toBeNull();
+        const profileRow = rail?.querySelector('#settings-switch-profile') as HTMLElement | null;
+        expect(profileRow).not.toBeNull();
+        expect(profileRow?.classList.contains('settings-profile-row')).toBe(true);
+        expect(profileRow?.querySelector('.settings-profile-name')?.textContent).toBe('TestUser');
+        expect(profileRow?.querySelector('.settings-profile-action')?.textContent).toBe('Switch Profile →');
+    });
+
+    it('falls back to "Profile" when getActiveUsername returns null', () => {
+        const { container, screen } = createScreen(jest.fn(), () => null);
+        screen.show();
+
+        const profileRow = container.querySelector('#settings-switch-profile') as HTMLElement | null;
+        expect(profileRow?.querySelector('.settings-profile-name')?.textContent).toBe('Profile');
+    });
+
+    it('refreshes profile name on show', () => {
+        let username: string | null = 'FirstUser';
+        const { container, screen } = createScreen(jest.fn(), () => username);
+        screen.show();
+
+        expect(container.querySelector('.settings-profile-name')?.textContent).toBe('FirstUser');
+
+        screen.hide();
+        username = 'SecondUser';
+        screen.show();
+
+        expect(container.querySelector('.settings-profile-name')?.textContent).toBe('SecondUser');
     });
 
     it('applies transitioning class during category detail swap and removes it after reveal frame', () => {

@@ -5,8 +5,7 @@
  */
 
 import { EPG_CLASSES, EPG_CONSTANTS } from './constants';
-import { appendEpgDebugLog } from './utils';
-import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import { appendEpgDebugLog, isEpgDebugLoggingEnabled } from './utils';
 import type { EPGConfig, ChannelConfig } from './types';
 import { getChannelNameForDisplay } from '../channelDisplay';
 import { getChannelBrandingIcon } from '../common/channelBrandingIcons';
@@ -23,6 +22,17 @@ export class EPGChannelList {
     private config: EPGConfig | null = null;
     private channels: ChannelConfig[] = [];
     private rowElements: HTMLElement[] = [];
+    private rowContentCache: WeakMap<
+        HTMLElement,
+        {
+            mediaSlot: HTMLElement;
+            number: HTMLSpanElement;
+            name: HTMLSpanElement;
+            icon: HTMLImageElement | null;
+            branding: SVGElement | null;
+            brandingStrategy: string | null;
+        }
+    > = new WeakMap();
     private focusedChannelIndex: number = -1;
     private channelOffset: number = 0;
     private isVirtualized: boolean = false;
@@ -66,6 +76,7 @@ export class EPGChannelList {
         this.topSpacerElement = null;
         this.bottomSpacerElement = null;
         this.rowElements = [];
+        this.rowContentCache = new WeakMap();
         this.channels = [];
         this.config = null;
         this.channelOffset = 0;
@@ -208,10 +219,31 @@ export class EPGChannelList {
     private createChannelRow(): HTMLElement {
         const row = document.createElement('div');
         row.className = EPG_CLASSES.CHANNEL_ROW;
+        const mediaSlot = document.createElement('div');
+
+        const number = document.createElement('span');
+        number.className = EPG_CLASSES.CHANNEL_NUMBER;
+
+        const name = document.createElement('span');
+        name.className = EPG_CLASSES.CHANNEL_NAME;
+
+        row.append(mediaSlot, number, name);
+        this.rowContentCache.set(row, {
+            mediaSlot,
+            number,
+            name,
+            icon: null,
+            branding: null,
+            brandingStrategy: null,
+        });
         return row;
     }
 
     private updateChannelRow(row: HTMLElement, channel: ChannelConfig, channelIndex: number): void {
+        const cached = this.rowContentCache.get(row);
+        if (!cached) {
+            return;
+        }
         row.dataset.channelIndex = channelIndex.toString();
         const displayName = getChannelNameForDisplay({
             name: channel.name,
@@ -236,42 +268,68 @@ export class EPGChannelList {
             row.style.height = `${this.config.rowHeight}px`;
         }
 
-        row.replaceChildren();
-
         // Channel icon (if available) - validate URL scheme
-        let iconRendered = false;
+        let iconUrl: string | null = null;
         if (channel.icon) {
             // Only allow http(s) or safe raster data URIs (avoid svg in img for WebViews)
             const isValidIconUrl = /^https?:\/\//i.test(channel.icon) ||
                 /^data:image\/(png|jpeg|jpg|gif|webp);/i.test(channel.icon);
             if (isValidIconUrl) {
-                const icon = document.createElement('img');
-                icon.className = EPG_CLASSES.CHANNEL_ICON;
-                icon.src = channel.icon;
-                icon.alt = displayName;
-                row.appendChild(icon);
-                iconRendered = true;
+                iconUrl = channel.icon;
             }
         }
-        if (!iconRendered && channel.buildStrategy) {
-            const brandingIcon = getChannelBrandingIcon(channel.buildStrategy);
-            if (brandingIcon) {
-                row.appendChild(brandingIcon);
+        if (iconUrl) {
+            if (!cached.icon) {
+                cached.icon = document.createElement('img');
+                cached.icon.className = EPG_CLASSES.CHANNEL_ICON;
+                cached.mediaSlot.appendChild(cached.icon);
+            }
+            if (cached.branding) {
+                cached.branding.remove();
+                cached.branding = null;
+                cached.brandingStrategy = null;
+            }
+            if (cached.icon.src !== iconUrl) {
+                cached.icon.src = iconUrl;
+            }
+            if (cached.icon.alt !== displayName) {
+                cached.icon.alt = displayName;
+            }
+        } else {
+            if (cached.icon) {
+                cached.icon.remove();
+                cached.icon = null;
+            }
+            const nextStrategy = channel.buildStrategy ?? null;
+            if (!nextStrategy) {
+                if (cached.branding) {
+                    cached.branding.remove();
+                    cached.branding = null;
+                }
+                cached.brandingStrategy = null;
+            } else if (cached.brandingStrategy !== nextStrategy || !cached.branding) {
+                if (cached.branding) {
+                    cached.branding.remove();
+                    cached.branding = null;
+                }
+                const brandingIcon = getChannelBrandingIcon(nextStrategy);
+                if (brandingIcon) {
+                    cached.mediaSlot.appendChild(brandingIcon);
+                    cached.branding = brandingIcon;
+                    cached.brandingStrategy = nextStrategy;
+                } else {
+                    cached.brandingStrategy = null;
+                }
             }
         }
 
-        // Channel number
-        const number = document.createElement('span');
-        number.className = EPG_CLASSES.CHANNEL_NUMBER;
-        number.textContent = channel.number.toString();
-
-        // Channel name
-        const name = document.createElement('span');
-        name.className = EPG_CLASSES.CHANNEL_NAME;
-        name.textContent = displayName;
-
-        row.appendChild(number);
-        row.appendChild(name);
+        const channelNumber = channel.number.toString();
+        if (cached.number.textContent !== channelNumber) {
+            cached.number.textContent = channelNumber;
+        }
+        if (cached.name.textContent !== displayName) {
+            cached.name.textContent = displayName;
+        }
 
         row.style.borderLeftColor = '';
         row.style.borderLeftWidth = '';
@@ -346,6 +404,9 @@ export class EPGChannelList {
     updateScrollPosition(channelOffset: number): void {
         if (!this.contentElement || !this.config) return;
 
+        if (channelOffset === this.channelOffset) {
+            return;
+        }
         this.channelOffset = channelOffset;
         const translateY = -(channelOffset * this.config.rowHeight);
         this.contentElement.style.transform = `translateY(${translateY}px)`;
@@ -391,13 +452,7 @@ export class EPGChannelList {
     }
 
     private logDebugState(channelOffset: number): void {
-        const shouldLog = ((): boolean => {
-            try {
-                return localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG) === '1';
-            } catch {
-                return false;
-            }
-        })();
+        const shouldLog = isEpgDebugLoggingEnabled();
 
         if (!shouldLog || !this.contentElement) return;
 

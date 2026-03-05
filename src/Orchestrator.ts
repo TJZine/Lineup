@@ -301,6 +301,7 @@ export interface IAppOrchestrator {
     pollForPin(pinId: number): Promise<PlexPinRequest>;
     cancelPin(pinId: number): Promise<void>;
     getHomeUsers(): Promise<PlexHomeUser[]>;
+    getActiveUsername(): string | null;
     switchHomeUser(userId: string, pin?: string): Promise<void>;
     useMainAccountProfile(): Promise<void>;
     signOutPlex(): Promise<void>;
@@ -1426,6 +1427,10 @@ export class AppOrchestrator implements IAppOrchestrator {
             throw new Error('PlexAuth not initialized');
         }
         return this._plexAuth.getHomeUsers();
+    }
+
+    getActiveUsername(): string | null {
+        return this._plexAuth?.getCurrentUser()?.username ?? null;
     }
 
     async switchHomeUser(userId: string, pin?: string): Promise<void> {

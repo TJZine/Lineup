@@ -218,8 +218,15 @@ describe('App bootstrap smoke', () => {
         });
     };
 
-    const bootstrapApp = async (configure?: () => void): Promise<App> => {
+    type BootstrapOptions = {
+        skipLifecycleWiring?: boolean;
+    };
+
+    const bootstrapApp = async (configure?: () => void, options: BootstrapOptions = {}): Promise<App> => {
         installStartupSpies();
+        if (!options.skipLifecycleWiring) {
+            installLifecycleWiringSpies();
+        }
         configure?.();
         app = new App();
         await app.start();
@@ -511,7 +518,6 @@ describe('App bootstrap smoke', () => {
         'app-shell error handler suppresses blocking overlay for recoverable code %s',
         async (code, expectedMessage) => {
             const startedApp = await bootstrapApp(() => {
-                installLifecycleWiringSpies();
             });
 
             startedApp.showErrorOverlay({
@@ -544,7 +550,6 @@ describe('App bootstrap smoke', () => {
 
     it('app-shell error handler still shows overlay for auth-required blocking errors', async () => {
         await bootstrapApp(() => {
-            installLifecycleWiringSpies();
         });
 
         expect(appShellErrorHandler).not.toBeNull();
@@ -563,7 +568,6 @@ describe('App bootstrap smoke', () => {
         jest.useFakeTimers();
         jest.setSystemTime(0);
         await bootstrapApp(() => {
-            installLifecycleWiringSpies();
         });
 
         expect(typeof nowPlayingHandler).toBe('function');
@@ -601,7 +605,6 @@ describe('App bootstrap smoke', () => {
         jest.useFakeTimers();
         jest.setSystemTime(0);
         const startedApp = await bootstrapApp(() => {
-            installLifecycleWiringSpies();
         });
 
         jest.setSystemTime(10_000);
@@ -761,7 +764,6 @@ describe('App bootstrap smoke', () => {
             off: jest.fn(),
         } as never);
         await bootstrapApp(() => {
-            installLifecycleWiringSpies();
         });
 
         expect(typeof screenChangeHandler).toBe('function');
@@ -787,7 +789,6 @@ describe('App bootstrap smoke', () => {
         jest.useFakeTimers();
         isReadySpy.mockReturnValue(true);
         await bootstrapApp(() => {
-            installLifecycleWiringSpies();
         });
 
         screenChangeHandler?.('auth', 'player');
@@ -800,7 +801,6 @@ describe('App bootstrap smoke', () => {
     it('prefetches ChannelSetupScreen after server-select delay', async () => {
         jest.useFakeTimers();
         await bootstrapApp(() => {
-            installLifecycleWiringSpies();
         });
 
         screenChangeHandler?.('splash', 'server-select');
@@ -814,7 +814,6 @@ describe('App bootstrap smoke', () => {
         let currentScreen: string | null = null;
         (AppOrchestrator.prototype.getCurrentScreen as unknown as jest.Mock).mockImplementation(() => currentScreen);
         await bootstrapApp(() => {
-            installLifecycleWiringSpies();
         });
 
         currentScreen = 'settings';
@@ -850,7 +849,6 @@ describe('App bootstrap smoke', () => {
         let currentScreen: string | null = null;
         (AppOrchestrator.prototype.getCurrentScreen as unknown as jest.Mock).mockImplementation(() => currentScreen);
         await bootstrapApp(() => {
-            installLifecycleWiringSpies();
         });
 
         currentScreen = 'audio-setup';
@@ -870,7 +868,6 @@ describe('App bootstrap smoke', () => {
         jest.useFakeTimers();
         isReadySpy.mockReturnValue(true);
         const startedApp = await bootstrapApp(() => {
-            installLifecycleWiringSpies();
         });
 
         screenChangeHandler?.('splash', 'server-select');

@@ -502,6 +502,7 @@ export class StrategyStepController {
             const button = document.createElement('button');
             button.id = rowId;
             button.className = 'setup-toggle setup-priority-row';
+            button.classList.toggle('selected', strategyState.enabled);
             const labelText = strategy?.label ?? String(key);
             const stateText = strategyState.enabled ? 'On' : 'Off';
             button.setAttribute('aria-label', `Priority ${index + 1}: ${labelText}, ${stateText}`);
@@ -527,9 +528,30 @@ export class StrategyStepController {
             rowState.textContent = stateText;
             rowState.setAttribute('aria-hidden', 'true');
 
+            const grip = document.createElement('span');
+            grip.className = 'setup-priority-grip';
+            grip.textContent = '⠿';
+            grip.setAttribute('aria-hidden', 'true');
+
+            const arrows = document.createElement('span');
+            arrows.className = 'setup-priority-arrows';
+            const arrowUp = document.createElement('span');
+            arrowUp.className = 'setup-priority-arrow-up';
+            arrowUp.textContent = '▲';
+            if (index === 0) arrowUp.classList.add('setup-priority-arrow--hidden');
+            const arrowDown = document.createElement('span');
+            arrowDown.className = 'setup-priority-arrow-down';
+            arrowDown.textContent = '▼';
+            if (index === state.strategyOrder.length - 1) arrowDown.classList.add('setup-priority-arrow--hidden');
+            arrows.appendChild(arrowUp);
+            arrows.appendChild(arrowDown);
+            arrows.setAttribute('aria-hidden', 'true');
+
             button.appendChild(rank);
             button.appendChild(label);
             button.appendChild(rowState);
+            button.appendChild(grip);
+            button.appendChild(arrows);
             button.addEventListener('click', () => {
                 deps.applySettingChange(rowId, (draft) => {
                     draft.strategies[key].enabled = !draft.strategies[key].enabled;
@@ -537,6 +559,31 @@ export class StrategyStepController {
             });
             return button;
         });
+    }
+
+    updatePriorityRowState(
+        container: HTMLElement,
+        rowId: string,
+        enabled: boolean
+    ): HTMLButtonElement | null {
+        const row = container.querySelector(`#${rowId}`) as HTMLButtonElement | null;
+        if (!row) return null;
+
+        row.classList.toggle('selected', enabled);
+        row.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+
+        const stateEl = row.querySelector('.setup-priority-state') as HTMLElement | null;
+        if (stateEl) {
+            stateEl.textContent = enabled ? 'On' : 'Off';
+        }
+
+        const rankText = row.querySelector('.setup-priority-rank')?.textContent?.trim();
+        const labelText = row.querySelector('.setup-priority-label')?.textContent?.trim();
+        if (rankText && labelText) {
+            const stateText = enabled ? 'On' : 'Off';
+            row.setAttribute('aria-label', `Priority ${rankText}: ${labelText}, ${stateText}`);
+        }
+        return row;
     }
 
     private _renderPreviewPanel(deps: StrategyStepDeps, state: StrategyStepDeps['state']): HTMLElement {

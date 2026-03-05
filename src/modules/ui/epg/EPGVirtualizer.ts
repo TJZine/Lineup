@@ -8,8 +8,7 @@
  */
 
 import { EPG_CONSTANTS, EPG_CLASSES } from './constants';
-import { formatCellTimeLabel, appendEpgDebugLog } from './utils';
-import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import { formatCellTimeLabel, appendEpgDebugLog, isEpgDebugLoggingEnabled } from './utils';
 import type {
     ScheduledProgram,
     ScheduleWindow,
@@ -93,17 +92,14 @@ export class EPGVirtualizer {
     private visibleCells: Map<string, CellRenderData> = new Map();
 
     private cellChildrenCache: WeakMap<HTMLElement, CellChildren> = new WeakMap();
+    private focusedVisibleCellKey: string | null = null;
 
     /** Total channel count */
     private totalChannels: number = 0;
     private _focusedTickerTimer: ReturnType<typeof setTimeout> | null = null;
     private _focusedTickerTitle: HTMLElement | null = null;
     private isDebugEnabled(): boolean {
-        try {
-            return localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG) === '1';
-        } catch {
-            return false;
-        }
+        return isEpgDebugLoggingEnabled();
     }
 
     /**
@@ -128,6 +124,7 @@ export class EPGVirtualizer {
         this.gridAnchorTime = gridAnchorTime;
         this.channelOffset = 0;
         this.totalChannels = 0;
+        this.focusedVisibleCellKey = null;
         this.elementPool.clear();
         this.visibleCells.clear();
         this.cellChildrenCache = new WeakMap();
@@ -146,6 +143,7 @@ export class EPGVirtualizer {
         this.forceRecycleAll();
         this.elementPool.clear();
         this.visibleCells.clear();
+        this.focusedVisibleCellKey = null;
         if (this.contentElement) {
             this.contentElement.remove();
         }
@@ -298,7 +296,9 @@ export class EPGVirtualizer {
     ): void {
         if (!this.contentElement || !this.config) return;
 
+        const previousChannelOffset = this.channelOffset;
         this.channelOffset = range.channelOffset;
+        const channelOffsetChanged = previousChannelOffset !== this.channelOffset;
 
         const newVisibleCells = new Map<string, CellRenderData>();
         const maxDomElements = EPG_CONSTANTS.MAX_DOM_ELEMENTS;
@@ -474,8 +474,12 @@ export class EPGVirtualizer {
             if (existing && existing.cellElement) {
                 // Reuse existing element, update position and content
                 cellData.cellElement = existing.cellElement;
-                this.updateCellPosition(cellData);
-                this.updateCellContent(cellData, nowMs);
+                if (channelOffsetChanged || this.hasCellPositionDelta(existing, cellData)) {
+                    this.updateCellPosition(cellData);
+                }
+                if (this.hasCellContentDelta(existing, cellData)) {
+                    this.updateCellContent(cellData, nowMs);
+                }
             } else {
                 // Render new cell
                 this.renderCell(key, cellData, nowMs);
@@ -483,6 +487,7 @@ export class EPGVirtualizer {
         }
 
         this.visibleCells = newVisibleCells;
+        this.focusedVisibleCellKey = this.resolveFocusedVisibleCellKey(newVisibleCells, focusedCellKey);
         this._syncFocusedTitleTickerForVisibleFocus();
 
         if (this.isDebugEnabled()) {
@@ -500,6 +505,64 @@ export class EPGVirtualizer {
             };
             appendEpgDebugLog('EPGVirtualizer.render', payload);
         }
+    }
+
+    private resolveFocusedVisibleCellKey(
+        visibleCells: Map<string, CellRenderData>,
+        preferredKey?: string
+    ): string | null {
+        if (preferredKey && visibleCells.has(preferredKey)) {
+            return preferredKey;
+        }
+        for (const [key, cell] of visibleCells) {
+            if (cell.isFocused) {
+                return key;
+            }
+        }
+        return null;
+    }
+
+    private hasCellPositionDelta(previous: CellRenderData, next: CellRenderData): boolean {
+        return previous.left !== next.left ||
+            previous.width !== next.width ||
+            previous.rowIndex !== next.rowIndex ||
+            previous.textShiftPx !== next.textShiftPx ||
+            previous.isFocused !== next.isFocused ||
+            previous.isCurrent !== next.isCurrent ||
+            previous.isPast !== next.isPast;
+    }
+
+    private hasCellContentDelta(previous: CellRenderData, next: CellRenderData): boolean {
+        if (previous.kind !== next.kind) {
+            return true;
+        }
+
+        if (this.getCellWidthTier(previous.width) !== this.getCellWidthTier(next.width)) {
+            return true;
+        }
+
+        if (previous.isFocused !== next.isFocused || previous.isCurrent !== next.isCurrent) {
+            return true;
+        }
+
+        if (next.kind === 'program' && previous.kind === 'program') {
+            return previous.program.item.title !== next.program.item.title ||
+                previous.program.item.fullTitle !== next.program.item.fullTitle ||
+                previous.program.item.showTitle !== next.program.item.showTitle ||
+                previous.program.item.type !== next.program.item.type ||
+                previous.program.item.seasonNumber !== next.program.item.seasonNumber ||
+                previous.program.item.episodeNumber !== next.program.item.episodeNumber ||
+                previous.program.scheduledStartTime !== next.program.scheduledStartTime ||
+                previous.program.scheduledEndTime !== next.program.scheduledEndTime;
+        }
+
+        if (next.kind === 'placeholder' && previous.kind === 'placeholder') {
+            return previous.placeholder.label !== next.placeholder.label ||
+                previous.placeholder.scheduledStartTime !== next.placeholder.scheduledStartTime ||
+                previous.placeholder.scheduledEndTime !== next.placeholder.scheduledEndTime;
+        }
+
+        return false;
     }
 
     /**
@@ -1126,9 +1189,8 @@ export class EPGVirtualizer {
         this._clearFocusedTitleTicker();
         if (this._prefersReducedMotion()) return;
 
-        const focusedCell = Array.from(this.visibleCells.values()).find(
-            (cell) => cell.isFocused && Boolean(cell.cellElement)
-        );
+        const focusedKey = this.focusedVisibleCellKey;
+        const focusedCell = focusedKey ? this.visibleCells.get(focusedKey) : null;
         if (!focusedCell?.cellElement) return;
 
         const title = this.getCellChildren(focusedCell.cellElement).title;
@@ -1237,17 +1299,44 @@ export class EPGVirtualizer {
             }
         }
 
-        for (const candidate of this.visibleCells.values()) {
-            const shouldFocus = candidate === targetCellData;
-            const focusChanged = candidate.isFocused !== shouldFocus;
-            candidate.isFocused = shouldFocus;
-
-            if (!candidate.cellElement) continue;
-            candidate.cellElement.classList.toggle(EPG_CLASSES.CELL_FOCUSED, shouldFocus);
-            if (focusChanged) {
-                this.updateCellTimeLabelForCell(candidate);
-                this.updateLiveBadge(candidate.cellElement, candidate.isCurrent);
+        const previousFocusedKey = this.focusedVisibleCellKey;
+        if (previousFocusedKey) {
+            const previousFocused = this.visibleCells.get(previousFocusedKey);
+            if (previousFocused && previousFocused !== targetCellData) {
+                previousFocused.isFocused = false;
+                if (previousFocused.cellElement) {
+                    previousFocused.cellElement.classList.remove(EPG_CLASSES.CELL_FOCUSED);
+                    this.updateCellTimeLabelForCell(previousFocused);
+                    this.updateLiveBadge(previousFocused.cellElement, previousFocused.isCurrent);
+                }
             }
+        } else {
+            for (const candidate of this.visibleCells.values()) {
+                if (!candidate.isFocused || candidate === targetCellData) {
+                    continue;
+                }
+                candidate.isFocused = false;
+                if (candidate.cellElement) {
+                    candidate.cellElement.classList.remove(EPG_CLASSES.CELL_FOCUSED);
+                    this.updateCellTimeLabelForCell(candidate);
+                    this.updateLiveBadge(candidate.cellElement, candidate.isCurrent);
+                }
+            }
+        }
+
+        if (targetCellData) {
+            const focusChanged = !targetCellData.isFocused;
+            targetCellData.isFocused = true;
+            if (targetCellData.cellElement) {
+                targetCellData.cellElement.classList.add(EPG_CLASSES.CELL_FOCUSED);
+                if (focusChanged) {
+                    this.updateCellTimeLabelForCell(targetCellData);
+                    this.updateLiveBadge(targetCellData.cellElement, targetCellData.isCurrent);
+                }
+            }
+            this.focusedVisibleCellKey = targetCellData.key;
+        } else {
+            this.focusedVisibleCellKey = null;
         }
         this._syncFocusedTitleTickerForVisibleFocus();
 
