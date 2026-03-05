@@ -2,16 +2,16 @@ import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import { safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from '../../utils/storage';
 
 export class AudioSettingsStore {
-    readDtsPassthroughEnabled(): boolean {
-        return this._readBooleanKey(LINEUP_STORAGE_KEYS.DTS_PASSTHROUGH, false);
+    readDtsPassthroughEnabled(fallback: boolean = false): boolean {
+        return this._readBooleanKey(LINEUP_STORAGE_KEYS.DTS_PASSTHROUGH, fallback);
     }
 
     writeDtsPassthroughEnabled(enabled: boolean): void {
         safeLocalStorageSet(LINEUP_STORAGE_KEYS.DTS_PASSTHROUGH, enabled ? '1' : '0');
     }
 
-    readDirectPlayAudioFallbackEnabled(): boolean {
-        return this._readBooleanKey(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK, false);
+    readDirectPlayAudioFallbackEnabled(fallback: boolean = false): boolean {
+        return this._readBooleanKey(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK, fallback);
     }
 
     writeDirectPlayAudioFallbackEnabled(enabled: boolean): void {

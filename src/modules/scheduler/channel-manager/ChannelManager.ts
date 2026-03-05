@@ -278,12 +278,27 @@ export class ChannelManager implements IChannelManager {
             warn: console.warn.bind(console),
             error: console.error.bind(console),
         };
-        const initialStorageKey = config.storageKey || STORAGE_KEY;
-        const initialCurrentChannelKey = config.currentChannelKey
-            ? config.currentChannelKey
-            : initialStorageKey === STORAGE_KEY
-                ? CURRENT_CHANNEL_KEY
-                : `${CURRENT_CHANNEL_KEY}:${initialStorageKey}`;
+        const initialStorageKey = ((): string => {
+            if (config.storageKey === undefined) return STORAGE_KEY;
+            const normalized = config.storageKey.trim();
+            if (normalized.length === 0) {
+                throw new Error('Storage keys must be non-empty strings');
+            }
+            return normalized;
+        })();
+
+        const initialCurrentChannelKey = ((): string => {
+            if (config.currentChannelKey === undefined) {
+                return initialStorageKey === STORAGE_KEY
+                    ? CURRENT_CHANNEL_KEY
+                    : `${CURRENT_CHANNEL_KEY}:${initialStorageKey}`;
+            }
+            const normalized = config.currentChannelKey.trim();
+            if (normalized.length === 0) {
+                throw new Error('Storage keys must be non-empty strings');
+            }
+            return normalized;
+        })();
 
         this._persistenceStore = new ChannelPersistenceStore(initialStorageKey, initialCurrentChannelKey);
         this._contentResolver = new ContentResolver(this._library, this._logger);

@@ -76,10 +76,10 @@ export class SettingsStore {
 
     readToggleSetting(id: ToggleSettingId): boolean {
         if (id === 'dtsPassthrough') {
-            return this._audioSettingsStore.readDtsPassthroughEnabled();
+            return this._audioSettingsStore.readDtsPassthroughEnabled(TOGGLE_DEFAULT_BY_ID.dtsPassthrough);
         }
         if (id === 'directPlayAudioFallback') {
-            return this._audioSettingsStore.readDirectPlayAudioFallbackEnabled();
+            return this._audioSettingsStore.readDirectPlayAudioFallbackEnabled(TOGGLE_DEFAULT_BY_ID.directPlayAudioFallback);
         }
 
         return this._readBooleanKey(TOGGLE_STORAGE_KEY_BY_ID[id], TOGGLE_DEFAULT_BY_ID[id]);
@@ -149,9 +149,12 @@ export class SettingsStore {
         safeLocalStorageSet(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, mode);
     }
 
-    readEpgGuideDensityValue(): number {
+    readEpgGuideDensityValue(): 0 | 1 {
         const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY);
-        return raw === 'wide' ? 1 : 0;
+        if (raw === 'wide') return 1;
+        if (raw === 'detailed' || raw === null) return 0;
+        safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY);
+        return 0;
     }
 
     writeEpgGuideDensityValue(value: number): void {
@@ -243,14 +246,25 @@ export class SettingsStore {
     readClampedNowPlayingAutoHideValue(validOptions: readonly number[], fallback: number = NOW_PLAYING_INFO_DEFAULTS.autoHideMs): number {
         const raw = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS);
         const parsed = raw === null ? NaN : Number(raw);
-        const rawValue = Number.isFinite(parsed) ? parsed : DEFAULT_SETTINGS.display.nowPlayingInfoAutoHideMs;
+        const candidate = Number.isFinite(parsed) ? parsed : fallback;
 
-        if (validOptions.includes(rawValue)) {
-            return rawValue;
+        const normalized = ((): number => {
+            if (validOptions.includes(candidate)) return candidate;
+            if (validOptions.includes(fallback)) return fallback;
+            if (validOptions.includes(NOW_PLAYING_INFO_DEFAULTS.autoHideMs)) return NOW_PLAYING_INFO_DEFAULTS.autoHideMs;
+            return validOptions[0] ?? NOW_PLAYING_INFO_DEFAULTS.autoHideMs;
+        })();
+
+        if (raw === null) {
+            return normalized;
         }
 
-        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, String(fallback));
-        return fallback;
+        if (Number.isFinite(parsed) && validOptions.includes(parsed)) {
+            return parsed;
+        }
+
+        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, String(normalized));
+        return normalized;
     }
 
     writeNowPlayingAutoHideValue(value: number): void {

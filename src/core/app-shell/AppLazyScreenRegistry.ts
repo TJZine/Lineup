@@ -91,7 +91,10 @@ export class AppLazyScreenRegistry {
             this._settingsPrefetchTimerId = null;
             if (this._destroyed) return;
             if (this._settingsScreen || this._settingsScreenLoad) return;
-            void this._loaders.loadSettingsScreen().catch(() => {
+            void Promise.all([
+                this._loaders.loadSettingsScreen(),
+                this._loaders.loadSettingsStore(),
+            ]).catch(() => {
                 // Best-effort prefetch only.
             });
         }, 1200);

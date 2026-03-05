@@ -32,7 +32,11 @@ export class ChannelPersistenceStore {
 
     readStoredChannelData(): Partial<StoredChannelData> | null {
         const raw = safeLocalStorageGet(this._storageKey);
-        if (!raw) {
+        if (raw === null) {
+            return null;
+        }
+        if (raw === '') {
+            safeLocalStorageRemove(this._storageKey);
             return null;
         }
 
