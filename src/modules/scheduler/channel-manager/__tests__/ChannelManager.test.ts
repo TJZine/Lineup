@@ -131,6 +131,7 @@ describe('ChannelManager', () => {
             await manager.flushSaves().catch(() => undefined);
         }
         jest.clearAllTimers();
+        jest.restoreAllMocks();
     });
 
     describe('CRUD operations', () => {

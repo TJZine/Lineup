@@ -3,7 +3,6 @@
  */
 
 import { ServerSelectScreen } from '../ServerSelectScreen';
-import { ServerSelectionStore } from '../../../plex/discovery/ServerSelectionStore';
 import { flushPromisesAndTimers } from '../../../../__tests__/helpers';
 
 type NavigationStub = {
@@ -57,6 +56,7 @@ describe('ServerSelectScreen', () => {
         localStorage.clear();
         document.body.innerHTML = '';
         jest.clearAllMocks();
+        jest.restoreAllMocks();
     });
 
     it('appends latency and applies slow class for ok status', async () => {
@@ -131,19 +131,30 @@ describe('ServerSelectScreen', () => {
         expect(localStorage.getItem(orchestrator.getServerHealthStorageKey())).toBeNull();
     });
 
-    it('does not call ServerSelectionStore.setStorageKeys during show/refresh', async () => {
+    it('does not mutate persisted selection/health keys during show/refresh when storage is empty', async () => {
         const orchestrator = createOrchestratorStub();
         const container = document.createElement('div');
         document.body.appendChild(container);
         orchestrator.discoverServers.mockResolvedValue([{ id: 'srv-1', name: 'Server One', owned: true }]);
 
-        expect('setStorageKeys' in ServerSelectionStore.prototype).toBe(false);
+        const setSpy = jest.spyOn(Storage.prototype, 'setItem');
+        const removeSpy = jest.spyOn(Storage.prototype, 'removeItem');
+        const selectedKey = orchestrator.getSelectedServerStorageKey();
+        const healthKey = orchestrator.getServerHealthStorageKey();
 
         const screen = new ServerSelectScreen(container, orchestrator as never);
         screen.show({ allowAutoConnect: false });
         await flushPromisesAndTimers();
         await screen.refresh();
         await flushPromisesAndTimers();
+
+        expect(setSpy).not.toHaveBeenCalledWith(selectedKey, expect.any(String));
+        expect(setSpy).not.toHaveBeenCalledWith(healthKey, expect.any(String));
+        expect(removeSpy).not.toHaveBeenCalledWith(selectedKey);
+        expect(removeSpy).not.toHaveBeenCalledWith(healthKey);
+
+        setSpy.mockRestore();
+        removeSpy.mockRestore();
     });
 
     it('marks saved server row as active and keeps reconnect enabled when healthy', async () => {
