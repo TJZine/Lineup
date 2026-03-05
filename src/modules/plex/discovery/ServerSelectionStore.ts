@@ -29,6 +29,8 @@ export type WriteServerHealthRecordInput = {
     testedAt?: number;
 };
 
+const SERVER_HEALTH_RECORD_KEYS = new Set(['status', 'type', 'latencyMs', 'testedAt']);
+
 export class ServerSelectionStore {
     private _selectedServerKey: string;
     private _serverHealthKey: string;
@@ -122,6 +124,7 @@ export class ServerSelectionStore {
                 || (record.latencyMs === undefined && originalLatency !== undefined)
                 || (typeof record.testedAt === 'number' && originalTestedAt !== record.testedAt)
                 || (record.testedAt === undefined && originalTestedAt !== undefined)
+                || Object.keys(original).some((key) => !SERVER_HEALTH_RECORD_KEYS.has(key))
             ) {
                 changed = true;
             }

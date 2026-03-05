@@ -62,6 +62,32 @@ describe('ServerSelectionStore', () => {
         );
     });
 
+    it('strips unknown fields from persisted health records during normalization', () => {
+        mockLocalStorage.setItem(
+            PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY,
+            JSON.stringify({
+                'srv-1': {
+                    status: 'ok',
+                    type: 'local',
+                    latencyMs: 15,
+                    testedAt: 123,
+                    debug: 'unexpected',
+                },
+            })
+        );
+
+        const store = new ServerSelectionStore();
+
+        expect(store.readServerHealthMap()).toEqual({
+            'srv-1': { status: 'ok', type: 'local', latencyMs: 15, testedAt: 123 },
+        });
+        expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY)).toBe(
+            JSON.stringify({
+                'srv-1': { status: 'ok', type: 'local', latencyMs: 15, testedAt: 123 },
+            })
+        );
+    });
+
     it('writes health records and preserves previous type/latency when details are missing', () => {
         const store = new ServerSelectionStore();
 
