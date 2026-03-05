@@ -72,6 +72,21 @@ describe('SettingsStore', () => {
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW)).toBeNull();
     });
 
+    it('reads EPG guide density and removes invalid persisted values', () => {
+        expect(store.readEpgGuideDensityValue()).toBe(0);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
+
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
+        expect(store.readEpgGuideDensityValue()).toBe(1);
+
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'detailed');
+        expect(store.readEpgGuideDensityValue()).toBe(0);
+
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'bogus');
+        expect(store.readEpgGuideDensityValue()).toBe(0);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
+    });
+
     it('normalizes subtitle language by trimming/lowercasing and removes invalid values', () => {
         localStorage.setItem(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE, ' EN ');
         expect(store.readSubtitleLanguageValue(SUBTITLE_OPTIONS)).toBe(1);
@@ -98,6 +113,24 @@ describe('SettingsStore', () => {
 
         expect(value).toBe(0);
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS)).toBe('0');
+    });
+
+    it('uses fallback when persisted now-playing auto-hide value is non-numeric and validates fallback against options', () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, 'bogus');
+
+        const value = store.readClampedNowPlayingAutoHideValue([0, 5000], 5000);
+
+        expect(value).toBe(5000);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS)).toBe('5000');
+    });
+
+    it('chooses a safe default when fallback is not in validOptions', () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, 'bogus');
+
+        const value = store.readClampedNowPlayingAutoHideValue([5000], 1234);
+
+        expect(value).toBe(5000);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS)).toBe('5000');
     });
 
     it('semantic toggle methods remain non-fatal when storage is blocked', () => {

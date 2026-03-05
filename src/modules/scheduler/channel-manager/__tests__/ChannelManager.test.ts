@@ -1049,3 +1049,19 @@ describe('ChannelManager', () => {
         });
     });
 });
+
+describe('ChannelManager constructor validation', () => {
+    it('throws when currentChannelKey is provided as an empty string', () => {
+        const plexLibrary = createMockLibrary();
+        expect(() => new ChannelManager({ plexLibrary, currentChannelKey: '' })).toThrow(
+            'Storage keys must be non-empty strings'
+        );
+    });
+
+    it('throws when storageKey is provided as whitespace', () => {
+        const plexLibrary = createMockLibrary();
+        expect(() => new ChannelManager({ plexLibrary, storageKey: '   ' })).toThrow(
+            'Storage keys must be non-empty strings'
+        );
+    });
+});

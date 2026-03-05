@@ -15,6 +15,14 @@ describe('ChannelPersistenceStore', () => {
         expect(store.readStoredChannelData()).toBeNull();
     });
 
+    it('removes empty-string stored payload and returns null', () => {
+        const store = new ChannelPersistenceStore();
+        mockLocalStorage.setItem(STORAGE_KEY, '');
+
+        expect(store.readStoredChannelData()).toBeNull();
+        expect(mockLocalStorage.getItem(STORAGE_KEY)).toBeNull();
+    });
+
     it('writes and reads current channel id using default keys', () => {
         const store = new ChannelPersistenceStore();
 
