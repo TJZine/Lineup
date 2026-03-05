@@ -9,6 +9,7 @@ import { EventEmitter } from '../../../utils/EventEmitter';
 import { fnv1a32Uint } from '../../../utils/hash';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { ContentResolver } from './ContentResolver';
+import { ChannelPersistenceStore } from './ChannelPersistenceStore';
 import { AppErrorCode } from '../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../lifecycle/constants';
 import { TIMING_CONFIG } from '../../../config/timing';
@@ -248,6 +249,7 @@ export class ChannelManager implements IChannelManager {
     private readonly _library: IPlexLibraryMinimal;
     private _storageKey: string;
     private _currentChannelKey: string;
+    private readonly _persistenceStore: ChannelPersistenceStore;
     private readonly _logger: {
         warn: (message: string, ...args: unknown[]) => void;
         error: (message: string, ...args: unknown[]) => void;
@@ -287,6 +289,7 @@ export class ChannelManager implements IChannelManager {
             // Namespaced to avoid demo/real and multi-server clobbering.
             this._currentChannelKey = `${CURRENT_CHANNEL_KEY}:${this._storageKey}`;
         }
+        this._persistenceStore = new ChannelPersistenceStore(this._storageKey, this._currentChannelKey);
         this._contentResolver = new ContentResolver(this._library, this._logger);
 
         this._state = {
@@ -316,6 +319,7 @@ export class ChannelManager implements IChannelManager {
         }
         this._storageKey = storageKey;
         this._currentChannelKey = currentChannelKey;
+        this._persistenceStore.setStorageKeys(storageKey, currentChannelKey);
         this._contentResolver.clearCaches();
         this._state.channels.clear();
         this._state.resolvedContent.clear();
@@ -1154,12 +1158,11 @@ export class ChannelManager implements IChannelManager {
      */
     async loadChannels(): Promise<void> {
         try {
-            const json = localStorage.getItem(this._storageKey);
-            if (!json) {
+            const parsed = this._persistenceStore.readStoredChannelData();
+            if (!parsed) {
                 return;
             }
 
-            const parsed = JSON.parse(json) as Partial<StoredChannelData>;
             const normalized = this._normalizeStoredChannelData(parsed);
             if (!normalized) {
                 this._logger.warn('[ChannelManager] Invalid stored channel data, skipping load');
@@ -1195,7 +1198,7 @@ export class ChannelManager implements IChannelManager {
             this._state.currentChannelId = data.currentChannelId;
 
             // Also restore current channel from separate key
-            const savedCurrent = localStorage.getItem(this._currentChannelKey);
+            const savedCurrent = this._persistenceStore.readCurrentChannelId();
             if (savedCurrent && this._state.channels.has(savedCurrent)) {
                 this._state.currentChannelId = savedCurrent;
             }

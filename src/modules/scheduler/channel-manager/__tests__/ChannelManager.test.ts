@@ -4,6 +4,7 @@
  */
 
 import { ChannelManager } from '../ChannelManager';
+import { ChannelPersistenceStore } from '../ChannelPersistenceStore';
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
 import type { ChannelConfig, LibraryContentSource } from '../types';
 import { AppErrorCode } from '../../../lifecycle/types';
@@ -320,6 +321,19 @@ describe('ChannelManager', () => {
             expect(clearCachesSpy).toHaveBeenCalledTimes(1);
         });
 
+        it('forwards storage key changes to ChannelPersistenceStore', () => {
+            const setKeysSpy = jest.spyOn(ChannelPersistenceStore.prototype, 'setStorageKeys');
+
+            manager.setStorageKeys('lineup_channels_new_scope', 'lineup_current_channel_new_scope');
+
+            expect(setKeysSpy).toHaveBeenCalledWith(
+                'lineup_channels_new_scope',
+                'lineup_current_channel_new_scope'
+            );
+
+            setKeysSpy.mockRestore();
+        });
+
         it('emits persistenceWarning and does not throw when pending save flush fails during key switch', async () => {
             const warningHandler = jest.fn();
             manager.on('persistenceWarning', warningHandler);
@@ -620,6 +634,36 @@ describe('ChannelManager', () => {
     });
 
     describe('persistence', () => {
+        it('loads persisted channels through ChannelPersistenceStore boundary', async () => {
+            const persistedChannel = createBaseChannel({
+                id: 'persisted-1',
+                number: 42,
+                name: 'Persisted Channel',
+            });
+
+            mockStorage[STORAGE_KEY] = JSON.stringify({
+                channels: [persistedChannel],
+                channelOrder: [persistedChannel.id],
+                currentChannelId: persistedChannel.id,
+                savedAt: Date.now(),
+            });
+            mockStorage[CURRENT_CHANNEL_KEY] = persistedChannel.id;
+
+            const readStoredSpy = jest.spyOn(ChannelPersistenceStore.prototype, 'readStoredChannelData');
+            const readCurrentSpy = jest.spyOn(ChannelPersistenceStore.prototype, 'readCurrentChannelId');
+
+            await manager.loadChannels();
+
+            expect(readStoredSpy).toHaveBeenCalledTimes(1);
+            expect(readCurrentSpy).toHaveBeenCalledTimes(1);
+            expect(manager.getAllChannels()).toHaveLength(1);
+            expect(manager.getAllChannels()[0]?.id).toBe('persisted-1');
+            expect(manager.getCurrentChannel()?.id).toBe('persisted-1');
+
+            readStoredSpy.mockRestore();
+            readCurrentSpy.mockRestore();
+        });
+
         it('saveChannels reuses one pending promise for burst saves', async () => {
             await manager.createChannel({ contentSource: createMockContentSource() });
 
