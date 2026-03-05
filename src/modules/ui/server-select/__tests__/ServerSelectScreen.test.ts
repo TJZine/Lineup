@@ -110,6 +110,26 @@ describe('ServerSelectScreen', () => {
         expect(pill.classList.contains('latency-very-slow')).toBe(true);
     });
 
+    it('ignores malformed persisted health payload when rendering server list', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([
+            { id: 'srv-1', name: 'Server One', owned: true },
+        ]);
+
+        localStorage.setItem(orchestrator.getServerHealthStorageKey(), '{not-json');
+
+        const screen = new ServerSelectScreen(container, orchestrator as never);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        const pill = container.querySelector('.server-status-pill') as HTMLElement;
+        expect(pill.textContent).toContain('Unknown');
+        expect(localStorage.getItem(orchestrator.getServerHealthStorageKey())).toBeNull();
+    });
+
     it('marks saved server row as active and keeps reconnect enabled when healthy', async () => {
         const orchestrator = createOrchestratorStub();
         const container = document.createElement('div');
