@@ -37,7 +37,7 @@ npm run test:coverage
 
 ## Agent Eval Regression Set
 
-The repo also maintains a small agent-workflow regression set in [`docs/agentic/evals-roadmap.md`](../agentic/evals-roadmap.md).
+The repo also maintains a small agent-workflow regression set in [`docs/agentic/evals-roadmap.md`](../agentic/evals-roadmap.md) and the tracked harness definition under [`docs/agentic/evals/`](../agentic/evals/README.md).
 
 Use it when you want to judge whether the current workflow and skills are still resisting the failure modes that matter most:
 
@@ -45,6 +45,11 @@ Use it when you want to judge whether the current workflow and skills are still 
 - raw storage leakage
 - overlay focus/timer leaks
 - Plex policy leakage
+
+This eval set is separate from product testing:
+
+- product tests prove application behavior
+- agent evals prove workflow quality, boundary discipline, and slop resistance
 
 ## When to Refactor the Test Suite
 

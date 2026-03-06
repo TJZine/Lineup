@@ -68,6 +68,7 @@ Pass conditions:
 
 ## How To Use
 
+- Use the tracked eval harness definitions under [`docs/agentic/evals/`](./evals/README.md) for prompts, scoring, and baseline handling.
 - Run these prompts in a clean worktree or clean branch.
 - Score each run as `pass`, `soft-fail`, or `fail`.
 - Capture what the agent missed and update workflow docs or skills only when the miss is recurring.

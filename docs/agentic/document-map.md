@@ -151,10 +151,12 @@ Use for:
 ### Evaluation Roadmap
 
 - [`docs/agentic/evals-roadmap.md`](./evals-roadmap.md)
+- [`docs/agentic/evals/`](./evals/README.md)
 
 Use for:
 
 - the small, explicit regression tasks used to judge agent effectiveness
+- the tracked eval harness definitions, rubric, and scorecard template
 
 ### Historical Corpus Review
 
