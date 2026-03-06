@@ -5,23 +5,13 @@
  */
 
 import {
-    type ChannelSetupConfig,
-    type ChannelSetupContext,
     type ChannelBuildProgress,
-    type ChannelSetupPreview,
-    type ChannelSetupReview,
-    type ChannelSetupRecord,
 } from '../../../Orchestrator';
-import type { AppOrchestrator } from '../../../Orchestrator';
-import type { PlexLibraryType } from '../../plex/library';
 import type { FocusableElement, KeyEvent } from '../../navigation';
 import { ServerSelectionStore } from '../../plex/discovery/ServerSelectionStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../scheduler/channel-manager/constants';
 import {
-    DEFAULT_MIN_ITEMS_PER_CHANNEL,
-    DEFAULT_STRATEGY_PRIORITIES,
-    MIXED_SCOPE_STRATEGY_KEYS,
     SETUP_STRATEGY_KEYS,
 } from '../../../core/channel-setup/constants';
 import { createScreenShell } from '../common/ScreenShell';
@@ -30,104 +20,25 @@ import { LibraryStepController } from './steps/LibraryStepController';
 import { StrategyStepController } from './steps/StrategyStepController';
 import { BuildReviewStepController } from './steps/BuildReviewStepController';
 import { BuildProgressStepController } from './steps/BuildProgressStepController';
-import type { BuildReviewStateSnapshot, SeriesOrderingState, StrategyStepMutableState } from './steps/types';
+import type { BuildReviewStateSnapshot, EstimateKey, StrategyStepMutableState } from './steps/types';
 import {
     ADVANCED_STRATEGY_KEYS,
     CONTENT_STRATEGY_KEYS,
-    SERIES_BLOCK_PRESETS,
     STEP2_CONTROL_IDS,
     STRATEGY_CATEGORIES,
     type SetupStrategyKey,
     type StrategyCategoryKey,
 } from './steps/constants';
 import { scrollToNearest } from './focus/scrollToNearest';
+import {
+    ChannelSetupSessionController,
+    type ChannelSetupOrchestrator,
+    strategySupportsMixedScope,
+} from './ChannelSetupSessionController';
+
+export type { ChannelSetupOrchestrator } from './ChannelSetupSessionController';
 
 const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
-const SERIES_BLOCK_PRESET_MIN = SERIES_BLOCK_PRESETS.length > 0
-    ? Math.min(...SERIES_BLOCK_PRESETS)
-    : 2;
-const SERIES_BLOCK_PRESET_MAX = SERIES_BLOCK_PRESETS.length > 0
-    ? Math.max(...SERIES_BLOCK_PRESETS)
-    : 5;
-const DEFAULT_SERIES_BLOCK_PRESET = SERIES_BLOCK_PRESETS.includes(3)
-    ? 3
-    : SERIES_BLOCK_PRESETS[0] ?? 3;
-
-const clampSeriesBlockPreset = (raw: unknown): number => {
-    const numeric = typeof raw === 'number' ? raw : Number(raw);
-    if (!Number.isFinite(numeric)) return DEFAULT_SERIES_BLOCK_PRESET;
-    const value = Math.floor(numeric);
-    return Math.min(SERIES_BLOCK_PRESET_MAX, Math.max(SERIES_BLOCK_PRESET_MIN, value));
-};
-
-type SetupStrategyState = Record<SetupStrategyKey, {
-    enabled: boolean;
-    scope: 'per-library' | 'cross-library';
-}>;
-
-type ChannelExpansionState = {
-    addAlternateLineups: boolean;
-    alternateLineupCopies: number;
-    variantType: 'none' | 'sequential' | 'block';
-    variantBlockSize: number;
-};
-
-const strategySupportsMixedScope = (key: SetupStrategyKey): boolean =>
-    MIXED_SCOPE_STRATEGY_KEYS.has(key);
-
-const createDefaultStrategyState = (): SetupStrategyState => ({
-    collections: { enabled: true, scope: 'per-library' },
-    playlists: { enabled: true, scope: 'per-library' },
-    genres: { enabled: true, scope: 'per-library' },
-    directors: { enabled: true, scope: 'per-library' },
-    decades: { enabled: true, scope: 'per-library' },
-    recentlyAdded: { enabled: true, scope: 'per-library' },
-    studios: { enabled: true, scope: 'per-library' },
-    actors: { enabled: true, scope: 'per-library' },
-});
-
-const compareSetupStrategyKeys = (a: SetupStrategyKey, b: SetupStrategyKey): number => {
-    const diff = DEFAULT_STRATEGY_PRIORITIES[a] - DEFAULT_STRATEGY_PRIORITIES[b];
-    if (diff !== 0) return diff;
-    // Locale-agnostic tie-break for deterministic ordering across devices.
-    return a < b ? -1 : a > b ? 1 : 0;
-};
-
-const createDefaultStrategyOrder = (): SetupStrategyKey[] =>
-    [...SETUP_STRATEGY_KEYS].sort(compareSetupStrategyKeys);
-
-const defaultChannelExpansionState = (): ChannelExpansionState => ({
-    addAlternateLineups: false,
-    alternateLineupCopies: 1,
-    variantType: 'none',
-    variantBlockSize: DEFAULT_SERIES_BLOCK_PRESET,
-});
-
-const defaultSeriesOrderingState = (): SeriesOrderingState => ({
-    basePlaybackMode: 'shuffle',
-    baseBlockSize: DEFAULT_SERIES_BLOCK_PRESET,
-});
-
-type SetupStep = 1 | 2 | 3;
-type EstimateKey = keyof ChannelSetupPreview['estimates'];
-
-export type ChannelSetupOrchestrator = Pick<
-    AppOrchestrator,
-    | 'getNavigation'
-    | 'getLibrariesForSetup'
-    | 'getChannelSetupRecord'
-    | 'openServerSelect'
-    | 'switchToChannelByNumber'
-    | 'openEPG'
-    | 'createChannelsFromSetup'
-    | 'markSetupComplete'
-    | 'getSetupPreview'
-    | 'getSetupReview'
-    | 'getSetupContextForSelectedServer'
-    | 'getSelectedServerStorageKey'
-    | 'getServerHealthStorageKey'
-    | 'getSelectedServerId'
->;
 
 const MOVIE_SVG = `
 <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" aria-hidden="true">
@@ -163,47 +74,17 @@ export class ChannelSetupScreen {
     private _detailEl: HTMLElement;
     private _errorEl: HTMLElement;
     private _contentEl: HTMLElement;
+    private readonly _session: ChannelSetupSessionController;
 
-    private _libraries: PlexLibraryType[] = [];
-    private _selectedLibraryIds: Set<string> = new Set();
-    private _strategies: SetupStrategyState = createDefaultStrategyState();
-    private _strategyOrder: SetupStrategyKey[] = createDefaultStrategyOrder();
-    private _channelExpansion: ChannelExpansionState = defaultChannelExpansionState();
-    private _seriesOrdering: SeriesOrderingState = defaultSeriesOrderingState();
     private _activeStrategyCategory: StrategyCategoryKey = 'content-sources';
     private _rememberedDetailFocusByCategory: Partial<Record<StrategyCategoryKey, string>> = {};
-    private _buildMode: ChannelSetupConfig['buildMode'] = 'replace';
-    private _actorStudioCombineMode: ChannelSetupConfig['actorStudioCombineMode'] = 'separate';
-    private _maxChannels: number = DEFAULT_CHANNEL_SETUP_MAX;
-    private _minItems: number = DEFAULT_MIN_ITEMS_PER_CHANNEL;
     private _channelLimitOptions: number[] = CHANNEL_LIMIT_PRESETS.filter((value) => value <= MAX_CHANNELS);
     private _minItemsOptions: number[] = [1, 5, 10, 20, 50];
-    private _buildAbortController: AbortController | null = null;
-    private _previewAbortController: AbortController | null = null;
-    private _reviewAbortController: AbortController | null = null;
-    private _previewTimeoutId: number | null = null;
-    private _step: SetupStep = 1;
     private _preferredFocusId: string | null = null;
-    private _isLoading: boolean = false;
-    private _isBuilding: boolean = false;
-    private _isPreviewLoading: boolean = false;
-    private _isReviewLoading: boolean = false;
-    private _replaceConfirm: boolean = false;
     private _visibilityToken = 0;
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
-    private _preview: ChannelSetupPreview | null = null;
-    private _previewError: string | null = null;
-    private _review: ChannelSetupReview | null = null;
-    private _reviewError: string | null = null;
-    private _lastPreviewKey: string | null = null;
-    private _pendingPreviewKey: string | null = null;
-    private _previewDeltas: Partial<Record<EstimateKey, number>> = {};
-    private _previewDeltaTimeoutId: number | null = null;
-    private _previewDeltaExpiresAtMs: number = 0;
     private _previewPanelId = 'setup-preview-panel';
     private _maxPreviewWarnings = 5;
-    private _recordApplied = false;
-    private _setupContext: ChannelSetupContext = 'unknown';
     private _lastReorder: { key: SetupStrategyKey; dir: 'up' | 'down' } | null = null;
     private _grabbedPriorityKey: SetupStrategyKey | null = null;
 
@@ -286,6 +167,10 @@ export class ChannelSetupScreen {
         this._focus = new ChannelSetupFocusCoordinator({
             getNavigation: (): ReturnType<ChannelSetupOrchestrator['getNavigation']> => this._orchestrator.getNavigation(),
         });
+        this._session = new ChannelSetupSessionController({
+            orchestrator: this._orchestrator,
+            getSelectedServerId: () => this._getSelectedServerId(),
+        });
 
         if (!this._channelLimitOptions.includes(DEFAULT_CHANNEL_SETUP_MAX)) {
             this._channelLimitOptions.push(DEFAULT_CHANNEL_SETUP_MAX);
@@ -340,7 +225,8 @@ export class ChannelSetupScreen {
         const nav = this._orchestrator.getNavigation();
         if (nav && !this._navKeyHandler) {
             this._navKeyHandler = (event: KeyEvent): void => {
-                if (event.handled || this._step !== 2) return;
+                const session = this._session.getSnapshot();
+                if (event.handled || session.step !== 2) return;
                 const focusedId = nav.getFocusedElement()?.id ?? null;
                 if (!focusedId) return;
 
@@ -383,19 +269,19 @@ export class ChannelSetupScreen {
                         return;
                     }
                     const strategy = this._grabbedPriorityKey;
-                    const currentIndex = this._strategyOrder.indexOf(strategy);
+                    const currentIndex = session.strategyOrder.indexOf(strategy);
                     if (currentIndex < 0) {
                         event.handled = true;
                         event.originalEvent.preventDefault();
                         return;
                     }
                     const targetIndex = event.button === 'up' ? currentIndex - 1 : currentIndex + 1;
-                    if (targetIndex < 0 || targetIndex >= this._strategyOrder.length) {
+                    if (targetIndex < 0 || targetIndex >= session.strategyOrder.length) {
                         event.handled = true;
                         event.originalEvent.preventDefault();
                         return;
                     }
-                    const targetKey = this._strategyOrder[targetIndex];
+                    const targetKey = session.strategyOrder[targetIndex];
                     if (!targetKey) {
                         event.handled = true;
                         event.originalEvent.preventDefault();
@@ -403,14 +289,14 @@ export class ChannelSetupScreen {
                     }
                     event.handled = true;
                     event.originalEvent.preventDefault();
-                    this._strategyOrder[currentIndex] = targetKey;
-                    this._strategyOrder[targetIndex] = strategy;
+                    this._session.updateStrategyState((draft) => {
+                        draft.strategyOrder[currentIndex] = targetKey;
+                        draft.strategyOrder[targetIndex] = strategy;
+                    });
                     this._lastReorder = { key: strategy, dir: event.button === 'up' ? 'up' : 'down' };
                     this._preferredFocusId = this._priorityRowId(strategy);
                     this._rememberedDetailFocusByCategory['priority-order'] = this._preferredFocusId;
-                    this._review = null;
-                    this._reviewError = null;
-                    this._schedulePreview();
+                    this._session.schedulePreview(() => this._renderStep());
                     this._renderStep();
                     this._lastReorder = null;
                     // Re-apply grabbed state after render
@@ -459,8 +345,17 @@ export class ChannelSetupScreen {
             };
             nav.on('keyPress', this._navKeyHandler);
         }
-        this._resetState();
-        this._loadLibraries().catch((error: unknown) => {
+        this._session.beginSession();
+        this._activeStrategyCategory = 'content-sources';
+        this._rememberedDetailFocusByCategory = {};
+        this._lastReorder = null;
+        this._grabbedPriorityKey = null;
+        this._statusEl.textContent = 'Loading libraries...';
+        this._detailEl.textContent = '';
+        this._errorEl.textContent = '';
+        this._session.loadLibraries().then(() => {
+            this._renderStep();
+        }).catch((error: unknown) => {
             if (isAbortLikeError(error)) return;
             console.error('[ChannelSetup] Load libraries failed:', summarizeErrorForLog(error));
         });
@@ -468,99 +363,15 @@ export class ChannelSetupScreen {
 
     hide(): void {
         this._visibilityToken += 1;
-        this._buildAbortController?.abort();
-        this._previewAbortController?.abort();
-        this._reviewAbortController?.abort();
-        if (this._previewTimeoutId !== null) {
-            window.clearTimeout(this._previewTimeoutId);
-            this._previewTimeoutId = null;
-        }
+        this._session.endSession();
         if (this._navKeyHandler) {
             const nav = this._orchestrator.getNavigation();
             nav?.off('keyPress', this._navKeyHandler);
             this._navKeyHandler = null;
         }
-        this._clearPreviewDeltas();
         this._unregisterFocusables();
         this._container.style.display = 'none';
         this._container.classList.remove('visible');
-    }
-
-    private _resetState(): void {
-        this._buildAbortController?.abort();
-        this._previewAbortController?.abort();
-        this._reviewAbortController?.abort();
-        if (this._previewTimeoutId !== null) {
-            window.clearTimeout(this._previewTimeoutId);
-            this._previewTimeoutId = null;
-        }
-        this._buildAbortController = null;
-        this._previewAbortController = null;
-        this._reviewAbortController = null;
-        this._clearPreviewDeltas();
-        this._step = 1;
-        this._isLoading = false;
-        this._isBuilding = false;
-        this._isPreviewLoading = false;
-        this._isReviewLoading = false;
-        this._replaceConfirm = false;
-        this._maxChannels = DEFAULT_CHANNEL_SETUP_MAX;
-        this._minItems = DEFAULT_MIN_ITEMS_PER_CHANNEL;
-        this._strategies = createDefaultStrategyState();
-        this._strategyOrder = createDefaultStrategyOrder();
-        this._channelExpansion = defaultChannelExpansionState();
-        this._seriesOrdering = defaultSeriesOrderingState();
-        this._buildMode = 'replace';
-        this._actorStudioCombineMode = 'separate';
-        this._activeStrategyCategory = 'content-sources';
-        this._rememberedDetailFocusByCategory = {};
-        this._preview = null;
-        this._previewError = null;
-        this._review = null;
-        this._reviewError = null;
-        this._lastPreviewKey = null;
-        this._pendingPreviewKey = null;
-        this._recordApplied = false;
-        this._setupContext = 'unknown';
-        this._lastReorder = null;
-        this._grabbedPriorityKey = null;
-        this._errorEl.textContent = '';
-    }
-
-    private async _loadLibraries(): Promise<void> {
-        const token = this._visibilityToken;
-        if (this._isLoading) {
-            return;
-        }
-        this._isLoading = true;
-        this._statusEl.textContent = 'Loading libraries...';
-        this._detailEl.textContent = '';
-        this._errorEl.textContent = '';
-
-        try {
-            this._libraries = await this._orchestrator.getLibrariesForSetup();
-            const serverId = this._getSelectedServerId();
-            const record = serverId ? this._orchestrator.getChannelSetupRecord(serverId) : null;
-            if (record) {
-                this._applySetupRecord(record);
-            } else {
-                this._selectedLibraryIds = new Set(this._libraries.map((lib) => lib.id));
-            }
-            this._recordApplied = true;
-            if (token !== this._visibilityToken) {
-                return;
-            }
-            this._renderStep();
-        } catch (error) {
-            if (token !== this._visibilityToken) {
-                return;
-            }
-            const message = error instanceof Error ? error.message : 'Unable to load libraries.';
-            this._errorEl.textContent = message;
-            this._statusEl.textContent = 'Library load failed.';
-        } finally {
-            this._isLoading = false;
-        }
     }
 
     private _renderStep(): void {
@@ -576,9 +387,10 @@ export class ChannelSetupScreen {
         }
         this._contentEl.innerHTML = '';
 
-        if (this._step === 1) {
+        const session = this._session.getSnapshot();
+        if (session.step === 1) {
             this._renderLibraryStep();
-        } else if (this._step === 2) {
+        } else if (session.step === 2) {
             this._renderStrategyStep();
         } else {
             this._renderBuildStep();
@@ -586,6 +398,7 @@ export class ChannelSetupScreen {
     }
 
     private _renderLibraryStep(): void {
+        const session = this._session.getSnapshot();
         this._libraryStep.render({
             contentEl: this._contentEl,
             stepEl: this._stepEl,
@@ -593,65 +406,52 @@ export class ChannelSetupScreen {
             detailEl: this._detailEl,
             errorEl: this._errorEl,
         }, {
-            libraries: this._libraries,
-            selectedLibraryIds: this._selectedLibraryIds,
+            libraries: session.libraries,
+            selectedLibraryIds: session.selectedLibraryIds,
             formatCount: (value) => this._formatCount(value),
             movieSvg: MOVIE_SVG,
             showSvg: SHOW_SVG,
             toDomId: (raw) => this._toDomId(raw),
             onToggleLibrary: (libraryId, focusId) => {
                 this._preferredFocusId = focusId;
-                const wasSelected = this._selectedLibraryIds.has(libraryId);
-                if (wasSelected) {
-                    this._selectedLibraryIds.delete(libraryId);
-                } else {
-                    this._selectedLibraryIds.add(libraryId);
-                }
-                this._review = null;
-                this._reviewError = null;
-                this._replaceConfirm = false;
+                const nextSelected = this._session.toggleLibrary(libraryId);
 
                 // Surgical update: toggle the single button in-place.
                 const updated = this._libraryStep.updateLibraryToggle(
                     this._contentEl,
                     libraryId,
-                    !wasSelected,
+                    nextSelected,
                     (raw) => this._toDomId(raw)
                 );
                 if (updated) {
+                    const updatedSession = this._session.getSnapshot();
                     this._preferredFocusId = null;
-                    const count = this._selectedLibraryIds.size;
-                    const total = this._libraries.length;
+                    const count = updatedSession.selectedLibraryIds.size;
+                    const total = updatedSession.libraries.length;
                     this._detailEl.textContent = `Selected ${count} of ${total}.`;
                     const nextButton = this._contentEl.querySelector('#setup-next') as HTMLButtonElement | null;
                     if (nextButton) {
-                        nextButton.disabled = this._libraries.length === 0 || this._selectedLibraryIds.size === 0;
+                        nextButton.disabled = updatedSession.libraries.length === 0 || updatedSession.selectedLibraryIds.size === 0;
                     }
                 } else {
                     this._renderStep();
                 }
             },
             onSelectAll: (focusId) => {
-                this._selectedLibraryIds = new Set(this._libraries.map((library) => library.id));
+                this._session.selectAllLibraries();
                 this._preferredFocusId = focusId;
-                this._review = null;
-                this._reviewError = null;
-                this._replaceConfirm = false;
                 this._renderStep();
             },
             onClearAll: (focusId) => {
-                this._selectedLibraryIds = new Set();
+                this._session.clearAllLibraries();
                 this._preferredFocusId = focusId;
-                this._review = null;
-                this._reviewError = null;
-                this._replaceConfirm = false;
                 this._renderStep();
             },
             onBack: () => {
                 this._orchestrator.openServerSelect();
             },
             onNext: () => {
-                this._step = 2;
+                this._session.setStep(2);
                 this._renderStep();
             },
             registerFocusables: (buttons, mode) => {
@@ -712,7 +512,8 @@ export class ChannelSetupScreen {
     }
 
     private _renderStrategyStep(): void {
-        this._refreshSetupContextForStep2();
+        this._session.syncSetupContext();
+        const session = this._session.getSnapshot();
         this._strategyStep.render({
             contentEl: this._contentEl,
             stepEl: this._stepEl,
@@ -722,19 +523,19 @@ export class ChannelSetupScreen {
         }, {
             state: {
                 activeStrategyCategory: this._activeStrategyCategory,
-                strategies: this._strategies,
-                strategyOrder: this._strategyOrder,
-                channelExpansion: this._channelExpansion,
-                seriesOrdering: this._seriesOrdering,
-                buildMode: this._buildMode,
-                actorStudioCombineMode: this._actorStudioCombineMode,
-                maxChannels: this._maxChannels,
-                minItems: this._minItems,
-                setupContext: this._setupContext,
+                strategies: session.strategies,
+                strategyOrder: session.strategyOrder,
+                channelExpansion: session.channelExpansion,
+                seriesOrdering: session.seriesOrdering,
+                buildMode: session.buildMode,
+                actorStudioCombineMode: session.actorStudioCombineMode,
+                maxChannels: session.maxChannels,
+                minItems: session.minItems,
+                setupContext: session.setupContext,
                 previewPanelId: this._previewPanelId,
-                preview: this._preview,
-                previewError: this._previewError,
-                isPreviewLoading: this._isPreviewLoading,
+                preview: session.preview,
+                previewError: session.previewError,
+                isPreviewLoading: session.isPreviewLoading,
             },
             stepPreset: (options, current, dir, mode) => this._stepPreset(options, current, dir, mode),
             channelLimitOptions: this._channelLimitOptions,
@@ -758,49 +559,23 @@ export class ChannelSetupScreen {
                 this._renderStep();
             },
             applySettingChange: (focusId, mutate) => {
-                const strategies = SETUP_STRATEGY_KEYS.reduce<SetupStrategyState>((acc, key) => {
-                    const current = this._strategies[key];
-                    acc[key] = current ? { ...current } : { enabled: true, scope: 'per-library' };
-                    return acc;
-                }, {} as SetupStrategyState);
-                const strategyOrder = [...this._strategyOrder];
-                const channelExpansion: ChannelExpansionState = { ...this._channelExpansion };
-                const seriesOrdering: SeriesOrderingState = { ...this._seriesOrdering };
-                const draft: StrategyStepMutableState = {
-                    activeStrategyCategory: this._activeStrategyCategory,
-                    strategies,
-                    strategyOrder,
-                    channelExpansion,
-                    seriesOrdering,
-                    buildMode: this._buildMode,
-                    actorStudioCombineMode: this._actorStudioCombineMode,
-                    maxChannels: this._maxChannels,
-                    minItems: this._minItems,
-                };
                 this._preferredFocusId = focusId;
                 this._rememberActiveDetailFocus(focusId);
-                mutate(draft);
-                this._activeStrategyCategory = draft.activeStrategyCategory;
-                this._strategies = draft.strategies;
-                this._strategyOrder = draft.strategyOrder;
-                this._channelExpansion = draft.channelExpansion;
-                this._seriesOrdering = draft.seriesOrdering;
-                this._buildMode = draft.buildMode;
-                this._actorStudioCombineMode = draft.actorStudioCombineMode;
-                this._maxChannels = draft.maxChannels;
-                this._minItems = draft.minItems;
-                this._review = null;
-                this._reviewError = null;
-                this._replaceConfirm = false;
-                this._schedulePreview();
+                this._session.updateStrategyState((draft: StrategyStepMutableState) => {
+                    draft.activeStrategyCategory = this._activeStrategyCategory;
+                    mutate(draft);
+                    this._activeStrategyCategory = draft.activeStrategyCategory;
+                });
+                this._session.schedulePreview(() => this._renderStep());
 
                 if (focusId.startsWith('setup-priority-row-')) {
                     const strategy = this._strategyKeyFromControlId(focusId, 'setup-priority-row-');
                     if (strategy) {
+                        const updatedSession = this._session.getSnapshot();
                         const updated = this._strategyStep.updatePriorityRowState(
                             this._contentEl,
                             this._priorityRowId(strategy),
-                            this._strategies[strategy].enabled
+                            updatedSession.strategies[strategy].enabled
                         );
                         if (updated) {
                             this._preferredFocusId = null;
@@ -813,23 +588,21 @@ export class ChannelSetupScreen {
             },
             onBack: () => {
                 this._grabbedPriorityKey = null;
-                this._step = 1;
+                this._session.setStep(1);
                 this._renderStep();
             },
             onNext: () => {
                 this._grabbedPriorityKey = null;
-                this._cleanupStep2AsyncState();
-                this._isBuilding = this._setupContext === 'first-time';
-                this._step = 3;
+                this._session.setStep(3);
                 this._renderStep();
             },
             registerStep2Focusables: (categoryButtons, detailButtons, backButton, nextButton) => {
                 this._registerStep2Focusables(categoryButtons, detailButtons, backButton, nextButton);
             },
-            detailText: this._strategies.genres.enabled || this._strategies.directors.enabled
+            detailText: session.strategies.genres.enabled || session.strategies.directors.enabled
                 ? 'Performance warning: may be slow on large libraries.'
                 : '',
-            schedulePreview: () => this._schedulePreview(),
+            schedulePreview: () => this._session.schedulePreview(() => this._renderStep()),
         });
     }
 
@@ -842,20 +615,8 @@ export class ChannelSetupScreen {
         return match ?? null;
     }
 
-    private _refreshSetupContextForStep2(): void {
-        try {
-            const context = this._orchestrator.getSetupContextForSelectedServer();
-            if (context === 'first-time' || context === 'existing' || context === 'unknown') {
-                this._setupContext = context;
-                return;
-            }
-        } catch {
-            // Ignore and fall back to unknown.
-        }
-        this._setupContext = 'unknown';
-    }
-
     private _getDetailControlIdsForCategory(category: StrategyCategoryKey): string[] {
+        const session = this._session.getSnapshot();
         if (category === 'content-sources') {
             return CONTENT_STRATEGY_KEYS.flatMap((key) => {
                 const ids = [this._strategyButtonId(key)];
@@ -891,7 +652,7 @@ export class ChannelSetupScreen {
             ];
         }
         if (category === 'priority-order') {
-            return this._strategyOrder.map((key) => this._priorityRowId(key));
+            return session.strategyOrder.map((key) => this._priorityRowId(key));
         }
         return [STEP2_CONTROL_IDS.maxChannels, STEP2_CONTROL_IDS.minItems, STEP2_CONTROL_IDS.expandLineup];
     }
@@ -910,15 +671,16 @@ export class ChannelSetupScreen {
     }
 
     private _isDetailControlEnabled(category: StrategyCategoryKey, controlId: string): boolean {
+        const session = this._session.getSnapshot();
         if (category === 'build-options' && controlId === STEP2_CONTROL_IDS.alternateLineupCopies) {
-            return this._channelExpansion.addAlternateLineups;
+            return session.channelExpansion.addAlternateLineups;
         }
         if (category === 'series-ordering') {
             if (controlId === STEP2_CONTROL_IDS.seriesBaseBlockSize) {
-                return this._seriesOrdering.basePlaybackMode === 'block';
+                return session.seriesOrdering.basePlaybackMode === 'block';
             }
             if (controlId === STEP2_CONTROL_IDS.seriesVariantBlockSize) {
-                return this._channelExpansion.variantType === 'block';
+                return session.channelExpansion.variantType === 'block';
             }
         }
         return true;
@@ -939,20 +701,6 @@ export class ChannelSetupScreen {
             return;
         }
         this._rememberedDetailFocusByCategory[this._activeStrategyCategory] = controlId;
-    }
-
-    private _cleanupStep2AsyncState(): void {
-        this._previewAbortController?.abort();
-        this._reviewAbortController?.abort();
-        this._previewAbortController = null;
-        this._reviewAbortController = null;
-        if (this._previewTimeoutId !== null) {
-            window.clearTimeout(this._previewTimeoutId);
-            this._previewTimeoutId = null;
-        }
-        this._pendingPreviewKey = null;
-        this._isPreviewLoading = false;
-        this._isReviewLoading = false;
     }
 
     private _registerStep2Focusables(
@@ -979,7 +727,8 @@ export class ChannelSetupScreen {
     }
 
     private _renderBuildStep(): void {
-        if (this._isBuilding) {
+        const session = this._session.getSnapshot();
+        if (session.isBuilding) {
             this._renderBuildProgress();
         } else {
             this._renderBuildReview();
@@ -987,15 +736,18 @@ export class ChannelSetupScreen {
     }
 
     private _renderBuildReview(): void {
-        const getReviewState = (): BuildReviewStateSnapshot => ({
-            buildMode: this._buildMode,
-            review: this._review,
-            reviewError: this._reviewError,
-            isReviewLoading: this._isReviewLoading,
-            replaceConfirm: this._replaceConfirm,
-            isBuilding: this._isBuilding,
-            recordApplied: this._recordApplied,
-        });
+        const getReviewState = (): BuildReviewStateSnapshot => {
+            const session = this._session.getSnapshot();
+            return {
+                buildMode: session.buildMode,
+                review: session.review,
+                reviewError: session.reviewError,
+                isReviewLoading: session.isReviewLoading,
+                replaceConfirm: session.replaceConfirm,
+                isBuilding: session.isBuilding,
+                recordApplied: session.recordApplied,
+            };
+        };
 
         this._buildReviewStep.render({
             contentEl: this._contentEl,
@@ -1006,22 +758,18 @@ export class ChannelSetupScreen {
         }, {
             state: getReviewState(),
             getState: getReviewState,
-            loadReview: () => this._loadReview(),
+            loadReview: () => this._session.ensureReviewLoaded(() => this._renderStep()),
             onBackToStrategy: () => {
-                this._reviewAbortController?.abort();
-                this._review = null;
-                this._reviewError = null;
-                this._replaceConfirm = false;
-                this._step = 2;
+                this._session.clearReviewAndReturnToStep2();
                 this._renderStep();
             },
             onConfirmBuild: () => {
-                this._isBuilding = true;
+                this._session.setStep(3);
                 this._renderStep();
             },
             onToggleReplaceConfirm: (focusId) => {
                 this._preferredFocusId = focusId;
-                this._replaceConfirm = !this._replaceConfirm;
+                this._session.toggleReplaceConfirm();
                 this._renderStep();
             },
             buildPreviewRow: (label, value, key) => this._buildPreviewRow(label, value, key),
@@ -1041,6 +789,7 @@ export class ChannelSetupScreen {
     }
 
     private _renderBuildProgress(): void {
+        const session = this._session.getSnapshot();
         this._buildProgressStep.render({
             contentEl: this._contentEl,
             stepEl: this._stepEl,
@@ -1048,16 +797,15 @@ export class ChannelSetupScreen {
             detailEl: this._detailEl,
             errorEl: this._errorEl,
         }, {
-            state: { isBuilding: this._isBuilding },
+            state: { isBuilding: session.isBuilding },
             registerFocusables: (buttons, mode) => this._registerFocusables(buttons, mode),
             onCancelOrBack: (button) => {
-                if (this._buildAbortController) {
-                    this._buildAbortController.abort();
+                if (this._session.cancelBuild()) {
                     button.disabled = true;
                     button.textContent = 'Canceling...';
                     return;
                 }
-                this._step = 2;
+                this._session.setStep(2);
                 this._renderStep();
             },
             onDone: () => {
@@ -1108,11 +856,26 @@ export class ChannelSetupScreen {
         taskLabel: HTMLElement,
         detailLabel: HTMLElement
     ): Promise<void> {
-        const token = this._visibilityToken;
-        if (this._buildAbortController) return;
+        const outcome = await this._session.beginBuild({
+            onProgress: (p: ChannelBuildProgress): void => {
+                taskLabel.textContent = p.label;
+                detailLabel.textContent = p.detail;
 
-        const serverId = this._getSelectedServerId();
-        if (!serverId) {
+                if (p.total !== null && p.total > 0) {
+                    const percent = Math.min(100, (p.current / p.total) * 100);
+                    barFill.style.width = `${percent}%`;
+                    barFill.classList.remove('indeterminate');
+                } else {
+                    barFill.style.width = '';
+                    barFill.classList.add('indeterminate');
+                }
+            },
+            onStateChange: () => {
+                // State changes are reflected through subsequent step renders.
+            },
+        });
+
+        if (outcome.kind === 'missing-server') {
             this._errorEl.textContent = 'No server selected.';
             this._statusEl.textContent = 'Error';
             taskLabel.textContent = 'Select a server';
@@ -1125,72 +888,13 @@ export class ChannelSetupScreen {
             return;
         }
 
-        this._isBuilding = true;
-        this._buildAbortController = new AbortController();
+        if (outcome.kind === 'canceled') {
+            this._applyBuildCanceledUI(cancelButton, doneButton, barFill, taskLabel, detailLabel, { disableDone: true });
+            return;
+        }
 
-        const config = this._buildConfig(serverId);
-
-        const updateUI = (p: ChannelBuildProgress): void => {
-            if (token !== this._visibilityToken) return;
-            taskLabel.textContent = p.label;
-            detailLabel.textContent = p.detail;
-
-            if (p.total !== null && p.total > 0) {
-                const percent = Math.min(100, (p.current / p.total) * 100);
-                barFill.style.width = `${percent}%`;
-                barFill.classList.remove('indeterminate');
-            } else {
-                // Indeterminate
-                barFill.style.width = '';
-                barFill.classList.add('indeterminate');
-            }
-        };
-
-        try {
-            const result = await this._orchestrator.createChannelsFromSetup(config, {
-                signal: this._buildAbortController.signal,
-                onProgress: updateUI
-            });
-
-            if (token !== this._visibilityToken) return;
-
-            if (result.canceled) {
-                this._applyBuildCanceledUI(cancelButton, doneButton, barFill, taskLabel, detailLabel);
-            } else {
-                this._orchestrator.markSetupComplete(serverId, config);
-                this._statusEl.textContent = 'Channels ready.';
-                taskLabel.textContent = 'Complete';
-                detailLabel.textContent = `Created ${result.created} channels. Skipped ${result.skipped}.`;
-                barFill.style.width = '100%';
-                barFill.classList.remove('indeterminate');
-
-                cancelButton.disabled = false;
-                doneButton.disabled = result.created === 0;
-                cancelButton.textContent = 'Back'; // Allow going back to modify?
-                // Usually Done is the way forward.
-
-                if (result.created === 0) {
-                    this._detailEl.textContent = 'No channels created.';
-                }
-                this._unregisterFocusables();
-                this._registerFocusables([doneButton, cancelButton]); // Done is primary
-
-                const nav = this._orchestrator.getNavigation();
-                if (nav && !doneButton.disabled) {
-                    nav.setFocus(doneButton.id);
-                } else {
-                    nav?.setFocus(cancelButton.id);
-                }
-            }
-
-        } catch (error) {
-            if (token !== this._visibilityToken) return;
-            if (isAbortLikeError(error, this._buildAbortController?.signal)) {
-                this._applyBuildCanceledUI(cancelButton, doneButton, barFill, taskLabel, detailLabel, { disableDone: true });
-                return;
-            }
-            const message = error instanceof Error ? error.message : 'Build failed.';
-            this._errorEl.textContent = message;
+        if (outcome.kind === 'error') {
+            this._errorEl.textContent = outcome.message;
             this._statusEl.textContent = 'Error';
             taskLabel.textContent = 'Error';
             detailLabel.textContent = '';
@@ -1198,217 +902,35 @@ export class ChannelSetupScreen {
             barFill.classList.remove('indeterminate');
             cancelButton.disabled = false;
             cancelButton.textContent = 'Back';
-        } finally {
-            this._isBuilding = false;
-            this._buildAbortController = null;
-        }
-    }
-
-    private _clearPreviewDeltas(): void {
-        if (this._previewDeltaTimeoutId !== null) {
-            window.clearTimeout(this._previewDeltaTimeoutId);
-            this._previewDeltaTimeoutId = null;
-        }
-        this._previewDeltas = {};
-        this._previewDeltaExpiresAtMs = 0;
-    }
-
-    private _setPreviewDeltas(
-        prev: ChannelSetupPreview['estimates'],
-        next: ChannelSetupPreview['estimates']
-    ): void {
-        const keys = Object.keys(next) as EstimateKey[];
-        const deltas: Partial<Record<EstimateKey, number>> = {};
-        for (const key of keys) {
-            const a = prev[key];
-            const b = next[key];
-            if (typeof a === 'number' && typeof b === 'number') {
-                const delta = b - a;
-                if (delta !== 0) {
-                    deltas[key] = delta;
-                }
-            }
-        }
-
-        this._previewDeltas = deltas;
-        this._previewDeltaExpiresAtMs = Date.now() + 3000;
-        if (this._previewDeltaTimeoutId !== null) {
-            window.clearTimeout(this._previewDeltaTimeoutId);
-            this._previewDeltaTimeoutId = null;
-        }
-
-        if (Object.keys(deltas).length > 0) {
-            this._previewDeltaTimeoutId = window.setTimeout(() => {
-                this._clearPreviewDeltas();
-                if (this._step === 2) {
-                    this._renderStep();
-                }
-            }, 3000);
-        }
-    }
-
-    private _buildConfig(serverId: string): ChannelSetupConfig {
-        const strategyConfig = SETUP_STRATEGY_KEYS.reduce<ChannelSetupConfig['strategyConfig']>((acc, key) => {
-            const priorityIndex = this._strategyOrder.indexOf(key);
-            acc[key] = {
-                enabled: this._strategies[key].enabled,
-                priority: priorityIndex >= 0 ? priorityIndex + 1 : DEFAULT_STRATEGY_PRIORITIES[key],
-                scope: this._strategies[key].scope,
-            };
-            return acc;
-        }, {} as ChannelSetupConfig['strategyConfig']);
-        return {
-            serverId,
-            selectedLibraryIds: Array.from(this._selectedLibraryIds),
-            maxChannels: this._maxChannels,
-            buildMode: this._buildMode,
-            strategyConfig,
-            channelExpansion: {
-                addAlternateLineups: this._channelExpansion.addAlternateLineups,
-                alternateLineupCopies: this._channelExpansion.alternateLineupCopies,
-                variantType: this._channelExpansion.variantType,
-                variantBlockSize: this._channelExpansion.variantBlockSize,
-            },
-            seriesOrdering: {
-                basePlaybackMode: this._seriesOrdering.basePlaybackMode,
-                baseBlockSize: this._seriesOrdering.baseBlockSize,
-            },
-            actorStudioCombineMode: this._actorStudioCombineMode,
-            minItemsPerChannel: this._minItems,
-        };
-    }
-
-    private _buildPreviewKey(config: ChannelSetupConfig): string {
-        const previewConfig = { ...config, buildMode: undefined };
-        return JSON.stringify(previewConfig);
-    }
-
-    private _schedulePreview(): void {
-        if (this._step !== 2) {
-            return;
-        }
-        const serverId = this._getSelectedServerId();
-        if (!serverId) {
-            this._previewError = 'No server selected.';
-            return;
-        }
-        const key = this._buildPreviewKey(this._buildConfig(serverId));
-        if (key === this._lastPreviewKey && this._preview && !this._isPreviewLoading) {
-            return;
-        }
-        if (this._isPreviewLoading && key === this._pendingPreviewKey) {
-            return;
-        }
-        this._pendingPreviewKey = key;
-        if (this._previewTimeoutId !== null) {
-            window.clearTimeout(this._previewTimeoutId);
-        }
-        this._previewTimeoutId = window.setTimeout(() => {
-            this._refreshPreview().catch((error: unknown) => {
-                if (isAbortLikeError(error)) return;
-                console.error('[ChannelSetup] Preview refresh failed:', summarizeErrorForLog(error));
-            });
-        }, 400);
-    }
-
-    private async _refreshPreview(): Promise<void> {
-        if (this._step !== 2) return;
-        const token = this._visibilityToken;
-        const serverId = this._getSelectedServerId();
-        if (!serverId) {
-            this._previewError = 'No server selected.';
-            this._preview = null;
-            this._clearPreviewDeltas();
-            this._isPreviewLoading = false;
-            this._pendingPreviewKey = null;
-            this._renderStep();
             return;
         }
 
-        const config = this._buildConfig(serverId);
-        const key = this._buildPreviewKey(config);
-        if (key === this._lastPreviewKey && this._preview && !this._isPreviewLoading) {
-            return;
+        this._statusEl.textContent = 'Channels ready.';
+        taskLabel.textContent = 'Complete';
+        detailLabel.textContent = `Created ${outcome.result.created} channels. Skipped ${outcome.result.skipped}.`;
+        barFill.style.width = '100%';
+        barFill.classList.remove('indeterminate');
+
+        cancelButton.disabled = false;
+        doneButton.disabled = outcome.result.created === 0;
+        cancelButton.textContent = 'Back';
+
+        if (outcome.result.created === 0) {
+            this._detailEl.textContent = 'No channels created.';
         }
-        if (this._pendingPreviewKey === key) {
-            this._pendingPreviewKey = null;
-        }
+        this._unregisterFocusables();
+        this._registerFocusables([doneButton, cancelButton]);
 
-        this._previewAbortController?.abort();
-        this._previewAbortController = new AbortController();
-        this._isPreviewLoading = true;
-        this._previewError = null;
-        this._renderStep();
-
-        try {
-            const preview = await this._orchestrator.getSetupPreview(config, {
-                signal: this._previewAbortController.signal,
-            });
-            if (token !== this._visibilityToken) return;
-            const prevEstimates = this._preview?.estimates ?? null;
-            this._preview = preview;
-            this._lastPreviewKey = key;
-            if (prevEstimates) {
-                this._setPreviewDeltas(prevEstimates, preview.estimates);
-            } else {
-                this._clearPreviewDeltas();
-            }
-        } catch (error) {
-            if (token !== this._visibilityToken) return;
-            if (isAbortLikeError(error, this._previewAbortController?.signal)) {
-                return;
-            }
-            this._previewError = error instanceof Error ? error.message : 'Unable to estimate channels.';
-            this._preview = null;
-            this._clearPreviewDeltas();
-        } finally {
-            if (token === this._visibilityToken) {
-                this._isPreviewLoading = false;
-                if (this._step === 2) {
-                    this._renderStep();
-                }
-            }
-        }
-    }
-
-    private async _loadReview(): Promise<void> {
-        const token = this._visibilityToken;
-        const serverId = this._getSelectedServerId();
-        if (!serverId) {
-            this._reviewError = 'No server selected.';
-            this._renderStep();
-            return;
-        }
-        if (this._isReviewLoading) return;
-
-        this._reviewAbortController?.abort();
-        this._reviewAbortController = new AbortController();
-        this._isReviewLoading = true;
-        this._reviewError = null;
-        this._renderStep();
-
-        try {
-            const review = await this._orchestrator.getSetupReview(this._buildConfig(serverId), {
-                signal: this._reviewAbortController.signal,
-            });
-            if (token !== this._visibilityToken) return;
-            this._review = review;
-        } catch (error) {
-            if (token !== this._visibilityToken) return;
-            if (isAbortLikeError(error, this._reviewAbortController?.signal)) {
-                return;
-            }
-            this._reviewError = error instanceof Error ? error.message : 'Unable to load review.';
-            this._review = null;
-        } finally {
-            this._isReviewLoading = false;
-            if (token === this._visibilityToken) {
-                this._renderStep();
-            }
+        const nav = this._orchestrator.getNavigation();
+        if (nav && !doneButton.disabled) {
+            nav.setFocus(doneButton.id);
+        } else {
+            nav?.setFocus(cancelButton.id);
         }
     }
 
     private _buildPreviewRow(label: string, value: number | string, deltaKey?: EstimateKey): HTMLElement {
+        const session = this._session.getSnapshot();
         const row = document.createElement('div');
         row.className = 'setup-preview-row';
         const labelEl = document.createElement('span');
@@ -1421,8 +943,8 @@ export class ChannelSetupScreen {
         valueEl.appendChild(main);
 
         const now = Date.now();
-        const delta = deltaKey ? this._previewDeltas[deltaKey] : undefined;
-        if (typeof value === 'number' && typeof delta === 'number' && now <= this._previewDeltaExpiresAtMs) {
+        const delta = deltaKey ? session.previewDeltas[deltaKey] : undefined;
+        if (typeof value === 'number' && typeof delta === 'number' && now <= session.previewDeltaExpiresAtMs) {
             const deltaEl = document.createElement('span');
             deltaEl.className = `setup-preview-delta ${delta > 0 ? 'positive' : 'negative'}`;
             deltaEl.textContent = `(${delta > 0 ? '+' : ''}${delta})`;
@@ -1449,63 +971,6 @@ export class ChannelSetupScreen {
             item.textContent = `And ${remaining} more warning${remaining === 1 ? '' : 's'}…`;
             container.appendChild(item);
         }
-    }
-
-    private _applySetupRecord(record: ChannelSetupRecord): void {
-        const availableIds = new Set(this._libraries.map((lib) => lib.id));
-        const selected = record.selectedLibraryIds.filter((id) => availableIds.has(id));
-        this._selectedLibraryIds = new Set(selected.length > 0 ? selected : this._libraries.map((lib) => lib.id));
-
-        const defaults = createDefaultStrategyState();
-        this._strategies = SETUP_STRATEGY_KEYS.reduce<SetupStrategyState>((acc, key) => {
-            const configured = record.strategyConfig[key];
-            acc[key] = {
-                enabled: configured?.enabled ?? defaults[key].enabled,
-                scope: strategySupportsMixedScope(key) && configured?.scope === 'cross-library' ? 'cross-library' : 'per-library',
-            };
-            return acc;
-        }, createDefaultStrategyState());
-        const sortedByPriority = [...SETUP_STRATEGY_KEYS].sort((a, b) => {
-            const aPriority = Number.isFinite(record.strategyConfig[a]?.priority)
-                ? Math.max(1, Math.floor(Number(record.strategyConfig[a]?.priority)))
-                : DEFAULT_STRATEGY_PRIORITIES[a];
-            const bPriority = Number.isFinite(record.strategyConfig[b]?.priority)
-                ? Math.max(1, Math.floor(Number(record.strategyConfig[b]?.priority)))
-                : DEFAULT_STRATEGY_PRIORITIES[b];
-            const diff = aPriority - bPriority;
-            if (diff !== 0) {
-                return diff;
-            }
-            return compareSetupStrategyKeys(a, b);
-        });
-        this._strategyOrder = sortedByPriority;
-        this._channelExpansion = {
-            addAlternateLineups: record.channelExpansion?.addAlternateLineups === true,
-            alternateLineupCopies: Number.isFinite(record.channelExpansion?.alternateLineupCopies)
-                ? Math.min(3, Math.max(1, Math.floor(Number(record.channelExpansion?.alternateLineupCopies))))
-                : 1,
-            variantType:
-                record.channelExpansion?.variantType === 'sequential' || record.channelExpansion?.variantType === 'block'
-                    ? record.channelExpansion.variantType
-                    : 'none',
-            variantBlockSize: clampSeriesBlockPreset(record.channelExpansion?.variantBlockSize),
-        };
-        this._seriesOrdering = {
-            basePlaybackMode:
-                record.seriesOrdering?.basePlaybackMode === 'sequential' || record.seriesOrdering?.basePlaybackMode === 'block'
-                    ? record.seriesOrdering.basePlaybackMode
-                    : 'shuffle',
-            baseBlockSize: clampSeriesBlockPreset(record.seriesOrdering?.baseBlockSize),
-        };
-        this._maxChannels = Math.min(Number.isFinite(record.maxChannels) ? record.maxChannels : DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS);
-        this._minItems = Math.max(1, Math.floor(record.minItemsPerChannel || DEFAULT_MIN_ITEMS_PER_CHANNEL));
-        this._buildMode = record.buildMode ?? 'replace';
-        this._actorStudioCombineMode = record.actorStudioCombineMode ?? 'separate';
-        this._preview = null;
-        this._previewError = null;
-        this._lastPreviewKey = null;
-        this._pendingPreviewKey = null;
-        this._clearPreviewDeltas();
     }
 
     private _getSelectedServerId(): string | null {

@@ -1,4 +1,4 @@
-import { DEFAULT_CHANNEL_SETUP_MAX } from '../../../scheduler/channel-manager/constants';
+import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
 import { DEFAULT_MIN_ITEMS_PER_CHANNEL } from '../../../../core/channel-setup/constants';
 import type { ChannelSetupConfig, ChannelSetupRecord } from '../../../../Orchestrator';
 import type { PlexLibrary as PlexLibraryModel } from '../../../plex/library/types';
@@ -125,6 +125,22 @@ describe('ChannelSetupSessionController', () => {
         expect(config.strategyConfig.playlists?.enabled).toBe(false);
         expect(config.strategyConfig.playlists?.priority).toBe(1);
         expect(config.strategyConfig.genres?.scope).toBe('cross-library');
+    });
+
+    it('defaults strategy config to enabled per-library with higher-volume min/max defaults', () => {
+        const orchestrator = createOrchestrator();
+        const controller = new ChannelSetupSessionController({
+            orchestrator,
+            getSelectedServerId: () => 'server-1',
+        });
+
+        controller.beginSession();
+        const config = controller.buildConfig('server-1');
+
+        expect(config.maxChannels).toBe(DEFAULT_CHANNEL_SETUP_MAX);
+        expect(config.minItemsPerChannel).toBe(DEFAULT_MIN_ITEMS_PER_CHANNEL);
+        expect(Object.values(config.strategyConfig).every((value) => value.enabled === true)).toBe(true);
+        expect(Object.values(config.strategyConfig).every((value) => value.scope === 'per-library')).toBe(true);
     });
 
     it('buildPreviewKey() changes when preview-relevant config changes', async () => {
@@ -498,5 +514,36 @@ describe('ChannelSetupSessionController', () => {
 
         expect(outcome.kind).toBe('success');
         expect(markSetupComplete).toHaveBeenCalledTimes(1);
+    });
+
+    it('expand-lineup style state updates are preserved in build config and setup completion', async () => {
+        const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
+        const markSetupComplete = jest.fn();
+        const orchestrator = createOrchestrator({
+            createChannelsFromSetup,
+            markSetupComplete,
+        });
+        const controller = new ChannelSetupSessionController({
+            orchestrator,
+            getSelectedServerId: () => 'server-1',
+        });
+
+        controller.beginSession();
+        controller.updateStrategyState((draft) => {
+            draft.maxChannels = MAX_CHANNELS;
+            draft.minItems = 1;
+        });
+
+        const config = controller.buildConfig('server-1');
+        expect(config.maxChannels).toBe(MAX_CHANNELS);
+        expect(config.minItemsPerChannel).toBe(1);
+
+        await controller.beginBuild({
+            onProgress: jest.fn(),
+            onStateChange: jest.fn(),
+        });
+        const savedConfig = markSetupComplete.mock.calls[0]?.[1] as ChannelSetupConfig;
+        expect(savedConfig.maxChannels).toBe(MAX_CHANNELS);
+        expect(savedConfig.minItemsPerChannel).toBe(1);
     });
 });
