@@ -34,6 +34,10 @@ describe('sync_agent_skills.sh', () => {
             '# Repo skill\n'
         );
         writeFile(
+            path.join(repoRoot, 'docs/agentic/skill-mirror-allowlist.txt'),
+            'superpowers:global-skill\n'
+        );
+        writeFile(
             path.join(codexHome, 'superpowers/skills/global-skill/SKILL.md'),
             '# Global skill\n'
         );

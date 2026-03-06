@@ -4,6 +4,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const verifierPath = path.resolve(process.cwd(), 'tools/verify-docs.mjs');
+const skillMirrorManifestPath = 'docs/agentic/skill-mirror-allowlist.txt';
 
 const requiredFiles = [
     'agents.md',
@@ -14,10 +15,20 @@ const requiredFiles = [
     'docs/agentic/doc-gardening-checklist.md',
     'docs/agentic/evals/README.md',
     'docs/agentic/evals/baselines/README.md',
+    'docs/agentic/evals/baseline-summaries/README.md',
+    'docs/agentic/evals/baseline-summary-template.md',
     'docs/agentic/evals/rubric.md',
     'docs/agentic/evals/scorecard-template.md',
     'docs/agentic/historical-plan-corpus-review.md',
     'docs/agentic/plan-authoring-standard.md',
+    'docs/agentic/session-prompts/README.md',
+    'docs/agentic/session-prompts/cleanup-plan.md',
+    'docs/agentic/session-prompts/cleanup-implement.md',
+    'docs/agentic/session-prompts/cleanup-review.md',
+    'docs/agentic/session-prompts/cleanup-loop.md',
+    'docs/agentic/session-prompts/feature-plan.md',
+    'docs/agentic/session-prompts/feature-review.md',
+    'docs/agentic/session-prompts/workflow-harness-review.md',
     'docs/agentic/skill-strategy.md',
     'docs/agentic/evals-roadmap.md',
     'docs/agentic/phase-2-steady-state-plan.md',
@@ -28,6 +39,7 @@ const requiredFiles = [
     'docs/plans/README.md',
     'docs/archive/plans/README.md',
     'docs/runs/README.md',
+    skillMirrorManifestPath,
 ];
 
 const expectedEvalPromptFiles = [
@@ -43,12 +55,91 @@ const expectedEvalPromptFiles = [
     '10-settings-screen-split.md',
     '11-plex-subtitle-policy.md',
     '12-architecture-doc-refresh.md',
+    '13-risk-tiered-orchestration-and-local-only-absorption.md',
+];
+
+const expectedSessionPromptFiles = [
+    'cleanup-plan.md',
+    'cleanup-implement.md',
+    'cleanup-review.md',
+    'cleanup-loop.md',
+    'feature-plan.md',
+    'feature-review.md',
+    'workflow-harness-review.md',
 ];
 
 function writeRepoFile(repoRoot: string, relativePath: string, content = '# Placeholder\n'): void {
     const fullPath = path.join(repoRoot, relativePath);
     mkdirSync(path.dirname(fullPath), { recursive: true });
     writeFileSync(fullPath, content, 'utf8');
+}
+
+function writeValidSkillMirrorFixture(repoRoot: string): void {
+    writeRepoFile(repoRoot, skillMirrorManifestPath, 'superpowers:brainstorming\n');
+    writeRepoFile(
+        repoRoot,
+        'docs/agentic/skill-strategy.md',
+        [
+            '# Skill Strategy',
+            '',
+            `Tracked mirror allowlist: ${skillMirrorManifestPath}`,
+            '',
+            '- `brainstorming`',
+            '',
+        ].join('\n')
+    );
+    writeRepoFile(
+        repoRoot,
+        'scripts/sync_agent_skills.sh',
+        `#!/usr/bin/env bash\nskill_manifest_path="${skillMirrorManifestPath}"\n`
+    );
+}
+
+function writeValidSessionPromptFixture(repoRoot: string): void {
+    writeRepoFile(
+        repoRoot,
+        'docs/agentic/session-prompts/README.md',
+        [
+            '# Session Prompt Launchers',
+            '',
+            '- [cleanup-plan](./cleanup-plan.md)',
+            '- [cleanup-implement](./cleanup-implement.md)',
+            '- [cleanup-review](./cleanup-review.md)',
+            '- [cleanup-loop](./cleanup-loop.md)',
+            '- [feature-plan](./feature-plan.md)',
+            '- [feature-review](./feature-review.md)',
+            '- [workflow-harness-review](./workflow-harness-review.md)',
+            '',
+            '## Routing (Authoritative)',
+            '',
+            'cleanup/refactor',
+            'feature/design',
+            'mixed',
+            'feature-plan',
+            'feature-review',
+            '',
+        ].join('\n')
+    );
+
+    writeRepoFile(
+        repoRoot,
+        'docs/AGENTIC_DEV_WORKFLOW.md',
+        [
+            '# Workflow',
+            '',
+            'Route task family before choosing a tier.',
+            '',
+            '[cleanup-plan](./agentic/session-prompts/cleanup-plan.md)',
+            '[cleanup-review](./agentic/session-prompts/cleanup-review.md)',
+            '[feature-plan](./agentic/session-prompts/feature-plan.md)',
+            '[feature-review](./agentic/session-prompts/feature-review.md)',
+            '',
+        ].join('\n')
+    );
+
+    for (const prompt of expectedSessionPromptFiles) {
+        writeRepoFile(repoRoot, `docs/agentic/session-prompts/${prompt}`);
+    }
 }
 
 function createRepoFixture(
@@ -65,6 +156,8 @@ function createRepoFixture(
     writeRepoFile(repoRoot, 'docs/development/debugging.md');
     writeRepoFile(repoRoot, 'docs/development/subtitles.md');
     writeRepoFile(repoRoot, 'docs/development/testing.md');
+    writeValidSkillMirrorFixture(repoRoot);
+    writeValidSessionPromptFixture(repoRoot);
 
     for (const prompt of expectedEvalPromptFiles) {
         writeRepoFile(repoRoot, `docs/agentic/evals/prompts/${prompt}`);
