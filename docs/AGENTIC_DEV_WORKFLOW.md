@@ -36,6 +36,7 @@ This is the operating runbook for agent-driven development in Lineup.
 4. Plan explicitly before multi-step work.
    - keep the authoritative plan in `update_plan`
    - write or refresh `docs/plans/*` when the task needs tracked durable task memory
+   - for serious tracked plans, follow [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md)
    - move completed or superseded tracked plans to `docs/archive/plans/` once they stop being the active handoff surface
    - use `docs/runs/` for local-only major-task execution bundles and run logs
    - when drafting or reviewing serious tracked plans, use `docs/agentic/historical-plan-corpus-review.md` as a reference for good plan shape until the formal plan-authoring standard is in place

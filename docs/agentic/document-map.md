@@ -173,6 +173,22 @@ Do not use for:
 - active task status
 - current architecture truth
 
+### Standards And Reference Surfaces
+
+- [`docs/agentic/plan-authoring-standard.md`](./plan-authoring-standard.md)
+
+Use for:
+
+- the required shape of serious tracked implementation plans
+- fresh-session planning expectations
+- anti-patterns that tracked plans should avoid
+
+Do not use for:
+
+- stable policy by itself
+- active status tracking
+- replacing `agents.md`
+
 ### Steady-State Transition
 
 - [`docs/agentic/phase-2-steady-state-plan.md`](./phase-2-steady-state-plan.md)
