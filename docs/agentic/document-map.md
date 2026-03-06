@@ -156,6 +156,22 @@ Use for:
 
 - the small, explicit regression tasks used to judge agent effectiveness
 
+### Historical Corpus Review
+
+- [`docs/agentic/historical-plan-corpus-review.md`](./historical-plan-corpus-review.md)
+
+Use for:
+
+- calibrating the plan-authoring standard against real Lineup history
+- deriving initial eval prompts from completed cleanup work
+- identifying historical anti-patterns that should not be repeated
+
+Do not use for:
+
+- current policy
+- active task status
+- current architecture truth
+
 ### Steady-State Transition
 
 - [`docs/agentic/phase-2-steady-state-plan.md`](./phase-2-steady-state-plan.md)

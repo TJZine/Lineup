@@ -38,6 +38,7 @@ This is the operating runbook for agent-driven development in Lineup.
    - write or refresh `docs/plans/*` when the task needs tracked durable task memory
    - move completed or superseded tracked plans to `docs/archive/plans/` once they stop being the active handoff surface
    - use `docs/runs/` for local-only major-task execution bundles and run logs
+   - when drafting or reviewing serious tracked plans, use `docs/agentic/historical-plan-corpus-review.md` as a reference for good plan shape until the formal plan-authoring standard is in place
    - record the Codanna impact snapshot for risky/shared-symbol edits
 5. Implement narrowly.
    - one work unit at a time

@@ -8,6 +8,13 @@ Follow the eval-loop guidance from OpenAI and Anthropic without over-automating 
 
 For now, these evals are prompt-driven regression tasks. They can be automated later once the cleanup stabilizes.
 
+The first prompt seed pool should come from:
+
+1. the curated historical corpus review in [`docs/agentic/historical-plan-corpus-review.md`](./historical-plan-corpus-review.md)
+2. the active cleanup backlog in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
+3. current architecture hotspots in [`docs/architecture/CURRENT_STATE.md`](../architecture/CURRENT_STATE.md)
+4. adversarial shortcut-pressure prompts that test whether the workflow resists slop
+
 ## Phase 1 Eval Set
 
 ### 1. Hotspot Refactor Without Responsibility Growth

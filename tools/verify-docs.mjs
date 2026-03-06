@@ -10,6 +10,7 @@ const requiredFiles = [
     'docs/agentic/document-map.md',
     'docs/agentic/codanna-playbook.md',
     'docs/agentic/evals/baselines/README.md',
+    'docs/agentic/historical-plan-corpus-review.md',
     'docs/agentic/skill-strategy.md',
     'docs/agentic/evals-roadmap.md',
     'docs/agentic/phase-2-steady-state-plan.md',
