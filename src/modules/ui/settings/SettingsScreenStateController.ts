@@ -7,7 +7,7 @@ import { dispatchDebugLoggingChanged } from '../../../config/events';
 import { TRANSCODE_QUALITY_OPTIONS } from '../../../config/transcodeQuality';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from '../now-playing-info';
 
-export const SUBTITLE_LANGUAGE_OPTIONS: Array<{ label: string; code: string | null }> = [
+const SUBTITLE_LANGUAGE_OPTIONS: Array<{ label: string; code: string | null }> = [
     { label: 'Auto (Plex)', code: null },
     { label: 'English', code: 'en' },
     { label: 'Spanish', code: 'es' },
@@ -21,21 +21,21 @@ export const SUBTITLE_LANGUAGE_OPTIONS: Array<{ label: string; code: string | nu
     { label: 'Chinese', code: 'zh' },
 ];
 
-export const SUBTITLE_MODE_OPTIONS: Array<{ label: string; mode: SubtitleMode }> = [
+const SUBTITLE_MODE_OPTIONS: Array<{ label: string; mode: SubtitleMode }> = [
     { label: 'Off', mode: 'off' },
     { label: 'Direct only (fastest)', mode: 'direct' },
     { label: 'Standard (avoid transcoding)', mode: 'standard' },
     { label: 'Full (Burn-in, default)', mode: 'full' },
 ];
 
-export const EPG_PAST_ITEMS_OPTIONS = [
+const EPG_PAST_ITEMS_OPTIONS = [
     { label: 'Auto (Recommended)', storageValue: 'auto' as const },
     { label: 'Now (0m)', storageValue: '0' as const },
     { label: '15m', storageValue: '15' as const },
     { label: '30m', storageValue: '30' as const },
 ];
 
-export const DEFAULT_THEME_VALUE = Math.max(
+const DEFAULT_THEME_VALUE = Math.max(
     0,
     THEME_OPTIONS.findIndex((option) => option.theme === DEFAULT_THEME)
 );

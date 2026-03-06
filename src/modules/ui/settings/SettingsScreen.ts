@@ -15,79 +15,13 @@ import type {
     SettingsCategoryId,
     GuideSettingChange,
 } from './types';
-import { SettingsStore, type ToggleSettingId } from './SettingsStore';
+import { SettingsStore } from './SettingsStore';
 import type { SubtitleMode } from '../../../shared/subtitle-mode';
 import { SettingsScreenStateController } from './SettingsScreenStateController';
 
-type ToggleMetadata = {
-    toggleSettingId: ToggleSettingId;
-    onRefresh?: (value: boolean) => void;
-};
-
-type SelectMetadata = {
-    onRefresh?: (value: number) => void;
-};
-
-const TOGGLE_METADATA: Record<string, ToggleMetadata> = {
-    'settings-dts-passthrough': {
-        toggleSettingId: 'dtsPassthrough',
-    },
-    'settings-direct-play-audio-fallback': {
-        toggleSettingId: 'directPlayAudioFallback',
-    },
-    'settings-keep-playing': {
-        toggleSettingId: 'keepPlayingInSettings',
-    },
-    'settings-transcode-compat': {
-        toggleSettingId: 'transcodeCompat',
-    },
-    'settings-debug-logging': {
-        toggleSettingId: 'debugLogging',
-    },
-    'settings-subtitle-debug-logging': {
-        toggleSettingId: 'subtitleDebugLogging',
-    },
-    'settings-subtitles-prefer-forced': {
-        toggleSettingId: 'subtitlePreferForced',
-    },
-    'settings-guide-category-colors': {
-        toggleSettingId: 'guideCategoryColors',
-    },
-    'settings-guide-library-tabs': {
-        toggleSettingId: 'epgLibraryTabsEnabled',
-    },
-    'settings-epg-now-watching': {
-        toggleSettingId: 'epgNowWatchingEnabled',
-    },
-    'settings-epg-aggressive-preload': {
-        toggleSettingId: 'epgAggressivePreloadEnabled',
-    },
-    'settings-profile-picker-startup': {
-        toggleSettingId: 'showProfilePickerOnStartup',
-    },
-    'settings-cinematic-now-playing': {
-        toggleSettingId: 'cinematicNowPlaying',
-    },
-    'settings-prefer-clear-logos': {
-        toggleSettingId: 'preferClearLogos',
-    },
-};
-
-const SELECT_METADATA: Record<string, SelectMetadata> = {
-    'settings-now-playing-timeout': {},
-    'settings-subtitle-mode': {},
-    'settings-subtitle-language': {},
-    'settings-hdr10-fallback-mode': {},
-    'settings-transcode-quality': {},
-    'settings-epg-layout-mode': {},
-    'settings-epg-density': {},
-    'settings-epg-past-items': {},
-    'settings-epg-info-background-mode': {},
-};
-
 /**
  * Settings screen component.
- * Manages settings display, focus navigation, and persistence.
+ * Manages settings display, pane transitions, and focus navigation.
  */
 export class SettingsScreen {
     private _container: HTMLElement;
@@ -103,8 +37,6 @@ export class SettingsScreen {
     private _selectElements: Map<string, ReturnType<typeof createSettingsSelect>> = new Map();
     private _categoryButtons: Map<SettingsCategoryId, HTMLButtonElement> = new Map();
     private _activeCategoryItemIds: string[] = [];
-    private _toggleMetadata: Map<string, ToggleMetadata> = new Map();
-    private _selectMetadata: Map<string, SelectMetadata> = new Map();
     private _detailTitle: HTMLHeadingElement | null = null;
     private _detailItems: HTMLElement | null = null;
     private _switchProfileButton: HTMLButtonElement | null = null;
@@ -112,7 +44,6 @@ export class SettingsScreen {
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
     private _detailSwapFrame: number | null = null;
     private _detailRevealFrame: number | null = null;
-    private readonly _settingsStore: SettingsStore;
     private readonly _stateController: SettingsScreenStateController;
     // When a category swap is deferred via RAF, we must preserve the focus intent
     // (e.g., RIGHT into details) and apply it after detail items exist.
@@ -131,9 +62,8 @@ export class SettingsScreen {
         this._onSubtitleModeChange = onSubtitleModeChange ?? null;
         this._onGuideSettingChange = onGuideSettingChange ?? null;
         this._getActiveUsername = getActiveUsername ?? null;
-        this._settingsStore = settingsStore;
         this._stateController = new SettingsScreenStateController({
-            settingsStore: this._settingsStore,
+            settingsStore,
             onSubtitleModeChange: (mode): void => {
                 this._onSubtitleModeChange?.(mode);
             },
@@ -156,8 +86,6 @@ export class SettingsScreen {
         this._categoryButtons.clear();
         this._toggleElements.clear();
         this._selectElements.clear();
-        this._toggleMetadata.clear();
-        this._selectMetadata.clear();
         this._activeCategoryItemIds = [];
 
         const panel = document.createElement('div');
@@ -281,8 +209,6 @@ export class SettingsScreen {
         const activeCategory = this._getActiveCategory();
         this._toggleElements.clear();
         this._selectElements.clear();
-        this._toggleMetadata.clear();
-        this._selectMetadata.clear();
         this._activeCategoryItemIds = [];
 
         if (this._detailTitle) {
@@ -752,35 +678,15 @@ export class SettingsScreen {
         return false;
     }
 
-    private _inferToggleMetadata(
-        id: string
-    ): ToggleMetadata | null {
-        return TOGGLE_METADATA[id] ?? null;
-    }
-
-    private _inferSelectMetadata(
-        id: string
-    ): SelectMetadata | null {
-        return SELECT_METADATA[id] ?? null;
-    }
-
     private _createItem(item: SettingsItemConfig): HTMLElement {
         if (isSelectItem(item)) {
             const select = createSettingsSelect(item);
             this._selectElements.set(item.id, select);
-            const meta = this._inferSelectMetadata(item.id);
-            if (meta) {
-                this._selectMetadata.set(item.id, meta);
-            }
             return select.element;
         }
 
         const toggle = createSettingsToggle(item);
         this._toggleElements.set(item.id, toggle);
-        const meta = this._inferToggleMetadata(item.id);
-        if (meta) {
-            this._toggleMetadata.set(item.id, meta);
-        }
         return toggle.element;
     }
 
@@ -816,8 +722,6 @@ export class SettingsScreen {
         this._selectElements.clear();
         this._categoryButtons.clear();
         this._activeCategoryItemIds = [];
-        this._toggleMetadata.clear();
-        this._selectMetadata.clear();
         this._detailTitle = null;
         this._detailItems = null;
         this._switchProfileButton = null;
