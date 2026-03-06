@@ -35,7 +35,8 @@ const markdownRoots = [
     'docs/agentic',
     'docs/archive/plans',
     'docs/architecture',
-    'docs/decisions/README.md',
+    'docs/decisions',
+    'docs/development',
     'docs/plans',
     'docs/runs/README.md',
     'docs/runs/_template',
@@ -58,8 +59,42 @@ const expectedEvalPromptFiles = [
 ];
 
 const localOnlyMarkdownDirs = ['docs/agentic/evals/baselines'];
+const trackedLocalOnlyAllowlist = new Set([
+    'docs/agentic/evals/baselines/README.md',
+    'docs/runs/README.md',
+    'docs/runs/_template'
+]);
+const trackedLocalOnlyPrefixAllowlist = ['docs/runs/_template/'];
 
-function collectMarkdownFiles(entry) {
+function recordFsError(errors, operation, targetPath, error) {
+    const message = error instanceof Error ? error.message : String(error);
+    errors.push(`Unable to ${operation} ${targetPath}: ${message}`);
+}
+
+function toRepoRelativePath(absolutePath) {
+    const relativePath = path.relative(repoRoot, absolutePath);
+    return relativePath.split(path.sep).join('/');
+}
+
+function isForbiddenLocalOnlyTarget(relativePath) {
+    if (trackedLocalOnlyAllowlist.has(relativePath)) {
+        return false;
+    }
+
+    if (trackedLocalOnlyPrefixAllowlist.some((prefix) => relativePath.startsWith(prefix))) {
+        return false;
+    }
+
+    return (
+        relativePath === '.agent/skills' ||
+        relativePath.startsWith('.agent/skills/') ||
+        relativePath.startsWith('docs/agentic/evals/baselines/') ||
+        relativePath === 'docs/runs' ||
+        relativePath.startsWith('docs/runs/')
+    );
+}
+
+function collectMarkdownFiles(entry, errors) {
     if (localOnlyMarkdownDirs.includes(entry)) {
         const readmeEntry = path.join(entry, 'README.md');
         return existsSync(path.join(repoRoot, readmeEntry)) ? [readmeEntry] : [];
@@ -73,7 +108,8 @@ function collectMarkdownFiles(entry) {
     let stats;
     try {
         stats = statSync(fullPath);
-    } catch {
+    } catch (error) {
+        recordFsError(errors, 'stat', entry, error);
         return [];
     }
 
@@ -85,13 +121,14 @@ function collectMarkdownFiles(entry) {
     let children = [];
     try {
         children = readdirSync(fullPath);
-    } catch {
+    } catch (error) {
+        recordFsError(errors, 'read directory', entry, error);
         return [];
     }
 
     for (const child of children) {
         const childEntry = path.join(entry, child);
-        results.push(...collectMarkdownFiles(childEntry));
+        results.push(...collectMarkdownFiles(childEntry, errors));
     }
     return results;
 }
@@ -137,7 +174,7 @@ function checkRequiredFiles(errors) {
 }
 
 function checkMarkdownLinks(errors) {
-    const files = markdownRoots.flatMap(collectMarkdownFiles);
+    const files = Array.from(new Set(markdownRoots.flatMap((entry) => collectMarkdownFiles(entry, errors))));
 
     for (const file of files) {
         const fullPath = path.join(repoRoot, file);
@@ -148,13 +185,25 @@ function checkMarkdownLinks(errors) {
         let content;
         try {
             content = readFileSync(fullPath, 'utf8');
-        } catch {
+        } catch (error) {
+            recordFsError(errors, 'read', file, error);
             continue;
         }
 
         for (const rawTarget of extractMarkdownLinks(content)) {
             const resolved = resolveLocalLink(file, rawTarget);
-            if (resolved !== null && !existsSync(resolved)) {
+            if (resolved === null) {
+                continue;
+            }
+
+            const relativeTarget = toRepoRelativePath(resolved);
+
+            if (isForbiddenLocalOnlyTarget(relativeTarget)) {
+                errors.push(`Tracked doc ${file} links to local-only artifact: ${rawTarget}`);
+                continue;
+            }
+
+            if (!existsSync(resolved)) {
                 errors.push(`Broken link in ${file}: ${rawTarget}`);
             }
         }
