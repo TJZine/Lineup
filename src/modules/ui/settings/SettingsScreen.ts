@@ -134,13 +134,13 @@ export class SettingsScreen {
         this._settingsStore = settingsStore;
         this._stateController = new SettingsScreenStateController({
             settingsStore: this._settingsStore,
-            onSubtitleModeChange: (mode) => {
+            onSubtitleModeChange: (mode): void => {
                 this._onSubtitleModeChange?.(mode);
             },
-            onGuideSettingChange: (change) => {
+            onGuideSettingChange: (change): void => {
                 this._onGuideSettingChange?.(change);
             },
-            onStateInvalidated: () => {
+            onStateInvalidated: (): void => {
                 this._handleStateInvalidated();
             },
         });
