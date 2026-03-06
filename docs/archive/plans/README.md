@@ -27,13 +27,14 @@ Archived plans are not current policy and are not the default handoff surface fo
 ## How To Archive A Plan
 
 1. Verify the plan is completed, cancelled, or superseded.
-2. Update tracked references so they point to the archived path.
-3. Move the plan with:
+2. If the archived plan completes a cleanup section or adds unusually strong signal, update [`docs/agentic/historical-plan-corpus-review.md`](../../agentic/historical-plan-corpus-review.md) in the same pass.
+3. Update tracked references so they point to the archived path.
+4. Move the plan with:
 
 ```bash
 git mv docs/plans/<file>.md docs/archive/plans/<file>.md
 ```
 
-4. Leave the filename unchanged.
+5. Leave the filename unchanged.
 
 If a future task needs to resume directly from an archived plan, either keep working from the archived file or promote a new active plan in `docs/plans/` that references it explicitly.

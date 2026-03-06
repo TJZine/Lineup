@@ -165,6 +165,7 @@ Use for:
 - calibrating the plan-authoring standard against real Lineup history
 - deriving initial eval prompts from completed cleanup work
 - identifying historical anti-patterns that should not be repeated
+- absorbing lessons from completed cleanup sections and standout archived plans
 
 Do not use for:
 
@@ -187,5 +188,6 @@ Use for:
 - `docs/plans/*` is active execution memory only while a task is live; once the plan is no longer active, move it to `docs/archive/plans/*`.
 - `docs/archive/plans/*` and `docs/decisions/*` are historical memory, not current policy.
 - Keep active durable plans in `docs/plans/`, archive older completed or superseded tracked plans into `docs/archive/plans/`, and update references in the same pass.
+- When archiving a completed cleanup section or standout plan, update `docs/agentic/historical-plan-corpus-review.md` if it adds new reusable signal.
 - Avoid free-floating workflow docs outside the control-plane set above.
 - If a new doc does not clearly fit one of the roles above, prefer updating an existing authoritative doc instead.

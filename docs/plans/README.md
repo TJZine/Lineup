@@ -38,8 +38,9 @@ Before archiving:
 
 1. Confirm the task is complete, cancelled, or superseded.
 2. Update any references that still point at `docs/plans/<file>.md`.
-3. Move the file to `docs/archive/plans/<file>.md`.
-4. Keep the filename unchanged so the history remains searchable.
+3. If the plan completes a cleanup section or is unusually strong, review whether it adds new reusable patterns or anti-patterns to [`docs/agentic/historical-plan-corpus-review.md`](../agentic/historical-plan-corpus-review.md).
+4. Move the file to `docs/archive/plans/<file>.md`.
+5. Keep the filename unchanged so the history remains searchable.
 
 Use `git mv` for tracked plan moves:
 
@@ -56,3 +57,15 @@ Commit plans in this directory when they are part of the repo's durable memory, 
 - plans explicitly referenced by tracked backlog or architecture docs
 
 If the artifact is only useful for one local execution run, keep it out of `docs/plans/` and use `docs/runs/` instead.
+
+## Corpus Review Trigger
+
+You do not need to update the historical corpus review for every finished plan.
+
+Do update [`docs/agentic/historical-plan-corpus-review.md`](../agentic/historical-plan-corpus-review.md) when one of these is true:
+
+- the archived plan is part of a completed cleanup section such as a full `P#` sequence
+- the plan demonstrates a notably strong implementation pattern worth standardizing
+- the plan exposes a recurring anti-pattern the harness should explicitly avoid
+
+Routine one-off plans do not require a corpus update.

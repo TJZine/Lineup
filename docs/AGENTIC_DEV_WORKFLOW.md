@@ -55,6 +55,7 @@ This is the operating runbook for agent-driven development in Lineup.
    - update [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md) when a cleanup work unit is completed
    - update current-state or reference docs when ownership changes
    - update tracked plan references when a plan moves from `docs/plans/` to `docs/archive/plans/`
+   - when archiving a completed cleanup section or a standout implementation plan, review whether it adds new reusable patterns or anti-patterns and update `docs/agentic/historical-plan-corpus-review.md` in the same pass
    - do not leave stale current-state claims behind
 
 ## Repo-Local Skill Usage
@@ -76,4 +77,5 @@ After cloning the repo or updating repo-local/global mirrored skills, run `scrip
 
 - Plan, code, verify, review.
 - Use the small eval set in [`docs/agentic/evals-roadmap.md`](./agentic/evals-roadmap.md) to check whether the workflow is resisting the failure modes that matter.
+- Feed strong completed sections and standout archived plans back into [`docs/agentic/historical-plan-corpus-review.md`](./agentic/historical-plan-corpus-review.md) so the plan standard and eval seeds keep improving.
 - Keep the post-cleanup transition in view via [`docs/agentic/phase-2-steady-state-plan.md`](./agentic/phase-2-steady-state-plan.md).
