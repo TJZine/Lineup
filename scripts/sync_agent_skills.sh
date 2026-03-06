@@ -57,7 +57,6 @@ if [[ -n "${backup_dir}" && -d "${backup_dir}" ]]; then
 fi
 
 trap - EXIT
-cleanup
 
 if [[ ! -d "${agent_dir}" ]]; then
   echo "Failed to sync local Antigravity skills into ${agent_dir}" >&2

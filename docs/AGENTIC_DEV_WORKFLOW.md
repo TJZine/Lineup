@@ -20,10 +20,10 @@ This is the operating runbook for agent-driven development in Lineup.
 
 ## Default Loop
 
-1. Start with process skills.
-   - `using-superpowers`
-   - `brainstorming`
-   - the matching repo-local boundary skill(s)
+1. Start with the relevant process skills.
+   - always: `using-superpowers`
+   - add `brainstorming` when shaping new functionality, behavior, or design
+   - add the matching repo-local boundary skill(s) when the task crosses that boundary
 2. Run evidence sweep.
    - Prefer Codanna using [`docs/agentic/codanna-playbook.md`](./agentic/codanna-playbook.md).
    - Use Codanna for both code and repo-doc discovery before falling back to `rg`.
@@ -80,4 +80,5 @@ After cloning the repo or updating repo-local/global mirrored skills, run `scrip
 - Use the small eval set in [`docs/agentic/evals-roadmap.md`](./agentic/evals-roadmap.md) to check whether the workflow is resisting the failure modes that matter.
 - Feed strong completed sections and standout archived plans back into [`docs/agentic/historical-plan-corpus-review.md`](./agentic/historical-plan-corpus-review.md) so the plan standard and eval seeds keep improving.
 - Run [`docs/agentic/doc-gardening-checklist.md`](./agentic/doc-gardening-checklist.md) every 2-4 weeks and after major cleanup milestones so the control plane does not drift.
+- Use `npm run plans:stale` during maintenance passes to list archive-review candidates without auto-moving them.
 - Keep the post-cleanup transition in view via [`docs/agentic/phase-2-steady-state-plan.md`](./agentic/phase-2-steady-state-plan.md).
