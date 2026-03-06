@@ -1,6 +1,6 @@
 # Classic EPG Performance Risk Register
 
-Linked plan: `docs/plans/2026-03-04-epg-low-risk-performance-hardening-implementation.md`
+Linked implementation plan: TODO — create the tracked implementation plan for this register before starting the next `Medium` or `High` EPG change. Record the owner and target milestone here when assigned.
 
 ## Purpose
 

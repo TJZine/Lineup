@@ -1,5 +1,5 @@
 # ============================================
-# Retune - webOS Plex Virtual Channels App
+# Lineup - webOS Plex Virtual Channels App
 # ============================================
 
 # Dependencies
@@ -131,7 +131,6 @@ prompts/
 docs/templates/
 docs/checklists/
 docs/_local/
-docs/AGENTIC_DEV_WORKFLOW.md
 docs/AI_DANGER_ZONES.md
 docs/SECURITY_LOGGING_RULES.md
 WEBOS_COMPETITOR_BEST_PRACTICES.md
@@ -140,6 +139,22 @@ CODE_REVIEW_CONTEXT.md
 jellyfin_webos_dv_research.md
 .desloppify/
 plex_fetch.js
+
+!.codex/
+!.codex/skills/
+!.codex/skills/**
+!docs/AGENTIC_DEV_WORKFLOW.md
+!docs/agentic/**
+!docs/architecture/CURRENT_STATE.md
+!scripts/sync_agent_skills.sh
+
+# Local agent/runtime artifacts
+docs/runs/*
+!docs/runs/README.md
+!docs/runs/_template/
+!docs/runs/_template/**
+docs/agentic/evals/baselines/**
+!docs/agentic/evals/baselines/README.md
 
 # Storybook
 storybook-static/

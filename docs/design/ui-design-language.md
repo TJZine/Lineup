@@ -1,4 +1,4 @@
-# Retune UI Design Language
+# Lineup UI Design Language
 
 > Established 2026-02-27. Governs all TV overlay and panel surfaces.
 

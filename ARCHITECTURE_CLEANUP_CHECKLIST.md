@@ -17,23 +17,26 @@ Completion rule: every implementation plan that finishes a `P#-W#` work unit mus
 - Execute one `P#-W#` at a time, but design it so the code moves toward the ideal end-state of that parent Priority section.
 - These work units are intentionally large, near-full-session tasks. Do not split them smaller unless one unit would exceed a safe single session.
 - Each completed `P#-W#` must leave behind a production-valid improvement, not a throwaway seam that the next subitem immediately has to replace.
-- When a work unit is finished, mark it `[x]` and append a note in this exact format:
+- When a work unit is finished, mark it `[x]` and append a note with the current tracked plan path, for example:
   `(done YYYY-MM-DD; plan: docs/plans/<file>.md)`
+- If that plan is later archived, update the note to the archived path in the same pass.
 - Use the new repo skills before architecture-affecting work:
   - `architecture-boundaries`
   - `ui-composition-patterns`
   - `persistence-boundaries`
+  - `plex-integration-boundaries`
 
 ## Agent Workflow
 
 - Start with the superpowers workflow: `using-superpowers`, then `brainstorming`, then the matching repo-local architecture skill(s).
+- Use [`docs/architecture/CURRENT_STATE.md`](./docs/architecture/CURRENT_STATE.md) as the current architecture truth and this checklist as the active backlog/status surface.
 - Do a repo evidence sweep before planning.
 - Produce or refresh a concrete, decision-point-free plan under `docs/plans/` (use the writing-plans skill) before coding. The plan must be explicit enough for less-capable agents to execute without ambiguity.
 - Keep scope limited to one work unit at a time.
 - In every plan, explicitly state how the selected `P#-W#` advances the durable end-state of its parent Priority section.
 - Favor durable collaborators/stores/binders that later work units can extend; avoid temporary adapters or one-off abstractions that will need immediate replacement inside the same Priority section.
 - Only mark completion after the required verification for that unit actually passes.
-- Before closing the work, update the matching `P#-W#` entry in this file to `[x]` and append the required `(done YYYY-MM-DD; plan: docs/plans/<file>.md)` note.
+- Before closing the work, update the matching `P#-W#` entry in this file to `[x]` and append the required plan-path note. If the plan is archived later, update the referenced path in the same pass.
 
 ## Evidence Snapshot
 
