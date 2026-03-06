@@ -63,6 +63,23 @@ describe('ChannelSetupScreen', () => {
         expect(container.querySelector('#setup-lib-movies')).not.toBeNull();
     });
 
+    it('shows library-load failure state when libraries cannot be fetched', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockRejectedValue(new Error('library load failed')),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+
+        expect(container.textContent ?? '').toContain('Library load failed.');
+        expect(container.textContent ?? '').toContain('library load failed');
+        expect(container.querySelector('#setup-next')).toBeNull();
+    });
+
     it('renders bulk actions and formatted library metadata', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -223,6 +240,65 @@ describe('ChannelSetupScreen', () => {
         expect(nav.off).toHaveBeenCalledTimes(2);
         expect(nav.focusables.size).toBe(0);
         expect(nav.unregisterFocusable.mock.calls.length).toBeGreaterThan(unregisterCallsAfterHide);
+    });
+
+    it('does not re-register focusables if library loading settles after hide', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        let resolveLibraries: ((libraries: PlexLibrary[]) => void) | undefined;
+        const librariesPromise = new Promise<PlexLibrary[]>((resolve) => {
+            resolveLibraries = resolve;
+        });
+
+        const nav = createNavigationMock();
+        const orchestrator = createOrchestrator({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn(() => librariesPromise),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        screen.hide();
+
+        if (!resolveLibraries) {
+            throw new Error('Expected library resolver to be set');
+        }
+        resolveLibraries([makeLibrary({ id: 'movies' })]);
+        await flushPromises();
+
+        expect(nav.focusables.size).toBe(0);
+        expect(container.style.display).toBe('none');
+    });
+
+    it('does not re-render or re-register focusables when library loading resolves after hide', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        let resolveLibraries: ((libraries: PlexLibrary[]) => void) | undefined;
+        const librariesPromise = new Promise<PlexLibrary[]>((resolve) => {
+            resolveLibraries = resolve;
+        });
+
+        const nav = createNavigationMock();
+        const orchestrator = createOrchestrator({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn(() => librariesPromise),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        screen.hide();
+
+        if (!resolveLibraries) {
+            throw new Error('Expected library resolver to be set');
+        }
+        resolveLibraries([makeLibrary({ id: 'movies' })]);
+        await flushPromises();
+
+        expect(container.style.display).toBe('none');
+        expect(nav.focusables.size).toBe(0);
+        expect(container.querySelector('#setup-lib-movies')).toBeNull();
     });
 
     it('renders Step 2 category rail in fixed order', async () => {
@@ -658,6 +734,45 @@ describe('ChannelSetupScreen', () => {
 
         expect(container.textContent ?? '').toContain('Review changes before building');
         expect(getSetupReview).toHaveBeenCalledTimes(1);
+    });
+
+    it('starts build progress after confirming review for existing setup context', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        let resolveBuild: ((value: typeof DEFAULT_BUILD_RESULT | PromiseLike<typeof DEFAULT_BUILD_RESULT>) => void) | undefined;
+        const createChannelsFromSetup = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_BUILD_RESULT>((resolve) => {
+            resolveBuild = resolve;
+        }));
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
+            getSetupReview: jest.fn().mockResolvedValue(DEFAULT_REVIEW),
+            createChannelsFromSetup,
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-next');
+        await flushPromises();
+        await flushPromises();
+
+        clickButton(container, '#setup-replace-confirm');
+        clickButton(container, '#setup-confirm');
+        await flushPromises();
+
+        expect(container.textContent ?? '').toContain('Building channels');
+        expect(createChannelsFromSetup).toHaveBeenCalledTimes(1);
+
+        if (!resolveBuild) {
+            throw new Error('Expected build resolver to be set');
+        }
+        resolveBuild(DEFAULT_BUILD_RESULT);
+        await flushPromises();
     });
 
     it('uses Review route for unknown setup context', async () => {

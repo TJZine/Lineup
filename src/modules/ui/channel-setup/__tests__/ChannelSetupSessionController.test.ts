@@ -249,7 +249,7 @@ describe('ChannelSetupSessionController', () => {
         expect(snapshot.recordApplied).toBe(true);
     });
 
-    it('loadLibraries() handles failure by clearing loading state', async (): Promise<void> => {
+    it('loadLibraries() handles failure by clearing loading state and exposing load error', async (): Promise<void> => {
         const orchestrator = createOrchestrator({
             getLibrariesForSetup: jest.fn().mockRejectedValue(new Error('library load failed')),
         });
@@ -265,6 +265,70 @@ describe('ChannelSetupSessionController', () => {
         expect(snapshot.isLoading).toBe(false);
         expect(snapshot.recordApplied).toBe(false);
         expect(snapshot.libraries).toEqual([]);
+        expect(snapshot.loadError).toBe('library load failed');
+    });
+
+    it('loadLibraries() ignores stale success results after a new session begins', async (): Promise<void> => {
+        let resolveLibraries: ((value: PlexLibraryModel[]) => void) | undefined;
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockImplementation(
+                () => new Promise<PlexLibraryModel[]>((resolve) => {
+                    resolveLibraries = resolve;
+                })
+            ),
+        });
+        const controller = new ChannelSetupSessionController({
+            orchestrator,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        const staleLoad = controller.loadLibraries();
+        controller.beginSession();
+
+        if (!resolveLibraries) {
+            throw new Error('Expected library resolver to be set');
+        }
+        resolveLibraries([makeLibrary({ id: 'movies' })]);
+        await staleLoad;
+
+        const snapshot = controller.getSnapshot();
+        expect(snapshot.libraries).toEqual([]);
+        expect(snapshot.selectedLibraryIds).toEqual(new Set());
+        expect(snapshot.recordApplied).toBe(false);
+        expect(snapshot.isLoading).toBe(false);
+    });
+
+    it('getSnapshot() returns detached mutable state copies', async (): Promise<void> => {
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+        const controller = new ChannelSetupSessionController({
+            orchestrator,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        await controller.loadLibraries();
+        controller.updateStrategyState((draft) => {
+            draft.channelExpansion.addAlternateLineups = true;
+            draft.seriesOrdering.basePlaybackMode = 'block';
+            draft.strategies.playlists.enabled = false;
+        });
+
+        const snapshot = controller.getSnapshot();
+        snapshot.selectedLibraryIds.clear();
+        snapshot.strategyOrder.reverse();
+        snapshot.channelExpansion.addAlternateLineups = false;
+        snapshot.seriesOrdering.basePlaybackMode = 'shuffle';
+        snapshot.strategies.playlists.enabled = true;
+
+        const freshSnapshot = controller.getSnapshot();
+        expect(freshSnapshot.selectedLibraryIds).toEqual(new Set(['movies']));
+        expect(freshSnapshot.strategyOrder).toEqual(snapshot.strategyOrder.slice().reverse());
+        expect(freshSnapshot.channelExpansion.addAlternateLineups).toBe(true);
+        expect(freshSnapshot.seriesOrdering.basePlaybackMode).toBe('block');
+        expect(freshSnapshot.strategies.playlists.enabled).toBe(false);
     });
 
     it('syncSetupContext() preserves first-time/existing/unknown and falls back to unknown', (): void => {
@@ -442,6 +506,24 @@ describe('ChannelSetupSessionController', () => {
         });
 
         expect(outcome).toEqual<ChannelSetupBuildOutcome>({ kind: 'missing-server' });
+    });
+
+    it('beginConfirmedBuild() switches Step 3 into active build mode for review-confirm flow', (): void => {
+        const orchestrator = createOrchestrator();
+        const controller = new ChannelSetupSessionController({
+            orchestrator,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        controller.setStep(3);
+        expect(controller.getSnapshot().isBuilding).toBe(false);
+
+        controller.beginConfirmedBuild();
+
+        const snapshot = controller.getSnapshot();
+        expect(snapshot.step).toBe(3);
+        expect(snapshot.isBuilding).toBe(true);
     });
 
     it('beginBuild() returns canceled after cancelBuild() aborts in-flight build', async (): Promise<void> => {

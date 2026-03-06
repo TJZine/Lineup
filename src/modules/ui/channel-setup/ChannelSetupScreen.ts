@@ -20,7 +20,7 @@ import { LibraryStepController } from './steps/LibraryStepController';
 import { StrategyStepController } from './steps/StrategyStepController';
 import { BuildReviewStepController } from './steps/BuildReviewStepController';
 import { BuildProgressStepController } from './steps/BuildProgressStepController';
-import type { BuildReviewStateSnapshot, EstimateKey, StrategyStepMutableState } from './steps/types';
+import type { BuildReviewStateSnapshot } from './steps/types';
 import {
     ADVANCED_STRATEGY_KEYS,
     CONTENT_STRATEGY_KEYS,
@@ -33,6 +33,8 @@ import { scrollToNearest } from './focus/scrollToNearest';
 import {
     ChannelSetupSessionController,
     type ChannelSetupOrchestrator,
+    type EstimateKey,
+    type StrategyStepMutableState,
     strategySupportsMixedScope,
 } from './ChannelSetupSessionController';
 
@@ -220,6 +222,7 @@ export class ChannelSetupScreen {
 
     show(): void {
         this._visibilityToken += 1;
+        const token = this._visibilityToken;
         this._container.style.display = 'flex';
         this._container.classList.add('visible');
         const nav = this._orchestrator.getNavigation();
@@ -354,8 +357,23 @@ export class ChannelSetupScreen {
         this._detailEl.textContent = '';
         this._errorEl.textContent = '';
         this._session.loadLibraries().then(() => {
+            if (token !== this._visibilityToken) {
+                return;
+            }
+            const session = this._session.getSnapshot();
+            if (session.loadError) {
+                this._contentEl.innerHTML = '';
+                this._stepEl.textContent = '';
+                this._statusEl.textContent = 'Library load failed.';
+                this._detailEl.textContent = '';
+                this._errorEl.textContent = session.loadError;
+                return;
+            }
             this._renderStep();
         }).catch((error: unknown) => {
+            if (token !== this._visibilityToken) {
+                return;
+            }
             if (isAbortLikeError(error)) return;
             console.error('[ChannelSetup] Load libraries failed:', summarizeErrorForLog(error));
         });
@@ -461,6 +479,7 @@ export class ChannelSetupScreen {
                 this._registerBulkActionNeighbors(selectAllButton, clearAllButton, listButtons);
             },
         });
+
     }
 
     private _registerBulkActionNeighbors(
@@ -764,7 +783,7 @@ export class ChannelSetupScreen {
                 this._renderStep();
             },
             onConfirmBuild: () => {
-                this._session.setStep(3);
+                this._session.beginConfirmedBuild();
                 this._renderStep();
             },
             onToggleReplaceConfirm: (focusId) => {
@@ -856,8 +875,12 @@ export class ChannelSetupScreen {
         taskLabel: HTMLElement,
         detailLabel: HTMLElement
     ): Promise<void> {
+        const token = this._visibilityToken;
         const outcome = await this._session.beginBuild({
             onProgress: (p: ChannelBuildProgress): void => {
+                if (token !== this._visibilityToken) {
+                    return;
+                }
                 taskLabel.textContent = p.label;
                 detailLabel.textContent = p.detail;
 
@@ -874,6 +897,10 @@ export class ChannelSetupScreen {
                 // State changes are reflected through subsequent step renders.
             },
         });
+
+        if (token !== this._visibilityToken) {
+            return;
+        }
 
         if (outcome.kind === 'missing-server') {
             this._errorEl.textContent = 'No server selected.';

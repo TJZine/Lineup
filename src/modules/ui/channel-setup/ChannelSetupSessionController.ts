@@ -19,8 +19,11 @@ import {
 } from '../../../core/channel-setup/constants';
 import type { PlexLibraryType } from '../../plex/library';
 import { isAbortLikeError } from '../../../utils/errors';
-import type { EstimateKey, SeriesOrderingState, StrategyStepMutableState } from './steps/types';
-import { SERIES_BLOCK_PRESETS, type SetupStrategyKey } from './steps/constants';
+import {
+    SERIES_BLOCK_PRESETS,
+    type SetupStrategyKey,
+    type StrategyCategoryKey,
+} from './steps/constants';
 
 const SERIES_BLOCK_PRESET_MIN = SERIES_BLOCK_PRESETS.length > 0
     ? Math.min(...SERIES_BLOCK_PRESETS)
@@ -50,6 +53,25 @@ export type ChannelExpansionState = {
     variantType: 'none' | 'sequential' | 'block';
     variantBlockSize: number;
 };
+
+export type SeriesOrderingState = {
+    basePlaybackMode: 'shuffle' | 'sequential' | 'block';
+    baseBlockSize: number;
+};
+
+export type StrategyStepMutableState = {
+    activeStrategyCategory: StrategyCategoryKey;
+    strategies: SetupStrategyState;
+    strategyOrder: SetupStrategyKey[];
+    channelExpansion: ChannelExpansionState;
+    seriesOrdering: SeriesOrderingState;
+    buildMode: ChannelSetupConfig['buildMode'];
+    actorStudioCombineMode: ChannelSetupConfig['actorStudioCombineMode'];
+    maxChannels: number;
+    minItems: number;
+};
+
+export type EstimateKey = keyof ChannelSetupPreview['estimates'];
 
 export type SetupStep = 1 | 2 | 3;
 
@@ -110,6 +132,7 @@ export type ChannelSetupSessionSnapshot = {
     step: SetupStep;
     libraries: PlexLibraryType[];
     selectedLibraryIds: Set<string>;
+    loadError: string | null;
     strategies: SetupStrategyState;
     strategyOrder: SetupStrategyKey[];
     channelExpansion: ChannelExpansionState;
@@ -144,6 +167,47 @@ export type ChannelSetupBuildOutcome =
         result: Awaited<ReturnType<ChannelSetupOrchestrator['createChannelsFromSetup']>>;
     };
 
+const cloneStrategies = (strategies: SetupStrategyState): SetupStrategyState =>
+    SETUP_STRATEGY_KEYS.reduce<SetupStrategyState>((acc, key) => {
+        acc[key] = { ...strategies[key] };
+        return acc;
+    }, {} as SetupStrategyState);
+
+const clonePreview = (preview: ChannelSetupPreview | null): ChannelSetupPreview | null => {
+    if (!preview) {
+        return null;
+    }
+
+    return {
+        estimates: { ...preview.estimates },
+        warnings: [...preview.warnings],
+        reachedMaxChannels: preview.reachedMaxChannels,
+    };
+};
+
+const cloneReview = (review: ChannelSetupReview | null): ChannelSetupReview | null => {
+    if (!review) {
+        return null;
+    }
+
+    const preview = clonePreview(review.preview);
+    if (!preview) {
+        return null;
+    }
+
+    return {
+        preview,
+        diff: {
+            summary: { ...review.diff.summary },
+            samples: {
+                created: [...review.diff.samples.created],
+                removed: [...review.diff.samples.removed],
+                unchanged: [...review.diff.samples.unchanged],
+            },
+        },
+    };
+};
+
 export class ChannelSetupSessionController {
     private readonly _orchestrator: ChannelSetupOrchestrator;
     private readonly _getSelectedServerId: () => string | null;
@@ -151,6 +215,7 @@ export class ChannelSetupSessionController {
     private _step: SetupStep = 1;
     private _libraries: PlexLibraryType[] = [];
     private _selectedLibraryIds: Set<string> = new Set();
+    private _loadError: string | null = null;
     private _strategies: SetupStrategyState = createDefaultStrategyState();
     private _strategyOrder: SetupStrategyKey[] = createDefaultStrategyOrder();
     private _channelExpansion: ChannelExpansionState = defaultChannelExpansionState();
@@ -197,12 +262,13 @@ export class ChannelSetupSessionController {
     getSnapshot(): ChannelSetupSessionSnapshot {
         return {
             step: this._step,
-            libraries: this._libraries,
-            selectedLibraryIds: this._selectedLibraryIds,
-            strategies: this._strategies,
-            strategyOrder: this._strategyOrder,
-            channelExpansion: this._channelExpansion,
-            seriesOrdering: this._seriesOrdering,
+            libraries: [...this._libraries],
+            selectedLibraryIds: new Set(this._selectedLibraryIds),
+            loadError: this._loadError,
+            strategies: cloneStrategies(this._strategies),
+            strategyOrder: [...this._strategyOrder],
+            channelExpansion: { ...this._channelExpansion },
+            seriesOrdering: { ...this._seriesOrdering },
             buildMode: this._buildMode,
             actorStudioCombineMode: this._actorStudioCombineMode,
             maxChannels: this._maxChannels,
@@ -212,11 +278,11 @@ export class ChannelSetupSessionController {
             isPreviewLoading: this._isPreviewLoading,
             isReviewLoading: this._isReviewLoading,
             replaceConfirm: this._replaceConfirm,
-            preview: this._preview,
+            preview: clonePreview(this._preview),
             previewError: this._previewError,
-            review: this._review,
+            review: cloneReview(this._review),
             reviewError: this._reviewError,
-            previewDeltas: this._previewDeltas,
+            previewDeltas: { ...this._previewDeltas },
             previewDeltaExpiresAtMs: this._previewDeltaExpiresAtMs,
             recordApplied: this._recordApplied,
             setupContext: this._setupContext,
@@ -242,9 +308,15 @@ export class ChannelSetupSessionController {
             return;
         }
         this._isLoading = true;
+        this._loadError = null;
 
         try {
-            this._libraries = await this._orchestrator.getLibrariesForSetup();
+            const libraries = await this._orchestrator.getLibrariesForSetup();
+            if (token !== this._sessionToken) {
+                return;
+            }
+
+            this._libraries = libraries;
             const serverId = this._getSelectedServerId();
             const record = serverId ? this._orchestrator.getChannelSetupRecord(serverId) : null;
             if (record) {
@@ -256,13 +328,14 @@ export class ChannelSetupSessionController {
             if (token !== this._sessionToken) {
                 return;
             }
-        } catch {
+        } catch (error) {
             if (token !== this._sessionToken) {
                 return;
             }
             this._libraries = [];
             this._selectedLibraryIds = new Set();
             this._recordApplied = false;
+            this._loadError = error instanceof Error ? error.message : 'Unable to load libraries.';
         } finally {
             this._isLoading = false;
         }
@@ -291,6 +364,11 @@ export class ChannelSetupSessionController {
         } else {
             this._isBuilding = false;
         }
+    }
+
+    beginConfirmedBuild(): void {
+        this._step = 3;
+        this._isBuilding = true;
     }
 
     selectAllLibraries(): void {
@@ -620,6 +698,7 @@ export class ChannelSetupSessionController {
 
         this._libraries = [];
         this._selectedLibraryIds = new Set();
+        this._loadError = null;
         this._maxChannels = DEFAULT_CHANNEL_SETUP_MAX;
         this._minItems = DEFAULT_MIN_ITEMS_PER_CHANNEL;
         this._strategies = createDefaultStrategyState();
