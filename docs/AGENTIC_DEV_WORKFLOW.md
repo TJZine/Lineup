@@ -33,12 +33,17 @@ This is the operating runbook for agent-driven development in Lineup.
    - active cleanup backlog: [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md)
    - UI language: [`docs/design/ui-design-language.md`](./design/ui-design-language.md)
    - Plex contract: [`docs/api/plex-integration.md`](./api/plex-integration.md)
-4. Choose the orchestration tier before editing.
+4. Route task family before choosing a tier.
+   - Use the authoritative routing table in [`docs/agentic/session-prompts/README.md`](./agentic/session-prompts/README.md#routing-authoritative).
+   - choose exactly one task family first: cleanup/refactor, feature/design, or mixed
+   - for mixed work, split feature and cleanup slices explicitly so cleanup prompts are only used for the cleanup slice
+5. Choose the orchestration tier before editing.
    - Tier 1: small bounded low-risk work uses one session/agent plus review before closeout
    - Tier 2: a normal cleanup unit uses planner -> implementer -> reviewer
    - Tier 3: hotspot, cross-boundary, multi-session, or otherwise high-risk work uses the controller loop, and a local run bundle when repeated handoff is likely
+   - for Tier 3 feature or mixed work, use a task-specific run bundle and the normal workflow; do not treat `cleanup-loop` as umbrella control for feature delivery
    - do not escalate to a heavier tier unless the lower tier would materially weaken reliability
-5. Plan explicitly before multi-step work.
+6. Plan explicitly before multi-step work.
    - keep the authoritative plan in `update_plan`
    - write or refresh `docs/plans/*` when a task requires durable, tracked task memory
    - for serious tracked plans, follow [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md)
@@ -46,18 +51,18 @@ This is the operating runbook for agent-driven development in Lineup.
    - use `docs/runs/` for local-only major-task execution bundles and run logs
    - when drafting or reviewing serious tracked plans, use `docs/agentic/historical-plan-corpus-review.md` alongside `docs/agentic/plan-authoring-standard.md` as calibration for strong plan shape and eval seeding
    - record the Codanna impact snapshot for risky/shared-symbol edits
-6. Implement narrowly.
+7. Implement narrowly.
    - one work unit at a time
    - prefer extraction over expansion in hotspot files
    - avoid compatibility shims unless explicitly approved
-7. Verify based on risk.
+8. Verify based on risk.
    - `npm run verify` for UI, navigation, Orchestrator, or Plex work
    - `npm run verify:docs` for workflow/control-plane/reference doc changes
    - otherwise at least `npm run typecheck` and `npm test` for logic-only TypeScript changes
-8. Review before closeout.
+9. Review before closeout.
    - AI review is the baseline pass
    - humans still own architecture, product intent, and merge decisions
-9. Update the right memory surface in the same pass.
+10. Update the right memory surface in the same pass.
    - update [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md) when a cleanup work unit is completed
    - update current-state or reference docs when ownership changes
    - update tracked plan references when a plan moves from `docs/plans/` to `docs/archive/plans/`
@@ -88,9 +93,15 @@ Use the tracked launcher templates in [`docs/agentic/session-prompts/README.md`]
 - Tier 2 implementer session: [`cleanup-implement.md`](./agentic/session-prompts/cleanup-implement.md)
 - reusable review session: [`cleanup-review.md`](./agentic/session-prompts/cleanup-review.md)
 - Tier 3 controller session: [`cleanup-loop.md`](./agentic/session-prompts/cleanup-loop.md)
+- Tier 2/3 feature planner session: [`feature-plan.md`](./agentic/session-prompts/feature-plan.md)
+- reusable feature/design review session: [`feature-review.md`](./agentic/session-prompts/feature-review.md)
 - whole-harness audit: [`workflow-harness-review.md`](./agentic/session-prompts/workflow-harness-review.md)
 
-Use the reusable launchers only when the task risk justifies them. Tier 1 work should usually stay in one session with review. For larger multi-session or hotspot work, create a task-specific run bundle in [`docs/runs/`](./runs/README.md) and let the Tier 3 controller loop consume that bundle.
+Feature work can use the same 3-agent pattern without a second full prompt family: planner (`feature-plan`) -> implementer (normal repo workflow) -> reviewer (`feature-review`).
+
+Use the reusable launchers only when the task risk justifies them. Tier 1 work should usually stay in one session with review.
+
+For larger multi-session or hotspot work, create a task-specific run bundle in [`docs/runs/`](./runs/README.md). Use `cleanup-loop` only for Tier 3 cleanup/refactor control; for Tier 3 feature or mixed work, use the normal workflow with `feature-plan` + implementation + `feature-review` and keep cleanup prompts scoped to the cleanup slice.
 
 ## Quality Loop
 
