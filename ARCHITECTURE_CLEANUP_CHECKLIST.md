@@ -29,11 +29,15 @@ Completion rule: every implementation plan that finishes a `P#-W#` work unit mus
 ## Agent Workflow
 
 - Start with the superpowers workflow: `using-superpowers`, then `brainstorming`, then the matching repo-local architecture skill(s).
+- For serious cleanup planning, follow that skill order with `writing-plans`; do not substitute `writing-plans` for the earlier process/boundary skills.
 - Use [`docs/architecture/CURRENT_STATE.md`](./docs/architecture/CURRENT_STATE.md) as the current architecture truth and this checklist as the active backlog/status surface.
 - Do a repo evidence sweep before planning.
+- If the work depends on an unresolved architecture seam or adjacent contract change, resolve that boundary first instead of hiding it inside a “decision-point-free” plan.
 - Produce or refresh a concrete, decision-point-free plan under `docs/plans/` (use the writing-plans skill) before coding. The plan must be explicit enough for less-capable agents to execute without ambiguity.
+- In every serious tracked plan, record the Codanna evidence trail plus any fallback reads used for checklist/doc context.
 - Keep scope limited to one work unit at a time.
 - In every plan, explicitly state how the selected `P#-W#` advances the durable end-state of its parent Priority section.
+- If adjacent files may need type/contract wiring, either put them in scope explicitly or freeze them explicitly and explain how the task still works.
 - Favor durable collaborators/stores/binders that later work units can extend; avoid temporary adapters or one-off abstractions that will need immediate replacement inside the same Priority section.
 - Only mark completion after the required verification for that unit actually passes.
 - Before closing the work, update the matching `P#-W#` entry in this file to `[x]` and append the required plan-path note. If the plan is archived later, update the referenced path in the same pass.

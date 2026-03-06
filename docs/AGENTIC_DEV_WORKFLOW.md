@@ -24,6 +24,8 @@ This is the operating runbook for agent-driven development in Lineup.
    - always: `using-superpowers`
    - add `brainstorming` when shaping new functionality, behavior, or design
    - add the matching repo-local boundary skill(s) when the task crosses that boundary
+   - for cleanup/refactor planning, the default planning order is: `using-superpowers` -> `brainstorming` -> matching repo-local boundary skill(s) -> `writing-plans`
+   - for feature/design planning, the default planning order is: `using-superpowers` -> `brainstorming` -> `frontend-design` when UI creation/redesign is actually in scope -> matching repo-local boundary skill(s) -> `writing-plans`
 2. Run evidence sweep.
    - Prefer Codanna using [`docs/agentic/codanna-playbook.md`](./agentic/codanna-playbook.md).
    - Use Codanna for both code and repo-doc discovery before falling back to `rg`.
@@ -47,9 +49,11 @@ This is the operating runbook for agent-driven development in Lineup.
    - keep the authoritative plan in `update_plan`
    - write or refresh `docs/plans/*` when a task requires durable, tracked task memory
    - for serious tracked plans, follow [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md)
+   - if an architecture seam or adjacent contract change is still undecided, resolve that boundary before freezing a “decision-point-free” execution plan
    - move completed or superseded tracked plans to `docs/archive/plans/` once they stop being the active handoff surface
    - use `docs/runs/` for local-only major-task execution bundles and run logs
    - when drafting or reviewing serious tracked plans, use `docs/agentic/historical-plan-corpus-review.md` alongside `docs/agentic/plan-authoring-standard.md` as calibration for strong plan shape and eval seeding
+   - for serious tracked plans, record the full Codanna evidence trail: `semantic_search_with_context`, `search_documents` when repo-doc context matters, `analyze_impact`, and any explicit fallback reads
    - record the Codanna impact snapshot for risky/shared-symbol edits
 7. Implement narrowly.
    - one work unit at a time

@@ -16,9 +16,11 @@ Do not use this launcher for cleanup-only refactors; use [`cleanup-plan.md`](./c
 
 ## Required Skill Order
 
-1. load `brainstorming` before hardening any implementation plan
-2. load `frontend-design` only when the task includes real UI creation or redesign
-3. load matching repo-local boundary skills when ownership/composition boundaries are implicated
+1. load `using-superpowers`
+2. load `brainstorming` before hardening any implementation plan
+3. load `frontend-design` only when the task includes real UI creation or redesign
+4. load matching repo-local boundary skills when ownership/composition boundaries are implicated
+5. use `writing-plans` for the plan format
 
 ## What This Session Must Do
 
@@ -34,7 +36,14 @@ Do not use this launcher for cleanup-only refactors; use [`cleanup-plan.md`](./c
 - follow [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md) for serious tracked plans
 - distinguish feature/design intent work from cleanup/refactor remediation work
 - for UI creation/redesign, reference [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) and require `frontend-design`
+- resolve any open architecture seam, ownership seam, or adjacent contract decision before freezing the execution steps
+- include the full Codanna evidence trail for serious feature/design plans:
+  - `semantic_search_with_context` result or explicit fallback note
+  - `search_documents` result or explicit fallback note when repo-doc context matters
+  - `analyze_impact` result when risky/shared symbols are involved
+  - direct-read/`rg` fallback note when used
 - include exact files in scope and out of scope, verification commands, and rollback notes when risk warrants it
+- if adjacent files may need contract/type changes, either place them in scope explicitly or freeze them explicitly and explain how the task still works
 - preserve the repo verification gate expectations:
   - `npm run verify` for risky UI/navigation/Orchestrator/Plex changes
   - `npm run verify:docs` for workflow/control-plane doc changes
@@ -47,7 +56,9 @@ Stop and resolve ambiguity before writing or finalizing a plan when:
 - the task routing (cleanup vs feature vs mixed) is unresolved
 - UI direction is requested but design constraints are missing or contradictory
 - architecture ownership expectations conflict with current-state docs
+- an architecture seam or adjacent contract change is still undecided
 - the plan would require policy-violating compatibility/fallback paths
+- the plan needs “mechanical wiring” in files that are simultaneously declared out of scope
 
 ## Output Contract
 
