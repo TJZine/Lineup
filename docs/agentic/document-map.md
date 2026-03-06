@@ -199,6 +199,17 @@ Use for:
 
 - how and when to tighten this repo after the cleanup phase stabilizes
 
+### Recurring Maintenance
+
+- [`docs/agentic/doc-gardening-checklist.md`](./doc-gardening-checklist.md)
+
+Use for:
+
+- recurring review of the control plane and current-state docs
+- plan/archive hygiene checks
+- skill-mirror hygiene checks
+- eval-surface hygiene checks
+
 ## Garbage Collection Rules
 
 - If a document makes a current-state claim and is no longer accurate, update it or archive it in the same pass.
@@ -207,5 +218,6 @@ Use for:
 - `docs/archive/plans/*` and `docs/decisions/*` are historical memory, not current policy.
 - Keep active durable plans in `docs/plans/`, archive older completed or superseded tracked plans into `docs/archive/plans/`, and update references in the same pass.
 - When archiving a completed cleanup section or standout plan, update `docs/agentic/historical-plan-corpus-review.md` if it adds new reusable signal.
+- Use `docs/agentic/doc-gardening-checklist.md` as the recurring maintenance loop instead of inventing ad hoc cleanup passes.
 - Avoid free-floating workflow docs outside the control-plane set above.
 - If a new doc does not clearly fit one of the roles above, prefer updating an existing authoritative doc instead.

@@ -40,6 +40,7 @@ This does not require “everything in the checklist is complete.” It does req
 
 - confirm the current document map still reflects how the repo is actually used
 - archive or delete workflow/docs that became temporary during cleanup
+- use [`docs/agentic/doc-gardening-checklist.md`](./doc-gardening-checklist.md) as the recurring maintenance baseline before tightening or deleting workflow docs
 - keep the control plane small; do not let new one-off docs become new drift sources
 
 ### 3. Formalize Evals

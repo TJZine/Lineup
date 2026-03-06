@@ -9,6 +9,7 @@ const requiredFiles = [
     'docs/AGENTIC_DEV_WORKFLOW.md',
     'docs/agentic/document-map.md',
     'docs/agentic/codanna-playbook.md',
+    'docs/agentic/doc-gardening-checklist.md',
     'docs/agentic/evals/README.md',
     'docs/agentic/evals/baselines/README.md',
     'docs/agentic/evals/rubric.md',
