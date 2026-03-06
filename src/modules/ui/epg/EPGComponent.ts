@@ -180,7 +180,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             if (this.config.fetchItemDetails) {
                 this.infoPanel.setFetchItemDetails(this.config.fetchItemDetails);
             }
-            this.infoPanelCoordinator.setLayoutMode('overlay');
             this.infoPanelCoordinator.attachHosts({
                 infoPanelElement: this.infoPanelElement,
                 overlayShowcaseElement: this.overlayShowcaseElement,

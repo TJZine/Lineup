@@ -22,7 +22,7 @@ export class EPGInfoPanelCoordinator {
     private infoPanelElement: HTMLElement | null = null;
     private overlayShowcaseElement: HTMLElement | null = null;
     private classicShowcaseInfoElement: HTMLElement | null = null;
-    private layoutMode: 'overlay' | 'classic' = 'classic';
+    private layoutMode: 'overlay' | 'classic' = 'overlay';
     private fullUpdateTimer: ReturnType<typeof setTimeout> | null = null;
     private pendingProgramKey: string | null = null;
 
@@ -82,6 +82,10 @@ export class EPGInfoPanelCoordinator {
 
     destroy(): void {
         this.clear();
+        this.infoPanelElement = null;
+        this.overlayShowcaseElement = null;
+        this.classicShowcaseInfoElement = null;
+        this.layoutMode = 'overlay';
     }
 
     private syncHost(): void {

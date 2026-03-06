@@ -12,36 +12,51 @@ describe('EPGInfoPanelCoordinator', () => {
     let infoPanel: jest.Mocked<IEPGInfoPanel>;
     let coordinator: EPGInfoPanelCoordinator;
 
-    const createProgram = (index: number): ScheduledProgram => ({
+    const createProgram = (id: string, startMs: number): ScheduledProgram => ({
         item: {
-            ratingKey: `program-${index}`,
+            ratingKey: id,
             type: 'movie',
-            title: `Program ${index}`,
-            fullTitle: `Program ${index}`,
+            title: `Program ${id}`,
+            fullTitle: `Program ${id}`,
             durationMs: 3_600_000,
-            thumb: `https://example.com/poster-${index}.jpg`,
-            summary: `Summary ${index}`,
-            year: 2020,
-            scheduledIndex: index,
+            thumb: `https://example.com/${id}.jpg`,
+            summary: `Summary ${id}`,
+            year: 2024,
+            scheduledIndex: 0,
         },
-        scheduledStartTime: index * 3_600_000,
-        scheduledEndTime: (index + 1) * 3_600_000,
+        scheduledStartTime: startMs,
+        scheduledEndTime: startMs + 3_600_000,
         elapsedMs: 0,
         remainingMs: 3_600_000,
-        scheduleIndex: index,
+        scheduleIndex: 0,
         loopNumber: 0,
         streamDescriptor: null,
-        isCurrent: index === 0,
+        isCurrent: false,
     });
+
+    const createHosts = (): {
+        infoPanelElement: HTMLElement;
+        overlayShowcaseElement: HTMLElement;
+        classicShowcaseInfoElement: HTMLElement;
+    } => {
+        const infoPanelElement = document.createElement('div');
+        const overlayShowcaseElement = document.createElement('div');
+        const classicShowcaseInfoElement = document.createElement('div');
+
+        overlayShowcaseElement.appendChild(infoPanelElement);
+        document.body.appendChild(overlayShowcaseElement);
+        document.body.appendChild(classicShowcaseInfoElement);
+
+        return { infoPanelElement, overlayShowcaseElement, classicShowcaseInfoElement };
+    };
 
     beforeEach(() => {
         jest.useFakeTimers();
-        jest.clearAllTimers();
         isVisible = true;
         focusedProgram = null;
         infoPanel = {
             setPresentationMode: jest.fn(),
-            getPresentationMode: jest.fn(() => 'classic'),
+            getPresentationMode: jest.fn(() => 'overlay'),
             show: jest.fn(),
             hide: jest.fn(),
             update: jest.fn(),
@@ -56,30 +71,29 @@ describe('EPGInfoPanelCoordinator', () => {
     });
 
     afterEach(() => {
+        jest.clearAllMocks();
         coordinator.destroy();
         jest.clearAllTimers();
         jest.useRealTimers();
+        document.body.innerHTML = '';
     });
 
-    it('attaches hosts using the last known layout mode', () => {
-        const infoPanelElement = document.createElement('div');
-        const overlayHost = document.createElement('div');
-        const classicHost = document.createElement('div');
+    it('moves the info panel element between overlay and classic hosts when layout mode changes', () => {
+        const { infoPanelElement, overlayShowcaseElement, classicShowcaseInfoElement } = createHosts();
 
-        overlayHost.appendChild(infoPanelElement);
-
-        coordinator.setLayoutMode('overlay');
         coordinator.attachHosts({
             infoPanelElement,
-            overlayShowcaseElement: overlayHost,
-            classicShowcaseInfoElement: classicHost,
+            overlayShowcaseElement,
+            classicShowcaseInfoElement,
         });
 
-        expect(infoPanel.setPresentationMode).toHaveBeenCalledWith('overlay');
-        expect(infoPanelElement.parentElement).toBe(overlayHost);
-
         coordinator.setLayoutMode('classic');
-        expect(infoPanelElement.parentElement).toBe(classicHost);
+        expect(infoPanel.setPresentationMode).toHaveBeenCalledWith('classic');
+        expect(infoPanelElement.parentElement).toBe(classicShowcaseInfoElement);
+
+        coordinator.setLayoutMode('overlay');
+        expect(infoPanel.setPresentationMode).toHaveBeenLastCalledWith('overlay');
+        expect(infoPanelElement.parentElement).toBe(overlayShowcaseElement);
     });
 
     it('does not throw when attachHosts receives null elements', () => {
@@ -96,8 +110,8 @@ describe('EPGInfoPanelCoordinator', () => {
         expect(infoPanel.setPresentationMode).toHaveBeenCalledWith('overlay');
     });
 
-    it('updates fast immediately and updates full after the debounce when focus is stable', () => {
-        const program = createProgram(1);
+    it('updates fast immediately and defers full updates until debounce completes for the still-focused program', () => {
+        const program = createProgram('program-a', 0);
         focusedProgram = program;
 
         coordinator.syncFocusedProgram(program);
@@ -109,12 +123,27 @@ describe('EPGInfoPanelCoordinator', () => {
         expect(infoPanel.updateFull).not.toHaveBeenCalled();
 
         jest.advanceTimersByTime(1);
+        expect(infoPanel.updateFull).toHaveBeenCalledTimes(1);
         expect(infoPanel.updateFull).toHaveBeenCalledWith(program);
     });
 
-    it('skips the deferred full update when focus changes before the timer fires', () => {
-        const firstProgram = createProgram(1);
-        const secondProgram = createProgram(2);
+    it('does not run deferred full updates after clear is called', () => {
+        const program = createProgram('program-a', 0);
+        focusedProgram = program;
+
+        coordinator.syncFocusedProgram(program);
+        coordinator.clear();
+
+        expect(infoPanel.hide).toHaveBeenCalledTimes(1);
+
+        jest.advanceTimersByTime(250);
+
+        expect(infoPanel.updateFull).not.toHaveBeenCalled();
+    });
+
+    it('does not run a stale deferred full update after focus changes to a different program', () => {
+        const firstProgram = createProgram('program-a', 0);
+        const secondProgram = createProgram('program-b', 3_600_000);
 
         focusedProgram = firstProgram;
         coordinator.syncFocusedProgram(firstProgram);
@@ -122,24 +151,35 @@ describe('EPGInfoPanelCoordinator', () => {
         focusedProgram = secondProgram;
         coordinator.syncFocusedProgram(secondProgram);
 
-        jest.advanceTimersByTime(200);
+        jest.advanceTimersByTime(250);
 
         expect(infoPanel.updateFull).toHaveBeenCalledTimes(1);
         expect(infoPanel.updateFull).toHaveBeenCalledWith(secondProgram);
+        expect(infoPanel.updateFull).not.toHaveBeenCalledWith(firstProgram);
     });
 
-    it('clears pending work and hides the panel when cleared', () => {
-        const program = createProgram(3);
+    it('destroy clears pending timers without destroying the underlying info panel', () => {
+        const { infoPanelElement, overlayShowcaseElement, classicShowcaseInfoElement } = createHosts();
+        const program = createProgram('program-a', 0);
         focusedProgram = program;
 
+        coordinator.attachHosts({
+            infoPanelElement,
+            overlayShowcaseElement,
+            classicShowcaseInfoElement,
+        });
+        coordinator.setLayoutMode('overlay');
         coordinator.syncFocusedProgram(program);
-        coordinator.clear();
-        focusedProgram = null;
-
-        jest.advanceTimersByTime(200);
+        coordinator.destroy();
 
         expect(infoPanel.hide).toHaveBeenCalledTimes(1);
+
+        jest.advanceTimersByTime(250);
+
         expect(infoPanel.updateFull).not.toHaveBeenCalled();
+
+        coordinator.setLayoutMode('classic');
+        expect(infoPanelElement.parentElement).toBe(overlayShowcaseElement);
     });
 
     it('clears when syncing a null program', () => {
@@ -150,7 +190,7 @@ describe('EPGInfoPanelCoordinator', () => {
     });
 
     it('skips the deferred full update when the EPG is hidden', () => {
-        const program = createProgram(4);
+        const program = createProgram('program-a', 0);
         focusedProgram = program;
 
         coordinator.syncFocusedProgram(program);
