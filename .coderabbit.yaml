@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+reviews:
+  profile: "assertive"
+  review_details: true
+  collapse_walkthrough: true
+  path_filters:
+    - "!**/.worktrees/**"
+    - "!**/worktrees/**"
+    - "!docs/_local/**"
+    - "!docs/agentic/evals/baselines/**"
+    - "!**/.agent/**"
+    - "!**/.codanna/**"
+    - "!**/.fastembed_cache/**"
+    - "!**/.mcp_sequential_thinking/**"
+    - "!**/.DS_Store"
+  path_instructions:
+    - path: "agents.md"
+      instructions: |
+        Review this file as stable policy. Flag contradictions with docs/AGENTIC_DEV_WORKFLOW.md, docs/agentic/document-map.md, docs/agentic/plan-authoring-standard.md, and repo-local skill policy. Prioritize real policy conflicts, stale workflow assumptions, or wording that could cause agent drift.
+    - path: "docs/AGENTIC_DEV_WORKFLOW.md"
+      instructions: |
+        Review this file as the operational runbook. Check that it matches agents.md, the tracked-vs-local artifact policy, Codanna-first discovery rules, plan/archive/corpus-review triggers, and verification expectations. Flag duplicate authority, stale guidance, or process overhead that does not improve execution quality.
+    - path: "docs/agentic/**"
+      instructions: |
+        These files are the Lineup agent-control plane. Review for contradictions, stale references, local-only leakage, mismatches with tools/verify-docs.mjs, and gaps that would encourage tech debt or AI slop. For eval docs, ensure prompts, rubric, and baseline policy stay consistent with Codanna fallback rules and fresh-session execution.
+    - path: "docs/plans/**/*.md"
+      instructions: |
+        Review tracked implementation plans for fresh-session executability, exact verification, rollback clarity, scope control, and absence of stale absolute paths or obsolete workflow names. Flag plans that would be brittle, ambiguous, or likely to create low-quality execution.
+    - path: "docs/archive/plans/**/*.md"
+      instructions: |
+        Treat these as historical tracked plans, not current policy. Flag stale links, bad archive references, or outdated guidance only when it can mislead current work because of broken cross-links or conflicting claims.
+    - path: "docs/runs/README.md"
+      instructions: |
+        Review this only as tracked guidance for local-only run artifacts. Ensure it does not conflict with .gitignore or tools/verify-docs.mjs and does not accidentally treat local run instances as tracked source-of-truth.
+    - path: "docs/runs/_template/**/*.md"
+      instructions: |
+        Review these as tracked templates only. Ensure they support fresh-session execution, exact verification, and durable task structure without assuming local-only artifacts are tracked.
+    - path: ".codex/skills/**/*.md"
+      instructions: |
+        These are repo-local Lineup skills. Review for overlap with global Codex skills, contradictions with agents.md or docs/agentic/*, and anything that would weaken architectural boundaries, persistence discipline, Plex integration boundaries, or UI composition rules.
+    - path: "tools/verify-docs.mjs"
+      instructions: |
+        Review this file against repo policy, not just implementation style. Local-only artifacts under docs/runs/* actual instances and docs/agentic/evals/baselines/* must not break docs verification. Tracked control-plane docs, tracked eval definitions, and tracked templates must remain enforced.
+    - path: "src/Orchestrator.ts"
+      instructions: |
+        Treat this as a hotspot. Prefer comments that reduce responsibility growth, preserve clear composition-root ownership, and push work toward focused collaborators. Flag changes that increase cross-cutting orchestration logic or rely on private-probe-friendly design.
+    - path: "src/App.ts"
+      instructions: |
+        Treat this as an app-shell hotspot. Flag changes that mix startup orchestration with feature-specific UI/runtime policy, duplicate lazy-screen ownership, or weaken cleanup/timer/listener ownership.
+    - path: "src/modules/ui/**/*.ts"
+      instructions: |
+        Review UI changes for focus ownership, timer/listener cleanup, hidden-UI cleanup, and TV/D-pad behavior. Flag screen or overlay changes that keep async work alive after hide, collapse state/render/input ownership, or bypass repo UI composition guidance.
+    - path: "src/modules/plex/**/*.ts"
+      instructions: |
+        Review Plex changes for policy leakage. Subtitle, auth, discovery, transport, URL construction, and stream policy must stay inside Plex-facing modules rather than spreading into UI or orchestration callers.
+    - path: "src/**/*.ts"
+      instructions: |
+        For storage-backed changes, flag new raw localStorage access in feature modules and push toward centralized persistence owners/stores. For shared-symbol edits, expect impact-aware reasoning and verification proportional to risk.

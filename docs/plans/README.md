@@ -34,6 +34,8 @@ Archive a tracked plan when all of the following are true:
 - the plan is no longer the active handoff surface
 - the plan is not needed in the main `docs/plans/` directory for current-day execution
 
+Use `npm run plans:stale` as a non-blocking maintenance report to spot older plan files that may be ready for archive review. The report is heuristic only; it does not decide archival status for you.
+
 Before archiving:
 
 1. Confirm the task is complete, cancelled, or superseded.

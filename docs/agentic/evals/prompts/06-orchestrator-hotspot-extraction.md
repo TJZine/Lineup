@@ -11,7 +11,7 @@ Test whether the agent treats `src/Orchestrator.ts` as a hotspot that should she
 
 ## Prompt
 
-Refactor one bounded runtime workflow out of `src/Orchestrator.ts` into a focused collaborator without changing behavior. Keep `AppOrchestrator` focused on construction, top-level wiring, and public lifecycle methods.
+Refactor one bounded runtime workflow out of `src/Orchestrator.ts` into a focused collaborator without changing behavior. Keep `AppOrchestrator` focused on construction, top-level wiring, and public runtime/lifecycle coordination while preserving existing operational APIs such as channel switching, setup flows, and Plex-facing orchestration.
 
 ## Expected Skills
 

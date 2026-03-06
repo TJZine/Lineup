@@ -13,14 +13,14 @@ The default move is extraction, not accretion.
 
 ## Use This Skill For
 
-- Changes touching [`src/App.ts`](/Users/tristan/Software/Lineup/src/App.ts) or [`src/Orchestrator.ts`](/Users/tristan/Software/Lineup/src/Orchestrator.ts)
-- Work in current hotspots like [`src/modules/ui/settings/SettingsScreen.ts`](/Users/tristan/Software/Lineup/src/modules/ui/settings/SettingsScreen.ts), [`src/modules/ui/epg/EPGComponent.ts`](/Users/tristan/Software/Lineup/src/modules/ui/epg/EPGComponent.ts), [`src/modules/ui/channel-setup/ChannelSetupScreen.ts`](/Users/tristan/Software/Lineup/src/modules/ui/channel-setup/ChannelSetupScreen.ts), [`src/modules/plex/stream/PlexStreamResolver.ts`](/Users/tristan/Software/Lineup/src/modules/plex/stream/PlexStreamResolver.ts), or [`src/modules/scheduler/channel-manager/ChannelManager.ts`](/Users/tristan/Software/Lineup/src/modules/scheduler/channel-manager/ChannelManager.ts)
+- Changes touching [`src/App.ts`](../../../src/App.ts) or [`src/Orchestrator.ts`](../../../src/Orchestrator.ts)
+- Work in current hotspots like [`src/modules/ui/settings/SettingsScreen.ts`](../../../src/modules/ui/settings/SettingsScreen.ts), [`src/modules/ui/epg/EPGComponent.ts`](../../../src/modules/ui/epg/EPGComponent.ts), [`src/modules/ui/channel-setup/ChannelSetupScreen.ts`](../../../src/modules/ui/channel-setup/ChannelSetupScreen.ts), [`src/modules/plex/stream/PlexStreamResolver.ts`](../../../src/modules/plex/stream/PlexStreamResolver.ts), or [`src/modules/scheduler/channel-manager/ChannelManager.ts`](../../../src/modules/scheduler/channel-manager/ChannelManager.ts)
 - New collaborators, controllers, binders, repositories, or stores
 - Any change that moves logic between UI, Plex, scheduler, navigation, persistence, or lifecycle modules
 
 ## Core Rules
 
-- Treat [`src/App.ts`](/Users/tristan/Software/Lineup/src/App.ts) and [`src/Orchestrator.ts`](/Users/tristan/Software/Lineup/src/Orchestrator.ts) as composition roots. They should wire modules, delegate workflows, and own top-level lifecycle only.
+- Treat [`src/App.ts`](../../../src/App.ts) and [`src/Orchestrator.ts`](../../../src/Orchestrator.ts) as composition roots. They should wire modules, delegate workflows, and own top-level lifecycle only.
 - Do not add feature logic, storage parsing, DOM assembly, or long async workflow policy back into the composition roots.
 - One workflow, one owner. If a method coordinates a distinct flow, prefer a focused collaborator with an explicit API.
 - Keep cross-module knowledge narrow. UI should not know Plex transport details. Plex code should not know DOM or focus behavior. Persistence code should not live inside screens or controllers.
@@ -38,9 +38,9 @@ The default move is extraction, not accretion.
 
 ## Required Checks
 
-- Re-read [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](/Users/tristan/Software/Lineup/ARCHITECTURE_CLEANUP_CHECKLIST.md) before architecture-affecting work.
+- Re-read [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md) before architecture-affecting work.
 - If a `P#-W#` item is completed, update the checklist in the same delivery pass.
-- Refresh [`docs/architecture/README.md`](/Users/tristan/Software/Lineup/docs/architecture/README.md) or [`docs/architecture/modules.md`](/Users/tristan/Software/Lineup/docs/architecture/modules.md) when public ownership changes.
+- Refresh [`docs/architecture/README.md`](../../../docs/architecture/README.md) or [`docs/architecture/modules.md`](../../../docs/architecture/modules.md) when public ownership changes.
 
 ## Common Mistakes
 

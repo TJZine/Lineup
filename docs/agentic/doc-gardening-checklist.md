@@ -22,6 +22,7 @@
 
 - stale plan references are updated
 - active-vs-archived plan placement is still correct
+- run `npm run plans:stale` to review active-plan archive candidates without auto-archiving them
 - stale decision index entries are removed or fixed
 - completed sections or standout archived plans are reviewed for updates to `docs/agentic/historical-plan-corpus-review.md`
 

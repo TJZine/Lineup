@@ -1,6 +1,6 @@
 # Classic EPG Performance Risk Register
 
-Linked plan: no matching implementation plan is currently checked into `docs/plans/` for this register in this clone.
+Linked implementation plan: TODO — create the tracked implementation plan for this register before starting the next `Medium` or `High` EPG change. Record the owner and target milestone here when assigned.
 
 ## Purpose
 

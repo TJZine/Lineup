@@ -13,9 +13,9 @@ For net-new visual direction or major redesigns, pair this with the global `fron
 
 ## Design Source Of Truth
 
-- [`docs/design/ui-design-language.md`](/Users/tristan/Software/Lineup/docs/design/ui-design-language.md)
-- [`src/modules/ui/common/ScreenShell.ts`](/Users/tristan/Software/Lineup/src/modules/ui/common/ScreenShell.ts)
-- [`src/modules/ui/common/OverlayPrimitives.ts`](/Users/tristan/Software/Lineup/src/modules/ui/common/OverlayPrimitives.ts)
+- [`docs/design/ui-design-language.md`](../../../docs/design/ui-design-language.md)
+- [`src/modules/ui/common/ScreenShell.ts`](../../../src/modules/ui/common/ScreenShell.ts)
+- [`src/modules/ui/common/OverlayPrimitives.ts`](../../../src/modules/ui/common/OverlayPrimitives.ts)
 
 ## Core Rules
 
@@ -31,7 +31,7 @@ For net-new visual direction or major redesigns, pair this with the global `fron
 
 - If a screen owns rendering, focus, persistence, and async loading, split at least one concern out.
 - If an overlay grows conditional DOM assembly, move view-model shaping into a coordinator or presenter.
-- If focus logic becomes stateful or reusable, extract a focus coordinator similar to [`src/modules/ui/channel-setup/focus/ChannelSetupFocusCoordinator.ts`](/Users/tristan/Software/Lineup/src/modules/ui/channel-setup/focus/ChannelSetupFocusCoordinator.ts).
+- If focus logic becomes stateful or reusable, extract a focus coordinator similar to [`src/modules/ui/channel-setup/focus/ChannelSetupFocusCoordinator.ts`](../../../src/modules/ui/channel-setup/focus/ChannelSetupFocusCoordinator.ts).
 - If styling starts diverging from the design language, update the design doc first or explicitly justify the exception.
 
 ## Verification

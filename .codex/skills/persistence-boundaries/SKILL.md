@@ -13,13 +13,13 @@ Lineup's rule is simple: one storage namespace, one owner.
 
 ## Current Storage Owners
 
-- [`src/modules/lifecycle/StateManager.ts`](/Users/tristan/Software/Lineup/src/modules/lifecycle/StateManager.ts)
-- [`src/modules/ui/settings/SettingsStore.ts`](/Users/tristan/Software/Lineup/src/modules/ui/settings/SettingsStore.ts)
-- [`src/modules/settings/AudioSettingsStore.ts`](/Users/tristan/Software/Lineup/src/modules/settings/AudioSettingsStore.ts)
-- [`src/modules/debug/DebugOverridesStore.ts`](/Users/tristan/Software/Lineup/src/modules/debug/DebugOverridesStore.ts)
-- [`src/modules/plex/discovery/ServerSelectionStore.ts`](/Users/tristan/Software/Lineup/src/modules/plex/discovery/ServerSelectionStore.ts)
-- [`src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`](/Users/tristan/Software/Lineup/src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts)
-- Shared storage helpers in [`src/utils/storage.ts`](/Users/tristan/Software/Lineup/src/utils/storage.ts)
+- [`src/modules/lifecycle/StateManager.ts`](../../../src/modules/lifecycle/StateManager.ts)
+- [`src/modules/ui/settings/SettingsStore.ts`](../../../src/modules/ui/settings/SettingsStore.ts)
+- [`src/modules/settings/AudioSettingsStore.ts`](../../../src/modules/settings/AudioSettingsStore.ts)
+- [`src/modules/debug/DebugOverridesStore.ts`](../../../src/modules/debug/DebugOverridesStore.ts)
+- [`src/modules/plex/discovery/ServerSelectionStore.ts`](../../../src/modules/plex/discovery/ServerSelectionStore.ts)
+- [`src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`](../../../src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts)
+- Shared storage helpers in [`src/utils/storage.ts`](../../../src/utils/storage.ts)
 
 ## Core Rules
 

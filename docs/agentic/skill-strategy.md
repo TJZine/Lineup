@@ -87,7 +87,7 @@ I do not recommend adding more generic UI skills yet. The better move is to keep
 Use actual copies. Do not use symlinks. Materialize the local mirror with the tracked sync script.
 
 ```bash
-bash scripts/sync_agent_skills.sh
+scripts/sync_agent_skills.sh
 ```
 
 ## Future Recommendations

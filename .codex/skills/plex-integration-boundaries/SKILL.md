@@ -13,12 +13,12 @@ The main anti-pattern is mixing URL construction, auth handling, transport polic
 
 ## Relevant Modules
 
-- [`src/modules/plex/auth/PlexAuth.ts`](/Users/tristan/Software/Lineup/src/modules/plex/auth/PlexAuth.ts)
-- [`src/modules/plex/discovery/PlexServerDiscovery.ts`](/Users/tristan/Software/Lineup/src/modules/plex/discovery/PlexServerDiscovery.ts)
-- [`src/modules/plex/discovery/ServerSelectionStore.ts`](/Users/tristan/Software/Lineup/src/modules/plex/discovery/ServerSelectionStore.ts)
-- [`src/modules/plex/library/PlexLibrary.ts`](/Users/tristan/Software/Lineup/src/modules/plex/library/PlexLibrary.ts)
-- [`src/modules/plex/stream/PlexStreamResolver.ts`](/Users/tristan/Software/Lineup/src/modules/plex/stream/PlexStreamResolver.ts)
-- Contract doc: [`docs/api/plex-integration.md`](/Users/tristan/Software/Lineup/docs/api/plex-integration.md)
+- [`src/modules/plex/auth/PlexAuth.ts`](../../../src/modules/plex/auth/PlexAuth.ts)
+- [`src/modules/plex/discovery/PlexServerDiscovery.ts`](../../../src/modules/plex/discovery/PlexServerDiscovery.ts)
+- [`src/modules/plex/discovery/ServerSelectionStore.ts`](../../../src/modules/plex/discovery/ServerSelectionStore.ts)
+- [`src/modules/plex/library/PlexLibrary.ts`](../../../src/modules/plex/library/PlexLibrary.ts)
+- [`src/modules/plex/stream/PlexStreamResolver.ts`](../../../src/modules/plex/stream/PlexStreamResolver.ts)
+- Contract doc: [`docs/api/plex-integration.md`](../../../docs/api/plex-integration.md)
 
 ## Core Rules
 
@@ -33,7 +33,7 @@ The main anti-pattern is mixing URL construction, auth handling, transport polic
 
 - Run focused Plex tests for the touched module.
 - Run `npm run verify` for changes that affect playback wiring, UI behavior, subtitles, or Orchestrator integration.
-- Update [`docs/api/plex-integration.md`](/Users/tristan/Software/Lineup/docs/api/plex-integration.md) if the integration contract changes.
+- Update [`docs/api/plex-integration.md`](../../../docs/api/plex-integration.md) if the integration contract changes.
 
 ## Common Mistakes
 

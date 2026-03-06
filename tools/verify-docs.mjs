@@ -29,11 +29,14 @@ const requiredFiles = [
 ];
 
 const markdownRoots = [
+    'agents.md',
+    '.codex/skills',
     'docs/AGENTIC_DEV_WORKFLOW.md',
     'docs/agentic',
     'docs/archive/plans',
     'docs/architecture',
-    'docs/decisions/README.md',
+    'docs/decisions',
+    'docs/development',
     'docs/plans',
     'docs/runs/README.md',
     'docs/runs/_template',
@@ -56,24 +59,76 @@ const expectedEvalPromptFiles = [
 ];
 
 const localOnlyMarkdownDirs = ['docs/agentic/evals/baselines'];
+const trackedLocalOnlyAllowlist = new Set([
+    'docs/agentic/evals/baselines/README.md',
+    'docs/runs/README.md',
+    'docs/runs/_template'
+]);
+const trackedLocalOnlyPrefixAllowlist = ['docs/runs/_template/'];
 
-function collectMarkdownFiles(entry) {
+function recordFsError(errors, operation, targetPath, error) {
+    const message = error instanceof Error ? error.message : String(error);
+    errors.push(`Unable to ${operation} ${targetPath}: ${message}`);
+}
+
+function toRepoRelativePath(absolutePath) {
+    const relativePath = path.relative(repoRoot, absolutePath);
+    return relativePath.split(path.sep).join('/');
+}
+
+function isForbiddenLocalOnlyTarget(relativePath) {
+    if (trackedLocalOnlyAllowlist.has(relativePath)) {
+        return false;
+    }
+
+    if (trackedLocalOnlyPrefixAllowlist.some((prefix) => relativePath.startsWith(prefix))) {
+        return false;
+    }
+
+    return (
+        relativePath === '.agent/skills' ||
+        relativePath.startsWith('.agent/skills/') ||
+        relativePath.startsWith('docs/agentic/evals/baselines/') ||
+        relativePath === 'docs/runs' ||
+        relativePath.startsWith('docs/runs/')
+    );
+}
+
+function collectMarkdownFiles(entry, errors) {
     if (localOnlyMarkdownDirs.includes(entry)) {
         const readmeEntry = path.join(entry, 'README.md');
         return existsSync(path.join(repoRoot, readmeEntry)) ? [readmeEntry] : [];
     }
 
     const fullPath = path.join(repoRoot, entry);
-    const stats = statSync(fullPath);
+    if (!existsSync(fullPath)) {
+        return [];
+    }
+
+    let stats;
+    try {
+        stats = statSync(fullPath);
+    } catch (error) {
+        recordFsError(errors, 'stat', entry, error);
+        return [];
+    }
 
     if (stats.isFile()) {
         return entry.endsWith('.md') ? [entry] : [];
     }
 
     const results = [];
-    for (const child of readdirSync(fullPath)) {
+    let children = [];
+    try {
+        children = readdirSync(fullPath);
+    } catch (error) {
+        recordFsError(errors, 'read directory', entry, error);
+        return [];
+    }
+
+    for (const child of children) {
         const childEntry = path.join(entry, child);
-        results.push(...collectMarkdownFiles(childEntry));
+        results.push(...collectMarkdownFiles(childEntry, errors));
     }
     return results;
 }
@@ -119,13 +174,36 @@ function checkRequiredFiles(errors) {
 }
 
 function checkMarkdownLinks(errors) {
-    const files = markdownRoots.flatMap(collectMarkdownFiles);
+    const files = Array.from(new Set(markdownRoots.flatMap((entry) => collectMarkdownFiles(entry, errors))));
 
     for (const file of files) {
-        const content = readFileSync(path.join(repoRoot, file), 'utf8');
+        const fullPath = path.join(repoRoot, file);
+        if (!existsSync(fullPath)) {
+            continue;
+        }
+
+        let content;
+        try {
+            content = readFileSync(fullPath, 'utf8');
+        } catch (error) {
+            recordFsError(errors, 'read', file, error);
+            continue;
+        }
+
         for (const rawTarget of extractMarkdownLinks(content)) {
             const resolved = resolveLocalLink(file, rawTarget);
-            if (resolved !== null && !existsSync(resolved)) {
+            if (resolved === null) {
+                continue;
+            }
+
+            const relativeTarget = toRepoRelativePath(resolved);
+
+            if (isForbiddenLocalOnlyTarget(relativeTarget)) {
+                errors.push(`Tracked doc ${file} links to local-only artifact: ${rawTarget}`);
+                continue;
+            }
+
+            if (!existsSync(resolved)) {
                 errors.push(`Broken link in ${file}: ${rawTarget}`);
             }
         }
@@ -134,14 +212,43 @@ function checkMarkdownLinks(errors) {
 
 function checkDecisionIndex(errors) {
     const decisionDir = path.join(repoRoot, 'docs/decisions');
-    const actual = readdirSync(decisionDir)
+    if (!existsSync(decisionDir)) {
+        errors.push('Missing decisions directory: docs/decisions');
+        return;
+    }
+
+    let decisionEntries;
+    try {
+        decisionEntries = readdirSync(decisionDir);
+    } catch {
+        errors.push('Unreadable decisions directory: docs/decisions');
+        return;
+    }
+
+    const actual = decisionEntries
         .filter((name) => name.endsWith('.md') && name !== 'README.md')
         .sort();
 
-    const readme = readFileSync(path.join(decisionDir, 'README.md'), 'utf8');
+    const readmePath = path.join(decisionDir, 'README.md');
+    if (!existsSync(readmePath)) {
+        errors.push('Missing decision index README: docs/decisions/README.md');
+        return;
+    }
+
+    let readme;
+    try {
+        readme = readFileSync(readmePath, 'utf8');
+    } catch {
+        errors.push('Unreadable decision index README: docs/decisions/README.md');
+        return;
+    }
+
     const indexed = extractMarkdownLinks(readme)
         .map((target) => target.split('#')[0])
-        .filter((target) => target.endsWith('.md'))
+        .map((target) => resolveLocalLink('docs/decisions/README.md', target))
+        .filter((resolved) => resolved !== null)
+        .map((resolved) => toRepoRelativePath(resolved))
+        .filter((target) => target.startsWith('docs/decisions/') && target.endsWith('.md'))
         .map((target) => path.basename(target))
         .sort();
 
@@ -166,7 +273,15 @@ function checkEvalPromptInventory(errors) {
         return;
     }
 
-    const actual = readdirSync(promptDir)
+    let promptEntries;
+    try {
+        promptEntries = readdirSync(promptDir);
+    } catch {
+        errors.push('Unreadable eval prompt directory: docs/agentic/evals/prompts');
+        return;
+    }
+
+    const actual = promptEntries
         .filter((name) => name.endsWith('.md'))
         .sort();
 
