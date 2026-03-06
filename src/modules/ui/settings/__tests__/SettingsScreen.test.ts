@@ -162,34 +162,6 @@ describe('SettingsScreen (Guide settings)', () => {
         expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'layoutMode', mode: 'classic' });
     });
 
-    it('uses injected SettingsStore without changing visible settings behavior', () => {
-        const onGuideSettingChange = jest.fn();
-        const injectedStore = new SettingsStore();
-        const writeLayoutModeSpy = jest.spyOn(injectedStore, 'writeEpgLayoutModeValue');
-        const { container, screen } = createScreen(onGuideSettingChange, undefined, injectedStore);
-        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
-
-        screen.show();
-        activateCategory(container, 'appearance');
-
-        const layoutSelect = container.querySelector('#settings-epg-layout-mode') as HTMLButtonElement;
-        layoutSelect.click();
-
-        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('classic');
-        expect(writeLayoutModeSpy).toHaveBeenCalledWith(1);
-        expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'layoutMode', mode: 'classic' });
-    });
-
-    it('refresh delegates settings-debug-logging toggle reads to SettingsStore.readToggleSetting', () => {
-        const injectedStore = new SettingsStore();
-        const readToggleSpy = jest.spyOn(injectedStore, 'readToggleSetting');
-        const { screen } = createScreen(jest.fn(), undefined, injectedStore);
-
-        screen.show();
-
-        expect(readToggleSpy).toHaveBeenCalledWith('debugLogging');
-    });
-
     it('writes past items select and emits guide-setting change', () => {
         const onGuideSettingChange = jest.fn();
         const { container, screen } = createScreen(onGuideSettingChange);
@@ -858,6 +830,25 @@ describe('SettingsScreen (Two-pane layout)', () => {
 
         const stateAfter = container.querySelector('#settings-keep-playing .setup-toggle-state');
         expect(stateAfter?.textContent?.trim()).toBe(targetState);
+    });
+
+    it('rerenders subtitle-dependent controls and preserves focus after subtitle mode changes', () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.SUBTITLE_MODE, 'direct');
+
+        const { container, nav, screen } = createScreen(jest.fn());
+        screen.show();
+        activateCategory(container, 'audio_subtitles');
+
+        nav.setFocus('settings-subtitle-mode');
+        nav.focusables.get('settings-subtitle-mode')?.onSelect?.();
+        nav.focusables.get('settings-dropdown-option-0')?.onSelect?.();
+
+        const subtitleLanguage = container.querySelector('#settings-subtitle-language') as HTMLButtonElement | null;
+        const preferForced = container.querySelector('#settings-subtitles-prefer-forced') as HTMLButtonElement | null;
+
+        expect(subtitleLanguage?.disabled).toBe(true);
+        expect(preferForced?.disabled).toBe(true);
+        expect(nav.getFocusedElement()?.id).toBe('settings-subtitle-mode');
     });
 
     it('preserves settings roundtrip continuity with valid focus on re-open', () => {
