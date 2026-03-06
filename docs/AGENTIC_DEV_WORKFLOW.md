@@ -117,9 +117,13 @@ Use a fenced text block with this shape:
 ```text
 NEXT_SESSION_HANDOFF
 NEXT_PROMPT: <prompt name or "normal repo workflow">
+TASK: <task id and short title>
 TASK_FAMILY: <cleanup/refactor|feature/design|mixed>
 TIER: <Tier 1|Tier 2|Tier 3>
-ARTIFACT: <plan path, diff, or reviewed artifact>
+PLAN: <plan path or "none">
+ARTIFACT: <reviewed artifact or diff target>
+FILES:
+- <key file or artifact path>
 BLOCKERS: <none or short blocker summary>
 MESSAGE:
 <pasteable next-session message>
@@ -132,6 +136,7 @@ Rules:
 - if no further session is needed, say so explicitly instead of emitting a fake handoff
 - keep the handoff block short enough to paste directly into the next fresh session
 - do not require users to reconstruct the next prompt/message from prose paragraphs
+- keep `TASK`, `PLAN`, and `FILES` concrete enough that the next fresh session can start without extra reconstruction
 
 ## Quality Loop
 

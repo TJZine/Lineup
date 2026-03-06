@@ -36,9 +36,15 @@ When reviewing a feature/design plan, require evidence of:
 
 - clear requirements and non-goals
 - clear design direction and constraints
+- correct task routing and orchestration tier for the actual work
 - correct `brainstorming` usage before implementation hardening
 - correct `frontend-design` usage and repo design-doc references when UI creation/redesign applies
 - explicit scope boundaries, verification commands, and stop conditions
+- no hidden architecture seams, ownership seams, or adjacent contract changes left for the implementer to invent
+- full Codanna evidence trail plus explicit fallback logging when used
+- preservation contracts for likely UX/runtime regression areas
+- implementation feasibility without temporary adapters, dual ownership, or silent hotspot growth
+- likely bug, UX regression, and boundary-failure vectors accounted for by the plan
 
 ## Implementation Review Criteria
 
@@ -63,3 +69,7 @@ When reviewing a feature/design implementation, focus on:
   - when reviewing a plan with no material findings: route to `normal repo workflow` for implementation using the approved plan
   - when reviewing an implementation with material findings: route to `normal repo workflow` for implementation fixes
   - when reviewing an implementation with no material findings: no handoff block is required if closeout is complete
+- for plan review, treat “implementation-ready” as meaning:
+  - no hidden product/design or architecture decisions remain
+  - the implementation path is feasible without inventing missing UI or boundary structure mid-task
+  - likely UX, a11y, boundary, and verification failures are already addressed in the plan

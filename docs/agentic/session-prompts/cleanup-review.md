@@ -19,12 +19,21 @@ Use this prompt for adversarial review of a cleanup artifact from any orchestrat
 If reviewing a plan, focus on:
 
 - freshness for a no-context session
+- wrong task routing or wrong orchestration tier for the actual work
 - missing scope boundaries
+- contradictory scope boundaries, especially around adjacent contract/type files
+- unresolved architecture seams or ownership seams hidden inside task steps
 - missing Codanna discovery or impact gate
+- incomplete Codanna evidence trail or missing explicit fallback logging
 - verification gaps
 - rollback gaps
+- missing preservation contracts for risky UI/runtime behavior
+- wrong repo-preferred owner or likely hotspot growth
+- likely temporary adapters, dual ownership, or responsibility bleed implied by the plan
+- code-feasibility issues that would force the implementer to invent API/contract changes mid-task
 - hidden design decisions disguised as implementation steps
 - stale paths, stale repo names, or local-only dependencies
+- likely bug or regression vectors suggested by the proposed implementation path
 
 If reviewing an implementation, focus on:
 
@@ -47,3 +56,7 @@ If reviewing an implementation, focus on:
   - when reviewing a plan with no material findings: route to `lineup-cleanup-implement`
   - when reviewing an implementation with material findings: route back to `lineup-cleanup-implement`
   - when reviewing an implementation with no material findings: no handoff block is required if closeout is complete
+- for plan review, treat “implementation-ready” as meaning:
+  - no hidden architecture or scope decisions remain
+  - the execution path is feasible without inventing code structure on the fly
+  - the likely bug/regression vectors are accounted for by scope, invariants, and verification

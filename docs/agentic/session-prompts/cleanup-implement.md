@@ -44,4 +44,9 @@ Return:
 2. what verification actually ran
 3. any remaining risks or follow-up items
 4. whether the checklist item or plan status should be updated
-5. a `NEXT_SESSION_HANDOFF` block that routes to `lineup-cleanup-review` with a pasteable implementation-review request unless the task is fully blocked before code changes
+5. a `NEXT_SESSION_HANDOFF` block that routes to `lineup-cleanup-review` and includes:
+   - `TASK`
+   - `PLAN`
+   - `ARTIFACT`
+   - `FILES`
+   - a pasteable implementation-review request unless the task is fully blocked before code changes

@@ -71,4 +71,9 @@ Return:
 4. exact verification commands
 5. open risks/unknowns that must be resolved before implementation
 6. the result of the planner self-check if anything had to be resolved before the plan became execution-safe
-7. a `NEXT_SESSION_HANDOFF` block that routes to `lineup-feature-review` with a pasteable review request for the finished plan
+7. a `NEXT_SESSION_HANDOFF` block that routes to `lineup-feature-review` and includes:
+   - `TASK`
+   - `PLAN`
+   - `ARTIFACT`
+   - `FILES`
+   - a pasteable review request for the finished plan
