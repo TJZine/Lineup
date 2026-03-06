@@ -18,6 +18,7 @@ import type {
 import { SettingsStore } from './SettingsStore';
 import type { SubtitleMode } from '../../../shared/subtitle-mode';
 import { SettingsScreenStateController } from './SettingsScreenStateController';
+import { syncFocusableRegistry } from '../common/focus/syncFocusableRegistry';
 
 /**
  * Settings screen component.
@@ -535,7 +536,7 @@ export class SettingsScreen {
         const detailIds = this._activeCategoryItemIds.filter((id) => this._isFocusableEnabled(id));
         const switchProfileId = this._switchProfileButton?.id;
 
-        const focusableIds = [
+        const candidateFocusableIds = [
             ...categoryIds,
             ...detailIds,
             ...(switchProfileId ? [switchProfileId] : []),
@@ -543,14 +544,14 @@ export class SettingsScreen {
             const element = this._getFocusableElement(id);
             return Boolean(element) && this._isFocusableEnabled(id);
         });
-        this._focusableIds = focusableIds;
 
         const currentFocusId = nav.getFocusedElement()?.id ?? null;
         const activeCategoryId = this._activeCategoryId;
         const activeCategoryButtonId = activeCategoryId ? this._getCategoryButtonId(activeCategoryId) : undefined;
         const lastDetailId = detailIds.length > 0 ? detailIds[detailIds.length - 1] : undefined;
 
-        for (const id of focusableIds) {
+        const entries: FocusableElement[] = [];
+        for (const id of candidateFocusableIds) {
             const element = this._getFocusableElement(id);
             if (!element) continue;
 
@@ -624,8 +625,10 @@ export class SettingsScreen {
             if (onSelect) {
                 focusable.onSelect = onSelect;
             }
-            nav.registerFocusable(focusable);
+            entries.push(focusable);
         }
+        this._focusableIds = syncFocusableRegistry(nav, this._focusableIds, entries);
+        const focusableIds = this._focusableIds;
 
         // If focus currently points at a different category button than the active one, do not preserve it.
         // Preserving it would immediately trigger that button's onFocus handler and revert the active category swap.
@@ -654,10 +657,7 @@ export class SettingsScreen {
         const nav = this._getNavigation();
         if (!nav) return;
 
-        for (const id of this._focusableIds) {
-            nav.unregisterFocusable(id);
-        }
-        this._focusableIds = [];
+        this._focusableIds = syncFocusableRegistry(nav, this._focusableIds, []);
     }
 
     private _isFocusableEnabled(id: string): boolean {
