@@ -29,6 +29,8 @@ const requiredFiles = [
 ];
 
 const markdownRoots = [
+    'agents.md',
+    '.codex/skills',
     'docs/AGENTIC_DEV_WORKFLOW.md',
     'docs/agentic',
     'docs/archive/plans',
@@ -64,14 +66,30 @@ function collectMarkdownFiles(entry) {
     }
 
     const fullPath = path.join(repoRoot, entry);
-    const stats = statSync(fullPath);
+    if (!existsSync(fullPath)) {
+        return [];
+    }
+
+    let stats;
+    try {
+        stats = statSync(fullPath);
+    } catch {
+        return [];
+    }
 
     if (stats.isFile()) {
         return entry.endsWith('.md') ? [entry] : [];
     }
 
     const results = [];
-    for (const child of readdirSync(fullPath)) {
+    let children = [];
+    try {
+        children = readdirSync(fullPath);
+    } catch {
+        return [];
+    }
+
+    for (const child of children) {
         const childEntry = path.join(entry, child);
         results.push(...collectMarkdownFiles(childEntry));
     }
@@ -122,7 +140,18 @@ function checkMarkdownLinks(errors) {
     const files = markdownRoots.flatMap(collectMarkdownFiles);
 
     for (const file of files) {
-        const content = readFileSync(path.join(repoRoot, file), 'utf8');
+        const fullPath = path.join(repoRoot, file);
+        if (!existsSync(fullPath)) {
+            continue;
+        }
+
+        let content;
+        try {
+            content = readFileSync(fullPath, 'utf8');
+        } catch {
+            continue;
+        }
+
         for (const rawTarget of extractMarkdownLinks(content)) {
             const resolved = resolveLocalLink(file, rawTarget);
             if (resolved !== null && !existsSync(resolved)) {
@@ -134,11 +163,37 @@ function checkMarkdownLinks(errors) {
 
 function checkDecisionIndex(errors) {
     const decisionDir = path.join(repoRoot, 'docs/decisions');
-    const actual = readdirSync(decisionDir)
+    if (!existsSync(decisionDir)) {
+        errors.push('Missing decisions directory: docs/decisions');
+        return;
+    }
+
+    let decisionEntries;
+    try {
+        decisionEntries = readdirSync(decisionDir);
+    } catch {
+        errors.push('Unreadable decisions directory: docs/decisions');
+        return;
+    }
+
+    const actual = decisionEntries
         .filter((name) => name.endsWith('.md') && name !== 'README.md')
         .sort();
 
-    const readme = readFileSync(path.join(decisionDir, 'README.md'), 'utf8');
+    const readmePath = path.join(decisionDir, 'README.md');
+    if (!existsSync(readmePath)) {
+        errors.push('Missing decision index README: docs/decisions/README.md');
+        return;
+    }
+
+    let readme;
+    try {
+        readme = readFileSync(readmePath, 'utf8');
+    } catch {
+        errors.push('Unreadable decision index README: docs/decisions/README.md');
+        return;
+    }
+
     const indexed = extractMarkdownLinks(readme)
         .map((target) => target.split('#')[0])
         .filter((target) => target.endsWith('.md'))
@@ -166,7 +221,15 @@ function checkEvalPromptInventory(errors) {
         return;
     }
 
-    const actual = readdirSync(promptDir)
+    let promptEntries;
+    try {
+        promptEntries = readdirSync(promptDir);
+    } catch {
+        errors.push('Unreadable eval prompt directory: docs/agentic/evals/prompts');
+        return;
+    }
+
+    const actual = promptEntries
         .filter((name) => name.endsWith('.md'))
         .sort();
 
