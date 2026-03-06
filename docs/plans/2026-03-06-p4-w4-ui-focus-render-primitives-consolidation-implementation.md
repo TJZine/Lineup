@@ -71,7 +71,7 @@ This plan advances **Priority 4 (Decompose The Largest UI Classes)** by turning 
     - `src/modules/ui/settings/SettingsScreen.ts` (`_registerFocusables`, `_unregisterFocusables`, current-focus suppression during category swaps)
     - `src/modules/ui/channel-setup/focus/ChannelSetupFocusCoordinator.ts`
     - `src/modules/ui/channel-setup/ChannelSetupScreen.ts` (`_renderCappedWarnings`, `_registerFocusables`)
-    - `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts`
+    - `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`
     - `src/modules/ui/common/ScreenShell.ts`, `src/modules/ui/common/OverlayPrimitives.ts`
   - `rg` also confirmed similar register/unregister duplication still exists in `audio-setup`, `playback-options`, and `profile-select`; this plan freezes those callers out-of-scope rather than pretending they do not exist.
 
@@ -103,7 +103,6 @@ This plan advances **Priority 4 (Decompose The Largest UI Classes)** by turning 
   - `src/modules/ui/settings/__tests__/SettingsScreen.test.ts`
   - `src/modules/ui/channel-setup/focus/__tests__/ChannelSetupFocusCoordinator.test.ts`
   - `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`
-  - `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts`
   - Add focused helper tests:
     - `src/modules/ui/common/__tests__/syncFocusableRegistry.test.ts`
     - `src/modules/ui/common/__tests__/renderCappedWarnings.test.ts`
@@ -141,7 +140,6 @@ This plan advances **Priority 4 (Decompose The Largest UI Classes)** by turning 
 - Modify: `src/modules/ui/settings/__tests__/SettingsScreen.test.ts`
 - Modify: `src/modules/ui/channel-setup/focus/__tests__/ChannelSetupFocusCoordinator.test.ts`
 - Modify: `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`
-- Modify: `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts`
 
 **Step 1:** Add/confirm settings regressions around focus retention and stale-category suppression.
 
@@ -150,7 +148,7 @@ expect(nav.setFocus).toHaveBeenCalledWith('settings-subtitle-mode');
 expect(nav.setFocus).not.toHaveBeenCalledWith('settings-category-appearance');
 ```
 
-**Step 2:** Add/confirm channel-setup focus-order and Step 2 transfer assertions, including contract-level ID coverage.
+**Step 2:** Add/confirm channel-setup focus-order and Step 2 transfer assertions, including Step 2 ID coverage.
 
 ```ts
 expect(nav.focusables.get('setup-category-priority-order')?.neighbors.down).toBe('setup-strategy-collections');
@@ -169,7 +167,7 @@ expect(container.textContent).toContain('And 1 more warning…');
 
 Run:
 ```bash
-npm test -- src/modules/ui/settings/__tests__/SettingsScreen.test.ts src/modules/ui/channel-setup/focus/__tests__/ChannelSetupFocusCoordinator.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts
+npm test -- src/modules/ui/settings/__tests__/SettingsScreen.test.ts src/modules/ui/channel-setup/focus/__tests__/ChannelSetupFocusCoordinator.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts
 ```
 
 Expected: PASS; baseline confirms no existing regressions before refactor.
@@ -177,7 +175,7 @@ Expected: PASS; baseline confirms no existing regressions before refactor.
 **Step 5:** Commit checkpoint.
 
 ```bash
-git add src/modules/ui/settings/__tests__/SettingsScreen.test.ts src/modules/ui/channel-setup/focus/__tests__/ChannelSetupFocusCoordinator.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts
+git add src/modules/ui/settings/__tests__/SettingsScreen.test.ts src/modules/ui/channel-setup/focus/__tests__/ChannelSetupFocusCoordinator.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts
 git commit -m "test: lock p4-w4 focus and warning baseline"
 ```
 
@@ -233,10 +231,10 @@ git commit -m "refactor: add shared focus registry helper"
 
 Run:
 ```bash
-npm test -- src/modules/ui/channel-setup/focus/__tests__/ChannelSetupFocusCoordinator.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts
+npm test -- src/modules/ui/channel-setup/focus/__tests__/ChannelSetupFocusCoordinator.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts
 ```
 
-Expected: PASS with unchanged neighbor/focus behavior, Step 2 transfer behavior, and contract-level DOM/focus parity.
+Expected: PASS with unchanged neighbor/focus behavior and Step 2 transfer behavior.
 
 **Step 4:** Commit checkpoint.
 
@@ -277,7 +275,6 @@ git commit -m "refactor: reuse shared focus helper in settings screen"
 - Create: `src/modules/ui/common/render/renderCappedWarnings.ts`
 - Modify: `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
 - Modify: `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`
-- Modify: `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts` (only if parity assertions need to expand)
 - Add tests: `src/modules/ui/common/__tests__/renderCappedWarnings.test.ts`
 
 **Step 1:** Move warning-list row generation to a shared helper with explicit `maxItems` and `itemClassName` options.
@@ -299,7 +296,7 @@ renderCappedWarnings({
 
 Run:
 ```bash
-npm test -- src/modules/ui/common/__tests__/renderCappedWarnings.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts
+npm test -- src/modules/ui/common/__tests__/renderCappedWarnings.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts
 ```
 
 Expected: PASS.
@@ -307,7 +304,7 @@ Expected: PASS.
 **Step 5:** Commit checkpoint.
 
 ```bash
-git add src/modules/ui/common/render/renderCappedWarnings.ts src/modules/ui/common/__tests__/renderCappedWarnings.test.ts src/modules/ui/channel-setup/ChannelSetupScreen.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts
+git add src/modules/ui/common/render/renderCappedWarnings.ts src/modules/ui/common/__tests__/renderCappedWarnings.test.ts src/modules/ui/channel-setup/ChannelSetupScreen.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts
 git commit -m "refactor: extract shared capped-warning render helper"
 ```
 
@@ -344,7 +341,7 @@ git commit -m "docs: close p4-w4 after shared ui helper consolidation"
 
 1. `npm test -- src/modules/ui/settings/__tests__/SettingsScreen.test.ts src/modules/ui/channel-setup/focus/__tests__/ChannelSetupFocusCoordinator.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`
    - Expected: PASS.
-2. `npm test -- src/modules/ui/settings/__tests__/SettingsScreen.test.ts src/modules/ui/channel-setup/focus/__tests__/ChannelSetupFocusCoordinator.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts`
+2. `npm test -- src/modules/ui/settings/__tests__/SettingsScreen.test.ts src/modules/ui/channel-setup/focus/__tests__/ChannelSetupFocusCoordinator.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`
    - Expected: PASS.
 3. `npm test -- src/modules/ui/common/__tests__/syncFocusableRegistry.test.ts src/modules/ui/common/__tests__/renderCappedWarnings.test.ts`
    - Expected: PASS.
@@ -354,7 +351,7 @@ git commit -m "docs: close p4-w4 after shared ui helper consolidation"
 ## Commit Checkpoints
 
 1. `test: lock p4-w4 focus and warning baseline`
-   - `git add src/modules/ui/settings/__tests__/SettingsScreen.test.ts src/modules/ui/channel-setup/focus/__tests__/ChannelSetupFocusCoordinator.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts`
+   - `git add src/modules/ui/settings/__tests__/SettingsScreen.test.ts src/modules/ui/channel-setup/focus/__tests__/ChannelSetupFocusCoordinator.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`
 2. `refactor: add shared focus registry helper`
    - `git add src/modules/ui/common/focus/syncFocusableRegistry.ts src/modules/ui/common/__tests__/syncFocusableRegistry.test.ts`
 3. `refactor: route channel setup focus registration through shared helper`
@@ -362,7 +359,7 @@ git commit -m "docs: close p4-w4 after shared ui helper consolidation"
 4. `refactor: reuse shared focus helper in settings screen`
    - `git add src/modules/ui/settings/SettingsScreen.ts src/modules/ui/settings/__tests__/SettingsScreen.test.ts`
 5. `refactor: extract shared capped-warning render helper`
-   - `git add src/modules/ui/common/render/renderCappedWarnings.ts src/modules/ui/common/__tests__/renderCappedWarnings.test.ts src/modules/ui/channel-setup/ChannelSetupScreen.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts`
+   - `git add src/modules/ui/common/render/renderCappedWarnings.ts src/modules/ui/common/__tests__/renderCappedWarnings.test.ts src/modules/ui/channel-setup/ChannelSetupScreen.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`
 6. `docs: close p4-w4 after shared ui helper consolidation`
    - `git add ARCHITECTURE_CLEANUP_CHECKLIST.md docs/architecture/modules.md`
 
@@ -378,14 +375,14 @@ git commit -m "docs: close p4-w4 after shared ui helper consolidation"
 
 - `registerFocusable` patterns are duplicated outside this work unit (audio setup, playback options, profile select). This plan intentionally freezes them out-of-scope; ensure reviewers enforce this scope boundary.
 - Channel setup Step 2 has dense focus wiring; stale-focus regressions are possible if helper call order changes.
-- `ChannelSetupScreen.contracts.test.ts` is part of the safety net for DOM/focus parity even if no production code in that file changes; do not skip it as "just an extra test file."
+- `ChannelSetupScreen.contracts.test.ts` is currently excluded by Jest config (`testPathIgnorePatterns`). Keep parity assertions in executable `*.test.ts` coverage unless/until that config changes.
 - Existing Codanna index output includes some duplicate/stale path entries; rely on direct test-backed validation before merge.
 
 ## Planner Self-Check Result
 
 1. Unresolved seam? **No.** The seam is explicit: the shared focus helper handles registry bookkeeping only; each caller retains its own focus-target policy.
 2. Adjacent contract changes needed out-of-scope? **No.** Navigation contracts remain unchanged.
-3. Any out-of-scope file implicitly required? **No.** Non-P4 screens stay frozen, and `ChannelSetupScreen.contracts.test.ts` is now explicitly part of the verification surface.
+3. Any out-of-scope file implicitly required? **No.** Non-P4 screens stay frozen, and executable verification remains in in-scope `*.test.ts` surfaces.
 4. Full Codanna evidence path + fallback documented? **Yes.** Included above.
 5. Growing a hotspot? **No.** This reduces duplicate helper mechanics in two Priority 4 hotspot areas.
 6. Fresh session must invent critical decisions? **No.** The helper boundaries, freshness gate, files, and verification surface are explicit.
