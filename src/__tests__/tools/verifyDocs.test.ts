@@ -145,4 +145,23 @@ describe('verify-docs', () => {
         expect(result.stderr).toContain('read');
         expect(result.stderr).toContain('docs/AGENTIC_DEV_WORKFLOW.md');
     });
+
+    it('ignores non-decision markdown links in the decisions index', () => {
+        const repoRoot = createRepoFixture({
+            'docs/decisions/README.md': [
+                '# Decisions',
+                '',
+                '- [Real decision](./2026-03-06-real-decision.md)',
+                '- [Plans README](../plans/README.md)',
+                '',
+            ].join('\n'),
+            'docs/decisions/2026-03-06-real-decision.md': '# Real decision\n',
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('Documentation verification passed.');
+    });
 });

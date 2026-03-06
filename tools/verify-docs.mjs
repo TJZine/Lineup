@@ -245,7 +245,10 @@ function checkDecisionIndex(errors) {
 
     const indexed = extractMarkdownLinks(readme)
         .map((target) => target.split('#')[0])
-        .filter((target) => target.endsWith('.md'))
+        .map((target) => resolveLocalLink('docs/decisions/README.md', target))
+        .filter((resolved) => resolved !== null)
+        .map((resolved) => toRepoRelativePath(resolved))
+        .filter((target) => target.startsWith('docs/decisions/') && target.endsWith('.md'))
         .map((target) => path.basename(target))
         .sort();
 

@@ -8,8 +8,24 @@ codex_repo_skills="${repo_root}/.codex/skills"
 codex_home="${CODEX_HOME:-$HOME/.codex}"
 superpowers_dir="${codex_home}/superpowers/skills"
 global_skills_dir="${codex_home}/skills"
+lock_dir="${agent_parent_dir}/.skills.lock"
 tmp_dir=""
 backup_dir=""
+lock_held=0
+
+release_lock() {
+  if [[ "${lock_held}" -eq 1 && -d "${lock_dir}" ]]; then
+    rmdir "${lock_dir}"
+    lock_held=0
+  fi
+}
+
+acquire_lock() {
+  while ! mkdir "${lock_dir}" 2>/dev/null; do
+    sleep 0.1
+  done
+  lock_held=1
+}
 
 cleanup() {
   if [[ -n "${tmp_dir}" && -d "${tmp_dir}" ]]; then
@@ -20,6 +36,8 @@ cleanup() {
     mv "${backup_dir}" "${agent_dir}"
     backup_dir=""
   fi
+
+  release_lock
 }
 
 trap cleanup EXIT
@@ -43,6 +61,8 @@ if [[ -d "${codex_repo_skills}" ]]; then
   rsync -a "${codex_repo_skills}/" "${tmp_dir}/"
 fi
 
+acquire_lock
+
 if [[ -e "${agent_dir}" ]]; then
   backup_dir="${agent_parent_dir}/skills.backup.$$"
   mv "${agent_dir}" "${backup_dir}"
@@ -50,6 +70,7 @@ fi
 
 mv "${tmp_dir}" "${agent_dir}"
 tmp_dir=""
+release_lock
 
 if [[ -n "${backup_dir}" && -d "${backup_dir}" ]]; then
   rm -rf "${backup_dir}"

@@ -32,7 +32,7 @@
         "typecheck": "tsc --noEmit",
         "verify:docs": "node tools/verify-docs.mjs",
         "plans:stale": "node tools/report-stale-plans.mjs",
-        "verify": "npm run typecheck && npm run lint && npm run lint:css && npm run test:all && npm run build",
+        "verify": "npm run typecheck && npm run lint && npm run lint:css && npm run test:all && npm run verify:docs && npm run build",
         "verify:quick": "npm run typecheck && npm run test:all",
         "package:webos": "npm run build:lean && ares-package dist/"
     },

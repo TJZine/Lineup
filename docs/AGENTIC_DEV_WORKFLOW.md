@@ -35,7 +35,7 @@ This is the operating runbook for agent-driven development in Lineup.
    - Plex contract: [`docs/api/plex-integration.md`](./api/plex-integration.md)
 4. Plan explicitly before multi-step work.
    - keep the authoritative plan in `update_plan`
-   - write or refresh `docs/plans/*` when the task needs tracked durable task memory
+   - write or refresh `docs/plans/*` when a task requires durable, tracked task memory
    - for serious tracked plans, follow [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md)
    - move completed or superseded tracked plans to `docs/archive/plans/` once they stop being the active handoff surface
    - use `docs/runs/` for local-only major-task execution bundles and run logs
