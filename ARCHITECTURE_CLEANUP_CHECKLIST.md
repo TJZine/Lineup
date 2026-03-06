@@ -209,7 +209,7 @@ Other review signals:
   - [ ] Re-test the affected navigation flow after each extraction
 - Primary work units:
   - [x] P4-W1 - Split `SettingsScreen` into storage/state ownership vs view/focus ownership (done 2026-03-05; plan: docs/archive/plans/2026-03-05-p4-w1-settings-screen-state-view-focus-split-implementation.md)
-  - [ ] P4-W2 - Split one bounded concern out of `EPGComponent` (recommended: navigation or info-panel orchestration)
+  - [x] P4-W2 - Split one bounded concern out of `EPGComponent` (recommended: navigation or info-panel orchestration) (done 2026-03-06; plan: docs/plans/2026-03-06-p4-w2-epg-info-panel-orchestration-split-implementation.md)
   - [ ] P4-W3 - Split one bounded concern out of `ChannelSetupScreen` (recommended: step orchestration vs view rendering)
   - [ ] P4-W4 - Consolidate repeated focus/render helpers into reusable UI primitives only after the first three extractions are stable
   - [ ] P4-W5 - Cleanup pass for Priority 4: remove placeholder view glue, dead DOM refs, temporary focus bridges, and transitional UI conditionals introduced during the screen splits
