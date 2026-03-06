@@ -42,6 +42,17 @@ Build and refresh eval prompts from:
 6. Score the run with [`rubric.md`](./rubric.md) and [`scorecard-template.md`](./scorecard-template.md).
 7. Keep raw baseline artifacts local-only unless they are intentionally promoted later.
 
+For the first manual baseline, run only these prompts in this order:
+
+1. `01-app-container-extraction-no-ui-drift`
+2. `03-overlay-toast-extraction-no-timer-leaks`
+3. `04-diagnostics-surface-isolation-no-storage-slop`
+4. `07-settings-storage-boundary`
+5. `11-plex-subtitle-policy`
+6. `12-architecture-doc-refresh`
+
+Do not run all 12 prompts in the first baseline.
+
 ## Scoring Model
 
 Use the rubric outcomes only:
@@ -67,3 +78,11 @@ Local-only by default:
 - temporary comparison notes
 
 Promote only short durable summaries when recurring failures justify a tracked workflow change.
+
+Manual baseline protocol:
+
+- use a fresh session per prompt
+- start from repo root each time
+- do not reuse prompt threads
+- store raw result artifacts locally under `docs/agentic/evals/baselines/`
+- do not commit raw baseline files
