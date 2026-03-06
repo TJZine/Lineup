@@ -1,6 +1,6 @@
 # P4-W1 SettingsScreen State/View-Focus Split Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution note:** Follow the current repo workflow and execute this plan task-by-task.
 
 **Goal:** Split `SettingsScreen` so a new `SettingsScreenStateController` owns settings-derived state, persistence reads/writes, and side effects, while `SettingsScreen` keeps only DOM rendering, dropdown lifecycle, pane transitions, and D-pad focus/navigation.
 

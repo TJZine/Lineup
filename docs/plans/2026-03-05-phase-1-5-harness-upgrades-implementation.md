@@ -35,29 +35,45 @@ Assume the session starts with no context.
 
 ### Required reading order before any edits
 
+Critical:
+
 1. `agents.md`
 2. `docs/agentic/document-map.md`
 3. `docs/AGENTIC_DEV_WORKFLOW.md`
-4. `docs/agentic/codanna-playbook.md`
-5. `docs/agentic/skill-strategy.md`
-6. `docs/agentic/historical-plan-corpus-review.md`
-7. `docs/architecture/CURRENT_STATE.md`
-8. `ARCHITECTURE_CLEANUP_CHECKLIST.md`
-9. `docs/agentic/evals-roadmap.md`
-10. `docs/agentic/phase-2-steady-state-plan.md`
-11. `docs/plans/README.md`
-12. `docs/archive/plans/README.md`
-13. `docs/runs/README.md`
-14. `docs/development/testing.md`
+4. `docs/architecture/CURRENT_STATE.md`
+
+Rationale: these define stable policy, document precedence, the operating loop, and the current architecture truth for this task.
+
+Recommended:
+
+1. `docs/agentic/codanna-playbook.md`
+2. `docs/agentic/skill-strategy.md`
+3. `docs/agentic/historical-plan-corpus-review.md`
+4. `ARCHITECTURE_CLEANUP_CHECKLIST.md`
+5. `docs/agentic/evals-roadmap.md`
+6. `docs/agentic/phase-2-steady-state-plan.md`
+
+Rationale: these calibrate discovery behavior, skill topology, historical plan quality, active cleanup context, and the eval/steady-state surfaces this plan extends.
+
+Reference:
+
+1. `docs/plans/README.md`
+2. `docs/archive/plans/README.md`
+3. `docs/runs/README.md`
+4. `docs/development/testing.md`
+
+Rationale: these are supporting conventions for tracked plans, archived plans, local run artifacts, and verification posture.
 
 ### Required shell checks before any edits
+
+Run these checks before deep-reading the Reference group so bootstrap failures are caught early.
 
 Run:
 
 ```bash
 git status --short
 npm run verify:docs
-test -d .agent/skills || bash scripts/sync_agent_skills.sh
+test -d .agent/skills || scripts/sync_agent_skills.sh
 find .codex/skills .agent/skills -maxdepth 2 -name SKILL.md | sort
 ```
 

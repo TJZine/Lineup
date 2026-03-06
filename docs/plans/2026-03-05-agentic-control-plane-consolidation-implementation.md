@@ -1,6 +1,6 @@
 # Agentic Control Plane Consolidation Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution note:** Follow the current repo workflow and execute this plan task-by-task.
 
 **Goal:** Consolidate Lineup's agent workflow docs into a tighter control plane with explicit precedence, Codanna-first discovery guidance, a canonical current-architecture doc, and a documented phase-2 steady-state transition.
 
@@ -10,7 +10,7 @@
 
 ---
 
-### Task 1: Define the control-plane document map
+## Task 1: Define the control-plane document map
 
 **Files:**
 - Create: `docs/agentic/document-map.md`
@@ -33,7 +33,7 @@
 - Point `agents.md` at the new document map and Codanna playbook.
 - Keep policy concise; avoid duplicating long workflow prose in `agents.md`.
 
-### Task 2: Make Codanna a first-class documented workflow tool
+## Task 2: Make Codanna a first-class documented workflow tool
 
 **Files:**
 - Create: `docs/agentic/codanna-playbook.md`
@@ -49,7 +49,7 @@
 
 - Make Codanna references explicit in `agents.md` and the workflow doc so it remains the default evidence/discovery path.
 
-### Task 3: Establish a canonical current-architecture truth
+## Task 3: Establish a canonical current-architecture truth
 
 **Files:**
 - Create: `docs/architecture/CURRENT_STATE.md`
@@ -72,7 +72,7 @@
 - Add the new Plex boundary skill where relevant.
 - Reference the canonical current-state doc so backlog work points to the right architecture baseline.
 
-### Task 4: Add evaluation and phase-2 transition guidance
+## Task 4: Add evaluation and phase-2 transition guidance
 
 **Files:**
 - Create: `docs/agentic/evals-roadmap.md`
@@ -94,7 +94,7 @@
 
 - Update the skill strategy and testing guide so the evals and phase-2 plan are part of the documented workflow.
 
-### Task 5: Verify the resulting topology
+## Task 5: Verify the resulting topology
 
 **Files:**
 - Review only
