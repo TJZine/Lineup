@@ -69,3 +69,4 @@ Return:
 4. the exact verification commands
 5. any risks or unknowns that still need review before implementation
 6. the result of the planner self-check if anything had to be resolved before the plan became execution-safe
+7. a `NEXT_SESSION_HANDOFF` block that routes to `lineup-cleanup-review` with a pasteable review request for the finished plan

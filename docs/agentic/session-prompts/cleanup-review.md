@@ -42,3 +42,8 @@ If reviewing an implementation, focus on:
 - list open questions or assumptions after findings
 - keep summaries brief
 - if there are no material findings, say so explicitly and note any residual risk or testing gap
+- if another session is needed, end with one `NEXT_SESSION_HANDOFF` block:
+  - when reviewing a plan with material findings: route back to `lineup-cleanup-plan`
+  - when reviewing a plan with no material findings: route to `lineup-cleanup-implement`
+  - when reviewing an implementation with material findings: route back to `lineup-cleanup-implement`
+  - when reviewing an implementation with no material findings: no handoff block is required if closeout is complete

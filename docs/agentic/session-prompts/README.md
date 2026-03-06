@@ -95,4 +95,5 @@ When a run bundle exists, the reusable launcher should use it as task-specific c
 - Keep launcher prompts short enough to scan in one read.
 - Prefer explicit read order, exact deliverables, and exact stop conditions.
 - Do not create a new reusable prompt for every feature or checklist item.
+- Planner, reviewer, and implementer prompts should emit a pasteable `NEXT_SESSION_HANDOFF` block when another session is expected.
 - Update these templates when the repo workflow changes materially.

@@ -58,3 +58,8 @@ When reviewing a feature/design implementation, focus on:
 - open questions or assumptions after findings
 - brief summary only after findings
 - if no material findings exist, say so explicitly and note residual risk/testing gaps
+- if another session is needed, end with one `NEXT_SESSION_HANDOFF` block:
+  - when reviewing a plan with material findings: route back to `lineup-feature-plan`
+  - when reviewing a plan with no material findings: route to `normal repo workflow` for implementation using the approved plan
+  - when reviewing an implementation with material findings: route to `normal repo workflow` for implementation fixes
+  - when reviewing an implementation with no material findings: no handoff block is required if closeout is complete

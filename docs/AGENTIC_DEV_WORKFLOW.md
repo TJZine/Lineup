@@ -108,6 +108,31 @@ Use the reusable launchers only when the task risk justifies them. Tier 1 work s
 
 For larger multi-session or hotspot work, create a task-specific run bundle in [`docs/runs/`](./runs/README.md). Use `cleanup-loop` only for Tier 3 cleanup/refactor control; for Tier 3 feature or mixed work, use the normal workflow with `feature-plan` + implementation + `feature-review` and keep cleanup prompts scoped to the cleanup slice.
 
+## Session Handoffs
+
+Planner, reviewer, and implementer sessions should end with a pasteable next-session handoff whenever another session is expected.
+
+Use a fenced text block with this shape:
+
+```text
+NEXT_SESSION_HANDOFF
+NEXT_PROMPT: <prompt name or "normal repo workflow">
+TASK_FAMILY: <cleanup/refactor|feature/design|mixed>
+TIER: <Tier 1|Tier 2|Tier 3>
+ARTIFACT: <plan path, diff, or reviewed artifact>
+BLOCKERS: <none or short blocker summary>
+MESSAGE:
+<pasteable next-session message>
+```
+
+Rules:
+
+- prefer one exact next step, not multiple possible next prompts
+- if review findings block progress, the handoff should point back to the session type that must resolve them
+- if no further session is needed, say so explicitly instead of emitting a fake handoff
+- keep the handoff block short enough to paste directly into the next fresh session
+- do not require users to reconstruct the next prompt/message from prose paragraphs
+
 ## Quality Loop
 
 - Plan, code, verify, review.
