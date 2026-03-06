@@ -33,4 +33,4 @@ Refactor one bounded runtime workflow out of `src/Orchestrator.ts` into a focuse
 
 - adding more responsibility to `src/Orchestrator.ts`
 - extracting a collaborator that is obviously temporary or immediately disposable
-- skipping impact analysis on the hotspot
+- skipping impact analysis on the hotspot without a documented Codanna fallback

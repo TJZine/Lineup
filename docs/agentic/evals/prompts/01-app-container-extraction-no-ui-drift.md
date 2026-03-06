@@ -35,4 +35,4 @@ Extract the app-shell container creation logic out of `App` into a dedicated col
 - any visible shell drift
 - moving non-DOM policy into the collaborator
 - adding a config/schema abstraction not required by the task
-- skipping impact analysis on the shared app-shell surface
+- skipping impact analysis on the shared app-shell surface without a documented Codanna fallback

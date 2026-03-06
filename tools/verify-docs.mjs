@@ -35,7 +35,8 @@ const markdownRoots = [
     'docs/architecture',
     'docs/decisions/README.md',
     'docs/plans',
-    'docs/runs',
+    'docs/runs/README.md',
+    'docs/runs/_template',
     'ARCHITECTURE_CLEANUP_CHECKLIST.md'
 ];
 
@@ -54,7 +55,14 @@ const expectedEvalPromptFiles = [
     '12-architecture-doc-refresh.md'
 ];
 
+const localOnlyMarkdownDirs = ['docs/agentic/evals/baselines'];
+
 function collectMarkdownFiles(entry) {
+    if (localOnlyMarkdownDirs.includes(entry)) {
+        const readmeEntry = path.join(entry, 'README.md');
+        return existsSync(path.join(repoRoot, readmeEntry)) ? [readmeEntry] : [];
+    }
+
     const fullPath = path.join(repoRoot, entry);
     const stats = statSync(fullPath);
 

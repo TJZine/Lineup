@@ -153,7 +153,7 @@ docs/runs/*
 !docs/runs/README.md
 !docs/runs/_template/
 !docs/runs/_template/**
-docs/agentic/evals/baselines/*.md
+docs/agentic/evals/baselines/**
 !docs/agentic/evals/baselines/README.md
 
 # Storybook
