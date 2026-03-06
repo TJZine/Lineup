@@ -858,6 +858,26 @@ describe('EPGComponent', () => {
             expect(poster.getAttribute('src')).toContain('poster-a.jpg');
             expect(inner.textContent?.trim()).toBe('');
         });
+
+        it('timer cleared when schedules are cleared', () => {
+            const channel = createMockChannel(0);
+            epg.loadChannels([channel]);
+            epg.loadScheduleForChannel(channel.id, createDetailedSchedule(channel.id));
+            epg.setLayoutMode('overlay');
+            epg.show();
+
+            epg.focusProgram(0, 0);
+            epg.clearSchedules();
+
+            jest.advanceTimersByTime(250);
+
+            const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
+            const description = container.querySelector('.epg-info-description') as HTMLElement;
+            const inner = description.querySelector('.epg-info-description-inner') as HTMLElement;
+
+            expect(poster.getAttribute('src')).toContain('poster-a.jpg');
+            expect(inner.textContent?.trim()).toBe('');
+        });
     });
 
     describe('data loading', () => {
