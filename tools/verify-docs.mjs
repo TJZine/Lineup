@@ -38,6 +38,21 @@ const markdownRoots = [
     'ARCHITECTURE_CLEANUP_CHECKLIST.md'
 ];
 
+const expectedEvalPromptFiles = [
+    '01-app-container-extraction-no-ui-drift.md',
+    '02-lazy-screen-registry-no-dual-ownership.md',
+    '03-overlay-toast-extraction-no-timer-leaks.md',
+    '04-diagnostics-surface-isolation-no-storage-slop.md',
+    '05-app-shell-cleanup-no-behavior-regression.md',
+    '06-orchestrator-hotspot-extraction.md',
+    '07-settings-storage-boundary.md',
+    '08-server-selection-storage-boundary.md',
+    '09-channel-persistence-boundary.md',
+    '10-settings-screen-split.md',
+    '11-plex-subtitle-policy.md',
+    '12-architecture-doc-refresh.md'
+];
+
 function collectMarkdownFiles(entry) {
     const fullPath = path.join(repoRoot, entry);
     const stats = statSync(fullPath);
@@ -134,11 +149,43 @@ function checkDecisionIndex(errors) {
     }
 }
 
+function checkEvalPromptInventory(errors) {
+    const promptDir = path.join(repoRoot, 'docs/agentic/evals/prompts');
+
+    if (!existsSync(promptDir)) {
+        errors.push('Missing eval prompt directory: docs/agentic/evals/prompts');
+        return;
+    }
+
+    const actual = readdirSync(promptDir)
+        .filter((name) => name.endsWith('.md'))
+        .sort();
+
+    if (actual.length !== expectedEvalPromptFiles.length) {
+        errors.push(
+            `Eval prompt inventory mismatch: expected ${expectedEvalPromptFiles.length} markdown files, found ${actual.length}`
+        );
+    }
+
+    for (const file of expectedEvalPromptFiles) {
+        if (!actual.includes(file)) {
+            errors.push(`Missing eval prompt file docs/agentic/evals/prompts/${file}`);
+        }
+    }
+
+    for (const file of actual) {
+        if (!expectedEvalPromptFiles.includes(file)) {
+            errors.push(`Unexpected eval prompt file docs/agentic/evals/prompts/${file}`);
+        }
+    }
+}
+
 const errors = [];
 
 checkRequiredFiles(errors);
 checkMarkdownLinks(errors);
 checkDecisionIndex(errors);
+checkEvalPromptInventory(errors);
 
 if (errors.length > 0) {
     console.error('Documentation verification failed:\n');
