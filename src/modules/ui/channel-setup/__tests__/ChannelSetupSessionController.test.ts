@@ -44,7 +44,7 @@ describe('ChannelSetupSessionController', () => {
         jest.useRealTimers();
     });
 
-    it('beginSession() resets to Step 1 defaults', async () => {
+    it('beginSession() resets to Step 1 defaults', async (): Promise<void> => {
         const libraries: PlexLibraryModel[] = [makeLibrary({ id: 'movies' }), makeLibrary({ id: 'shows' })];
         const orchestrator = createOrchestrator({
             getLibrariesForSetup: jest.fn().mockResolvedValue(libraries),
@@ -53,7 +53,7 @@ describe('ChannelSetupSessionController', () => {
 
         const controller = new ChannelSetupSessionController({
             orchestrator,
-            getSelectedServerId: () => 'server-1',
+            getSelectedServerId: (): string | null => 'server-1',
         });
 
         controller.beginSession();
@@ -77,7 +77,7 @@ describe('ChannelSetupSessionController', () => {
         expect(snapshot.strategies.playlists.enabled).toBe(true);
     });
 
-    it('buildConfig() serializes strategy, expansion, ordering, and min/max settings', async () => {
+    it('buildConfig() serializes strategy, expansion, ordering, and min/max settings', async (): Promise<void> => {
         const libraries: PlexLibraryModel[] = [makeLibrary({ id: 'movies' }), makeLibrary({ id: 'shows' })];
         const orchestrator = createOrchestrator({
             getLibrariesForSetup: jest.fn().mockResolvedValue(libraries),
@@ -86,7 +86,7 @@ describe('ChannelSetupSessionController', () => {
 
         const controller = new ChannelSetupSessionController({
             orchestrator,
-            getSelectedServerId: () => 'server-1',
+            getSelectedServerId: (): string | null => 'server-1',
         });
 
         controller.beginSession();
@@ -127,11 +127,11 @@ describe('ChannelSetupSessionController', () => {
         expect(config.strategyConfig.genres?.scope).toBe('cross-library');
     });
 
-    it('defaults strategy config to enabled per-library with higher-volume min/max defaults', () => {
+    it('defaults strategy config to enabled per-library with higher-volume min/max defaults', (): void => {
         const orchestrator = createOrchestrator();
         const controller = new ChannelSetupSessionController({
             orchestrator,
-            getSelectedServerId: () => 'server-1',
+            getSelectedServerId: (): string | null => 'server-1',
         });
 
         controller.beginSession();
@@ -143,14 +143,14 @@ describe('ChannelSetupSessionController', () => {
         expect(Object.values(config.strategyConfig).every((value) => value.scope === 'per-library')).toBe(true);
     });
 
-    it('buildPreviewKey() changes when preview-relevant config changes', async () => {
+    it('buildPreviewKey() changes when preview-relevant config changes', async (): Promise<void> => {
         const libraries: PlexLibraryModel[] = [makeLibrary({ id: 'movies' })];
         const orchestrator = createOrchestrator({
             getLibrariesForSetup: jest.fn().mockResolvedValue(libraries),
         });
         const controller = new ChannelSetupSessionController({
             orchestrator,
-            getSelectedServerId: () => 'server-1',
+            getSelectedServerId: (): string | null => 'server-1',
         });
 
         controller.beginSession();
@@ -168,11 +168,11 @@ describe('ChannelSetupSessionController', () => {
         expect(afterKey).not.toBe(beforeKey);
     });
 
-    it('updateStrategyState() clones nested state before mutation', () => {
+    it('updateStrategyState() clones nested state before mutation', (): void => {
         const orchestrator = createOrchestrator();
         const controller = new ChannelSetupSessionController({
             orchestrator,
-            getSelectedServerId: () => 'server-1',
+            getSelectedServerId: (): string | null => 'server-1',
         });
 
         controller.beginSession();
@@ -194,7 +194,7 @@ describe('ChannelSetupSessionController', () => {
         expect(after.strategies.playlists.enabled).toBe(false);
     });
 
-    it('loadLibraries() applies setup record when present', async () => {
+    it('loadLibraries() applies setup record when present', async (): Promise<void> => {
         const libraries: PlexLibraryModel[] = [makeLibrary({ id: 'movies' }), makeLibrary({ id: 'shows' })];
         const record: ChannelSetupRecord = {
             serverId: 'server-1',
@@ -234,7 +234,7 @@ describe('ChannelSetupSessionController', () => {
 
         const controller = new ChannelSetupSessionController({
             orchestrator,
-            getSelectedServerId: () => 'server-1',
+            getSelectedServerId: (): string | null => 'server-1',
         });
 
         controller.beginSession();
@@ -249,13 +249,13 @@ describe('ChannelSetupSessionController', () => {
         expect(snapshot.recordApplied).toBe(true);
     });
 
-    it('loadLibraries() handles failure by clearing loading state', async () => {
+    it('loadLibraries() handles failure by clearing loading state', async (): Promise<void> => {
         const orchestrator = createOrchestrator({
             getLibrariesForSetup: jest.fn().mockRejectedValue(new Error('library load failed')),
         });
         const controller = new ChannelSetupSessionController({
             orchestrator,
-            getSelectedServerId: () => 'server-1',
+            getSelectedServerId: (): string | null => 'server-1',
         });
 
         controller.beginSession();
@@ -267,7 +267,7 @@ describe('ChannelSetupSessionController', () => {
         expect(snapshot.libraries).toEqual([]);
     });
 
-    it('syncSetupContext() preserves first-time/existing/unknown and falls back to unknown', () => {
+    it('syncSetupContext() preserves first-time/existing/unknown and falls back to unknown', (): void => {
         const getSetupContextForSelectedServer = jest
             .fn<ReturnType<ChannelSetupOrchestrator['getSetupContextForSelectedServer']>, []>()
             .mockReturnValueOnce('first-time')
@@ -277,7 +277,7 @@ describe('ChannelSetupSessionController', () => {
         const orchestrator = createOrchestrator({ getSetupContextForSelectedServer });
         const controller = new ChannelSetupSessionController({
             orchestrator,
-            getSelectedServerId: () => 'server-1',
+            getSelectedServerId: (): string | null => 'server-1',
         });
 
         controller.beginSession();
@@ -291,7 +291,7 @@ describe('ChannelSetupSessionController', () => {
         expect(controller.getSnapshot().setupContext).toBe('unknown');
     });
 
-    it('schedulePreview() debounces calls and suppresses duplicate keys', async () => {
+    it('schedulePreview() debounces calls and suppresses duplicate keys', async (): Promise<void> => {
         const getSetupPreview = jest.fn().mockResolvedValue(DEFAULT_PREVIEW);
         const orchestrator = createOrchestrator({
             getSetupPreview,
@@ -299,7 +299,7 @@ describe('ChannelSetupSessionController', () => {
         });
         const controller = new ChannelSetupSessionController({
             orchestrator,
-            getSelectedServerId: () => 'server-1',
+            getSelectedServerId: (): string | null => 'server-1',
         });
 
         controller.beginSession();
@@ -323,7 +323,7 @@ describe('ChannelSetupSessionController', () => {
         expect(getSetupPreview).toHaveBeenCalledTimes(1);
     });
 
-    it('schedulePreview() ignores stale results after session restart', async () => {
+    it('schedulePreview() ignores stale results after session restart', async (): Promise<void> => {
         let resolvePreview: ((value: typeof DEFAULT_PREVIEW) => void) | undefined;
         const getSetupPreview = jest.fn().mockImplementation(
             () => new Promise<typeof DEFAULT_PREVIEW>((resolve) => {
@@ -336,7 +336,7 @@ describe('ChannelSetupSessionController', () => {
         });
         const controller = new ChannelSetupSessionController({
             orchestrator,
-            getSelectedServerId: () => 'server-1',
+            getSelectedServerId: (): string | null => 'server-1',
         });
 
         controller.beginSession();
@@ -359,7 +359,7 @@ describe('ChannelSetupSessionController', () => {
         expect(snapshot.preview).toBeNull();
     });
 
-    it('preview deltas expire after timeout window', async () => {
+    it('preview deltas expire after timeout window', async (): Promise<void> => {
         const previews = [
             { ...DEFAULT_PREVIEW, estimates: { ...DEFAULT_PREVIEW.estimates, total: 10 } },
             { ...DEFAULT_PREVIEW, estimates: { ...DEFAULT_PREVIEW.estimates, total: 20 } },
@@ -375,7 +375,7 @@ describe('ChannelSetupSessionController', () => {
         });
         const controller = new ChannelSetupSessionController({
             orchestrator,
-            getSelectedServerId: () => 'server-1',
+            getSelectedServerId: (): string | null => 'server-1',
         });
 
         controller.beginSession();
@@ -399,7 +399,7 @@ describe('ChannelSetupSessionController', () => {
         expect(controller.getSnapshot().previewDeltas).toEqual({});
     });
 
-    it('ensureReviewLoaded() handles success, failure, and abort-like interruption', async () => {
+    it('ensureReviewLoaded() handles success, failure, and abort-like interruption', async (): Promise<void> => {
         const getSetupReview = jest
             .fn()
             .mockResolvedValueOnce(DEFAULT_REVIEW)
@@ -408,7 +408,7 @@ describe('ChannelSetupSessionController', () => {
         const orchestrator = createOrchestrator({ getSetupReview });
         const controller = new ChannelSetupSessionController({
             orchestrator,
-            getSelectedServerId: () => 'server-1',
+            getSelectedServerId: (): string | null => 'server-1',
         });
 
         controller.beginSession();
@@ -428,11 +428,11 @@ describe('ChannelSetupSessionController', () => {
         expect(controller.getSnapshot().reviewError).toBeNull();
     });
 
-    it('beginBuild() returns missing-server when no server is selected', async () => {
+    it('beginBuild() returns missing-server when no server is selected', async (): Promise<void> => {
         const orchestrator = createOrchestrator();
         const controller = new ChannelSetupSessionController({
             orchestrator,
-            getSelectedServerId: () => null,
+            getSelectedServerId: (): string | null => null,
         });
 
         controller.beginSession();
@@ -444,7 +444,7 @@ describe('ChannelSetupSessionController', () => {
         expect(outcome).toEqual<ChannelSetupBuildOutcome>({ kind: 'missing-server' });
     });
 
-    it('beginBuild() returns canceled after cancelBuild() aborts in-flight build', async () => {
+    it('beginBuild() returns canceled after cancelBuild() aborts in-flight build', async (): Promise<void> => {
         let capturedSignal: AbortSignal | undefined;
         let resolveBuild: ((result: typeof DEFAULT_BUILD_RESULT) => void) | null = null;
         const createChannelsFromSetup = jest.fn().mockImplementation(
@@ -461,7 +461,7 @@ describe('ChannelSetupSessionController', () => {
         const orchestrator = createOrchestrator({ createChannelsFromSetup });
         const controller = new ChannelSetupSessionController({
             orchestrator,
-            getSelectedServerId: () => 'server-1',
+            getSelectedServerId: (): string | null => 'server-1',
         });
 
         controller.beginSession();
@@ -476,13 +476,13 @@ describe('ChannelSetupSessionController', () => {
         expect(outcome).toEqual<ChannelSetupBuildOutcome>({ kind: 'canceled' });
     });
 
-    it('beginBuild() returns error outcome for non-abort failures', async () => {
+    it('beginBuild() returns error outcome for non-abort failures', async (): Promise<void> => {
         const orchestrator = createOrchestrator({
             createChannelsFromSetup: jest.fn().mockRejectedValue(new Error('boom')),
         });
         const controller = new ChannelSetupSessionController({
             orchestrator,
-            getSelectedServerId: () => 'server-1',
+            getSelectedServerId: (): string | null => 'server-1',
         });
 
         controller.beginSession();
@@ -494,7 +494,7 @@ describe('ChannelSetupSessionController', () => {
         expect(outcome).toEqual<ChannelSetupBuildOutcome>({ kind: 'error', message: 'boom' });
     });
 
-    it('beginBuild() returns success and marks setup complete only on success', async () => {
+    it('beginBuild() returns success and marks setup complete only on success', async (): Promise<void> => {
         const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
         const markSetupComplete = jest.fn();
         const orchestrator = createOrchestrator({
@@ -503,7 +503,7 @@ describe('ChannelSetupSessionController', () => {
         });
         const controller = new ChannelSetupSessionController({
             orchestrator,
-            getSelectedServerId: () => 'server-1',
+            getSelectedServerId: (): string | null => 'server-1',
         });
 
         controller.beginSession();
@@ -516,7 +516,7 @@ describe('ChannelSetupSessionController', () => {
         expect(markSetupComplete).toHaveBeenCalledTimes(1);
     });
 
-    it('expand-lineup style state updates are preserved in build config and setup completion', async () => {
+    it('expand-lineup style state updates are preserved in build config and setup completion', async (): Promise<void> => {
         const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
         const markSetupComplete = jest.fn();
         const orchestrator = createOrchestrator({
@@ -525,7 +525,7 @@ describe('ChannelSetupSessionController', () => {
         });
         const controller = new ChannelSetupSessionController({
             orchestrator,
-            getSelectedServerId: () => 'server-1',
+            getSelectedServerId: (): string | null => 'server-1',
         });
 
         controller.beginSession();

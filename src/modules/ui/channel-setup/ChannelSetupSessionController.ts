@@ -286,6 +286,11 @@ export class ChannelSetupSessionController {
         if (step !== 2) {
             this._cleanupStep2AsyncState();
         }
+        if (step === 3) {
+            this._isBuilding = this._setupContext === 'first-time';
+        } else {
+            this._isBuilding = false;
+        }
     }
 
     selectAllLibraries(): void {
@@ -403,7 +408,6 @@ export class ChannelSetupSessionController {
         const serverId = this._getSelectedServerId();
         if (!serverId) {
             this._previewError = 'No server selected.';
-            onStateChange();
             return;
         }
 
@@ -479,6 +483,7 @@ export class ChannelSetupSessionController {
         const token = this._sessionToken;
         const serverId = this._getSelectedServerId();
         if (!serverId) {
+            this._isBuilding = false;
             return { kind: 'missing-server' };
         }
 

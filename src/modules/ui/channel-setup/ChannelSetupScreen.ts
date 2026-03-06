@@ -169,7 +169,7 @@ export class ChannelSetupScreen {
         });
         this._session = new ChannelSetupSessionController({
             orchestrator: this._orchestrator,
-            getSelectedServerId: () => this._getSelectedServerId(),
+            getSelectedServerId: (): string | null => this._getSelectedServerId(),
         });
 
         if (!this._channelLimitOptions.includes(DEFAULT_CHANNEL_SETUP_MAX)) {
