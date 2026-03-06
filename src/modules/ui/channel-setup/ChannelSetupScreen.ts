@@ -15,6 +15,7 @@ import {
     SETUP_STRATEGY_KEYS,
 } from '../../../core/channel-setup/constants';
 import { createScreenShell } from '../common/ScreenShell';
+import { renderCappedWarnings } from '../common/render/renderCappedWarnings';
 import { ChannelSetupFocusCoordinator } from './focus/ChannelSetupFocusCoordinator';
 import { LibraryStepController } from './steps/LibraryStepController';
 import { StrategyStepController } from './steps/StrategyStepController';
@@ -984,20 +985,12 @@ export class ChannelSetupScreen {
     }
 
     private _renderCappedWarnings(warnings: string[], container: HTMLElement): void {
-        const cappedWarnings = warnings.slice(0, this._maxPreviewWarnings);
-        for (const warning of cappedWarnings) {
-            const item = document.createElement('div');
-            item.className = 'setup-preview-warning';
-            item.textContent = warning;
-            container.appendChild(item);
-        }
-        const remaining = warnings.length - cappedWarnings.length;
-        if (remaining > 0) {
-            const item = document.createElement('div');
-            item.className = 'setup-preview-warning';
-            item.textContent = `And ${remaining} more warning${remaining === 1 ? '' : 's'}…`;
-            container.appendChild(item);
-        }
+        renderCappedWarnings({
+            warnings,
+            container,
+            maxItems: this._maxPreviewWarnings,
+            itemClassName: 'setup-preview-warning',
+        });
     }
 
     private _getSelectedServerId(): string | null {
