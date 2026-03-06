@@ -654,6 +654,48 @@ describe('ChannelSetupScreen', () => {
         expect(nav.focusables.get('setup-preview-toggle')?.neighbors.down).toBe('setup-back');
     });
 
+    it('caps preview warnings with stable class output and singular/plural remainder copy', async () => {
+        jest.useFakeTimers();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const previews = [
+            { ...DEFAULT_PREVIEW, warnings: ['A', 'B', 'C', 'D', 'E', 'F', 'G'] },
+            { ...DEFAULT_PREVIEW, warnings: ['A', 'B', 'C', 'D', 'E', 'F'] },
+        ];
+        let callCount = 0;
+        const getSetupPreview = jest.fn().mockImplementation(() =>
+            Promise.resolve(previews[Math.min(callCount++, previews.length - 1)])
+        );
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupPreview,
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        jest.advanceTimersByTime(450);
+        await flushPromises();
+
+        const initialWarnings = Array.from(container.querySelectorAll('.setup-preview-warning'));
+        expect(initialWarnings.length).toBeGreaterThan(0);
+        for (const warning of initialWarnings) {
+            expect(warning.classList.contains('setup-preview-warning')).toBe(true);
+        }
+        expect(container.textContent).toContain('And 2 more warnings…');
+
+        clickButton(container, '#setup-strategy-playlists');
+        await flushPromises();
+        jest.advanceTimersByTime(450);
+        await flushPromises();
+
+        expect(container.textContent).toContain('And 1 more warning…');
+    });
+
     it('shows category activity dots only for strategy categories with enabled strategies', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);

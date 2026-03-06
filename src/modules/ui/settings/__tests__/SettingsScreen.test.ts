@@ -848,6 +848,8 @@ describe('SettingsScreen (Two-pane layout)', () => {
 
         expect(subtitleLanguage?.disabled).toBe(true);
         expect(preferForced?.disabled).toBe(true);
+        expect(nav.setFocus).toHaveBeenCalledWith('settings-subtitle-mode');
+        expect(nav.setFocus).not.toHaveBeenCalledWith('settings-category-appearance');
         expect(nav.getFocusedElement()?.id).toBe('settings-subtitle-mode');
     });
 
