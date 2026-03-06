@@ -35,7 +35,9 @@ This is the operating runbook for agent-driven development in Lineup.
    - Plex contract: [`docs/api/plex-integration.md`](./api/plex-integration.md)
 4. Plan explicitly before multi-step work.
    - keep the authoritative plan in `update_plan`
-   - write or refresh `docs/plans/*` when the task needs durable task memory
+   - write or refresh `docs/plans/*` when the task needs tracked durable task memory
+   - move completed or superseded tracked plans to `docs/archive/plans/` once they stop being the active handoff surface
+   - use `docs/runs/` for local-only major-task execution bundles and run logs
    - record the Codanna impact snapshot for risky/shared-symbol edits
 5. Implement narrowly.
    - one work unit at a time
@@ -51,6 +53,7 @@ This is the operating runbook for agent-driven development in Lineup.
 8. Update the right memory surface in the same pass.
    - update [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md) when a cleanup work unit is completed
    - update current-state or reference docs when ownership changes
+   - update tracked plan references when a plan moves from `docs/plans/` to `docs/archive/plans/`
    - do not leave stale current-state claims behind
 
 ## Repo-Local Skill Usage

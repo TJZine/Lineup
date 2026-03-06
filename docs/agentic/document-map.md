@@ -25,7 +25,8 @@ When documents conflict, use this order:
 6. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 7. Domain-specific current docs such as [`docs/design/ui-design-language.md`](../design/ui-design-language.md) and [`docs/api/plex-integration.md`](../api/plex-integration.md)
 8. Reference docs such as [`docs/architecture/modules.md`](../architecture/modules.md), development guides, and user guides
-9. Historical docs such as [`docs/decisions/README.md`](../decisions/README.md) and `docs/plans/*`
+9. Active task plans in [`docs/plans/`](../plans/README.md) when working on that task
+10. Historical docs such as [`docs/decisions/README.md`](../decisions/README.md) and [`docs/archive/plans/`](../archive/plans/README.md)
 
 ## Document Roles
 
@@ -91,24 +92,42 @@ Use for:
 
 ### Task-Level Plans
 
-- [`docs/plans/`](../plans)
+- [`docs/plans/`](../plans/README.md)
 
 Use for:
 
 - explicit, task-scoped implementation plans
 - active handoff memory for a specific work item
+- recent durable plan files that still matter for current execution
 
 Do not use for:
 
 - general repo policy
 - current architecture truth after the task is finished
 
+Archive completed or superseded plans to [`docs/archive/plans/`](../archive/plans/README.md) once they no longer need to occupy the active plan workspace.
+
+### Archived Plans
+
+- [`docs/archive/plans/`](../archive/plans/README.md)
+
+Use for:
+
+- completed or superseded tracked implementation plans
+- historical implementation memory that should remain searchable
+
+Do not use for:
+
+- active handoff memory
+- current policy
+- live status
+
 ### Local Execution Artifacts
 
 Local-only by default:
 
 - `.agent/skills/`
-- `docs/runs/<date>-<topic>/` real run instances
+- [`docs/runs/`](../runs/README.md) real run instances
 - `docs/agentic/evals/baselines/*.md` run outputs
 
 Use for:
@@ -149,6 +168,8 @@ Use for:
 
 - If a document makes a current-state claim and is no longer accurate, update it or archive it in the same pass.
 - Do not leave “temporary” workflow guidance in random markdown files once it has a permanent home.
-- `docs/plans/*` and `docs/decisions/*` are historical memory, not current policy.
+- `docs/plans/*` is active execution memory only while a task is live; once the plan is no longer active, move it to `docs/archive/plans/*`.
+- `docs/archive/plans/*` and `docs/decisions/*` are historical memory, not current policy.
+- Keep active durable plans in `docs/plans/`, archive older completed or superseded tracked plans into `docs/archive/plans/`, and update references in the same pass.
 - Avoid free-floating workflow docs outside the control-plane set above.
 - If a new doc does not clearly fit one of the roles above, prefer updating an existing authoritative doc instead.

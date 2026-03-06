@@ -2,7 +2,7 @@
 
 ## Global Defaults (Always On)
 
-- **Planning = Codex plan**: Keep the authoritative plan in Codex `update_plan` and (when requested) in `docs/plans/*`.
+- **Planning = Codex plan**: Keep the authoritative plan in Codex `update_plan` and (when requested) in tracked durable plan docs under `docs/plans/*`. Archive completed or superseded tracked plans to `docs/archive/plans/*` when they stop being the active handoff surface.
 - **Plan authoring style = writing-plans skill**: When asked to produce an implementation plan file, use the `writing-plans` skill format by default (required header, explicit files, bite-sized steps, concrete code snippets, exact commands, expected outcomes, frequent commit checkpoints). Do not assume `writing-plans` exists under this repo’s `.codex/skills/` (it is typically provided globally via Superpowers).
 - **Docs lookup = context7**: pull short, dated snippets from official sources/best-practice docs for each claim. If unavailable, log the fallback.
 - **Search = Codanna first**: prefer Codanna MCP discovery tools (`semantic_search_docs`, `semantic_search_with_context`, `search_documents`, `find_symbol`) for evidence sweeps across both code and docs; fall back to `ripgrep` when Codanna is unavailable or insufficient. Respect repo ignores and log the fallback method used.
@@ -21,7 +21,7 @@
 
 1) **Evidence sweep (Codanna ➜ ripgrep)** → prefer Codanna tools (`semantic_search_docs`, `semantic_search_with_context`, `search_documents`, `find_symbol`, `get_calls`, `find_callers`, `analyze_impact`) to enumerate where code/config/tests/docs live. If Codanna is unavailable or insufficient for the task, use `ripgrep` and record the fallback used.
 2) **Docs check (context7 ➜ ref MCP)** → start with Context7 (title + link + date). When Context7 lacks the needed source, use `mcp__ref__ref_search_documentation` + `mcp__ref__ref_read_url` for public docs and keep excerpts short. If nothing is available, log the fallback used.
-3) **Plan (Codex)** → Keep the plan in Codex via `update_plan`. For multi-step work, reflect locked decisions, risks, verification commands, and rollback notes in the plan itself (or in `docs/plans/*` when requested).
+3) **Plan (Codex)** → Keep the plan in Codex via `update_plan`. For multi-step work, reflect locked decisions, risks, verification commands, and rollback notes in the plan itself (or in `docs/plans/*` when tracked durable task memory is needed). Use `docs/runs/` for local-only major-task execution artifacts, and move older completed tracked plans to `docs/archive/plans/*` when they no longer need to stay active.
 4) **Verify (local, risk-based)** → run `npm run verify` for UI/navigation/Orchestrator/Plex work (or at least `npm run typecheck` + `npm test` for logic-only TS changes) before concluding.
 
 ## Codanna Workflow

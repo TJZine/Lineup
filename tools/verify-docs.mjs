@@ -9,21 +9,27 @@ const requiredFiles = [
     'docs/AGENTIC_DEV_WORKFLOW.md',
     'docs/agentic/document-map.md',
     'docs/agentic/codanna-playbook.md',
+    'docs/agentic/evals/baselines/README.md',
     'docs/agentic/skill-strategy.md',
     'docs/agentic/evals-roadmap.md',
     'docs/agentic/phase-2-steady-state-plan.md',
     'docs/architecture/README.md',
     'docs/architecture/CURRENT_STATE.md',
     'docs/architecture/modules.md',
-    'docs/decisions/README.md'
+    'docs/decisions/README.md',
+    'docs/plans/README.md',
+    'docs/archive/plans/README.md',
+    'docs/runs/README.md'
 ];
 
 const markdownRoots = [
     'docs/AGENTIC_DEV_WORKFLOW.md',
     'docs/agentic',
+    'docs/archive/plans',
     'docs/architecture',
     'docs/decisions/README.md',
     'docs/plans',
+    'docs/runs',
     'ARCHITECTURE_CLEANUP_CHECKLIST.md'
 ];
 
