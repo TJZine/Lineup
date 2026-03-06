@@ -8,7 +8,9 @@ An **Architecture Decision Record** captures a single AD, such as a choice of te
 
 ## Index
 
-- 2026-01-30 — EPG Category Features Implementation (`docs/decisions/2026-01-30-epg-category-features.md`)
+- 2026-01-30 — [EPG Category Features Implementation](./2026-01-30-epg-category-features.md)
+- 2026-02-05 — [Onboarding Spec Review](./2026-02-05-onboarding-spec-review.md)
+- 2026-02-17 — [API Surface Decision Log](./2026-02-17-api-surface-decision-log.md)
 
 ## Template
 

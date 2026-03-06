@@ -1,0 +1,54 @@
+---
+name: persistence-boundaries
+description: Use when adding or changing local persistence, storage-backed settings, channel data, selected server state, or any code that reads or writes browser storage in Lineup.
+---
+
+# Persistence Boundaries
+
+## Overview
+
+Use this skill to keep storage concerns behind typed owners and out of screens, controllers, and feature logic.
+
+Lineup's rule is simple: one storage namespace, one owner.
+
+## Current Storage Owners
+
+- [`src/modules/lifecycle/StateManager.ts`](/Users/tristan/Software/Lineup/src/modules/lifecycle/StateManager.ts)
+- [`src/modules/ui/settings/SettingsStore.ts`](/Users/tristan/Software/Lineup/src/modules/ui/settings/SettingsStore.ts)
+- [`src/modules/settings/AudioSettingsStore.ts`](/Users/tristan/Software/Lineup/src/modules/settings/AudioSettingsStore.ts)
+- [`src/modules/debug/DebugOverridesStore.ts`](/Users/tristan/Software/Lineup/src/modules/debug/DebugOverridesStore.ts)
+- [`src/modules/plex/discovery/ServerSelectionStore.ts`](/Users/tristan/Software/Lineup/src/modules/plex/discovery/ServerSelectionStore.ts)
+- [`src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`](/Users/tristan/Software/Lineup/src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts)
+- Shared storage helpers in [`src/utils/storage.ts`](/Users/tristan/Software/Lineup/src/utils/storage.ts)
+
+## Core Rules
+
+- Do not add raw `localStorage` access outside a dedicated owner/store/repository.
+- Do not spread key names, JSON parsing, or defaults across callers.
+- Normalize invalid values immediately at the boundary.
+- Storage failure must stay non-fatal unless product requirements explicitly say otherwise.
+- Feature modules should depend on typed owner APIs, not storage mechanics.
+- Migrations and compatibility parsing belong inside the owner, not inside UI or orchestration code.
+
+## Required Tests
+
+Every new or changed storage owner should cover:
+
+- valid stored value
+- invalid stored value
+- missing/default state
+- blocked or failing storage
+
+Follow the existing store test pattern before creating a new one.
+
+## Verification
+
+- Run `npm run typecheck` and `npm test` for storage-only changes.
+- Run `npm run verify` when the persistence change also touches UI, Orchestrator, or Plex wiring.
+
+## Common Mistakes
+
+- A screen reading raw JSON because "it's only one key"
+- A controller owning both workflow logic and storage defaults
+- Copying an existing storage key into another module instead of introducing a boundary
+- Treating parse failures as impossible

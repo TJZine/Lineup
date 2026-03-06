@@ -23,10 +23,12 @@ Completion rule: every implementation plan that finishes a `P#-W#` work unit mus
   - `architecture-boundaries`
   - `ui-composition-patterns`
   - `persistence-boundaries`
+  - `plex-integration-boundaries`
 
 ## Agent Workflow
 
 - Start with the superpowers workflow: `using-superpowers`, then `brainstorming`, then the matching repo-local architecture skill(s).
+- Use [`docs/architecture/CURRENT_STATE.md`](./docs/architecture/CURRENT_STATE.md) as the current architecture truth and this checklist as the active backlog/status surface.
 - Do a repo evidence sweep before planning.
 - Produce or refresh a concrete, decision-point-free plan under `docs/plans/` (use the writing-plans skill) before coding. The plan must be explicit enough for less-capable agents to execute without ambiguity.
 - Keep scope limited to one work unit at a time.

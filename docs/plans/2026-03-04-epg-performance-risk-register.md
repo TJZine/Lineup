@@ -1,6 +1,6 @@
 # Classic EPG Performance Risk Register
 
-Linked plan: `docs/plans/2026-03-04-epg-low-risk-performance-hardening-implementation.md`
+Linked plan: no matching implementation plan is currently checked into `docs/plans/` for this register in this clone.
 
 ## Purpose
 

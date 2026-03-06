@@ -9,6 +9,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  docs:
+    name: Docs Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify docs
+        run: npm run verify:docs
+
   lint:
     name: Lint (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
@@ -97,7 +116,7 @@ jobs:
     name: Build (Node 22.19.0)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [lint, type-check, test]
+    needs: [docs, lint, type-check, test]
     steps:
       - uses: actions/checkout@v4
       

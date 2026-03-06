@@ -35,6 +35,17 @@ npm run test:coverage
 - Mock network/platform boundaries, but keep module wiring realistic (constructor/startup paths should still execute).
 - Add targeted smoke coverage for app/bootstrap startup seams so regressions in initialization are caught early.
 
+## Agent Eval Regression Set
+
+The repo also maintains a small agent-workflow regression set in [`docs/agentic/evals-roadmap.md`](../agentic/evals-roadmap.md).
+
+Use it when you want to judge whether the current workflow and skills are still resisting the failure modes that matter most:
+
+- hotspot growth
+- raw storage leakage
+- overlay focus/timer leaks
+- Plex policy leakage
+
 ## When to Refactor the Test Suite
 
 Default posture: avoid suite-wide refactors unless there is clear pain.

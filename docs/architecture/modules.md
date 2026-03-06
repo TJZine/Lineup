@@ -1,99 +1,128 @@
-# Module Breakdown
+# Module Reference
 
-The application is divided into several distinct modules to separate concerns.
+This document is a current module inventory and ownership reference.
 
-```mermaid
-flowchart TD
-    subgraph Plex["Plex Integration"]
-        PA[PlexAuth]
-        PD[PlexServerDiscovery]
-        PL[PlexLibrary]
-        PS[PlexStreamResolver]
-    end
-    
-    subgraph Channels["Channel Management"]
-        CM[ChannelManager]
-        CS[ChannelStore]
-    end
-    
-    subgraph Scheduler["Scheduler"]
-        SC[ScheduleCalculator]
-        SE[ShuffleEngine]
-    end
-    
-    subgraph Player["Video Player"]
-        VP[VideoPlayer]
-        SM[SubtitleManager]
-        HLS[HLS Handler]
-        KA[KeepAlive]
-    end
-    
-    subgraph UI["User Interface"]
-        EPG[EPGComponent]
-        PO[PlayerOverlay]
-        TM[ToastManager]
-    end
-    
-    O[Orchestrator] --> Plex
-    O --> Channels
-    O --> Scheduler
-    O --> Player
-    O --> UI
-    
-    Channels --> CS
-    Player --> VP
-    VP --> SM
-    VP --> HLS
-    VP --> KA
-```
+For the canonical current-state summary, start with [`CURRENT_STATE.md`](./CURRENT_STATE.md).
 
-<details>
-<summary>Diagram Description (Accessibility)</summary>
+## Composition Roots
 
-The diagram shows the App Orchestrator at the center, connecting to five module groups: Plex Integration (PlexAuth, PlexServerDiscovery, PlexLibrary, PlexStreamResolver), Channel Management (ChannelManager, ChannelStore), Scheduler (ScheduleCalculator, ShuffleEngine), Video Player (VideoPlayer, SubtitleManager, HLS Handler, KeepAlive), and User Interface (EPGComponent, PlayerOverlay, ToastManager).
+### `src/bootstrap.ts`
 
-</details>
+- top-level environment bootstrap
 
-## 1. Plex Integration (`src/modules/plex/`)
+### `src/App.ts`
 
-Handles all communication with the Plex ecosystem.
+- app shell composition
+- screen/runtime startup wiring
 
-- **PlexAuth**: Manages OAuth PIN flow and token storage.
-- **PlexServerDiscovery**: Finds and tests connections to Plex servers.
-- **PlexLibrary**: Fetches metadata for libraries, seasons, and episodes.
-- **PlexStreamResolver**: Determines the best playback URL (Direct Play vs. Transcode).
+### `src/core/InitializationCoordinator.ts`
 
-## 2. Channel Management (`src/modules/channels/`)
+- startup sequencing collaborator
 
-Manages the virtual channel definitions.
+### `src/Orchestrator.ts`
 
-- **ChannelManager**: CRUD operations for channels.
-- **ChannelStore**: Persists channel configurations to LocalStorage.
+- runtime coordination and top-level feature delegation
 
-## 3. Scheduler (`src/modules/scheduler/`)
+## Core Modules
 
-The brain of the operation. Determines what plays when.
+### Lifecycle: `src/modules/lifecycle/`
 
-- **ScheduleCalculator**: Pure function that takes a list of media duration and a start time, and calculates the precise playback position for the current wall-clock time.
-- **ShuffleEngine**: Deterministic pseudo-random number generator (PRNG) to ensure daily shuffle orders are consistent.
+- app lifecycle phases
+- persistence coordination
+- error recovery and cleanup
 
-## 4. Video Player (`src/modules/player/`)
+### Navigation: `src/modules/navigation/`
 
-Wraps the native webOS video element.
+- remote handling
+- focus movement
+- navigation coordination
 
-- **VideoPlayer**: Handles play, pause, seek, and track selection.
-- **SubtitleManager**: Fetches, converts, and attaches subtitle tracks (VTT, SRT, burn-in escalation).
-- **HLS**: Manages HLS stream events (if using native HLS or hls.js fallback).
-- **KeepAlive**: Prevents the TV from sleeping during playback.
+### Player: `src/modules/player/`
 
-## 5. UI (`src/modules/ui/`)
+- playback runtime
+- subtitle attachment/conversion
+- keep-alive, retry, and recovery flows
 
-Manages the visual interface.
+### Scheduler: `src/modules/scheduler/`
 
-- **EPGComponent**: The grid view guides.
-- **PlayerOverlay**: The on-screen controls during playback.
-- **ToastManager**: Notifications.
+- schedule calculation
+- shuffle/order logic
+- channel domain operations and persistence boundaries
 
-## 6. App Orchestrator (`src/Orchestrator.ts`)
+## Plex Modules
 
-The central nervous system. It wires modules together, orchestrating event flows: User presses Channel Up → Scheduler selects next channel → Player loads the stream.
+### Auth: `src/modules/plex/auth/`
+
+- OAuth PIN flow
+- Plex token handling
+
+### Discovery: `src/modules/plex/discovery/`
+
+- server discovery
+- server selection persistence
+
+### Library: `src/modules/plex/library/`
+
+- library and metadata retrieval
+- Plex response parsing
+
+### Stream: `src/modules/plex/stream/`
+
+- stream URL resolution
+- subtitle/transcode/HDR policy
+
+## Settings And Debug Owners
+
+### `src/modules/ui/settings/`
+
+- settings screen
+- UI settings persistence via `SettingsStore`
+
+### `src/modules/settings/`
+
+- audio-focused settings storage
+
+### `src/modules/debug/`
+
+- debug overrides and now-playing debug behavior
+
+## UI Modules
+
+### Shared UI
+
+- `src/modules/ui/common/`
+- shared shells, overlay primitives, and branding helpers
+
+### Screens And Overlays
+
+- `src/modules/ui/auth/`
+- `src/modules/ui/server-select/`
+- `src/modules/ui/profile-select/`
+- `src/modules/ui/settings/`
+- `src/modules/ui/channel-setup/`
+- `src/modules/ui/epg/`
+- `src/modules/ui/player-osd/`
+- `src/modules/ui/now-playing-info/`
+- `src/modules/ui/mini-guide/`
+- `src/modules/ui/channel-badge/`
+- `src/modules/ui/channel-number-overlay/`
+- `src/modules/ui/channel-transition/`
+- `src/modules/ui/playback-options/`
+- `src/modules/ui/exit-confirm/`
+- `src/modules/ui/audio-setup/`
+- `src/modules/ui/sleep-timer/`
+- `src/modules/ui/splash/`
+- `src/modules/ui/toast/`
+- `src/modules/ui/theme/`
+
+## Current Hotspot Reference
+
+The most important structural hotspots remain:
+
+- `src/Orchestrator.ts`
+- `src/App.ts`
+- `src/modules/ui/epg/EPGComponent.ts`
+- `src/modules/ui/settings/SettingsScreen.ts`
+- `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
+- `src/modules/plex/stream/PlexStreamResolver.ts`
+- `src/modules/scheduler/channel-manager/ChannelManager.ts`
