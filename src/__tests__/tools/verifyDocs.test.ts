@@ -45,7 +45,7 @@ const expectedEvalPromptFiles = [
     '12-architecture-doc-refresh.md',
 ];
 
-function writeRepoFile(repoRoot: string, relativePath: string, content = '# Placeholder\n') {
+function writeRepoFile(repoRoot: string, relativePath: string, content = '# Placeholder\n'): void {
     const fullPath = path.join(repoRoot, relativePath);
     mkdirSync(path.dirname(fullPath), { recursive: true });
     writeFileSync(fullPath, content, 'utf8');
@@ -77,7 +77,7 @@ function createRepoFixture(
     return repoRoot;
 }
 
-function runVerifier(repoRoot: string) {
+function runVerifier(repoRoot: string): ReturnType<typeof spawnSync> {
     return spawnSync(process.execPath, [verifierPath], {
         cwd: repoRoot,
         encoding: 'utf8',

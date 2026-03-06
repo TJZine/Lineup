@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 
 const reporterPath = path.resolve(process.cwd(), 'tools/report-stale-plans.mjs');
 
-function writeRepoFile(repoRoot: string, relativePath: string, content = '# Placeholder\n') {
+function writeRepoFile(repoRoot: string, relativePath: string, content = '# Placeholder\n'): void {
     const fullPath = path.join(repoRoot, relativePath);
     mkdirSync(path.dirname(fullPath), { recursive: true });
     writeFileSync(fullPath, content, 'utf8');
