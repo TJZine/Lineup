@@ -341,7 +341,7 @@ git commit -m "docs: close p4-w4 after shared ui helper consolidation"
 
 1. `npm test -- src/modules/ui/settings/__tests__/SettingsScreen.test.ts src/modules/ui/channel-setup/focus/__tests__/ChannelSetupFocusCoordinator.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`
    - Expected: PASS.
-2. `npm test -- src/modules/ui/settings/__tests__/SettingsScreen.test.ts src/modules/ui/channel-setup/focus/__tests__/ChannelSetupFocusCoordinator.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`
+2. `npm run test:contracts -- src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts`
    - Expected: PASS.
 3. `npm test -- src/modules/ui/common/__tests__/syncFocusableRegistry.test.ts src/modules/ui/common/__tests__/renderCappedWarnings.test.ts`
    - Expected: PASS.
