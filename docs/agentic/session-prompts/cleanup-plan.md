@@ -40,6 +40,7 @@ Use this prompt for Tier 2 or Tier 3 work when you need a serious implementation
   - `analyze_impact` result
   - direct-read/`rg` fallback note when used
 - include Codanna discovery findings and impact snapshot for risky/shared-symbol work
+- run the planner self-check from [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md) before finalizing the plan
 - include required reading and required skills
 - include verification commands with expected outcomes
 - include rollback notes when the task is risky
@@ -67,3 +68,4 @@ Return:
 3. the main impacted files or symbols
 4. the exact verification commands
 5. any risks or unknowns that still need review before implementation
+6. the result of the planner self-check if anything had to be resolved before the plan became execution-safe

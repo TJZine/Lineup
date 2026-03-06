@@ -43,6 +43,7 @@ Do not use this launcher for cleanup-only refactors; use [`cleanup-plan.md`](./c
   - `analyze_impact` result when risky/shared symbols are involved
   - direct-read/`rg` fallback note when used
 - include exact files in scope and out of scope, verification commands, and rollback notes when risk warrants it
+- run the planner self-check from [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md) before finalizing the plan
 - if adjacent files may need contract/type changes, either place them in scope explicitly or freeze them explicitly and explain how the task still works
 - preserve the repo verification gate expectations:
   - `npm run verify` for risky UI/navigation/Orchestrator/Plex changes
@@ -69,3 +70,4 @@ Return:
 3. major impacted files/symbols and risk tier
 4. exact verification commands
 5. open risks/unknowns that must be resolved before implementation
+6. the result of the planner self-check if anything had to be resolved before the plan became execution-safe

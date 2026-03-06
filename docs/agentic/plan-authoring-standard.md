@@ -51,6 +51,20 @@ Use section titles that make those requirements obvious to a fresh session. Do n
   - if referenced files, ownership, or doc surfaces changed materially since the plan was written, update the plan first
 - Do not continue through contradicted assumptions because the “intent is obvious.”
 
+## Planner Self-Check
+
+Before finalizing any serious tracked plan, explicitly self-check the plan against these questions:
+
+1. Is there any unresolved architecture seam, ownership seam, or collaborator boundary hidden inside the task?
+2. Does the plan depend on adjacent files needing contract or type changes that are not in scope?
+3. Am I declaring any file out of scope that the implementation will still implicitly rely on?
+4. Did I record the full Codanna evidence path plus any explicit fallback reads?
+5. Am I assigning the work to the repo-preferred owner, or am I quietly growing a hotspot?
+6. Would a fresh session have to invent anything important to finish this safely?
+7. Is this truly an execution-grade plan, or do I still need to resolve a design decision first?
+
+If any answer shows a live architectural or scope ambiguity, stop and resolve that ambiguity before treating the plan as decision-point-free.
+
 ## Architecture Seam Decision Gate
 
 - Do not force a zero-decision execution plan across an architecture seam that is still undecided.
@@ -74,6 +88,8 @@ For serious tracked plans, the evidence block should be explicit enough that a f
 - `search_documents`: result summary or explicit fallback note when repo-doc context matters
 - `analyze_impact`: result summary
 - direct tracked-doc reads or `rg`: what was read and why fallback was needed
+
+The goal is not to maximize tool usage for its own sake. The goal is to leave a clear evidence trail that explains why the chosen plan shape is the repo-best-practice choice for this task.
 
 ## Invariants And Scope Rules
 
