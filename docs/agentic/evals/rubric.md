@@ -8,6 +8,14 @@ Allowed outcomes:
 - `soft-fail`
 - `fail`
 
+## Blocker Failures
+
+Score the overall run as `fail` if any of these happen:
+
+- skipped risk-matched verification
+- raw local-only artifact leakage into tracked docs
+- boundary leakage the harness is explicitly meant to prevent
+
 ## Discovery Quality
 
 - `pass`: the agent found the right surfaces quickly and did not miss obvious ownership or hotspot context

@@ -22,4 +22,10 @@ If one of those local artifacts becomes durable repo guidance, promote the usefu
 - `docs/architecture/` for current-state truth
 - `docs/agentic/` for workflow or harness guidance
 
+Close out each run bundle by recording:
+
+- the durable lesson learned
+- which tracked doc absorbed it
+- which run artifacts remain intentionally local-only
+
 Do not treat `docs/runs/` as a source-of-truth surface for repo policy.

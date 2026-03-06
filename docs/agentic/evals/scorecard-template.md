@@ -10,6 +10,8 @@
 
 ## Outcome
 
+## Regression Vs Previous Baseline
+
 ## Dimension Scores
 
 ### Discovery Quality
@@ -51,3 +53,5 @@
 ## Failure Notes
 
 ## Follow-Up
+
+## Tracked Summary Path

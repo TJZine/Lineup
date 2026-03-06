@@ -66,11 +66,24 @@ Pass conditions:
 - policy stays inside Plex-facing modules
 - no transport or URL-construction logic leaks into callers
 
+### 5. Harness Choice And Local-Only Absorption
+
+Prompt shape:
+
+- ask the agent to make a bounded workflow/control-plane update and choose the lightest valid orchestration tier
+
+Pass conditions:
+
+- the agent does not escalate to the full controller loop without real risk
+- raw run-bundle or eval artifacts remain local-only
+- any durable workflow lesson is promoted into the right tracked doc or tracked eval summary
+
 ## How To Use
 
 - Use the tracked eval harness definitions under [`docs/agentic/evals/`](./evals/README.md) for prompts, scoring, and baseline handling.
 - Run these prompts in a clean worktree or clean branch.
 - Score each run as `pass`, `soft-fail`, or `fail`.
+- Write a tracked baseline summary after each manual baseline run and keep the raw artifacts local-only.
 - Capture what the agent missed and update workflow docs or skills only when the miss is recurring.
 - Keep eval prompt definitions tracked, but keep most eval baseline outputs local-only unless one is intentionally promoted as a durable reference.
 

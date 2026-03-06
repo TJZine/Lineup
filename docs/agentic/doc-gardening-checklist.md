@@ -22,6 +22,7 @@
 
 - stale plan references are updated
 - active-vs-archived plan placement is still correct
+- `npm run plans:check` still passes for active serious plans
 - run `npm run plans:stale` to review active-plan archive candidates without auto-archiving them
 - stale decision index entries are removed or fixed
 - completed sections or standout archived plans are reviewed for updates to `docs/agentic/historical-plan-corpus-review.md`
@@ -29,7 +30,7 @@
 ## Skill Mirror Checks
 
 - `.codex/skills` remains Lineup-only
-- `.agent/skills` remains the curated mirror set after `scripts/sync_agent_skills.sh`
+- `.agent/skills` still matches [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt) after `scripts/sync_agent_skills.sh`
 - no repo-local skill drift has appeared between Codex source and Antigravity mirror expectations
 
 ## Eval Review Checks
@@ -37,4 +38,6 @@
 - prompt definitions still reflect current repo risks
 - rubric and scorecard still match the workflow the repo expects
 - local-only baseline outputs are not creeping into tracked docs
+- tracked baseline summaries exist for completed baseline runs
+- local run bundles and eval baselines that changed workflow conclusions were absorbed into the right tracked docs
 - recurring eval misses are folded back into tracked workflow docs when warranted

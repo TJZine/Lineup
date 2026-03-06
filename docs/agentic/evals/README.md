@@ -27,10 +27,14 @@ Build and refresh eval prompts from:
   - tracked eval prompt definitions
 - `baselines/`
   - local-only baseline run outputs by default
+- `baseline-summaries/`
+  - tracked baseline summaries only
 - [`rubric.md`](./rubric.md)
   - tracked scoring rubric
 - [`scorecard-template.md`](./scorecard-template.md)
   - tracked template for manual scoring
+- [`baseline-summary-template.md`](./baseline-summary-template.md)
+  - tracked template for baseline summaries
 
 ## How To Run A Manual Eval
 
@@ -40,7 +44,8 @@ Build and refresh eval prompts from:
 4. Record the agent surface used.
 5. Record whether the expected skills and Codanna workflow were actually used.
 6. Score the run with [`rubric.md`](./rubric.md) and [`scorecard-template.md`](./scorecard-template.md).
-7. Keep raw baseline artifacts local-only unless they are intentionally promoted later.
+7. Write one tracked summary file under [`docs/agentic/evals/baseline-summaries/`](./baseline-summaries/README.md) using [`baseline-summary-template.md`](./baseline-summary-template.md).
+8. Keep raw baseline artifacts local-only unless they are intentionally promoted later.
 
 For the first manual baseline, run only these prompts in this order:
 
@@ -51,7 +56,9 @@ For the first manual baseline, run only these prompts in this order:
 5. `11-plex-subtitle-policy`
 6. `12-architecture-doc-refresh`
 
-Do not run all 12 prompts in the first baseline.
+Do not run all 13 prompts in the first baseline.
+
+Run [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) whenever the workflow/control-plane changes materially.
 
 ## Scoring Model
 
@@ -70,6 +77,8 @@ Tracked:
 - prompt definitions
 - rubric
 - scorecard template
+- baseline summary template
+- baseline summary files
 
 Local-only by default:
 
@@ -79,6 +88,12 @@ Local-only by default:
 
 Promote only short durable summaries when recurring failures justify a tracked workflow change.
 
+## Ownership And Cadence
+
+- The operator who runs the baseline owns writing the tracked summary in the same pass.
+- During active cleanup, rerun the seed baseline after a material harness/control-plane change and at least once per month.
+- If a baseline changes the workflow conclusion, update the relevant tracked doc or skill guidance before closeout.
+
 Manual baseline protocol:
 
 - use a fresh session per prompt
@@ -86,3 +101,7 @@ Manual baseline protocol:
 - do not reuse prompt threads
 - store raw result artifacts locally under `docs/agentic/evals/baselines/`
 - do not commit raw baseline files
+- close out the run by recording:
+  - the durable lesson learned
+  - which tracked doc absorbed it
+  - which raw artifacts remain intentionally local-only

@@ -138,25 +138,31 @@ Use for:
 
 Do not treat these as canonical repo policy or source-of-truth surfaces.
 
+Promote any durable lesson learned from a local run bundle or raw eval baseline into a tracked doc or tracked eval summary in the same pass.
+
 ### Skill Topology
 
 - [`docs/agentic/skill-strategy.md`](./skill-strategy.md)
+- [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt)
 
 Use for:
 
 - `.codex/skills` vs `.agent/skills`
 - global mirror policy
 - repo-local skill inventory
+- the pinned global allowlist mirrored into `.agent/skills`
 
 ### Evaluation Roadmap
 
 - [`docs/agentic/evals-roadmap.md`](./evals-roadmap.md)
 - [`docs/agentic/evals/`](./evals/README.md)
+- [`docs/agentic/evals/baseline-summaries/`](./evals/baseline-summaries/README.md)
 
 Use for:
 
 - the small, explicit regression tasks used to judge agent effectiveness
 - the tracked eval harness definitions, rubric, and scorecard template
+- tracked summaries of baseline outcomes and the workflow changes they caused
 
 ### Historical Corpus Review
 
@@ -178,12 +184,14 @@ Do not use for:
 ### Standards And Reference Surfaces
 
 - [`docs/agentic/plan-authoring-standard.md`](./plan-authoring-standard.md)
+- [`docs/agentic/session-prompts/README.md`](./session-prompts/README.md)
 
 Use for:
 
 - the required shape of serious tracked implementation plans
 - fresh-session planning expectations
 - anti-patterns that tracked plans should avoid
+- the tracked Lineup-specific launcher prompts used to start planner, implementer, reviewer, and controller sessions consistently
 
 Do not use for:
 
@@ -218,6 +226,7 @@ Use for:
 - `docs/archive/plans/*` and `docs/decisions/*` are historical memory, not current policy.
 - Keep active durable plans in `docs/plans/`, archive older completed or superseded tracked plans into `docs/archive/plans/`, and update references in the same pass.
 - When archiving a completed cleanup section or standout plan, update `docs/agentic/historical-plan-corpus-review.md` if it adds new reusable signal.
+- When a local run bundle or eval baseline changes the workflow conclusion, update the right tracked doc or tracked eval summary before closeout.
 - Use `docs/agentic/doc-gardening-checklist.md` as the recurring maintenance loop instead of inventing ad hoc cleanup passes.
 - Avoid free-floating workflow docs outside the control-plane set above.
 - If a new doc does not clearly fit one of the roles above, prefer updating an existing authoritative doc instead.

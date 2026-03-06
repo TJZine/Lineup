@@ -1,0 +1,255 @@
+# Workflow Harness Review Launcher
+
+Use this prompt when you want an adversarial review of the entire Lineup agent workflow, control plane, skills topology, eval surface, and review loop.
+
+This is not a style pass. It is a production-readiness audit for whether the repo harness is likely to produce reliable, low-slop agent behavior over time.
+
+## Review Goal
+
+Determine whether the Lineup harness is:
+
+- simple enough to stay usable
+- explicit enough for fresh-session execution
+- mechanically enforced enough to resist drift
+- measured enough to detect regressions
+- strict enough to prevent architectural leakage and technical debt
+- aligned with current best-practice guidance from OpenAI and Anthropic
+
+## External Benchmark Sources
+
+Review against these sources and treat them as explicit benchmark criteria:
+
+1. OpenAI, [`Harness engineering: leveraging Codex in an agent-first world`](https://openai.com/index/harness-engineering/) (February 11, 2026)
+   - `AGENTS.md` should act as a map, not an encyclopedia
+   - repository docs should be the system of record
+   - plans should be first-class artifacts
+   - knowledge surfaces should be mechanically validated
+   - recurring doc gardening and garbage collection should exist
+   - agents should use normal repo tools directly rather than human copy-paste glue
+2. Anthropic, [`Building Effective AI Agents`](https://www.anthropic.com/engineering/building-effective-agents) (December 19, 2024)
+   - prefer simple composable workflows over unnecessary framework complexity
+   - keep planning transparent
+   - invest in the agent-computer interface through clear tool and workflow design
+   - add complexity only when it clearly improves outcomes
+3. Anthropic, [`Demystifying evals for AI agents`](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents) (January 9, 2026)
+   - practice eval-driven development
+   - define success early
+   - keep eval ownership close to the product/domain work
+   - use evals as a routine workflow-quality signal, not an afterthought
+4. Anthropic, [`Building agents with the Claude Agent SDK`](https://claude.com/blog/building-agents-with-the-claude-agent-sdk) (September 29, 2025)
+   - agents should verify their work with concrete rules and feedback
+   - reliability improves when the environment gives the agent explicit checks it can run
+
+Do not reward Lineup for matching these sources cosmetically. Evaluate whether the repo actually embodies the behaviors they recommend.
+
+## Required Read Order
+
+1. [`agents.md`](../../../agents.md)
+2. [`docs/agentic/document-map.md`](../document-map.md)
+3. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+4. [`docs/agentic/codanna-playbook.md`](../codanna-playbook.md)
+5. [`docs/agentic/skill-strategy.md`](../skill-strategy.md)
+6. [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md)
+7. [`docs/agentic/historical-plan-corpus-review.md`](../historical-plan-corpus-review.md)
+8. [`docs/agentic/evals/README.md`](../evals/README.md)
+9. [`docs/agentic/evals/rubric.md`](../evals/rubric.md)
+10. [`docs/agentic/evals-roadmap.md`](../evals-roadmap.md)
+11. [`docs/agentic/doc-gardening-checklist.md`](../doc-gardening-checklist.md)
+12. [`docs/agentic/phase-2-steady-state-plan.md`](../phase-2-steady-state-plan.md)
+13. [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md)
+14. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
+15. [`docs/plans/README.md`](../../plans/README.md)
+16. [`docs/archive/plans/README.md`](../../archive/plans/README.md)
+17. [`docs/runs/README.md`](../../runs/README.md)
+18. [`tools/verify-docs.mjs`](../../../tools/verify-docs.mjs)
+
+Also inspect the tracked session launchers in this directory and the repo-local skill surfaces under [`.codex/skills/`](../../../.codex/skills/).
+
+## Required Review Axes
+
+### 1. Control-Plane Shape
+
+Check whether Lineup has a clear and minimal control plane:
+
+- stable policy
+- one operating runbook
+- one current architecture truth surface
+- one active backlog/status surface
+- plan surfaces with clear active vs archived roles
+- local-only execution artifacts kept out of tracked truth
+
+Flag:
+
+- duplicate authority
+- conflicting precedence
+- missing source-of-truth boundaries
+- stale docs that still look authoritative
+- unnecessary workflow sprawl
+
+### 2. Simplicity Versus Over-Orchestration
+
+Check whether the harness is using the simplest workflow that still gives reliable outcomes.
+
+Flag:
+
+- steps that add ceremony without clear risk reduction
+- extra prompt layers that duplicate repo docs
+- unnecessary role proliferation
+- places where reusable prompts should stay generic
+- places where the repo should use a task-specific run bundle instead
+
+Also flag the opposite failure:
+
+- places where the workflow is too loose for risky work and should be more explicit
+
+### 3. Transparency And Fresh-Session Execution
+
+Check whether a new session can safely execute the workflow without hidden context.
+
+Flag:
+
+- plans that depend on tacit knowledge
+- launcher prompts that assume prior chat memory
+- docs that omit read order, stop conditions, or verification expectations
+- archived or local-only material that the active workflow still depends on
+
+### 4. Agent-Computer Interface Quality
+
+Review whether the repo gives agents a clear working interface:
+
+- repo docs are readable and discoverable
+- Codanna-first discovery is clearly explained
+- tool choice and fallback rules are explicit
+- worktree usage is clear for isolated execution
+- verification commands are concrete
+- review prompts tell the agent what good and bad behavior actually look like
+
+Flag:
+
+- vague tool instructions
+- missing fallback behavior
+- steps that force manual copying instead of discoverable repo context
+- ambiguity around tracked versus local-only surfaces
+
+### 5. Mechanical Enforcement
+
+Check whether important workflow rules are actually enforced.
+
+Review:
+
+- [`tools/verify-docs.mjs`](../../../tools/verify-docs.mjs)
+- tracked-vs-local rules
+- required control-plane files
+- session-prompt validation coverage
+- docs cross-linking expectations
+
+Flag:
+
+- workflow claims that are not mechanically checked anywhere
+- verifier gaps that allow drift in critical docs
+- checks that are too weak to catch real entropy
+- checks that are so strict they create noise without protecting quality
+
+### 6. Plan And Execution Quality
+
+Check whether the workflow enforces high-quality plans and bounded execution.
+
+Review:
+
+- plan-authoring standard
+- archive policy
+- corpus-review trigger
+- session prompts for planning and implementation
+
+Flag:
+
+- missing Codanna impact gates
+- weak rollback expectations
+- scope ambiguity
+- local-only dependencies in tracked plans
+- failure to turn strong historical work into reusable standards or eval seeds
+
+### 7. Eval Maturity
+
+Check whether Lineup is actually set up for eval-driven improvement.
+
+Review:
+
+- eval prompt inventory
+- rubric
+- scorecard template
+- roadmap
+- corpus review
+
+Flag:
+
+- evals that do not reflect real repo risks
+- gaps between documented failure modes and eval coverage
+- prompts that are too synthetic or too vague
+- missing ownership or maintenance rules
+- places where eval outputs could pollute tracked docs
+
+### 8. Garbage Collection And Tech Debt Resistance
+
+Check whether the repo will stay healthy after the cleanup effort stabilizes.
+
+Review:
+
+- doc-gardening cadence
+- archive rules
+- corpus-review updates
+- phase-2 steady-state plan
+- skill topology and mirror policy
+
+Flag:
+
+- places where stale guidance will accumulate
+- places where agents may continue copying cleanup-era patterns after the cleanup is over
+- missing steady-state transition triggers
+- missing cleanup loops for docs, prompts, or skills
+
+### 9. Review And Verification Loop
+
+Check whether the repo is likely to catch bad changes before they compound.
+
+Review:
+
+- default Plan -> Code -> Review loop
+- implementation review guidance
+- CodeRabbit/Oxlint/verify-docs interactions if relevant to the reviewed docs
+- risk-based verification rules
+
+Flag:
+
+- claims of rigor without concrete checks
+- review prompts that encourage shallow commentary instead of bug finding
+- missing verification depth for hotspot, UI, Plex, or orchestration work
+- feedback loops that are documented but not practically usable
+
+## Required Findings Format
+
+Output findings first, ordered by severity.
+
+For each finding include:
+
+1. severity
+2. affected file or workflow surface
+3. the concrete risk
+4. why it matters for agent effectiveness or codebase health
+5. the exact fix or adjustment you recommend
+6. which external benchmark principle it maps to
+
+After findings, include:
+
+- open questions or assumptions
+- a short strengths section naming what Lineup is already doing well
+- a short prioritized improvement list with the next 3 highest-value changes only
+
+## Review Rules
+
+- prioritize contradictions, drift risks, missing enforcement, and workflow inefficiency over style
+- do not suggest adding complexity unless it clearly improves reliability
+- do not reward duplicated documentation
+- do not suggest local-only artifacts become tracked unless there is a strong reason
+- do not ignore places where the harness could create future AI slop or technical debt
+- if no material findings remain, say so explicitly and still note the top residual risks
