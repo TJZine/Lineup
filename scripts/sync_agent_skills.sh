@@ -6,12 +6,39 @@ agent_parent_dir="${repo_root}/.agent"
 agent_dir="${agent_parent_dir}/skills"
 codex_repo_skills="${repo_root}/.codex/skills"
 codex_home="${CODEX_HOME:-$HOME/.codex}"
+skill_manifest_path="${repo_root}/docs/agentic/skill-mirror-allowlist.txt"
 superpowers_dir="${codex_home}/superpowers/skills"
 global_skills_dir="${codex_home}/skills"
 lock_dir="${agent_parent_dir}/.skills.lock"
 tmp_dir=""
 backup_dir=""
 lock_held=0
+
+copy_global_skill() {
+  local source_type="$1"
+  local skill="$2"
+  local source_dir=""
+
+  case "${source_type}" in
+    superpowers)
+      source_dir="${superpowers_dir}/${skill}"
+      ;;
+    global)
+      source_dir="${global_skills_dir}/${skill}"
+      ;;
+    *)
+      echo "Unsupported skill source '${source_type}' in ${skill_manifest_path}" >&2
+      exit 1
+      ;;
+  esac
+
+  if [[ ! -d "${source_dir}" ]]; then
+    echo "Missing allowlisted skill '${source_type}:${skill}' at ${source_dir}" >&2
+    exit 1
+  fi
+
+  rsync -a "${source_dir}/" "${tmp_dir}/${skill}/"
+}
 
 release_lock() {
   if [[ "${lock_held}" -eq 1 && -d "${lock_dir}" ]]; then
@@ -45,15 +72,26 @@ trap cleanup EXIT
 mkdir -p "${agent_parent_dir}"
 tmp_dir="$(mktemp -d "${agent_parent_dir}/skills.tmp.XXXXXX")"
 
-if [[ -d "${superpowers_dir}" ]]; then
-  rsync -a "${superpowers_dir}/" "${tmp_dir}/"
+if [[ ! -f "${skill_manifest_path}" ]]; then
+  echo "Missing skill mirror allowlist: ${skill_manifest_path}" >&2
+  exit 1
 fi
 
-for skill in frontend-design desloppify; do
-  if [[ -d "${global_skills_dir}/${skill}" ]]; then
-    rsync -a "${global_skills_dir}/${skill}/" "${tmp_dir}/${skill}/"
+while IFS= read -r raw_line || [[ -n "${raw_line}" ]]; do
+  line="${raw_line#"${raw_line%%[![:space:]]*}"}"
+  line="${line%"${line##*[![:space:]]}"}"
+
+  if [[ -z "${line}" || "${line}" == \#* ]]; then
+    continue
   fi
-done
+
+  if [[ ! "${line}" =~ ^(superpowers|global):([a-z0-9][a-z0-9-]*)$ ]]; then
+    echo "Invalid skill mirror entry '${line}' in ${skill_manifest_path}" >&2
+    exit 1
+  fi
+
+  copy_global_skill "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+done < "${skill_manifest_path}"
 
 # Repo-local skills are the source of truth for Lineup-specific guidance, so
 # they are applied last and win on name conflicts.

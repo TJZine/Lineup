@@ -1,0 +1,18 @@
+# Source-of-truth allowlist for global skills mirrored into `.agent/skills/`.
+# Format: <source>:<skill>
+
+superpowers:using-superpowers
+superpowers:brainstorming
+superpowers:writing-plans
+superpowers:test-driven-development
+superpowers:verification-before-completion
+superpowers:requesting-code-review
+superpowers:receiving-code-review
+superpowers:systematic-debugging
+superpowers:executing-plans
+superpowers:subagent-driven-development
+superpowers:dispatching-parallel-agents
+superpowers:using-git-worktrees
+superpowers:finishing-a-development-branch
+global:frontend-design
+global:desloppify
