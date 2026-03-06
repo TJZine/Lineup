@@ -11,6 +11,7 @@ import {
 } from './harness-docs-lib.mjs';
 
 const repoRoot = process.cwd();
+const expectedSessionPromptFiles = [...EXPECTED_SESSION_PROMPT_FILES, 'feature-plan.md', 'feature-review.md'];
 
 const requiredFiles = [
     'agents.md',
@@ -32,6 +33,8 @@ const requiredFiles = [
     'docs/agentic/session-prompts/cleanup-implement.md',
     'docs/agentic/session-prompts/cleanup-review.md',
     'docs/agentic/session-prompts/cleanup-loop.md',
+    'docs/agentic/session-prompts/feature-plan.md',
+    'docs/agentic/session-prompts/feature-review.md',
     'docs/agentic/session-prompts/workflow-harness-review.md',
     'docs/agentic/skill-strategy.md',
     'docs/agentic/evals-roadmap.md',
@@ -331,9 +334,42 @@ function checkSessionPromptReadme(errors) {
         return;
     }
 
-    for (const file of EXPECTED_SESSION_PROMPT_FILES) {
+    for (const file of expectedSessionPromptFiles) {
         if (!readme.includes(`./${file}`)) {
             errors.push(`Session prompt README is missing launcher link for ${file}`);
+        }
+    }
+}
+
+function checkWorkflowRoutingSplit(errors) {
+    const readme = readRepoFile('docs/agentic/session-prompts/README.md', errors);
+    if (readme !== null) {
+        if (!readme.includes('## Routing (Authoritative)')) {
+            errors.push('Session prompt README must contain the authoritative routing split section.');
+        }
+
+        const requiredReadmeRoutingMarkers = ['cleanup/refactor', 'feature/design', 'mixed', 'feature-plan', 'feature-review'];
+        for (const marker of requiredReadmeRoutingMarkers) {
+            if (!readme.includes(marker)) {
+                errors.push(`Session prompt README routing split is missing required marker: ${marker}`);
+            }
+        }
+    }
+
+    const workflow = readRepoFile('docs/AGENTIC_DEV_WORKFLOW.md', errors);
+    if (workflow !== null) {
+        const requiredWorkflowMarkers = [
+            'cleanup-plan.md',
+            'cleanup-review.md',
+            'feature-plan.md',
+            'feature-review.md',
+            'Route task family before choosing a tier.',
+        ];
+
+        for (const marker of requiredWorkflowMarkers) {
+            if (!workflow.includes(marker)) {
+                errors.push(`Workflow doc is missing required cleanup/feature routing marker: ${marker}`);
+            }
         }
     }
 }
@@ -434,8 +470,9 @@ checkMarkdownLinks(errors);
 checkForbiddenLiteralReferences(errors);
 checkDecisionIndex(errors);
 checkInventory(errors, 'docs/agentic/evals/prompts', EXPECTED_EVAL_PROMPT_FILES, 'eval prompt');
-checkInventory(errors, 'docs/agentic/session-prompts', EXPECTED_SESSION_PROMPT_FILES, 'session prompt');
+checkInventory(errors, 'docs/agentic/session-prompts', expectedSessionPromptFiles, 'session prompt');
 checkSessionPromptReadme(errors);
+checkWorkflowRoutingSplit(errors);
 checkChecklistPlanPaths(errors);
 checkPlanArchiveCoherence(errors);
 checkSkillMirrorManifest(errors);

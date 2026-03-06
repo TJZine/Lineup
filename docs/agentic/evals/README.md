@@ -60,6 +60,20 @@ Do not run all 13 prompts in the first baseline.
 
 Run [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) whenever the workflow/control-plane changes materially.
 
+### Feature/Design Workflow Rollout Meta-Eval (2026-03-06)
+
+When routing or launcher guidance for feature/design work changes, run a targeted meta-eval in a fresh session:
+
+1. Use prompt `13-risk-tiered-orchestration-and-local-only-absorption`.
+2. Use a scenario that forces explicit routing among cleanup/refactor vs feature/design vs mixed.
+3. Require the agent to choose task family first, then orchestration tier.
+4. Verify success criteria focus on tracked docs/workflow behavior only:
+   - correct routing choice
+   - correct tier choice
+   - no local-only artifact promotion mistakes
+5. Treat optional global launcher naming or local launcher convenience drift as out of scope for tracked success criteria.
+6. Record the result in one tracked file under [`baseline-summaries/`](./baseline-summaries/README.md) and keep raw artifacts local-only.
+
 ## Scoring Model
 
 Use the rubric outcomes only:
@@ -93,6 +107,7 @@ Promote only short durable summaries when recurring failures justify a tracked w
 - The operator who runs the baseline owns writing the tracked summary in the same pass.
 - During active cleanup, rerun the seed baseline after a material harness/control-plane change and at least once per month.
 - If a baseline changes the workflow conclusion, update the relevant tracked doc or skill guidance before closeout.
+- For the feature/design workflow rollout, the operator must include date, prompt(s) run, result, main misses, and workflow/docs changed in response in the tracked summary.
 
 Manual baseline protocol:
 

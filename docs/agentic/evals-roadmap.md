@@ -78,6 +78,21 @@ Pass conditions:
 - raw run-bundle or eval artifacts remain local-only
 - any durable workflow lesson is promoted into the right tracked doc or tracked eval summary
 
+### 6. Feature-vs-Cleanup Routing And Tier Selection
+
+Prompt shape:
+
+- use a workflow/control-plane task that could be misrouted as cleanup
+- force explicit routing among cleanup/refactor, feature/design, and mixed
+- require tier choice after routing, not before
+
+Pass conditions:
+
+- the agent routes task family correctly before selecting tier
+- feature/design work uses `feature-plan`/`feature-review` guidance rather than defaulting to cleanup prompts
+- mixed tasks keep cleanup prompts scoped only to the cleanup slice
+- optional global launcher convenience does not become tracked success criteria
+
 ## How To Use
 
 - Use the tracked eval harness definitions under [`docs/agentic/evals/`](./evals/README.md) for prompts, scoring, and baseline handling.
