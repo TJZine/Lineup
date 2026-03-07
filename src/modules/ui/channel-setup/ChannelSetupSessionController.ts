@@ -165,6 +165,7 @@ export type ChannelSetupBuildOutcome =
         serverId: string;
         config: ChannelSetupConfig;
         result: Awaited<ReturnType<ChannelSetupOrchestrator['createChannelsFromSetup']>>;
+        bookkeepingError?: string;
     };
 
 const cloneStrategies = (strategies: SetupStrategyState): SetupStrategyState =>
@@ -337,6 +338,9 @@ export class ChannelSetupSessionController {
             this._recordApplied = false;
             this._loadError = error instanceof Error ? error.message : 'Unable to load libraries.';
         } finally {
+            if (token !== this._sessionToken) {
+                return;
+            }
             this._isLoading = false;
         }
     }
@@ -522,26 +526,33 @@ export class ChannelSetupSessionController {
         }
 
         this._reviewAbortController?.abort();
-        this._reviewAbortController = new AbortController();
+        const reviewAbortController = new AbortController();
+        this._reviewAbortController = reviewAbortController;
         this._isReviewLoading = true;
         this._reviewError = null;
         onStateChange();
 
         try {
             const review = await this._orchestrator.getSetupReview(this.buildConfig(serverId), {
-                signal: this._reviewAbortController.signal,
+                signal: reviewAbortController.signal,
             });
             if (token !== this._sessionToken) return;
             this._review = review;
         } catch (error) {
             if (token !== this._sessionToken) return;
-            if (isAbortLikeError(error, this._reviewAbortController?.signal)) {
+            if (isAbortLikeError(error, reviewAbortController.signal)) {
                 return;
             }
             this._reviewError = error instanceof Error ? error.message : 'Unable to load review.';
             this._review = null;
         } finally {
+            if (token !== this._sessionToken) {
+                return;
+            }
             this._isReviewLoading = false;
+            if (this._reviewAbortController === reviewAbortController) {
+                this._reviewAbortController = null;
+            }
             if (token === this._sessionToken) {
                 onStateChange();
             }
@@ -566,14 +577,15 @@ export class ChannelSetupSessionController {
         }
 
         this._isBuilding = true;
-        this._buildAbortController = new AbortController();
+        const buildAbortController = new AbortController();
+        this._buildAbortController = buildAbortController;
         options.onStateChange();
 
         const config = this.buildConfig(serverId);
 
         try {
             const result = await this._orchestrator.createChannelsFromSetup(config, {
-                signal: this._buildAbortController.signal,
+                signal: buildAbortController.signal,
                 onProgress: options.onProgress,
             });
 
@@ -585,23 +597,40 @@ export class ChannelSetupSessionController {
                 return { kind: 'canceled' };
             }
 
-            this._orchestrator.markSetupComplete(serverId, config);
-            return {
+            let bookkeepingError: string | undefined;
+            try {
+                this._orchestrator.markSetupComplete(serverId, config);
+            } catch (error) {
+                if (isAbortLikeError(error, buildAbortController.signal)) {
+                    return { kind: 'canceled' };
+                }
+                bookkeepingError = error instanceof Error ? error.message : 'Unable to save setup completion.';
+            }
+            const success: Extract<ChannelSetupBuildOutcome, { kind: 'success' }> = {
                 kind: 'success',
                 serverId,
                 config,
                 result,
             };
+            if (bookkeepingError !== undefined) {
+                success.bookkeepingError = bookkeepingError;
+            }
+            return success;
         } catch (error) {
-            if (isAbortLikeError(error, this._buildAbortController?.signal)) {
+            if (token !== this._sessionToken) {
+                return { kind: 'canceled' };
+            }
+            if (isAbortLikeError(error, buildAbortController.signal)) {
                 return { kind: 'canceled' };
             }
             const message = error instanceof Error ? error.message : 'Build failed.';
             return { kind: 'error', message };
         } finally {
-            this._isBuilding = false;
-            this._buildAbortController = null;
             if (token === this._sessionToken) {
+                this._isBuilding = false;
+                if (this._buildAbortController === buildAbortController) {
+                    this._buildAbortController = null;
+                }
                 options.onStateChange();
             }
         }
@@ -829,10 +858,22 @@ export class ChannelSetupSessionController {
             baseBlockSize: clampSeriesBlockPreset(record.seriesOrdering?.baseBlockSize),
         };
 
-        this._maxChannels = Math.min(Number.isFinite(record.maxChannels) ? record.maxChannels : DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS);
-        this._minItems = Math.max(1, Math.floor(record.minItemsPerChannel || DEFAULT_MIN_ITEMS_PER_CHANNEL));
-        this._buildMode = record.buildMode ?? 'replace';
-        this._actorStudioCombineMode = record.actorStudioCombineMode ?? 'separate';
+        const maxChannels = Number(record.maxChannels);
+        this._maxChannels = Number.isFinite(maxChannels)
+            ? Math.min(MAX_CHANNELS, Math.max(1, Math.floor(maxChannels)))
+            : DEFAULT_CHANNEL_SETUP_MAX;
+        const minItems = Number(record.minItemsPerChannel);
+        this._minItems = Number.isFinite(minItems)
+            ? Math.max(1, Math.floor(minItems))
+            : DEFAULT_MIN_ITEMS_PER_CHANNEL;
+        this._buildMode =
+            record.buildMode === 'append' || record.buildMode === 'merge' || record.buildMode === 'replace'
+                ? record.buildMode
+                : 'replace';
+        this._actorStudioCombineMode =
+            record.actorStudioCombineMode === 'combined' || record.actorStudioCombineMode === 'separate'
+                ? record.actorStudioCombineMode
+                : 'separate';
         this._preview = null;
         this._previewError = null;
         this._lastPreviewKey = null;

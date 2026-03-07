@@ -14,6 +14,23 @@ const flushPromises = async (): Promise<void> => {
     await Promise.resolve();
 };
 
+const createDeferred = <T>(): {
+    promise: Promise<T>;
+    resolve: (value: T) => void;
+    reject: (reason?: unknown) => void;
+} => {
+    let resolve: ((value: T) => void) | null = null;
+    let reject: ((reason?: unknown) => void) | null = null;
+    const promise = new Promise<T>((res, rej) => {
+        resolve = res;
+        reject = rej;
+    });
+    if (!resolve || !reject) {
+        throw new Error('Failed to create deferred promise');
+    }
+    return { promise, resolve, reject };
+};
+
 type OrchestratorOverrides = Partial<ChannelSetupOrchestrator>;
 
 const createOrchestrator = (overrides: OrchestratorOverrides = {}): jest.Mocked<ChannelSetupOrchestrator> => ({
@@ -247,6 +264,59 @@ describe('ChannelSetupSessionController', () => {
         expect(snapshot.buildMode).toBe('append');
         expect(snapshot.actorStudioCombineMode).toBe('combined');
         expect(snapshot.recordApplied).toBe(true);
+    });
+
+    it('loadLibraries() sanitizes invalid record values defensively before assigning state', async (): Promise<void> => {
+        const libraries: PlexLibraryModel[] = [makeLibrary({ id: 'movies' }), makeLibrary({ id: 'shows' })];
+        const unsafeRecord = {
+            serverId: 'server-1',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            selectedLibraryIds: ['shows'],
+            maxChannels: Number.POSITIVE_INFINITY,
+            buildMode: 'invalid-mode',
+            actorStudioCombineMode: 'invalid-actor-mode',
+            minItemsPerChannel: -5,
+            strategyConfig: {
+                collections: { enabled: true, priority: 2, scope: 'per-library' },
+                playlists: { enabled: false, priority: 1, scope: 'per-library' },
+                genres: { enabled: true, priority: 3, scope: 'cross-library' },
+                directors: { enabled: true, priority: 4, scope: 'cross-library' },
+                decades: { enabled: true, priority: 5, scope: 'per-library' },
+                recentlyAdded: { enabled: true, priority: 6, scope: 'per-library' },
+                studios: { enabled: true, priority: 7, scope: 'cross-library' },
+                actors: { enabled: true, priority: 8, scope: 'cross-library' },
+            },
+            channelExpansion: {
+                addAlternateLineups: true,
+                alternateLineupCopies: 2,
+                variantType: 'block',
+                variantBlockSize: 4,
+            },
+            seriesOrdering: {
+                basePlaybackMode: 'block',
+                baseBlockSize: 4,
+            },
+        } as unknown as ChannelSetupRecord;
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue(libraries),
+            getChannelSetupRecord: jest.fn(() => unsafeRecord),
+        });
+
+        const controller = new ChannelSetupSessionController({
+            orchestrator,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        await controller.loadLibraries();
+
+        const snapshot = controller.getSnapshot();
+        expect(snapshot.maxChannels).toBe(DEFAULT_CHANNEL_SETUP_MAX);
+        expect(snapshot.minItems).toBe(1);
+        expect(snapshot.buildMode).toBe('replace');
+        expect(snapshot.actorStudioCombineMode).toBe('separate');
     });
 
     it('loadLibraries() handles failure by clearing loading state and exposing load error', async (): Promise<void> => {
@@ -492,6 +562,39 @@ describe('ChannelSetupSessionController', () => {
         expect(controller.getSnapshot().reviewError).toBeNull();
     });
 
+    it('ensureReviewLoaded() stale completion does not clear newer session loading state', async (): Promise<void> => {
+        const first = createDeferred<typeof DEFAULT_REVIEW>();
+        const second = createDeferred<typeof DEFAULT_REVIEW>();
+        const getSetupReview = jest
+            .fn()
+            .mockImplementationOnce(() => first.promise)
+            .mockImplementationOnce(() => second.promise);
+        const orchestrator = createOrchestrator({ getSetupReview });
+        const controller = new ChannelSetupSessionController({
+            orchestrator,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        const firstLoad = controller.ensureReviewLoaded(jest.fn());
+        expect(controller.getSnapshot().isReviewLoading).toBe(true);
+
+        controller.beginSession();
+        const secondLoad = controller.ensureReviewLoaded(jest.fn());
+        expect(controller.getSnapshot().isReviewLoading).toBe(true);
+
+        first.resolve(DEFAULT_REVIEW);
+        await firstLoad;
+        await flushPromises();
+        expect(controller.getSnapshot().isReviewLoading).toBe(true);
+
+        second.resolve(DEFAULT_REVIEW);
+        await secondLoad;
+        await flushPromises();
+        expect(controller.getSnapshot().isReviewLoading).toBe(false);
+        expect(controller.getSnapshot().review).toEqual(DEFAULT_REVIEW);
+    });
+
     it('beginBuild() returns missing-server when no server is selected', async (): Promise<void> => {
         const orchestrator = createOrchestrator();
         const controller = new ChannelSetupSessionController({
@@ -596,6 +699,70 @@ describe('ChannelSetupSessionController', () => {
 
         expect(outcome.kind).toBe('success');
         expect(markSetupComplete).toHaveBeenCalledTimes(1);
+    });
+
+    it('beginBuild() returns success with bookkeeping warning when markSetupComplete fails after successful build', async (): Promise<void> => {
+        const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
+        const markSetupComplete = jest.fn(() => {
+            throw new Error('persist failed');
+        });
+        const orchestrator = createOrchestrator({
+            createChannelsFromSetup,
+            markSetupComplete,
+        });
+        const controller = new ChannelSetupSessionController({
+            orchestrator,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        const outcome = await controller.beginBuild({
+            onProgress: jest.fn(),
+            onStateChange: jest.fn(),
+        });
+
+        expect(outcome).toMatchObject({
+            kind: 'success',
+            bookkeepingError: 'persist failed',
+        });
+        expect(markSetupComplete).toHaveBeenCalledTimes(1);
+    });
+
+    it('beginBuild() stale completion does not clear newer session build state', async (): Promise<void> => {
+        const first = createDeferred<typeof DEFAULT_BUILD_RESULT>();
+        const second = createDeferred<typeof DEFAULT_BUILD_RESULT>();
+        const createChannelsFromSetup = jest
+            .fn()
+            .mockImplementationOnce(() => first.promise)
+            .mockImplementationOnce(() => second.promise);
+        const orchestrator = createOrchestrator({ createChannelsFromSetup });
+        const controller = new ChannelSetupSessionController({
+            orchestrator,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        const firstBuild = controller.beginBuild({
+            onProgress: jest.fn(),
+            onStateChange: jest.fn(),
+        });
+        expect(controller.getSnapshot().isBuilding).toBe(true);
+
+        controller.beginSession();
+        const secondBuild = controller.beginBuild({
+            onProgress: jest.fn(),
+            onStateChange: jest.fn(),
+        });
+        expect(controller.getSnapshot().isBuilding).toBe(true);
+
+        first.resolve(DEFAULT_BUILD_RESULT);
+        await firstBuild;
+        await flushPromises();
+        expect(controller.getSnapshot().isBuilding).toBe(true);
+        expect(controller.cancelBuild()).toBe(true);
+
+        second.reject(new DOMException('Aborted', 'AbortError'));
+        await expect(secondBuild).resolves.toEqual<ChannelSetupBuildOutcome>({ kind: 'canceled' });
     });
 
     it('expand-lineup style state updates are preserved in build config and setup completion', async (): Promise<void> => {

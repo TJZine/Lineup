@@ -1,7 +1,7 @@
 import type { IEPGInfoPanel } from './interfaces';
 import type { ScheduledProgram } from './types';
 
-const INFO_PANEL_FULL_UPDATE_DEBOUNCE_MS = 200;
+export const INFO_PANEL_FULL_UPDATE_DEBOUNCE_MS = 200;
 
 interface EPGInfoPanelCoordinatorDeps {
     infoPanel: IEPGInfoPanel;
@@ -25,6 +25,7 @@ export class EPGInfoPanelCoordinator {
     private layoutMode: 'overlay' | 'classic' = 'overlay';
     private fullUpdateTimer: ReturnType<typeof setTimeout> | null = null;
     private pendingProgramKey: string | null = null;
+    private destroyed = false;
 
     constructor(deps: EPGInfoPanelCoordinatorDeps) {
         this.infoPanel = deps.infoPanel;
@@ -33,6 +34,9 @@ export class EPGInfoPanelCoordinator {
     }
 
     attachHosts(hosts: EPGInfoPanelHosts): void {
+        if (this.destroyed) {
+            return;
+        }
         this.infoPanelElement = hosts.infoPanelElement;
         this.overlayShowcaseElement = hosts.overlayShowcaseElement;
         this.classicShowcaseInfoElement = hosts.classicShowcaseInfoElement;
@@ -40,14 +44,26 @@ export class EPGInfoPanelCoordinator {
     }
 
     setLayoutMode(mode: 'overlay' | 'classic'): void {
+        if (this.destroyed) {
+            return;
+        }
         this.layoutMode = mode;
         this.infoPanel.setPresentationMode(mode);
         this.syncHost();
     }
 
     syncFocusedProgram(program: ScheduledProgram | null): void {
+        if (this.destroyed) {
+            return;
+        }
         if (program === null) {
             this.clear();
+            return;
+        }
+
+        if (!this.getIsVisible()) {
+            this.clearFullUpdateTimer();
+            this.pendingProgramKey = null;
             return;
         }
 
@@ -65,6 +81,7 @@ export class EPGInfoPanelCoordinator {
             this.pendingProgramKey = null;
 
             const focusedProgram = this.getFocusedProgram();
+            if (this.destroyed) return;
             if (!this.getIsVisible()) return;
             if (focusedProgram === null) return;
 
@@ -76,16 +93,27 @@ export class EPGInfoPanelCoordinator {
     }
 
     clear(): void {
+        if (this.destroyed) {
+            return;
+        }
         this.clearFullUpdateTimer();
         this.infoPanel.hide();
     }
 
     destroy(): void {
+        if (this.destroyed) {
+            return;
+        }
         this.clear();
         this.infoPanelElement = null;
         this.overlayShowcaseElement = null;
         this.classicShowcaseInfoElement = null;
         this.layoutMode = 'overlay';
+        this.destroyed = true;
+    }
+
+    isDestroyed(): boolean {
+        return this.destroyed;
     }
 
     private syncHost(): void {

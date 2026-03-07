@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { EPGInfoPanelCoordinator } from '../EPGInfoPanelCoordinator';
+import { EPGInfoPanelCoordinator, INFO_PANEL_FULL_UPDATE_DEBOUNCE_MS } from '../EPGInfoPanelCoordinator';
 import type { IEPGInfoPanel } from '../interfaces';
 import type { ScheduledProgram } from '../types';
 
@@ -119,7 +119,7 @@ describe('EPGInfoPanelCoordinator', () => {
         expect(infoPanel.updateFast).toHaveBeenCalledWith(program);
         expect(infoPanel.updateFull).not.toHaveBeenCalled();
 
-        jest.advanceTimersByTime(199);
+        jest.advanceTimersByTime(INFO_PANEL_FULL_UPDATE_DEBOUNCE_MS - 1);
         expect(infoPanel.updateFull).not.toHaveBeenCalled();
 
         jest.advanceTimersByTime(1);
@@ -173,12 +173,16 @@ describe('EPGInfoPanelCoordinator', () => {
         coordinator.destroy();
 
         expect(infoPanel.hide).toHaveBeenCalledTimes(1);
+        expect(coordinator.isDestroyed()).toBe(true);
 
         jest.advanceTimersByTime(250);
 
         expect(infoPanel.updateFull).not.toHaveBeenCalled();
 
-        coordinator.setLayoutMode('classic');
+        coordinator.syncFocusedProgram(program);
+        expect(infoPanel.updateFast).toHaveBeenCalledTimes(1);
+        expect(infoPanel.updateFull).not.toHaveBeenCalled();
+        expect(() => infoPanel.updateFull(program)).not.toThrow();
         expect(infoPanelElement.parentElement).toBe(overlayShowcaseElement);
     });
 
@@ -196,8 +200,20 @@ describe('EPGInfoPanelCoordinator', () => {
         coordinator.syncFocusedProgram(program);
         isVisible = false;
 
-        jest.advanceTimersByTime(200);
+        jest.advanceTimersByTime(INFO_PANEL_FULL_UPDATE_DEBOUNCE_MS);
 
+        expect(infoPanel.updateFull).not.toHaveBeenCalled();
+    });
+
+    it('does not run fast or deferred updates while hidden', () => {
+        const program = createProgram('program-a', 0);
+        focusedProgram = program;
+        isVisible = false;
+
+        coordinator.syncFocusedProgram(program);
+        jest.advanceTimersByTime(INFO_PANEL_FULL_UPDATE_DEBOUNCE_MS + 50);
+
+        expect(infoPanel.updateFast).not.toHaveBeenCalled();
         expect(infoPanel.updateFull).not.toHaveBeenCalled();
     });
 });

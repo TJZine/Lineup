@@ -990,6 +990,9 @@ export class ChannelSetupScreen {
         detailLabel.textContent = `Created ${outcome.result.created} channels. Skipped ${outcome.result.skipped}.`;
         barFill.style.width = '100%';
         barFill.classList.remove('indeterminate');
+        this._errorEl.textContent = outcome.bookkeepingError
+            ? `Channels were created, but setup completion could not be saved: ${outcome.bookkeepingError}`
+            : '';
 
         cancelButton.disabled = false;
         doneButton.disabled = outcome.result.created === 0;

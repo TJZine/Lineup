@@ -52,4 +52,28 @@ describe('renderCappedWarnings', () => {
         expect(rows.map((row) => row.textContent)).toEqual(['A', 'B']);
         expect(container.textContent).not.toContain('And ');
     });
+
+    it('is idempotent across re-renders and does not remove unrelated nodes', () => {
+        const container = document.createElement('div');
+        const unrelated = document.createElement('div');
+        unrelated.className = 'setup-preview-warning';
+        unrelated.textContent = 'Unrelated warning';
+        container.appendChild(unrelated);
+
+        renderCappedWarnings({
+            warnings: ['A', 'B', 'C'],
+            container,
+            maxItems: 2,
+            itemClassName: 'setup-preview-warning',
+        });
+        renderCappedWarnings({
+            warnings: ['X', 'Y'],
+            container,
+            maxItems: 1,
+            itemClassName: 'setup-preview-warning',
+        });
+
+        const rows = Array.from(container.querySelectorAll('.setup-preview-warning')).map((row) => row.textContent);
+        expect(rows).toEqual(['Unrelated warning', 'X', 'And 1 more warning…']);
+    });
 });
