@@ -51,12 +51,12 @@ Build and refresh eval prompts from:
 
 For the first manual baseline, run only these prompts in this order:
 
-1. `01-app-container-extraction-no-ui-drift`
-2. `03-overlay-toast-extraction-no-timer-leaks`
-3. `04-diagnostics-surface-isolation-no-storage-slop`
-4. `07-settings-storage-boundary`
-5. `11-plex-subtitle-policy`
-6. `12-architecture-doc-refresh`
+1. [`01-app-container-extraction-no-ui-drift`](./prompts/01-app-container-extraction-no-ui-drift.md)
+2. [`03-overlay-toast-extraction-no-timer-leaks`](./prompts/03-overlay-toast-extraction-no-timer-leaks.md)
+3. [`04-diagnostics-surface-isolation-no-storage-slop`](./prompts/04-diagnostics-surface-isolation-no-storage-slop.md)
+4. [`07-settings-storage-boundary`](./prompts/07-settings-storage-boundary.md)
+5. [`11-plex-subtitle-policy`](./prompts/11-plex-subtitle-policy.md)
+6. [`12-architecture-doc-refresh`](./prompts/12-architecture-doc-refresh.md)
 
 Do not run all tracked prompts in the first baseline.
 
@@ -66,14 +66,18 @@ When workflow/control-plane changes touch settings ownership boundaries, also ru
 
 Priority 4 prompt additions can be run as a second manual baseline when validating UI-class decomposition and cleanup-pass behavior:
 
-- `10-settings-screen-split`
-- `14-epg-info-panel-orchestration-no-host-drift`
-- `15-channel-setup-session-owner-no-step-controller-bleed`
-- `16-shared-ui-primitives-no-policy-centralization`
-- `17-priority-4-cleanup-pass-no-premature-glue-removal`
-- `18-detect-unresolved-seam-before-freezing-plan`
+- [`10-settings-screen-split`](./prompts/10-settings-screen-split.md)
+- [`14-epg-info-panel-orchestration-no-host-drift`](./prompts/14-epg-info-panel-orchestration-no-host-drift.md)
+- [`15-channel-setup-session-owner-no-step-controller-bleed`](./prompts/15-channel-setup-session-owner-no-step-controller-bleed.md)
+- [`16-shared-ui-primitives-no-policy-centralization`](./prompts/16-shared-ui-primitives-no-policy-centralization.md)
+- [`17-priority-4-cleanup-pass-no-premature-glue-removal`](./prompts/17-priority-4-cleanup-pass-no-premature-glue-removal.md)
+- [`18-detect-unresolved-seam-before-freezing-plan`](./prompts/18-detect-unresolved-seam-before-freezing-plan.md)
 
-### Feature/Design Workflow Rollout Meta-Eval (2026-03-06)
+Note: [`10-settings-screen-split`](./prompts/10-settings-screen-split.md) is an ad-hoc trigger prompt.
+Run it whenever a change touches settings ownership boundaries (even outside the Priority 4 batch).
+It may also be included again later as part of the Priority 4 manual baseline when you want broader UI-class decomposition validation; running it in both contexts is allowed when appropriate.
+
+### Feature/Design Workflow Meta-Eval
 
 When routing or launcher guidance for feature/design work changes, run a targeted meta-eval in a fresh session:
 
@@ -84,8 +88,12 @@ When routing or launcher guidance for feature/design work changes, run a targete
    - correct routing choice
    - correct tier choice
    - no local-only artifact promotion mistakes
-5. Treat optional global launcher naming or local launcher convenience drift as out of scope for tracked success criteria.
+5. Treat optional launcher naming or local launcher convenience drift as out of scope for tracked success criteria (example: global launcher naming).
 6. Record the result in one tracked file under [`baseline-summaries/`](./baseline-summaries/README.md) and keep raw artifacts local-only.
+
+Example tracked summary:
+
+- [`baseline-summaries/2026-03-06-feature-design-workflow-rollout-meta-eval.md`](./baseline-summaries/2026-03-06-feature-design-workflow-rollout-meta-eval.md)
 
 ## Scoring Model
 
@@ -120,7 +128,7 @@ Promote only short durable summaries when recurring failures justify a tracked w
 - The operator who runs the baseline owns writing the tracked summary in the same pass.
 - During active cleanup, rerun the seed baseline after a material harness/control-plane change and at least once per month.
 - If a baseline changes the workflow conclusion, update the relevant tracked doc or skill guidance before closeout.
-- For the feature/design workflow rollout, the operator must include date, prompt(s) run, result, main misses, and workflow/docs changed in response in the tracked summary.
+- For this meta-eval, the operator must include date, prompt(s) run, result, main misses, and workflow/docs changed in response in the tracked summary.
 
 Manual baseline protocol:
 

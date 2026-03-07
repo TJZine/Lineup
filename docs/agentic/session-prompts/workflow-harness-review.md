@@ -42,26 +42,44 @@ As of 2026-03-07, review against these sources and treat them as explicit benchm
 
 Do not reward Lineup for matching these sources cosmetically. Evaluate whether the repo actually embodies the behaviors they recommend.
 
+## Quick-Start (Light Review)
+
+For a light harness review (aim: ~15-25 minutes total), read these and then jump to the Required Review Axes:
+
+- [`agents.md`](../../../agents.md) (skim, ~3-5m): stable policy map and defaults
+- [`docs/agentic/document-map.md`](../document-map.md) (skim, ~3-5m): doc roles, precedence, conflict resolution
+- [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) (deep, ~8-12m): operating runbook and verification gates
+- [`tools/verify-docs.mjs`](../../../tools/verify-docs.mjs) (skim, ~3-5m): mechanical enforcement surface (what is actually checked)
+
 ## Required Read Order
 
-1. [`agents.md`](../../../agents.md)
-2. [`docs/agentic/document-map.md`](../document-map.md)
-3. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
-4. [`docs/agentic/codanna-playbook.md`](../codanna-playbook.md)
-5. [`docs/agentic/skill-strategy.md`](../skill-strategy.md)
-6. [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md)
-7. [`docs/agentic/historical-plan-corpus-review.md`](../historical-plan-corpus-review.md)
-8. [`docs/agentic/evals/README.md`](../evals/README.md)
-9. [`docs/agentic/evals/rubric.md`](../evals/rubric.md)
-10. [`docs/agentic/evals-roadmap.md`](../evals-roadmap.md)
-11. [`docs/agentic/doc-gardening-checklist.md`](../doc-gardening-checklist.md)
-12. [`docs/agentic/phase-2-steady-state-plan.md`](../phase-2-steady-state-plan.md)
-13. [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md)
-14. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
-15. [`docs/plans/README.md`](../../plans/README.md)
-16. [`docs/archive/plans/README.md`](../../archive/plans/README.md)
-17. [`docs/runs/README.md`](../../runs/README.md)
-18. [`tools/verify-docs.mjs`](../../../tools/verify-docs.mjs)
+### Core (must-read for a full review)
+
+Rationale: these define the authority surfaces, how work is routed, and what is mechanically enforced.
+
+1. [`agents.md`](../../../agents.md) (deep, ~8-12m): stable policy and global defaults
+2. [`docs/agentic/document-map.md`](../document-map.md) (deep, ~8-12m): precedence and doc authority
+3. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) (deep, ~12-18m): workflow, routing, and verification expectations
+4. [`docs/agentic/codanna-playbook.md`](../codanna-playbook.md) (deep, ~8-12m): Codanna-first discovery and fallback rules
+5. [`docs/agentic/skill-strategy.md`](../skill-strategy.md) (skim, ~5-8m): skill topology and mirror policy
+6. [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md) (deep, ~10-15m): tracked plan requirements and handoff quality bar
+7. [`docs/agentic/historical-plan-corpus-review.md`](../historical-plan-corpus-review.md) (skim, ~5-8m): common failure modes and what to avoid repeating
+8. [`docs/agentic/evals/README.md`](../evals/README.md) (deep, ~10-15m): eval protocol, ownership, and what is measured
+9. [`docs/agentic/evals/rubric.md`](../evals/rubric.md) (deep, ~8-12m): scoring criteria and definitions
+10. [`docs/agentic/evals-roadmap.md`](../evals-roadmap.md) (skim, ~5-8m): planned eval surfaces and prioritization
+
+### Supporting context (read as needed)
+
+Rationale: these validate the core workflow against steady-state plans, architecture reality, and maintenance discipline.
+
+11. [`docs/agentic/doc-gardening-checklist.md`](../doc-gardening-checklist.md) (skim, ~5-8m): maintenance and garbage-collection expectations
+12. [`docs/agentic/phase-2-steady-state-plan.md`](../phase-2-steady-state-plan.md) (skim, ~5-10m): medium-term harness shape
+13. [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md) (deep, ~10-15m): current product/architecture truth surface
+14. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md) (skim, ~8-12m): active cleanup status and hotspots
+15. [`docs/plans/README.md`](../../plans/README.md) (skim, ~3-5m): how active tracked plans are organized
+16. [`docs/archive/plans/README.md`](../../archive/plans/README.md) (skim, ~3-5m): how completed/superseded plans are archived
+17. [`docs/runs/README.md`](../../runs/README.md) (skim, ~3-5m): local-only run bundles and promotion rules
+18. [`tools/verify-docs.mjs`](../../../tools/verify-docs.mjs) (deep, ~8-12m): exact checks and failure modes
 
 Also inspect the tracked session launchers in this directory and the repo-local tracked skill surfaces under [`.codex/skills/`](../../../.codex/skills/) (`.agent/skills/` is a generated local-only mirror and must remain untracked).
 
