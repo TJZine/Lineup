@@ -56,9 +56,17 @@ For the first manual baseline, run only these prompts in this order:
 5. `11-plex-subtitle-policy`
 6. `12-architecture-doc-refresh`
 
-Do not run all 13 prompts in the first baseline.
+Do not run all tracked prompts in the first baseline.
 
 Run [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) whenever the workflow/control-plane changes materially.
+
+Priority 4 prompt additions can be run as a second manual baseline when validating UI-class decomposition and cleanup-pass behavior:
+
+- `14-epg-info-panel-orchestration-no-host-drift`
+- `15-channel-setup-session-owner-no-step-controller-bleed`
+- `16-shared-ui-primitives-no-policy-centralization`
+- `17-priority-4-cleanup-pass-no-premature-glue-removal`
+- `18-detect-unresolved-seam-before-freezing-plan`
 
 ### Feature/Design Workflow Rollout Meta-Eval (2026-03-06)
 

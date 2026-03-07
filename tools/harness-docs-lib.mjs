@@ -22,6 +22,11 @@ export const EXPECTED_EVAL_PROMPT_FILES = [
     '11-plex-subtitle-policy.md',
     '12-architecture-doc-refresh.md',
     '13-risk-tiered-orchestration-and-local-only-absorption.md',
+    '14-epg-info-panel-orchestration-no-host-drift.md',
+    '15-channel-setup-session-owner-no-step-controller-bleed.md',
+    '16-shared-ui-primitives-no-policy-centralization.md',
+    '17-priority-4-cleanup-pass-no-premature-glue-removal.md',
+    '18-detect-unresolved-seam-before-freezing-plan.md',
 ];
 
 const PLAN_SECTION_RULES = [

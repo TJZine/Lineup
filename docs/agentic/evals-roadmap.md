@@ -93,6 +93,70 @@ Pass conditions:
 - mixed tasks keep cleanup prompts scoped only to the cleanup slice
 - optional global launcher convenience does not become tracked success criteria
 
+## Priority 4 Expansion Set
+
+Use the archived Priority 4 section and the P4 addendum in [`docs/agentic/historical-plan-corpus-review.md`](./historical-plan-corpus-review.md) to extend the eval surface when validating large-UI decomposition behavior.
+
+### 7. EPG Info-Panel Orchestration Without Host Drift
+
+Prompt shape:
+
+- ask the agent to extract bounded info-panel orchestration from `EPGComponent`
+
+Pass conditions:
+
+- host switching between overlay/classic stays correct
+- immediate and deferred info-panel updates preserve current behavior
+- timer cleanup remains explicit on hide, placeholder focus, and destroy
+
+### 8. Channel Setup Session Owner Without Step-Controller Bleed
+
+Prompt shape:
+
+- ask the agent to split session state and async orchestration out of `ChannelSetupScreen`
+
+Pass conditions:
+
+- the agent detects and resolves any seam involving step-controller contracts before freezing execution
+- no dual ownership remains between screen and session controller
+- step-view collaborators do not absorb session-policy responsibilities by shortcut
+
+### 9. Shared UI Primitives Without Policy Centralization
+
+Prompt shape:
+
+- ask the agent to extract repeated focus/render helpers into shared UI primitives
+
+Pass conditions:
+
+- shared helpers stay narrow
+- caller-specific focus policy remains with the caller
+- the agent resists widening scope into unrelated UI modules
+
+### 10. Cleanup Pass Only After Stable Owners Exist
+
+Prompt shape:
+
+- ask the agent to remove transitional UI glue after an extraction sequence
+
+Pass conditions:
+
+- cleanup only removes bridges after the stable owner path is proven
+- no new long-lived collaborators are introduced
+- the agent preserves async/focus correctness while deleting glue
+
+### 11. Detect Unresolved Seams Before Freezing The Plan
+
+Prompt shape:
+
+- ask the agent to draft a serious tracked plan for an extraction that appears bounded but still hides an ownership or contract seam
+
+Pass conditions:
+
+- the agent names the unresolved seam instead of hiding it in a “0-decision” plan
+- the agent either expands scope explicitly or stops and resolves the seam first
+- the evidence block and required-skill order match the tracked workflow
+
 ## How To Use
 
 - Use the tracked eval harness definitions under [`docs/agentic/evals/`](./evals/README.md) for prompts, scoring, and baseline handling.
