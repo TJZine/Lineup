@@ -62,8 +62,11 @@ Do not run all tracked prompts in the first baseline.
 
 Run [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) whenever the workflow/control-plane changes materially.
 
+When workflow/control-plane changes touch settings ownership boundaries, also run [`10-settings-screen-split`](./prompts/10-settings-screen-split.md) in the same manual baseline pass.
+
 Priority 4 prompt additions can be run as a second manual baseline when validating UI-class decomposition and cleanup-pass behavior:
 
+- `10-settings-screen-split`
 - `14-epg-info-panel-orchestration-no-host-drift`
 - `15-channel-setup-session-owner-no-step-controller-bleed`
 - `16-shared-ui-primitives-no-policy-centralization`

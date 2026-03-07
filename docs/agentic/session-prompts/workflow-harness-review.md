@@ -63,7 +63,7 @@ Do not reward Lineup for matching these sources cosmetically. Evaluate whether t
 17. [`docs/runs/README.md`](../../runs/README.md)
 18. [`tools/verify-docs.mjs`](../../../tools/verify-docs.mjs)
 
-Also inspect the tracked session launchers in this directory and the repo-local skill surfaces under [`.codex/skills/`](../../../.codex/skills/).
+Also inspect the tracked session launchers in this directory and the repo-local tracked skill surfaces under [`.codex/skills/`](../../../.codex/skills/) (`.agent/skills/` is a generated local-only mirror and must remain untracked).
 
 ## Required Review Axes
 

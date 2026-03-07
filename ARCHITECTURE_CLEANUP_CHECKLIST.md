@@ -37,7 +37,7 @@ Completion rule: every implementation plan that finishes a `P#-W#` work unit mus
 - Do a repo evidence sweep before planning.
 - If the work depends on an unresolved architecture seam or adjacent contract change, resolve that boundary first instead of hiding it inside a “decision-point-free” plan.
 - Produce or refresh a concrete, decision-point-free plan under `docs/plans/` (use the writing-plans skill) before coding. The plan must be explicit enough for less-capable agents to execute without ambiguity.
-- In every serious tracked plan, record the Codanna evidence trail plus any fallback reads used for checklist/doc context.
+- In every serious tracked plan, record the Codanna evidence trail (queries/tools used, key symbols/files found, and fallback evidence when Codanna is unavailable/insufficient) plus any fallback reads used for checklist/doc context.
 - Keep scope limited to one work unit at a time.
 - In every plan, explicitly state how the selected `P#-W#` advances the durable end-state of its parent Priority section.
 - If adjacent files may need type/contract wiring, either put them in scope explicitly or freeze them explicitly and explain how the task still works.
@@ -47,16 +47,16 @@ Completion rule: every implementation plan that finishes a `P#-W#` work unit mus
 
 ## Evidence Snapshot
 
-The largest structural hotspots found during review were:
+The largest structural hotspots from the current snapshot (2026-03-07) were:
 
-- `src/Orchestrator.ts` at 2,713 lines
-- `src/App.ts` at 1,434 lines
-- `src/modules/ui/epg/EPGComponent.ts` at 1,864 lines
-- `src/modules/plex/stream/PlexStreamResolver.ts` at 1,749 lines
-- `src/modules/scheduler/channel-manager/ChannelManager.ts` at 1,565 lines
-- `src/modules/ui/settings/SettingsScreen.ts` at 1,399 lines
-- `src/modules/ui/channel-setup/ChannelSetupScreen.ts` at 1,447 lines
+- `src/Orchestrator.ts` at 2,592 lines
+- `src/modules/ui/epg/EPGComponent.ts` at 1,920 lines
+- `src/modules/plex/stream/PlexStreamResolver.ts` at 1,733 lines
+- `src/modules/scheduler/channel-manager/ChannelManager.ts` at 1,583 lines
 - `src/modules/player/VideoPlayer.ts` at 1,252 lines
+- `src/modules/ui/channel-setup/ChannelSetupScreen.ts` at 1,052 lines
+- `src/modules/ui/settings/SettingsScreen.ts` at 735 lines
+- `src/App.ts` at 611 lines
 
 Other review signals:
 

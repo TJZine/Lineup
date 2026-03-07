@@ -89,6 +89,14 @@ Use `rg` when:
 
 When you fall back, note that you did so.
 
+## Index Freshness Gate
+
+If expected symbols are missing from `find_symbol`/`search_symbols` or semantic hits are unexpectedly weak, treat it as a possible stale Codanna index before assuming the symbol is absent.
+
+- run `get_index_info` and capture the snapshot in task notes
+- retry with one broader and one narrower query anchor
+- if results are still insufficient, log the Codanna insufficiency and fall back to `rg` with explicit evidence paths
+
 ## Document Search
 
 Use `search_documents` when:

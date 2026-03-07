@@ -11,7 +11,7 @@ Test whether the agent surfaces and resolves a hidden ownership seam instead of 
 
 ## Prompt
 
-Split session state and async step-flow orchestration out of `ChannelSetupScreen` into one focused collaborator. Preserve focus behavior, async stale-result protection, build/review routing, and step-view rendering behavior. Do not silently widen step-controller ownership or leave dual ownership between the screen and the new controller.
+Ensure no ownership bleed between `ChannelSetupScreen` and `ChannelSetupSessionController`. Verify that session state and async step-flow orchestration remain in `ChannelSetupSessionController`, while `ChannelSetupScreen` and step collaborators remain focused on rendering/focus behavior. Preserve async stale-result protection, build/review routing, and step-view behavior; do not reintroduce dual ownership or silently widen step-controller ownership.
 
 ## Expected Skills
 

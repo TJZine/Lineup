@@ -10,13 +10,15 @@ Each summary must include:
 
 - date
 - operator / agent surface
-- session metadata (fresh-session status and launcher/session id)
+- session metadata (fresh-session status, launcher/session id, and repo-state note)
 - prompts run
-- Codanna fallback log (used or not, and exact fallback path when used)
+- Codanna fallback log (used or not, and exact invocation/condition/evidence path when used)
 - fresh-session deviations, if any
 - outcome summary
 - recurring misses
 - workflow/docs/skills changed in response
+- durable lessons absorbed
+- intentionally local-only artifacts
 - next required follow-up, if any
 
 Use [`docs/agentic/evals/baseline-summary-template.md`](../baseline-summary-template.md) as the default starting point.

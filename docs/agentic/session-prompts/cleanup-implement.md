@@ -25,6 +25,7 @@ Use this prompt for Tier 2 or Tier 3 work when an approved cleanup plan already 
 - if repo state contradicts the plan, update the plan first instead of improvising
 - prefer extraction and focused collaborators over growing hotspot files
 - do not add fallback paths, migration shims, or dual-path logic unless explicitly approved
+- treat `.codex/skills/` as the tracked repo skill surface; commit updates there when the task changes repo-local skill behavior
 - do not commit local-only artifacts such as `.agent/skills/`, `docs/runs/<instance>/`, raw run bundles, or raw eval baseline artifacts
 - if a local run bundle changes the workflow conclusion, commit the updated tracked baseline-summary or workflow doc before closeout and keep only the raw bundle local
 - terminology: `tracked baseline-summary` means tracked durable conclusion, while `local-only eval artifacts` means raw run outputs/transcripts kept out of git

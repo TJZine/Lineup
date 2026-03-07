@@ -14,7 +14,8 @@ Score the overall run as `fail` if any of these happen:
 
 - skipped risk-matched verification (verification depth not aligned to task risk; see `Verification Selection`)
 - raw local-only artifact leakage into tracked docs
-- boundary leakage the harness is explicitly meant to prevent
+- local-only boundary leakage into tracked docs (enforced in `tools/verify-docs.mjs` via `isForbiddenLocalOnlyTarget()`)
+- architecture boundary leakage defined by prompt-specific fail conditions and `Boundary And Skill Selection`
 
 ## Discovery Quality
 
