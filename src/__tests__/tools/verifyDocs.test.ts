@@ -2,6 +2,7 @@ import { chmodSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:f
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 
 const verifierPath = path.resolve(process.cwd(), 'tools/verify-docs.mjs');
 const skillMirrorManifestPath = 'docs/agentic/skill-mirror-allowlist.txt';
@@ -42,31 +43,40 @@ const requiredFiles = [
     skillMirrorManifestPath,
 ];
 
-const expectedEvalPromptFiles = [
-    '01-app-container-extraction-no-ui-drift.md',
-    '02-lazy-screen-registry-no-dual-ownership.md',
-    '03-overlay-toast-extraction-no-timer-leaks.md',
-    '04-diagnostics-surface-isolation-no-storage-slop.md',
-    '05-app-shell-cleanup-no-behavior-regression.md',
-    '06-orchestrator-hotspot-extraction.md',
-    '07-settings-storage-boundary.md',
-    '08-server-selection-storage-boundary.md',
-    '09-channel-persistence-boundary.md',
-    '10-settings-screen-split.md',
-    '11-plex-subtitle-policy.md',
-    '12-architecture-doc-refresh.md',
-    '13-risk-tiered-orchestration-and-local-only-absorption.md',
-];
+type PromptInventories = {
+    expectedEvalPromptFiles: string[];
+    expectedSessionPromptFiles: string[];
+};
 
-const expectedSessionPromptFiles = [
-    'cleanup-plan.md',
-    'cleanup-implement.md',
-    'cleanup-review.md',
-    'cleanup-loop.md',
-    'feature-plan.md',
-    'feature-review.md',
-    'workflow-harness-review.md',
-];
+function loadPromptInventoriesFromHarnessDocsLib(): PromptInventories {
+    const harnessDocsLibPath = path.resolve(process.cwd(), 'tools/harness-docs-lib.mjs');
+    const harnessDocsLibUrl = pathToFileURL(harnessDocsLibPath).href;
+    const script = [
+        `const lib = await import(${JSON.stringify(harnessDocsLibUrl)});`,
+        'const payload = {',
+        '  expectedEvalPromptFiles: lib.EXPECTED_EVAL_PROMPT_FILES,',
+        "  expectedSessionPromptFiles: [...lib.EXPECTED_SESSION_PROMPT_FILES, 'feature-plan.md', 'feature-review.md'],",
+        '};',
+        'console.log(JSON.stringify(payload));',
+    ].join('\n');
+
+    const result = spawnSync(process.execPath, ['--input-type=module', '--eval', script], {
+        encoding: 'utf8',
+    });
+
+    if (result.status !== 0) {
+        const errorOutput = result.stderr.trim() || result.stdout.trim() || `exit ${result.status}`;
+        throw new Error(`Failed to load expected prompt inventories from harness-docs-lib.mjs: ${errorOutput}`);
+    }
+
+    const parsed = JSON.parse(result.stdout) as PromptInventories;
+    return parsed;
+}
+
+const {
+    expectedEvalPromptFiles,
+    expectedSessionPromptFiles,
+} = loadPromptInventoriesFromHarnessDocsLib();
 
 function writeRepoFile(repoRoot: string, relativePath: string, content = '# Placeholder\n'): void {
     const fullPath = path.join(repoRoot, relativePath);
