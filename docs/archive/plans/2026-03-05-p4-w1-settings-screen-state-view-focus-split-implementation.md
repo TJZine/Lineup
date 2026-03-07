@@ -791,7 +791,7 @@ In `ARCHITECTURE_CLEANUP_CHECKLIST.md`, change this line:
 to this exact line:
 
 ```md
-- [x] P4-W1 - Split `SettingsScreen` into storage/state ownership vs view/focus ownership (done 2026-03-05; plan: docs/plans/2026-03-05-p4-w1-settings-screen-state-view-focus-split-implementation.md)
+- [x] P4-W1 - Split `SettingsScreen` into storage/state ownership vs view/focus ownership (done 2026-03-05; plan: docs/archive/plans/2026-03-05-p4-w1-settings-screen-state-view-focus-split-implementation.md)
 ```
 
 Do not make this edit until Step 1 passed.
@@ -818,7 +818,7 @@ Expected: commit succeeds and contains only the checklist update because the cod
 
 ## Execution Handoff
 
-Plan complete and saved to `docs/plans/2026-03-05-p4-w1-settings-screen-state-view-focus-split-implementation.md`.
+Plan complete and saved to `docs/archive/plans/2026-03-05-p4-w1-settings-screen-state-view-focus-split-implementation.md`.
 
 Two execution options:
 

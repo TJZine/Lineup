@@ -56,9 +56,9 @@ If freshness fails, update this plan before editing.
 6. `docs/agentic/historical-plan-corpus-review.md`
 7. `docs/architecture/CURRENT_STATE.md`
 8. `ARCHITECTURE_CLEANUP_CHECKLIST.md`
-9. `docs/plans/2026-03-06-p4-w2-epg-info-panel-orchestration-split-implementation.md`
-10. `docs/plans/2026-03-06-p4-w3-channel-setup-session-flow-split-implementation.md`
-11. `docs/plans/2026-03-06-p4-w4-ui-focus-render-primitives-consolidation-implementation.md`
+9. `docs/archive/plans/2026-03-06-p4-w2-epg-info-panel-orchestration-split-implementation.md`
+10. `docs/archive/plans/2026-03-06-p4-w3-channel-setup-session-flow-split-implementation.md`
+11. `docs/archive/plans/2026-03-06-p4-w4-ui-focus-render-primitives-consolidation-implementation.md`
 
 ## Required Skills
 
@@ -252,7 +252,7 @@ Expected: PASS.
 
 3. Mark `P4-W5` complete only after verification passes:
 ```md
-- [x] P4-W5 - Cleanup pass for Priority 4: remove placeholder view glue, dead DOM refs, temporary focus bridges, and transitional UI conditionals introduced during the screen splits (done 2026-03-06; plan: docs/plans/2026-03-06-p4-w5-priority-4-cleanup-pass-implementation.md)
+- [x] P4-W5 - Cleanup pass for Priority 4: remove placeholder view glue, dead DOM refs, temporary focus bridges, and transitional UI conditionals introduced during the screen splits (done 2026-03-06; plan: docs/archive/plans/2026-03-06-p4-w5-priority-4-cleanup-pass-implementation.md)
 ```
 
 ## Verification Commands

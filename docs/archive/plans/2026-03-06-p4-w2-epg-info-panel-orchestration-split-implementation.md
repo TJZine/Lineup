@@ -905,7 +905,7 @@ Change:
 to:
 
 ```md
-- [x] P4-W2 - Split one bounded concern out of `EPGComponent` (recommended: navigation or info-panel orchestration) (done 2026-03-06; plan: docs/plans/2026-03-06-p4-w2-epg-info-panel-orchestration-split-implementation.md)
+- [x] P4-W2 - Split one bounded concern out of `EPGComponent` (recommended: navigation or info-panel orchestration) (done 2026-03-06; plan: docs/archive/plans/2026-03-06-p4-w2-epg-info-panel-orchestration-split-implementation.md)
 ```
 
 **Step 2: Verify only the checklist changed after the prior implementation commits**

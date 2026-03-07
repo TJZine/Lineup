@@ -37,8 +37,8 @@ This plan advances **Priority 4 (Decompose The Largest UI Classes)** by turning 
 6. `docs/architecture/CURRENT_STATE.md`
 7. `ARCHITECTURE_CLEANUP_CHECKLIST.md` (Priority 4 + `P4-W4`)
 8. `docs/design/ui-design-language.md`
-9. `docs/plans/2026-03-06-p4-w2-epg-info-panel-orchestration-split-implementation.md`
-10. `docs/plans/2026-03-06-p4-w3-channel-setup-session-flow-split-implementation.md`
+9. `docs/archive/plans/2026-03-06-p4-w2-epg-info-panel-orchestration-split-implementation.md`
+10. `docs/archive/plans/2026-03-06-p4-w3-channel-setup-session-flow-split-implementation.md`
 
 ## Freshness Gate
 
@@ -327,7 +327,7 @@ Expected: PASS.
 
 Add:
 ```md
-- [x] P4-W4 - Consolidate repeated focus/render helpers into reusable UI primitives only after the first three extractions are stable (done YYYY-MM-DD; plan: docs/plans/2026-03-06-p4-w4-ui-focus-render-primitives-consolidation-implementation.md)
+- [x] P4-W4 - Consolidate repeated focus/render helpers into reusable UI primitives only after the first three extractions are stable (done YYYY-MM-DD; plan: docs/archive/plans/2026-03-06-p4-w4-ui-focus-render-primitives-consolidation-implementation.md)
 ```
 
 **Step 3:** Final commit checkpoint.
