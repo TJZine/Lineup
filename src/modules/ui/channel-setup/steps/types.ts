@@ -5,7 +5,6 @@ import type {
     ChannelSetupReview,
 } from '../../../../Orchestrator';
 import type { PlexLibraryType } from '../../../plex/library';
-import type { FocusRegistrationMode } from '../focus/types';
 import type { SetupStrategyKey, StrategyCategoryKey } from './constants';
 
 export type { SetupStrategyKey, StrategyCategoryKey } from './constants';
@@ -51,7 +50,7 @@ export interface LibraryStepDeps {
     onClearAll: (focusId: string | null) => void;
     onBack: () => void;
     onNext: () => void;
-    registerFocusables: (buttons: HTMLElement[], mode: FocusRegistrationMode) => void;
+    registerSpatialFocusables: (buttons: HTMLElement[]) => void;
     registerBulkActionNeighbors: (
         selectAllButton: HTMLButtonElement,
         clearAllButton: HTMLButtonElement,
@@ -125,16 +124,12 @@ export interface BuildReviewStateSnapshot {
 
 export interface BuildReviewDeps {
     state: BuildReviewStateSnapshot;
-    getState: () => BuildReviewStateSnapshot;
-    loadReview: () => Promise<void>;
     onBackToStrategy: () => void;
     onConfirmBuild: () => void;
     onToggleReplaceConfirm: (focusId: string) => void;
     buildPreviewRow: (label: string, value: number | string, key?: EstimateKey) => HTMLElement;
     renderCappedWarnings: (warnings: string[], container: HTMLElement) => void;
-    registerFocusables: (buttons: HTMLElement[], mode: FocusRegistrationMode) => void;
-    renderBuildReviewLoading: (container: HTMLElement) => void;
-    getVisibilityToken: () => number;
+    registerLinearFocusables: (buttons: HTMLElement[]) => void;
 }
 
 export interface BuildProgressUiRefs {
@@ -151,7 +146,7 @@ export interface BuildProgressStateSnapshot {
 
 export interface BuildProgressDeps {
     state: BuildProgressStateSnapshot;
-    registerFocusables: (buttons: HTMLElement[], mode: FocusRegistrationMode) => void;
+    registerLinearFocusables: (buttons: HTMLElement[]) => void;
     onCancelOrBack: (button: HTMLButtonElement) => void;
     onDone: () => void;
     startBuild: (ui: BuildProgressUiRefs) => Promise<void>;
