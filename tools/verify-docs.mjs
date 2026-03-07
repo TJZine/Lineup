@@ -11,7 +11,7 @@ import {
 } from './harness-docs-lib.mjs';
 
 const repoRoot = process.cwd();
-const expectedSessionPromptFiles = [...EXPECTED_SESSION_PROMPT_FILES, 'feature-plan.md', 'feature-review.md'];
+const expectedSessionPromptFiles = EXPECTED_SESSION_PROMPT_FILES;
 
 const requiredFiles = [
     'agents.md',

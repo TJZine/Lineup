@@ -5,6 +5,8 @@ export const EXPECTED_SESSION_PROMPT_FILES = [
     'cleanup-implement.md',
     'cleanup-review.md',
     'cleanup-loop.md',
+    'feature-plan.md',
+    'feature-review.md',
     'workflow-harness-review.md',
 ];
 
