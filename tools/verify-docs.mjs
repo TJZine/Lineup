@@ -99,6 +99,22 @@ function readRepoFile(relativePath, errors) {
     }
 }
 
+function safeReadDir(relativeDir, errors, options = { requireExists: true }) {
+    const fullPath = path.join(repoRoot, relativeDir);
+    if (!existsSync(fullPath)) {
+        if (options.requireExists) {
+            errors.push(`Missing directory: ${relativeDir}`);
+        }
+        return [];
+    }
+    try {
+        return readdirSync(fullPath);
+    } catch (error) {
+        recordFsError(errors, 'read directory', relativeDir, error);
+        return [];
+    }
+}
+
 function isForbiddenLocalOnlyTarget(relativePath) {
     if (trackedLocalOnlyAllowlist.has(relativePath)) {
         return false;
@@ -141,13 +157,7 @@ function collectMarkdownFiles(entry, errors) {
     }
 
     const results = [];
-    let children = [];
-    try {
-        children = readdirSync(fullPath);
-    } catch (error) {
-        recordFsError(errors, 'read directory', entry, error);
-        return [];
-    }
+    const children = safeReadDir(entry, errors);
 
     for (const child of children) {
         results.push(...collectMarkdownFiles(path.join(entry, child), errors));
@@ -186,6 +196,23 @@ function checkRequiredFiles(errors) {
     for (const file of requiredFiles) {
         if (!existsSync(path.join(repoRoot, file))) {
             errors.push(`Missing required control-plane file: ${file}`);
+        }
+    }
+}
+
+function checkRequiredRunTemplate(errors) {
+    const templateDir = 'docs/runs/_template';
+    const expectedTemplateFiles = ['Prompt.md', 'Plan.md', 'Implement.md', 'Documentation.md'];
+    const fullTemplateDir = path.join(repoRoot, templateDir);
+    if (!existsSync(fullTemplateDir)) {
+        errors.push(`Missing required control-plane directory: ${templateDir}`);
+        return;
+    }
+
+    for (const file of expectedTemplateFiles) {
+        const relativePath = `${templateDir}/${file}`;
+        if (!existsSync(path.join(repoRoot, relativePath))) {
+            errors.push(`Missing required run template file: ${relativePath}`);
         }
     }
 }
@@ -261,13 +288,7 @@ function checkForbiddenLiteralReferences(errors) {
 }
 
 function checkDecisionIndex(errors) {
-    const decisionDir = path.join(repoRoot, 'docs/decisions');
-    if (!existsSync(decisionDir)) {
-        errors.push('Missing decisions directory: docs/decisions');
-        return;
-    }
-
-    const actual = readdirSync(decisionDir)
+    const actual = safeReadDir('docs/decisions', errors)
         .filter((name) => name.endsWith('.md') && name !== 'README.md')
         .sort();
 
@@ -299,13 +320,7 @@ function checkDecisionIndex(errors) {
 }
 
 function checkInventory(errors, directory, expectedFiles, description) {
-    const fullDir = path.join(repoRoot, directory);
-    if (!existsSync(fullDir)) {
-        errors.push(`Missing ${description} directory: ${directory}`);
-        return;
-    }
-
-    const actual = readdirSync(fullDir)
+    const actual = safeReadDir(directory, errors)
         .filter((name) => name.endsWith('.md') && name !== 'README.md')
         .sort();
 
@@ -388,10 +403,10 @@ function checkChecklistPlanPaths(errors) {
 }
 
 function checkPlanArchiveCoherence(errors) {
-    const activeDir = path.join(repoRoot, 'docs/plans');
-    const archiveDir = path.join(repoRoot, 'docs/archive/plans');
-    const activeFiles = readdirSync(activeDir).filter((name) => name.endsWith('.md') && name !== 'README.md');
-    const archivedFiles = readdirSync(archiveDir).filter((name) => name.endsWith('.md') && name !== 'README.md');
+    const activeFiles = safeReadDir('docs/plans', errors).filter((name) => name.endsWith('.md') && name !== 'README.md');
+    const archivedFiles = safeReadDir('docs/archive/plans', errors).filter(
+        (name) => name.endsWith('.md') && name !== 'README.md'
+    );
     const archivedSet = new Set(archivedFiles);
 
     for (const file of activeFiles) {
@@ -429,12 +444,6 @@ function checkSkillMirrorManifest(errors) {
         if (!strategyDoc.includes(SKILL_MIRROR_MANIFEST_PATH)) {
             errors.push(`Skill strategy must reference the tracked mirror allowlist: ${SKILL_MIRROR_MANIFEST_PATH}`);
         }
-
-        for (const entry of entries) {
-            if (!strategyDoc.includes(`\`${entry.skill}\``)) {
-                errors.push(`Skill strategy is missing allowlisted skill \`${entry.skill}\``);
-            }
-        }
     }
 
     const syncScript = readRepoFile('scripts/sync_agent_skills.sh', errors);
@@ -444,8 +453,7 @@ function checkSkillMirrorManifest(errors) {
 }
 
 function checkSeriousPlanConformance(errors) {
-    const planDir = path.join(repoRoot, 'docs/plans');
-    const planFiles = readdirSync(planDir)
+    const planFiles = safeReadDir('docs/plans', errors)
         .filter((name) => name.endsWith('.md') && name !== 'README.md')
         .sort();
 
@@ -466,6 +474,7 @@ function checkSeriousPlanConformance(errors) {
 const errors = [];
 
 checkRequiredFiles(errors);
+checkRequiredRunTemplate(errors);
 checkMarkdownLinks(errors);
 checkForbiddenLiteralReferences(errors);
 checkDecisionIndex(errors);

@@ -49,6 +49,8 @@ const PLAN_SECTION_RULES = [
     { label: 'impact snapshot', patterns: [/^## Impact Snapshot$/im, /^## Evidence To Preserve$/im] },
     { label: 'files in scope', patterns: [/^## Files In Scope$/im, /^## Allowed File Changes$/im] },
     { label: 'files out of scope', patterns: [/^## Files Out Of Scope$/im] },
+    { label: 'planner self-check', patterns: [/^## Planner Self-Check$/im] },
+    { label: 'architecture seam decision gate', patterns: [/^## Architecture Seam Decision Gate$/im] },
     { label: 'verification commands', patterns: [/^## Verification Commands$/im] },
     { label: 'rollback notes', patterns: [/^## Rollback Notes$/im] },
     { label: 'commit checkpoints', patterns: [/^## Commit Checkpoints$/im] },

@@ -162,6 +162,9 @@ function createRepoFixture(
     }
 
     writeRepoFile(repoRoot, 'docs/runs/_template/Plan.md');
+    writeRepoFile(repoRoot, 'docs/runs/_template/Prompt.md');
+    writeRepoFile(repoRoot, 'docs/runs/_template/Implement.md');
+    writeRepoFile(repoRoot, 'docs/runs/_template/Documentation.md');
     writeRepoFile(repoRoot, 'docs/development/setup.md');
     writeRepoFile(repoRoot, 'docs/development/debugging.md');
     writeRepoFile(repoRoot, 'docs/development/subtitles.md');
@@ -247,6 +250,18 @@ describe('verify-docs', () => {
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('read');
         expect(result.stderr).toContain('docs/AGENTIC_DEV_WORKFLOW.md');
+    });
+
+    it('fails when docs/runs/_template is missing', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        rmSync(path.join(repoRoot, 'docs/runs/_template'), { recursive: true, force: true });
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Missing required control-plane directory: docs/runs/_template');
     });
 
     it('ignores non-decision markdown links in the decisions index', () => {
