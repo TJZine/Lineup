@@ -43,9 +43,11 @@ Build and refresh eval prompts from:
 3. Start a fresh session for each prompt you score.
 4. Record the agent surface used.
 5. Record whether the expected skills and Codanna workflow were actually used.
-6. Score the run with [`rubric.md`](./rubric.md) and [`scorecard-template.md`](./scorecard-template.md).
-7. Write one tracked summary file under [`docs/agentic/evals/baseline-summaries/`](./baseline-summaries/README.md) using [`baseline-summary-template.md`](./baseline-summary-template.md).
-8. Keep raw baseline artifacts local-only unless they are intentionally promoted later.
+6. If Codanna fallback is used, log the exact invocation, acceptable condition, and fallback evidence path.
+7. Score only fresh-session runs or explicitly logged Codanna-fallback runs.
+8. Score the run with [`rubric.md`](./rubric.md) and [`scorecard-template.md`](./scorecard-template.md).
+9. Write one tracked summary file under [`docs/agentic/evals/baseline-summaries/`](./baseline-summaries/README.md) using [`baseline-summary-template.md`](./baseline-summary-template.md), including fallback usage and fresh-session deviations.
+10. Keep raw baseline artifacts local-only unless they are intentionally promoted later.
 
 For the first manual baseline, run only these prompts in this order:
 
@@ -122,6 +124,8 @@ Manual baseline protocol:
 - use a fresh session per prompt
 - start from repo root each time
 - do not reuse prompt threads
+- log Codanna fallback usage explicitly when it happens
+- treat scoring as valid only for fresh-session runs or explicitly logged fallback runs
 - store raw result artifacts locally under `docs/agentic/evals/baselines/`
 - do not commit raw baseline files
 - close out the run by recording:

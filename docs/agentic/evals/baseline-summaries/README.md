@@ -10,7 +10,10 @@ Each summary must include:
 
 - date
 - operator / agent surface
+- session metadata (fresh-session status and launcher/session id)
 - prompts run
+- Codanna fallback log (used or not, and exact fallback path when used)
+- fresh-session deviations, if any
 - outcome summary
 - recurring misses
 - workflow/docs/skills changed in response

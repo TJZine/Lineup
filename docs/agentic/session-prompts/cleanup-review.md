@@ -29,7 +29,7 @@ If reviewing a plan, focus on:
 - rollback gaps
 - missing preservation contracts for risky UI/runtime behavior
 - wrong repo-preferred owner or likely hotspot growth
-- likely temporary adapters, dual ownership, or responsibility bleed implied by the plan
+- temporary adapters that may not survive, dual ownership, or responsibility bleed implied by the plan
 - code-feasibility issues that would force the implementer to invent API/contract changes mid-task
 - hidden design decisions disguised as implementation steps
 - stale paths, stale repo names, or local-only dependencies

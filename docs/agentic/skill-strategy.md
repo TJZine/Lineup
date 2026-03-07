@@ -43,23 +43,8 @@ These are the source-of-truth Lineup skills. They are authored in `.codex/skills
 
 ### Mirrored Global Skills For Antigravity
 
-- Allowlisted `superpowers` skills from [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt):
-  - `using-superpowers`
-  - `brainstorming`
-  - `writing-plans`
-  - `test-driven-development`
-  - `verification-before-completion`
-  - `requesting-code-review`
-  - `receiving-code-review`
-  - `systematic-debugging`
-  - `executing-plans`
-  - `subagent-driven-development`
-  - `dispatching-parallel-agents`
-  - `using-git-worktrees`
-  - `finishing-a-development-branch`
-- Allowlisted global skills from `${CODEX_HOME:-$HOME/.codex}/skills/`:
-  - `frontend-design`
-  - `desloppify`
+- The exact mirrored set is pinned in [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt) for `superpowers` skills and resolved from `${CODEX_HOME:-$HOME/.codex}/skills/` for global skills.
+- Maintainers should update only `skill-mirror-allowlist.txt` when the pinned mirror set changes.
 
 These are mirrored into `.agent/skills/` because the repo workflow depends on them and the allowlist keeps the Antigravity surface reproducible.
 

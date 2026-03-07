@@ -12,7 +12,7 @@ Allowed outcomes:
 
 Score the overall run as `fail` if any of these happen:
 
-- skipped risk-matched verification
+- skipped risk-matched verification (verification depth not aligned to task risk; see `Verification Selection`)
 - raw local-only artifact leakage into tracked docs
 - boundary leakage the harness is explicitly meant to prevent
 

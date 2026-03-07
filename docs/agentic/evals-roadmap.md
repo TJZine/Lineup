@@ -161,8 +161,11 @@ Pass conditions:
 
 - Use the tracked eval harness definitions under [`docs/agentic/evals/`](./evals/README.md) for prompts, scoring, and baseline handling.
 - Run these prompts in a clean worktree or clean branch.
-- Score each run as `pass`, `soft-fail`, or `fail`.
+- Run each prompt in a fresh session (no carried prior user/agent context) and record session metadata in the scorecard.
+- Document Codanna fallback usage with exact invocation, acceptable condition, and why Codanna-first discovery was unavailable or insufficient.
+- Score each run as `pass`, `soft-fail`, or `fail` only when the run is fresh-session compliant or explicitly marked as a Codanna-fallback run.
 - Write a tracked baseline summary after each manual baseline run and keep the raw artifacts local-only.
+- In the baseline summary, record whether Codanna fallback was used and any deviations from fresh-session policy.
 - Capture what the agent missed and update workflow docs or skills only when the miss is recurring.
 - Keep eval prompt definitions tracked, but keep most eval baseline outputs local-only unless one is intentionally promoted as a durable reference.
 

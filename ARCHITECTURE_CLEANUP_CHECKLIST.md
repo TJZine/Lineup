@@ -19,6 +19,9 @@ Completion rule: every implementation plan that finishes a `P#-W#` work unit mus
 - Each completed `P#-W#` must leave behind a production-valid improvement, not a throwaway seam that the next subitem immediately has to replace.
 - When a work unit is finished, mark it `[x]` and append a note with the current tracked plan path, for example:
   `(done YYYY-MM-DD; plan: docs/plans/<file>.md)`
+- Allowed historical exceptions:
+  - `(done YYYY-MM-DD; plan: unavailable-pre-bootstrap)` for pre-bootstrap units that never had tracked plans.
+  - `(done YYYY-MM-DD; plan: docs/archive/plans/<section-summary>.md)` for intentionally section-summarized completion records.
 - If that plan is later archived, update the note to the archived path in the same pass.
 - Use the new repo skills before architecture-affecting work:
   - `architecture-boundaries`
@@ -40,7 +43,7 @@ Completion rule: every implementation plan that finishes a `P#-W#` work unit mus
 - If adjacent files may need type/contract wiring, either put them in scope explicitly or freeze them explicitly and explain how the task still works.
 - Favor durable collaborators/stores/binders that later work units can extend; avoid temporary adapters or one-off abstractions that will need immediate replacement inside the same Priority section.
 - Only mark completion after the required verification for that unit actually passes.
-- Before closing the work, update the matching `P#-W#` entry in this file to `[x]` and append the required plan-path note. If the plan is archived later, update the referenced path in the same pass.
+- Before closing the work, update the matching `P#-W#` entry in this file to `[x]` and append the required plan-path note using one of the allowed completion-note forms above. If the plan is archived later, update the referenced path in the same pass.
 
 ## Evidence Snapshot
 
@@ -104,12 +107,12 @@ Other review signals:
   - [ ] Reduce `AppOrchestrator` state and private method count
   - [ ] Verify event wiring remains traceable
 - Primary work units:
-  - [x] P1-W1 - Extract program-start sequencing into a focused playback-start controller (done 2026-03-02; tracked plan unavailable from pre-bootstrap work)
-  - [x] P1-W2 - Move player event handlers into a playback runtime controller while keeping subscriptions in place (done 2026-03-02; tracked plan unavailable from pre-bootstrap work)
-  - [x] P1-W3 - Move pause/resume and in-flight playback coordination into the same runtime boundary (done 2026-03-02; tracked plan unavailable from pre-bootstrap work)
-  - [x] P1-W4 - Extract `_setupEventWiring()` and the `_wire*Events()` methods into a dedicated event binder (done 2026-03-02; tracked plan unavailable from pre-bootstrap work)
-  - [x] P1-W5 - Extract remaining overlay/runtime helper policies (badge visibility, modal toggles, profile-switch cleanup) (done 2026-03-03; tracked plan unavailable from pre-bootstrap work)
-  - [x] P1-W6 - Cleanup pass for Priority 1: remove temporary delegation shims, transitional fields, obsolete helper methods, and no-longer-needed compatibility wiring created during the P1 refactors (done 2026-03-03; tracked plan unavailable from pre-bootstrap work)
+  - [x] P1-W1 - Extract program-start sequencing into a focused playback-start controller (done 2026-03-02; plan: unavailable-pre-bootstrap)
+  - [x] P1-W2 - Move player event handlers into a playback runtime controller while keeping subscriptions in place (done 2026-03-02; plan: unavailable-pre-bootstrap)
+  - [x] P1-W3 - Move pause/resume and in-flight playback coordination into the same runtime boundary (done 2026-03-02; plan: unavailable-pre-bootstrap)
+  - [x] P1-W4 - Extract `_setupEventWiring()` and the `_wire*Events()` methods into a dedicated event binder (done 2026-03-02; plan: unavailable-pre-bootstrap)
+  - [x] P1-W5 - Extract remaining overlay/runtime helper policies (badge visibility, modal toggles, profile-switch cleanup) (done 2026-03-03; plan: unavailable-pre-bootstrap)
+  - [x] P1-W6 - Cleanup pass for Priority 1: remove temporary delegation shims, transitional fields, obsolete helper methods, and no-longer-needed compatibility wiring created during the P1 refactors (done 2026-03-03; plan: unavailable-pre-bootstrap)
 
 ## Priority 2: Split App Shell Responsibilities
 
@@ -138,11 +141,11 @@ Other review signals:
   - [ ] Reduce app shell knowledge of feature-specific UI details
   - [ ] Verify screen visibility and overlay behavior still match current flow
 - Primary work units:
-  - [x] P2-W1 - Extract app container creation into a dedicated factory/helper (done 2026-03-03; tracked plan unavailable from pre-bootstrap work)
-  - [x] P2-W2 - Extract screen loading and lazy-screen caching into a screen registry/loader (done 2026-03-03; tracked plan unavailable from pre-bootstrap work)
-  - [x] P2-W3 - Extract toast and blocking error overlay presentation out of `App` (done 2026-03-03; tracked plan unavailable from pre-bootstrap work)
-  - [x] P2-W4 - Isolate the dev menu / diagnostics surface from the runtime app shell (done 2026-03-03; tracked plan unavailable from pre-bootstrap work)
-  - [x] P2-W5 - Cleanup pass for Priority 2: remove temporary pass-through helpers, dead container references, and transitional app-shell glue introduced while splitting `App` (done 2026-03-03; tracked plan unavailable from pre-bootstrap work)
+  - [x] P2-W1 - Extract app container creation into a dedicated factory/helper (done 2026-03-03; plan: unavailable-pre-bootstrap)
+  - [x] P2-W2 - Extract screen loading and lazy-screen caching into a screen registry/loader (done 2026-03-03; plan: unavailable-pre-bootstrap)
+  - [x] P2-W3 - Extract toast and blocking error overlay presentation out of `App` (done 2026-03-03; plan: unavailable-pre-bootstrap)
+  - [x] P2-W4 - Isolate the dev menu / diagnostics surface from the runtime app shell (done 2026-03-03; plan: unavailable-pre-bootstrap)
+  - [x] P2-W5 - Cleanup pass for Priority 2: remove temporary pass-through helpers, dead container references, and transitional app-shell glue introduced while splitting `App` (done 2026-03-03; plan: unavailable-pre-bootstrap)
 
 ## Priority 3: Introduce Real Persistence Boundaries
 
@@ -177,11 +180,11 @@ Other review signals:
   - [ ] Replace direct feature-module storage access with injected boundary
   - [ ] Add tests for valid, invalid, default, and blocked-storage cases
 - Primary work units:
-  - [x] P3-W1 - Introduce `SettingsStore` and remove direct settings parsing from `SettingsScreen` (done 2026-03-04; tracked plan unavailable from pre-bootstrap work)
-  - [x] P3-W2 - Extract debug-override storage into a dedicated store (done 2026-03-04; tracked plan unavailable from pre-bootstrap work)
-  - [x] P3-W3 - Add a repository/store for selected server and server health state (done 2026-03-05; tracked plan unavailable from pre-bootstrap work)
-  - [x] P3-W4 - Introduce a dedicated channel persistence boundary and route one caller through it (done 2026-03-05; tracked plan unavailable from pre-bootstrap work)
-  - [x] P3-W5 - Cleanup pass for Priority 3: remove leftover raw storage access, duplicate key knowledge, temporary adapters, and obsolete parsing helpers after the persistence boundaries are in place (done 2026-03-05; tracked plan unavailable from pre-bootstrap work)
+  - [x] P3-W1 - Introduce `SettingsStore` and remove direct settings parsing from `SettingsScreen` (done 2026-03-04; plan: unavailable-pre-bootstrap)
+  - [x] P3-W2 - Extract debug-override storage into a dedicated store (done 2026-03-04; plan: unavailable-pre-bootstrap)
+  - [x] P3-W3 - Add a repository/store for selected server and server health state (done 2026-03-05; plan: unavailable-pre-bootstrap)
+  - [x] P3-W4 - Introduce a dedicated channel persistence boundary and route one caller through it (done 2026-03-05; plan: unavailable-pre-bootstrap)
+  - [x] P3-W5 - Cleanup pass for Priority 3: remove leftover raw storage access, duplicate key knowledge, temporary adapters, and obsolete parsing helpers after the persistence boundaries are in place (done 2026-03-05; plan: unavailable-pre-bootstrap)
 
 ## Priority 4: Decompose The Largest UI Classes
 

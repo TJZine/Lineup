@@ -29,7 +29,7 @@ Write a serious tracked implementation plan for a bounded UI extraction that app
 
 ## Expected Verification
 
-- `npm run verify:docs` if the task changes tracked workflow or plan-doc surfaces
+- `npm run verify:docs`
 
 ## Fail Conditions
 

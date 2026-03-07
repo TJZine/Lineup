@@ -4,6 +4,7 @@
 
 - Priority 4 section summary in [`docs/archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md`](../../../archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md)
 - Priority 4 direction in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
+- Provenance note: use the `P4-W1` subsection in the section summary above as the canonical tracked source for fresh-session reproduction.
 
 ## Intent
 

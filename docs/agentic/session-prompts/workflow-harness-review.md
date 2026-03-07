@@ -17,7 +17,7 @@ Determine whether the Lineup harness is:
 
 ## External Benchmark Sources
 
-Review against these sources and treat them as explicit benchmark criteria:
+As of 2026-03-07, review against these sources and treat them as explicit benchmark criteria:
 
 1. OpenAI, [`Harness engineering: leveraging Codex in an agent-first world`](https://openai.com/index/harness-engineering/) (February 11, 2026)
    - `AGENTS.md` should act as a map, not an encyclopedia
@@ -251,5 +251,7 @@ After findings, include:
 - do not suggest adding complexity unless it clearly improves reliability
 - do not reward duplicated documentation
 - do not suggest local-only artifacts become tracked unless there is a strong reason
+- explicitly flag stale benchmark references and stale date-bound claims
 - do not ignore places where the harness could create future AI slop or technical debt
+- explicitly flag gaps that encourage technical debt or AI slop
 - if no material findings remain, say so explicitly and still note the top residual risks
