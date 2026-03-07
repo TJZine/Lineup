@@ -54,7 +54,7 @@ export class BuildProgressStepController {
 
         ctx.contentEl.appendChild(actions);
         // Note: Focus registration filters out disabled buttons (Done starts disabled until build completes).
-        deps.registerFocusables([backButton, doneButton], 'linear');
+        deps.registerLinearFocusables([backButton, doneButton]);
 
         void deps.startBuild({
             cancelButton: backButton,

@@ -922,6 +922,95 @@ describe('ChannelSetupScreen', () => {
         await flushPromises();
     });
 
+    it('does not re-trigger review loading on simple rerenders while pending', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        let resolveReview: ((value: typeof DEFAULT_REVIEW | PromiseLike<typeof DEFAULT_REVIEW>) => void) | undefined;
+        const getSetupReview = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_REVIEW>((resolve) => {
+            resolveReview = resolve;
+        }));
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
+            getSetupReview,
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-next');
+        await flushPromises();
+
+        expect(getSetupReview).toHaveBeenCalledTimes(1);
+        expect(container.textContent ?? '').toContain('Preparing your review');
+
+        await flushPromises();
+
+        expect(getSetupReview).toHaveBeenCalledTimes(1);
+
+        if (!resolveReview) {
+            throw new Error('Expected review resolver to be set');
+        }
+        resolveReview(DEFAULT_REVIEW);
+        await flushPromises();
+    });
+
+    it('does not start review loading when backing out before deferred kickoff runs', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
+            getSetupReview,
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-next');
+        clickButton(container, '#setup-back');
+
+        await flushPromises();
+
+        expect(getSetupReview).not.toHaveBeenCalled();
+        expect(container.querySelector('#setup-preview-toggle')).not.toBeNull();
+    });
+
+    it('does not start review loading after hide before deferred kickoff runs', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
+            getSetupReview,
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-next');
+        screen.hide();
+
+        await flushPromises();
+
+        expect(getSetupReview).not.toHaveBeenCalled();
+    });
+
     it('keeps build progress stable when a delayed preview resolves after fast-path transition', async () => {
         jest.useFakeTimers();
         const container = document.createElement('div');

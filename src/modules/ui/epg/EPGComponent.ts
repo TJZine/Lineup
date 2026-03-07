@@ -80,9 +80,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private nowWatchingChannelElement: HTMLElement | null = null;
     private nowWatchingProgramElement: HTMLElement | null = null;
     private nowWatchingTimeElement: HTMLElement | null = null;
-    private infoPanelElement: HTMLElement | null = null;
-    private classicShowcaseInfoElement: HTMLElement | null = null;
-    private overlayShowcaseElement: HTMLElement | null = null;
     private hasRenderedOnce: boolean = false;
     private lastVisibleRangeKey: string | null = null;
     private channelIds: string[] = [];
@@ -171,7 +168,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
                 throw new Error(EPG_ERRORS.OVERLAY_SHOWCASE_CONTAINER_NOT_FOUND);
             }
             this.infoPanel.initialize(overlayShowcase);
-            this.infoPanelElement = this.containerElement.querySelector(`.${EPG_CLASSES.INFO_PANEL}`) as HTMLElement | null;
+            const infoPanelElement = this.containerElement.querySelector(`.${EPG_CLASSES.INFO_PANEL}`) as HTMLElement | null;
+            const classicShowcaseInfoElement = this.containerElement.querySelector('.epg-classic-showcase-info') as HTMLElement | null;
 
             // Wire thumb resolver to info panel
             if (this.config.resolveThumbUrl) {
@@ -181,9 +179,9 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
                 this.infoPanel.setFetchItemDetails(this.config.fetchItemDetails);
             }
             this.infoPanelCoordinator.attachHosts({
-                infoPanelElement: this.infoPanelElement,
-                overlayShowcaseElement: this.overlayShowcaseElement,
-                classicShowcaseInfoElement: this.classicShowcaseInfoElement,
+                infoPanelElement,
+                overlayShowcaseElement: overlayShowcase,
+                classicShowcaseInfoElement,
             });
         }
 
@@ -264,9 +262,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.nowWatchingChannelElement = null;
         this.nowWatchingProgramElement = null;
         this.nowWatchingTimeElement = null;
-        this.infoPanelElement = null;
-        this.classicShowcaseInfoElement = null;
-        this.overlayShowcaseElement = null;
 
         this.state = {
             isInitialized: false,
@@ -438,8 +433,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.classicNowPlayingElement = classicNowPlaying;
         this.classicNowPlayingChannelElement = classicNowPlayingChannel;
         this.classicShowcaseElement = classicShowcase;
-        this.classicShowcaseInfoElement = classicShowcaseInfo;
-        this.overlayShowcaseElement = overlayShowcase;
         this.nowWatchingBannerElement = nowWatchingBanner;
         this.nowWatchingChannelElement = nowWatchingChannel;
         this.nowWatchingProgramElement = nowWatchingProgram;

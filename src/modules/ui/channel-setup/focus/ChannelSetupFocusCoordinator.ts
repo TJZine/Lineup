@@ -81,9 +81,7 @@ export class ChannelSetupFocusCoordinator {
     unregisterAll(): void {
         const nav = this._deps.getNavigation();
         if (nav) {
-            for (const id of this._registeredIds) {
-                nav.unregisterFocusable(id);
-            }
+            this._registeredIds = syncFocusableRegistry(nav, this._registeredIds, []);
         }
         this._registeredIds = [];
     }

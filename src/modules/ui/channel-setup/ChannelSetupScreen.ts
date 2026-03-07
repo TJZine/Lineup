@@ -388,7 +388,7 @@ export class ChannelSetupScreen {
             nav?.off('keyPress', this._navKeyHandler);
             this._navKeyHandler = null;
         }
-        this._unregisterFocusables();
+        this._focus.unregisterAll();
         this._container.style.display = 'none';
         this._container.classList.remove('visible');
     }
@@ -400,7 +400,7 @@ export class ChannelSetupScreen {
         if (focusedId && this._preferredFocusId === null) {
             this._preferredFocusId = focusedId;
         }
-        this._unregisterFocusables();
+        this._focus.unregisterAll();
         if (token !== this._visibilityToken) {
             return;
         }
@@ -473,8 +473,11 @@ export class ChannelSetupScreen {
                 this._session.setStep(2);
                 this._renderStep();
             },
-            registerFocusables: (buttons, mode) => {
-                this._registerFocusables(buttons, mode);
+            registerSpatialFocusables: (buttons) => {
+                const preferredApplied = this._focus.registerSpatial(buttons, this._preferredFocusId);
+                if (preferredApplied) {
+                    this._preferredFocusId = null;
+                }
             },
             registerBulkActionNeighbors: (selectAllButton, clearAllButton, listButtons) => {
                 this._registerBulkActionNeighbors(selectAllButton, clearAllButton, listButtons);
@@ -569,7 +572,14 @@ export class ChannelSetupScreen {
             strategySupportsMixedScope: (strategy) => strategySupportsMixedScope(strategy),
             rememberDetailFocus: (controlId) => this._rememberActiveDetailFocus(controlId),
             buildPreviewRow: (label, value, key) => this._buildPreviewRow(label, value, key),
-            renderCappedWarnings: (warnings, container) => this._renderCappedWarnings(warnings, container),
+            renderCappedWarnings: (warnings, container) => {
+                renderCappedWarnings({
+                    warnings,
+                    container,
+                    maxItems: this._maxPreviewWarnings,
+                    itemClassName: 'setup-preview-warning',
+                });
+            },
             applyCategoryChange: (category, focusId) => {
                 if (category !== 'priority-order') {
                     this._grabbedPriorityKey = null;
@@ -777,8 +787,6 @@ export class ChannelSetupScreen {
             errorEl: this._errorEl,
         }, {
             state: getReviewState(),
-            getState: getReviewState,
-            loadReview: () => this._session.ensureReviewLoaded(() => this._renderStep()),
             onBackToStrategy: () => {
                 this._session.clearReviewAndReturnToStep2();
                 this._renderStep();
@@ -793,19 +801,58 @@ export class ChannelSetupScreen {
                 this._renderStep();
             },
             buildPreviewRow: (label, value, key) => this._buildPreviewRow(label, value, key),
-            renderCappedWarnings: (warnings, container) => this._renderCappedWarnings(warnings, container),
-            registerFocusables: (buttons, mode) => this._registerFocusables(buttons, mode),
-            renderBuildReviewLoading: (container) => this._renderBuildReviewLoading(container),
-            getVisibilityToken: () => this._visibilityToken,
+            renderCappedWarnings: (warnings, container) => {
+                renderCappedWarnings({
+                    warnings,
+                    container,
+                    maxItems: this._maxPreviewWarnings,
+                    itemClassName: 'setup-preview-warning',
+                });
+            },
+            registerLinearFocusables: (buttons) => {
+                const preferredApplied = this._focus.registerLinear(buttons, this._preferredFocusId);
+                if (preferredApplied) {
+                    this._preferredFocusId = null;
+                }
+            },
         });
+
+        this._kickOffReviewLoadPostRender();
     }
 
-    private _renderBuildReviewLoading(container: HTMLElement = this._contentEl): void {
-        const loading = document.createElement('div');
-        loading.className = 'setup-preview-loading';
-        loading.classList.add('panel-spinner');
-        loading.textContent = 'Preparing your review...';
-        container.appendChild(loading);
+    private _kickOffReviewLoadPostRender(): void {
+        const session = this._session.getSnapshot();
+        if (
+            session.step !== 3 ||
+            !session.recordApplied ||
+            session.isBuilding ||
+            session.review ||
+            session.isReviewLoading ||
+            session.reviewError
+        ) {
+            return;
+        }
+
+        const token = this._visibilityToken;
+        void Promise.resolve()
+            .then(() => {
+                const current = this._session.getSnapshot();
+                if (
+                    token !== this._visibilityToken ||
+                    current.step !== 3 ||
+                    current.isBuilding ||
+                    current.review ||
+                    current.isReviewLoading ||
+                    current.reviewError
+                ) {
+                    return;
+                }
+                return this._session.ensureReviewLoaded(() => this._renderStep());
+            })
+            .catch((error: unknown) => {
+                if (isAbortLikeError(error)) return;
+                console.error('[ChannelSetup] Load review failed:', summarizeErrorForLog(error));
+            });
     }
 
     private _renderBuildProgress(): void {
@@ -818,7 +865,12 @@ export class ChannelSetupScreen {
             errorEl: this._errorEl,
         }, {
             state: { isBuilding: session.isBuilding },
-            registerFocusables: (buttons, mode) => this._registerFocusables(buttons, mode),
+            registerLinearFocusables: (buttons) => {
+                const preferredApplied = this._focus.registerLinear(buttons, this._preferredFocusId);
+                if (preferredApplied) {
+                    this._preferredFocusId = null;
+                }
+            },
             onCancelOrBack: (button) => {
                 if (this._session.cancelBuild()) {
                     button.disabled = true;
@@ -946,8 +998,11 @@ export class ChannelSetupScreen {
         if (outcome.result.created === 0) {
             this._detailEl.textContent = 'No channels created.';
         }
-        this._unregisterFocusables();
-        this._registerFocusables([doneButton, cancelButton]);
+        this._focus.unregisterAll();
+        const preferredApplied = this._focus.registerLinear([doneButton, cancelButton], this._preferredFocusId);
+        if (preferredApplied) {
+            this._preferredFocusId = null;
+        }
 
         const nav = this._orchestrator.getNavigation();
         if (nav && !doneButton.disabled) {
@@ -984,33 +1039,11 @@ export class ChannelSetupScreen {
         return row;
     }
 
-    private _renderCappedWarnings(warnings: string[], container: HTMLElement): void {
-        renderCappedWarnings({
-            warnings,
-            container,
-            maxItems: this._maxPreviewWarnings,
-            itemClassName: 'setup-preview-warning',
-        });
-    }
-
     private _getSelectedServerId(): string | null {
         const stored = this._serverSelectionStore.readSelectedServerId();
         if (stored) {
             return stored;
         }
         return this._orchestrator.getSelectedServerId();
-    }
-
-    private _registerFocusables(buttons: HTMLElement[], mode: 'linear' | 'spatial' = 'linear'): void {
-        const preferredApplied = mode === 'spatial'
-            ? this._focus.registerSpatial(buttons, this._preferredFocusId)
-            : this._focus.registerLinear(buttons, this._preferredFocusId);
-        if (preferredApplied) {
-            this._preferredFocusId = null;
-        }
-    }
-
-    private _unregisterFocusables(): void {
-        this._focus.unregisterAll();
     }
 }
