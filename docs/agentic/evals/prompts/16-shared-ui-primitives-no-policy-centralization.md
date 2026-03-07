@@ -3,7 +3,7 @@
 ## Source
 
 - Priority 4 `P4-W4` pattern from [`docs/agentic/historical-plan-corpus-review.md`](../../historical-plan-corpus-review.md)
-- archived implementation reference in [`docs/archive/plans/2026-03-06-p4-w4-ui-focus-render-primitives-consolidation-implementation.md`](../../../archive/plans/2026-03-06-p4-w4-ui-focus-render-primitives-consolidation-implementation.md)
+- Priority 4 section summary in [`docs/archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md`](../../../archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md)
 
 ## Intent
 

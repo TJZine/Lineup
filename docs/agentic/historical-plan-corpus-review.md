@@ -28,7 +28,7 @@ Additional corpus reviewed 2026-03-06:
 - `2026-03-06-p4-w4-ui-focus-render-primitives-consolidation-implementation.md`
 - `2026-03-06-p4-w5-priority-4-cleanup-pass-implementation.md`
 
-The completed Priority 4 section is also preserved as tracked historical memory under [`docs/archive/plans/`](../archive/plans/README.md). The local import files remain source material only.
+The completed Priority 4 section is preserved as tracked historical memory in [`2026-03-06-priority-4-ui-decomposition-section-summary.md`](../archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md). The local import files remain source material only.
 
 ## Why This Matters
 

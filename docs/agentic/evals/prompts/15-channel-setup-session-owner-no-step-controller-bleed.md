@@ -3,7 +3,7 @@
 ## Source
 
 - Priority 4 `P4-W3` pattern from [`docs/agentic/historical-plan-corpus-review.md`](../../historical-plan-corpus-review.md)
-- archived implementation reference in [`docs/archive/plans/2026-03-06-p4-w3-channel-setup-session-flow-split-implementation.md`](../../../archive/plans/2026-03-06-p4-w3-channel-setup-session-flow-split-implementation.md)
+- Priority 4 section summary in [`docs/archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md`](../../../archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md)
 
 ## Intent
 
