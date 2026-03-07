@@ -338,10 +338,9 @@ export class ChannelSetupSessionController {
             this._recordApplied = false;
             this._loadError = error instanceof Error ? error.message : 'Unable to load libraries.';
         } finally {
-            if (token !== this._sessionToken) {
-                return;
+            if (token === this._sessionToken) {
+                this._isLoading = false;
             }
-            this._isLoading = false;
         }
     }
 
@@ -530,14 +529,27 @@ export class ChannelSetupSessionController {
         this._reviewAbortController = reviewAbortController;
         this._isReviewLoading = true;
         this._reviewError = null;
-        onStateChange();
+        let stateChangeError: unknown = null;
+        const shouldFetchReview = (): boolean => stateChangeError === null;
+        const emitStateChange = (): void => {
+            try {
+                onStateChange();
+            } catch (error) {
+                if (stateChangeError === null) {
+                    stateChangeError = error;
+                }
+            }
+        };
+        emitStateChange();
 
         try {
-            const review = await this._orchestrator.getSetupReview(this.buildConfig(serverId), {
-                signal: reviewAbortController.signal,
-            });
-            if (token !== this._sessionToken) return;
-            this._review = review;
+            if (shouldFetchReview()) {
+                const review = await this._orchestrator.getSetupReview(this.buildConfig(serverId), {
+                    signal: reviewAbortController.signal,
+                });
+                if (token !== this._sessionToken) return;
+                this._review = review;
+            }
         } catch (error) {
             if (token !== this._sessionToken) return;
             if (isAbortLikeError(error, reviewAbortController.signal)) {
@@ -546,16 +558,16 @@ export class ChannelSetupSessionController {
             this._reviewError = error instanceof Error ? error.message : 'Unable to load review.';
             this._review = null;
         } finally {
-            if (token !== this._sessionToken) {
-                return;
-            }
-            this._isReviewLoading = false;
-            if (this._reviewAbortController === reviewAbortController) {
-                this._reviewAbortController = null;
-            }
             if (token === this._sessionToken) {
-                onStateChange();
+                this._isReviewLoading = false;
+                if (this._reviewAbortController === reviewAbortController) {
+                    this._reviewAbortController = null;
+                }
+                emitStateChange();
             }
+        }
+        if (stateChangeError !== null) {
+            throw stateChangeError;
         }
     }
 

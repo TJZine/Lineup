@@ -227,6 +227,43 @@ describe('verify-docs', () => {
         expect(result.stderr).toContain('docs/agentic/evals/README.md');
     });
 
+    it('fails when one tracked doc contains multiple raw local-only baseline references', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/evals/README.md': [
+                '# Agent Evals',
+                '',
+                'First raw artifact: docs/agentic/evals/baselines/2026-03-06-a.md',
+                'Second raw artifact: docs/agentic/evals/baselines/2026-03-06-b.md',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('docs/agentic/evals/baselines/2026-03-06-a.md');
+        expect(result.stderr).toContain('docs/agentic/evals/baselines/2026-03-06-b.md');
+    });
+
+    it('allows placeholder local-only paths that do not point to concrete artifacts', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/evals/README.md': [
+                '# Agent Evals',
+                '',
+                '- Keep raw artifacts local-only under `docs/agentic/evals/baselines/<run-id>.md`.',
+                '- Keep run bundles local-only under `docs/runs/<date>-<topic>/Plan.md`.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('Documentation verification passed.');
+    });
+
     it('allows links to tracked docs/runs template surfaces', () => {
         const repoRoot = createRepoFixture({
             'docs/runs/README.md': '# Runs\n\n[Template](./_template)\n',

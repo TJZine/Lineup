@@ -72,13 +72,7 @@ const trackedLocalOnlyAllowlist = new Set([
 ]);
 const trackedLocalOnlyPrefixAllowlist = ['docs/runs/_template/'];
 const literalLocalOnlyPatternAllowlist = new Set([
-    'agents.md',
-    'docs/agentic/document-map.md',
-    'docs/agentic/evals/README.md',
-    'docs/agentic/evals/baseline-summaries/README.md',
-    'docs/agentic/historical-plan-corpus-review.md',
-    'docs/agentic/skill-strategy.md',
-    'docs/runs/README.md',
+    // Reserved for true tracked-file exceptions where an exact local-only artifact path must be shown verbatim.
 ]);
 
 function recordFsError(errors, operation, targetPath, error) {
@@ -248,6 +242,7 @@ function checkMarkdownLinks(errors) {
 
 function checkForbiddenLiteralReferences(errors) {
     const files = Array.from(new Set(markdownRoots.flatMap((entry) => collectMarkdownFiles(entry, errors))));
+    const pathChars = '[A-Za-z0-9._/-]+';
     const patterns = [
         {
             description: 'local-only mirrored skill file',
@@ -255,11 +250,11 @@ function checkForbiddenLiteralReferences(errors) {
         },
         {
             description: 'local-only run instance',
-            regex: /docs\/runs\/\d{4}-\d{2}-\d{2}-[a-z0-9._-]+\/[^\s)]+/giu,
+            regex: new RegExp(`docs\\/runs\\/\\d{4}-\\d{2}-\\d{2}-[a-z0-9._-]+\\/${pathChars}`, 'giu'),
         },
         {
             description: 'raw eval baseline artifact',
-            regex: /docs\/agentic\/evals\/baselines\/(?!README\.md)[^\s)]+/giu,
+            regex: new RegExp(`docs\\/agentic\\/evals\\/baselines\\/(?!README\\.md)${pathChars}`, 'giu'),
         },
     ];
 
@@ -279,9 +274,15 @@ function checkForbiddenLiteralReferences(errors) {
 
         for (const { description, regex } of patterns) {
             regex.lastIndex = 0;
-            const match = regex.exec(content);
-            if (match !== null) {
-                errors.push(`Tracked doc ${file} references ${description}: ${match[0]}`);
+            const seenMatches = new Set();
+            let match = regex.exec(content);
+            while (match !== null) {
+                const value = match[0];
+                if (!seenMatches.has(value)) {
+                    seenMatches.add(value);
+                    errors.push(`Tracked doc ${file} references ${description}: ${value}`);
+                }
+                match = regex.exec(content);
             }
         }
     }

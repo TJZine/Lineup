@@ -595,6 +595,29 @@ describe('ChannelSetupSessionController', () => {
         expect(controller.getSnapshot().review).toEqual(DEFAULT_REVIEW);
     });
 
+    it('ensureReviewLoaded() propagates onStateChange errors after cleanup without leaking loading state', async (): Promise<void> => {
+        const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
+        const orchestrator = createOrchestrator({ getSetupReview });
+        const controller = new ChannelSetupSessionController({
+            orchestrator,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+        const stateError = new Error('render failed');
+
+        controller.beginSession();
+        await expect(
+            controller.ensureReviewLoaded(() => {
+                throw stateError;
+            })
+        ).rejects.toThrow('render failed');
+        expect(controller.getSnapshot().isReviewLoading).toBe(false);
+        expect(getSetupReview).not.toHaveBeenCalled();
+
+        await controller.ensureReviewLoaded(jest.fn());
+        expect(getSetupReview).toHaveBeenCalledTimes(1);
+        expect(controller.getSnapshot().review).toEqual(DEFAULT_REVIEW);
+    });
+
     it('beginBuild() returns missing-server when no server is selected', async (): Promise<void> => {
         const orchestrator = createOrchestrator();
         const controller = new ChannelSetupSessionController({
