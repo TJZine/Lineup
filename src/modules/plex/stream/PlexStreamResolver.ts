@@ -26,10 +26,9 @@ import {
     SUPPORTED_VIDEO_CODECS,
     SUPPORTED_AUDIO_CODECS,
     MAX_RESOLUTION,
-    BURN_IN_SUBTITLE_FORMATS,
-    TEXT_SUBTITLE_FORMATS,
     DEFAULT_HLS_OPTIONS,
 } from './constants';
+import { getSubtitleDelivery, shouldRequestBurnInSubtitles } from './subtitleDeliveryPolicy';
 import { generateUUID } from './utils';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
@@ -601,9 +600,10 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 if (shouldForceAudioStreamId && audioStream?.id) {
                     options.audioStreamId = audioStream.id;
                 }
-                const subtitleFormat = (subtitleStream?.format ?? subtitleStream?.codec ?? '').toLowerCase();
-                const shouldBurnIn = request.subtitleMode === 'burn' ||
-                    (subtitleStream && BURN_IN_SUBTITLE_FORMATS.includes(subtitleFormat));
+                const shouldBurnIn = shouldRequestBurnInSubtitles({
+                    requestSubtitleMode: request.subtitleMode ?? 'none',
+                    subtitle: subtitleStream,
+                });
                 if (shouldBurnIn && subtitleStream?.id) {
                     options.subtitleStreamId = subtitleStream.id;
                     options.subtitleMode = 'burn';
@@ -646,7 +646,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             }
 
             // 5. Determine subtitle delivery
-            const subtitleDelivery = this._getSubtitleDelivery(
+            const subtitleDelivery = getSubtitleDelivery(
                 subtitleStream,
                 isTranscoding
             );
@@ -1639,34 +1639,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     /**
      * Determine how subtitles should be delivered.
      */
-    private _getSubtitleDelivery(
-        subtitle: PlexStream | null,
-        isTranscoding: boolean
-    ): 'embed' | 'sidecar' | 'burn' | 'none' {
-        if (!subtitle) {
-            return 'none';
-        }
-
-        const format = (subtitle.format || '').toLowerCase();
-
-        // Image-based subtitles must be burned in
-        if (BURN_IN_SUBTITLE_FORMATS.includes(format)) {
-            return 'burn';
-        }
-
-        // Text-based subtitles can be sidecar for direct play
-        if (TEXT_SUBTITLE_FORMATS.includes(format) && !isTranscoding) {
-            return 'sidecar';
-        }
-
-        // For transcoding, server handles embedding
-        if (isTranscoding) {
-            return 'burn';
-        }
-
-        return 'embed';
-    }
-
     // ========================================
     // Private: Error Handling
     // ========================================

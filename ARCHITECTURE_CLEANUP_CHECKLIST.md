@@ -252,7 +252,7 @@ Other review signals:
 - Primary work units:
   - [x] P5-W1 - Extract request timeout/fetch helpers and keep behavior unchanged (done 2026-03-08; plan: docs/plans/2026-03-08-p5-w1-plex-stream-request-helpers.md)
   - [x] P5-W2 - Extract URL building and token injection into one auditable helper (done 2026-03-08; plan: docs/plans/2026-03-08-p5-w2-plex-stream-url-token-helper.md)
-  - [ ] P5-W3 - Extract subtitle delivery policy from the main resolver
+  - [x] P5-W3 - Extract subtitle delivery policy from the main resolver (done 2026-03-08; plan: docs/plans/2026-03-08-p5-w3-plex-stream-subtitle-delivery-policy.md)
   - [ ] P5-W4 - Extract media selection plus HDR/audio compatibility rules into focused policy units
   - [ ] P5-W5 - Cleanup pass for Priority 5: remove temporary wrapper methods, duplicated decision branches, and transitional resolver plumbing left behind after the policy extractions
 

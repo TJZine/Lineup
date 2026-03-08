@@ -717,6 +717,134 @@ describe('PlexStreamResolver', () => {
             expect(decision.selectedSubtitleStream!.id).toBe('sub-1');
         });
 
+        it('forces burn-in subtitle transcode request params when burn mode is requested', async () => {
+            const mockItem = createMockMediaItem({
+                container: 'avi',
+                videoCodec: 'mpeg4',
+                audioCodec: 'mp2',
+            });
+            const subtitleStream: PlexStream = {
+                id: 'sub-1',
+                streamType: 3,
+                codec: 'srt',
+                language: 'English',
+                languageCode: 'en',
+                format: 'srt',
+                default: true,
+            };
+            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
+
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            const decision = await resolver.resolveStream({
+                itemKey: '12345',
+                subtitleStreamId: 'sub-1',
+                subtitleMode: 'burn',
+            });
+
+            expect(decision.isTranscoding).toBe(true);
+            expect(decision.subtitleDelivery).toBe('burn');
+            expect(decision.transcodeRequest).toMatchObject({
+                subtitleStreamId: 'sub-1',
+                subtitleMode: 'burn',
+            });
+            const parsed = new URL(decision.playbackUrl);
+            expect(parsed.searchParams.get('subtitles')).toBe('burn');
+            expect(parsed.searchParams.get('subtitleStreamID')).toBe('sub-1');
+        });
+
+        it('preserves subtitleDelivery for the selected subtitle path in resolveStream()', async () => {
+            const mockItem = createMockMediaItem();
+            const subtitleStream: PlexStream = {
+                id: 'sub-1',
+                streamType: 3,
+                codec: 'srt',
+                language: 'English',
+                languageCode: 'en',
+                format: 'srt',
+                default: true,
+            };
+            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
+
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            const decision = await resolver.resolveStream({
+                itemKey: '12345',
+                subtitleStreamId: 'sub-1',
+            });
+
+            expect(decision.isTranscoding).toBe(false);
+            expect(decision.subtitleDelivery).toBe('sidecar');
+            expect(decision.transcodeRequest).toBeUndefined();
+        });
+
+        it('preserves format-only subtitle classification in resolveStream() for codec-only text subtitles', async () => {
+            const mockItem = createMockMediaItem();
+            const subtitleStream: PlexStream = {
+                id: 'sub-1',
+                streamType: 3,
+                codec: 'srt',
+                language: 'English',
+                languageCode: 'en',
+                default: true,
+            };
+            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
+
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            const decision = await resolver.resolveStream({
+                itemKey: '12345',
+                subtitleStreamId: 'sub-1',
+            });
+
+            expect(decision.isTranscoding).toBe(false);
+            expect(decision.subtitleDelivery).toBe('embed');
+            expect(decision.transcodeRequest).toBeUndefined();
+        });
+
+        it('preserves codec fallback for burn-in propagation in resolveStream() when subtitle format is missing', async () => {
+            const mockItem = createMockMediaItem({
+                container: 'avi',
+                videoCodec: 'mpeg4',
+                audioCodec: 'mp2',
+            });
+            const subtitleStream: PlexStream = {
+                id: 'sub-1',
+                streamType: 3,
+                codec: 'pgs',
+                language: 'English',
+                languageCode: 'en',
+                default: true,
+            };
+            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
+
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            const decision = await resolver.resolveStream({
+                itemKey: '12345',
+                subtitleStreamId: 'sub-1',
+            });
+
+            expect(decision.isTranscoding).toBe(true);
+            expect(decision.subtitleDelivery).toBe('burn');
+            expect(decision.transcodeRequest).toMatchObject({
+                subtitleStreamId: 'sub-1',
+                subtitleMode: 'burn',
+            });
+        });
+
         it('keeps subtitle debug probe request options and timeout unchanged', async () => {
             const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
             Object.defineProperty(globalThis, 'localStorage', {
