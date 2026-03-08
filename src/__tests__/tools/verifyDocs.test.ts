@@ -273,13 +273,37 @@ function writeValidCodexRoleConfigFixture(repoRoot: string): void {
         ].join('\n')
     );
 
-    writeRepoFile(repoRoot, '.codex/agents/explorer.toml', 'model = "gpt-5.3-codex-spark"\n');
-    writeRepoFile(repoRoot, '.codex/agents/explorer-fallback.toml', 'model = "gpt-5.1-codex-max"\n');
-    writeRepoFile(repoRoot, '.codex/agents/reviewer.toml', 'model = "gpt-5.3-codex"\n');
-    writeRepoFile(repoRoot, '.codex/agents/docs-researcher.toml', 'model = "gpt-5.3-codex"\n');
+    writeRepoFile(
+        repoRoot,
+        '.codex/agents/explorer.toml',
+        'model = "gpt-5.3-codex-spark"\nsandbox_mode = "read-only"\n'
+    );
+    writeRepoFile(
+        repoRoot,
+        '.codex/agents/explorer-fallback.toml',
+        'model = "gpt-5.1-codex-max"\nsandbox_mode = "read-only"\n'
+    );
+    writeRepoFile(
+        repoRoot,
+        '.codex/agents/reviewer.toml',
+        'model = "gpt-5.3-codex"\nsandbox_mode = "read-only"\n'
+    );
+    writeRepoFile(
+        repoRoot,
+        '.codex/agents/docs-researcher.toml',
+        'model = "gpt-5.3-codex"\nsandbox_mode = "read-only"\n'
+    );
     writeRepoFile(repoRoot, '.codex/agents/worker.toml', 'model = "gpt-5.3-codex"\n');
-    writeRepoFile(repoRoot, '.codex/agents/monitor.toml', 'model = "gpt-5.3-codex-spark"\n');
-    writeRepoFile(repoRoot, '.codex/agents/monitor-fallback.toml', 'model = "gpt-5.1"\n');
+    writeRepoFile(
+        repoRoot,
+        '.codex/agents/monitor.toml',
+        'model = "gpt-5.3-codex-spark"\nsandbox_mode = "read-only"\n'
+    );
+    writeRepoFile(
+        repoRoot,
+        '.codex/agents/monitor-fallback.toml',
+        'model = "gpt-5.1"\nsandbox_mode = "read-only"\n'
+    );
 }
 
 function createRepoFixture(
@@ -524,6 +548,92 @@ describe('verify-docs', () => {
         expect(result.stderr).toContain('Missing required Codex agent role declarations in .codex/config.toml');
         expect(result.stderr).toContain('explorer_fallback');
         expect(result.stderr).toContain('monitor_fallback');
+    });
+
+    it('fails when a declared codex role config file exists locally but is not tracked', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
+        runGit(['rm', '--cached', '.codex/agents/monitor.toml'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Codex role config file declared in .codex/config.toml is not tracked: .codex/agents/monitor.toml'
+        );
+    });
+
+    it('fails when a read-only codex role omits read-only sandbox_mode', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        writeRepoFile(repoRoot, '.codex/agents/reviewer.toml', 'model = "gpt-5.3-codex"\n');
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Read-only Codex role config must set sandbox_mode = "read-only": .codex/agents/reviewer.toml'
+        );
+    });
+
+    it('fails when tracked codex config allows deeper nested agent spawning than repo policy', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        writeRepoFile(
+            repoRoot,
+            '.codex/config.toml',
+            [
+                '[agents]',
+                'max_threads = 4',
+                'max_depth = 2',
+                '',
+                '[agents.explorer]',
+                'description = "Explorer"',
+                'config_file = "agents/explorer.toml"',
+                '',
+                '[agents.explorer_fallback]',
+                'description = "Explorer fallback"',
+                'config_file = "agents/explorer-fallback.toml"',
+                '',
+                '[agents.reviewer]',
+                'description = "Reviewer"',
+                'config_file = "agents/reviewer.toml"',
+                '',
+                '[agents.docs_researcher]',
+                'description = "Docs researcher"',
+                'config_file = "agents/docs-researcher.toml"',
+                '',
+                '[agents.worker]',
+                'description = "Worker"',
+                'config_file = "agents/worker.toml"',
+                '',
+                '[agents.monitor]',
+                'description = "Monitor"',
+                'config_file = "agents/monitor.toml"',
+                '',
+                '[agents.monitor_fallback]',
+                'description = "Monitor fallback"',
+                'config_file = "agents/monitor-fallback.toml"',
+                '',
+            ].join('\n')
+        );
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Tracked Codex role config must set agents.max_depth = 1 to preserve conservative nesting'
+        );
     });
 
     it('ignores non-decision markdown links in the decisions index', () => {

@@ -93,6 +93,14 @@ const requiredCodexAgentRoles = [
     'monitor',
     'monitor_fallback',
 ];
+const readOnlyCodexAgentRoles = [
+    'explorer',
+    'explorer_fallback',
+    'reviewer',
+    'docs_researcher',
+    'monitor',
+    'monitor_fallback',
+];
 const codexRoleWorkflowMarkerFiles = ['docs/AGENTIC_DEV_WORKFLOW.md', 'docs/agentic/skill-strategy.md'];
 
 function recordFsError(errors, operation, targetPath, error) {
@@ -103,6 +111,7 @@ function recordFsError(errors, operation, targetPath, error) {
 const FAILED_GIT = Symbol('FAILED_GIT');
 
 let cachedTrackedPlanPaths = null;
+let cachedTrackedCodexPaths = null;
 
 function getTrackedPlanPaths(errors) {
     if (cachedTrackedPlanPaths !== null) {
@@ -125,6 +134,30 @@ function getTrackedPlanPaths(errors) {
         recordFsError(errors, 'list tracked plan files via git', 'docs/plans docs/archive/plans', error);
         cachedTrackedPlanPaths = FAILED_GIT;
         return cachedTrackedPlanPaths;
+    }
+}
+
+function getTrackedCodexPaths(errors) {
+    if (cachedTrackedCodexPaths !== null) {
+        return cachedTrackedCodexPaths;
+    }
+
+    try {
+        const output = execFileSync('git', ['ls-files', '--', '.codex/config.toml', '.codex/agents'], {
+            cwd: repoRoot,
+            encoding: 'utf8',
+        });
+        cachedTrackedCodexPaths = new Set(
+            output
+                .split(/\r?\n/u)
+                .map((line) => line.trim())
+                .filter((line) => line.length > 0)
+        );
+        return cachedTrackedCodexPaths;
+    } catch (error) {
+        recordFsError(errors, 'list tracked codex role files via git', '.codex/config.toml .codex/agents', error);
+        cachedTrackedCodexPaths = FAILED_GIT;
+        return cachedTrackedCodexPaths;
     }
 }
 
@@ -578,9 +611,16 @@ function parseCodexRoleConfig(configContent) {
     const declaredRoles = new Set();
     const roleConfigFiles = new Map();
     let currentRole = null;
+    let currentSection = null;
+    let maxDepth = null;
 
     for (const rawLine of configContent.split(/\r?\n/u)) {
         const line = rawLine.trim();
+
+        const sectionMatch = line.match(/^\[([^\]]+)\]$/u);
+        if (sectionMatch !== null) {
+            currentSection = sectionMatch[1];
+        }
 
         const roleMatch = line.match(/^\[agents\.([a-z0-9_]+)\]$/u);
         if (roleMatch !== null) {
@@ -589,9 +629,16 @@ function parseCodexRoleConfig(configContent) {
             continue;
         }
 
-        if (/^\[[^\]]+\]$/u.test(line)) {
+        if (sectionMatch !== null) {
             currentRole = null;
             continue;
+        }
+
+        if (currentSection === 'agents') {
+            const maxDepthMatch = line.match(/^max_depth\s*=\s*(\d+)$/u);
+            if (maxDepthMatch !== null) {
+                maxDepth = Number.parseInt(maxDepthMatch[1], 10);
+            }
         }
 
         if (currentRole === null) {
@@ -604,7 +651,7 @@ function parseCodexRoleConfig(configContent) {
         }
     }
 
-    return { declaredRoles, roleConfigFiles };
+    return { declaredRoles, roleConfigFiles, maxDepth };
 }
 
 function checkTrackedCodexRoleConfig(errors) {
@@ -612,6 +659,7 @@ function checkTrackedCodexRoleConfig(errors) {
     const configFullPath = path.join(repoRoot, configRelativePath);
     const workflowTracked = isCodexRoleWorkflowTracked(errors);
     const configExists = existsSync(configFullPath);
+    const trackedCodexPaths = getTrackedCodexPaths(errors);
 
     if (!workflowTracked && !configExists) {
         return;
@@ -627,7 +675,11 @@ function checkTrackedCodexRoleConfig(errors) {
         return;
     }
 
-    const { declaredRoles, roleConfigFiles } = parseCodexRoleConfig(configContent);
+    if (trackedCodexPaths !== FAILED_GIT && !trackedCodexPaths.has(configRelativePath)) {
+        errors.push(`Tracked Codex role config is not tracked by git: ${configRelativePath}`);
+    }
+
+    const { declaredRoles, roleConfigFiles, maxDepth } = parseCodexRoleConfig(configContent);
     const missingRoles = requiredCodexAgentRoles.filter((role) => !declaredRoles.has(role));
     if (missingRoles.length > 0) {
         errors.push(
@@ -644,7 +696,12 @@ function checkTrackedCodexRoleConfig(errors) {
         );
     }
 
+    if (maxDepth !== 1) {
+        errors.push('Tracked Codex role config must set agents.max_depth = 1 to preserve conservative nesting');
+    }
+
     const missingRoleConfigPaths = new Set();
+    const untrackedRoleConfigPaths = new Set();
     for (const configFile of roleConfigFiles.values()) {
         if (!configFile.startsWith('agents/') || !configFile.endsWith('.toml')) {
             continue;
@@ -653,11 +710,41 @@ function checkTrackedCodexRoleConfig(errors) {
         const relativePath = `.codex/${configFile}`;
         if (!existsSync(path.join(repoRoot, relativePath))) {
             missingRoleConfigPaths.add(relativePath);
+            continue;
+        }
+
+        if (trackedCodexPaths !== FAILED_GIT && !trackedCodexPaths.has(relativePath)) {
+            untrackedRoleConfigPaths.add(relativePath);
         }
     }
 
     for (const missingPath of Array.from(missingRoleConfigPaths).sort()) {
         errors.push(`Codex role config file declared in .codex/config.toml is missing: ${missingPath}`);
+    }
+
+    for (const untrackedPath of Array.from(untrackedRoleConfigPaths).sort()) {
+        errors.push(`Codex role config file declared in .codex/config.toml is not tracked: ${untrackedPath}`);
+    }
+
+    for (const role of readOnlyCodexAgentRoles) {
+        const configFile = roleConfigFiles.get(role);
+        if (configFile === undefined || !configFile.startsWith('agents/') || !configFile.endsWith('.toml')) {
+            continue;
+        }
+
+        const relativePath = `.codex/${configFile}`;
+        if (!existsSync(path.join(repoRoot, relativePath))) {
+            continue;
+        }
+
+        const roleConfigContent = readRepoFile(relativePath, errors);
+        if (roleConfigContent === null) {
+            continue;
+        }
+
+        if (!/^sandbox_mode\s*=\s*"read-only"$/mu.test(roleConfigContent)) {
+            errors.push(`Read-only Codex role config must set sandbox_mode = "read-only": ${relativePath}`);
+        }
     }
 }
 

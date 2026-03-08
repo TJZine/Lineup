@@ -2,7 +2,7 @@
 
 ## Source
 
-- multi-agent role policy in [`AGENTS.md`](../../../../AGENTS.md)
+- multi-agent role policy in [`agents.md`](../../../../agents.md)
 - optional/conservative delegation rules in [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../AGENTIC_DEV_WORKFLOW.md)
 - tracked role config surface in [`.codex/config.toml`](../../../../.codex/config.toml)
 
