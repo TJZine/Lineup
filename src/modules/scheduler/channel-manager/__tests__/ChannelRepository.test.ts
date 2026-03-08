@@ -35,7 +35,9 @@ function createStoredChannel(overrides: Record<string, unknown> = {}): StoredCha
     } as StoredChannelRecord;
 }
 
-function loadNormalized(repository: ChannelRepository) {
+function loadNormalized(
+    repository: ChannelRepository
+): NonNullable<ReturnType<ChannelRepository['loadNormalized']>> {
     const normalized = repository.loadNormalized();
     expect(normalized).not.toBeNull();
     return normalized as NonNullable<ReturnType<ChannelRepository['loadNormalized']>>;

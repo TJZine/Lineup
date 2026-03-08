@@ -67,7 +67,8 @@ test('extractChecklistPlanPaths ignores placeholders and non-plan values', () =>
 test('classifyChecklistPlanPathStatus distinguishes tracked, untracked, and missing plan refs', () => {
     assert.equal(classifyChecklistPlanPathStatus({ exists: true, tracked: true }), 'tracked');
     assert.equal(classifyChecklistPlanPathStatus({ exists: true, tracked: false }), 'untracked');
-    assert.equal(classifyChecklistPlanPathStatus({ exists: false, tracked: false }), 'missing');
+    assert.equal(classifyChecklistPlanPathStatus({ exists: false, tracked: true }), 'missing-tracked');
+    assert.equal(classifyChecklistPlanPathStatus({ exists: false, tracked: false }), 'missing-untracked');
 });
 
 test('buildChecklistPlanPathMessages warns for untracked plan refs in strict mode', () => {
@@ -75,14 +76,16 @@ test('buildChecklistPlanPathMessages warns for untracked plan refs in strict mod
         [
             { relativePath: 'docs/plans/tracked.md', status: 'tracked' },
             { relativePath: 'docs/plans/untracked.md', status: 'untracked' },
-            { relativePath: 'docs/plans/missing.md', status: 'missing' },
+            { relativePath: 'docs/plans/missing-tracked.md', status: 'missing-tracked' },
+            { relativePath: 'docs/plans/missing-untracked.md', status: 'missing-untracked' },
         ],
         { mode: 'strict' }
     );
 
-    assert.deepEqual(result.errors, ['Checklist references missing tracked plan path: docs/plans/missing.md']);
+    assert.deepEqual(result.errors, ['Checklist references missing tracked plan path: docs/plans/missing-tracked.md']);
     assert.deepEqual(result.warnings, [
         'Checklist references untracked plan path: docs/plans/untracked.md (exists locally but is not tracked)',
+        'Checklist references untracked plan path: docs/plans/missing-untracked.md (missing from workspace and not tracked)',
     ]);
 });
 
@@ -90,22 +93,24 @@ test('buildChecklistPlanPathMessages downgrades untracked plan refs to warnings 
     const result = buildChecklistPlanPathMessages(
         [
             { relativePath: 'docs/plans/untracked.md', status: 'untracked' },
-            { relativePath: 'docs/plans/missing.md', status: 'missing' },
+            { relativePath: 'docs/plans/missing-tracked.md', status: 'missing-tracked' },
+            { relativePath: 'docs/plans/missing-untracked.md', status: 'missing-untracked' },
         ],
         { mode: 'workspace' }
     );
 
-    assert.deepEqual(result.errors, ['Checklist references missing tracked plan path: docs/plans/missing.md']);
+    assert.deepEqual(result.errors, ['Checklist references missing tracked plan path: docs/plans/missing-tracked.md']);
     assert.deepEqual(result.warnings, [
         'Checklist references untracked plan path: docs/plans/untracked.md (exists locally but is not tracked)',
+        'Checklist references untracked plan path: docs/plans/missing-untracked.md (missing from workspace and not tracked)',
     ]);
 });
 
 test('buildChecklistPlanPathMessages deduplicates repeated checklist refs for the same plan path', () => {
     const result = buildChecklistPlanPathMessages(
         [
-            { relativePath: 'docs/archive/plans/shared-summary.md', status: 'missing' },
-            { relativePath: 'docs/archive/plans/shared-summary.md', status: 'missing' },
+            { relativePath: 'docs/archive/plans/shared-summary.md', status: 'missing-tracked' },
+            { relativePath: 'docs/archive/plans/shared-summary.md', status: 'missing-tracked' },
             { relativePath: 'docs/plans/draft.md', status: 'untracked' },
             { relativePath: 'docs/plans/draft.md', status: 'untracked' },
         ],

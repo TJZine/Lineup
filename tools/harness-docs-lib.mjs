@@ -201,11 +201,11 @@ export function extractChecklistPlanPaths(content) {
 }
 
 export function classifyChecklistPlanPathStatus({ exists, tracked }) {
-    if (!exists) {
-        return 'missing';
+    if (tracked) {
+        return exists ? 'tracked' : 'missing-tracked';
     }
 
-    return tracked ? 'tracked' : 'untracked';
+    return exists ? 'untracked' : 'missing-untracked';
 }
 
 export function buildChecklistPlanPathMessages(entries, { mode = 'strict' } = {}) {
@@ -218,11 +218,20 @@ export function buildChecklistPlanPathMessages(entries, { mode = 'strict' } = {}
             continue;
         }
 
-        if (status === 'missing') {
+        if (status === 'missing-tracked') {
             const message = `Checklist references missing tracked plan path: ${relativePath}`;
             if (!seenMessages.has(message)) {
                 seenMessages.add(message);
                 errors.push(message);
+            }
+            continue;
+        }
+
+        if (status === 'missing-untracked') {
+            const message = `Checklist references untracked plan path: ${relativePath} (missing from workspace and not tracked)`;
+            if (!seenMessages.has(message)) {
+                seenMessages.add(message);
+                warnings.push(message);
             }
             continue;
         }
