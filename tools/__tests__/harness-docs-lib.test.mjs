@@ -58,6 +58,8 @@ test('checkPlanConformance reports missing required sections for serious active 
         'impact snapshot',
         'files in scope',
         'files out of scope',
+        'planner self-check',
+        'architecture seam decision gate',
         'rollback notes',
         'commit checkpoints',
     ]);
