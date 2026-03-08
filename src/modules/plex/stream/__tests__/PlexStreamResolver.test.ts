@@ -190,6 +190,25 @@ describe('PlexStreamResolver', () => {
 
             expect(resolver.canDirectPlay(item)).toBe(false);
         });
+
+        it('should evaluate only the first media entry for canDirectPlay', () => {
+            const first = createMockMediaItem({
+                container: 'avi',
+                videoCodec: 'mpeg2',
+                audioCodec: 'aac',
+            });
+            const second = createMockMediaItem({
+                container: 'mp4',
+                videoCodec: 'h264',
+                audioCodec: 'aac',
+            });
+            const config = createMockConfig();
+            const resolver = new PlexStreamResolver(config);
+
+            first.media = [first.media[0]!, second.media[0]!];
+
+            expect(resolver.canDirectPlay(first)).toBe(false);
+        });
     });
 
     // ========================================
