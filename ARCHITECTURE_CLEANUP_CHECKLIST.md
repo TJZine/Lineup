@@ -185,6 +185,7 @@ Other review signals:
   - [x] P3-W3 - Add a repository/store for selected server and server health state (done 2026-03-05; plan: unavailable-pre-bootstrap)
   - [x] P3-W4 - Introduce a dedicated channel persistence boundary and route one caller through it (done 2026-03-05; plan: unavailable-pre-bootstrap)
   - [x] P3-W5 - Cleanup pass for Priority 3: remove leftover raw storage access, duplicate key knowledge, temporary adapters, and obsolete parsing helpers after the persistence boundaries are in place (done 2026-03-05; plan: unavailable-pre-bootstrap)
+  - [x] P3-W6 - Introduce `DeveloperSettingsStore` for debug flags and replace remaining direct reads of DEBUG_LOGGING / SUBTITLE_DEBUG_LOGGING in non-UI modules (done 2026-03-08; plan: docs/plans/2026-03-08-p3-w6-developer-settings-store.md)
 
 ## Priority 4: Decompose The Largest UI Classes
 
