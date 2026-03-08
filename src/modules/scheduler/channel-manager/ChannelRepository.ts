@@ -1,11 +1,18 @@
+import { fnv1a32Uint } from '../../../utils/hash';
+import { isValidContentSource } from './ChannelContentSourceValidator';
 import { ChannelPersistenceStore, type CurrentChannelWriteResult, type StoredChannelWriteResult } from './ChannelPersistenceStore';
 import { CURRENT_CHANNEL_KEY, STORAGE_KEY } from './constants';
-import type { StoredChannelData } from './types';
+import type { ChannelConfig, StoredChannelData } from './types';
 
 export type LoadedChannelPersistence = {
     stored: Partial<StoredChannelData> | null;
     savedCurrentChannelId: string | null;
 };
+
+export type LoadedChannelState = {
+    data: StoredChannelData;
+    didMutate: boolean;
+} | null;
 
 export class ChannelRepository {
     private readonly _store: ChannelPersistenceStore;
@@ -27,6 +34,96 @@ export class ChannelRepository {
         return {
             stored,
             savedCurrentChannelId: this._store.readCurrentChannelId(),
+        };
+    }
+
+    loadNormalized(): LoadedChannelState {
+        const stored = this._store.readStoredChannelData();
+        if (stored === null) {
+            return null;
+        }
+
+        if (!Array.isArray(stored.channels) || !Array.isArray(stored.channelOrder)) {
+            return null;
+        }
+
+        const savedCurrentChannelId = this._store.readCurrentChannelId();
+        const savedAt =
+            typeof stored.savedAt === 'number' && Number.isFinite(stored.savedAt) ? stored.savedAt : Date.now();
+
+        const dataCurrentChannelId =
+            typeof stored.currentChannelId === 'string' ? stored.currentChannelId : null;
+
+        const normalizedChannels: ChannelConfig[] = [];
+        const channelIds = new Set<string>();
+        let didMutate = false;
+
+        for (const raw of stored.channels) {
+            if (!raw || typeof raw !== 'object') {
+                didMutate = true;
+                continue;
+            }
+            const channel = raw as ChannelConfig;
+            if (typeof channel.id !== 'string' || channel.id.length === 0) {
+                didMutate = true;
+                continue;
+            }
+            if (
+                typeof channel.shuffleSeed !== 'number' ||
+                !Number.isFinite(channel.shuffleSeed)
+            ) {
+                channel.shuffleSeed = fnv1a32Uint(`${channel.id}:shuffle`);
+                didMutate = true;
+            }
+            if (typeof channel.phaseSeed !== 'number' || !Number.isFinite(channel.phaseSeed)) {
+                channel.phaseSeed = fnv1a32Uint(`${channel.id}:phase`);
+                didMutate = true;
+            }
+            if (!isValidContentSource(channel.contentSource)) {
+                didMutate = true;
+                continue;
+            }
+            normalizedChannels.push(channel);
+            channelIds.add(channel.id);
+        }
+
+        const normalizedOrder = stored.channelOrder.filter((id) => {
+            if (typeof id !== 'string') {
+                return false;
+            }
+            return channelIds.has(id);
+        });
+        if (normalizedOrder.length !== stored.channelOrder.length) {
+            didMutate = true;
+        }
+
+        let channelOrder = normalizedOrder;
+        if (channelOrder.length === 0 && normalizedChannels.length > 0) {
+            channelOrder = [...normalizedChannels]
+                .sort((a, b) => a.number - b.number || a.id.localeCompare(b.id))
+                .map((channel) => channel.id);
+            didMutate = true;
+        }
+
+        let currentChannelId = dataCurrentChannelId;
+        if (savedCurrentChannelId !== null && channelIds.has(savedCurrentChannelId)) {
+            currentChannelId = savedCurrentChannelId;
+        } else if (
+            typeof dataCurrentChannelId === 'string' &&
+            !channelIds.has(dataCurrentChannelId)
+        ) {
+            currentChannelId = channelOrder[0] ?? null;
+            didMutate = true;
+        }
+
+        return {
+            data: {
+                channels: normalizedChannels,
+                channelOrder,
+                currentChannelId,
+                savedAt,
+            },
+            didMutate,
         };
     }
 
