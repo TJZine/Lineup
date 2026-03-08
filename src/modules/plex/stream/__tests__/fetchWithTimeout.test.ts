@@ -96,4 +96,40 @@ describe('fetchWithTimeout', () => {
             await requestRejection;
         }
     });
+
+    it('rejects immediately when upstream signal is already aborted', async () => {
+        jest.useFakeTimers();
+
+        const upstreamController = new AbortController();
+        upstreamController.abort();
+
+        mockFetch.mockImplementation((_url: string, options?: RequestInit) => {
+            return new Promise((_resolve, reject) => {
+                const signal = options?.signal as AbortSignal | undefined;
+                if (signal?.aborted) {
+                    reject(new DOMException('The operation was aborted.', 'AbortError'));
+                    return;
+                }
+                signal?.addEventListener(
+                    'abort',
+                    () => reject(new DOMException('The operation was aborted.', 'AbortError')),
+                    { once: true }
+                );
+            });
+        });
+
+        const request = fetchWithTimeout(
+            'http://example.test/pre-aborted',
+            { method: 'GET', signal: upstreamController.signal },
+            100_000
+        );
+
+        await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+
+        const passedSignal = (mockFetch.mock.calls[0]?.[1] as RequestInit | undefined)?.signal as AbortSignal | undefined;
+        if (!passedSignal) {
+            throw new Error('Expected fetch to be called with a RequestInit.signal');
+        }
+        expect(passedSignal.aborted).toBe(true);
+    });
 });
