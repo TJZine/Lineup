@@ -26,14 +26,9 @@ import {
 import { getSubtitleDelivery, shouldRequestBurnInSubtitles } from './subtitleDeliveryPolicy';
 import { generateUUID } from './utils';
 import { selectBestMedia, selectBestMediaWithSubtitleStream } from './mediaSelectionPolicy';
-import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
+import { PlaybackSettingsStore } from '../../settings/PlaybackSettingsStore';
 import { DeveloperSettingsStore } from '../../settings/DeveloperSettingsStore';
-import {
-    isStoredTrue,
-    readStoredBoolean,
-    safeLocalStorageGet,
-} from '../../../utils/storage';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { redactSensitiveTokens, redactUrlForLog, safeStringifyForLog } from '../../../utils/redact';
 import {
@@ -43,11 +38,7 @@ import {
     selectCompatibleAudioTrack,
     shouldForceTranscodeAudioStreamId,
 } from './playbackCompatibilityPolicy';
-import { getTranscodeQualityOption } from '../../../config/transcodeQuality';
 import { fetchWithTimeout } from './fetchWithTimeout';
-import {
-    computeHdr10FallbackMode,
-} from './dvHdr10Fallback';
 import { detectHdrLabel } from './hdr';
 import type { PlatformIdentityService } from '../../../platform';
 import { webosPlatformServices } from '../../../platform';
@@ -69,6 +60,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     private readonly _emitter: EventEmitter<StreamResolverEventMap>;
     private readonly _identityService: PlatformIdentityService;
     private readonly _audioSettingsStore = new AudioSettingsStore();
+    private readonly _playbackSettingsStore = new PlaybackSettingsStore();
     private readonly _developerSettingsStore = new DeveloperSettingsStore();
 
     /**
@@ -107,14 +99,9 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
     private _isDtsPassthroughEnabled(): boolean {
         try {
-            if (!isStoredTrue(safeLocalStorageGet(LINEUP_STORAGE_KEYS.DTS_PASSTHROUGH))) {
-                return false;
-            }
+            const userEnabled = this._audioSettingsStore.readDtsPassthroughEnabled(false);
             const chromeMajor = this._getChromeMajor();
-            if (chromeMajor === null) {
-                return false;
-            }
-            return chromeMajor >= 108;
+            return userEnabled && chromeMajor !== null && chromeMajor >= 108;
         } catch {
             return false;
         }
@@ -844,14 +831,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             ? itemKey
             : `/library/metadata/${itemKey}`;
 
-        const compatMode = readStoredBoolean(LINEUP_STORAGE_KEYS.TRANSCODE_COMPAT, false);
-
-        const storedQualityValue = safeLocalStorageGet(LINEUP_STORAGE_KEYS.TRANSCODE_QUALITY);
-        const quality = getTranscodeQualityOption(
-            typeof storedQualityValue === 'string' && storedQualityValue.length > 0
-                ? storedQualityValue
-                : null
-        );
+        const compatMode = this._playbackSettingsStore.readTranscodeCompatEnabled(false);
+        const quality = this._playbackSettingsStore.readTranscodeQualityOption();
         const shouldApplyQualityOverride = Boolean(quality && quality.storageValue.length > 0);
         const qualityMaxBitrate = shouldApplyQualityOverride ? quality?.maxVideoBitrateKbps : undefined;
         const effectiveMaxBitrate = typeof qualityMaxBitrate === 'number'
@@ -1276,19 +1257,10 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
         // If user explicitly enabled DTS passthrough and we're on a modern webOS stack,
         // advertise DTS-HD MA as well (Plex often labels it as `dca-ma`).
-        const dtsEnabled = ((): boolean => {
-            try {
-                return isStoredTrue(safeLocalStorageGet(LINEUP_STORAGE_KEYS.DTS_PASSTHROUGH));
-            } catch {
-                return false;
-            }
-        })();
-        if (dtsEnabled) {
+        if (this._isDtsPassthroughEnabled()) {
             audioDecoders.push('dts{bitrate:1536000}');
             audioDecoders.push('dca{bitrate:1536000}');
-            if (isWebOs && chromeMajor !== null && chromeMajor >= 108) {
-                audioDecoders.push('dca-ma{bitrate:1536000}');
-            }
+            audioDecoders.push('dca-ma{bitrate:1536000}');
         }
 
         return `protocols=http-live-streaming,http-mp4-streaming,http-streaming-video;videoDecoders=${videoDecoders.join(',')};audioDecoders=${audioDecoders.join(',')}`;
@@ -1380,13 +1352,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     }
 
     private _getHdr10FallbackMode(): 'off' | 'smart' | 'force' {
-        try {
-            const force = readStoredBoolean(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK, false);
-            const smart = readStoredBoolean(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK, false);
-            return computeHdr10FallbackMode({ smartHdr10Fallback: smart, forceHdr10Fallback: force });
-        } catch {
-            return 'off';
-        }
+        return this._playbackSettingsStore.readHdr10FallbackMode();
     }
 
     private _isDebugLoggingEnabled(): boolean {

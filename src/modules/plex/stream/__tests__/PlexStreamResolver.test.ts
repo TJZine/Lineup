@@ -148,7 +148,7 @@ describe('PlexStreamResolver', () => {
             expect(resolver.canDirectPlay(item)).toBe(false);
         });
 
-        it('should return true for DTS when passthrough is enabled on webOS 23+', () => {
+        it('should return true for DTS when passthrough is enabled and Chrome 108 parses', () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: { getItem: jest.fn().mockReturnValue('1') },
                 configurable: true,
@@ -166,6 +166,46 @@ describe('PlexStreamResolver', () => {
             const resolver = new PlexStreamResolver(createMockConfig());
 
             expect(resolver.canDirectPlay(item)).toBe(true);
+        });
+
+        it('should return false for DTS when passthrough is enabled but Chrome is below 108', () => {
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: { getItem: jest.fn().mockReturnValue('1') },
+                configurable: true,
+            });
+            Object.defineProperty(globalThis, 'navigator', {
+                value: { userAgent: 'Mozilla/5.0 (Web0S) AppleWebKit/537.36 Chrome/107.0.0.0 Safari/537.36' },
+                configurable: true,
+            });
+
+            const item = createMockMediaItem({
+                container: 'mkv',
+                videoCodec: 'h264',
+                audioCodec: 'dts',
+            });
+            const resolver = new PlexStreamResolver(createMockConfig());
+
+            expect(resolver.canDirectPlay(item)).toBe(false);
+        });
+
+        it('should return false for DTS when Chrome major cannot be parsed', () => {
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: { getItem: jest.fn().mockReturnValue('1') },
+                configurable: true,
+            });
+            Object.defineProperty(globalThis, 'navigator', {
+                value: { userAgent: 'mystery-device/1.0' },
+                configurable: true,
+            });
+
+            const item = createMockMediaItem({
+                container: 'mkv',
+                videoCodec: 'h264',
+                audioCodec: 'dts',
+            });
+            const resolver = new PlexStreamResolver(createMockConfig());
+
+            expect(resolver.canDirectPlay(item)).toBe(false);
         });
 
         it('should return false for resolution above 4K', () => {
@@ -1254,6 +1294,64 @@ describe('PlexStreamResolver', () => {
             expect(parsed.pathname).toBe('/library/parts/12345/file.mp4');
             expect(parsed.searchParams.get('audioStreamID')).toBe('audio-1');
             expect(parsed.searchParams.get('X-Plex-Session-Identifier')).toBe('sess-1');
+        });
+    });
+
+    describe('_buildClientCapabilities', () => {
+        it('advertises DTS codecs only when user-enabled and Chrome is modern', () => {
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: { getItem: jest.fn().mockReturnValue('1') },
+                configurable: true,
+            });
+            Object.defineProperty(globalThis, 'navigator', {
+                value: { userAgent: 'Mozilla/5.0 (Web0S) AppleWebKit/537.36 Chrome/108.0.0.0 Safari/537.36' },
+                configurable: true,
+            });
+            const capabilities = (new PlexStreamResolver(createMockConfig()) as unknown as {
+                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
+            })._buildClientCapabilities();
+
+            expect(capabilities).toContain('dts{bitrate:1536000}');
+            expect(capabilities).toContain('dca{bitrate:1536000}');
+            expect(capabilities).toContain('dca-ma{bitrate:1536000}');
+        });
+
+        it('does not advertise DTS codecs when Chrome is below 108', () => {
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: { getItem: jest.fn().mockReturnValue('1') },
+                configurable: true,
+            });
+            Object.defineProperty(globalThis, 'navigator', {
+                value: { userAgent: 'Mozilla/5.0 (Web0S) AppleWebKit/537.36 Chrome/107.0.0.0 Safari/537.36' },
+                configurable: true,
+            });
+
+            const capabilities = (new PlexStreamResolver(createMockConfig()) as unknown as {
+                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
+            })._buildClientCapabilities();
+
+            expect(capabilities).not.toContain('dts{bitrate:1536000}');
+            expect(capabilities).not.toContain('dca{bitrate:1536000}');
+            expect(capabilities).not.toContain('dca-ma{bitrate:1536000}');
+        });
+
+        it('does not advertise DTS codecs when user disables passthrough', () => {
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: { getItem: jest.fn().mockReturnValue('0') },
+                configurable: true,
+            });
+            Object.defineProperty(globalThis, 'navigator', {
+                value: { userAgent: 'Mozilla/5.0 (Web0S) AppleWebKit/537.36 Chrome/108.0.0.0 Safari/537.36' },
+                configurable: true,
+            });
+
+            const capabilities = (new PlexStreamResolver(createMockConfig()) as unknown as {
+                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
+            })._buildClientCapabilities();
+
+            expect(capabilities).not.toContain('dts{bitrate:1536000}');
+            expect(capabilities).not.toContain('dca{bitrate:1536000}');
+            expect(capabilities).not.toContain('dca-ma{bitrate:1536000}');
         });
     });
 

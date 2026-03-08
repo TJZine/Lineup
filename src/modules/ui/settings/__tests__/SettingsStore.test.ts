@@ -106,6 +106,13 @@ describe('SettingsStore', () => {
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY)).toBe('12000-1080p');
     });
 
+    it('clears persisted transcode quality when the UI option list no longer supports the stored value', () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY, '4000-720p');
+
+        expect(store.readTranscodeQualityValue(TRANSCODE_OPTIONS)).toBe(0);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY)).toBeNull();
+    });
+
     it('clamps now-playing auto-hide values and rewrites fallback when persisted value is invalid', () => {
         localStorage.setItem(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, '1234');
 

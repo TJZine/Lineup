@@ -256,7 +256,7 @@ Other review signals:
   - [x] P5-W3 - Extract subtitle delivery policy from the main resolver (done 2026-03-08; plan: docs/plans/2026-03-08-p5-w3-plex-stream-subtitle-delivery-policy.md)
   - [x] P5-W4 - Extract media selection plus HDR/audio compatibility rules into focused policy units (done 2026-03-08; plan: docs/plans/2026-03-08-p5-w4-plex-stream-media-selection-hdr-audio-compatibility-policies.md)
   - [x] P5-W5 - Cleanup pass for Priority 5: remove temporary wrapper methods, duplicated decision branches, and transitional resolver plumbing left behind after the policy extractions (done 2026-03-08; plan: docs/plans/2026-03-08-p5-w5-plex-stream-cleanup-pass.md)
-  - [ ] P5-W6 - Introduce a typed playback settings boundary + unify DTS passthrough gating for direct-play vs advertised capabilities (remove remaining raw storage reads in `PlexStreamResolver`)
+  - [x] P5-W6 - Introduce a typed playback settings boundary + unify DTS passthrough gating for direct-play vs advertised capabilities (remove remaining raw storage reads in `PlexStreamResolver`) (done 2026-03-08; plan: docs/plans/2026-03-08-p5-w6-playback-settings-store-dts-gating.md)
 
 ## Priority 6: Reintroduce A Dedicated Channel Persistence Layer
 
