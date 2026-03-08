@@ -1,9 +1,11 @@
 import type { ChannelContentSource } from './types';
 
+const MAX_CONTENT_SOURCE_DEPTH = 25;
+
 export function isValidContentSource(source: unknown, depth: number = 0): source is ChannelContentSource {
     // Guard against excessive nesting in corrupted storage (mixed sources can be recursive).
     // JSON cannot represent cyclic references, so a depth limit is sufficient here.
-    if (depth > 25) {
+    if (depth > MAX_CONTENT_SOURCE_DEPTH) {
         return false;
     }
     if (!source || typeof source !== 'object') {
