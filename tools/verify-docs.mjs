@@ -1,16 +1,26 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import {
+    buildChecklistPlanPathMessages,
     checkPlanConformance,
+    classifyChecklistPlanPathStatus,
+    EVAL_PROMPT_INVENTORY_END_MARKER,
+    EVAL_PROMPT_INVENTORY_START_MARKER,
     EXPECTED_EVAL_PROMPT_FILES,
     EXPECTED_SESSION_PROMPT_FILES,
     extractChecklistPlanPaths,
     parseSkillMirrorManifest,
+    renderEvalPromptInventory,
+    renderSessionPromptSet,
+    SESSION_PROMPT_SET_END_MARKER,
+    SESSION_PROMPT_SET_START_MARKER,
     SKILL_MIRROR_MANIFEST_PATH,
 } from './harness-docs-lib.mjs';
 
 const repoRoot = process.cwd();
+const verificationMode = process.argv.includes('--workspace') ? 'workspace' : 'strict';
 const expectedSessionPromptFiles = EXPECTED_SESSION_PROMPT_FILES;
 
 const requiredFiles = [
@@ -78,6 +88,34 @@ const literalLocalOnlyPatternAllowlist = new Set([
 function recordFsError(errors, operation, targetPath, error) {
     const message = error instanceof Error ? error.message : String(error);
     errors.push(`Unable to ${operation} ${targetPath}: ${message}`);
+}
+
+const FAILED_GIT = Symbol('FAILED_GIT');
+
+let cachedTrackedPlanPaths = null;
+
+function getTrackedPlanPaths(errors) {
+    if (cachedTrackedPlanPaths !== null) {
+        return cachedTrackedPlanPaths;
+    }
+
+    try {
+        const output = execFileSync('git', ['ls-files', '--', 'docs/plans', 'docs/archive/plans'], {
+            cwd: repoRoot,
+            encoding: 'utf8',
+        });
+        cachedTrackedPlanPaths = new Set(
+            output
+                .split(/\r?\n/u)
+                .map((line) => line.trim())
+                .filter((line) => line.length > 0)
+        );
+        return cachedTrackedPlanPaths;
+    } catch (error) {
+        recordFsError(errors, 'list tracked plan files via git', 'docs/plans docs/archive/plans', error);
+        cachedTrackedPlanPaths = FAILED_GIT;
+        return cachedTrackedPlanPaths;
+    }
 }
 
 function toRepoRelativePath(absolutePath) {
@@ -184,6 +222,18 @@ function resolveLocalLink(sourceFile, rawTarget) {
 
 function extractMarkdownLinks(content) {
     return Array.from(content.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)).map((match) => match[1].trim());
+}
+
+function extractManagedSection(content, { startMarker, endMarker }) {
+    const lines = content.split(/\r?\n/u);
+    const startIndex = lines.indexOf(startMarker);
+    const endIndex = lines.indexOf(endMarker);
+
+    if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) {
+        return null;
+    }
+
+    return lines.slice(startIndex + 1, endIndex).join('\n').trim();
 }
 
 function checkRequiredFiles(errors) {
@@ -350,10 +400,39 @@ function checkSessionPromptReadme(errors) {
         return;
     }
 
-    for (const file of expectedSessionPromptFiles) {
-        if (!readme.includes(`./${file}`)) {
-            errors.push(`Session prompt README is missing launcher link for ${file}`);
-        }
+    const managedSection = extractManagedSection(readme, {
+        startMarker: SESSION_PROMPT_SET_START_MARKER,
+        endMarker: SESSION_PROMPT_SET_END_MARKER,
+    });
+    if (managedSection === null) {
+        errors.push('Session prompt README is missing the managed prompt-set markers.');
+        return;
+    }
+
+    const expected = renderSessionPromptSet().trim();
+    if (managedSection !== expected) {
+        errors.push('Session prompt README managed prompt-set section is out of sync; run `npm run docs:sync`.');
+    }
+}
+
+function checkEvalPromptReadme(errors) {
+    const readme = readRepoFile('docs/agentic/evals/README.md', errors);
+    if (readme === null) {
+        return;
+    }
+
+    const managedSection = extractManagedSection(readme, {
+        startMarker: EVAL_PROMPT_INVENTORY_START_MARKER,
+        endMarker: EVAL_PROMPT_INVENTORY_END_MARKER,
+    });
+    if (managedSection === null) {
+        errors.push('Eval README is missing the managed prompt-inventory markers.');
+        return;
+    }
+
+    const expected = renderEvalPromptInventory().trim();
+    if (managedSection !== expected) {
+        errors.push('Eval README managed prompt-inventory section is out of sync; run `npm run docs:sync`.');
     }
 }
 
@@ -390,24 +469,41 @@ function checkWorkflowRoutingSplit(errors) {
     }
 }
 
-function checkChecklistPlanPaths(errors) {
+function checkChecklistPlanPaths(errors, warnings) {
     const checklist = readRepoFile('ARCHITECTURE_CLEANUP_CHECKLIST.md', errors);
     if (checklist === null) {
         return;
     }
 
-    for (const relativePath of extractChecklistPlanPaths(checklist)) {
-        if (!existsSync(path.join(repoRoot, relativePath))) {
-            errors.push(`Checklist references missing tracked plan path: ${relativePath}`);
-        }
+    const trackedPlanPaths = getTrackedPlanPaths(errors);
+    if (trackedPlanPaths === FAILED_GIT) {
+        return;
     }
+    const entries = extractChecklistPlanPaths(checklist).map((relativePath) => ({
+        relativePath,
+        status: classifyChecklistPlanPathStatus({
+            exists: existsSync(path.join(repoRoot, relativePath)),
+            tracked: trackedPlanPaths.has(relativePath),
+        }),
+    }));
+    const messages = buildChecklistPlanPathMessages(entries, { mode: verificationMode });
+    errors.push(...messages.errors);
+    warnings.push(...messages.warnings);
 }
 
 function checkPlanArchiveCoherence(errors) {
-    const activeFiles = safeReadDir('docs/plans', errors).filter((name) => name.endsWith('.md') && name !== 'README.md');
-    const archivedFiles = safeReadDir('docs/archive/plans', errors).filter(
-        (name) => name.endsWith('.md') && name !== 'README.md'
-    );
+    const trackedPlanPaths = getTrackedPlanPaths(errors);
+    if (trackedPlanPaths === FAILED_GIT) {
+        return;
+    }
+    const activeFiles = Array.from(trackedPlanPaths)
+        .filter((relativePath) => relativePath.startsWith('docs/plans/'))
+        .filter((relativePath) => path.basename(relativePath) !== 'README.md')
+        .map((relativePath) => path.basename(relativePath));
+    const archivedFiles = Array.from(trackedPlanPaths)
+        .filter((relativePath) => relativePath.startsWith('docs/archive/plans/'))
+        .filter((relativePath) => path.basename(relativePath) !== 'README.md')
+        .map((relativePath) => path.basename(relativePath));
     const archivedSet = new Set(archivedFiles);
 
     for (const file of activeFiles) {
@@ -454,7 +550,13 @@ function checkSkillMirrorManifest(errors) {
 }
 
 function checkSeriousPlanConformance(errors) {
-    const planFiles = safeReadDir('docs/plans', errors)
+    const trackedPlanPaths = getTrackedPlanPaths(errors);
+    if (trackedPlanPaths === FAILED_GIT) {
+        return;
+    }
+    const planFiles = Array.from(trackedPlanPaths)
+        .filter((relativePath) => relativePath.startsWith('docs/plans/'))
+        .map((relativePath) => path.basename(relativePath))
         .filter((name) => name.endsWith('.md') && name !== 'README.md')
         .sort();
 
@@ -473,6 +575,7 @@ function checkSeriousPlanConformance(errors) {
 }
 
 const errors = [];
+const warnings = [];
 
 checkRequiredFiles(errors);
 checkRequiredRunTemplate(errors);
@@ -482,8 +585,9 @@ checkDecisionIndex(errors);
 checkInventory(errors, 'docs/agentic/evals/prompts', EXPECTED_EVAL_PROMPT_FILES, 'eval prompt');
 checkInventory(errors, 'docs/agentic/session-prompts', expectedSessionPromptFiles, 'session prompt');
 checkSessionPromptReadme(errors);
+checkEvalPromptReadme(errors);
 checkWorkflowRoutingSplit(errors);
-checkChecklistPlanPaths(errors);
+checkChecklistPlanPaths(errors, warnings);
 checkPlanArchiveCoherence(errors);
 checkSkillMirrorManifest(errors);
 checkSeriousPlanConformance(errors);
@@ -496,4 +600,11 @@ if (errors.length > 0) {
     process.exit(1);
 }
 
-console.log('Documentation verification passed.');
+if (warnings.length > 0) {
+    console.log('Documentation verification passed with warnings:\n');
+    for (const warning of warnings) {
+        console.log(`- ${warning}`);
+    }
+} else {
+    console.log('Documentation verification passed.');
+}

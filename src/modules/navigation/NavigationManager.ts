@@ -27,8 +27,7 @@ import {
     CURSOR_HIDE_DELAY_MS,
     CHANNEL_INPUT_CONFIG,
 } from './constants';
-import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
-import { readStoredBoolean } from '../../utils/storage';
+import { DeveloperSettingsStore } from '../settings/DeveloperSettingsStore';
 import type { PlatformInputService } from '../../platform';
 
 /**
@@ -73,6 +72,7 @@ interface NavigationInternalState {
 export class NavigationManager
     extends EventEmitter<NavigationEventMap>
     implements INavigationManager {
+    private readonly _developerSettingsStore = new DeveloperSettingsStore();
     private _state: NavigationInternalState;
     private _focusManager: FocusManager;
     private _remoteHandler: RemoteHandler;
@@ -640,7 +640,7 @@ export class NavigationManager
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        return readStoredBoolean(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, false);
+        return this._developerSettingsStore.readDebugLoggingEnabled(false);
     }
 
     private _logInputSuppressed(reason: string, button?: RemoteButton): void {

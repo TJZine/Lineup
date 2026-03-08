@@ -185,6 +185,7 @@ Other review signals:
   - [x] P3-W3 - Add a repository/store for selected server and server health state (done 2026-03-05; plan: unavailable-pre-bootstrap)
   - [x] P3-W4 - Introduce a dedicated channel persistence boundary and route one caller through it (done 2026-03-05; plan: unavailable-pre-bootstrap)
   - [x] P3-W5 - Cleanup pass for Priority 3: remove leftover raw storage access, duplicate key knowledge, temporary adapters, and obsolete parsing helpers after the persistence boundaries are in place (done 2026-03-05; plan: unavailable-pre-bootstrap)
+  - [x] P3-W6 - Introduce `DeveloperSettingsStore` for debug flags and replace remaining direct reads of DEBUG_LOGGING / SUBTITLE_DEBUG_LOGGING in non-UI modules (done 2026-03-08; plan: docs/archive/plans/2026-03-08-p3-w6-developer-settings-store-summary.md)
 
 ## Priority 4: Decompose The Largest UI Classes
 
@@ -250,11 +251,12 @@ Other review signals:
   - [ ] Keep URL/token handling centralized and auditable
   - [ ] Re-run affected playback and subtitle tests
 - Primary work units:
-  - [ ] P5-W1 - Extract request timeout/fetch helpers and keep behavior unchanged
-  - [ ] P5-W2 - Extract URL building and token injection into one auditable helper
-  - [ ] P5-W3 - Extract subtitle delivery policy from the main resolver
-  - [ ] P5-W4 - Extract media selection plus HDR/audio compatibility rules into focused policy units
-  - [ ] P5-W5 - Cleanup pass for Priority 5: remove temporary wrapper methods, duplicated decision branches, and transitional resolver plumbing left behind after the policy extractions
+  - [x] P5-W1 - Extract request timeout/fetch helpers and keep behavior unchanged (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-5-plex-stream-policy-section-summary.md)
+  - [x] P5-W2 - Extract URL building and token injection into one auditable helper (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-5-plex-stream-policy-section-summary.md)
+  - [x] P5-W3 - Extract subtitle delivery policy from the main resolver (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-5-plex-stream-policy-section-summary.md)
+  - [x] P5-W4 - Extract media selection plus HDR/audio compatibility rules into focused policy units (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-5-plex-stream-policy-section-summary.md)
+  - [x] P5-W5 - Cleanup pass for Priority 5: remove temporary wrapper methods, duplicated decision branches, and transitional resolver plumbing left behind after the policy extractions (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-5-plex-stream-policy-section-summary.md)
+  - [x] P5-W6 - Introduce a typed playback settings boundary + unify DTS passthrough gating for direct-play vs advertised capabilities (remove remaining raw storage reads in `PlexStreamResolver`) (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-5-plex-stream-policy-section-summary.md)
 
 ## Priority 6: Reintroduce A Dedicated Channel Persistence Layer
 

@@ -148,7 +148,7 @@ describe('PlexStreamResolver', () => {
             expect(resolver.canDirectPlay(item)).toBe(false);
         });
 
-        it('should return true for DTS when passthrough is enabled on webOS 23+', () => {
+        it('should return true for DTS when passthrough is enabled and Chrome 108 parses', () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: { getItem: jest.fn().mockReturnValue('1') },
                 configurable: true,
@@ -166,6 +166,46 @@ describe('PlexStreamResolver', () => {
             const resolver = new PlexStreamResolver(createMockConfig());
 
             expect(resolver.canDirectPlay(item)).toBe(true);
+        });
+
+        it('should return false for DTS when passthrough is enabled but Chrome is below 108', () => {
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: { getItem: jest.fn().mockReturnValue('1') },
+                configurable: true,
+            });
+            Object.defineProperty(globalThis, 'navigator', {
+                value: { userAgent: 'Mozilla/5.0 (Web0S) AppleWebKit/537.36 Chrome/107.0.0.0 Safari/537.36' },
+                configurable: true,
+            });
+
+            const item = createMockMediaItem({
+                container: 'mkv',
+                videoCodec: 'h264',
+                audioCodec: 'dts',
+            });
+            const resolver = new PlexStreamResolver(createMockConfig());
+
+            expect(resolver.canDirectPlay(item)).toBe(false);
+        });
+
+        it('should return false for DTS when Chrome major cannot be parsed', () => {
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: { getItem: jest.fn().mockReturnValue('1') },
+                configurable: true,
+            });
+            Object.defineProperty(globalThis, 'navigator', {
+                value: { userAgent: 'mystery-device/1.0' },
+                configurable: true,
+            });
+
+            const item = createMockMediaItem({
+                container: 'mkv',
+                videoCodec: 'h264',
+                audioCodec: 'dts',
+            });
+            const resolver = new PlexStreamResolver(createMockConfig());
+
+            expect(resolver.canDirectPlay(item)).toBe(false);
         });
 
         it('should return false for resolution above 4K', () => {
@@ -189,6 +229,25 @@ describe('PlexStreamResolver', () => {
             const resolver = new PlexStreamResolver(config);
 
             expect(resolver.canDirectPlay(item)).toBe(false);
+        });
+
+        it('should evaluate only the first media entry for canDirectPlay', () => {
+            const first = createMockMediaItem({
+                container: 'avi',
+                videoCodec: 'mpeg2',
+                audioCodec: 'aac',
+            });
+            const second = createMockMediaItem({
+                container: 'mp4',
+                videoCodec: 'h264',
+                audioCodec: 'aac',
+            });
+            const config = createMockConfig();
+            const resolver = new PlexStreamResolver(config);
+
+            first.media = [first.media[0]!, second.media[0]!];
+
+            expect(resolver.canDirectPlay(first)).toBe(false);
         });
     });
 
@@ -716,6 +775,232 @@ describe('PlexStreamResolver', () => {
             expect(decision.selectedSubtitleStream).not.toBeNull();
             expect(decision.selectedSubtitleStream!.id).toBe('sub-1');
         });
+
+        it('forces burn-in subtitle transcode request params when burn mode is requested', async () => {
+            const mockItem = createMockMediaItem({
+                container: 'avi',
+                videoCodec: 'mpeg4',
+                audioCodec: 'mp2',
+            });
+            const subtitleStream: PlexStream = {
+                id: 'sub-1',
+                streamType: 3,
+                codec: 'srt',
+                language: 'English',
+                languageCode: 'en',
+                format: 'srt',
+                default: true,
+            };
+            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
+
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            const decision = await resolver.resolveStream({
+                itemKey: '12345',
+                subtitleStreamId: 'sub-1',
+                subtitleMode: 'burn',
+            });
+
+            expect(decision.isTranscoding).toBe(true);
+            expect(decision.subtitleDelivery).toBe('burn');
+            expect(decision.transcodeRequest).toMatchObject({
+                subtitleStreamId: 'sub-1',
+                subtitleMode: 'burn',
+            });
+            const parsed = new URL(decision.playbackUrl);
+            expect(parsed.searchParams.get('subtitles')).toBe('burn');
+            expect(parsed.searchParams.get('subtitleStreamID')).toBe('sub-1');
+        });
+
+        it('does not request burn-in when a text subtitle is selected but burn mode is not requested', async () => {
+            const mockItem = createMockMediaItem({
+                container: 'avi',
+                videoCodec: 'mpeg4',
+                audioCodec: 'mp2',
+            });
+            const subtitleStream: PlexStream = {
+                id: 'sub-1',
+                streamType: 3,
+                codec: 'srt',
+                language: 'English',
+                languageCode: 'en',
+                format: 'srt',
+                default: true,
+            };
+            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
+
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            const decision = await resolver.resolveStream({
+                itemKey: '12345',
+                subtitleStreamId: 'sub-1',
+            });
+
+            expect(decision.isTranscoding).toBe(true);
+            expect(decision.selectedSubtitleStream?.id).toBe('sub-1');
+            expect(decision.subtitleDelivery).toBe('sidecar');
+            expect(decision.transcodeRequest?.subtitleStreamId).toBeUndefined();
+
+            const parsed = new URL(decision.playbackUrl);
+            expect(parsed.searchParams.get('subtitles')).toBe('none');
+            expect(parsed.searchParams.get('subtitleStreamID')).toBe('0');
+        });
+
+        it('preserves subtitleDelivery for the selected subtitle path in resolveStream()', async () => {
+            const mockItem = createMockMediaItem();
+            const subtitleStream: PlexStream = {
+                id: 'sub-1',
+                streamType: 3,
+                codec: 'srt',
+                language: 'English',
+                languageCode: 'en',
+                format: 'srt',
+                default: true,
+            };
+            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
+
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            const decision = await resolver.resolveStream({
+                itemKey: '12345',
+                subtitleStreamId: 'sub-1',
+            });
+
+            expect(decision.isTranscoding).toBe(false);
+            expect(decision.subtitleDelivery).toBe('sidecar');
+            expect(decision.transcodeRequest).toBeUndefined();
+        });
+
+        it('preserves format-only subtitle classification in resolveStream() for codec-only text subtitles', async () => {
+            const mockItem = createMockMediaItem();
+            const subtitleStream: PlexStream = {
+                id: 'sub-1',
+                streamType: 3,
+                codec: 'srt',
+                language: 'English',
+                languageCode: 'en',
+                default: true,
+            };
+            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
+
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            const decision = await resolver.resolveStream({
+                itemKey: '12345',
+                subtitleStreamId: 'sub-1',
+            });
+
+            expect(decision.isTranscoding).toBe(false);
+            expect(decision.subtitleDelivery).toBe('embed');
+            expect(decision.transcodeRequest).toBeUndefined();
+        });
+
+        it('preserves codec fallback for burn-in propagation in resolveStream() when subtitle format is missing', async () => {
+            const mockItem = createMockMediaItem({
+                container: 'avi',
+                videoCodec: 'mpeg4',
+                audioCodec: 'mp2',
+            });
+            const subtitleStream: PlexStream = {
+                id: 'sub-1',
+                streamType: 3,
+                codec: 'pgs',
+                language: 'English',
+                languageCode: 'en',
+                default: true,
+            };
+            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
+
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            const decision = await resolver.resolveStream({
+                itemKey: '12345',
+                subtitleStreamId: 'sub-1',
+            });
+
+            expect(decision.isTranscoding).toBe(true);
+            expect(decision.subtitleDelivery).toBe('burn');
+            expect(decision.transcodeRequest).toMatchObject({
+                subtitleStreamId: 'sub-1',
+                subtitleMode: 'burn',
+            });
+        });
+
+        it('keeps subtitle debug probe request options and timeout unchanged', async () => {
+            const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: jest.fn((key: string) =>
+                        key === LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING ? '1' : null
+                    ),
+                },
+                configurable: true,
+            });
+
+            const mockItem = createMockMediaItem();
+            const subtitleStream: PlexStream = {
+                id: 'sub-1',
+                streamType: 3,
+                codec: 'srt',
+                language: 'English',
+                languageCode: 'en',
+                format: 'srt',
+                key: '/library/streams/sub-1',
+                default: true,
+            };
+            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
+
+            const config = createMockConfig({
+                getAuthHeaders: () => ({
+                    'X-Plex-Token': 'mock-token',
+                    'X-Plex-Client-Identifier': 'test-client-id',
+                }),
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            mockFetch.mockResolvedValue(
+                new Response('WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nTest', {
+                    status: 200,
+                    headers: { 'content-type': 'text/vtt' },
+                })
+            );
+
+            await resolver.resolveStream({ itemKey: '12345', subtitleStreamId: 'sub-1' });
+
+            expect(mockFetch).toHaveBeenCalledWith(
+                'http://192.168.1.100:32400/library/streams/sub-1',
+                expect.objectContaining({
+                    method: 'GET',
+                    cache: 'no-store',
+                    mode: 'cors',
+                    credentials: 'omit',
+                    headers: expect.objectContaining({
+                        'X-Plex-Token': 'mock-token',
+                        'X-Plex-Client-Identifier': 'test-client-id',
+                        Accept: 'text/vtt, text/plain, */*',
+                    }),
+                    signal: expect.any(AbortSignal),
+                })
+            );
+            expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 8000);
+            setTimeoutSpy.mockRestore();
+        });
     });
 
     // ========================================
@@ -797,6 +1082,45 @@ describe('PlexStreamResolver', () => {
             expect(parsed.searchParams.get('X-Plex-Product')).toBe('ServiceProduct');
             expect(parsed.searchParams.get('X-Plex-Platform-Version')).toBe('99.1');
             expect(identityService.getDefaultPlexIdentity).toHaveBeenCalledWith('test-client-id');
+        });
+
+        it('preserves transcode X-Plex-Client-Capabilities header precedence over computed value', () => {
+            const config = createMockConfig({
+                getAuthHeaders: () => ({
+                    'X-Plex-Token': 'mock-token',
+                    'X-Plex-Client-Capabilities': 'header-capabilities',
+                }),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            const parsed = new URL(resolver.getTranscodeUrl('12345', {}));
+
+            expect(parsed.searchParams.get('X-Plex-Client-Capabilities')).toBe('header-capabilities');
+        });
+
+        it('redacts X-Plex-Token in transcode debug logs', () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: jest.fn((key: string) =>
+                        key === LINEUP_STORAGE_KEYS.DEBUG_LOGGING ? '1' : null
+                    ),
+                },
+                configurable: true,
+            });
+
+            const resolver = new PlexStreamResolver(createMockConfig());
+            const url = resolver.getTranscodeUrl('12345', {});
+
+            expect(url).toContain('X-Plex-Token=mock-token');
+            expect(warnSpy).toHaveBeenCalledWith(
+                '[PlexStreamResolver] Transcode URL (compat=0):',
+                expect.stringContaining('X-Plex-Token=REDACTED')
+            );
+            expect(warnSpy.mock.calls.some((call) =>
+                typeof call[1] === 'string' && call[1].includes('X-Plex-Token=mock-token')
+            )).toBe(false);
+            warnSpy.mockRestore();
         });
 
         it('should respect bitrate limits', () => {
@@ -967,10 +1291,110 @@ describe('PlexStreamResolver', () => {
             expect(parsed.searchParams.get('X-Plex-Model')).toBeTruthy();
             expect(parsed.searchParams.get('X-Plex-Platform-Version')).toBeTruthy();
         });
+
+        it('keeps computed direct-play capabilities even when headers supply a different value', () => {
+            const resolver = new PlexStreamResolver(
+                createMockConfig({
+                    getAuthHeaders: () => ({
+                        'X-Plex-Token': 'mock-token',
+                        'X-Plex-Client-Capabilities': 'overrides-from-header',
+                    }),
+                })
+            );
+
+            const url = (resolver as unknown as {
+                _buildUrlWithToken: (baseUri: string, partKey: string, sessionId: string) => string;
+                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
+            })._buildUrlWithToken('http://192.168.1.100:32400', '/library/parts/12345/file.mp4', 'sess-1');
+
+            const expectedCapabilities = (resolver as unknown as {
+                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
+            })._buildClientCapabilities({ hideDolbyVision: false });
+            const parsed = new URL(url);
+            expect(parsed.searchParams.get('X-Plex-Client-Capabilities')).toBe(expectedCapabilities);
+        });
+
+        it('normalizes absolute direct-play keys to the selected playback origin', () => {
+            const config = createMockConfig();
+            const resolver = new PlexStreamResolver(config);
+
+            const url = (resolver as unknown as {
+                _buildUrlWithToken: (baseUri: string, partKey: string, sessionId: string) => string;
+            })._buildUrlWithToken(
+                'http://192.168.1.100:32400',
+                'http://evil.example/library/parts/12345/file.mp4?audioStreamID=audio-1',
+                'sess-1'
+            );
+
+            const parsed = new URL(url);
+            expect(parsed.origin).toBe('http://192.168.1.100:32400');
+            expect(parsed.pathname).toBe('/library/parts/12345/file.mp4');
+            expect(parsed.searchParams.get('audioStreamID')).toBe('audio-1');
+            expect(parsed.searchParams.get('X-Plex-Session-Identifier')).toBe('sess-1');
+        });
+    });
+
+    describe('_buildClientCapabilities', () => {
+        it('advertises DTS codecs only when user-enabled and Chrome is modern', () => {
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: { getItem: jest.fn().mockReturnValue('1') },
+                configurable: true,
+            });
+            Object.defineProperty(globalThis, 'navigator', {
+                value: { userAgent: 'Mozilla/5.0 (Web0S) AppleWebKit/537.36 Chrome/108.0.0.0 Safari/537.36' },
+                configurable: true,
+            });
+            const capabilities = (new PlexStreamResolver(createMockConfig()) as unknown as {
+                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
+            })._buildClientCapabilities();
+
+            expect(capabilities).toContain('dts{bitrate:1536000}');
+            expect(capabilities).toContain('dca{bitrate:1536000}');
+            expect(capabilities).toContain('dca-ma{bitrate:1536000}');
+        });
+
+        it('does not advertise DTS codecs when Chrome is below 108', () => {
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: { getItem: jest.fn().mockReturnValue('1') },
+                configurable: true,
+            });
+            Object.defineProperty(globalThis, 'navigator', {
+                value: { userAgent: 'Mozilla/5.0 (Web0S) AppleWebKit/537.36 Chrome/107.0.0.0 Safari/537.36' },
+                configurable: true,
+            });
+
+            const capabilities = (new PlexStreamResolver(createMockConfig()) as unknown as {
+                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
+            })._buildClientCapabilities();
+
+            expect(capabilities).not.toContain('dts{bitrate:1536000}');
+            expect(capabilities).not.toContain('dca{bitrate:1536000}');
+            expect(capabilities).not.toContain('dca-ma{bitrate:1536000}');
+        });
+
+        it('does not advertise DTS codecs when user disables passthrough', () => {
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: { getItem: jest.fn().mockReturnValue('0') },
+                configurable: true,
+            });
+            Object.defineProperty(globalThis, 'navigator', {
+                value: { userAgent: 'Mozilla/5.0 (Web0S) AppleWebKit/537.36 Chrome/108.0.0.0 Safari/537.36' },
+                configurable: true,
+            });
+
+            const capabilities = (new PlexStreamResolver(createMockConfig()) as unknown as {
+                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
+            })._buildClientCapabilities();
+
+            expect(capabilities).not.toContain('dts{bitrate:1536000}');
+            expect(capabilities).not.toContain('dca{bitrate:1536000}');
+            expect(capabilities).not.toContain('dca-ma{bitrate:1536000}');
+        });
     });
 
     describe('fetchUniversalTranscodeDecision', () => {
         it('should parse decision attributes from XML response', async () => {
+            const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
             const config = createMockConfig();
             const resolver = new PlexStreamResolver(config);
 
@@ -982,11 +1406,25 @@ describe('PlexStreamResolver', () => {
             });
 
             const result = await resolver.fetchUniversalTranscodeDecision('12345', { sessionId: 'sess-1', maxBitrate: 20000 });
+
+            expect(mockFetch).toHaveBeenCalledWith(
+                expect.stringContaining('/video/:/transcode/universal/decision'),
+                expect.objectContaining({
+                    method: 'GET',
+                    headers: expect.objectContaining({
+                        'X-Plex-Token': 'mock-token',
+                        Accept: 'application/json',
+                    }),
+                    signal: expect.any(AbortSignal),
+                })
+            );
+            expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 4000);
             expect(result?.decisionCode).toBe('1000');
             expect(result?.decisionText).toBe('Transcode');
             expect(result?.videoDecision).toBe('copy');
             expect(result?.audioDecision).toBe('transcode');
             expect(result?.subtitleDecision).toBe('none');
+            setTimeoutSpy.mockRestore();
         });
     });
 
@@ -1003,6 +1441,7 @@ describe('PlexStreamResolver', () => {
         });
 
         it('should DELETE transcode session when server URI is available', async () => {
+            const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
             const config = createMockConfig();
             const resolver = new PlexStreamResolver(config);
 
@@ -1015,8 +1454,17 @@ describe('PlexStreamResolver', () => {
 
             expect(mockFetch).toHaveBeenCalledWith(
                 expect.stringContaining('/transcode/sessions/sess-1'),
-                expect.objectContaining({ method: 'DELETE' })
+                expect.objectContaining({
+                    method: 'DELETE',
+                    headers: expect.objectContaining({
+                        'X-Plex-Token': 'mock-token',
+                        Accept: 'application/json',
+                    }),
+                    signal: expect.any(AbortSignal),
+                })
             );
+            expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 5000);
+            setTimeoutSpy.mockRestore();
         });
 
         it('logs a warning with session context when stopTranscodeSession fails', async () => {

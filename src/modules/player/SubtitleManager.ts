@@ -7,8 +7,7 @@
 
 import type { SubtitleTrack } from './types';
 import { BURN_IN_SUBTITLE_FORMATS } from './constants';
-import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
-import { isStoredTrue, safeLocalStorageGet } from '../../utils/storage';
+import { DeveloperSettingsStore } from '../settings/DeveloperSettingsStore';
 import { redactSensitiveTokens, safeStringifyForLog } from '../../utils/redact';
 import {
     looksLikeHtml,
@@ -35,6 +34,7 @@ interface SubtitleTrackContext {
  * Creates and controls HTMLTrackElement instances.
  */
 export class SubtitleManager {
+    private readonly _developerSettingsStore = new DeveloperSettingsStore();
     /** Reference to the video element */
     private _videoElement: HTMLVideoElement | null = null;
 
@@ -74,11 +74,7 @@ export class SubtitleManager {
     }
 
     private _isSubtitleDebugEnabled(): boolean {
-        try {
-            return isStoredTrue(safeLocalStorageGet(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING));
-        } catch {
-            return false;
-        }
+        return this._developerSettingsStore.readSubtitleDebugLoggingEnabled(false);
     }
 
     private _logSubtitleDebug(event: string, contextFactory: () => Record<string, unknown>): void {

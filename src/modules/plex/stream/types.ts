@@ -150,9 +150,12 @@ export interface StreamRequest {
     startOffsetMs?: number;
     /** Preferred audio track ID */
     audioStreamId?: string;
-    /** Preferred subtitle track ID */
+    /**
+     * Preferred subtitle track ID (used for out-of-band extraction/fetching; does not imply burn-in).
+     * Burn-in is only requested when `subtitleMode === 'burn'` or the selected subtitle format requires it.
+     */
     subtitleStreamId?: string;
-    /** Subtitle delivery override */
+    /** Subtitle delivery override (burn-in forces transcoding). */
     subtitleMode?: 'none' | 'burn';
     /** Maximum bitrate in kbps */
     maxBitrate?: number;

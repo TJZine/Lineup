@@ -27,8 +27,7 @@ import {
     VIDEO_ELEMENT_STYLES,
     DEFAULT_CONFIG,
 } from './constants';
-import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
-import { isStoredTrue, safeLocalStorageGet } from '../../utils/storage';
+import { DeveloperSettingsStore } from '../settings/DeveloperSettingsStore';
 import { redactSensitiveTokens, safeStringifyForLog } from '../../utils/redact';
 import { summarizeErrorForLog } from '../../utils/errors';
 import type { PlatformPlaybackService, PlatformSubtitleService } from '../../platform';
@@ -97,6 +96,7 @@ const MEDIA_SESSION_ACTIONS: MediaSessionActionLike[] = [
  * ```
  */
 export class VideoPlayer implements IVideoPlayer {
+    private readonly _developerSettingsStore = new DeveloperSettingsStore();
     /** Event emitter for player events */
     private _emitter: EventEmitter<PlayerEventMap> = new EventEmitter();
 
@@ -141,11 +141,7 @@ export class VideoPlayer implements IVideoPlayer {
     }
 
     private _isSubtitleDebugEnabled(): boolean {
-        try {
-            return isStoredTrue(safeLocalStorageGet(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING));
-        } catch {
-            return false;
-        }
+        return this._developerSettingsStore.readSubtitleDebugLoggingEnabled(false);
     }
 
     private _logSubtitleDebug(event: string, contextFactory: () => Record<string, unknown>): void {

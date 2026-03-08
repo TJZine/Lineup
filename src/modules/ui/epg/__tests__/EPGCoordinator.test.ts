@@ -62,6 +62,13 @@ const flushPromises = async (): Promise<void> => {
     await Promise.resolve();
 };
 
+const FIXED_FAKE_NOW = new Date('2026-01-01T12:00:00.000Z');
+
+const useDeterministicFakeTimers = (): void => {
+    jest.useFakeTimers();
+    jest.setSystemTime(FIXED_FAKE_NOW);
+};
+
 const expectPastWindowMinutes = (
     range: { startTime: number; endTime: number } | null,
     nowMs: number,
@@ -213,6 +220,7 @@ describe('EPGCoordinator', () => {
 
     afterEach(() => {
         clearLocalStorage();
+        jest.useRealTimers();
         jest.restoreAllMocks();
         jest.clearAllMocks();
     });
@@ -920,7 +928,7 @@ describe('EPGCoordinator', () => {
     });
 
     it('refreshEpgSchedulesForRange prioritizes focused/visible channels and keeps warm queue cache-only', async () => {
-        jest.useFakeTimers();
+        useDeterministicFakeTimers();
         try {
             await withIdleCallbackDisabled(async () => {
                 const manyChannels = Array.from({ length: 240 }, (_, i) => makeChannel(`c${i}`, i + 1));
@@ -993,7 +1001,7 @@ describe('EPGCoordinator', () => {
     });
 
     it('new visible-range request cancels stale background warm queue and prevents stale cache writes', async () => {
-        jest.useFakeTimers();
+        useDeterministicFakeTimers();
         try {
             await withIdleCallbackDisabled(async () => {
                 const manyChannels = Array.from({ length: 240 }, (_, i) => makeChannel(`c${i}`, i + 1));
@@ -1067,7 +1075,7 @@ describe('EPGCoordinator', () => {
     });
 
     it('staged loading assertions are deterministic with deferred resolver gates', async () => {
-        jest.useFakeTimers();
+        useDeterministicFakeTimers();
         try {
             await withIdleCallbackDisabled(async () => {
                 const manyChannels = Array.from({ length: 240 }, (_, i) => makeChannel(`c${i}`, i + 1));
@@ -1152,7 +1160,7 @@ describe('EPGCoordinator', () => {
     });
 
     it('background warm queue backs off instead of canceling when in-flight pressure is high', async () => {
-        jest.useFakeTimers();
+        useDeterministicFakeTimers();
         try {
             await withIdleCallbackDisabled(async () => {
                 const { deps } = makeDeps();
@@ -1201,7 +1209,7 @@ describe('EPGCoordinator', () => {
     });
 
     it('aggressive preload mode widens background candidate set compared to default mode', async () => {
-        jest.useFakeTimers();
+        useDeterministicFakeTimers();
         try {
             await withIdleCallbackDisabled(async () => {
                 const manyChannels = Array.from({ length: 240 }, (_, i) => makeChannel(`c${i}`, i + 1));
@@ -1341,25 +1349,28 @@ describe('EPGCoordinator', () => {
     });
 
     it('refreshEpgSchedulesForRange resolves after debounce completes', async () => {
-        jest.useFakeTimers();
-        const { deps, epg } = makeDeps();
-        const coordinator = new EPGCoordinator(deps);
+        useDeterministicFakeTimers();
+        try {
+            const { deps, epg } = makeDeps();
+            const coordinator = new EPGCoordinator(deps);
 
-        const promise = coordinator.refreshEpgSchedulesForRange(
-            { channelStart: 0, channelEnd: 1, timeStartMs: 0, timeEndMs: 0 },
-            { debounceMs: 50, reason: 'visible-range' }
-        );
-        const secondPromise = coordinator.refreshEpgSchedulesForRange(
-            { channelStart: 0, channelEnd: 1, timeStartMs: 0, timeEndMs: 0 },
-            { debounceMs: 50, reason: 'visible-range' }
-        );
-        expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
+            const promise = coordinator.refreshEpgSchedulesForRange(
+                { channelStart: 0, channelEnd: 1, timeStartMs: 0, timeEndMs: 0 },
+                { debounceMs: 50, reason: 'visible-range' }
+            );
+            const secondPromise = coordinator.refreshEpgSchedulesForRange(
+                { channelStart: 0, channelEnd: 1, timeStartMs: 0, timeEndMs: 0 },
+                { debounceMs: 50, reason: 'visible-range' }
+            );
+            expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
 
-        jest.advanceTimersByTime(50);
-        await Promise.all([promise, secondPromise]);
+            jest.advanceTimersByTime(50);
+            await Promise.all([promise, secondPromise]);
 
-        expect(epg.loadScheduleForChannel).toHaveBeenCalled();
-        jest.useRealTimers();
+            expect(epg.loadScheduleForChannel).toHaveBeenCalled();
+        } finally {
+            jest.useRealTimers();
+        }
     });
 
     it('refreshEpgScheduleForLiveChannel uses scheduler window for current channel', () => {

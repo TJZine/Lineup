@@ -6,6 +6,7 @@ Use them to avoid copying large prompt blocks into fresh sessions. The tracked f
 
 ## Prompt Set
 
+<!-- BEGIN MANAGED SESSION PROMPT SET -->
 - [`cleanup-plan.md`](./cleanup-plan.md)
   - Tier 2 planner session for writing or refreshing a serious cleanup plan
 - [`cleanup-implement.md`](./cleanup-implement.md)
@@ -20,6 +21,7 @@ Use them to avoid copying large prompt blocks into fresh sessions. The tracked f
   - reusable adversarial review session for feature/design plans and implementations
 - [`workflow-harness-review.md`](./workflow-harness-review.md)
   - adversarial whole-system review of the repo harness against current OpenAI and Anthropic guidance
+<!-- END MANAGED SESSION PROMPT SET -->
 
 ## Routing (Authoritative)
 

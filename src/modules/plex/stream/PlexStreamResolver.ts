@@ -14,7 +14,6 @@ import type {
 } from './interfaces';
 import type {
     PlexMediaItem,
-    PlexMediaFile,
     PlexStream,
     StreamRequest,
     StreamDecision,
@@ -22,33 +21,31 @@ import type {
 } from './types';
 import { PlexStreamErrorCode } from './types';
 import {
-    SUPPORTED_CONTAINERS,
-    SUPPORTED_VIDEO_CODECS,
-    SUPPORTED_AUDIO_CODECS,
-    MAX_RESOLUTION,
-    BURN_IN_SUBTITLE_FORMATS,
-    TEXT_SUBTITLE_FORMATS,
     DEFAULT_HLS_OPTIONS,
 } from './constants';
+import { getSubtitleDelivery, shouldRequestBurnInSubtitles } from './subtitleDeliveryPolicy';
 import { generateUUID } from './utils';
-import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import { selectBestMedia, selectBestMediaWithSubtitleStream } from './mediaSelectionPolicy';
 import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
-import {
-    isStoredTrue,
-    readStoredBoolean,
-    safeLocalStorageGet,
-} from '../../../utils/storage';
+import { PlaybackSettingsStore } from '../../settings/PlaybackSettingsStore';
+import { DeveloperSettingsStore } from '../../settings/DeveloperSettingsStore';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { redactSensitiveTokens, redactUrlForLog, safeStringifyForLog } from '../../../utils/redact';
-import { detectHdrLabel } from './hdr';
-import { getTranscodeQualityOption } from '../../../config/transcodeQuality';
 import {
-    computeHdr10FallbackMode,
-    inferHdr10BaseLayer,
-    shouldApplyHdr10Fallback,
-} from './dvHdr10Fallback';
+    getDirectPlayDecision,
+    getHdrCompatibilityDecision,
+    isTrueHdCodec,
+    selectCompatibleAudioTrack,
+    shouldForceTranscodeAudioStreamId,
+} from './playbackCompatibilityPolicy';
+import { fetchWithTimeout } from './fetchWithTimeout';
+import { detectHdrLabel } from './hdr';
 import type { PlatformIdentityService } from '../../../platform';
 import { webosPlatformServices } from '../../../platform';
+import {
+    applyXPlexQueryParamsFromHeaders,
+    buildPlexUrlFromKey,
+} from './plexUrl';
 
 // Re-export types for consumers
 export { PlexStreamErrorCode } from './types';
@@ -63,6 +60,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     private readonly _emitter: EventEmitter<StreamResolverEventMap>;
     private readonly _identityService: PlatformIdentityService;
     private readonly _audioSettingsStore = new AudioSettingsStore();
+    private readonly _playbackSettingsStore = new PlaybackSettingsStore();
+    private readonly _developerSettingsStore = new DeveloperSettingsStore();
 
     /**
      * Create a new PlexStreamResolver instance.
@@ -87,6 +86,27 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
     }
 
+    private _getBrowserUserAgent(): string | null {
+        try {
+            if (typeof navigator === 'undefined') {
+                return null;
+            }
+            return navigator.userAgent || null;
+        } catch {
+            return null;
+        }
+    }
+
+    private _isDtsPassthroughEnabled(): boolean {
+        try {
+            const userEnabled = this._audioSettingsStore.readDtsPassthroughEnabled(false);
+            const chromeMajor = this._getChromeMajor();
+            return userEnabled && chromeMajor !== null && chromeMajor >= 108;
+        } catch {
+            return false;
+        }
+    }
+
     private _isWebOs(): boolean {
         return this._identityService.isWebOs();
     }
@@ -101,13 +121,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     }
 
     private _isSubtitleDebugEnabled(): boolean {
-        try {
-            return isStoredTrue(
-                safeLocalStorageGet(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING)
-            );
-        } catch {
-            return false;
-        }
+        return this._developerSettingsStore.readSubtitleDebugLoggingEnabled(false);
     }
 
     private _logSubtitleDebug(event: string, context: Record<string, unknown>): void {
@@ -161,154 +175,141 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             }
         })();
 
-        const variants: Array<{
-            authMode: 'header';
-            url: URL;
-            headers: Record<string, string>;
-        }> = [
-                {
-                    // Closest to how Lineup currently talks to PMS (token in header)
-                    authMode: 'header',
-                    url: baseUrl,
-                    headers: {
-                        Accept: 'text/vtt, text/plain, */*',
-                        ...this._config.getAuthHeaders(),
-                    },
-                },
-            ];
+        const authMode = 'header' as const;
+        const headers: Record<string, string> = {
+            Accept: 'text/vtt, text/plain, */*',
+            ...this._config.getAuthHeaders(),
+        };
 
-        for (const variant of variants) {
-            const redactedUrl = redactUrlForLog(variant.url.toString());
-            const redactedTrackSrcQueryAuth = ((): string | null => {
-                // NOTE: <track src="..."> cannot send X-Plex-Token headers. Prefer a blob URL
-                // created from an authenticated fetch to avoid token-in-URL and CORS issues.
-                if (!tokenFromHeader) return null;
-                try {
-                    const u = new URL(baseUrl.toString());
-                    if (!u.searchParams.has('X-Plex-Token')) u.searchParams.set('X-Plex-Token', tokenFromHeader);
-                    return redactUrlForLog(u.toString());
-                } catch {
-                    return null;
-                }
-            })();
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const redactedUrl = redactUrlForLog(baseUrl.toString());
+        const redactedTrackSrcQueryAuth = ((): string | null => {
+            // NOTE: <track src="..."> cannot send X-Plex-Token headers. Prefer a blob URL
+            // created from an authenticated fetch to avoid token-in-URL and CORS issues.
+            if (!tokenFromHeader) return null;
             try {
-                const response = await fetch(variant.url.toString(), {
+                const u = new URL(baseUrl.toString());
+                if (!u.searchParams.has('X-Plex-Token')) u.searchParams.set('X-Plex-Token', tokenFromHeader);
+                return redactUrlForLog(u.toString());
+            } catch {
+                return null;
+            }
+        })();
+
+        try {
+            const response = await fetchWithTimeout(
+                baseUrl.toString(),
+                {
                     method: 'GET',
-                    headers: variant.headers,
+                    headers,
                     cache: 'no-store',
                     // Explicitly CORS so the behavior matches what the TV browser enforces.
                     mode: 'cors',
                     credentials: 'omit',
-                    signal: controller.signal,
-                });
+                },
+                8000
+            );
 
-                const contentType = response.headers.get('content-type');
-                const contentLength = response.headers.get('content-length');
-                const acceptRanges = response.headers.get('accept-ranges');
-                const contentRange = response.headers.get('content-range');
-                const contentDisposition = response.headers.get('content-disposition');
-                const accessControlAllowOrigin = response.headers.get('access-control-allow-origin');
-                const accessControlExposeHeaders = response.headers.get('access-control-expose-headers');
-                const responseType = response.type;
-                const redirected = response.redirected;
-                const finalUrl = redactUrlForLog(response.url);
+            const contentType = response.headers.get('content-type');
+            const contentLength = response.headers.get('content-length');
+            const acceptRanges = response.headers.get('accept-ranges');
+            const contentRange = response.headers.get('content-range');
+            const contentDisposition = response.headers.get('content-disposition');
+            const accessControlAllowOrigin = response.headers.get('access-control-allow-origin');
+            const accessControlExposeHeaders = response.headers.get('access-control-expose-headers');
+            const responseType = response.type;
+            const redirected = response.redirected;
+            const finalUrl = redactUrlForLog(response.url);
 
-                let detected: 'webvtt' | 'srt' | 'unknown' = 'unknown';
-                let sampleLength = 0;
-                let sampleCapped = false;
-                let looksLikeHtml = false;
-                try {
-                    const reader = response.body?.getReader?.();
-                    if (reader) {
-                        const decoder = new TextDecoder('utf-8');
-                        let sample = '';
-                        const MAX_SAMPLE_CHARS = 2048;
-                        while (sample.length < MAX_SAMPLE_CHARS) {
-                            const { value, done } = await reader.read();
-                            if (done) break;
-                            if (value) {
-                                const chunk = decoder.decode(value, { stream: true });
-                                const remaining = MAX_SAMPLE_CHARS - sample.length;
-                                if (chunk.length > remaining) {
-                                    sample += chunk.slice(0, remaining);
-                                    sampleCapped = true;
-                                    break;
-                                }
-                                sample += chunk;
+            let detected: 'webvtt' | 'srt' | 'unknown' = 'unknown';
+            let sampleLength = 0;
+            let sampleCapped = false;
+            let looksLikeHtml = false;
+            try {
+                const reader = response.body?.getReader?.();
+                if (reader) {
+                    const decoder = new TextDecoder('utf-8');
+                    let sample = '';
+                    const MAX_SAMPLE_CHARS = 2048;
+                    while (sample.length < MAX_SAMPLE_CHARS) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        if (value) {
+                            const chunk = decoder.decode(value, { stream: true });
+                            const remaining = MAX_SAMPLE_CHARS - sample.length;
+                            if (chunk.length > remaining) {
+                                sample += chunk.slice(0, remaining);
+                                sampleCapped = true;
+                                break;
                             }
+                            sample += chunk;
                         }
-                        try {
-                            // Stop downloading if more data exists.
-                            await reader.cancel();
-                        } catch {
-                            // Ignore cancel errors.
-                        }
-                        sampleLength = sample.length;
-                        looksLikeHtml = sample.replace(/^\uFEFF/, '').trimStart().startsWith('<');
-                        detected = this._detectSubtitleTextFormat(sample);
-                    } else {
-                        // Some client stacks may not expose a streaming body. Avoid downloading full subtitle
-                        // payloads in debug mode; fall back to codec-based detection.
-                        detected =
-                            ((): 'webvtt' | 'srt' | 'unknown' => {
-                                const c = (options.codec ?? '').toLowerCase();
-                                if (c === 'vtt' || c === 'webvtt') return 'webvtt';
-                                if (c === 'srt') return 'srt';
-                                return 'unknown';
-                            })();
                     }
-                } catch {
-                    // Ignore read errors; still log status/headers.
+                    try {
+                        // Stop downloading if more data exists.
+                        await reader.cancel();
+                    } catch {
+                        // Ignore cancel errors.
+                    }
+                    sampleLength = sample.length;
+                    looksLikeHtml = sample.replace(/^\uFEFF/, '').trimStart().startsWith('<');
+                    detected = this._detectSubtitleTextFormat(sample);
+                } else {
+                    // Some client stacks may not expose a streaming body. Avoid downloading full subtitle
+                    // payloads in debug mode; fall back to codec-based detection.
+                    detected =
+                        ((): 'webvtt' | 'srt' | 'unknown' => {
+                            const c = (options.codec ?? '').toLowerCase();
+                            if (c === 'vtt' || c === 'webvtt') return 'webvtt';
+                            if (c === 'srt') return 'srt';
+                            return 'unknown';
+                        })();
                 }
-
-                this._logSubtitleDebug('subtitle_stream_probe', {
-                    itemKey: options.itemKey,
-                    subtitleStreamId: options.subtitleStreamId,
-                    subtitleStreamKey: typeof options.subtitleStreamKey === 'string' ? redactSensitiveTokens(options.subtitleStreamKey) : null,
-                    codec: options.codec ?? null,
-                    language: options.language ?? null,
-                    urlSource,
-                    authMode: variant.authMode,
-                    url: redactedUrl,
-                    trackSrcQueryAuthExample: redactedTrackSrcQueryAuth,
-                    originHost: variant.url.host,
-                    originIsPlexDirect: variant.url.hostname.endsWith('.plex.direct'),
-                    responseType,
-                    redirected,
-                    finalUrl,
-                    ok: response.ok,
-                    status: response.status,
-                    contentType,
-                    contentLength,
-                    contentDisposition,
-                    accessControlAllowOrigin,
-                    accessControlExposeHeaders,
-                    acceptRanges,
-                    contentRange,
-                    detected,
-                    sampleLength,
-                    sampleCapped,
-                    looksLikeHtml,
-                });
-            } catch (e) {
-                const message = e instanceof Error ? e.message : String(e);
-                this._logSubtitleDebug('subtitle_stream_probe_error', {
-                    itemKey: options.itemKey,
-                    subtitleStreamId: options.subtitleStreamId,
-                    subtitleStreamKey: typeof options.subtitleStreamKey === 'string' ? redactSensitiveTokens(options.subtitleStreamKey) : null,
-                    codec: options.codec ?? null,
-                    language: options.language ?? null,
-                    urlSource,
-                    authMode: variant.authMode,
-                    url: redactedUrl,
-                    error: message,
-                });
-            } finally {
-                clearTimeout(timeoutId);
+            } catch {
+                // Ignore read errors; still log status/headers.
             }
+
+            this._logSubtitleDebug('subtitle_stream_probe', {
+                itemKey: options.itemKey,
+                subtitleStreamId: options.subtitleStreamId,
+                subtitleStreamKey: typeof options.subtitleStreamKey === 'string' ? redactSensitiveTokens(options.subtitleStreamKey) : null,
+                codec: options.codec ?? null,
+                language: options.language ?? null,
+                urlSource,
+                authMode,
+                url: redactedUrl,
+                trackSrcQueryAuthExample: redactedTrackSrcQueryAuth,
+                originHost: baseUrl.host,
+                originIsPlexDirect: baseUrl.hostname.endsWith('.plex.direct'),
+                responseType,
+                redirected,
+                finalUrl,
+                ok: response.ok,
+                status: response.status,
+                contentType,
+                contentLength,
+                contentDisposition,
+                accessControlAllowOrigin,
+                accessControlExposeHeaders,
+                acceptRanges,
+                contentRange,
+                detected,
+                sampleLength,
+                sampleCapped,
+                looksLikeHtml,
+            });
+        } catch (e) {
+            const message = e instanceof Error ? e.message : String(e);
+            this._logSubtitleDebug('subtitle_stream_probe_error', {
+                itemKey: options.itemKey,
+                subtitleStreamId: options.subtitleStreamId,
+                subtitleStreamKey: typeof options.subtitleStreamKey === 'string' ? redactSensitiveTokens(options.subtitleStreamKey) : null,
+                codec: options.codec ?? null,
+                language: options.language ?? null,
+                urlSource,
+                authMode,
+                url: redactedUrl,
+                error: message,
+            });
         }
     }
 
@@ -333,13 +334,20 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         // 2. Select best media version
-        let selectedMedia = this._selectBestMedia(item.media, request.maxBitrate);
+        let selectedMedia = selectBestMedia(item.media, request.maxBitrate);
         if (request.subtitleStreamId) {
-            const withSubtitle = this._selectBestMediaWithSubtitleStream(
+            const withSubtitle = selectBestMediaWithSubtitleStream(
                 item.media,
                 request.subtitleStreamId,
                 request.maxBitrate
             );
+            if (!withSubtitle && request.subtitleMode === 'burn') {
+                throw this._createError(
+                    PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND,
+                    `Subtitle stream not found: ${request.subtitleStreamId}`,
+                    true
+                );
+            }
             if (withSubtitle) {
                 selectedMedia = withSubtitle;
             }
@@ -352,8 +360,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             );
         }
 
-        const { media, mediaIndex } = selectedMedia;
-        const part = media.parts[0];
+        const { media, mediaIndex, partIndex } = selectedMedia;
+        const part = media.parts[partIndex];
         if (!part) {
             throw this._createError(
                 PlexStreamErrorCode.PLAYBACK_SOURCE_NOT_FOUND,
@@ -361,10 +369,9 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 false
             );
         }
-        const partIndex = 0;
 
         // Track selection (used for UI and optional HLS stream selection)
-        const audioStream = this._selectCompatibleAudioTrack(
+        const audioStream = selectCompatibleAudioTrack(
             part.streams,
             request.audioStreamId
         );
@@ -459,7 +466,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             }
         }
 
-        const shouldForceAudioStreamId = this._shouldForceTranscodeAudioStreamId(
+        const shouldForceAudioStreamId = shouldForceTranscodeAudioStreamId(
             part.streams,
             request.audioStreamId
         );
@@ -467,8 +474,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         const audioFallbackInfo =
             defaultAudio &&
                 audioStream &&
-                this._isTrueHdCodec(defaultAudio.codec) &&
-                !this._isTrueHdCodec(audioStream.codec)
+                isTrueHdCodec(defaultAudio.codec) &&
+                !isTrueHdCodec(audioStream.codec)
                 ? {
                     fromCodec: (defaultAudio.codec || 'unknown').toLowerCase(),
                     toCodec: (audioStream.codec || 'unknown').toLowerCase(),
@@ -481,229 +488,214 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         const sessionId = generateUUID();
 
         // 4. Check direct play compatibility ON THE SELECTED MEDIA VERSION
-            const allowDirectPlayAudioFallback = this._audioSettingsStore.readDirectPlayAudioFallbackEnabled();
+        const allowDirectPlayAudioFallback = this._audioSettingsStore.readDirectPlayAudioFallbackEnabled();
 
-            let directDecision = this._getDirectPlayDecision(media);
-            let directPlayAudioStreamId: string | undefined;
-            if (
-                allowDirectPlayAudioFallback &&
-                defaultAudio &&
-                this._isTrueHdCodec(defaultAudio.codec) &&
-                audioStream &&
-                audioStream.id &&
-                !this._isTrueHdCodec(audioStream.codec)
-            ) {
-                // If the only blocker is TrueHD (or other audio incompatibility), and we found a
-                // compatible fallback track, try allowing Direct Play and hint Plex with audioStreamID.
-                // This is intentionally opt-in since some client stacks may not honor audioStreamID
-                // for direct URLs.
-                const nonAudioReasons = directDecision.reasons.filter(
-                    (r) => !r.startsWith('unsupported_audio_codec:') && r !== 'dts_passthrough_disabled'
-                );
-                if (nonAudioReasons.length === 0) {
-                    const overridden = this._getDirectPlayDecision(media, audioStream.codec);
-                    if (overridden.canDirect) {
-                        directDecision = overridden;
-                        directPlayAudioStreamId = audioStream.id;
-                    }
-                }
-            }
+        const dtsPassthroughEnabled = this._isDtsPassthroughEnabled();
+        const userAgent = this._getBrowserUserAgent();
 
-            const canDirect = directDecision.canDirect;
-            const hdr10FallbackMode = this._getHdr10FallbackMode();
-            const isDolbyVision = this._detectHdrLabelFromStream(videoStream) === 'Dolby Vision';
-            const sourceContainer = (media.container ?? '').toLowerCase();
-            const hdr10BaseLayerInfo = inferHdr10BaseLayer({
-                doviProfile: videoStream?.doviProfile ?? null,
-                codecProfileString: videoStream?.profile ?? null,
-                hdr: videoStream?.hdr ?? null,
-                dynamicRange: videoStream?.dynamicRange ?? null,
-                colorTrc: videoStream?.colorTrc ?? null,
-                displayTitle: videoStream?.displayTitle ?? null,
-                extendedDisplayTitle: videoStream?.extendedDisplayTitle ?? null,
-            });
-            // Force HLS for DV MKV with profiles lacking HDR10 base layer (e.g., 5, 8.2/8.4, HLG).
-            // This is unconditional—distinct from user-controlled HDR10 fallback mode.
-            const forceHlsForDvNoHdr10BaseLayer = isDolbyVision
-                && sourceContainer === 'mkv'
-                && hdr10BaseLayerInfo.isKnownNoHdr10BaseLayer;
-            const fallback = shouldApplyHdr10Fallback({
-                mode: hdr10FallbackMode,
-                container: media.container,
-                isDolbyVision,
-                doviProfile: videoStream?.doviProfile ?? null,
-                codecProfileString: videoStream?.profile ?? null,
-                hdr: videoStream?.hdr ?? null,
-                dynamicRange: videoStream?.dynamicRange ?? null,
-                colorTrc: videoStream?.colorTrc ?? null,
-                displayTitle: videoStream?.displayTitle ?? null,
-                extendedDisplayTitle: videoStream?.extendedDisplayTitle ?? null,
-                aspectRatio: typeof media.aspectRatio === 'number' ? media.aspectRatio : null,
-                width: media.width,
-                height: media.height,
-            });
-            const applyHdr10Fallback = fallback.apply;
-            const forceTranscodeForHdr10Fallback = applyHdr10Fallback && fallback.reason === 'force';
-            const debugEnabled = this._isDebugLoggingEnabled();
-
-            if (debugEnabled) {
-                if (applyHdr10Fallback) {
-                    console.warn('[PlexStreamResolver] HDR10 fallback applied:', {
-                        itemKey: request.itemKey,
-                        reason: fallback.reason,
-                        container: sourceContainer,
-                        isDolbyVision,
-                    });
-                }
-                if (forceHlsForDvNoHdr10BaseLayer) {
-                    console.warn('[PlexStreamResolver] HDR10 base-layer fallback forced:', {
-                        itemKey: request.itemKey,
-                        reason: 'dv_profile_no_hdr10_base_layer',
-                        container: sourceContainer,
-                    });
-                }
-            }
-
-            let playbackUrl: string;
-            let protocol: 'hls' | 'http';
-            let isTranscoding = false;
-            let container: string;
-            let videoCodec: string;
-            let audioCodec: string;
-            let transcodeRequestInfo: StreamDecision['transcodeRequest'] | null = null;
-
-            const allowDirectPlay = canDirect &&
-                request.directPlay !== false &&
-                !forceTranscodeForHdr10Fallback &&
-                !forceHlsForDvNoHdr10BaseLayer;
-            if (allowDirectPlay) {
-                // Direct play
-                playbackUrl = this._buildDirectPlayUrl(
-                    part.key,
-                    sessionId,
-                    directPlayAudioStreamId,
-                    applyHdr10Fallback
-                );
-                protocol = 'http';
-                container = media.container;
-                videoCodec = media.videoCodec;
-                audioCodec = (audioStream?.codec ?? media.audioCodec).toLowerCase();
-            } else {
-                // Transcode to HLS
-                const maxBitrate = typeof request.maxBitrate === 'number'
-                    ? request.maxBitrate
-                    : DEFAULT_HLS_OPTIONS.maxBitrate;
-                const options: HlsOptions = { maxBitrate, sessionId, mediaIndex, partIndex };
-                if (shouldForceAudioStreamId && audioStream?.id) {
-                    options.audioStreamId = audioStream.id;
-                }
-                const subtitleFormat = (subtitleStream?.format ?? subtitleStream?.codec ?? '').toLowerCase();
-                const shouldBurnIn = request.subtitleMode === 'burn' ||
-                    (subtitleStream && BURN_IN_SUBTITLE_FORMATS.includes(subtitleFormat));
-                if (shouldBurnIn && subtitleStream?.id) {
-                    options.subtitleStreamId = subtitleStream.id;
-                    options.subtitleMode = 'burn';
-                }
-                // Smart fallback should not force transcoding by itself. If we are already on
-                // HLS (due to incompatibility/forced transcode), hide DV capabilities to
-                // encourage the HDR10 base-layer path.
-                if (applyHdr10Fallback) {
-                    options.hideDolbyVision = true;
-                }
-                playbackUrl = this.getTranscodeUrl(request.itemKey, options);
-                protocol = 'hls';
-                isTranscoding = true;
-                container = 'mpegts';
-                videoCodec = 'h264';
-                audioCodec = 'aac';
-                const req: {
-                    sessionId: string;
-                    maxBitrate: number;
-                    audioStreamId?: string;
-                    subtitleStreamId?: string;
-                    subtitleMode?: 'none' | 'burn';
-                    mediaIndex?: number;
-                    partIndex?: number;
-                    hideDolbyVision?: boolean;
-                } = { sessionId, maxBitrate, mediaIndex, partIndex };
-                if (applyHdr10Fallback) {
-                    req.hideDolbyVision = true;
-                }
-                if (typeof options.audioStreamId === 'string') {
-                    req.audioStreamId = options.audioStreamId;
-                }
-                if (typeof options.subtitleStreamId === 'string') {
-                    req.subtitleStreamId = options.subtitleStreamId;
-                    if (typeof options.subtitleMode === 'string') {
-                        req.subtitleMode = options.subtitleMode;
-                    }
-                }
-                transcodeRequestInfo = req;
-            }
-
-            // 5. Determine subtitle delivery
-            const subtitleDelivery = this._getSubtitleDelivery(
-                subtitleStream,
-                isTranscoding
+        let directDecision = getDirectPlayDecision({
+            media,
+            dtsPassthroughEnabled,
+            userAgent,
+        });
+        let directPlayAudioStreamId: string | undefined;
+        if (
+            allowDirectPlayAudioFallback &&
+            defaultAudio &&
+            isTrueHdCodec(defaultAudio.codec) &&
+            audioStream &&
+            audioStream.id &&
+            !isTrueHdCodec(audioStream.codec)
+        ) {
+            // If the only blocker is TrueHD (or other audio incompatibility), and we found a
+            // compatible fallback track, try allowing Direct Play and hint Plex with audioStreamID.
+            // This is intentionally opt-in since some client stacks may not honor audioStreamID
+            // for direct URLs.
+            const nonAudioReasons = directDecision.reasons.filter(
+                (r) => !r.startsWith('unsupported_audio_codec:') && r !== 'dts_passthrough_disabled'
             );
+            if (nonAudioReasons.length === 0) {
+                const overridden = getDirectPlayDecision({
+                    media,
+                    audioCodecOverride: audioStream.codec,
+                    dtsPassthroughEnabled,
+                    userAgent,
+                });
+                if (overridden.canDirect) {
+                    directDecision = overridden;
+                    directPlayAudioStreamId = audioStream.id;
+                }
+            }
+        }
 
-            const rawHdrLabel = videoStream?.hdr?.trim();
-            const hdrLabel = rawHdrLabel || this._detectHdrLabelFromStream(videoStream);
-            const source: NonNullable<StreamDecision['source']> = {
-                container: media.container,
-                videoCodec: media.videoCodec,
-                audioCodec: media.audioCodec,
-                width: media.width,
-                height: media.height,
-                bitrate: media.bitrate,
-                ...(hdrLabel ? { hdr: hdrLabel } : {}),
-                ...(videoStream?.dynamicRange ? { dynamicRange: videoStream.dynamicRange } : {}),
-                ...(typeof videoStream?.doviPresent === 'boolean' ? { doviPresent: videoStream.doviPresent } : {}),
-                ...(videoStream?.doviProfile ? { doviProfile: videoStream.doviProfile } : {}),
-            };
+        const canDirect = directDecision.canDirect;
+        const hdr10FallbackMode = this._getHdr10FallbackMode();
+        const hdrCompatibilityDecision = getHdrCompatibilityDecision({
+            media,
+            videoStream,
+            hdr10FallbackMode,
+        });
+        const applyHdr10Fallback = hdrCompatibilityDecision.applyHdr10Fallback;
+        const forceTranscodeForHdr10Fallback = hdrCompatibilityDecision.forceTranscodeForHdr10Fallback;
+        const forceHlsForDvNoHdr10BaseLayer = hdrCompatibilityDecision.forceHlsForDvNoHdr10BaseLayer;
+        const debugEnabled = this._isDebugLoggingEnabled();
 
-            const decision: StreamDecision = {
-                playbackUrl,
-                protocol,
-                isDirectPlay: !isTranscoding,
-                isTranscoding,
-                container,
-                videoCodec,
-                audioCodec,
-                subtitleDelivery,
+        if (debugEnabled) {
+            if (applyHdr10Fallback) {
+                console.warn('[PlexStreamResolver] HDR10 fallback applied:', {
+                    itemKey: request.itemKey,
+                    reason: hdrCompatibilityDecision.fallbackReason,
+                    container: media.container,
+                    isDolbyVision: hdrCompatibilityDecision.isDolbyVision,
+                });
+            }
+            if (forceHlsForDvNoHdr10BaseLayer) {
+                console.warn('[PlexStreamResolver] HDR10 base-layer fallback forced:', {
+                    itemKey: request.itemKey,
+                    reason: 'dv_profile_no_hdr10_base_layer',
+                    container: media.container,
+                });
+            }
+        }
+
+        let playbackUrl: string;
+        let protocol: 'hls' | 'http';
+        let isTranscoding = false;
+        let container: string;
+        let videoCodec: string;
+        let audioCodec: string;
+        let transcodeRequestInfo: StreamDecision['transcodeRequest'] | null = null;
+        let burnInEnabled = false;
+
+        const allowDirectPlay = canDirect &&
+            request.directPlay !== false &&
+            !forceTranscodeForHdr10Fallback &&
+            !forceHlsForDvNoHdr10BaseLayer;
+        if (allowDirectPlay) {
+            // Direct play
+            playbackUrl = this._buildDirectPlayUrl(
+                part.key,
                 sessionId,
+                directPlayAudioStreamId,
+                applyHdr10Fallback
+            );
+            protocol = 'http';
+            container = media.container;
+            videoCodec = media.videoCodec;
+            audioCodec = (audioStream?.codec ?? media.audioCodec).toLowerCase();
+        } else {
+            // Transcode to HLS
+            const maxBitrate = typeof request.maxBitrate === 'number'
+                ? request.maxBitrate
+                : DEFAULT_HLS_OPTIONS.maxBitrate;
+            const options: HlsOptions = { maxBitrate, sessionId, mediaIndex, partIndex };
+            if (shouldForceAudioStreamId && audioStream?.id) {
+                options.audioStreamId = audioStream.id;
+            }
+            const shouldBurnIn = shouldRequestBurnInSubtitles({
+                requestSubtitleMode: request.subtitleMode ?? 'none',
+                subtitle: subtitleStream,
+            });
+            if (shouldBurnIn && subtitleStream?.id) {
+                options.subtitleStreamId = subtitleStream.id;
+                options.subtitleMode = 'burn';
+                burnInEnabled = true;
+            }
+            // Smart fallback should not force transcoding by itself. If we are already on
+            // HLS (due to incompatibility/forced transcode), hide DV capabilities to
+            // encourage the HDR10 base-layer path.
+            if (applyHdr10Fallback) {
+                options.hideDolbyVision = true;
+            }
+            playbackUrl = this.getTranscodeUrl(request.itemKey, options);
+            protocol = 'hls';
+            isTranscoding = true;
+            container = 'mpegts';
+            videoCodec = 'h264';
+            audioCodec = 'aac';
+
+            transcodeRequestInfo = {
+                sessionId,
+                maxBitrate,
                 mediaIndex,
                 partIndex,
-                partKey: part.key,
-                selectedAudioStream: audioStream,
-                selectedSubtitleStream: subtitleStream,
-                availableAudioStreams,
-                availableSubtitleStreams,
-                width: media.width,
-                height: media.height,
-                bitrate: isTranscoding
-                    ? (typeof request.maxBitrate === 'number' ? request.maxBitrate : 8000)
-                    : media.bitrate,
-                source,
-                directPlay: {
-                    allowed: allowDirectPlay,
-                    reasons:
-                        allowDirectPlay
-                            ? []
-                            : [
-                                ...(request.directPlay === false ? ['direct_play_disabled_by_request'] : []),
-                                ...(applyHdr10Fallback && !allowDirectPlay ? [`hdr10_fallback_${fallback.reason}`] : []),
-                                ...(forceHlsForDvNoHdr10BaseLayer ? ['dv_profile_no_hdr10_base_layer'] : []),
-                                ...directDecision.reasons,
-                            ],
-                },
+                ...(options.hideDolbyVision === true ? { hideDolbyVision: true } : {}),
+                ...(typeof options.audioStreamId === 'string' ? { audioStreamId: options.audioStreamId } : {}),
+                ...(typeof options.subtitleStreamId === 'string'
+                    ? {
+                        subtitleStreamId: options.subtitleStreamId,
+                        ...(typeof options.subtitleMode === 'string' ? { subtitleMode: options.subtitleMode } : {}),
+                    }
+                    : {}),
             };
-            if (audioFallbackInfo) {
-                decision.audioFallback = audioFallbackInfo;
-            }
-            if (transcodeRequestInfo) {
-                decision.transcodeRequest = transcodeRequestInfo;
-            }
+        }
+
+        // 5. Determine subtitle delivery
+        const subtitleDelivery = burnInEnabled && subtitleStream
+            ? 'burn'
+            : getSubtitleDelivery(subtitleStream, isTranscoding);
+
+        const rawHdrLabel = videoStream?.hdr?.trim();
+        const hdrLabel = rawHdrLabel || detectHdrLabel(videoStream);
+        const source: NonNullable<StreamDecision['source']> = {
+            container: media.container,
+            videoCodec: media.videoCodec,
+            audioCodec: media.audioCodec,
+            width: media.width,
+            height: media.height,
+            bitrate: media.bitrate,
+            ...(hdrLabel ? { hdr: hdrLabel } : {}),
+            ...(videoStream?.dynamicRange ? { dynamicRange: videoStream.dynamicRange } : {}),
+            ...(typeof videoStream?.doviPresent === 'boolean' ? { doviPresent: videoStream.doviPresent } : {}),
+            ...(videoStream?.doviProfile ? { doviProfile: videoStream.doviProfile } : {}),
+        };
+
+        const decision: StreamDecision = {
+            playbackUrl,
+            protocol,
+            isDirectPlay: !isTranscoding,
+            isTranscoding,
+            container,
+            videoCodec,
+            audioCodec,
+            subtitleDelivery,
+            sessionId,
+            mediaIndex,
+            partIndex,
+            partKey: part.key,
+            selectedAudioStream: audioStream,
+            selectedSubtitleStream: subtitleStream,
+            availableAudioStreams,
+            availableSubtitleStreams,
+            width: media.width,
+            height: media.height,
+            bitrate: isTranscoding
+                ? (typeof request.maxBitrate === 'number' ? request.maxBitrate : 8000)
+                : media.bitrate,
+            source,
+            directPlay: {
+                allowed: allowDirectPlay,
+                reasons:
+                    allowDirectPlay
+                        ? []
+                        : [
+                            ...(request.directPlay === false
+                                ? ['direct_play_disabled_by_request']
+                                : []),
+                            ...(applyHdr10Fallback && !allowDirectPlay
+                                ? [`hdr10_fallback_${hdrCompatibilityDecision.fallbackReason}`]
+                                : []),
+                            ...(forceHlsForDvNoHdr10BaseLayer ? ['dv_profile_no_hdr10_base_layer'] : []),
+                            ...directDecision.reasons,
+                        ],
+            },
+        };
+        if (audioFallbackInfo) {
+            decision.audioFallback = audioFallbackInfo;
+        }
+        if (transcodeRequestInfo) {
+            decision.transcodeRequest = transcodeRequestInfo;
+        }
 
             if (debugEnabled) {
                 console.warn('[PlexStreamResolver] Stream decision:', {
@@ -724,6 +716,12 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                         {
                             sessionId: transcodeRequestInfo.sessionId,
                             maxBitrate: transcodeRequestInfo.maxBitrate,
+                            ...(typeof transcodeRequestInfo.mediaIndex === 'number'
+                                ? { mediaIndex: transcodeRequestInfo.mediaIndex }
+                                : {}),
+                            ...(typeof transcodeRequestInfo.partIndex === 'number'
+                                ? { partIndex: transcodeRequestInfo.partIndex }
+                                : {}),
                             ...(typeof transcodeRequestInfo.audioStreamId === 'string'
                                 ? { audioStreamId: transcodeRequestInfo.audioStreamId }
                                 : {}),
@@ -741,7 +739,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 }
             }
 
-            return decision;
+        return decision;
     }
 
     /**
@@ -761,7 +759,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         try {
             const baseUri = this._selectBaseUriForMixedContent(serverUri);
             const stopUrl = new URL(`/transcode/sessions/${encodeURIComponent(trimmedSessionId)}`, baseUri);
-            const response = await this._fetchWithTimeout(
+            const response = await fetchWithTimeout(
                 stopUrl.toString(),
                 { method: 'DELETE', headers: this._config.getAuthHeaders() },
                 5000
@@ -794,93 +792,13 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         if (!media) {
             return false;
         }
-
-        return this._canDirectPlayMedia(media);
-    }
-
-    /**
-     * Check if a specific media version can be played directly.
-     * This is used internally after selecting the best media version.
-     * @param media - Media version to check
-     * @returns true if direct play is supported
-     */
-    private _canDirectPlayMedia(media: PlexMediaFile): boolean {
-        return this._getDirectPlayDecision(media).canDirect;
-    }
-
-    private _getDirectPlayDecision(
-        media: PlexMediaFile,
-        audioCodecOverride?: string | null | undefined
-    ): { canDirect: boolean; reasons: string[] } {
-        const reasons: string[] = [];
-
-        // Check container (pre-normalized to lowercase in ResponseParser)
-        if (!SUPPORTED_CONTAINERS.includes(media.container)) {
-            reasons.push(`unsupported_container:${media.container}`);
-        }
-
-        // webOS nuance: MKV container support is inconsistent on older webOS (Chromium 79 era).
-        // For legacy stacks, prefer Direct Stream (remux) rather than attempting MKV Direct Play.
-        if (media.container === 'mkv') {
-            const isLegacyWebOs = ((): boolean => {
-                try {
-                    if (typeof navigator === 'undefined') return false;
-                    const ua = navigator.userAgent || '';
-                    if (!/Web0S|webOS/i.test(ua)) return false;
-                    const chromeMatch = ua.match(/Chrome\/(\d+)/);
-                    const chromeMajor = chromeMatch ? Number(chromeMatch[1]) : NaN;
-                    return Number.isFinite(chromeMajor) && chromeMajor < 87;
-                } catch {
-                    return false;
-                }
-            })();
-            if (isLegacyWebOs) {
-                reasons.push('mkv_legacy_webos');
-            }
-        }
-
-        // Check video codec (pre-normalized to lowercase in ResponseParser)
-        if (!SUPPORTED_VIDEO_CODECS.includes(media.videoCodec)) {
-            reasons.push(`unsupported_video_codec:${media.videoCodec}`);
-        }
-
-        // Check audio codec (pre-normalized to lowercase in ResponseParser)
-        const audioCodec = (audioCodecOverride ?? media.audioCodec).toLowerCase();
-        const isDtsFamily =
-            audioCodec.startsWith('dts') ||
-            audioCodec.startsWith('dca'); // includes dca-ma (DTS-HD MA)
-        if (isDtsFamily) {
-            const isDtsEnabled = ((): boolean => {
-                try {
-                    if (!isStoredTrue(safeLocalStorageGet(LINEUP_STORAGE_KEYS.DTS_PASSTHROUGH))) {
-                        return false;
-                    }
-                    if (typeof navigator !== 'undefined') {
-                        const ua = navigator.userAgent || '';
-                        const chromeMatch = ua.match(/Chrome\/(\d+)/);
-                        if (chromeMatch) {
-                            const chromeMajor = Number(chromeMatch[1]);
-                            return chromeMajor >= 108;
-                        }
-                    }
-                    return false;
-                } catch {
-                    return false;
-                }
-            })();
-            if (!isDtsEnabled) {
-                reasons.push('dts_passthrough_disabled');
-            }
-        } else if (!SUPPORTED_AUDIO_CODECS.includes(audioCodec)) {
-            reasons.push(`unsupported_audio_codec:${audioCodec}`);
-        }
-
-        // Check resolution
-        if (media.width > MAX_RESOLUTION.width || media.height > MAX_RESOLUTION.height) {
-            reasons.push(`unsupported_resolution:${media.width}x${media.height}`);
-        }
-
-        return { canDirect: reasons.length === 0, reasons };
+        const dtsPassthroughEnabled = this._isDtsPassthroughEnabled();
+        const userAgent = this._getBrowserUserAgent();
+        return getDirectPlayDecision({
+            media,
+            dtsPassthroughEnabled,
+            userAgent,
+        }).canDirect;
     }
 
     // ========================================
@@ -926,14 +844,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             ? itemKey
             : `/library/metadata/${itemKey}`;
 
-        const compatMode = readStoredBoolean(LINEUP_STORAGE_KEYS.TRANSCODE_COMPAT, false);
-
-        const storedQualityValue = safeLocalStorageGet(LINEUP_STORAGE_KEYS.TRANSCODE_QUALITY);
-        const quality = getTranscodeQualityOption(
-            typeof storedQualityValue === 'string' && storedQualityValue.length > 0
-                ? storedQualityValue
-                : null
-        );
+        const compatMode = this._playbackSettingsStore.readTranscodeCompatEnabled(false);
+        const quality = this._playbackSettingsStore.readTranscodeQualityOption();
         const shouldApplyQualityOverride = Boolean(quality && quality.storageValue.length > 0);
         const qualityMaxBitrate = shouldApplyQualityOverride ? quality?.maxVideoBitrateKbps : undefined;
         const effectiveMaxBitrate = typeof qualityMaxBitrate === 'number'
@@ -1047,16 +959,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         );
 
         // Add client params (video element requests cannot include headers, so use query params)
-        const headers = this._config.getAuthHeaders();
-        for (const [key, value] of Object.entries(headers)) {
-            if (!key.startsWith('X-Plex-')) {
-                continue;
-            }
-            if (typeof value !== 'string' || value.length === 0) {
-                continue;
-            }
-            params.set(key, value);
-        }
+        applyXPlexQueryParamsFromHeaders(params, this._config.getAuthHeaders());
 
         // Optional: Force the server to use a specific built-in profile name/version (advanced).
         const forcedProfileName = this._config.debugOverridesStore.readTranscodeProfileName();
@@ -1095,11 +998,24 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
     async fetchUniversalTranscodeDecision(
         itemKey: string,
-        options: { sessionId: string; maxBitrate?: number; audioStreamId?: string; hideDolbyVision?: boolean }
+        options: {
+            sessionId: string;
+            maxBitrate?: number;
+            mediaIndex?: number;
+            partIndex?: number;
+            audioStreamId?: string;
+            hideDolbyVision?: boolean;
+        }
     ): Promise<NonNullable<StreamDecision['serverDecision']>> {
         const hlsOptions: HlsOptions = { sessionId: options.sessionId };
         if (typeof options.maxBitrate === 'number') {
             hlsOptions.maxBitrate = options.maxBitrate;
+        }
+        if (typeof options.mediaIndex === 'number') {
+            hlsOptions.mediaIndex = options.mediaIndex;
+        }
+        if (typeof options.partIndex === 'number') {
+            hlsOptions.partIndex = options.partIndex;
         }
         if (typeof options.audioStreamId === 'string') {
             hlsOptions.audioStreamId = options.audioStreamId;
@@ -1116,7 +1032,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             return url.toString();
         })();
 
-        const response = await this._fetchWithTimeout(
+        const response = await fetchWithTimeout(
             decisionUrl,
             { method: 'GET', headers: this._config.getAuthHeaders() },
             4000
@@ -1266,32 +1182,12 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         hideDolbyVision?: boolean
     ): string {
         const headers = this._config.getAuthHeaders();
-        const token = headers['X-Plex-Token'];
-        const baseUrl = new URL(baseUri);
-        const parsedPart = new URL(partKey, baseUrl.origin);
-        const normalizedPartKey = `${parsedPart.pathname}${parsedPart.search}`;
-        const url = new URL(
-            normalizedPartKey.startsWith('/') ? normalizedPartKey : `/${normalizedPartKey}`,
-            baseUrl.origin
-        );
-        if (token) {
-            url.searchParams.set('X-Plex-Token', token);
-        }
+        const url = buildPlexUrlFromKey(baseUri, partKey);
         url.searchParams.set('X-Plex-Session-Identifier', sessionId);
         if (typeof audioStreamId === 'string' && audioStreamId.length > 0) {
             url.searchParams.set('audioStreamID', audioStreamId);
         }
-
-        // Video element requests cannot include headers; attach identity via query params.
-        for (const [key, value] of Object.entries(headers)) {
-            if (!key.startsWith('X-Plex-')) {
-                continue;
-            }
-            if (typeof value !== 'string' || value.length === 0) {
-                continue;
-            }
-            url.searchParams.set(key, value);
-        }
+        applyXPlexQueryParamsFromHeaders(url.searchParams, headers);
 
         // Include explicit capabilities on direct-play requests too, so PMS can prefer HDR10
         // over DV when fallback mode asks us to hide Dolby Vision decoders.
@@ -1387,19 +1283,10 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
         // If user explicitly enabled DTS passthrough and we're on a modern webOS stack,
         // advertise DTS-HD MA as well (Plex often labels it as `dca-ma`).
-        const dtsEnabled = ((): boolean => {
-            try {
-                return isStoredTrue(safeLocalStorageGet(LINEUP_STORAGE_KEYS.DTS_PASSTHROUGH));
-            } catch {
-                return false;
-            }
-        })();
-        if (dtsEnabled) {
+        if (this._isDtsPassthroughEnabled()) {
             audioDecoders.push('dts{bitrate:1536000}');
             audioDecoders.push('dca{bitrate:1536000}');
-            if (isWebOs && chromeMajor !== null && chromeMajor >= 108) {
-                audioDecoders.push('dca-ma{bitrate:1536000}');
-            }
+            audioDecoders.push('dca-ma{bitrate:1536000}');
         }
 
         return `protocols=http-live-streaming,http-mp4-streaming,http-streaming-video;videoDecoders=${videoDecoders.join(',')};audioDecoders=${audioDecoders.join(',')}`;
@@ -1446,20 +1333,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         );
     }
 
-    private async _fetchWithTimeout(
-        url: string,
-        options: RequestInit,
-        timeoutMs: number
-    ): Promise<Response> {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-        try {
-            return await fetch(url, { ...options, signal: controller.signal });
-        } finally {
-            clearTimeout(timeoutId);
-        }
-    }
-
     private _throwIfAuthFailure(response: Response): void {
         if (response.status === 401) {
             throw this._createError(
@@ -1480,65 +1353,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     // ========================================
     // Private: Media Selection
     // ========================================
-
-    /**
-     * Select the best media version based on constraints.
-     */
-    private _pickHighestResolution(
-        candidates: PlexMediaFile[],
-        allMedia: PlexMediaFile[],
-        maxBitrate?: number
-    ): { media: PlexMediaFile; mediaIndex: number } | null {
-        if (!candidates || candidates.length === 0) {
-            return null;
-        }
-
-        // Filter by bitrate if specified
-        let filtered = candidates;
-        if (typeof maxBitrate === 'number') {
-            filtered = candidates.filter((m) => m.bitrate <= maxBitrate);
-            if (filtered.length === 0) {
-                // Fall back to lowest bitrate if nothing fits
-                filtered = [candidates.reduce((a, b) => (a.bitrate < b.bitrate ? a : b))];
-            }
-        }
-
-        // Prefer highest resolution
-        const sorted = [...filtered].sort((a, b) =>
-            (b.width * b.height) - (a.width * a.height)
-        );
-
-        const media = sorted[0];
-        if (!media) return null;
-        const mediaIndex = allMedia.findIndex((entry) => entry === media);
-        if (mediaIndex < 0 && __LINEUP_DEV_BUILD__) {
-            console.warn(
-                '[PlexStreamResolver] _pickHighestResolution: selected media not found in allMedia, defaulting to index 0'
-            );
-        }
-        return { media, mediaIndex: mediaIndex >= 0 ? mediaIndex : 0 };
-    }
-
-    private _selectBestMedia(
-        mediaList: PlexMediaFile[],
-        maxBitrate?: number
-    ): { media: PlexMediaFile; mediaIndex: number } | null {
-        return this._pickHighestResolution(mediaList, mediaList, maxBitrate);
-    }
-
-    private _selectBestMediaWithSubtitleStream(
-        mediaList: PlexMediaFile[],
-        subtitleStreamId: string,
-        maxBitrate?: number
-    ): { media: PlexMediaFile; mediaIndex: number } | null {
-        if (!mediaList || mediaList.length === 0) return null;
-        const candidates = mediaList.filter((m) => {
-            const part = m.parts[0];
-            if (!part) return false;
-            return part.streams.some((s) => s.streamType === 3 && s.id === subtitleStreamId);
-        });
-        return this._pickHighestResolution(candidates, mediaList, maxBitrate);
-    }
 
     /**
      * Find a stream by type and optional ID.
@@ -1563,147 +1377,12 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         return defaultStream || ofType[0] || null;
     }
 
-    /**
-     * Select a compatible audio track, falling back from incompatible codecs.
-     * TrueHD cannot be decoded on LG webOS internal apps, so we auto-select an
-     * AC3/EAC3/AAC fallback track (non-commentary) when available.
-     * 
-     * @param streams - All streams from the media part
-     * @param requestedId - Optional user-requested audio stream ID
-     * @returns Selected audio stream or null
-     */
-    private _selectCompatibleAudioTrack(
-        streams: PlexStream[],
-        requestedId?: string
-    ): PlexStream | null {
-        const audioStreams = streams.filter((s) => s.streamType === 2);
-        if (audioStreams.length === 0) {
-            return null;
-        }
-
-        // If user explicitly requested a track, honor it
-        if (requestedId) {
-            const requested = audioStreams.find((s) => s.id === requestedId);
-            if (requested) {
-                return requested;
-            }
-        }
-
-        const fallbackCodecs = ['eac3', 'ac3', 'aac'];
-
-        // Find default track
-        const defaultTrack = audioStreams.find((s) => s.default) || audioStreams[0];
-        if (!defaultTrack) {
-            return null;
-        }
-
-        if (!this._isTrueHdCodec(defaultTrack.codec)) {
-            return defaultTrack; // Default is fine
-        }
-
-        // Default is TrueHD - try to find a compatible fallback
-        // Prefer same language, then prefer EAC3 > AC3 > AAC
-        const defaultLang = (defaultTrack.languageCode || defaultTrack.language || '').toLowerCase();
-
-        const fallbackCandidates = audioStreams
-            .filter((s) => {
-                const codec = (s.codec || '').toLowerCase();
-                if (s.id === defaultTrack.id) return false;
-                if (!fallbackCodecs.includes(codec)) return false;
-                if (this._isCommentaryStream(s)) return false;
-                return true;
-            })
-            .sort((a, b) => {
-                // Prefer same language
-                const aLang = (a.languageCode || a.language || '').toLowerCase();
-                const bLang = (b.languageCode || b.language || '').toLowerCase();
-                if (aLang === defaultLang && bLang !== defaultLang) return -1;
-                if (bLang === defaultLang && aLang !== defaultLang) return 1;
-
-                // Prefer higher quality compatible codec
-                const codecPriority = ['eac3', 'ac3', 'aac'];
-                const aCodec = (a.codec || '').toLowerCase();
-                const bCodec = (b.codec || '').toLowerCase();
-                const aPriority = codecPriority.indexOf(aCodec);
-                const bPriority = codecPriority.indexOf(bCodec);
-                return (aPriority === -1 ? 99 : aPriority) - (bPriority === -1 ? 99 : bPriority);
-            });
-
-        const fallback = fallbackCandidates[0];
-
-        return fallback || defaultTrack; // Use fallback if found, otherwise stick with default
-    }
-
     private _getHdr10FallbackMode(): 'off' | 'smart' | 'force' {
-        try {
-            const force = readStoredBoolean(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK, false);
-            const smart = readStoredBoolean(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK, false);
-            return computeHdr10FallbackMode({ smartHdr10Fallback: smart, forceHdr10Fallback: force });
-        } catch {
-            return 'off';
-        }
-    }
-
-    private _detectHdrLabelFromStream(stream?: PlexStream | null): string | undefined {
-        return detectHdrLabel(stream);
+        return this._playbackSettingsStore.readHdr10FallbackMode();
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        return readStoredBoolean(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, false);
-    }
-
-    private _isTrueHdCodec(codec: string | null | undefined): boolean {
-        const normalized = (codec || '').toLowerCase().replace(/[\s-]/g, '');
-        return normalized === 'truehd' || normalized === 'mlp';
-    }
-
-    private _isCommentaryStream(stream: PlexStream): boolean {
-        const title = (stream.title || '').toLowerCase();
-        return title.includes('commentary');
-    }
-
-    private _shouldForceTranscodeAudioStreamId(
-        streams: PlexStream[],
-        requestedId?: string
-    ): boolean {
-        if (requestedId) return true;
-        const defaultAudio = this._findStream(streams, 2);
-        return defaultAudio ? this._isTrueHdCodec(defaultAudio.codec) : false;
-    }
-
-    // ========================================
-    // Private: Subtitle Handling
-    // ========================================
-
-    /**
-     * Determine how subtitles should be delivered.
-     */
-    private _getSubtitleDelivery(
-        subtitle: PlexStream | null,
-        isTranscoding: boolean
-    ): 'embed' | 'sidecar' | 'burn' | 'none' {
-        if (!subtitle) {
-            return 'none';
-        }
-
-        const format = (subtitle.format || '').toLowerCase();
-
-        // Image-based subtitles must be burned in
-        if (BURN_IN_SUBTITLE_FORMATS.includes(format)) {
-            return 'burn';
-        }
-
-        // Text-based subtitles can be sidecar for direct play
-        if (TEXT_SUBTITLE_FORMATS.includes(format) && !isTranscoding) {
-            return 'sidecar';
-        }
-
-        // For transcoding, server handles embedding
-        if (isTranscoding) {
-            return 'burn';
-        }
-
-        return 'embed';
+        return this._developerSettingsStore.readDebugLoggingEnabled(false);
     }
 
     // ========================================

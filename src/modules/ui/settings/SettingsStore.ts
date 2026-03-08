@@ -1,8 +1,10 @@
 import { TRANSCODE_QUALITY_OPTIONS } from '../../../config/transcodeQuality';
 import { NOW_PLAYING_INFO_DEFAULTS } from '../now-playing-info/constants';
 import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
+import { PlaybackSettingsStore } from '../../settings/PlaybackSettingsStore';
 import {
     parseStoredEpgInfoBackgroundMode,
+    readStoredBooleanAndClean,
     safeLocalStorageGet,
     safeLocalStorageRemove,
     safeLocalStorageSet,
@@ -13,7 +15,6 @@ const EPG_PAST_ITEMS_STORAGE_VALUES = ['auto', '0', '15', '30'] as const;
 
 type EpgPastItemsStorageValue = (typeof EPG_PAST_ITEMS_STORAGE_VALUES)[number];
 type SubtitleLanguageOption = Readonly<{ code: string | null }>;
-type TranscodeQualityOption = Readonly<{ storageValue: string }>;
 
 export type ToggleSettingId =
     | 'dtsPassthrough'
@@ -33,11 +34,16 @@ export type ToggleSettingId =
     | 'smartHdr10Fallback'
     | 'forceHdr10Fallback';
 
-const TOGGLE_STORAGE_KEY_BY_ID: Record<ToggleSettingId, string> = {
-    dtsPassthrough: SETTINGS_STORAGE_KEYS.DTS_PASSTHROUGH,
-    directPlayAudioFallback: SETTINGS_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK,
+type DelegatedToggleSettingId =
+    | 'dtsPassthrough'
+    | 'directPlayAudioFallback'
+    | 'transcodeCompat'
+    | 'smartHdr10Fallback'
+    | 'forceHdr10Fallback';
+type DirectStorageToggleSettingId = Exclude<ToggleSettingId, DelegatedToggleSettingId>;
+
+const TOGGLE_STORAGE_KEY_BY_ID: Record<DirectStorageToggleSettingId, string> = {
     keepPlayingInSettings: SETTINGS_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS,
-    transcodeCompat: SETTINGS_STORAGE_KEYS.TRANSCODE_COMPAT,
     debugLogging: SETTINGS_STORAGE_KEYS.DEBUG_LOGGING,
     subtitleDebugLogging: SETTINGS_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING,
     subtitlePreferForced: SETTINGS_STORAGE_KEYS.SUBTITLE_PREFER_FORCED,
@@ -48,8 +54,6 @@ const TOGGLE_STORAGE_KEY_BY_ID: Record<ToggleSettingId, string> = {
     showProfilePickerOnStartup: SETTINGS_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP,
     cinematicNowPlaying: SETTINGS_STORAGE_KEYS.CINEMATIC_NOW_PLAYING,
     preferClearLogos: SETTINGS_STORAGE_KEYS.PREFER_CLEAR_LOGOS,
-    smartHdr10Fallback: SETTINGS_STORAGE_KEYS.SMART_HDR10_FALLBACK,
-    forceHdr10Fallback: SETTINGS_STORAGE_KEYS.FORCE_HDR10_FALLBACK,
 };
 
 const TOGGLE_DEFAULT_BY_ID: Record<ToggleSettingId, boolean> = {
@@ -73,6 +77,7 @@ const TOGGLE_DEFAULT_BY_ID: Record<ToggleSettingId, boolean> = {
 
 export class SettingsStore {
     private readonly _audioSettingsStore = new AudioSettingsStore();
+    private readonly _playbackSettingsStore = new PlaybackSettingsStore();
 
     readToggleSetting(id: ToggleSettingId): boolean {
         if (id === 'dtsPassthrough') {
@@ -80,6 +85,15 @@ export class SettingsStore {
         }
         if (id === 'directPlayAudioFallback') {
             return this._audioSettingsStore.readDirectPlayAudioFallbackEnabled(TOGGLE_DEFAULT_BY_ID.directPlayAudioFallback);
+        }
+        if (id === 'transcodeCompat') {
+            return this._playbackSettingsStore.readTranscodeCompatEnabled(TOGGLE_DEFAULT_BY_ID.transcodeCompat);
+        }
+        if (id === 'smartHdr10Fallback') {
+            return this._playbackSettingsStore.readSmartHdr10FallbackEnabled(TOGGLE_DEFAULT_BY_ID.smartHdr10Fallback);
+        }
+        if (id === 'forceHdr10Fallback') {
+            return this._playbackSettingsStore.readForceHdr10FallbackEnabled(TOGGLE_DEFAULT_BY_ID.forceHdr10Fallback);
         }
 
         return this._readBooleanKey(TOGGLE_STORAGE_KEY_BY_ID[id], TOGGLE_DEFAULT_BY_ID[id]);
@@ -92,6 +106,18 @@ export class SettingsStore {
         }
         if (id === 'directPlayAudioFallback') {
             this._audioSettingsStore.writeDirectPlayAudioFallbackEnabled(value);
+            return;
+        }
+        if (id === 'transcodeCompat') {
+            this._playbackSettingsStore.writeTranscodeCompatEnabled(value);
+            return;
+        }
+        if (id === 'smartHdr10Fallback') {
+            this._playbackSettingsStore.writeSmartHdr10FallbackEnabled(value);
+            return;
+        }
+        if (id === 'forceHdr10Fallback') {
+            this._playbackSettingsStore.writeForceHdr10FallbackEnabled(value);
             return;
         }
         safeLocalStorageSet(TOGGLE_STORAGE_KEY_BY_ID[id], value ? '1' : '0');
@@ -125,15 +151,7 @@ export class SettingsStore {
     }
 
     private _readBooleanKey(key: string, fallback: boolean): boolean {
-        const raw = safeLocalStorageGet(key);
-        if (raw === '1') return true;
-        if (raw === '0') return false;
-
-        if (raw !== null) {
-            safeLocalStorageRemove(key);
-        }
-
-        return fallback;
+        return readStoredBooleanAndClean(key, fallback);
     }
 
     readEpgLayoutModeValue(): 0 | 1 {
@@ -224,23 +242,12 @@ export class SettingsStore {
         safeLocalStorageSet(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE, option.code);
     }
 
-    readTranscodeQualityValue(options: ReadonlyArray<TranscodeQualityOption> = TRANSCODE_QUALITY_OPTIONS): number {
-        const stored = safeLocalStorageGet(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY) ?? '';
-        const matchIndex = options.findIndex((option) => option.storageValue === stored);
-        if (matchIndex >= 0) return matchIndex;
-        if (stored) {
-            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY);
-        }
-        return 0;
+    readTranscodeQualityValue(options: ReadonlyArray<{ storageValue: string }> = TRANSCODE_QUALITY_OPTIONS): number {
+        return this._playbackSettingsStore.readTranscodeQualityValue(options);
     }
 
-    writeTranscodeQualityValue(value: number, options: ReadonlyArray<TranscodeQualityOption> = TRANSCODE_QUALITY_OPTIONS): void {
-        const option = options[value] ?? options[0];
-        if (!option || option.storageValue.length === 0) {
-            safeLocalStorageRemove(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY);
-            return;
-        }
-        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY, option.storageValue);
+    writeTranscodeQualityValue(value: number, options: ReadonlyArray<{ storageValue: string }> = TRANSCODE_QUALITY_OPTIONS): void {
+        this._playbackSettingsStore.writeTranscodeQualityValue(value, options);
     }
 
     readClampedNowPlayingAutoHideValue(validOptions: readonly number[], fallback: number = NOW_PLAYING_INFO_DEFAULTS.autoHideMs): number {

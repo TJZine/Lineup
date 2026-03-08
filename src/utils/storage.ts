@@ -52,6 +52,22 @@ export function parseStoredBoolean(value: string | null): boolean | null {
     return null;
 }
 
+/** Read a stored boolean, removing invalid values. Returns null if missing or invalid. */
+export function readStoredBooleanMaybeAndClean(key: string): boolean | null {
+    const raw = safeLocalStorageGet(key);
+    const parsed = parseStoredBoolean(raw);
+    if (parsed !== null) return parsed;
+    if (raw !== null) {
+        safeLocalStorageRemove(key);
+    }
+    return null;
+}
+
+/** Read a stored boolean, removing invalid values and falling back when missing/invalid. */
+export function readStoredBooleanAndClean(key: string, defaultValue: boolean): boolean {
+    return readStoredBooleanMaybeAndClean(key) ?? defaultValue;
+}
+
 export function parseStoredEpgInfoBackgroundMode(value: string | null): 0 | 1 | 2 | null {
     if (value === '0') return 0;
     if (value === '1') return 1;

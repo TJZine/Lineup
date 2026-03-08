@@ -11,6 +11,7 @@ import type { IPlexAuth } from '../plex/auth';
 import { NOW_PLAYING_INFO_MODAL_ID } from '../ui/now-playing-info';
 import type { PlaybackOptionsSectionId } from '../ui/playback-options/types';
 import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
+import { DeveloperSettingsStore } from '../settings/DeveloperSettingsStore';
 import { readStoredBoolean } from '../../utils/storage';
 import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
@@ -78,6 +79,7 @@ export interface NavigationCoordinatorDeps {
 }
 
 export class NavigationCoordinator {
+    private readonly _developerSettingsStore = new DeveloperSettingsStore();
     private _epgRepeatTimer: ReturnType<typeof setTimeout> | null = null;
     private _epgRepeatButton: 'up' | 'down' | 'left' | 'right' | null = null;
     private _epgRepeatStartMs = 0;
@@ -754,7 +756,7 @@ export class NavigationCoordinator {
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        return readStoredBoolean(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, false);
+        return this._developerSettingsStore.readDebugLoggingEnabled(false);
     }
 
     private _logInputNotHandled(
