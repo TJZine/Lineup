@@ -214,7 +214,9 @@ describe('ChannelRepository', () => {
             savedAt: Infinity,
         };
 
-        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        // JSON cannot represent Infinity (it would stringify to null). This test mocks the store
+        // boundary directly to ensure ChannelRepository keeps the Number.isFinite guard.
+        jest.spyOn(ChannelPersistenceStore.prototype, 'readStoredChannelData').mockReturnValue(payload);
         const normalized = loadNormalized(repo);
 
         expect(normalized.data.savedAt).toBe(1_234_567);
@@ -314,10 +316,11 @@ describe('ChannelRepository', () => {
 
     it('treats blocked storage on load through the underlying helper as non-fatal', () => {
         const repo = new ChannelRepository();
-        jest.spyOn(mockLocalStorage, 'getItem').mockImplementation(() => {
+        const getItemSpy = jest.spyOn(mockLocalStorage, 'getItem').mockImplementation(() => {
             throw new DOMException('Blocked', 'SecurityError');
         });
 
-        expect(() => repo.loadNormalized()).not.toThrow();
+        expect(repo.loadNormalized()).toBeNull();
+        expect(getItemSpy).toHaveBeenCalled();
     });
 });
