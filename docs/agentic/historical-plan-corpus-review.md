@@ -1,6 +1,6 @@
 # Historical Plan Corpus Review
 
-> Reviewed initially 2026-03-05 from a local-only imported corpus containing the full Priority 2 (`P2-W1` through `P2-W5`) implementation plans from the architecture cleanup. Expanded 2026-03-08 with a local review of the Priority 5 Plex integration-boundary plan set.
+> Reviewed initially 2026-03-05 from a local-only imported corpus containing the full Priority 2 (`P2-W1` through `P2-W5`) implementation plans from the architecture cleanup. Expanded 2026-03-08 with local reviews of the Priority 5 Plex integration-boundary plan set and the Priority 6 channel persistence plan set.
 
 ## Purpose
 
@@ -39,6 +39,15 @@ Additional local corpus reviewed 2026-03-08 from current workspace material:
 - `2026-03-08-p5-w5-plex-stream-cleanup-pass.md`
 
 The completed Priority 5 section is preserved as tracked historical memory in [`2026-03-08-priority-5-plex-stream-policy-section-summary.md`](../archive/plans/2026-03-08-priority-5-plex-stream-policy-section-summary.md). The raw local plan files do not need to remain as tracked handoff memory.
+
+Additional local corpus reviewed 2026-03-08 from `docs/_local/plan-import/`:
+
+- `2026-03-08-p6-w1-channel-serialization-codec.md`
+- `2026-03-08-p6-w2-channel-repository.md`
+- `2026-03-08-p6-w3-channel-normalization-migration-boundary.md`
+- `2026-03-08-p6-w4-channel-persistence-cleanup-pass.md`
+
+The completed Priority 6 section is preserved as tracked historical memory in [`2026-03-08-priority-6-channel-persistence-section-summary.md`](../archive/plans/2026-03-08-priority-6-channel-persistence-section-summary.md). The raw local plan files remain source material only.
 
 ## Why This Matters
 
@@ -154,6 +163,26 @@ Keep:
 - fallback notes that explain what failed and what deterministic evidence replaced it
 - plan evidence that distinguishes “tool weakness” from “symbol absent”
 
+### 11. Persistence-boundary sequences work best as layered owner transfers
+
+The Priority 6 corpus is strongest where it turns one persistence hotspot into a short staircase of owner moves: codec first, then repository load/save ownership, then normalization/migration ownership, then cleanup after the new boundary is already stable.
+
+Keep:
+
+- one boundary step per work unit
+- explicit statements about which owner is changing and which owner is deliberately not changing yet
+- cleanup passes that come last, after the new persistence owner is already proven
+
+### 12. Steady-state persistence divergence is not always corruption
+
+Priority 6 adds a subtle but important planning lesson: persisted state can have intentional split ownership or lagging mirrors. The strongest plans name which mismatches are true repairs versus steady-state precedence rules that must not trigger mutation or cleanup behavior.
+
+Keep:
+
+- explicit distinction between repair-worthy corruption and acceptable persisted divergence
+- mutation flags that are tied to real repairs only
+- preservation contracts for precedence rules, fallback coercions, and “persist once if mutated” behavior
+
 ## Anti-Patterns To Avoid
 
 ### 1. Stale repo identity and pathing
@@ -226,6 +255,16 @@ Do not keep:
 - “shared” auth/url helpers that widen beyond the current Plex stream boundary without evidence
 - compatibility helpers that quietly absorb settings or persistence ownership
 - cleanup-pass plans that sneak fresh policy changes back into the deletion pass
+
+### 8. Cleanup tightening without proof that the transitional surface is really dead
+
+Priority 6 adds a narrower but recurring cleanup risk: boundary-tightening plans can be correct in principle but still unsafe if they delete exports or adapters without proving that no external callers remain.
+
+Do not keep:
+
+- cleanup passes that remove public exports without deterministic repo-wide usage checks
+- “dead adapter” deletions justified only by assumption rather than search evidence
+- boundary-tightening steps that mix cleanup with fresh behavior changes
 
 ## Standards To Codify From This Corpus
 
