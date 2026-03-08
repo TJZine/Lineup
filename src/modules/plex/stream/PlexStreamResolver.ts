@@ -334,23 +334,17 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         // 2. Select best media version
-        let selectedMedia = selectBestMedia(item.media, request.maxBitrate);
-        if (request.subtitleStreamId) {
-            const withSubtitle = selectBestMediaWithSubtitleStream(
-                item.media,
-                request.subtitleStreamId,
-                request.maxBitrate
+        let selectedMedia = request.subtitleStreamId
+            ? selectBestMediaWithSubtitleStream(item.media, request.subtitleStreamId, request.maxBitrate)
+            : selectBestMedia(item.media, request.maxBitrate);
+
+        // Treat an explicit subtitle selection as strict; do not silently fall back to a different media.
+        if (request.subtitleStreamId && !selectedMedia) {
+            throw this._createError(
+                PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND,
+                `Subtitle stream not found: ${request.subtitleStreamId}`,
+                true
             );
-            if (!withSubtitle && request.subtitleMode === 'burn') {
-                throw this._createError(
-                    PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND,
-                    `Subtitle stream not found: ${request.subtitleStreamId}`,
-                    true
-                );
-            }
-            if (withSubtitle) {
-                selectedMedia = withSubtitle;
-            }
         }
         if (!selectedMedia) {
             throw this._createError(
@@ -725,6 +719,12 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                             ...(typeof transcodeRequestInfo.audioStreamId === 'string'
                                 ? { audioStreamId: transcodeRequestInfo.audioStreamId }
                                 : {}),
+                            ...(typeof transcodeRequestInfo.subtitleStreamId === 'string'
+                                ? { subtitleStreamId: transcodeRequestInfo.subtitleStreamId }
+                                : {}),
+                            ...(transcodeRequestInfo.subtitleMode === 'burn'
+                                ? { subtitleMode: 'burn' as const }
+                                : {}),
                             ...(typeof transcodeRequestInfo.hideDolbyVision === 'boolean'
                                 ? { hideDolbyVision: transcodeRequestInfo.hideDolbyVision }
                                 : {}),
@@ -1004,6 +1004,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             mediaIndex?: number;
             partIndex?: number;
             audioStreamId?: string;
+            subtitleStreamId?: string;
+            subtitleMode?: 'burn';
             hideDolbyVision?: boolean;
         }
     ): Promise<NonNullable<StreamDecision['serverDecision']>> {
@@ -1019,6 +1021,12 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
         if (typeof options.audioStreamId === 'string') {
             hlsOptions.audioStreamId = options.audioStreamId;
+        }
+        if (typeof options.subtitleStreamId === 'string') {
+            hlsOptions.subtitleStreamId = options.subtitleStreamId;
+        }
+        if (options.subtitleMode === 'burn') {
+            hlsOptions.subtitleMode = 'burn';
         }
         if (typeof options.hideDolbyVision === 'boolean') {
             hlsOptions.hideDolbyVision = options.hideDolbyVision;

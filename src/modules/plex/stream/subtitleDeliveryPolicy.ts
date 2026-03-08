@@ -22,7 +22,6 @@ export function getSubtitleDelivery(
     // because subtitle extraction/fetching is handled out-of-band (see docs/development/subtitles.md).
     // `isTranscoding` is retained as a parameter for API stability but does not currently change the
     // delivery classification on its own.
-    const format = (subtitle.format || '').toLowerCase();
     const formatOrCodec = ((subtitle.format ?? subtitle.codec) || '').toLowerCase();
 
     // Image-based subtitles must be burned in.
@@ -31,7 +30,7 @@ export function getSubtitleDelivery(
     }
 
     // Text-based subtitles can be delivered as a sidecar track.
-    if (TEXT_SUBTITLE_FORMATS.includes(format)) {
+    if (TEXT_SUBTITLE_FORMATS.includes(formatOrCodec)) {
         return 'sidecar';
     }
 

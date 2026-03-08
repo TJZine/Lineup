@@ -152,6 +152,11 @@ export interface StreamRequest {
     audioStreamId?: string;
     /**
      * Preferred subtitle track ID (used for out-of-band extraction/fetching; does not imply burn-in).
+     *
+     * Contract: when provided, Lineup treats this as strict. If no media version/part contains the
+     * requested subtitle stream id, `PlexStreamResolver.resolveStream()` throws
+     * `PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND` (instead of silently dropping the request).
+     *
      * Burn-in is only requested when `subtitleMode === 'burn'` or the selected subtitle format requires it.
      */
     subtitleStreamId?: string;
