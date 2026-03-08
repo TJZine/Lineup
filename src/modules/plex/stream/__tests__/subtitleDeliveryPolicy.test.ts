@@ -44,6 +44,7 @@ describe('getSubtitleDelivery', () => {
 
     it('treats codec-only text subtitles as sidecar', () => {
         expect(getSubtitleDelivery(streamFor(undefined, 'srt'), false)).toBe('sidecar');
+        expect(getSubtitleDelivery(streamFor(undefined, 'srt'), true)).toBe('sidecar');
     });
 });
 

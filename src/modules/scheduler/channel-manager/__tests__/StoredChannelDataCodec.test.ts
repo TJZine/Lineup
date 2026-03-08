@@ -15,6 +15,31 @@ describe('StoredChannelDataCodec', () => {
                 }),
             ),
         ).toBeNull();
+
+        expect(
+            decodeStoredChannelData(
+                JSON.stringify({
+                    channels: [],
+                    channelOrder: 'bad',
+                }),
+            ),
+        ).toBeNull();
+
+        expect(
+            decodeStoredChannelData(
+                JSON.stringify({
+                    channelOrder: [],
+                }),
+            ),
+        ).toBeNull();
+
+        expect(
+            decodeStoredChannelData(
+                JSON.stringify({
+                    channels: [],
+                }),
+            ),
+        ).toBeNull();
     });
 
     it('returns parsed data for a valid payload', () => {
