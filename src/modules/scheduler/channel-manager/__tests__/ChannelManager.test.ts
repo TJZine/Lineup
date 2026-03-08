@@ -669,7 +669,7 @@ describe('ChannelManager', () => {
             });
             mockStorage[CURRENT_CHANNEL_KEY] = persistedChannel.id;
 
-            const loadSpy = jest.spyOn(ChannelRepository.prototype, 'load');
+            const loadSpy = jest.spyOn(ChannelRepository.prototype, 'loadNormalized');
 
             await manager.loadChannels();
 
@@ -679,6 +679,30 @@ describe('ChannelManager', () => {
             expect(manager.getCurrentChannel()?.id).toBe('persisted-1');
 
             loadSpy.mockRestore();
+        });
+
+        it('does not persist when saved current-channel key only changes current', async () => {
+            const persistedChannel = createBaseChannel({
+                id: 'persisted-1',
+                number: 42,
+                name: 'Persisted Channel',
+            });
+
+            mockStorage[STORAGE_KEY] = JSON.stringify({
+                channels: [persistedChannel],
+                channelOrder: [persistedChannel.id],
+                currentChannelId: 'different-current-id',
+                savedAt: Date.now(),
+            });
+            mockStorage[CURRENT_CHANNEL_KEY] = persistedChannel.id;
+
+            const loadManager = new ChannelManager({ plexLibrary: mockLibrary });
+            const queueSaveSpy = jest.spyOn(loadManager as unknown as { _queueSave: () => void }, '_queueSave');
+
+            await loadManager.loadChannels();
+
+            expect(loadManager.getCurrentChannel()?.id).toBe(persistedChannel.id);
+            expect(queueSaveSpy).not.toHaveBeenCalled();
         });
 
         it('saveChannels reuses one pending promise for burst saves', async () => {
