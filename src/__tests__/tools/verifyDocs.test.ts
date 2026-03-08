@@ -10,6 +10,12 @@ type PromptInventories = {
     expectedEvalPromptFiles: string[];
     expectedSessionPromptFiles: string[];
     skillMirrorManifestPath: string;
+    sessionPromptSetStartMarker: string;
+    sessionPromptSetEndMarker: string;
+    evalPromptInventoryStartMarker: string;
+    evalPromptInventoryEndMarker: string;
+    renderedSessionPromptSet: string;
+    renderedEvalPromptInventory: string;
 };
 
 function loadPromptInventoriesFromHarnessDocsLib(): PromptInventories {
@@ -21,6 +27,12 @@ function loadPromptInventoriesFromHarnessDocsLib(): PromptInventories {
         '  expectedEvalPromptFiles: lib.EXPECTED_EVAL_PROMPT_FILES,',
         '  expectedSessionPromptFiles: lib.EXPECTED_SESSION_PROMPT_FILES,',
         '  skillMirrorManifestPath: lib.SKILL_MIRROR_MANIFEST_PATH,',
+        '  sessionPromptSetStartMarker: lib.SESSION_PROMPT_SET_START_MARKER,',
+        '  sessionPromptSetEndMarker: lib.SESSION_PROMPT_SET_END_MARKER,',
+        '  evalPromptInventoryStartMarker: lib.EVAL_PROMPT_INVENTORY_START_MARKER,',
+        '  evalPromptInventoryEndMarker: lib.EVAL_PROMPT_INVENTORY_END_MARKER,',
+        '  renderedSessionPromptSet: lib.renderSessionPromptSet(),',
+        '  renderedEvalPromptInventory: lib.renderEvalPromptInventory(),',
         '};',
         'console.log(JSON.stringify(payload));',
     ].join('\n');
@@ -42,6 +54,12 @@ const {
     expectedEvalPromptFiles,
     expectedSessionPromptFiles,
     skillMirrorManifestPath,
+    sessionPromptSetStartMarker,
+    sessionPromptSetEndMarker,
+    evalPromptInventoryStartMarker,
+    evalPromptInventoryEndMarker,
+    renderedSessionPromptSet,
+    renderedEvalPromptInventory,
 } = loadPromptInventoriesFromHarnessDocsLib();
 
 const requiredFiles = [
@@ -114,13 +132,11 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
         [
             '# Session Prompt Launchers',
             '',
-            '- [cleanup-plan](./cleanup-plan.md)',
-            '- [cleanup-implement](./cleanup-implement.md)',
-            '- [cleanup-review](./cleanup-review.md)',
-            '- [cleanup-loop](./cleanup-loop.md)',
-            '- [feature-plan](./feature-plan.md)',
-            '- [feature-review](./feature-review.md)',
-            '- [workflow-harness-review](./workflow-harness-review.md)',
+            '## Prompt Set',
+            '',
+            sessionPromptSetStartMarker,
+            renderedSessionPromptSet,
+            sessionPromptSetEndMarker,
             '',
             '## Routing (Authoritative)',
             '',
@@ -154,6 +170,23 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
     }
 }
 
+function writeValidEvalPromptFixture(repoRoot: string): void {
+    writeRepoFile(
+        repoRoot,
+        'docs/agentic/evals/README.md',
+        [
+            '# Agent Evals',
+            '',
+            '## Prompt Inventory',
+            '',
+            evalPromptInventoryStartMarker,
+            renderedEvalPromptInventory,
+            evalPromptInventoryEndMarker,
+            '',
+        ].join('\n')
+    );
+}
+
 function createRepoFixture(
     overrides: Partial<Record<string, string>> = {},
 ): string {
@@ -173,6 +206,7 @@ function createRepoFixture(
     writeRepoFile(repoRoot, 'docs/development/testing.md');
     writeValidSkillMirrorFixture(repoRoot);
     writeValidSessionPromptFixture(repoRoot);
+    writeValidEvalPromptFixture(repoRoot);
 
     for (const prompt of expectedEvalPromptFiles) {
         writeRepoFile(repoRoot, `docs/agentic/evals/prompts/${prompt}`);
@@ -182,11 +216,16 @@ function createRepoFixture(
         writeRepoFile(repoRoot, relativePath, content);
     }
 
+    spawnSync('git', ['init', '-q'], { cwd: repoRoot, encoding: 'utf8' });
+    spawnSync('git', ['config', 'user.email', 'verify-docs@test.local'], { cwd: repoRoot, encoding: 'utf8' });
+    spawnSync('git', ['config', 'user.name', 'Verify Docs Test'], { cwd: repoRoot, encoding: 'utf8' });
+    spawnSync('git', ['add', '.'], { cwd: repoRoot, encoding: 'utf8' });
+
     return repoRoot;
 }
 
-function runVerifier(repoRoot: string): ReturnType<typeof spawnSync> {
-    return spawnSync(process.execPath, [verifierPath], {
+function runVerifier(repoRoot: string, args: string[] = []): ReturnType<typeof spawnSync> {
+    return spawnSync(process.execPath, [verifierPath, ...args], {
         cwd: repoRoot,
         encoding: 'utf8',
     });
@@ -217,7 +256,7 @@ describe('verify-docs', () => {
 
     it('fails when a tracked doc links to a local-only run artifact', () => {
         const repoRoot = createRepoFixture({
-            'docs/agentic/evals/README.md': '# Agent Evals\n\n[Local run](../../runs/2026-03-06-smoke/Plan.md)\n',
+            'docs/development/testing.md': '# Testing\n\n[Local run](../runs/2026-03-06-smoke/Plan.md)\n',
             'docs/runs/2026-03-06-smoke/Plan.md': '# Local run artifact\n',
         });
         tempRoots.push(repoRoot);
@@ -226,13 +265,13 @@ describe('verify-docs', () => {
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('local-only');
-        expect(result.stderr).toContain('docs/agentic/evals/README.md');
+        expect(result.stderr).toContain('docs/development/testing.md');
     });
 
     it('fails when one tracked doc contains multiple raw local-only baseline references', () => {
         const repoRoot = createRepoFixture({
-            'docs/agentic/evals/README.md': [
-                '# Agent Evals',
+            'docs/development/testing.md': [
+                '# Testing',
                 '',
                 'First raw artifact: docs/agentic/evals/baselines/2026-03-06-a.md',
                 'Second raw artifact: docs/agentic/evals/baselines/2026-03-06-b.md',
@@ -250,8 +289,8 @@ describe('verify-docs', () => {
 
     it('allows placeholder local-only paths that do not point to concrete artifacts', () => {
         const repoRoot = createRepoFixture({
-            'docs/agentic/evals/README.md': [
-                '# Agent Evals',
+            'docs/development/testing.md': [
+                '# Testing',
                 '',
                 '- Keep raw artifacts local-only under `docs/agentic/evals/baselines/<run-id>.md`.',
                 '- Keep run bundles local-only under `docs/runs/<date>-<topic>/Plan.md`.',
@@ -320,5 +359,33 @@ describe('verify-docs', () => {
 
         expect(result.status).toBe(0);
         expect(result.stdout).toContain('Documentation verification passed.');
+    });
+
+    it('workspace mode warns but does not fail for untracked checklist plan refs with draft content', () => {
+        const repoRoot = createRepoFixture({
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md': [
+                '# Checklist',
+                '',
+                '- [x] Example done item (plan: docs/archive/plans/example-summary.md)',
+                '- [ ] Local draft item (plan: docs/plans/example-draft.md)',
+                '',
+            ].join('\n'),
+            'docs/archive/plans/example-summary.md': [
+                '# Example Summary',
+                '',
+                'Tracked summary placeholder.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        writeRepoFile(repoRoot, 'docs/plans/example-draft.md', '# Draft scratch plan\n');
+
+        const result = runVerifier(repoRoot, ['--workspace']);
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('Documentation verification passed with warnings:');
+        expect(result.stdout).toContain('docs/plans/example-draft.md');
+        expect(result.stdout).not.toContain('missing required serious-plan sections');
     });
 });

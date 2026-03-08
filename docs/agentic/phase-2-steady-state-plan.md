@@ -45,7 +45,7 @@ Strong readiness signals:
 Remaining blockers before executing the full Phase 2 pass:
 
 - active cleanup work still exists in later priorities, so steady-state feature mode is not yet clearly dominant
-- a clean checkout currently fails `npm run verify:docs` because the checklist points at plan files that are still local/untracked in the active workspace; Phase 2 should not start until clean-checkout docs verification is green again
+- strict docs verification must stay green in a clean checkout; if a completed work unit no longer needs its full tracked plan, replace checklist references with a tracked archive summary in the same pass instead of leaving the checklist pointed at local-only files
 - only one tracked eval baseline summary exists so far; the recurring eval routine is not yet established
 
 Immediate pre-Phase-2 actions:

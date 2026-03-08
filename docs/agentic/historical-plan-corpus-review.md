@@ -38,7 +38,7 @@ Additional local corpus reviewed 2026-03-08 from current workspace material:
 - `2026-03-08-p5-w4-plex-stream-media-selection-hdr-audio-compatibility-policies.md`
 - `2026-03-08-p5-w5-plex-stream-cleanup-pass.md`
 
-This Priority 5 set is currently valuable as local review material and active task memory. The durable harness output should remain curated lessons, eval seeds, and eventually a compressed section summary instead of another bulky tracked archive import.
+The completed Priority 5 section is preserved as tracked historical memory in [`2026-03-08-priority-5-plex-stream-policy-section-summary.md`](../archive/plans/2026-03-08-priority-5-plex-stream-policy-section-summary.md). The raw local plan files do not need to remain as tracked handoff memory.
 
 ## Why This Matters
 

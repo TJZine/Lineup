@@ -479,10 +479,15 @@ function checkChecklistPlanPaths(errors, warnings) {
 }
 
 function checkPlanArchiveCoherence(errors) {
-    const activeFiles = safeReadDir('docs/plans', errors).filter((name) => name.endsWith('.md') && name !== 'README.md');
-    const archivedFiles = safeReadDir('docs/archive/plans', errors).filter(
-        (name) => name.endsWith('.md') && name !== 'README.md'
-    );
+    const trackedPlanPaths = getTrackedPlanPaths(errors);
+    const activeFiles = Array.from(trackedPlanPaths)
+        .filter((relativePath) => relativePath.startsWith('docs/plans/'))
+        .filter((relativePath) => path.basename(relativePath) !== 'README.md')
+        .map((relativePath) => path.basename(relativePath));
+    const archivedFiles = Array.from(trackedPlanPaths)
+        .filter((relativePath) => relativePath.startsWith('docs/archive/plans/'))
+        .filter((relativePath) => path.basename(relativePath) !== 'README.md')
+        .map((relativePath) => path.basename(relativePath));
     const archivedSet = new Set(archivedFiles);
 
     for (const file of activeFiles) {
@@ -529,7 +534,9 @@ function checkSkillMirrorManifest(errors) {
 }
 
 function checkSeriousPlanConformance(errors) {
-    const planFiles = safeReadDir('docs/plans', errors)
+    const planFiles = Array.from(getTrackedPlanPaths(errors))
+        .filter((relativePath) => relativePath.startsWith('docs/plans/'))
+        .map((relativePath) => path.basename(relativePath))
         .filter((name) => name.endsWith('.md') && name !== 'README.md')
         .sort();
 
@@ -574,9 +581,9 @@ if (errors.length > 0) {
 }
 
 if (warnings.length > 0) {
-    console.warn('Documentation verification passed with warnings:\n');
+    console.log('Documentation verification passed with warnings:\n');
     for (const warning of warnings) {
-        console.warn(`- ${warning}`);
+        console.log(`- ${warning}`);
     }
 } else {
     console.log('Documentation verification passed.');
