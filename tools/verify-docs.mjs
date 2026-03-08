@@ -84,6 +84,16 @@ const trackedLocalOnlyPrefixAllowlist = ['docs/runs/_template/'];
 const literalLocalOnlyPatternAllowlist = new Set([
     // Reserved for true tracked-file exceptions where an exact local-only artifact path must be shown verbatim.
 ]);
+const requiredCodexAgentRoles = [
+    'explorer',
+    'explorer_fallback',
+    'reviewer',
+    'docs_researcher',
+    'worker',
+    'monitor',
+    'monitor_fallback',
+];
+const codexRoleWorkflowMarkerFiles = ['docs/AGENTIC_DEV_WORKFLOW.md', 'docs/agentic/skill-strategy.md'];
 
 function recordFsError(errors, operation, targetPath, error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -549,6 +559,108 @@ function checkSkillMirrorManifest(errors) {
     }
 }
 
+function isCodexRoleWorkflowTracked(errors) {
+    for (const relativePath of codexRoleWorkflowMarkerFiles) {
+        const content = readRepoFile(relativePath, errors);
+        if (content === null) {
+            continue;
+        }
+
+        if (content.includes('.codex/config.toml') && content.includes('.codex/agents/')) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function parseCodexRoleConfig(configContent) {
+    const declaredRoles = new Set();
+    const roleConfigFiles = new Map();
+    let currentRole = null;
+
+    for (const rawLine of configContent.split(/\r?\n/u)) {
+        const line = rawLine.trim();
+
+        const roleMatch = line.match(/^\[agents\.([a-z0-9_]+)\]$/u);
+        if (roleMatch !== null) {
+            currentRole = roleMatch[1];
+            declaredRoles.add(currentRole);
+            continue;
+        }
+
+        if (/^\[[^\]]+\]$/u.test(line)) {
+            currentRole = null;
+            continue;
+        }
+
+        if (currentRole === null) {
+            continue;
+        }
+
+        const configFileMatch = line.match(/^config_file\s*=\s*"([^"]+)"$/u);
+        if (configFileMatch !== null) {
+            roleConfigFiles.set(currentRole, configFileMatch[1]);
+        }
+    }
+
+    return { declaredRoles, roleConfigFiles };
+}
+
+function checkTrackedCodexRoleConfig(errors) {
+    const configRelativePath = '.codex/config.toml';
+    const configFullPath = path.join(repoRoot, configRelativePath);
+    const workflowTracked = isCodexRoleWorkflowTracked(errors);
+    const configExists = existsSync(configFullPath);
+
+    if (!workflowTracked && !configExists) {
+        return;
+    }
+
+    if (!configExists) {
+        errors.push(`Missing tracked Codex role config: ${configRelativePath}`);
+        return;
+    }
+
+    const configContent = readRepoFile(configRelativePath, errors);
+    if (configContent === null) {
+        return;
+    }
+
+    const { declaredRoles, roleConfigFiles } = parseCodexRoleConfig(configContent);
+    const missingRoles = requiredCodexAgentRoles.filter((role) => !declaredRoles.has(role));
+    if (missingRoles.length > 0) {
+        errors.push(
+            `Missing required Codex agent role declarations in .codex/config.toml: ${missingRoles.join(', ')}`
+        );
+    }
+
+    const rolesMissingConfigFiles = requiredCodexAgentRoles.filter(
+        (role) => declaredRoles.has(role) && !roleConfigFiles.has(role)
+    );
+    if (rolesMissingConfigFiles.length > 0) {
+        errors.push(
+            `Codex role declarations missing config_file entries in .codex/config.toml: ${rolesMissingConfigFiles.join(', ')}`
+        );
+    }
+
+    const missingRoleConfigPaths = new Set();
+    for (const configFile of roleConfigFiles.values()) {
+        if (!configFile.startsWith('agents/') || !configFile.endsWith('.toml')) {
+            continue;
+        }
+
+        const relativePath = `.codex/${configFile}`;
+        if (!existsSync(path.join(repoRoot, relativePath))) {
+            missingRoleConfigPaths.add(relativePath);
+        }
+    }
+
+    for (const missingPath of Array.from(missingRoleConfigPaths).sort()) {
+        errors.push(`Codex role config file declared in .codex/config.toml is missing: ${missingPath}`);
+    }
+}
+
 function checkSeriousPlanConformance(errors) {
     const trackedPlanPaths = getTrackedPlanPaths(errors);
     if (trackedPlanPaths === FAILED_GIT) {
@@ -590,6 +702,7 @@ checkWorkflowRoutingSplit(errors);
 checkChecklistPlanPaths(errors, warnings);
 checkPlanArchiveCoherence(errors);
 checkSkillMirrorManifest(errors);
+checkTrackedCodexRoleConfig(errors);
 checkSeriousPlanConformance(errors);
 
 if (errors.length > 0) {

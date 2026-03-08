@@ -210,6 +210,78 @@ function writeMutatedEvalPromptFixture(repoRoot: string): void {
     );
 }
 
+function writeRoleWorkflowClaimFixture(repoRoot: string): void {
+    writeRepoFile(
+        repoRoot,
+        'docs/AGENTIC_DEV_WORKFLOW.md',
+        [
+            '# Workflow',
+            '',
+            'Route task family before choosing a tier.',
+            '',
+            '[cleanup-plan](./agentic/session-prompts/cleanup-plan.md)',
+            '[cleanup-review](./agentic/session-prompts/cleanup-review.md)',
+            '[feature-plan](./agentic/session-prompts/feature-plan.md)',
+            '[feature-review](./agentic/session-prompts/feature-review.md)',
+            '',
+            '## Multi-Agent Usage',
+            '',
+            '- Repo-defined Codex roles are tracked in `.codex/config.toml`.',
+            '- Role configs live under `.codex/agents/*.toml`.',
+            '',
+        ].join('\n')
+    );
+}
+
+function writeValidCodexRoleConfigFixture(repoRoot: string): void {
+    writeRepoFile(
+        repoRoot,
+        '.codex/config.toml',
+        [
+            '[agents]',
+            'max_threads = 4',
+            'max_depth = 1',
+            '',
+            '[agents.explorer]',
+            'description = "Explorer"',
+            'config_file = "agents/explorer.toml"',
+            '',
+            '[agents.explorer_fallback]',
+            'description = "Explorer fallback"',
+            'config_file = "agents/explorer-fallback.toml"',
+            '',
+            '[agents.reviewer]',
+            'description = "Reviewer"',
+            'config_file = "agents/reviewer.toml"',
+            '',
+            '[agents.docs_researcher]',
+            'description = "Docs researcher"',
+            'config_file = "agents/docs-researcher.toml"',
+            '',
+            '[agents.worker]',
+            'description = "Worker"',
+            'config_file = "agents/worker.toml"',
+            '',
+            '[agents.monitor]',
+            'description = "Monitor"',
+            'config_file = "agents/monitor.toml"',
+            '',
+            '[agents.monitor_fallback]',
+            'description = "Monitor fallback"',
+            'config_file = "agents/monitor-fallback.toml"',
+            '',
+        ].join('\n')
+    );
+
+    writeRepoFile(repoRoot, '.codex/agents/explorer.toml', 'model = "gpt-5.3-codex-spark"\n');
+    writeRepoFile(repoRoot, '.codex/agents/explorer-fallback.toml', 'model = "gpt-5.1-codex-max"\n');
+    writeRepoFile(repoRoot, '.codex/agents/reviewer.toml', 'model = "gpt-5.3-codex"\n');
+    writeRepoFile(repoRoot, '.codex/agents/docs-researcher.toml', 'model = "gpt-5.3-codex"\n');
+    writeRepoFile(repoRoot, '.codex/agents/worker.toml', 'model = "gpt-5.3-codex"\n');
+    writeRepoFile(repoRoot, '.codex/agents/monitor.toml', 'model = "gpt-5.3-codex-spark"\n');
+    writeRepoFile(repoRoot, '.codex/agents/monitor-fallback.toml', 'model = "gpt-5.1"\n');
+}
+
 function createRepoFixture(
     overrides: Partial<Record<string, string>> = {},
 ): string {
@@ -390,6 +462,68 @@ describe('verify-docs', () => {
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('Missing required control-plane directory: docs/runs/_template');
+    });
+
+    it('fails when workflow claims tracked codex roles but .codex/config.toml is missing', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Missing tracked Codex role config: .codex/config.toml');
+    });
+
+    it('fails when a declared codex role config_file path does not exist', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        rmSync(path.join(repoRoot, '.codex/agents/monitor-fallback.toml'));
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Codex role config file declared in .codex/config.toml is missing: .codex/agents/monitor-fallback.toml'
+        );
+    });
+
+    it('fails when required codex roles are missing from tracked config', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeRepoFile(
+            repoRoot,
+            '.codex/config.toml',
+            [
+                '[agents]',
+                'max_threads = 4',
+                'max_depth = 1',
+                '',
+                '[agents.explorer]',
+                'description = "Explorer"',
+                'config_file = "agents/explorer.toml"',
+                '',
+                '[agents.worker]',
+                'description = "Worker"',
+                'config_file = "agents/worker.toml"',
+                '',
+            ].join('\n')
+        );
+        writeRepoFile(repoRoot, '.codex/agents/explorer.toml', 'model = "gpt-5.3-codex-spark"\n');
+        writeRepoFile(repoRoot, '.codex/agents/worker.toml', 'model = "gpt-5.3-codex"\n');
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Missing required Codex agent role declarations in .codex/config.toml');
+        expect(result.stderr).toContain('explorer_fallback');
+        expect(result.stderr).toContain('monitor_fallback');
     });
 
     it('ignores non-decision markdown links in the decisions index', () => {
