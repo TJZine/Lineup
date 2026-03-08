@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import {
     buildChecklistPlanPathMessages,
@@ -654,7 +655,7 @@ function parseCodexRoleConfig(configContent) {
     return { declaredRoles, roleConfigFiles, maxDepth };
 }
 
-function checkTrackedCodexRoleConfig(errors) {
+export function checkTrackedCodexRoleConfig(errors) {
     const configRelativePath = '.codex/config.toml';
     const configFullPath = path.join(repoRoot, configRelativePath);
     const workflowTracked = isCodexRoleWorkflowTracked(errors);
@@ -702,8 +703,12 @@ function checkTrackedCodexRoleConfig(errors) {
 
     const missingRoleConfigPaths = new Set();
     const untrackedRoleConfigPaths = new Set();
-    for (const configFile of roleConfigFiles.values()) {
-        if (!configFile.startsWith('agents/') || !configFile.endsWith('.toml')) {
+    const invalidRoleConfigFiles = [];
+    for (const [role, configFile] of roleConfigFiles.entries()) {
+        // Hard-fail malformed or path-traversal config_file entries. The tracked workflow
+        // assumes role configs live under `.codex/agents/*.toml`.
+        if (!/^agents\/[a-z0-9_.-]+\.toml$/iu.test(configFile)) {
+            invalidRoleConfigFiles.push({ role, configFile });
             continue;
         }
 
@@ -720,6 +725,12 @@ function checkTrackedCodexRoleConfig(errors) {
 
     for (const missingPath of Array.from(missingRoleConfigPaths).sort()) {
         errors.push(`Codex role config file declared in .codex/config.toml is missing: ${missingPath}`);
+    }
+
+    for (const entry of invalidRoleConfigFiles) {
+        errors.push(
+            `Codex role config_file entries must use agents/*.toml (under .codex/agents): role=${entry.role} config_file="${entry.configFile}"`
+        );
     }
 
     for (const untrackedPath of Array.from(untrackedRoleConfigPaths).sort()) {
@@ -773,38 +784,45 @@ function checkSeriousPlanConformance(errors) {
     }
 }
 
-const errors = [];
-const warnings = [];
+function main() {
+    const errors = [];
+    const warnings = [];
 
-checkRequiredFiles(errors);
-checkRequiredRunTemplate(errors);
-checkMarkdownLinks(errors);
-checkForbiddenLiteralReferences(errors);
-checkDecisionIndex(errors);
-checkInventory(errors, 'docs/agentic/evals/prompts', EXPECTED_EVAL_PROMPT_FILES, 'eval prompt');
-checkInventory(errors, 'docs/agentic/session-prompts', expectedSessionPromptFiles, 'session prompt');
-checkSessionPromptReadme(errors);
-checkEvalPromptReadme(errors);
-checkWorkflowRoutingSplit(errors);
-checkChecklistPlanPaths(errors, warnings);
-checkPlanArchiveCoherence(errors);
-checkSkillMirrorManifest(errors);
-checkTrackedCodexRoleConfig(errors);
-checkSeriousPlanConformance(errors);
+    checkRequiredFiles(errors);
+    checkRequiredRunTemplate(errors);
+    checkMarkdownLinks(errors);
+    checkForbiddenLiteralReferences(errors);
+    checkDecisionIndex(errors);
+    checkInventory(errors, 'docs/agentic/evals/prompts', EXPECTED_EVAL_PROMPT_FILES, 'eval prompt');
+    checkInventory(errors, 'docs/agentic/session-prompts', expectedSessionPromptFiles, 'session prompt');
+    checkSessionPromptReadme(errors);
+    checkEvalPromptReadme(errors);
+    checkWorkflowRoutingSplit(errors);
+    checkChecklistPlanPaths(errors, warnings);
+    checkPlanArchiveCoherence(errors);
+    checkSkillMirrorManifest(errors);
+    checkTrackedCodexRoleConfig(errors);
+    checkSeriousPlanConformance(errors);
 
-if (errors.length > 0) {
-    console.error('Documentation verification failed:\n');
-    for (const error of errors) {
-        console.error(`- ${error}`);
+    if (errors.length > 0) {
+        console.error('Documentation verification failed:\n');
+        for (const error of errors) {
+            console.error(`- ${error}`);
+        }
+        process.exit(1);
     }
-    process.exit(1);
+
+    if (warnings.length > 0) {
+        console.log('Documentation verification passed with warnings:\n');
+        for (const warning of warnings) {
+            console.log(`- ${warning}`);
+        }
+    } else {
+        console.log('Documentation verification passed.');
+    }
 }
 
-if (warnings.length > 0) {
-    console.log('Documentation verification passed with warnings:\n');
-    for (const warning of warnings) {
-        console.log(`- ${warning}`);
-    }
-} else {
-    console.log('Documentation verification passed.');
+const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : null;
+if (entryPath !== null && pathToFileURL(entryPath).href === import.meta.url) {
+    main();
 }
