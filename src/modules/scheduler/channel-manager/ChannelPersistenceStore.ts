@@ -6,6 +6,7 @@ import {
 } from '../../../utils/storage';
 import { CURRENT_CHANNEL_KEY, STORAGE_KEY } from './constants';
 import type { StoredChannelData } from './types';
+import { decodeStoredChannelData, encodeStoredChannelData } from './StoredChannelDataCodec';
 
 export type StoredChannelWriteResult = 'ok' | 'quota-exceeded' | 'unavailable';
 export type CurrentChannelWriteResult = 'ok' | 'unavailable';
@@ -40,15 +41,8 @@ export class ChannelPersistenceStore {
             return null;
         }
 
-        let parsed: unknown;
-        try {
-            parsed = JSON.parse(raw);
-        } catch {
-            safeLocalStorageRemove(this._storageKey);
-            return null;
-        }
-
-        if (!this._isValidStoredShape(parsed)) {
+        const parsed = decodeStoredChannelData(raw);
+        if (parsed === null) {
             safeLocalStorageRemove(this._storageKey);
             return null;
         }
@@ -57,7 +51,8 @@ export class ChannelPersistenceStore {
     }
 
     writeStoredChannelData(data: StoredChannelData): StoredChannelWriteResult {
-        const result = safeLocalStorageSetWithResult(this._storageKey, JSON.stringify(data));
+        const encoded = encodeStoredChannelData(data);
+        const result = safeLocalStorageSetWithResult(this._storageKey, encoded);
         if (result.ok) {
             return 'ok';
         }
@@ -95,14 +90,4 @@ export class ChannelPersistenceStore {
 
         return safeLocalStorageSet(this._currentChannelKey, normalized) ? 'ok' : 'unavailable';
     }
-
-    private _isValidStoredShape(value: unknown): value is Partial<StoredChannelData> {
-        if (!value || typeof value !== 'object' || Array.isArray(value)) {
-            return false;
-        }
-
-        const record = value as Record<string, unknown>;
-        return Array.isArray(record.channels) && Array.isArray(record.channelOrder);
-    }
-
 }
