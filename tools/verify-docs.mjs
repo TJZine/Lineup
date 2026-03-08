@@ -90,21 +90,29 @@ function recordFsError(errors, operation, targetPath, error) {
     errors.push(`Unable to ${operation} ${targetPath}: ${message}`);
 }
 
+let cachedTrackedPlanPaths = null;
+
 function getTrackedPlanPaths(errors) {
+    if (cachedTrackedPlanPaths) {
+        return cachedTrackedPlanPaths;
+    }
+
     try {
         const output = execFileSync('git', ['ls-files', '--', 'docs/plans', 'docs/archive/plans'], {
             cwd: repoRoot,
             encoding: 'utf8',
         });
-        return new Set(
+        cachedTrackedPlanPaths = new Set(
             output
                 .split(/\r?\n/u)
                 .map((line) => line.trim())
                 .filter((line) => line.length > 0)
         );
+        return cachedTrackedPlanPaths;
     } catch (error) {
         recordFsError(errors, 'list tracked plan files via git', 'docs/plans docs/archive/plans', error);
-        return new Set();
+        cachedTrackedPlanPaths = new Set();
+        return cachedTrackedPlanPaths;
     }
 }
 

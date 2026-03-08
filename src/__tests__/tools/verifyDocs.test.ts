@@ -187,6 +187,28 @@ function writeValidEvalPromptFixture(repoRoot: string): void {
     );
 }
 
+function writeMutatedEvalPromptFixture(repoRoot: string): void {
+    const mutatedEvalPromptInventory = renderedEvalPromptInventory.replace(
+        /11 Plex Subtitle Policy/u,
+        '11 Plex Subtitle Policy (MUTATED)'
+    );
+
+    writeRepoFile(
+        repoRoot,
+        'docs/agentic/evals/README.md',
+        [
+            '# Agent Evals',
+            '',
+            '## Prompt Inventory',
+            '',
+            evalPromptInventoryStartMarker,
+            mutatedEvalPromptInventory,
+            evalPromptInventoryEndMarker,
+            '',
+        ].join('\n')
+    );
+}
+
 function createRepoFixture(
     overrides: Partial<Record<string, string>> = {},
 ): string {
@@ -224,10 +246,15 @@ function createRepoFixture(
     return repoRoot;
 }
 
-function runVerifier(repoRoot: string, args: string[] = []): ReturnType<typeof spawnSync> {
+function runVerifier(
+    repoRoot: string,
+    args: string[] = [],
+    env: NodeJS.ProcessEnv | undefined = undefined
+): ReturnType<typeof spawnSync> {
     return spawnSync(process.execPath, [verifierPath, ...args], {
         cwd: repoRoot,
         encoding: 'utf8',
+        env,
     });
 }
 
@@ -252,6 +279,18 @@ describe('verify-docs', () => {
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('docs/development/testing.md');
         expect(result.stderr).toContain('./missing-guide.md');
+    });
+
+    it('fails when eval README managed prompt-inventory section is out of sync', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeMutatedEvalPromptFixture(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Eval README managed prompt-inventory section is out of sync');
     });
 
     it('fails when a tracked doc links to a local-only run artifact', () => {
@@ -409,5 +448,21 @@ describe('verify-docs', () => {
         expect(result.status).toBe(0);
         expect(stdout).toContain('Documentation verification passed with warnings:');
         expect(stdout.match(/example-draft\.md/g)?.length).toBe(1);
+    });
+
+    it('deduplicates tracked-plan git errors when git is unavailable', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        const missingGitBinDir = path.join(repoRoot, 'no-git-bin');
+        mkdirSync(missingGitBinDir, { recursive: true });
+        const env = { ...process.env, PATH: missingGitBinDir };
+
+        const result = runVerifier(repoRoot, [], env);
+        const stderr = String(result.stderr);
+
+        expect(result.status).toBe(1);
+        expect(stderr).toContain('list tracked plan files via git');
+        expect(stderr.match(/list tracked plan files via git/g)?.length).toBe(1);
     });
 });
