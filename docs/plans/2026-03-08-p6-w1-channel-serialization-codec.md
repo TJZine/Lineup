@@ -26,13 +26,13 @@ Then update `ChannelPersistenceStore` to delegate encode/decode to that codec wh
 - Do not change UI, scheduling behavior, or channel domain logic.
 - Do not add any new raw `localStorage` calls outside the persistence boundary.
 
-## Parent-Priority Alignment (Priority 6)
+## Parent Priority Alignment
 
 Priority 6’s target end-state is a dedicated channel persistence layer where `ChannelManager` is focused on domain behavior, and persistence/parsing/normalization/migration live behind a boundary.
 
 This work unit specifically isolates the lowest-level JSON codec so the next units (`P6-W2` / `P6-W3`) can reuse it without duplicating parsing rules across new owners.
 
-## Required Reading (Freshness Gate + Fresh-Session Semantics)
+## Required Reading
 
 1. `agents.md`
 2. `docs/agentic/document-map.md`
@@ -54,9 +54,9 @@ Freshness gate:
   - `src/modules/scheduler/channel-manager/__tests__/ChannelPersistenceStore.test.ts` (baseline expectations)
   - `docs/architecture/CURRENT_STATE.md` (ownership/boundary truth relevant to persistence)
 
-## Required Skills (Planning Session)
+## Required Skills
 
-This plan was authored using the cleanup planner launcher skill order:
+Planning session (authoring):
 
 1. `using-superpowers`
 2. `brainstorming`
@@ -64,15 +64,13 @@ This plan was authored using the cleanup planner launcher skill order:
 4. `persistence-boundaries`
 5. `writing-plans`
 
-## Required Skills (Implementation Session)
-
-In order:
+Implementation session:
 
 1. `using-superpowers`
 2. `persistence-boundaries`
 3. `architecture-boundaries`
 
-## Codanna Discovery (Evidence Trail)
+## Codanna Discovery
 
 Codanna index snapshot (for the planning session):
 
@@ -127,6 +125,13 @@ Primary impacted symbols/files for `P6-W1` are confined to the channel-manager p
 - Storage helper utilities in `src/utils/storage.ts`
 
 If implementation discovers `ChannelManager` must be edited, stop and revise scope before proceeding.
+
+## Architecture Seam Decision Gate
+
+This work unit must not introduce new module ownership seams.
+
+- If extracting the codec forces new public APIs outside `src/modules/scheduler/channel-manager/`, stop and re-plan.
+- If the codec wants to grow into “repository”-like ownership (`P6-W2`), stop and defer that expansion to the correct work unit.
 
 ## Invariants / Preservation Contracts
 
@@ -233,7 +238,7 @@ Expected: PASS.
 
 Commit: `git commit -m "refactor(channel-persistence): move StoredChannelData JSON parsing to codec"`
 
-## Verification Commands (Before Marking P6-W1 Complete)
+## Verification Commands
 
 - `npm run typecheck`
   - Expected: exit 0
@@ -249,7 +254,12 @@ If persistence behavior regresses:
   - clear invalid payloads
   - treat blocked storage as non-fatal (via safe storage helpers)
 
-## Planner Self-Check (Plan-Authoring Standard)
+## Commit Checkpoints
+
+- After introducing the codec + delegation (with tests green):
+  - `git commit -m "refactor(channel-persistence): move StoredChannelData JSON parsing to codec"`
+
+## Planner Self-Check
 
 1. Architecture seam unresolved? No. Codec is internal to the existing persistence owner; no new ownership boundary is introduced.
 2. Adjacent contract/type changes out of scope? No. `StoredChannelData` shape and `ChannelPersistenceStore` public API remain unchanged.

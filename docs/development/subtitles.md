@@ -23,6 +23,7 @@ This document is a living “what we do and why” for subtitles on webOS, plus 
 - `PlaybackRecoveryManager` maps those to `SubtitleTrack[]` and builds `StreamDescriptor.subtitleContext`.
 - `VideoPlayer` loads tracks via `SubtitleManager`.
 - Subtitle track selections are not persisted; only language preferences influence auto-selection.
+- `StreamRequest.subtitleStreamId` is treated as **strict**: if the requested subtitle stream is not present in any selectable media version/part, `resolveStream()` throws `SUBTITLE_STREAM_NOT_FOUND` rather than silently dropping the selection.
 
 Key files:
 - `src/modules/plex/stream/PlexStreamResolver.ts`
