@@ -860,6 +860,45 @@ describe('PlexStreamResolver', () => {
             expect(identityService.getDefaultPlexIdentity).toHaveBeenCalledWith('test-client-id');
         });
 
+        it('preserves transcode X-Plex-Client-Capabilities header precedence over computed value', () => {
+            const config = createMockConfig({
+                getAuthHeaders: () => ({
+                    'X-Plex-Token': 'mock-token',
+                    'X-Plex-Client-Capabilities': 'header-capabilities',
+                }),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            const parsed = new URL(resolver.getTranscodeUrl('12345', {}));
+
+            expect(parsed.searchParams.get('X-Plex-Client-Capabilities')).toBe('header-capabilities');
+        });
+
+        it('redacts X-Plex-Token in transcode debug logs', () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: jest.fn((key: string) =>
+                        key === LINEUP_STORAGE_KEYS.DEBUG_LOGGING ? '1' : null
+                    ),
+                },
+                configurable: true,
+            });
+
+            const resolver = new PlexStreamResolver(createMockConfig());
+            const url = resolver.getTranscodeUrl('12345', {});
+
+            expect(url).toContain('X-Plex-Token=mock-token');
+            expect(warnSpy).toHaveBeenCalledWith(
+                '[PlexStreamResolver] Transcode URL (compat=0):',
+                expect.stringContaining('X-Plex-Token=REDACTED')
+            );
+            expect(warnSpy.mock.calls.some((call) =>
+                typeof call[1] === 'string' && call[1].includes('X-Plex-Token=mock-token')
+            )).toBe(false);
+            warnSpy.mockRestore();
+        });
+
         it('should respect bitrate limits', () => {
             const config = createMockConfig();
             const resolver = new PlexStreamResolver(config);
@@ -1027,6 +1066,47 @@ describe('PlexStreamResolver', () => {
             expect(parsed.searchParams.get('X-Plex-Device-Name')).toBeTruthy();
             expect(parsed.searchParams.get('X-Plex-Model')).toBeTruthy();
             expect(parsed.searchParams.get('X-Plex-Platform-Version')).toBeTruthy();
+        });
+
+        it('keeps computed direct-play capabilities even when headers supply a different value', () => {
+            const resolver = new PlexStreamResolver(
+                createMockConfig({
+                    getAuthHeaders: () => ({
+                        'X-Plex-Token': 'mock-token',
+                        'X-Plex-Client-Capabilities': 'overrides-from-header',
+                    }),
+                })
+            );
+
+            const url = (resolver as unknown as {
+                _buildUrlWithToken: (baseUri: string, partKey: string, sessionId: string) => string;
+                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
+            })._buildUrlWithToken('http://192.168.1.100:32400', '/library/parts/12345/file.mp4', 'sess-1');
+
+            const expectedCapabilities = (resolver as unknown as {
+                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
+            })._buildClientCapabilities({ hideDolbyVision: false });
+            const parsed = new URL(url);
+            expect(parsed.searchParams.get('X-Plex-Client-Capabilities')).toBe(expectedCapabilities);
+        });
+
+        it('normalizes absolute direct-play keys to the selected playback origin', () => {
+            const config = createMockConfig();
+            const resolver = new PlexStreamResolver(config);
+
+            const url = (resolver as unknown as {
+                _buildUrlWithToken: (baseUri: string, partKey: string, sessionId: string) => string;
+            })._buildUrlWithToken(
+                'http://192.168.1.100:32400',
+                'http://evil.example/library/parts/12345/file.mp4?audioStreamID=audio-1',
+                'sess-1'
+            );
+
+            const parsed = new URL(url);
+            expect(parsed.origin).toBe('http://192.168.1.100:32400');
+            expect(parsed.pathname).toBe('/library/parts/12345/file.mp4');
+            expect(parsed.searchParams.get('audioStreamID')).toBe('audio-1');
+            expect(parsed.searchParams.get('X-Plex-Session-Identifier')).toBe('sess-1');
         });
     });
 

@@ -50,6 +50,10 @@ import {
 } from './dvHdr10Fallback';
 import type { PlatformIdentityService } from '../../../platform';
 import { webosPlatformServices } from '../../../platform';
+import {
+    applyXPlexQueryParamsFromHeaders,
+    buildPlexUrlFromKey,
+} from './plexUrl';
 
 // Re-export types for consumers
 export { PlexStreamErrorCode } from './types';
@@ -1047,16 +1051,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         );
 
         // Add client params (video element requests cannot include headers, so use query params)
-        const headers = this._config.getAuthHeaders();
-        for (const [key, value] of Object.entries(headers)) {
-            if (!key.startsWith('X-Plex-')) {
-                continue;
-            }
-            if (typeof value !== 'string' || value.length === 0) {
-                continue;
-            }
-            params.set(key, value);
-        }
+        applyXPlexQueryParamsFromHeaders(params, this._config.getAuthHeaders());
 
         // Optional: Force the server to use a specific built-in profile name/version (advanced).
         const forcedProfileName = this._config.debugOverridesStore.readTranscodeProfileName();
@@ -1266,32 +1261,12 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         hideDolbyVision?: boolean
     ): string {
         const headers = this._config.getAuthHeaders();
-        const token = headers['X-Plex-Token'];
-        const baseUrl = new URL(baseUri);
-        const parsedPart = new URL(partKey, baseUrl.origin);
-        const normalizedPartKey = `${parsedPart.pathname}${parsedPart.search}`;
-        const url = new URL(
-            normalizedPartKey.startsWith('/') ? normalizedPartKey : `/${normalizedPartKey}`,
-            baseUrl.origin
-        );
-        if (token) {
-            url.searchParams.set('X-Plex-Token', token);
-        }
+        const url = buildPlexUrlFromKey(baseUri, partKey);
         url.searchParams.set('X-Plex-Session-Identifier', sessionId);
         if (typeof audioStreamId === 'string' && audioStreamId.length > 0) {
             url.searchParams.set('audioStreamID', audioStreamId);
         }
-
-        // Video element requests cannot include headers; attach identity via query params.
-        for (const [key, value] of Object.entries(headers)) {
-            if (!key.startsWith('X-Plex-')) {
-                continue;
-            }
-            if (typeof value !== 'string' || value.length === 0) {
-                continue;
-            }
-            url.searchParams.set(key, value);
-        }
+        applyXPlexQueryParamsFromHeaders(url.searchParams, headers);
 
         // Include explicit capabilities on direct-play requests too, so PMS can prefer HDR10
         // over DV when fallback mode asks us to hide Dolby Vision decoders.
