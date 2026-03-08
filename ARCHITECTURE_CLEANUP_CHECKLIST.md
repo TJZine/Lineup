@@ -279,7 +279,7 @@ Other review signals:
   - [ ] Move migration/normalization behind a repository boundary
   - [ ] Keep `ChannelManager` focused on domain operations
 - Primary work units:
-  - [ ] P6-W1 - Extract serialization/deserialization into a dedicated codec/helper
+  - [x] P6-W1 - Extract serialization/deserialization into a dedicated codec/helper (done 2026-03-08; plan: docs/plans/2026-03-08-p6-w1-channel-serialization-codec.md)
   - [ ] P6-W2 - Introduce `ChannelRepository` for load/save and move raw storage calls behind it
   - [ ] P6-W3 - Move normalization and migration rules behind the same boundary and simplify `ChannelManager`
   - [ ] P6-W4 - Cleanup pass for Priority 6: remove temporary repository adapters, duplicate serialization paths, and dead persistence helpers after `ChannelManager` no longer owns them
