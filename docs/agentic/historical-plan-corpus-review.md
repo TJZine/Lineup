@@ -1,6 +1,6 @@
 # Historical Plan Corpus Review
 
-> Reviewed 2026-03-05 from a local-only imported corpus containing the full Priority 2 (`P2-W1` through `P2-W5`) implementation plans from the architecture cleanup.
+> Reviewed initially 2026-03-05 from a local-only imported corpus containing the full Priority 2 (`P2-W1` through `P2-W5`) implementation plans from the architecture cleanup. Expanded 2026-03-08 with a local review of the Priority 5 Plex integration-boundary plan set.
 
 ## Purpose
 
@@ -30,6 +30,16 @@ Additional corpus reviewed 2026-03-06:
 
 The completed Priority 4 section is preserved as tracked historical memory in [`2026-03-06-priority-4-ui-decomposition-section-summary.md`](../archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md). The local import files remain source material only.
 
+Additional local corpus reviewed 2026-03-08 from current workspace material:
+
+- `2026-03-08-p5-w1-plex-stream-request-helpers.md`
+- `2026-03-08-p5-w2-plex-stream-url-token-helper.md`
+- `2026-03-08-p5-w3-plex-stream-subtitle-delivery-policy.md`
+- `2026-03-08-p5-w4-plex-stream-media-selection-hdr-audio-compatibility-policies.md`
+- `2026-03-08-p5-w5-plex-stream-cleanup-pass.md`
+
+This Priority 5 set is currently valuable as local review material and active task memory. The durable harness output should remain curated lessons, eval seeds, and eventually a compressed section summary instead of another bulky tracked archive import.
+
 ## Why This Matters
 
 The imported corpus is valuable because it covers a complete refactor sequence inside one architectural priority:
@@ -39,6 +49,7 @@ The imported corpus is valuable because it covers a complete refactor sequence i
 - preservation-heavy UI refactors
 - diagnostics/persistence edge handling
 - cleanup of transitional glue after extractions land
+- policy-pipeline extraction inside a fragile external-service boundary without leaking auth/transport concerns across modules
 
 That makes it stronger source material for the harness than isolated one-off plans.
 
@@ -123,6 +134,26 @@ Keep:
 - cleanup work that removes bridges, dead refs, and transitional callbacks only after the new owners are proven
 - verification that is targeted at regression risk, not at new feature surface
 
+### 9. Integration-boundary helpers should stay auditable and local to the boundary
+
+The reviewed Priority 5 plans are strongest where they resist over-generalization. URL/token handling, request helpers, subtitle policy, and playback compatibility stay inside the Plex stream boundary instead of being prematurely lifted into broader app helpers.
+
+Keep:
+
+- one auditable responsibility per helper or policy owner
+- orchestration ownership in the boundary root while extracted helpers stay narrow
+- explicit statements that auth/query-param logic must not leak into callers
+
+### 10. Discovery discipline must survive weak or noisy tool output
+
+The Priority 5 plans add a useful harness lesson: strong plans should not pretend discovery was clean when it was not. Several plans explicitly record Codanna insufficiency, `get_index_info` snapshots, or deterministic `rg` fallback paths.
+
+Keep:
+
+- explicit `get_index_info` capture when expected semantic/doc results are weak
+- fallback notes that explain what failed and what deterministic evidence replaced it
+- plan evidence that distinguishes “tool weakness” from “symbol absent”
+
 ## Anti-Patterns To Avoid
 
 ### 1. Stale repo identity and pathing
@@ -186,6 +217,16 @@ Do not keep:
 - stale or partial skill order that conflicts with the tracked workflow
 - plan-local skill guidance that bypasses the current process-first order
 
+### 7. Cross-boundary helper ambition that outruns the seam
+
+Priority 5 reinforces a different failure mode from the UI corpus: external-boundary extractions can look “clean” while quietly creating platform-wide helpers that were never justified by the task.
+
+Do not keep:
+
+- “shared” auth/url helpers that widen beyond the current Plex stream boundary without evidence
+- compatibility helpers that quietly absorb settings or persistence ownership
+- cleanup-pass plans that sneak fresh policy changes back into the deletion pass
+
 ## Standards To Codify From This Corpus
 
 The future plan-authoring standard should require all of the following for serious implementation plans:
@@ -222,6 +263,13 @@ The imported Priority 4 sequence should extend the eval set in these ways:
 - `P4-W4`: shared focus/render primitive extraction without centralizing caller-specific focus policy
 - `P4-W5`: cleanup pass that removes transitional UI glue only after the stable owners are already proven
 - planning meta-eval: detect and stop on unresolved seams before freezing an execution-grade plan
+
+The reviewed Priority 5 sequence should extend the eval set in these ways:
+
+- `P5-W2`: auditable URL/token helper extraction without leaking auth or transport logic into callers
+- `P5-W4`: playback compatibility extraction without widening into settings/persistence ownership
+- `P5-W5`: cleanup pass that removes duplicate resolver-local policy branches only after extracted owners are already stable
+- planning/meta-eval: when Codanna discovery is weak, record the insufficiency and deterministic fallback instead of treating weak search results as absence
 
 ## Prompt Derivation Details
 
@@ -429,11 +477,12 @@ The imported plans are strongest exactly where they follow those principles: exp
 
 ## Limits Of This Corpus
 
-This review is based on one complete cleanup priority only.
+This review is no longer based on one complete cleanup priority only.
 
 It is strong for:
 
 - app-shell composition-root work
+- Plex integration-boundary policy extraction
 - UI preservation contracts
 - collaborator extraction
 - cleanup-pass discipline
@@ -441,8 +490,7 @@ It is strong for:
 It is weak or incomplete for:
 
 - persistence-boundary work outside Priority 2
-- Plex integration policy work
-- EPG-specific UI decomposition
+- cross-priority persistence-boundary work
 - doc refresh and architecture-truth tasks
 - private-probe test cleanup work
 

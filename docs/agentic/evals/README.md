@@ -36,6 +36,47 @@ Build and refresh eval prompts from:
 - [`baseline-summary-template.md`](./baseline-summary-template.md)
   - tracked template for baseline summaries
 
+## Prompt Inventory
+
+<!-- BEGIN MANAGED EVAL PROMPT INVENTORY -->
+- [`01-app-container-extraction-no-ui-drift`](./prompts/01-app-container-extraction-no-ui-drift.md)
+  - 01 App Container Extraction No UI Drift
+- [`02-lazy-screen-registry-no-dual-ownership`](./prompts/02-lazy-screen-registry-no-dual-ownership.md)
+  - 02 Lazy Screen Registry No Dual Ownership
+- [`03-overlay-toast-extraction-no-timer-leaks`](./prompts/03-overlay-toast-extraction-no-timer-leaks.md)
+  - 03 Overlay Toast Extraction No Timer Leaks
+- [`04-diagnostics-surface-isolation-no-storage-slop`](./prompts/04-diagnostics-surface-isolation-no-storage-slop.md)
+  - 04 Diagnostics Surface Isolation No Storage Slop
+- [`05-app-shell-cleanup-no-behavior-regression`](./prompts/05-app-shell-cleanup-no-behavior-regression.md)
+  - 05 App Shell Cleanup No Behavior Regression
+- [`06-orchestrator-hotspot-extraction`](./prompts/06-orchestrator-hotspot-extraction.md)
+  - 06 Orchestrator Hotspot Extraction
+- [`07-settings-storage-boundary`](./prompts/07-settings-storage-boundary.md)
+  - 07 Settings Storage Boundary
+- [`08-server-selection-storage-boundary`](./prompts/08-server-selection-storage-boundary.md)
+  - 08 Server Selection Storage Boundary
+- [`09-channel-persistence-boundary`](./prompts/09-channel-persistence-boundary.md)
+  - 09 Channel Persistence Boundary
+- [`10-settings-screen-split`](./prompts/10-settings-screen-split.md)
+  - 10 Settings Screen Split
+- [`11-plex-subtitle-policy`](./prompts/11-plex-subtitle-policy.md)
+  - 11 Plex Subtitle Policy
+- [`12-architecture-doc-refresh`](./prompts/12-architecture-doc-refresh.md)
+  - 12 Architecture Doc Refresh
+- [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md)
+  - 13 Risk-Tiered Orchestration And Local-Only Absorption
+- [`14-epg-info-panel-orchestration-no-host-drift`](./prompts/14-epg-info-panel-orchestration-no-host-drift.md)
+  - 14 EPG Info-Panel Orchestration No Host Drift
+- [`15-channel-setup-session-owner-no-step-controller-bleed`](./prompts/15-channel-setup-session-owner-no-step-controller-bleed.md)
+  - 15 Channel Setup Session Owner No Step-Controller Bleed
+- [`16-shared-ui-primitives-no-policy-centralization`](./prompts/16-shared-ui-primitives-no-policy-centralization.md)
+  - 16 Shared UI Primitives No Policy Centralization
+- [`17-priority-4-cleanup-pass-no-premature-glue-removal`](./prompts/17-priority-4-cleanup-pass-no-premature-glue-removal.md)
+  - 17 Priority 4 Cleanup Pass No Premature Glue Removal
+- [`18-detect-unresolved-seam-before-freezing-plan`](./prompts/18-detect-unresolved-seam-before-freezing-plan.md)
+  - 18 Detect Unresolved Seam Before Freezing Plan
+<!-- END MANAGED EVAL PROMPT INVENTORY -->
+
 ## How To Run A Manual Eval
 
 1. Start from a clean worktree or clean branch.

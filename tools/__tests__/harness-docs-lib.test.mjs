@@ -2,9 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+    buildChecklistPlanPathMessages,
+    classifyChecklistPlanPathStatus,
     checkPlanConformance,
+    EVAL_PROMPT_INVENTORY,
     extractChecklistPlanPaths,
     parseSkillMirrorManifest,
+    renderEvalPromptInventory,
+    renderSessionPromptSet,
+    replaceManagedSection,
+    SESSION_PROMPT_INVENTORY,
 } from '../harness-docs-lib.mjs';
 
 test('parseSkillMirrorManifest reads tracked allowlist entries and ignores comments', () => {
@@ -55,6 +62,122 @@ test('extractChecklistPlanPaths ignores placeholders and non-plan values', () =>
     `);
 
     assert.deepEqual(paths, ['docs/plans/example-plan.md']);
+});
+
+test('classifyChecklistPlanPathStatus distinguishes tracked, untracked, and missing plan refs', () => {
+    assert.equal(classifyChecklistPlanPathStatus({ exists: true, tracked: true }), 'tracked');
+    assert.equal(classifyChecklistPlanPathStatus({ exists: true, tracked: false }), 'untracked');
+    assert.equal(classifyChecklistPlanPathStatus({ exists: false, tracked: false }), 'missing');
+});
+
+test('buildChecklistPlanPathMessages reports untracked plan refs distinctly in strict mode', () => {
+    const result = buildChecklistPlanPathMessages(
+        [
+            { relativePath: 'docs/plans/tracked.md', status: 'tracked' },
+            { relativePath: 'docs/plans/untracked.md', status: 'untracked' },
+            { relativePath: 'docs/plans/missing.md', status: 'missing' },
+        ],
+        { mode: 'strict' }
+    );
+
+    assert.deepEqual(result.errors, [
+        'Checklist references untracked plan path: docs/plans/untracked.md (exists locally but is not tracked)',
+        'Checklist references missing tracked plan path: docs/plans/missing.md',
+    ]);
+    assert.deepEqual(result.warnings, []);
+});
+
+test('buildChecklistPlanPathMessages downgrades untracked plan refs to warnings in workspace mode', () => {
+    const result = buildChecklistPlanPathMessages(
+        [
+            { relativePath: 'docs/plans/untracked.md', status: 'untracked' },
+            { relativePath: 'docs/plans/missing.md', status: 'missing' },
+        ],
+        { mode: 'workspace' }
+    );
+
+    assert.deepEqual(result.errors, ['Checklist references missing tracked plan path: docs/plans/missing.md']);
+    assert.deepEqual(result.warnings, [
+        'Checklist references untracked plan path: docs/plans/untracked.md (exists locally but is not tracked)',
+    ]);
+});
+
+test('SESSION_PROMPT_INVENTORY and EVAL_PROMPT_INVENTORY drive expected file order', () => {
+    assert.equal(SESSION_PROMPT_INVENTORY[0].file, 'cleanup-plan.md');
+    assert.equal(SESSION_PROMPT_INVENTORY.at(-1)?.file, 'workflow-harness-review.md');
+    assert.equal(EVAL_PROMPT_INVENTORY[0].file, '01-app-container-extraction-no-ui-drift.md');
+    assert.equal(EVAL_PROMPT_INVENTORY.at(-1)?.file, '18-detect-unresolved-seam-before-freezing-plan.md');
+});
+
+test('renderSessionPromptSet renders the managed launcher inventory from manifest data', () => {
+    const rendered = renderSessionPromptSet([
+        {
+            file: 'cleanup-plan.md',
+            linkText: 'cleanup-plan.md',
+            description: 'Tier 2 planner session for writing or refreshing a serious cleanup plan',
+        },
+        {
+            file: 'feature-review.md',
+            linkText: 'feature-review.md',
+            description: 'reusable adversarial review session for feature/design plans and implementations',
+        },
+    ]);
+
+    assert.equal(
+        rendered,
+        [
+            '- [`cleanup-plan.md`](./cleanup-plan.md)',
+            '  - Tier 2 planner session for writing or refreshing a serious cleanup plan',
+            '- [`feature-review.md`](./feature-review.md)',
+            '  - reusable adversarial review session for feature/design plans and implementations',
+        ].join('\n')
+    );
+});
+
+test('renderEvalPromptInventory renders the managed eval inventory from manifest data', () => {
+    const rendered = renderEvalPromptInventory([
+        {
+            file: '11-plex-subtitle-policy.md',
+            linkText: '11-plex-subtitle-policy',
+            title: '11 Plex Subtitle Policy',
+        },
+        {
+            file: '18-detect-unresolved-seam-before-freezing-plan.md',
+            linkText: '18-detect-unresolved-seam-before-freezing-plan',
+            title: '18 Detect Unresolved Seam Before Freezing Plan',
+        },
+    ]);
+
+    assert.equal(
+        rendered,
+        [
+            '- [`11-plex-subtitle-policy`](./prompts/11-plex-subtitle-policy.md)',
+            '  - 11 Plex Subtitle Policy',
+            '- [`18-detect-unresolved-seam-before-freezing-plan`](./prompts/18-detect-unresolved-seam-before-freezing-plan.md)',
+            '  - 18 Detect Unresolved Seam Before Freezing Plan',
+        ].join('\n')
+    );
+});
+
+test('replaceManagedSection replaces content between explicit markers', () => {
+    const content = [
+        'before',
+        '<!-- BEGIN MANAGED BLOCK -->',
+        'old',
+        '<!-- END MANAGED BLOCK -->',
+        'after',
+    ].join('\n');
+
+    const result = replaceManagedSection(content, {
+        startMarker: '<!-- BEGIN MANAGED BLOCK -->',
+        endMarker: '<!-- END MANAGED BLOCK -->',
+        replacement: 'new',
+    });
+
+    assert.equal(
+        result,
+        ['before', '<!-- BEGIN MANAGED BLOCK -->', 'new', '<!-- END MANAGED BLOCK -->', 'after'].join('\n')
+    );
 });
 
 test('checkPlanConformance reports missing required sections for serious active plans', () => {
