@@ -134,6 +134,11 @@ export const EVAL_PROMPT_INVENTORY = [
         linkText: '18-detect-unresolved-seam-before-freezing-plan',
         title: '18 Detect Unresolved Seam Before Freezing Plan',
     },
+    {
+        file: '19-multi-agent-role-selection-and-delegation-discipline.md',
+        linkText: '19-multi-agent-role-selection-and-delegation-discipline',
+        title: '19 Multi-Agent Role Selection And Delegation Discipline',
+    },
 ];
 
 export const EXPECTED_SESSION_PROMPT_FILES = SESSION_PROMPT_INVENTORY.map(({ file }) => file);

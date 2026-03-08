@@ -75,6 +75,8 @@ Build and refresh eval prompts from:
   - 17 Priority 4 Cleanup Pass No Premature Glue Removal
 - [`18-detect-unresolved-seam-before-freezing-plan`](./prompts/18-detect-unresolved-seam-before-freezing-plan.md)
   - 18 Detect Unresolved Seam Before Freezing Plan
+- [`19-multi-agent-role-selection-and-delegation-discipline`](./prompts/19-multi-agent-role-selection-and-delegation-discipline.md)
+  - 19 Multi-Agent Role Selection And Delegation Discipline
 <!-- END MANAGED EVAL PROMPT INVENTORY -->
 
 ## How To Run A Manual Eval
@@ -102,6 +104,8 @@ For the first manual baseline, run only these prompts in this order:
 Do not run all tracked prompts in the first baseline.
 
 Run [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) whenever the workflow/control-plane changes materially.
+
+Run [`19-multi-agent-role-selection-and-delegation-discipline`](./prompts/19-multi-agent-role-selection-and-delegation-discipline.md) whenever tracked multi-agent role guidance changes or `.codex/config.toml` role declarations change materially.
 
 When workflow/control-plane changes touch settings ownership boundaries, also run [`10-settings-screen-split`](./prompts/10-settings-screen-split.md) in the same manual baseline pass.
 

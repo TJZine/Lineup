@@ -113,6 +113,7 @@ Flag:
 - steps that add ceremony without clear risk reduction
 - extra prompt layers that duplicate repo docs
 - unnecessary role proliferation
+- role configs that over-expand write-capable roles or imply automatic failover without explicit fallback roles
 - places where reusable prompts should stay generic
 - places where the repo should use a task-specific run bundle instead
 
@@ -156,6 +157,7 @@ Check whether important workflow rules are actually enforced.
 Review:
 
 - [`tools/verify-docs.mjs`](../../../tools/verify-docs.mjs)
+- tracked Codex role config in [`.codex/config.toml`](../../../.codex/config.toml) and [`.codex/agents/`](../../../.codex/agents/)
 - tracked-vs-local rules
 - required control-plane files
 - session-prompt validation coverage
@@ -165,6 +167,7 @@ Flag:
 
 - workflow claims that are not mechanically checked anywhere
 - verifier gaps that allow drift in critical docs
+- verifier gaps that allow role-declaration drift, missing role config files, or read-only-role contract drift
 - checks that are too weak to catch real entropy
 - checks that are so strict they create noise without protecting quality
 
@@ -242,6 +245,7 @@ Flag:
 - claims of rigor without concrete checks
 - review prompts that encourage shallow commentary instead of bug finding
 - missing verification depth for hotspot, UI, Plex, or orchestration work
+- multi-agent guidance that normalizes unnecessary spawning, deep nesting, or unnecessary waiting
 - feedback loops that are documented but not practically usable
 
 ## Required Findings Format

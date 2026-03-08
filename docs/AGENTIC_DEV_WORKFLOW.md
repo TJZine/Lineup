@@ -77,6 +77,24 @@ This is the operating runbook for agent-driven development in Lineup.
    - when a local `docs/runs/<date>-<topic>/` bundle or eval baseline changes the workflow conclusion, write the durable lesson into a tracked workflow doc or tracked eval summary in the same pass
    - do not leave stale current-state claims behind
 
+## Multi-Agent Usage (Optional)
+
+Use Codex multi-agent support only when it improves reliability for non-critical-path sidecars; do not replace the default Tier 1/Tier 2/Tier 3 workflow with “always multi-agent”.
+
+- Keep immediate critical-path work local when the very next action depends on it.
+- Delegate independent sidecars such as targeted exploration, adversarial review, docs verification, bounded disjoint implementation slices, or long waits/polling.
+- Prefer the tracked role config in `.codex/config.toml` and `.codex/agents/*.toml`:
+  - `explorer` for read-only discovery
+  - `explorer_fallback` only when spark usage constraints block `explorer`
+  - `reviewer` for read-only adversarial review
+  - `docs_researcher` for read-only official-doc verification
+  - `worker` for bounded disjoint write scopes
+  - `monitor` for long waits/polling
+  - `monitor_fallback` only when spark usage constraints block `monitor`
+- Keep read-only roles read-only; do not route edits through exploration/review/docs/monitor roles.
+- Do not spawn nested worker trees by default (`max_depth = 1` in tracked config).
+- Wait sparingly; block only when the next critical-path action truly depends on a delegated result.
+
 ## Repo-Local Skill Usage
 
 - `architecture-boundaries`
