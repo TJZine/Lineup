@@ -1,10 +1,9 @@
 import type { IAppOrchestrator } from '../../Orchestrator';
-import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import { AudioSettingsStore } from '../../modules/settings/AudioSettingsStore';
+import { DeveloperSettingsStore } from '../../modules/settings/DeveloperSettingsStore';
 import type { ToastInput } from '../../modules/ui/toast/types';
 import {
-    readStoredBoolean,
     safeClearLineupStorage,
 } from '../../utils/storage';
 import { STORAGE_KEYS } from '../../types';
@@ -33,6 +32,7 @@ export class AppDiagnosticsSurface {
     private readonly _showToast: (input: ToastInput) => void;
     private readonly _debugOverridesStore: DebugOverridesStore;
     private readonly _audioSettingsStore = new AudioSettingsStore();
+    private readonly _developerSettingsStore = new DeveloperSettingsStore();
     private _container: HTMLElement | null = null;
     private _globalKeydownHandler: ((event: KeyboardEvent) => void) | null = null;
 
@@ -103,7 +103,7 @@ export class AppDiagnosticsSurface {
         if (__LINEUP_DEV_BUILD__) {
             return true;
         }
-        return readStoredBoolean(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, false);
+        return this._developerSettingsStore.readDebugLoggingEnabled(false);
     }
 
     private _toggleDevMenu(): void {

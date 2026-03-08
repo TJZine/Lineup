@@ -28,6 +28,7 @@ import { generateUUID } from './utils';
 import { selectBestMedia, selectBestMediaWithSubtitleStream } from './mediaSelectionPolicy';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
+import { DeveloperSettingsStore } from '../../settings/DeveloperSettingsStore';
 import {
     isStoredTrue,
     readStoredBoolean,
@@ -68,6 +69,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     private readonly _emitter: EventEmitter<StreamResolverEventMap>;
     private readonly _identityService: PlatformIdentityService;
     private readonly _audioSettingsStore = new AudioSettingsStore();
+    private readonly _developerSettingsStore = new DeveloperSettingsStore();
 
     /**
      * Create a new PlexStreamResolver instance.
@@ -132,13 +134,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     }
 
     private _isSubtitleDebugEnabled(): boolean {
-        try {
-            return isStoredTrue(
-                safeLocalStorageGet(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING)
-            );
-        } catch {
-            return false;
-        }
+        return this._developerSettingsStore.readSubtitleDebugLoggingEnabled(false);
     }
 
     private _logSubtitleDebug(event: string, context: Record<string, unknown>): void {
@@ -1394,7 +1390,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        return readStoredBoolean(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, false);
+        return this._developerSettingsStore.readDebugLoggingEnabled(false);
     }
 
     // ========================================

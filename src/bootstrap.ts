@@ -7,11 +7,11 @@
 import { App } from './App';
 import { LINEUP_EVENT_NAMES } from './config/events';
 import { LINEUP_STORAGE_KEYS } from './config/storageKeys';
+import { DeveloperSettingsStore } from './modules/settings/DeveloperSettingsStore';
 import { redactSensitiveTokens } from './utils/redact';
 import { summarizeErrorForLog } from './utils/errors';
 import {
     parseStoredBoolean,
-    readStoredBoolean,
     safeLocalStorageGet,
     safeLocalStorageRemove,
     safeLocalStorageSet,
@@ -28,12 +28,14 @@ const ORIGINAL_CONSOLE_METHODS: Record<ConsoleNoiseMethod, (...args: unknown[]) 
 };
 /* eslint-enable no-console */
 
+const developerSettingsStore = new DeveloperSettingsStore();
+
 /**
  * In lean production builds, silence noisy console output unless debug logging is explicitly enabled.
  * Keep console.error intact for real failure diagnostics.
  */
 function configureLoggingPolicy(): void {
-    const debugEnabled = readStoredBoolean(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, false);
+    const debugEnabled = developerSettingsStore.readDebugLoggingEnabled(false);
     const shouldSuppressNoise = !__LINEUP_DEV_BUILD__ && !debugEnabled;
     const noop = (..._args: unknown[]): void => undefined;
     for (const method of CONSOLE_NOISE_METHODS) {
@@ -46,8 +48,7 @@ function migrateLegacyDebugLoggingKey(): void {
     const primaryKey = LINEUP_STORAGE_KEYS.DEBUG_LOGGING;
     const legacyKey = 'lineup_debug_transcode';
 
-    const primary = parseStoredBoolean(safeLocalStorageGet(primaryKey));
-    if (primary !== null) return;
+    if (developerSettingsStore.hasDebugLoggingEnabledValue()) return;
 
     const legacy = parseStoredBoolean(safeLocalStorageGet(legacyKey));
     if (legacy === null) return;
@@ -102,7 +103,7 @@ function handlePageShow(event: PageTransitionEvent): void {
 }
 
 function isDebugSurfaceEnabled(): boolean {
-    const debugEnabled = readStoredBoolean(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, false);
+    const debugEnabled = developerSettingsStore.readDebugLoggingEnabled(false);
     return __LINEUP_DEV_BUILD__ || debugEnabled;
 }
 
