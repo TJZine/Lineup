@@ -4,6 +4,7 @@ import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
 import { PlaybackSettingsStore } from '../../settings/PlaybackSettingsStore';
 import {
     parseStoredEpgInfoBackgroundMode,
+    readStoredBooleanAndClean,
     safeLocalStorageGet,
     safeLocalStorageRemove,
     safeLocalStorageSet,
@@ -150,15 +151,7 @@ export class SettingsStore {
     }
 
     private _readBooleanKey(key: string, fallback: boolean): boolean {
-        const raw = safeLocalStorageGet(key);
-        if (raw === '1') return true;
-        if (raw === '0') return false;
-
-        if (raw !== null) {
-            safeLocalStorageRemove(key);
-        }
-
-        return fallback;
+        return readStoredBooleanAndClean(key, fallback);
     }
 
     readEpgLayoutModeValue(): 0 | 1 {

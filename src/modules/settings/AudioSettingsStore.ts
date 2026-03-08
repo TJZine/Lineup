@@ -1,5 +1,5 @@
 import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
-import { safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from '../../utils/storage';
+import { readStoredBooleanAndClean, safeLocalStorageRemove, safeLocalStorageSet } from '../../utils/storage';
 
 export class AudioSettingsStore {
     readDtsPassthroughEnabled(fallback: boolean = false): boolean {
@@ -23,14 +23,6 @@ export class AudioSettingsStore {
     }
 
     private _readBooleanKey(key: string, fallback: boolean): boolean {
-        const raw = safeLocalStorageGet(key);
-        if (raw === '1') return true;
-        if (raw === '0') return false;
-
-        if (raw !== null) {
-            safeLocalStorageRemove(key);
-        }
-
-        return fallback;
+        return readStoredBooleanAndClean(key, fallback);
     }
 }

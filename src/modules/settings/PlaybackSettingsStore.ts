@@ -1,6 +1,7 @@
 import { TRANSCODE_QUALITY_OPTIONS, getTranscodeQualityOption } from '../../config/transcodeQuality';
 import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import {
+    readStoredBooleanAndClean,
     safeLocalStorageGet,
     safeLocalStorageRemove,
     safeLocalStorageSet,
@@ -75,15 +76,7 @@ export class PlaybackSettingsStore {
     }
 
     private _readBooleanKey(key: string, fallback: boolean): boolean {
-        const raw = safeLocalStorageGet(key);
-        if (raw === '1') return true;
-        if (raw === '0') return false;
-
-        if (raw !== null) {
-            safeLocalStorageRemove(key);
-        }
-
-        return fallback;
+        return readStoredBooleanAndClean(key, fallback);
     }
 
     private _readNormalizedTranscodeQualityOption(): {
