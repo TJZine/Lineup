@@ -18,21 +18,23 @@ export function getSubtitleDelivery(
         return 'none';
     }
 
+    // NOTE: Lineup can deliver text subtitles as a sidecar track even when video is transcoding,
+    // because subtitle extraction/fetching is handled out-of-band (see docs/development/subtitles.md).
+    // `isTranscoding` is retained as a parameter for API stability but does not currently change the
+    // delivery classification on its own.
+    void isTranscoding;
+
     const format = (subtitle.format || '').toLowerCase();
+    const formatOrCodec = ((subtitle.format ?? subtitle.codec) || '').toLowerCase();
 
     // Image-based subtitles must be burned in.
-    if (BURN_IN_SUBTITLE_FORMATS.includes(format)) {
+    if (BURN_IN_SUBTITLE_FORMATS.includes(formatOrCodec)) {
         return 'burn';
     }
 
-    // Text-based subtitles can be sidecar for direct play.
-    if (TEXT_SUBTITLE_FORMATS.includes(format) && !isTranscoding) {
+    // Text-based subtitles can be delivered as a sidecar track.
+    if (TEXT_SUBTITLE_FORMATS.includes(format)) {
         return 'sidecar';
-    }
-
-    // For transcoding, server handles embedding.
-    if (isTranscoding) {
-        return 'burn';
     }
 
     return 'embed';

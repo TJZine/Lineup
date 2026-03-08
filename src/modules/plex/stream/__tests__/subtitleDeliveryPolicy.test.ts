@@ -32,8 +32,10 @@ describe('getSubtitleDelivery', () => {
         }
     });
 
-    it('returns burn for any subtitle while transcoding', () => {
-        expect(getSubtitleDelivery(streamFor('srt'), true)).toBe('burn');
+    it('returns sidecar for text formats while transcoding', () => {
+        for (const format of TEXT_SUBTITLE_FORMATS) {
+            expect(getSubtitleDelivery(streamFor(format), true)).toBe('sidecar');
+        }
     });
 
     it('returns embed for non-text/burn formats when not transcoding', () => {

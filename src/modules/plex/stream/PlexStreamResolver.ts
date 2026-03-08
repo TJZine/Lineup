@@ -341,6 +341,13 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 request.subtitleStreamId,
                 request.maxBitrate
             );
+            if (!withSubtitle && request.subtitleMode === 'burn') {
+                throw this._createError(
+                    PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND,
+                    `Subtitle stream not found: ${request.subtitleStreamId}`,
+                    true
+                );
+            }
             if (withSubtitle) {
                 selectedMedia = withSubtitle;
             }
@@ -558,6 +565,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         let videoCodec: string;
         let audioCodec: string;
         let transcodeRequestInfo: StreamDecision['transcodeRequest'] | null = null;
+        let burnInEnabled = false;
 
         const allowDirectPlay = canDirect &&
             request.directPlay !== false &&
@@ -591,6 +599,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             if (shouldBurnIn && subtitleStream?.id) {
                 options.subtitleStreamId = subtitleStream.id;
                 options.subtitleMode = 'burn';
+                burnInEnabled = true;
             }
             // Smart fallback should not force transcoding by itself. If we are already on
             // HLS (due to incompatibility/forced transcode), hide DV capabilities to
@@ -622,10 +631,9 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         // 5. Determine subtitle delivery
-        const subtitleDelivery = getSubtitleDelivery(
-            subtitleStream,
-            isTranscoding
-        );
+        const subtitleDelivery = burnInEnabled && subtitleStream
+            ? 'burn'
+            : getSubtitleDelivery(subtitleStream, isTranscoding);
 
         const rawHdrLabel = videoStream?.hdr?.trim();
         const hdrLabel = rawHdrLabel || detectHdrLabel(videoStream);
@@ -708,6 +716,12 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                         {
                             sessionId: transcodeRequestInfo.sessionId,
                             maxBitrate: transcodeRequestInfo.maxBitrate,
+                            ...(typeof transcodeRequestInfo.mediaIndex === 'number'
+                                ? { mediaIndex: transcodeRequestInfo.mediaIndex }
+                                : {}),
+                            ...(typeof transcodeRequestInfo.partIndex === 'number'
+                                ? { partIndex: transcodeRequestInfo.partIndex }
+                                : {}),
                             ...(typeof transcodeRequestInfo.audioStreamId === 'string'
                                 ? { audioStreamId: transcodeRequestInfo.audioStreamId }
                                 : {}),
@@ -984,11 +998,24 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
     async fetchUniversalTranscodeDecision(
         itemKey: string,
-        options: { sessionId: string; maxBitrate?: number; audioStreamId?: string; hideDolbyVision?: boolean }
+        options: {
+            sessionId: string;
+            maxBitrate?: number;
+            mediaIndex?: number;
+            partIndex?: number;
+            audioStreamId?: string;
+            hideDolbyVision?: boolean;
+        }
     ): Promise<NonNullable<StreamDecision['serverDecision']>> {
         const hlsOptions: HlsOptions = { sessionId: options.sessionId };
         if (typeof options.maxBitrate === 'number') {
             hlsOptions.maxBitrate = options.maxBitrate;
+        }
+        if (typeof options.mediaIndex === 'number') {
+            hlsOptions.mediaIndex = options.mediaIndex;
+        }
+        if (typeof options.partIndex === 'number') {
+            hlsOptions.partIndex = options.partIndex;
         }
         if (typeof options.audioStreamId === 'string') {
             hlsOptions.audioStreamId = options.audioStreamId;

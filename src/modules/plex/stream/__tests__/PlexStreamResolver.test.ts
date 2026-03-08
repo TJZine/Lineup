@@ -815,6 +815,43 @@ describe('PlexStreamResolver', () => {
             expect(parsed.searchParams.get('subtitleStreamID')).toBe('sub-1');
         });
 
+        it('does not request burn-in when a text subtitle is selected but burn mode is not requested', async () => {
+            const mockItem = createMockMediaItem({
+                container: 'avi',
+                videoCodec: 'mpeg4',
+                audioCodec: 'mp2',
+            });
+            const subtitleStream: PlexStream = {
+                id: 'sub-1',
+                streamType: 3,
+                codec: 'srt',
+                language: 'English',
+                languageCode: 'en',
+                format: 'srt',
+                default: true,
+            };
+            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
+
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            const decision = await resolver.resolveStream({
+                itemKey: '12345',
+                subtitleStreamId: 'sub-1',
+            });
+
+            expect(decision.isTranscoding).toBe(true);
+            expect(decision.selectedSubtitleStream?.id).toBe('sub-1');
+            expect(decision.subtitleDelivery).toBe('sidecar');
+            expect(decision.transcodeRequest?.subtitleStreamId).toBeUndefined();
+
+            const parsed = new URL(decision.playbackUrl);
+            expect(parsed.searchParams.get('subtitles')).toBe('none');
+            expect(parsed.searchParams.get('subtitleStreamID')).toBe('0');
+        });
+
         it('preserves subtitleDelivery for the selected subtitle path in resolveStream()', async () => {
             const mockItem = createMockMediaItem();
             const subtitleStream: PlexStream = {
