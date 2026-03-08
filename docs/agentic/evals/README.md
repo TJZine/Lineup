@@ -79,6 +79,8 @@ It may also be included again later as part of the Priority 4 manual baseline wh
 
 ### Feature/Design Workflow Meta-Eval
 
+This is a reusable meta-eval template. Adapt the scenario and inputs to the specific workflow/control-plane change you are validating. Dated run records belong under `baseline-summaries/`.
+
 When routing or launcher guidance for feature/design work changes, run a targeted meta-eval in a fresh session:
 
 1. Use prompt `13-risk-tiered-orchestration-and-local-only-absorption`.
@@ -91,7 +93,9 @@ When routing or launcher guidance for feature/design work changes, run a targete
 5. Treat optional launcher naming or local launcher convenience drift as out of scope for tracked success criteria (example: global launcher naming).
 6. Record the result in one tracked file under [`baseline-summaries/`](./baseline-summaries/README.md) and keep raw artifacts local-only.
 
-Example tracked summary:
+#### Examples
+
+Archival records live under [`baseline-summaries/`](./baseline-summaries/README.md).
 
 - [`baseline-summaries/2026-03-06-feature-design-workflow-rollout-meta-eval.md`](./baseline-summaries/2026-03-06-feature-design-workflow-rollout-meta-eval.md)
 
