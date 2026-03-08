@@ -716,6 +716,67 @@ describe('PlexStreamResolver', () => {
             expect(decision.selectedSubtitleStream).not.toBeNull();
             expect(decision.selectedSubtitleStream!.id).toBe('sub-1');
         });
+
+        it('keeps subtitle debug probe request options and timeout unchanged', async () => {
+            const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: jest.fn((key: string) =>
+                        key === LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING ? '1' : null
+                    ),
+                },
+                configurable: true,
+            });
+
+            const mockItem = createMockMediaItem();
+            const subtitleStream: PlexStream = {
+                id: 'sub-1',
+                streamType: 3,
+                codec: 'srt',
+                language: 'English',
+                languageCode: 'en',
+                format: 'srt',
+                key: '/library/streams/sub-1',
+                default: true,
+            };
+            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
+
+            const config = createMockConfig({
+                getAuthHeaders: () => ({
+                    'X-Plex-Token': 'mock-token',
+                    'X-Plex-Client-Identifier': 'test-client-id',
+                }),
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            mockFetch.mockResolvedValue(
+                new Response('WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nTest', {
+                    status: 200,
+                    headers: { 'content-type': 'text/vtt' },
+                })
+            );
+
+            await resolver.resolveStream({ itemKey: '12345', subtitleStreamId: 'sub-1' });
+
+            expect(mockFetch).toHaveBeenCalledWith(
+                'http://192.168.1.100:32400/library/streams/sub-1',
+                expect.objectContaining({
+                    method: 'GET',
+                    cache: 'no-store',
+                    mode: 'cors',
+                    credentials: 'omit',
+                    headers: expect.objectContaining({
+                        'X-Plex-Token': 'mock-token',
+                        'X-Plex-Client-Identifier': 'test-client-id',
+                        Accept: 'text/vtt, text/plain, */*',
+                    }),
+                    signal: expect.any(AbortSignal),
+                })
+            );
+            expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 8000);
+            setTimeoutSpy.mockRestore();
+        });
     });
 
     // ========================================
@@ -971,6 +1032,7 @@ describe('PlexStreamResolver', () => {
 
     describe('fetchUniversalTranscodeDecision', () => {
         it('should parse decision attributes from XML response', async () => {
+            const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
             const config = createMockConfig();
             const resolver = new PlexStreamResolver(config);
 
@@ -982,11 +1044,25 @@ describe('PlexStreamResolver', () => {
             });
 
             const result = await resolver.fetchUniversalTranscodeDecision('12345', { sessionId: 'sess-1', maxBitrate: 20000 });
+
+            expect(mockFetch).toHaveBeenCalledWith(
+                expect.stringContaining('/video/:/transcode/universal/decision'),
+                expect.objectContaining({
+                    method: 'GET',
+                    headers: expect.objectContaining({
+                        'X-Plex-Token': 'mock-token',
+                        Accept: 'application/json',
+                    }),
+                    signal: expect.any(AbortSignal),
+                })
+            );
+            expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 4000);
             expect(result?.decisionCode).toBe('1000');
             expect(result?.decisionText).toBe('Transcode');
             expect(result?.videoDecision).toBe('copy');
             expect(result?.audioDecision).toBe('transcode');
             expect(result?.subtitleDecision).toBe('none');
+            setTimeoutSpy.mockRestore();
         });
     });
 
@@ -1003,6 +1079,7 @@ describe('PlexStreamResolver', () => {
         });
 
         it('should DELETE transcode session when server URI is available', async () => {
+            const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
             const config = createMockConfig();
             const resolver = new PlexStreamResolver(config);
 
@@ -1015,8 +1092,17 @@ describe('PlexStreamResolver', () => {
 
             expect(mockFetch).toHaveBeenCalledWith(
                 expect.stringContaining('/transcode/sessions/sess-1'),
-                expect.objectContaining({ method: 'DELETE' })
+                expect.objectContaining({
+                    method: 'DELETE',
+                    headers: expect.objectContaining({
+                        'X-Plex-Token': 'mock-token',
+                        Accept: 'application/json',
+                    }),
+                    signal: expect.any(AbortSignal),
+                })
             );
+            expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 5000);
+            setTimeoutSpy.mockRestore();
         });
 
         it('logs a warning with session context when stopTranscodeSession fails', async () => {

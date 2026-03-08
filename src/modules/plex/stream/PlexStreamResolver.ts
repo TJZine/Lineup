@@ -42,6 +42,7 @@ import { summarizeErrorForLog } from '../../../utils/errors';
 import { redactSensitiveTokens, redactUrlForLog, safeStringifyForLog } from '../../../utils/redact';
 import { detectHdrLabel } from './hdr';
 import { getTranscodeQualityOption } from '../../../config/transcodeQuality';
+import { fetchWithTimeout } from './fetchWithTimeout';
 import {
     computeHdr10FallbackMode,
     inferHdr10BaseLayer,
@@ -192,18 +193,19 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 }
             })();
 
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000);
             try {
-                const response = await fetch(variant.url.toString(), {
-                    method: 'GET',
-                    headers: variant.headers,
-                    cache: 'no-store',
-                    // Explicitly CORS so the behavior matches what the TV browser enforces.
-                    mode: 'cors',
-                    credentials: 'omit',
-                    signal: controller.signal,
-                });
+                const response = await fetchWithTimeout(
+                    variant.url.toString(),
+                    {
+                        method: 'GET',
+                        headers: variant.headers,
+                        cache: 'no-store',
+                        // Explicitly CORS so the behavior matches what the TV browser enforces.
+                        mode: 'cors',
+                        credentials: 'omit',
+                    },
+                    8000
+                );
 
                 const contentType = response.headers.get('content-type');
                 const contentLength = response.headers.get('content-length');
@@ -306,8 +308,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                     url: redactedUrl,
                     error: message,
                 });
-            } finally {
-                clearTimeout(timeoutId);
             }
         }
     }
@@ -761,7 +761,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         try {
             const baseUri = this._selectBaseUriForMixedContent(serverUri);
             const stopUrl = new URL(`/transcode/sessions/${encodeURIComponent(trimmedSessionId)}`, baseUri);
-            const response = await this._fetchWithTimeout(
+            const response = await fetchWithTimeout(
                 stopUrl.toString(),
                 { method: 'DELETE', headers: this._config.getAuthHeaders() },
                 5000
@@ -1116,7 +1116,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             return url.toString();
         })();
 
-        const response = await this._fetchWithTimeout(
+        const response = await fetchWithTimeout(
             decisionUrl,
             { method: 'GET', headers: this._config.getAuthHeaders() },
             4000
@@ -1444,20 +1444,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             'Cannot access HTTP server from HTTPS app - no fallback available',
             false
         );
-    }
-
-    private async _fetchWithTimeout(
-        url: string,
-        options: RequestInit,
-        timeoutMs: number
-    ): Promise<Response> {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-        try {
-            return await fetch(url, { ...options, signal: controller.signal });
-        } finally {
-            clearTimeout(timeoutId);
-        }
     }
 
     private _throwIfAuthFailure(response: Response): void {
