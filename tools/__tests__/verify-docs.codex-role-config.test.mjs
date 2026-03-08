@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -87,5 +87,6 @@ test('checkTrackedCodexRoleConfig reports invalid config_file paths (must be age
         );
     } finally {
         process.chdir(previousCwd);
+        rmSync(tmpRoot, { recursive: true, force: true });
     }
 });
