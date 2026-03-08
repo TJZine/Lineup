@@ -4,11 +4,6 @@ import { ChannelPersistenceStore, type CurrentChannelWriteResult, type StoredCha
 import { CURRENT_CHANNEL_KEY, STORAGE_KEY } from './constants';
 import type { ChannelConfig, StoredChannelData } from './types';
 
-export type LoadedChannelPersistence = {
-    stored: Partial<StoredChannelData> | null;
-    savedCurrentChannelId: string | null;
-};
-
 export type LoadedChannelState = {
     data: StoredChannelData;
     didMutate: boolean;
@@ -23,18 +18,6 @@ export class ChannelRepository {
 
     setStorageKeys(storageKey: string, currentChannelKey: string): void {
         this._store.setStorageKeys(storageKey, currentChannelKey);
-    }
-
-    load(): LoadedChannelPersistence {
-        const stored = this._store.readStoredChannelData();
-        if (stored === null) {
-            return { stored: null, savedCurrentChannelId: null };
-        }
-
-        return {
-            stored,
-            savedCurrentChannelId: this._store.readCurrentChannelId(),
-        };
     }
 
     loadNormalized(): LoadedChannelState {
