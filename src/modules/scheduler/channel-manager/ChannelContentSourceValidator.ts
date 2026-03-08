@@ -15,6 +15,22 @@ export function isValidContentSource(source: unknown, depth: number = 0): source
         return false;
     }
 
+    const isNonEmptyString = (value: unknown): value is string =>
+        typeof value === 'string' && value.length > 0;
+
+    const isValidIdString = (value: unknown): value is string =>
+        isNonEmptyString(value) && value !== 'undefined';
+
+    const isValidSeasonFilter = (value: unknown): boolean => {
+        if (value === undefined) {
+            return true;
+        }
+        if (!Array.isArray(value)) {
+            return false;
+        }
+        return value.every((entry) => typeof entry === 'number' && Number.isFinite(entry) && Number.isInteger(entry) && entry > 0);
+    };
+
     const isValidManualItem = (item: unknown): boolean => {
         if (!item || typeof item !== 'object') {
             return false;
@@ -37,29 +53,35 @@ export function isValidContentSource(source: unknown, depth: number = 0): source
     };
 
     switch (type) {
-        case 'library':
+        case 'library': {
+            const libraryId = src['libraryId'];
+            const libraryType = src['libraryType'];
+            const includeWatched = src['includeWatched'];
+            const libraryFilter = src['libraryFilter'];
+
             return (
-                typeof src['libraryId'] === 'string' &&
-                (src['libraryId'] as string).length > 0 &&
-                src['libraryId'] !== 'undefined'
+                isValidIdString(libraryId) &&
+                (libraryType === 'movie' || libraryType === 'show') &&
+                typeof includeWatched === 'boolean' &&
+                (libraryFilter === undefined ||
+                    (libraryFilter !== null && typeof libraryFilter === 'object' && !Array.isArray(libraryFilter)))
             );
+        }
         case 'collection':
             return (
-                typeof src['collectionKey'] === 'string' &&
-                (src['collectionKey'] as string).length > 0 &&
-                src['collectionKey'] !== 'undefined'
+                isValidIdString(src['collectionKey']) &&
+                isNonEmptyString(src['collectionName'])
             );
         case 'show':
             return (
-                typeof src['showKey'] === 'string' &&
-                (src['showKey'] as string).length > 0 &&
-                src['showKey'] !== 'undefined'
+                isValidIdString(src['showKey']) &&
+                isNonEmptyString(src['showName']) &&
+                isValidSeasonFilter(src['seasonFilter'])
             );
         case 'playlist':
             return (
-                typeof src['playlistKey'] === 'string' &&
-                (src['playlistKey'] as string).length > 0 &&
-                src['playlistKey'] !== 'undefined'
+                isValidIdString(src['playlistKey']) &&
+                isNonEmptyString(src['playlistName'])
             );
         case 'manual':
             return (
@@ -69,6 +91,7 @@ export function isValidContentSource(source: unknown, depth: number = 0): source
             );
         case 'mixed':
             return (
+                (src['mixMode'] === 'interleave' || src['mixMode'] === 'sequential') &&
                 Array.isArray(src['sources']) &&
                 (src['sources'] as unknown[]).length > 0 &&
                 (src['sources'] as unknown[]).every((s) => isValidContentSource(s, depth + 1))
