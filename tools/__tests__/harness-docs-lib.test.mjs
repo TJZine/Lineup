@@ -70,7 +70,7 @@ test('classifyChecklistPlanPathStatus distinguishes tracked, untracked, and miss
     assert.equal(classifyChecklistPlanPathStatus({ exists: false, tracked: false }), 'missing');
 });
 
-test('buildChecklistPlanPathMessages reports untracked plan refs distinctly in strict mode', () => {
+test('buildChecklistPlanPathMessages warns for untracked plan refs in strict mode', () => {
     const result = buildChecklistPlanPathMessages(
         [
             { relativePath: 'docs/plans/tracked.md', status: 'tracked' },
@@ -80,11 +80,10 @@ test('buildChecklistPlanPathMessages reports untracked plan refs distinctly in s
         { mode: 'strict' }
     );
 
-    assert.deepEqual(result.errors, [
+    assert.deepEqual(result.errors, ['Checklist references missing tracked plan path: docs/plans/missing.md']);
+    assert.deepEqual(result.warnings, [
         'Checklist references untracked plan path: docs/plans/untracked.md (exists locally but is not tracked)',
-        'Checklist references missing tracked plan path: docs/plans/missing.md',
     ]);
-    assert.deepEqual(result.warnings, []);
 });
 
 test('buildChecklistPlanPathMessages downgrades untracked plan refs to warnings in workspace mode', () => {

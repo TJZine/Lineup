@@ -683,6 +683,34 @@ describe('verify-docs', () => {
         expect(result.stdout).not.toContain('missing required serious-plan sections');
     });
 
+    it('strict mode warns but does not fail for untracked checklist plan refs with draft content', () => {
+        const repoRoot = createRepoFixture({
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md': [
+                '# Checklist',
+                '',
+                '- [x] Example done item (plan: docs/archive/plans/example-summary.md)',
+                '- [ ] Local draft item (plan: docs/plans/example-draft.md)',
+                '',
+            ].join('\n'),
+            'docs/archive/plans/example-summary.md': [
+                '# Example Summary',
+                '',
+                'Tracked summary placeholder.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        writeRepoFile(repoRoot, 'docs/plans/example-draft.md', '# Draft scratch plan\n');
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('Documentation verification passed with warnings:');
+        expect(result.stdout).toContain('docs/plans/example-draft.md');
+        expect(result.stderr).not.toContain('Checklist references untracked plan path');
+    });
+
     it('deduplicates repeated checklist diagnostics when multiple items share one plan path', () => {
         const repoRoot = createRepoFixture({
             'ARCHITECTURE_CLEANUP_CHECKLIST.md': [

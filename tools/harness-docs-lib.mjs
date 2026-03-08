@@ -233,12 +233,7 @@ export function buildChecklistPlanPathMessages(entries, { mode = 'strict' } = {}
         }
 
         seenMessages.add(message);
-
-        if (mode === 'workspace') {
-            warnings.push(message);
-        } else {
-            errors.push(message);
-        }
+        warnings.push(message);
     }
 
     return { errors, warnings };

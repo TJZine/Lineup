@@ -61,6 +61,8 @@ Commit plans in this directory when they are part of the repo's durable memory, 
 
 If the artifact is only useful for one local execution run, keep it out of `docs/plans/` and use `docs/runs/` instead.
 
+Checklist references may temporarily point at an existing local `docs/plans/*` draft while harness evals, summaries, or follow-up cleanup are still in progress. `npm run verify:docs` warns for those local-untracked plan refs; before the local draft is removed, either promote it into tracked plan memory or update the checklist/reference note to a tracked summary or archived-plan path.
+
 ## Corpus Review Trigger
 
 You do not need to update the historical corpus review for every finished plan.
