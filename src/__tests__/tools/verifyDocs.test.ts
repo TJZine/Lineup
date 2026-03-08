@@ -192,6 +192,7 @@ function writeMutatedEvalPromptFixture(repoRoot: string): void {
         /11 Plex Subtitle Policy/u,
         '11 Plex Subtitle Policy (MUTATED)'
     );
+    expect(mutatedEvalPromptInventory).toContain('(MUTATED)');
 
     writeRepoFile(
         repoRoot,
