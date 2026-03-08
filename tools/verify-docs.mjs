@@ -90,10 +90,12 @@ function recordFsError(errors, operation, targetPath, error) {
     errors.push(`Unable to ${operation} ${targetPath}: ${message}`);
 }
 
+const FAILED_GIT = Symbol('FAILED_GIT');
+
 let cachedTrackedPlanPaths = null;
 
 function getTrackedPlanPaths(errors) {
-    if (cachedTrackedPlanPaths) {
+    if (cachedTrackedPlanPaths !== null) {
         return cachedTrackedPlanPaths;
     }
 
@@ -111,7 +113,7 @@ function getTrackedPlanPaths(errors) {
         return cachedTrackedPlanPaths;
     } catch (error) {
         recordFsError(errors, 'list tracked plan files via git', 'docs/plans docs/archive/plans', error);
-        cachedTrackedPlanPaths = new Set();
+        cachedTrackedPlanPaths = FAILED_GIT;
         return cachedTrackedPlanPaths;
     }
 }
@@ -474,6 +476,9 @@ function checkChecklistPlanPaths(errors, warnings) {
     }
 
     const trackedPlanPaths = getTrackedPlanPaths(errors);
+    if (trackedPlanPaths === FAILED_GIT) {
+        return;
+    }
     const entries = extractChecklistPlanPaths(checklist).map((relativePath) => ({
         relativePath,
         status: classifyChecklistPlanPathStatus({
@@ -488,6 +493,9 @@ function checkChecklistPlanPaths(errors, warnings) {
 
 function checkPlanArchiveCoherence(errors) {
     const trackedPlanPaths = getTrackedPlanPaths(errors);
+    if (trackedPlanPaths === FAILED_GIT) {
+        return;
+    }
     const activeFiles = Array.from(trackedPlanPaths)
         .filter((relativePath) => relativePath.startsWith('docs/plans/'))
         .filter((relativePath) => path.basename(relativePath) !== 'README.md')
@@ -542,7 +550,11 @@ function checkSkillMirrorManifest(errors) {
 }
 
 function checkSeriousPlanConformance(errors) {
-    const planFiles = Array.from(getTrackedPlanPaths(errors))
+    const trackedPlanPaths = getTrackedPlanPaths(errors);
+    if (trackedPlanPaths === FAILED_GIT) {
+        return;
+    }
+    const planFiles = Array.from(trackedPlanPaths)
         .filter((relativePath) => relativePath.startsWith('docs/plans/'))
         .map((relativePath) => path.basename(relativePath))
         .filter((name) => name.endsWith('.md') && name !== 'README.md')

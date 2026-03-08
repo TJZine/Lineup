@@ -238,10 +238,10 @@ function createRepoFixture(
         writeRepoFile(repoRoot, relativePath, content);
     }
 
-    spawnSync('git', ['init', '-q'], { cwd: repoRoot, encoding: 'utf8' });
-    spawnSync('git', ['config', 'user.email', 'verify-docs@test.local'], { cwd: repoRoot, encoding: 'utf8' });
-    spawnSync('git', ['config', 'user.name', 'Verify Docs Test'], { cwd: repoRoot, encoding: 'utf8' });
-    spawnSync('git', ['add', '.'], { cwd: repoRoot, encoding: 'utf8' });
+    runGit(['init', '-q'], repoRoot);
+    runGit(['config', 'user.email', 'verify-docs@test.local'], repoRoot);
+    runGit(['config', 'user.name', 'Verify Docs Test'], repoRoot);
+    runGit(['add', '.'], repoRoot);
 
     return repoRoot;
 }
@@ -256,6 +256,16 @@ function runVerifier(
         encoding: 'utf8',
         env,
     });
+}
+
+function runGit(args: string[], repoRoot: string, env: NodeJS.ProcessEnv | undefined = undefined): void {
+    const result = spawnSync('git', args, { cwd: repoRoot, encoding: 'utf8', env });
+    if (result.error || result.status !== 0) {
+        throw new Error(
+            `git ${args.join(' ')} failed (status=${result.status ?? 'unknown'}):\n` +
+            `stdout:\n${String(result.stdout)}\n\nstderr:\n${String(result.stderr)}`
+        );
+    }
 }
 
 describe('verify-docs', () => {
@@ -464,5 +474,44 @@ describe('verify-docs', () => {
         expect(result.status).toBe(1);
         expect(stderr).toContain('list tracked plan files via git');
         expect(stderr.match(/list tracked plan files via git/g)?.length).toBe(1);
+    });
+
+    it('fails fast when git fixture bootstrap fails', () => {
+        const repoRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-verify-docs-git-fail-'));
+        try {
+            const missingGitBinDir = path.join(repoRoot, 'no-git-bin');
+            mkdirSync(missingGitBinDir, { recursive: true });
+            const env = { ...process.env, PATH: missingGitBinDir };
+
+            expect(() => runGit(['status'], repoRoot, env)).toThrow(/git status failed/u);
+        } finally {
+            rmSync(repoRoot, { recursive: true, force: true });
+        }
+    });
+
+    it('does not emit plan-related diagnostics when tracked-plan lookup fails', () => {
+        const repoRoot = createRepoFixture({
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md': [
+                '# Checklist',
+                '',
+                '- [ ] Local draft item (plan: docs/plans/example-draft.md)',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        writeRepoFile(repoRoot, 'docs/plans/example-draft.md', '# Draft scratch plan\n');
+
+        const missingGitBinDir = path.join(repoRoot, 'no-git-bin');
+        mkdirSync(missingGitBinDir, { recursive: true });
+        const env = { ...process.env, PATH: missingGitBinDir };
+
+        const result = runVerifier(repoRoot, [], env);
+        const stderr = String(result.stderr);
+
+        expect(result.status).toBe(1);
+        expect(stderr).toContain('list tracked plan files via git');
+        expect(stderr).not.toContain('Checklist references untracked plan path');
+        expect(stderr).not.toContain('missing required serious-plan sections');
     });
 });
