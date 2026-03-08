@@ -302,10 +302,9 @@ Other review signals:
   - [ ] Remove stale components that no longer exist
   - [ ] Document the real current hotspots and intended boundaries
 - Primary work units:
-  - [ ] P7-W1 - Refresh `docs/architecture/README.md` so the top-level story matches the current app
-  - [ ] P7-W2 - Refresh `docs/architecture/modules.md` so module names and boundaries match the real source tree
-  - [ ] P7-W3 - Add explicit notes about current hotspots and intended post-cleanup ownership
-  - [ ] P7-W4 - Cleanup pass for Priority 7: remove stale references, outdated examples, and superseded wording from architecture docs once the new descriptions are complete
+  - [ ] P7-W1 - Refresh `docs/architecture/README.md`,
+  Refresh `docs/architecture/modules.md` so module names and boundaries match the real source tree,  
+  Add explicit notes about current hotspots and intended post-cleanup ownership, and a Cleanup pass for Priority 7: remove stale references, outdated examples, and superseded wording from architecture docs once the new descriptions are complete
 
 ## Priority 8: Improve Public Test Seams And Reduce Private-Probe Dependence
 
