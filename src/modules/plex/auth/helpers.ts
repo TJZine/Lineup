@@ -8,6 +8,7 @@
 import { PLEX_AUTH_CONSTANTS } from './constants';
 import { PlexAuthConfig, PlexAuthToken, PlexPinRequest, PlexHomeUser } from './interfaces';
 import { AppErrorCode } from '../../lifecycle/types';
+import { fetchWithTimeoutCore } from '../shared/fetchWithTimeoutCore';
 
 /**
  * Error class for Plex API errors.
@@ -587,42 +588,7 @@ export async function fetchWithTimeout(
     timeoutMs: number,
     externalSignal?: AbortSignal | null
 ): Promise<Response> {
-    const controller = new AbortController();
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    const onAbort = (): void => {
-        try {
-            controller.abort();
-        } catch {
-            // ignore
-        }
-    };
-
-    if (externalSignal) {
-        if (externalSignal.aborted) {
-            onAbort();
-        } else {
-            externalSignal.addEventListener('abort', onAbort, { once: true });
-        }
-    }
-
-    try {
-        timeoutId = setTimeout(() => {
-            onAbort();
-        }, timeoutMs);
-        return await fetch(url, { ...options, signal: controller.signal });
-    } finally {
-        if (timeoutId !== null) {
-            clearTimeout(timeoutId);
-        }
-        if (externalSignal) {
-            try {
-                externalSignal.removeEventListener('abort', onAbort);
-            } catch {
-                // ignore
-            }
-        }
-    }
+    return fetchWithTimeoutCore(url, options, timeoutMs, externalSignal ?? null);
 }
 
 /**

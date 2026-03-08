@@ -35,7 +35,8 @@ function pickHighestResolution(
     const mediaIndex = allMedia.findIndex((entry) => entry === media);
     if (mediaIndex < 0 && __LINEUP_DEV_BUILD__) {
         console.warn(
-            '[PlexStreamResolver] _pickHighestResolution: selected media not found in allMedia, defaulting to index 0'
+            '[mediaSelectionPolicy] mediaIndex < 0: selected media not found in allMedia; defaulting mediaIndex to 0',
+            { media, allMediaCount: allMedia.length }
         );
     }
 
