@@ -13,4 +13,10 @@ Local-only by default:
 - baseline comparison notes
 - experiment outputs
 
-Promote a baseline artifact into tracked docs only when it becomes durable reference material for the repo workflow.
+Promote only the durable summary into tracked docs. Keep the raw files here local-only.
+
+Close out each baseline run by recording:
+
+- the durable lesson learned
+- which tracked doc or tracked eval summary absorbed it
+- which raw artifacts remain intentionally local-only

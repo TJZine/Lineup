@@ -54,6 +54,16 @@ This does not require “everything in the checklist is complete.” It does req
 - remove mirrored global skills from `.agent/skills` if they are not actually useful in practice
 - keep parity only for the skills Antigravity meaningfully benefits from
 
+## Explicit Review Checkpoint
+
+Run a concrete phase-2 review checkpoint after the first tracked eval baseline summary lands or after Priority 4 stabilizes, whichever comes first.
+
+That checkpoint must decide:
+
+- whether the allowlisted Antigravity mirror still needs every mirrored global skill
+- whether the risk-tiered orchestration policy can be tightened further
+- which cleanup-era skill wording should become steady-state invariant wording
+
 ## Trigger To Revisit This Plan
 
 Revisit this document after a major cleanup milestone lands or when the team agrees the repo is in “steady-state feature mode” rather than “active structural remediation mode.”

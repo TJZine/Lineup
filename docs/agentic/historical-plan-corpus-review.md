@@ -20,6 +20,16 @@ Reviewed locally from `docs/_local/plan-import/`:
 
 These files are local source material only. This review is the tracked durable output.
 
+Additional corpus reviewed 2026-03-06:
+
+- `2026-03-05-p4-w1-settings-screen-state-view-focus-split-implementation.md`
+- `2026-03-06-p4-w2-epg-info-panel-orchestration-split-implementation.md`
+- `2026-03-06-p4-w3-channel-setup-session-flow-split-implementation.md`
+- `2026-03-06-p4-w4-ui-focus-render-primitives-consolidation-implementation.md`
+- `2026-03-06-p4-w5-priority-4-cleanup-pass-implementation.md`
+
+The completed Priority 4 section is preserved as tracked historical memory in [`2026-03-06-priority-4-ui-decomposition-section-summary.md`](../archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md). The local import files remain source material only.
+
 ## Why This Matters
 
 The imported corpus is valuable because it covers a complete refactor sequence inside one architectural priority:
@@ -93,6 +103,26 @@ Keep:
 - relevant hotspot or checklist references
 - Codanna discovery plus documented fallback when Codanna is insufficient
 
+### 7. Explicit collaborator API contracts
+
+The strongest Priority 4 plans lock the extraction seam by describing the new collaborator API before implementation starts. This is especially strong in the EPG info-panel and shared-helper plans.
+
+Keep:
+
+- explicit public surface for the new collaborator or helper
+- caller policy that must remain local instead of being centralized
+- replacement maps that show which hotspot methods/fields disappear after the extraction lands
+
+### 8. Cleanup-pass sequencing after stable owners exist
+
+The strongest cleanup-pass plans do not invent new seams. They remove transitional glue only after earlier extractions are already in place and explicitly preserved.
+
+Keep:
+
+- cleanup-pass plans that name the already-stable owners
+- cleanup work that removes bridges, dead refs, and transitional callbacks only after the new owners are proven
+- verification that is targeted at regression risk, not at new feature surface
+
 ## Anti-Patterns To Avoid
 
 ### 1. Stale repo identity and pathing
@@ -136,6 +166,26 @@ Do not keep:
 - brittle prescriptions without a freshness gate
 - instructions that assume the target file still looks exactly like it did when the plan was written
 
+### 5. Hidden seam decisions inside “0-decision” plans
+
+One Priority 4 plan exposed a real failure mode: a plan can look explicit while still hiding an unresolved ownership or contract decision. That creates contradictory scope and invites temporary adapters or dual ownership during implementation.
+
+Do not keep:
+
+- plans that treat an unresolved seam as if it were already settled
+- “mechanical wiring only” exceptions for adjacent files that are still declared out of scope
+- execution-grade plans that still require the implementer to choose which contract must widen
+
+### 6. Partial evidence and stale skill guidance
+
+Some later plans were strong structurally but still drifted on evidence and process guidance.
+
+Do not keep:
+
+- partial Codanna evidence blocks without the required fallback note
+- stale or partial skill order that conflicts with the tracked workflow
+- plan-local skill guidance that bypasses the current process-first order
+
 ## Standards To Codify From This Corpus
 
 The future plan-authoring standard should require all of the following for serious implementation plans:
@@ -164,6 +214,14 @@ The imported Priority 2 sequence should seed the first eval set in these ways:
 - `P2-W5`: cleanup pass that removes transitional glue without behavior regressions
 
 These are stronger than synthetic prompts because they test failure modes the repo has already had to manage in real work.
+
+The imported Priority 4 sequence should extend the eval set in these ways:
+
+- `P4-W2`: bounded orchestration extraction from `EPGComponent` without timer or host-switch drift
+- `P4-W3`: session-state extraction from `ChannelSetupScreen` without unresolved seam or step-controller bleed
+- `P4-W4`: shared focus/render primitive extraction without centralizing caller-specific focus policy
+- `P4-W5`: cleanup pass that removes transitional UI glue only after the stable owners are already proven
+- planning meta-eval: detect and stop on unresolved seams before freezing an execution-grade plan
 
 ## Prompt Derivation Details
 
@@ -271,6 +329,92 @@ Use the following tracked details when authoring prompts from this corpus in a f
   - deleting glue without proving the stable collaborator path is already in use
   - removing code that still encodes ordering guarantees
   - sneaking new design or feature work into a cleanup pass
+
+## Priority 4 Prompt Derivation Details
+
+### `P4-W2` EPG info-panel orchestration split
+
+- Target shape:
+  - extract info-panel orchestration from `EPGComponent` into one coordinator
+  - keep navigation, grid state, and public `EPGComponent` surface unchanged
+- Invariants:
+  - preserve classic/overlay host switching
+  - preserve immediate fast update plus deferred full update timing
+  - preserve cleanup on hide, placeholder focus, schedule clear, and destroy
+- Expected skills:
+  - `architecture-boundaries`
+  - `ui-composition-patterns`
+  - `frontend-design` in preservation mode
+- Expected verification:
+  - targeted coordinator tests
+  - targeted `EPGComponent` regression tests
+  - `npm run verify`
+- Shortcut failures:
+  - host drift between classic and overlay modes
+  - timer cleanup regressions
+  - navigation or layout responsibilities leaking into the coordinator
+
+### `P4-W3` channel-setup session-flow split
+
+- Target shape:
+  - move session state and async orchestration out of `ChannelSetupScreen`
+  - keep DOM ownership, focus ownership, and step-view rendering in the screen and focused collaborators
+- Invariants:
+  - preserve async stale-result guards, abort cleanup, and fast-path build/review routing
+  - preserve Step 2 D-pad semantics and focus ownership
+  - keep step-controller contracts stable unless the seam is explicitly widened in scope
+- Expected skills:
+  - `architecture-boundaries`
+  - `ui-composition-patterns`
+  - `brainstorming`
+- Expected verification:
+  - targeted session-controller tests
+  - targeted `ChannelSetupScreen` integration tests
+  - `npm run verify`
+- Shortcut failures:
+  - hiding an unresolved seam inside the plan
+  - dual ownership between screen and controller
+  - widening step-controller contracts while those files are declared out of scope
+
+### `P4-W4` shared focus and render primitives
+
+- Target shape:
+  - extract focus-registration bookkeeping and capped-warning rendering into shared helpers
+  - keep caller-specific focus policy in each owning screen/coordinator
+- Invariants:
+  - preserve D-pad adjacency, preferred-focus semantics, and current-focus suppression behavior
+  - preserve warning wording, DOM class names, and capping behavior
+- Expected skills:
+  - `architecture-boundaries`
+  - `ui-composition-patterns`
+- Expected verification:
+  - targeted helper tests
+  - targeted settings and channel-setup regression tests
+  - `npm run verify`
+- Shortcut failures:
+  - centralizing caller-specific focus policy into the common helper
+  - widening scope to unrelated UI modules
+  - leaving dual-path helper usage alive in migrated files
+
+### `P4-W5` Priority 4 cleanup pass
+
+- Target shape:
+  - remove placeholder wrappers, dead host refs, and transitional callback glue after `P4-W2` through `P4-W4` are already stable
+  - keep existing extracted owners intact
+- Invariants:
+  - preserve Channel Setup review/build flow and Step 2 focus graph
+  - preserve EPG info-panel host behavior
+  - avoid introducing any new long-lived collaborators
+- Expected skills:
+  - `architecture-boundaries`
+  - `ui-composition-patterns`
+- Expected verification:
+  - targeted channel-setup and EPG regression tests
+  - `npm run verify`
+- Shortcut failures:
+  - removing glue before the stable path is proven
+  - using cleanup as cover for a new redesign or ownership change
+  - deleting behavior-preserving adapters that still guard async/focus correctness
 
 ## Research Alignment
 

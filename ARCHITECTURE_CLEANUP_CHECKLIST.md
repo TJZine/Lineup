@@ -19,6 +19,9 @@ Completion rule: every implementation plan that finishes a `P#-W#` work unit mus
 - Each completed `P#-W#` must leave behind a production-valid improvement, not a throwaway seam that the next subitem immediately has to replace.
 - When a work unit is finished, mark it `[x]` and append a note with the current tracked plan path, for example:
   `(done YYYY-MM-DD; plan: docs/plans/<file>.md)`
+- Allowed historical exceptions:
+  - `(done YYYY-MM-DD; plan: unavailable-pre-bootstrap)` for pre-bootstrap units that never had tracked plans.
+  - `(done YYYY-MM-DD; plan: docs/archive/plans/<section-summary>.md)` for intentionally section-summarized completion records.
 - If that plan is later archived, update the note to the archived path in the same pass.
 - Use the new repo skills before architecture-affecting work:
   - `architecture-boundaries`
@@ -29,27 +32,31 @@ Completion rule: every implementation plan that finishes a `P#-W#` work unit mus
 ## Agent Workflow
 
 - Start with the superpowers workflow: `using-superpowers`, then `brainstorming`, then the matching repo-local architecture skill(s).
+- For serious cleanup planning, follow that skill order with `writing-plans`; do not substitute `writing-plans` for the earlier process/boundary skills.
 - Use [`docs/architecture/CURRENT_STATE.md`](./docs/architecture/CURRENT_STATE.md) as the current architecture truth and this checklist as the active backlog/status surface.
 - Do a repo evidence sweep before planning.
+- If the work depends on an unresolved architecture seam or adjacent contract change, resolve that boundary first instead of hiding it inside a “decision-point-free” plan.
 - Produce or refresh a concrete, decision-point-free plan under `docs/plans/` (use the writing-plans skill) before coding. The plan must be explicit enough for less-capable agents to execute without ambiguity.
+- In every serious tracked plan, record the Codanna evidence trail (queries/tools used, key symbols/files found, and fallback evidence when Codanna is unavailable/insufficient) plus any fallback reads used for checklist/doc context.
 - Keep scope limited to one work unit at a time.
 - In every plan, explicitly state how the selected `P#-W#` advances the durable end-state of its parent Priority section.
+- If adjacent files may need type/contract wiring, either put them in scope explicitly or freeze them explicitly and explain how the task still works.
 - Favor durable collaborators/stores/binders that later work units can extend; avoid temporary adapters or one-off abstractions that will need immediate replacement inside the same Priority section.
 - Only mark completion after the required verification for that unit actually passes.
-- Before closing the work, update the matching `P#-W#` entry in this file to `[x]` and append the required plan-path note. If the plan is archived later, update the referenced path in the same pass.
+- Before closing the work, update the matching `P#-W#` entry in this file to `[x]` and append the required plan-path note using one of the allowed completion-note forms above. If the plan is archived later, update the referenced path in the same pass.
 
 ## Evidence Snapshot
 
-The largest structural hotspots found during review were:
+The largest structural hotspots from the current snapshot (2026-03-07) were:
 
-- `src/Orchestrator.ts` at 2,713 lines
-- `src/App.ts` at 1,434 lines
-- `src/modules/ui/epg/EPGComponent.ts` at 1,864 lines
-- `src/modules/plex/stream/PlexStreamResolver.ts` at 1,749 lines
-- `src/modules/scheduler/channel-manager/ChannelManager.ts` at 1,565 lines
-- `src/modules/ui/settings/SettingsScreen.ts` at 1,399 lines
-- `src/modules/ui/channel-setup/ChannelSetupScreen.ts` at 1,447 lines
+- `src/Orchestrator.ts` at 2,592 lines
+- `src/modules/ui/epg/EPGComponent.ts` at 1,920 lines
+- `src/modules/plex/stream/PlexStreamResolver.ts` at 1,733 lines
+- `src/modules/scheduler/channel-manager/ChannelManager.ts` at 1,583 lines
 - `src/modules/player/VideoPlayer.ts` at 1,252 lines
+- `src/modules/ui/channel-setup/ChannelSetupScreen.ts` at 1,052 lines
+- `src/modules/ui/settings/SettingsScreen.ts` at 735 lines
+- `src/App.ts` at 611 lines
 
 Other review signals:
 
@@ -100,12 +107,12 @@ Other review signals:
   - [ ] Reduce `AppOrchestrator` state and private method count
   - [ ] Verify event wiring remains traceable
 - Primary work units:
-  - [x] P1-W1 - Extract program-start sequencing into a focused playback-start controller (done 2026-03-02; plan: docs/plans/2026-03-02-playback-start-controller-implementation.md)
-  - [x] P1-W2 - Move player event handlers into a playback runtime controller while keeping subscriptions in place (done 2026-03-02; plan: docs/plans/2026-03-02-playback-runtime-controller-implementation.md)
-  - [x] P1-W3 - Move pause/resume and in-flight playback coordination into the same runtime boundary (done 2026-03-02; plan: docs/plans/2026-03-02-playback-runtime-lifecycle-coordination-implementation.md)
-  - [x] P1-W4 - Extract `_setupEventWiring()` and the `_wire*Events()` methods into a dedicated event binder (done 2026-03-02; plan: docs/plans/2026-03-02-orchestrator-event-binder-implementation.md)
-  - [x] P1-W5 - Extract remaining overlay/runtime helper policies (badge visibility, modal toggles, profile-switch cleanup) (done 2026-03-03; plan: docs/plans/2026-03-03-p1-w5-overlay-runtime-policy-extraction-implementation.md)
-  - [x] P1-W6 - Cleanup pass for Priority 1: remove temporary delegation shims, transitional fields, obsolete helper methods, and no-longer-needed compatibility wiring created during the P1 refactors (done 2026-03-03; plan: docs/plans/2026-03-03-p1-w6-priority-1-cleanup-pass-implementation.md)
+  - [x] P1-W1 - Extract program-start sequencing into a focused playback-start controller (done 2026-03-02; plan: unavailable-pre-bootstrap)
+  - [x] P1-W2 - Move player event handlers into a playback runtime controller while keeping subscriptions in place (done 2026-03-02; plan: unavailable-pre-bootstrap)
+  - [x] P1-W3 - Move pause/resume and in-flight playback coordination into the same runtime boundary (done 2026-03-02; plan: unavailable-pre-bootstrap)
+  - [x] P1-W4 - Extract `_setupEventWiring()` and the `_wire*Events()` methods into a dedicated event binder (done 2026-03-02; plan: unavailable-pre-bootstrap)
+  - [x] P1-W5 - Extract remaining overlay/runtime helper policies (badge visibility, modal toggles, profile-switch cleanup) (done 2026-03-03; plan: unavailable-pre-bootstrap)
+  - [x] P1-W6 - Cleanup pass for Priority 1: remove temporary delegation shims, transitional fields, obsolete helper methods, and no-longer-needed compatibility wiring created during the P1 refactors (done 2026-03-03; plan: unavailable-pre-bootstrap)
 
 ## Priority 2: Split App Shell Responsibilities
 
@@ -134,11 +141,11 @@ Other review signals:
   - [ ] Reduce app shell knowledge of feature-specific UI details
   - [ ] Verify screen visibility and overlay behavior still match current flow
 - Primary work units:
-  - [x] P2-W1 - Extract app container creation into a dedicated factory/helper (done 2026-03-03; plan: docs/plans/2026-03-03-p2-w1-app-container-factory-implementation.md)
-  - [x] P2-W2 - Extract screen loading and lazy-screen caching into a screen registry/loader (done 2026-03-03; plan: docs/plans/2026-03-03-p2-w2-screen-registry-loader-implementation.md)
-  - [x] P2-W3 - Extract toast and blocking error overlay presentation out of `App` (done 2026-03-03; plan: docs/plans/2026-03-03-p2-w3-toast-blocking-error-overlay-presentation-extraction-implementation.md)
-  - [x] P2-W4 - Isolate the dev menu / diagnostics surface from the runtime app shell (done 2026-03-03; plan: docs/plans/2026-03-03-p2-w4-dev-menu-diagnostics-surface-isolation-implementation.md)
-  - [x] P2-W5 - Cleanup pass for Priority 2: remove temporary pass-through helpers, dead container references, and transitional app-shell glue introduced while splitting `App` (done 2026-03-03; plan: docs/plans/2026-03-03-p2-w5-priority-2-app-shell-cleanup-pass-implementation.md)
+  - [x] P2-W1 - Extract app container creation into a dedicated factory/helper (done 2026-03-03; plan: unavailable-pre-bootstrap)
+  - [x] P2-W2 - Extract screen loading and lazy-screen caching into a screen registry/loader (done 2026-03-03; plan: unavailable-pre-bootstrap)
+  - [x] P2-W3 - Extract toast and blocking error overlay presentation out of `App` (done 2026-03-03; plan: unavailable-pre-bootstrap)
+  - [x] P2-W4 - Isolate the dev menu / diagnostics surface from the runtime app shell (done 2026-03-03; plan: unavailable-pre-bootstrap)
+  - [x] P2-W5 - Cleanup pass for Priority 2: remove temporary pass-through helpers, dead container references, and transitional app-shell glue introduced while splitting `App` (done 2026-03-03; plan: unavailable-pre-bootstrap)
 
 ## Priority 3: Introduce Real Persistence Boundaries
 
@@ -173,11 +180,11 @@ Other review signals:
   - [ ] Replace direct feature-module storage access with injected boundary
   - [ ] Add tests for valid, invalid, default, and blocked-storage cases
 - Primary work units:
-  - [x] P3-W1 - Introduce `SettingsStore` and remove direct settings parsing from `SettingsScreen` (done 2026-03-04; plan: docs/plans/2026-03-04-p3-w1-settings-store-implementation.md)
-  - [x] P3-W2 - Extract debug-override storage into a dedicated store (done 2026-03-05; plan: docs/plans/2026-03-05-p3-w2-debug-overrides-store-implementation.md)
-  - [x] P3-W3 - Add a repository/store for selected server and server health state (done 2026-03-05; plan: docs/plans/2026-03-05-p3-w3-server-selection-health-store-implementation.md)
-  - [x] P3-W4 - Introduce a dedicated channel persistence boundary and route one caller through it (done 2026-03-05; plan: docs/plans/2026-03-05-p3-w4-channel-persistence-boundary-implementation.md)
-  - [x] P3-W5 - Cleanup pass for Priority 3: remove leftover raw storage access, duplicate key knowledge, temporary adapters, and obsolete parsing helpers after the persistence boundaries are in place (done 2026-03-05; plan: docs/plans/2026-03-05-p3-w5-priority-3-persistence-cleanup-pass-implementation.md)
+  - [x] P3-W1 - Introduce `SettingsStore` and remove direct settings parsing from `SettingsScreen` (done 2026-03-04; plan: unavailable-pre-bootstrap)
+  - [x] P3-W2 - Extract debug-override storage into a dedicated store (done 2026-03-04; plan: unavailable-pre-bootstrap)
+  - [x] P3-W3 - Add a repository/store for selected server and server health state (done 2026-03-05; plan: unavailable-pre-bootstrap)
+  - [x] P3-W4 - Introduce a dedicated channel persistence boundary and route one caller through it (done 2026-03-05; plan: unavailable-pre-bootstrap)
+  - [x] P3-W5 - Cleanup pass for Priority 3: remove leftover raw storage access, duplicate key knowledge, temporary adapters, and obsolete parsing helpers after the persistence boundaries are in place (done 2026-03-05; plan: unavailable-pre-bootstrap)
 
 ## Priority 4: Decompose The Largest UI Classes
 
@@ -208,11 +215,11 @@ Other review signals:
   - [ ] Keep focus cleanup ownership explicit
   - [ ] Re-test the affected navigation flow after each extraction
 - Primary work units:
-  - [ ] P4-W1 - Split `SettingsScreen` into storage/state ownership vs view/focus ownership
-  - [ ] P4-W2 - Split one bounded concern out of `EPGComponent` (recommended: navigation or info-panel orchestration)
-  - [ ] P4-W3 - Split one bounded concern out of `ChannelSetupScreen` (recommended: step orchestration vs view rendering)
-  - [ ] P4-W4 - Consolidate repeated focus/render helpers into reusable UI primitives only after the first three extractions are stable
-  - [ ] P4-W5 - Cleanup pass for Priority 4: remove placeholder view glue, dead DOM refs, temporary focus bridges, and transitional UI conditionals introduced during the screen splits
+  - [x] P4-W1 - Split `SettingsScreen` into storage/state ownership vs view/focus ownership (done 2026-03-05; plan: docs/archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md)
+  - [x] P4-W2 - Split one bounded concern out of `EPGComponent` (recommended: navigation or info-panel orchestration) (done 2026-03-06; plan: docs/archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md)
+  - [x] P4-W3 - Split one bounded concern out of `ChannelSetupScreen` (recommended: step orchestration vs view rendering) (done 2026-03-06; plan: docs/archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md)
+  - [x] P4-W4 - Consolidate repeated focus/render helpers into reusable UI primitives only after the first three extractions are stable (done 2026-03-06; plan: docs/archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md)
+  - [x] P4-W5 - Cleanup pass for Priority 4: remove placeholder view glue, dead DOM refs, temporary focus bridges, and transitional UI conditionals introduced during the screen splits (done 2026-03-06; plan: docs/archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md)
 
 ## Priority 5: Break PlexStreamResolver Into A Pipeline Of Policies
 

@@ -7,7 +7,6 @@
  */
 
 import { EPGComponent } from '../EPGComponent';
-import { EPGInfoPanel } from '../EPGInfoPanel';
 import { EPG_CLASSES } from '../constants';
 import type { ScheduledProgram, ScheduleWindow, ChannelConfig, EPGConfig } from '../types';
 
@@ -100,33 +99,23 @@ describe('EPGComponent', () => {
         }
     });
 
-    it('wires the resolved layout mode into the shared info panel presentation mode', () => {
-        const { epg: localEpg, container: localContainer } = createEpgInstance({
-            containerId: 'epg-container-presentation-mode-plumbing',
-            layoutMode: 'classic',
-            getCurrentChannelInfo: () => ({
-                channelNumber: 7,
-                channelName: 'News',
-                programTitle: 'Morning Report',
-                timeLabel: '8:00 - 9:00',
-            }),
-        });
+    it('applies classic presentation behavior on show and overlay presentation behavior after layout switch', () => {
+        const channel = createMockChannel(0);
+        epg.loadChannels([channel]);
+        epg.loadScheduleForChannel(channel.id, createDetailedSchedule(channel.id));
+        epg.setLayoutMode('classic');
 
-        try {
-            const setPresentationModeSpy = jest.spyOn(
-                (localEpg as unknown as { infoPanel: EPGInfoPanel }).infoPanel,
-                'setPresentationMode'
-            );
+        epg.show();
+        epg.focusProgram(0, 0);
 
-            localEpg.show();
-            expect(setPresentationModeSpy).toHaveBeenCalledWith('classic');
+        const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
+        expect(poster.style.display).toBe('none');
+        expect(poster.getAttribute('src')).toBeNull();
 
-            localEpg.setLayoutMode('overlay');
-            expect(setPresentationModeSpy).toHaveBeenLastCalledWith('overlay');
-        } finally {
-            localEpg.destroy();
-            localContainer.remove();
-        }
+        epg.setLayoutMode('overlay');
+
+        expect(poster.style.display).toBe('block');
+        expect(poster.getAttribute('src')).toContain('poster-a.jpg');
     });
 
     const createMockChannel = (index: number): ChannelConfig => ({
@@ -848,6 +837,26 @@ describe('EPGComponent', () => {
 
             epg.focusProgram(0, 0);
             epg.hide();
+
+            jest.advanceTimersByTime(250);
+
+            const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
+            const description = container.querySelector('.epg-info-description') as HTMLElement;
+            const inner = description.querySelector('.epg-info-description-inner') as HTMLElement;
+
+            expect(poster.getAttribute('src')).toContain('poster-a.jpg');
+            expect(inner.textContent?.trim()).toBe('');
+        });
+
+        it('timer cleared when schedules are cleared', () => {
+            const channel = createMockChannel(0);
+            epg.loadChannels([channel]);
+            epg.loadScheduleForChannel(channel.id, createDetailedSchedule(channel.id));
+            epg.setLayoutMode('overlay');
+            epg.show();
+
+            epg.focusProgram(0, 0);
+            epg.clearSchedules();
 
             jest.advanceTimersByTime(250);
 

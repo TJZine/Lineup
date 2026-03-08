@@ -28,7 +28,7 @@ describe('BuildProgressStepController', () => {
         const startBuild = jest.fn().mockRejectedValue(new Error('boom'));
         const deps: BuildProgressDeps = {
             state: { isBuilding: true },
-            registerFocusables: jest.fn(),
+            registerLinearFocusables: jest.fn(),
             onCancelOrBack: jest.fn(),
             onDone: jest.fn(),
             startBuild,
@@ -57,7 +57,7 @@ describe('BuildProgressStepController', () => {
         const startBuild = jest.fn().mockRejectedValue(new DOMException('Aborted', 'AbortError'));
         const deps: BuildProgressDeps = {
             state: { isBuilding: true },
-            registerFocusables: jest.fn(),
+            registerLinearFocusables: jest.fn(),
             onCancelOrBack: jest.fn(),
             onDone: jest.fn(),
             startBuild,

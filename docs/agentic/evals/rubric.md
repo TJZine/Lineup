@@ -8,6 +8,15 @@ Allowed outcomes:
 - `soft-fail`
 - `fail`
 
+## Blocker Failures
+
+Score the overall run as `fail` if any of these happen:
+
+- skipped risk-matched verification (verification depth not aligned to task risk; see `Verification Selection`)
+- raw local-only artifact leakage into tracked docs
+- local-only boundary leakage into tracked docs (enforced in `tools/verify-docs.mjs` via `isForbiddenLocalOnlyTarget()`)
+- architecture boundary leakage defined by prompt-specific fail conditions and `Boundary And Skill Selection`
+
 ## Discovery Quality
 
 - `pass`: the agent found the right surfaces quickly and did not miss obvious ownership or hotspot context

@@ -1,4 +1,5 @@
 import type { FocusableElement } from '../../../navigation/interfaces';
+import { syncFocusableRegistry } from '../../common/focus/syncFocusableRegistry';
 import { scrollToNearest } from './scrollToNearest';
 import type { FocusCoordinatorDeps } from './types';
 
@@ -33,18 +34,13 @@ export class ChannelSetupFocusCoordinator {
             return false;
         }
 
-        for (const id of this._registeredIds) {
-            nav.unregisterFocusable(id);
-        }
-        this._registeredIds = [];
-
         const focusableButtons = [...categoryButtons, ...detailButtons, ...footerButtons]
             .filter((button) => !button.disabled);
-        this._registeredIds = focusableButtons.map((button) => button.id);
 
         const detailIdSet = new Set<string>(
             detailButtons.filter((button) => !button.disabled).map((button) => button.id)
         );
+        const entries: FocusableElement[] = [];
         for (const [index, button] of focusableButtons.entries()) {
             const neighbors: FocusableElement['neighbors'] = {};
             const up = index > 0 ? focusableButtons[index - 1] : undefined;
@@ -65,7 +61,7 @@ export class ChannelSetupFocusCoordinator {
                 neighbors.left = activeCategoryId;
             }
 
-            nav.registerFocusable({
+            entries.push({
                 id: button.id,
                 element: button,
                 neighbors,
@@ -77,6 +73,7 @@ export class ChannelSetupFocusCoordinator {
                 },
             });
         }
+        this._registeredIds = syncFocusableRegistry(nav, this._registeredIds, entries);
 
         return this._setPreferredOrFirst(nav, focusableButtons, preferredFocusId);
     }
@@ -84,9 +81,7 @@ export class ChannelSetupFocusCoordinator {
     unregisterAll(): void {
         const nav = this._deps.getNavigation();
         if (nav) {
-            for (const id of this._registeredIds) {
-                nav.unregisterFocusable(id);
-            }
+            this._registeredIds = syncFocusableRegistry(nav, this._registeredIds, []);
         }
         this._registeredIds = [];
     }
@@ -102,17 +97,11 @@ export class ChannelSetupFocusCoordinator {
             return false;
         }
 
-        for (const id of this._registeredIds) {
-            nav.unregisterFocusable(id);
-        }
-        this._registeredIds = [];
-
         const focusableButtons = buttons.filter(
             (button): button is HTMLButtonElement =>
                 button instanceof HTMLButtonElement && !button.disabled
         );
-        this._registeredIds = focusableButtons.map((button) => button.id);
-
+        const entries: FocusableElement[] = [];
         for (const [index, button] of focusableButtons.entries()) {
             const focusable: FocusableElement = {
                 id: button.id,
@@ -132,8 +121,9 @@ export class ChannelSetupFocusCoordinator {
                     focusable.neighbors.down = down.id;
                 }
             }
-            nav.registerFocusable(focusable);
+            entries.push(focusable);
         }
+        this._registeredIds = syncFocusableRegistry(nav, this._registeredIds, entries);
 
         return this._setPreferredOrFirst(nav, focusableButtons, preferredFocusId);
     }

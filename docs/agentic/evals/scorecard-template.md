@@ -10,6 +10,15 @@
 
 ## Outcome
 
+## Regression Vs Previous Baseline
+
+- Baseline ID:
+- Key Metrics Before/After (with deltas):
+- Pass/Fail flag:
+- Short summary:
+- Recommended action items:
+- Example: `B-2026-03-01 -> B-2026-03-07 | pass: 5->7 (+2), soft-fail: 2->1 (-1), fail: 1->0 (-1) | Pass | Codanna fallback logging improved; keep verification depth strict`
+
 ## Dimension Scores
 
 ### Discovery Quality
@@ -51,3 +60,9 @@
 ## Failure Notes
 
 ## Follow-Up
+
+## Tracked Summary Path
+
+- Use a repo-relative path to the tracked baseline summary markdown file (preferred format).
+- Example: `docs/agentic/evals/baseline-summaries/2026-03-07-manual-baseline.md`
+- Use `none` only when no tracked summary was intentionally created for this run.

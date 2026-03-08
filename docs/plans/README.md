@@ -35,6 +35,7 @@ Archive a tracked plan when all of the following are true:
 - the plan is not needed in the main `docs/plans/` directory for current-day execution
 
 Use `npm run plans:stale` as a non-blocking maintenance report to spot older plan files that may be ready for archive review. The report is heuristic only; it does not decide archival status for you.
+Use `npm run plans:check` to validate that active serious plans still satisfy the tracked plan-authoring standard.
 
 Before archiving:
 

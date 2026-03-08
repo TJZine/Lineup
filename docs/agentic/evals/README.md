@@ -27,10 +27,14 @@ Build and refresh eval prompts from:
   - tracked eval prompt definitions
 - `baselines/`
   - local-only baseline run outputs by default
+- `baseline-summaries/`
+  - tracked baseline summaries only
 - [`rubric.md`](./rubric.md)
   - tracked scoring rubric
 - [`scorecard-template.md`](./scorecard-template.md)
   - tracked template for manual scoring
+- [`baseline-summary-template.md`](./baseline-summary-template.md)
+  - tracked template for baseline summaries
 
 ## How To Run A Manual Eval
 
@@ -39,19 +43,57 @@ Build and refresh eval prompts from:
 3. Start a fresh session for each prompt you score.
 4. Record the agent surface used.
 5. Record whether the expected skills and Codanna workflow were actually used.
-6. Score the run with [`rubric.md`](./rubric.md) and [`scorecard-template.md`](./scorecard-template.md).
-7. Keep raw baseline artifacts local-only unless they are intentionally promoted later.
+6. If Codanna fallback is used, log the exact invocation, acceptable condition, and fallback evidence path.
+7. Score only fresh-session runs or explicitly logged Codanna-fallback runs.
+8. Score the run with [`rubric.md`](./rubric.md) and [`scorecard-template.md`](./scorecard-template.md).
+9. Write one tracked summary file under [`docs/agentic/evals/baseline-summaries/`](./baseline-summaries/README.md) using [`baseline-summary-template.md`](./baseline-summary-template.md), including fallback usage and fresh-session deviations.
+10. Keep raw baseline artifacts local-only unless they are intentionally promoted later.
 
 For the first manual baseline, run only these prompts in this order:
 
-1. `01-app-container-extraction-no-ui-drift`
-2. `03-overlay-toast-extraction-no-timer-leaks`
-3. `04-diagnostics-surface-isolation-no-storage-slop`
-4. `07-settings-storage-boundary`
-5. `11-plex-subtitle-policy`
-6. `12-architecture-doc-refresh`
+1. [`01-app-container-extraction-no-ui-drift`](./prompts/01-app-container-extraction-no-ui-drift.md)
+2. [`03-overlay-toast-extraction-no-timer-leaks`](./prompts/03-overlay-toast-extraction-no-timer-leaks.md)
+3. [`04-diagnostics-surface-isolation-no-storage-slop`](./prompts/04-diagnostics-surface-isolation-no-storage-slop.md)
+4. [`07-settings-storage-boundary`](./prompts/07-settings-storage-boundary.md)
+5. [`11-plex-subtitle-policy`](./prompts/11-plex-subtitle-policy.md)
+6. [`12-architecture-doc-refresh`](./prompts/12-architecture-doc-refresh.md)
 
-Do not run all 12 prompts in the first baseline.
+Do not run all tracked prompts in the first baseline.
+
+Run [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) whenever the workflow/control-plane changes materially.
+
+When workflow/control-plane changes touch settings ownership boundaries, also run [`10-settings-screen-split`](./prompts/10-settings-screen-split.md) in the same manual baseline pass.
+
+Priority 4 prompt additions can be run as a second manual baseline when validating UI-class decomposition and cleanup-pass behavior:
+
+- [`10-settings-screen-split`](./prompts/10-settings-screen-split.md)
+- [`14-epg-info-panel-orchestration-no-host-drift`](./prompts/14-epg-info-panel-orchestration-no-host-drift.md)
+- [`15-channel-setup-session-owner-no-step-controller-bleed`](./prompts/15-channel-setup-session-owner-no-step-controller-bleed.md)
+- [`16-shared-ui-primitives-no-policy-centralization`](./prompts/16-shared-ui-primitives-no-policy-centralization.md)
+- [`17-priority-4-cleanup-pass-no-premature-glue-removal`](./prompts/17-priority-4-cleanup-pass-no-premature-glue-removal.md)
+- [`18-detect-unresolved-seam-before-freezing-plan`](./prompts/18-detect-unresolved-seam-before-freezing-plan.md)
+
+Note: [`10-settings-screen-split`](./prompts/10-settings-screen-split.md) is an ad-hoc trigger prompt.
+Run it whenever a change touches settings ownership boundaries (even outside the Priority 4 batch).
+It may also be included again later as part of the Priority 4 manual baseline when you want broader UI-class decomposition validation; running it in both contexts is allowed when appropriate.
+
+### Feature/Design Workflow Meta-Eval
+
+When routing or launcher guidance for feature/design work changes, run a targeted meta-eval in a fresh session:
+
+1. Use prompt `13-risk-tiered-orchestration-and-local-only-absorption`.
+2. Use a scenario that forces explicit routing among cleanup/refactor vs feature/design vs mixed.
+3. Require the agent to choose task family first, then orchestration tier.
+4. Verify success criteria focus on tracked docs/workflow behavior only:
+   - correct routing choice
+   - correct tier choice
+   - no local-only artifact promotion mistakes
+5. Treat optional launcher naming or local launcher convenience drift as out of scope for tracked success criteria (example: global launcher naming).
+6. Record the result in one tracked file under [`baseline-summaries/`](./baseline-summaries/README.md) and keep raw artifacts local-only.
+
+Example tracked summary:
+
+- [`baseline-summaries/2026-03-06-feature-design-workflow-rollout-meta-eval.md`](./baseline-summaries/2026-03-06-feature-design-workflow-rollout-meta-eval.md)
 
 ## Scoring Model
 
@@ -70,6 +112,8 @@ Tracked:
 - prompt definitions
 - rubric
 - scorecard template
+- baseline summary template
+- baseline summary files
 
 Local-only by default:
 
@@ -79,10 +123,23 @@ Local-only by default:
 
 Promote only short durable summaries when recurring failures justify a tracked workflow change.
 
+## Ownership And Cadence
+
+- The operator who runs the baseline owns writing the tracked summary in the same pass.
+- During active cleanup, rerun the seed baseline after a material harness/control-plane change and at least once per month.
+- If a baseline changes the workflow conclusion, update the relevant tracked doc or skill guidance before closeout.
+- For this meta-eval, the operator must include date, prompt(s) run, result, main misses, and workflow/docs changed in response in the tracked summary.
+
 Manual baseline protocol:
 
 - use a fresh session per prompt
 - start from repo root each time
 - do not reuse prompt threads
+- log Codanna fallback usage explicitly when it happens
+- treat scoring as valid only for fresh-session runs or explicitly logged fallback runs
 - store raw result artifacts locally under `docs/agentic/evals/baselines/`
 - do not commit raw baseline files
+- close out the run by recording:
+  - the durable lesson learned
+  - which tracked doc absorbed it
+  - which raw artifacts remain intentionally local-only

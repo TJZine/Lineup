@@ -51,6 +51,8 @@ This eval set is separate from product testing:
 - product tests prove application behavior
 - agent evals prove workflow quality, boundary discipline, and slop resistance
 
+Keep raw eval outputs local-only, but write a tracked baseline summary after each manual baseline run.
+
 ## When to Refactor the Test Suite
 
 Default posture: avoid suite-wide refactors unless there is clear pain.

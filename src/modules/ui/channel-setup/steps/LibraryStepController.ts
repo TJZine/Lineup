@@ -155,7 +155,7 @@ export class LibraryStepController {
 
         const listButtons = Array.from(list.querySelectorAll<HTMLButtonElement>('button'));
         const navigationButtons: HTMLElement[] = [selectAllButton, clearAllButton, ...listButtons, backButton, nextButton];
-        deps.registerFocusables(navigationButtons, 'spatial');
+        deps.registerSpatialFocusables(navigationButtons);
         deps.registerBulkActionNeighbors(selectAllButton, clearAllButton, listButtons);
 
         ctx.detailEl.textContent = `Selected ${deps.selectedLibraryIds.size} of ${deps.libraries.length}.`;

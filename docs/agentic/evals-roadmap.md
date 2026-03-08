@@ -66,11 +66,106 @@ Pass conditions:
 - policy stays inside Plex-facing modules
 - no transport or URL-construction logic leaks into callers
 
+### 5. Harness Choice And Local-Only Absorption
+
+Prompt shape:
+
+- ask the agent to make a bounded workflow/control-plane update and choose the lightest valid orchestration tier
+
+Pass conditions:
+
+- the agent does not escalate to the full controller loop without real risk
+- raw run-bundle or eval artifacts remain local-only
+- any durable workflow lesson is promoted into the right tracked doc or tracked eval summary
+
+### 6. Feature-vs-Cleanup Routing And Tier Selection
+
+Prompt shape:
+
+- use a workflow/control-plane task that could be misrouted as cleanup
+- force explicit routing among cleanup/refactor, feature/design, and mixed
+- require tier choice after routing, not before
+
+Pass conditions:
+
+- the agent routes task family correctly before selecting tier
+- feature/design work uses `feature-plan`/`feature-review` guidance rather than defaulting to cleanup prompts
+- mixed tasks keep cleanup prompts scoped only to the cleanup slice
+- optional global launcher convenience does not become tracked success criteria
+
+## Priority 4 Expansion Set
+
+Use the archived Priority 4 section and the P4 addendum in [`docs/agentic/historical-plan-corpus-review.md`](./historical-plan-corpus-review.md) to extend the eval surface when validating large-UI decomposition behavior.
+
+### 7. EPG Info-Panel Orchestration Without Host Drift
+
+Prompt shape:
+
+- ask the agent to extract bounded info-panel orchestration from `EPGComponent`
+
+Pass conditions:
+
+- host switching between overlay/classic stays correct
+- immediate and deferred info-panel updates preserve current behavior
+- timer cleanup remains explicit on hide, placeholder focus, and destroy
+
+### 8. Channel Setup Session Owner Without Step-Controller Bleed
+
+Prompt shape:
+
+- ask the agent to split session state and async orchestration out of `ChannelSetupScreen`
+
+Pass conditions:
+
+- the agent detects and resolves any seam involving step-controller contracts before freezing execution
+- no dual ownership remains between screen and session controller
+- step-view collaborators do not absorb session-policy responsibilities by shortcut
+
+### 9. Shared UI Primitives Without Policy Centralization
+
+Prompt shape:
+
+- ask the agent to extract repeated focus/render helpers into shared UI primitives
+
+Pass conditions:
+
+- shared helpers stay narrow
+- caller-specific focus policy remains with the caller
+- the agent resists widening scope into unrelated UI modules
+
+### 10. Cleanup Pass Only After Stable Owners Exist
+
+Prompt shape:
+
+- ask the agent to remove transitional UI glue after an extraction sequence
+
+Pass conditions:
+
+- cleanup only removes bridges after the stable owner path is proven
+- no new long-lived collaborators are introduced
+- the agent preserves async/focus correctness while deleting glue
+
+### 11. Detect Unresolved Seams Before Freezing The Plan
+
+Prompt shape:
+
+- ask the agent to draft a serious tracked plan for an extraction that appears bounded but still hides an ownership or contract seam
+
+Pass conditions:
+
+- the agent names the unresolved seam instead of hiding it in a “0-decision” plan
+- the agent either expands scope explicitly or stops and resolves the seam first
+- the evidence block and required-skill order match the tracked workflow
+
 ## How To Use
 
 - Use the tracked eval harness definitions under [`docs/agentic/evals/`](./evals/README.md) for prompts, scoring, and baseline handling.
 - Run these prompts in a clean worktree or clean branch.
-- Score each run as `pass`, `soft-fail`, or `fail`.
+- Run each prompt in a fresh session (no carried prior user/agent context) and record session metadata in the scorecard.
+- Document Codanna fallback usage with exact invocation, acceptable condition, and why Codanna-first discovery was unavailable or insufficient.
+- Score each run as `pass`, `soft-fail`, or `fail` only when the run is fresh-session compliant or explicitly marked as a Codanna-fallback run.
+- Write a tracked baseline summary after each manual baseline run and keep the raw artifacts local-only.
+- In the baseline summary, record whether Codanna fallback was used and any deviations from fresh-session policy.
 - Capture what the agent missed and update workflow docs or skills only when the miss is recurring.
 - Keep eval prompt definitions tracked, but keep most eval baseline outputs local-only unless one is intentionally promoted as a durable reference.
 

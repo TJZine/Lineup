@@ -8,6 +8,7 @@ import { EventEmitter } from '../../../utils/EventEmitter';
 import { EPG_CONSTANTS, EPG_CLASSES, EPG_ERRORS, DEFAULT_EPG_CONFIG } from './constants';
 import { EPGVirtualizer } from './EPGVirtualizer';
 import { EPGInfoPanel } from './EPGInfoPanel';
+import { EPGInfoPanelCoordinator } from './EPGInfoPanelCoordinator';
 import { EPGTimeHeader } from './EPGTimeHeader';
 import { EPGChannelList } from './EPGChannelList';
 import { EPGErrorBoundary } from './EPGErrorBoundary';
@@ -25,8 +26,6 @@ import type {
     ScheduleWindow,
     ChannelConfig,
 } from './types';
-
-const INFO_PANEL_FULL_UPDATE_DEBOUNCE_MS = 200;
 
 /**
  * EPG Component class.
@@ -55,6 +54,11 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     // Sub-components
     private virtualizer: EPGVirtualizer = new EPGVirtualizer();
     private infoPanel: EPGInfoPanel = new EPGInfoPanel();
+    private infoPanelCoordinator: EPGInfoPanelCoordinator = new EPGInfoPanelCoordinator({
+        infoPanel: this.infoPanel,
+        getIsVisible: () => this.state.isVisible,
+        getFocusedProgram: () => this.getFocusedProgram(),
+    });
     private timeHeader: EPGTimeHeader = new EPGTimeHeader();
     private channelList: EPGChannelList = new EPGChannelList();
     private errorBoundary: EPGErrorBoundary = new EPGErrorBoundary();
@@ -76,16 +80,11 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private nowWatchingChannelElement: HTMLElement | null = null;
     private nowWatchingProgramElement: HTMLElement | null = null;
     private nowWatchingTimeElement: HTMLElement | null = null;
-    private infoPanelElement: HTMLElement | null = null;
-    private classicShowcaseInfoElement: HTMLElement | null = null;
-    private overlayShowcaseElement: HTMLElement | null = null;
     private hasRenderedOnce: boolean = false;
     private lastVisibleRangeKey: string | null = null;
     private channelIds: string[] = [];
     private _isSelectInProgress: boolean = false;
     private _placeholderAutoFocusKeys: Set<string> = new Set();
-    private _infoPanelFullUpdateTimer: ReturnType<typeof setTimeout> | null = null;
-    private _pendingInfoPanelKey: string | null = null;
     private _libraryTabs: EPGLibraryTabs | null = null;
     private _isLibraryTabsFocused = false;
     private _lastNowWatchingTuple: [string, string, string] | null = null;
@@ -169,7 +168,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
                 throw new Error(EPG_ERRORS.OVERLAY_SHOWCASE_CONTAINER_NOT_FOUND);
             }
             this.infoPanel.initialize(overlayShowcase);
-            this.infoPanelElement = this.containerElement.querySelector(`.${EPG_CLASSES.INFO_PANEL}`) as HTMLElement | null;
+            const infoPanelElement = this.containerElement.querySelector(`.${EPG_CLASSES.INFO_PANEL}`) as HTMLElement | null;
+            const classicShowcaseInfoElement = this.containerElement.querySelector('.epg-classic-showcase-info') as HTMLElement | null;
 
             // Wire thumb resolver to info panel
             if (this.config.resolveThumbUrl) {
@@ -178,6 +178,11 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             if (this.config.fetchItemDetails) {
                 this.infoPanel.setFetchItemDetails(this.config.fetchItemDetails);
             }
+            this.infoPanelCoordinator.attachHosts({
+                infoPanelElement,
+                overlayShowcaseElement: overlayShowcase,
+                classicShowcaseInfoElement,
+            });
         }
 
         // Create time indicator
@@ -216,7 +221,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
      */
     destroy(): void {
         this.hideScrubLabel(true);
-        this._clearInfoPanelFullUpdateTimer();
+        this.infoPanelCoordinator.destroy();
         this.stopTimeUpdateInterval();
         document.removeEventListener('visibilitychange', this._onVisibilityChange);
         try {
@@ -257,9 +262,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.nowWatchingChannelElement = null;
         this.nowWatchingProgramElement = null;
         this.nowWatchingTimeElement = null;
-        this.infoPanelElement = null;
-        this.classicShowcaseInfoElement = null;
-        this.overlayShowcaseElement = null;
 
         this.state = {
             isInitialized: false,
@@ -431,8 +433,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.classicNowPlayingElement = classicNowPlaying;
         this.classicNowPlayingChannelElement = classicNowPlayingChannel;
         this.classicShowcaseElement = classicShowcase;
-        this.classicShowcaseInfoElement = classicShowcaseInfo;
-        this.overlayShowcaseElement = overlayShowcase;
         this.nowWatchingBannerElement = nowWatchingBanner;
         this.nowWatchingChannelElement = nowWatchingChannel;
         this.nowWatchingProgramElement = nowWatchingProgram;
@@ -440,19 +440,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.initializeProgramAreaOverlays();
         if (this.nowWatchingBannerElement) {
             this.nowWatchingBannerElement.hidden = true;
-        }
-    }
-
-    private syncInfoPanelHost(): void {
-        const infoPanel = this.infoPanelElement;
-        const showcaseInfo = this.classicShowcaseInfoElement;
-        const overlayShowcase = this.overlayShowcaseElement;
-        if (!infoPanel || !showcaseInfo || !overlayShowcase) return;
-
-        const mode: 'overlay' | 'classic' = this.config.layoutMode ?? 'classic';
-        const target = mode === 'classic' ? showcaseInfo : overlayShowcase;
-        if (infoPanel.parentElement !== target) {
-            target.appendChild(infoPanel);
         }
     }
 
@@ -609,12 +596,11 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this._appliedPipMode = pipMode;
             this.config.onLayoutModeChange?.(pipMode);
         }
-        this.infoPanel?.setPresentationMode(mode);
-        this.syncInfoPanelHost();
+        this.infoPanelCoordinator.setLayoutMode(mode);
         if (didLayoutModeChange && this.state.isVisible) {
             const focusedCell = this.state.focusedCell;
             if (focusedCell?.kind === 'program') {
-                this._scheduleInfoPanelUpdate(focusedCell.program);
+                this.infoPanelCoordinator.syncFocusedProgram(focusedCell.program);
             }
         }
         this.syncClassicShellVisibility();
@@ -657,9 +643,9 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         } else if (shouldPreserveFocus) {
             const focusedCell = this.state.focusedCell;
             if (focusedCell?.kind === 'program') {
-                this._scheduleInfoPanelUpdate(focusedCell.program);
+                this.infoPanelCoordinator.syncFocusedProgram(focusedCell.program);
             } else {
-                this.infoPanel.hide();
+                this.infoPanelCoordinator.clear();
             }
         }
 
@@ -699,9 +685,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.stopTimeUpdateInterval();
         document.removeEventListener('visibilitychange', this._onVisibilityChange);
 
-        this._clearInfoPanelFullUpdateTimer();
+        this.infoPanelCoordinator.clear();
         this.hideScrubLabel(true);
-        this.infoPanel.hide();
         this._isLibraryTabsFocused = false;
         this._libraryTabs?.destroy();
         this._libraryTabs = null;
@@ -892,7 +877,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this._placeholderAutoFocusKeys.clear();
 
         this.state.focusedCell = null;
-        this.infoPanel.hide();
+        this.infoPanelCoordinator.clear();
         this.state.focusTimeMs = Date.now();
 
         if (this.state.isVisible) {
@@ -1083,7 +1068,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.channelList.setFocusedChannel(channelIndex);
 
         // Update info panel
-        this._scheduleInfoPanelUpdate(program);
+        this.infoPanelCoordinator.syncFocusedProgram(program);
 
         // Try to focus immediately if the cell is already rendered; otherwise let renderGridInternal()
         // render it and then apply focus styling.
@@ -1268,8 +1253,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         };
 
         this.channelList.setFocusedChannel(channelIndex);
-        this._clearInfoPanelFullUpdateTimer();
-        this.infoPanel.hide();
+        this.infoPanelCoordinator.clear();
         this.renderGridInternal();
         this.emit('focusChange', this.state.focusedCell);
     }
@@ -1293,42 +1277,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
 
         return didScroll;
-    }
-
-    private _clearInfoPanelFullUpdateTimer(): void {
-        if (this._infoPanelFullUpdateTimer !== null) {
-            clearTimeout(this._infoPanelFullUpdateTimer);
-            this._infoPanelFullUpdateTimer = null;
-        }
-        this._pendingInfoPanelKey = null;
-    }
-
-    private _scheduleInfoPanelUpdate(program: ScheduledProgram): void {
-        this.infoPanel.updateFast(program);
-
-        const key = `${program.item.ratingKey}::${program.scheduledStartTime}`;
-        this._pendingInfoPanelKey = key;
-
-        if (this._infoPanelFullUpdateTimer !== null) {
-            clearTimeout(this._infoPanelFullUpdateTimer);
-        }
-
-        this._infoPanelFullUpdateTimer = setTimeout(() => {
-            this._infoPanelFullUpdateTimer = null;
-            if (this._pendingInfoPanelKey !== key) {
-                return;
-            }
-            this._pendingInfoPanelKey = null;
-
-            const focusedCell = this.state.focusedCell;
-            if (!this.state.isVisible) return;
-            if (!focusedCell || focusedCell.kind !== 'program') return;
-
-            const focusedKey = `${focusedCell.program.item.ratingKey}::${focusedCell.program.scheduledStartTime}`;
-            if (focusedKey !== key) return;
-
-            this.infoPanel.updateFull(program);
-        }, INFO_PANEL_FULL_UPDATE_DEBOUNCE_MS);
     }
 
     // ============================================

@@ -1,7 +1,17 @@
-import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
+import {
+    checkPlanConformance,
+    EXPECTED_EVAL_PROMPT_FILES,
+    EXPECTED_SESSION_PROMPT_FILES,
+    extractChecklistPlanPaths,
+    parseSkillMirrorManifest,
+    SKILL_MIRROR_MANIFEST_PATH,
+} from './harness-docs-lib.mjs';
+
 const repoRoot = process.cwd();
+const expectedSessionPromptFiles = EXPECTED_SESSION_PROMPT_FILES;
 
 const requiredFiles = [
     'agents.md',
@@ -12,10 +22,20 @@ const requiredFiles = [
     'docs/agentic/doc-gardening-checklist.md',
     'docs/agentic/evals/README.md',
     'docs/agentic/evals/baselines/README.md',
+    'docs/agentic/evals/baseline-summaries/README.md',
+    'docs/agentic/evals/baseline-summary-template.md',
     'docs/agentic/evals/rubric.md',
     'docs/agentic/evals/scorecard-template.md',
     'docs/agentic/historical-plan-corpus-review.md',
     'docs/agentic/plan-authoring-standard.md',
+    'docs/agentic/session-prompts/README.md',
+    'docs/agentic/session-prompts/cleanup-plan.md',
+    'docs/agentic/session-prompts/cleanup-implement.md',
+    'docs/agentic/session-prompts/cleanup-review.md',
+    'docs/agentic/session-prompts/cleanup-loop.md',
+    'docs/agentic/session-prompts/feature-plan.md',
+    'docs/agentic/session-prompts/feature-review.md',
+    'docs/agentic/session-prompts/workflow-harness-review.md',
     'docs/agentic/skill-strategy.md',
     'docs/agentic/evals-roadmap.md',
     'docs/agentic/phase-2-steady-state-plan.md',
@@ -25,7 +45,8 @@ const requiredFiles = [
     'docs/decisions/README.md',
     'docs/plans/README.md',
     'docs/archive/plans/README.md',
-    'docs/runs/README.md'
+    'docs/runs/README.md',
+    SKILL_MIRROR_MANIFEST_PATH,
 ];
 
 const markdownRoots = [
@@ -40,31 +61,19 @@ const markdownRoots = [
     'docs/plans',
     'docs/runs/README.md',
     'docs/runs/_template',
-    'ARCHITECTURE_CLEANUP_CHECKLIST.md'
-];
-
-const expectedEvalPromptFiles = [
-    '01-app-container-extraction-no-ui-drift.md',
-    '02-lazy-screen-registry-no-dual-ownership.md',
-    '03-overlay-toast-extraction-no-timer-leaks.md',
-    '04-diagnostics-surface-isolation-no-storage-slop.md',
-    '05-app-shell-cleanup-no-behavior-regression.md',
-    '06-orchestrator-hotspot-extraction.md',
-    '07-settings-storage-boundary.md',
-    '08-server-selection-storage-boundary.md',
-    '09-channel-persistence-boundary.md',
-    '10-settings-screen-split.md',
-    '11-plex-subtitle-policy.md',
-    '12-architecture-doc-refresh.md'
+    'ARCHITECTURE_CLEANUP_CHECKLIST.md',
 ];
 
 const localOnlyMarkdownDirs = ['docs/agentic/evals/baselines'];
 const trackedLocalOnlyAllowlist = new Set([
     'docs/agentic/evals/baselines/README.md',
     'docs/runs/README.md',
-    'docs/runs/_template'
+    'docs/runs/_template',
 ]);
 const trackedLocalOnlyPrefixAllowlist = ['docs/runs/_template/'];
+const literalLocalOnlyPatternAllowlist = new Set([
+    // Reserved for true tracked-file exceptions where an exact local-only artifact path must be shown verbatim.
+]);
 
 function recordFsError(errors, operation, targetPath, error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -72,8 +81,32 @@ function recordFsError(errors, operation, targetPath, error) {
 }
 
 function toRepoRelativePath(absolutePath) {
-    const relativePath = path.relative(repoRoot, absolutePath);
-    return relativePath.split(path.sep).join('/');
+    return path.relative(repoRoot, absolutePath).split(path.sep).join('/');
+}
+
+function readRepoFile(relativePath, errors) {
+    try {
+        return readFileSync(path.join(repoRoot, relativePath), 'utf8');
+    } catch (error) {
+        recordFsError(errors, 'read', relativePath, error);
+        return null;
+    }
+}
+
+function safeReadDir(relativeDir, errors, options = { requireExists: true }) {
+    const fullPath = path.join(repoRoot, relativeDir);
+    if (!existsSync(fullPath)) {
+        if (options.requireExists) {
+            errors.push(`Missing directory: ${relativeDir}`);
+        }
+        return [];
+    }
+    try {
+        return readdirSync(fullPath);
+    } catch (error) {
+        recordFsError(errors, 'read directory', relativeDir, error);
+        return [];
+    }
 }
 
 function isForbiddenLocalOnlyTarget(relativePath) {
@@ -118,18 +151,12 @@ function collectMarkdownFiles(entry, errors) {
     }
 
     const results = [];
-    let children = [];
-    try {
-        children = readdirSync(fullPath);
-    } catch (error) {
-        recordFsError(errors, 'read directory', entry, error);
-        return [];
-    }
+    const children = safeReadDir(entry, errors);
 
     for (const child of children) {
-        const childEntry = path.join(entry, child);
-        results.push(...collectMarkdownFiles(childEntry, errors));
+        results.push(...collectMarkdownFiles(path.join(entry, child), errors));
     }
+
     return results;
 }
 
@@ -156,13 +183,7 @@ function resolveLocalLink(sourceFile, rawTarget) {
 }
 
 function extractMarkdownLinks(content) {
-    const links = [];
-    const regex = /\[[^\]]+\]\(([^)]+)\)/g;
-    let match;
-    while ((match = regex.exec(content)) !== null) {
-        links.push(match[1].trim());
-    }
-    return links;
+    return Array.from(content.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)).map((match) => match[1].trim());
 }
 
 function checkRequiredFiles(errors) {
@@ -173,20 +194,29 @@ function checkRequiredFiles(errors) {
     }
 }
 
+function checkRequiredRunTemplate(errors) {
+    const templateDir = 'docs/runs/_template';
+    const expectedTemplateFiles = ['Prompt.md', 'Plan.md', 'Implement.md', 'Documentation.md'];
+    const fullTemplateDir = path.join(repoRoot, templateDir);
+    if (!existsSync(fullTemplateDir)) {
+        errors.push(`Missing required control-plane directory: ${templateDir}`);
+        return;
+    }
+
+    for (const file of expectedTemplateFiles) {
+        const relativePath = `${templateDir}/${file}`;
+        if (!existsSync(path.join(repoRoot, relativePath))) {
+            errors.push(`Missing required run template file: ${relativePath}`);
+        }
+    }
+}
+
 function checkMarkdownLinks(errors) {
     const files = Array.from(new Set(markdownRoots.flatMap((entry) => collectMarkdownFiles(entry, errors))));
 
     for (const file of files) {
-        const fullPath = path.join(repoRoot, file);
-        if (!existsSync(fullPath)) {
-            continue;
-        }
-
-        let content;
-        try {
-            content = readFileSync(fullPath, 'utf8');
-        } catch (error) {
-            recordFsError(errors, 'read', file, error);
+        const content = readRepoFile(file, errors);
+        if (content === null) {
             continue;
         }
 
@@ -210,36 +240,61 @@ function checkMarkdownLinks(errors) {
     }
 }
 
+function checkForbiddenLiteralReferences(errors) {
+    const files = Array.from(new Set(markdownRoots.flatMap((entry) => collectMarkdownFiles(entry, errors))));
+    const pathChars = '[A-Za-z0-9._/-]+';
+    const patterns = [
+        {
+            description: 'local-only mirrored skill file',
+            regex: /\.agent\/skills\/[a-z0-9._-]+\/SKILL\.md/giu,
+        },
+        {
+            description: 'local-only run instance',
+            regex: new RegExp(`docs\\/runs\\/\\d{4}-\\d{2}-\\d{2}-[a-z0-9._-]+\\/${pathChars}`, 'giu'),
+        },
+        {
+            description: 'raw eval baseline artifact',
+            regex: new RegExp(`docs\\/agentic\\/evals\\/baselines\\/(?!README\\.md)${pathChars}`, 'giu'),
+        },
+    ];
+
+    for (const file of files) {
+        if (file.startsWith('docs/archive/plans/')) {
+            continue;
+        }
+
+        if (literalLocalOnlyPatternAllowlist.has(file)) {
+            continue;
+        }
+
+        const content = readRepoFile(file, errors);
+        if (content === null) {
+            continue;
+        }
+
+        for (const { description, regex } of patterns) {
+            regex.lastIndex = 0;
+            const seenMatches = new Set();
+            let match = regex.exec(content);
+            while (match !== null) {
+                const value = match[0];
+                if (!seenMatches.has(value)) {
+                    seenMatches.add(value);
+                    errors.push(`Tracked doc ${file} references ${description}: ${value}`);
+                }
+                match = regex.exec(content);
+            }
+        }
+    }
+}
+
 function checkDecisionIndex(errors) {
-    const decisionDir = path.join(repoRoot, 'docs/decisions');
-    if (!existsSync(decisionDir)) {
-        errors.push('Missing decisions directory: docs/decisions');
-        return;
-    }
-
-    let decisionEntries;
-    try {
-        decisionEntries = readdirSync(decisionDir);
-    } catch {
-        errors.push('Unreadable decisions directory: docs/decisions');
-        return;
-    }
-
-    const actual = decisionEntries
+    const actual = safeReadDir('docs/decisions', errors)
         .filter((name) => name.endsWith('.md') && name !== 'README.md')
         .sort();
 
-    const readmePath = path.join(decisionDir, 'README.md');
-    if (!existsSync(readmePath)) {
-        errors.push('Missing decision index README: docs/decisions/README.md');
-        return;
-    }
-
-    let readme;
-    try {
-        readme = readFileSync(readmePath, 'utf8');
-    } catch {
-        errors.push('Unreadable decision index README: docs/decisions/README.md');
+    const readme = readRepoFile('docs/decisions/README.md', errors);
+    if (readme === null) {
         return;
     }
 
@@ -265,41 +320,154 @@ function checkDecisionIndex(errors) {
     }
 }
 
-function checkEvalPromptInventory(errors) {
-    const promptDir = path.join(repoRoot, 'docs/agentic/evals/prompts');
-
-    if (!existsSync(promptDir)) {
-        errors.push('Missing eval prompt directory: docs/agentic/evals/prompts');
-        return;
-    }
-
-    let promptEntries;
-    try {
-        promptEntries = readdirSync(promptDir);
-    } catch {
-        errors.push('Unreadable eval prompt directory: docs/agentic/evals/prompts');
-        return;
-    }
-
-    const actual = promptEntries
-        .filter((name) => name.endsWith('.md'))
+function checkInventory(errors, directory, expectedFiles, description) {
+    const actual = safeReadDir(directory, errors)
+        .filter((name) => name.endsWith('.md') && name !== 'README.md')
         .sort();
 
-    if (actual.length !== expectedEvalPromptFiles.length) {
+    if (actual.length !== expectedFiles.length) {
         errors.push(
-            `Eval prompt inventory mismatch: expected ${expectedEvalPromptFiles.length} markdown files, found ${actual.length}`
+            `${description} inventory mismatch: expected ${expectedFiles.length} markdown files, found ${actual.length}`
         );
     }
 
-    for (const file of expectedEvalPromptFiles) {
+    for (const file of expectedFiles) {
         if (!actual.includes(file)) {
-            errors.push(`Missing eval prompt file docs/agentic/evals/prompts/${file}`);
+            errors.push(`Missing ${description} file ${directory}/${file}`);
         }
     }
 
     for (const file of actual) {
-        if (!expectedEvalPromptFiles.includes(file)) {
-            errors.push(`Unexpected eval prompt file docs/agentic/evals/prompts/${file}`);
+        if (!expectedFiles.includes(file)) {
+            errors.push(`Unexpected ${description} file ${directory}/${file}`);
+        }
+    }
+}
+
+function checkSessionPromptReadme(errors) {
+    const readme = readRepoFile('docs/agentic/session-prompts/README.md', errors);
+    if (readme === null) {
+        return;
+    }
+
+    for (const file of expectedSessionPromptFiles) {
+        if (!readme.includes(`./${file}`)) {
+            errors.push(`Session prompt README is missing launcher link for ${file}`);
+        }
+    }
+}
+
+function checkWorkflowRoutingSplit(errors) {
+    const readme = readRepoFile('docs/agentic/session-prompts/README.md', errors);
+    if (readme !== null) {
+        if (!readme.includes('## Routing (Authoritative)')) {
+            errors.push('Session prompt README must contain the authoritative routing split section.');
+        }
+
+        const requiredReadmeRoutingMarkers = ['cleanup/refactor', 'feature/design', 'mixed', 'feature-plan', 'feature-review'];
+        for (const marker of requiredReadmeRoutingMarkers) {
+            if (!readme.includes(marker)) {
+                errors.push(`Session prompt README routing split is missing required marker: ${marker}`);
+            }
+        }
+    }
+
+    const workflow = readRepoFile('docs/AGENTIC_DEV_WORKFLOW.md', errors);
+    if (workflow !== null) {
+        const requiredWorkflowMarkers = [
+            'cleanup-plan.md',
+            'cleanup-review.md',
+            'feature-plan.md',
+            'feature-review.md',
+            'Route task family before choosing a tier.',
+        ];
+
+        for (const marker of requiredWorkflowMarkers) {
+            if (!workflow.includes(marker)) {
+                errors.push(`Workflow doc is missing required cleanup/feature routing marker: ${marker}`);
+            }
+        }
+    }
+}
+
+function checkChecklistPlanPaths(errors) {
+    const checklist = readRepoFile('ARCHITECTURE_CLEANUP_CHECKLIST.md', errors);
+    if (checklist === null) {
+        return;
+    }
+
+    for (const relativePath of extractChecklistPlanPaths(checklist)) {
+        if (!existsSync(path.join(repoRoot, relativePath))) {
+            errors.push(`Checklist references missing tracked plan path: ${relativePath}`);
+        }
+    }
+}
+
+function checkPlanArchiveCoherence(errors) {
+    const activeFiles = safeReadDir('docs/plans', errors).filter((name) => name.endsWith('.md') && name !== 'README.md');
+    const archivedFiles = safeReadDir('docs/archive/plans', errors).filter(
+        (name) => name.endsWith('.md') && name !== 'README.md'
+    );
+    const archivedSet = new Set(archivedFiles);
+
+    for (const file of activeFiles) {
+        if (archivedSet.has(file)) {
+            errors.push(`Plan exists in both active and archived locations: ${file}`);
+        }
+    }
+}
+
+function checkSkillMirrorManifest(errors) {
+    const manifestContent = readRepoFile(SKILL_MIRROR_MANIFEST_PATH, errors);
+    if (manifestContent === null) {
+        return;
+    }
+
+    let entries;
+    try {
+        entries = parseSkillMirrorManifest(manifestContent);
+    } catch (error) {
+        errors.push(error instanceof Error ? error.message : String(error));
+        return;
+    }
+
+    const seenEntries = new Set();
+    for (const entry of entries) {
+        const key = `${entry.source}:${entry.skill}`;
+        if (seenEntries.has(key)) {
+            errors.push(`Duplicate skill mirror allowlist entry: ${key}`);
+        }
+        seenEntries.add(key);
+    }
+
+    const strategyDoc = readRepoFile('docs/agentic/skill-strategy.md', errors);
+    if (strategyDoc !== null) {
+        if (!strategyDoc.includes(SKILL_MIRROR_MANIFEST_PATH)) {
+            errors.push(`Skill strategy must reference the tracked mirror allowlist: ${SKILL_MIRROR_MANIFEST_PATH}`);
+        }
+    }
+
+    const syncScript = readRepoFile('scripts/sync_agent_skills.sh', errors);
+    if (syncScript !== null && !syncScript.includes(SKILL_MIRROR_MANIFEST_PATH)) {
+        errors.push(`sync_agent_skills.sh must read the tracked mirror allowlist: ${SKILL_MIRROR_MANIFEST_PATH}`);
+    }
+}
+
+function checkSeriousPlanConformance(errors) {
+    const planFiles = safeReadDir('docs/plans', errors)
+        .filter((name) => name.endsWith('.md') && name !== 'README.md')
+        .sort();
+
+    for (const fileName of planFiles) {
+        const relativePath = `docs/plans/${fileName}`;
+        const content = readRepoFile(relativePath, errors);
+        if (content === null) {
+            continue;
+        }
+
+        const result = checkPlanConformance({ filePath: relativePath, content });
+        if (result.isSerious && result.missingSections.length > 0) {
+            errors.push(`${relativePath} is missing required serious-plan sections: ${result.missingSections.join(', ')}`);
         }
     }
 }
@@ -307,9 +475,18 @@ function checkEvalPromptInventory(errors) {
 const errors = [];
 
 checkRequiredFiles(errors);
+checkRequiredRunTemplate(errors);
 checkMarkdownLinks(errors);
+checkForbiddenLiteralReferences(errors);
 checkDecisionIndex(errors);
-checkEvalPromptInventory(errors);
+checkInventory(errors, 'docs/agentic/evals/prompts', EXPECTED_EVAL_PROMPT_FILES, 'eval prompt');
+checkInventory(errors, 'docs/agentic/session-prompts', expectedSessionPromptFiles, 'session prompt');
+checkSessionPromptReadme(errors);
+checkWorkflowRoutingSplit(errors);
+checkChecklistPlanPaths(errors);
+checkPlanArchiveCoherence(errors);
+checkSkillMirrorManifest(errors);
+checkSeriousPlanConformance(errors);
 
 if (errors.length > 0) {
     console.error('Documentation verification failed:\n');

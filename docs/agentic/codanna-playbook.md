@@ -89,6 +89,43 @@ Use `rg` when:
 
 When you fall back, note that you did so.
 
+## Index Freshness Gate
+
+If expected symbols are missing from `find_symbol`/`search_symbols` or semantic hits are unexpectedly weak, treat it as a possible stale Codanna index before assuming the symbol is absent.
+
+Treat results as "unexpectedly weak" when any of these hold:
+
+- `find_symbol` / `search_symbols` returns 0 results for an identifier you strongly expect to exist.
+- `semantic_search_with_context` returns fewer than 3 results for a query that includes a concrete anchor (see Query Shaping Rules).
+- the semantic top hit score is below ~0.5 (0.3-0.5 is often weak/noisy) *and* the anchor is specific.
+
+Index freshness gate workflow:
+
+1. Run `get_index_info` and capture the snapshot in task notes.
+2. Retry with one broader and one narrower query anchor (use the Query Shaping Rules).
+3. If results are still insufficient, log the Codanna insufficiency and fall back to `rg` with explicit evidence paths.
+
+Concrete broader/narrower anchor example:
+
+- Broad: `SettingsScreen state management`
+- Narrow: `SettingsScreenStateController focus restore`
+
+Explicit evidence paths means logging (in the task notes or plan):
+
+- query string(s)
+- tool used (e.g., `semantic_search_with_context`, `find_symbol`)
+- result count
+- top hit file paths (1-3)
+- the `get_index_info` snapshot
+
+Interpreting `get_index_info` snapshots (what to look at):
+
+- index "Updated" time: if it is older than your current working session and you're searching for recently changed code, treat results as suspect
+- indexed file count: if it looks implausibly low for the repo, prefer `rg` for determinism
+- semantic search status/model/embedding count: confirms whether semantic search is actually available in this environment
+
+If you do not have a supported way to refresh the index in your environment, treat `rg` as the deterministic fallback once the gate triggers and you have preserved the evidence above.
+
 ## Document Search
 
 Use `search_documents` when:

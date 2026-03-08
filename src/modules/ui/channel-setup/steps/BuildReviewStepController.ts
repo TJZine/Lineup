@@ -1,4 +1,3 @@
-import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
 import type { BuildReviewDeps, StepRenderContext } from './types';
 
 export class BuildReviewStepController {
@@ -19,33 +18,17 @@ export class BuildReviewStepController {
         if (!state.recordApplied) {
             showLoadingState = true;
         } else if (!state.review && !state.isReviewLoading && !state.reviewError) {
-            const token = deps.getVisibilityToken();
-            // Kick off review load on first eligible render; guards prevent duplicate loads when state changes.
-            void Promise.resolve()
-                .then(() => {
-                    const current = deps.getState();
-                    if (
-                        token !== deps.getVisibilityToken() ||
-                        current.isBuilding ||
-                        current.review ||
-                        current.isReviewLoading ||
-                        current.reviewError
-                    ) {
-                        return;
-                    }
-                    return deps.loadReview();
-                })
-                .catch((error: unknown) => {
-                    if (isAbortLikeError(error)) return;
-                    console.error('[ChannelSetup] Load review failed:', summarizeErrorForLog(error));
-                });
             showLoadingState = true;
         } else if (state.isReviewLoading) {
             showLoadingState = true;
         }
 
         if (showLoadingState) {
-            deps.renderBuildReviewLoading(reviewContainer);
+            const loading = document.createElement('div');
+            loading.className = 'setup-preview-loading';
+            loading.classList.add('panel-spinner');
+            loading.textContent = 'Preparing your review...';
+            reviewContainer.appendChild(loading);
         } else if (state.review) {
             const modeLine = document.createElement('div');
             modeLine.className = 'setup-summary';
@@ -133,6 +116,6 @@ export class BuildReviewStepController {
         ctx.contentEl.appendChild(actions);
 
         const listButtons = Array.from(reviewContainer.querySelectorAll<HTMLButtonElement>('button'));
-        deps.registerFocusables([...listButtons, backButton, confirmButton], 'linear');
+        deps.registerLinearFocusables([...listButtons, backButton, confirmButton]);
     }
 }

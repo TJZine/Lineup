@@ -134,4 +134,23 @@ describe('ChannelSetupFocusCoordinator', () => {
         expect(coordinator.registerLinear([button], null)).toBe(false);
         expect(() => coordinator.unregisterAll()).not.toThrow();
     });
+
+    it('preserves preferred-focus boolean contract for register methods', () => {
+        const nav = createNavigationMock();
+        const deps: FocusCoordinatorDeps = {
+            getNavigation: () => nav as unknown as INavigationManager,
+        };
+        const coordinator = new ChannelSetupFocusCoordinator(deps);
+
+        const first = document.createElement('button');
+        first.id = 'first';
+        const second = document.createElement('button');
+        second.id = 'second';
+
+        expect(coordinator.registerLinear([first, second], 'second')).toBe(true);
+        expect(nav.setFocus).toHaveBeenLastCalledWith('second');
+
+        expect(coordinator.registerSpatial([first, second], 'missing')).toBe(false);
+        expect(nav.setFocus).toHaveBeenLastCalledWith('first');
+    });
 });

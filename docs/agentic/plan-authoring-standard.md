@@ -51,6 +51,27 @@ Use section titles that make those requirements obvious to a fresh session. Do n
   - if referenced files, ownership, or doc surfaces changed materially since the plan was written, update the plan first
 - Do not continue through contradicted assumptions because the “intent is obvious.”
 
+## Planner Self-Check
+
+Before finalizing any serious tracked plan, explicitly self-check the plan against these questions:
+
+1. Is there any unresolved architecture seam, ownership seam, or collaborator boundary hidden inside the task?
+2. Does the plan depend on adjacent files needing contract or type changes that are not in scope?
+3. Am I declaring any file out of scope that the implementation will still implicitly rely on?
+4. Did I record the full Codanna evidence path plus any explicit fallback reads?
+5. Am I assigning the work to the repo-preferred owner, or am I quietly growing a hotspot?
+6. Would a fresh session have to invent anything important to finish this safely?
+7. Is this truly an execution-grade plan, or do I still need to resolve a design decision first?
+
+If any answer shows a live architectural or scope ambiguity, stop and resolve that ambiguity before treating the plan as decision-point-free.
+
+## Architecture Seam Decision Gate
+
+- Do not force a zero-decision execution plan across an architecture seam that is still undecided.
+- If the task depends on changing adjacent contracts, ownership boundaries, or collaborator responsibilities, name the chosen seam explicitly before locking the implementation steps.
+- If that seam is not chosen yet, stop and resolve the decision first instead of hiding it inside the task list.
+- For cleanup/refactor work, a “decision-point-free” plan is valid only after the extraction boundary is explicit enough that a fresh session does not have to invent adapters or contract changes mid-task.
+
 ## Discovery And Evidence Rules
 
 - Start with Codanna where practical:
@@ -61,11 +82,24 @@ Use section titles that make those requirements obvious to a fresh session. Do n
 - Record the fallback when Codanna is unavailable or insufficient and `rg`/direct reads were used instead.
 - Prefer symbol, ownership, and behavior descriptions over hand-wavy references to “that area” or “the relevant files.”
 
+For serious tracked plans, the evidence block should be explicit enough that a fresh session can see both the discovery path and the fallback path. Prefer a fixed mini-template such as:
+
+- `semantic_search_with_context`: result summary or explicit fallback note
+- `search_documents`: result summary or explicit fallback note when repo-doc context matters
+- `analyze_impact`: result summary
+- direct tracked-doc reads or `rg`: what was read and why fallback was needed
+
+The goal is not to maximize tool usage for its own sake. The goal is to leave a clear evidence trail that explains why the chosen plan shape is the repo-best-practice choice for this task.
+
 ## Invariants And Scope Rules
 
 - Name exact files in scope.
 - Name exact files out of scope.
 - State which parent architecture boundary the task is advancing.
+- If adjacent files may need contract, type, or ownership changes, either:
+  - mark them in scope explicitly, or
+  - state that they are frozen and explain how the task works without changing them
+- Do not allow “mechanical wiring only” for files that are simultaneously declared out of scope. Resolve that boundary in the plan.
 - Add explicit anti-slop constraints when risk exists:
   - no fallback or compatibility paths unless explicitly approved
   - no temporary adapters that the next work unit must immediately replace
@@ -89,10 +123,13 @@ Use section titles that make those requirements obvious to a fresh session. Do n
 
 ## Anti-Patterns To Avoid
 
+- hiding an unresolved architecture seam behind a “decisionless” plan
 - stale repo names or stale workflow names
 - absolute local filesystem paths in tracked plan body text when relative tracked references are enough
 - brittle line-number anchoring without a freshness guard
 - vague scope such as “touch whatever is needed”
+- contradictory scope rules for adjacent contract files
 - plans that omit verification expectations
+- plans that record only partial Codanna evidence without the required fallback notes
 - plans that commit local-only artifacts
 - plans that require raw local-only source material when a tracked curated reference should exist instead

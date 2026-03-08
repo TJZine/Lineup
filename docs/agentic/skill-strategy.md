@@ -26,6 +26,7 @@ The skill layout and workflow in this repo are based on a small set of recurring
 - `.codex/skills/` is for Lineup-only skills.
 - `.agent/skills/` is a generated local mirror for Antigravity and contains actual copies, not symlinks.
 - Global Codex skills that already exist for Codex should not be duplicated into `.codex/skills/`.
+- The exact global mirror set is pinned in [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt); `scripts/sync_agent_skills.sh` reads that file directly.
 - Repo-specific skills should stay local to this repo unless they become broadly reusable enough to justify promotion to a global skill home.
 - The broader document/control-plane structure is defined in [`docs/agentic/document-map.md`](./document-map.md).
 
@@ -42,11 +43,10 @@ These are the source-of-truth Lineup skills. They are authored in `.codex/skills
 
 ### Mirrored Global Skills For Antigravity
 
-- every skill under `${CODEX_HOME:-$HOME/.codex}/superpowers/skills/`
-- `frontend-design`
-- `desloppify`
+- The exact mirrored set is pinned in [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt) for `superpowers` skills and resolved from `${CODEX_HOME:-$HOME/.codex}/skills/` for global skills.
+- Maintainers should update only `skill-mirror-allowlist.txt` when the pinned mirror set changes.
 
-These are mirrored into `.agent/skills/` only because Codex already has them globally and Antigravity does not.
+These are mirrored into `.agent/skills/` because the repo workflow depends on them and the allowlist keeps the Antigravity surface reproducible.
 
 ## Tracked Vs Local
 
@@ -84,7 +84,7 @@ I do not recommend adding more generic UI skills yet. The better move is to keep
 
 ## Copy / Refresh Commands
 
-Use actual copies. Do not use symlinks. Materialize the local mirror with the tracked sync script.
+Use actual copies. Do not use symlinks. Materialize the local mirror with the tracked sync script and keep the allowlist as the only place where the mirrored global set is edited.
 
 ```bash
 scripts/sync_agent_skills.sh
@@ -98,5 +98,5 @@ scripts/sync_agent_skills.sh
   - modify overlay without breaking focus cleanup
   - change Plex stream logic without leaking transport policy into callers
 - Use [`docs/agentic/evals-roadmap.md`](./evals-roadmap.md) as the first evaluation layer and tighten it during the phase-2 transition in [`docs/agentic/phase-2-steady-state-plan.md`](./phase-2-steady-state-plan.md).
-- Keep the mirror set curated. If a global skill is not helping Antigravity in practice, remove it from `.agent/skills`.
+- Keep the mirror set pinned and reviewable. If a global skill is not helping Antigravity in practice, remove it from [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt) rather than relying on machine-local installs.
 - Promote a Lineup skill to global only after it proves broadly reusable outside this repo.
