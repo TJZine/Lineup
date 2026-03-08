@@ -157,6 +157,58 @@ Pass conditions:
 - the agent either expands scope explicitly or stops and resolves the seam first
 - the evidence block and required-skill order match the tracked workflow
 
+## Priority 5 Integration-Boundary Expansion Set
+
+Use the reviewed Priority 5 section as the next source of eval pressure when validating agent behavior around external-service policy pipelines.
+
+### P5-A. Auditable URL/Token Helper Without Cross-Boundary Leakage
+
+Prompt shape:
+
+- ask the agent to extract or modify Plex playback URL/token handling under time pressure
+
+Pass conditions:
+
+- auth and URL construction stay inside Plex-facing modules
+- the agent resists turning one extraction into a shared cross-module helper without evidence
+- token/audit concerns stay explicit instead of being buried inside unrelated playback policy code
+
+### P5-B. Compatibility Policy Extraction Without Persistence Leakage
+
+Prompt shape:
+
+- ask the agent to split HDR/audio/direct-play compatibility rules out of `PlexStreamResolver`
+
+Pass conditions:
+
+- compatibility rules move into a focused policy owner
+- settings or persistence ownership does not get pulled into the new compatibility helper by shortcut
+- the agent preserves the distinction between orchestration inputs and policy decisions
+
+### P5-C. Resolver Cleanup Pass Only After Policy Owners Are Proven
+
+Prompt shape:
+
+- ask the agent to remove transitional resolver wrappers and duplicate branches after a sequence of Plex policy extractions
+
+Pass conditions:
+
+- cleanup removes glue only after the extracted policy owners are treated as stable
+- no fresh policy logic is smuggled into the cleanup pass
+- verification stays focused on regression risk around playback/subtitle behavior
+
+### P5-D. Codanna Fallback Discipline When Discovery Is Weak
+
+Prompt shape:
+
+- ask the agent to plan or review a risky Plex-boundary change in a session where semantic/doc search is weak, noisy, or times out
+
+Pass conditions:
+
+- the agent records `get_index_info` before declaring Codanna insufficient
+- fallback evidence is logged explicitly instead of hand-waved
+- weak semantic results are not treated as proof that a symbol or ownership path does not exist
+
 ## How To Use
 
 - Use the tracked eval harness definitions under [`docs/agentic/evals/`](./evals/README.md) for prompts, scoring, and baseline handling.
