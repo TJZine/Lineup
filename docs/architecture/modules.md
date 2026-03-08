@@ -204,4 +204,4 @@ The most important structural hotspots remain and should be treated as active wo
 - `src/modules/plex/stream/PlexStreamResolver.ts` → `P5` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 - `src/modules/scheduler/channel-manager/ChannelManager.ts` → `P6` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 
-All backlog-direction entries below are planned outcomes and are not current completed fact.
+The backlog-direction entries above are planned outcomes and are not current completed fact.
