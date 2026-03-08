@@ -107,6 +107,8 @@ Look for `[SubtitleDebug]` JSON logs. Helpful events:
 - `subtitle_text_fetch_failed*` (fetch exceptions): webOS transport quirk; XHR fallback may succeed.
 - Repeated failures on `/video/:/transcode/universal/subtitles`: check required identity/query params and profile matching.
 - Burn-in succeeds but Extract fails: likely PMS subtitle extraction endpoint behavior vs stream endpoint behavior.
+- `SUBTITLE_STREAM_NOT_FOUND`: `StreamRequest.subtitleStreamId` refers to a subtitle stream that is not present in any selectable media version/part.
+- First checks for `SUBTITLE_STREAM_NOT_FOUND`: verify the subtitleStreamId is current (not stale), confirm the subtitle appears in the selected media version + part metadata, and ensure selection filters or ingest jobs have not removed/renamed the stream. If the ID is stale, re-sync stream metadata or clear the stale selection.
 
 ## Future experiments (if embedded still fails)
 
