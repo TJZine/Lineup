@@ -12,7 +12,7 @@ export type SubtitleDelivery = 'embed' | 'sidecar' | 'burn' | 'none';
  */
 export function getSubtitleDelivery(
     subtitle: PlexStream | null,
-    isTranscoding: boolean
+    _isTranscoding: boolean
 ): SubtitleDelivery {
     if (!subtitle) {
         return 'none';
@@ -22,8 +22,6 @@ export function getSubtitleDelivery(
     // because subtitle extraction/fetching is handled out-of-band (see docs/development/subtitles.md).
     // `isTranscoding` is retained as a parameter for API stability but does not currently change the
     // delivery classification on its own.
-    void isTranscoding;
-
     const format = (subtitle.format || '').toLowerCase();
     const formatOrCodec = ((subtitle.format ?? subtitle.codec) || '').toLowerCase();
 

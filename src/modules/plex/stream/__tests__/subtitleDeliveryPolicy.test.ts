@@ -3,7 +3,7 @@
  */
 
 import type { PlexStream } from '../types';
-import { BURN_IN_SUBTITLE_FORMATS, TEXT_SUBTITLE_FORMATS } from '../../../../shared/subtitle-formats';
+import { BURN_IN_SUBTITLE_FORMATS, TEXT_SUBTITLE_FORMATS } from '../constants';
 import { getSubtitleDelivery, shouldRequestBurnInSubtitles } from '../subtitleDeliveryPolicy';
 
 function streamFor(format?: string, codec?: string): PlexStream {
