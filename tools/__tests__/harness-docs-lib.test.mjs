@@ -102,6 +102,25 @@ test('buildChecklistPlanPathMessages downgrades untracked plan refs to warnings 
     ]);
 });
 
+test('buildChecklistPlanPathMessages deduplicates repeated checklist refs for the same plan path', () => {
+    const result = buildChecklistPlanPathMessages(
+        [
+            { relativePath: 'docs/archive/plans/shared-summary.md', status: 'missing' },
+            { relativePath: 'docs/archive/plans/shared-summary.md', status: 'missing' },
+            { relativePath: 'docs/plans/draft.md', status: 'untracked' },
+            { relativePath: 'docs/plans/draft.md', status: 'untracked' },
+        ],
+        { mode: 'workspace' }
+    );
+
+    assert.deepEqual(result.errors, [
+        'Checklist references missing tracked plan path: docs/archive/plans/shared-summary.md',
+    ]);
+    assert.deepEqual(result.warnings, [
+        'Checklist references untracked plan path: docs/plans/draft.md (exists locally but is not tracked)',
+    ]);
+});
+
 test('SESSION_PROMPT_INVENTORY and EVAL_PROMPT_INVENTORY drive expected file order', () => {
     assert.equal(SESSION_PROMPT_INVENTORY[0].file, 'cleanup-plan.md');
     assert.equal(SESSION_PROMPT_INVENTORY.at(-1)?.file, 'workflow-harness-review.md');

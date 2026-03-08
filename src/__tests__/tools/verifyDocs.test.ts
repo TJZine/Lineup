@@ -388,4 +388,26 @@ describe('verify-docs', () => {
         expect(result.stdout).toContain('docs/plans/example-draft.md');
         expect(result.stdout).not.toContain('missing required serious-plan sections');
     });
+
+    it('deduplicates repeated checklist diagnostics when multiple items share one plan path', () => {
+        const repoRoot = createRepoFixture({
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md': [
+                '# Checklist',
+                '',
+                '- [ ] Local draft item A (plan: docs/plans/example-draft.md)',
+                '- [ ] Local draft item B (plan: docs/plans/example-draft.md)',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        writeRepoFile(repoRoot, 'docs/plans/example-draft.md', '# Draft scratch plan\n');
+
+        const result = runVerifier(repoRoot, ['--workspace']);
+        const stdout = String(result.stdout);
+
+        expect(result.status).toBe(0);
+        expect(stdout).toContain('Documentation verification passed with warnings:');
+        expect(stdout.match(/example-draft\.md/g)?.length).toBe(1);
+    });
 });

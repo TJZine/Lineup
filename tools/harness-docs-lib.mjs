@@ -206,6 +206,7 @@ export function classifyChecklistPlanPathStatus({ exists, tracked }) {
 export function buildChecklistPlanPathMessages(entries, { mode = 'strict' } = {}) {
     const errors = [];
     const warnings = [];
+    const seenMessages = new Set();
 
     for (const { relativePath, status } of entries) {
         if (status === 'tracked') {
@@ -213,11 +214,20 @@ export function buildChecklistPlanPathMessages(entries, { mode = 'strict' } = {}
         }
 
         if (status === 'missing') {
-            errors.push(`Checklist references missing tracked plan path: ${relativePath}`);
+            const message = `Checklist references missing tracked plan path: ${relativePath}`;
+            if (!seenMessages.has(message)) {
+                seenMessages.add(message);
+                errors.push(message);
+            }
             continue;
         }
 
         const message = `Checklist references untracked plan path: ${relativePath} (exists locally but is not tracked)`;
+        if (seenMessages.has(message)) {
+            continue;
+        }
+
+        seenMessages.add(message);
 
         if (mode === 'workspace') {
             warnings.push(message);
