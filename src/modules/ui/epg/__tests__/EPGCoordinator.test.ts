@@ -220,6 +220,7 @@ describe('EPGCoordinator', () => {
 
     afterEach(() => {
         clearLocalStorage();
+        jest.useRealTimers();
         jest.restoreAllMocks();
         jest.clearAllMocks();
     });
