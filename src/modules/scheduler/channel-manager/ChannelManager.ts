@@ -9,7 +9,7 @@ import { EventEmitter } from '../../../utils/EventEmitter';
 import { fnv1a32Uint } from '../../../utils/hash';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { ContentResolver } from './ContentResolver';
-import { ChannelPersistenceStore } from './ChannelPersistenceStore';
+import { ChannelRepository } from './ChannelRepository';
 import { AppErrorCode } from '../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../lifecycle/constants';
 import { TIMING_CONFIG } from '../../../config/timing';
@@ -247,7 +247,7 @@ export class ChannelManager implements IChannelManager {
     private readonly _emitter: EventEmitter<ChannelManagerEventMap>;
     private readonly _contentResolver: ContentResolver;
     private readonly _library: IPlexLibraryMinimal;
-    private readonly _persistenceStore: ChannelPersistenceStore;
+    private readonly _channelRepository: ChannelRepository;
     private readonly _logger: {
         warn: (message: string, ...args: unknown[]) => void;
         error: (message: string, ...args: unknown[]) => void;
@@ -300,7 +300,7 @@ export class ChannelManager implements IChannelManager {
             return normalized;
         })();
 
-        this._persistenceStore = new ChannelPersistenceStore(initialStorageKey, initialCurrentChannelKey);
+        this._channelRepository = new ChannelRepository(initialStorageKey, initialCurrentChannelKey);
         this._contentResolver = new ContentResolver(this._library, this._logger);
 
         this._state = {
@@ -330,7 +330,7 @@ export class ChannelManager implements IChannelManager {
                 error
             );
         }
-        this._persistenceStore.setStorageKeys(normalizedStorageKey, normalizedCurrentChannelKey);
+        this._channelRepository.setStorageKeys(normalizedStorageKey, normalizedCurrentChannelKey);
         this._contentResolver.clearCaches();
         this._state.channels.clear();
         this._state.resolvedContent.clear();
@@ -417,7 +417,7 @@ export class ChannelManager implements IChannelManager {
 
         if (this._state.currentChannelId) {
             try {
-                const result = this._persistenceStore.writeCurrentChannelId(this._state.currentChannelId);
+                const result = this._channelRepository.saveCurrentChannelId(this._state.currentChannelId);
                 if (result === 'unavailable') {
                     throw new Error('Failed to persist current channel');
                 }
@@ -793,7 +793,7 @@ export class ChannelManager implements IChannelManager {
 
         // Persist current channel separately (namespaced to the active store)
         try {
-            const result = this._persistenceStore.writeCurrentChannelId(channelId);
+            const result = this._channelRepository.saveCurrentChannelId(channelId);
             if (result === 'unavailable') {
                 throw new Error('Failed to persist current channel');
             }
@@ -1154,7 +1154,7 @@ export class ChannelManager implements IChannelManager {
             savedAt: Date.now(),
         };
 
-        const writeResult = this._persistenceStore.writeStoredChannelData(data);
+        const writeResult = this._channelRepository.saveStoredChannelData(data);
 
         if (writeResult === 'quota-exceeded') {
             throw new ChannelError(
@@ -1173,7 +1173,7 @@ export class ChannelManager implements IChannelManager {
      */
     async loadChannels(): Promise<void> {
         try {
-            const parsed = this._persistenceStore.readStoredChannelData();
+            const { stored: parsed, savedCurrentChannelId: savedCurrent } = this._channelRepository.load();
             if (!parsed) {
                 return;
             }
@@ -1213,7 +1213,6 @@ export class ChannelManager implements IChannelManager {
             this._state.currentChannelId = data.currentChannelId;
 
             // Also restore current channel from separate key
-            const savedCurrent = this._persistenceStore.readCurrentChannelId();
             if (savedCurrent && this._state.channels.has(savedCurrent)) {
                 this._state.currentChannelId = savedCurrent;
             }
