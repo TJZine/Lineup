@@ -209,64 +209,64 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 8000
             );
 
-	            const contentType = response.headers.get('content-type');
-	            const contentLength = response.headers.get('content-length');
-	            const acceptRanges = response.headers.get('accept-ranges');
-	            const contentRange = response.headers.get('content-range');
-	            const contentDisposition = response.headers.get('content-disposition');
-	            const accessControlAllowOrigin = response.headers.get('access-control-allow-origin');
-	            const accessControlExposeHeaders = response.headers.get('access-control-expose-headers');
-	            const responseType = response.type;
-	            const redirected = response.redirected;
-	            const finalUrl = redactUrlForLog(response.url);
+            const contentType = response.headers.get('content-type');
+            const contentLength = response.headers.get('content-length');
+            const acceptRanges = response.headers.get('accept-ranges');
+            const contentRange = response.headers.get('content-range');
+            const contentDisposition = response.headers.get('content-disposition');
+            const accessControlAllowOrigin = response.headers.get('access-control-allow-origin');
+            const accessControlExposeHeaders = response.headers.get('access-control-expose-headers');
+            const responseType = response.type;
+            const redirected = response.redirected;
+            const finalUrl = redactUrlForLog(response.url);
 
-	            let detected: 'webvtt' | 'srt' | 'unknown' = 'unknown';
-	            let sampleLength = 0;
-	            let sampleCapped = false;
-	            let looksLikeHtml = false;
-	            try {
-	                const reader = response.body?.getReader?.();
-	                if (reader) {
-	                    const decoder = new TextDecoder('utf-8');
-	                    let sample = '';
-	                    const MAX_SAMPLE_CHARS = 2048;
-	                    while (sample.length < MAX_SAMPLE_CHARS) {
-	                        const { value, done } = await reader.read();
-	                        if (done) break;
-	                        if (value) {
-	                            const chunk = decoder.decode(value, { stream: true });
-	                            const remaining = MAX_SAMPLE_CHARS - sample.length;
-	                            if (chunk.length > remaining) {
-	                                sample += chunk.slice(0, remaining);
-	                                sampleCapped = true;
-	                                break;
-	                            }
-	                            sample += chunk;
-	                        }
-	                    }
-	                    try {
-	                        // Stop downloading if more data exists.
-	                        await reader.cancel();
-	                    } catch {
-	                        // Ignore cancel errors.
-	                    }
-	                    sampleLength = sample.length;
-	                    looksLikeHtml = sample.replace(/^\uFEFF/, '').trimStart().startsWith('<');
-	                    detected = this._detectSubtitleTextFormat(sample);
-	                } else {
-	                    // Some client stacks may not expose a streaming body. Avoid downloading full subtitle
-	                    // payloads in debug mode; fall back to codec-based detection.
-	                    detected =
-	                        ((): 'webvtt' | 'srt' | 'unknown' => {
-	                            const c = (options.codec ?? '').toLowerCase();
-	                            if (c === 'vtt' || c === 'webvtt') return 'webvtt';
-	                            if (c === 'srt') return 'srt';
-	                            return 'unknown';
-	                        })();
-	                }
-	            } catch {
-	                // Ignore read errors; still log status/headers.
-	            }
+            let detected: 'webvtt' | 'srt' | 'unknown' = 'unknown';
+            let sampleLength = 0;
+            let sampleCapped = false;
+            let looksLikeHtml = false;
+            try {
+                const reader = response.body?.getReader?.();
+                if (reader) {
+                    const decoder = new TextDecoder('utf-8');
+                    let sample = '';
+                    const MAX_SAMPLE_CHARS = 2048;
+                    while (sample.length < MAX_SAMPLE_CHARS) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        if (value) {
+                            const chunk = decoder.decode(value, { stream: true });
+                            const remaining = MAX_SAMPLE_CHARS - sample.length;
+                            if (chunk.length > remaining) {
+                                sample += chunk.slice(0, remaining);
+                                sampleCapped = true;
+                                break;
+                            }
+                            sample += chunk;
+                        }
+                    }
+                    try {
+                        // Stop downloading if more data exists.
+                        await reader.cancel();
+                    } catch {
+                        // Ignore cancel errors.
+                    }
+                    sampleLength = sample.length;
+                    looksLikeHtml = sample.replace(/^\uFEFF/, '').trimStart().startsWith('<');
+                    detected = this._detectSubtitleTextFormat(sample);
+                } else {
+                    // Some client stacks may not expose a streaming body. Avoid downloading full subtitle
+                    // payloads in debug mode; fall back to codec-based detection.
+                    detected =
+                        ((): 'webvtt' | 'srt' | 'unknown' => {
+                            const c = (options.codec ?? '').toLowerCase();
+                            if (c === 'vtt' || c === 'webvtt') return 'webvtt';
+                            if (c === 'srt') return 'srt';
+                            return 'unknown';
+                        })();
+                }
+            } catch {
+                // Ignore read errors; still log status/headers.
+            }
 
             this._logSubtitleDebug('subtitle_stream_probe', {
                 itemKey: options.itemKey,
