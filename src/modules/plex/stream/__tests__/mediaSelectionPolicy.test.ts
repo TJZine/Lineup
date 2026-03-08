@@ -137,6 +137,50 @@ describe('mediaSelectionPolicy', () => {
         expect(result).toBeNull();
     });
 
+    it('detects subtitle streams in non-first media parts', () => {
+        const multiPart: PlexMediaFile = {
+            ...createMediaPart({ id: 'multi', container: 'mp4', width: 1920, height: 1080, bitrate: 4000 }),
+            parts: [
+                {
+                    id: 'part-0',
+                    key: '/library/parts/multi-0',
+                    duration: 120000,
+                    file: '/path/multi-0.mp4',
+                    size: 1000000,
+                    container: 'mp4',
+                    streams: [
+                        { id: 'video-0', streamType: 1, codec: 'h264' },
+                        { id: 'audio-0', streamType: 2, codec: 'aac', default: true, language: 'en', languageCode: 'en' },
+                    ],
+                },
+                {
+                    id: 'part-1',
+                    key: '/library/parts/multi-1',
+                    duration: 120000,
+                    file: '/path/multi-1.mp4',
+                    size: 1000000,
+                    container: 'mp4',
+                    streams: [
+                        { id: 'video-1', streamType: 1, codec: 'h264' },
+                        { id: 'audio-1', streamType: 2, codec: 'aac', default: true, language: 'en', languageCode: 'en' },
+                        { id: 'sub-1', streamType: 3, codec: 'srt' },
+                    ],
+                },
+            ],
+        };
+
+        const media = [
+            createMediaPart({ id: 'other', container: 'mp4', width: 1280, height: 720, bitrate: 1200 }),
+            multiPart,
+        ];
+
+        const result = selectBestMediaWithSubtitleStream(media, 'sub-1');
+
+        expect(result).not.toBeNull();
+        expect(result!.media.id).toBe('multi');
+        expect(result!.partIndex).toBe(1);
+    });
+
     it('returns null for empty media list', () => {
         const result = selectBestMedia([]);
 

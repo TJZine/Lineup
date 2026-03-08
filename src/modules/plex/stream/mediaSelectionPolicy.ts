@@ -7,13 +7,27 @@ import type { PlexMediaFile } from './types';
 export type SelectedMedia = {
     media: PlexMediaFile;
     mediaIndex: number;
+    partIndex: number;
 };
+
+function findSubtitlePartIndex(media: PlexMediaFile, subtitleStreamId: string): number {
+    if (!media?.parts || media.parts.length === 0) {
+        return -1;
+    }
+
+    return media.parts.findIndex((part) => {
+        if (!part?.streams || part.streams.length === 0) {
+            return false;
+        }
+        return part.streams.some((stream) => stream.streamType === 3 && stream.id === subtitleStreamId);
+    });
+}
 
 function pickHighestResolution(
     candidates: PlexMediaFile[],
     allMedia: PlexMediaFile[],
     maxBitrate?: number
-): SelectedMedia | null {
+): Omit<SelectedMedia, 'partIndex'> | null {
     if (!candidates || candidates.length === 0) {
         return null;
     }
@@ -47,7 +61,9 @@ export function selectBestMedia(
     mediaList: PlexMediaFile[],
     maxBitrate?: number
 ): SelectedMedia | null {
-    return pickHighestResolution(mediaList, mediaList, maxBitrate);
+    const selected = pickHighestResolution(mediaList, mediaList, maxBitrate);
+    if (!selected) return null;
+    return { ...selected, partIndex: 0 };
 }
 
 export function selectBestMediaWithSubtitleStream(
@@ -58,10 +74,16 @@ export function selectBestMediaWithSubtitleStream(
     if (!mediaList || mediaList.length === 0) return null;
 
     const candidates = mediaList.filter((media) => {
-        const part = media.parts[0];
-        if (!part) return false;
-        return part.streams.some((stream) => stream.streamType === 3 && stream.id === subtitleStreamId);
+        return findSubtitlePartIndex(media, subtitleStreamId) >= 0;
     });
 
-    return pickHighestResolution(candidates, mediaList, maxBitrate);
+    const selected = pickHighestResolution(candidates, mediaList, maxBitrate);
+    if (!selected) return null;
+
+    const partIndex = findSubtitlePartIndex(selected.media, subtitleStreamId);
+    if (partIndex < 0) {
+        return null;
+    }
+
+    return { ...selected, partIndex };
 }

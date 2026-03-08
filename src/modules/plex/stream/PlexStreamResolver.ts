@@ -353,8 +353,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             );
         }
 
-        const { media, mediaIndex } = selectedMedia;
-        const part = media.parts[0];
+        const { media, mediaIndex, partIndex } = selectedMedia;
+        const part = media.parts[partIndex];
         if (!part) {
             throw this._createError(
                 PlexStreamErrorCode.PLAYBACK_SOURCE_NOT_FOUND,
@@ -362,7 +362,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 false
             );
         }
-        const partIndex = 0;
 
         // Track selection (used for UI and optional HLS stream selection)
         const audioStream = selectCompatibleAudioTrack(
