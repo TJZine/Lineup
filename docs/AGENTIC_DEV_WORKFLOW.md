@@ -42,7 +42,7 @@ This is the operating runbook for agent-driven development in Lineup.
 5. Choose the orchestration tier before editing.
    - Tier 1: small bounded low-risk work uses one session/agent plus review before closeout
    - Tier 2: a normal cleanup unit uses planner -> implementer -> reviewer
-   - Tier 2 feature/design work mirrors cleanup with planner -> reviewer -> implementer -> reviewer
+   - Tier 2 feature/design work uses the same tracked planner/reviewer/implementer prompt family as cleanup, with planner -> reviewer -> implementer -> reviewer sequencing
    - Tier 3: hotspot, cross-boundary, multi-session, or otherwise high-risk work uses the controller loop, and a local run bundle when repeated handoff is likely
    - for Tier 3 feature or mixed work, use a task-specific run bundle and the normal workflow; do not treat `cleanup-loop` as umbrella control for feature delivery
    - do not escalate to a heavier tier unless the lower tier would materially weaken reliability
@@ -117,15 +117,15 @@ Use the tracked launcher templates in [`docs/agentic/session-prompts/README.md`]
 - reusable review session: [`cleanup-review.md`](./agentic/session-prompts/cleanup-review.md)
 - Tier 3 controller session: [`cleanup-loop.md`](./agentic/session-prompts/cleanup-loop.md)
 - Tier 2/3 feature planner session: [`feature-plan.md`](./agentic/session-prompts/feature-plan.md)
-- Tier 2 feature implementer session: [`feature-implement.md`](./agentic/session-prompts/feature-implement.md)
+- approved feature implementer session: [`feature-implement.md`](./agentic/session-prompts/feature-implement.md) (Tier 2 default; reusable in Tier 3 when a run bundle already exists)
 - reusable feature/design review session: [`feature-review.md`](./agentic/session-prompts/feature-review.md)
 - whole-harness audit: [`workflow-harness-review.md`](./agentic/session-prompts/workflow-harness-review.md)
 
-Feature Tier 2 work should use the same explicit session pattern as cleanup: planner (`feature-plan`) -> reviewer (`feature-review`) -> implementer (`feature-implement`) -> reviewer (`feature-review`).
+Feature Tier 2 work should use the same explicit tracked prompt family as cleanup, with planner (`feature-plan`) -> reviewer (`feature-review`) -> implementer (`feature-implement`) -> reviewer (`feature-review`).
 
 Use the reusable launchers only when the task risk justifies them. Tier 1 work should usually stay in one session with review.
 
-For larger multi-session or hotspot work, create a task-specific run bundle in [`docs/runs/`](./runs/README.md). Use `cleanup-loop` only for Tier 3 cleanup/refactor control; for Tier 3 feature or mixed work, use the normal feature workflow with `feature-plan` + `feature-review` + `feature-implement` + `feature-review` and keep cleanup prompts scoped to the cleanup slice.
+For larger multi-session or hotspot work, create a task-specific run bundle in [`docs/runs/`](./runs/README.md). Use `cleanup-loop` only for Tier 3 cleanup/refactor control; for Tier 3 feature or mixed work, keep the same feature `feature-plan` + `feature-review` + `feature-implement` + `feature-review` workflow, use the run bundle as the task-specific context, and keep cleanup prompts scoped to the cleanup slice.
 
 ## Session Handoffs
 

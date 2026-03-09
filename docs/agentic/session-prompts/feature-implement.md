@@ -1,20 +1,24 @@
 # Feature Implementer Launcher
 
-Use this prompt for Tier 2 or Tier 3 feature/design work when an approved feature plan already exists and the next step is implementation.
+Use this prompt for approved feature/design implementation when a reviewed plan already exists.
+
+Tier 2 uses this as the default implementer launcher. Tier 3 feature or mixed work may reuse it when a task-specific run bundle already provides the task context.
 
 ## Read Order
 
 1. [`agents.md`](../../../agents.md)
 2. [`docs/agentic/document-map.md`](../document-map.md)
 3. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
-4. the assigned tracked plan in [`docs/plans/`](../../plans/README.md) or active run bundle in [`docs/runs/`](../../runs/README.md)
-5. [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) when UI creation or redesign is in scope
-6. [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md) plus any domain docs named by the plan
-7. any repo-local boundary skills named by the plan
+4. the approving [`feature-review.md`](./feature-review.md) output or `NEXT_SESSION_HANDOFF` block that routed implementation here
+5. the assigned tracked plan in [`docs/plans/`](../../plans/README.md) or active run bundle in [`docs/runs/`](../../runs/README.md)
+6. [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) when UI creation or redesign is in scope
+7. [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md) plus any domain docs named by the plan
+8. any repo-local boundary skills named by the plan
 
 ## What This Session Must Do
 
 - execute the approved feature/design plan in a repo-local worktree under `.worktrees/` when the task is more than a tiny edit
+- use the approving review artifact as the implementation gate so reviewer constraints and blockers are not dropped between sessions
 - re-check the plan freshness gate before changing files
 - re-confirm task routing before implementation if the approved plan includes a mixed cleanup slice
 - run Codanna impact confirmation again before risky/shared-symbol edits if the code moved since planning
@@ -25,6 +29,7 @@ Use this prompt for Tier 2 or Tier 3 feature/design work when an approved featur
 ## Implementation Constraints
 
 - follow the approved plan exactly unless current repo state contradicts it
+- if the approving review output and the tracked plan disagree, reconcile them before editing instead of picking one ad hoc
 - if repo state contradicts the plan, update the plan first instead of improvising
 - keep feature intent and cleanup intent separated; do not let cleanup-only shortcuts steer net-new behavior
 - for UI creation/redesign, follow [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) and use `frontend-design`

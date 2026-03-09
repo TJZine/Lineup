@@ -18,7 +18,7 @@ Use them to avoid copying large prompt blocks into fresh sessions. The tracked f
 - [`feature-plan.md`](./feature-plan.md)
   - Tier 2 or Tier 3 planner session for serious feature/design planning
 - [`feature-implement.md`](./feature-implement.md)
-  - Tier 2 implementer session for executing an approved feature/design plan in a repo-local worktree
+  - approved feature/design implementer session; Tier 2 default, reusable in Tier 3 when a run bundle already exists
 - [`feature-review.md`](./feature-review.md)
   - reusable adversarial review session for feature/design plans and implementations
 - [`workflow-harness-review.md`](./workflow-harness-review.md)
@@ -32,7 +32,7 @@ Route task family first. Choose risk tier second.
 | Task Type | Use This Path | Prompt Family | Notes |
 |---|---|---|---|
 | cleanup/refactor | checklist cleanup units, bounded remediation, refactors with no net-new feature intent | `cleanup-*` | `cleanup-loop` is only for Tier 3 cleanup controller work. |
-| feature/design | net-new capability, behavior expansion, product/design direction work, UI creation/redesign | `feature-plan` + `feature-implement` + `feature-review` | Tier 2 feature flow mirrors cleanup: planner -> reviewer -> implementer -> reviewer. |
+| feature/design | net-new capability, behavior expansion, product/design direction work, UI creation/redesign | `feature-plan` + `feature-implement` + `feature-review` | Tier 2 feature flow uses the same tracked planner/reviewer/implementer prompt family as cleanup, with planner -> reviewer -> implementer -> reviewer sequencing. |
 | mixed | feature delivery that also includes a cleanup slice (for example hotspot extraction, ownership correction, or required doc refresh) | route by primary intent and split slices explicitly | Use `cleanup-*` only for the cleanup slice, never as umbrella control for full feature delivery. |
 
 Mixed-task examples:
@@ -43,7 +43,7 @@ Mixed-task examples:
 
 Tier 3 rule for feature or mixed work:
 
-- use a task-specific run bundle in [`docs/runs/`](../../runs/README.md) plus the normal workflow
+- use a task-specific run bundle in [`docs/runs/`](../../runs/README.md) plus the same feature planner -> reviewer -> implementer -> reviewer workflow
 - do not treat [`cleanup-loop.md`](./cleanup-loop.md) as the controller for feature or mixed-task delivery
 
 ## Invocation
