@@ -483,12 +483,22 @@ describe('ProfileSelectScreen', () => {
         screen.show();
         await flushPromisesAndTimers();
 
+        screen.hide();
         nav.setFocus.mockClear();
         nav.restoreFocusForCurrentScreen.mockClear();
-        (screen as unknown as { _restoreFocus: () => void })._restoreFocus();
+        screen.show();
+        await flushPromisesAndTimers();
 
         jest.advanceTimersByTime(60);
         expect(nav.restoreFocusForCurrentScreen).toHaveBeenCalledTimes(1);
-        expect(nav.setFocus).not.toHaveBeenCalled();
+
+        const restoreOrder = nav.restoreFocusForCurrentScreen.mock.invocationCallOrder.at(-1);
+        const focusOrders = nav.setFocus.mock.invocationCallOrder;
+        expect(focusOrders.length).toBeGreaterThan(0);
+        if (restoreOrder !== undefined) {
+            const finalFocusOrder = focusOrders.at(-1);
+            expect(finalFocusOrder).toBeDefined();
+            expect(finalFocusOrder).toBeLessThan(restoreOrder);
+        }
     });
 });
