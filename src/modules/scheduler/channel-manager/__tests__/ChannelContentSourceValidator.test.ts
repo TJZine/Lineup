@@ -55,6 +55,28 @@ describe('ChannelContentSourceValidator', () => {
         ).toBe(true);
     });
 
+    it('rejects mixed sources nested deeper than the max depth guard', () => {
+        const base = { type: 'library', libraryId: 'lib-1', libraryType: 'movie', includeWatched: true };
+        const wrapMixed = (inner: unknown): unknown => ({
+            type: 'mixed',
+            mixMode: 'sequential',
+            sources: [inner],
+        });
+
+        // MAX_CONTENT_SOURCE_DEPTH is 25 in ChannelContentSourceValidator.
+        let atLimit: unknown = base;
+        for (let i = 0; i < 25; i++) {
+            atLimit = wrapMixed(atLimit);
+        }
+        expect(isValidContentSource(atLimit)).toBe(true);
+
+        let beyondLimit: unknown = base;
+        for (let i = 0; i < 26; i++) {
+            beyondLimit = wrapMixed(beyondLimit);
+        }
+        expect(isValidContentSource(beyondLimit)).toBe(false);
+    });
+
     it('rejects sources missing required fields or with invalid shapes', () => {
         expect(isValidContentSource({ type: 'library', libraryId: 'lib-1' })).toBe(false);
         expect(isValidContentSource({ type: 'library', libraryId: 'lib-1', libraryType: 'movie' })).toBe(false);
@@ -99,4 +121,3 @@ describe('ChannelContentSourceValidator', () => {
         ).toBe(false);
     });
 });
-
