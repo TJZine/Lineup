@@ -85,6 +85,23 @@ describe('PlaybackStartController', () => {
         expect(deps.resetPlaybackFailureGuard).toHaveBeenCalledTimes(1);
     });
 
+    it('does not route permission-denied stream errors into playback-failure guard', async () => {
+        const permissionError = { code: 'ACCESS_DENIED', message: 'no access' };
+        const { controller, deps, videoPlayer } = makeSetup({
+            getVideoPlayer: jest.fn(() => videoPlayer),
+            resolveStreamForProgram: jest.fn().mockRejectedValue(permissionError),
+            tryHandleStreamResolverPermissionError: jest.fn().mockReturnValue(true),
+        });
+
+        await controller.handleProgramStart(makeProgram());
+
+        expect(deps.tryHandleStreamResolverAuthError).toHaveBeenCalledWith(permissionError);
+        expect(deps.tryHandleStreamResolverPermissionError).toHaveBeenCalledWith(permissionError);
+        expect(deps.handlePlaybackFailure).not.toHaveBeenCalled();
+        expect(videoPlayer.loadStream).not.toHaveBeenCalled();
+        expect(videoPlayer.play).not.toHaveBeenCalled();
+    });
+
     it('suppresses a stale in-flight start when a newer program arrives', async () => {
         const programA = makeProgram();
         const programB = makeProgram({
