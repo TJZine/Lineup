@@ -331,9 +331,13 @@ Other review signals:
   - [x] P8-W2 - Reduce one private-probe-heavy UI test after the corresponding UI extraction lands, and report remaining debt (done 2026-03-09; plan: docs/plans/2026-03-09-p8-w2-epgcoordinator-tests-without-private-probes.md)
   - Remaining private-probe debt after this unit:
     - `src/modules/ui/epg/__tests__/EPGCoordinator.test.ts` now avoids private probes and uses new `EPGCoordinatorPolicies` seams.
-    - The next real UI SUT private-probe targets are `src/modules/ui/mini-guide/__tests__/MiniGuideCoordinator.test.ts`, `src/modules/ui/profile-select/__tests__/ProfileSelectScreen.test.ts`, and `src/modules/ui/settings/__tests__/SettingsScreen.test.ts`; these still reach coordinator/screen internals directly.
+    - The next real UI SUT private-probe targets are:
+      - `src/modules/ui/profile-select/__tests__/ProfileSelectScreen.test.ts`
+      - `src/modules/ui/settings/__tests__/SettingsScreen.test.ts`
+    - `overlay._visible` inside local overlay fakes and mock `_src` fields remain test-double internals and are excluded from this remaining-SUT list.
     - `_visible` fields inside local overlay fakes (`ChannelTransitionCoordinator`, `PlayerOsdCoordinator`) and `_src` on local image mocks (`EPGInfoPanel`) are test-double internals, not the next Priority 8 conversion target.
-  - [ ] P8-W3 - Convert one remaining real UI private-probe suite to a production seam or public-behavior path, then ratchet the anti-pattern baseline and refresh the remaining-debt note
+    - Current frozen-suite baseline maxCount after this unit: 47.
+  - [x] P8-W3 - Convert one remaining real UI private-probe suite to a production seam or public-behavior path, then ratchet the anti-pattern baseline and refresh the remaining-debt note (done 2026-03-09; plan: docs/plans/2026-03-09-p8-w3-tighten-antipattern-baseline.md)
   - [ ] P8-W4 - Cleanup pass for Priority 8: remove obsolete test helpers, dead probe utilities, overengineered/redundant/unhelpful tests, and transitional assertions after the new public seams are stable
 
 ## Suggested Execution Order
