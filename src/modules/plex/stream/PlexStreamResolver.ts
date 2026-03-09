@@ -381,6 +381,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 ) ?? null)
                 : null;
         if (request.subtitleMode === 'burn' && request.subtitleStreamId && !subtitleStream) {
+            // Defensive: strict selection should prevent this in normal cases; treat as inconsistent/stale metadata.
             throw this._createError(
                 PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND,
                 `Subtitle stream not found for burn-in: ${request.subtitleStreamId}`,
