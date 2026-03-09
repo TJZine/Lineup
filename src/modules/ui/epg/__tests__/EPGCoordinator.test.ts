@@ -177,18 +177,19 @@ const makeDeps = (
         }),
     } as unknown as IChannelScheduler;
 
-    const deps: EPGCoordinatorDeps = {
-        getEpg: () => epg,
-        getChannelManager: () => channelManager,
-        getScheduler: () => scheduler,
-        getEpgUiStatus: () => 'ready',
-        ensureEpgInitialized: jest.fn().mockResolvedValue(undefined),
-        getEpgConfig: () => ({ totalHours: 6, timeSlotMinutes: 30 } as EPGConfig),
-        getLocalMidnightMs: (t: number) => t - (t % (24 * 60 * 60 * 1000)),
-        buildDailyScheduleConfig: (
-            channel: ChannelConfig,
-            items: ResolvedChannelContent['items']
-        ): ScheduleConfig =>
+	    const deps: EPGCoordinatorDeps = {
+	        getEpg: () => epg,
+	        getChannelManager: () => channelManager,
+	        getScheduler: () => scheduler,
+	        getEpgUiStatus: () => 'ready',
+	        ensureEpgInitialized: jest.fn().mockResolvedValue(undefined),
+	        getEpgConfig: () => ({ totalHours: 6, timeSlotMinutes: 30 } as EPGConfig),
+	        getLocalMidnightMs: (t: number) => t - (t % (24 * 60 * 60 * 1000)),
+	        getEpgScheduleRangeSnapshot: () => readEpgStorageSnapshotForScheduleRange(),
+	        buildDailyScheduleConfig: (
+	            channel: ChannelConfig,
+	            items: ResolvedChannelContent['items']
+	        ): ScheduleConfig =>
         ({
             channelId: channel.id,
             anchorTime: 0,
@@ -819,27 +820,27 @@ describe('EPGCoordinator', () => {
         expect(epg.loadChannels).toHaveBeenCalled();
     });
 
-    it('preseeds current channel schedule when scheduler is active and channel is visible', () => {
-        const { deps, epg } = makeDeps();
-        const coordinator = new EPGCoordinator(deps);
-        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue();
+	    it('preseeds current channel schedule when scheduler is active and channel is visible', () => {
+	        const { deps, epg } = makeDeps();
+	        const coordinator = new EPGCoordinator(deps);
+	        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue(undefined);
 
-        coordinator.openEPG();
+	        coordinator.openEPG();
 
-        expect(epg.loadScheduleForChannel).toHaveBeenCalledWith('c0', expect.any(Object));
-        expect(refreshSpy).toHaveBeenCalled();
-    });
+	        expect(epg.loadScheduleForChannel).toHaveBeenCalledWith('c0', expect.any(Object));
+	        expect(refreshSpy).toHaveBeenCalled();
+	    });
 
-    it('does not preseed when scheduler is inactive', () => {
+	    it('does not preseed when scheduler is inactive', () => {
         const scheduler: IChannelScheduler = {
             getState: () => ({ isActive: false, channelId: 'c0' }),
             getScheduleWindow: jest.fn(),
         } as unknown as IChannelScheduler;
-        const { deps, epg } = makeDeps({
-            getScheduler: () => scheduler,
-        });
-        const coordinator = new EPGCoordinator(deps);
-        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue();
+	        const { deps, epg } = makeDeps({
+	            getScheduler: () => scheduler,
+	        });
+	        const coordinator = new EPGCoordinator(deps);
+	        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue(undefined);
 
         coordinator.openEPG();
 
@@ -847,7 +848,7 @@ describe('EPGCoordinator', () => {
         expect(refreshSpy).toHaveBeenCalled();
     });
 
-    it('does not preseed when current channel is filtered out', () => {
+	    it('does not preseed when current channel is filtered out', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib2');
 
@@ -864,9 +865,9 @@ describe('EPGCoordinator', () => {
                 getCurrentChannel: () => channels[0],
                 resolveChannelContent: base.resolveChannelContent,
             } as IChannelManager),
-        });
-        const coordinator = new EPGCoordinator(deps);
-        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue();
+	        });
+	        const coordinator = new EPGCoordinator(deps);
+	        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue(undefined);
 
         coordinator.openEPG();
 

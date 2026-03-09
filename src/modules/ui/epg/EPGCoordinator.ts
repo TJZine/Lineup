@@ -18,8 +18,9 @@ import {
     computeEpgScheduleRangeMs,
     getBackgroundWarmQueueAction,
     partitionPrefetchChannels,
-    readEpgStorageSnapshotForScheduleRange,
+    type EpgStorageSnapshotForScheduleRange,
 } from './EPGCoordinatorPolicies';
+import { buildLibraries, countLibraryTypeVotes } from './epgLibraryUtils';
 
 export type EpgUiStatus = 'pending' | 'initializing' | 'ready' | 'error' | 'disabled' | undefined;
 
@@ -33,6 +34,7 @@ export interface EPGCoordinatorDeps {
 
     getEpgConfig: () => EPGConfig | null;
     getLocalMidnightMs: (timeMs: number) => number;
+    getEpgScheduleRangeSnapshot: () => EpgStorageSnapshotForScheduleRange;
 
     buildDailyScheduleConfig: (
         channel: ChannelConfig,
@@ -141,18 +143,6 @@ export class EPGCoordinator {
         return trimmed ? trimmed : null;
     }
 
-    private _buildLibraries(channels: ChannelConfig[]): Array<{ id: string; name: string }> {
-        const map = new Map<string, string>();
-        for (const c of channels) {
-            if (c.sourceLibraryId && c.sourceLibraryName) {
-                map.set(c.sourceLibraryId, c.sourceLibraryName);
-            }
-        }
-        return Array.from(map.entries())
-            .map(([id, name]) => ({ id, name }))
-            .sort((a, b) => a.name.localeCompare(b.name));
-    }
-
     private _readGuideDensity(): 'detailed' | 'wide' {
         const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY);
         return raw === 'wide' ? 'wide' : DEFAULT_GUIDE_DENSITY;
@@ -162,42 +152,11 @@ export class EPGCoordinator {
         return this._readGuideDensity() === 'wide' ? WIDE_VISIBLE_HOURS : DETAILED_VISIBLE_HOURS;
     }
 
-    private _countLibraryTypeVotes(
-        channels: ChannelConfig[],
-        selectedId: string
-    ): { movieVotes: number; showVotes: number } {
-        let movieVotes = 0;
-        let showVotes = 0;
-
-        for (const channel of channels) {
-            const belongsToLibrary =
-                channel.sourceLibraryId === selectedId ||
-                (channel.contentSource.type === 'library' && channel.contentSource.libraryId === selectedId);
-            if (!belongsToLibrary) {
-                continue;
-            }
-
-            if (channel.contentSource.type === 'library') {
-                if (channel.contentSource.libraryType === 'movie') {
-                    movieVotes++;
-                } else {
-                    showVotes++;
-                }
-                continue;
-            }
-
-            if (channel.contentSource.type === 'show') {
-                showVotes++;
-            }
-        }
-
-        return { movieVotes, showVotes };
-    }
     private _inferLibraryType(
         channels: ChannelConfig[],
         selectedId: string
     ): 'movie' | 'show' | null {
-        const { movieVotes, showVotes } = this._countLibraryTypeVotes(channels, selectedId);
+        const { movieVotes, showVotes } = countLibraryTypeVotes(channels, selectedId);
 
         if (movieVotes === 0 && showVotes === 0) {
             return null;
@@ -245,7 +204,7 @@ export class EPGCoordinator {
     } {
         const tabsEnabled = this._isLibraryTabsEnabled();
         let selectedId = this._readSelectedLibraryId();
-        const libraries = this._buildLibraries(all);
+        const libraries = buildLibraries(all);
         const hasMultipleLibraries = libraries.length > 1;
         const hasSelectedMatch = selectedId
             ? libraries.some((lib) => lib.id === selectedId) ||
@@ -580,7 +539,7 @@ export class EPGCoordinator {
     }
 
     private _getEpgScheduleRangeMs(): { startTime: number; endTime: number } | null {
-        const storage = readEpgStorageSnapshotForScheduleRange();
+        const storage = this.deps.getEpgScheduleRangeSnapshot();
         return computeEpgScheduleRangeMs(this.deps, Date.now(), storage);
     }
 

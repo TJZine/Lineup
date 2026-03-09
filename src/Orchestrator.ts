@@ -85,6 +85,7 @@ import {
     type EPGConfig,
 } from './modules/ui/epg';
 import { EPGCoordinator, type EpgUiStatus } from './modules/ui/epg/EPGCoordinator';
+import { readEpgStorageSnapshotForScheduleRange } from './modules/ui/epg/EPGCoordinatorPolicies';
 import {
     NowPlayingInfoOverlay,
     type INowPlayingInfoOverlay,
@@ -662,6 +663,8 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this._initCoordinator?.ensureEPGInitialized() ?? Promise.resolve(),
             getEpgConfig: (): EPGConfig | null => this._config?.epgConfig ?? null,
             getLocalMidnightMs: (t: number): number => this._getLocalMidnightMs(t),
+            getEpgScheduleRangeSnapshot: (): ReturnType<typeof readEpgStorageSnapshotForScheduleRange> =>
+                readEpgStorageSnapshotForScheduleRange(),
             buildDailyScheduleConfig: (
                 channel: ChannelConfig,
                 items: ResolvedChannelContent['items'],
