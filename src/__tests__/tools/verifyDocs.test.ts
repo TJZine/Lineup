@@ -175,9 +175,9 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
         [
             '# Feature Implement (Fixture)',
             '',
-            '- remediation/fix',
-            '- implementation-findings.md',
-            '- route back to `lineup-feature-plan`',
+            '- Support approved-plan execution and remediation/fix execution.',
+            '- Use the handoff ARTIFACT as the fix-session input for listed implementation defects.',
+            '- Route planning or decision defects back to `lineup-feature-plan` before coding.',
             '',
         ].join('\n')
     );
@@ -188,9 +188,9 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
         [
             '# Feature Review (Fixture)',
             '',
-            '- plan/decision/product boundary defects',
-            '- plan-decision-findings.md',
-            '- implementation-findings.md',
+            '- Route planning or boundary defects to `lineup-feature-plan`.',
+            '- Route localized implementation defects to `lineup-feature-implement`.',
+            '- Include the findings artifact in `ARTIFACT` for the next session.',
             '',
         ].join('\n')
     );
@@ -812,5 +812,68 @@ describe('verify-docs', () => {
         expect(stderr).toContain('list tracked plan files via git');
         expect(stderr).not.toContain('Checklist references untracked plan path');
         expect(stderr).not.toContain('missing required serious-plan sections');
+    });
+
+    it('fails when feature implement prompt omits the re-plan stop condition for remediation findings', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-implement.md': [
+                '# Feature Implement',
+                '',
+                '- Use the review handoff artifact to drive a focused fix session.',
+                '- Keep implementation fixes scoped to the reviewed defects.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('feature-implement prompt doc');
+    });
+
+    it('fails when feature review prompt omits the implementation-vs-replan remediation split', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-review.md': [
+                '# Feature Review',
+                '',
+                '- Route implementation findings to lineup-feature-implement.',
+                '- Include the findings artifact in ARTIFACT.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('feature-review prompt doc');
+    });
+
+    it('passes when remediation prompts use equivalent wording without sample findings filenames', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-implement.md': [
+                '# Feature Implement',
+                '',
+                '- Support both approved-plan execution and review-driven defect remediation.',
+                '- Read the handoff ARTIFACT and keep the fix session scoped to the listed implementation defects.',
+                '- If the findings show planning, decision, or boundary defects, send the work back to lineup-feature-plan before coding.',
+                '',
+            ].join('\n'),
+            'docs/agentic/session-prompts/feature-review.md': [
+                '# Feature Review',
+                '',
+                '- For implementation reviews, route planning, decision, or boundary defects to lineup-feature-plan.',
+                '- Route localized implementation defects to lineup-feature-implement.',
+                '- Include the relevant findings artifact in ARTIFACT for the next session.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('Documentation verification passed.');
     });
 });

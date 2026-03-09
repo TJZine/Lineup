@@ -513,32 +513,66 @@ function checkWorkflowRoutingSplit(errors) {
     }
 }
 
+function normalizeDocText(content) {
+    return content
+        .toLowerCase()
+        .replace(/[`*_]/gu, ' ')
+        .replace(/\s+/gu, ' ')
+        .trim();
+}
+
+function includesAllMarkers(content, markers) {
+    return markers.every((marker) => content.includes(marker));
+}
+
+function includesAnyMarker(content, markers) {
+    return markers.some((marker) => content.includes(marker));
+}
+
 function checkFeatureRemediationPromptContracts(errors) {
     const implement = readRepoFile('docs/agentic/session-prompts/feature-implement.md', errors);
     if (implement !== null) {
-        const requiredImplementMarkers = [
-            'remediation/fix',
-            'implementation-findings.md',
-            'route back to `lineup-feature-plan`',
-        ];
-        for (const marker of requiredImplementMarkers) {
-            if (!implement.includes(marker)) {
-                errors.push(`feature-implement prompt doc is missing required remediation marker: ${marker}`);
-            }
+        const normalized = normalizeDocText(implement);
+        const implementContractSatisfied =
+            includesAllMarkers(normalized, ['artifact', 'lineup-feature-plan']) &&
+            includesAnyMarker(normalized, ['remediation', 'fix session', 'fix-session', 'defect remediation', 'findings']) &&
+            includesAnyMarker(normalized, [
+                'implementation defects',
+                'reviewed defects',
+                'listed fixes',
+                'listed implementation defects',
+                'implementation findings',
+                'fix session',
+            ]);
+
+        if (!implementContractSatisfied) {
+            errors.push(
+                'feature-implement prompt doc must describe a remediation/fix path that uses ARTIFACT as the fix-session input and routes plan/decision defects back to lineup-feature-plan'
+            );
         }
     }
 
     const review = readRepoFile('docs/agentic/session-prompts/feature-review.md', errors);
     if (review !== null) {
-        const requiredReviewMarkers = [
-            'plan/decision/product boundary defects',
-            'plan-decision-findings.md',
-            'implementation-findings.md',
-        ];
-        for (const marker of requiredReviewMarkers) {
-            if (!review.includes(marker)) {
-                errors.push(`feature-review prompt doc is missing required remediation-routing marker: ${marker}`);
-            }
+        const normalized = normalizeDocText(review);
+        const reviewContractSatisfied =
+            includesAllMarkers(normalized, ['artifact', 'lineup-feature-plan', 'lineup-feature-implement']) &&
+            includesAnyMarker(normalized, ['planning', 'plan', 'decision', 'boundary']) &&
+            includesAnyMarker(normalized, [
+                'implementation defects',
+                'implementation defect',
+                'localized implementation',
+                'localized code defects',
+                'bugs',
+                'missing tests',
+                'missed requirements',
+                'localized refactors',
+            ]);
+
+        if (!reviewContractSatisfied) {
+            errors.push(
+                'feature-review prompt doc must split implementation-review remediation between lineup-feature-plan for plan/decision defects and lineup-feature-implement for localized implementation defects'
+            );
         }
     }
 }
