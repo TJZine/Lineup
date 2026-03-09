@@ -328,7 +328,10 @@ Other review signals:
   - [ ] Convert at least one test away from private probing
 - Primary work units:
   - [x] P8-W1 - Reduce private probing in the orchestrator playback tests by routing through the first extracted controller (done 2026-03-09; plan: docs/plans/2026-03-09-p8-w1-orchestrator-playback-tests-without-private-probes.md)
-  - [ ] P8-W2 - Reduce one private-probe-heavy UI test after the corresponding UI extraction lands, and report remaining debt
+  - [x] P8-W2 - Reduce one private-probe-heavy UI test after the corresponding UI extraction lands, and report remaining debt (done 2026-03-09; plan: docs/plans/2026-03-09-p8-w2-epgcoordinator-tests-without-private-probes.md)
+  - Remaining private-probe debt after this unit:
+    - `src/modules/ui/epg/__tests__/EPGCoordinator.test.ts` now avoids private probes and uses new `EPGCoordinatorPolicies` seams.
+    - `P8-W3` should be focused on remaining suites in `src/modules/ui` with `_` field probes (e.g. `ProfileSelectScreen`, `PlayerOsdCoordinator`, `MiniGuideCoordinator`, `SettingsScreen`, `ChannelTransitionCoordinator`, `EPGInfoPanel`), which still rely on private fields for fixture state.
   - [ ] P8-W3 - Tighten the anti-pattern baseline once at least one hotspot suite no longer needs the old probe path, and report remaining debt
   - [ ] P8-W4 - Cleanup pass for Priority 8: remove obsolete test helpers, dead probe utilities, overengineered/redundant/unhelpful tests, and transitional assertions after the new public seams are stable
 
