@@ -180,7 +180,7 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '',
             '- Support approved-plan execution and remediation/fix execution.',
             '- Use the handoff ARTIFACT as the fix-session input for listed implementation defects.',
-            '- Route planning or decision defects back to `lineup-feature-plan` before coding.',
+            '- If the findings show planning or decision defects, send the work back to `lineup-feature-plan` before coding.',
             '- For the outgoing review handoff, set ARTIFACT to the patched implementation artifact or diff target so review inspects the actual changes.',
             '',
         ].join('\n')
@@ -573,6 +573,39 @@ describe('verify-docs', () => {
         expect(result.stderr).toContain('Missing tracked Codex role config: .codex/config.toml');
     });
 
+    it('fails when codex role workflow markers are split across tracked workflow docs and .codex/config.toml is missing', () => {
+        const repoRoot = createRepoFixture({
+            'docs/AGENTIC_DEV_WORKFLOW.md': [
+                '# Workflow',
+                '',
+                'Route task family before choosing a tier.',
+                '',
+                '[cleanup-plan](./agentic/session-prompts/cleanup-plan.md)',
+                '[cleanup-review](./agentic/session-prompts/cleanup-review.md)',
+                '[feature-plan](./agentic/session-prompts/feature-plan.md)',
+                '[feature-implement](./agentic/session-prompts/feature-implement.md)',
+                '[feature-review](./agentic/session-prompts/feature-review.md)',
+                '',
+                'Feature Tier 2 work should use planner (`feature-plan`) -> reviewer (`feature-review`) -> implementer (`feature-implement`) -> reviewer (`feature-review`).',
+                '',
+                '- Repo-defined Codex roles are tracked in `.codex/config.toml`.',
+                '',
+            ].join('\n'),
+            'docs/agentic/session-prompts/workflow-harness-review.md': [
+                '# Workflow Harness Review',
+                '',
+                '- Inspect the tracked role files under `.codex/agents/` during harness audits.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Missing tracked Codex role config: .codex/config.toml');
+    });
+
     it('fails when a declared codex role config_file path does not exist', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
@@ -841,6 +874,27 @@ describe('verify-docs', () => {
         expect(result.stderr).toContain('feature-implement prompt doc');
     });
 
+    it('fails when feature implement mentions lineup-feature-plan without an explicit re-plan trigger', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-implement.md': [
+                '# Feature Implement',
+                '',
+                '- Support approved-plan execution and remediation/fix execution.',
+                '- Use the handoff ARTIFACT as the fix-session input for listed implementation defects.',
+                '- Read lineup-feature-plan before coding when task context is unclear.',
+                '- Keep implementation fixes scoped to the listed implementation defects.',
+                '- For the next review handoff, point ARTIFACT at the patched diff target rather than the old findings note.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('feature-implement prompt doc');
+    });
+
     it('fails when feature review prompt omits the implementation-vs-replan remediation split', () => {
         const repoRoot = createRepoFixture({
             'docs/agentic/session-prompts/feature-review.md': [
@@ -867,6 +921,26 @@ describe('verify-docs', () => {
                 '- Use ARTIFACT while reviewing the implementation.',
                 '- The available handoff launchers are lineup-feature-plan and lineup-feature-implement.',
                 '- Route localized implementation defects to lineup-feature-implement.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('feature-review prompt doc');
+    });
+
+    it('fails when feature review spreads routing markers across the doc without attaching them to the launcher lines', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-review.md': [
+                '# Feature Review',
+                '',
+                '- Use ARTIFACT while reviewing the implementation.',
+                '- Planning or boundary concerns need escalation before more coding.',
+                '- The available handoff launchers are lineup-feature-plan and lineup-feature-implement.',
+                '- Localized implementation defects, bugs, and missing tests need follow-up work.',
                 '',
             ].join('\n'),
         });

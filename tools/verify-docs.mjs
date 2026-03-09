@@ -589,8 +589,15 @@ function checkFeatureRemediationPromptContracts(errors) {
     if (implement !== null) {
         const normalized = normalizeDocText(implement);
         const normalizedLines = normalizeDocLines(implement);
+        const implementHasReplanTrigger = normalizedLines.some(
+            (line) =>
+                line.includes('lineup-feature-plan') &&
+                (/\bre-?plan\b/u.test(line) ||
+                    includesAnyMarker(line, ['bounce back', 'route back', 'send the work back', 'update the plan first']))
+        );
         const implementContractSatisfied =
-            includesAllMarkers(normalized, ['artifact', 'lineup-feature-plan']) &&
+            includesAllMarkers(normalized, ['artifact']) &&
+            implementHasReplanTrigger &&
             includesAnyMarker(normalized, ['remediation', 'fix session', 'fix-session', 'defect remediation', 'findings']) &&
             includesAnyMarker(normalized, [
                 'implementation defects',
@@ -631,19 +638,29 @@ function checkFeatureRemediationPromptContracts(errors) {
     const review = readRepoFile('docs/agentic/session-prompts/feature-review.md', errors);
     if (review !== null) {
         const normalized = normalizeDocText(review);
+        const normalizedLines = normalizeDocLines(review);
+        const planRoutingLinePresent = normalizedLines.some(
+            (line) =>
+                line.includes('lineup-feature-plan') && includesAnyMarker(line, ['planning', 'decision', 'boundary'])
+        );
+        const implementRoutingLinePresent = normalizedLines.some(
+            (line) =>
+                line.includes('lineup-feature-implement') &&
+                includesAnyMarker(line, [
+                    'implementation defects',
+                    'implementation defect',
+                    'localized implementation',
+                    'localized code defects',
+                    'bugs',
+                    'missing tests',
+                    'missed requirements',
+                    'localized refactors',
+                ])
+        );
         const reviewContractSatisfied =
             includesAllMarkers(normalized, ['artifact', 'lineup-feature-plan', 'lineup-feature-implement']) &&
-            includesAnyMarker(normalized, ['planning', 'decision', 'boundary']) &&
-            includesAnyMarker(normalized, [
-                'implementation defects',
-                'implementation defect',
-                'localized implementation',
-                'localized code defects',
-                'bugs',
-                'missing tests',
-                'missed requirements',
-                'localized refactors',
-            ]);
+            planRoutingLinePresent &&
+            implementRoutingLinePresent;
 
         if (!reviewContractSatisfied) {
             errors.push(
@@ -734,18 +751,20 @@ function checkSkillMirrorManifest(errors) {
 }
 
 function isCodexRoleWorkflowTracked(errors) {
+    let foundConfig = false;
+    let foundAgents = false;
+
     for (const relativePath of codexRoleWorkflowMarkerFiles) {
         const content = readRepoFile(relativePath, errors);
         if (content === null) {
             continue;
         }
 
-        if (content.includes('.codex/config.toml') && content.includes('.codex/agents/')) {
-            return true;
-        }
+        foundConfig ||= content.includes('.codex/config.toml');
+        foundAgents ||= content.includes('.codex/agents/');
     }
 
-    return false;
+    return foundConfig && foundAgents;
 }
 
 function parseCodexRoleConfig(configContent) {
