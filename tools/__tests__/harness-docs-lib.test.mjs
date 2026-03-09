@@ -127,6 +127,7 @@ test('buildChecklistPlanPathMessages deduplicates repeated checklist refs for th
 
 test('SESSION_PROMPT_INVENTORY and EVAL_PROMPT_INVENTORY drive expected file order', () => {
     assert.equal(SESSION_PROMPT_INVENTORY[0].file, 'cleanup-plan.md');
+    assert.equal(SESSION_PROMPT_INVENTORY[5].file, 'feature-implement.md');
     assert.equal(SESSION_PROMPT_INVENTORY.at(-1)?.file, 'workflow-harness-review.md');
     assert.equal(EVAL_PROMPT_INVENTORY[0].file, '01-app-container-extraction-no-ui-drift.md');
     assert.equal(EVAL_PROMPT_INVENTORY.at(-1)?.file, '19-multi-agent-role-selection-and-delegation-discipline.md');

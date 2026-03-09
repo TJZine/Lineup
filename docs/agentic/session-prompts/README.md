@@ -17,6 +17,8 @@ Use them to avoid copying large prompt blocks into fresh sessions. The tracked f
   - Tier 3 controller session for high-risk work
 - [`feature-plan.md`](./feature-plan.md)
   - Tier 2 or Tier 3 planner session for serious feature/design planning
+- [`feature-implement.md`](./feature-implement.md)
+  - Tier 2 implementer session for executing an approved feature/design plan in a repo-local worktree
 - [`feature-review.md`](./feature-review.md)
   - reusable adversarial review session for feature/design plans and implementations
 - [`workflow-harness-review.md`](./workflow-harness-review.md)
@@ -30,7 +32,7 @@ Route task family first. Choose risk tier second.
 | Task Type | Use This Path | Prompt Family | Notes |
 |---|---|---|---|
 | cleanup/refactor | checklist cleanup units, bounded remediation, refactors with no net-new feature intent | `cleanup-*` | `cleanup-loop` is only for Tier 3 cleanup controller work. |
-| feature/design | net-new capability, behavior expansion, product/design direction work, UI creation/redesign | `feature-plan` + `feature-review` | Use the normal repo workflow for implementation; no second implement/controller family is required. |
+| feature/design | net-new capability, behavior expansion, product/design direction work, UI creation/redesign | `feature-plan` + `feature-implement` + `feature-review` | Tier 2 feature flow mirrors cleanup: planner -> reviewer -> implementer -> reviewer. |
 | mixed | feature delivery that also includes a cleanup slice (for example hotspot extraction, ownership correction, or required doc refresh) | route by primary intent and split slices explicitly | Use `cleanup-*` only for the cleanup slice, never as umbrella control for full feature delivery. |
 
 Mixed-task examples:
@@ -53,6 +55,7 @@ Recommended global launcher names:
 - `lineup-cleanup-review`
 - `lineup-cleanup-loop`
 - `lineup-feature-plan`
+- `lineup-feature-implement`
 - `lineup-feature-review`
 - `lineup-workflow-harness-review`
 
@@ -70,6 +73,12 @@ Use these reusable launchers for Tier 2 cleanup work:
 - routine `P#-W#` cleanup items
 - bounded refactors with one planner, one implementer, and one reviewer
 - plan refreshes for active tracked plans
+
+Use these reusable launchers for Tier 2 feature/design work:
+
+- serious feature/design plans that need adversarial review before coding
+- approved feature/design plans that should execute in a fresh implementer session
+- implementation review passes after the approved plan lands
 
 ## When To Stay In One Session
 

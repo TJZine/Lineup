@@ -32,6 +32,11 @@ export const SESSION_PROMPT_INVENTORY = [
         description: 'Tier 2 or Tier 3 planner session for serious feature/design planning',
     },
     {
+        file: 'feature-implement.md',
+        linkText: 'feature-implement.md',
+        description: 'Tier 2 implementer session for executing an approved feature/design plan in a repo-local worktree',
+    },
+    {
         file: 'feature-review.md',
         linkText: 'feature-review.md',
         description: 'reusable adversarial review session for feature/design plans and implementations',
