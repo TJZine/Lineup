@@ -236,13 +236,14 @@ export const partitionPrefetchChannels = (
     const warmEnd = Math.min(channels.length, warmStart + lookAhead);
 
     const backgroundChannels: ChannelConfig[] = [];
-    for (const channel of channels.slice(warmStart, warmEnd))
+    for (const channel of channels.slice(warmStart, warmEnd)) {
         if (!immediateIds.has(channel.id)) {
             backgroundChannels.push(channel);
             if (backgroundChannels.length >= caps.maxQueuedChannels) {
                 break;
             }
         }
+    }
 
     return {
         immediateChannels,

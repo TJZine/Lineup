@@ -3,8 +3,22 @@ import type { ChannelConfig } from '../../scheduler/channel-manager';
 export const buildLibraries = (channels: ChannelConfig[]): Array<{ id: string; name: string }> => {
     const map = new Map<string, string>();
     for (const c of channels) {
-        if (c.sourceLibraryId && c.sourceLibraryName) {
-            map.set(c.sourceLibraryId, c.sourceLibraryName);
+        const id =
+            c.sourceLibraryId ??
+            (c.contentSource.type === 'library' ? c.contentSource.libraryId : null);
+        if (!id) {
+            continue;
+        }
+
+        const name = c.sourceLibraryName ?? c.name;
+        const existing = map.get(id);
+        if (!existing) {
+            map.set(id, name);
+            continue;
+        }
+
+        if (typeof c.sourceLibraryName === 'string' && c.sourceLibraryName.length > 0 && existing !== c.sourceLibraryName) {
+            map.set(id, c.sourceLibraryName);
         }
     }
 
@@ -71,4 +85,3 @@ export const countLibraryTypeVotesAcrossAllChannels = (
 
     return { movieVotes, showVotes, unknownVotes };
 };
-
