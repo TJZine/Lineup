@@ -620,22 +620,42 @@ describe('SettingsScreen (Two-pane layout)', () => {
         const cancelSpy = jest.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
 
         try {
-            const { container, screen } = createScreen(jest.fn());
+            const { container, nav, screen } = createScreen(jest.fn());
             screen.show();
 
-            // Queue a deferred swap.
+            // Queue a deferred swap and preserve the same RIGHT-into-detail intent as the
+            // existing deferred-swap focus test before hiding.
             const appearanceButton = container.querySelector('#settings-category-appearance') as HTMLButtonElement | null;
             if (!appearanceButton) {
                 throw new Error('Appearance category not found');
             }
             appearanceButton.click();
-            expect(rafQueue.length).toBeGreaterThan(0);
+            nav.setFocus('settings-category-appearance');
+            const keyHandler = nav.on.mock.calls.find((call) => call[0] === 'keyPress')?.[1];
+            expect(typeof keyHandler).toBe('function');
+            keyHandler?.({ handled: false, button: 'right' });
+
+            const swapFrame = rafQueue.shift();
+            if (!swapFrame) {
+                throw new Error('Expected deferred swap frame');
+            }
 
             screen.hide();
             expect(cancelSpy).toHaveBeenCalled();
             const detailItems = container.querySelector('.settings-detail-items') as HTMLElement | null;
             expect(detailItems?.classList.contains('transitioning')).toBe(false);
-            expect((screen as unknown as { _pendingFocusRestore: unknown })._pendingFocusRestore).toBeNull();
+
+            screen.show();
+            expect(nav.getFocusedElement()?.id).toBe('settings-category-appearance');
+            nav.setFocus.mockClear();
+            swapFrame(16);
+            const revealFrame = rafQueue.shift();
+            if (revealFrame) {
+                revealFrame(16);
+            }
+
+            expect(nav.setFocus).not.toHaveBeenCalledWith(expect.stringContaining('settings-guide-category-colors'));
+            expect(nav.getFocusedElement()?.id).toBe('settings-category-appearance');
         } finally {
             restore();
             cancelSpy.mockRestore();
