@@ -62,6 +62,6 @@ Return:
 5. a `NEXT_SESSION_HANDOFF` block that routes to `lineup-feature-review` and includes:
    - `TASK`
    - `PLAN`
-   - `ARTIFACT` (approving review output, or the remediation findings artifact for a fix session)
+   - `ARTIFACT` (the patched implementation artifact, diff target, or reviewed commit containing the actual changes; do not point back to the incoming findings artifact)
    - `FILES`
    - a pasteable implementation-review request unless the task is fully blocked before code changes

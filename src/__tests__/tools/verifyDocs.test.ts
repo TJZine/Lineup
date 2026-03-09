@@ -144,6 +144,7 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             'feature/design',
             'mixed',
             'feature-plan',
+            'feature-implement',
             'feature-review',
             '',
         ].join('\n')
@@ -160,6 +161,7 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '[cleanup-plan](./agentic/session-prompts/cleanup-plan.md)',
             '[cleanup-review](./agentic/session-prompts/cleanup-review.md)',
             '[feature-plan](./agentic/session-prompts/feature-plan.md)',
+            '[feature-implement](./agentic/session-prompts/feature-implement.md)',
             '[feature-review](./agentic/session-prompts/feature-review.md)',
             '',
         ].join('\n')
@@ -178,6 +180,7 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '- Support approved-plan execution and remediation/fix execution.',
             '- Use the handoff ARTIFACT as the fix-session input for listed implementation defects.',
             '- Route planning or decision defects back to `lineup-feature-plan` before coding.',
+            '- For the outgoing review handoff, set ARTIFACT to the patched implementation artifact or diff target so review inspects the actual changes.',
             '',
         ].join('\n')
     );
@@ -858,6 +861,7 @@ describe('verify-docs', () => {
                 '- Support both approved-plan execution and review-driven defect remediation.',
                 '- Read the handoff ARTIFACT and keep the fix session scoped to the listed implementation defects.',
                 '- If the findings show planning, decision, or boundary defects, send the work back to lineup-feature-plan before coding.',
+                '- For the next review handoff, point ARTIFACT at the patched diff target rather than the old findings note.',
                 '',
             ].join('\n'),
             'docs/agentic/session-prompts/feature-review.md': [
@@ -875,5 +879,65 @@ describe('verify-docs', () => {
 
         expect(result.status).toBe(0);
         expect(result.stdout).toContain('Documentation verification passed.');
+    });
+
+    it('fails when tracked feature routing docs omit feature-implement from the feature workflow', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/README.md': [
+                '# Session Prompt Launchers',
+                '',
+                '## Prompt Set',
+                '',
+                sessionPromptSetStartMarker,
+                renderedSessionPromptSet,
+                sessionPromptSetEndMarker,
+                '',
+                '## Routing (Authoritative)',
+                '',
+                'cleanup/refactor',
+                'feature/design',
+                'mixed',
+                'feature-plan',
+                'feature-review',
+                '',
+            ].join('\n'),
+            'docs/AGENTIC_DEV_WORKFLOW.md': [
+                '# Workflow',
+                '',
+                'Route task family before choosing a tier.',
+                '',
+                '[cleanup-plan](./agentic/session-prompts/cleanup-plan.md)',
+                '[cleanup-review](./agentic/session-prompts/cleanup-review.md)',
+                '[feature-plan](./agentic/session-prompts/feature-plan.md)',
+                '[feature-review](./agentic/session-prompts/feature-review.md)',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('feature-implement');
+    });
+
+    it('fails when feature implement prompt uses the incoming findings artifact as the outgoing review target', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-implement.md': [
+                '# Feature Implement',
+                '',
+                '- Support approved-plan execution and remediation/fix execution.',
+                '- Use the handoff ARTIFACT as the fix-session input for listed implementation defects.',
+                '- Route planning or decision defects back to `lineup-feature-plan` before coding.',
+                '- In the outgoing review handoff, keep ARTIFACT set to the remediation findings artifact.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('outgoing review handoff');
     });
 });

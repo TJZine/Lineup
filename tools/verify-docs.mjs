@@ -487,7 +487,14 @@ function checkWorkflowRoutingSplit(errors) {
             errors.push('Session prompt README must contain the authoritative routing split section.');
         }
 
-        const requiredReadmeRoutingMarkers = ['cleanup/refactor', 'feature/design', 'mixed', 'feature-plan', 'feature-review'];
+        const requiredReadmeRoutingMarkers = [
+            'cleanup/refactor',
+            'feature/design',
+            'mixed',
+            'feature-plan',
+            'feature-implement',
+            'feature-review',
+        ];
         for (const marker of requiredReadmeRoutingMarkers) {
             if (!readme.includes(marker)) {
                 errors.push(`Session prompt README routing split is missing required marker: ${marker}`);
@@ -501,6 +508,7 @@ function checkWorkflowRoutingSplit(errors) {
             'cleanup-plan.md',
             'cleanup-review.md',
             'feature-plan.md',
+            'feature-implement.md',
             'feature-review.md',
             'Route task family before choosing a tier.',
         ];
@@ -543,11 +551,18 @@ function checkFeatureRemediationPromptContracts(errors) {
                 'listed implementation defects',
                 'implementation findings',
                 'fix session',
+            ]) &&
+            includesAnyMarker(normalized, [
+                'patched implementation artifact',
+                'diff target',
+                'actual changes',
+                'reviewed commit',
+                'patched diff',
             ]);
 
         if (!implementContractSatisfied) {
             errors.push(
-                'feature-implement prompt doc must describe a remediation/fix path that uses ARTIFACT as the fix-session input and routes plan/decision defects back to lineup-feature-plan'
+                'feature-implement prompt doc must describe a remediation/fix path that uses ARTIFACT as the fix-session input, routes plan/decision defects back to lineup-feature-plan, and points the outgoing review handoff at the patched implementation artifact or diff target'
             );
         }
     }
