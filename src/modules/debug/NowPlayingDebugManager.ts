@@ -178,16 +178,7 @@ export class NowPlayingDebugManager {
         const token = ++this._nowPlayingStreamDecisionFetchToken;
         this._nowPlayingStreamDecisionFetchSessionId = sessionId;
         const req = decision.transcodeRequest;
-        const fetchPromise = resolver.fetchUniversalTranscodeDecision(program.item.ratingKey, {
-            sessionId: req.sessionId,
-            maxBitrate: req.maxBitrate,
-            ...(typeof req.mediaIndex === 'number' ? { mediaIndex: req.mediaIndex } : {}),
-            ...(typeof req.partIndex === 'number' ? { partIndex: req.partIndex } : {}),
-            ...(typeof req.audioStreamId === 'string' ? { audioStreamId: req.audioStreamId } : {}),
-            ...(typeof req.subtitleStreamId === 'string' ? { subtitleStreamId: req.subtitleStreamId } : {}),
-            ...(req.subtitleMode === 'burn' ? { subtitleMode: 'burn' as const } : {}),
-            ...(typeof req.hideDolbyVision === 'boolean' ? { hideDolbyVision: req.hideDolbyVision } : {}),
-        });
+        const fetchPromise = resolver.fetchUniversalTranscodeDecision(program.item.ratingKey, req);
         this._nowPlayingStreamDecisionFetchPromise = fetchPromise;
 
         try {

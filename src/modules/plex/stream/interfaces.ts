@@ -152,16 +152,7 @@ export interface IPlexStreamResolver {
      */
     fetchUniversalTranscodeDecision(
         itemKey: string,
-        options: {
-            sessionId: string;
-            maxBitrate?: number;
-            mediaIndex?: number;
-            partIndex?: number;
-            audioStreamId?: string;
-            subtitleStreamId?: string;
-            subtitleMode?: 'burn';
-            hideDolbyVision?: boolean;
-        }
+        request: NonNullable<StreamDecision['transcodeRequest']>
     ): Promise<NonNullable<StreamDecision['serverDecision']>>;
 
     // ========================================

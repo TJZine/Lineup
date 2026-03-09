@@ -609,25 +609,39 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             playbackUrl = this.getTranscodeUrl(request.itemKey, options);
             protocol = 'hls';
             isTranscoding = true;
-            container = 'mpegts';
-            videoCodec = 'h264';
-            audioCodec = 'aac';
+	            container = 'mpegts';
+	            videoCodec = 'h264';
+	            audioCodec = 'aac';
 
-            transcodeRequestInfo = {
-                sessionId,
-                maxBitrate,
-                mediaIndex,
-                partIndex,
-                ...(options.hideDolbyVision === true ? { hideDolbyVision: true } : {}),
-                ...(typeof options.audioStreamId === 'string' ? { audioStreamId: options.audioStreamId } : {}),
-                ...(typeof options.subtitleStreamId === 'string'
-                    ? {
-                        subtitleStreamId: options.subtitleStreamId,
-                        ...(typeof options.subtitleMode === 'string' ? { subtitleMode: options.subtitleMode } : {}),
-                    }
-                    : {}),
-            };
-        }
+	            const transcodeRequestBase: {
+	                sessionId: string;
+	                maxBitrate: number;
+	                mediaIndex: number;
+	                partIndex: number;
+	                audioStreamId?: string;
+	                hideDolbyVision?: true;
+	            } = {
+	                sessionId,
+	                maxBitrate,
+	                mediaIndex,
+	                partIndex,
+	            };
+	            if (options.hideDolbyVision === true) {
+	                transcodeRequestBase.hideDolbyVision = true;
+	            }
+	            if (typeof options.audioStreamId === 'string') {
+	                transcodeRequestBase.audioStreamId = options.audioStreamId;
+	            }
+	            if (burnInEnabled && typeof options.subtitleStreamId === 'string') {
+	                transcodeRequestInfo = {
+	                    ...transcodeRequestBase,
+	                    subtitleStreamId: options.subtitleStreamId,
+	                    subtitleMode: 'burn',
+	                };
+	            } else {
+	                transcodeRequestInfo = transcodeRequestBase;
+	            }
+	        }
 
         // 5. Determine subtitle delivery
         const subtitleDelivery = burnInEnabled && subtitleStream
@@ -696,53 +710,32 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             decision.transcodeRequest = transcodeRequestInfo;
         }
 
-            if (debugEnabled) {
-                console.warn('[PlexStreamResolver] Stream decision:', {
+        if (debugEnabled) {
+            console.warn('[PlexStreamResolver] Stream decision:', {
+                itemKey: request.itemKey,
+                mode: decision.isTranscoding ? 'transcode' : 'direct_play',
+                protocol: decision.protocol,
+                subtitleDelivery: decision.subtitleDelivery,
+                reasonCount: decision.directPlay?.reasons.length ?? 0,
+            });
+        }
+
+        // Optional (debug-only): ask PMS why it chose to transcode vs direct-stream.
+        // This helps explain cases where HDR10 fallback unexpectedly results in SDR H.264 transcodes.
+        if (debugEnabled && decision.isTranscoding && transcodeRequestInfo) {
+            try {
+                decision.serverDecision = await this.fetchUniversalTranscodeDecision(
+                    request.itemKey,
+                    transcodeRequestInfo
+                );
+            } catch (error) {
+                console.warn('[PlexStreamResolver] PMS universal decision fetch failed:', {
                     itemKey: request.itemKey,
-                    mode: decision.isTranscoding ? 'transcode' : 'direct_play',
-                    protocol: decision.protocol,
-                    subtitleDelivery: decision.subtitleDelivery,
-                    reasonCount: decision.directPlay?.reasons.length ?? 0,
+                    sessionId: transcodeRequestInfo.sessionId,
+                    error: summarizeErrorForLog(error),
                 });
             }
-
-            // Optional (debug-only): ask PMS why it chose to transcode vs direct-stream.
-            // This helps explain cases where HDR10 fallback unexpectedly results in SDR H.264 transcodes.
-            if (debugEnabled && decision.isTranscoding && transcodeRequestInfo) {
-                try {
-                    decision.serverDecision = await this.fetchUniversalTranscodeDecision(
-                        request.itemKey,
-                        {
-                            sessionId: transcodeRequestInfo.sessionId,
-                            maxBitrate: transcodeRequestInfo.maxBitrate,
-                            ...(typeof transcodeRequestInfo.mediaIndex === 'number'
-                                ? { mediaIndex: transcodeRequestInfo.mediaIndex }
-                                : {}),
-                            ...(typeof transcodeRequestInfo.partIndex === 'number'
-                                ? { partIndex: transcodeRequestInfo.partIndex }
-                                : {}),
-                            ...(typeof transcodeRequestInfo.audioStreamId === 'string'
-                                ? { audioStreamId: transcodeRequestInfo.audioStreamId }
-                                : {}),
-                            ...(typeof transcodeRequestInfo.subtitleStreamId === 'string'
-                                ? { subtitleStreamId: transcodeRequestInfo.subtitleStreamId }
-                                : {}),
-                            ...(transcodeRequestInfo.subtitleMode === 'burn'
-                                ? { subtitleMode: 'burn' as const }
-                                : {}),
-                            ...(typeof transcodeRequestInfo.hideDolbyVision === 'boolean'
-                                ? { hideDolbyVision: transcodeRequestInfo.hideDolbyVision }
-                                : {}),
-                        }
-                    );
-                } catch (error) {
-                    console.warn('[PlexStreamResolver] PMS universal decision fetch failed:', {
-                        itemKey: request.itemKey,
-                        sessionId: transcodeRequestInfo.sessionId,
-                        error: summarizeErrorForLog(error),
-                    });
-                }
-            }
+        }
 
         return decision;
     }
@@ -1003,38 +996,29 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
     async fetchUniversalTranscodeDecision(
         itemKey: string,
-        options: {
-            sessionId: string;
-            maxBitrate?: number;
-            mediaIndex?: number;
-            partIndex?: number;
-            audioStreamId?: string;
-            subtitleStreamId?: string;
-            subtitleMode?: 'burn';
-            hideDolbyVision?: boolean;
-        }
+        request: NonNullable<StreamDecision['transcodeRequest']>
     ): Promise<NonNullable<StreamDecision['serverDecision']>> {
-        const hlsOptions: HlsOptions = { sessionId: options.sessionId };
-        if (typeof options.maxBitrate === 'number') {
-            hlsOptions.maxBitrate = options.maxBitrate;
+        const hlsOptions: HlsOptions = {
+            sessionId: request.sessionId,
+            maxBitrate: request.maxBitrate,
+        };
+        if (typeof request.mediaIndex === 'number') {
+            hlsOptions.mediaIndex = request.mediaIndex;
         }
-        if (typeof options.mediaIndex === 'number') {
-            hlsOptions.mediaIndex = options.mediaIndex;
+        if (typeof request.partIndex === 'number') {
+            hlsOptions.partIndex = request.partIndex;
         }
-        if (typeof options.partIndex === 'number') {
-            hlsOptions.partIndex = options.partIndex;
+        if (typeof request.audioStreamId === 'string') {
+            hlsOptions.audioStreamId = request.audioStreamId;
         }
-        if (typeof options.audioStreamId === 'string') {
-            hlsOptions.audioStreamId = options.audioStreamId;
+        if (typeof request.subtitleStreamId === 'string') {
+            hlsOptions.subtitleStreamId = request.subtitleStreamId;
         }
-        if (typeof options.subtitleStreamId === 'string') {
-            hlsOptions.subtitleStreamId = options.subtitleStreamId;
-        }
-        if (options.subtitleMode === 'burn') {
+        if (request.subtitleMode === 'burn') {
             hlsOptions.subtitleMode = 'burn';
         }
-        if (typeof options.hideDolbyVision === 'boolean') {
-            hlsOptions.hideDolbyVision = options.hideDolbyVision;
+        if (request.hideDolbyVision === true) {
+            hlsOptions.hideDolbyVision = true;
         }
 
         const startUrl = this.getTranscodeUrl(itemKey, hlsOptions);

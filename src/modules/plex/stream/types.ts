@@ -257,16 +257,7 @@ export interface StreamDecision {
      * Parameters Lineup used when requesting an HLS session (transcode or direct-stream).
      * Note: Plex may still decide to direct-stream video while transcoding only audio.
      */
-    transcodeRequest?: {
-        sessionId: string;
-        maxBitrate: number;
-        audioStreamId?: string;
-        subtitleStreamId?: string;
-        subtitleMode?: 'none' | 'burn';
-        mediaIndex?: number;
-        partIndex?: number;
-        hideDolbyVision?: boolean;
-    };
+    transcodeRequest?: StreamDecisionTranscodeRequest;
 
     /**
      * Parsed response from Plex's universal transcode decision endpoint (if fetched).
@@ -281,6 +272,24 @@ export interface StreamDecision {
         decisionText?: string;
     };
 }
+
+export type StreamDecisionTranscodeRequest = {
+    sessionId: string;
+    maxBitrate: number;
+    mediaIndex?: number;
+    partIndex?: number;
+    audioStreamId?: string;
+    hideDolbyVision?: true;
+} & (
+    | {
+        subtitleStreamId?: undefined;
+        subtitleMode?: undefined;
+    }
+    | {
+        subtitleStreamId: string;
+        subtitleMode: 'burn';
+    }
+);
 
 /**
  * HLS stream options
