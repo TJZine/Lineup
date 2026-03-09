@@ -64,24 +64,33 @@
 
 ## Codanna Discovery
 
-- `semantic_search_with_context`: Not used; the task was strictly scoped to known CSS token files so direct reads were preferred.
-- `search_documents`: Timed out during earlier architecture investigation; fallback to direct reads used instead.
-- `analyze_impact`: Not used; CSS token changes are perfectly isolated by the `.theme-swiss` parent selector.
-- Direct reads:
-  - `src/styles/themes.css` verified the existing `.theme-swiss` block (currently `#07090a` backgrounds, `14px` radius).
-  - `src/modules/ui/epg/styles.css` verified `.theme-swiss .epg-cell-meta` and `.epg-info-tags` are actively hidden via `display: none !important`.
+Goal: Make verification reproducible for a fresh executor (no “investigation state” notes).
+
+**Pre-change verification (confirm current Swiss baseline + existing minimal exclusions):**
+
+```bash
+# Swiss theme token baseline (pre-change)
+rg -n "^\\s*\\.theme-swiss\\s*\\{" src/styles/themes.css
+rg -n "--color-bg-deep:\\s*#07090a" src/styles/themes.css
+rg -n "--panel-radius:\\s*14px" src/styles/themes.css
+
+# Swiss minimal exclusions (note: selectors may be grouped with commas)
+rg -n "\\.theme-swiss\\s+\\.epg-cell-meta" src/modules/ui/epg/styles.css
+rg -n "\\.theme-swiss\\s+\\.epg-info-tags" src/modules/ui/epg/styles.css
+rg -n "display:\\s*none\\s*!important" src/modules/ui/epg/styles.css
+```
+
+Expected: all three Swiss token checks match, and both Swiss exclusion selectors appear with `display: none !important` in their rule bodies.
 
 ## Impact Snapshot
 
 - `src/styles/themes.css`: Modifying the `.theme-swiss` block changes the aesthetic across the entire app for Swiss Minimal users.
 - `src/modules/ui/epg/styles.css`: Adding `.theme-swiss` focus styling ensures the pure "sharp typography outline" design applies strictly to Swiss, without breaking Glass or Ember's soft focus states.
-- `src/styles/__tests__/swiss-minimal-theme.contract.test.ts`: New contract test guarantees the stark tokens (black backgrounds, 0px radius, flat shadows) don't regress.
 
 ## Files In Scope
 
 - Modify: `src/styles/themes.css`
 - Modify: `src/modules/ui/epg/styles.css`
-- Create: `src/styles/__tests__/swiss-minimal-theme.contract.test.ts`
 
 ## Files Out Of Scope
 
@@ -99,7 +108,7 @@
 
 ## TDD Relaxation Note
 
-The `writing-plans` skill requires TDD red-green ordering. For CSS-only token work, this is deliberately relaxed: the contract test reads raw CSS strings, so writing the test first against old CSS would cause it to fail for the wrong structural reasons rather than providing a meaningful red-green signal. Instead, Task 1 applies the token changes first and Task 2 writes + verifies the contract test immediately after.
+This plan is CSS-only. Per maintainer guidance, avoid adding tests for one-off theme/plan work.
 
 ## Verification Commands
 
@@ -129,12 +138,20 @@ Expected: When switching to Swiss Minimal, the interface snaps to a sharp-corner
 
 ## Rollback Notes
 
-- If the EPG overrides break EPG alignment for other themes, delete the additions in `src/modules/ui/epg/styles.css` and re-evaluate the `.theme-swiss` prefixing.
+- If the EPG overrides break alignment/behavior for other themes, revert these targets:
+  - `src/modules/ui/epg/styles.css` (remove the new `.theme-swiss ...` focus rules / prefixing changes)
+  - `src/styles/themes.css` (restore the previous `.theme-swiss` token block)
+
+After rollback, verify no leftover artifacts:
+
+```bash
+npm test -- --runInBand
+```
 
 ## Commit Checkpoints
 
 1. After standardizing the theme block in `themes.css`.
-2. After EPG focus updates and contract test verification.
+2. After EPG focus updates.
 
 ---
 
@@ -207,12 +224,11 @@ git commit -m "style(theme): refresh swiss-minimal with stark contrast and sharp
 
 ---
 
-## Task 2: Add Swiss-Scoped EPG Focus States and CSS Contract Test
+## Task 2: Add Swiss-Scoped EPG Focus States
 
 **Files:**
 
 - Modify: `src/modules/ui/epg/styles.css`
-- Create: `src/styles/__tests__/swiss-minimal-theme.contract.test.ts`
 
 **Step 1: Add Swiss-specific focus highlights**
 
@@ -236,62 +252,11 @@ In `src/modules/ui/epg/styles.css`, locate the comment `/* Minimal themes: keep 
 
 DO NOT touch the existing `.theme-swiss .epg-cell-meta { display: none !important; }` rules below that.
 
-**Step 2: Create Contract Test**
-
-Create `src/styles/__tests__/swiss-minimal-theme.contract.test.ts`:
-
-```ts
-/**
- * @jest-environment node
- */
-import fs from 'node:fs';
-import path from 'node:path';
-
-const read = (relativePath: string): string =>
-    fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
-
-describe('swiss-minimal theme contract', () => {
-    it('defines the stark black background, sharp corners, and flat shadows', () => {
-        const themesCss = read('src/styles/themes.css');
-        const block = themesCss.match(/\.theme-swiss\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
-
-        expect(block).toContain('--color-bg-deep: #020202;');
-        expect(block).toContain('--panel-radius: 0px;');
-        expect(block).toContain('--shadow-lg: none;');
-        expect(block).toContain('--panel-inner-glow: none;');
-        expect(block).toContain('--font-family-display: "Helvetica Neue"');
-    });
-
-    it('defines brutalist sharp emerald focus states for the EPG', () => {
-        const epgCss = read('src/modules/ui/epg/styles.css');
-
-        expect(epgCss).toMatch(
-            /\.theme-swiss\s+\.epg-cell\.focused\s*\{[^}]*background:\s*rgba\(var\(--focus-color-rgb\),\s*0\.12\);[^}]*box-shadow:\s*0 0 0 4px var\(--focus-color\) inset;/s
-        );
-    });
-
-    it('maintains the legacy minimal exclusions', () => {
-        const epgCss = read('src/modules/ui/epg/styles.css');
-        
-        expect(epgCss).toMatch(/\.theme-swiss\s+\.epg-cell-meta\s*\{[^}]*display:\s*none\s*!important;/s);
-        expect(epgCss).toMatch(/\.theme-swiss\s+\.epg-info-tags\s*\{[^}]*display:\s*none\s*!important;/s);
-    });
-});
-```
-
-**Step 3: Test and Confirm**
+**Step 2: Commit**
 
 ```bash
-npm test -- --runInBand --runTestsByPath src/styles/__tests__/theme-token-completeness.test.ts src/styles/__tests__/swiss-minimal-theme.contract.test.ts --verbose
-```
-
-Expected: PASS.
-
-**Step 4: Commit**
-
-```bash
-git add src/modules/ui/epg/styles.css src/styles/__tests__/swiss-minimal-theme.contract.test.ts
-git commit -m "style(epg): scope swiss-minimal sharp focus states and verify contract"
+git add src/modules/ui/epg/styles.css
+git commit -m "style(epg): scope swiss-minimal sharp focus states"
 ```
 
 ---
