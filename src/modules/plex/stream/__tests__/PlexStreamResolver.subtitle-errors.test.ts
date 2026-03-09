@@ -13,6 +13,7 @@ describe('PlexStreamResolver subtitle error taxonomy', () => {
             subtitleStreamId: 'sub-missing',
         })).rejects.toMatchObject({
             code: 'SUBTITLE_STREAM_NOT_FOUND',
+            stage: 'media_selection',
         });
     });
 
@@ -28,6 +29,7 @@ describe('PlexStreamResolver subtitle error taxonomy', () => {
             subtitleStreamId: 'sub-missing',
         })).rejects.toMatchObject({
             code: 'SUBTITLE_STREAM_NOT_FOUND',
+            stage: 'media_selection',
         });
     });
 });

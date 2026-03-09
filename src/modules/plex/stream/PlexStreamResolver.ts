@@ -343,7 +343,9 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             throw this._createError(
                 PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND,
                 `Subtitle stream not found: ${request.subtitleStreamId}`,
-                true
+                true,
+                undefined,
+                'media_selection'
             );
         }
         if (!selectedMedia) {
@@ -382,7 +384,9 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             throw this._createError(
                 PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND,
                 `Subtitle stream not found for burn-in: ${request.subtitleStreamId}`,
-                true
+                true,
+                undefined,
+                'burn_in_selected_part'
             );
         }
         const availableSubtitleStreams = part.streams.filter((s) => s.streamType === 3);
@@ -1404,7 +1408,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         code: PlexStreamErrorCode,
         message: string,
         recoverable: boolean,
-        retryAfterMs?: number
+        retryAfterMs?: number,
+        stage?: StreamResolverError['stage']
     ): StreamResolverError {
         const error: StreamResolverError = {
             code,
@@ -1413,6 +1418,9 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         };
         if (retryAfterMs !== undefined) {
             error.retryAfterMs = retryAfterMs;
+        }
+        if (stage !== undefined) {
+            error.stage = stage;
         }
         this._emitter.emit('error', error);
         return error;
