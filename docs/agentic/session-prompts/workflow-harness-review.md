@@ -17,28 +17,37 @@ Determine whether the Lineup harness is:
 
 ## External Benchmark Sources
 
-As of 2026-03-07, review against these sources and treat them as explicit benchmark criteria:
+As of 2026-03-09, review against these sources and treat them as explicit benchmark criteria:
 
-1. OpenAI, [`Harness engineering: leveraging Codex in an agent-first world`](https://openai.com/index/harness-engineering/) (February 11, 2026)
+1. OpenAI, [`Codex Workflows`](https://developers.openai.com/codex/workflows/) (accessed March 9, 2026)
+   - workflow prompts should carry explicit context notes, task framing, and concrete verification expectations
+   - Codex CLI work usually needs explicit path/file references instead of relying on implied local context
+   - agents should report the commands they ran and the results they observed after checks
+2. OpenAI, [`Codex Multi-agents`](https://developers.openai.com/codex/multi-agent/) (accessed March 9, 2026)
+   - role definitions should stay narrow, opinionated, and easy to route correctly
+   - shallow delegation is the default; `agents.max_depth = 1` is the conservative baseline
+   - read-only explorer/reviewer/docs roles are the expected pattern, not broad write access by default
+3. Anthropic, [`Claude Code sub-agents`](https://code.claude.com/docs/en/sub-agents/) (accessed March 9, 2026)
+   - subagents should have focused responsibilities, explicit tool access, and independent permissions
+   - project subagents should be checked into version control when they are part of the durable workflow
+   - read-only reviewer-style subagents are a first-class best-practice pattern
+4. OpenAI, [`Harness engineering: leveraging Codex in an agent-first world`](https://openai.com/index/harness-engineering/) (February 11, 2026)
    - `AGENTS.md` should act as a map, not an encyclopedia
    - repository docs should be the system of record
    - plans should be first-class artifacts
    - knowledge surfaces should be mechanically validated
    - recurring doc gardening and garbage collection should exist
    - agents should use normal repo tools directly rather than human copy-paste glue
-2. Anthropic, [`Building Effective AI Agents`](https://www.anthropic.com/engineering/building-effective-agents) (December 19, 2024)
+5. Anthropic, [`Building Effective AI Agents`](https://www.anthropic.com/engineering/building-effective-agents) (December 19, 2024)
    - prefer simple composable workflows over unnecessary framework complexity
    - keep planning transparent
    - invest in the agent-computer interface through clear tool and workflow design
    - add complexity only when it clearly improves outcomes
-3. Anthropic, [`Demystifying evals for AI agents`](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents) (January 9, 2026)
+6. Anthropic, [`Demystifying evals for AI agents`](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents) (January 9, 2026)
    - practice eval-driven development
    - define success early
    - keep eval ownership close to the product/domain work
    - use evals as a routine workflow-quality signal, not an afterthought
-4. Anthropic, [`Building agents with the Claude Agent SDK`](https://claude.com/blog/building-agents-with-the-claude-agent-sdk) (September 29, 2025)
-   - agents should verify their work with concrete rules and feedback
-   - reliability improves when the environment gives the agent explicit checks it can run
 
 Do not reward Lineup for matching these sources cosmetically. Evaluate whether the repo actually embodies the behaviors they recommend.
 

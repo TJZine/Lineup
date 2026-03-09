@@ -140,12 +140,11 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '',
             '## Routing (Authoritative)',
             '',
-            'cleanup/refactor',
-            'feature/design',
-            'mixed',
-            'feature-plan',
-            'feature-implement',
-            'feature-review',
+            '| Task Type | Use This Path | Prompt Family | Notes |',
+            '|---|---|---|---|',
+            '| cleanup/refactor | checklist cleanup | `cleanup-*` | Tier 3 uses cleanup-loop. |',
+            '| feature/design | net-new capability | `feature-plan` + `feature-implement` + `feature-review` | Tier 2 feature flow uses tracked launchers. |',
+            '| mixed | split slices explicitly | route by primary intent | Keep cleanup scoped to cleanup work. |',
             '',
         ].join('\n')
     );
@@ -163,6 +162,8 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '[feature-plan](./agentic/session-prompts/feature-plan.md)',
             '[feature-implement](./agentic/session-prompts/feature-implement.md)',
             '[feature-review](./agentic/session-prompts/feature-review.md)',
+            '',
+            'Feature Tier 2 work should use planner (`feature-plan`) -> reviewer (`feature-review`) -> implementer (`feature-implement`) -> reviewer (`feature-review`).',
             '',
         ].join('\n')
     );
@@ -262,14 +263,23 @@ function writeRoleWorkflowClaimFixture(repoRoot: string): void {
     );
 }
 
-function writeValidCodexRoleConfigFixture(repoRoot: string): void {
+const CODEX_MODEL_SPARK = 'gpt-5.3-codex-spark';
+const CODEX_MODEL_DEFAULT = 'gpt-5.3-codex';
+const CODEX_MODEL_FALLBACK = 'gpt-5.1-codex-max';
+const CODEX_MODEL_MONITOR_FALLBACK = 'gpt-5.1';
+
+function writeValidCodexRoleConfigFixture(
+    repoRoot: string,
+    overrides: { maxDepth?: number } = {}
+): void {
+    const maxDepth = overrides.maxDepth ?? 1;
     writeRepoFile(
         repoRoot,
         '.codex/config.toml',
         [
             '[agents]',
             'max_threads = 4',
-            'max_depth = 1',
+            `max_depth = ${maxDepth}`,
             '',
             '[agents.explorer]',
             'description = "Explorer"',
@@ -305,33 +315,33 @@ function writeValidCodexRoleConfigFixture(repoRoot: string): void {
     writeRepoFile(
         repoRoot,
         '.codex/agents/explorer.toml',
-        'model = "gpt-5.3-codex-spark"\nsandbox_mode = "read-only"\n'
+        `model = "${CODEX_MODEL_SPARK}"\nsandbox_mode = "read-only"\n`
     );
     writeRepoFile(
         repoRoot,
         '.codex/agents/explorer-fallback.toml',
-        'model = "gpt-5.1-codex-max"\nsandbox_mode = "read-only"\n'
+        `model = "${CODEX_MODEL_FALLBACK}"\nsandbox_mode = "read-only"\n`
     );
     writeRepoFile(
         repoRoot,
         '.codex/agents/reviewer.toml',
-        'model = "gpt-5.3-codex"\nsandbox_mode = "read-only"\n'
+        `model = "${CODEX_MODEL_DEFAULT}"\nsandbox_mode = "read-only"\n`
     );
     writeRepoFile(
         repoRoot,
         '.codex/agents/docs-researcher.toml',
-        'model = "gpt-5.3-codex"\nsandbox_mode = "read-only"\n'
+        `model = "${CODEX_MODEL_DEFAULT}"\nsandbox_mode = "read-only"\n`
     );
-    writeRepoFile(repoRoot, '.codex/agents/worker.toml', 'model = "gpt-5.3-codex"\n');
+    writeRepoFile(repoRoot, '.codex/agents/worker.toml', `model = "${CODEX_MODEL_DEFAULT}"\n`);
     writeRepoFile(
         repoRoot,
         '.codex/agents/monitor.toml',
-        'model = "gpt-5.3-codex-spark"\nsandbox_mode = "read-only"\n'
+        `model = "${CODEX_MODEL_SPARK}"\nsandbox_mode = "read-only"\n`
     );
     writeRepoFile(
         repoRoot,
         '.codex/agents/monitor-fallback.toml',
-        'model = "gpt-5.1"\nsandbox_mode = "read-only"\n'
+        `model = "${CODEX_MODEL_MONITOR_FALLBACK}"\nsandbox_mode = "read-only"\n`
     );
 }
 
@@ -617,45 +627,7 @@ describe('verify-docs', () => {
         tempRoots.push(repoRoot);
 
         writeRoleWorkflowClaimFixture(repoRoot);
-        writeValidCodexRoleConfigFixture(repoRoot);
-        writeRepoFile(
-            repoRoot,
-            '.codex/config.toml',
-            [
-                '[agents]',
-                'max_threads = 4',
-                'max_depth = 2',
-                '',
-                '[agents.explorer]',
-                'description = "Explorer"',
-                'config_file = "agents/explorer.toml"',
-                '',
-                '[agents.explorer_fallback]',
-                'description = "Explorer fallback"',
-                'config_file = "agents/explorer-fallback.toml"',
-                '',
-                '[agents.reviewer]',
-                'description = "Reviewer"',
-                'config_file = "agents/reviewer.toml"',
-                '',
-                '[agents.docs_researcher]',
-                'description = "Docs researcher"',
-                'config_file = "agents/docs-researcher.toml"',
-                '',
-                '[agents.worker]',
-                'description = "Worker"',
-                'config_file = "agents/worker.toml"',
-                '',
-                '[agents.monitor]',
-                'description = "Monitor"',
-                'config_file = "agents/monitor.toml"',
-                '',
-                '[agents.monitor_fallback]',
-                'description = "Monitor fallback"',
-                'config_file = "agents/monitor-fallback.toml"',
-                '',
-            ].join('\n')
-        );
+        writeValidCodexRoleConfigFixture(repoRoot, { maxDepth: 2 });
 
         const result = runVerifier(repoRoot);
 
@@ -921,6 +893,68 @@ describe('verify-docs', () => {
         expect(result.stderr).toContain('feature-implement');
     });
 
+    it('fails when README mentions feature-implement outside the routing row but omits it from the feature/design path', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/README.md': [
+                '# Session Prompt Launchers',
+                '',
+                '## Prompt Set',
+                '',
+                sessionPromptSetStartMarker,
+                renderedSessionPromptSet,
+                sessionPromptSetEndMarker,
+                '',
+                '## Routing (Authoritative)',
+                '',
+                '| Task Type | Use This Path | Prompt Family | Notes |',
+                '|---|---|---|---|',
+                '| cleanup/refactor | checklist cleanup | `cleanup-*` | Tier 3 uses cleanup-loop. |',
+                '| feature/design | net-new capability | `feature-plan` + `feature-review` | Tier 2 feature flow uses tracked launchers. |',
+                '| mixed | split slices explicitly | route by primary intent | Keep cleanup scoped to cleanup work. |',
+                '',
+                '## Invocation',
+                '',
+                '- `lineup-feature-plan`',
+                '- `lineup-feature-implement`',
+                '- `lineup-feature-review`',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('feature/design routing row');
+    });
+
+    it('fails when workflow lists feature-implement as a launcher but omits it from the Tier 2 feature sequence', () => {
+        const repoRoot = createRepoFixture({
+            'docs/AGENTIC_DEV_WORKFLOW.md': [
+                '# Workflow',
+                '',
+                'Route task family before choosing a tier.',
+                '',
+                '## Session Launchers',
+                '',
+                '- [cleanup-plan](./agentic/session-prompts/cleanup-plan.md)',
+                '- [cleanup-review](./agentic/session-prompts/cleanup-review.md)',
+                '- [feature-plan](./agentic/session-prompts/feature-plan.md)',
+                '- [feature-implement](./agentic/session-prompts/feature-implement.md)',
+                '- [feature-review](./agentic/session-prompts/feature-review.md)',
+                '',
+                'Feature Tier 2 work should use planner (`feature-plan`) -> reviewer (`feature-review`) -> reviewer (`feature-review`).',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Feature Tier 2 workflow sequence');
+    });
+
     it('fails when feature implement prompt uses the incoming findings artifact as the outgoing review target', () => {
         const repoRoot = createRepoFixture({
             'docs/agentic/session-prompts/feature-implement.md': [
@@ -939,5 +973,26 @@ describe('verify-docs', () => {
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('outgoing review handoff');
+    });
+
+    it('fails when feature implement prompt mixes a patched-diff handoff with contradictory findings-artifact reuse', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-implement.md': [
+                '# Feature Implement',
+                '',
+                '- Support approved-plan execution and remediation/fix execution.',
+                '- Use the handoff ARTIFACT as the fix-session input for listed implementation defects.',
+                '- Route planning or decision defects back to `lineup-feature-plan` before coding.',
+                '- For the next review handoff, point ARTIFACT at the patched diff target so review inspects the actual changes.',
+                '- To preserve history, keep ARTIFACT set to the incoming remediation findings artifact in the outgoing review handoff.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('contradictory outgoing review guidance');
     });
 });

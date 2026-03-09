@@ -487,18 +487,22 @@ function checkWorkflowRoutingSplit(errors) {
             errors.push('Session prompt README must contain the authoritative routing split section.');
         }
 
-        const requiredReadmeRoutingMarkers = [
-            'cleanup/refactor',
-            'feature/design',
-            'mixed',
-            'feature-plan',
-            'feature-implement',
-            'feature-review',
-        ];
+        const requiredReadmeRoutingMarkers = ['cleanup/refactor', 'feature/design', 'mixed'];
         for (const marker of requiredReadmeRoutingMarkers) {
             if (!readme.includes(marker)) {
                 errors.push(`Session prompt README routing split is missing required marker: ${marker}`);
             }
+        }
+
+        const normalizedLines = normalizeDocLines(readme);
+        const featureDesignRoutingRow = normalizedLines.find((line) => line.includes('| feature/design |'));
+        if (
+            featureDesignRoutingRow === undefined ||
+            !includesAllMarkers(featureDesignRoutingRow, ['feature-plan', 'feature-implement', 'feature-review'])
+        ) {
+            errors.push(
+                'Session prompt README feature/design routing row must include feature-plan, feature-implement, and feature-review'
+            );
         }
     }
 
@@ -518,6 +522,23 @@ function checkWorkflowRoutingSplit(errors) {
                 errors.push(`Workflow doc is missing required cleanup/feature routing marker: ${marker}`);
             }
         }
+
+        const normalizedLines = normalizeDocLines(workflow);
+        const hasFeatureTierTwoSequence = normalizedLines.some(
+            (line) =>
+                (line.includes('feature tier 2 work') || line.includes('tier 2 feature')) &&
+                includesMarkersInOrder(line, [
+                    'feature-plan',
+                    'feature-review',
+                    'feature-implement',
+                    'feature-review',
+                ])
+        );
+        if (!hasFeatureTierTwoSequence) {
+            errors.push(
+                'Workflow doc Feature Tier 2 workflow sequence must keep feature-plan -> feature-review -> feature-implement -> feature-review ordering'
+            );
+        }
     }
 }
 
@@ -529,6 +550,13 @@ function normalizeDocText(content) {
         .trim();
 }
 
+function normalizeDocLines(content) {
+    return content
+        .split(/\r?\n/u)
+        .map((line) => normalizeDocText(line))
+        .filter((line) => line.length > 0);
+}
+
 function includesAllMarkers(content, markers) {
     return markers.every((marker) => content.includes(marker));
 }
@@ -537,10 +565,26 @@ function includesAnyMarker(content, markers) {
     return markers.some((marker) => content.includes(marker));
 }
 
+function includesMarkersInOrder(content, markers) {
+    let cursor = 0;
+
+    for (const marker of markers) {
+        const index = content.indexOf(marker, cursor);
+        if (index === -1) {
+            return false;
+        }
+
+        cursor = index + marker.length;
+    }
+
+    return true;
+}
+
 function checkFeatureRemediationPromptContracts(errors) {
     const implement = readRepoFile('docs/agentic/session-prompts/feature-implement.md', errors);
     if (implement !== null) {
         const normalized = normalizeDocText(implement);
+        const normalizedLines = normalizeDocLines(implement);
         const implementContractSatisfied =
             includesAllMarkers(normalized, ['artifact', 'lineup-feature-plan']) &&
             includesAnyMarker(normalized, ['remediation', 'fix session', 'fix-session', 'defect remediation', 'findings']) &&
@@ -559,10 +603,23 @@ function checkFeatureRemediationPromptContracts(errors) {
                 'reviewed commit',
                 'patched diff',
             ]);
+        const reusesFindingsArtifactForOutgoingReview = normalizedLines.some(
+            (line) =>
+                line.includes('artifact') &&
+                includesAnyMarker(line, ['outgoing review', 'next review', 'review handoff', 'next handoff']) &&
+                includesAnyMarker(line, ['findings artifact', 'implementation-findings', 'remediation findings']) &&
+                includesAnyMarker(line, ['keep', 'reuse', 'same', 'still', 'set to', 'point back'])
+        );
 
         if (!implementContractSatisfied) {
             errors.push(
                 'feature-implement prompt doc must describe a remediation/fix path that uses ARTIFACT as the fix-session input, routes plan/decision defects back to lineup-feature-plan, and points the outgoing review handoff at the patched implementation artifact or diff target'
+            );
+        }
+
+        if (reusesFindingsArtifactForOutgoingReview) {
+            errors.push(
+                'feature-implement prompt doc contains contradictory outgoing review guidance: the outgoing review handoff must not keep ARTIFACT pointed at a findings artifact'
             );
         }
     }
