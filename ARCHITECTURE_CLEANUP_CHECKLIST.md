@@ -327,7 +327,7 @@ Other review signals:
   - [ ] Extract a public seam that can be tested directly
   - [ ] Convert at least one test away from private probing
 - Primary work units:
-  - [ ] P8-W1 - Reduce private probing in the orchestrator playback tests by routing through the first extracted controller
+  - [x] P8-W1 - Reduce private probing in the orchestrator playback tests by routing through the first extracted controller (done 2026-03-09; plan: docs/plans/2026-03-09-p8-w1-orchestrator-playback-tests-without-private-probes.md)
   - [ ] P8-W2 - Reduce one private-probe-heavy UI test after the corresponding UI extraction lands, and report remaining debt
   - [ ] P8-W3 - Tighten the anti-pattern baseline once at least one hotspot suite no longer needs the old probe path, and report remaining debt
   - [ ] P8-W4 - Cleanup pass for Priority 8: remove obsolete test helpers, dead probe utilities, overengineered/redundant/unhelpful tests, and transitional assertions after the new public seams are stable
