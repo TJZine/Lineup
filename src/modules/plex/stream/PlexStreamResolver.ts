@@ -609,39 +609,39 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             playbackUrl = this.getTranscodeUrl(request.itemKey, options);
             protocol = 'hls';
             isTranscoding = true;
-	            container = 'mpegts';
-	            videoCodec = 'h264';
-	            audioCodec = 'aac';
+            container = 'mpegts';
+            videoCodec = 'h264';
+            audioCodec = 'aac';
 
-	            const transcodeRequestBase: {
-	                sessionId: string;
-	                maxBitrate: number;
-	                mediaIndex: number;
-	                partIndex: number;
-	                audioStreamId?: string;
-	                hideDolbyVision?: true;
-	            } = {
-	                sessionId,
-	                maxBitrate,
-	                mediaIndex,
-	                partIndex,
-	            };
-	            if (options.hideDolbyVision === true) {
-	                transcodeRequestBase.hideDolbyVision = true;
-	            }
-	            if (typeof options.audioStreamId === 'string') {
-	                transcodeRequestBase.audioStreamId = options.audioStreamId;
-	            }
-	            if (burnInEnabled && typeof options.subtitleStreamId === 'string') {
-	                transcodeRequestInfo = {
-	                    ...transcodeRequestBase,
-	                    subtitleStreamId: options.subtitleStreamId,
-	                    subtitleMode: 'burn',
-	                };
-	            } else {
-	                transcodeRequestInfo = transcodeRequestBase;
-	            }
-	        }
+            const transcodeRequestBase: {
+                sessionId: string;
+                maxBitrate: number;
+                mediaIndex: number;
+                partIndex: number;
+                audioStreamId?: string;
+                hideDolbyVision?: true;
+            } = {
+                sessionId,
+                maxBitrate,
+                mediaIndex,
+                partIndex,
+            };
+            if (options.hideDolbyVision === true) {
+                transcodeRequestBase.hideDolbyVision = true;
+            }
+            if (typeof options.audioStreamId === 'string') {
+                transcodeRequestBase.audioStreamId = options.audioStreamId;
+            }
+            if (burnInEnabled && typeof options.subtitleStreamId === 'string') {
+                transcodeRequestInfo = {
+                    ...transcodeRequestBase,
+                    subtitleStreamId: options.subtitleStreamId,
+                    subtitleMode: 'burn',
+                };
+            } else {
+                transcodeRequestInfo = transcodeRequestBase;
+            }
+        }
 
         // 5. Determine subtitle delivery
         const subtitleDelivery = burnInEnabled && subtitleStream
