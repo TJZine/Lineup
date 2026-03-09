@@ -115,7 +115,7 @@ This plan is CSS-only. Per maintainer guidance, avoid adding tests for one-off t
 1. Test standard token execution after code changes:
 
 ```bash
-npm test -- --runInBand --runTestsByPath src/styles/__tests__/theme-token-completeness.test.ts src/styles/__tests__/swiss-minimal-theme.contract.test.ts --verbose
+npm test -- --runInBand --runTestsByPath src/styles/__tests__/theme-token-completeness.test.ts --verbose
 ```
 
 Expected: PASS.
