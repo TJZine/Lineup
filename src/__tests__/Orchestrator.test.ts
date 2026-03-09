@@ -1100,24 +1100,27 @@ describe('AppOrchestrator', () => {
             }
         });
 
-        it('does not reset channel state when useMainAccountProfile fails', async () => {
-            await orchestrator.initialize(mockConfig);
+	        it('does not reset channel state when useMainAccountProfile fails', async () => {
+	            await orchestrator.initialize(mockConfig);
 
-            mockPlexAuth.logoutActiveUser.mockRejectedValueOnce(new Error('logout failed'));
-            const clearProfileResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearProfileResume');
-            const runStartupSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'runStartup')
-                .mockResolvedValue(undefined);
+	            mockPlexAuth.logoutActiveUser.mockRejectedValueOnce(new Error('logout failed'));
+	            const clearProfileResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearProfileResume');
+	            const runStartupSpy = jest
+	                .spyOn(InitializationCoordinator.prototype, 'runStartup')
+	                .mockResolvedValue(undefined);
 
-            await expect(orchestrator.useMainAccountProfile()).rejects.toThrow('logout failed');
+	            try {
+	                await expect(orchestrator.useMainAccountProfile()).rejects.toThrow('logout failed');
 
-            expect(clearProfileResumeSpy).toHaveBeenCalledTimes(1);
-            expect(runStartupSpy).not.toHaveBeenCalled();
-            expect(mockScheduler.unloadChannel).not.toHaveBeenCalled();
-            clearProfileResumeSpy.mockRestore();
-            runStartupSpy.mockRestore();
-        });
-    });
+	                expect(clearProfileResumeSpy).toHaveBeenCalledTimes(1);
+	                expect(runStartupSpy).not.toHaveBeenCalled();
+	                expect(mockScheduler.unloadChannel).not.toHaveBeenCalled();
+	            } finally {
+	                clearProfileResumeSpy.mockRestore();
+	                runStartupSpy.mockRestore();
+	            }
+	        });
+	    });
 
     describe('start', () => {
         beforeEach(async () => {
@@ -1364,10 +1367,10 @@ describe('AppOrchestrator', () => {
             warnSpy.mockRestore();
         });
 
-        it('reloads stream when audio track changes during direct play', async () => {
-            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
-            mockPlexAuth.validateToken.mockResolvedValue(true);
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
+	        it('reloads stream when audio track changes during direct play', async () => {
+	            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+	            mockPlexAuth.validateToken.mockResolvedValue(true);
+	            mockPlexDiscovery.isConnected.mockReturnValue(true);
             const program = {
                 item: {
                     ratingKey: 'item-1',
@@ -1388,24 +1391,28 @@ describe('AppOrchestrator', () => {
                     })
                 );
 
-            await orchestrator.start();
+	            await orchestrator.start();
 
-            schedulerHandlers.programStart?.(program);
-            await new Promise((resolve) => setImmediate(resolve));
+	            schedulerHandlers.programStart?.(program);
+	            await new Promise((resolve) => setImmediate(resolve));
 
-            mockPlexStreamResolver.resolveStream.mockClear();
+	            mockPlexStreamResolver.resolveStream.mockClear();
+	            const loadCallsBefore = mockVideoPlayer.loadStream.mock.calls.length;
 
-            playerHandlers.trackChange?.({ type: 'audio', trackId: 'audio-2' });
-            await new Promise((resolve) => setImmediate(resolve));
+	            playerHandlers.trackChange?.({ type: 'audio', trackId: 'audio-2' });
+	            await new Promise((resolve) => setImmediate(resolve));
 
-            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    audioStreamId: 'audio-2',
-                    directPlay: true,
-                })
-            );
-            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledTimes(1);
-        });
+	            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledWith(
+	                expect.objectContaining({
+	                    audioStreamId: 'audio-2',
+	                    directPlay: true,
+	                })
+	            );
+	            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledTimes(1);
+	            expect(mockVideoPlayer.loadStream).toHaveBeenCalledTimes(loadCallsBefore + 1);
+	            const lastLoad = mockVideoPlayer.loadStream.mock.calls.at(-1)?.[0];
+	            expect(lastLoad?.url).toBe('http://test/reloaded.m3u8');
+	        });
 
         it('does not force direct-stream fallback when format is unsupported pre-MVP', async () => {
             mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));

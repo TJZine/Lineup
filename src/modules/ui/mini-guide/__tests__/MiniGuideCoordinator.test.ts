@@ -563,4 +563,42 @@ describe('MiniGuideCoordinator', () => {
             })
         ).toBe(true);
     });
+
+    describe('shouldApplyMiniGuideRowUpdate policy', () => {
+        it('returns false when overlay is not visible', () => {
+            expect(
+                shouldApplyMiniGuideRowUpdate({
+                    expectedToken: 1,
+                    currentToken: 1,
+                    overlayVisible: false,
+                    currentRowChannelId: 'ch1',
+                    nextRowChannelId: 'ch1',
+                })
+            ).toBe(false);
+        });
+
+        it('returns false when the expected token does not match the current token', () => {
+            expect(
+                shouldApplyMiniGuideRowUpdate({
+                    expectedToken: 1,
+                    currentToken: 2,
+                    overlayVisible: true,
+                    currentRowChannelId: 'ch1',
+                    nextRowChannelId: 'ch1',
+                })
+            ).toBe(false);
+        });
+
+        it('returns false when the current row channel id is null', () => {
+            expect(
+                shouldApplyMiniGuideRowUpdate({
+                    expectedToken: 1,
+                    currentToken: 1,
+                    overlayVisible: true,
+                    currentRowChannelId: null,
+                    nextRowChannelId: 'ch1',
+                })
+            ).toBe(false);
+        });
+    });
 });

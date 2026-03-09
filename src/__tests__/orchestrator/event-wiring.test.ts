@@ -151,7 +151,7 @@ describe('AppOrchestrator event wiring', () => {
             ([event]) => event === 'programStart'
         );
         const programStartHandler =
-            programStartCall?.[1] as ((programToStart: ScheduledProgram) => Promise<void>) | undefined;
+            programStartCall?.[1] as ((programToStart: ScheduledProgram) => void) | undefined;
 
         expect(programStartHandler).toBeDefined();
         await programStartHandler?.(program);
