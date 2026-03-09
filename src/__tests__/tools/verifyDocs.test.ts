@@ -168,6 +168,32 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
     for (const prompt of expectedSessionPromptFiles) {
         writeRepoFile(repoRoot, `docs/agentic/session-prompts/${prompt}`);
     }
+
+    writeRepoFile(
+        repoRoot,
+        'docs/agentic/session-prompts/feature-implement.md',
+        [
+            '# Feature Implement (Fixture)',
+            '',
+            '- remediation/fix',
+            '- implementation-findings.md',
+            '- route back to `lineup-feature-plan`',
+            '',
+        ].join('\n')
+    );
+
+    writeRepoFile(
+        repoRoot,
+        'docs/agentic/session-prompts/feature-review.md',
+        [
+            '# Feature Review (Fixture)',
+            '',
+            '- plan/decision/product boundary defects',
+            '- plan-decision-findings.md',
+            '- implementation-findings.md',
+            '',
+        ].join('\n')
+    );
 }
 
 function writeValidEvalPromptFixture(repoRoot: string): void {
