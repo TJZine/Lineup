@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -241,24 +241,27 @@ function writeMutatedEvalPromptFixture(repoRoot: string): void {
 }
 
 function writeRoleWorkflowClaimFixture(repoRoot: string): void {
+    const workflowPath = path.join(repoRoot, 'docs/AGENTIC_DEV_WORKFLOW.md');
+    const existingWorkflow = readFileSync(workflowPath, 'utf8').trimEnd();
+    const roleSection = [
+        '## Multi-Agent Usage',
+        '',
+        '- Repo-defined Codex roles are tracked in `.codex/config.toml`.',
+        '- Role configs live under `.codex/agents/*.toml`.',
+        '',
+    ].join('\n');
+
+    if (existingWorkflow.includes(roleSection.trim())) {
+        return;
+    }
+
     writeRepoFile(
         repoRoot,
         'docs/AGENTIC_DEV_WORKFLOW.md',
         [
-            '# Workflow',
+            existingWorkflow,
             '',
-            'Route task family before choosing a tier.',
-            '',
-            '[cleanup-plan](./agentic/session-prompts/cleanup-plan.md)',
-            '[cleanup-review](./agentic/session-prompts/cleanup-review.md)',
-            '[feature-plan](./agentic/session-prompts/feature-plan.md)',
-            '[feature-review](./agentic/session-prompts/feature-review.md)',
-            '',
-            '## Multi-Agent Usage',
-            '',
-            '- Repo-defined Codex roles are tracked in `.codex/config.toml`.',
-            '- Role configs live under `.codex/agents/*.toml`.',
-            '',
+            roleSection,
         ].join('\n')
     );
 }
@@ -532,6 +535,37 @@ describe('verify-docs', () => {
         tempRoots.push(repoRoot);
 
         writeRoleWorkflowClaimFixture(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Missing tracked Codex role config: .codex/config.toml');
+    });
+
+    it('passes the routing checks when role workflow claims are layered onto an otherwise valid workflow fixture', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('Documentation verification passed.');
+    });
+
+    it('fails when only workflow-harness-review documents tracked codex roles and .codex/config.toml is missing', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/workflow-harness-review.md': [
+                '# Workflow Harness Review',
+                '',
+                '- Inspect `.codex/config.toml` and `.codex/agents/` as tracked control-plane surfaces.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
 
         const result = runVerifier(repoRoot);
 
@@ -814,6 +848,25 @@ describe('verify-docs', () => {
                 '',
                 '- Route implementation findings to lineup-feature-implement.',
                 '- Include the findings artifact in ARTIFACT.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('feature-review prompt doc');
+    });
+
+    it('fails when feature review names lineup-feature-plan without explaining the plan-side routing case', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-review.md': [
+                '# Feature Review',
+                '',
+                '- Use ARTIFACT while reviewing the implementation.',
+                '- The available handoff launchers are lineup-feature-plan and lineup-feature-implement.',
+                '- Route localized implementation defects to lineup-feature-implement.',
                 '',
             ].join('\n'),
         });

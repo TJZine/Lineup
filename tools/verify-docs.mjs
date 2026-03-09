@@ -102,7 +102,11 @@ const readOnlyCodexAgentRoles = [
     'monitor',
     'monitor_fallback',
 ];
-const codexRoleWorkflowMarkerFiles = ['docs/AGENTIC_DEV_WORKFLOW.md', 'docs/agentic/skill-strategy.md'];
+const codexRoleWorkflowMarkerFiles = [
+    'docs/AGENTIC_DEV_WORKFLOW.md',
+    'docs/agentic/skill-strategy.md',
+    'docs/agentic/session-prompts/workflow-harness-review.md',
+];
 
 function recordFsError(errors, operation, targetPath, error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -629,7 +633,7 @@ function checkFeatureRemediationPromptContracts(errors) {
         const normalized = normalizeDocText(review);
         const reviewContractSatisfied =
             includesAllMarkers(normalized, ['artifact', 'lineup-feature-plan', 'lineup-feature-implement']) &&
-            includesAnyMarker(normalized, ['planning', 'plan', 'decision', 'boundary']) &&
+            includesAnyMarker(normalized, ['planning', 'decision', 'boundary']) &&
             includesAnyMarker(normalized, [
                 'implementation defects',
                 'implementation defect',
