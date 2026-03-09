@@ -64,8 +64,8 @@ This is the operating runbook for agent-driven development in Lineup.
 8. Verify based on risk.
    - `npm run verify` for UI, navigation, Orchestrator, or Plex work
    - `npm run verify:docs` for workflow/control-plane/reference doc changes
-   - `npm run verify:docs` warns for checklist plan paths that exist locally but are still untracked, and still fails for missing tracked plan references or other docs regressions
-   - `npm run verify:docs:workspace` may still be used during active local plan churn as a diagnostic pass, but it does not replace the normal `npm run verify:docs` gate before closeout
+   - `npm run verify:docs` warns for checklist plan paths that are untracked (including when the path is missing from the workspace and not tracked), and still fails for missing tracked plan references or other docs regressions
+   - `npm run verify:docs:workspace` downgrades missing tracked plan references to warnings during active local plan churn, but it does not replace the normal `npm run verify:docs` gate before closeout
    - if prompt inventories or their README indexes changed, run `npm run docs:sync` before the docs verifier so the managed sections stay aligned with the tracked manifest
    - otherwise at least `npm run typecheck` and `npm test` for logic-only TypeScript changes
 9. Review before closeout.

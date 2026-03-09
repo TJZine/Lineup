@@ -1,6 +1,9 @@
 # Feature Implementer Launcher
 
-Use this prompt for approved feature/design implementation when a reviewed plan already exists.
+Use this prompt for feature/design implementation in either mode:
+
+- approved-plan execution (a reviewed plan already exists), or
+- remediation/fix execution when `feature-review.md` routes an implementation review with material findings back here.
 
 Tier 2 uses this as the default implementer launcher. Tier 3 feature or mixed work may reuse it when a task-specific run bundle already provides the task context.
 
@@ -9,16 +12,17 @@ Tier 2 uses this as the default implementer launcher. Tier 3 feature or mixed wo
 1. [`agents.md`](../../../agents.md)
 2. [`docs/agentic/document-map.md`](../document-map.md)
 3. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
-4. the approving [`feature-review.md`](./feature-review.md) output or `NEXT_SESSION_HANDOFF` block that routed implementation here
-5. the assigned tracked plan in [`docs/plans/`](../../plans/README.md) or active run bundle in [`docs/runs/`](../../runs/README.md)
+4. the `NEXT_SESSION_HANDOFF` block that routed work here (from [`feature-review.md`](./feature-review.md))
+5. the assigned tracked plan in [`docs/plans/`](../../plans/README.md) or active run bundle in [`docs/runs/`](../../runs/README.md), plus the referenced `ARTIFACT`
 6. [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) when UI creation or redesign is in scope
 7. [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md) plus any domain docs named by the plan
 8. any repo-local boundary skills named by the plan
 
 ## What This Session Must Do
 
-- execute the approved feature/design plan in a repo-local worktree under `.worktrees/` when the task is more than a tiny edit
-- use the approving review artifact as the implementation gate so reviewer constraints and blockers are not dropped between sessions
+- if `ARTIFACT` is an approving review output: execute the approved feature/design plan in a repo-local worktree under `.worktrees/` when the task is more than a tiny edit
+- if `ARTIFACT` is a remediation/fix findings artifact (commonly named `implementation-findings.md`): treat it as the fix-session gate and implement only the listed fixes without widening scope
+- if remediation findings are actually plan/decision/product boundary defects (not fixable safely inside the approved plan), stop and route back to `lineup-feature-plan` instead of patching ad hoc
 - re-check the plan freshness gate before changing files
 - re-confirm task routing before implementation if the approved plan includes a mixed cleanup slice
 - run Codanna impact confirmation again before risky/shared-symbol edits if the code moved since planning
@@ -58,6 +62,6 @@ Return:
 5. a `NEXT_SESSION_HANDOFF` block that routes to `lineup-feature-review` and includes:
    - `TASK`
    - `PLAN`
-   - `ARTIFACT`
+   - `ARTIFACT` (approving review output, or the remediation findings artifact for a fix session)
    - `FILES`
    - a pasteable implementation-review request unless the task is fully blocked before code changes
