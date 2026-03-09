@@ -468,7 +468,7 @@ describe('ProfileSelectScreen', () => {
         expect(slotsWrap.classList.contains('error')).toBe(false);
     });
 
-    it('uses navigation restore entrypoint before preferred-focus fallback', async () => {
+	    it('uses navigation restore entrypoint before preferred-focus fallback', async () => {
         const users = [
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
             { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
@@ -483,22 +483,34 @@ describe('ProfileSelectScreen', () => {
         screen.show();
         await flushPromisesAndTimers();
 
-        screen.hide();
-        nav.setFocus.mockClear();
-        nav.restoreFocusForCurrentScreen.mockClear();
-        screen.show();
-        await flushPromisesAndTimers();
+	        screen.hide();
+	        nav.setFocus.mockClear();
+	        nav.restoreFocusForCurrentScreen.mockClear();
+	        screen.show();
+	        await flushPromisesAndTimers();
 
-        jest.advanceTimersByTime(60);
-        expect(nav.restoreFocusForCurrentScreen).toHaveBeenCalledTimes(1);
+	        jest.advanceTimersByTime(60);
+	        expect(nav.restoreFocusForCurrentScreen).toHaveBeenCalledTimes(1);
+	        expect(nav.setFocus).not.toHaveBeenCalled();
+	    });
 
-        const restoreOrder = nav.restoreFocusForCurrentScreen.mock.invocationCallOrder.at(-1);
-        const focusOrders = nav.setFocus.mock.invocationCallOrder;
-        expect(focusOrders.length).toBeGreaterThan(0);
-        if (restoreOrder !== undefined) {
-            const finalFocusOrder = focusOrders.at(-1);
-            expect(finalFocusOrder).toBeDefined();
-            expect(finalFocusOrder).toBeLessThan(restoreOrder);
-        }
-    });
-});
+	    it('falls back to preferred focus when restoreFocusForCurrentScreen returns false', async () => {
+	        const users = [
+	            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+	            { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
+	        ];
+	        const orchestrator = createOrchestratorStub(users);
+	        const nav = orchestrator.getNavigation();
+	        nav.restoreFocusForCurrentScreen.mockReturnValue(false);
+	        const container = document.createElement('div');
+	        document.body.appendChild(container);
+
+	        const screen = new ProfileSelectScreen(container, orchestrator as never);
+	        screen.show();
+	        await flushPromisesAndTimers();
+
+	        jest.advanceTimersByTime(60);
+	        expect(nav.restoreFocusForCurrentScreen).toHaveBeenCalledTimes(1);
+	        expect(nav.setFocus).toHaveBeenCalled();
+	    });
+	});
