@@ -11,6 +11,7 @@ import type { IMiniGuideOverlay } from './interfaces';
 import type { MiniGuideChannelViewModel, MiniGuideViewModel } from './types';
 import { getChannelNameForDisplay } from '../channelDisplay';
 import { summarizeErrorForLog } from '../../../utils/errors';
+import { shouldApplyMiniGuideRowUpdate } from './MiniGuideCoordinatorPolicies';
 
 const ROW_COUNT = 5;
 const CENTER_INDEX = 2;
@@ -421,15 +422,16 @@ export class MiniGuideCoordinator {
     }
 
     private _updateRow(index: number, row: MiniGuideChannelViewModel, token: number): void {
-        if (token !== this._showToken || !this._viewModel) {
-            return;
-        }
-        const currentRow = this._viewModel.channels[index];
-        if (!currentRow || currentRow.channelId !== row.channelId) {
-            return;
-        }
         const overlay = this.deps.getOverlay();
-        if (!overlay || !overlay.isVisible()) {
+        const currentRow = this._viewModel?.channels[index];
+        const shouldApply = shouldApplyMiniGuideRowUpdate({
+            expectedToken: token,
+            currentToken: this._showToken,
+            overlayVisible: !!overlay?.isVisible(),
+            currentRowChannelId: currentRow?.channelId ?? null,
+            nextRowChannelId: row.channelId,
+        });
+        if (!shouldApply || !this._viewModel || !currentRow || !overlay) {
             return;
         }
         const channels = this._viewModel.channels.slice();

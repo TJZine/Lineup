@@ -7,6 +7,7 @@ import type { IChannelManager, ChannelConfig } from '../../../scheduler/channel-
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig } from '../../../scheduler/scheduler';
 import type { ResolvedChannelContent, ResolvedContentItem } from '../../../scheduler/channel-manager/types';
 import { createDeferred, type Deferred } from '../../../../__tests__/helpers';
+import { shouldApplyMiniGuideRowUpdate } from '../MiniGuideCoordinatorPolicies';
 
 const AUTO_HIDE_MS = 1000;
 
@@ -539,24 +540,27 @@ describe('MiniGuideCoordinator', () => {
 
         coordinator.handlePage('down');
 
-        const anyCoordinator = coordinator as unknown as {
-            _showToken: number;
-            _updateRow: (index: number, row: unknown, token: number) => void;
-        };
-        const token = anyCoordinator._showToken;
-        const staleRow = {
-            channelId: 'ch1',
-            channelNumber: 1,
-            channelName: 'Channel 1',
-            nowTitle: 'Stale',
-            nextTitle: null,
-            nowProgress: 0,
-        };
+        const latestVm = (overlay.setViewModel as jest.Mock).mock.calls.at(-1)?.[0];
+        const currentRowChannelId = latestVm.channels[0].channelId as string;
 
-        const callCountBefore = (overlay.setViewModel as jest.Mock).mock.calls.length;
-        anyCoordinator._updateRow(0, staleRow, token);
-        const callCountAfter = (overlay.setViewModel as jest.Mock).mock.calls.length;
+        expect(
+            shouldApplyMiniGuideRowUpdate({
+                expectedToken: 123,
+                currentToken: 123,
+                overlayVisible: overlay.isVisible(),
+                currentRowChannelId,
+                nextRowChannelId: 'ch1',
+            })
+        ).toBe(false);
 
-        expect(callCountAfter).toBe(callCountBefore);
+        expect(
+            shouldApplyMiniGuideRowUpdate({
+                expectedToken: 123,
+                currentToken: 123,
+                overlayVisible: overlay.isVisible(),
+                currentRowChannelId,
+                nextRowChannelId: currentRowChannelId,
+            })
+        ).toBe(true);
     });
 });
