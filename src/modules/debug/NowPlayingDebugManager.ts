@@ -178,21 +178,16 @@ export class NowPlayingDebugManager {
         const token = ++this._nowPlayingStreamDecisionFetchToken;
         this._nowPlayingStreamDecisionFetchSessionId = sessionId;
         const req = decision.transcodeRequest;
-        const opts: { sessionId: string; maxBitrate: number; audioStreamId?: string; hideDolbyVision?: boolean } = {
+        const fetchPromise = resolver.fetchUniversalTranscodeDecision(program.item.ratingKey, {
             sessionId: req.sessionId,
             maxBitrate: req.maxBitrate,
-        };
-        if (typeof req.audioStreamId === 'string') {
-            opts.audioStreamId = req.audioStreamId;
-        }
-        if (typeof req.hideDolbyVision === 'boolean') {
-            opts.hideDolbyVision = req.hideDolbyVision;
-        }
-
-        const fetchPromise = resolver.fetchUniversalTranscodeDecision(
-            program.item.ratingKey,
-            opts
-        );
+            ...(typeof req.mediaIndex === 'number' ? { mediaIndex: req.mediaIndex } : {}),
+            ...(typeof req.partIndex === 'number' ? { partIndex: req.partIndex } : {}),
+            ...(typeof req.audioStreamId === 'string' ? { audioStreamId: req.audioStreamId } : {}),
+            ...(typeof req.subtitleStreamId === 'string' ? { subtitleStreamId: req.subtitleStreamId } : {}),
+            ...(req.subtitleMode === 'burn' ? { subtitleMode: 'burn' as const } : {}),
+            ...(typeof req.hideDolbyVision === 'boolean' ? { hideDolbyVision: req.hideDolbyVision } : {}),
+        });
         this._nowPlayingStreamDecisionFetchPromise = fetchPromise;
 
         try {
