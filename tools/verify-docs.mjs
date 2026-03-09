@@ -513,6 +513,36 @@ function checkWorkflowRoutingSplit(errors) {
     }
 }
 
+function checkFeatureRemediationPromptContracts(errors) {
+    const implement = readRepoFile('docs/agentic/session-prompts/feature-implement.md', errors);
+    if (implement !== null) {
+        const requiredImplementMarkers = [
+            'remediation/fix',
+            'implementation-findings.md',
+            'route back to `lineup-feature-plan`',
+        ];
+        for (const marker of requiredImplementMarkers) {
+            if (!implement.includes(marker)) {
+                errors.push(`feature-implement prompt doc is missing required remediation marker: ${marker}`);
+            }
+        }
+    }
+
+    const review = readRepoFile('docs/agentic/session-prompts/feature-review.md', errors);
+    if (review !== null) {
+        const requiredReviewMarkers = [
+            'plan/decision/product boundary defects',
+            'plan-decision-findings.md',
+            'implementation-findings.md',
+        ];
+        for (const marker of requiredReviewMarkers) {
+            if (!review.includes(marker)) {
+                errors.push(`feature-review prompt doc is missing required remediation-routing marker: ${marker}`);
+            }
+        }
+    }
+}
+
 function checkChecklistPlanPaths(errors, warnings) {
     const checklist = readRepoFile('ARCHITECTURE_CLEANUP_CHECKLIST.md', errors);
     if (checklist === null) {
@@ -798,6 +828,7 @@ function main() {
     checkSessionPromptReadme(errors);
     checkEvalPromptReadme(errors);
     checkWorkflowRoutingSplit(errors);
+    checkFeatureRemediationPromptContracts(errors);
     checkChecklistPlanPaths(errors, warnings);
     checkPlanArchiveCoherence(errors);
     checkSkillMirrorManifest(errors);
