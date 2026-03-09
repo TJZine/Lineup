@@ -8,7 +8,7 @@ import type { IVideoPlayer } from '../../modules/player';
 import type { IPlexLibrary } from '../../modules/plex/library';
 import type { IPlexStreamResolver } from '../../modules/plex/stream';
 import type { IChannelManager } from '../../modules/scheduler/channel-manager';
-import type { IChannelScheduler } from '../../modules/scheduler/scheduler';
+import type { IChannelScheduler, ScheduledProgram } from '../../modules/scheduler/scheduler';
 import { createDeferred, flushPromises } from '../helpers';
 
 type BinderHarness = {
@@ -122,6 +122,42 @@ const makeBinder = (overrides: Partial<OrchestratorEventBinderDeps> = {}): Binde
 };
 
 describe('AppOrchestrator event wiring', () => {
+    it('forwards programStart to the playback-start handler', async () => {
+        const {
+            binder,
+            scheduler,
+            deps,
+        } = makeBinder();
+
+        const program = {
+            item: {
+                ratingKey: 'item-1',
+                title: 'Test Item',
+                durationMs: 60_000,
+                type: 'movie',
+            },
+            elapsedMs: 0,
+            scheduledStartTime: 0,
+            scheduledEndTime: 60_000,
+            remainingMs: 60_000,
+            scheduleIndex: 0,
+            loopNumber: 0,
+            streamDescriptor: null,
+            isCurrent: true,
+        } as unknown as ScheduledProgram;
+
+        binder.bind();
+        const programStartCall = (scheduler.on as jest.Mock).mock.calls.find(
+            ([event]) => event === 'programStart'
+        );
+        const programStartHandler =
+            programStartCall?.[1] as ((programToStart: ScheduledProgram) => Promise<void>) | undefined;
+
+        expect(programStartHandler).toBeDefined();
+        await programStartHandler?.(program);
+        expect(deps.handleProgramStartTracked).toHaveBeenCalledWith(program);
+    });
+
     it('bind registers every handler and dispose unwires every cleanup', () => {
         const {
             binder,
