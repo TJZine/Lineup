@@ -1352,25 +1352,27 @@ describe('AppOrchestrator', () => {
 
         it('shows a warning toast when setSubtitleTrack fails', async () => {
             const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-            const toastSpy = jest.fn();
+            try {
+                const toastSpy = jest.fn();
 
-            mockVideoPlayer.setSubtitleTrack.mockRejectedValueOnce(new Error('boom'));
-            orchestrator.setNowPlayingHandler(toastSpy);
+                mockVideoPlayer.setSubtitleTrack.mockRejectedValueOnce(new Error('boom'));
+                orchestrator.setNowPlayingHandler(toastSpy);
 
-            await orchestrator.setSubtitleTrack(null);
+                await orchestrator.setSubtitleTrack(null);
 
-            expect(warnSpy).toHaveBeenCalled();
-            expect(toastSpy).toHaveBeenCalledWith(
-                expect.objectContaining({ type: 'warning', message: expect.any(String) })
-            );
-
-            warnSpy.mockRestore();
+                expect(warnSpy).toHaveBeenCalled();
+                expect(toastSpy).toHaveBeenCalledWith(
+                    expect.objectContaining({ type: 'warning', message: expect.any(String) })
+                );
+            } finally {
+                warnSpy.mockRestore();
+            }
         });
 
-	        it('reloads stream when audio track changes during direct play', async () => {
-	            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
-	            mockPlexAuth.validateToken.mockResolvedValue(true);
-	            mockPlexDiscovery.isConnected.mockReturnValue(true);
+        it('reloads stream when audio track changes during direct play', async () => {
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.validateToken.mockResolvedValue(true);
+            mockPlexDiscovery.isConnected.mockReturnValue(true);
             const program = {
                 item: {
                     ratingKey: 'item-1',
@@ -1391,28 +1393,35 @@ describe('AppOrchestrator', () => {
                     })
                 );
 
-	            await orchestrator.start();
+            await orchestrator.start();
 
-	            schedulerHandlers.programStart?.(program);
-	            await new Promise((resolve) => setImmediate(resolve));
+            schedulerHandlers.programStart?.(program);
+            await new Promise((resolve) => setImmediate(resolve));
 
-	            mockPlexStreamResolver.resolveStream.mockClear();
-	            const loadCallsBefore = mockVideoPlayer.loadStream.mock.calls.length;
+            mockPlexStreamResolver.resolveStream.mockClear();
+            const loadCallsBefore = mockVideoPlayer.loadStream.mock.calls.length;
+            const playCallsBefore = mockVideoPlayer.play.mock.calls.length;
 
-	            playerHandlers.trackChange?.({ type: 'audio', trackId: 'audio-2' });
-	            await new Promise((resolve) => setImmediate(resolve));
+            mockVideoPlayer.getState.mockReturnValueOnce({
+                status: 'playing',
+                activeAudioId: null,
+                activeSubtitleId: null,
+            });
+            playerHandlers.trackChange?.({ type: 'audio', trackId: 'audio-2' });
+            await new Promise((resolve) => setImmediate(resolve));
 
-	            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledWith(
-	                expect.objectContaining({
-	                    audioStreamId: 'audio-2',
-	                    directPlay: true,
-	                })
-	            );
-	            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledTimes(1);
-	            expect(mockVideoPlayer.loadStream).toHaveBeenCalledTimes(loadCallsBefore + 1);
-	            const lastLoad = mockVideoPlayer.loadStream.mock.calls.at(-1)?.[0];
-	            expect(lastLoad?.url).toBe('http://test/reloaded.m3u8');
-	        });
+            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    audioStreamId: 'audio-2',
+                    directPlay: true,
+                })
+            );
+            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledTimes(1);
+            expect(mockVideoPlayer.loadStream).toHaveBeenCalledTimes(loadCallsBefore + 1);
+            expect(mockVideoPlayer.play).toHaveBeenCalledTimes(playCallsBefore + 1);
+            const lastLoad = mockVideoPlayer.loadStream.mock.calls.at(-1)?.[0];
+            expect(lastLoad?.url).toBe('http://test/reloaded.m3u8');
+        });
 
         it('does not force direct-stream fallback when format is unsupported pre-MVP', async () => {
             mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
