@@ -9,7 +9,8 @@ import { EventEmitter } from '../../../utils/EventEmitter';
 import { fnv1a32Uint } from '../../../utils/hash';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { ContentResolver } from './ContentResolver';
-import { ChannelPersistenceStore } from './ChannelPersistenceStore';
+import { ChannelRepository } from './ChannelRepository';
+import { isValidContentSource } from './ChannelContentSourceValidator';
 import { AppErrorCode } from '../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../lifecycle/constants';
 import { TIMING_CONFIG } from '../../../config/timing';
@@ -97,84 +98,6 @@ function isNetworkError(error: unknown): boolean {
     );
 }
 
-function isValidContentSource(source: unknown, depth: number = 0): source is ChannelContentSource {
-    // Guard against excessive nesting in corrupted storage (mixed sources can be recursive).
-    // JSON cannot represent cyclic references, so a depth limit is sufficient here.
-    if (depth > 25) {
-        return false;
-    }
-    if (!source || typeof source !== 'object') {
-        return false;
-    }
-    const src = source as Record<string, unknown> & { type?: unknown };
-    const type = src.type;
-    if (typeof type !== 'string') {
-        return false;
-    }
-
-    const isValidManualItem = (item: unknown): boolean => {
-        if (!item || typeof item !== 'object') {
-            return false;
-        }
-        const obj = item as Record<string, unknown>;
-        const ratingKey = obj['ratingKey'];
-        const title = obj['title'];
-        const durationMs = obj['durationMs'];
-
-        return (
-            typeof ratingKey === 'string' &&
-            ratingKey.length > 0 &&
-            ratingKey !== 'undefined' &&
-            typeof title === 'string' &&
-            title.length > 0 &&
-            typeof durationMs === 'number' &&
-            Number.isFinite(durationMs) &&
-            durationMs > 0
-        );
-    };
-
-    switch (type) {
-        case 'library':
-            return (
-                typeof src['libraryId'] === 'string' &&
-                (src['libraryId'] as string).length > 0 &&
-                src['libraryId'] !== 'undefined'
-            );
-        case 'collection':
-            return (
-                typeof src['collectionKey'] === 'string' &&
-                (src['collectionKey'] as string).length > 0 &&
-                src['collectionKey'] !== 'undefined'
-            );
-        case 'show':
-            return (
-                typeof src['showKey'] === 'string' &&
-                (src['showKey'] as string).length > 0 &&
-                src['showKey'] !== 'undefined'
-            );
-        case 'playlist':
-            return (
-                typeof src['playlistKey'] === 'string' &&
-                (src['playlistKey'] as string).length > 0 &&
-                src['playlistKey'] !== 'undefined'
-            );
-        case 'manual':
-            return (
-                Array.isArray(src['items']) &&
-                (src['items'] as unknown[]).length > 0 &&
-                (src['items'] as unknown[]).every((item) => isValidManualItem(item))
-            );
-        case 'mixed':
-            return (
-                Array.isArray(src['sources']) &&
-                (src['sources'] as unknown[]).length > 0 &&
-                (src['sources'] as unknown[]).every((s) => isValidContentSource(s, depth + 1))
-            );
-        default:
-            return false;
-    }
-}
-
 /**
  * Check if error is a content-unavailable error that allows stale cache fallback.
  */
@@ -247,7 +170,7 @@ export class ChannelManager implements IChannelManager {
     private readonly _emitter: EventEmitter<ChannelManagerEventMap>;
     private readonly _contentResolver: ContentResolver;
     private readonly _library: IPlexLibraryMinimal;
-    private readonly _persistenceStore: ChannelPersistenceStore;
+    private readonly _channelRepository: ChannelRepository;
     private readonly _logger: {
         warn: (message: string, ...args: unknown[]) => void;
         error: (message: string, ...args: unknown[]) => void;
@@ -300,7 +223,7 @@ export class ChannelManager implements IChannelManager {
             return normalized;
         })();
 
-        this._persistenceStore = new ChannelPersistenceStore(initialStorageKey, initialCurrentChannelKey);
+        this._channelRepository = new ChannelRepository(initialStorageKey, initialCurrentChannelKey);
         this._contentResolver = new ContentResolver(this._library, this._logger);
 
         this._state = {
@@ -330,7 +253,7 @@ export class ChannelManager implements IChannelManager {
                 error
             );
         }
-        this._persistenceStore.setStorageKeys(normalizedStorageKey, normalizedCurrentChannelKey);
+        this._channelRepository.setStorageKeys(normalizedStorageKey, normalizedCurrentChannelKey);
         this._contentResolver.clearCaches();
         this._state.channels.clear();
         this._state.resolvedContent.clear();
@@ -417,7 +340,7 @@ export class ChannelManager implements IChannelManager {
 
         if (this._state.currentChannelId) {
             try {
-                const result = this._persistenceStore.writeCurrentChannelId(this._state.currentChannelId);
+                const result = this._channelRepository.saveCurrentChannelId(this._state.currentChannelId);
                 if (result === 'unavailable') {
                     throw new Error('Failed to persist current channel');
                 }
@@ -793,7 +716,7 @@ export class ChannelManager implements IChannelManager {
 
         // Persist current channel separately (namespaced to the active store)
         try {
-            const result = this._persistenceStore.writeCurrentChannelId(channelId);
+            const result = this._channelRepository.saveCurrentChannelId(channelId);
             if (result === 'unavailable') {
                 throw new Error('Failed to persist current channel');
             }
@@ -1154,7 +1077,7 @@ export class ChannelManager implements IChannelManager {
             savedAt: Date.now(),
         };
 
-        const writeResult = this._persistenceStore.writeStoredChannelData(data);
+        const writeResult = this._channelRepository.saveStoredChannelData(data);
 
         if (writeResult === 'quota-exceeded') {
             throw new ChannelError(
@@ -1173,115 +1096,29 @@ export class ChannelManager implements IChannelManager {
      */
     async loadChannels(): Promise<void> {
         try {
-            const parsed = this._persistenceStore.readStoredChannelData();
-            if (!parsed) {
+            const normalized = this._channelRepository.loadNormalized();
+            if (!normalized) {
                 return;
             }
 
-            const normalized = this._normalizeStoredChannelData(parsed);
-            if (!normalized) {
-                this._logger.warn('[ChannelManager] Invalid stored channel data, skipping load');
-                return;
-            }
             const { data, didMutate: didMutateFromNormalization } = normalized;
-            let didMutate = didMutateFromNormalization;
 
             // Restore state
             this._state.channels.clear();
             for (const channel of data.channels) {
-                // Prune invalid channels (fix for seeding bug)
-                if (!isValidContentSource(channel.contentSource)) {
-                    this._logger.warn(`Pruning invalid channel ${channel.name} (${channel.id})`);
-                    didMutate = true;
-                    continue;
-                }
                 this._state.channels.set(channel.id, channel);
             }
 
-            this._state.channelOrder = data.channelOrder.filter((id) => this._state.channels.has(id));
-            if (this._state.channelOrder.length !== data.channelOrder.length) {
-                didMutate = true;
-            }
-
-            // Fallback: if stored order is corrupt/empty but channels exist, rebuild a stable order.
-            if (this._state.channelOrder.length === 0 && this._state.channels.size > 0) {
-                this._state.channelOrder = [...this._state.channels.values()]
-                    .sort((a, b) => a.number - b.number || a.id.localeCompare(b.id))
-                    .map((c) => c.id);
-                didMutate = true;
-            }
+            this._state.channelOrder = data.channelOrder;
             this._state.currentChannelId = data.currentChannelId;
 
-            // Also restore current channel from separate key
-            const savedCurrent = this._persistenceStore.readCurrentChannelId();
-            if (savedCurrent && this._state.channels.has(savedCurrent)) {
-                this._state.currentChannelId = savedCurrent;
-            }
-
-            // Ensure current channel is valid; fallback to first channel if needed.
-            if (this._state.currentChannelId && !this._state.channels.has(this._state.currentChannelId)) {
-                this._state.currentChannelId = this._state.channelOrder[0] ?? null;
-                didMutate = true;
-            }
-
             // Persist normalized/migrated channel records once.
-            if (didMutate) {
+            if (didMutateFromNormalization) {
                 this._queueSave();
             }
         } catch (e) {
             this._logger.error('Failed to load channels from storage', summarizeErrorForLog(e));
         }
-    }
-
-    private _normalizeStoredChannelData(
-        data: Partial<StoredChannelData>
-    ): { data: StoredChannelData; didMutate: boolean } | null {
-        if (!Array.isArray(data.channels)) {
-            return null;
-        }
-        if (!Array.isArray(data.channelOrder)) {
-            return null;
-        }
-
-        const savedAt =
-            typeof data.savedAt === 'number' && Number.isFinite(data.savedAt) ? data.savedAt : Date.now();
-
-        const currentChannelId =
-            typeof data.currentChannelId === 'string' ? data.currentChannelId : null;
-
-        let didMutate = false;
-
-        const normalizedChannels: ChannelConfig[] = [];
-        for (const raw of data.channels) {
-            const channel = raw as ChannelConfig;
-            if (!channel || typeof channel !== 'object') {
-                didMutate = true;
-                continue;
-            }
-            if (typeof channel.id !== 'string' || channel.id.length === 0) {
-                didMutate = true;
-                continue;
-            }
-            if (typeof channel.shuffleSeed !== 'number' || !Number.isFinite(channel.shuffleSeed)) {
-                channel.shuffleSeed = fnv1a32Uint(`${channel.id}:shuffle`);
-                didMutate = true;
-            }
-            if (typeof channel.phaseSeed !== 'number' || !Number.isFinite(channel.phaseSeed)) {
-                channel.phaseSeed = fnv1a32Uint(`${channel.id}:phase`);
-                didMutate = true;
-            }
-            normalizedChannels.push(channel);
-        }
-
-        return {
-            data: {
-                channels: normalizedChannels,
-                channelOrder: data.channelOrder,
-                currentChannelId,
-                savedAt,
-            },
-            didMutate,
-        };
     }
 
     // ============================================

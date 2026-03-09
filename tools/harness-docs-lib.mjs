@@ -32,6 +32,11 @@ export const SESSION_PROMPT_INVENTORY = [
         description: 'Tier 2 or Tier 3 planner session for serious feature/design planning',
     },
     {
+        file: 'feature-implement.md',
+        linkText: 'feature-implement.md',
+        description: 'approved feature/design implementer session; Tier 2 default, reusable in Tier 3 when a run bundle already exists',
+    },
+    {
         file: 'feature-review.md',
         linkText: 'feature-review.md',
         description: 'reusable adversarial review session for feature/design plans and implementations',
@@ -134,6 +139,11 @@ export const EVAL_PROMPT_INVENTORY = [
         linkText: '18-detect-unresolved-seam-before-freezing-plan',
         title: '18 Detect Unresolved Seam Before Freezing Plan',
     },
+    {
+        file: '19-multi-agent-role-selection-and-delegation-discipline.md',
+        linkText: '19-multi-agent-role-selection-and-delegation-discipline',
+        title: '19 Multi-Agent Role Selection And Delegation Discipline',
+    },
 ];
 
 export const EXPECTED_SESSION_PROMPT_FILES = SESSION_PROMPT_INVENTORY.map(({ file }) => file);
@@ -196,11 +206,11 @@ export function extractChecklistPlanPaths(content) {
 }
 
 export function classifyChecklistPlanPathStatus({ exists, tracked }) {
-    if (!exists) {
-        return 'missing';
+    if (tracked) {
+        return exists ? 'tracked' : 'missing-tracked';
     }
 
-    return tracked ? 'tracked' : 'untracked';
+    return exists ? 'untracked' : 'missing-untracked';
 }
 
 export function buildChecklistPlanPathMessages(entries, { mode = 'strict' } = {}) {
@@ -213,11 +223,24 @@ export function buildChecklistPlanPathMessages(entries, { mode = 'strict' } = {}
             continue;
         }
 
-        if (status === 'missing') {
+        if (status === 'missing-tracked') {
             const message = `Checklist references missing tracked plan path: ${relativePath}`;
             if (!seenMessages.has(message)) {
                 seenMessages.add(message);
-                errors.push(message);
+                if (mode === 'workspace') {
+                    warnings.push(message);
+                } else {
+                    errors.push(message);
+                }
+            }
+            continue;
+        }
+
+        if (status === 'missing-untracked') {
+            const message = `Checklist references untracked plan path: ${relativePath} (missing from workspace and not tracked)`;
+            if (!seenMessages.has(message)) {
+                seenMessages.add(message);
+                warnings.push(message);
             }
             continue;
         }
@@ -228,12 +251,7 @@ export function buildChecklistPlanPathMessages(entries, { mode = 'strict' } = {}
         }
 
         seenMessages.add(message);
-
-        if (mode === 'workspace') {
-            warnings.push(message);
-        } else {
-            errors.push(message);
-        }
+        warnings.push(message);
     }
 
     return { errors, warnings };

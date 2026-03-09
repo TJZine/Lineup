@@ -22,6 +22,10 @@ import type { PlatformIdentityService } from '../../../platform';
  * Stream resolver error structure.
  * Uses PlexStreamErrorCode for stream resolver errors.
  */
+export type StreamResolverErrorStage =
+    | 'media_selection'
+    | 'burn_in_selected_part';
+
 export interface StreamResolverError {
     /** Error code from stream resolver taxonomy */
     code: PlexStreamErrorCode;
@@ -31,6 +35,11 @@ export interface StreamResolverError {
     recoverable: boolean;
     /** Milliseconds to wait before retry (if retryable) */
     retryAfterMs?: number;
+    /**
+     * Optional: disambiguates where `resolveStream()` failed.
+     * Primarily used for diagnostics when a single error code can be thrown from multiple stages.
+     */
+    stage?: StreamResolverErrorStage;
 }
 
 // ============================================
@@ -143,7 +152,7 @@ export interface IPlexStreamResolver {
      */
     fetchUniversalTranscodeDecision(
         itemKey: string,
-        options: { sessionId: string; maxBitrate?: number; audioStreamId?: string; hideDolbyVision?: boolean }
+        request: NonNullable<StreamDecision['transcodeRequest']>
     ): Promise<NonNullable<StreamDecision['serverDecision']>>;
 
     // ========================================

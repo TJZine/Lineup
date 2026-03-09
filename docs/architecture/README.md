@@ -1,15 +1,15 @@
 # Architecture Docs
 
-This folder now has a clearer split between current truth, reference, and backlog.
+This folder has a stable split between current truth, active reference, and backlog direction.
 
 ## Read In This Order
 
 1. [`CURRENT_STATE.md`](./CURRENT_STATE.md)
-   - canonical current architecture truth
+   - canonical and current architecture truth
 2. [`modules.md`](./modules.md)
    - current module inventory and ownership reference
 3. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
-   - active remediation backlog
+   - active backlog, priority queue, and cleanup direction
 
 ## Notes
 

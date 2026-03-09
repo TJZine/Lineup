@@ -152,6 +152,11 @@ export interface StreamRequest {
     audioStreamId?: string;
     /**
      * Preferred subtitle track ID (used for out-of-band extraction/fetching; does not imply burn-in).
+     *
+     * Contract: when provided, Lineup treats this as strict. If no media version/part contains the
+     * requested subtitle stream id, `PlexStreamResolver.resolveStream()` throws
+     * `PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND` (instead of silently dropping the request).
+     *
      * Burn-in is only requested when `subtitleMode === 'burn'` or the selected subtitle format requires it.
      */
     subtitleStreamId?: string;
@@ -252,16 +257,7 @@ export interface StreamDecision {
      * Parameters Lineup used when requesting an HLS session (transcode or direct-stream).
      * Note: Plex may still decide to direct-stream video while transcoding only audio.
      */
-    transcodeRequest?: {
-        sessionId: string;
-        maxBitrate: number;
-        audioStreamId?: string;
-        subtitleStreamId?: string;
-        subtitleMode?: 'none' | 'burn';
-        mediaIndex?: number;
-        partIndex?: number;
-        hideDolbyVision?: boolean;
-    };
+    transcodeRequest?: StreamDecisionTranscodeRequest;
 
     /**
      * Parsed response from Plex's universal transcode decision endpoint (if fetched).
@@ -276,6 +272,24 @@ export interface StreamDecision {
         decisionText?: string;
     };
 }
+
+export type StreamDecisionTranscodeRequest = {
+    sessionId: string;
+    maxBitrate: number;
+    mediaIndex?: number;
+    partIndex?: number;
+    audioStreamId?: string;
+    hideDolbyVision?: true;
+} & (
+    | {
+        subtitleStreamId?: undefined;
+        subtitleMode?: undefined;
+    }
+    | {
+        subtitleStreamId: string;
+        subtitleMode: 'burn';
+    }
+);
 
 /**
  * HLS stream options

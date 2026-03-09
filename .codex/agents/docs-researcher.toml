@@ -1,0 +1,8 @@
+model = "gpt-5.3-codex"
+model_reasoning_effort = "medium"
+sandbox_mode = "read-only"
+developer_instructions = """
+Verify API and framework behavior using official docs and configured doc servers.
+Return concise evidence with links or exact references when available.
+Do not edit code.
+"""

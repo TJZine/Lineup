@@ -67,65 +67,74 @@ test('extractChecklistPlanPaths ignores placeholders and non-plan values', () =>
 test('classifyChecklistPlanPathStatus distinguishes tracked, untracked, and missing plan refs', () => {
     assert.equal(classifyChecklistPlanPathStatus({ exists: true, tracked: true }), 'tracked');
     assert.equal(classifyChecklistPlanPathStatus({ exists: true, tracked: false }), 'untracked');
-    assert.equal(classifyChecklistPlanPathStatus({ exists: false, tracked: false }), 'missing');
+    assert.equal(classifyChecklistPlanPathStatus({ exists: false, tracked: true }), 'missing-tracked');
+    assert.equal(classifyChecklistPlanPathStatus({ exists: false, tracked: false }), 'missing-untracked');
 });
 
-test('buildChecklistPlanPathMessages reports untracked plan refs distinctly in strict mode', () => {
+test('buildChecklistPlanPathMessages warns for untracked plan refs in strict mode', () => {
     const result = buildChecklistPlanPathMessages(
         [
             { relativePath: 'docs/plans/tracked.md', status: 'tracked' },
             { relativePath: 'docs/plans/untracked.md', status: 'untracked' },
-            { relativePath: 'docs/plans/missing.md', status: 'missing' },
+            { relativePath: 'docs/plans/missing-tracked.md', status: 'missing-tracked' },
+            { relativePath: 'docs/plans/missing-untracked.md', status: 'missing-untracked' },
         ],
         { mode: 'strict' }
     );
 
-    assert.deepEqual(result.errors, [
+    assert.deepEqual(result.errors, ['Checklist references missing tracked plan path: docs/plans/missing-tracked.md']);
+    assert.deepEqual(result.warnings, [
         'Checklist references untracked plan path: docs/plans/untracked.md (exists locally but is not tracked)',
-        'Checklist references missing tracked plan path: docs/plans/missing.md',
+        'Checklist references untracked plan path: docs/plans/missing-untracked.md (missing from workspace and not tracked)',
     ]);
-    assert.deepEqual(result.warnings, []);
 });
 
-test('buildChecklistPlanPathMessages downgrades untracked plan refs to warnings in workspace mode', () => {
+test('buildChecklistPlanPathMessages downgrades missing tracked plan refs to warnings in workspace mode', () => {
     const result = buildChecklistPlanPathMessages(
         [
             { relativePath: 'docs/plans/untracked.md', status: 'untracked' },
-            { relativePath: 'docs/plans/missing.md', status: 'missing' },
+            { relativePath: 'docs/plans/missing-tracked.md', status: 'missing-tracked' },
+            { relativePath: 'docs/plans/missing-untracked.md', status: 'missing-untracked' },
         ],
         { mode: 'workspace' }
     );
 
-    assert.deepEqual(result.errors, ['Checklist references missing tracked plan path: docs/plans/missing.md']);
+    assert.deepEqual(result.errors, []);
     assert.deepEqual(result.warnings, [
         'Checklist references untracked plan path: docs/plans/untracked.md (exists locally but is not tracked)',
+        'Checklist references missing tracked plan path: docs/plans/missing-tracked.md',
+        'Checklist references untracked plan path: docs/plans/missing-untracked.md (missing from workspace and not tracked)',
     ]);
 });
 
 test('buildChecklistPlanPathMessages deduplicates repeated checklist refs for the same plan path', () => {
     const result = buildChecklistPlanPathMessages(
         [
-            { relativePath: 'docs/archive/plans/shared-summary.md', status: 'missing' },
-            { relativePath: 'docs/archive/plans/shared-summary.md', status: 'missing' },
+            { relativePath: 'docs/archive/plans/shared-summary.md', status: 'missing-tracked' },
+            { relativePath: 'docs/archive/plans/shared-summary.md', status: 'missing-tracked' },
             { relativePath: 'docs/plans/draft.md', status: 'untracked' },
             { relativePath: 'docs/plans/draft.md', status: 'untracked' },
         ],
         { mode: 'workspace' }
     );
 
-    assert.deepEqual(result.errors, [
-        'Checklist references missing tracked plan path: docs/archive/plans/shared-summary.md',
-    ]);
+    assert.deepEqual(result.errors, []);
     assert.deepEqual(result.warnings, [
+        'Checklist references missing tracked plan path: docs/archive/plans/shared-summary.md',
         'Checklist references untracked plan path: docs/plans/draft.md (exists locally but is not tracked)',
     ]);
 });
 
 test('SESSION_PROMPT_INVENTORY and EVAL_PROMPT_INVENTORY drive expected file order', () => {
     assert.equal(SESSION_PROMPT_INVENTORY[0].file, 'cleanup-plan.md');
+    assert.equal(SESSION_PROMPT_INVENTORY[5].file, 'feature-implement.md');
+    assert.equal(
+        SESSION_PROMPT_INVENTORY[5].description,
+        'approved feature/design implementer session; Tier 2 default, reusable in Tier 3 when a run bundle already exists',
+    );
     assert.equal(SESSION_PROMPT_INVENTORY.at(-1)?.file, 'workflow-harness-review.md');
     assert.equal(EVAL_PROMPT_INVENTORY[0].file, '01-app-container-extraction-no-ui-drift.md');
-    assert.equal(EVAL_PROMPT_INVENTORY.at(-1)?.file, '18-detect-unresolved-seam-before-freezing-plan.md');
+    assert.equal(EVAL_PROMPT_INVENTORY.at(-1)?.file, '19-multi-agent-role-selection-and-delegation-discipline.md');
 });
 
 test('renderSessionPromptSet renders the managed launcher inventory from manifest data', () => {

@@ -880,7 +880,7 @@ describe('PlexStreamResolver', () => {
             expect(decision.transcodeRequest).toBeUndefined();
         });
 
-        it('preserves format-only subtitle classification in resolveStream() for codec-only text subtitles', async () => {
+        it('treats codec-only text subtitles as sidecar in resolveStream()', async () => {
             const mockItem = createMockMediaItem();
             const subtitleStream: PlexStream = {
                 id: 'sub-1',
@@ -903,7 +903,7 @@ describe('PlexStreamResolver', () => {
             });
 
             expect(decision.isTranscoding).toBe(false);
-            expect(decision.subtitleDelivery).toBe('embed');
+            expect(decision.subtitleDelivery).toBe('sidecar');
             expect(decision.transcodeRequest).toBeUndefined();
         });
 

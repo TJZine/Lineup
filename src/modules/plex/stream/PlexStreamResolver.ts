@@ -334,23 +334,19 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         // 2. Select best media version
-        let selectedMedia = selectBestMedia(item.media, request.maxBitrate);
-        if (request.subtitleStreamId) {
-            const withSubtitle = selectBestMediaWithSubtitleStream(
-                item.media,
-                request.subtitleStreamId,
-                request.maxBitrate
+        let selectedMedia = request.subtitleStreamId
+            ? selectBestMediaWithSubtitleStream(item.media, request.subtitleStreamId, request.maxBitrate)
+            : selectBestMedia(item.media, request.maxBitrate);
+
+        // Treat an explicit subtitle selection as strict; do not silently fall back to a different media.
+        if (request.subtitleStreamId && !selectedMedia) {
+            throw this._createError(
+                PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND,
+                `Subtitle stream not found: ${request.subtitleStreamId}`,
+                true,
+                undefined,
+                'media_selection'
             );
-            if (!withSubtitle && request.subtitleMode === 'burn') {
-                throw this._createError(
-                    PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND,
-                    `Subtitle stream not found: ${request.subtitleStreamId}`,
-                    true
-                );
-            }
-            if (withSubtitle) {
-                selectedMedia = withSubtitle;
-            }
         }
         if (!selectedMedia) {
             throw this._createError(
@@ -385,10 +381,13 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 ) ?? null)
                 : null;
         if (request.subtitleMode === 'burn' && request.subtitleStreamId && !subtitleStream) {
+            // Defensive: strict selection should prevent this in normal cases; treat as inconsistent/stale metadata.
             throw this._createError(
                 PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND,
                 `Subtitle stream not found for burn-in: ${request.subtitleStreamId}`,
-                true
+                true,
+                undefined,
+                'burn_in_selected_part'
             );
         }
         const availableSubtitleStreams = part.streams.filter((s) => s.streamType === 3);
@@ -614,20 +613,34 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             videoCodec = 'h264';
             audioCodec = 'aac';
 
-            transcodeRequestInfo = {
+            const transcodeRequestBase: {
+                sessionId: string;
+                maxBitrate: number;
+                mediaIndex: number;
+                partIndex: number;
+                audioStreamId?: string;
+                hideDolbyVision?: true;
+            } = {
                 sessionId,
                 maxBitrate,
                 mediaIndex,
                 partIndex,
-                ...(options.hideDolbyVision === true ? { hideDolbyVision: true } : {}),
-                ...(typeof options.audioStreamId === 'string' ? { audioStreamId: options.audioStreamId } : {}),
-                ...(typeof options.subtitleStreamId === 'string'
-                    ? {
-                        subtitleStreamId: options.subtitleStreamId,
-                        ...(typeof options.subtitleMode === 'string' ? { subtitleMode: options.subtitleMode } : {}),
-                    }
-                    : {}),
             };
+            if (options.hideDolbyVision === true) {
+                transcodeRequestBase.hideDolbyVision = true;
+            }
+            if (typeof options.audioStreamId === 'string') {
+                transcodeRequestBase.audioStreamId = options.audioStreamId;
+            }
+            if (burnInEnabled && typeof options.subtitleStreamId === 'string') {
+                transcodeRequestInfo = {
+                    ...transcodeRequestBase,
+                    subtitleStreamId: options.subtitleStreamId,
+                    subtitleMode: 'burn',
+                };
+            } else {
+                transcodeRequestInfo = transcodeRequestBase;
+            }
         }
 
         // 5. Determine subtitle delivery
@@ -697,47 +710,32 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             decision.transcodeRequest = transcodeRequestInfo;
         }
 
-            if (debugEnabled) {
-                console.warn('[PlexStreamResolver] Stream decision:', {
+        if (debugEnabled) {
+            console.warn('[PlexStreamResolver] Stream decision:', {
+                itemKey: request.itemKey,
+                mode: decision.isTranscoding ? 'transcode' : 'direct_play',
+                protocol: decision.protocol,
+                subtitleDelivery: decision.subtitleDelivery,
+                reasonCount: decision.directPlay?.reasons.length ?? 0,
+            });
+        }
+
+        // Optional (debug-only): ask PMS why it chose to transcode vs direct-stream.
+        // This helps explain cases where HDR10 fallback unexpectedly results in SDR H.264 transcodes.
+        if (debugEnabled && decision.isTranscoding && transcodeRequestInfo) {
+            try {
+                decision.serverDecision = await this.fetchUniversalTranscodeDecision(
+                    request.itemKey,
+                    transcodeRequestInfo
+                );
+            } catch (error) {
+                console.warn('[PlexStreamResolver] PMS universal decision fetch failed:', {
                     itemKey: request.itemKey,
-                    mode: decision.isTranscoding ? 'transcode' : 'direct_play',
-                    protocol: decision.protocol,
-                    subtitleDelivery: decision.subtitleDelivery,
-                    reasonCount: decision.directPlay?.reasons.length ?? 0,
+                    sessionId: transcodeRequestInfo.sessionId,
+                    error: summarizeErrorForLog(error),
                 });
             }
-
-            // Optional (debug-only): ask PMS why it chose to transcode vs direct-stream.
-            // This helps explain cases where HDR10 fallback unexpectedly results in SDR H.264 transcodes.
-            if (debugEnabled && decision.isTranscoding && transcodeRequestInfo) {
-                try {
-                    decision.serverDecision = await this.fetchUniversalTranscodeDecision(
-                        request.itemKey,
-                        {
-                            sessionId: transcodeRequestInfo.sessionId,
-                            maxBitrate: transcodeRequestInfo.maxBitrate,
-                            ...(typeof transcodeRequestInfo.mediaIndex === 'number'
-                                ? { mediaIndex: transcodeRequestInfo.mediaIndex }
-                                : {}),
-                            ...(typeof transcodeRequestInfo.partIndex === 'number'
-                                ? { partIndex: transcodeRequestInfo.partIndex }
-                                : {}),
-                            ...(typeof transcodeRequestInfo.audioStreamId === 'string'
-                                ? { audioStreamId: transcodeRequestInfo.audioStreamId }
-                                : {}),
-                            ...(typeof transcodeRequestInfo.hideDolbyVision === 'boolean'
-                                ? { hideDolbyVision: transcodeRequestInfo.hideDolbyVision }
-                                : {}),
-                        }
-                    );
-                } catch (error) {
-                    console.warn('[PlexStreamResolver] PMS universal decision fetch failed:', {
-                        itemKey: request.itemKey,
-                        sessionId: transcodeRequestInfo.sessionId,
-                        error: summarizeErrorForLog(error),
-                    });
-                }
-            }
+        }
 
         return decision;
     }
@@ -998,30 +996,29 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
     async fetchUniversalTranscodeDecision(
         itemKey: string,
-        options: {
-            sessionId: string;
-            maxBitrate?: number;
-            mediaIndex?: number;
-            partIndex?: number;
-            audioStreamId?: string;
-            hideDolbyVision?: boolean;
-        }
+        request: NonNullable<StreamDecision['transcodeRequest']>
     ): Promise<NonNullable<StreamDecision['serverDecision']>> {
-        const hlsOptions: HlsOptions = { sessionId: options.sessionId };
-        if (typeof options.maxBitrate === 'number') {
-            hlsOptions.maxBitrate = options.maxBitrate;
+        const hlsOptions: HlsOptions = {
+            sessionId: request.sessionId,
+            maxBitrate: request.maxBitrate,
+        };
+        if (typeof request.mediaIndex === 'number') {
+            hlsOptions.mediaIndex = request.mediaIndex;
         }
-        if (typeof options.mediaIndex === 'number') {
-            hlsOptions.mediaIndex = options.mediaIndex;
+        if (typeof request.partIndex === 'number') {
+            hlsOptions.partIndex = request.partIndex;
         }
-        if (typeof options.partIndex === 'number') {
-            hlsOptions.partIndex = options.partIndex;
+        if (typeof request.audioStreamId === 'string') {
+            hlsOptions.audioStreamId = request.audioStreamId;
         }
-        if (typeof options.audioStreamId === 'string') {
-            hlsOptions.audioStreamId = options.audioStreamId;
+        if (typeof request.subtitleStreamId === 'string') {
+            hlsOptions.subtitleStreamId = request.subtitleStreamId;
         }
-        if (typeof options.hideDolbyVision === 'boolean') {
-            hlsOptions.hideDolbyVision = options.hideDolbyVision;
+        if (request.subtitleMode === 'burn') {
+            hlsOptions.subtitleMode = 'burn';
+        }
+        if (request.hideDolbyVision === true) {
+            hlsOptions.hideDolbyVision = true;
         }
 
         const startUrl = this.getTranscodeUrl(itemKey, hlsOptions);
@@ -1396,7 +1393,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         code: PlexStreamErrorCode,
         message: string,
         recoverable: boolean,
-        retryAfterMs?: number
+        retryAfterMs?: number,
+        stage?: StreamResolverError['stage']
     ): StreamResolverError {
         const error: StreamResolverError = {
             code,
@@ -1405,6 +1403,9 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         };
         if (retryAfterMs !== undefined) {
             error.retryAfterMs = retryAfterMs;
+        }
+        if (stage !== undefined) {
+            error.stage = stage;
         }
         this._emitter.emit('error', error);
         return error;

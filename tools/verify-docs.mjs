@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import {
     buildChecklistPlanPathMessages,
@@ -84,6 +85,28 @@ const trackedLocalOnlyPrefixAllowlist = ['docs/runs/_template/'];
 const literalLocalOnlyPatternAllowlist = new Set([
     // Reserved for true tracked-file exceptions where an exact local-only artifact path must be shown verbatim.
 ]);
+const requiredCodexAgentRoles = [
+    'explorer',
+    'explorer_fallback',
+    'reviewer',
+    'docs_researcher',
+    'worker',
+    'monitor',
+    'monitor_fallback',
+];
+const readOnlyCodexAgentRoles = [
+    'explorer',
+    'explorer_fallback',
+    'reviewer',
+    'docs_researcher',
+    'monitor',
+    'monitor_fallback',
+];
+const codexRoleWorkflowMarkerFiles = [
+    'docs/AGENTIC_DEV_WORKFLOW.md',
+    'docs/agentic/skill-strategy.md',
+    'docs/agentic/session-prompts/workflow-harness-review.md',
+];
 
 function recordFsError(errors, operation, targetPath, error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -93,6 +116,7 @@ function recordFsError(errors, operation, targetPath, error) {
 const FAILED_GIT = Symbol('FAILED_GIT');
 
 let cachedTrackedPlanPaths = null;
+let cachedTrackedCodexPaths = null;
 
 function getTrackedPlanPaths(errors) {
     if (cachedTrackedPlanPaths !== null) {
@@ -115,6 +139,30 @@ function getTrackedPlanPaths(errors) {
         recordFsError(errors, 'list tracked plan files via git', 'docs/plans docs/archive/plans', error);
         cachedTrackedPlanPaths = FAILED_GIT;
         return cachedTrackedPlanPaths;
+    }
+}
+
+function getTrackedCodexPaths(errors) {
+    if (cachedTrackedCodexPaths !== null) {
+        return cachedTrackedCodexPaths;
+    }
+
+    try {
+        const output = execFileSync('git', ['ls-files', '--', '.codex/config.toml', '.codex/agents'], {
+            cwd: repoRoot,
+            encoding: 'utf8',
+        });
+        cachedTrackedCodexPaths = new Set(
+            output
+                .split(/\r?\n/u)
+                .map((line) => line.trim())
+                .filter((line) => line.length > 0)
+        );
+        return cachedTrackedCodexPaths;
+    } catch (error) {
+        recordFsError(errors, 'list tracked codex role files via git', '.codex/config.toml .codex/agents', error);
+        cachedTrackedCodexPaths = FAILED_GIT;
+        return cachedTrackedCodexPaths;
     }
 }
 
@@ -443,11 +491,22 @@ function checkWorkflowRoutingSplit(errors) {
             errors.push('Session prompt README must contain the authoritative routing split section.');
         }
 
-        const requiredReadmeRoutingMarkers = ['cleanup/refactor', 'feature/design', 'mixed', 'feature-plan', 'feature-review'];
+        const requiredReadmeRoutingMarkers = ['cleanup/refactor', 'feature/design', 'mixed'];
         for (const marker of requiredReadmeRoutingMarkers) {
             if (!readme.includes(marker)) {
                 errors.push(`Session prompt README routing split is missing required marker: ${marker}`);
             }
+        }
+
+        const normalizedLines = normalizeDocLines(readme);
+        const featureDesignRoutingRow = normalizedLines.find((line) => line.includes('| feature/design |'));
+        if (
+            featureDesignRoutingRow === undefined ||
+            !includesAllMarkers(featureDesignRoutingRow, ['feature-plan', 'feature-implement', 'feature-review'])
+        ) {
+            errors.push(
+                'Session prompt README feature/design routing row must include feature-plan, feature-implement, and feature-review'
+            );
         }
     }
 
@@ -457,6 +516,7 @@ function checkWorkflowRoutingSplit(errors) {
             'cleanup-plan.md',
             'cleanup-review.md',
             'feature-plan.md',
+            'feature-implement.md',
             'feature-review.md',
             'Route task family before choosing a tier.',
         ];
@@ -465,6 +525,147 @@ function checkWorkflowRoutingSplit(errors) {
             if (!workflow.includes(marker)) {
                 errors.push(`Workflow doc is missing required cleanup/feature routing marker: ${marker}`);
             }
+        }
+
+        const normalizedLines = normalizeDocLines(workflow);
+        const hasFeatureTierTwoSequence = normalizedLines.some(
+            (line) =>
+                (line.includes('feature tier 2 work') || line.includes('tier 2 feature')) &&
+                includesMarkersInOrder(line, [
+                    'feature-plan',
+                    'feature-review',
+                    'feature-implement',
+                    'feature-review',
+                ])
+        );
+        if (!hasFeatureTierTwoSequence) {
+            errors.push(
+                'Workflow doc Feature Tier 2 workflow sequence must keep feature-plan -> feature-review -> feature-implement -> feature-review ordering'
+            );
+        }
+    }
+}
+
+function normalizeDocText(content) {
+    return content
+        .toLowerCase()
+        .replace(/[`*_]/gu, ' ')
+        .replace(/\s+/gu, ' ')
+        .trim();
+}
+
+function normalizeDocLines(content) {
+    return content
+        .split(/\r?\n/u)
+        .map((line) => normalizeDocText(line))
+        .filter((line) => line.length > 0);
+}
+
+function includesAllMarkers(content, markers) {
+    return markers.every((marker) => content.includes(marker));
+}
+
+function includesAnyMarker(content, markers) {
+    return markers.some((marker) => content.includes(marker));
+}
+
+function includesMarkersInOrder(content, markers) {
+    let cursor = 0;
+
+    for (const marker of markers) {
+        const index = content.indexOf(marker, cursor);
+        if (index === -1) {
+            return false;
+        }
+
+        cursor = index + marker.length;
+    }
+
+    return true;
+}
+
+function checkFeatureRemediationPromptContracts(errors) {
+    const implement = readRepoFile('docs/agentic/session-prompts/feature-implement.md', errors);
+    if (implement !== null) {
+        const normalized = normalizeDocText(implement);
+        const normalizedLines = normalizeDocLines(implement);
+        const implementHasReplanTrigger = normalizedLines.some(
+            (line) =>
+                line.includes('lineup-feature-plan') &&
+                (/\bre-?plan\b/u.test(line) ||
+                    includesAnyMarker(line, ['bounce back', 'route back', 'send the work back', 'update the plan first']))
+        );
+        const implementContractSatisfied =
+            includesAllMarkers(normalized, ['artifact']) &&
+            implementHasReplanTrigger &&
+            includesAnyMarker(normalized, ['remediation', 'fix session', 'fix-session', 'defect remediation', 'findings']) &&
+            includesAnyMarker(normalized, [
+                'implementation defects',
+                'reviewed defects',
+                'listed fixes',
+                'listed implementation defects',
+                'implementation findings',
+                'fix session',
+            ]) &&
+            includesAnyMarker(normalized, [
+                'patched implementation artifact',
+                'diff target',
+                'actual changes',
+                'reviewed commit',
+                'patched diff',
+            ]);
+        const reusesFindingsArtifactForOutgoingReview = normalizedLines.some(
+            (line) =>
+                line.includes('artifact') &&
+                includesAnyMarker(line, ['outgoing review', 'next review', 'review handoff', 'next handoff']) &&
+                includesAnyMarker(line, ['findings artifact', 'implementation-findings', 'remediation findings']) &&
+                includesAnyMarker(line, ['keep', 'reuse', 'same', 'still', 'set to', 'point back'])
+        );
+
+        if (!implementContractSatisfied) {
+            errors.push(
+                'feature-implement prompt doc must describe a remediation/fix path that uses ARTIFACT as the fix-session input, routes plan/decision defects back to lineup-feature-plan, and points the outgoing review handoff at the patched implementation artifact or diff target'
+            );
+        }
+
+        if (reusesFindingsArtifactForOutgoingReview) {
+            errors.push(
+                'feature-implement prompt doc contains contradictory outgoing review guidance: the outgoing review handoff must not keep ARTIFACT pointed at a findings artifact'
+            );
+        }
+    }
+
+    const review = readRepoFile('docs/agentic/session-prompts/feature-review.md', errors);
+    if (review !== null) {
+        const normalized = normalizeDocText(review);
+        const normalizedLines = normalizeDocLines(review);
+        const planRoutingLinePresent = normalizedLines.some(
+            (line) =>
+                line.includes('lineup-feature-plan') && includesAnyMarker(line, ['planning', 'decision', 'boundary'])
+        );
+        const implementRoutingLinePresent = normalizedLines.some(
+            (line) =>
+                line.includes('lineup-feature-implement') &&
+                includesAnyMarker(line, [
+                    'implementation defects',
+                    'implementation defect',
+                    'localized implementation',
+                    'localized code defects',
+                    'bugs',
+                    'missing tests',
+                    'missed requirements',
+                    'localized refactors',
+                ])
+        );
+        const reviewContractSatisfied =
+            includesAllMarkers(normalized, ['artifact', 'lineup-feature-plan', 'lineup-feature-implement']) &&
+            planRoutingLinePresent &&
+            implementRoutingLinePresent;
+
+        if (!reviewContractSatisfied) {
+            errors.push(
+                'feature-review prompt doc must split implementation-review remediation between lineup-feature-plan for plan/decision defects and lineup-feature-implement for localized implementation defects'
+            );
         }
     }
 }
@@ -549,6 +750,174 @@ function checkSkillMirrorManifest(errors) {
     }
 }
 
+function isCodexRoleWorkflowTracked(errors) {
+    let foundConfig = false;
+    let foundAgents = false;
+
+    for (const relativePath of codexRoleWorkflowMarkerFiles) {
+        const content = readRepoFile(relativePath, errors);
+        if (content === null) {
+            continue;
+        }
+
+        foundConfig ||= content.includes('.codex/config.toml');
+        foundAgents ||= content.includes('.codex/agents/');
+    }
+
+    return foundConfig && foundAgents;
+}
+
+function parseCodexRoleConfig(configContent) {
+    const declaredRoles = new Set();
+    const roleConfigFiles = new Map();
+    let currentRole = null;
+    let currentSection = null;
+    let maxDepth = null;
+
+    for (const rawLine of configContent.split(/\r?\n/u)) {
+        const line = rawLine.trim();
+
+        const sectionMatch = line.match(/^\[([^\]]+)\]$/u);
+        if (sectionMatch !== null) {
+            currentSection = sectionMatch[1];
+        }
+
+        const roleMatch = line.match(/^\[agents\.([a-z0-9_]+)\]$/u);
+        if (roleMatch !== null) {
+            currentRole = roleMatch[1];
+            declaredRoles.add(currentRole);
+            continue;
+        }
+
+        if (sectionMatch !== null) {
+            currentRole = null;
+            continue;
+        }
+
+        if (currentSection === 'agents') {
+            const maxDepthMatch = line.match(/^max_depth\s*=\s*(\d+)$/u);
+            if (maxDepthMatch !== null) {
+                maxDepth = Number.parseInt(maxDepthMatch[1], 10);
+            }
+        }
+
+        if (currentRole === null) {
+            continue;
+        }
+
+        const configFileMatch = line.match(/^config_file\s*=\s*"([^"]+)"$/u);
+        if (configFileMatch !== null) {
+            roleConfigFiles.set(currentRole, configFileMatch[1]);
+        }
+    }
+
+    return { declaredRoles, roleConfigFiles, maxDepth };
+}
+
+export function checkTrackedCodexRoleConfig(errors) {
+    const configRelativePath = '.codex/config.toml';
+    const configFullPath = path.join(repoRoot, configRelativePath);
+    const workflowTracked = isCodexRoleWorkflowTracked(errors);
+    const configExists = existsSync(configFullPath);
+    const trackedCodexPaths = getTrackedCodexPaths(errors);
+
+    if (!workflowTracked && !configExists) {
+        return;
+    }
+
+    if (!configExists) {
+        errors.push(`Missing tracked Codex role config: ${configRelativePath}`);
+        return;
+    }
+
+    const configContent = readRepoFile(configRelativePath, errors);
+    if (configContent === null) {
+        return;
+    }
+
+    if (trackedCodexPaths !== FAILED_GIT && !trackedCodexPaths.has(configRelativePath)) {
+        errors.push(`Tracked Codex role config is not tracked by git: ${configRelativePath}`);
+    }
+
+    const { declaredRoles, roleConfigFiles, maxDepth } = parseCodexRoleConfig(configContent);
+    const missingRoles = requiredCodexAgentRoles.filter((role) => !declaredRoles.has(role));
+    if (missingRoles.length > 0) {
+        errors.push(
+            `Missing required Codex agent role declarations in .codex/config.toml: ${missingRoles.join(', ')}`
+        );
+    }
+
+    const rolesMissingConfigFiles = requiredCodexAgentRoles.filter(
+        (role) => declaredRoles.has(role) && !roleConfigFiles.has(role)
+    );
+    if (rolesMissingConfigFiles.length > 0) {
+        errors.push(
+            `Codex role declarations missing config_file entries in .codex/config.toml: ${rolesMissingConfigFiles.join(', ')}`
+        );
+    }
+
+    if (maxDepth !== 1) {
+        errors.push('Tracked Codex role config must set agents.max_depth = 1 to preserve conservative nesting');
+    }
+
+    const missingRoleConfigPaths = new Set();
+    const untrackedRoleConfigPaths = new Set();
+    const invalidRoleConfigFiles = [];
+    for (const [role, configFile] of roleConfigFiles.entries()) {
+        // Hard-fail malformed or path-traversal config_file entries. The tracked workflow
+        // assumes role configs live under `.codex/agents/*.toml`.
+        if (!/^agents\/[a-z0-9_.-]+\.toml$/iu.test(configFile)) {
+            invalidRoleConfigFiles.push({ role, configFile });
+            continue;
+        }
+
+        const relativePath = `.codex/${configFile}`;
+        if (!existsSync(path.join(repoRoot, relativePath))) {
+            missingRoleConfigPaths.add(relativePath);
+            continue;
+        }
+
+        if (trackedCodexPaths !== FAILED_GIT && !trackedCodexPaths.has(relativePath)) {
+            untrackedRoleConfigPaths.add(relativePath);
+        }
+    }
+
+    for (const missingPath of Array.from(missingRoleConfigPaths).sort()) {
+        errors.push(`Codex role config file declared in .codex/config.toml is missing: ${missingPath}`);
+    }
+
+    for (const entry of invalidRoleConfigFiles) {
+        errors.push(
+            `Codex role config_file entries must use agents/*.toml (under .codex/agents): role=${entry.role} config_file="${entry.configFile}"`
+        );
+    }
+
+    for (const untrackedPath of Array.from(untrackedRoleConfigPaths).sort()) {
+        errors.push(`Codex role config file declared in .codex/config.toml is not tracked: ${untrackedPath}`);
+    }
+
+    for (const role of readOnlyCodexAgentRoles) {
+        const configFile = roleConfigFiles.get(role);
+        if (configFile === undefined || !configFile.startsWith('agents/') || !configFile.endsWith('.toml')) {
+            continue;
+        }
+
+        const relativePath = `.codex/${configFile}`;
+        if (!existsSync(path.join(repoRoot, relativePath))) {
+            continue;
+        }
+
+        const roleConfigContent = readRepoFile(relativePath, errors);
+        if (roleConfigContent === null) {
+            continue;
+        }
+
+        if (!/^sandbox_mode\s*=\s*"read-only"$/mu.test(roleConfigContent)) {
+            errors.push(`Read-only Codex role config must set sandbox_mode = "read-only": ${relativePath}`);
+        }
+    }
+}
+
 function checkSeriousPlanConformance(errors) {
     const trackedPlanPaths = getTrackedPlanPaths(errors);
     if (trackedPlanPaths === FAILED_GIT) {
@@ -574,37 +943,46 @@ function checkSeriousPlanConformance(errors) {
     }
 }
 
-const errors = [];
-const warnings = [];
+function main() {
+    const errors = [];
+    const warnings = [];
 
-checkRequiredFiles(errors);
-checkRequiredRunTemplate(errors);
-checkMarkdownLinks(errors);
-checkForbiddenLiteralReferences(errors);
-checkDecisionIndex(errors);
-checkInventory(errors, 'docs/agentic/evals/prompts', EXPECTED_EVAL_PROMPT_FILES, 'eval prompt');
-checkInventory(errors, 'docs/agentic/session-prompts', expectedSessionPromptFiles, 'session prompt');
-checkSessionPromptReadme(errors);
-checkEvalPromptReadme(errors);
-checkWorkflowRoutingSplit(errors);
-checkChecklistPlanPaths(errors, warnings);
-checkPlanArchiveCoherence(errors);
-checkSkillMirrorManifest(errors);
-checkSeriousPlanConformance(errors);
+    checkRequiredFiles(errors);
+    checkRequiredRunTemplate(errors);
+    checkMarkdownLinks(errors);
+    checkForbiddenLiteralReferences(errors);
+    checkDecisionIndex(errors);
+    checkInventory(errors, 'docs/agentic/evals/prompts', EXPECTED_EVAL_PROMPT_FILES, 'eval prompt');
+    checkInventory(errors, 'docs/agentic/session-prompts', expectedSessionPromptFiles, 'session prompt');
+    checkSessionPromptReadme(errors);
+    checkEvalPromptReadme(errors);
+    checkWorkflowRoutingSplit(errors);
+    checkFeatureRemediationPromptContracts(errors);
+    checkChecklistPlanPaths(errors, warnings);
+    checkPlanArchiveCoherence(errors);
+    checkSkillMirrorManifest(errors);
+    checkTrackedCodexRoleConfig(errors);
+    checkSeriousPlanConformance(errors);
 
-if (errors.length > 0) {
-    console.error('Documentation verification failed:\n');
-    for (const error of errors) {
-        console.error(`- ${error}`);
+    if (errors.length > 0) {
+        console.error('Documentation verification failed:\n');
+        for (const error of errors) {
+            console.error(`- ${error}`);
+        }
+        process.exit(1);
     }
-    process.exit(1);
+
+    if (warnings.length > 0) {
+        console.log('Documentation verification passed with warnings:\n');
+        for (const warning of warnings) {
+            console.log(`- ${warning}`);
+        }
+    } else {
+        console.log('Documentation verification passed.');
+    }
 }
 
-if (warnings.length > 0) {
-    console.log('Documentation verification passed with warnings:\n');
-    for (const warning of warnings) {
-        console.log(`- ${warning}`);
-    }
-} else {
-    console.log('Documentation verification passed.');
+const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : null;
+if (entryPath !== null && pathToFileURL(entryPath).href === import.meta.url) {
+    main();
 }

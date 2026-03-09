@@ -4,7 +4,7 @@
  */
 
 import { ChannelManager } from '../ChannelManager';
-import { ChannelPersistenceStore } from '../ChannelPersistenceStore';
+import { ChannelRepository } from '../ChannelRepository';
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
 import type { ChannelConfig, LibraryContentSource } from '../types';
 import { AppErrorCode } from '../../../lifecycle/types';
@@ -311,8 +311,8 @@ describe('ChannelManager', () => {
             expect(clearCachesSpy).toHaveBeenCalledTimes(1);
         });
 
-        it('routes replaceAllChannels current-channel persistence through ChannelPersistenceStore.writeCurrentChannelId', async () => {
-            const writeCurrentSpy = jest.spyOn(ChannelPersistenceStore.prototype, 'writeCurrentChannelId');
+        it('routes replaceAllChannels current-channel persistence through ChannelRepository.saveCurrentChannelId', async () => {
+            const writeCurrentSpy = jest.spyOn(ChannelRepository.prototype, 'saveCurrentChannelId');
             const channels = [createBaseChannel({ id: 'replace-1', number: 10 })];
 
             await manager.replaceAllChannels(channels, { currentChannelId: 'replace-1' });
@@ -331,8 +331,8 @@ describe('ChannelManager', () => {
             expect(clearCachesSpy).toHaveBeenCalledTimes(1);
         });
 
-        it('forwards storage key changes to ChannelPersistenceStore', () => {
-            const setKeysSpy = jest.spyOn(ChannelPersistenceStore.prototype, 'setStorageKeys');
+        it('forwards storage key changes to ChannelRepository', () => {
+            const setKeysSpy = jest.spyOn(ChannelRepository.prototype, 'setStorageKeys');
 
             manager.setStorageKeys('lineup_channels_new_scope', 'lineup_current_channel_new_scope');
 
@@ -605,9 +605,9 @@ describe('ChannelManager', () => {
             );
         });
 
-        it('routes setCurrentChannel persistence through ChannelPersistenceStore.writeCurrentChannelId', async () => {
+        it('routes setCurrentChannel persistence through ChannelRepository.saveCurrentChannelId', async () => {
             const ch1 = await manager.createChannel({ name: 'Ch1', contentSource: createMockContentSource() });
-            const writeCurrentSpy = jest.spyOn(ChannelPersistenceStore.prototype, 'writeCurrentChannelId');
+            const writeCurrentSpy = jest.spyOn(ChannelRepository.prototype, 'saveCurrentChannelId');
 
             manager.setCurrentChannel(ch1.id);
 
@@ -654,7 +654,7 @@ describe('ChannelManager', () => {
     });
 
     describe('persistence', () => {
-        it('loads persisted channels through ChannelPersistenceStore boundary', async () => {
+        it('loads persisted channels through ChannelRepository boundary', async () => {
             const persistedChannel = createBaseChannel({
                 id: 'persisted-1',
                 number: 42,
@@ -669,19 +669,40 @@ describe('ChannelManager', () => {
             });
             mockStorage[CURRENT_CHANNEL_KEY] = persistedChannel.id;
 
-            const readStoredSpy = jest.spyOn(ChannelPersistenceStore.prototype, 'readStoredChannelData');
-            const readCurrentSpy = jest.spyOn(ChannelPersistenceStore.prototype, 'readCurrentChannelId');
+            const loadSpy = jest.spyOn(ChannelRepository.prototype, 'loadNormalized');
 
             await manager.loadChannels();
 
-            expect(readStoredSpy).toHaveBeenCalledTimes(1);
-            expect(readCurrentSpy).toHaveBeenCalledTimes(1);
+            expect(loadSpy).toHaveBeenCalledTimes(1);
             expect(manager.getAllChannels()).toHaveLength(1);
             expect(manager.getAllChannels()[0]?.id).toBe('persisted-1');
             expect(manager.getCurrentChannel()?.id).toBe('persisted-1');
 
-            readStoredSpy.mockRestore();
-            readCurrentSpy.mockRestore();
+            loadSpy.mockRestore();
+        });
+
+        it('does not persist when saved current-channel key only changes current', async () => {
+            const persistedChannel = createBaseChannel({
+                id: 'persisted-1',
+                number: 42,
+                name: 'Persisted Channel',
+            });
+
+            mockStorage[STORAGE_KEY] = JSON.stringify({
+                channels: [persistedChannel],
+                channelOrder: [persistedChannel.id],
+                currentChannelId: 'different-current-id',
+                savedAt: Date.now(),
+            });
+            mockStorage[CURRENT_CHANNEL_KEY] = persistedChannel.id;
+
+            const loadManager = new ChannelManager({ plexLibrary: mockLibrary });
+            const queueSaveSpy = jest.spyOn(loadManager as unknown as { _queueSave: () => void }, '_queueSave');
+
+            await loadManager.loadChannels();
+
+            expect(loadManager.getCurrentChannel()?.id).toBe(persistedChannel.id);
+            expect(queueSaveSpy).not.toHaveBeenCalled();
         });
 
         it('saveChannels reuses one pending promise for burst saves', async () => {
@@ -702,9 +723,9 @@ describe('ChannelManager', () => {
             });
         });
 
-        it('routes debounced channel blob writes through ChannelPersistenceStore.writeStoredChannelData', async () => {
+        it('routes debounced channel blob writes through ChannelRepository.saveStoredChannelData', async () => {
             const channel = await manager.createChannel({ contentSource: createMockContentSource() });
-            const writeStoredSpy = jest.spyOn(ChannelPersistenceStore.prototype, 'writeStoredChannelData');
+            const writeStoredSpy = jest.spyOn(ChannelRepository.prototype, 'saveStoredChannelData');
             manager.setCurrentChannel(channel.id);
 
             await manager.flushSaves();

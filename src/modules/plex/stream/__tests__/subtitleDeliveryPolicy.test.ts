@@ -42,8 +42,9 @@ describe('getSubtitleDelivery', () => {
         expect(getSubtitleDelivery(streamFor('unknown'), false)).toBe('embed');
     });
 
-    it('preserves current format-only classification and does not use codec for sidecar', () => {
-        expect(getSubtitleDelivery(streamFor(undefined, 'srt'), false)).toBe('embed');
+    it('treats codec-only text subtitles as sidecar', () => {
+        expect(getSubtitleDelivery(streamFor(undefined, 'srt'), false)).toBe('sidecar');
+        expect(getSubtitleDelivery(streamFor(undefined, 'srt'), true)).toBe('sidecar');
     });
 });
 

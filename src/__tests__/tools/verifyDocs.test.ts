@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -140,11 +140,11 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '',
             '## Routing (Authoritative)',
             '',
-            'cleanup/refactor',
-            'feature/design',
-            'mixed',
-            'feature-plan',
-            'feature-review',
+            '| Task Type | Use This Path | Prompt Family | Notes |',
+            '|---|---|---|---|',
+            '| cleanup/refactor | checklist cleanup | `cleanup-*` | Tier 3 uses cleanup-loop. |',
+            '| feature/design | net-new capability | `feature-plan` + `feature-implement` + `feature-review` | Tier 2 feature flow uses tracked launchers. |',
+            '| mixed | split slices explicitly | route by primary intent | Keep cleanup scoped to cleanup work. |',
             '',
         ].join('\n')
     );
@@ -160,7 +160,10 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '[cleanup-plan](./agentic/session-prompts/cleanup-plan.md)',
             '[cleanup-review](./agentic/session-prompts/cleanup-review.md)',
             '[feature-plan](./agentic/session-prompts/feature-plan.md)',
+            '[feature-implement](./agentic/session-prompts/feature-implement.md)',
             '[feature-review](./agentic/session-prompts/feature-review.md)',
+            '',
+            'Feature Tier 2 work should use planner (`feature-plan`) -> reviewer (`feature-review`) -> implementer (`feature-implement`) -> reviewer (`feature-review`).',
             '',
         ].join('\n')
     );
@@ -168,6 +171,33 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
     for (const prompt of expectedSessionPromptFiles) {
         writeRepoFile(repoRoot, `docs/agentic/session-prompts/${prompt}`);
     }
+
+    writeRepoFile(
+        repoRoot,
+        'docs/agentic/session-prompts/feature-implement.md',
+        [
+            '# Feature Implement (Fixture)',
+            '',
+            '- Support approved-plan execution and remediation/fix execution.',
+            '- Use the handoff ARTIFACT as the fix-session input for listed implementation defects.',
+            '- If the findings show planning or decision defects, send the work back to `lineup-feature-plan` before coding.',
+            '- For the outgoing review handoff, set ARTIFACT to the patched implementation artifact or diff target so review inspects the actual changes.',
+            '',
+        ].join('\n')
+    );
+
+    writeRepoFile(
+        repoRoot,
+        'docs/agentic/session-prompts/feature-review.md',
+        [
+            '# Feature Review (Fixture)',
+            '',
+            '- Route planning or boundary defects to `lineup-feature-plan`.',
+            '- Route localized implementation defects to `lineup-feature-implement`.',
+            '- Include the findings artifact in `ARTIFACT` for the next session.',
+            '',
+        ].join('\n')
+    );
 }
 
 function writeValidEvalPromptFixture(repoRoot: string): void {
@@ -207,6 +237,114 @@ function writeMutatedEvalPromptFixture(repoRoot: string): void {
             evalPromptInventoryEndMarker,
             '',
         ].join('\n')
+    );
+}
+
+function writeRoleWorkflowClaimFixture(repoRoot: string): void {
+    const workflowPath = path.join(repoRoot, 'docs/AGENTIC_DEV_WORKFLOW.md');
+    const existingWorkflow = readFileSync(workflowPath, 'utf8').trimEnd();
+    const roleSection = [
+        '## Multi-Agent Usage',
+        '',
+        '- Repo-defined Codex roles are tracked in `.codex/config.toml`.',
+        '- Role configs live under `.codex/agents/*.toml`.',
+        '',
+    ].join('\n');
+
+    if (existingWorkflow.includes(roleSection.trim())) {
+        return;
+    }
+
+    writeRepoFile(
+        repoRoot,
+        'docs/AGENTIC_DEV_WORKFLOW.md',
+        [
+            existingWorkflow,
+            '',
+            roleSection,
+        ].join('\n')
+    );
+}
+
+const CODEX_MODEL_SPARK = 'gpt-5.3-codex-spark';
+const CODEX_MODEL_DEFAULT = 'gpt-5.3-codex';
+const CODEX_MODEL_FALLBACK = 'gpt-5.1-codex-max';
+const CODEX_MODEL_MONITOR_FALLBACK = 'gpt-5.1';
+
+function writeValidCodexRoleConfigFixture(
+    repoRoot: string,
+    overrides: { maxDepth?: number } = {}
+): void {
+    const maxDepth = overrides.maxDepth ?? 1;
+    writeRepoFile(
+        repoRoot,
+        '.codex/config.toml',
+        [
+            '[agents]',
+            'max_threads = 4',
+            `max_depth = ${maxDepth}`,
+            '',
+            '[agents.explorer]',
+            'description = "Explorer"',
+            'config_file = "agents/explorer.toml"',
+            '',
+            '[agents.explorer_fallback]',
+            'description = "Explorer fallback"',
+            'config_file = "agents/explorer-fallback.toml"',
+            '',
+            '[agents.reviewer]',
+            'description = "Reviewer"',
+            'config_file = "agents/reviewer.toml"',
+            '',
+            '[agents.docs_researcher]',
+            'description = "Docs researcher"',
+            'config_file = "agents/docs-researcher.toml"',
+            '',
+            '[agents.worker]',
+            'description = "Worker"',
+            'config_file = "agents/worker.toml"',
+            '',
+            '[agents.monitor]',
+            'description = "Monitor"',
+            'config_file = "agents/monitor.toml"',
+            '',
+            '[agents.monitor_fallback]',
+            'description = "Monitor fallback"',
+            'config_file = "agents/monitor-fallback.toml"',
+            '',
+        ].join('\n')
+    );
+
+    writeRepoFile(
+        repoRoot,
+        '.codex/agents/explorer.toml',
+        `model = "${CODEX_MODEL_SPARK}"\nsandbox_mode = "read-only"\n`
+    );
+    writeRepoFile(
+        repoRoot,
+        '.codex/agents/explorer-fallback.toml',
+        `model = "${CODEX_MODEL_FALLBACK}"\nsandbox_mode = "read-only"\n`
+    );
+    writeRepoFile(
+        repoRoot,
+        '.codex/agents/reviewer.toml',
+        `model = "${CODEX_MODEL_DEFAULT}"\nsandbox_mode = "read-only"\n`
+    );
+    writeRepoFile(
+        repoRoot,
+        '.codex/agents/docs-researcher.toml',
+        `model = "${CODEX_MODEL_DEFAULT}"\nsandbox_mode = "read-only"\n`
+    );
+    writeRepoFile(repoRoot, '.codex/agents/worker.toml', `model = "${CODEX_MODEL_DEFAULT}"\n`);
+    writeRepoFile(
+        repoRoot,
+        '.codex/agents/monitor.toml',
+        `model = "${CODEX_MODEL_SPARK}"\nsandbox_mode = "read-only"\n`
+    );
+    writeRepoFile(
+        repoRoot,
+        '.codex/agents/monitor-fallback.toml',
+        `model = "${CODEX_MODEL_MONITOR_FALLBACK}"\nsandbox_mode = "read-only"\n`
     );
 }
 
@@ -392,6 +530,180 @@ describe('verify-docs', () => {
         expect(result.stderr).toContain('Missing required control-plane directory: docs/runs/_template');
     });
 
+    it('fails when workflow claims tracked codex roles but .codex/config.toml is missing', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Missing tracked Codex role config: .codex/config.toml');
+    });
+
+    it('passes the routing checks when role workflow claims are layered onto an otherwise valid workflow fixture', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('Documentation verification passed.');
+    });
+
+    it('fails when only workflow-harness-review documents tracked codex roles and .codex/config.toml is missing', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/workflow-harness-review.md': [
+                '# Workflow Harness Review',
+                '',
+                '- Inspect `.codex/config.toml` and `.codex/agents/` as tracked control-plane surfaces.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Missing tracked Codex role config: .codex/config.toml');
+    });
+
+    it('fails when codex role workflow markers are split across tracked workflow docs and .codex/config.toml is missing', () => {
+        const repoRoot = createRepoFixture({
+            'docs/AGENTIC_DEV_WORKFLOW.md': [
+                '# Workflow',
+                '',
+                'Route task family before choosing a tier.',
+                '',
+                '[cleanup-plan](./agentic/session-prompts/cleanup-plan.md)',
+                '[cleanup-review](./agentic/session-prompts/cleanup-review.md)',
+                '[feature-plan](./agentic/session-prompts/feature-plan.md)',
+                '[feature-implement](./agentic/session-prompts/feature-implement.md)',
+                '[feature-review](./agentic/session-prompts/feature-review.md)',
+                '',
+                'Feature Tier 2 work should use planner (`feature-plan`) -> reviewer (`feature-review`) -> implementer (`feature-implement`) -> reviewer (`feature-review`).',
+                '',
+                '- Repo-defined Codex roles are tracked in `.codex/config.toml`.',
+                '',
+            ].join('\n'),
+            'docs/agentic/session-prompts/workflow-harness-review.md': [
+                '# Workflow Harness Review',
+                '',
+                '- Inspect the tracked role files under `.codex/agents/` during harness audits.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Missing tracked Codex role config: .codex/config.toml');
+    });
+
+    it('fails when a declared codex role config_file path does not exist', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        rmSync(path.join(repoRoot, '.codex/agents/monitor-fallback.toml'));
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Codex role config file declared in .codex/config.toml is missing: .codex/agents/monitor-fallback.toml'
+        );
+    });
+
+    it('fails when required codex roles are missing from tracked config', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeRepoFile(
+            repoRoot,
+            '.codex/config.toml',
+            [
+                '[agents]',
+                'max_threads = 4',
+                'max_depth = 1',
+                '',
+                '[agents.explorer]',
+                'description = "Explorer"',
+                'config_file = "agents/explorer.toml"',
+                '',
+                '[agents.worker]',
+                'description = "Worker"',
+                'config_file = "agents/worker.toml"',
+                '',
+            ].join('\n')
+        );
+        writeRepoFile(repoRoot, '.codex/agents/explorer.toml', 'model = "gpt-5.3-codex-spark"\n');
+        writeRepoFile(repoRoot, '.codex/agents/worker.toml', 'model = "gpt-5.3-codex"\n');
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Missing required Codex agent role declarations in .codex/config.toml');
+        expect(result.stderr).toContain('explorer_fallback');
+        expect(result.stderr).toContain('monitor_fallback');
+    });
+
+    it('fails when a declared codex role config file exists locally but is not tracked', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
+        runGit(['rm', '--cached', '.codex/agents/monitor.toml'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Codex role config file declared in .codex/config.toml is not tracked: .codex/agents/monitor.toml'
+        );
+    });
+
+    it('fails when a read-only codex role omits read-only sandbox_mode', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        writeRepoFile(repoRoot, '.codex/agents/reviewer.toml', 'model = "gpt-5.3-codex"\n');
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Read-only Codex role config must set sandbox_mode = "read-only": .codex/agents/reviewer.toml'
+        );
+    });
+
+    it('fails when tracked codex config allows deeper nested agent spawning than repo policy', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot, { maxDepth: 2 });
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Tracked Codex role config must set agents.max_depth = 1 to preserve conservative nesting'
+        );
+    });
+
     it('ignores non-decision markdown links in the decisions index', () => {
         const repoRoot = createRepoFixture({
             'docs/decisions/README.md': [
@@ -437,6 +749,34 @@ describe('verify-docs', () => {
         expect(result.stdout).toContain('Documentation verification passed with warnings:');
         expect(result.stdout).toContain('docs/plans/example-draft.md');
         expect(result.stdout).not.toContain('missing required serious-plan sections');
+    });
+
+    it('strict mode warns but does not fail for untracked checklist plan refs with draft content', () => {
+        const repoRoot = createRepoFixture({
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md': [
+                '# Checklist',
+                '',
+                '- [x] Example done item (plan: docs/archive/plans/example-summary.md)',
+                '- [ ] Local draft item (plan: docs/plans/example-draft.md)',
+                '',
+            ].join('\n'),
+            'docs/archive/plans/example-summary.md': [
+                '# Example Summary',
+                '',
+                'Tracked summary placeholder.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        writeRepoFile(repoRoot, 'docs/plans/example-draft.md', '# Draft scratch plan\n');
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('Documentation verification passed with warnings:');
+        expect(result.stdout).toContain('docs/plans/example-draft.md');
+        expect(result.stderr).not.toContain('Checklist references untracked plan path');
     });
 
     it('deduplicates repeated checklist diagnostics when multiple items share one plan path', () => {
@@ -514,5 +854,272 @@ describe('verify-docs', () => {
         expect(stderr).toContain('list tracked plan files via git');
         expect(stderr).not.toContain('Checklist references untracked plan path');
         expect(stderr).not.toContain('missing required serious-plan sections');
+    });
+
+    it('fails when feature implement prompt omits the re-plan stop condition for remediation findings', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-implement.md': [
+                '# Feature Implement',
+                '',
+                '- Use the review handoff artifact to drive a focused fix session.',
+                '- Keep implementation fixes scoped to the reviewed defects.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('feature-implement prompt doc');
+    });
+
+    it('fails when feature implement mentions lineup-feature-plan without an explicit re-plan trigger', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-implement.md': [
+                '# Feature Implement',
+                '',
+                '- Support approved-plan execution and remediation/fix execution.',
+                '- Use the handoff ARTIFACT as the fix-session input for listed implementation defects.',
+                '- Read lineup-feature-plan before coding when task context is unclear.',
+                '- Keep implementation fixes scoped to the listed implementation defects.',
+                '- For the next review handoff, point ARTIFACT at the patched diff target rather than the old findings note.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('feature-implement prompt doc');
+    });
+
+    it('fails when feature review prompt omits the implementation-vs-replan remediation split', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-review.md': [
+                '# Feature Review',
+                '',
+                '- Route implementation findings to lineup-feature-implement.',
+                '- Include the findings artifact in ARTIFACT.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('feature-review prompt doc');
+    });
+
+    it('fails when feature review names lineup-feature-plan without explaining the plan-side routing case', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-review.md': [
+                '# Feature Review',
+                '',
+                '- Use ARTIFACT while reviewing the implementation.',
+                '- The available handoff launchers are lineup-feature-plan and lineup-feature-implement.',
+                '- Route localized implementation defects to lineup-feature-implement.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('feature-review prompt doc');
+    });
+
+    it('fails when feature review spreads routing markers across the doc without attaching them to the launcher lines', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-review.md': [
+                '# Feature Review',
+                '',
+                '- Use ARTIFACT while reviewing the implementation.',
+                '- Planning or boundary concerns need escalation before more coding.',
+                '- The available handoff launchers are lineup-feature-plan and lineup-feature-implement.',
+                '- Localized implementation defects, bugs, and missing tests need follow-up work.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('feature-review prompt doc');
+    });
+
+    it('passes when remediation prompts use equivalent wording without sample findings filenames', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-implement.md': [
+                '# Feature Implement',
+                '',
+                '- Support both approved-plan execution and review-driven defect remediation.',
+                '- Read the handoff ARTIFACT and keep the fix session scoped to the listed implementation defects.',
+                '- If the findings show planning, decision, or boundary defects, send the work back to lineup-feature-plan before coding.',
+                '- For the next review handoff, point ARTIFACT at the patched diff target rather than the old findings note.',
+                '',
+            ].join('\n'),
+            'docs/agentic/session-prompts/feature-review.md': [
+                '# Feature Review',
+                '',
+                '- For implementation reviews, route planning, decision, or boundary defects to lineup-feature-plan.',
+                '- Route localized implementation defects to lineup-feature-implement.',
+                '- Include the relevant findings artifact in ARTIFACT for the next session.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('Documentation verification passed.');
+    });
+
+    it('fails when tracked feature routing docs omit feature-implement from the feature workflow', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/README.md': [
+                '# Session Prompt Launchers',
+                '',
+                '## Prompt Set',
+                '',
+                sessionPromptSetStartMarker,
+                renderedSessionPromptSet,
+                sessionPromptSetEndMarker,
+                '',
+                '## Routing (Authoritative)',
+                '',
+                'cleanup/refactor',
+                'feature/design',
+                'mixed',
+                'feature-plan',
+                'feature-review',
+                '',
+            ].join('\n'),
+            'docs/AGENTIC_DEV_WORKFLOW.md': [
+                '# Workflow',
+                '',
+                'Route task family before choosing a tier.',
+                '',
+                '[cleanup-plan](./agentic/session-prompts/cleanup-plan.md)',
+                '[cleanup-review](./agentic/session-prompts/cleanup-review.md)',
+                '[feature-plan](./agentic/session-prompts/feature-plan.md)',
+                '[feature-review](./agentic/session-prompts/feature-review.md)',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('feature-implement');
+    });
+
+    it('fails when README mentions feature-implement outside the routing row but omits it from the feature/design path', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/README.md': [
+                '# Session Prompt Launchers',
+                '',
+                '## Prompt Set',
+                '',
+                sessionPromptSetStartMarker,
+                renderedSessionPromptSet,
+                sessionPromptSetEndMarker,
+                '',
+                '## Routing (Authoritative)',
+                '',
+                '| Task Type | Use This Path | Prompt Family | Notes |',
+                '|---|---|---|---|',
+                '| cleanup/refactor | checklist cleanup | `cleanup-*` | Tier 3 uses cleanup-loop. |',
+                '| feature/design | net-new capability | `feature-plan` + `feature-review` | Tier 2 feature flow uses tracked launchers. |',
+                '| mixed | split slices explicitly | route by primary intent | Keep cleanup scoped to cleanup work. |',
+                '',
+                '## Invocation',
+                '',
+                '- `lineup-feature-plan`',
+                '- `lineup-feature-implement`',
+                '- `lineup-feature-review`',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('feature/design routing row');
+    });
+
+    it('fails when workflow lists feature-implement as a launcher but omits it from the Tier 2 feature sequence', () => {
+        const repoRoot = createRepoFixture({
+            'docs/AGENTIC_DEV_WORKFLOW.md': [
+                '# Workflow',
+                '',
+                'Route task family before choosing a tier.',
+                '',
+                '## Session Launchers',
+                '',
+                '- [cleanup-plan](./agentic/session-prompts/cleanup-plan.md)',
+                '- [cleanup-review](./agentic/session-prompts/cleanup-review.md)',
+                '- [feature-plan](./agentic/session-prompts/feature-plan.md)',
+                '- [feature-implement](./agentic/session-prompts/feature-implement.md)',
+                '- [feature-review](./agentic/session-prompts/feature-review.md)',
+                '',
+                'Feature Tier 2 work should use planner (`feature-plan`) -> reviewer (`feature-review`) -> reviewer (`feature-review`).',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Feature Tier 2 workflow sequence');
+    });
+
+    it('fails when feature implement prompt uses the incoming findings artifact as the outgoing review target', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-implement.md': [
+                '# Feature Implement',
+                '',
+                '- Support approved-plan execution and remediation/fix execution.',
+                '- Use the handoff ARTIFACT as the fix-session input for listed implementation defects.',
+                '- Route planning or decision defects back to `lineup-feature-plan` before coding.',
+                '- In the outgoing review handoff, keep ARTIFACT set to the remediation findings artifact.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('outgoing review handoff');
+    });
+
+    it('fails when feature implement prompt mixes a patched-diff handoff with contradictory findings-artifact reuse', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-implement.md': [
+                '# Feature Implement',
+                '',
+                '- Support approved-plan execution and remediation/fix execution.',
+                '- Use the handoff ARTIFACT as the fix-session input for listed implementation defects.',
+                '- Route planning or decision defects back to `lineup-feature-plan` before coding.',
+                '- For the next review handoff, point ARTIFACT at the patched diff target so review inspects the actual changes.',
+                '- To preserve history, keep ARTIFACT set to the incoming remediation findings artifact in the outgoing review handoff.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('contradictory outgoing review guidance');
     });
 });

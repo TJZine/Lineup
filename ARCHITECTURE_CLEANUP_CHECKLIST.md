@@ -279,10 +279,10 @@ Other review signals:
   - [ ] Move migration/normalization behind a repository boundary
   - [ ] Keep `ChannelManager` focused on domain operations
 - Primary work units:
-  - [ ] P6-W1 - Extract serialization/deserialization into a dedicated codec/helper
-  - [ ] P6-W2 - Introduce `ChannelRepository` for load/save and move raw storage calls behind it
-  - [ ] P6-W3 - Move normalization and migration rules behind the same boundary and simplify `ChannelManager`
-  - [ ] P6-W4 - Cleanup pass for Priority 6: remove temporary repository adapters, duplicate serialization paths, and dead persistence helpers after `ChannelManager` no longer owns them
+  - [x] P6-W1 - Extract serialization/deserialization into a dedicated codec/helper (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-6-channel-persistence-section-summary.md)
+  - [x] P6-W2 - Introduce `ChannelRepository` for load/save and move raw storage calls behind it (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-6-channel-persistence-section-summary.md)
+  - [x] P6-W3 - Move normalization and migration rules behind the same boundary and simplify `ChannelManager` (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-6-channel-persistence-section-summary.md)
+  - [x] P6-W4 - Cleanup pass for Priority 6: remove temporary repository adapters, duplicate serialization paths, and dead persistence helpers after `ChannelManager` no longer owns them (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-6-channel-persistence-section-summary.md)
 
 ## Priority 7: Refresh Architecture Documentation So It Matches Reality
 
@@ -302,10 +302,9 @@ Other review signals:
   - [ ] Remove stale components that no longer exist
   - [ ] Document the real current hotspots and intended boundaries
 - Primary work units:
-  - [ ] P7-W1 - Refresh `docs/architecture/README.md` so the top-level story matches the current app
-  - [ ] P7-W2 - Refresh `docs/architecture/modules.md` so module names and boundaries match the real source tree
-  - [ ] P7-W3 - Add explicit notes about current hotspots and intended post-cleanup ownership
-  - [ ] P7-W4 - Cleanup pass for Priority 7: remove stale references, outdated examples, and superseded wording from architecture docs once the new descriptions are complete
+  - [x] P7-W1 - Refresh `docs/architecture/README.md`,
+  Refresh `docs/architecture/modules.md` so module names and boundaries match the real source tree,  
+  Add explicit notes about current hotspots and intended post-cleanup ownership, and a Cleanup pass for Priority 7: remove stale references, outdated examples, and superseded wording from architecture docs once the new descriptions are complete (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-7-architecture-doc-refresh-summary.md)
 
 ## Priority 8: Improve Public Test Seams And Reduce Private-Probe Dependence
 
@@ -329,8 +328,8 @@ Other review signals:
   - [ ] Convert at least one test away from private probing
 - Primary work units:
   - [ ] P8-W1 - Reduce private probing in the orchestrator playback tests by routing through the first extracted controller
-  - [ ] P8-W2 - Reduce one private-probe-heavy UI test after the corresponding UI extraction lands
-  - [ ] P8-W3 - Tighten the anti-pattern baseline once at least one hotspot suite no longer needs the old probe path
+  - [ ] P8-W2 - Reduce one private-probe-heavy UI test after the corresponding UI extraction lands, and report remaining debt
+  - [ ] P8-W3 - Tighten the anti-pattern baseline once at least one hotspot suite no longer needs the old probe path, and report remaining debt
   - [ ] P8-W4 - Cleanup pass for Priority 8: remove obsolete test helpers, dead probe utilities, overengineered/redundant/unhelpful tests, and transitional assertions after the new public seams are stable
 
 ## Suggested Execution Order

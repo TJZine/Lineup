@@ -93,6 +93,22 @@ Pass conditions:
 - mixed tasks keep cleanup prompts scoped only to the cleanup slice
 - optional global launcher convenience does not become tracked success criteria
 
+### 7. Multi-Agent Role Selection And Delegation Discipline
+
+Prompt shape:
+
+- use a workflow/control-plane task that could be done locally but has optional sidecars
+- force an explicit decision on whether multi-agent is justified at all
+- require explicit role selection from the tracked `.codex/config.toml` role set
+
+Pass conditions:
+
+- keeps critical-path work local unless delegation is clearly justified
+- selects read-only roles for read-only work and keeps them read-only
+- uses `worker` only for bounded disjoint write scopes
+- uses `explorer_fallback` / `monitor_fallback` only when primary spark roles are unavailable or constrained
+- avoids unnecessary worker fan-out, deep nesting, and unnecessary waiting
+
 ## Priority 4 Expansion Set
 
 Use the archived Priority 4 section and the P4 addendum in [`docs/agentic/historical-plan-corpus-review.md`](./historical-plan-corpus-review.md) to extend the eval surface when validating large-UI decomposition behavior.
@@ -219,6 +235,7 @@ Pass conditions:
 - Write a tracked baseline summary after each manual baseline run and keep the raw artifacts local-only.
 - In the baseline summary, record whether Codanna fallback was used and any deviations from fresh-session policy.
 - Capture what the agent missed and update workflow docs or skills only when the miss is recurring.
+- Run prompt `19-multi-agent-role-selection-and-delegation-discipline` whenever tracked multi-agent role guidance or `.codex/config.toml` role declarations change materially.
 - Keep eval prompt definitions tracked, but keep most eval baseline outputs local-only unless one is intentionally promoted as a durable reference.
 
 ## Promotion To Phase 2

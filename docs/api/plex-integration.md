@@ -149,4 +149,13 @@ interface StreamDecision {
   isDirectPlay: boolean;
   isTranscoding: boolean;
 }
+
+interface StreamResolverError {
+  code: PlexStreamErrorCode;
+  message: string;
+  recoverable: boolean;
+  retryAfterMs?: number;
+  // Optional: indicates which stage of resolveStream failed (diagnostics only).
+  stage?: 'media_selection' | 'burn_in_selected_part';
+}
 ```

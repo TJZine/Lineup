@@ -24,11 +24,13 @@ The skill layout and workflow in this repo are based on a small set of recurring
 ## Resulting Repo Policy
 
 - `.codex/skills/` is for Lineup-only skills.
+- `.codex/config.toml` plus `.codex/agents/*.toml` are tracked Codex multi-agent role surfaces for this repo.
 - `.agent/skills/` is a generated local mirror for Antigravity and contains actual copies, not symlinks.
 - Global Codex skills that already exist for Codex should not be duplicated into `.codex/skills/`.
 - The exact global mirror set is pinned in [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt); `scripts/sync_agent_skills.sh` reads that file directly.
 - Repo-specific skills should stay local to this repo unless they become broadly reusable enough to justify promotion to a global skill home.
 - The broader document/control-plane structure is defined in [`docs/agentic/document-map.md`](./document-map.md).
+- Keep the repo-defined role set conservative: read-only evidence/review/docs/monitor roles plus a bounded `worker` role, with explicit fallback roles instead of assumed automatic failover.
 
 ## Current Skill Inventory
 
@@ -52,6 +54,8 @@ These are mirrored into `.agent/skills/` because the repo workflow depends on th
 
 Tracked in git:
 
+- `.codex/config.toml`
+- `.codex/agents/*.toml`
 - `.codex/skills/`
 - control-plane docs
 - eval definitions such as prompts and rubric
