@@ -331,8 +331,9 @@ Other review signals:
   - [x] P8-W2 - Reduce one private-probe-heavy UI test after the corresponding UI extraction lands, and report remaining debt (done 2026-03-09; plan: docs/plans/2026-03-09-p8-w2-epgcoordinator-tests-without-private-probes.md)
   - Remaining private-probe debt after this unit:
     - `src/modules/ui/epg/__tests__/EPGCoordinator.test.ts` now avoids private probes and uses new `EPGCoordinatorPolicies` seams.
-    - `P8-W3` should be focused on remaining suites in `src/modules/ui` with `_` field probes (e.g. `ProfileSelectScreen`, `PlayerOsdCoordinator`, `MiniGuideCoordinator`, `SettingsScreen`, `ChannelTransitionCoordinator`, `EPGInfoPanel`), which still rely on private fields for fixture state.
-  - [ ] P8-W3 - Tighten the anti-pattern baseline once at least one hotspot suite no longer needs the old probe path, and report remaining debt
+    - The next real UI SUT private-probe targets are `src/modules/ui/mini-guide/__tests__/MiniGuideCoordinator.test.ts`, `src/modules/ui/profile-select/__tests__/ProfileSelectScreen.test.ts`, and `src/modules/ui/settings/__tests__/SettingsScreen.test.ts`; these still reach coordinator/screen internals directly.
+    - `_visible` fields inside local overlay fakes (`ChannelTransitionCoordinator`, `PlayerOsdCoordinator`) and `_src` on local image mocks (`EPGInfoPanel`) are test-double internals, not the next Priority 8 conversion target.
+  - [ ] P8-W3 - Convert one remaining real UI private-probe suite to a production seam or public-behavior path, then ratchet the anti-pattern baseline and refresh the remaining-debt note
   - [ ] P8-W4 - Cleanup pass for Priority 8: remove obsolete test helpers, dead probe utilities, overengineered/redundant/unhelpful tests, and transitional assertions after the new public seams are stable
 
 ## Suggested Execution Order
