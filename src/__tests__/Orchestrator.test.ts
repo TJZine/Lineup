@@ -20,6 +20,7 @@ import { CHANNEL_BADGE_CONTAINER_ID } from '../modules/ui/channel-badge';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import type { PlatformServices } from '../platform';
 import { webosPlatformServices } from '../platform';
+import type { StreamDecision } from '../modules/plex/stream';
 
 // Mock localStorage
 const mockLocalStorage = {
@@ -296,6 +297,27 @@ const createStoredCredentials = (token: string, userId: string = 'user-1'): Plex
     },
 });
 
+const makeDecision = (overrides: Partial<StreamDecision> = {}): StreamDecision => ({
+    playbackUrl: 'http://test/stream.mp4',
+    protocol: 'http',
+    isDirectPlay: true,
+    isTranscoding: false,
+    container: 'mp4',
+    videoCodec: 'h264',
+    audioCodec: 'aac',
+    subtitleDelivery: 'none',
+    sessionId: 'sess-1',
+    mediaIndex: 0,
+    partIndex: 0,
+    partKey: '/library/parts/1',
+    selectedAudioStream: null,
+    selectedSubtitleStream: null,
+    width: 1920,
+    height: 1080,
+    bitrate: 1000,
+    ...overrides,
+});
+
 jest.mock('../modules/plex/auth', () => ({
     PlexAuth: jest.fn(() => mockPlexAuth),
 }));
@@ -512,7 +534,11 @@ jest.mock('../modules/ui/epg', () => ({
 describe('AppOrchestrator', () => {
     let orchestrator: AppOrchestrator;
     let schedulerHandlers: { programStart?: (program: unknown) => void };
-    let playerHandlers: { ended?: () => void; error?: (error: unknown) => void };
+    let playerHandlers: {
+        ended?: () => void;
+        error?: (error: unknown) => void;
+        trackChange?: (event: { type: 'audio' | 'subtitle'; trackId: string | null }) => void;
+    };
     let navHandlers: {
         keyPress?: (payload: unknown) => void;
         modalOpen?: (payload: unknown) => void;
@@ -560,6 +586,11 @@ describe('AppOrchestrator', () => {
                 if (event === 'error') {
                     playerHandlers.error = handler;
                 }
+                if (event === 'trackChange') {
+                    playerHandlers.trackChange = handler as (
+                        event: { type: 'audio' | 'subtitle'; trackId: string | null }
+                    ) => void;
+                }
                 return jest.fn();
             });
         (mockVideoPlayer.off as jest.Mock).mockImplementation(
@@ -569,6 +600,9 @@ describe('AppOrchestrator', () => {
                 }
                 if (event === 'error' && playerHandlers.error === handler) {
                     delete playerHandlers.error;
+                }
+                if (event === 'trackChange' && playerHandlers.trackChange === handler) {
+                    delete playerHandlers.trackChange;
                 }
             });
 
@@ -1288,6 +1322,60 @@ describe('AppOrchestrator', () => {
             expect(mockScheduler.resumeSyncTimer).toHaveBeenCalled();
             expect(mockScheduler.syncToCurrentTime).toHaveBeenCalled();
             expect(mockVideoPlayer.play).toHaveBeenCalled();
+        });
+
+        it('shows a warning toast when setSubtitleTrack fails', async () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const toastSpy = jest.fn();
+
+            mockVideoPlayer.setSubtitleTrack.mockRejectedValue(new Error('boom'));
+            orchestrator.setNowPlayingHandler(toastSpy);
+
+            await orchestrator.setSubtitleTrack(null);
+
+            expect(warnSpy).toHaveBeenCalled();
+            expect(toastSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ type: 'warning', message: expect.any(String) })
+            );
+
+            warnSpy.mockRestore();
+        });
+
+        it('reloads stream when audio track changes during direct play', async () => {
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.validateToken.mockResolvedValue(true);
+            mockPlexDiscovery.isConnected.mockReturnValue(true);
+            const program = {
+                item: {
+                    ratingKey: 'item-1',
+                    title: 'Test Item',
+                    durationMs: 60_000,
+                    type: 'movie',
+                },
+                elapsedMs: 5_000,
+            } as unknown as ScheduledProgram;
+
+            mockPlexStreamResolver.resolveStream
+                .mockResolvedValueOnce(makeDecision({ isDirectPlay: true, protocol: 'http' }))
+                .mockResolvedValue(makeDecision({ isDirectPlay: true, protocol: 'http', playbackUrl: 'http://test/reloaded.m3u8' }));
+
+            await orchestrator.start();
+
+            schedulerHandlers.programStart?.(program);
+            await new Promise((resolve) => setImmediate(resolve));
+
+            mockPlexStreamResolver.resolveStream.mockClear();
+
+            playerHandlers.trackChange?.({ type: 'audio', trackId: 'audio-2' });
+            await new Promise((resolve) => setImmediate(resolve));
+
+            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    audioStreamId: 'audio-2',
+                    directPlay: true,
+                })
+            );
+            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledTimes(1);
         });
 
         it('does not force direct-stream fallback when format is unsupported pre-MVP', async () => {
