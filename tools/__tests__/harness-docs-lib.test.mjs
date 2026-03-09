@@ -89,7 +89,7 @@ test('buildChecklistPlanPathMessages warns for untracked plan refs in strict mod
     ]);
 });
 
-test('buildChecklistPlanPathMessages downgrades untracked plan refs to warnings in workspace mode', () => {
+test('buildChecklistPlanPathMessages downgrades missing tracked plan refs to warnings in workspace mode', () => {
     const result = buildChecklistPlanPathMessages(
         [
             { relativePath: 'docs/plans/untracked.md', status: 'untracked' },
@@ -99,9 +99,10 @@ test('buildChecklistPlanPathMessages downgrades untracked plan refs to warnings 
         { mode: 'workspace' }
     );
 
-    assert.deepEqual(result.errors, ['Checklist references missing tracked plan path: docs/plans/missing-tracked.md']);
+    assert.deepEqual(result.errors, []);
     assert.deepEqual(result.warnings, [
         'Checklist references untracked plan path: docs/plans/untracked.md (exists locally but is not tracked)',
+        'Checklist references missing tracked plan path: docs/plans/missing-tracked.md',
         'Checklist references untracked plan path: docs/plans/missing-untracked.md (missing from workspace and not tracked)',
     ]);
 });
@@ -117,10 +118,9 @@ test('buildChecklistPlanPathMessages deduplicates repeated checklist refs for th
         { mode: 'workspace' }
     );
 
-    assert.deepEqual(result.errors, [
-        'Checklist references missing tracked plan path: docs/archive/plans/shared-summary.md',
-    ]);
+    assert.deepEqual(result.errors, []);
     assert.deepEqual(result.warnings, [
+        'Checklist references missing tracked plan path: docs/archive/plans/shared-summary.md',
         'Checklist references untracked plan path: docs/plans/draft.md (exists locally but is not tracked)',
     ]);
 });

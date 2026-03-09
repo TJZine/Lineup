@@ -227,7 +227,11 @@ export function buildChecklistPlanPathMessages(entries, { mode = 'strict' } = {}
             const message = `Checklist references missing tracked plan path: ${relativePath}`;
             if (!seenMessages.has(message)) {
                 seenMessages.add(message);
-                errors.push(message);
+                if (mode === 'workspace') {
+                    warnings.push(message);
+                } else {
+                    errors.push(message);
+                }
             }
             continue;
         }
