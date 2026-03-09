@@ -1328,7 +1328,7 @@ describe('AppOrchestrator', () => {
             const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
             const toastSpy = jest.fn();
 
-            mockVideoPlayer.setSubtitleTrack.mockRejectedValue(new Error('boom'));
+            mockVideoPlayer.setSubtitleTrack.mockRejectedValueOnce(new Error('boom'));
             orchestrator.setNowPlayingHandler(toastSpy);
 
             await orchestrator.setSubtitleTrack(null);
@@ -1357,7 +1357,13 @@ describe('AppOrchestrator', () => {
 
             mockPlexStreamResolver.resolveStream
                 .mockResolvedValueOnce(makeDecision({ isDirectPlay: true, protocol: 'http' }))
-                .mockResolvedValue(makeDecision({ isDirectPlay: true, protocol: 'http', playbackUrl: 'http://test/reloaded.m3u8' }));
+                .mockResolvedValueOnce(
+                    makeDecision({
+                        isDirectPlay: true,
+                        protocol: 'http',
+                        playbackUrl: 'http://test/reloaded.m3u8',
+                    })
+                );
 
             await orchestrator.start();
 
