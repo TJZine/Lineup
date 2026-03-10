@@ -10,10 +10,17 @@ import type { IEPGComponent } from './interfaces';
 import type { EPGConfig } from './types';
 import type { IChannelManager, ChannelConfig, ResolvedChannelContent } from '../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig, ScheduleWindow } from '../../scheduler/scheduler';
-import type { EpgPastItemsWindowSetting } from '../settings/types';
 import { readStoredBoolean, safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from '../../../utils/storage';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
+import {
+    computeBackgroundWarmQueueCaps,
+    computeEpgScheduleRangeMs,
+    getBackgroundWarmQueueAction,
+    partitionPrefetchChannels,
+    type EpgStorageSnapshotForScheduleRange,
+} from './EPGCoordinatorPolicies';
+import { buildLibraries, countLibraryTypeVotes } from './epgLibraryUtils';
 
 export type EpgUiStatus = 'pending' | 'initializing' | 'ready' | 'error' | 'disabled' | undefined;
 
@@ -27,6 +34,7 @@ export interface EPGCoordinatorDeps {
 
     getEpgConfig: () => EPGConfig | null;
     getLocalMidnightMs: (timeMs: number) => number;
+    getEpgScheduleRangeSnapshot: () => EpgStorageSnapshotForScheduleRange;
 
     buildDailyScheduleConfig: (
         channel: ChannelConfig,
@@ -47,10 +55,6 @@ const EPG_SCHEDULE_CACHE_MIN_ENTRIES = 60;
 const EPG_SCHEDULE_CACHE_MAX_ENTRIES = 240;
 const EPG_SCHEDULE_CACHE_MIN_ENTRIES_AGGRESSIVE = 120;
 const EPG_SCHEDULE_CACHE_MAX_ENTRIES_AGGRESSIVE = 360;
-const EPG_BACKGROUND_WARM_DEFAULT_MAX_QUEUED = 64;
-const EPG_BACKGROUND_WARM_MAX_QUEUED = 120;
-const EPG_BACKGROUND_WARM_DEFAULT_MAX_QUEUED_AGGRESSIVE = 128;
-const EPG_BACKGROUND_WARM_MAX_QUEUED_AGGRESSIVE = 220;
 const EPG_BACKGROUND_WARM_IDLE_TIMEOUT_MS = 120;
 const EPG_BACKGROUND_WARM_TIMER_DELAY_MS = 24;
 const EPG_BACKGROUND_WARM_BACKPRESSURE_DELAY_MS = 120;
@@ -139,18 +143,6 @@ export class EPGCoordinator {
         return trimmed ? trimmed : null;
     }
 
-    private _buildLibraries(channels: ChannelConfig[]): Array<{ id: string; name: string }> {
-        const map = new Map<string, string>();
-        for (const c of channels) {
-            if (c.sourceLibraryId && c.sourceLibraryName) {
-                map.set(c.sourceLibraryId, c.sourceLibraryName);
-            }
-        }
-        return Array.from(map.entries())
-            .map(([id, name]) => ({ id, name }))
-            .sort((a, b) => a.name.localeCompare(b.name));
-    }
-
     private _readGuideDensity(): 'detailed' | 'wide' {
         const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY);
         return raw === 'wide' ? 'wide' : DEFAULT_GUIDE_DENSITY;
@@ -160,98 +152,11 @@ export class EPGCoordinator {
         return this._readGuideDensity() === 'wide' ? WIDE_VISIBLE_HOURS : DETAILED_VISIBLE_HOURS;
     }
 
-    private _readPastItemsWindowSetting(): EpgPastItemsWindowSetting {
-        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW);
-        if (raw === '0' || raw === '15' || raw === '30') return raw;
-        return 'auto';
-    }
-
-    private _countLibraryTypeVotes(
-        channels: ChannelConfig[],
-        selectedId: string
-    ): { movieVotes: number; showVotes: number } {
-        let movieVotes = 0;
-        let showVotes = 0;
-
-        for (const channel of channels) {
-            const belongsToLibrary =
-                channel.sourceLibraryId === selectedId ||
-                (channel.contentSource.type === 'library' && channel.contentSource.libraryId === selectedId);
-            if (!belongsToLibrary) {
-                continue;
-            }
-
-            if (channel.contentSource.type === 'library') {
-                if (channel.contentSource.libraryType === 'movie') {
-                    movieVotes++;
-                } else {
-                    showVotes++;
-                }
-                continue;
-            }
-
-            if (channel.contentSource.type === 'show') {
-                showVotes++;
-            }
-        }
-
-        return { movieVotes, showVotes };
-    }
-
-    private _countLibraryTypeVotesAcrossAllChannels(
-        channels: ChannelConfig[]
-    ): { movieVotes: number; showVotes: number; unknownVotes: number } {
-        let movieVotes = 0;
-        let showVotes = 0;
-        let unknownVotes = 0;
-
-        for (const channel of channels) {
-            const source = channel.contentSource;
-            if (source.type === 'library') {
-                if (source.libraryType === 'movie') {
-                    movieVotes++;
-                } else {
-                    showVotes++;
-                }
-                continue;
-            }
-            if (source.type === 'show') {
-                showVotes++;
-                continue;
-            }
-            unknownVotes++;
-        }
-
-        return { movieVotes, showVotes, unknownVotes };
-    }
-
-    private _getEffectivePastWindowMinutes(allChannels: ChannelConfig[]): number {
-        const setting = this._readPastItemsWindowSetting();
-        if (setting !== 'auto') {
-            return Number(setting);
-        }
-
-        const { selectedId, shouldFilter } = this._getLibraryFilterSnapshot(allChannels);
-        if (!shouldFilter || !selectedId) {
-            const { movieVotes, showVotes, unknownVotes } = this._countLibraryTypeVotesAcrossAllChannels(allChannels);
-            if (unknownVotes === 0 && showVotes > 0 && movieVotes === 0) {
-                return 0;
-            }
-            return 15;
-        }
-
-        const { movieVotes, showVotes } = this._countLibraryTypeVotes(allChannels, selectedId);
-        if (showVotes > 0 && movieVotes === 0) {
-            return 0;
-        }
-        return 15;
-    }
-
     private _inferLibraryType(
         channels: ChannelConfig[],
         selectedId: string
     ): 'movie' | 'show' | null {
-        const { movieVotes, showVotes } = this._countLibraryTypeVotes(channels, selectedId);
+        const { movieVotes, showVotes } = countLibraryTypeVotes(channels, selectedId);
 
         if (movieVotes === 0 && showVotes === 0) {
             return null;
@@ -299,7 +204,7 @@ export class EPGCoordinator {
     } {
         const tabsEnabled = this._isLibraryTabsEnabled();
         let selectedId = this._readSelectedLibraryId();
-        const libraries = this._buildLibraries(all);
+        const libraries = buildLibraries(all);
         const hasMultipleLibraries = libraries.length > 1;
         const hasSelectedMatch = selectedId
             ? libraries.some((lib) => lib.id === selectedId) ||
@@ -327,15 +232,6 @@ export class EPGCoordinator {
         libraries: Array<{ id: string; name: string }>;
     } {
         return this._computeLibraryFilterState(all, { mutateStorage: true });
-    }
-
-    private _getLibraryFilterSnapshot(all: ChannelConfig[]): {
-        selectedId: string | null;
-        tabsEnabled: boolean;
-        shouldFilter: boolean;
-        libraries: Array<{ id: string; name: string }>;
-    } {
-        return this._computeLibraryFilterState(all, { mutateStorage: false });
     }
 
     openEPG(): void {
@@ -643,22 +539,8 @@ export class EPGCoordinator {
     }
 
     private _getEpgScheduleRangeMs(): { startTime: number; endTime: number } | null {
-        const config = this.deps.getEpgConfig();
-        if (!config) return null;
-        const totalHours = config.totalHours;
-        const slotMinutes = config.timeSlotMinutes;
-        const slotMs = slotMinutes * 60_000;
-        const channelManager = this.deps.getChannelManager();
-        const allChannels = channelManager?.getAllChannels() ?? [];
-        const pastWindowMinutes = this._getEffectivePastWindowMinutes(allChannels);
-        const now = Date.now();
-        const dayStart = this.deps.getLocalMidnightMs(now);
-        const startTime = Math.max(
-            Math.floor((now - pastWindowMinutes * 60_000) / slotMs) * slotMs,
-            dayStart
-        );
-        const endTime = startTime + totalHours * 60 * 60 * 1000;
-        return { startTime, endTime };
+        const storage = this.deps.getEpgScheduleRangeSnapshot();
+        return computeEpgScheduleRangeMs(this.deps, Date.now(), storage);
     }
 
     private _getScheduleRangeKey(startTime: number, endTime: number): string {
@@ -684,19 +566,6 @@ export class EPGCoordinator {
         return clamped;
     }
 
-    private _getChannelOverscanCount(channelCount: number, aggressive: boolean): number {
-        if (aggressive) {
-            if (channelCount >= 200) return 16;
-            if (channelCount >= 120) return 12;
-            if (channelCount >= 80) return 10;
-            return 8;
-        }
-        if (channelCount >= 200) return 10;
-        if (channelCount >= 120) return 8;
-        if (channelCount >= 80) return 7;
-        return 6;
-    }
-
     private _getScheduleLoadConcurrency(
         channelCount: number,
         prefetchCount: number,
@@ -710,110 +579,6 @@ export class EPGCoordinator {
         else if (channelCount >= 120) target = aggressive ? 8 : 7;
         else if (channelCount >= 80) target = aggressive ? 7 : 6;
         return Math.max(1, Math.min(target, prefetchCount));
-    }
-
-    private _getBackgroundWarmQueueCaps(
-        channelCount: number,
-        visibleCount: number,
-        aggressive: boolean
-    ): { maxQueuedChannels: number; maxConcurrency: number } {
-        if (channelCount >= 260) {
-            if (aggressive) {
-                return { maxQueuedChannels: 140, maxConcurrency: 2 };
-            }
-            return { maxQueuedChannels: 96, maxConcurrency: 1 };
-        }
-
-        const baseQueue = aggressive
-            ? EPG_BACKGROUND_WARM_DEFAULT_MAX_QUEUED_AGGRESSIVE
-            : EPG_BACKGROUND_WARM_DEFAULT_MAX_QUEUED;
-        const maxQueueCap = aggressive
-            ? EPG_BACKGROUND_WARM_MAX_QUEUED_AGGRESSIVE
-            : EPG_BACKGROUND_WARM_MAX_QUEUED;
-        const scaledQueue = Math.max(baseQueue, visibleCount * (aggressive ? 20 : 12));
-        const maxQueuedChannels = Math.min(
-            maxQueueCap,
-            Math.max(48, Math.min(channelCount, scaledQueue))
-        );
-        const maxConcurrency = aggressive
-            ? (channelCount >= 120 ? 3 : 2)
-            : (channelCount >= 120 ? 2 : 1);
-        return { maxQueuedChannels, maxConcurrency };
-    }
-
-    private _getBackgroundLookAheadCount(
-        channelCount: number,
-        visibleCount: number,
-        aggressive: boolean
-    ): number {
-        const scaled = Math.max(visibleCount * (aggressive ? 14 : 8), aggressive ? 48 : 24);
-        if (channelCount >= 200) {
-            return Math.max(scaled, aggressive ? 160 : 96);
-        }
-        if (channelCount >= 120) {
-            return Math.max(scaled, aggressive ? 120 : 72);
-        }
-        return Math.max(scaled, aggressive ? 84 : 48);
-    }
-
-    private _partitionPrefetchChannels(
-        channels: ChannelConfig[],
-        range: { channelStart: number; channelEnd: number },
-        ids: { liveChannelId: string | null; focusedChannelId: string | null },
-        caps: { visibleCount: number; maxQueuedChannels: number; aggressive: boolean }
-    ): {
-        immediateChannels: ChannelConfig[];
-        backgroundChannels: ChannelConfig[];
-        overscan: number;
-        bufferedRange: { start: number; end: number }; // [start, end)
-        backgroundRange: { start: number; end: number }; // [start, end)
-    } {
-        const overscan = this._getChannelOverscanCount(channels.length, caps.aggressive);
-        // `range.channelEnd` is inclusive (see visibleCount computation); Array#slice end is exclusive.
-        const startIndex = Math.max(0, range.channelStart - overscan);
-        const endIndex = Math.min(channels.length, range.channelEnd + 1 + overscan);
-
-        const immediateChannels: ChannelConfig[] = [];
-        const immediateIds = new Set<string>();
-        const addImmediate = (channel: ChannelConfig | null | undefined): void => {
-            if (!channel) return;
-            if (immediateIds.has(channel.id)) return;
-            immediateIds.add(channel.id);
-            immediateChannels.push(channel);
-        };
-
-        if (ids.liveChannelId) {
-            addImmediate(channels.find((channel) => channel.id === ids.liveChannelId));
-        }
-        if (ids.focusedChannelId) {
-            addImmediate(channels.find((channel) => channel.id === ids.focusedChannelId));
-        }
-        for (const channel of channels.slice(startIndex, endIndex)) {
-            addImmediate(channel);
-        }
-
-        const lookAhead = this._getBackgroundLookAheadCount(channels.length, caps.visibleCount, caps.aggressive);
-        const warmStart = endIndex;
-        const warmEnd = Math.min(channels.length, warmStart + lookAhead);
-
-        const backgroundChannels: ChannelConfig[] = [];
-        for (const channel of channels.slice(warmStart, warmEnd)) {
-            if (immediateIds.has(channel.id)) {
-                continue;
-            }
-            backgroundChannels.push(channel);
-            if (backgroundChannels.length >= caps.maxQueuedChannels) {
-                break;
-            }
-        }
-
-        return {
-            immediateChannels,
-            backgroundChannels,
-            overscan,
-            bufferedRange: { start: startIndex, end: endIndex },
-            backgroundRange: { start: warmStart, end: warmEnd },
-        };
     }
 
     private _pruneScheduleCache(nowMs: number): void {
@@ -976,19 +741,21 @@ export class EPGCoordinator {
             if (this._backgroundWarmQueueState !== queueState) {
                 return;
             }
-            if (queueState.refreshId !== this._epgScheduleLoadToken) {
-                this._cancelBackgroundWarmQueue('stale-refresh-token');
+            const action = getBackgroundWarmQueueAction({
+                refreshId: queueState.refreshId,
+                activeRefreshId: this._epgScheduleLoadToken,
+                cursor: queueState.cursor,
+                totalChannels: queueState.channels.length,
+                cacheSize: this._epgScheduleCache.size,
+                cacheLimit: this._epgScheduleCacheMaxEntries,
+                inFlightCount: this._epgScheduleInFlight.size,
+                concurrency: queueState.concurrency,
+            });
+            if (action.kind === 'cancel') {
+                this._cancelBackgroundWarmQueue(action.reason);
                 return;
             }
-            if (queueState.cursor >= queueState.channels.length) {
-                this._cancelBackgroundWarmQueue('warm-queue-complete');
-                return;
-            }
-            if (this._epgScheduleCache.size >= this._epgScheduleCacheMaxEntries) {
-                this._cancelBackgroundWarmQueue('schedule-cache-cap-reached');
-                return;
-            }
-            if (this._epgScheduleInFlight.size > queueState.concurrency * 2) {
+            if (action.kind === 'backpressure') {
                 if (this._backgroundWarmQueueTimer) {
                     return;
                 }
@@ -1105,8 +872,8 @@ export class EPGCoordinator {
             ? channels[epgState.focusedCell.channelIndex]?.id ?? null
             : null;
         const visibleCount = Math.max(1, range.channelEnd - range.channelStart + 1);
-        const backgroundCaps = this._getBackgroundWarmQueueCaps(channels.length, visibleCount, aggressive);
-        const partitioned = this._partitionPrefetchChannels(
+        const backgroundCaps = computeBackgroundWarmQueueCaps(channels.length, visibleCount, aggressive);
+        const partitioned = partitionPrefetchChannels(
             channels,
             range,
             {

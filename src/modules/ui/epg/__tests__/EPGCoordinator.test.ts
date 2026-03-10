@@ -11,6 +11,13 @@ import type { IChannelScheduler, ScheduledProgram, ScheduleConfig } from '../../
 import type { EPGConfig } from '../types';
 import * as epgUtils from '../utils';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
+import {
+    computeBackgroundWarmQueueCaps,
+    computeEpgScheduleRangeMs,
+    getBackgroundWarmQueueAction,
+    partitionPrefetchChannels,
+    readEpgStorageSnapshotForScheduleRange,
+} from '../EPGCoordinatorPolicies';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,
@@ -61,6 +68,9 @@ const flushPromises = async (): Promise<void> => {
     await Promise.resolve();
     await Promise.resolve();
 };
+
+const readScheduleRange = (deps: EPGCoordinatorDeps): { startTime: number; endTime: number } | null =>
+    computeEpgScheduleRangeMs(deps, Date.now(), readEpgStorageSnapshotForScheduleRange());
 
 const FIXED_FAKE_NOW = new Date('2026-01-01T12:00:00.000Z');
 
@@ -167,18 +177,19 @@ const makeDeps = (
         }),
     } as unknown as IChannelScheduler;
 
-    const deps: EPGCoordinatorDeps = {
-        getEpg: () => epg,
-        getChannelManager: () => channelManager,
-        getScheduler: () => scheduler,
-        getEpgUiStatus: () => 'ready',
-        ensureEpgInitialized: jest.fn().mockResolvedValue(undefined),
-        getEpgConfig: () => ({ totalHours: 6, timeSlotMinutes: 30 } as EPGConfig),
-        getLocalMidnightMs: (t: number) => t - (t % (24 * 60 * 60 * 1000)),
-        buildDailyScheduleConfig: (
-            channel: ChannelConfig,
-            items: ResolvedChannelContent['items']
-        ): ScheduleConfig =>
+	    const deps: EPGCoordinatorDeps = {
+	        getEpg: () => epg,
+	        getChannelManager: () => channelManager,
+	        getScheduler: () => scheduler,
+	        getEpgUiStatus: () => 'ready',
+	        ensureEpgInitialized: jest.fn().mockResolvedValue(undefined),
+	        getEpgConfig: () => ({ totalHours: 6, timeSlotMinutes: 30 } as EPGConfig),
+	        getLocalMidnightMs: (t: number) => t - (t % (24 * 60 * 60 * 1000)),
+	        getEpgScheduleRangeSnapshot: () => readEpgStorageSnapshotForScheduleRange(),
+	        buildDailyScheduleConfig: (
+	            channel: ChannelConfig,
+	            items: ResolvedChannelContent['items']
+	        ): ScheduleConfig =>
         ({
             channelId: channel.id,
             anchorTime: 0,
@@ -225,20 +236,38 @@ describe('EPGCoordinator', () => {
         jest.clearAllMocks();
     });
 
-    it('uses shared debug helper for coordinator debug gating', () => {
-        const { deps } = makeDeps();
+    it('logs debug error using shared helper when live schedule refresh fails', () => {
+        const scheduler: IChannelScheduler = {
+            getState: () => ({ isActive: true, channelId: 'c0' }),
+            getScheduleWindow: jest.fn(() => {
+                throw new Error('schedule window failed');
+            }),
+        } as unknown as IChannelScheduler;
+
+        const { deps, epg } = makeDeps({
+            getScheduler: () => scheduler,
+        });
         const coordinator = new EPGCoordinator(deps);
         const helperSpy = jest.spyOn(epgUtils, 'isEpgDebugLoggingEnabled').mockReturnValue(true);
+        const debugLogSpy = jest.spyOn(epgUtils, 'appendEpgDebugLog').mockImplementation(() => undefined);
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
 
-        const debugEnabled = (coordinator as unknown as { _isDebugEnabled: () => boolean })._isDebugEnabled();
+        coordinator.refreshEpgScheduleForLiveChannel();
 
-        expect(debugEnabled).toBe(true);
+        expect(scheduler.getScheduleWindow).toHaveBeenCalled();
         expect(helperSpy).toHaveBeenCalledTimes(1);
+        expect(debugLogSpy).toHaveBeenCalledWith(
+            'EPG.refreshEpgScheduleForLiveChannel.error',
+            expect.objectContaining({
+                error: expect.objectContaining({
+                    message: expect.stringContaining('schedule window failed'),
+                }),
+            })
+        );
     });
 
     it('partitions prefetch channels with inclusive channelEnd', () => {
-        const { deps } = makeDeps();
-        const coordinator = new EPGCoordinator(deps);
+        makeDeps();
 
         const channels: ChannelConfig[] = Array.from(
             { length: 100 },
@@ -249,22 +278,11 @@ describe('EPGCoordinator', () => {
         const caps = { visibleCount: 11, maxQueuedChannels: 120, aggressive: false };
         const ids = { liveChannelId: null, focusedChannelId: null };
 
-        type PartitionResult = {
-            immediateChannels: ChannelConfig[];
-            backgroundChannels: ChannelConfig[];
-            overscan: number;
-            bufferedRange: { start: number; end: number };
-            backgroundRange: { start: number; end: number };
-        };
-
-        const partitioned = (coordinator as unknown as {
-            _partitionPrefetchChannels: (
-                channels: ChannelConfig[],
-                range: { channelStart: number; channelEnd: number },
-                ids: { liveChannelId: string | null; focusedChannelId: string | null },
-                caps: { visibleCount: number; maxQueuedChannels: number; aggressive: boolean }
-            ) => PartitionResult;
-        })._partitionPrefetchChannels(channels, range, ids, caps);
+        const partitioned = partitionPrefetchChannels(channels, range, ids, {
+            visibleCount: caps.visibleCount,
+            maxQueuedChannels: caps.maxQueuedChannels,
+            aggressive: caps.aggressive,
+        });
 
         // channelEnd is inclusive; slice end is exclusive. For channelCount=100 and non-aggressive overscan=7:
         // endIndex = 20 + 1 + 7 = 28
@@ -475,11 +493,7 @@ describe('EPGCoordinator', () => {
         const { deps } = makeDeps({
             getChannelManager: () => ({ ...base, getAllChannels: () => channels } as IChannelManager),
         });
-        const coordinator = new EPGCoordinator(deps);
-
-        const range = (coordinator as unknown as {
-            _getEpgScheduleRangeMs: () => { startTime: number; endTime: number } | null;
-        })._getEpgScheduleRangeMs();
+        const range = readScheduleRange(deps);
 
         expectPastWindowMinutes(range, now, 0, 30);
     });
@@ -508,10 +522,7 @@ describe('EPGCoordinator', () => {
         const { deps } = makeDeps({
             getChannelManager: () => ({ ...base, getAllChannels: () => channels } as IChannelManager),
         });
-        const coordinator = new EPGCoordinator(deps);
-        const range = (coordinator as unknown as {
-            _getEpgScheduleRangeMs: () => { startTime: number; endTime: number } | null;
-        })._getEpgScheduleRangeMs();
+        const range = readScheduleRange(deps);
 
         expectPastWindowMinutes(range, now, 0, 30);
     });
@@ -551,10 +562,7 @@ describe('EPGCoordinator', () => {
         const { deps } = makeDeps({
             getChannelManager: () => ({ ...base, getAllChannels: () => channels } as IChannelManager),
         });
-        const coordinator = new EPGCoordinator(deps);
-        const range = (coordinator as unknown as {
-            _getEpgScheduleRangeMs: () => { startTime: number; endTime: number } | null;
-        })._getEpgScheduleRangeMs();
+        const range = readScheduleRange(deps);
 
         expectPastWindowMinutes(range, now, 15, 30);
     });
@@ -578,10 +586,7 @@ describe('EPGCoordinator', () => {
         const { deps } = makeDeps({
             getChannelManager: () => ({ ...base, getAllChannels: () => channels } as IChannelManager),
         });
-        const coordinator = new EPGCoordinator(deps);
-        const range = (coordinator as unknown as {
-            _getEpgScheduleRangeMs: () => { startTime: number; endTime: number } | null;
-        })._getEpgScheduleRangeMs();
+        const range = readScheduleRange(deps);
 
         expectPastWindowMinutes(range, now, 15, 30);
     });
@@ -597,10 +602,7 @@ describe('EPGCoordinator', () => {
             const { deps } = makeDeps({
                 getChannelManager: () => ({ ...base, getAllChannels: () => channels } as IChannelManager),
             });
-            const coordinator = new EPGCoordinator(deps);
-            return (coordinator as unknown as {
-                _getEpgScheduleRangeMs: () => { startTime: number; endTime: number } | null;
-            })._getEpgScheduleRangeMs();
+            return readScheduleRange(deps);
         };
 
         const movieOnlyRange = getRange('movie-lib', [
@@ -692,24 +694,17 @@ describe('EPGCoordinator', () => {
         const now = new Date('2026-01-07T10:40:00.000Z').getTime();
         jest.spyOn(Date, 'now').mockReturnValue(now);
         const { deps } = makeDeps();
-        const coordinator = new EPGCoordinator(deps);
 
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, '0');
-        const range0 = (coordinator as unknown as {
-            _getEpgScheduleRangeMs: () => { startTime: number; endTime: number } | null;
-        })._getEpgScheduleRangeMs();
+        const range0 = readScheduleRange(deps);
         expectPastWindowMinutes(range0, now, 0, 30);
 
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, '15');
-        const range15 = (coordinator as unknown as {
-            _getEpgScheduleRangeMs: () => { startTime: number; endTime: number } | null;
-        })._getEpgScheduleRangeMs();
+        const range15 = readScheduleRange(deps);
         expectPastWindowMinutes(range15, now, 15, 30);
 
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, '30');
-        const range30 = (coordinator as unknown as {
-            _getEpgScheduleRangeMs: () => { startTime: number; endTime: number } | null;
-        })._getEpgScheduleRangeMs();
+        const range30 = readScheduleRange(deps);
         expectPastWindowMinutes(range30, now, 30, 30);
     });
 
@@ -754,10 +749,7 @@ describe('EPGCoordinator', () => {
                 getAllChannels: () => allChannels,
             } as IChannelManager),
         });
-        const coordinator = new EPGCoordinator(deps);
-
-        (coordinator as unknown as { _getEpgScheduleRangeMs: () => { startTime: number; endTime: number } | null })
-            ._getEpgScheduleRangeMs();
+        readScheduleRange(deps);
 
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBe('lib1');
     });
@@ -828,33 +820,35 @@ describe('EPGCoordinator', () => {
         expect(epg.loadChannels).toHaveBeenCalled();
     });
 
-    it('preseeds current channel schedule when scheduler is active and channel is visible', () => {
-        const { deps, epg } = makeDeps();
-        const coordinator = new EPGCoordinator(deps);
+	    it('preseeds current channel schedule when scheduler is active and channel is visible', () => {
+	        const { deps, epg } = makeDeps();
+	        const coordinator = new EPGCoordinator(deps);
+	        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue(undefined);
 
-        (coordinator as unknown as { _preseedCurrentChannelSchedule: () => void })
-            ._preseedCurrentChannelSchedule();
+	        coordinator.openEPG();
 
-        expect(epg.loadScheduleForChannel).toHaveBeenCalledWith('c0', expect.any(Object));
-    });
+	        expect(epg.loadScheduleForChannel).toHaveBeenCalledWith('c0', expect.any(Object));
+	        expect(refreshSpy).toHaveBeenCalled();
+	    });
 
-    it('does not preseed when scheduler is inactive', () => {
+	    it('does not preseed when scheduler is inactive', () => {
         const scheduler: IChannelScheduler = {
             getState: () => ({ isActive: false, channelId: 'c0' }),
             getScheduleWindow: jest.fn(),
         } as unknown as IChannelScheduler;
-        const { deps, epg } = makeDeps({
-            getScheduler: () => scheduler,
-        });
-        const coordinator = new EPGCoordinator(deps);
+	        const { deps, epg } = makeDeps({
+	            getScheduler: () => scheduler,
+	        });
+	        const coordinator = new EPGCoordinator(deps);
+	        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue(undefined);
 
-        (coordinator as unknown as { _preseedCurrentChannelSchedule: () => void })
-            ._preseedCurrentChannelSchedule();
+        coordinator.openEPG();
 
         expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
+        expect(refreshSpy).toHaveBeenCalled();
     });
 
-    it('does not preseed when current channel is filtered out', () => {
+	    it('does not preseed when current channel is filtered out', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib2');
 
@@ -871,13 +865,14 @@ describe('EPGCoordinator', () => {
                 getCurrentChannel: () => channels[0],
                 resolveChannelContent: base.resolveChannelContent,
             } as IChannelManager),
-        });
-        const coordinator = new EPGCoordinator(deps);
+	        });
+	        const coordinator = new EPGCoordinator(deps);
+	        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue(undefined);
 
-        (coordinator as unknown as { _preseedCurrentChannelSchedule: () => void })
-            ._preseedCurrentChannelSchedule();
+        coordinator.openEPG();
 
         expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
+        expect(refreshSpy).toHaveBeenCalled();
     });
 
     it('refreshEpgSchedules loads visible range and focuses when visible with no focus', async () => {
@@ -1159,53 +1154,28 @@ describe('EPGCoordinator', () => {
         }
     });
 
-    it('background warm queue backs off instead of canceling when in-flight pressure is high', async () => {
-        useDeterministicFakeTimers();
-        try {
-            await withIdleCallbackDisabled(async () => {
-                const { deps } = makeDeps();
-                const coordinator = new EPGCoordinator(deps);
+    it('background warm queue backs off instead of canceling when in-flight pressure is high', () => {
+        expect(getBackgroundWarmQueueAction({
+            refreshId: 42,
+            activeRefreshId: 42,
+            cursor: 0,
+            totalChannels: 2,
+            cacheSize: 0,
+            cacheLimit: 32,
+            inFlightCount: 10,
+            concurrency: 2,
+        })).toEqual({ kind: 'backpressure' });
 
-                const mutable = coordinator as unknown as {
-                    _epgScheduleLoadToken: number;
-                    _epgScheduleInFlight: Map<string, { controller: AbortController; rangeKey: string }>;
-                    _backgroundWarmQueueState: unknown;
-                    _startBackgroundWarmQueue: (state: {
-                        refreshId: number;
-                        reason: string;
-                        channels: ChannelConfig[];
-                        runForChannel: (channel: ChannelConfig) => Promise<void>;
-                        concurrency: number;
-                    }) => void;
-                };
-
-                mutable._epgScheduleLoadToken = 42;
-                mutable._epgScheduleInFlight = new Map(
-                    Array.from({ length: 10 }, (_, i) => [
-                        `inflight-${i}`,
-                        { controller: new AbortController(), rangeKey: 'range' },
-                    ])
-                );
-
-                const runForChannel = jest.fn().mockResolvedValue(undefined);
-                mutable._startBackgroundWarmQueue({
-                    refreshId: 42,
-                    reason: 'test',
-                    channels: [makeChannel('bg-1', 1), makeChannel('bg-2', 2)],
-                    runForChannel,
-                    concurrency: 2,
-                });
-
-                await advanceWarmQueueTimers(2);
-                expect(mutable._backgroundWarmQueueState).not.toBeNull();
-
-                mutable._epgScheduleInFlight.clear();
-                await advanceWarmQueueTimers(4);
-                expect(runForChannel).toHaveBeenCalled();
-            });
-        } finally {
-            jest.useRealTimers();
-        }
+        expect(getBackgroundWarmQueueAction({
+            refreshId: 42,
+            activeRefreshId: 42,
+            cursor: 0,
+            totalChannels: 2,
+            cacheSize: 0,
+            cacheLimit: 32,
+            inFlightCount: 0,
+            concurrency: 2,
+        })).toEqual({ kind: 'runBatch' });
     });
 
     it('aggressive preload mode widens background candidate set compared to default mode', async () => {
@@ -1258,9 +1228,8 @@ describe('EPGCoordinator', () => {
                         { channelStart: 100, channelEnd: 100, timeStartMs: 0, timeEndMs: 0 },
                         { debounceMs: 0, reason: 'visible-range' }
                     );
-                    const warmState = (coordinator as unknown as { _backgroundWarmQueueState?: { channels: ChannelConfig[] } })
-                        ._backgroundWarmQueueState;
-                    return warmState ? warmState.channels.map((channel) => channel.id) : [];
+                    await advanceWarmQueueTimers(40);
+                    return resolveChannelItemsForSchedule.mock.calls.map((call) => call[0]);
                 };
 
                 const defaultLoaded = await runRefresh(false);
@@ -1395,20 +1364,11 @@ describe('EPGCoordinator', () => {
     });
 
     it('uses conservative warm-queue caps only at very-large-guide threshold (260+)', () => {
-        const { deps } = makeDeps();
-        const coordinator = new EPGCoordinator(deps);
-
         const getCaps = (
             channelCount: number,
             aggressive: boolean
         ): { maxQueuedChannels: number; maxConcurrency: number } =>
-            (coordinator as unknown as {
-                _getBackgroundWarmQueueCaps: (
-                    c: number,
-                    v: number,
-                    a: boolean
-                ) => { maxQueuedChannels: number; maxConcurrency: number };
-            })._getBackgroundWarmQueueCaps(channelCount, 10, aggressive);
+            computeBackgroundWarmQueueCaps(channelCount, 10, aggressive);
 
         expect(getCaps(240, false)).toEqual({ maxQueuedChannels: 120, maxConcurrency: 2 });
         expect(getCaps(240, true)).toEqual({ maxQueuedChannels: 200, maxConcurrency: 3 });

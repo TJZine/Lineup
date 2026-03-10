@@ -1,348 +1,362 @@
 # Architecture Cleanup Checklist
 
-This document turns the current architecture review into a working backlog.
+> V2 draft established 2026-03-09. This replaces the completed wave-1 backlog archived at [`docs/archive/checklists/2026-03-09-architecture-cleanup-checklist-wave-1.md`](./docs/archive/checklists/2026-03-09-architecture-cleanup-checklist-wave-1.md).
 
-The goal is not a rewrite unless absolutely needed for best practices. The goal is to stop making the hotspot files worse, then reduce risk in the highest-value areas first.
+This document is the active cleanup queue for getting Lineup to production-grade code quality, lower technical debt, lower AI-slop residue, and stronger architecture boundaries.
 
-Completion rule: every implementation plan that finishes a `P#-W#` work unit must update this checklist in the same delivery pass before the work is considered complete. Do not leave the work unit unchecked after code lands.
+The goal is not a rewrite. The goal is to make the highest-ROI structural improvements first, keep ownership explicit, remove transitional residue aggressively, and make the remaining debt easy to audit.
+
+Completion rule: every implementation plan that finishes a `P#-W#` work unit must update this checklist in the same delivery pass before the work is considered complete.
+
+## Temporary Subjective Review Completion Gate
+
+This section is temporary. Remove it after the remaining `desloppify` subjective batches are completed, imported, and the v2 priority order is re-checked in the same pass.
+
+- Current status:
+  - `desloppify status` before subjective import: `overall 37.7 / objective 94.2 / strict 37.7 / verified 94.2`
+  - Partial subjective baseline completed: `10 / 20` batches
+  - Partial subjective average from completed batches: `79.8`
+  - Active run directory: `.desloppify/subagents/runs/20260309_211514`
+- Completed batches:
+  - `batch-1` `cross_module_architecture`
+  - `batch-3` `convention_outlier`
+  - `batch-7` `dependency_health`
+  - `batch-9` `mid_level_elegance`
+  - `batch-12` `ai_generated_debt`
+  - `batch-13` `incomplete_migration`
+  - `batch-14` `package_organization`
+  - `batch-15` `initialization_coupling`
+  - `batch-16` `design_coherence`
+  - `batch-20` `authorization_consistency`
+- Remaining batches:
+  - `batch-2` `high_level_elegance`
+  - `batch-4` `error_consistency`
+  - `batch-5` `naming_quality`
+  - `batch-6` `abstraction_fitness`
+  - `batch-8` `logic_clarity`
+  - `batch-10` `test_strategy`
+  - `batch-11` `api_surface_coherence`
+  - `batch-17` `contract_coherence`
+  - `batch-18` `low_level_elegance`
+  - `batch-19` `type_safety`
+- Recommended remaining run order:
+  - Wave 3: `6`, `11`, `17`, `19`, `5`
+  - Wave 4: `4`, `8`, `10`, `18`, `2`
+
+### Exact Completion Procedure
+
+1. Reuse the existing run directory:
+   - `.desloppify/subagents/runs/20260309_211514`
+2. For each remaining batch, open the generated prompt:
+   - `.desloppify/subagents/runs/20260309_211514/prompts/batch-<N>.md`
+3. Start a fresh reviewer session.
+4. Paste the repo starter prompt first, then paste the generated `batch-<N>.md` prompt exactly.
+5. Save the returned JSON to:
+   - `.desloppify/subagents/runs/20260309_211514/results/batch-<N>.json`
+6. Validate the JSON before import:
+   - `python3 -m json.tool .desloppify/subagents/runs/20260309_211514/results/batch-<N>.json >/dev/null`
+7. Keep `batch_tracking.csv` updated in the same run directory.
+8. After all 20 result files exist and validate, import the run:
+
+```bash
+desloppify review --import-run .desloppify/subagents/runs/20260309_211514 --scan-after-import
+desloppify status
+desloppify show review --status open
+desloppify next --count 20
+```
+
+9. In the same pass:
+   - refresh the evidence snapshot below
+   - rebalance the priority order only if the imported subjective results materially change ROI
+   - remove this entire temporary section
 
 ## How To Use This
 
-- Treat this as the cleanup queue for architecture and codebase-quality work.
+- Treat this as the active cleanup queue for architecture and codebase-quality work.
 - Work from top to bottom unless a production issue forces a different order.
-- For each item, write a focused plan before coding and keep scope narrow.
-- The primary trackable unit is each `P#-W#` work unit below.
-- The architectural target is the parent Priority section, not an individual `P#-W#` in isolation.
-- Select the next task by the lowest unchecked `P#-W#` ID in the highest remaining priority.
-- Execute one `P#-W#` at a time, but design it so the code moves toward the ideal end-state of that parent Priority section.
-- These work units are intentionally large, near-full-session tasks. Do not split them smaller unless one unit would exceed a safe single session.
-- Each completed `P#-W#` must leave behind a production-valid improvement, not a throwaway seam that the next subitem immediately has to replace.
-- When a work unit is finished, mark it `[x]` and append a note with the current tracked plan path, for example:
-  `(done YYYY-MM-DD; plan: docs/plans/<file>.md)`
-- Allowed historical exceptions:
-  - `(done YYYY-MM-DD; plan: unavailable-pre-bootstrap)` for pre-bootstrap units that never had tracked plans.
-  - `(done YYYY-MM-DD; plan: docs/archive/plans/<section-summary>.md)` for intentionally section-summarized completion records.
-- If that plan is later archived, update the note to the archived path in the same pass.
-- Use the new repo skills before architecture-affecting work:
-  - `architecture-boundaries`
-  - `ui-composition-patterns`
-  - `persistence-boundaries`
-  - `plex-integration-boundaries`
+- Keep scope narrow and verification strong.
+- Prefer explicit ownership, auditable seams, and fewer hotspot classes.
+- Remove transitional residue after each extraction instead of letting it accumulate.
+- Keep plans decision-point-free when delegating to weaker agents.
+- Use [`docs/architecture/CURRENT_STATE.md`](./docs/architecture/CURRENT_STATE.md) for current architecture truth and this file for active cleanup status.
 
-## Agent Workflow
+## Provisional Evidence Snapshot
 
-- Start with the superpowers workflow: `using-superpowers`, then `brainstorming`, then the matching repo-local architecture skill(s).
-- For serious cleanup planning, follow that skill order with `writing-plans`; do not substitute `writing-plans` for the earlier process/boundary skills.
-- Use [`docs/architecture/CURRENT_STATE.md`](./docs/architecture/CURRENT_STATE.md) as the current architecture truth and this checklist as the active backlog/status surface.
-- Do a repo evidence sweep before planning.
-- If the work depends on an unresolved architecture seam or adjacent contract change, resolve that boundary first instead of hiding it inside a “decision-point-free” plan.
-- Produce or refresh a concrete, decision-point-free plan under `docs/plans/` (use the writing-plans skill) before coding. The plan must be explicit enough for less-capable agents to execute without ambiguity.
-- In every serious tracked plan, record the Codanna evidence trail (queries/tools used, key symbols/files found, and fallback evidence when Codanna is unavailable/insufficient) plus any fallback reads used for checklist/doc context.
-- Keep scope limited to one work unit at a time.
-- In every plan, explicitly state how the selected `P#-W#` advances the durable end-state of its parent Priority section.
-- If adjacent files may need type/contract wiring, either put them in scope explicitly or freeze them explicitly and explain how the task still works.
-- Favor durable collaborators/stores/binders that later work units can extend; avoid temporary adapters or one-off abstractions that will need immediate replacement inside the same Priority section.
-- Only mark completion after the required verification for that unit actually passes.
-- Before closing the work, update the matching `P#-W#` entry in this file to `[x]` and append the required plan-path note using one of the allowed completion-note forms above. If the plan is archived later, update the referenced path in the same pass.
+This snapshot is intentionally marked provisional until the remaining subjective batches are imported.
 
-## Evidence Snapshot
+- Largest live source hotspots by size:
+  - `src/Orchestrator.ts` at `2,592` lines
+  - `src/modules/ui/epg/EPGComponent.ts` at `1,920` lines
+  - `src/modules/scheduler/channel-manager/ChannelManager.ts` at `1,420` lines
+  - `src/modules/plex/stream/PlexStreamResolver.ts` at `1,413` lines
+  - `src/modules/player/VideoPlayer.ts` at `1,248` lines
+  - `src/modules/ui/channel-setup/ChannelSetupScreen.ts` at `1,052` lines
+  - `src/core/InitializationCoordinator.ts` at `998` lines
+  - `src/modules/ui/settings/SettingsScreen.ts` at `735` lines
+  - `src/App.ts` at `611` lines
+- Strongest partial subjective signals so far:
+  - `cross_module_architecture` remains the weakest completed dimension at `72.0`
+  - `design_coherence` remains weak at `74.0`
+  - `ai_generated_debt` remains weak at `76.0`
+- Strongest repeated findings from completed batches:
+  - `AppOrchestrator` is still the central runtime hub and major blast-radius owner
+  - startup wiring still contains an `Orchestrator` / `core` import cycle
+  - persistence ownership is still inconsistent across runtime, auth, lifecycle, and EPG-debug surfaces
+  - migration residue still exists in auth, lifecycle, subtitle, and player surfaces
+  - some coordinators remain coarse-grained facades instead of crisp boundaries
 
-The largest structural hotspots from the current snapshot (2026-03-07) were:
-
-- `src/Orchestrator.ts` at 2,592 lines
-- `src/modules/ui/epg/EPGComponent.ts` at 1,920 lines
-- `src/modules/plex/stream/PlexStreamResolver.ts` at 1,733 lines
-- `src/modules/scheduler/channel-manager/ChannelManager.ts` at 1,583 lines
-- `src/modules/player/VideoPlayer.ts` at 1,252 lines
-- `src/modules/ui/channel-setup/ChannelSetupScreen.ts` at 1,052 lines
-- `src/modules/ui/settings/SettingsScreen.ts` at 735 lines
-- `src/App.ts` at 611 lines
-
-Other review signals:
-
-- `src/Orchestrator.ts` has very high responsibility concentration and large closure-based dependency wiring.
-- `src/App.ts` mixes bootstrapping, DOM composition, config creation, overlays, toasts, and dev tooling.
-- Direct `localStorage` access is still spread across many feature files despite safe storage helpers existing.
-- The architecture docs under `docs/architecture/` no longer fully match the current code layout.
-- The test suite includes a private-probe ratchet, which is a sign that public seams are weaker than they should be in some hotspots.
-
-## Operating Rules
-
-- Do not rewrite the app around a new framework.
-- Keep the webOS performance profile intact.
-- Prefer extractions that introduce clearer ownership and smaller public seams.
-- Do not move logic unless tests cover the behavior first.
-- When in doubt, make the composition roots thinner and feature collaborators clearer.
-- Do not optimize a single `P#-W#` in a way that fights the architecture the parent Priority section is trying to reach.
-- Temporary delegation is acceptable only when it preserves behavior and clearly converges toward the parent section's intended steady-state design.
-
-## Priority 1: Split AppOrchestrator Into Real Runtime Controllers
+## Priority 1: Complete Runtime Composition Cleanup In `AppOrchestrator`
 
 - ROI: Highest
-- Why it matters: `src/Orchestrator.ts` is the main source of change amplification and cross-cutting risk.
-- Target outcomes:
-  - Keep `AppOrchestrator` focused on construction, top-level wiring, and public app lifecycle methods.
-  - Move feature workflows into explicit collaborators.
-  - Reduce private field growth and long workflow methods.
-- Candidate extractions:
-  - playback session controller
-  - overlay/runtime controller
-  - live tuning/session state controller
-  - recovery/error routing controller
-- Likely files:
+- Why it matters: the strongest completed subjective signals still point at runtime concentration, startup coupling, and coarse-grained orchestration ownership in `src/Orchestrator.ts`.
+- Primary files:
   - `src/Orchestrator.ts`
-  - `src/core/**`
-  - new focused controllers under `src/core/` or feature modules
-- Guardrails:
-  - No behavior changes while extracting.
-  - Keep ownership of cleanup and subscriptions explicit.
-  - Prefer public seams over tests reaching into private internals.
-  - Shape early playback-related extractions as durable steps toward a real playback/runtime boundary, not as isolated controller fragments that will be discarded later in Priority 1.
-- Verification:
-  - `npm run verify`
-- Checklist:
-  - [ ] Identify the first workflow to extract
-  - [ ] Add or tighten tests around that workflow
-  - [ ] Extract one controller with a narrow public API
-  - [ ] Reduce `AppOrchestrator` state and private method count
-  - [ ] Verify event wiring remains traceable
-- Primary work units:
-  - [x] P1-W1 - Extract program-start sequencing into a focused playback-start controller (done 2026-03-02; plan: unavailable-pre-bootstrap)
-  - [x] P1-W2 - Move player event handlers into a playback runtime controller while keeping subscriptions in place (done 2026-03-02; plan: unavailable-pre-bootstrap)
-  - [x] P1-W3 - Move pause/resume and in-flight playback coordination into the same runtime boundary (done 2026-03-02; plan: unavailable-pre-bootstrap)
-  - [x] P1-W4 - Extract `_setupEventWiring()` and the `_wire*Events()` methods into a dedicated event binder (done 2026-03-02; plan: unavailable-pre-bootstrap)
-  - [x] P1-W5 - Extract remaining overlay/runtime helper policies (badge visibility, modal toggles, profile-switch cleanup) (done 2026-03-03; plan: unavailable-pre-bootstrap)
-  - [x] P1-W6 - Cleanup pass for Priority 1: remove temporary delegation shims, transitional fields, obsolete helper methods, and no-longer-needed compatibility wiring created during the P1 refactors (done 2026-03-03; plan: unavailable-pre-bootstrap)
-
-## Priority 2: Split App Shell Responsibilities
-
-- ROI: Very high
-- Why it matters: `src/App.ts` is absorbing bootstrap concerns plus feature UI concerns and dev-only tooling.
+  - `src/core/InitializationCoordinator.ts`
+  - `src/core/index.ts`
+  - `src/core/orchestrator/**`
 - Target outcomes:
-  - Separate DOM container composition from runtime startup.
-  - Separate screen loading/visibility from diagnostics surfaces.
-  - Keep config assembly and app bootstrap readable.
-- Candidate extractions:
-  - app container factory
-  - screen registry / lazy screen loader
-  - app diagnostics or dev menu surface
-  - toast/error overlay presenter
-- Likely files:
-  - `src/App.ts`
-  - new helpers under `src/core/` or `src/modules/ui/common/`
-- Guardrails:
-  - Preserve startup order and screen behavior.
-  - Avoid adding new global listeners without clear cleanup ownership.
-- Verification:
-  - `npm run verify`
-- Checklist:
-  - [ ] Separate container creation from startup orchestration
-  - [ ] Separate diagnostics/dev UI from core app shell
-  - [ ] Reduce app shell knowledge of feature-specific UI details
-  - [ ] Verify screen visibility and overlay behavior still match current flow
-- Primary work units:
-  - [x] P2-W1 - Extract app container creation into a dedicated factory/helper (done 2026-03-03; plan: unavailable-pre-bootstrap)
-  - [x] P2-W2 - Extract screen loading and lazy-screen caching into a screen registry/loader (done 2026-03-03; plan: unavailable-pre-bootstrap)
-  - [x] P2-W3 - Extract toast and blocking error overlay presentation out of `App` (done 2026-03-03; plan: unavailable-pre-bootstrap)
-  - [x] P2-W4 - Isolate the dev menu / diagnostics surface from the runtime app shell (done 2026-03-03; plan: unavailable-pre-bootstrap)
-  - [x] P2-W5 - Cleanup pass for Priority 2: remove temporary pass-through helpers, dead container references, and transitional app-shell glue introduced while splitting `App` (done 2026-03-03; plan: unavailable-pre-bootstrap)
+  - reduce runtime blast radius in `AppOrchestrator`
+  - remove the `Orchestrator` / `core` import cycle
+  - keep runtime wiring explicit without keeping all policy in one facade
+- Completion criteria:
+  - `AppOrchestrator` no longer acts as the default owner for new runtime policy or startup logic
+  - the `Orchestrator` / `core` import cycle is gone
+  - remaining runtime responsibilities are grouped into explicit collaborators with auditable ownership
+  - `InitializationCoordinator` is reduced to a crisp startup boundary instead of a second hotspot facade
+- Must-finish to close this priority:
+  - remove the `Orchestrator` / `core` import cycle
+  - reduce `AppOrchestrator` and `InitializationCoordinator` to their intended steady-state ownership boundaries
+  - remove transitional seams created during the round-2 runtime cleanup
+- Nice-to-do while in the area:
+  - tighten adjacent runtime naming or helper placement if the change is directly touched anyway
+  - collapse trivial pass-through helpers that become obviously redundant during the extraction
+- Cleanup track:
+  - [ ] `P1-W1` break the `Orchestrator` / `core` startup import cycle without adding another compatibility seam
+  - [ ] `P1-W2` extract coordinator construction and dependency assembly paths that still make `AppOrchestrator` the central runtime factory
+  - [ ] `P1-W3` split remaining coarse-grained startup policy out of `InitializationCoordinator`
+  - [ ] `P1-W4` remove leftover pass-through runtime helpers, duplicate lifecycle handoffs, and any transitional seams created by the round-2 extraction
+  - [ ] `P1-W5` run a full cleanup pass for this priority so the remaining `AppOrchestrator` surface matches the intended steady-state boundary rather than a partially reduced hotspot
 
-## Priority 3: Introduce Real Persistence Boundaries
-
-- ROI: Very high
-- Why it matters: persisted state is currently too distributed, which duplicates parsing and increases webOS-specific failure risk.
-- Target outcomes:
-  - No new raw `localStorage` calls in feature modules.
-  - Storage ownership moves behind stores/repositories.
-  - Validation and migration logic becomes centralized.
-- Candidate extractions:
-  - `SettingsStore`
-  - `ChannelRepository`
-  - `DebugOverridesStore`
-  - focused owners for selected server and server health state
-- Likely files:
-  - `src/utils/storage.ts`
-  - `src/modules/ui/settings/**`
-  - `src/modules/scheduler/channel-manager/**`
-  - `src/modules/plex/discovery/**`
-  - `src/modules/plex/stream/**`
-- Guardrails:
-  - Use safe storage helpers inside the storage owner.
-  - Normalize invalid values immediately.
-  - Keep storage failures non-fatal.
-- Verification:
-  - `npm run typecheck`
-  - `npm test`
-  - `npm run verify` when UI/Orchestrator/Plex wiring changes
-- Checklist:
-  - [ ] Pick one storage namespace and assign a single owner
-  - [ ] Move parsing and defaults into that owner
-  - [ ] Replace direct feature-module storage access with injected boundary
-  - [ ] Add tests for valid, invalid, default, and blocked-storage cases
-- Primary work units:
-  - [x] P3-W1 - Introduce `SettingsStore` and remove direct settings parsing from `SettingsScreen` (done 2026-03-04; plan: unavailable-pre-bootstrap)
-  - [x] P3-W2 - Extract debug-override storage into a dedicated store (done 2026-03-04; plan: unavailable-pre-bootstrap)
-  - [x] P3-W3 - Add a repository/store for selected server and server health state (done 2026-03-05; plan: unavailable-pre-bootstrap)
-  - [x] P3-W4 - Introduce a dedicated channel persistence boundary and route one caller through it (done 2026-03-05; plan: unavailable-pre-bootstrap)
-  - [x] P3-W5 - Cleanup pass for Priority 3: remove leftover raw storage access, duplicate key knowledge, temporary adapters, and obsolete parsing helpers after the persistence boundaries are in place (done 2026-03-05; plan: unavailable-pre-bootstrap)
-  - [x] P3-W6 - Introduce `DeveloperSettingsStore` for debug flags and replace remaining direct reads of DEBUG_LOGGING / SUBTITLE_DEBUG_LOGGING in non-UI modules (done 2026-03-08; plan: docs/archive/plans/2026-03-08-p3-w6-developer-settings-store-summary.md)
-
-## Priority 4: Decompose The Largest UI Classes
+## Priority 2: Finish App-Shell And Startup Boundary Cleanup
 
 - ROI: High
-- Why it matters: large stateful UI classes are where focus, timing, and rendering regressions become hardest to reason about.
-- Primary targets:
+- Why it matters: `App.ts` is no longer the top hotspot, but it still owns client-ID persistence, screen visibility policy, and shell/runtime handoffs that should be thinner and more explicit.
+- Primary files:
+  - `src/App.ts`
+  - `src/core/app-shell/**`
+  - `src/modules/plex/auth/helpers.ts`
+- Target outcomes:
+  - remove duplicated client-ID ownership
+  - keep `App` focused on shell composition, not durable policy
+  - make screen and startup handoffs easier to audit
+- Completion criteria:
+  - `App` owns shell composition and shell-only coordination, not duplicated persistence or feature policy
+  - startup handoffs between `App`, the shell helpers, and orchestrator-facing code are explicit and minimal
+  - screen visibility rules live behind stable shell boundaries instead of accumulating ad hoc in `App`
+- Must-finish to close this priority:
+  - remove duplicated client-ID ownership from the app shell path
+  - leave `App` as a shell composition surface instead of a second policy owner
+  - clean up shell glue left behind by the boundary tightening
+- Nice-to-do while in the area:
+  - normalize shell-level naming or helper placement where touched
+  - reduce obvious boilerplate in shell-only presenters if it falls out naturally from the main cleanup
+- Cleanup track:
+  - [ ] `P2-W1` move client-identifier ownership behind one explicit owner used by both `App` and Plex auth
+  - [ ] `P2-W2` narrow the `App` screen-visibility seam so it coordinates shell surfaces rather than feature details
+  - [ ] `P2-W3` remove any remaining feature-specific persistence or trust-boundary policy from `App`
+  - [ ] `P2-W4` clean up shell-level glue, duplicate container knowledge, and any app-shell transitional seams left after the boundary cleanup
+
+## Priority 3: Consolidate Persistence Ownership And Storage Policy
+
+- ROI: High
+- Why it matters: partial review results and direct repo inspection both show that persistence ownership is improved but still incomplete and inconsistently documented.
+- Primary files:
+  - `src/modules/plex/auth/PlexAuth.ts`
+  - `src/modules/plex/auth/helpers.ts`
+  - `src/modules/lifecycle/StateManager.ts`
   - `src/modules/ui/epg/EPGComponent.ts`
+  - `src/modules/ui/epg/utils.ts`
+  - `src/core/channel-setup/ChannelSetupCoordinator.ts`
+  - `docs/architecture/CURRENT_STATE.md`
+- Target outcomes:
+  - every persistent key has one explicit owner
+  - direct `localStorage` access outside sanctioned owners becomes rare and deliberate
+  - current-state docs reflect the real owner list
+- Completion criteria:
+  - every durable storage key is owned by one named runtime/store/repository boundary
+  - any remaining direct `localStorage` access is explicitly justified, documented, and limited to boundary code
+  - current-state docs and real code agree on the persistence-owner map
+- Must-finish to close this priority:
+  - assign one explicit owner to each remaining persistent key family
+  - either remove or explicitly justify every remaining direct-storage bypass
+  - update architecture/current-state docs so the persistence-owner map matches the code
+- Nice-to-do while in the area:
+  - normalize storage helper naming where ownership cleanup exposes awkward seams
+  - consolidate tiny adjacent persistence helpers if they are clearly duplicate after the owner map is cleaned up
+- Cleanup track:
+  - [ ] `P3-W1` unify client-ID ownership and remove duplicate storage logic between app shell and Plex auth
+  - [ ] `P3-W2` decide and document the intended owner for lifecycle persistence versus channel-specific persistence edges
+  - [ ] `P3-W3` isolate, wrap, or explicitly document the remaining direct-storage exceptions for EPG debug logging and channel-setup stale-key cleanup
+  - [ ] `P3-W4` audit the rest of the repo for storage-owner drift and remove any newly discovered raw-storage bypasses before closing the priority
+  - [ ] `P3-W5` refresh `CURRENT_STATE` and adjacent docs so the persistence-owner list is accurate and complete
+
+## Priority 4: Complete UI And Coordinator Round-2 Decomposition
+
+- ROI: High
+- Why it matters: completed subjective batches still call out coarse seams in `EPGComponent`, `EPGCoordinator`, `ChannelSetupCoordinator`, and adjacent UI/runtime coordinators.
+- Primary files:
+  - `src/modules/ui/epg/**`
+  - `src/core/channel-setup/**`
+  - `src/modules/navigation/NavigationManager.ts`
   - `src/modules/ui/settings/SettingsScreen.ts`
   - `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
 - Target outcomes:
-  - Separate state, rendering, navigation, and async coordination.
-  - Reduce multi-purpose `show()` and `hide()` behavior.
-  - Improve testability without private probing.
-- Candidate extractions:
-  - view/state objects
-  - focus/navigation controllers
-  - rendering helpers / subviews
-  - async coordinators for load/save flows
-- Guardrails:
-  - Preserve TV remote behavior, focus order, and bounded DOM usage.
-  - No network waits in `show()`.
-  - Hidden UI should not keep timers or listeners alive.
-- Verification:
-  - `npm run verify`
-- Checklist:
-  - [ ] Pick one UI class and map its state/render/input responsibilities
-  - [ ] Extract one concern at a time
-  - [ ] Keep focus cleanup ownership explicit
-  - [ ] Re-test the affected navigation flow after each extraction
-- Primary work units:
-  - [x] P4-W1 - Split `SettingsScreen` into storage/state ownership vs view/focus ownership (done 2026-03-05; plan: docs/archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md)
-  - [x] P4-W2 - Split one bounded concern out of `EPGComponent` (recommended: navigation or info-panel orchestration) (done 2026-03-06; plan: docs/archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md)
-  - [x] P4-W3 - Split one bounded concern out of `ChannelSetupScreen` (recommended: step orchestration vs view rendering) (done 2026-03-06; plan: docs/archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md)
-  - [x] P4-W4 - Consolidate repeated focus/render helpers into reusable UI primitives only after the first three extractions are stable (done 2026-03-06; plan: docs/archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md)
-  - [x] P4-W5 - Cleanup pass for Priority 4: remove placeholder view glue, dead DOM refs, temporary focus bridges, and transitional UI conditionals introduced during the screen splits (done 2026-03-06; plan: docs/archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md)
+  - reduce multi-responsibility coordinator facades
+  - keep UI timing/focus/render ownership bounded
+  - improve behavior-level testability without private seams
+- Completion criteria:
+  - the remaining large UI/coordinator hotspots have explicit ownership splits for state, rendering, timing, focus, and orchestration
+  - no major UI coordinator remains a catch-all facade for unrelated timing, persistence, and presentation behavior
+  - the affected suites can be tested through public behavior seams rather than internal coordination state
+- Must-finish to close this priority:
+  - remove the known coarse-grained ownership problems in the listed UI/coordinator hotspots
+  - preserve or improve public-behavior testability across the touched flows
+  - remove transitional timing/focus/render glue left behind by the round-2 decomposition
+- Nice-to-do while in the area:
+  - align small UI helper naming or file placement while the ownership split is already in motion
+  - delete redundant local glue code that becomes dead after the main extraction
+- Cleanup track:
+  - [ ] `P4-W1` split the next bounded concern out of `EPGCoordinator` and `EPGComponent`, not just one temporary seam
+  - [ ] `P4-W2` narrow `ChannelSetupCoordinator` so planning, build execution, rerun workflow, and persistence are not co-owned
+  - [ ] `P4-W3` audit and split `NavigationManager` where focus-rule logic and input/timing logic are separable
+  - [ ] `P4-W4` finish remaining round-2 cleanup in `SettingsScreen` / `ChannelSetupScreen` if the subjective tail batches still flag them
+  - [ ] `P4-W5` remove transitional coordinator glue, timing bridges, and UI helper residue created by the round-2 decomposition
 
-## Priority 5: Break PlexStreamResolver Into A Pipeline Of Policies
+## Priority 5: Tighten Plex/Auth/Discovery Trust Boundaries
 
 - ROI: High
-- Why it matters: this is a fragile integration boundary that currently mixes URL construction, auth handling, transport policy, codec policy, subtitle strategy, and debug behavior.
+- Why it matters: the partial subjective review found incomplete migration branches, policy drift across trust boundaries, and constructor-time persistence behavior in auth and discovery flows.
+- Primary files:
+  - `src/modules/plex/auth/**`
+  - `src/modules/plex/discovery/**`
+  - `src/modules/plex/library/**`
+  - `src/modules/plex/stream/**`
+  - `src/modules/player/SubtitleManager.ts`
 - Target outcomes:
-  - Smaller policy units for direct play, transcode decisions, subtitle delivery, and request helpers.
-  - Easier regression testing for playback edge cases.
-  - Clearer boundaries between transport helpers and media decision logic.
-- Candidate extractions:
-  - request/timeout helper
-  - URL builder/token injection helper
-  - media selection policy
-  - subtitle delivery policy
-  - HDR/audio compatibility policy
-- Likely files:
-  - `src/modules/plex/stream/PlexStreamResolver.ts`
-  - supporting helpers under `src/modules/plex/stream/`
-- Guardrails:
-  - Preserve token safety.
-  - Preserve direct play vs transcode behavior.
-  - Keep feature flags and debug behavior out of core decision logic where possible.
-- Verification:
-  - `npm run verify`
-- Checklist:
-  - [ ] Map the current responsibilities inside `PlexStreamResolver`
-  - [ ] Extract one policy seam with targeted tests
-  - [ ] Keep URL/token handling centralized and auditable
-  - [ ] Re-run affected playback and subtitle tests
-- Primary work units:
-  - [x] P5-W1 - Extract request timeout/fetch helpers and keep behavior unchanged (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-5-plex-stream-policy-section-summary.md)
-  - [x] P5-W2 - Extract URL building and token injection into one auditable helper (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-5-plex-stream-policy-section-summary.md)
-  - [x] P5-W3 - Extract subtitle delivery policy from the main resolver (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-5-plex-stream-policy-section-summary.md)
-  - [x] P5-W4 - Extract media selection plus HDR/audio compatibility rules into focused policy units (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-5-plex-stream-policy-section-summary.md)
-  - [x] P5-W5 - Cleanup pass for Priority 5: remove temporary wrapper methods, duplicated decision branches, and transitional resolver plumbing left behind after the policy extractions (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-5-plex-stream-policy-section-summary.md)
-  - [x] P5-W6 - Introduce a typed playback settings boundary + unify DTS passthrough gating for direct-play vs advertised capabilities (remove remaining raw storage reads in `PlexStreamResolver`) (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-5-plex-stream-policy-section-summary.md)
+  - make auth and trust-boundary behavior consistent across sibling Plex modules
+  - remove stale fallback or dual-path migration logic that no longer has active value
+  - keep token/query-param behavior auditable and origin-safe
+- Completion criteria:
+  - auth, authorization, token transport, and trust-boundary rules are consistent across Plex-facing modules
+  - obsolete migration or fallback branches have been removed rather than merely documented
+  - token/query-param behavior is centralized enough to audit without chasing sibling drift
+- Must-finish to close this priority:
+  - remove the known trust-boundary drift across auth/discovery/library/player-facing paths
+  - retire obsolete migration and compatibility branches that still have active production cost
+  - leave token/query-param policy auditable from one clear surface or a very small aligned set of surfaces
+- Nice-to-do while in the area:
+  - clean up low-value defensive duplication in Plex parsing or request helpers when directly touched
+  - standardize nearby auth/trust naming if it reduces future drift without creating extra scope
+- Cleanup track:
+  - [ ] `P5-W1` normalize auth/trust-boundary error handling across auth, discovery, library, player, and playback-options surfaces
+  - [ ] `P5-W2` remove inactive migration or compatibility branches from auth, subtitle, player, and related Plex surfaces after tests prove they are obsolete
+  - [ ] `P5-W3` consolidate token-in-URL usage and origin-trust checks behind one clear policy surface or a very small set of aligned surfaces
+  - [ ] `P5-W4` remove any remaining sibling policy drift that the completed and pending subjective findings flag inside Plex-facing modules
 
-## Priority 6: Reintroduce A Dedicated Channel Persistence Layer
+## Priority 6: Complete Scheduler And Channel Domain Cleanup
 
 - ROI: Medium-high
-- Why it matters: `ChannelManager` currently mixes domain behavior with serialization, normalization, and storage recovery.
+- Why it matters: `ChannelManager` is smaller than before but still carries cleanup residue, mixed responsibilities, and production comments that should not remain in the steady-state code.
+- Primary files:
+  - `src/modules/scheduler/channel-manager/**`
+  - `src/modules/scheduler/scheduler/**`
+  - `src/utils/**`
 - Target outcomes:
-  - `ChannelManager` focuses on channel behavior and orchestration.
-  - A repository/store owns serialization, loading, normalization, and migration.
-- Likely files:
-  - `src/modules/scheduler/channel-manager/ChannelManager.ts`
-  - new persistence boundary under `src/modules/scheduler/channel-manager/`
-- Guardrails:
-  - Keep normalization logic test-covered.
-  - Avoid changing scheduling behavior during structural extraction.
-- Verification:
-  - `npm run typecheck`
-  - `npm test`
-- Checklist:
-  - [ ] Isolate serialization and load/save logic
-  - [ ] Move migration/normalization behind a repository boundary
-  - [ ] Keep `ChannelManager` focused on domain operations
-- Primary work units:
-  - [x] P6-W1 - Extract serialization/deserialization into a dedicated codec/helper (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-6-channel-persistence-section-summary.md)
-  - [x] P6-W2 - Introduce `ChannelRepository` for load/save and move raw storage calls behind it (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-6-channel-persistence-section-summary.md)
-  - [x] P6-W3 - Move normalization and migration rules behind the same boundary and simplify `ChannelManager` (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-6-channel-persistence-section-summary.md)
-  - [x] P6-W4 - Cleanup pass for Priority 6: remove temporary repository adapters, duplicate serialization paths, and dead persistence helpers after `ChannelManager` no longer owns them (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-6-channel-persistence-section-summary.md)
+  - remove leftover migration/review scaffolding from scheduler-domain code
+  - keep channel persistence, content resolution, and retry behavior easier to audit
+  - reduce catch-all utility spillover
+- Completion criteria:
+  - `ChannelManager` and adjacent scheduler code read like steady-state production code, not like a partially cleaned migration surface
+  - scheduler-domain responsibilities are explicit enough that further edits do not require spelunking review-history residue
+  - utility spillover from scheduler/channel work is brought back under clear ownership
+- Must-finish to close this priority:
+  - remove scheduler-domain review-history residue and transitional cleanup scaffolding
+  - finish the known responsibility cleanup in `ChannelManager` and adjacent scheduler owners
+  - move scheduler-specific helpers out of catch-all utility surfaces where ownership is currently wrong
+- Nice-to-do while in the area:
+  - standardize scheduler naming/protocol drift that becomes obvious during the main cleanup
+  - simplify small adjacent helpers if the primary cleanup makes them redundant
+- Cleanup track:
+  - [ ] `P6-W1` remove review-history / issue-round comments and replace any remaining needed context with durable code comments or docs
+  - [ ] `P6-W2` extract or simplify any remaining `ChannelManager` responsibility clusters that still blur domain, retry, and persistence concerns
+  - [ ] `P6-W3` reduce utility-layer catch-all drift where feature-specific helpers belong closer to their owners
+  - [ ] `P6-W4` run a final scheduler-domain cleanup pass to remove transitional helpers, duplicate conventions, and stale abstraction residue
 
-## Priority 7: Refresh Architecture Documentation So It Matches Reality
+## Priority 7: Improve Test Strategy And Public Seam Realism
 
-- ROI: Medium
-- Why it matters: stale architecture docs cause bad assumptions and make future refactors slower and riskier.
-- Current problems:
-  - docs still reference outdated or renamed pieces
-  - some described module boundaries do not match the current source tree
-- Target outcomes:
-  - `docs/architecture/README.md` and `docs/architecture/modules.md` match current code
-  - hotspot ownership is documented honestly
-  - current composition roots and module boundaries are explicit
-- Verification:
-  - manual doc review for path and ownership accuracy
-- Checklist:
-  - [ ] Update diagrams and module names
-  - [ ] Remove stale components that no longer exist
-  - [ ] Document the real current hotspots and intended boundaries
-- Primary work units:
-  - [x] P7-W1 - Refresh `docs/architecture/README.md`,
-  Refresh `docs/architecture/modules.md` so module names and boundaries match the real source tree,  
-  Add explicit notes about current hotspots and intended post-cleanup ownership, and a Cleanup pass for Priority 7: remove stale references, outdated examples, and superseded wording from architecture docs once the new descriptions are complete (done 2026-03-08; plan: docs/archive/plans/2026-03-08-priority-7-architecture-doc-refresh-summary.md)
-
-## Priority 8: Improve Public Test Seams And Reduce Private-Probe Dependence
-
-- ROI: Medium
-- Why it matters: tests that need private access are a sign the production seams are not clean enough.
-- Target outcomes:
-  - More behavior tested through public APIs or extracted collaborators
-  - audit of any overengineered or redundant/unhelpful tests for deletion
-  - Less need for frozen private-probe debt
-- Likely files:
+- ROI: Medium-high
+- Why it matters: the frozen private-probe baseline is now zero, but wider test coupling and internal-seam dependence still exist outside the frozen suites.
+- Primary files:
+  - `src/__tests__/**`
+  - `src/modules/**/__tests__/**`
   - `src/__tests__/policy/AntiPatterns.policy.test.ts`
-  - hotspot test suites under `src/__tests__/` and `src/modules/**/__tests__/`
-- Guardrails:
-  - Do not add test-only production hacks.
-  - Prefer extracting a real public collaborator over exposing private state.
-- Verification:
-  - `npm test`
-- Checklist:
-  - [ ] Identify one private-probe-heavy area
-  - [ ] Extract a public seam that can be tested directly
-  - [ ] Convert at least one test away from private probing
-- Primary work units:
-  - [ ] P8-W1 - Reduce private probing in the orchestrator playback tests by routing through the first extracted controller
-  - [ ] P8-W2 - Reduce one private-probe-heavy UI test after the corresponding UI extraction lands, and report remaining debt
-  - [ ] P8-W3 - Tighten the anti-pattern baseline once at least one hotspot suite no longer needs the old probe path, and report remaining debt
-  - [ ] P8-W4 - Cleanup pass for Priority 8: remove obsolete test helpers, dead probe utilities, overengineered/redundant/unhelpful tests, and transitional assertions after the new public seams are stable
+- Target outcomes:
+  - reduce brittle implementation-coupled tests outside the frozen suite policy surface
+  - keep behavior-level coverage strong on hotspot modules
+  - avoid regressing into private-probe-heavy tests while still deleting redundant test ceremony
+- Completion criteria:
+  - the remaining hotspot suites prefer public behavior and real collaborators over internals and incidental mechanics
+  - test utilities encourage realistic seams rather than state injection and private patching
+  - the frozen baseline staying at zero is backed by better test realism, not just narrower policy scope
+- Must-finish to close this priority:
+  - complete the `test_strategy` subjective input and act on its highest-confidence findings
+  - reduce known non-frozen hotspot reliance on internals and incidental assertions
+  - leave the affected test utilities pushing authors toward public seams instead of private patching
+- Nice-to-do while in the area:
+  - remove redundant or overbuilt assertions that become obviously unnecessary during seam cleanup
+  - normalize nearby test helper patterns where touched
+- Cleanup track:
+  - [ ] `P7-W1` finish the remaining `test_strategy` subjective review batch and fold its highest-confidence findings into this priority
+  - [ ] `P7-W2` identify and fix or delete non-frozen hotspot suites that still lean on internals
+  - [ ] `P7-W3` tighten test utility patterns that encourage state injection over behavior-level seams
+  - [ ] `P7-W4` run a follow-up cleanup pass on redundant, overbuilt, or brittle tests in the affected hotspot areas
 
-## Suggested Execution Order
+## Priority 8: Remove Cleanup Residue, AI-Slop Ceremony, And Control-Plane Drift
 
-- Start with one narrow extraction from `src/Orchestrator.ts`
-- Then split one responsibility out of `src/App.ts`
-- Then introduce one storage owner and convert one namespace
-- Then tackle one major UI class
+- ROI: Medium
+- Why it matters: partial subjective results already show persistent template headers, low-value docblock repetition, transitional comments, and a completed wave-1 backlog that no longer fits the active surface.
+- Primary files:
+  - `src/**`
+  - `docs/architecture/**`
+  - `docs/agentic/**`
+  - `docs/archive/checklists/2026-03-09-architecture-cleanup-checklist-wave-1.md`
+- Target outcomes:
+  - remove low-value structural ceremony and cleanup residue
+  - keep active docs current and archived docs historical
+  - keep temporary migration notes or issue-history breadcrumbs out of production code
+- Completion criteria:
+  - production code no longer carries obvious review-history residue, low-value boilerplate docblocks, or cargo-cult cleanup scaffolding
+  - active control-plane docs are current, and historical material is archived instead of mixed into live surfaces
+  - the temporary subjective-review completion gate is removed after the import and rebalance pass
+- Must-finish to close this priority:
+  - remove known cleanup residue and low-value ceremony from touched production areas
+  - keep active docs current and archive historical material instead of leaving it mixed into live surfaces
+  - remove the temporary subjective-review completion gate once the import is done and the checklist is rebalanced
+- Nice-to-do while in the area:
+  - prune small doc/comment noise that is clearly redundant after the main cleanup
+  - consolidate minor control-plane wording drift if it is directly adjacent to the required edits
+- Cleanup track:
+  - [ ] `P8-W1` remove low-value template/docblock scaffolding in all high-noise hotspot areas confirmed by the remaining subjective batches
+  - [ ] `P8-W2` clean up documented drift between active backlog, current-state docs, and real persistence owners
+  - [ ] `P8-W3` remove review-history breadcrumbs, migration residue comments, and stale cleanup scaffolding from production code across the affected priorities
+  - [ ] `P8-W4` remove the temporary subjective-review completion gate at the top of this file once the run is imported and the priority order is refreshed
 
-Keep each step small enough to verify cleanly.
+## Closeout Rules For This Draft
 
-## Review Notes
-
-- This backlog is based on direct repo inspection, not on a rewrite plan.
-- The fastest path is incremental extraction with strong verification, not a broad re-architecture effort.
-- The new skills added in this change are intended to stop the same structural drift from continuing while this backlog is being worked down.
+- Do not treat the temporary completion gate as permanent policy.
+- Do not close a priority after one bounded extraction if meaningful debt in that same priority area is still known to remain.
+- Do not mint new multi-session work plans from lower priorities until the remaining subjective batches are imported, unless production risk forces it.
+- After the subjective import is complete, refresh:
+  - the evidence snapshot
+  - the priority ordering if needed
+  - the cleanup-track wording where the imported findings add stronger evidence

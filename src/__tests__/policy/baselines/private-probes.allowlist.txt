@@ -1,17 +1,1 @@
-# maxCount=64
-src/__tests__/Orchestrator.test.ts|mutable|_currentStreamDecision
-src/__tests__/Orchestrator.test.ts|mutable|_currentStreamDescriptor
-src/__tests__/Orchestrator.test.ts|mutable|_epg
-src/__tests__/Orchestrator.test.ts|mutable|_epgCoordinator
-src/__tests__/Orchestrator.test.ts|mutable|_initCoordinator
-src/__tests__/Orchestrator.test.ts|mutable|_pendingDayRolloverDayKey
-src/__tests__/Orchestrator.test.ts|mutable|_pendingDayRolloverTimer
-src/__tests__/Orchestrator.test.ts|mutable|_pendingNowPlayingChannelId
-src/__tests__/Orchestrator.test.ts|mutable|_ready
-src/__tests__/Orchestrator.test.ts|mutable|_shouldAutoShowInfoBannerOnNextPlay
-src/__tests__/Orchestrator.test.ts|mutable|_sleepTimer
-src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts|internal|_buildConfig
-src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts|internal|_buildPreviewKey
-src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts|screen|_buildConfig
-src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts|screen|_channelExpansion
-src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts|screen|_strategies
+# maxCount=0

@@ -589,6 +589,39 @@ function checkFeatureRemediationPromptContracts(errors) {
     if (implement !== null) {
         const normalized = normalizeDocText(implement);
         const normalizedLines = normalizeDocLines(implement);
+        const outgoingHandoffMarkers = [
+            'outgoing review',
+            'next review',
+            'review handoff',
+            'next handoff',
+            'next session handoff',
+            'next-session-handoff',
+        ];
+        const patchedArtifactMarkers = [
+            'patched implementation artifact',
+            'diff target',
+            'actual changes',
+            'reviewed commit',
+            'patched diff',
+        ];
+        const findingsArtifactMarkers = ['findings artifact', 'implementation-findings', 'remediation findings'];
+        const reuseMarkers = ['keep', 'reuse', 'same', 'still', 'set to', 'point back'];
+        const reuseNegationMarkers = ['do not', "don't", 'dont', 'never', 'must not'];
+
+        function includesArtifactToken(content) {
+            return /\bartifact\b/u.test(content);
+        }
+
+        const outgoingHandoffLookahead = 12;
+        const hasPatchedArtifactGuidanceInOutgoingHandoffContext = normalizedLines.some((line, index) => {
+            if (!includesAnyMarker(line, outgoingHandoffMarkers)) {
+                return false;
+            }
+
+            const blockText = normalizedLines.slice(index, index + outgoingHandoffLookahead + 1).join(' ');
+            return includesAnyMarker(blockText, patchedArtifactMarkers) && includesArtifactToken(blockText);
+        });
+
         const implementHasReplanTrigger = normalizedLines.some(
             (line) =>
                 line.includes('lineup-feature-plan') &&
@@ -596,7 +629,7 @@ function checkFeatureRemediationPromptContracts(errors) {
                     includesAnyMarker(line, ['bounce back', 'route back', 'send the work back', 'update the plan first']))
         );
         const implementContractSatisfied =
-            includesAllMarkers(normalized, ['artifact']) &&
+            includesArtifactToken(normalized) &&
             implementHasReplanTrigger &&
             includesAnyMarker(normalized, ['remediation', 'fix session', 'fix-session', 'defect remediation', 'findings']) &&
             includesAnyMarker(normalized, [
@@ -607,20 +640,29 @@ function checkFeatureRemediationPromptContracts(errors) {
                 'implementation findings',
                 'fix session',
             ]) &&
-            includesAnyMarker(normalized, [
-                'patched implementation artifact',
-                'diff target',
-                'actual changes',
-                'reviewed commit',
-                'patched diff',
-            ]);
-        const reusesFindingsArtifactForOutgoingReview = normalizedLines.some(
-            (line) =>
-                line.includes('artifact') &&
-                includesAnyMarker(line, ['outgoing review', 'next review', 'review handoff', 'next handoff']) &&
-                includesAnyMarker(line, ['findings artifact', 'implementation-findings', 'remediation findings']) &&
-                includesAnyMarker(line, ['keep', 'reuse', 'same', 'still', 'set to', 'point back'])
-        );
+            hasPatchedArtifactGuidanceInOutgoingHandoffContext;
+        const reusesFindingsArtifactForOutgoingReview = normalizedLines.some((line, index) => {
+            if (!includesAnyMarker(line, outgoingHandoffMarkers)) {
+                return false;
+            }
+
+            const blockLines = normalizedLines.slice(index, index + outgoingHandoffLookahead + 1);
+            return blockLines.some((blockLine) => {
+                if (!includesArtifactToken(blockLine)) {
+                    return false;
+                }
+                if (!includesAnyMarker(blockLine, findingsArtifactMarkers)) {
+                    return false;
+                }
+                if (!includesAnyMarker(blockLine, reuseMarkers)) {
+                    return false;
+                }
+                if (includesAnyMarker(blockLine, reuseNegationMarkers)) {
+                    return false;
+                }
+                return true;
+            });
+        });
 
         if (!implementContractSatisfied) {
             errors.push(
@@ -819,7 +861,6 @@ export function checkTrackedCodexRoleConfig(errors) {
     const configFullPath = path.join(repoRoot, configRelativePath);
     const workflowTracked = isCodexRoleWorkflowTracked(errors);
     const configExists = existsSync(configFullPath);
-    const trackedCodexPaths = getTrackedCodexPaths(errors);
 
     if (!workflowTracked && !configExists) {
         return;
@@ -829,6 +870,8 @@ export function checkTrackedCodexRoleConfig(errors) {
         errors.push(`Missing tracked Codex role config: ${configRelativePath}`);
         return;
     }
+
+    const trackedCodexPaths = getTrackedCodexPaths(errors);
 
     const configContent = readRepoFile(configRelativePath, errors);
     if (configContent === null) {

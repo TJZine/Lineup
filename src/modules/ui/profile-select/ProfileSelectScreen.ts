@@ -14,7 +14,6 @@ import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { safeLocalStorageGet, safeLocalStorageSet } from '../../../utils/storage';
 
-const FOCUS_RESTORE_DELAY_MS = 50;
 const PIN_LENGTH = 4;
 const PIN_MODAL_ID = 'profile-pin';
 
@@ -42,14 +41,13 @@ export class ProfileSelectScreen {
     private _errorEl: HTMLElement;
     private _tipEl: HTMLElement;
     private _listEl: HTMLElement;
-    private _mainButton: HTMLButtonElement;
-    private _signOutButton: HTMLButtonElement;
-    private _focusableIds: string[] = [];
-    private _userButtonIds: string[] = [];
-    private _showMain = false;
-    private _restoreFocusTimeoutId: ReturnType<typeof setTimeout> | null = null;
-    private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
-    private _isLoading: boolean = false;
+	    private _mainButton: HTMLButtonElement;
+	    private _signOutButton: HTMLButtonElement;
+	    private _focusableIds: string[] = [];
+	    private _userButtonIds: string[] = [];
+	    private _showMain = false;
+	    private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
+	    private _isLoading: boolean = false;
 
     private _pinModal: HTMLElement;
     private _pinPromptEl: HTMLElement;
@@ -238,18 +236,14 @@ export class ProfileSelectScreen {
         this._destroyScreenShell = null;
     }
 
-    hide(): void {
-        this._unregisterFocusables();
-        this._unregisterKeyHandler();
-        this._closePinModal();
-        if (this._restoreFocusTimeoutId !== null) {
-            clearTimeout(this._restoreFocusTimeoutId);
-            this._restoreFocusTimeoutId = null;
-        }
-        if (this._pinJustFilledTimeoutId !== null) {
-            clearTimeout(this._pinJustFilledTimeoutId);
-            this._pinJustFilledTimeoutId = null;
-        }
+	    hide(): void {
+	        this._unregisterFocusables();
+	        this._unregisterKeyHandler();
+	        this._closePinModal();
+	        if (this._pinJustFilledTimeoutId !== null) {
+	            clearTimeout(this._pinJustFilledTimeoutId);
+	            this._pinJustFilledTimeoutId = null;
+	        }
         if (this._pinErrorTimeoutId !== null) {
             clearTimeout(this._pinErrorTimeoutId);
             this._pinErrorTimeoutId = null;
@@ -290,15 +284,14 @@ export class ProfileSelectScreen {
             this._handleError(error, 'Unable to load profiles.');
             this._setStatus('Profile list unavailable.');
             this._setTip('Select "Sign out" to switch accounts, then try again.');
-        } finally {
-            this._isLoading = false;
-            const nav = this._orchestrator.getNavigation();
-            if (nav?.getCurrentScreen() === 'profile-select') {
-                this._registerFocusables();
-                this._restoreFocus();
-            }
-        }
-    }
+	        } finally {
+	            this._isLoading = false;
+	            const nav = this._orchestrator.getNavigation();
+	            if (nav?.getCurrentScreen() === 'profile-select') {
+	                this._registerFocusables();
+	            }
+	        }
+	    }
 
     private _renderUsers(users: PlexHomeUser[]): void {
         this._listEl.replaceChildren();
@@ -632,9 +625,9 @@ export class ProfileSelectScreen {
         });
     }
 
-    private _registerFocusables(): void {
-        const nav = this._orchestrator.getNavigation();
-        if (!nav) return;
+	    private _registerFocusables(): void {
+	        const nav = this._orchestrator.getNavigation();
+	        if (!nav) return;
 
         const showMain = this._showMain;
         const focusableIds = [
@@ -649,7 +642,7 @@ export class ProfileSelectScreen {
         const userCount = this._userButtonIds.length;
         const firstActionId = showMain ? this._mainButton.id : this._signOutButton.id;
 
-        focusableIds.forEach((id, index) => {
+	        focusableIds.forEach((id, index) => {
             const element = document.getElementById(id);
             if (!element) return;
 
@@ -694,13 +687,16 @@ export class ProfileSelectScreen {
                 focusable.restorePriority = Math.max(0, 1000 - userIndex);
             }
             nav.registerFocusable(focusable);
-        });
+	        });
 
-        const preferredId = this._userButtonIds[0] ?? (showMain ? this._mainButton.id : this._signOutButton.id);
-        if (preferredId) {
-            nav.setFocus(preferredId, { persist: false });
-        }
-    }
+	        const preferredId = this._userButtonIds[0] ?? (showMain ? this._mainButton.id : this._signOutButton.id);
+	        if (nav.restoreFocusForCurrentScreen()) {
+	            return;
+	        }
+	        if (preferredId) {
+	            nav.setFocus(preferredId, { persist: false });
+	        }
+	    }
 
     private _unregisterFocusables(): void {
         const nav = this._orchestrator.getNavigation();
@@ -744,28 +740,9 @@ export class ProfileSelectScreen {
         this._navKeyHandler = null;
     }
 
-    private _restoreFocus(): void {
-        const nav = this._orchestrator.getNavigation();
-        if (!nav) return;
-        if (this._restoreFocusTimeoutId !== null) {
-            clearTimeout(this._restoreFocusTimeoutId);
-            this._restoreFocusTimeoutId = null;
-        }
-        this._restoreFocusTimeoutId = setTimeout(() => {
-            this._restoreFocusTimeoutId = null;
-            if (!this._container.classList.contains('visible')) return;
-            if (nav.restoreFocusForCurrentScreen()) {
-                return;
-            }
-            const showMain = this._showMain;
-            const preferredId = this._userButtonIds[0] ?? (showMain ? this._mainButton.id : this._signOutButton.id);
-            nav.setFocus(preferredId);
-        }, FOCUS_RESTORE_DELAY_MS);
-    }
-
-    private _buildUserButtonIds(userIds: string[]): string[] {
-        return buildDeterministicButtonIds('btn-profile-', userIds);
-    }
+	    private _buildUserButtonIds(userIds: string[]): string[] {
+	        return buildDeterministicButtonIds('btn-profile-', userIds);
+	    }
 
     private _setStatus(message: string, options?: { tone?: ScreenTone; ariaLive?: ScreenStatus['ariaLive'] }): void {
         if (this._shellSetStatus) {

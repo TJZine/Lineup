@@ -874,6 +874,29 @@ describe('verify-docs', () => {
         expect(result.stderr).toContain('feature-implement prompt doc');
     });
 
+    it('fails when feature implement only references patched artifacts outside outgoing-review handoff context', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-implement.md': [
+                '# Feature Implement',
+                '',
+                '- Support approved-plan execution and remediation/fix execution.',
+                '- Use the handoff ARTIFACT as the fix-session input for listed implementation defects.',
+                '- Note: the patched diff target and reviewed commit contain the actual changes.',
+                '- If the findings show planning or decision defects, send the work back to lineup-feature-plan before coding.',
+                '- For the outgoing review handoff, set ARTIFACT for the next session.',
+                '- Keep the fix session scoped to the listed implementation defects.',
+                '- Do not widen scope while implementing remediation findings.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('points the outgoing review handoff');
+    });
+
     it('fails when feature implement mentions lineup-feature-plan without an explicit re-plan trigger', () => {
         const repoRoot = createRepoFixture({
             'docs/agentic/session-prompts/feature-implement.md': [
@@ -893,6 +916,48 @@ describe('verify-docs', () => {
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('feature-implement prompt doc');
+    });
+
+    it('passes when feature implement outgoing handoff explicitly forbids reusing the findings artifact', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-implement.md': [
+                '# Feature Implement',
+                '',
+                '- Support approved-plan execution and remediation/fix execution.',
+                '- Use the handoff ARTIFACT as the fix-session input for listed implementation defects.',
+                '- If the findings show planning or decision defects, send the work back to lineup-feature-plan before coding.',
+                '- For the outgoing review handoff, set ARTIFACT to the reviewed commit containing the actual changes.',
+                "- For the outgoing review handoff, never reuse the findings artifact as ARTIFACT.",
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('Documentation verification passed.');
+    });
+
+    it('fails when feature implement outgoing handoff keeps ARTIFACT pointed at the findings artifact', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-implement.md': [
+                '# Feature Implement',
+                '',
+                '- Support approved-plan execution and remediation/fix execution.',
+                '- Use the handoff ARTIFACT as the fix-session input for listed implementation defects.',
+                '- If the findings show planning or decision defects, send the work back to lineup-feature-plan before coding.',
+                '- For the outgoing review handoff, set ARTIFACT to the patched diff target so review sees the actual changes.',
+                '- For the outgoing review handoff, keep ARTIFACT set to the findings artifact.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('contradictory outgoing review guidance');
     });
 
     it('fails when feature review prompt omits the implementation-vs-replan remediation split', () => {
