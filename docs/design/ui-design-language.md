@@ -181,7 +181,8 @@ These must be preserved during every redesign pass:
 
 Every surface has a `.theme-glass .{surface}-panel` override block. The glass theme:
 
-- Uses slightly lower scrim opacity (~5% less).
-- May add `backdrop-filter: blur(34px) saturate(140%)` for glassmorphism.
+- Uses slightly lower-opacity smoked scrims than base surfaces (~5% less).
+- Does **not** use `backdrop-filter` or `blur()` on TV surfaces.
 - Uses `var(--font-family-display)` for titles.
-- Does **not** re-introduce surface borders, surface box-shadows, or border-radius that the base design removed.
+- May use electric-cyan focus/selection glow on interactive elements.
+- Does **not** re-introduce surface borders, surface box-shadows, floating-card chrome, or border-radius that the base design removed.
