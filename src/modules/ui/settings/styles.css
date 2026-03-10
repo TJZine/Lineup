@@ -343,6 +343,28 @@
   background: rgba(255, 255, 255, 0.12);
 }
 
+.theme-swiss .settings-categories {
+  background: linear-gradient(
+    135deg,
+    rgba(0, 0, 0, 0.72) 0%,
+    rgba(0, 0, 0, 0.88) 100%
+  );
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 0;
+}
+
+.theme-swiss .settings-title,
+.theme-swiss .settings-detail-title {
+  font-family: var(--font-family-display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.theme-swiss .settings-category-button,
+.theme-swiss .settings-profile-row {
+  border-radius: 0;
+}
+
 /* ============================================================
    Dropdown Popover
    ============================================================ */
@@ -446,6 +468,11 @@
 .theme-glass .settings-dropdown-option:focus,
 .theme-glass .settings-dropdown-option.focused {
   background: var(--glass-panel-soft-hover, rgba(255, 255, 255, 0.10));
+}
+
+.theme-swiss .settings-dropdown,
+.theme-swiss .settings-dropdown-option {
+  border-radius: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
