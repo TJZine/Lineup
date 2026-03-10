@@ -321,9 +321,9 @@
 
 .theme-glass .settings-category-button.active,
 .theme-glass .settings-category-button[aria-selected="true"] {
-  border-color: rgb(var(--focus-color-rgb) / 24%);
+  border-color: rgba(var(--focus-color-rgb), 0.24);
   border-left-color: var(--focus-color);
-  background: linear-gradient(90deg, rgb(var(--focus-color-rgb) / 24%), rgb(var(--focus-color-rgb) / 8%));
+  background: linear-gradient(90deg, rgba(var(--focus-color-rgb), 0.24), rgba(var(--focus-color-rgb), 0.08));
   color: #ffffff;
 }
 
@@ -338,7 +338,7 @@
 
 .theme-glass .settings-profile-row:focus {
   border-color: var(--focus-color);
-  background: rgb(var(--focus-color-rgb) / 14%);
+  background: rgba(var(--focus-color-rgb), 0.14);
 }
 
 .theme-swiss .settings-categories {

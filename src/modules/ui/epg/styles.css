@@ -1636,7 +1636,7 @@
 }
 
 .theme-glass .epg-overlay-showcase {
-  background: var(--glass-scrim-gradient, transparent), rgba(16, 18, 24, 0.50);
+  background: var(--glass-scrim-gradient, none), rgba(16, 18, 24, 0.50);
   border-bottom: 1px solid var(--glass-border-soft);
 }
 
@@ -1659,9 +1659,9 @@
 }
 
 .theme-glass .epg-cell.focused {
-  background: rgb(var(--focus-color-rgb) / 15%);
-  border: 1px solid rgb(var(--focus-color-rgb) / 26%);
-  box-shadow: 0 0 0 3px var(--focus-color) inset, 0 0 14px rgb(var(--focus-color-rgb) / 30%);
+  background: rgba(var(--focus-color-rgb), 0.15);
+  border: 1px solid rgba(var(--focus-color-rgb), 0.26);
+  box-shadow: 0 0 0 3px var(--focus-color) inset, 0 0 14px rgba(var(--focus-color-rgb), 0.30);
   outline: none;
 }
 
@@ -1704,8 +1704,15 @@
 }
 
 .theme-glass .epg-channel-row.focused::before {
-  background: rgb(var(--focus-color-rgb) / 14%);
-  border: 1px solid rgb(var(--focus-color-rgb) / 28%);
+  background: rgba(var(--focus-color-rgb), 0.14);
+  border: 1px solid rgba(var(--focus-color-rgb), 0.28);
+}
+
+@media (forced-colors: active) {
+  .theme-glass .epg-channel-row.focused::before {
+    background: Canvas;
+    border: 2px solid CanvasText;
+  }
 }
 
 /* Premium "laser" current time */

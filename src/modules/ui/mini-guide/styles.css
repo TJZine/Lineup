@@ -200,7 +200,7 @@
 
 /* ============================================================
    Glass Theme Override
-   Lower scrim opacity (~5% less), backdrop blur, display font.
+   Premium smoked acrylic: darker (higher-opacity) scrims than base surfaces, no blur, display font.
    Does NOT re-introduce borders, box-shadows, or top border-radius.
    ============================================================ */
 
@@ -218,6 +218,10 @@
 }
 
 .theme-glass .mini-guide-row.focused {
-  background: linear-gradient(90deg, rgb(var(--focus-color-rgb) / 18%), rgb(var(--focus-color-rgb) / 4%));
+  background: linear-gradient(
+    90deg,
+    rgba(var(--focus-color-rgb), 0.18),
+    rgba(var(--focus-color-rgb), 0.04)
+  );
   border-left: 3px solid var(--focus-color);
 }

@@ -138,5 +138,5 @@
 }
 
 .theme-glass .exit-confirm-panel {
-  background: var(--glass-scrim-gradient, transparent), rgb(6 9 13 / 78%);
+  background: var(--glass-scrim-gradient, none), rgb(6 9 13 / 78%);
 }
