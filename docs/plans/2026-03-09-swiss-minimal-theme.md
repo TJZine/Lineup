@@ -4,9 +4,9 @@
 
 **Goal:** Refresh the Swiss Minimal theme with a "Classic Strong Typography" design direction. This introduces absolute pitch-black backgrounds, stark sharp corners (`0px` radius), brutalist flattened shadows, and high-contrast heavy typography while keeping the striking emerald green accent (`#34d399`).
 
-**Architecture:** Update the `.theme-swiss` token block in `src/styles/themes.css`, overriding shadows and border-radius. In `src/modules/ui/epg/styles.css`, add Swiss-specific classic-guide overrides for the focused state to provide a sharp inner border highlight instead of the default glowing outline. Add a CSS contract test to ensure the Swiss Minimal palette and selector scoping stay locked.
+**Architecture:** Update the `.theme-swiss` token block in `src/styles/themes.css`, overriding shadows and border-radius. In `src/modules/ui/epg/styles.css`, add Swiss-specific classic-guide overrides for the focused state to provide a sharp inner border highlight instead of the default glowing outline.
 
-**Tech Stack:** CSS custom properties, shared theme token architecture, EPG CSS, Jest node-side CSS contract tests, `npm run verify`.
+**Tech Stack:** CSS custom properties, shared theme token architecture, EPG CSS, `npm run verify`.
 
 ---
 
