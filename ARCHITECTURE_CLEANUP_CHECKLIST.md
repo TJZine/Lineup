@@ -1,6 +1,6 @@
 # Architecture Cleanup Checklist
 
-> V2 draft established 2026-03-09. This replaces the completed wave-1 backlog archived at [`docs/archive/checklists/2026-03-09-architecture-cleanup-checklist-wave-1.md`](./docs/archive/checklists/2026-03-09-architecture-cleanup-checklist-wave-1.md).
+> V2 established 2026-03-09 and finalized against the full subjective review import on 2026-03-10. This replaces the completed wave-1 backlog archived at [`docs/archive/checklists/2026-03-09-architecture-cleanup-checklist-wave-1.md`](./docs/archive/checklists/2026-03-09-architecture-cleanup-checklist-wave-1.md).
 
 This document is the active cleanup queue for getting Lineup to production-grade code quality, lower technical debt, lower AI-slop residue, and stronger architecture boundaries.
 
@@ -8,71 +8,10 @@ The goal is not a rewrite. The goal is to make the highest-ROI structural improv
 
 Completion rule: every implementation plan that finishes a `P#-W#` work unit must update this checklist in the same delivery pass before the work is considered complete.
 
-## Temporary Subjective Review Completion Gate
-
-This section is temporary. Remove it after the remaining `desloppify` subjective batches are completed, imported, and the v2 priority order is re-checked in the same pass.
-
-- Current status:
-  - `desloppify status` before subjective import: `overall 37.7 / objective 94.2 / strict 37.7 / verified 94.2`
-  - Partial subjective baseline completed: `10 / 20` batches
-  - Partial subjective average from completed batches: `79.8`
-  - Active run directory: `.desloppify/subagents/runs/20260309_211514`
-- Completed batches:
-  - `batch-1` `cross_module_architecture`
-  - `batch-3` `convention_outlier`
-  - `batch-7` `dependency_health`
-  - `batch-9` `mid_level_elegance`
-  - `batch-12` `ai_generated_debt`
-  - `batch-13` `incomplete_migration`
-  - `batch-14` `package_organization`
-  - `batch-15` `initialization_coupling`
-  - `batch-16` `design_coherence`
-  - `batch-20` `authorization_consistency`
-- Remaining batches:
-  - `batch-2` `high_level_elegance`
-  - `batch-4` `error_consistency`
-  - `batch-5` `naming_quality`
-  - `batch-6` `abstraction_fitness`
-  - `batch-8` `logic_clarity`
-  - `batch-10` `test_strategy`
-  - `batch-11` `api_surface_coherence`
-  - `batch-17` `contract_coherence`
-  - `batch-18` `low_level_elegance`
-  - `batch-19` `type_safety`
-- Recommended remaining run order:
-  - Wave 3: `6`, `11`, `17`, `19`, `5`
-  - Wave 4: `4`, `8`, `10`, `18`, `2`
-
-### Exact Completion Procedure
-
-1. Reuse the existing run directory:
-   - `.desloppify/subagents/runs/20260309_211514`
-2. For each remaining batch, open the generated prompt:
-   - `.desloppify/subagents/runs/20260309_211514/prompts/batch-<N>.md`
-3. Start a fresh reviewer session.
-4. Paste the repo starter prompt first, then paste the generated `batch-<N>.md` prompt exactly.
-5. Save the returned JSON to:
-   - `.desloppify/subagents/runs/20260309_211514/results/batch-<N>.json`
-6. Validate the JSON before import:
-   - `python3 -m json.tool .desloppify/subagents/runs/20260309_211514/results/batch-<N>.json >/dev/null`
-7. Keep `batch_tracking.csv` updated in the same run directory.
-8. After all 20 result files exist and validate, import the run:
-
-```bash
-desloppify review --import-run .desloppify/subagents/runs/20260309_211514 --scan-after-import
-desloppify status
-desloppify show review --status open
-desloppify next --count 20
-```
-
-9. In the same pass:
-   - refresh the evidence snapshot below
-   - rebalance the priority order only if the imported subjective results materially change ROI
-   - remove this entire temporary section
-
 ## How To Use This
 
 - Treat this as the active cleanup queue for architecture and codebase-quality work.
+- Before normal priority flow, triage the current `desloppify` security queue; any open security issue reported by `desloppify status` is a `P0` gate and must be resolved or explicitly deferred before routine cleanup work continues.
 - Work from top to bottom unless a production issue forces a different order.
 - Keep scope narrow and verification strong.
 - Prefer explicit ownership, auditable seams, and fewer hotspot classes.
@@ -80,12 +19,35 @@ desloppify next --count 20
 - Keep plans decision-point-free when delegating to weaker agents.
 - Use [`docs/architecture/CURRENT_STATE.md`](./docs/architecture/CURRENT_STATE.md) for current architecture truth and this file for active cleanup status.
 
-## Provisional Evidence Snapshot
+## Evidence Snapshot
 
-This snapshot is intentionally marked provisional until the remaining subjective batches are imported.
+- Imported subjective run:
+  - run directory: `.desloppify/subagents/runs/20260309_211514`
+  - validated result files: `20 / 20`
+  - import replay: `desloppify review --import-run .desloppify/subagents/runs/20260309_211514 --scan-after-import`
+  - import outcome: `20` trusted dimension updates and `62` new review issues
+- Current post-import score state:
+  - evidence captured on `2026-03-10` from `desloppify status`, `desloppify show review --status open`, and `wc -l` on the listed hotspot files
+  - `desloppify status`: `strict 75.0 / mechanical 94.2 / subjective 62.1`
+  - strict score improved from the pre-import `37.7` baseline to `75.0`
+  - current queue shape: `62` open review issues and `488` total open items
+- Raw imported subjective baseline:
+  - full-batch average across all `20` dimensions: `79.2`
+  - weakest raw batch dimensions: `cross_module_architecture 72.0`, `design_coherence 74.0`, `abstraction_fitness 74.0`, `error_consistency 74.6`, `ai_generated_debt 76.0`, `test_strategy 77.2`
+- Weakest post-import subjective measures:
+  - `cross-module architecture 48.0`
+  - `design coherence 50.0`
+  - `abstraction fit 53.2`
+  - `test strategy 53.2`
+  - `high elegance 54.9`
+  - `type safety 55.5`
+  - `AI generated debt 57.2`
+- Priority-order re-check after full import:
+  - keep the current priority order
+  - the imported review reinforced the existing emphasis on runtime concentration, startup boundaries, persistence ownership, UI/coordinator decomposition, and Plex trust-boundary cleanup rather than surfacing a stronger alternative order
 
 - Largest live source hotspots by size:
-  - `src/Orchestrator.ts` at `2,592` lines
+  - `src/Orchestrator.ts` at `2,595` lines
   - `src/modules/ui/epg/EPGComponent.ts` at `1,920` lines
   - `src/modules/scheduler/channel-manager/ChannelManager.ts` at `1,420` lines
   - `src/modules/plex/stream/PlexStreamResolver.ts` at `1,413` lines
@@ -94,21 +56,72 @@ This snapshot is intentionally marked provisional until the remaining subjective
   - `src/core/InitializationCoordinator.ts` at `998` lines
   - `src/modules/ui/settings/SettingsScreen.ts` at `735` lines
   - `src/App.ts` at `611` lines
-- Strongest partial subjective signals so far:
-  - `cross_module_architecture` remains the weakest completed dimension at `72.0`
-  - `design_coherence` remains weak at `74.0`
-  - `ai_generated_debt` remains weak at `76.0`
-- Strongest repeated findings from completed batches:
-  - `AppOrchestrator` is still the central runtime hub and major blast-radius owner
+- Strongest repeated findings from the imported run:
+  - `AppOrchestrator` is still the central runtime hub, pass-through facade, and major blast-radius owner
   - startup wiring still contains an `Orchestrator` / `core` import cycle
-  - persistence ownership is still inconsistent across runtime, auth, lifecycle, and EPG-debug surfaces
-  - migration residue still exists in auth, lifecycle, subtitle, and player surfaces
-  - some coordinators remain coarse-grained facades instead of crisp boundaries
+  - persistence ownership still leaks through raw storage bypasses and constructor-time state restoration in auth and discovery flows
+  - EPG, channel setup, and navigation still have coarse coordinator boundaries that blur render, orchestration, persistence, and queue/timing policy
+  - Plex-facing auth, discovery, and stream helpers still show contract drift and inconsistent trust-boundary/error protocols
+  - test realism remains weaker around startup, shared error helpers, and timing-sensitive flows than the zero-private-probe baseline alone suggests
+  - migration residue still exists in auth, lifecycle, subtitle, player, and scheduler-adjacent surfaces
+
+## Imported Review Issue Map
+
+This is a high-signal seed map for the imported review queue, not an exhaustive list of all `62` imported review issues.
+
+Use it to keep the highest-risk imported findings tied to concrete work units. For imported issues not listed here, the implementation plan for the touched priority must assign them to a `P#-W#` before the work starts or explicitly record why they are being deferred.
+
+Do not close a listed work unit while its mapped imported issue still remains unresolved without recording the reason.
+
+- `abstraction_fitness::orchestrator_passthrough_facade` -> `P1-W2`, `P1-W4`
+- `cross_module_architecture::orchestrator_initialization_cycle` -> `P1-W1`
+- `cross_module_architecture::storage_owner_boundary_drift` -> `P3-W2`, `P3-W3`, `P3-W4`
+- `api_surface_coherence::fetch_with_timeout_signature_drift` -> `P5-W1`
+- `api_surface_coherence::validate_token_error_contract_gap` -> `P5-W1`
+- `authorization_consistency::profile_select_magic_auth_codes` -> `P5-W1`
+- `authorization_consistency::token_query_origin_policy_drift` -> `P5-W3`
+- `contract_coherence::channel_manager_boundary_contract_mismatch` -> `P6-W2`
+- `contract_coherence::channel_scheduler_mutable_buffer_api` -> `P6-W2`
+- `contract_coherence::resolve_channel_items_leaks_cached_reference` -> `P6-W2`
+- `convention_outlier::container_id_convention_split` -> `P2-W4`
+- `convention_outlier::scheduler_namespace_export_outlier` -> `P6-W4`
+- `test_strategy::untested_core_error_helpers` -> `P7-W1`
+- `test_strategy::bootstrap_internal_seam_coupling` -> `P7-W1`
+- `test_strategy::mock_heavy_top_level_gaps` -> `P7-W2`
+- `test_strategy::timer_and_eventloop_brittleness` -> `P7-W3`
+- `ai_generated_debt::comment_template_ceremony` -> `P8-W1`
+
+## Execution Hygiene
+
+- Security deferral record format:
+  - `issue`: exact `desloppify` issue id or security finding reference
+  - `reason`: why it is being deferred instead of resolved now
+  - `revisit trigger`: the concrete condition or date that forces re-triage
+- Cleanup slice execution template:
+  - `priority/work units`: exact `P#-W#` items in scope for this slice
+  - `imported review issues`: exact mapped or newly assigned imported review issue ids being retired
+  - `security triage`: `none open`, or the deferred/resolved security findings for this slice
+  - `verification`: exact commands that prove the slice is complete
+  - `deferred items`: anything intentionally left open with a concrete reason
+- Evidence refresh checklist:
+  - rerun `desloppify status`
+  - rerun `desloppify show review --status open`
+  - refresh hotspot counts with `wc -l` for the files listed in the evidence snapshot
+  - update this checklist in the same pass when a priority closes, strict score shifts materially, or the imported review ownership map changes
+- Cleanup slice command checklist:
+  - start of slice:
+    - `desloppify status`
+    - `desloppify show review --status open`
+    - any task-specific `desloppify show <pattern>` calls needed to scope the touched findings
+  - end of slice:
+    - rerun the same `desloppify` evidence commands used at slice start
+    - run the verification commands named in the active plan
+    - update this checklist if the slice completed a `P#-W#` item or changed the evidence snapshot
 
 ## Priority 1: Complete Runtime Composition Cleanup In `AppOrchestrator`
 
 - ROI: Highest
-- Why it matters: the strongest completed subjective signals still point at runtime concentration, startup coupling, and coarse-grained orchestration ownership in `src/Orchestrator.ts`.
+- Why it matters: the full subjective import kept runtime concentration as the strongest repeated root-cause cluster: `AppOrchestrator` remains a broad runtime hub/pass-through facade, and the `Orchestrator` / `core` import cycle is still an explicit open finding.
 - Primary files:
   - `src/Orchestrator.ts`
   - `src/core/InitializationCoordinator.ts`
@@ -141,6 +154,7 @@ This snapshot is intentionally marked provisional until the remaining subjective
 
 - ROI: High
 - Why it matters: `App.ts` is no longer the top hotspot, but it still owns client-ID persistence, screen visibility policy, and shell/runtime handoffs that should be thinner and more explicit.
+- Sequencing rule: this priority consumes the startup and runtime seams defined by Priority 1; it should not re-open or redesign orchestrator-facing public seams that P1 is responsible for freezing.
 - Primary files:
   - `src/App.ts`
   - `src/core/app-shell/**`
@@ -169,7 +183,7 @@ This snapshot is intentionally marked provisional until the remaining subjective
 ## Priority 3: Consolidate Persistence Ownership And Storage Policy
 
 - ROI: High
-- Why it matters: partial review results and direct repo inspection both show that persistence ownership is improved but still incomplete and inconsistently documented.
+- Why it matters: the full import confirmed that persistence ownership is improved but still incomplete, with raw `localStorage` bypasses, overlapping lifecycle/channel persistence responsibility, and constructor-time state restoration still showing up as active review debt.
 - Primary files:
   - `src/modules/plex/auth/PlexAuth.ts`
   - `src/modules/plex/auth/helpers.ts`
@@ -203,7 +217,7 @@ This snapshot is intentionally marked provisional until the remaining subjective
 ## Priority 4: Complete UI And Coordinator Round-2 Decomposition
 
 - ROI: High
-- Why it matters: completed subjective batches still call out coarse seams in `EPGComponent`, `EPGCoordinator`, `ChannelSetupCoordinator`, and adjacent UI/runtime coordinators.
+- Why it matters: the imported review strengthened the case that `EPGComponent`, `EPGCoordinator`, `ChannelSetupCoordinator`, and `NavigationManager` still blur render, orchestration, persistence, cache, and timing ownership in ways that keep these seams hard to reason about.
 - Primary files:
   - `src/modules/ui/epg/**`
   - `src/core/channel-setup/**`
@@ -220,6 +234,7 @@ This snapshot is intentionally marked provisional until the remaining subjective
   - the affected suites can be tested through public behavior seams rather than internal coordination state
 - Must-finish to close this priority:
   - remove the known coarse-grained ownership problems in the listed UI/coordinator hotspots
+  - replace the most visible EPG/UI type shortcuts that currently hide boundary confusion, especially duplicated status literal unions and force-cast configuration seams
   - preserve or improve public-behavior testability across the touched flows
   - remove transitional timing/focus/render glue left behind by the round-2 decomposition
 - Nice-to-do while in the area:
@@ -229,13 +244,13 @@ This snapshot is intentionally marked provisional until the remaining subjective
   - [ ] `P4-W1` split the next bounded concern out of `EPGCoordinator` and `EPGComponent`, not just one temporary seam
   - [ ] `P4-W2` narrow `ChannelSetupCoordinator` so planning, build execution, rerun workflow, and persistence are not co-owned
   - [ ] `P4-W3` audit and split `NavigationManager` where focus-rule logic and input/timing logic are separable
-  - [ ] `P4-W4` finish remaining round-2 cleanup in `SettingsScreen` / `ChannelSetupScreen` if the subjective tail batches still flag them
-  - [ ] `P4-W5` remove transitional coordinator glue, timing bridges, and UI helper residue created by the round-2 decomposition
+  - [ ] `P4-W4` finish remaining round-2 cleanup in `SettingsScreen` / `ChannelSetupScreen` where the imported review still flags coarse ownership or cleanup residue
+  - [ ] `P4-W5` remove transitional coordinator glue, timing bridges, duplicated EPG status literals, and force-cast config residue created by the round-2 decomposition
 
 ## Priority 5: Tighten Plex/Auth/Discovery Trust Boundaries
 
 - ROI: High
-- Why it matters: the partial subjective review found incomplete migration branches, policy drift across trust boundaries, and constructor-time persistence behavior in auth and discovery flows.
+- Why it matters: the full import added sharper evidence of Plex trust-boundary drift, including `fetchWithTimeout` signature divergence, `validateToken()` contract mismatch, raw-string auth-code handling, inconsistent token origin checks, and still-active migration/fallback branches.
 - Primary files:
   - `src/modules/plex/auth/**`
   - `src/modules/plex/discovery/**`
@@ -252,21 +267,22 @@ This snapshot is intentionally marked provisional until the remaining subjective
   - token/query-param behavior is centralized enough to audit without chasing sibling drift
 - Must-finish to close this priority:
   - remove the known trust-boundary drift across auth/discovery/library/player-facing paths
+  - make auth-facing contracts honest and aligned, including `validateToken()` behavior, parser failure semantics, and shared auth-error signaling
   - retire obsolete migration and compatibility branches that still have active production cost
   - leave token/query-param policy auditable from one clear surface or a very small aligned set of surfaces
 - Nice-to-do while in the area:
   - clean up low-value defensive duplication in Plex parsing or request helpers when directly touched
   - standardize nearby auth/trust naming if it reduces future drift without creating extra scope
 - Cleanup track:
-  - [ ] `P5-W1` normalize auth/trust-boundary error handling across auth, discovery, library, player, and playback-options surfaces
+  - [ ] `P5-W1` normalize auth/trust-boundary error handling and contracts across auth, discovery, library, player, and playback-options surfaces, including `fetchWithTimeout`, `validateToken()`, parser failure semantics, and shared auth-error codes
   - [ ] `P5-W2` remove inactive migration or compatibility branches from auth, subtitle, player, and related Plex surfaces after tests prove they are obsolete
   - [ ] `P5-W3` consolidate token-in-URL usage and origin-trust checks behind one clear policy surface or a very small set of aligned surfaces
-  - [ ] `P5-W4` remove any remaining sibling policy drift that the completed and pending subjective findings flag inside Plex-facing modules
+  - [ ] `P5-W4` remove any remaining sibling policy drift that the imported subjective findings flag inside Plex-facing modules
 
 ## Priority 6: Complete Scheduler And Channel Domain Cleanup
 
 - ROI: Medium-high
-- Why it matters: `ChannelManager` is smaller than before but still carries cleanup residue, mixed responsibilities, and production comments that should not remain in the steady-state code.
+- Why it matters: the imported review kept scheduler/channel cleanup in the active stack through contract mismatches, mutable read APIs, namespace-export drift, and utility-layer spillover even after the earlier persistence extractions.
 - Primary files:
   - `src/modules/scheduler/channel-manager/**`
   - `src/modules/scheduler/scheduler/**`
@@ -282,20 +298,21 @@ This snapshot is intentionally marked provisional until the remaining subjective
 - Must-finish to close this priority:
   - remove scheduler-domain review-history residue and transitional cleanup scaffolding
   - finish the known responsibility cleanup in `ChannelManager` and adjacent scheduler owners
+  - fix imported scheduler/channel contract debt before calling this boundary stable, especially null-versus-wraparound behavior and mutable read/snapshot leaks
   - move scheduler-specific helpers out of catch-all utility surfaces where ownership is currently wrong
 - Nice-to-do while in the area:
   - standardize scheduler naming/protocol drift that becomes obvious during the main cleanup
   - simplify small adjacent helpers if the primary cleanup makes them redundant
 - Cleanup track:
   - [ ] `P6-W1` remove review-history / issue-round comments and replace any remaining needed context with durable code comments or docs
-  - [ ] `P6-W2` extract or simplify any remaining `ChannelManager` responsibility clusters that still blur domain, retry, and persistence concerns
+  - [ ] `P6-W2` fix scheduler/channel contract mismatches and mutable read APIs in `ChannelManager` and `ChannelScheduler`, then extract or simplify any remaining responsibility clusters that still blur domain, retry, and persistence concerns
   - [ ] `P6-W3` reduce utility-layer catch-all drift where feature-specific helpers belong closer to their owners
-  - [ ] `P6-W4` run a final scheduler-domain cleanup pass to remove transitional helpers, duplicate conventions, and stale abstraction residue
+  - [ ] `P6-W4` run a final scheduler-domain cleanup pass to remove transitional helpers, duplicate conventions, namespace-export drift, and stale abstraction residue
 
 ## Priority 7: Improve Test Strategy And Public Seam Realism
 
 - ROI: Medium-high
-- Why it matters: the frozen private-probe baseline is now zero, but wider test coupling and internal-seam dependence still exist outside the frozen suites.
+- Why it matters: the imported review scored `test_strategy` at `53.2` post-import and specifically called out missing direct coverage for shared error helpers, bootstrap tests tied to internal seam exports, mock-heavy startup/orchestrator coverage, and brittle timing-internal assertions.
 - Primary files:
   - `src/__tests__/**`
   - `src/modules/**/__tests__/**`
@@ -309,22 +326,22 @@ This snapshot is intentionally marked provisional until the remaining subjective
   - test utilities encourage realistic seams rather than state injection and private patching
   - the frozen baseline staying at zero is backed by better test realism, not just narrower policy scope
 - Must-finish to close this priority:
-  - complete the `test_strategy` subjective input and act on its highest-confidence findings
-  - reduce known non-frozen hotspot reliance on internals and incidental assertions
-  - leave the affected test utilities pushing authors toward public seams instead of private patching
+  - act on the imported `test_strategy` findings, not just the frozen private-probe policy surface
+  - reduce known startup/bootstrap/orchestrator reliance on internal seam exports, heavy mocks, and incidental timing assertions
+  - leave the affected test utilities pushing authors toward public seams and realistic collaborators instead of private patching
 - Nice-to-do while in the area:
   - remove redundant or overbuilt assertions that become obviously unnecessary during seam cleanup
   - normalize nearby test helper patterns where touched
 - Cleanup track:
-  - [ ] `P7-W1` finish the remaining `test_strategy` subjective review batch and fold its highest-confidence findings into this priority
-  - [ ] `P7-W2` identify and fix or delete non-frozen hotspot suites that still lean on internals
-  - [ ] `P7-W3` tighten test utility patterns that encourage state injection over behavior-level seams
+  - [ ] `P7-W1` add direct tests for high-impact shared error helpers and remove bootstrap/orchestrator dependence on internal seam exports where the imported review called it out
+  - [ ] `P7-W2` reduce mock-heavy coverage gaps in top-level startup and orchestrator tests so those suites exercise more realistic collaborator seams
+  - [ ] `P7-W3` tighten test utility patterns and timing assertions that currently encourage incidental mechanics over behavior-level checks
   - [ ] `P7-W4` run a follow-up cleanup pass on redundant, overbuilt, or brittle tests in the affected hotspot areas
 
 ## Priority 8: Remove Cleanup Residue, AI-Slop Ceremony, And Control-Plane Drift
 
 - ROI: Medium
-- Why it matters: partial subjective results already show persistent template headers, low-value docblock repetition, transitional comments, and a completed wave-1 backlog that no longer fits the active surface.
+- Why it matters: the imported review kept `AI generated debt` weak at `57.2` and reinforced that template headers, repetitive docblocks, review-history comments, and control-plane wording drift still add noise after the wave-1 reset.
 - Primary files:
   - `src/**`
   - `docs/architecture/**`
@@ -337,26 +354,29 @@ This snapshot is intentionally marked provisional until the remaining subjective
 - Completion criteria:
   - production code no longer carries obvious review-history residue, low-value boilerplate docblocks, or cargo-cult cleanup scaffolding
   - active control-plane docs are current, and historical material is archived instead of mixed into live surfaces
-  - the temporary subjective-review completion gate is removed after the import and rebalance pass
+  - active checklist/current-state wording stays aligned with the imported evidence instead of drifting back toward provisional language
 - Must-finish to close this priority:
   - remove known cleanup residue and low-value ceremony from touched production areas
   - keep active docs current and archive historical material instead of leaving it mixed into live surfaces
-  - remove the temporary subjective-review completion gate once the import is done and the checklist is rebalanced
+  - keep imported-review evidence, current-state docs, and the active checklist in sync as the cleanup backlog evolves
 - Nice-to-do while in the area:
   - prune small doc/comment noise that is clearly redundant after the main cleanup
   - consolidate minor control-plane wording drift if it is directly adjacent to the required edits
 - Cleanup track:
-  - [ ] `P8-W1` remove low-value template/docblock scaffolding in all high-noise hotspot areas confirmed by the remaining subjective batches
-  - [ ] `P8-W2` clean up documented drift between active backlog, current-state docs, and real persistence owners
+  - [ ] `P8-W1` remove low-value template/docblock scaffolding in all high-noise hotspot areas confirmed by the imported review
+  - [ ] `P8-W2` clean up documented drift between the active backlog, `CURRENT_STATE`, and the real persistence-owner map
   - [ ] `P8-W3` remove review-history breadcrumbs, migration residue comments, and stale cleanup scaffolding from production code across the affected priorities
-  - [ ] `P8-W4` remove the temporary subjective-review completion gate at the top of this file once the run is imported and the priority order is refreshed
+  - [ ] `P8-W4` audit remaining control-plane wording drift so active docs stay live and archives stay historical
 
-## Closeout Rules For This Draft
+## Closeout Rules For This Checklist
 
-- Do not treat the temporary completion gate as permanent policy.
 - Do not close a priority after one bounded extraction if meaningful debt in that same priority area is still known to remain.
-- Do not mint new multi-session work plans from lower priorities until the remaining subjective batches are imported, unless production risk forces it.
-- After the subjective import is complete, refresh:
-  - the evidence snapshot
-  - the priority ordering if needed
-  - the cleanup-track wording where the imported findings add stronger evidence
+- Do not mint new multi-session work plans from lower priorities until a higher-priority blocker is resolved, explicitly deprioritized, or accepted as deferred.
+- Do not bypass the `P0` security triage gate just because a lower-numbered cleanup priority is next in sequence.
+- Do not mark a mapped `P#-W#` item complete while its linked imported review issue still remains open unless the remaining gap is explicitly documented as deferred or intentionally split into a follow-up work unit.
+- Do not leave imported review issues unowned: every open imported review issue must either be pre-mapped in this file, assigned in the active implementation plan for the touched priority, or explicitly deferred with a reason.
+- The priority order was re-checked against the full subjective import on `2026-03-10`; keep this order unless newer evidence materially changes ROI.
+- After any cleanup slice materially changes the evidence, refresh:
+  - the evidence snapshot when the backlog meaningfully shifts, after any completed priority, or when strict score changes materially
+  - the priority wording or cleanup-track bullets that were affected
+  - any adjacent current-state docs that would otherwise drift

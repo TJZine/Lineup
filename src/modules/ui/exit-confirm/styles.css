@@ -138,7 +138,5 @@
 }
 
 .theme-glass .exit-confirm-panel {
-  background: var(--glass-scrim-gradient, transparent), rgba(16, 18, 24, 0.55);
-  -webkit-backdrop-filter: var(--glass-backdrop-filter-strong, var(--glass-backdrop-filter));
-  backdrop-filter: var(--glass-backdrop-filter-strong, var(--glass-backdrop-filter));
+  background: var(--glass-scrim-gradient, none), rgb(6 9 13 / 78%);
 }

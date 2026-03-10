@@ -34,19 +34,19 @@ describe('ThemeManager', () => {
         ThemeManager.getInstance();
 
         expect(document.body.classList.contains('theme-directv')).toBe(true);
-        expect(document.body.classList.contains('theme-broadcast')).toBe(false);
+        expect(document.body.classList.contains('theme-slate-pine')).toBe(false);
         expect(document.body.classList.contains('theme-swiss')).toBe(false);
     });
 
     it('removes previous theme class when switching themes', () => {
-        localStorage.setItem(LINEUP_STORAGE_KEYS.THEME, 'broadcast');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.THEME, 'slate-pine');
 
         const manager = ThemeManager.getInstance();
-        expect(document.body.classList.contains('theme-broadcast')).toBe(true);
+        expect(document.body.classList.contains('theme-slate-pine')).toBe(true);
 
         manager.setTheme('swiss');
         expect(document.body.classList.contains('theme-swiss')).toBe(true);
-        expect(document.body.classList.contains('theme-broadcast')).toBe(false);
+        expect(document.body.classList.contains('theme-slate-pine')).toBe(false);
 
         manager.setTheme('directv');
         expect(document.body.classList.contains('theme-directv')).toBe(true);

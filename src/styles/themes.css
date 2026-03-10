@@ -1,5 +1,5 @@
 /**
- * Theme overrides for Broadcast Blue, Swiss Minimal, DirecTV Classic, and Glass.
+ * Theme overrides for Slate & Pine, Swiss Minimal, DirecTV Classic, Glass, and Ember & Steel.
  */
 
 /* Notes:
@@ -8,37 +8,35 @@
  * - Keep `--color-primary-rgb` space-separated (used by rgb(var(--color-primary-rgb) / a)).
  */
 
-.theme-broadcast {
-  --focus-color: #e5a00d;
-  --focus-color-rgb: 229, 160, 13;
-  --color-primary: #00a8e1;
-  --color-primary-rgb: 0 168 225;
-  --color-primary-dark: #007aa8;
-  --color-primary-light: #49c2ea;
-  --color-bg-deep: #0a0608;
-  --color-bg-surface: rgba(6, 10, 18, 0.92);
-  --color-bg-surface: rgb(6 10 18 / 92%);
-  --color-bg-elevated: rgba(10, 14, 22, 0.94);
-  --color-bg-elevated: rgb(10 14 22 / 94%);
-  --color-bg-overlay: rgba(4, 8, 16, 0.86);
-  --color-bg-overlay: rgb(4 8 16 / 86%);
-  --panel-surface: rgba(6, 10, 18, 0.92);
-  --panel-surface: rgb(6 10 18 / 92%);
-  --panel-surface-2: rgba(10, 14, 22, 0.94);
-  --panel-surface-2: rgb(10 14 22 / 94%);
-  --panel-border: 1px solid rgba(255, 255, 255, 0.18);
-  --panel-border: 1px solid rgb(255 255 255 / 18%);
-  --panel-radius: 2px;
-  --panel-inner-glow: linear-gradient(180deg, rgba(229, 160, 13, 0.04), transparent);
-  --panel-inner-glow: linear-gradient(180deg, rgb(229 160 13 / 4%), transparent);
-  --transition-normal: 120ms ease-out;
+.theme-slate-pine {
+  --focus-color: #809a79;
+  --focus-color-rgb: 128, 154, 121;
+  --color-primary: #809a79;
+  --color-primary-rgb: 128 154 121;
+  --color-primary-dark: #607a58;
+  --color-primary-light: #a4bea0;
+  --color-bg-deep: #161917;
+  --color-bg-surface: rgba(26, 29, 27, 0.92);
+  --color-bg-surface: rgb(26 29 27 / 92%);
+  --color-bg-elevated: rgba(34, 38, 35, 0.94);
+  --color-bg-elevated: rgb(34 38 35 / 94%);
+  --color-bg-overlay: rgba(18, 20, 19, 0.86);
+  --color-bg-overlay: rgb(18 20 19 / 86%);
+  --panel-surface: rgba(26, 29, 27, 0.92);
+  --panel-surface: rgb(26 29 27 / 92%);
+  --panel-surface-2: rgba(34, 38, 35, 0.94);
+  --panel-surface-2: rgb(34 38 35 / 94%);
+  --panel-border: 1px solid rgba(255, 255, 255, 0.08);
+  --panel-border: 1px solid rgb(255 255 255 / 8%);
+  --panel-radius: 8px;
+  --panel-inner-glow: linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent);
+  --panel-inner-glow: linear-gradient(180deg, rgb(255 255 255 / 2.5%), transparent);
+  --transition-normal: 200ms ease;
   --epg-info-panel-fade-to: var(--panel-surface-2);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.55);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.65);
-  --shadow-lg: 0 10px 32px rgba(0, 0, 0, 0.72);
-  --scrim-tint-rgb: 6 10 18;
-  --text-xs: 13px;
-  --text-sm: 15px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.40);
+  --shadow-md: 0 4px 10px rgba(0, 0, 0, 0.50);
+  --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.60);
+  --scrim-tint-rgb: 22 24 22;
 }
 
 .theme-swiss {
@@ -48,58 +46,75 @@
   --color-primary-rgb: 52 211 153;
   --color-primary-dark: #10b981;
   --color-primary-light: #6ee7b7;
-  --color-bg-deep: #07090a;
-  --color-bg-surface: rgba(16, 18, 20, 0.8);
-  --color-bg-surface: rgb(16 18 20 / 80%);
-  --color-bg-elevated: rgba(20, 22, 24, 0.86);
-  --color-bg-elevated: rgb(20 22 24 / 86%);
-  --color-bg-overlay: rgba(12, 14, 16, 0.78);
-  --color-bg-overlay: rgb(12 14 16 / 78%);
-  --panel-surface: rgba(16, 18, 20, 0.8);
-  --panel-surface: rgb(16 18 20 / 80%);
-  --panel-surface-2: rgba(20, 22, 24, 0.86);
-  --panel-surface-2: rgb(20 22 24 / 86%);
-  --panel-border: 1px solid rgba(255, 255, 255, 0.06);
-  --panel-border: 1px solid rgb(255 255 255 / 6%);
-  --panel-radius: 14px;
-  --transition-normal: 220ms ease-in-out;
+  --color-bg-deep: #020202;
+  --color-bg-surface: rgba(10, 10, 10, 0.95);
+  --color-bg-surface: rgb(10 10 10 / 95%);
+  --color-bg-elevated: rgba(18, 18, 18, 0.98);
+  --color-bg-elevated: rgb(18 18 18 / 98%);
+  --color-bg-overlay: rgba(0, 0, 0, 0.90);
+  --color-bg-overlay: rgb(0 0 0 / 90%);
+  --panel-surface: rgba(10, 10, 10, 0.95);
+  --panel-surface: rgb(10 10 10 / 95%);
+  --panel-surface-2: rgba(18, 18, 18, 0.98);
+  --panel-surface-2: rgb(18 18 18 / 98%);
+  --panel-border: 1px solid rgba(255, 255, 255, 0.04);
+  --panel-border: 1px solid rgb(255 255 255 / 4%);
+  --panel-radius: 0px;
+  --transition-normal: 150ms ease-out;
   --epg-info-panel-fade-to: var(--panel-surface-2);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.15);
-  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.22);
-  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.30);
-  --panel-inner-glow: linear-gradient(180deg, rgba(52, 211, 153, 0.05), transparent);
-  --panel-inner-glow: linear-gradient(180deg, rgb(52 211 153 / 5%), transparent);
-  --scrim-tint-rgb: 16 18 20;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --panel-inner-glow: none;
+  --scrim-tint-rgb: 0 0 0;
+  --font-family-display: "Helvetica Neue", helvetica, "Avenir Next", arial, sans-serif;
 }
 
 .theme-directv {
   --focus-color: #00a6d6;
   --focus-color-rgb: 0, 166, 214;
-  --color-primary: #00629b;
-  --color-primary-rgb: 0 98 155;
-  --color-primary-dark: #003865;
-  --color-primary-light: #2d8ad0;
+
+  --color-primary: #00a6d6;
+  --color-primary-rgb: 0 166 214;
+  --color-primary-dark: #0087af;
+  --color-primary-light: #61d9ff;
+
   --color-bg-deep: #001020;
-  --color-bg-surface: rgba(0, 40, 80, 0.92);
-  --color-bg-surface: rgb(0 40 80 / 92%);
-  --color-bg-elevated: rgba(0, 28, 56, 0.94);
-  --color-bg-elevated: rgb(0 28 56 / 94%);
-  --color-bg-overlay: rgba(0, 20, 40, 0.86);
-  --color-bg-overlay: rgb(0 20 40 / 86%);
-  --panel-surface: var(--color-bg-surface);
-  --panel-surface-2: rgba(0, 28, 56, 0.94);
-  --panel-surface-2: rgb(0 28 56 / 94%);
-  --panel-border: 1px solid rgba(0, 166, 214, 0.30);
-  --panel-border: 1px solid rgb(0 166 214 / 30%);
+  --color-bg-surface: rgba(0, 32, 64, 0.94);
+  --color-bg-surface: rgb(0 32 64 / 94%);
+  --color-bg-elevated: rgba(0, 42, 82, 0.96);
+  --color-bg-elevated: rgb(0 42 82 / 96%);
+  --color-bg-overlay: rgba(0, 18, 36, 0.90);
+  --color-bg-overlay: rgb(0 18 36 / 90%);
+
+  --panel-surface: rgba(0, 28, 56, 0.94);
+  --panel-surface: rgb(0 28 56 / 94%);
+  --panel-surface-2: rgba(0, 40, 78, 0.96);
+  --panel-surface-2: rgb(0 40 78 / 96%);
+  --panel-border: 1px solid rgba(0, 166, 214, 0.72);
+  --panel-border: 1px solid rgb(0 166 214 / 72%);
   --panel-radius: 2px;
-  --transition-normal: 150ms ease;
+
+  --transition-normal: 120ms linear;
   --epg-info-panel-fade-to: var(--panel-surface-2);
-  --panel-inner-glow: linear-gradient(180deg, rgba(0, 166, 214, 0.08), transparent);
-  --panel-inner-glow: linear-gradient(180deg, rgb(0 166 214 / 8%), transparent);
-  --shadow-sm: 0 1px 2px rgba(0, 10, 30, 0.55);
-  --shadow-md: 0 4px 12px rgba(0, 10, 30, 0.7);
-  --shadow-lg: 0 10px 30px rgba(0, 10, 30, 0.8);
-  --scrim-tint-rgb: 0 20 40;
+  --panel-inner-glow: linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent);
+  --panel-inner-glow: linear-gradient(180deg, rgb(255 255 255 / 14%), transparent);
+
+  --shadow-sm: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  --shadow-md: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 3px 10px rgba(0, 8, 16, 0.55);
+  --shadow-lg: 0 12px 32px rgba(0, 5, 10, 0.82);
+
+  --scrim-tint-rgb: 0 24 48;
+  --font-family-display: "Helvetica Neue", helvetica, "Avenir Next", arial, sans-serif;
+
+  --directv-panel-gradient-start: #001020;
+  --directv-panel-gradient-end: #00305f;
+  --directv-panel-gradient-strong-end: #00437f;
+  --directv-grid-border: #00a6d6;
+  --directv-focus-fill: #ffcc00;
+  --directv-focus-border: #e5a00d;
+  --directv-focus-text: #000000;
+  --directv-copy-secondary: #bdd8f2;
 }
 
 .theme-swiss .now-playing-info-title {
@@ -126,78 +141,101 @@
 }
 
 .theme-glass {
-  --focus-color: #ffffff;
-  --focus-color-rgb: 255, 255, 255;
+  --focus-color: #00e5ff;
+  --focus-color-rgb: 0, 229, 255;
 
-  --color-primary: #e0e7ff;
-  --color-primary-rgb: 224 231 255;
-  --color-primary-dark: #b8c0e0;
-  --color-primary-light: #f0f3ff;
+  --color-primary: #00e5ff;
+  --color-primary-rgb: 0 229 255;
+  --color-primary-dark: #009fb4;
+  --color-primary-light: #7af1ff;
 
-  --color-bg-deep: transparent;
-  --color-bg-surface: rgba(255, 255, 255, 0.05);
-  --color-bg-elevated: rgba(255, 255, 255, 0.10);
-  --color-bg-overlay: rgba(0, 0, 0, 0.40);
+  --color-bg-deep: #05080b;
+  --color-bg-surface: rgba(9, 12, 16, 0.72);
+  --color-bg-surface: rgb(9 12 16 / 72%);
+  --color-bg-elevated: rgba(12, 16, 21, 0.82);
+  --color-bg-elevated: rgb(12 16 21 / 82%);
+  --color-bg-overlay: rgba(4, 6, 9, 0.78);
+  --color-bg-overlay: rgb(4 6 9 / 78%);
 
-  --panel-surface: rgba(20, 20, 25, 0.60);
-  --panel-surface-2: rgba(30, 30, 35, 0.70);
-  --panel-border: 1px solid rgba(255, 255, 255, 0.15);
-  --panel-radius: 24px;
+  --panel-surface: rgba(8, 11, 15, 0.72);
+  --panel-surface: rgb(8 11 15 / 72%);
+  --panel-surface-2: rgba(12, 16, 21, 0.84);
+  --panel-surface-2: rgb(12 16 21 / 84%);
+  --panel-border: 1px solid rgba(255, 255, 255, 0.08);
+  --panel-border: 1px solid rgb(255 255 255 / 8%);
+  --panel-radius: 16px;
 
-  --transition-normal: 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  --epg-info-panel-fade-to: var(--panel-surface-2);
-  --panel-inner-glow: linear-gradient(180deg, rgba(255, 255, 255, 0.10), transparent);
+  --transition-normal: 180ms ease-out;
+  --epg-info-panel-fade-to: rgb(var(--scrim-tint-rgb) / 92%);
+  --panel-inner-glow: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 42%);
+  --panel-inner-glow: linear-gradient(180deg, rgb(255 255 255 / 8%), transparent 42%);
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.55);
-  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.50);
-  --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.60);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.32);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 32%);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.36);
+  --shadow-md: 0 6px 18px rgb(0 0 0 / 36%);
+  --shadow-lg: 0 14px 32px rgba(0, 0, 0, 0.40);
+  --shadow-lg: 0 14px 32px rgb(0 0 0 / 40%);
 
   --font-family-display: "Avenir Next", "Segoe UI", "Noto Sans", sans-serif;
-  --glass-panel-strong: rgba(16, 18, 24, 0.66);
+  --glass-panel-strong: rgba(6, 9, 13, 0.82);
+  --glass-panel-strong: rgb(6 9 13 / 82%);
   --glass-panel-soft: rgba(255, 255, 255, 0.06);
-  --glass-border-strong: rgba(255, 255, 255, 0.24);
-  --glass-border-soft: rgba(255, 255, 255, 0.14);
-  --glass-highlight: rgba(255, 255, 255, 0.18);
-  --glass-shadow-deep: 0 30px 70px rgba(0, 0, 0, 0.58);
-  --glass-panel-soft-hover: rgba(255, 255, 255, 0.10);
-  --glass-backdrop-filter: blur(20px) saturate(135%);
-  --glass-backdrop-filter-strong: blur(32px) saturate(125%);
+  --glass-panel-soft: rgb(255 255 255 / 6%);
+  --glass-border-strong: rgba(255, 255, 255, 0.08);
+  --glass-border-strong: rgb(255 255 255 / 8%);
+  --glass-border-soft: rgba(255, 255, 255, 0.05);
+  --glass-border-soft: rgb(255 255 255 / 5%);
+  --glass-highlight: rgba(255, 255, 255, 0.10);
+  --glass-highlight: rgb(255 255 255 / 10%);
+  --glass-shadow-deep: none;
+  --glass-panel-soft-hover: rgba(0, 229, 255, 0.12);
+  --glass-panel-soft-hover: rgb(0 229 255 / 12%);
+  --glass-backdrop-filter: none;
+  --glass-backdrop-filter-strong: none;
   --glass-scrim-gradient: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.04) 0%,
-    rgba(255, 255, 255, 0.01) 40%,
-    rgba(0, 0, 0, 0.2) 100%
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.01) 32%,
+    rgba(0, 0, 0, 0.30) 100%
   );
-  --scrim-tint-rgb: 16 18 24;
+  --glass-scrim-gradient: linear-gradient(
+    135deg,
+    rgb(255 255 255 / 3%) 0%,
+    rgb(255 255 255 / 1%) 32%,
+    rgb(0 0 0 / 30%) 100%
+  );
+  --scrim-tint-rgb: 8 11 15;
 }
 
 .theme-ember-steel {
-  --focus-color: #d4a07a;
-  --focus-color-rgb: 212, 160, 122;
+  --focus-color: #e0782a;
+  --focus-color-rgb: 224, 120, 42;
 
-  --color-primary: #d4a07a;
-  --color-primary-rgb: 212 160 122;
-  --color-primary-dark: #b8845e;
-  --color-primary-light: #e8c0a0;
+  --color-primary: #e0782a;
+  --color-primary-rgb: 224 120 42;
+  --color-primary-dark: #c45f12;
+  --color-primary-light: #f0a060;
 
-  --color-bg-deep: #12141a;
-  --color-bg-surface: rgba(22, 25, 34, 0.92);
-  --color-bg-elevated: rgba(28, 31, 40, 0.94);
-  --color-bg-overlay: rgba(14, 16, 22, 0.86);
+  --color-bg-deep: #141414;
+  --color-bg-surface: rgba(24, 24, 24, 0.92);
+  --color-bg-elevated: rgba(32, 32, 32, 0.94);
+  --color-bg-overlay: rgba(16, 16, 16, 0.86);
 
-  --panel-surface: rgba(22, 25, 34, 0.92);
-  --panel-surface-2: rgba(28, 31, 40, 0.94);
+  --panel-surface: rgba(24, 24, 24, 0.92);
+  --panel-surface-2: rgba(32, 32, 32, 0.94);
   --panel-border: 1px solid rgba(255, 255, 255, 0.10);
   --panel-radius: 4px;
 
   --transition-normal: 180ms ease-out;
-  --panel-inner-glow: linear-gradient(180deg, rgba(212, 160, 122, 0.04), transparent);
+  --epg-info-panel-fade-to: var(--panel-surface-2);
+  --panel-inner-glow: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.55);
   --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.65);
   --color-live: var(--color-live-warm);
-  --scrim-tint-rgb: 22 25 34;
+  --scrim-tint-rgb: 20 20 20;
 
   --font-family-display: "Avenir Next", "Segoe UI", "Noto Sans", sans-serif;
 }

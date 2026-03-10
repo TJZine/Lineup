@@ -43,7 +43,7 @@ Used instead of solid/glass panel backgrounds. Each surface has its own gradient
 | Channel Badge (top-right) | `rgba(0,0,0,0.30) → rgba(0,0,0,0.40)` 135deg | 40% |
 | Mini Guide (top) | `rgba(0,0,0,0.50) → transparent` vertical | 50% |
 
-Glass theme variants use ~5% lower opacity across the board.
+Glass theme variants use slightly higher opacity (darker) scrims than base surfaces.
 
 ### Borders
 
@@ -181,7 +181,10 @@ These must be preserved during every redesign pass:
 
 Every surface has a `.theme-glass .{surface}-panel` override block. The glass theme:
 
-- Uses slightly lower scrim opacity (~5% less).
-- May add `backdrop-filter: blur(34px) saturate(140%)` for glassmorphism.
+- Uses darker (higher-opacity) smoked scrims than the base surfaces. Concrete examples from current UI:
+- Mini Guide panel: `rgba(0,0,0,0.50)`, `rgba(0,0,0,0.40)`, `rgba(0,0,0,0.18)` -> `rgb(6 9 13 / 72%)`, `rgb(8 11 15 / 56%)`, `rgb(8 11 15 / 22%)`
+- Now Playing Info panel: `rgba(0,0,0,0.30)` to `rgba(0,0,0,0.50)` -> `rgb(6 9 13 / 62%)` to `rgb(8 11 15 / 80%)`
+- Does **not** use `backdrop-filter` or `blur()` on TV surfaces.
 - Uses `var(--font-family-display)` for titles.
-- Does **not** re-introduce surface borders, surface box-shadows, or border-radius that the base design removed.
+- May use electric-cyan focus/selection glow on interactive elements.
+- Does **not** re-introduce surface borders, surface box-shadows, floating-card chrome, or border-radius that the base design removed.

@@ -4,7 +4,7 @@
  */
 
 export const THEME_CLASSES = {
-    broadcast: 'theme-broadcast',
+    'slate-pine': 'theme-slate-pine',
     swiss: 'theme-swiss',
     directv: 'theme-directv',
     glass: 'theme-glass',
@@ -16,7 +16,7 @@ export type ThemeName = keyof typeof THEME_CLASSES;
 export const DEFAULT_THEME: ThemeName = 'ember-steel';
 
 const THEME_LABELS = {
-    broadcast: 'Broadcast Blue',
+    'slate-pine': 'Slate & Pine',
     swiss: 'Swiss Minimal',
     directv: 'DirecTV Classic',
     glass: 'Glassmorphism (Premium)',
@@ -25,7 +25,7 @@ const THEME_LABELS = {
 
 // IMPORTANT: Keep this list exhaustive. If you add a theme, TypeScript should fail compilation
 // until THEME_ORDER includes it (prevents themes silently disappearing from THEME_OPTIONS).
-const THEME_ORDER_RAW = ['ember-steel', 'broadcast', 'swiss', 'directv', 'glass'] as const satisfies ReadonlyArray<ThemeName>;
+const THEME_ORDER_RAW = ['ember-steel', 'slate-pine', 'swiss', 'directv', 'glass'] as const satisfies ReadonlyArray<ThemeName>;
 const THEME_ORDER = Object.freeze(THEME_ORDER_RAW);
 
 type MissingThemes = Exclude<ThemeName, (typeof THEME_ORDER_RAW)[number]>;
