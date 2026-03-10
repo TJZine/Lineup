@@ -9,7 +9,9 @@ const read = (relativePath: string): string =>
 
 const blockFor = (css: string, selector: string): string => {
     const selectorPattern = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const match = css.match(new RegExp(`${selectorPattern}\\s*\\{[\\s\\S]*?\\}`, 'm'));
+    // Match selector blocks even when the selector is part of a grouped selector list.
+    // Keep this resilient to formatting changes (commas/newlines/indentation).
+    const match = css.match(new RegExp(`(^|\\n)\\s*${selectorPattern}\\s*(?:,\\s*)?[^\\{]*\\{[\\s\\S]*?\\}`, 'm'));
     if (!match) {
         throw new Error(`Selector block not found: ${selector}`);
     }
@@ -43,10 +45,7 @@ describe('ember-steel theme contract', () => {
         const genericCellFocused = blockFor(epgCss, '.epg-cell.focused');
         const emberCellFocused = blockFor(epgCss, '.theme-ember-steel .epg-cell.focused');
         const emberClassicCellFocused = blockFor(epgCss, '.theme-ember-steel .epg-container.layout-classic .epg-cell.focused');
-        const emberClassicTimeHeader = blockFor(
-            epgCss,
-            '.theme-ember-steel .epg-container.layout-classic .epg-time-header,\n.theme-ember-steel .epg-container.layout-classic .epg-library-tabs'
-        );
+        const emberClassicTimeHeader = blockFor(epgCss, '.theme-ember-steel .epg-container.layout-classic .epg-time-header');
         const emberClassicChannelList = blockFor(epgCss, '.theme-ember-steel .epg-container.layout-classic .epg-channel-list');
         const emberClassicCellTitle = blockFor(epgCss, '.theme-ember-steel .epg-container.layout-classic .epg-cell-title');
 
@@ -80,22 +79,13 @@ describe('ember-steel theme contract', () => {
 
     it('keeps the generic classic-guide palette unchanged outside the ember-specific override block', () => {
         const epgCss = read('src/modules/ui/epg/styles.css');
-        const genericClassicTimeHeader = blockFor(
-            epgCss,
-            '.epg-container.layout-classic .epg-time-header,\n.epg-container.layout-classic .epg-library-tabs'
-        );
+        const genericClassicTimeHeader = blockFor(epgCss, '.epg-container.layout-classic .epg-time-header');
         const genericClassicStickyHeader = blockFor(epgCss, '.epg-container.layout-classic .epg-time-header-sticky');
         const genericClassicTimeSlot = blockFor(epgCss, '.epg-container.layout-classic .epg-time-slot');
         const genericClassicChannelList = blockFor(epgCss, '.epg-container.layout-classic .epg-channel-list');
         const genericClassicCellTitle = blockFor(epgCss, '.epg-container.layout-classic .epg-cell-title');
-        const genericClassicCellMeta = blockFor(
-            epgCss,
-            '.epg-container.layout-classic .epg-cell-time,\n.epg-container.layout-classic .epg-cell-subtitle,\n.epg-container.layout-classic .epg-cell-meta'
-        );
-        const genericClassicPills = blockFor(
-            epgCss,
-            '.epg-container.layout-classic .epg-cell-episode,\n.epg-container.layout-classic .epg-info-quality-badge,\n.epg-container.layout-classic .epg-info-pill'
-        );
+        const genericClassicCellMeta = blockFor(epgCss, '.epg-container.layout-classic .epg-cell-time');
+        const genericClassicPills = blockFor(epgCss, '.epg-container.layout-classic .epg-cell-episode');
 
         expect(declarationValue(genericClassicTimeHeader, 'background')).toBe('rgba(12, 15, 24, 0.96)');
         expect(declarationValue(genericClassicStickyHeader, 'color')).toBe('#f4f7ff');

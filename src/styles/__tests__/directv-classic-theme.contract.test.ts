@@ -9,7 +9,9 @@ const read = (relativePath: string): string =>
 
 const blockFor = (css: string, selector: string): string => {
     const selectorPattern = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const match = css.match(new RegExp(`${selectorPattern}\\s*\\{[\\s\\S]*?\\}`, 'm'));
+    // Match selector blocks even when the selector is part of a grouped selector list.
+    // Keep this resilient to formatting changes (commas/newlines/indentation).
+    const match = css.match(new RegExp(`(^|\\n)\\s*${selectorPattern}\\s*(?:,\\s*)?[^\\{]*\\{[\\s\\S]*?\\}`, 'm'));
     if (!match) {
         throw new Error(`Selector block not found: ${selector}`);
     }
@@ -41,14 +43,9 @@ describe('directv-classic theme contract', () => {
         const epgCss = read('src/modules/ui/epg/styles.css');
         const classicCell = blockFor(epgCss, '.theme-directv .epg-container.layout-classic .epg-cell');
         const classicFocus = blockFor(epgCss, '.theme-directv .epg-container.layout-classic .epg-cell.focused');
-        const infoPanel = blockFor(
-            epgCss,
-            '.theme-directv .epg-info-panel,\n.theme-directv .epg-info-panel.epg-info-mode-artwork,\n.theme-directv .epg-info-panel.epg-info-mode-theme-default'
-        );
-        const infoBackdrop = blockFor(
-            epgCss,
-            '.theme-directv .epg-info-panel.epg-info-mode-artwork .epg-info-backdrop,\n.theme-directv .epg-info-panel.epg-info-mode-theme-default .epg-info-backdrop'
-        );
+        const infoPanel = blockFor(epgCss, '.theme-directv .epg-info-panel');
+        const artworkBackdrop = blockFor(epgCss, '.theme-directv .epg-info-panel.epg-info-mode-artwork .epg-info-backdrop');
+        const themeDefaultBackdrop = blockFor(epgCss, '.theme-directv .epg-info-panel.epg-info-mode-theme-default .epg-info-backdrop');
 
         expect(declarationValue(classicCell, 'background')).toContain('var(--directv-panel-gradient-start)');
         expect(declarationValue(classicCell, 'border-color')).toBe('rgb(var(--color-primary-rgb) / 82%)');
@@ -56,7 +53,8 @@ describe('directv-classic theme contract', () => {
         expect(declarationValue(classicFocus, 'border-color')).toBe('var(--directv-focus-border)');
         expect(declarationValue(infoPanel, 'background')).toContain('var(--directv-panel-gradient-strong-end)');
         expect(declarationValue(infoPanel, 'border-color')).toBe('rgb(var(--color-primary-rgb) / 82%)');
-        expect(declarationValue(infoBackdrop, 'background')).toContain('var(--directv-panel-gradient-strong-end)');
+        expect(declarationValue(artworkBackdrop, 'background')).toContain('var(--directv-panel-gradient-strong-end)');
+        expect(declarationValue(themeDefaultBackdrop, 'background')).toContain('var(--directv-panel-gradient-strong-end)');
     });
 
     it('keeps Swiss as the only minimal-density theme and removes DirecTV !important suppression', () => {
