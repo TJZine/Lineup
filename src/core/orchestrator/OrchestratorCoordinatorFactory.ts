@@ -5,7 +5,10 @@ import {
 import { NavigationCoordinator } from '../../modules/navigation/NavigationCoordinator';
 import type { PlaybackOptionsSectionId } from '../../modules/ui/playback-options/types';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
-import type { AppError } from '../../modules/lifecycle';
+import type {
+    AppError,
+    IAppLifecycle,
+} from '../../modules/lifecycle';
 import type { IPlexAuth } from '../../modules/plex/auth';
 import type { IPlexServerDiscovery } from '../../modules/plex/discovery';
 import type {
@@ -104,6 +107,7 @@ export interface OrchestratorCoordinatorFactoryDeps {
     channelManager: IChannelManager;
     scheduler: IChannelScheduler;
     videoPlayer: IVideoPlayer;
+    lifecycle: IAppLifecycle;
     epg: IEPGComponent;
     nowPlayingInfo: INowPlayingInfoOverlay;
     playerOsd: IPlayerOsdOverlay;
@@ -143,7 +147,6 @@ export interface OrchestratorCoordinatorFactoryDeps {
     getMimeType: (decision: StreamDecision) => string;
     getPlaybackInfoSnapshot: () => PlaybackInfoSnapshotLike | null;
     refreshPlaybackInfoSnapshot: () => Promise<PlaybackInfoSnapshotLike>;
-    saveLifecycleState: () => Promise<void>;
 
     switchToChannel: (channelId: string) => Promise<void>;
     stopPlayback: () => void;
@@ -404,9 +407,7 @@ export function createOrchestratorCoordinators(
         },
         handleGlobalError: (error: AppError, context: string): void =>
             deps.handleGlobalError(error, context),
-        saveLifecycleState: async (): Promise<void> => {
-            await deps.saveLifecycleState();
-        },
+        saveLifecycleState: (): Promise<void> => deps.lifecycle.saveState(),
     });
 
     const navigationCoordinator = new NavigationCoordinator({

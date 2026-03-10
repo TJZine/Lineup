@@ -148,7 +148,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
     - Completed via `docs/plans/2026-03-10-p1-w1-break-orchestrator-core-import-cycle.md` by moving `OrchestratorConfig` and `ModuleStatus` ownership to `src/core/orchestrator/OrchestratorTypes.ts` and preserving `src/Orchestrator.ts` as the public re-export surface.
   - [x] `P1-W2` extract coordinator construction and dependency assembly paths that still make `AppOrchestrator` the central runtime factory (done 2026-03-10; plan: docs/plans/2026-03-10-p1-w2-extract-orchestrator-runtime-factory.md)
   - [x] `P1-W3` split remaining coarse-grained startup policy out of `InitializationCoordinator` (done 2026-03-10; plan: docs/plans/2026-03-10-p1-w3-split-initializationcoordinator-startup-policy.md)
-  - [ ] `P1-W4` remove leftover pass-through runtime helpers, duplicate lifecycle handoffs, and any transitional seams created by the round-2 extraction
+  - [x] `P1-W4` remove leftover pass-through runtime helpers, duplicate lifecycle handoffs, and any transitional seams created by the round-2 extraction (done 2026-03-10; plan: docs/plans/2026-03-10-p1-w4-remove-orchestrator-runtime-transitional-seams.md)
   - [ ] `P1-W5` run a full cleanup pass for this priority so the remaining `AppOrchestrator` surface matches the intended steady-state boundary rather than a partially reduced hotspot
 
 ## Priority 2: Finish App-Shell And Startup Boundary Cleanup

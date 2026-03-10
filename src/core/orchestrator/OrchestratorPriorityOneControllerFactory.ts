@@ -71,7 +71,6 @@ export interface OrchestratorPriorityOneControllerFactoryDeps {
     pauseSchedulerSync: () => void;
     resumeSchedulerSync: () => void;
     syncSchedulerToCurrentTime: () => void;
-    saveLifecycleState: () => Promise<void>;
     handleGlobalError: (error: AppError, context: string) => void;
     onPlayerStateChange: (state: PlaybackState) => void;
     showInfoBanner: () => void;
@@ -82,13 +81,8 @@ export interface OrchestratorPriorityOneControllerFactoryDeps {
     onStreamResolved: (stream: StreamDescriptor) => void;
     onPlaybackStartFailure: (error: unknown) => void;
 
-    getScheduler: () => IChannelScheduler | null;
-    getVideoPlayer: () => IVideoPlayer | null;
-    getPlexLibrary: () => IPlexLibrary | null;
-    getPlexStreamResolver: () => IPlexStreamResolver | null;
-    getNavigation: () => INavigationManager | null;
-    getLifecycle: () => IAppLifecycle | null;
-    getChannelManager: () => IChannelManager | null;
+    plexLibrary: IPlexLibrary | null;
+    plexStreamResolver: IPlexStreamResolver | null;
     wireNavigationCoordinatorEvents: () => Array<() => void>;
     wireEpgCoordinatorEvents: () => Array<() => void>;
     handleScheduleDayRollover: () => Promise<void>;
@@ -223,7 +217,7 @@ export function createPriorityOneControllersAndBinder(
         syncSchedulerToCurrentTime: (): void => {
             deps.syncSchedulerToCurrentTime();
         },
-        saveLifecycleState: (): Promise<void> => deps.saveLifecycleState(),
+        saveLifecycleState: (): Promise<void> => deps.lifecycle.saveState(),
         handleGlobalError: (error, context): void => {
             deps.handleGlobalError(error, context);
         },
@@ -285,13 +279,13 @@ export function createPriorityOneControllersAndBinder(
     });
 
     const binderDeps: OrchestratorEventBinderDeps = {
-        getScheduler: (): IChannelScheduler | null => deps.getScheduler(),
-        getVideoPlayer: (): IVideoPlayer | null => deps.getVideoPlayer(),
-        getPlexLibrary: (): IPlexLibrary | null => deps.getPlexLibrary(),
-        getPlexStreamResolver: (): IPlexStreamResolver | null => deps.getPlexStreamResolver(),
-        getNavigation: (): INavigationManager | null => deps.getNavigation(),
-        getLifecycle: (): IAppLifecycle | null => deps.getLifecycle(),
-        getChannelManager: (): IChannelManager | null => deps.getChannelManager(),
+        getScheduler: (): IChannelScheduler | null => deps.scheduler,
+        getVideoPlayer: (): IVideoPlayer | null => deps.videoPlayer,
+        getPlexLibrary: (): IPlexLibrary | null => deps.plexLibrary,
+        getPlexStreamResolver: (): IPlexStreamResolver | null => deps.plexStreamResolver,
+        getNavigation: (): INavigationManager | null => deps.navigation,
+        getLifecycle: (): IAppLifecycle | null => deps.lifecycle,
+        getChannelManager: (): IChannelManager | null => deps.channelManager,
         wireNavigationCoordinatorEvents: (): Array<() => void> => deps.wireNavigationCoordinatorEvents(),
         wireEpgCoordinatorEvents: (): Array<() => void> => deps.wireEpgCoordinatorEvents(),
         handleProgramStartTracked: (program): Promise<void> => {

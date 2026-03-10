@@ -493,6 +493,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         // This method assumes `initialize()` has already created the module instances it references.
         // It must not perform side effects other than assigning coordinator fields.
         if (
+            !this._lifecycle ||
             !this._navigation ||
             !this._plexAuth ||
             !this._plexDiscovery ||
@@ -527,6 +528,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             channelManager: this._channelManager,
             scheduler: this._scheduler,
             videoPlayer: this._videoPlayer,
+            lifecycle: this._lifecycle,
             epg: this._epg,
             nowPlayingInfo: this._nowPlayingInfo,
             playerOsd: this._playerOsd,
@@ -577,8 +579,6 @@ export class AppOrchestrator implements IAppOrchestrator {
             getMimeType: (decision: StreamDecision): string => this._getMimeType(decision),
             getPlaybackInfoSnapshot: (): PlaybackInfoSnapshot | null => this.getPlaybackInfoSnapshot(),
             refreshPlaybackInfoSnapshot: (): Promise<PlaybackInfoSnapshot> => this.refreshPlaybackInfoSnapshot(),
-            saveLifecycleState: (): Promise<void> =>
-                this._lifecycle?.saveState() ?? Promise.resolve(),
             switchToChannel: (channelId: string): Promise<void> => this.switchToChannel(channelId),
             stopPlayback: (): void => this._stopPlayback(),
             stopActiveTranscodeSession: (): void => this._requirePlaybackRuntimeController().stopActiveTranscodeSession(),
@@ -1873,6 +1873,8 @@ export class AppOrchestrator implements IAppOrchestrator {
                 nowPlayingInfo: this._nowPlayingInfo,
                 channelManager: this._channelManager,
                 navigation: this._navigation,
+                plexLibrary: this._plexLibrary,
+                plexStreamResolver: this._plexStreamResolver,
                 currentProgramForPlayback: (): ScheduledProgram | null => this._currentProgramForPlayback,
                 setCurrentProgramForPlayback: (program: ScheduledProgram | null): void => {
                     this._currentProgramForPlayback = program;
@@ -1923,7 +1925,6 @@ export class AppOrchestrator implements IAppOrchestrator {
                 syncSchedulerToCurrentTime: (): void => {
                     this._scheduler?.syncToCurrentTime();
                 },
-                saveLifecycleState: (): Promise<void> => this._lifecycle?.saveState() ?? Promise.resolve(),
                 handleGlobalError: (error: AppError, context: string): void => {
                     this.handleGlobalError(error, context);
                 },
@@ -1952,13 +1953,6 @@ export class AppOrchestrator implements IAppOrchestrator {
                 onPlaybackStartFailure: (error: unknown): void => {
                     console.error('Failed to load stream:', summarizeErrorForLog(error));
                 },
-                getScheduler: (): IChannelScheduler | null => this._scheduler,
-                getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
-                getPlexLibrary: (): IPlexLibrary | null => this._plexLibrary,
-                getPlexStreamResolver: (): IPlexStreamResolver | null => this._plexStreamResolver,
-                getNavigation: (): INavigationManager | null => this._navigation,
-                getLifecycle: (): IAppLifecycle | null => this._lifecycle,
-                getChannelManager: (): IChannelManager | null => this._channelManager,
                 wireNavigationCoordinatorEvents: (): Array<() => void> =>
                     this._navigationCoordinator?.wireNavigationEvents() ?? [],
                 wireEpgCoordinatorEvents: (): Array<() => void> =>
