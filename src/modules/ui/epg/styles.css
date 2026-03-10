@@ -1907,3 +1907,29 @@
   display: block;
   -webkit-line-clamp: unset;
 }
+
+/*
+  Forced-colors: ensure theme-scoped focus rules (more specific, later in file) do not override
+  the system Canvas/CanvasText focus treatment.
+*/
+@media (forced-colors: active) {
+  .epg-cell.focused,
+  .epg-container.layout-classic .epg-cell.focused,
+  .theme-slate-pine .epg-cell.focused,
+  .theme-slate-pine .epg-container.layout-classic .epg-cell.focused,
+  .theme-ember-steel .epg-cell.focused,
+  .theme-ember-steel .epg-container.layout-classic .epg-cell.focused,
+  .theme-swiss .epg-cell.focused,
+  .theme-swiss .epg-container.layout-classic .epg-cell.focused,
+  .theme-directv .epg-cell.focused,
+  .theme-directv .epg-container.layout-classic .epg-cell.focused,
+  .theme-glass .epg-cell.focused,
+  .theme-glass .epg-container.layout-classic .epg-cell.focused {
+    background: Canvas;
+    outline: 3px solid CanvasText;
+    outline-offset: 2px;
+    box-shadow: none;
+    border-color: CanvasText;
+    color: CanvasText;
+  }
+}
