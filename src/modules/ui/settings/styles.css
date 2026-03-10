@@ -300,8 +300,6 @@
     linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 40%, rgba(0, 0, 0, 0.2) 100%),
     var(--glass-panel-strong);
   border-right: 1px solid var(--glass-border-strong);
-  backdrop-filter: var(--glass-backdrop-filter-strong, var(--glass-backdrop-filter));
-  -webkit-backdrop-filter: var(--glass-backdrop-filter-strong, var(--glass-backdrop-filter));
 }
 
 .theme-glass .settings-title,
@@ -323,9 +321,9 @@
 
 .theme-glass .settings-category-button.active,
 .theme-glass .settings-category-button[aria-selected="true"] {
-  border-color: rgba(255, 255, 255, 0.12);
-  border-left-color: rgba(255, 255, 255, 0.84);
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.08));
+  border-color: rgb(var(--focus-color-rgb) / 24%);
+  border-left-color: var(--focus-color);
+  background: linear-gradient(90deg, rgb(var(--focus-color-rgb) / 24%), rgb(var(--focus-color-rgb) / 8%));
   color: #ffffff;
 }
 
@@ -340,7 +338,7 @@
 
 .theme-glass .settings-profile-row:focus {
   border-color: var(--focus-color);
-  background: rgba(255, 255, 255, 0.12);
+  background: rgb(var(--focus-color-rgb) / 14%);
 }
 
 .theme-swiss .settings-categories {
@@ -460,8 +458,6 @@
 .theme-glass .settings-dropdown {
   background: var(--glass-panel-strong, rgba(16, 18, 24, 0.66));
   border: 1px solid var(--glass-border-strong, rgba(255, 255, 255, 0.24));
-  backdrop-filter: var(--glass-backdrop-filter);
-  -webkit-backdrop-filter: var(--glass-backdrop-filter);
 }
 
 .theme-glass .settings-dropdown-option:hover,

@@ -1592,9 +1592,12 @@
 
 /* Premium glass: overall container surface */
 .theme-glass .epg-container {
-  background: rgba(0, 0, 0, 0.42);
-  -webkit-backdrop-filter: blur(38px) saturate(120%);
-  backdrop-filter: blur(38px) saturate(120%);
+  background: linear-gradient(
+      180deg,
+      rgb(5 8 11 / 82%) 0%,
+      rgb(8 11 15 / 78%) 46%,
+      rgb(8 11 15 / 88%) 100%
+    );
 }
 
 /* Fade out grid bottom before it hits the dashboard.
@@ -1616,11 +1619,11 @@
   z-index: 5;
 }
 
-/* Inner panels go transparent to let blur do the work */
+/* Inner panels use explicit scrims for no-blur readability */
 .theme-glass .epg-channel-list,
 .theme-glass .epg-time-header,
 .theme-glass .epg-library-tabs {
-  background: transparent;
+  background: rgb(var(--scrim-tint-rgb) / 94%);
   border-right: none;
   border-bottom: none;
 }
@@ -1629,7 +1632,7 @@
 .theme-glass .epg-dashboard-bottom {
   background: var(--glass-panel-strong);
   border-top: 1px solid var(--glass-border-soft);
-  box-shadow: 0 -14px 34px rgba(0, 0, 0, 0.52);
+  box-shadow: none;
 }
 
 .theme-glass .epg-overlay-showcase {
@@ -1643,8 +1646,6 @@
 }
 
 .theme-glass .epg-container.layout-classic .epg-classic-showcase {
-  -webkit-backdrop-filter: var(--glass-backdrop-filter);
-  backdrop-filter: var(--glass-backdrop-filter);
   background: var(--glass-panel-strong);
   border-radius: var(--panel-radius);
 }
@@ -1652,15 +1653,15 @@
 /* Pills: program cells */
 .theme-glass .epg-cell {
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.11);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: var(--shadow-sm);
+  background: rgb(12 16 21 / 78%);
+  border: 1px solid rgb(255 255 255 / 6%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%);
 }
 
 .theme-glass .epg-cell.focused {
-  background: rgba(255, 255, 255, 0.24);
-  border: 1px solid rgba(255, 255, 255, 0.84);
-  box-shadow: 0 0 18px rgba(255, 255, 255, 0.38);
+  background: rgb(var(--focus-color-rgb) / 15%);
+  border: 1px solid rgb(var(--focus-color-rgb) / 26%);
+  box-shadow: 0 0 0 3px var(--focus-color) inset, 0 0 14px rgb(var(--focus-color-rgb) / 30%);
   outline: none;
 }
 
@@ -1687,8 +1688,8 @@
   position: absolute;
   inset: 4px 8px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.09);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgb(255 255 255 / 4%);
+  border: 1px solid rgb(255 255 255 / 5%);
   pointer-events: none;
   z-index: 0;
 }
@@ -1703,18 +1704,18 @@
 }
 
 .theme-glass .epg-channel-row.focused::before {
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgb(var(--focus-color-rgb) / 14%);
+  border: 1px solid rgb(var(--focus-color-rgb) / 28%);
 }
 
 /* Premium "laser" current time */
 .theme-glass .epg-time-indicator {
-  background: #9cf7ff;
-  box-shadow: 0 0 12px rgba(156, 247, 255, 0.82);
+  background: var(--color-primary);
+  box-shadow: 0 0 12px rgb(var(--color-primary-rgb) / 72%);
 }
 
 .theme-glass .epg-time-indicator::after {
-  background: #9cf7ff;
+  background: var(--color-primary);
   color: #0a0d12;
 }
 
