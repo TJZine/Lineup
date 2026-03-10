@@ -1718,6 +1718,57 @@
   color: #0a0d12;
 }
 
+.theme-ember-steel .epg-cell.focused {
+  background: rgba(var(--focus-color-rgb), 0.18);
+  box-shadow: 0 0 0 3px var(--focus-color) inset;
+  outline: none;
+}
+
+.theme-ember-steel .epg-container.layout-classic .epg-cell.focused {
+  background: rgba(var(--focus-color-rgb), 0.22);
+  border-color: rgba(var(--focus-color-rgb), 0.18);
+  box-shadow: 0 0 0 3px var(--focus-color) inset;
+  outline: none;
+}
+
+.theme-ember-steel .epg-container.layout-classic .epg-time-header,
+.theme-ember-steel .epg-container.layout-classic .epg-library-tabs {
+  background: rgb(var(--scrim-tint-rgb) / 96%);
+}
+
+.theme-ember-steel .epg-container.layout-classic .epg-time-header-sticky {
+  color: var(--color-text-primary);
+  background: linear-gradient(
+    to right,
+    rgb(var(--scrim-tint-rgb) / 97%),
+    rgb(var(--scrim-tint-rgb) / 0%)
+  );
+}
+
+.theme-ember-steel .epg-container.layout-classic .epg-time-slot {
+  color: var(--color-text-secondary);
+}
+
+.theme-ember-steel .epg-container.layout-classic .epg-channel-list {
+  background: rgb(var(--scrim-tint-rgb) / 98%);
+}
+
+.theme-ember-steel .epg-container.layout-classic .epg-cell-title {
+  color: var(--color-text-primary);
+}
+
+.theme-ember-steel .epg-container.layout-classic .epg-cell-time,
+.theme-ember-steel .epg-container.layout-classic .epg-cell-subtitle,
+.theme-ember-steel .epg-container.layout-classic .epg-cell-meta {
+  color: var(--color-text-secondary);
+}
+
+.theme-ember-steel .epg-container.layout-classic .epg-cell-episode,
+.theme-ember-steel .epg-container.layout-classic .epg-info-quality-badge,
+.theme-ember-steel .epg-container.layout-classic .epg-info-pill {
+  background: rgb(var(--scrim-tint-rgb) / 42%);
+}
+
 /* Minimal themes: keep legacy density and avoid new visual structure. */
 .theme-swiss .epg-cell-meta,
 .theme-directv .epg-cell-meta,
