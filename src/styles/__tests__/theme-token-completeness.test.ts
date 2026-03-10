@@ -6,7 +6,7 @@ import path from 'node:path';
 
 import { THEME_CLASSES } from '../../modules/ui/settings/theme';
 
-const THEMES = Object.keys(THEME_CLASSES) as Array<keyof typeof THEME_CLASSES>;
+const THEME_CLASS_NAMES = Object.values(THEME_CLASSES) as Array<(typeof THEME_CLASSES)[keyof typeof THEME_CLASSES]>;
 const REQUIRED_TOKENS = [
     '--focus-color',
     '--focus-color-rgb',
@@ -33,10 +33,11 @@ function readText(relativeToStylesDir: string): string {
 }
 
 function extractThemeBlock(css: string, themeName: string): string {
-    const re = new RegExp(`\\.theme-${themeName}\\s*\\{([\\s\\S]*?)\\}`, 'm');
+    const classPattern = themeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`\\.${classPattern}\\s*\\{([\\s\\S]*?)\\}`, 'm');
     const match = css.match(re);
     if (!match?.[0]) {
-        throw new Error(`Theme block not found: .theme-${themeName} { ... }`);
+        throw new Error(`Theme block not found: .${themeName} { ... }`);
     }
     return match[0];
 }
@@ -45,8 +46,8 @@ describe('theme tokens', () => {
     it('each .theme-* block defines the required tokens', () => {
         const themesCss = readText('themes.css');
 
-        for (const themeName of THEMES) {
-            const block = extractThemeBlock(themesCss, themeName);
+        for (const themeClassName of THEME_CLASS_NAMES) {
+            const block = extractThemeBlock(themesCss, themeClassName);
             for (const token of REQUIRED_TOKENS) {
                 expect(block).toContain(`${token}:`);
             }
@@ -56,8 +57,8 @@ describe('theme tokens', () => {
     it('enforces RGB delimiter conventions per comments in themes.css', () => {
         const themesCss = readText('themes.css');
 
-        for (const themeName of THEMES) {
-            const block = extractThemeBlock(themesCss, themeName);
+        for (const themeClassName of THEME_CLASS_NAMES) {
+            const block = extractThemeBlock(themesCss, themeClassName);
 
             // --focus-color-rgb must be comma-separated (rgba(var(--focus-color-rgb), a))
             expect(block).toMatch(/--focus-color-rgb\s*:\s*\d+\s*,\s*\d+\s*,\s*\d+\s*;/);

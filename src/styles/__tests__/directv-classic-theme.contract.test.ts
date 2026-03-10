@@ -59,12 +59,20 @@ describe('directv-classic theme contract', () => {
 
     it('keeps Swiss as the only minimal-density theme and removes DirecTV !important suppression', () => {
         const epgCss = read('src/modules/ui/epg/styles.css');
-        const minimalText = blockFor(epgCss, '.theme-swiss .epg-cell-meta,\n.theme-swiss .epg-cell-subtitle');
-        const minimalInfo = blockFor(epgCss, '.theme-swiss .epg-info-backdrop,\n.theme-swiss .epg-info-tags');
+        const minimalText = blockFor(epgCss, '.theme-swiss .epg-cell-meta');
+        const minimalInfo = blockFor(epgCss, '.theme-swiss .epg-info-backdrop');
         const minimalTitle = blockFor(epgCss, '.theme-swiss .epg-cell-title');
 
-        expect(minimalText).not.toContain('.theme-directv');
-        expect(minimalInfo).not.toContain('.theme-directv');
-        expect(minimalTitle).not.toContain('.theme-directv');
+        // Positive: Swiss keeps the minimal-density rule set.
+        expect(minimalText).toMatch(/display:\s*none\s*!important;/);
+        expect(minimalInfo).toMatch(/display:\s*none\s*!important;/);
+        expect(minimalTitle).toMatch(/white-space:\s*nowrap\s*;/);
+
+        // Negative: DirecTV must not pick up minimal-density hiding.
+        expect(epgCss).not.toMatch(/\.theme-directv\s+\.epg-cell-meta\s*\{[^}]*display:\s*none\s*!important;/s);
+        expect(epgCss).not.toMatch(/\.theme-directv\s+\.epg-cell-subtitle\s*\{[^}]*display:\s*none\s*!important;/s);
+        expect(epgCss).not.toMatch(/\.theme-directv\s+\.epg-info-backdrop\s*\{[^}]*display:\s*none\s*!important;/s);
+        expect(epgCss).not.toMatch(/\.theme-directv\s+\.epg-info-tags\s*\{[^}]*display:\s*none\s*!important;/s);
+        expect(epgCss).not.toMatch(/\.theme-directv[^{]*\{[^}]*display:\s*none\s*!important;/s);
     });
 });
