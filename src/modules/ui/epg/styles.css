@@ -1769,6 +1769,31 @@
   background: rgb(var(--scrim-tint-rgb) / 42%);
 }
 
+/* Swiss sharp classic-guide treatment */
+.theme-swiss .epg-container.layout-classic {
+  --classic-cell-radius: 0px;
+}
+
+.theme-swiss .epg-container.layout-classic .epg-classic-showcase-pip,
+.theme-swiss .epg-container.layout-classic .epg-cell-episode,
+.theme-swiss .epg-container.layout-classic .epg-info-quality-badge,
+.theme-swiss .epg-container.layout-classic .epg-info-pill {
+  border-radius: 0;
+}
+
+.theme-swiss .epg-cell.focused {
+  background: rgba(var(--focus-color-rgb), 0.12);
+  box-shadow: 0 0 0 4px var(--focus-color) inset;
+  outline: none;
+}
+
+.theme-swiss .epg-container.layout-classic .epg-cell.focused {
+  background: rgba(var(--focus-color-rgb), 0.12);
+  border-color: rgba(var(--focus-color-rgb), 0.12);
+  box-shadow: 0 0 0 4px var(--focus-color) inset;
+  outline: none;
+}
+
 /* Minimal themes: keep legacy density and avoid new visual structure. */
 .theme-swiss .epg-cell-meta,
 .theme-directv .epg-cell-meta,
