@@ -558,6 +558,8 @@ describe('AppOrchestrator', () => {
     let resumeHandler: (() => void | Promise<void>) | null;
 
     beforeEach(() => {
+        // NOTE: `jest.clearAllMocks()` clears call history but does not reset mock implementations.
+        // Prefer per-test `mockResolvedValueOnce()` stubs to avoid cross-test leakage.
         jest.clearAllMocks();
         schedulerHandlers = {};
         playerHandlers = {};
@@ -946,44 +948,46 @@ describe('AppOrchestrator', () => {
             const clearProfileResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearProfileResume');
             const runStartupSpy = jest.spyOn(InitializationCoordinator.prototype, 'runStartup');
 
-            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
-            mockPlexAuth.validateToken.mockResolvedValue(true);
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
-            await orchestrator.start();
-            expect(schedulerHandlers.programStart).toBeDefined();
-            clearProfileResumeSpy.mockClear();
-            runStartupSpy.mockClear();
-            mockPlexAuth.switchHomeUser.mockClear();
-            mockVideoPlayer.stop.mockClear();
-            mockScheduler.unloadChannel.mockClear();
-            mockPlexStreamResolver.stopTranscodeSession.mockClear();
-
-            mockPlexStreamResolver.resolveStream.mockResolvedValue(
-                makeDecision({ isTranscoding: true, sessionId: 'profile-switch-session' })
-            );
-            const nowPlayingProgram = {
-                item: {
-                    ratingKey: 'item-1',
-                    title: 'Test Item',
-                    durationMs: 60_000,
-                    type: 'movie',
-                    fullTitle: null,
-                    year: 2024,
-                    contentRating: 'PG',
-                    thumb: '/thumb',
-                },
-                elapsedMs: 5_000,
-                scheduledStartTime: Date.now(),
-                scheduledEndTime: Date.now() + 60_000,
-                scheduleIndex: 0,
-                loopNumber: 0,
-                streamDescriptor: null,
-                isCurrent: true,
-            };
-            schedulerHandlers.programStart?.(nowPlayingProgram as unknown as ScheduledProgram);
-            await new Promise((resolve) => setImmediate(resolve));
-
             try {
+                mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+                mockPlexAuth.validateToken.mockResolvedValue(true);
+                mockPlexDiscovery.isConnected.mockReturnValue(true);
+
+                await orchestrator.start();
+
+                expect(schedulerHandlers.programStart).toBeDefined();
+                clearProfileResumeSpy.mockClear();
+                runStartupSpy.mockClear();
+                mockPlexAuth.switchHomeUser.mockClear();
+                mockVideoPlayer.stop.mockClear();
+                mockScheduler.unloadChannel.mockClear();
+                mockPlexStreamResolver.stopTranscodeSession.mockClear();
+
+                mockPlexStreamResolver.resolveStream.mockResolvedValueOnce(
+                    makeDecision({ isTranscoding: true, sessionId: 'profile-switch-session' })
+                );
+                const nowPlayingProgram = {
+                    item: {
+                        ratingKey: 'item-1',
+                        title: 'Test Item',
+                        durationMs: 60_000,
+                        type: 'movie',
+                        fullTitle: null,
+                        year: 2024,
+                        contentRating: 'PG',
+                        thumb: '/thumb',
+                    },
+                    elapsedMs: 5_000,
+                    scheduledStartTime: Date.now(),
+                    scheduledEndTime: Date.now() + 60_000,
+                    scheduleIndex: 0,
+                    loopNumber: 0,
+                    streamDescriptor: null,
+                    isCurrent: true,
+                };
+                schedulerHandlers.programStart?.(nowPlayingProgram as unknown as ScheduledProgram);
+                await new Promise((resolve) => setImmediate(resolve));
+
                 await orchestrator.switchHomeUser('user-2', '1234');
 
                 expect(clearProfileResumeSpy).toHaveBeenCalled();
@@ -1015,44 +1019,46 @@ describe('AppOrchestrator', () => {
             const clearProfileResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearProfileResume');
             const runStartupSpy = jest.spyOn(InitializationCoordinator.prototype, 'runStartup');
 
-            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
-            mockPlexAuth.validateToken.mockResolvedValue(true);
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
-            await orchestrator.start();
-            expect(schedulerHandlers.programStart).toBeDefined();
-            clearProfileResumeSpy.mockClear();
-            runStartupSpy.mockClear();
-            mockPlexAuth.logoutActiveUser.mockClear();
-            mockVideoPlayer.stop.mockClear();
-            mockScheduler.unloadChannel.mockClear();
-            mockPlexStreamResolver.stopTranscodeSession.mockClear();
-
-            mockPlexStreamResolver.resolveStream.mockResolvedValue(
-                makeDecision({ isTranscoding: true, sessionId: 'main-profile-session' })
-            );
-            const nowPlayingProgram = {
-                item: {
-                    ratingKey: 'item-2',
-                    title: 'Another Item',
-                    durationMs: 60_000,
-                    type: 'movie',
-                    fullTitle: null,
-                    year: 2024,
-                    contentRating: 'PG',
-                    thumb: '/thumb',
-                },
-                elapsedMs: 5_000,
-                scheduledStartTime: Date.now(),
-                scheduledEndTime: Date.now() + 60_000,
-                scheduleIndex: 0,
-                loopNumber: 0,
-                streamDescriptor: null,
-                isCurrent: true,
-            };
-            schedulerHandlers.programStart?.(nowPlayingProgram as unknown as ScheduledProgram);
-            await new Promise((resolve) => setImmediate(resolve));
-
             try {
+                mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+                mockPlexAuth.validateToken.mockResolvedValue(true);
+                mockPlexDiscovery.isConnected.mockReturnValue(true);
+
+                await orchestrator.start();
+
+                expect(schedulerHandlers.programStart).toBeDefined();
+                clearProfileResumeSpy.mockClear();
+                runStartupSpy.mockClear();
+                mockPlexAuth.logoutActiveUser.mockClear();
+                mockVideoPlayer.stop.mockClear();
+                mockScheduler.unloadChannel.mockClear();
+                mockPlexStreamResolver.stopTranscodeSession.mockClear();
+
+                mockPlexStreamResolver.resolveStream.mockResolvedValueOnce(
+                    makeDecision({ isTranscoding: true, sessionId: 'main-profile-session' })
+                );
+                const nowPlayingProgram = {
+                    item: {
+                        ratingKey: 'item-2',
+                        title: 'Another Item',
+                        durationMs: 60_000,
+                        type: 'movie',
+                        fullTitle: null,
+                        year: 2024,
+                        contentRating: 'PG',
+                        thumb: '/thumb',
+                    },
+                    elapsedMs: 5_000,
+                    scheduledStartTime: Date.now(),
+                    scheduledEndTime: Date.now() + 60_000,
+                    scheduleIndex: 0,
+                    loopNumber: 0,
+                    streamDescriptor: null,
+                    isCurrent: true,
+                };
+                schedulerHandlers.programStart?.(nowPlayingProgram as unknown as ScheduledProgram);
+                await new Promise((resolve) => setImmediate(resolve));
+
                 await orchestrator.useMainAccountProfile();
 
                 expect(clearProfileResumeSpy).toHaveBeenCalled();
