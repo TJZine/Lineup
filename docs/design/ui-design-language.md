@@ -43,7 +43,7 @@ Used instead of solid/glass panel backgrounds. Each surface has its own gradient
 | Channel Badge (top-right) | `rgba(0,0,0,0.30) → rgba(0,0,0,0.40)` 135deg | 40% |
 | Mini Guide (top) | `rgba(0,0,0,0.50) → transparent` vertical | 50% |
 
-Glass theme variants use ~5% lower opacity across the board.
+Glass theme variants use slightly higher opacity (darker) scrims than base surfaces.
 
 ### Borders
 

@@ -5,7 +5,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const SRC_DIR = path.join(process.cwd(), 'src');
-const BAD_PATTERN = /rgb\(var\(--focus-color-rgb\)\s*\/\s*/g;
+// `--focus-color-rgb` is comma-separated by convention (see themes.css comments), so it must not be
+// used with modern `rgb(var(--focus-color-rgb) / alpha)` syntax. Keep this matcher resilient to
+// whitespace and var() fallback forms.
+const BAD_PATTERN = /rgb\(\s*var\(\s*--focus-color-rgb\b[^)]*\)\s*\/\s*/g;
 
 function walkCssFiles(dir: string, out: string[] = []): string[] {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -38,4 +41,3 @@ describe('focus-color-rgb notation', () => {
         expect(offenders).toEqual([]);
     });
 });
-

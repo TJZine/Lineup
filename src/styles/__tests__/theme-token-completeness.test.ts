@@ -22,6 +22,7 @@ const REQUIRED_TOKENS = [
     '--panel-surface-2',
     '--panel-border',
     '--panel-radius',
+    '--scrim-tint-rgb',
 ] as const;
 
 const stylesDir = path.join(process.cwd(), 'src', 'styles');
