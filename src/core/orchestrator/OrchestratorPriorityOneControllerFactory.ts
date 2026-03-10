@@ -184,7 +184,6 @@ export function createPriorityOneControllersAndBinder(
             deps.currentProgramForPlayback() === program,
         handleProgramStartUiSideEffects: (program): void => {
             deps.onProgramStartUiSideEffects(program);
-            overlayRuntimePolicyController.syncChannelBadgeOverlay();
         },
         handleStreamResolved: (stream): void => {
             deps.setCurrentStreamDescriptor(stream);

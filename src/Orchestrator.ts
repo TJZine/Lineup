@@ -1942,6 +1942,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 },
                 onProgramStartUiSideEffects: (program): void => {
                     this._nowPlayingInfoCoordinator?.onProgramStart(program);
+                    this._requireOverlayRuntimePolicyController().syncChannelBadgeOverlay();
                     this._epgCoordinator?.refreshEpgScheduleForLiveChannel();
                 },
                 onStreamResolved: (): void => {
