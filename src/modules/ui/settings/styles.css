@@ -458,6 +458,7 @@
 .theme-glass .settings-dropdown {
   background: var(--glass-panel-strong, rgba(16, 18, 24, 0.66));
   border: 1px solid var(--glass-border-strong, rgba(255, 255, 255, 0.24));
+  box-shadow: none;
 }
 
 .theme-glass .settings-dropdown-option:hover,
