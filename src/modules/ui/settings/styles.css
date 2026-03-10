@@ -354,7 +354,7 @@
   flex-direction: column;
   gap: 2px;
   padding: 6px;
-  background: var(--panel-surface, rgba(22, 25, 34, 0.92));
+  background: var(--panel-surface, rgba(24, 24, 24, 0.92));
   border: var(--panel-border, 1px solid rgba(255, 255, 255, 0.10));
   border-radius: var(--panel-radius, 10px);
   box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.55));
@@ -407,14 +407,14 @@
 }
 
 .settings-dropdown-option--selected {
-  background: rgb(var(--color-primary-rgb, 212 160 122) / 16%);
-  color: var(--color-primary-light, #e8c0a0);
+  background: rgb(var(--color-primary-rgb, 224 120 42) / 16%);
+  color: var(--color-primary-light, #f0a060);
 }
 
 .settings-dropdown-option--selected:hover,
 .settings-dropdown-option--selected:focus,
 .settings-dropdown-option--selected.focused {
-  background: rgb(var(--color-primary-rgb, 212 160 122) / 24%);
+  background: rgb(var(--color-primary-rgb, 224 120 42) / 24%);
 }
 
 .settings-dropdown-option-label {
@@ -425,7 +425,7 @@
 .settings-dropdown-option-check {
   flex-shrink: 0;
   font-size: 16px;
-  color: var(--color-primary, #d4a07a);
+  color: var(--color-primary, #e0782a);
 }
 
 .setup-toggle-chevron {
