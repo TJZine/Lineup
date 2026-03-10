@@ -24,7 +24,7 @@ describe('swiss minimal theme contract', () => {
         const epgCss = read('src/modules/ui/epg/styles.css');
 
         expect(epgCss).toContain('.theme-swiss .epg-cell-meta,');
-        expect(epgCss).toContain('.theme-swiss .epg-info-tags,');
+        expect(epgCss).toContain('.theme-swiss .epg-info-tags {');
         expect(epgCss).toMatch(
             /\.theme-swiss\s+\.epg-container\.layout-classic\s*\{[^}]*--classic-cell-radius:\s*0px;/s
         );

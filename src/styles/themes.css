@@ -105,7 +105,7 @@
   --shadow-lg: 0 12px 32px rgba(0, 5, 10, 0.82);
 
   --scrim-tint-rgb: 0 24 48;
-  --font-family-display: "Helvetica Neue", Helvetica, "Avenir Next", Arial, sans-serif;
+  --font-family-display: "Helvetica Neue", helvetica, "Avenir Next", arial, sans-serif;
 
   --directv-panel-gradient-start: #001020;
   --directv-panel-gradient-end: #00305f;
