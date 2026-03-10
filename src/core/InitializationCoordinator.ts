@@ -33,7 +33,7 @@ import { ExitConfirmModal, EXIT_CONFIRM_CONTAINER_ID } from '../modules/ui/exit-
 import type { IDisposable } from '../utils/interfaces';
 import { readStoredBoolean, safeLocalStorageGet } from '../utils/storage';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
-import type { OrchestratorConfig, ModuleStatus } from '../Orchestrator';
+import type { OrchestratorConfig, ModuleStatus } from './orchestrator/OrchestratorTypes';
 import { summarizeErrorForLog } from '../utils/errors';
 
 // ============================================

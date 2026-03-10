@@ -26,7 +26,6 @@ import {
     NavigationManager,
     type INavigationManager,
     CHANNEL_INPUT_CONFIG,
-    type NavigationConfig,
     type Screen,
 } from './modules/navigation';
 import type { GuideSettingChange } from './modules/ui/settings/types';
@@ -34,7 +33,6 @@ import { NavigationCoordinator } from './modules/navigation/NavigationCoordinato
 import {
     PlexAuth,
     type IPlexAuth,
-    type PlexAuthConfig,
     type PlexPinRequest,
     type PlexHomeUser,
 } from './modules/plex/auth';
@@ -74,7 +72,6 @@ import {
 import {
     VideoPlayer,
     type IVideoPlayer,
-    type VideoPlayerConfig,
     type StreamDescriptor,
 } from './modules/player';
 import { BURN_IN_SUBTITLE_FORMATS } from './modules/player/constants';
@@ -95,36 +92,30 @@ import {
 import {
     PlayerOsdOverlay,
     type IPlayerOsdOverlay,
-    type PlayerOsdConfig,
 } from './modules/ui/player-osd';
 import { PlayerOsdCoordinator } from './modules/ui/player-osd/PlayerOsdCoordinator';
 import {
     ChannelNumberOverlay,
     type IChannelNumberOverlay,
-    type ChannelNumberOverlayConfig,
 } from './modules/ui/channel-number-overlay';
 import {
     ChannelBadgeOverlay,
     type IChannelBadgeOverlay,
-    type ChannelBadgeConfig,
 } from './modules/ui/channel-badge';
 import { SleepTimerManager } from './modules/ui/sleep-timer';
 import {
     MiniGuideOverlay,
     type IMiniGuideOverlay,
-    type MiniGuideConfig,
 } from './modules/ui/mini-guide';
 import { MiniGuideCoordinator } from './modules/ui/mini-guide/MiniGuideCoordinator';
 import {
     ChannelTransitionOverlay,
     type IChannelTransitionOverlay,
-    type ChannelTransitionConfig,
 } from './modules/ui/channel-transition';
 import { ChannelTransitionCoordinator } from './modules/ui/channel-transition/ChannelTransitionCoordinator';
 import {
     PlaybackOptionsModal,
     type IPlaybackOptionsModal,
-    type PlaybackOptionsConfig,
     PLAYBACK_OPTIONS_MODAL_ID,
 } from './modules/ui/playback-options';
 import {
@@ -144,6 +135,10 @@ import {
     PlaybackRuntimeController,
     type IInitializationCoordinator,
 } from './core';
+import type {
+    ModuleStatus,
+    OrchestratorConfig,
+} from './core/orchestrator/OrchestratorTypes';
 import { ChannelSetupCoordinator } from './core/channel-setup';
 import type {
     ChannelSetupConfig,
@@ -182,16 +177,7 @@ import { isAbortLikeError, summarizeErrorForLog } from './utils/errors';
 // Types
 // ============================================
 
-/**
- * Module health status
- */
-export interface ModuleStatus {
-    id: string;
-    name: string;
-    status: 'pending' | 'initializing' | 'ready' | 'error' | 'disabled';
-    loadTimeMs?: number;
-    error?: AppError;
-}
+export type { ModuleStatus, OrchestratorConfig } from './core/orchestrator/OrchestratorTypes';
 
 export type {
     ChannelSetupConfig,
@@ -258,23 +244,6 @@ export interface PlaybackInfoSnapshot {
         serverDecision?: StreamDecision['serverDecision'];
     }
     | null;
-}
-
-/**
- * Orchestrator configuration (module configs passed at initialization)
- */
-export interface OrchestratorConfig {
-    plexConfig: PlexAuthConfig;
-    playerConfig: VideoPlayerConfig;
-    navConfig: NavigationConfig;
-    epgConfig: EPGConfig;
-    nowPlayingInfoConfig: NowPlayingInfoConfig;
-    playbackOptionsConfig: PlaybackOptionsConfig;
-    playerOsdConfig: PlayerOsdConfig;
-    channelNumberOverlayConfig: ChannelNumberOverlayConfig;
-    channelBadgeConfig: ChannelBadgeConfig;
-    miniGuideConfig: MiniGuideConfig;
-    channelTransitionConfig: ChannelTransitionConfig;
 }
 
 export type { ErrorRecoveryAction } from './core/error-recovery/types';

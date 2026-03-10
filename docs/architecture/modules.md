@@ -36,6 +36,12 @@ This document is directory-oriented and lists file-level owners where the canoni
   - `src/core/orchestrator/`
   - `src/core/__tests__/`
 
+### `src/core/orchestrator/`
+
+- orchestrator-facing core collaborators and shared orchestrator type ownership
+- `src/core/orchestrator/OrchestratorTypes.ts` is the durable owner of `OrchestratorConfig` and `ModuleStatus`
+- `src/Orchestrator.ts` remains the public re-export surface for external callers (including `src/App.ts` and tests)
+
 ### `src/config/`
 
 - configuration constants and typed config helpers used across modules
