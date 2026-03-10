@@ -1100,27 +1100,27 @@ describe('AppOrchestrator', () => {
             }
         });
 
-	        it('does not reset channel state when useMainAccountProfile fails', async () => {
-	            await orchestrator.initialize(mockConfig);
+        it('does not reset channel state when useMainAccountProfile fails', async () => {
+            await orchestrator.initialize(mockConfig);
 
-	            mockPlexAuth.logoutActiveUser.mockRejectedValueOnce(new Error('logout failed'));
-	            const clearProfileResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearProfileResume');
-	            const runStartupSpy = jest
-	                .spyOn(InitializationCoordinator.prototype, 'runStartup')
-	                .mockResolvedValue(undefined);
+            mockPlexAuth.logoutActiveUser.mockRejectedValueOnce(new Error('logout failed'));
+            const clearProfileResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearProfileResume');
+            const runStartupSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'runStartup')
+                .mockResolvedValue(undefined);
 
-	            try {
-	                await expect(orchestrator.useMainAccountProfile()).rejects.toThrow('logout failed');
+            try {
+                await expect(orchestrator.useMainAccountProfile()).rejects.toThrow('logout failed');
 
-	                expect(clearProfileResumeSpy).toHaveBeenCalledTimes(1);
-	                expect(runStartupSpy).not.toHaveBeenCalled();
-	                expect(mockScheduler.unloadChannel).not.toHaveBeenCalled();
-	            } finally {
-	                clearProfileResumeSpy.mockRestore();
-	                runStartupSpy.mockRestore();
-	            }
-	        });
-	    });
+                expect(clearProfileResumeSpy).toHaveBeenCalledTimes(1);
+                expect(runStartupSpy).not.toHaveBeenCalled();
+                expect(mockScheduler.unloadChannel).not.toHaveBeenCalled();
+            } finally {
+                clearProfileResumeSpy.mockRestore();
+                runStartupSpy.mockRestore();
+            }
+        });
+    });
 
     describe('start', () => {
         beforeEach(async () => {
