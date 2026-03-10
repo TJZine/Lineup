@@ -1795,23 +1795,99 @@
   outline: none;
 }
 
+.theme-directv .epg-container.layout-classic .epg-time-header,
+.theme-directv .epg-container.layout-classic .epg-library-tabs,
+.theme-directv .epg-container.layout-classic .epg-channel-list {
+  background: linear-gradient(
+    180deg,
+    var(--directv-panel-gradient-start),
+    var(--directv-panel-gradient-end)
+  );
+  border-color: rgb(var(--color-primary-rgb) / 82%);
+}
+
+.theme-directv .epg-container.layout-classic .epg-time-header-sticky {
+  color: #eff8ff;
+  background: linear-gradient(
+    to right,
+    rgb(0 16 32 / 98%),
+    rgb(0 16 32 / 0%)
+  );
+}
+
+.theme-directv .epg-container.layout-classic .epg-time-slot {
+  color: #d4ebff;
+  border-left-color: rgb(var(--color-primary-rgb) / 40%);
+}
+
+.theme-directv .epg-container.layout-classic .epg-cell {
+  background: linear-gradient(
+    180deg,
+    var(--directv-panel-gradient-start),
+    var(--directv-panel-gradient-end)
+  );
+  border-color: rgb(var(--color-primary-rgb) / 82%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 14%);
+}
+
+.theme-directv .epg-container.layout-classic .epg-cell:hover {
+  background: linear-gradient(
+    180deg,
+    var(--directv-panel-gradient-start),
+    var(--directv-panel-gradient-strong-end)
+  );
+}
+
+.theme-directv .epg-container.layout-classic .epg-cell.focused {
+  background: var(--directv-focus-fill);
+  border-color: var(--directv-focus-border);
+  box-shadow: none;
+  color: var(--directv-focus-text);
+  outline: none;
+}
+
+.theme-directv .epg-container.layout-classic .epg-cell-title {
+  color: #eff8ff;
+}
+
+.theme-directv .epg-container.layout-classic .epg-cell-time,
+.theme-directv .epg-container.layout-classic .epg-cell-subtitle,
+.theme-directv .epg-container.layout-classic .epg-cell-meta {
+  color: var(--directv-copy-secondary);
+}
+
+.theme-directv .epg-container.layout-classic .epg-cell.focused .epg-cell-title,
+.theme-directv .epg-container.layout-classic .epg-cell.focused .epg-cell-time,
+.theme-directv .epg-container.layout-classic .epg-cell.focused .epg-cell-subtitle,
+.theme-directv .epg-container.layout-classic .epg-cell.focused .epg-cell-meta {
+  color: var(--directv-focus-text);
+  font-weight: 700;
+}
+
+.theme-directv .epg-info-panel,
+.theme-directv .epg-info-panel.epg-info-mode-artwork,
+.theme-directv .epg-info-panel.epg-info-mode-theme-default,
+.theme-directv .epg-info-panel.epg-info-mode-artwork .epg-info-backdrop {
+  background: linear-gradient(
+    180deg,
+    var(--directv-panel-gradient-start),
+    var(--directv-panel-gradient-strong-end)
+  );
+  border-color: rgb(var(--color-primary-rgb) / 82%);
+}
+
 /* Minimal themes: keep legacy density and avoid new visual structure. */
 .theme-swiss .epg-cell-meta,
-.theme-directv .epg-cell-meta,
-.theme-swiss .epg-cell-subtitle,
-.theme-directv .epg-cell-subtitle {
+.theme-swiss .epg-cell-subtitle {
   display: none !important;
 }
 
 .theme-swiss .epg-info-backdrop,
-.theme-directv .epg-info-backdrop,
-.theme-swiss .epg-info-tags,
-.theme-directv .epg-info-tags {
+.theme-swiss .epg-info-tags {
   display: none !important;
 }
 
-.theme-swiss .epg-cell-title,
-.theme-directv .epg-cell-title {
+.theme-swiss .epg-cell-title {
   white-space: nowrap;
   display: block;
   -webkit-line-clamp: unset;
