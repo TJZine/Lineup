@@ -43,7 +43,11 @@ describe('directv-classic theme contract', () => {
         const classicFocus = blockFor(epgCss, '.theme-directv .epg-container.layout-classic .epg-cell.focused');
         const infoPanel = blockFor(
             epgCss,
-            '.theme-directv .epg-info-panel,\n.theme-directv .epg-info-panel.epg-info-mode-artwork,\n.theme-directv .epg-info-panel.epg-info-mode-theme-default,\n.theme-directv .epg-info-panel.epg-info-mode-artwork .epg-info-backdrop'
+            '.theme-directv .epg-info-panel,\n.theme-directv .epg-info-panel.epg-info-mode-artwork,\n.theme-directv .epg-info-panel.epg-info-mode-theme-default'
+        );
+        const infoBackdrop = blockFor(
+            epgCss,
+            '.theme-directv .epg-info-panel.epg-info-mode-artwork .epg-info-backdrop,\n.theme-directv .epg-info-panel.epg-info-mode-theme-default .epg-info-backdrop'
         );
 
         expect(declarationValue(classicCell, 'background')).toContain('var(--directv-panel-gradient-start)');
@@ -51,6 +55,8 @@ describe('directv-classic theme contract', () => {
         expect(declarationValue(classicFocus, 'background')).toBe('var(--directv-focus-fill)');
         expect(declarationValue(classicFocus, 'border-color')).toBe('var(--directv-focus-border)');
         expect(declarationValue(infoPanel, 'background')).toContain('var(--directv-panel-gradient-strong-end)');
+        expect(declarationValue(infoPanel, 'border-color')).toBe('rgb(var(--color-primary-rgb) / 82%)');
+        expect(declarationValue(infoBackdrop, 'background')).toContain('var(--directv-panel-gradient-strong-end)');
     });
 
     it('keeps Swiss as the only minimal-density theme and removes DirecTV !important suppression', () => {

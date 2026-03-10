@@ -1873,14 +1873,22 @@
 
 .theme-directv .epg-info-panel,
 .theme-directv .epg-info-panel.epg-info-mode-artwork,
-.theme-directv .epg-info-panel.epg-info-mode-theme-default,
-.theme-directv .epg-info-panel.epg-info-mode-artwork .epg-info-backdrop {
+.theme-directv .epg-info-panel.epg-info-mode-theme-default {
   background: linear-gradient(
     180deg,
     var(--directv-panel-gradient-start),
     var(--directv-panel-gradient-strong-end)
   );
   border-color: rgb(var(--color-primary-rgb) / 82%);
+}
+
+.theme-directv .epg-info-panel.epg-info-mode-artwork .epg-info-backdrop,
+.theme-directv .epg-info-panel.epg-info-mode-theme-default .epg-info-backdrop {
+  background: linear-gradient(
+    180deg,
+    var(--directv-panel-gradient-start),
+    var(--directv-panel-gradient-strong-end)
+  );
 }
 
 /* Minimal themes: keep legacy density and avoid new visual structure. */
