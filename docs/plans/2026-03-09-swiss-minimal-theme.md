@@ -120,7 +120,7 @@ npm test -- --runInBand --runTestsByPath src/styles/__tests__/theme-token-comple
 
 Expected: PASS.
 
-1. Full UI verification gate:
+2. Full UI verification gate:
 
 ```bash
 npm run verify
@@ -128,7 +128,7 @@ npm run verify
 
 Expected: PASS.
 
-1. Visual Verification:
+3. Visual Verification:
 
 ```bash
 npm run dev
