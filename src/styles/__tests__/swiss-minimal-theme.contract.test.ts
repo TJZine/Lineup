@@ -17,7 +17,7 @@ describe('swiss minimal theme contract', () => {
         expect(block).toContain('--shadow-sm: none;');
         expect(block).toContain('--shadow-md: none;');
         expect(block).toContain('--shadow-lg: none;');
-        expect(block).toContain('--font-family-display: "Helvetica Neue", Helvetica, "Avenir Next", Arial, sans-serif;');
+        expect(block).toContain('--font-family-display: "Helvetica Neue", helvetica, "Avenir Next", arial, sans-serif;');
     });
 
     it('preserves Swiss density exclusions and sharpens classic EPG surfaces', () => {

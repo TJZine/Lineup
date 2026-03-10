@@ -67,7 +67,7 @@
   --shadow-lg: none;
   --panel-inner-glow: none;
   --scrim-tint-rgb: 0 0 0;
-  --font-family-display: "Helvetica Neue", Helvetica, "Avenir Next", Arial, sans-serif;
+  --font-family-display: "Helvetica Neue", helvetica, "Avenir Next", arial, sans-serif;
 }
 
 .theme-directv {
