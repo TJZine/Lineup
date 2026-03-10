@@ -172,32 +172,33 @@
 }
 
 .theme-ember-steel {
-  --focus-color: #d4a07a;
-  --focus-color-rgb: 212, 160, 122;
+  --focus-color: #e0782a;
+  --focus-color-rgb: 224, 120, 42;
 
-  --color-primary: #d4a07a;
-  --color-primary-rgb: 212 160 122;
-  --color-primary-dark: #b8845e;
-  --color-primary-light: #e8c0a0;
+  --color-primary: #e0782a;
+  --color-primary-rgb: 224 120 42;
+  --color-primary-dark: #c45f12;
+  --color-primary-light: #f0a060;
 
-  --color-bg-deep: #12141a;
-  --color-bg-surface: rgba(22, 25, 34, 0.92);
-  --color-bg-elevated: rgba(28, 31, 40, 0.94);
-  --color-bg-overlay: rgba(14, 16, 22, 0.86);
+  --color-bg-deep: #141414;
+  --color-bg-surface: rgba(24, 24, 24, 0.92);
+  --color-bg-elevated: rgba(32, 32, 32, 0.94);
+  --color-bg-overlay: rgba(16, 16, 16, 0.86);
 
-  --panel-surface: rgba(22, 25, 34, 0.92);
-  --panel-surface-2: rgba(28, 31, 40, 0.94);
+  --panel-surface: rgba(24, 24, 24, 0.92);
+  --panel-surface-2: rgba(32, 32, 32, 0.94);
   --panel-border: 1px solid rgba(255, 255, 255, 0.10);
   --panel-radius: 4px;
 
   --transition-normal: 180ms ease-out;
-  --panel-inner-glow: linear-gradient(180deg, rgba(212, 160, 122, 0.04), transparent);
+  --epg-info-panel-fade-to: var(--panel-surface-2);
+  --panel-inner-glow: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.55);
   --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.65);
   --color-live: var(--color-live-warm);
-  --scrim-tint-rgb: 22 25 34;
+  --scrim-tint-rgb: 20 20 20;
 
   --font-family-display: "Avenir Next", "Segoe UI", "Noto Sans", sans-serif;
 }
