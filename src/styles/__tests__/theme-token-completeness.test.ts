@@ -4,7 +4,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const THEMES = ['slate-pine', 'swiss', 'directv', 'glass', 'ember-steel'] as const;
+import { THEME_CLASSES } from '../../modules/ui/settings/theme';
+
+const THEMES = Object.keys(THEME_CLASSES) as Array<keyof typeof THEME_CLASSES>;
 const REQUIRED_TOKENS = [
     '--focus-color',
     '--focus-color-rgb',

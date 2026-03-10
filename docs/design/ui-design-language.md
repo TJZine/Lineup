@@ -181,7 +181,9 @@ These must be preserved during every redesign pass:
 
 Every surface has a `.theme-glass .{surface}-panel` override block. The glass theme:
 
-- Uses slightly lower-opacity smoked scrims than base surfaces (~5% less).
+- Uses darker (higher-opacity) smoked scrims than the base surfaces. Concrete examples from current UI:
+- Mini Guide panel: `rgba(0,0,0,0.50)`, `rgba(0,0,0,0.40)`, `rgba(0,0,0,0.18)` -> `rgb(6 9 13 / 72%)`, `rgb(8 11 15 / 56%)`, `rgb(8 11 15 / 22%)`
+- Now Playing Info panel: `rgba(0,0,0,0.30)` to `rgba(0,0,0,0.50)` -> `rgb(6 9 13 / 62%)` to `rgb(8 11 15 / 80%)`
 - Does **not** use `backdrop-filter` or `blur()` on TV surfaces.
 - Uses `var(--font-family-display)` for titles.
 - May use electric-cyan focus/selection glow on interactive elements.
