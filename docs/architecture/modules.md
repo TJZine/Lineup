@@ -33,6 +33,7 @@ This document is directory-oriented and lists file-level owners where the canoni
   - `src/core/channel-setup/`
   - `src/core/channel-tuning/`
   - `src/core/error-recovery/`
+  - `src/core/initialization/`
   - `src/core/orchestrator/`
   - `src/core/__tests__/`
 
@@ -44,6 +45,11 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/core/orchestrator/OrchestratorCoordinatorFactory.ts` owns coordinator construction and dependency assembly previously in `AppOrchestrator._createCoordinators()`
 - `src/core/orchestrator/OrchestratorPriorityOneControllerFactory.ts` owns Priority-1 controller and `OrchestratorEventBinder` construction previously in `AppOrchestrator._initializePriorityOneControllers()`
 - `src/Orchestrator.ts` remains the public re-export surface for external callers (including `src/App.ts` and tests)
+
+### `src/core/initialization/`
+
+- startup policy collaborators extracted from `InitializationCoordinator`
+- `src/core/initialization/InitializationStartupPolicy.ts` owns startup routing policy (auth/profile/server-select/post-ready) plus EPG startup config shaping
 
 ### `src/config/`
 

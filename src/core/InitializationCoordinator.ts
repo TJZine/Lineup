@@ -21,7 +21,7 @@ import type { IPlexStreamResolver } from '../modules/plex/stream';
 import type { IChannelManager } from '../modules/scheduler/channel-manager';
 import type { IChannelScheduler } from '../modules/scheduler/scheduler';
 import type { IVideoPlayer } from '../modules/player';
-import { formatTimeRange, type IEPGComponent } from '../modules/ui/epg';
+import type { IEPGComponent } from '../modules/ui/epg';
 import type { INowPlayingInfoOverlay } from '../modules/ui/now-playing-info';
 import type { IPlayerOsdOverlay } from '../modules/ui/player-osd';
 import type { IChannelNumberOverlay } from '../modules/ui/channel-number-overlay';
@@ -31,10 +31,14 @@ import type { IChannelTransitionOverlay } from '../modules/ui/channel-transition
 import type { IPlaybackOptionsModal } from '../modules/ui/playback-options';
 import { ExitConfirmModal, EXIT_CONFIRM_CONTAINER_ID } from '../modules/ui/exit-confirm';
 import type { IDisposable } from '../utils/interfaces';
-import { readStoredBoolean, safeLocalStorageGet } from '../utils/storage';
-import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import type { OrchestratorConfig, ModuleStatus } from './orchestrator/OrchestratorTypes';
 import { summarizeErrorForLog } from '../utils/errors';
+import {
+    applyPhase2AuthGatePolicy,
+    applyPhase3ServerGatePolicy,
+    applyPostReadyRoutingPolicy,
+    buildEpgConfigWithStartupPolicy,
+} from './initialization/InitializationStartupPolicy';
 
 // ============================================
 // Types
@@ -246,36 +250,14 @@ export class InitializationCoordinator implements IInitializationCoordinator {
                 }
 
                 if (this._deps.navigation) {
-                    const shouldRunAudioSetup = this._callbacks.shouldRunAudioSetup();
-                    const shouldRunSetup = this._callbacks.shouldRunChannelSetup();
-
-                    if (shouldRunAudioSetup && shouldRunSetup) {
-                        // First-time user: audio setup → channel setup
-                        this._deps.navigation.replaceScreen('audio-setup');
-                    } else if (shouldRunSetup) {
-                        this._deps.navigation.replaceScreen('channel-setup');
-                    } else {
-                        this._deps.navigation.replaceScreen('player');
-                        if (this._deps.channelManager) {
-
-                            let channelToPlay = this._deps.channelManager.getCurrentChannel();
-
-                            // Fallback: If no current channel but we have channels, pick the first one
-                            if (!channelToPlay) {
-                                const allChannels = this._deps.channelManager.getAllChannels();
-                                const firstChannel = allChannels[0];
-                                if (firstChannel) {
-                                    channelToPlay = firstChannel;
-                                }
-                            }
-
-                            if (channelToPlay) {
-                                await this._callbacks.switchToChannel(channelToPlay.id);
-                            } else {
-                                this._callbacks.openServerSelect();
-                            }
-                        }
-                    }
+                    await applyPostReadyRoutingPolicy({
+                        navigation: this._deps.navigation,
+                        channelManager: this._deps.channelManager,
+                        shouldRunAudioSetup: this._callbacks.shouldRunAudioSetup,
+                        shouldRunChannelSetup: this._callbacks.shouldRunChannelSetup,
+                        switchToChannel: this._callbacks.switchToChannel,
+                        openServerSelect: this._callbacks.openServerSelect,
+                    });
                 }
 
                 this.clearAuthResume();
@@ -416,119 +398,26 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             return false;
         }
 
-        // Check for stored auth credentials (SSOT: PlexAuth storage)
-        const storedCredentials = await this._deps.plexAuth.getStoredCredentials();
-        if (storedCredentials) {
-            try {
-                const activeValid = await this._deps.plexAuth.validateToken(
-                    storedCredentials.activeToken.token
-                );
-
-                if (activeValid) {
-                    const currentToken =
-                        this._deps.plexAuth.getCurrentUser() ?? storedCredentials.activeToken;
-                    const activeUserId = storedCredentials.activeUserId || currentToken.userId;
-                    const accountToken = storedCredentials.accountToken.token === currentToken.token
-                        ? currentToken
-                        : storedCredentials.accountToken;
-                    const selectedServerByUserId = {
-                        ...(storedCredentials.selectedServerByUserId ?? {}),
-                    };
-                    if (!selectedServerByUserId[activeUserId]) {
-                        selectedServerByUserId[activeUserId] = { serverId: null, serverUri: null };
-                    }
-                    await this._deps.plexAuth.storeCredentials({
-                        accountToken,
-                        activeToken: currentToken,
-                        activeUserId,
-                        selectedServerByUserId,
-                        deviceKey: storedCredentials.deviceKey ?? null,
-                    });
-                    this._callbacks.configureDiscoveryStorage();
-                    this._callbacks.seedSubtitleLanguageFromPlexUser?.();
-                    this._callbacks.updateModuleStatus(
-                        'plex-auth',
-                        'ready',
-                        undefined,
-                        Date.now() - startTime
-                    );
-
-                    if (this._deps.lifecycle) {
-                        this._deps.lifecycle.setPhase('loading_data');
-                    }
-
-                    const currentScreen = this._deps.navigation.getCurrentScreen();
-                    const isAuthScreen = currentScreen === 'auth';
-                    const showPickerOnStartup = readStoredBoolean(
-                        LINEUP_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP,
-                        false
-                    );
-                    if (isAuthScreen || showPickerOnStartup) {
-                        try {
-                            const users = await this._deps.plexAuth.getHomeUsers();
-                            if (users.length > 1) {
-                                this._registerProfileResume();
-                                this._deps.navigation.goTo('profile-select');
-                                return false;
-                            }
-                        } catch (error) {
-                            const code = (error as { code?: string }).code;
-                            if (
-                                code === AppErrorCode.AUTH_REQUIRED ||
-                                code === AppErrorCode.AUTH_INVALID
-                            ) {
-                                this._callbacks.updateModuleStatus('plex-auth', 'pending');
-                                this._registerAuthResume();
-                                this._deps.navigation.goTo('auth');
-                                return false;
-                            }
-                        }
-                    }
-
-                    return true;
+        const phase2Inputs = {
+            startTime,
+            plexAuth: this._deps.plexAuth,
+            navigation: this._deps.navigation,
+            lifecycle: this._deps.lifecycle,
+            updateModuleStatus: this._callbacks.updateModuleStatus,
+            configureDiscoveryStorage: this._callbacks.configureDiscoveryStorage,
+            handlers: {
+                registerAuthResume: (): void => this._registerAuthResume(),
+                registerProfileResume: (): void => this._registerProfileResume(),
+            },
+            ...(this._callbacks.seedSubtitleLanguageFromPlexUser
+                ? {
+                    seedSubtitleLanguageFromPlexUser:
+                        this._callbacks.seedSubtitleLanguageFromPlexUser,
                 }
+                : {}),
+        };
 
-                const accountValid = await this._deps.plexAuth.validateToken(
-                    storedCredentials.accountToken.token
-                );
-                if (accountValid) {
-                    const selectedServerByUserId = {
-                        ...(storedCredentials.selectedServerByUserId ?? {}),
-                    };
-                    if (!selectedServerByUserId[storedCredentials.activeUserId]) {
-                        selectedServerByUserId[storedCredentials.activeUserId] = {
-                            serverId: null,
-                            serverUri: null,
-                        };
-                    }
-                    await this._deps.plexAuth.storeCredentials({
-                        accountToken: storedCredentials.accountToken,
-                        activeToken: storedCredentials.activeToken,
-                        activeUserId: storedCredentials.activeUserId,
-                        selectedServerByUserId,
-                        deviceKey: storedCredentials.deviceKey ?? null,
-                    });
-
-                    this._callbacks.updateModuleStatus(
-                        'plex-auth',
-                        'ready',
-                        undefined,
-                        Date.now() - startTime
-                    );
-                    this._registerProfileResume();
-                    this._deps.navigation.goTo('profile-select');
-                    return false;
-                }
-            } catch {
-                console.error('[InitializationCoordinator] Token validation failed.');
-            }
-        }
-
-        // No valid auth - navigate to auth screen
-        this._callbacks.updateModuleStatus('plex-auth', 'pending');
-        this._registerAuthResume();
-        this._deps.navigation.goTo('auth');
-        return false;
+        return applyPhase2AuthGatePolicy(phase2Inputs);
     }
 
     /**
@@ -546,49 +435,17 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             return false;
         }
 
-        // Discover servers and restore selection (SSOT: discovery storage)
-        this._callbacks.updateModuleStatus('plex-server-discovery', 'initializing');
-        try {
-            await this._deps.plexDiscovery.initialize();
-        } catch (error) {
-            console.error('Server discovery failed:', summarizeErrorForLog(error));
-            this._callbacks.updateModuleStatus('plex-server-discovery', 'error');
-            if (this._deps.navigation) {
-                this._deps.navigation.goTo('server-select');
-            }
-            return false;
-        }
-
-        const elapsedMs = Date.now() - startTime;
-        const isConnected = this._deps.plexDiscovery.isConnected();
-
-        if (!isConnected) {
-            // Discovery completed, but server selection/connection is still required.
-            this._callbacks.updateModuleStatus('plex-server-discovery', 'pending', undefined, elapsedMs);
-            this._callbacks.updateModuleStatus('plex-library', 'pending', undefined, elapsedMs);
-            this._callbacks.updateModuleStatus('plex-stream-resolver', 'pending', undefined, elapsedMs);
-            this._registerServerResume();
-            this._deps.navigation.goTo('server-select');
-            return false;
-        }
-
-        this._callbacks.updateModuleStatus('plex-server-discovery', 'ready', undefined, elapsedMs);
-
-        // Mark library and stream resolver as ready (they use discovery + connection)
-        this._callbacks.updateModuleStatus(
-            'plex-library',
-            'ready',
-            undefined,
-            elapsedMs
-        );
-        this._callbacks.updateModuleStatus(
-            'plex-stream-resolver',
-            'ready',
-            undefined,
-            elapsedMs
-        );
-
-        return true;
+        return applyPhase3ServerGatePolicy({
+            startTime,
+            plexDiscovery: this._deps.plexDiscovery,
+            plexLibrary: this._deps.plexLibrary,
+            plexStreamResolver: this._deps.plexStreamResolver,
+            navigation: this._deps.navigation,
+            updateModuleStatus: this._callbacks.updateModuleStatus,
+            handlers: {
+                registerServerResume: () => this._registerServerResume(),
+            },
+        });
     }
 
     /**
@@ -719,84 +576,14 @@ export class InitializationCoordinator implements IInitializationCoordinator {
         const startTime = Date.now();
         this._callbacks.updateModuleStatus('epg-ui', 'initializing');
         const init = async (): Promise<void> => {
-            // Wire thumb resolver callback to convert relative Plex paths to absolute URLs
-            const storedLayoutMode = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
-            const layoutMode: 'overlay' | 'classic' =
-                storedLayoutMode === 'overlay' ? 'overlay' : 'classic';
-            const showNowWatchingBanner = readStoredBoolean(
-                LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED,
-                true
-            );
-            const epgConfigWithResolver = {
-                ...this._config.epgConfig,
-                layoutMode,
-                showNowWatchingBanner,
-                fetchItemDetails: (
-                    ratingKey: string,
-                    options?: { signal?: AbortSignal | null }
-                ): Promise<import('../modules/plex/library').PlexMediaItem | null> =>
-                    this._deps.plexLibrary?.getItem(
-                        ratingKey,
-                        { signal: options?.signal ?? null }
-                    ) ?? Promise.resolve(null),
-                resolveThumbUrl: (
-                    pathOrUrl: string | null,
-                    width?: number,
-                    height?: number
-                ): string | null => {
-                    if (!pathOrUrl) return null;
-                    if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
-                        return pathOrUrl;
-                    }
-                    const plexLibrary = this._deps.plexLibrary;
-                    if (plexLibrary) {
-                        const resized = plexLibrary.getImageUrl(pathOrUrl, width, height);
-                        if (resized) return resized;
-                    }
-                    return this._callbacks.buildPlexResourceUrl(pathOrUrl);
-                },
-                isVideoPlaying: (): boolean => this._deps.videoPlayer?.isPlaying?.() ?? false,
-                getCurrentChannelInfo: (): {
-                    channelNumber: number;
-                    channelName: string;
-                    programTitle: string;
-                    timeLabel: string;
-                } | null => {
-                    const channel = this._deps.channelManager?.getCurrentChannel();
-                    const scheduler = this._deps.scheduler;
-                    if (!channel || !scheduler) return null;
-                    let program;
-                    try {
-                        program = scheduler.getCurrentProgram();
-                    } catch {
-                        return null;
-                    }
-                    if (!program) return null;
-                    const programTitle =
-                        program.item?.title ?? program.item?.fullTitle ?? 'Unknown';
-                    const startTime = program.scheduledStartTime;
-                    const endTime = program.scheduledEndTime;
-                    const hasValidTimes =
-                        Number.isFinite(startTime) &&
-                        Number.isFinite(endTime) &&
-                        endTime >= startTime;
-                    return {
-                        channelNumber: channel.number,
-                        channelName: channel.name,
-                        programTitle,
-                        timeLabel: hasValidTimes ? formatTimeRange(startTime, endTime) : '',
-                    };
-                },
-                onLayoutModeChange: (mode: 'overlay' | 'classic'): void => {
-                    const videoContainer = document.getElementById('video-container');
-                    if (!videoContainer) return;
-                    if (mode === 'classic') {
-                        videoContainer.classList.add('epg-pip-active');
-                    } else {
-                        videoContainer.classList.remove('epg-pip-active');
-                    }
-                },
-            };
+            const epgConfigWithResolver = buildEpgConfigWithStartupPolicy({
+                epgConfig: this._config.epgConfig,
+                plexLibrary: this._deps.plexLibrary,
+                videoPlayer: this._deps.videoPlayer,
+                channelManager: this._deps.channelManager,
+                scheduler: this._deps.scheduler,
+                buildPlexResourceUrl: this._callbacks.buildPlexResourceUrl,
+            });
             this._deps.epg!.initialize(epgConfigWithResolver);
             this._callbacks.updateModuleStatus(
                 'epg-ui',
