@@ -252,6 +252,23 @@ describe('App bootstrap smoke', () => {
         await bootstrapApp();
 
         expect(initializeSpy).toHaveBeenCalledTimes(1);
+        expect(initializeSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                plexConfig: expect.objectContaining({
+                    product: 'Lineup',
+                    version: '1.0.0',
+                    platform: 'webOS',
+                    platformVersion: '6.0',
+                    device: 'LG Smart TV',
+                    deviceName: 'Living Room TV',
+                    clientIdentifier: expect.any(String),
+                }),
+            })
+        );
+        const initializePayload = initializeSpy.mock.calls[0]?.[0] as {
+            plexConfig: { clientIdentifier: string };
+        };
+        expect(initializePayload.plexConfig.clientIdentifier.length).toBeGreaterThan(0);
         expect(startSpy).toHaveBeenCalledTimes(1);
         for (const id of EXPECTED_CONTAINER_IDS) {
             expect(document.getElementById(id)).not.toBeNull();

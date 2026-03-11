@@ -30,7 +30,7 @@ import {
 import { AppDiagnosticsSurface } from './core/app-shell/AppDiagnosticsSurface';
 import { AppToastPresenter } from './core/app-shell/AppToastPresenter';
 import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
-import { resolveClientIdentifier, type PlexAuthConfig } from './modules/plex/auth';
+import { createDefaultPlexAuthConfig } from './modules/plex/auth';
 import { AuthScreen } from './modules/ui/auth';
 import { ProfileSelectScreen } from './modules/ui/profile-select';
 import { ServerSelectScreen } from './modules/ui/server-select';
@@ -41,16 +41,6 @@ import { summarizeErrorForLog } from './utils/errors';
 // ============================================
 // Configuration Defaults
 // ============================================
-
-const DEFAULT_PLEX_CONFIG: PlexAuthConfig = {
-    clientIdentifier: '',
-    product: 'Lineup',
-    version: '1.0.0',
-    platform: 'webOS',
-    platformVersion: '6.0',
-    device: 'LG Smart TV',
-    deviceName: 'Living Room TV',
-};
 
 const DEFAULT_NAV_CONFIG: NavigationConfig = {
     enablePointerMode: false,
@@ -392,7 +382,7 @@ export class App {
      */
     private _buildConfig(): OrchestratorConfig {
         return {
-            plexConfig: this._getPlexConfig(),
+            plexConfig: createDefaultPlexAuthConfig(),
             navConfig: DEFAULT_NAV_CONFIG,
             playerConfig: DEFAULT_PLAYER_CONFIG,
             epgConfig: DEFAULT_EPG_CONFIG,
@@ -404,16 +394,6 @@ export class App {
             channelTransitionConfig: DEFAULT_CHANNEL_TRANSITION_CONFIG,
             playbackOptionsConfig: DEFAULT_PLAYBACK_OPTIONS_CONFIG,
         };
-    }
-
-    /**
-     * Get Plex configuration with client identifier.
-     */
-    private _getPlexConfig(): PlexAuthConfig {
-        const config = { ...DEFAULT_PLEX_CONFIG };
-        config.clientIdentifier = resolveClientIdentifier();
-
-        return config;
     }
 
     /**
