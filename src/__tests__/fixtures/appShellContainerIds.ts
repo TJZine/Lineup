@@ -1,5 +1,7 @@
 import { CHANNEL_BADGE_CONTAINER_ID } from '../../modules/ui/channel-badge';
 import { EXIT_CONFIRM_CONTAINER_ID } from '../../modules/ui/exit-confirm';
+import { NOW_PLAYING_INFO_CONTAINER_ID } from '../../modules/ui/now-playing-info/constants';
+import { PLAYBACK_OPTIONS_CONTAINER_ID } from '../../modules/ui/playback-options/constants';
 
 export const EXPECTED_CONTAINER_IDS = [
     'video-container',
@@ -9,8 +11,8 @@ export const EXPECTED_CONTAINER_IDS = [
     'mini-guide-container',
     'channel-transition-container',
     'epg-container',
-    'now-playing-info-container',
-    'playback-options-container',
+    NOW_PLAYING_INFO_CONTAINER_ID,
+    PLAYBACK_OPTIONS_CONTAINER_ID,
     EXIT_CONFIRM_CONTAINER_ID,
     'splash-container',
     'auth-container',
@@ -23,4 +25,3 @@ export const EXPECTED_CONTAINER_IDS = [
     'dev-menu',
     'app-toast',
 ] as const;
-

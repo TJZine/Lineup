@@ -14,12 +14,14 @@ import type { INavigationManager, NavigationConfig } from './modules/navigation'
 import type { VideoPlayerConfig } from './modules/player';
 import type { EPGConfig } from './modules/ui/epg';
 import type { NowPlayingInfoConfig } from './modules/ui/now-playing-info';
+import { NOW_PLAYING_INFO_CONTAINER_ID } from './modules/ui/now-playing-info/constants';
 import type { PlayerOsdConfig } from './modules/ui/player-osd';
 import type { ChannelNumberOverlayConfig } from './modules/ui/channel-number-overlay';
 import { CHANNEL_BADGE_CONTAINER_ID, type ChannelBadgeConfig } from './modules/ui/channel-badge';
 import type { MiniGuideConfig } from './modules/ui/mini-guide';
 import type { ChannelTransitionConfig } from './modules/ui/channel-transition';
 import type { PlaybackOptionsConfig } from './modules/ui/playback-options';
+import { PLAYBACK_OPTIONS_CONTAINER_ID } from './modules/ui/playback-options/constants';
 import { createAppContainers, type AppContainerRefs } from './core/app-shell/AppContainerFactory';
 import { AppLazyScreenRegistry } from './core/app-shell/AppLazyScreenRegistry';
 import { AppScreenVisibilityCoordinator } from './core/app-shell/AppScreenVisibilityCoordinator';
@@ -73,7 +75,7 @@ const DEFAULT_EPG_CONFIG: EPGConfig = {
 };
 
 const DEFAULT_NOW_PLAYING_INFO_CONFIG: NowPlayingInfoConfig = {
-    containerId: 'now-playing-info-container',
+    containerId: NOW_PLAYING_INFO_CONTAINER_ID,
     autoHideMs: 0,
 };
 
@@ -111,7 +113,7 @@ const DEFAULT_CHANNEL_TRANSITION_CONFIG: ChannelTransitionConfig = {
 };
 
 const DEFAULT_PLAYBACK_OPTIONS_CONFIG: PlaybackOptionsConfig = {
-    containerId: 'playback-options-container',
+    containerId: PLAYBACK_OPTIONS_CONTAINER_ID,
 };
 
 const ERROR_OVERLAY_MODAL_ID = 'modal:error-overlay';

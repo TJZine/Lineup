@@ -1,5 +1,7 @@
 import { CHANNEL_BADGE_CONTAINER_ID } from '../../modules/ui/channel-badge';
 import { EXIT_CONFIRM_CONTAINER_ID } from '../../modules/ui/exit-confirm';
+import { NOW_PLAYING_INFO_CONTAINER_ID } from '../../modules/ui/now-playing-info/constants';
+import { PLAYBACK_OPTIONS_CONTAINER_ID } from '../../modules/ui/playback-options/constants';
 
 export interface AppContainerRefs {
     splashContainer: HTMLElement;
@@ -54,10 +56,10 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
     epgContainer.className = 'epg-container';
 
     // Now Playing Info overlay container
-    void getOrCreateDiv(root, 'now-playing-info-container');
+    void getOrCreateDiv(root, NOW_PLAYING_INFO_CONTAINER_ID);
 
     // Playback Options modal container
-    void getOrCreateDiv(root, 'playback-options-container');
+    void getOrCreateDiv(root, PLAYBACK_OPTIONS_CONTAINER_ID);
 
     // Exit confirmation modal container
     void getOrCreateDiv(root, EXIT_CONFIRM_CONTAINER_ID);

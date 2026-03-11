@@ -5,9 +5,10 @@
  */
 
 export const PLAYBACK_OPTIONS_MODAL_ID = 'playback-options';
+export const PLAYBACK_OPTIONS_CONTAINER_ID = 'playback-options-container';
 
 export const PLAYBACK_OPTIONS_CLASSES = {
-    CONTAINER: 'playback-options-container',
+    CONTAINER: PLAYBACK_OPTIONS_CONTAINER_ID,
     PANEL: 'playback-options-panel',
     HEADER: 'playback-options-header',
     TITLE: 'playback-options-title',
