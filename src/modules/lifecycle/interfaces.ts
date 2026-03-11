@@ -187,7 +187,7 @@ export interface IErrorRecovery {
 
 /**
  * State Manager Interface.
- * Handles localStorage persistence with versioning and migrations.
+ * Handles lifecycle-only localStorage persistence with versioning and migrations.
  */
 export interface IStateManager {
     /**

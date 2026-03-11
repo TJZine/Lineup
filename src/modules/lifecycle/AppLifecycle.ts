@@ -780,10 +780,8 @@ export class AppLifecycle implements IAppLifecycle {
         const existingState =
             this._stateManager.loadSync() ?? this._stateManager.createDefaultState();
 
-        // Return state with updated timestamp
-        // Note: Other modules (PlexAuth, ChannelManager) own their respective state.
-        // AppLifecycle persists the baseline; modules should call saveState after
-        // updating their portions via StateManager integration.
+        // Return lifecycle-owned state with updated timestamp.
+        // Other modules own their own persistence boundaries and keys.
         return {
             ...existingState,
             lastUpdated: Date.now(),
