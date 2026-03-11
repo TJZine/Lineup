@@ -46,7 +46,7 @@ export class AppBlockingErrorOverlayPresenter {
             return;
         }
 
-        this._container.innerHTML = '';
+        this._container.replaceChildren();
 
         const content = document.createElement('div');
         content.className = 'error-content';
