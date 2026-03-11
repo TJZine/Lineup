@@ -79,7 +79,8 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`
 - `src/modules/plex/auth/clientIdentifier.ts`
 - these are the current designated owners for storage-backed state
-- explicit deferred direct-storage exceptions tracked in `P3-W3`: `src/modules/ui/epg/utils.ts` (`appendEpgDebugLog`) and `src/core/channel-setup/ChannelSetupCoordinator.ts` (`cleanupStaleChannelBuildKeys`)
+- `src/modules/ui/epg/utils.ts` and `src/core/channel-setup/ChannelSetupCoordinator.ts` now route their former direct-storage exception paths through sanctioned helpers in `src/utils/storage.ts` (`P3-W3`, completed 2026-03-11)
+- repo-wide residual direct-storage drift audit/remediation remains in `P3-W4`
 
 ### UI
 

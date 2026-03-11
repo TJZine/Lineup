@@ -356,7 +356,11 @@ Do not close a listed work unit while its mapped imported issue still remains un
     - locked owner split: lifecycle persistence remains lifecycle-only (`lineup_app_state` via `StateManager`), while channel persistence keys (including selected/current channel state) remain scheduler-owned through `ChannelPersistenceStore`/`ChannelRepository` with `OrchestratorStorageContext` key configuration.
     - explicit `P3-W3` exception deferrals retained: `src/modules/ui/epg/utils.ts` (`appendEpgDebugLog`) and `src/core/channel-setup/ChannelSetupCoordinator.ts` (`cleanupStaleChannelBuildKeys`).
     - verification sequence for this slice: `npm test -- src/modules/lifecycle/__tests__/StateManager.test.ts src/modules/lifecycle/__tests__/AppLifecycle.test.ts`, `npm run typecheck`, `npm run verify:docs`, `npm test`.
-  - [ ] `P3-W3` isolate, wrap, or explicitly document the remaining direct-storage exceptions for EPG debug logging and channel-setup stale-key cleanup
+  - [x] `P3-W3` isolate, wrap, or explicitly document the remaining direct-storage exceptions for EPG debug logging and channel-setup stale-key cleanup (completed 2026-03-11; plan: `docs/plans/2026-03-11-p3-w3-direct-storage-exception-wrap.md`)
+    - wrapped `src/core/channel-setup/ChannelSetupCoordinator.ts` (`cleanupStaleChannelBuildKeys`) behind `safeLocalStorageRemoveByPrefixes` in `src/utils/storage.ts`.
+    - wrapped `src/modules/ui/epg/utils.ts` (`appendEpgDebugLog`/debug flag and log payload access) behind sanctioned `safeLocalStorageGet`/`safeLocalStorageSet` helpers.
+    - added targeted behavior coverage in `src/utils/__tests__/storage.test.ts`, `src/core/channel-setup/__tests__/ChannelSetupCoordinator.test.ts`, and `src/modules/ui/epg/__tests__/utils.test.ts`.
+    - verification sequence for this slice: `npm test -- src/utils/__tests__/storage.test.ts`, `npm test -- src/core/channel-setup/__tests__/ChannelSetupCoordinator.test.ts`, `npm test -- src/modules/ui/epg/__tests__/utils.test.ts src/modules/ui/epg/__tests__/EPGCoordinator.test.ts src/modules/ui/epg/__tests__/EPGTimeHeader.test.ts`, `npm run typecheck`, `npm run verify:docs`, `npm run verify`.
   - [ ] `P3-W4` audit the rest of the repo for storage-owner drift and remove any newly discovered raw-storage bypasses before closing the priority
   - [ ] `P3-W5` refresh `CURRENT_STATE` and adjacent docs so the persistence-owner list is accurate and complete
   - [ ] `P3-EXIT` run the priority-exit review before moving to `P4`

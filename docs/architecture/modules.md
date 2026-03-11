@@ -173,10 +173,11 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/modules/scheduler/channel-manager/ChannelRepository.ts`
 - owns server/user-scoped channel key families (including selected/current channel state) configured by `src/core/orchestrator/OrchestratorStorageContext.ts`
 
-### Direct-storage Exceptions (Deferred To `P3-W3`)
+### Direct-storage Exception Wraps (`P3-W3`, completed 2026-03-11)
 
-- `src/modules/ui/epg/utils.ts` (`appendEpgDebugLog`)
-- `src/core/channel-setup/ChannelSetupCoordinator.ts` (`cleanupStaleChannelBuildKeys`)
+- `src/modules/ui/epg/utils.ts` (`appendEpgDebugLog`) now routes EPG debug storage reads/writes through `src/utils/storage.ts` helpers
+- `src/core/channel-setup/ChannelSetupCoordinator.ts` (`cleanupStaleChannelBuildKeys`) now routes stale temp-key cleanup through `src/utils/storage.ts` prefix-based helper
+- broader repo drift cleanup is still tracked under `P3-W4`
 
 ## UI Modules
 
