@@ -6,6 +6,7 @@ import {
     readStoredBoolean,
     readStoredBooleanAndClean,
     readStoredBooleanMaybeAndClean,
+    safeLocalStorageRemoveByPrefixes,
 } from '../storage';
 
 describe('storage helpers', () => {
@@ -52,6 +53,35 @@ describe('storage helpers', () => {
 
     it('readStoredBooleanAndClean returns fallback when key is missing', () => {
         expect(readStoredBooleanAndClean('missing', true)).toBe(true);
+    });
+
+    it('safeLocalStorageRemoveByPrefixes removes only matching keys', () => {
+        localStorage.setItem('lineup_channels_build_tmp_v1:a', '1');
+        localStorage.setItem('lineup_current_channel_build_tmp_v1:b', '1');
+        localStorage.setItem('lineup_channel_setup_v2:server-1', 'keep');
+
+        const removed = safeLocalStorageRemoveByPrefixes([
+            'lineup_channels_build_tmp_v1:',
+            'lineup_current_channel_build_tmp_v1:',
+        ]);
+
+        expect(removed).toEqual([
+            'lineup_channels_build_tmp_v1:a',
+            'lineup_current_channel_build_tmp_v1:b',
+        ]);
+        expect(localStorage.getItem('lineup_channels_build_tmp_v1:a')).toBe(null);
+        expect(localStorage.getItem('lineup_current_channel_build_tmp_v1:b')).toBe(null);
+        expect(localStorage.getItem('lineup_channel_setup_v2:server-1')).toBe('keep');
+    });
+
+    it('safeLocalStorageRemoveByPrefixes returns empty list when storage access throws', () => {
+        const getLength = jest.spyOn(Storage.prototype, 'length', 'get').mockImplementation(() => {
+            throw new Error('blocked');
+        });
+
+        expect(safeLocalStorageRemoveByPrefixes(['lineup_'])).toEqual([]);
+
+        getLength.mockRestore();
     });
 
 });

@@ -44,6 +44,31 @@ export function safeLocalStorageRemove(key: string): boolean {
     }
 }
 
+/**
+ * Remove localStorage keys matching any provided prefix.
+ * Returns the list of removed keys. Never throws.
+ */
+export function safeLocalStorageRemoveByPrefixes(prefixes: readonly string[]): string[] {
+    if (prefixes.length === 0) {
+        return [];
+    }
+    try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key) continue;
+            if (!prefixes.some((prefix) => key.startsWith(prefix))) continue;
+            keysToRemove.push(key);
+        }
+        for (const key of keysToRemove) {
+            localStorage.removeItem(key);
+        }
+        return keysToRemove;
+    } catch {
+        return [];
+    }
+}
+
 /** Parse '1'/'0' string to boolean. Returns null if value is null or unrecognized. */
 export function parseStoredBoolean(value: string | null): boolean | null {
     if (value === null) return null;
@@ -90,20 +115,7 @@ export function readStoredBoolean(key: string, defaultValue: boolean): boolean {
  * Does not call localStorage.clear() to avoid clobbering unrelated app data.
  */
 export function safeClearLineupStorage(): void {
-    try {
-        const keysToRemove: string[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-            const k = localStorage.key(i);
-            if (typeof k === 'string' && k.startsWith('lineup_')) {
-                keysToRemove.push(k);
-            }
-        }
-        for (const k of keysToRemove) {
-            localStorage.removeItem(k);
-        }
-    } catch {
-        // Ignore storage failures (storage may be blocked)
-    }
+    safeLocalStorageRemoveByPrefixes(['lineup_']);
 }
 
 function isQuotaExceededError(error: unknown): boolean {
