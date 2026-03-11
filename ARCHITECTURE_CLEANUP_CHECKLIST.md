@@ -31,6 +31,9 @@ Completion rule: every implementation plan that finishes a `P#-W#` work unit mus
   - `desloppify status`: `strict 75.0 / mechanical 94.2 / subjective 62.1`
   - strict score improved from the pre-import `37.7` baseline to `75.0`
   - current queue shape: `62` open review issues and `488` total open items
+  - priority-exit refresh captured on `2026-03-11` in `.worktrees/p1-exit-closeout` from `desloppify status`, `desloppify show review --status open`, `desloppify show security --status open --no-budget --top 50`, and `npm run verify`
+  - `desloppify status`: `strict 75.0 / objective 94.4 / subjective 62.1`
+  - current queue shape at `P1-EXIT`: `62` open review issues, `16` open security issues, and `349` global open items in the refreshed worktree state
 - Raw imported subjective baseline:
   - full-batch average across all `20` dimensions: `79.2`
   - weakest raw batch dimensions: `cross_module_architecture 72.0`, `design_coherence 74.0`, `abstraction_fitness 74.0`, `error_consistency 74.6`, `ai_generated_debt 76.0`, `test_strategy 77.2`
@@ -173,9 +176,70 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - [x] `P1-W3` split remaining coarse-grained startup policy out of `InitializationCoordinator` (done 2026-03-10; plan: docs/plans/2026-03-10-p1-w3-split-initializationcoordinator-startup-policy.md)
   - [x] `P1-W4` remove leftover pass-through runtime helpers, duplicate lifecycle handoffs, and any transitional seams created by the round-2 extraction (done 2026-03-10; plan: docs/plans/2026-03-10-p1-w4-remove-orchestrator-runtime-transitional-seams.md)
   - [x] `P1-W5` run a full cleanup pass for this priority so the remaining `AppOrchestrator` surface matches the intended steady-state boundary rather than a partially reduced hotspot (done 2026-03-10)
-  - [ ] `P1-EXIT` run the priority-exit review before moving to `P2`
+  - [x] `P1-EXIT` run the priority-exit review before moving to `P2` (done `2026-03-11` in `.worktrees/p1-exit-closeout`)
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 1
     - required: retire or explicitly defer `abstraction_fitness::orchestrator_passthrough_facade`
+    - mapped imported issues:
+      - `review::.::holistic::cross_module_architecture::orchestrator_initialization_cycle::1c9b9603` -> `resolved`
+        reason: `P1-W1` removed the `src/Orchestrator.ts` / `src/core/index.ts` cycle by moving shared orchestrator types into `src/core/orchestrator/OrchestratorTypes.ts`; the issue no longer appears in `desloppify show review --status open`.
+      - `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` -> `split follow-up`
+        owner: `P4-W2`
+        reason: the remaining pass-through debt is now the channel-setup consumer seam between `src/Orchestrator.ts`, `src/modules/ui/channel-setup/ChannelSetupSessionController.ts`, and `src/core/channel-setup/ChannelSetupCoordinator.ts`; retiring it during `P1-EXIT` would reopen Priority 4 coordinator-boundary work instead of finishing runtime-composition cleanup.
+        revisit trigger: start of `P4-W2`, or `P4-EXIT` if this issue is still open when Priority 4 closeout is prepared.
+    - follow-up ownership:
+      - `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b`
+        owner: `P4-W2`
+        reason: `ChannelSetupCoordinator` still exposes an `AppOrchestrator`-shaped consumer facade through `ChannelSetupSessionController` and `ChannelSetupScreen`; the final owner must be the Channel Setup boundary cleanup, not another P1 runtime pass.
+        revisit trigger: require a direct re-check of `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` before marking `P4-W2` complete.
+    - security triage:
+      - exact `P0` gate disposition: `none open`
+        reason: the refreshed `desloppify show security --status open --no-budget --top 50` evidence lists `16` open issues, all tagged `T2 [medium]`; no `P0` security issue remains open at `P1-EXIT`.
+      - `resolved`
+        - `security::src/App.ts::security::innerHTML_assignment::src/App.ts::586`
+        - `security::src/core/app-shell/AppDiagnosticsSurface.ts::security::innerHTML_assignment::src/core/app-shell/AppDiagnosticsSurface.ts::127`
+        reason: `P1-EXIT` replaced the fatal-error root clear path with `replaceChildren()` and rebuilt the diagnostics surface menu with DOM APIs instead of `innerHTML`.
+      - `deferred`
+        - `security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::366`
+        - `security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::407`
+        - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::224`
+        - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::729`
+        owner: `P4-W4`
+        reason: these are screen-level DOM rendering rewrites inside the Priority 4 Settings / Channel Setup cleanup slice, not runtime-composition work.
+        revisit trigger: start of `P4-W4`, or `P4-EXIT` if any of these ids are still open.
+      - `deferred`
+        - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::32`
+        - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::40`
+        - `security::src/modules/ui/epg/EPGComponent.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGComponent.ts::243`
+        - `security::src/modules/ui/epg/EPGInfoPanel.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGInfoPanel.ts::104`
+        - `security::src/modules/ui/epg/EPGTimeHeader.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGTimeHeader.ts::91`
+        - `security::src/modules/ui/epg/EPGVirtualizer.ts::security::insecure_random::src/modules/ui/epg/EPGVirtualizer.ts::652`
+        - `security::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::security::innerHTML_assignment::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::136`
+        - `security::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::security::log_sensitive::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::495`
+        owner: `P4-W5`
+        reason: these are residual UI/overlay cleanup items that should be cleared in the Priority 4 cleanup pass once the main coordinator splits are frozen.
+        revisit trigger: start of `P4-W5`, or `P4-EXIT` if any of these ids are still open.
+      - `deferred`
+        - `security::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::security::innerHTML_assignment::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::49`
+        - `security::src/modules/ui/audio-setup/AudioSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/audio-setup/AudioSetupScreen.ts::420`
+        - `security::src/modules/ui/splash/SplashScreen.ts::security::innerHTML_assignment::src/modules/ui/splash/SplashScreen.ts::19`
+        owner: `P2-W4`
+        reason: these remaining shell/startup DOM rewrites belong to the app-shell cleanup pass, not the P1 runtime-composition exit.
+        revisit trigger: start of `P2-W4`, or `P2-EXIT` if any of these ids are still open.
+      - `deferred`
+        - `security::src/core/initialization/InitializationStartupPolicy.ts::security::log_sensitive::src/core/initialization/InitializationStartupPolicy.ts::211`
+        owner: `P2-W3`
+        reason: startup-policy log redaction belongs to the app/startup boundary cleanup where the remaining startup policy is being narrowed.
+        revisit trigger: start of `P2-W3`, or `P2-EXIT` if this id is still open.
+    - residuals:
+      - `AppOrchestrator` still exposes channel-setup-facing pass-through methods that should disappear behind a narrower channel-setup owner; final owner is `P4-W2`.
+      - No additional `P1` runtime-composition extraction is intentionally left open after this exit record.
+    - verification:
+      - `.worktrees/p1-exit-closeout`: `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`
+      - `.worktrees/p1-exit-closeout`: `desloppify status`
+      - `.worktrees/p1-exit-closeout`: `desloppify show review --status open`
+      - `.worktrees/p1-exit-closeout`: `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b`
+      - `.worktrees/p1-exit-closeout`: `desloppify show security --status open --no-budget --top 50`
+      - `.worktrees/p1-exit-closeout`: `npm run verify`
 
 ## Priority 2: Finish App-Shell And Startup Boundary Cleanup
 

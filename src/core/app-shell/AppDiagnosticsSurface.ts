@@ -118,141 +118,270 @@ export class AppDiagnosticsSurface {
         }
     }
 
+    private _createElement<K extends keyof HTMLElementTagNameMap>(
+        tagName: K,
+        options?: {
+            id?: string;
+            className?: string;
+            textContent?: string;
+            cssText?: string;
+            attributes?: Record<string, string>;
+        }
+    ): HTMLElementTagNameMap[K] {
+        const element = document.createElement(tagName);
+        if (options?.id) {
+            element.id = options.id;
+        }
+        if (options?.className) {
+            element.className = options.className;
+        }
+        if (typeof options?.textContent === 'string') {
+            element.textContent = options.textContent;
+        }
+        if (options?.cssText) {
+            element.style.cssText = options.cssText;
+        }
+        if (options?.attributes) {
+            for (const [name, value] of Object.entries(options.attributes)) {
+                element.setAttribute(name, value);
+            }
+        }
+        return element;
+    }
+
     private _renderDevMenu(): void {
         if (!this._container) return;
         const container = this._container;
 
-        // Dev-only: keep all interpolations here strictly to controlled constants/flags.
-        // Do NOT interpolate Plex/user-provided strings into innerHTML to avoid future XSS foot-guns.
-        container.innerHTML = `
-            <h2 style="margin-top:0;border-bottom:1px solid #444;padding-bottom:10px;">Dev Menu</h2>
-            <div style="margin-bottom:15px;color:#aaa;font-size:13px;">
-                Storage keys: <code id="dev-storage-key-channels"></code>, <code id="dev-storage-key-current"></code>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:10px;">
-                <details style="border:1px solid #333;border-radius:8px;padding:10px;">
-                    <summary style="cursor:pointer;color:#ddd;">Plex Debug Overrides</summary>
-                    <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
-                        <label style="font-size:13px;color:#aaa;">
-                            <input id="dev-directplay-audio-fallback" type="checkbox" /> Try Direct Play using fallback audio track (lineup_direct_play_audio_fallback=1)
-                        </label>
-                        <div style="margin-top:6px;font-size:12px;color:#888;">
-                            Now Playing Stream Debug (overlay)
-                        </div>
-                        <label style="font-size:13px;color:#aaa;">
-                            <input id="dev-nowplaying-stream-debug" type="checkbox" /> Show stream decision in Show Info overlay (lineup_now_playing_stream_debug=1)
-                        </label>
-                        <label style="font-size:13px;color:#aaa;">
-                            <input id="dev-nowplaying-stream-debug-auto" type="checkbox" /> Auto-open Show Info on tune when debug is enabled (lineup_now_playing_stream_debug_auto_show=1)
-                        </label>
-                        <label style="font-size:13px;color:#aaa;">
-                            Forced Client Profile Name
-                            <select id="dev-transcode-profile-name" style="margin-left:8px;padding:6px;">
-                                <option value="">(default)</option>
-                                <option value="HTML TV App">HTML TV App</option>
-                                <option value="Generic">Generic</option>
-                            </select>
-                        </label>
-                        <div style="display:flex;gap:10px;margin-top:6px;">
-                            <button id="dev-transcode-save" style="padding:8px;cursor:pointer;">Save Overrides</button>
-                            <button id="dev-transcode-clear" style="padding:8px;cursor:pointer;background:#500;color:#fff;border:none;">Clear Overrides</button>
-                        </div>
-                        <div style="font-size:12px;color:#888;margin-top:6px;">
-                            Forced profile affects only transcode URL generation. Tokens are never shown.
-                        </div>
-                    </div>
-                </details>
-                <details style="border:1px solid #333;border-radius:8px;padding:10px;">
-                    <summary style="cursor:pointer;color:#ddd;">Playback Info (PMS Decision)</summary>
-                    <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
-                        <div style="display:flex;gap:10px;align-items:center;">
-                            <button id="dev-playback-refresh" style="padding:8px;cursor:pointer;">Refresh</button>
-                            <button id="dev-playback-copy-summary" style="padding:8px;cursor:pointer;">Copy Summary</button>
-                            <button id="dev-playback-copy-raw" style="padding:8px;cursor:pointer;">Copy Raw</button>
-                            <span style="font-size:12px;color:#888;">Tip: Ctrl+Shift+D (desktop) or run window.lineup.toggleDevMenu() in the console</span>
-                        </div>
-                        <pre id="dev-playback-info" style="margin:0;max-height:260px;overflow:auto;background:#111;border:1px solid #333;border-radius:6px;padding:10px;color:#ddd;font-size:12px;line-height:1.35;white-space:pre-wrap;"></pre>
-                        <div style="font-size:12px;color:#888;">
-                            Shows Lineup's local decision and (when transcoding) the server's universal transcode decision.
-                        </div>
-                    </div>
-                </details>
-                <button id="dev-reset-app" style="padding:10px;cursor:pointer;background:#500;color:#fff;border:none;">Reset Lineup Storage</button>
-                <button id="dev-close" style="padding:10px;cursor:pointer;margin-top:10px;">Close</button>
-            </div>
-        `;
-        const channelsKey = container.querySelector('#dev-storage-key-channels');
-        if (channelsKey) {
-            channelsKey.textContent = STORAGE_KEYS.CHANNELS_REAL;
+        const heading = this._createElement('h2', {
+            textContent: 'Dev Menu',
+            cssText: 'margin-top:0;border-bottom:1px solid #444;padding-bottom:10px;',
+        });
+
+        const storageInfo = this._createElement('div', {
+            cssText: 'margin-bottom:15px;color:#aaa;font-size:13px;',
+        });
+        storageInfo.append('Storage keys: ');
+        const channelsKey = this._createElement('code', { id: 'dev-storage-key-channels' });
+        const currentChannelKey = this._createElement('code', { id: 'dev-storage-key-current' });
+        storageInfo.append(channelsKey, ', ', currentChannelKey);
+
+        const stack = this._createElement('div', {
+            cssText: 'display:flex;flex-direction:column;gap:10px;',
+        });
+
+        const overridesSection = this._createElement('details', {
+            cssText: 'border:1px solid #333;border-radius:8px;padding:10px;',
+        });
+        overridesSection.append(
+            this._createElement('summary', {
+                textContent: 'Plex Debug Overrides',
+                cssText: 'cursor:pointer;color:#ddd;',
+            })
+        );
+        const overridesBody = this._createElement('div', {
+            cssText: 'display:flex;flex-direction:column;gap:8px;margin-top:10px;',
+        });
+
+        const directPlayLabel = this._createElement('label', {
+            cssText: 'font-size:13px;color:#aaa;',
+        });
+        const directPlayAudioFallbackEl = this._createElement('input', {
+            id: 'dev-directplay-audio-fallback',
+        });
+        directPlayAudioFallbackEl.type = 'checkbox';
+        directPlayLabel.append(
+            directPlayAudioFallbackEl,
+            ' Try Direct Play using fallback audio track (lineup_direct_play_audio_fallback=1)'
+        );
+
+        const streamDebugHeader = this._createElement('div', {
+            textContent: 'Now Playing Stream Debug (overlay)',
+            cssText: 'margin-top:6px;font-size:12px;color:#888;',
+        });
+
+        const nowPlayingStreamDebugLabel = this._createElement('label', {
+            cssText: 'font-size:13px;color:#aaa;',
+        });
+        const nowPlayingStreamDebugEl = this._createElement('input', {
+            id: 'dev-nowplaying-stream-debug',
+        });
+        nowPlayingStreamDebugEl.type = 'checkbox';
+        nowPlayingStreamDebugLabel.append(
+            nowPlayingStreamDebugEl,
+            ' Show stream decision in Show Info overlay (lineup_now_playing_stream_debug=1)'
+        );
+
+        const nowPlayingStreamDebugAutoLabel = this._createElement('label', {
+            cssText: 'font-size:13px;color:#aaa;',
+        });
+        const nowPlayingStreamDebugAutoEl = this._createElement('input', {
+            id: 'dev-nowplaying-stream-debug-auto',
+        });
+        nowPlayingStreamDebugAutoEl.type = 'checkbox';
+        nowPlayingStreamDebugAutoLabel.append(
+            nowPlayingStreamDebugAutoEl,
+            ' Auto-open Show Info on tune when debug is enabled (lineup_now_playing_stream_debug_auto_show=1)'
+        );
+
+        const profileLabel = this._createElement('label', {
+            textContent: 'Forced Client Profile Name',
+            cssText: 'font-size:13px;color:#aaa;',
+        });
+        const profileNameSelect = this._createElement('select', {
+            id: 'dev-transcode-profile-name',
+            cssText: 'margin-left:8px;padding:6px;',
+        });
+        for (const [value, label] of [
+            ['', '(default)'],
+            ['HTML TV App', 'HTML TV App'],
+            ['Generic', 'Generic'],
+        ] as const) {
+            const option = this._createElement('option', {
+                textContent: label,
+                attributes: { value },
+            });
+            profileNameSelect.append(option);
         }
-        const currentChannelKey = container.querySelector('#dev-storage-key-current');
-        if (currentChannelKey) {
-            currentChannelKey.textContent = STORAGE_KEYS.CURRENT_CHANNEL;
-        }
+        profileLabel.append(' ', profileNameSelect);
+
+        const overrideButtons = this._createElement('div', {
+            cssText: 'display:flex;gap:10px;margin-top:6px;',
+        });
+        const saveOverridesButton = this._createElement('button', {
+            id: 'dev-transcode-save',
+            textContent: 'Save Overrides',
+            cssText: 'padding:8px;cursor:pointer;',
+        });
+        const clearOverridesButton = this._createElement('button', {
+            id: 'dev-transcode-clear',
+            textContent: 'Clear Overrides',
+            cssText: 'padding:8px;cursor:pointer;background:#500;color:#fff;border:none;',
+        });
+        overrideButtons.append(saveOverridesButton, clearOverridesButton);
+
+        const overrideNote = this._createElement('div', {
+            textContent: 'Forced profile affects only transcode URL generation. Tokens are never shown.',
+            cssText: 'font-size:12px;color:#888;margin-top:6px;',
+        });
+        overridesBody.append(
+            directPlayLabel,
+            streamDebugHeader,
+            nowPlayingStreamDebugLabel,
+            nowPlayingStreamDebugAutoLabel,
+            profileLabel,
+            overrideButtons,
+            overrideNote
+        );
+        overridesSection.append(overridesBody);
+
+        const playbackSection = this._createElement('details', {
+            cssText: 'border:1px solid #333;border-radius:8px;padding:10px;',
+        });
+        playbackSection.append(
+            this._createElement('summary', {
+                textContent: 'Playback Info (PMS Decision)',
+                cssText: 'cursor:pointer;color:#ddd;',
+            })
+        );
+        const playbackBody = this._createElement('div', {
+            cssText: 'display:flex;flex-direction:column;gap:8px;margin-top:10px;',
+        });
+        const playbackActions = this._createElement('div', {
+            cssText: 'display:flex;gap:10px;align-items:center;',
+        });
+        const refreshButton = this._createElement('button', {
+            id: 'dev-playback-refresh',
+            textContent: 'Refresh',
+            cssText: 'padding:8px;cursor:pointer;',
+        });
+        const copySummaryButton = this._createElement('button', {
+            id: 'dev-playback-copy-summary',
+            textContent: 'Copy Summary',
+            cssText: 'padding:8px;cursor:pointer;',
+        });
+        const copyRawButton = this._createElement('button', {
+            id: 'dev-playback-copy-raw',
+            textContent: 'Copy Raw',
+            cssText: 'padding:8px;cursor:pointer;',
+        });
+        const playbackTip = this._createElement('span', {
+            textContent: 'Tip: Ctrl+Shift+D (desktop) or run window.lineup.toggleDevMenu() in the console',
+            cssText: 'font-size:12px;color:#888;',
+        });
+        playbackActions.append(refreshButton, copySummaryButton, copyRawButton, playbackTip);
+
+        const playbackPre = this._createElement('pre', {
+            id: 'dev-playback-info',
+            cssText: 'margin:0;max-height:260px;overflow:auto;background:#111;border:1px solid #333;border-radius:6px;padding:10px;color:#ddd;font-size:12px;line-height:1.35;white-space:pre-wrap;',
+        });
+        const playbackNote = this._createElement('div', {
+            textContent: "Shows Lineup's local decision and (when transcoding) the server's universal transcode decision.",
+            cssText: 'font-size:12px;color:#888;',
+        });
+        playbackBody.append(playbackActions, playbackPre, playbackNote);
+        playbackSection.append(playbackBody);
+
+        const resetButton = this._createElement('button', {
+            id: 'dev-reset-app',
+            textContent: 'Reset Lineup Storage',
+            cssText: 'padding:10px;cursor:pointer;background:#500;color:#fff;border:none;',
+        });
+        const closeButton = this._createElement('button', {
+            id: 'dev-close',
+            textContent: 'Close',
+            cssText: 'padding:10px;cursor:pointer;margin-top:10px;',
+        });
+
+        stack.append(overridesSection, playbackSection, resetButton, closeButton);
+        container.replaceChildren(heading, storageInfo, stack);
+
+        channelsKey.textContent = STORAGE_KEYS.CHANNELS_REAL;
+        currentChannelKey.textContent = STORAGE_KEYS.CURRENT_CHANNEL;
 
         // Bind events
-        container.querySelector('#dev-reset-app')?.addEventListener('click', () => {
+        resetButton.addEventListener('click', () => {
             const ok = window.confirm('Reset Lineup storage (channels, overrides)?');
             if (!ok) return;
             safeClearLineupStorage();
             window.location.reload();
         });
 
-        container.querySelector('#dev-close')?.addEventListener('click', () => {
+        closeButton.addEventListener('click', () => {
             container.style.display = 'none';
         });
 
-        container.querySelector('#dev-playback-refresh')?.addEventListener('click', () => {
+        refreshButton.addEventListener('click', () => {
             void this._refreshDevPlaybackInfo();
         });
         void this._refreshDevPlaybackInfo();
 
         // Transcode override controls (real mode only)
-        const profileNameSelect = container.querySelector('#dev-transcode-profile-name') as HTMLSelectElement | null;
-        if (profileNameSelect) {
-            const storedProfileName = this._debugOverridesStore.readTranscodeProfileName();
-            const isSupportedStoredProfileName = Array.from(profileNameSelect.options).some(
-                (option) => option.value === storedProfileName
-            );
-            if (storedProfileName && !isSupportedStoredProfileName) {
-                this._debugOverridesStore.clearTranscodeProfileName();
-                profileNameSelect.value = '';
-            } else {
-                profileNameSelect.value = storedProfileName ?? '';
-            }
+        const storedProfileName = this._debugOverridesStore.readTranscodeProfileName();
+        const isSupportedStoredProfileName = Array.from(profileNameSelect.options).some(
+            (option) => option.value === storedProfileName
+        );
+        if (storedProfileName && !isSupportedStoredProfileName) {
+            this._debugOverridesStore.clearTranscodeProfileName();
+            profileNameSelect.value = '';
+        } else {
+            profileNameSelect.value = storedProfileName ?? '';
         }
-        const directPlayAudioFallbackEl = container.querySelector('#dev-directplay-audio-fallback') as HTMLInputElement | null;
-        if (directPlayAudioFallbackEl) {
-            directPlayAudioFallbackEl.checked = this._audioSettingsStore.readDirectPlayAudioFallbackEnabled();
-        }
-        const nowPlayingStreamDebugEl = container.querySelector('#dev-nowplaying-stream-debug') as HTMLInputElement | null;
-        if (nowPlayingStreamDebugEl) {
-            nowPlayingStreamDebugEl.checked = this._debugOverridesStore.readNowPlayingStreamDebugEnabled();
-        }
-        const nowPlayingStreamDebugAutoEl = container.querySelector('#dev-nowplaying-stream-debug-auto') as HTMLInputElement | null;
-        if (nowPlayingStreamDebugAutoEl) {
-            nowPlayingStreamDebugAutoEl.checked = this._debugOverridesStore.readNowPlayingStreamDebugAutoShowEnabled();
-        }
+        directPlayAudioFallbackEl.checked = this._audioSettingsStore.readDirectPlayAudioFallbackEnabled();
+        nowPlayingStreamDebugEl.checked = this._debugOverridesStore.readNowPlayingStreamDebugEnabled();
+        nowPlayingStreamDebugAutoEl.checked = this._debugOverridesStore.readNowPlayingStreamDebugAutoShowEnabled();
 
-        container.querySelector('#dev-transcode-save')?.addEventListener('click', () => {
-            if (directPlayAudioFallbackEl) {
-                this._audioSettingsStore.writeDirectPlayAudioFallbackEnabled(directPlayAudioFallbackEl.checked);
-            }
-            if (nowPlayingStreamDebugEl) {
-                this._debugOverridesStore.writeNowPlayingStreamDebugEnabled(nowPlayingStreamDebugEl.checked);
-            }
-            if (nowPlayingStreamDebugAutoEl) {
-                this._debugOverridesStore.writeNowPlayingStreamDebugAutoShowEnabled(
-                    nowPlayingStreamDebugAutoEl.checked
-                );
-            }
-            if (profileNameSelect) {
-                this._debugOverridesStore.writeTranscodeProfileName(profileNameSelect.value);
-            }
+        saveOverridesButton.addEventListener('click', () => {
+            this._audioSettingsStore.writeDirectPlayAudioFallbackEnabled(directPlayAudioFallbackEl.checked);
+            this._debugOverridesStore.writeNowPlayingStreamDebugEnabled(nowPlayingStreamDebugEl.checked);
+            this._debugOverridesStore.writeNowPlayingStreamDebugAutoShowEnabled(
+                nowPlayingStreamDebugAutoEl.checked
+            );
+            this._debugOverridesStore.writeTranscodeProfileName(profileNameSelect.value);
             this._showToast({ message: 'Saved overrides', type: 'success' });
         });
 
-        container.querySelector('#dev-transcode-clear')?.addEventListener('click', () => {
+        clearOverridesButton.addEventListener('click', () => {
             const ok = window.confirm('Clear transcode overrides?');
             if (!ok) return;
             this._audioSettingsStore.clearDirectPlayAudioFallbackEnabled();
@@ -262,9 +391,8 @@ export class AppDiagnosticsSurface {
             this._renderDevMenu();
         });
 
-        container.querySelector('#dev-playback-copy-summary')?.addEventListener('click', async () => {
-            const pre = container.querySelector('#dev-playback-info') as HTMLPreElement | null;
-            const text = pre?.dataset?.summary ?? '';
+        copySummaryButton.addEventListener('click', async () => {
+            const text = playbackPre.dataset.summary ?? '';
             if (!text) {
                 this._showToast({ message: 'Nothing to copy (refresh first)', type: 'warning' });
                 return;
@@ -273,9 +401,8 @@ export class AppDiagnosticsSurface {
             this._showToast({ message: ok ? 'Copied summary' : 'Copy not supported', type: ok ? 'success' : 'warning' });
         });
 
-        container.querySelector('#dev-playback-copy-raw')?.addEventListener('click', async () => {
-            const pre = container.querySelector('#dev-playback-info') as HTMLPreElement | null;
-            const text = pre?.dataset?.raw ?? '';
+        copyRawButton.addEventListener('click', async () => {
+            const text = playbackPre.dataset.raw ?? '';
             if (!text) {
                 this._showToast({ message: 'Nothing to copy (refresh first)', type: 'warning' });
                 return;
