@@ -101,7 +101,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - `deferred`: the issue stays open, but the record names the exact issue id, current owner, reason, and revisit trigger; nothing deferred is implicitly accepted
   - `split follow-up`: the current slice is not the final owner; the remaining gap is handed to one exact successor owner
   - `owned follow-up`: the exact successor owner named by a `split follow-up` record; each split issue must have one single final owner, not shared implicit ownership across multiple `P#-W#` items
-  - `security triage`: a fresh `desloppify status` result for the current slice or exit that either says `none open` or lists the exact open/deferred security issue ids plus reasons and revisit triggers
+  - `security triage`: a fresh `desloppify status` result for the current slice or exit that either says `no open P0 security findings` or lists the exact open/deferred P0 security issue ids plus reasons and revisit triggers
   - `priority-exit review`: the blocking review run after the last planned `P#-W#` item in a priority and before any `P(n+1)` work, plan, or checklist progress begins
 - Security deferral record format:
   - `issue`: exact `desloppify` issue id or security finding reference
@@ -111,7 +111,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
 - Priority exit record format:
   - `mapped imported issues`: every imported issue mapped to the priority, each with its exact issue id and one disposition: `resolved`, `deferred`, or `split follow-up`
   - `follow-up ownership`: for every `deferred` or `split follow-up` item, the exact current owner, reason, and revisit trigger; if an imported issue was mapped across multiple `P#-W#` items, nominate one single final owner here
-  - `security triage`: `none open`, or the exact deferred/resolved security findings blocking next-priority work, with exact issue ids and revisit triggers for anything still open
+  - `security triage`: `no open P0 security findings`, or the exact deferred/resolved P0 security findings blocking next-priority work, with exact issue ids and revisit triggers for anything still open
   - `residuals`: any meaningful debt intentionally left in the priority area, plus its new owner
   - `verification`: exact commands used for the priority-exit review, including `desloppify` evidence refresh and task-specific gates
 - Cleanup slice execution template:
@@ -192,7 +192,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
         reason: `ChannelSetupCoordinator` still exposes an `AppOrchestrator`-shaped consumer facade through `ChannelSetupSessionController` and `ChannelSetupScreen`; the final owner must be the Channel Setup boundary cleanup, not another P1 runtime pass.
         revisit trigger: require a direct re-check of `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` before marking `P4-W2` complete.
     - security triage:
-      - exact `P0` gate disposition: `none open`
+      - exact `P0` gate disposition: `no open P0 security findings`
         reason: the refreshed `desloppify show security --status open --no-budget --top 50` evidence lists `16` open issues, all tagged `T2 [medium]`; no `P0` security issue remains open at `P1-EXIT`.
       - `resolved`
         - `security::src/App.ts::security::innerHTML_assignment::src/App.ts::586`

@@ -46,6 +46,8 @@ If reviewing a plan, focus on:
   - missing priority-exit readiness
   - missing mapped-imported-issue disposition
   - missing exact final owner for a deferred or split-follow-up issue
+  - missing explicit reason + revisit trigger for each deferred or split-follow-up issue
+  - missing evidence refresh: rerun strongest verification/evidence commands on current code before approving `P(n+1)`
   - missing `P0` security-gate disposition before `P(n+1)`
 
 If reviewing an implementation, focus on:
@@ -60,6 +62,7 @@ If reviewing an implementation, focus on:
   - verify every imported review issue mapped to that priority is retired, explicitly deferred, or split into a new owned follow-up
   - verify every deferred or split item names one single final owner plus a reason and revisit trigger, especially when one imported issue was mapped to multiple `P#-W#` items
   - verify the `P0` security gate has been cleared or explicitly deferred with exact issue ids
+  - rerun strongest verification/evidence commands on current code before approving `P(n+1)`
   - verify the checklist is not advancing to `P(n+1)` while known priority-local debt is still open without a recorded reason
   - verify no `P(n+1)` plan or implementation work is being approved while `P#-EXIT` is still unresolved
 

@@ -40,10 +40,9 @@ Every serious tracked implementation plan must include:
 11. Verification commands
 12. Rollback notes for high-risk work
 13. Commit checkpoints for tracked work
-
-If the plan is intended to close the last `P#-W#` item in a cleanup priority, it must also include:
-
 14. Priority-exit readiness
+
+    If the plan is intended to close the last `P#-W#` item in a cleanup priority, it must also include this section.
 
 Use section titles that make those requirements obvious to a fresh session. Do not rely on implied structure or house style memory.
 
