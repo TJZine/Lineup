@@ -10,7 +10,6 @@ import type {
 import type { IPlexLibrary } from '../../modules/plex/library';
 import type {
     IPlexStreamResolver,
-    StreamDecision,
     StreamResolverError,
 } from '../../modules/plex/stream';
 import type { IChannelManager } from '../../modules/scheduler/channel-manager';
@@ -28,6 +27,7 @@ import {
 import { ProfileSwitchCleanupController } from './ProfileSwitchCleanupController';
 import { PlaybackStartController } from '../PlaybackStartController';
 import { PlaybackRuntimeController } from '../PlaybackRuntimeController';
+import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
 
 export interface OrchestratorPriorityOneControllerFactoryDeps {
     scheduler: IChannelScheduler;
@@ -48,16 +48,7 @@ export interface OrchestratorPriorityOneControllerFactoryDeps {
     channelManager: IChannelManager | null;
     navigation: INavigationManager | null;
 
-    currentProgramForPlayback: () => ScheduledProgram | null;
-    setCurrentProgramForPlayback: (program: ScheduledProgram | null) => void;
-    pendingNowPlayingChannelId: () => string | null;
-    setPendingNowPlayingChannelId: (channelId: string | null) => void;
-    shouldAutoShowInfoBannerOnNextPlay: () => boolean;
-    setShouldAutoShowInfoBannerOnNextPlay: (value: boolean) => void;
-    currentStreamDescriptor: () => StreamDescriptor | null;
-    setCurrentStreamDescriptor: (stream: StreamDescriptor | null) => void;
-    currentStreamDecision: () => StreamDecision | null;
-    setCurrentStreamDecision: (decision: StreamDecision | null) => void;
+    playbackState: OrchestratorPlaybackStateAccessors;
     pendingDayRolloverTimer: () => ReturnType<typeof setTimeout> | null;
     setPendingDayRolloverTimer: (timer: ReturnType<typeof setTimeout> | null) => void;
     setPendingDayRolloverDayKey: (dayKey: number | null) => void;
@@ -128,7 +119,8 @@ export function createPriorityOneControllersAndBinder(
         hasNavigation: (): boolean => deps.navigation !== null,
         hasNowPlayingInfoOverlay: (): boolean => deps.nowPlayingInfo !== null,
         getCurrentScreen: (): string | null => deps.navigation?.getCurrentScreen() ?? null,
-        hasCurrentProgramForPlayback: (): boolean => deps.currentProgramForPlayback() !== null,
+        hasCurrentProgramForPlayback: (): boolean =>
+            deps.playbackState.getCurrentProgramForPlayback() !== null,
         isModalOpen: (modalId?: string): boolean => deps.navigation?.isModalOpen(modalId) ?? false,
         openModal: (modalId: string): void => {
             deps.navigation?.openModal(modalId);
@@ -160,13 +152,13 @@ export function createPriorityOneControllersAndBinder(
             programAtStart: ScheduledProgram;
             shouldResetAutoShowInfoBannerOnAbort: boolean;
         } => {
-            deps.setCurrentProgramForPlayback(program);
+            deps.playbackState.setCurrentProgramForPlayback(program);
             const shouldResetAutoShowInfoBannerOnAbort =
-                deps.pendingNowPlayingChannelId() !== null;
+                deps.playbackState.getPendingNowPlayingChannelId() !== null;
 
             if (shouldResetAutoShowInfoBannerOnAbort) {
-                deps.setShouldAutoShowInfoBannerOnNextPlay(true);
-                deps.setPendingNowPlayingChannelId(null);
+                deps.playbackState.setShouldAutoShowInfoBannerOnNextPlay(true);
+                deps.playbackState.setPendingNowPlayingChannelId(null);
             }
 
             return {
@@ -175,16 +167,16 @@ export function createPriorityOneControllersAndBinder(
             };
         },
         isProgramStillCurrent: (program): boolean =>
-            deps.currentProgramForPlayback() === program,
+            deps.playbackState.getCurrentProgramForPlayback() === program,
         handleProgramStartUiSideEffects: (program): void => {
             deps.onProgramStartUiSideEffects(program);
         },
         handleStreamResolved: (stream): void => {
-            deps.setCurrentStreamDescriptor(stream);
+            deps.playbackState.setCurrentStreamDescriptor(stream);
             deps.onStreamResolved(stream);
         },
         clearAutoShowInfoBannerAfterAbortedStart: (): void => {
-            deps.setShouldAutoShowInfoBannerOnNextPlay(false);
+            deps.playbackState.setShouldAutoShowInfoBannerOnNextPlay(false);
         },
     });
 
@@ -192,7 +184,7 @@ export function createPriorityOneControllersAndBinder(
         isStreamRecoveryInProgress: (): boolean =>
             deps.playbackRecovery.isStreamRecoveryInProgress(),
         getActiveTranscodeSessionId: (): string | null => {
-            const decision = deps.currentStreamDecision();
+            const decision = deps.playbackState.getCurrentStreamDecision();
             if (!decision || !decision.isTranscoding || !decision.sessionId) {
                 return null;
             }
@@ -228,9 +220,9 @@ export function createPriorityOneControllersAndBinder(
             deps.onPlayerStateChange(state);
         },
         shouldAutoShowInfoBannerOnNextPlay: (): boolean =>
-            deps.shouldAutoShowInfoBannerOnNextPlay(),
+            deps.playbackState.getShouldAutoShowInfoBannerOnNextPlay(),
         clearAutoShowInfoBannerOnNextPlay: (): void => {
-            deps.setShouldAutoShowInfoBannerOnNextPlay(false);
+            deps.playbackState.setShouldAutoShowInfoBannerOnNextPlay(false);
         },
         showInfoBanner: (): void => {
             deps.showInfoBanner();
@@ -262,19 +254,19 @@ export function createPriorityOneControllersAndBinder(
             deps.unloadCurrentChannel();
         },
         setPendingNowPlayingChannelId: (channelId): void => {
-            deps.setPendingNowPlayingChannelId(channelId);
+            deps.playbackState.setPendingNowPlayingChannelId(channelId);
         },
         setShouldAutoShowInfoBannerOnNextPlay: (value): void => {
-            deps.setShouldAutoShowInfoBannerOnNextPlay(value);
+            deps.playbackState.setShouldAutoShowInfoBannerOnNextPlay(value);
         },
         setCurrentProgramForPlayback: (program): void => {
-            deps.setCurrentProgramForPlayback(program);
+            deps.playbackState.setCurrentProgramForPlayback(program);
         },
         setCurrentStreamDescriptor: (stream): void => {
-            deps.setCurrentStreamDescriptor(stream);
+            deps.playbackState.setCurrentStreamDescriptor(stream);
         },
         setCurrentStreamDecision: (decision): void => {
-            deps.setCurrentStreamDecision(decision);
+            deps.playbackState.setCurrentStreamDecision(decision);
         },
     });
 

@@ -114,6 +114,7 @@ import type {
 import { createOrchestratorModules } from './core/orchestrator/OrchestratorModuleFactory';
 import { createOrchestratorCoordinators } from './core/orchestrator/OrchestratorCoordinatorFactory';
 import { createPriorityOneControllersAndBinder } from './core/orchestrator/OrchestratorPriorityOneControllerFactory';
+import type { OrchestratorPlaybackStateAccessors } from './core/orchestrator/OrchestratorPlaybackStateAccessors';
 import { ChannelSetupCoordinator } from './core/channel-setup';
 import type {
     ChannelSetupConfig,
@@ -347,6 +348,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     private readonly _platformServices: PlatformServices;
     private readonly _storageContext: OrchestratorStorageContext;
     private readonly _debugOverridesStore = new DebugOverridesStore();
+    private readonly _playbackStateAccessors: OrchestratorPlaybackStateAccessors;
 
     constructor(platformServices?: PlatformServices) {
         this._platformServices = platformServices ?? webosPlatformServices;
@@ -360,6 +362,29 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this._channelManager?.setStorageKeys(channelsKey, currentChannelKey);
             },
         });
+        this._playbackStateAccessors = {
+            getCurrentProgramForPlayback: (): ScheduledProgram | null => this._currentProgramForPlayback,
+            setCurrentProgramForPlayback: (program: ScheduledProgram | null): void => {
+                this._currentProgramForPlayback = program;
+            },
+            getCurrentStreamDescriptor: (): StreamDescriptor | null => this._currentStreamDescriptor,
+            setCurrentStreamDescriptor: (stream: StreamDescriptor | null): void => {
+                this._currentStreamDescriptor = stream;
+            },
+            getCurrentStreamDecision: (): StreamDecision | null => this._currentStreamDecision,
+            setCurrentStreamDecision: (decision: StreamDecision | null): void => {
+                this._currentStreamDecision = decision;
+            },
+            getPendingNowPlayingChannelId: (): string | null => this._pendingNowPlayingChannelId,
+            setPendingNowPlayingChannelId: (channelId: string | null): void => {
+                this._pendingNowPlayingChannelId = channelId;
+            },
+            getShouldAutoShowInfoBannerOnNextPlay: (): boolean =>
+                this._shouldAutoShowInfoBannerOnNextPlay,
+            setShouldAutoShowInfoBannerOnNextPlay: (value: boolean): void => {
+                this._shouldAutoShowInfoBannerOnNextPlay = value;
+            },
+        };
         this._initializeModuleStatus();
     }
 
@@ -540,26 +565,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             exitConfirmModal: this._exitConfirmModal,
             sleepTimer: this._sleepTimer,
             debugOverridesStore: this._debugOverridesStore,
-            currentProgramForPlayback: (): ScheduledProgram | null => this._currentProgramForPlayback,
-            setCurrentProgramForPlayback: (program: ScheduledProgram | null): void => {
-                this._currentProgramForPlayback = program;
-            },
-            currentStreamDecision: (): StreamDecision | null => this._currentStreamDecision,
-            setCurrentStreamDecision: (decision: StreamDecision | null): void => {
-                this._currentStreamDecision = decision;
-            },
-            currentStreamDescriptor: (): StreamDescriptor | null => this._currentStreamDescriptor,
-            setCurrentStreamDescriptor: (stream: StreamDescriptor | null): void => {
-                this._currentStreamDescriptor = stream;
-            },
-            pendingNowPlayingChannelId: (): string | null => this._pendingNowPlayingChannelId,
-            setPendingNowPlayingChannelId: (channelId: string | null): void => {
-                this._pendingNowPlayingChannelId = channelId;
-            },
-            shouldAutoShowInfoBannerOnNextPlay: (): boolean => this._shouldAutoShowInfoBannerOnNextPlay,
-            setShouldAutoShowInfoBannerOnNextPlay: (value: boolean): void => {
-                this._shouldAutoShowInfoBannerOnNextPlay = value;
-            },
+            playbackState: this._playbackStateAccessors,
             lastChannelChangeSource: (): 'remote' | 'number' | 'guide' | null => this._lastChannelChangeSource,
             setLastChannelChangeSource: (source: 'remote' | 'number' | 'guide' | null): void => {
                 this._lastChannelChangeSource = source;
@@ -1875,26 +1881,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 navigation: this._navigation,
                 plexLibrary: this._plexLibrary,
                 plexStreamResolver: this._plexStreamResolver,
-                currentProgramForPlayback: (): ScheduledProgram | null => this._currentProgramForPlayback,
-                setCurrentProgramForPlayback: (program: ScheduledProgram | null): void => {
-                    this._currentProgramForPlayback = program;
-                },
-                pendingNowPlayingChannelId: (): string | null => this._pendingNowPlayingChannelId,
-                setPendingNowPlayingChannelId: (channelId: string | null): void => {
-                    this._pendingNowPlayingChannelId = channelId;
-                },
-                shouldAutoShowInfoBannerOnNextPlay: (): boolean => this._shouldAutoShowInfoBannerOnNextPlay,
-                setShouldAutoShowInfoBannerOnNextPlay: (value: boolean): void => {
-                    this._shouldAutoShowInfoBannerOnNextPlay = value;
-                },
-                currentStreamDescriptor: (): StreamDescriptor | null => this._currentStreamDescriptor,
-                setCurrentStreamDescriptor: (stream: StreamDescriptor | null): void => {
-                    this._currentStreamDescriptor = stream;
-                },
-                currentStreamDecision: (): StreamDecision | null => this._currentStreamDecision,
-                setCurrentStreamDecision: (decision: StreamDecision | null): void => {
-                    this._currentStreamDecision = decision;
-                },
+                playbackState: this._playbackStateAccessors,
                 pendingDayRolloverTimer: (): ReturnType<typeof setTimeout> | null => this._pendingDayRolloverTimer,
                 setPendingDayRolloverTimer: (timer: ReturnType<typeof setTimeout> | null): void => {
                     this._pendingDayRolloverTimer = timer;

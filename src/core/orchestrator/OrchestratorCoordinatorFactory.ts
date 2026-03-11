@@ -92,6 +92,7 @@ import { safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from
 import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import { summarizeErrorForLog } from '../../utils/errors';
 import type { ToastInput } from '../../modules/ui/toast/types';
+import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
 
 export interface OrchestratorCoordinatorFactoryDeps {
     config: OrchestratorConfig | null;
@@ -121,16 +122,7 @@ export interface OrchestratorCoordinatorFactoryDeps {
 
     debugOverridesStore: DebugOverridesStore;
 
-    currentProgramForPlayback: () => ScheduledProgram | null;
-    setCurrentProgramForPlayback: (program: ScheduledProgram | null) => void;
-    currentStreamDecision: () => StreamDecision | null;
-    setCurrentStreamDecision: (decision: StreamDecision | null) => void;
-    currentStreamDescriptor: () => StreamDescriptor | null;
-    setCurrentStreamDescriptor: (stream: StreamDescriptor | null) => void;
-    pendingNowPlayingChannelId: () => string | null;
-    setPendingNowPlayingChannelId: (channelId: string | null) => void;
-    shouldAutoShowInfoBannerOnNextPlay: () => boolean;
-    setShouldAutoShowInfoBannerOnNextPlay: (value: boolean) => void;
+    playbackState: OrchestratorPlaybackStateAccessors;
     lastChannelChangeSource: () => 'remote' | 'number' | 'guide' | null;
     setLastChannelChangeSource: (source: 'remote' | 'number' | 'guide' | null) => void;
     setActiveScheduleDayKey: (dayKey: number) => void;
@@ -234,8 +226,8 @@ export function createOrchestratorCoordinators(
         getStreamResolver: (): IPlexStreamResolver | null => deps.plexStreamResolver,
         getNowPlayingInfo: (): INowPlayingInfoOverlay | null => deps.nowPlayingInfo,
         getCurrentProgram: (): ScheduledProgram | null =>
-            deps.scheduler.getCurrentProgram() ?? deps.currentProgramForPlayback(),
-        getCurrentStreamDecision: (): StreamDecision | null => deps.currentStreamDecision(),
+            deps.scheduler.getCurrentProgram() ?? deps.playbackState.getCurrentProgramForPlayback(),
+        getCurrentStreamDecision: (): StreamDecision | null => deps.playbackState.getCurrentStreamDecision(),
         debugOverridesStore: deps.debugOverridesStore,
         requestNowPlayingOverlayRefresh: (): void =>
             nowPlayingInfoCoordinator?.refreshIfOpen(),
@@ -260,7 +252,7 @@ export function createOrchestratorCoordinators(
         getAutoHideMs: (): number =>
             getNowPlayingInfoAutoHideMs(deps.config?.nowPlayingInfoConfig),
         getCurrentProgramForPlayback: (): ScheduledProgram | null =>
-            deps.currentProgramForPlayback(),
+            deps.playbackState.getCurrentProgramForPlayback(),
         getPlaybackInfoSnapshot: (): PlaybackInfoSnapshotLike | null => deps.getPlaybackInfoSnapshot(),
         refreshPlaybackInfoSnapshot: (): Promise<PlaybackInfoSnapshotLike> =>
             deps.refreshPlaybackInfoSnapshot(),
@@ -272,7 +264,7 @@ export function createOrchestratorCoordinators(
     const playerOsdCoordinator = new PlayerOsdCoordinator({
         getOverlay: (): IPlayerOsdOverlay | null => deps.playerOsd,
         getCurrentProgram: (): ScheduledProgram | null =>
-            deps.scheduler.getCurrentProgram() ?? deps.currentProgramForPlayback(),
+            deps.scheduler.getCurrentProgram() ?? deps.playbackState.getCurrentProgramForPlayback(),
         getNextProgram: (): ScheduledProgram | null => deps.scheduler.getNextProgram() ?? null,
         getCurrentChannel: (): ChannelConfig | null =>
             deps.channelManager.getCurrentChannel() ?? null,
@@ -325,9 +317,10 @@ export function createOrchestratorCoordinators(
         getNavigation: (): INavigationManager | null => deps.navigation,
         getPlaybackOptionsModal: (): IPlaybackOptionsModal | null => deps.playbackOptionsModal,
         getVideoPlayer: (): IVideoPlayer | null => deps.videoPlayer,
-        getCurrentStreamDescriptor: (): StreamDescriptor | null => deps.currentStreamDescriptor(),
+        getCurrentStreamDescriptor: (): StreamDescriptor | null =>
+            deps.playbackState.getCurrentStreamDescriptor(),
         getCurrentProgram: (): ScheduledProgram | null =>
-            deps.scheduler.getCurrentProgram() ?? deps.currentProgramForPlayback(),
+            deps.scheduler.getCurrentProgram() ?? deps.playbackState.getCurrentProgramForPlayback(),
         requestBurnInSubtitle: (trackId: string, reason: string): Promise<boolean> =>
             playbackRecovery.attemptBurnInSubtitleForCurrentProgram(trackId, reason),
         notifyToast: (message, type): void => {
@@ -346,14 +339,17 @@ export function createOrchestratorCoordinators(
         getVideoPlayer: (): IVideoPlayer | null => deps.videoPlayer,
         getStreamResolver: (): IPlexStreamResolver | null => deps.plexStreamResolver,
         getScheduler: (): IChannelScheduler | null => deps.scheduler,
-        getCurrentProgramForPlayback: (): ScheduledProgram | null => deps.currentProgramForPlayback(),
-        getCurrentStreamDescriptor: (): StreamDescriptor | null => deps.currentStreamDescriptor(),
-        getCurrentStreamDecision: (): StreamDecision | null => deps.currentStreamDecision(),
+        getCurrentProgramForPlayback: (): ScheduledProgram | null =>
+            deps.playbackState.getCurrentProgramForPlayback(),
+        getCurrentStreamDescriptor: (): StreamDescriptor | null =>
+            deps.playbackState.getCurrentStreamDescriptor(),
+        getCurrentStreamDecision: (): StreamDecision | null =>
+            deps.playbackState.getCurrentStreamDecision(),
         setCurrentStreamDecision: (decision: StreamDecision): void => {
-            deps.setCurrentStreamDecision(decision);
+            deps.playbackState.setCurrentStreamDecision(decision);
         },
         setCurrentStreamDescriptor: (descriptor: StreamDescriptor): void => {
-            deps.setCurrentStreamDescriptor(descriptor);
+            deps.playbackState.setCurrentStreamDescriptor(descriptor);
         },
         buildPlexResourceUrl: (pathOrUrl: string): string | null =>
             deps.buildPlexResourceUrl(pathOrUrl),
@@ -392,9 +388,10 @@ export function createOrchestratorCoordinators(
             deps.setActiveScheduleDayKey(dayKey);
         },
         setPendingNowPlayingChannelId: (channelId: string | null): void => {
-            deps.setPendingNowPlayingChannelId(channelId);
+            deps.playbackState.setPendingNowPlayingChannelId(channelId);
         },
-        getPendingNowPlayingChannelId: (): string | null => deps.pendingNowPlayingChannelId(),
+        getPendingNowPlayingChannelId: (): string | null =>
+            deps.playbackState.getPendingNowPlayingChannelId(),
         resetPlaybackGuardsForNewChannel: (): void => {
             playbackRecovery.resetPlaybackFailureGuard();
             playbackRecovery.resetDirectFallbackAttempts();
