@@ -800,6 +800,9 @@ describe('App bootstrap smoke', () => {
         // Validate non-boolean/missing screen params pass undefined options through App flow.
         screenChangeHandler?.('auth', 'server-select');
         expect(serverSelectShow).toHaveBeenLastCalledWith(undefined);
+        screenChangeHandler?.('server-select', 'auth');
+        screenChangeHandler?.('auth', 'server-select');
+        expect(serverSelectShow).toHaveBeenLastCalledWith(undefined);
 
         // Exercise "ready guard" path which hides setup screens and schedules settings prefetch.
         isReadySpy.mockReturnValue(true);
@@ -901,7 +904,7 @@ describe('App bootstrap smoke', () => {
         screenChangeHandler?.('splash', 'server-select');
         screenChangeHandler?.('auth', 'player');
 
-        expect(jest.getTimerCount()).toBe(2);
+        expect(jest.getTimerCount()).toBe(1);
 
         await startedApp.shutdown();
         app = null;
@@ -921,7 +924,7 @@ describe('App bootstrap smoke', () => {
             await bootstrapApp();
 
             const clientId = localStorage.getItem(STORAGE_KEYS.CLIENT_ID) ?? '';
-            expect(clientId).toMatch(/^lineup-[a-z0-9]+$/);
+            expect(clientId).toMatch(/^lineup-[A-Za-z0-9._-]+$/);
         } finally {
             Object.defineProperty(globalThis, 'crypto', {
                 value: originalCrypto,

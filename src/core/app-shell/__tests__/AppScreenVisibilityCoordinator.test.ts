@@ -48,6 +48,7 @@ describe('AppScreenVisibilityCoordinator', () => {
     let profileSelectScreen: Screen;
     let serverSelectScreen: Screen;
     let registry: MockRegistry;
+    let lazyScreenErrorHandler: jest.Mock;
 
     const createCoordinator = (): AppScreenVisibilityCoordinator => new AppScreenVisibilityCoordinator({
         getIsReady: () => isReady,
@@ -58,6 +59,7 @@ describe('AppScreenVisibilityCoordinator', () => {
         getProfileSelectScreen: () => profileSelectScreen,
         getServerSelectScreen: () => serverSelectScreen,
         getLazyScreenRegistry: () => registry as never,
+        onLazyScreenError: lazyScreenErrorHandler,
     });
 
     beforeEach(() => {
@@ -70,6 +72,7 @@ describe('AppScreenVisibilityCoordinator', () => {
         profileSelectScreen = createScreen();
         serverSelectScreen = createScreen();
         registry = createRegistry();
+        lazyScreenErrorHandler = jest.fn();
     });
 
     it('hides setup/transient screens and schedules settings prefetch when ready for non-setup screen', () => {
@@ -91,6 +94,7 @@ describe('AppScreenVisibilityCoordinator', () => {
         expect(audioSetupScreen.hide).toHaveBeenCalledTimes(1);
         expect(channelSetupScreen.hide).toHaveBeenCalledTimes(1);
         expect(settingsScreen.hide).toHaveBeenCalledTimes(1);
+        expect(registry.cancelChannelSetupPrefetch).toHaveBeenCalledTimes(1);
         expect(registry.scheduleSettingsPrefetch).toHaveBeenCalledTimes(1);
     });
 
@@ -150,6 +154,19 @@ describe('AppScreenVisibilityCoordinator', () => {
         expect(channelSetupShow).toHaveBeenCalledTimes(1);
         expect(settingsShow).not.toHaveBeenCalled();
         expect(audioShow).toHaveBeenCalledTimes(1);
+    });
+
+    it('routes lazy screen load failures through the app-shell error callback', async () => {
+        const lazyError = new Error('chunk load failed');
+        registry.ensureSettingsScreen.mockRejectedValue(lazyError);
+
+        const coordinator = createCoordinator();
+        currentScreen = 'settings';
+        coordinator.apply('settings');
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(lazyScreenErrorHandler).toHaveBeenCalledWith(lazyError);
     });
 
     it('syncs using current screen and player fallback', () => {

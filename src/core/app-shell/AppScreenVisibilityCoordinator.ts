@@ -38,6 +38,7 @@ export interface AppScreenVisibilityCoordinatorOptions {
     getProfileSelectScreen: () => VisibilityScreen | null;
     getServerSelectScreen: () => ServerSelectVisibilityScreen | null;
     getLazyScreenRegistry: () => ScreenVisibilityLazyRegistry | null;
+    onLazyScreenError?: (error: unknown) => void;
 }
 
 export class AppScreenVisibilityCoordinator {
@@ -49,6 +50,7 @@ export class AppScreenVisibilityCoordinator {
     private readonly _getProfileSelectScreen: () => VisibilityScreen | null;
     private readonly _getServerSelectScreen: () => ServerSelectVisibilityScreen | null;
     private readonly _getLazyScreenRegistry: () => ScreenVisibilityLazyRegistry | null;
+    private readonly _onLazyScreenError: (error: unknown) => void;
 
     constructor(options: AppScreenVisibilityCoordinatorOptions) {
         this._getIsReady = options.getIsReady;
@@ -59,6 +61,7 @@ export class AppScreenVisibilityCoordinator {
         this._getProfileSelectScreen = options.getProfileSelectScreen;
         this._getServerSelectScreen = options.getServerSelectScreen;
         this._getLazyScreenRegistry = options.getLazyScreenRegistry;
+        this._onLazyScreenError = options.onLazyScreenError ?? (() : void => undefined);
     }
 
     apply(screen: string): void {
@@ -80,6 +83,7 @@ export class AppScreenVisibilityCoordinator {
             lazyRegistry?.getAudioSetupScreen()?.hide();
             lazyRegistry?.getChannelSetupScreen()?.hide();
             lazyRegistry?.getSettingsScreen()?.hide();
+            lazyRegistry?.cancelChannelSetupPrefetch();
             lazyRegistry?.scheduleSettingsPrefetch();
             return;
         }
@@ -136,19 +140,28 @@ export class AppScreenVisibilityCoordinator {
         }
 
         if (showAudioSetup) {
-            void this._showAudioSetupScreen();
+            this._showLazyScreen(
+                () => this._getLazyScreenRegistry()?.ensureAudioSetupScreen(),
+                'audio-setup'
+            );
         } else {
             lazyRegistry?.getAudioSetupScreen()?.hide();
         }
 
         if (showChannelSetup) {
-            void this._showChannelSetupScreen();
+            this._showLazyScreen(
+                () => this._getLazyScreenRegistry()?.ensureChannelSetupScreen(),
+                'channel-setup'
+            );
         } else {
             lazyRegistry?.getChannelSetupScreen()?.hide();
         }
 
         if (showSettings) {
-            void this._showSettingsScreen();
+            this._showLazyScreen(
+                () => this._getLazyScreenRegistry()?.ensureSettingsScreen(),
+                'settings'
+            );
         } else {
             lazyRegistry?.getSettingsScreen()?.hide();
         }
@@ -158,24 +171,23 @@ export class AppScreenVisibilityCoordinator {
         this.apply(this._getCurrentScreen() ?? defaultScreen);
     }
 
-    private async _showAudioSetupScreen(): Promise<void> {
-        const screen = await this._getLazyScreenRegistry()?.ensureAudioSetupScreen();
-        if (!screen) return;
-        if (this._getCurrentScreen() !== 'audio-setup') return;
-        screen.show();
-    }
+    private _showLazyScreen(
+        ensureScreen: () => Promise<LazyVisibilityScreen | null> | null | undefined,
+        expectedScreen: string
+    ): void {
+        const pendingScreen = ensureScreen();
+        if (!pendingScreen) {
+            return;
+        }
 
-    private async _showChannelSetupScreen(): Promise<void> {
-        const screen = await this._getLazyScreenRegistry()?.ensureChannelSetupScreen();
-        if (!screen) return;
-        if (this._getCurrentScreen() !== 'channel-setup') return;
-        screen.show();
-    }
-
-    private async _showSettingsScreen(): Promise<void> {
-        const screen = await this._getLazyScreenRegistry()?.ensureSettingsScreen();
-        if (!screen) return;
-        if (this._getCurrentScreen() !== 'settings') return;
-        screen.show();
+        void pendingScreen
+            .then((screen) => {
+                if (!screen) return;
+                if (this._getCurrentScreen() !== expectedScreen) return;
+                screen.show();
+            })
+            .catch((error: unknown) => {
+                this._onLazyScreenError(error);
+            });
     }
 }

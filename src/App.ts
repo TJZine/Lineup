@@ -354,6 +354,9 @@ export class App {
             getProfileSelectScreen: (): ProfileSelectScreen | null => this._profileSelectScreen,
             getServerSelectScreen: (): ServerSelectScreen | null => this._serverSelectScreen,
             getLazyScreenRegistry: (): AppLazyScreenRegistry | null => this._lazyScreenRegistry,
+            onLazyScreenError: (error: unknown): void => {
+                this._handleLazyScreenError(error);
+            },
         });
     }
 
@@ -448,6 +451,26 @@ export class App {
 
             root.replaceChildren(container);
         }
+    }
+
+    private _handleLazyScreenError(error: unknown): void {
+        console.error('[App] Lazy screen load failed:', summarizeErrorForLog(error));
+
+        if (!this._orchestrator) {
+            this._showFatalError(error);
+            return;
+        }
+
+        this.showErrorOverlay(
+            this._orchestrator.toLifecycleAppError({
+                code: AppErrorCode.MODULE_INIT_FAILED,
+                message: 'Failed to load a deferred application screen.',
+                recoverable: true,
+                context: {
+                    error: summarizeErrorForLog(error),
+                },
+            })
+        );
     }
 
 }

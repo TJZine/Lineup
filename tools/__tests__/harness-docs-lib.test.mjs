@@ -359,6 +359,26 @@ test('checkArchiveSectionSummaryConformance rejects deferred triage without a lo
     ]);
 });
 
+test('checkArchiveSectionSummaryConformance accepts uppercase tracked follow-up doc paths', () => {
+    const result = checkArchiveSectionSummaryConformance({
+        filePath: 'docs/archive/plans/2026-03-11-priority-7-example-section-summary.md',
+        content: `# Priority 7 Section Summary
+
+## Harness Ingestion Triage
+
+- status: \`absorbed\`
+- recommended action: \`historical-corpus\`
+- why: Durable lessons were absorbed into tracked docs.
+- tracked follow-up: \`docs/AGENTIC_DEV_WORKFLOW.md\`, \`docs/architecture/CURRENT_STATE.md\`
+- local-only holding note: \`none\`
+- revisit trigger: \`none\`
+`,
+    });
+
+    assert.equal(result.isSectionSummary, true);
+    assert.deepEqual(result.errors, []);
+});
+
 test('buildHarnessIngestionReport lists only archived section summaries with actionable triage decisions', () => {
     const report = buildHarnessIngestionReport([
         {

@@ -28,12 +28,12 @@ describe('createDefaultPlexAuthConfig', () => {
     });
 
     it('passes through preferred client identifier for boundary-owned resolution', () => {
-        jest.spyOn(clientIdentifierModule, 'resolveClientIdentifier').mockReturnValue('preferred-id');
+        jest.spyOn(clientIdentifierModule, 'resolveClientIdentifier').mockReturnValue('resolved-id');
 
         const config = createDefaultPlexAuthConfig('preferred-id');
 
         expect(clientIdentifierModule.resolveClientIdentifier).toHaveBeenCalledWith('preferred-id');
-        expect(config.clientIdentifier).toBe('preferred-id');
+        expect(config.clientIdentifier).toBe('resolved-id');
     });
 
     it('returns a fresh object each call', () => {

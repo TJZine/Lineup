@@ -225,12 +225,12 @@ function isTrackedFollowUpValue(value) {
     return value
         .split(/\s*,\s*/u)
         .map((entry) => entry.replace(/^`(.+)`$/u, '$1').trim())
-        .every(
-            (entry) =>
-                /^(agents\.md|ARCHITECTURE_CLEANUP_CHECKLIST\.md|docs\/[a-z0-9/_-]+(?:\.md|\/))$/u.test(entry) &&
-                !entry.startsWith('docs/runs/') &&
-                !entry.startsWith('docs/agentic/evals/baselines/')
-        );
+        .every((entry) => {
+            const normalized = entry.toLowerCase();
+            return /^(agents\.md|ARCHITECTURE_CLEANUP_CHECKLIST\.md|docs\/[A-Za-z0-9/_-]+(?:\.md|\/))$/u.test(entry) &&
+                !normalized.startsWith('docs/runs/') &&
+                !normalized.startsWith('docs/agentic/evals/baselines/');
+        });
 }
 
 function isLocalHoldingConvention(value) {

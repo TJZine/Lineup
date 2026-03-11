@@ -68,6 +68,6 @@ Run `npm run harness:ingestion` after archiving or updating section summaries. T
 git mv docs/plans/<file>.md docs/archive/plans/<file>.md
 ```
 
-6. Leave the filename unchanged.
+1. Leave the filename unchanged.
 
 If a future task needs to resume directly from an archived plan, either keep working from the archived file or promote a new active plan in `docs/plans/` that references it explicitly.

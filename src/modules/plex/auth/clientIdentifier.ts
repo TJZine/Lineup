@@ -1,4 +1,7 @@
+import { safeLocalStorageGet, safeLocalStorageSet } from '../../../utils/storage';
 import { PLEX_AUTH_CONSTANTS } from './constants';
+
+let inMemoryFallbackClientId: string | null = null;
 
 function isSaneClientId(value: string): boolean {
     return value.length > 0 && value.length <= 128 && /^[a-zA-Z0-9._-]+$/.test(value);
@@ -25,33 +28,33 @@ function generateFallbackClientId(): string {
 }
 
 function tryPersistClientId(clientId: string): void {
-    try {
-        localStorage.setItem(PLEX_AUTH_CONSTANTS.CLIENT_ID_KEY, clientId);
-    } catch {
-        // Best-effort persistence only.
-    }
+    safeLocalStorageSet(PLEX_AUTH_CONSTANTS.CLIENT_ID_KEY, clientId);
 }
 
 function getStoredClientId(): string | null {
-    try {
-        return localStorage.getItem(PLEX_AUTH_CONSTANTS.CLIENT_ID_KEY);
-    } catch {
-        return null;
-    }
+    return safeLocalStorageGet(PLEX_AUTH_CONSTANTS.CLIENT_ID_KEY);
 }
 
 export function resolveClientIdentifier(preferred?: string): string {
     if (typeof preferred === 'string' && isSaneClientId(preferred)) {
+        inMemoryFallbackClientId = preferred;
         tryPersistClientId(preferred);
         return preferred;
     }
 
     const stored = getStoredClientId();
     if (typeof stored === 'string' && isSaneClientId(stored)) {
+        inMemoryFallbackClientId = stored;
         return stored;
     }
 
+    if (typeof inMemoryFallbackClientId === 'string' && isSaneClientId(inMemoryFallbackClientId)) {
+        tryPersistClientId(inMemoryFallbackClientId);
+        return inMemoryFallbackClientId;
+    }
+
     const generated = generateFallbackClientId();
+    inMemoryFallbackClientId = generated;
     tryPersistClientId(generated);
     return generated;
 }

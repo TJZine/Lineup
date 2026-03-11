@@ -98,7 +98,7 @@ describe('PlexAuth', () => {
 
     beforeEach(() => {
         mockLocalStorage.clear();
-        jest.clearAllMocks();
+        jest.restoreAllMocks();
     });
 
     describe('requestPin', () => {
@@ -463,6 +463,30 @@ describe('PlexAuth', () => {
                 expect(result.selectedServerByUserId.user1).toBeDefined();
                 expect(result.selectedServerByUserId.user1?.serverId).toBe('server1');
             }
+        });
+
+        it('should return null when storage access throws', async () => {
+            jest.spyOn(mockLocalStorage, 'getItem').mockImplementation(() => {
+                throw new Error('blocked');
+            });
+            const auth = new PlexAuth(mockConfig);
+
+            await expect(auth.getStoredCredentials()).resolves.toBeNull();
+        });
+    });
+
+    describe('storage failures', () => {
+        it('keeps in-memory auth state when storage writes are blocked', async () => {
+            jest.spyOn(mockLocalStorage, 'setItem').mockImplementation(() => {
+                throw new Error('blocked');
+            });
+
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('blocked-storage-token');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            expect(auth.isAuthenticated()).toBe(true);
+            expect(auth.getCurrentUser()?.token).toBe('blocked-storage-token');
         });
     });
 

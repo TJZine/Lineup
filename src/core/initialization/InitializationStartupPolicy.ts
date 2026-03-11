@@ -207,8 +207,20 @@ export async function applyPhase2AuthGatePolicy(inputs: Phase2AuthGateInputs): P
                 inputs.navigation.goTo('profile-select');
                 return false;
             }
-        } catch {
-            // Validation failure falls through to the auth resume path below.
+        } catch (error) {
+            const code = (error as { code?: string }).code;
+            if (
+                code === AppErrorCode.AUTH_REQUIRED ||
+                code === AppErrorCode.AUTH_INVALID
+            ) {
+                inputs.updateModuleStatus('plex-auth', 'pending');
+                inputs.handlers.registerAuthResume();
+                inputs.navigation.goTo('auth');
+                return false;
+            }
+
+            console.error('Phase 2 auth gate failed:', summarizeErrorForLog(error));
+            throw error;
         }
     }
 

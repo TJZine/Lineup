@@ -7,6 +7,11 @@
 
 import { EventEmitter } from '../../../utils/EventEmitter';
 import { IDisposable } from '../../../utils/interfaces';
+import {
+    safeLocalStorageGet,
+    safeLocalStorageRemove,
+    safeLocalStorageSet,
+} from '../../../utils/storage';
 import { PLEX_AUTH_CONSTANTS } from './constants';
 import {
     IPlexAuth,
@@ -250,7 +255,7 @@ export class PlexAuth implements IPlexAuth {
      */
     public async getStoredCredentials(): Promise<PlexAuthData | null> {
         try {
-            const stored = localStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY);
+            const stored = safeLocalStorageGet(PLEX_AUTH_CONSTANTS.STORAGE_KEY);
             if (!stored) return null;
 
             const parsed: StoredAuthData = JSON.parse(stored);
@@ -269,9 +274,7 @@ export class PlexAuth implements IPlexAuth {
             version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
             data: auth,
         };
-        try {
-            localStorage.setItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY, JSON.stringify(stored));
-        } catch {
+        if (!safeLocalStorageSet(PLEX_AUTH_CONSTANTS.STORAGE_KEY, JSON.stringify(stored))) {
             // Storage can be blocked or quota-limited; keep the token in-memory for this session.
         }
         this._state.accountToken = auth.accountToken;
@@ -286,9 +289,7 @@ export class PlexAuth implements IPlexAuth {
      */
     public async clearCredentials(): Promise<void> {
         this._credentialsEpoch += 1;
-        try {
-            localStorage.removeItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY);
-        } catch {
+        if (!safeLocalStorageRemove(PLEX_AUTH_CONSTANTS.STORAGE_KEY)) {
             // localStorage can be blocked/unavailable; clearing in-memory state is still sufficient.
         }
         this._state.accountToken = null;
@@ -675,7 +676,7 @@ export class PlexAuth implements IPlexAuth {
 
     private _loadStoredCredentials(): void {
         try {
-            const stored = localStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY);
+            const stored = safeLocalStorageGet(PLEX_AUTH_CONSTANTS.STORAGE_KEY);
             if (!stored) return;
 
             const parsed: StoredAuthData = JSON.parse(stored);
