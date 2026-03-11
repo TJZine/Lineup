@@ -18,8 +18,6 @@ export type {
     PlexAuthEvents,
 } from './interfaces';
 export { PLEX_AUTH_CONSTANTS, AUTH_ERROR_MESSAGES } from './constants';
-export {
-    getOrCreateClientId,
-    buildRequestHeaders,
-    fetchWithRetry,
-} from './helpers';
+export { resolveClientIdentifier } from './clientIdentifier';
+export { createDefaultPlexAuthConfig } from './config';
+export { buildRequestHeaders, fetchWithRetry } from './helpers';

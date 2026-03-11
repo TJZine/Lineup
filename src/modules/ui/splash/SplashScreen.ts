@@ -16,7 +16,7 @@ export class SplashScreen {
 
     private _buildUI(): void {
         this._container.className = 'splash-screen screen';
-        this._container.innerHTML = '';
+        this._container.replaceChildren();
 
         const crtContainer = document.createElement('div');
         crtContainer.className = 'splash-crt-container';

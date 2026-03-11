@@ -33,62 +33,6 @@ export class PlexApiError extends Error {
 }
 
 // ============================================
-// Client ID Management
-// ============================================
-
-/**
- * Generate a UUID v4.
- * Uses crypto.randomUUID() when available (modern browsers, webOS 6.0+),
- * falls back to Math.random() implementation for older environments.
- * @returns UUID string
- */
-function generateUUID(): string {
-    // Use native crypto.randomUUID if available (modern browsers, webOS 6.0+)
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-        return crypto.randomUUID();
-    }
-
-    // Fallback: Simple UUID v4 implementation for ES2018
-    const hex = '0123456789abcdef';
-    let uuid = '';
-    for (let i = 0; i < 36; i++) {
-        if (i === 8 || i === 13 || i === 18 || i === 23) {
-            uuid += '-';
-        } else if (i === 14) {
-            uuid += '4';
-        } else if (i === 19) {
-            uuid += hex[(Math.random() * 4) | 8];
-        } else {
-            uuid += hex[(Math.random() * 16) | 0];
-        }
-    }
-    return uuid;
-}
-
-/**
- * Get or generate persistent client identifier.
- * @returns Client identifier string
- */
-export function getOrCreateClientId(): string {
-    try {
-        const stored = localStorage.getItem(PLEX_AUTH_CONSTANTS.CLIENT_ID_KEY);
-        if (stored) {
-            return stored;
-        }
-        const newId = generateUUID();
-        try {
-            localStorage.setItem(PLEX_AUTH_CONSTANTS.CLIENT_ID_KEY, newId);
-        } catch {
-            // Best-effort; return ephemeral ID if storage is blocked.
-        }
-        return newId;
-    } catch {
-        // Storage may be blocked (webOS/privacy mode); fall back to ephemeral ID.
-        return generateUUID();
-    }
-}
-
-// ============================================
 // Header Building
 // ============================================
 

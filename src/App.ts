@@ -14,14 +14,17 @@ import type { INavigationManager, NavigationConfig } from './modules/navigation'
 import type { VideoPlayerConfig } from './modules/player';
 import type { EPGConfig } from './modules/ui/epg';
 import type { NowPlayingInfoConfig } from './modules/ui/now-playing-info';
+import { NOW_PLAYING_INFO_CONTAINER_ID } from './modules/ui/now-playing-info/constants';
 import type { PlayerOsdConfig } from './modules/ui/player-osd';
 import type { ChannelNumberOverlayConfig } from './modules/ui/channel-number-overlay';
 import { CHANNEL_BADGE_CONTAINER_ID, type ChannelBadgeConfig } from './modules/ui/channel-badge';
 import type { MiniGuideConfig } from './modules/ui/mini-guide';
 import type { ChannelTransitionConfig } from './modules/ui/channel-transition';
 import type { PlaybackOptionsConfig } from './modules/ui/playback-options';
+import { PLAYBACK_OPTIONS_CONTAINER_ID } from './modules/ui/playback-options/constants';
 import { createAppContainers, type AppContainerRefs } from './core/app-shell/AppContainerFactory';
 import { AppLazyScreenRegistry } from './core/app-shell/AppLazyScreenRegistry';
+import { AppScreenVisibilityCoordinator } from './core/app-shell/AppScreenVisibilityCoordinator';
 import {
     AppBlockingErrorOverlayPresenter,
     type BlockingErrorOverlayAction,
@@ -29,32 +32,17 @@ import {
 import { AppDiagnosticsSurface } from './core/app-shell/AppDiagnosticsSurface';
 import { AppToastPresenter } from './core/app-shell/AppToastPresenter';
 import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
-import type { PlexAuthConfig } from './modules/plex/auth';
+import { createDefaultPlexAuthConfig } from './modules/plex/auth';
 import { AuthScreen } from './modules/ui/auth';
 import { ProfileSelectScreen } from './modules/ui/profile-select';
 import { ServerSelectScreen } from './modules/ui/server-select';
 import { SplashScreen } from './modules/ui/splash';
 import { ThemeManager } from './modules/ui/theme';
-import { STORAGE_KEYS } from './types';
-import {
-    safeLocalStorageGet,
-    safeLocalStorageSet,
-} from './utils/storage';
 import { summarizeErrorForLog } from './utils/errors';
 
 // ============================================
 // Configuration Defaults
 // ============================================
-
-const DEFAULT_PLEX_CONFIG: PlexAuthConfig = {
-    clientIdentifier: '',
-    product: 'Lineup',
-    version: '1.0.0',
-    platform: 'webOS',
-    platformVersion: '6.0',
-    device: 'LG Smart TV',
-    deviceName: 'Living Room TV',
-};
 
 const DEFAULT_NAV_CONFIG: NavigationConfig = {
     enablePointerMode: false,
@@ -87,7 +75,7 @@ const DEFAULT_EPG_CONFIG: EPGConfig = {
 };
 
 const DEFAULT_NOW_PLAYING_INFO_CONFIG: NowPlayingInfoConfig = {
-    containerId: 'now-playing-info-container',
+    containerId: NOW_PLAYING_INFO_CONTAINER_ID,
     autoHideMs: 0,
 };
 
@@ -125,7 +113,7 @@ const DEFAULT_CHANNEL_TRANSITION_CONFIG: ChannelTransitionConfig = {
 };
 
 const DEFAULT_PLAYBACK_OPTIONS_CONFIG: PlaybackOptionsConfig = {
-    containerId: 'playback-options-container',
+    containerId: PLAYBACK_OPTIONS_CONTAINER_ID,
 };
 
 const ERROR_OVERLAY_MODAL_ID = 'modal:error-overlay';
@@ -154,6 +142,7 @@ export class App {
     private _profileSelectScreen: ProfileSelectScreen | null = null;
     private _serverSelectScreen: ServerSelectScreen | null = null;
     private _lazyScreenRegistry: AppLazyScreenRegistry | null = null;
+    private _screenVisibilityCoordinator: AppScreenVisibilityCoordinator | null = null;
     private _splashScreen: SplashScreen | null = null;
     private _screenUnsubscribe: (() => void) | null = null;
     private _phaseUnsubscribe: (() => void) | null = null;
@@ -289,6 +278,7 @@ export class App {
         this._serverSelectScreen = null;
         this._lazyScreenRegistry?.destroy();
         this._lazyScreenRegistry = null;
+        this._screenVisibilityCoordinator = null;
         this._diagnosticsSurface.dispose();
         const orchestrator = this._orchestrator;
         if (orchestrator) {
@@ -353,6 +343,21 @@ export class App {
                 this._orchestrator?.getNavigation()?.replaceScreen('channel-setup');
             },
         });
+        this._screenVisibilityCoordinator = new AppScreenVisibilityCoordinator({
+            getIsReady: (): boolean => this._orchestrator?.isReady() ?? false,
+            getCurrentScreen: (): string | null => this._orchestrator?.getCurrentScreen() ?? null,
+            getScreenParams: (): Record<string, unknown> => (
+                this._orchestrator?.getNavigation()?.getScreenParams() ?? {}
+            ),
+            getSplashScreen: (): SplashScreen | null => this._splashScreen,
+            getAuthScreen: (): AuthScreen | null => this._authScreen,
+            getProfileSelectScreen: (): ProfileSelectScreen | null => this._profileSelectScreen,
+            getServerSelectScreen: (): ServerSelectScreen | null => this._serverSelectScreen,
+            getLazyScreenRegistry: (): AppLazyScreenRegistry | null => this._lazyScreenRegistry,
+            onLazyScreenError: (error: unknown): void => {
+                this._handleLazyScreenError(error);
+            },
+        });
     }
 
     private _wireScreenVisibility(): void {
@@ -360,132 +365,21 @@ export class App {
             return;
         }
         const disposable = this._orchestrator.onScreenChange((_from, to) => {
-            this._applyScreenVisibility(to);
+            this._screenVisibilityCoordinator?.apply(to);
         });
         this._screenUnsubscribe = (): void => disposable.dispose();
 
         const phaseDisposable = this._orchestrator.onLifecycleEvent('phaseChange', ({ to }) => {
             if (to === 'ready') {
-                const current = this._orchestrator?.getCurrentScreen();
-                this._applyScreenVisibility(current ?? 'player');
+                this._screenVisibilityCoordinator?.syncCurrentScreen();
             }
         });
         this._phaseUnsubscribe = (): void => phaseDisposable.dispose();
 
         const current = this._orchestrator.getCurrentScreen();
         if (current) {
-            this._applyScreenVisibility(current);
+            this._screenVisibilityCoordinator?.apply(current);
         }
-    }
-
-    private _applyScreenVisibility(screen: string): void {
-        // Guard: If app is ready, hide setup screens unless navigating to them
-        // Settings is handled separately below (it's an overlay, not a setup flow)
-        if (
-            this._orchestrator &&
-            this._orchestrator.isReady() &&
-            screen !== 'auth' &&
-            screen !== 'profile-select' &&
-            screen !== 'server-select' &&
-            screen !== 'audio-setup' &&
-            screen !== 'channel-setup' &&
-            screen !== 'settings'
-        ) {
-            this._splashScreen?.hide();
-            this._authScreen?.hide();
-            this._profileSelectScreen?.hide();
-            this._serverSelectScreen?.hide();
-            this._lazyScreenRegistry?.getAudioSetupScreen()?.hide();
-            this._lazyScreenRegistry?.getChannelSetupScreen()?.hide();
-            this._lazyScreenRegistry?.getSettingsScreen()?.hide();
-            this._lazyScreenRegistry?.scheduleSettingsPrefetch();
-            return;
-        }
-        const showSplash = screen === 'splash';
-        const showAuth = screen === 'auth';
-        const showProfileSelect = screen === 'profile-select';
-        const showServerSelect = screen === 'server-select';
-        const showAudioSetup = screen === 'audio-setup';
-        const showChannelSetup = screen === 'channel-setup';
-        const showSettings = screen === 'settings';
-
-        if (this._splashScreen) {
-            if (showSplash) {
-                this._splashScreen.show();
-            } else {
-                this._splashScreen.hide();
-            }
-        }
-
-        if (this._authScreen) {
-            if (showAuth) {
-                this._authScreen.show();
-            } else {
-                this._authScreen.hide();
-            }
-        }
-
-        if (this._profileSelectScreen) {
-            if (showProfileSelect) {
-                this._profileSelectScreen.show();
-            } else {
-                this._profileSelectScreen.hide();
-            }
-        }
-
-        if (this._serverSelectScreen) {
-            if (showServerSelect) {
-                const params = this._orchestrator?.getNavigation()?.getScreenParams() ?? {};
-                const allowAutoConnect = params.allowAutoConnect as boolean | undefined;
-                const showOptions = typeof allowAutoConnect === 'boolean'
-                    ? { allowAutoConnect }
-                    : undefined;
-                this._serverSelectScreen.show(showOptions);
-                this._lazyScreenRegistry?.scheduleChannelSetupPrefetch();
-            } else {
-                this._serverSelectScreen.hide();
-                this._lazyScreenRegistry?.cancelChannelSetupPrefetch();
-            }
-        }
-
-        if (showAudioSetup) {
-            void this._showAudioSetupScreen();
-        } else {
-            this._lazyScreenRegistry?.getAudioSetupScreen()?.hide();
-        }
-
-        if (showChannelSetup) {
-            void this._showChannelSetupScreen();
-        } else {
-            this._lazyScreenRegistry?.getChannelSetupScreen()?.hide();
-        }
-
-        if (showSettings) {
-            void this._showSettingsScreen();
-        } else {
-            this._lazyScreenRegistry?.getSettingsScreen()?.hide();
-        }
-    }
-
-    private async _showChannelSetupScreen(): Promise<void> {
-        const screen = await this._lazyScreenRegistry?.ensureChannelSetupScreen();
-        if (!screen) return;
-        if (this._orchestrator?.getCurrentScreen() !== 'channel-setup') return;
-        screen.show();
-    }
-
-    private async _showAudioSetupScreen(): Promise<void> {
-        const screen = await this._lazyScreenRegistry?.ensureAudioSetupScreen();
-        if (!screen) return;
-        if (this._orchestrator?.getCurrentScreen() !== 'audio-setup') return;
-        screen.show();
-    }
-
-    private async _showSettingsScreen(): Promise<void> {
-        const screen = await this._lazyScreenRegistry?.ensureSettingsScreen();
-        if (!screen) return;
-        if (this._orchestrator?.getCurrentScreen() !== 'settings') return;
-        screen.show();
     }
 
     /**
@@ -493,7 +387,7 @@ export class App {
      */
     private _buildConfig(): OrchestratorConfig {
         return {
-            plexConfig: this._getPlexConfig(),
+            plexConfig: createDefaultPlexAuthConfig(),
             navConfig: DEFAULT_NAV_CONFIG,
             playerConfig: DEFAULT_PLAYER_CONFIG,
             epgConfig: DEFAULT_EPG_CONFIG,
@@ -505,52 +399,6 @@ export class App {
             channelTransitionConfig: DEFAULT_CHANNEL_TRANSITION_CONFIG,
             playbackOptionsConfig: DEFAULT_PLAYBACK_OPTIONS_CONFIG,
         };
-    }
-
-    /**
-     * Get Plex configuration with client identifier.
-     */
-    private _getPlexConfig(): PlexAuthConfig {
-        const config = { ...DEFAULT_PLEX_CONFIG };
-
-        // Get or generate client identifier
-        let clientId = safeLocalStorageGet(STORAGE_KEYS.CLIENT_ID) ?? '';
-        const isSaneClientId = (value: string): boolean =>
-            value.length > 0 && value.length <= 128 && /^[a-zA-Z0-9._-]+$/.test(value);
-        if (!isSaneClientId(clientId)) {
-            clientId = this._generateClientId();
-            safeLocalStorageSet(STORAGE_KEYS.CLIENT_ID, clientId);
-        }
-        config.clientIdentifier = clientId;
-
-        return config;
-    }
-
-    /**
-     * Generate a unique client identifier.
-     * Uses crypto.randomUUID if available, falls back to Math.random.
-     */
-    private _generateClientId(): string {
-        // Prefer crypto.randomUUID() if available (Chromium 92+)
-        // Note: Some webOS versions may not support this despite Chromium version
-        if (
-            typeof crypto !== 'undefined' &&
-            typeof crypto.randomUUID === 'function'
-        ) {
-            try {
-                return `lineup-${crypto.randomUUID()}`;
-            } catch {
-                // Fall through to Math.random fallback
-            }
-        }
-
-        // Fallback to Math.random (adequate for non-security-sensitive client ID)
-        const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-        let result = 'lineup-';
-        for (let i = 0; i < 16; i++) {
-            result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return result;
     }
 
     /**
@@ -603,6 +451,26 @@ export class App {
 
             root.replaceChildren(container);
         }
+    }
+
+    private _handleLazyScreenError(error: unknown): void {
+        console.error('[App] Lazy screen load failed:', summarizeErrorForLog(error));
+
+        if (!this._orchestrator) {
+            this._showFatalError(error);
+            return;
+        }
+
+        this.showErrorOverlay(
+            this._orchestrator.toLifecycleAppError({
+                code: AppErrorCode.MODULE_INIT_FAILED,
+                message: 'Failed to load a deferred application screen.',
+                recoverable: true,
+                context: {
+                    error: summarizeErrorForLog(error),
+                },
+            })
+        );
     }
 
 }

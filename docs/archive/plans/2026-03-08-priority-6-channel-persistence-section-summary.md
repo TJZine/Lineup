@@ -103,6 +103,15 @@ The original completed P6 plans were useful during the extraction sequence, but 
 
 The repo keeps the durable lessons and reference points, but drops the long execution directives that are no longer needed for active handoff.
 
+## Harness Ingestion Triage
+
+- status: `absorbed`
+- recommended action: `historical-corpus`
+- why: The section’s reusable persistence-boundary lessons were already promoted into the historical corpus review, and any eval expansion now flows from that tracked synthesis and the eval roadmap.
+- tracked follow-up: `docs/agentic/historical-plan-corpus-review.md`, `docs/agentic/evals-roadmap.md`
+- local-only holding note: `none`
+- revisit trigger: `none`
+
 ## Future Use
 
 Use this summary as the historical reference surface for:

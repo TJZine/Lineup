@@ -21,7 +21,7 @@ Use this disposition vocabulary literally:
 - `deferred`: the issue stays open, but the artifact names the exact issue id, current owner, reason, and revisit trigger
 - `split follow-up`: the artifact does not retire the issue now and instead hands the remaining gap to one exact successor owner
 - `owned follow-up`: the one exact successor owner named by a `split follow-up` record; do not accept shared implicit ownership
-- `security triage`: a fresh `desloppify status` result that either says `none open` or lists the exact security issue ids still open/deferred
+- `security triage`: a fresh `desloppify status` result that either says `no open P0 security findings` or lists the exact `P0` security issue ids still open/deferred, plus reasons and revisit triggers for anything not yet cleared
 - `priority-exit review`: the blocking review required after the last planned `P#-W#` item and before any `P(n+1)` work, plan, or checklist progress
 
 If reviewing a plan, focus on:

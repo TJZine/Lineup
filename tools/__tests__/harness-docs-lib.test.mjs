@@ -2,10 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+    buildHarnessIngestionReport,
     buildChecklistPlanPathMessages,
+    checkArchiveSectionSummaryConformance,
     classifyChecklistPlanPathStatus,
     checkPlanConformance,
     EVAL_PROMPT_INVENTORY,
+    extractHarnessIngestionTriage,
     extractChecklistPlanPaths,
     parseSkillMirrorManifest,
     renderEvalPromptInventory,
@@ -295,4 +298,115 @@ test('checkPlanConformance skips archive readmes and other non-serious artifacts
 
     assert.equal(result.isSerious, false);
     assert.deepEqual(result.missingSections, []);
+});
+
+test('extractHarnessIngestionTriage reads a valid deferred triage block', () => {
+    const triage = extractHarnessIngestionTriage(`
+# Priority 7 Section Summary
+
+## Harness Ingestion Triage
+
+- status: \`deferred\`
+- recommended action: \`targeted-eval\`
+- why: One work unit hinted at an eval gap, but the signal is still single-occurrence.
+- tracked follow-up: \`none\`
+- local-only holding note: \`docs/runs/<date>-harness-ingestion-triage/Documentation.md\`
+- revisit trigger: after the next completed priority block touching the same workflow seam
+`);
+
+    assert.equal(triage.status, 'deferred');
+    assert.equal(triage.recommendedAction, 'targeted-eval');
+    assert.equal(
+        triage.localOnlyHoldingNote,
+        'docs/runs/<date>-harness-ingestion-triage/Documentation.md'
+    );
+    assert.equal(triage.trackedFollowUp, 'none');
+    assert.equal(triage.errors.length, 0);
+});
+
+test('checkArchiveSectionSummaryConformance reports missing triage guidance for archived section summaries', () => {
+    const result = checkArchiveSectionSummaryConformance({
+        filePath: 'docs/archive/plans/2026-03-11-priority-7-example-section-summary.md',
+        content: '# Priority 7 Section Summary\n',
+    });
+
+    assert.equal(result.isSectionSummary, true);
+    assert.deepEqual(result.errors, [
+        'missing required section: Harness Ingestion Triage',
+    ]);
+});
+
+test('checkArchiveSectionSummaryConformance rejects deferred triage without a local-only holding note and revisit trigger', () => {
+    const result = checkArchiveSectionSummaryConformance({
+        filePath: 'docs/archive/plans/2026-03-11-priority-7-example-section-summary.md',
+        content: `# Priority 7 Section Summary
+
+## Harness Ingestion Triage
+
+- status: \`deferred\`
+- recommended action: \`targeted-eval\`
+- why: Interesting, but not durable yet.
+- tracked follow-up: \`none\`
+- local-only holding note: \`none\`
+- revisit trigger: \`none\`
+`,
+    });
+
+    assert.equal(result.isSectionSummary, true);
+    assert.deepEqual(result.errors, [
+        'deferred harness-ingestion triage must point at the local-only holding-note convention under docs/runs/<date>-harness-ingestion-triage/',
+        'deferred harness-ingestion triage must name a non-`none` revisit trigger',
+    ]);
+});
+
+test('checkArchiveSectionSummaryConformance accepts uppercase tracked follow-up doc paths', () => {
+    const result = checkArchiveSectionSummaryConformance({
+        filePath: 'docs/archive/plans/2026-03-11-priority-7-example-section-summary.md',
+        content: `# Priority 7 Section Summary
+
+## Harness Ingestion Triage
+
+- status: \`absorbed\`
+- recommended action: \`historical-corpus\`
+- why: Durable lessons were absorbed into tracked docs.
+- tracked follow-up: \`docs/AGENTIC_DEV_WORKFLOW.md\`, \`docs/architecture/CURRENT_STATE.md\`
+- local-only holding note: \`none\`
+- revisit trigger: \`none\`
+`,
+    });
+
+    assert.equal(result.isSectionSummary, true);
+    assert.deepEqual(result.errors, []);
+});
+
+test('buildHarnessIngestionReport lists only archived section summaries with actionable triage decisions', () => {
+    const report = buildHarnessIngestionReport([
+        {
+            filePath: 'docs/archive/plans/2026-03-08-priority-5-plex-stream-policy-section-summary.md',
+            status: 'absorbed',
+            recommendedAction: 'historical-corpus',
+            why: 'No new harness lesson.',
+            trackedFollowUp: 'docs/agentic/historical-plan-corpus-review.md',
+            localOnlyHoldingNote: 'none',
+            revisitTrigger: 'none',
+        },
+        {
+            filePath: 'docs/archive/plans/2026-03-11-priority-7-example-section-summary.md',
+            status: 'pending',
+            recommendedAction: 'targeted-eval',
+            why: 'The same workflow miss appeared twice.',
+            trackedFollowUp: 'docs/agentic/evals/baseline-summaries/',
+            localOnlyHoldingNote: 'none',
+            revisitTrigger: 'none',
+        },
+    ]);
+
+    assert.equal(
+        report,
+        [
+            'Pending harness-ingestion follow-up:',
+            '- docs/archive/plans/2026-03-11-priority-7-example-section-summary.md :: pending :: targeted-eval :: docs/agentic/evals/baseline-summaries/',
+            '  Why: The same workflow miss appeared twice.',
+        ].join('\n')
+    );
 });

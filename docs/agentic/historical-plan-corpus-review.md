@@ -1,6 +1,6 @@
 # Historical Plan Corpus Review
 
-> Reviewed initially 2026-03-05 from a local-only imported corpus containing the full Priority 2 (`P2-W1` through `P2-W5`) implementation plans from the architecture cleanup. Expanded 2026-03-08 with local reviews of the Priority 5 Plex integration-boundary plan set and the Priority 6 channel persistence plan set.
+> Reviewed initially 2026-03-05 from a local-only imported corpus containing the full Priority 2 (`P2-W1` through `P2-W5`) implementation plans from the architecture cleanup. Expanded 2026-03-08 with local reviews of the Priority 5 Plex integration-boundary plan set and the Priority 6 channel persistence plan set, then expanded again 2026-03-11 with the archived Priority 1 runtime-composition plan set.
 
 ## Purpose
 
@@ -48,6 +48,16 @@ Additional local corpus reviewed 2026-03-08 from `docs/_local/plan-import/`:
 - `2026-03-08-p6-w4-channel-persistence-cleanup-pass.md`
 
 The completed Priority 6 section is preserved as tracked historical memory in [`2026-03-08-priority-6-channel-persistence-section-summary.md`](../archive/plans/2026-03-08-priority-6-channel-persistence-section-summary.md). The raw local plan files remain source material only.
+
+Additional corpus reviewed 2026-03-11 from archived workspace material during Priority 1 section condensation:
+
+- `2026-03-10-p1-w1-break-orchestrator-core-import-cycle.md`
+- `2026-03-10-p1-w2-extract-orchestrator-runtime-factory.md`
+- `2026-03-10-p1-w3-split-initializationcoordinator-startup-policy.md`
+- `2026-03-10-p1-w4-remove-orchestrator-runtime-transitional-seams.md`
+- `2026-03-10-p1-w5-priority-1-runtime-cleanup-pass.md`
+
+The completed Priority 1 section is preserved as tracked historical memory in [`2026-03-11-priority-1-runtime-composition-section-summary.md`](../archive/plans/2026-03-11-priority-1-runtime-composition-section-summary.md). The section summary is the durable tracked surface for future sessions; the long execution plans do not need to remain tracked.
 
 ## Why This Matters
 
@@ -183,6 +193,16 @@ Keep:
 - mutation flags that are tied to real repairs only
 - preservation contracts for precedence rules, fallback coercions, and “persist once if mutated” behavior
 
+### 13. Hotspot decomposition lands best when the public entrypoint stays frozen while internal owners move
+
+The reviewed Priority 1 plans are strongest where they shrink a hotspot without forcing adjacent callers to churn. Shared types move behind a boundary-local owner, assembly moves into explicit factories, and startup policy moves into a focused collaborator, all while `src/Orchestrator.ts` remains the public runtime surface.
+
+Keep:
+
+- internal owner transfers that preserve the public import/export surface for existing callers
+- explicit statements about what remains with the composition root versus what moves behind the new collaborator
+- extraction sequencing that starts with structural decoupling, then moves assembly/policy, then runs cleanup after the stable seams are proven
+
 ## Anti-Patterns To Avoid
 
 ### 1. Stale repo identity and pathing
@@ -266,6 +286,16 @@ Do not keep:
 - “dead adapter” deletions justified only by assumption rather than search evidence
 - boundary-tightening steps that mix cleanup with fresh behavior changes
 
+### 9. Priority exit records must not leave residual debt with shared implicit ownership
+
+Priority 1 adds a closeout-specific failure mode: a priority can look “finished” while the last remaining issue is actually smeared across multiple future work units. The exit record was strongest where it named one exact successor owner for the remaining pass-through debt instead of pretending runtime cleanup had already resolved it.
+
+Do not keep:
+
+- priority exits that defer residual debt without one final owner
+- closeout records that split one issue across multiple future work units without naming the final retirement owner
+- cleanup-pass plans that quietly absorb adjacent UI/coordinator debt just to avoid a sharp exit decision
+
 ## Standards To Codify From This Corpus
 
 The future plan-authoring standard should require all of the following for serious implementation plans:
@@ -284,6 +314,14 @@ The future plan-authoring standard should require all of the following for serio
 12. An explicit anti-slop section covering fallback paths, temporary adapters, and scope creep
 
 ## Eval Prompt Seeds From This Corpus
+
+The reviewed Priority 1 sequence should extend the eval set in these ways:
+
+- `P1-W1`: break a hotspot/core import cycle by moving shared types behind a boundary-local owner while preserving the public re-export surface
+- `P1-W2`: extract construction and dependency assembly out of a hotspot without moving runtime behavior ownership
+- `P1-W3`: split startup policy from the sequencing owner without pushing logic back into the composition root
+- `P1-W5`: cleanup pass that removes duplicate runtime seams only after the extracted owners are already stable
+- priority-exit/meta-eval: require one final owner for residual debt before closing a priority
 
 The imported Priority 2 sequence should seed the first eval set in these ways:
 
@@ -520,6 +558,7 @@ This review is no longer based on one complete cleanup priority only.
 
 It is strong for:
 
+- runtime-composition hotspot work
 - app-shell composition-root work
 - Plex integration-boundary policy extraction
 - UI preservation contracts

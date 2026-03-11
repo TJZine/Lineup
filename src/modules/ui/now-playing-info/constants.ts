@@ -4,9 +4,10 @@
  */
 
 export const NOW_PLAYING_INFO_MODAL_ID = 'now-playing-info';
+export const NOW_PLAYING_INFO_CONTAINER_ID = 'now-playing-info-container';
 
 export const NOW_PLAYING_INFO_CLASSES = {
-    CONTAINER: 'now-playing-info-container',
+    CONTAINER: NOW_PLAYING_INFO_CONTAINER_ID,
     CINEMATIC: 'now-playing-info-cinematic',
     PANEL: 'now-playing-info-panel',
     BACKDROP: 'now-playing-info-backdrop',

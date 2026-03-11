@@ -417,6 +417,6 @@ export class AudioSetupScreen {
      */
     public destroy(): void {
         this._unregisterFocusables();
-        this._container.innerHTML = '';
+        this._container.replaceChildren();
     }
 }

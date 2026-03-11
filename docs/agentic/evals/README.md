@@ -172,6 +172,8 @@ Local-only by default:
 
 Promote only short durable summaries when recurring failures justify a tracked workflow change.
 
+Archived section summaries can also recommend eval follow-up through their `Harness Ingestion Triage` block. When a summary marks `recommended action: targeted-eval`, either absorb the lesson into a tracked baseline summary in the same pass or defer it explicitly with the local-only holding-note convention under `docs/runs/<date>-harness-ingestion-triage/`.
+
 ## Ownership And Cadence
 
 - The operator who runs the baseline owns writing the tracked summary in the same pass.

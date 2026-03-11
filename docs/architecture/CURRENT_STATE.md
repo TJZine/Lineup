@@ -56,6 +56,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - `src/modules/plex/library/`
 - `src/modules/plex/stream/`
 - owns Plex-facing auth, discovery, library metadata, and stream/subtitle policy
+- `src/modules/plex/auth/clientIdentifier.ts` is the explicit owner for `lineup_client_id` resolution and persistence (`resolveClientIdentifier(preferred?: string): string`)
 
 ### Scheduler And Channel Management
 
@@ -74,6 +75,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - `src/modules/debug/DebugOverridesStore.ts`
 - `src/modules/plex/discovery/ServerSelectionStore.ts`
 - `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`
+- `src/modules/plex/auth/clientIdentifier.ts`
 - these are the current designated owners for storage-backed state
 
 ### UI

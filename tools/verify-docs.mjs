@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 
 import {
     buildChecklistPlanPathMessages,
+    checkArchiveSectionSummaryConformance,
     checkPlanConformance,
     classifyChecklistPlanPathStatus,
     EVAL_PROMPT_INVENTORY_END_MARKER,
@@ -731,20 +732,44 @@ function checkCleanupPriorityExitContracts(errors) {
             }
         }
 
+        const cleanupSliceStartMarker = '- Cleanup slice execution template:';
+        const cleanupSliceEndMarker = '- Priority exit command checklist:';
+        const cleanupSliceStartIndex = checklist.indexOf(cleanupSliceStartMarker);
+        if (cleanupSliceStartIndex === -1) {
+            errors.push('Checklist doc is missing the cleanup slice execution template section.');
+        } else {
+            const cleanupSliceEndIndex = checklist.indexOf(
+                cleanupSliceEndMarker,
+                cleanupSliceStartIndex + cleanupSliceStartMarker.length
+            );
+            const cleanupSliceBlock = checklist.slice(
+                cleanupSliceStartIndex,
+                cleanupSliceEndIndex === -1 ? checklist.length : cleanupSliceEndIndex
+            );
+            if (!normalizeDocText(cleanupSliceBlock).includes('no open p0 security findings')) {
+                errors.push('Checklist doc is missing required cleanup-slice security marker: no open P0 security findings');
+            }
+        }
+
         const exitRequirementMarker = 'required: record every mapped imported issue with an exact disposition';
+        const exitLineRe = /(^|\n)\s*-\s*\[[ xX]\]\s*`P([1-8])-EXIT`/g;
+        const exitMatches = [...checklist.matchAll(exitLineRe)].map((match) => ({
+            priority: Number(match[2]),
+            index: (match.index ?? 0) + match[1].length,
+        }));
+        const exitIndexByPriority = new Map(exitMatches.map((match) => [match.priority, match.index]));
         for (let priority = 1; priority <= 8; priority += 1) {
             const blockMarker = `\`P${priority}-EXIT\``;
-            const startIndex = checklist.indexOf(blockMarker);
-            if (startIndex === -1) {
+            const startIndex = exitIndexByPriority.get(priority);
+            if (startIndex == null) {
                 errors.push(`Checklist doc is missing the ${blockMarker} gate.`);
                 continue;
             }
 
             let endIndex = checklist.length;
             for (let nextPriority = priority + 1; nextPriority <= 8; nextPriority += 1) {
-                const nextMarker = `\`P${nextPriority}-EXIT\``;
-                const nextIndex = checklist.indexOf(nextMarker, startIndex + blockMarker.length);
-                if (nextIndex !== -1 && nextIndex < endIndex) {
+                const nextIndex = exitIndexByPriority.get(nextPriority);
+                if (nextIndex != null && nextIndex < endIndex) {
                     endIndex = nextIndex;
                 }
             }
@@ -816,7 +841,9 @@ function checkCleanupPriorityExitContracts(errors) {
         const normalized = normalizeDocText(cleanupImplement);
         const requiredCleanupImplementMarkers = [
             'prepare the p#-exit evidence and checklist update',
+            'exact issue id',
             'single final owner',
+            'reason and revisit trigger',
             'priority-exit review',
             'do not start p(n+1) work in the same session',
         ];
@@ -834,6 +861,8 @@ function checkCleanupPriorityExitContracts(errors) {
         const requiredCleanupReviewMarkers = [
             'owned follow-up',
             'single final owner',
+            'no open p0 security findings',
+            'exact p0 security issue ids',
             'revisit trigger',
             'priority-exit review',
             'no p(n+1) plan or implementation work is being approved while p#-exit is still unresolved',
@@ -887,6 +916,34 @@ function checkPlanArchiveCoherence(errors) {
     for (const file of activeFiles) {
         if (archivedSet.has(file)) {
             errors.push(`Plan exists in both active and archived locations: ${file}`);
+        }
+    }
+}
+
+function checkArchivedSectionSummaryConformance(errors) {
+    const trackedPlanPaths = getTrackedPlanPaths(errors);
+    if (trackedPlanPaths === FAILED_GIT) {
+        return;
+    }
+
+    const summaryFiles = Array.from(trackedPlanPaths)
+        .filter((relativePath) => relativePath.startsWith('docs/archive/plans/'))
+        .filter((relativePath) => relativePath.endsWith('section-summary.md'))
+        .sort();
+
+    for (const relativePath of summaryFiles) {
+        const content = readRepoFile(relativePath, errors);
+        if (content === null) {
+            continue;
+        }
+
+        const result = checkArchiveSectionSummaryConformance({ filePath: relativePath, content });
+        if (!result.isSectionSummary || result.errors.length === 0) {
+            continue;
+        }
+
+        for (const error of result.errors) {
+            errors.push(`${relativePath} harness-ingestion triage ${error}`);
         }
     }
 }
@@ -1139,6 +1196,7 @@ function main() {
     checkCleanupPriorityExitContracts(errors);
     checkChecklistPlanPaths(errors, warnings);
     checkPlanArchiveCoherence(errors);
+    checkArchivedSectionSummaryConformance(errors);
     checkSkillMirrorManifest(errors);
     checkTrackedCodexRoleConfig(errors);
     checkSeriousPlanConformance(errors);

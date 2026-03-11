@@ -76,7 +76,7 @@ Use it to keep the highest-risk imported findings tied to concrete work units. F
 
 Do not close a listed work unit while its mapped imported issue still remains unresolved without recording the reason.
 
-- `abstraction_fitness::orchestrator_passthrough_facade` -> `P1-W2`, `P1-W4`
+- `abstraction_fitness::orchestrator_passthrough_facade` -> `P1-W2`, `P1-W4`, `P4-W2`
 - `cross_module_architecture::orchestrator_initialization_cycle` -> `P1-W1`
 - `cross_module_architecture::storage_owner_boundary_drift` -> `P3-W2`, `P3-W3`, `P3-W4`
 - `api_surface_coherence::fetch_with_timeout_signature_drift` -> `P5-W1`
@@ -86,7 +86,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
 - `contract_coherence::channel_manager_boundary_contract_mismatch` -> `P6-W2`
 - `contract_coherence::channel_scheduler_mutable_buffer_api` -> `P6-W2`
 - `contract_coherence::resolve_channel_items_leaks_cached_reference` -> `P6-W2`
-- `convention_outlier::container_id_convention_split` -> `P2-W4`
+- `convention_outlier::container_id_convention_split` -> `P2-W4`, `P4-W5`
 - `convention_outlier::scheduler_namespace_export_outlier` -> `P6-W4`
 - `test_strategy::untested_core_error_helpers` -> `P7-W1`
 - `test_strategy::bootstrap_internal_seam_coupling` -> `P7-W1`
@@ -117,7 +117,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
 - Cleanup slice execution template:
   - `priority/work units`: exact `P#-W#` items in scope for this slice
   - `imported review issues`: exact mapped or newly assigned imported review issue ids being retired
-  - `security triage`: `none open`, or the deferred/resolved security findings for this slice
+  - `security triage`: `no open P0 security findings`, or the deferred/resolved `P0` security findings for this slice with exact issue ids, reasons, and revisit triggers
   - `verification`: exact commands that prove the slice is complete
   - `deferred items`: anything intentionally left open with its exact issue id, owner, reason, and revisit trigger
 - Priority exit command checklist:
@@ -143,6 +143,12 @@ Do not close a listed work unit while its mapped imported issue still remains un
     - rerun the same `desloppify` evidence commands used at slice start
     - run the verification commands named in the active plan
     - update this checklist if the slice completed a `P#-W#` item or changed the evidence snapshot
+- Reassignment carry-forward checklist:
+  - when any `P#-EXIT` record marks an issue as `deferred` or `split follow-up` with owner `Pn-Wm`, update the destination `Pn-Wm` checklist item in the same pass with an `Inherited follow-ups` block
+  - each `Inherited follow-ups` block must include: source exit (`P#-EXIT`), exact issue id(s), disposition (`deferred` or `split follow-up`), and the exact verification command(s) required before closing `Pn-Wm`
+  - do not rely on the source exit record alone; the destination work item must be self-sufficient for a fresh session
+  - when drafting the destination tracked plan, copy every inherited issue id into the plan evidence/verification section and re-check each id before marking the destination item complete
+  - if an inherited issue is re-deferred at destination closeout, record the new single final owner and revisit trigger in that destination exit record
 
 ## Priority 1: Complete Runtime Composition Cleanup In `AppOrchestrator`
 
@@ -171,12 +177,13 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - collapse trivial pass-through helpers that become obviously redundant during the extraction
 - Cleanup track:
   - [x] `P1-W1` break the `Orchestrator` / `core` startup import cycle without adding another compatibility seam
-    - Completed via `docs/plans/2026-03-10-p1-w1-break-orchestrator-core-import-cycle.md` by moving `OrchestratorConfig` and `ModuleStatus` ownership to `src/core/orchestrator/OrchestratorTypes.ts` and preserving `src/Orchestrator.ts` as the public re-export surface.
-  - [x] `P1-W2` extract coordinator construction and dependency assembly paths that still make `AppOrchestrator` the central runtime factory (done 2026-03-10; plan: docs/plans/2026-03-10-p1-w2-extract-orchestrator-runtime-factory.md)
-  - [x] `P1-W3` split remaining coarse-grained startup policy out of `InitializationCoordinator` (done 2026-03-10; plan: docs/plans/2026-03-10-p1-w3-split-initializationcoordinator-startup-policy.md)
-  - [x] `P1-W4` remove leftover pass-through runtime helpers, duplicate lifecycle handoffs, and any transitional seams created by the round-2 extraction (done 2026-03-10; plan: docs/plans/2026-03-10-p1-w4-remove-orchestrator-runtime-transitional-seams.md)
+    - Completed by moving `OrchestratorConfig` and `ModuleStatus` ownership to `src/core/orchestrator/OrchestratorTypes.ts` and preserving `src/Orchestrator.ts` as the public re-export surface.
+  - [x] `P1-W2` extract coordinator construction and dependency assembly paths that still make `AppOrchestrator` the central runtime factory (done 2026-03-10)
+  - [x] `P1-W3` split remaining coarse-grained startup policy out of `InitializationCoordinator` (done 2026-03-10)
+  - [x] `P1-W4` remove leftover pass-through runtime helpers, duplicate lifecycle handoffs, and any transitional seams created by the round-2 extraction (done 2026-03-10)
   - [x] `P1-W5` run a full cleanup pass for this priority so the remaining `AppOrchestrator` surface matches the intended steady-state boundary rather than a partially reduced hotspot (done 2026-03-10)
   - [x] `P1-EXIT` run the priority-exit review before moving to `P2` (done `2026-03-11` in `.worktrees/p1-exit-closeout`)
+    - historical section summary: `docs/archive/plans/2026-03-11-priority-1-runtime-composition-section-summary.md`
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 1
     - required: retire or explicitly defer `abstraction_fitness::orchestrator_passthrough_facade`
     - mapped imported issues:
@@ -266,12 +273,55 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - normalize shell-level naming or helper placement where touched
   - reduce obvious boilerplate in shell-only presenters if it falls out naturally from the main cleanup
 - Cleanup track:
-  - [ ] `P2-W1` move client-identifier ownership behind one explicit owner used by both `App` and Plex auth
-  - [ ] `P2-W2` narrow the `App` screen-visibility seam so it coordinates shell surfaces rather than feature details
-  - [ ] `P2-W3` remove any remaining feature-specific persistence or trust-boundary policy from `App`
-  - [ ] `P2-W4` clean up shell-level glue, duplicate container knowledge, and any app-shell transitional seams left after the boundary cleanup
-  - [ ] `P2-EXIT` run the priority-exit review before moving to `P3`
-    - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 2
+  - [x] `P2-W1` move client-identifier ownership behind one explicit owner used by both `App` and Plex auth (completed 2026-03-11; plan: `docs/plans/2026-03-11-p2-w1-unify-client-identifier-ownership.md`; this item fully absorbed the client-ID unification seam previously duplicated under `P3-W1`)
+  - [x] `P2-W2` narrow the `App` screen-visibility seam so it coordinates shell surfaces rather than feature details (done 2026-03-11; plan: `docs/plans/2026-03-11-p2-w2-narrow-app-screen-visibility-seam.md`; verification: `npm test -- src/core/app-shell/__tests__/AppScreenVisibilityCoordinator.test.ts`, `npm test -- src/__tests__/App.test.ts`, `npm test -- src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts`, `npm run typecheck`, `npm run verify`)
+  - [x] `P2-W3` remove any remaining feature-specific persistence or trust-boundary policy from `App` (done 2026-03-11; plan: `docs/plans/2026-03-11-p2-w3-remove-app-persistence-trust-policy.md`; verification: `npm run typecheck`, `npm test -- src/modules/plex/auth/__tests__/config.test.ts`, `npm test -- src/__tests__/App.test.ts`, `npm test -- src/core/__tests__/InitializationCoordinator.test.ts`, `npm run verify`, `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`, `desloppify show security::src/core/initialization/InitializationStartupPolicy.ts::security::log_sensitive::src/core/initialization/InitializationStartupPolicy.ts::211`)
+    - mapped security issue disposition: `security::src/core/initialization/InitializationStartupPolicy.ts::security::log_sensitive::src/core/initialization/InitializationStartupPolicy.ts::211` -> `resolved` (targeted query now returns `No open issues matching ...`; no replacement security id for `InitializationStartupPolicy.ts`)
+  - [x] `P2-W4` clean up shell-level glue, duplicate container knowledge, and any app-shell transitional seams left after the boundary cleanup (done 2026-03-11; plan: `docs/plans/2026-03-11-p2-w4-app-shell-transitional-cleanup.md`; final imported-issue disposition recorded under `P2-EXIT`)
+    - implementation evidence:
+      - rewired `src/App.ts` and `src/core/app-shell/AppContainerFactory.ts` to consume module-owned container id constants exported by `src/modules/ui/now-playing-info/constants.ts` and `src/modules/ui/playback-options/constants.ts`
+      - rewired `src/__tests__/fixtures/appShellContainerIds.ts` to consume the same module-owned ids
+      - replaced shell/startup clear-path `.innerHTML = ''` usage with `replaceChildren()` in:
+        - `src/core/app-shell/AppBlockingErrorOverlayPresenter.ts`
+        - `src/modules/ui/audio-setup/AudioSetupScreen.ts`
+        - `src/modules/ui/splash/SplashScreen.ts`
+    - verification evidence:
+      - `npm test -- src/core/app-shell/__tests__/AppContainerFactory.test.ts` -> pass
+      - `npm test -- src/core/app-shell/__tests__/AppBlockingErrorOverlayPresenter.test.ts` -> pass
+      - `npm test -- src/modules/ui/splash/__tests__/SplashScreen.test.ts` -> pass
+      - `npm test -- src/modules/ui/audio-setup/__tests__/AudioSetupScreen.test.ts` -> pass
+      - `npm test -- src/__tests__/App.test.ts` -> pass
+      - `npm run typecheck` -> pass
+      - `npm run verify` -> pass
+      - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"` -> pass
+      - `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> still reports `1 open issue`
+      - `desloppify show security::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::security::innerHTML_assignment::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::49` -> `No open issues matching ...`
+      - `desloppify show security::src/modules/ui/audio-setup/AudioSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/audio-setup/AudioSetupScreen.ts::420` -> `No open issues matching ...`
+      - `desloppify show security::src/modules/ui/splash/SplashScreen.ts::security::innerHTML_assignment::src/modules/ui/splash/SplashScreen.ts::19` -> `No open issues matching ...`
+    - final disposition:
+      - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `split follow-up` recorded under `P2-EXIT` with final owner `P4-W5`
+      - `security::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::security::innerHTML_assignment::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::49` -> `resolved`
+      - `security::src/modules/ui/audio-setup/AudioSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/audio-setup/AudioSetupScreen.ts::420` -> `resolved`
+      - `security::src/modules/ui/splash/SplashScreen.ts::security::innerHTML_assignment::src/modules/ui/splash/SplashScreen.ts::19` -> `resolved`
+  - [x] `P2-EXIT` run the priority-exit review before moving to `P3` (completed 2026-03-11; no `P3` plan/work opened before this record was written)
+    - required: record every mapped imported issue with an exact disposition
+    - imported issue dispositions:
+      - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `split follow-up`
+      - final owner: `P4-W5`
+      - reason: `P2-W4` rewired the known feature-surface literals to module-owned constants, but the refreshed targeted `desloppify` query still reports residual convention drift across `src/App.ts`, `src/core/app-shell/AppContainerFactory.ts`, `src/modules/ui/now-playing-info/constants.ts`, and `src/modules/ui/playback-options/constants.ts`
+      - revisit trigger: start of `P4-W5`, or `P4-EXIT` if the issue remains open then
+    - security triage:
+      - `desloppify show security --status open --no-budget --top 200` -> 12 open `T2` issues; no open `P0` security findings
+      - `desloppify show security::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::security::innerHTML_assignment::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::49` -> `No open issues matching ...`
+      - `desloppify show security::src/modules/ui/audio-setup/AudioSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/audio-setup/AudioSetupScreen.ts::420` -> `No open issues matching ...`
+      - `desloppify show security::src/modules/ui/splash/SplashScreen.ts::security::innerHTML_assignment::src/modules/ui/splash/SplashScreen.ts::19` -> `No open issues matching ...`
+    - refreshed verification evidence:
+      - `npm run verify` -> pass
+      - `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> still reports `1 open issue`
+      - `desloppify show security::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::security::innerHTML_assignment::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::49` -> `No open issues matching ...`
+      - `desloppify show security::src/modules/ui/audio-setup/AudioSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/audio-setup/AudioSetupScreen.ts::420` -> `No open issues matching ...`
+      - `desloppify show security::src/modules/ui/splash/SplashScreen.ts::security::innerHTML_assignment::src/modules/ui/splash/SplashScreen.ts::19` -> `No open issues matching ...`
+      - `desloppify show security --status open --no-budget --top 200` -> open security list is limited to `T2` issues; no open `P0` security findings shown
 
 ## Priority 3: Consolidate Persistence Ownership And Storage Policy
 
@@ -301,7 +351,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - normalize storage helper naming where ownership cleanup exposes awkward seams
   - consolidate tiny adjacent persistence helpers if they are clearly duplicate after the owner map is cleaned up
 - Cleanup track:
-  - [ ] `P3-W1` unify client-ID ownership and remove duplicate storage logic between app shell and Plex auth
+  - [x] `P3-W1` (post-`P2-W1`) audit client-identifier usage for residual non-owner direct-storage bypasses only; keep `resolveClientIdentifier(preferred?: string): string` as the single sanctioned owner API while Priority 3 completes the broader persistence-owner map (completed 2026-03-11; plan: `docs/plans/2026-03-11-p3-w1-client-identifier-bypass-audit.md`; no production bypass drift found; deterministic audit commands: `rg -n "localStorage\\.(getItem|setItem|removeItem)\\(PLEX_AUTH_CONSTANTS\\.CLIENT_ID_KEY" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`, `rg -n "STORAGE_KEYS\\.CLIENT_ID|LINEUP_STORAGE_KEYS\\.CLIENT_ID|CLIENT_ID_KEY|lineup_client_id" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`, `rg -n "localStorage\\.(getItem|setItem|removeItem)\\([^)]*(CLIENT_ID|lineup_client_id)" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`, `rg -n "resolveClientIdentifier\\s*\\(" src/modules/plex/auth src/App.ts`)
   - [ ] `P3-W2` decide and document the intended owner for lifecycle persistence versus channel-specific persistence edges
   - [ ] `P3-W3` isolate, wrap, or explicitly document the remaining direct-storage exceptions for EPG debug logging and channel-setup stale-key cleanup
   - [ ] `P3-W4` audit the rest of the repo for storage-owner drift and remove any newly discovered raw-storage bypasses before closing the priority
@@ -338,9 +388,48 @@ Do not close a listed work unit while its mapped imported issue still remains un
 - Cleanup track:
   - [ ] `P4-W1` split the next bounded concern out of `EPGCoordinator` and `EPGComponent`, not just one temporary seam
   - [ ] `P4-W2` narrow `ChannelSetupCoordinator` so planning, build execution, rerun workflow, and persistence are not co-owned
+    - inherited follow-ups:
+      - source: `P1-EXIT`
+      - `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` -> `split follow-up` (final owner `P4-W2`)
+      - required verification before closing `P4-W2`: `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b`
   - [ ] `P4-W3` audit and split `NavigationManager` where focus-rule logic and input/timing logic are separable
   - [ ] `P4-W4` finish remaining round-2 cleanup in `SettingsScreen` / `ChannelSetupScreen` where the imported review still flags coarse ownership or cleanup residue
+    - inherited follow-ups:
+      - source: `P1-EXIT`
+      - `security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::366` -> `deferred`
+      - `security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::407` -> `deferred`
+      - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::224` -> `deferred`
+      - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::729` -> `deferred`
+      - required verification before closing `P4-W4`:
+        - `desloppify show security --status open --no-budget --top 200`
+        - `desloppify show security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::366`
+        - `desloppify show security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::407`
+        - `desloppify show security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::224`
+        - `desloppify show security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::729`
   - [ ] `P4-W5` remove transitional coordinator glue, timing bridges, duplicated EPG status literals, and force-cast config residue created by the round-2 decomposition
+    - inherited follow-ups:
+      - source: `P1-EXIT`
+      - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::32` -> `deferred`
+      - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::40` -> `deferred`
+      - `security::src/modules/ui/epg/EPGComponent.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGComponent.ts::243` -> `deferred`
+      - `security::src/modules/ui/epg/EPGInfoPanel.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGInfoPanel.ts::104` -> `deferred`
+      - `security::src/modules/ui/epg/EPGTimeHeader.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGTimeHeader.ts::91` -> `deferred`
+      - `security::src/modules/ui/epg/EPGVirtualizer.ts::security::insecure_random::src/modules/ui/epg/EPGVirtualizer.ts::652` -> `deferred`
+      - `security::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::security::innerHTML_assignment::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::136` -> `deferred`
+      - `security::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::security::log_sensitive::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::495` -> `deferred`
+      - source: `P2-EXIT`
+      - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `split follow-up` (final owner `P4-W5`)
+      - required verification before closing `P4-W5`:
+        - `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23`
+        - `desloppify show security --status open --no-budget --top 200`
+        - `desloppify show security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::32`
+        - `desloppify show security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::40`
+        - `desloppify show security::src/modules/ui/epg/EPGComponent.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGComponent.ts::243`
+        - `desloppify show security::src/modules/ui/epg/EPGInfoPanel.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGInfoPanel.ts::104`
+        - `desloppify show security::src/modules/ui/epg/EPGTimeHeader.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGTimeHeader.ts::91`
+        - `desloppify show security::src/modules/ui/epg/EPGVirtualizer.ts::security::insecure_random::src/modules/ui/epg/EPGVirtualizer.ts::652`
+        - `desloppify show security::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::security::innerHTML_assignment::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::136`
+        - `desloppify show security::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::security::log_sensitive::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::495`
   - [ ] `P4-EXIT` run the priority-exit review before moving to `P5`
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 4
 
