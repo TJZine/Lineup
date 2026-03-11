@@ -143,6 +143,7 @@ plex_fetch.js
 !.codex/
 !.codex/skills/
 !.codex/skills/**
+.codex/cache/
 !docs/AGENTIC_DEV_WORKFLOW.md
 !docs/agentic/**
 !docs/architecture/CURRENT_STATE.md

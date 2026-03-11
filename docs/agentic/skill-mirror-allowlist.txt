@@ -16,3 +16,4 @@ superpowers:using-git-worktrees
 superpowers:finishing-a-development-branch
 global:frontend-design
 global:desloppify
+global:review-context-loader
