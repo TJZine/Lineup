@@ -4,6 +4,7 @@
  */
 
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import { safeLocalStorageGet, safeLocalStorageSet } from '../../../utils/storage';
 
 /**
  * Format a timestamp as a time string (e.g., "12:30 PM").
@@ -140,11 +141,7 @@ export function isEpgDebugLoggingEnabled(): boolean {
         return epgDebugEnabledCache;
     }
     epgDebugEnabledCacheReadMs = now;
-    try {
-        epgDebugEnabledCache = localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG) === '1';
-    } catch {
-        epgDebugEnabledCache = false;
-    }
+    epgDebugEnabledCache = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_DEBUG) === '1';
     return epgDebugEnabledCache;
 }
 
@@ -153,13 +150,9 @@ function loadEpgDebugEntries(): EpgDebugEntry[] {
         return epgDebugEntries;
     }
     try {
-        const raw = localStorage.getItem(EPG_DEBUG_LOG_STORAGE_KEY);
+        const raw = safeLocalStorageGet(EPG_DEBUG_LOG_STORAGE_KEY);
         const parsed: unknown = raw ? JSON.parse(raw) : [];
-        if (!Array.isArray(parsed)) {
-            epgDebugEntries = [];
-            return epgDebugEntries;
-        }
-        epgDebugEntries = parsed as EpgDebugEntry[];
+        epgDebugEntries = Array.isArray(parsed) ? (parsed as EpgDebugEntry[]) : [];
         return epgDebugEntries;
     } catch {
         epgDebugEntries = [];
@@ -173,11 +166,7 @@ function scheduleEpgDebugFlush(): void {
     }
     epgDebugFlushTimer = setTimeout(() => {
         epgDebugFlushTimer = null;
-        try {
-            localStorage.setItem(EPG_DEBUG_LOG_STORAGE_KEY, JSON.stringify(epgDebugEntries ?? []));
-        } catch {
-            // Ignore storage failures (webOS can throw).
-        }
+        safeLocalStorageSet(EPG_DEBUG_LOG_STORAGE_KEY, JSON.stringify(epgDebugEntries ?? []));
     }, EPG_DEBUG_LOG_FLUSH_DELAY_MS);
 }
 
