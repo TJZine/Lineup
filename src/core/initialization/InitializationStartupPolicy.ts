@@ -20,6 +20,15 @@ type UpdateModuleStatus = (
     loadTimeMs?: number
 ) => void;
 
+type Phase2AuthPlexAuth = Pick<
+    IPlexAuth,
+    'getStoredCredentials' | 'validateToken' | 'getCurrentUser' | 'storeCredentials' | 'getHomeUsers'
+>;
+
+type Phase2AuthNavigation = Pick<INavigationManager, 'getCurrentScreen' | 'goTo'>;
+
+type Phase2AuthLifecycle = Pick<IAppLifecycle, 'setPhase'>;
+
 export interface StartupResumeHandlers {
     registerAuthResume(): void;
     registerServerResume(): void;
@@ -28,9 +37,9 @@ export interface StartupResumeHandlers {
 
 export interface Phase2AuthGateInputs {
     startTime: number;
-    plexAuth: IPlexAuth;
-    navigation: INavigationManager;
-    lifecycle: IAppLifecycle | null;
+    plexAuth: Phase2AuthPlexAuth;
+    navigation: Phase2AuthNavigation;
+    lifecycle: Phase2AuthLifecycle | null;
     updateModuleStatus: UpdateModuleStatus;
     configureDiscoveryStorage: () => void;
     seedSubtitleLanguageFromPlexUser?: () => void;

@@ -25,8 +25,7 @@ type LifecycleGateMock = Pick<IAppLifecycle, 'setPhase'> & {
 
 type Phase2PlexAuthOverrides = Partial<PlexAuthGateMock>;
 
-type Phase2AuthGateTestInputs = {
-    startTime: number;
+type Phase2AuthGateTestInputs = Phase2AuthGateInputs & {
     plexAuth: PlexAuthGateMock;
     navigation: NavigationGateMock;
     lifecycle: LifecycleGateMock;
@@ -113,7 +112,7 @@ function createInputs(overrides: Phase2PlexAuthOverrides = {}): Phase2AuthGateTe
 }
 
 function applyPolicy(inputs: Phase2AuthGateTestInputs): Promise<boolean> {
-    return applyPhase2AuthGatePolicy(inputs as unknown as Phase2AuthGateInputs);
+    return applyPhase2AuthGatePolicy(inputs);
 }
 
 describe('applyPhase2AuthGatePolicy', () => {
