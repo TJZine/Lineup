@@ -55,13 +55,15 @@ jest.mock('../modules/ui/profile-select', () => ({
     },
 }));
 
+const serverSelectShow = jest.fn();
+const serverSelectHide = jest.fn();
 jest.mock('../modules/ui/server-select', () => ({
     ServerSelectScreen: class ServerSelectScreen {
-        show(): void {
-            return;
+        show(options?: unknown): void {
+            serverSelectShow(options);
         }
         hide(): void {
-            return;
+            serverSelectHide();
         }
         destroy(): void {
             return;
@@ -165,6 +167,8 @@ describe('App bootstrap smoke', () => {
         audioSetupScreenChunkLoaded.mockClear();
         audioSetupScreenConstructed.mockClear();
         capturedAudioSetupComplete = null;
+        serverSelectShow.mockClear();
+        serverSelectHide.mockClear();
 
         appShellErrorHandler = null;
         nowPlayingHandler = null;
@@ -751,7 +755,8 @@ describe('App bootstrap smoke', () => {
         const getScreenParams = jest
             .fn()
             .mockReturnValueOnce({ allowAutoConnect: true })
-            .mockReturnValueOnce({});
+            .mockReturnValueOnce({})
+            .mockReturnValueOnce({ allowAutoConnect: 'yes' });
         jest.spyOn(AppOrchestrator.prototype, 'getNavigation').mockReturnValue({
             getScreenParams,
             openModal: jest.fn(),
@@ -771,7 +776,13 @@ describe('App bootstrap smoke', () => {
         // Exercise server-select show/hide paths and channel-setup prefetch scheduling/cancel.
         screenChangeHandler?.('splash', 'server-select');
         expect(jest.getTimerCount()).toBeGreaterThan(0);
+        expect(serverSelectShow).toHaveBeenCalledWith({ allowAutoConnect: true });
         screenChangeHandler?.('server-select', 'auth');
+        expect(serverSelectHide).toHaveBeenCalledTimes(1);
+
+        // Validate non-boolean/missing screen params pass undefined options through App flow.
+        screenChangeHandler?.('auth', 'server-select');
+        expect(serverSelectShow).toHaveBeenLastCalledWith(undefined);
 
         // Exercise "ready guard" path which hides setup screens and schedules settings prefetch.
         isReadySpy.mockReturnValue(true);

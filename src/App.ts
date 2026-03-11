@@ -22,6 +22,7 @@ import type { ChannelTransitionConfig } from './modules/ui/channel-transition';
 import type { PlaybackOptionsConfig } from './modules/ui/playback-options';
 import { createAppContainers, type AppContainerRefs } from './core/app-shell/AppContainerFactory';
 import { AppLazyScreenRegistry } from './core/app-shell/AppLazyScreenRegistry';
+import { AppScreenVisibilityCoordinator } from './core/app-shell/AppScreenVisibilityCoordinator';
 import {
     AppBlockingErrorOverlayPresenter,
     type BlockingErrorOverlayAction,
@@ -149,6 +150,7 @@ export class App {
     private _profileSelectScreen: ProfileSelectScreen | null = null;
     private _serverSelectScreen: ServerSelectScreen | null = null;
     private _lazyScreenRegistry: AppLazyScreenRegistry | null = null;
+    private _screenVisibilityCoordinator: AppScreenVisibilityCoordinator | null = null;
     private _splashScreen: SplashScreen | null = null;
     private _screenUnsubscribe: (() => void) | null = null;
     private _phaseUnsubscribe: (() => void) | null = null;
@@ -284,6 +286,7 @@ export class App {
         this._serverSelectScreen = null;
         this._lazyScreenRegistry?.destroy();
         this._lazyScreenRegistry = null;
+        this._screenVisibilityCoordinator = null;
         this._diagnosticsSurface.dispose();
         const orchestrator = this._orchestrator;
         if (orchestrator) {
@@ -348,6 +351,18 @@ export class App {
                 this._orchestrator?.getNavigation()?.replaceScreen('channel-setup');
             },
         });
+        this._screenVisibilityCoordinator = new AppScreenVisibilityCoordinator({
+            getIsReady: (): boolean => this._orchestrator?.isReady() ?? false,
+            getCurrentScreen: (): string | null => this._orchestrator?.getCurrentScreen() ?? null,
+            getScreenParams: (): Record<string, unknown> => (
+                this._orchestrator?.getNavigation()?.getScreenParams() ?? {}
+            ),
+            getSplashScreen: (): SplashScreen | null => this._splashScreen,
+            getAuthScreen: (): AuthScreen | null => this._authScreen,
+            getProfileSelectScreen: (): ProfileSelectScreen | null => this._profileSelectScreen,
+            getServerSelectScreen: (): ServerSelectScreen | null => this._serverSelectScreen,
+            getLazyScreenRegistry: (): AppLazyScreenRegistry | null => this._lazyScreenRegistry,
+        });
     }
 
     private _wireScreenVisibility(): void {
@@ -355,132 +370,21 @@ export class App {
             return;
         }
         const disposable = this._orchestrator.onScreenChange((_from, to) => {
-            this._applyScreenVisibility(to);
+            this._screenVisibilityCoordinator?.apply(to);
         });
         this._screenUnsubscribe = (): void => disposable.dispose();
 
         const phaseDisposable = this._orchestrator.onLifecycleEvent('phaseChange', ({ to }) => {
             if (to === 'ready') {
-                const current = this._orchestrator?.getCurrentScreen();
-                this._applyScreenVisibility(current ?? 'player');
+                this._screenVisibilityCoordinator?.syncCurrentScreen();
             }
         });
         this._phaseUnsubscribe = (): void => phaseDisposable.dispose();
 
         const current = this._orchestrator.getCurrentScreen();
         if (current) {
-            this._applyScreenVisibility(current);
+            this._screenVisibilityCoordinator?.apply(current);
         }
-    }
-
-    private _applyScreenVisibility(screen: string): void {
-        // Guard: If app is ready, hide setup screens unless navigating to them
-        // Settings is handled separately below (it's an overlay, not a setup flow)
-        if (
-            this._orchestrator &&
-            this._orchestrator.isReady() &&
-            screen !== 'auth' &&
-            screen !== 'profile-select' &&
-            screen !== 'server-select' &&
-            screen !== 'audio-setup' &&
-            screen !== 'channel-setup' &&
-            screen !== 'settings'
-        ) {
-            this._splashScreen?.hide();
-            this._authScreen?.hide();
-            this._profileSelectScreen?.hide();
-            this._serverSelectScreen?.hide();
-            this._lazyScreenRegistry?.getAudioSetupScreen()?.hide();
-            this._lazyScreenRegistry?.getChannelSetupScreen()?.hide();
-            this._lazyScreenRegistry?.getSettingsScreen()?.hide();
-            this._lazyScreenRegistry?.scheduleSettingsPrefetch();
-            return;
-        }
-        const showSplash = screen === 'splash';
-        const showAuth = screen === 'auth';
-        const showProfileSelect = screen === 'profile-select';
-        const showServerSelect = screen === 'server-select';
-        const showAudioSetup = screen === 'audio-setup';
-        const showChannelSetup = screen === 'channel-setup';
-        const showSettings = screen === 'settings';
-
-        if (this._splashScreen) {
-            if (showSplash) {
-                this._splashScreen.show();
-            } else {
-                this._splashScreen.hide();
-            }
-        }
-
-        if (this._authScreen) {
-            if (showAuth) {
-                this._authScreen.show();
-            } else {
-                this._authScreen.hide();
-            }
-        }
-
-        if (this._profileSelectScreen) {
-            if (showProfileSelect) {
-                this._profileSelectScreen.show();
-            } else {
-                this._profileSelectScreen.hide();
-            }
-        }
-
-        if (this._serverSelectScreen) {
-            if (showServerSelect) {
-                const params = this._orchestrator?.getNavigation()?.getScreenParams() ?? {};
-                const allowAutoConnect = params.allowAutoConnect as boolean | undefined;
-                const showOptions = typeof allowAutoConnect === 'boolean'
-                    ? { allowAutoConnect }
-                    : undefined;
-                this._serverSelectScreen.show(showOptions);
-                this._lazyScreenRegistry?.scheduleChannelSetupPrefetch();
-            } else {
-                this._serverSelectScreen.hide();
-                this._lazyScreenRegistry?.cancelChannelSetupPrefetch();
-            }
-        }
-
-        if (showAudioSetup) {
-            void this._showAudioSetupScreen();
-        } else {
-            this._lazyScreenRegistry?.getAudioSetupScreen()?.hide();
-        }
-
-        if (showChannelSetup) {
-            void this._showChannelSetupScreen();
-        } else {
-            this._lazyScreenRegistry?.getChannelSetupScreen()?.hide();
-        }
-
-        if (showSettings) {
-            void this._showSettingsScreen();
-        } else {
-            this._lazyScreenRegistry?.getSettingsScreen()?.hide();
-        }
-    }
-
-    private async _showChannelSetupScreen(): Promise<void> {
-        const screen = await this._lazyScreenRegistry?.ensureChannelSetupScreen();
-        if (!screen) return;
-        if (this._orchestrator?.getCurrentScreen() !== 'channel-setup') return;
-        screen.show();
-    }
-
-    private async _showAudioSetupScreen(): Promise<void> {
-        const screen = await this._lazyScreenRegistry?.ensureAudioSetupScreen();
-        if (!screen) return;
-        if (this._orchestrator?.getCurrentScreen() !== 'audio-setup') return;
-        screen.show();
-    }
-
-    private async _showSettingsScreen(): Promise<void> {
-        const screen = await this._lazyScreenRegistry?.ensureSettingsScreen();
-        if (!screen) return;
-        if (this._orchestrator?.getCurrentScreen() !== 'settings') return;
-        screen.show();
     }
 
     /**
