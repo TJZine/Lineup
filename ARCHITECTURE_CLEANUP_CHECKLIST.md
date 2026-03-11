@@ -267,7 +267,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - reduce obvious boilerplate in shell-only presenters if it falls out naturally from the main cleanup
 - Cleanup track:
   - [x] `P2-W1` move client-identifier ownership behind one explicit owner used by both `App` and Plex auth (completed 2026-03-11; plan: `docs/plans/2026-03-11-p2-w1-unify-client-identifier-ownership.md`; this item fully absorbed the client-ID unification seam previously duplicated under `P3-W1`)
-  - [ ] `P2-W2` narrow the `App` screen-visibility seam so it coordinates shell surfaces rather than feature details
+  - [x] `P2-W2` narrow the `App` screen-visibility seam so it coordinates shell surfaces rather than feature details (done 2026-03-11; plan: `docs/plans/2026-03-11-p2-w2-narrow-app-screen-visibility-seam.md`; verification: `npm test -- src/core/app-shell/__tests__/AppScreenVisibilityCoordinator.test.ts`, `npm test -- src/__tests__/App.test.ts`, `npm test -- src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts`, `npm run typecheck`, `npm run verify`)
   - [ ] `P2-W3` remove any remaining feature-specific persistence or trust-boundary policy from `App`
   - [ ] `P2-W4` clean up shell-level glue, duplicate container knowledge, and any app-shell transitional seams left after the boundary cleanup
   - [ ] `P2-EXIT` run the priority-exit review before moving to `P3`
