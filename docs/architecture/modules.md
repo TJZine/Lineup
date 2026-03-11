@@ -86,6 +86,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 - app lifecycle phases
 - persistence coordination
 - error recovery and cleanup
+- owns the lifecycle-only `lineup_app_state` storage boundary via `src/modules/lifecycle/StateManager.ts`
 
 ### `src/modules/navigation/`
 
@@ -169,6 +170,13 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - channel persistence ownership and normalization for channel manager
 - `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`
+- `src/modules/scheduler/channel-manager/ChannelRepository.ts`
+- owns server/user-scoped channel key families (including selected/current channel state) configured by `src/core/orchestrator/OrchestratorStorageContext.ts`
+
+### Direct-storage Exceptions (Deferred To `P3-W3`)
+
+- `src/modules/ui/epg/utils.ts` (`appendEpgDebugLog`)
+- `src/core/channel-setup/ChannelSetupCoordinator.ts` (`cleanupStaleChannelBuildKeys`)
 
 ## UI Modules
 

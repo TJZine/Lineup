@@ -43,6 +43,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - `src/modules/lifecycle/`
 - owns lifecycle state, visibility, persistence coordination, and recovery concerns
+- `src/modules/lifecycle/StateManager.ts` owns the lifecycle storage key `lineup_app_state` only (versioned lifecycle payload: `plexAuth` null marker, `userPreferences`, `lastUpdated`)
 
 ### Navigation
 
@@ -62,6 +63,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - `src/modules/scheduler/`
 - owns scheduling behavior, shuffle logic, and channel domain flows
+- channel-domain persistence ownership (including selected/current channel state) stays in `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts` and `src/modules/scheduler/channel-manager/ChannelRepository.ts`, with server/user-scoped keys configured through `src/core/orchestrator/OrchestratorStorageContext.ts`
 
 ### Player
 
@@ -77,6 +79,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`
 - `src/modules/plex/auth/clientIdentifier.ts`
 - these are the current designated owners for storage-backed state
+- explicit deferred direct-storage exceptions tracked in `P3-W3`: `src/modules/ui/epg/utils.ts` (`appendEpgDebugLog`) and `src/core/channel-setup/ChannelSetupCoordinator.ts` (`cleanupStaleChannelBuildKeys`)
 
 ### UI
 
