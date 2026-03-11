@@ -1,77 +1,107 @@
-import { AppErrorCode } from '../../../modules/lifecycle';
+import { AppErrorCode, type IAppLifecycle } from '../../../modules/lifecycle';
+import type { INavigationManager } from '../../../modules/navigation';
+import type { IPlexAuth, PlexAuthDataV2, PlexAuthToken } from '../../../modules/plex/auth';
 import { applyPhase2AuthGatePolicy, type Phase2AuthGateInputs } from '../InitializationStartupPolicy';
 
-const createStoredCredentials = (): {
-    accountToken: {
-        token: string;
-        userId: string;
-        username: string;
-        email: string;
-        thumb: null;
-        authToken: string;
-        expiresAt: Date;
-        issuedAt: Date;
+type PlexAuthGateMock = Pick<
+    IPlexAuth,
+    'getStoredCredentials' | 'validateToken' | 'getCurrentUser' | 'storeCredentials' | 'getHomeUsers'
+> & {
+    getStoredCredentials: jest.MockedFunction<IPlexAuth['getStoredCredentials']>;
+    validateToken: jest.MockedFunction<IPlexAuth['validateToken']>;
+    getCurrentUser: jest.MockedFunction<IPlexAuth['getCurrentUser']>;
+    storeCredentials: jest.MockedFunction<IPlexAuth['storeCredentials']>;
+    getHomeUsers: jest.MockedFunction<IPlexAuth['getHomeUsers']>;
+};
+
+type NavigationGateMock = Pick<INavigationManager, 'getCurrentScreen' | 'goTo'> & {
+    getCurrentScreen: jest.MockedFunction<INavigationManager['getCurrentScreen']>;
+    goTo: jest.MockedFunction<INavigationManager['goTo']>;
+};
+
+type LifecycleGateMock = Pick<IAppLifecycle, 'setPhase'> & {
+    setPhase: jest.MockedFunction<IAppLifecycle['setPhase']>;
+};
+
+type Phase2PlexAuthOverrides = Partial<PlexAuthGateMock>;
+
+type Phase2AuthGateTestInputs = {
+    startTime: number;
+    plexAuth: PlexAuthGateMock;
+    navigation: NavigationGateMock;
+    lifecycle: LifecycleGateMock;
+    updateModuleStatus: jest.Mock;
+    configureDiscoveryStorage: jest.Mock;
+    seedSubtitleLanguageFromPlexUser: jest.Mock;
+    handlers: {
+        registerAuthResume: jest.Mock;
+        registerProfileResume: jest.Mock;
     };
-    activeToken: {
-        token: string;
-        userId: string;
-        username: string;
-        email: string;
-        thumb: null;
-        authToken: string;
-        expiresAt: Date;
-        issuedAt: Date;
-    };
-    activeUserId: string;
-    selectedServerByUserId: Record<string, never>;
-    deviceKey: null;
-} => ({
-    accountToken: {
-        token: 'account-token',
-        userId: 'account-user',
-        username: 'account',
-        email: 'account@example.com',
-        thumb: null,
-        authToken: 'account-token',
-        expiresAt: new Date(),
-        issuedAt: new Date(),
-    },
-    activeToken: {
-        token: 'active-token',
-        userId: 'active-user',
-        username: 'active',
-        email: 'active@example.com',
-        thumb: null,
-        authToken: 'active-token',
-        expiresAt: new Date(),
-        issuedAt: new Date(),
-    },
+};
+
+const createToken = (
+    token: string,
+    userId: string,
+    username: string,
+    email: string
+): PlexAuthToken => ({
+    token,
+    userId,
+    username,
+    email,
+    thumb: '',
+    expiresAt: new Date(),
+    issuedAt: new Date(),
+});
+
+const createStoredCredentials = (): PlexAuthDataV2 => ({
+    accountToken: createToken('account-token', 'account-user', 'account', 'account@example.com'),
+    activeToken: createToken('active-token', 'active-user', 'active', 'active@example.com'),
     activeUserId: 'active-user',
-    selectedServerByUserId: {},
+    selectedServerByUserId: {
+        'active-user': { serverId: null, serverUri: null },
+    },
     deviceKey: null,
 });
 
-function createInputs(overrides: Partial<Phase2AuthGateInputs['plexAuth']> = {}): Phase2AuthGateInputs {
-    const storedCredentials = createStoredCredentials();
-    const plexAuth = {
-        getStoredCredentials: jest.fn().mockResolvedValue(storedCredentials),
+function createPlexAuthMock(
+    storedCredentials: PlexAuthDataV2,
+    overrides: Phase2PlexAuthOverrides = {}
+): PlexAuthGateMock {
+    return {
         validateToken: jest.fn().mockResolvedValue(true),
-        getCurrentUser: jest.fn().mockReturnValue(storedCredentials.activeToken),
-        storeCredentials: jest.fn().mockResolvedValue(undefined),
         getHomeUsers: jest.fn().mockResolvedValue([]),
+        getStoredCredentials: jest.fn().mockResolvedValue(storedCredentials),
+        storeCredentials: jest.fn().mockResolvedValue(undefined),
+        getCurrentUser: jest.fn().mockReturnValue(storedCredentials.activeToken),
         ...overrides,
     };
+}
+
+function createNavigationMock(): NavigationGateMock {
+    return {
+        goTo: jest.fn(),
+        getCurrentScreen: jest.fn().mockReturnValue('player'),
+    };
+}
+
+function createLifecycleMock(): LifecycleGateMock {
+    return {
+        setPhase: jest.fn(),
+    };
+}
+
+function createInputs(overrides: Phase2PlexAuthOverrides = {}): Phase2AuthGateTestInputs {
+    const storedCredentials = createStoredCredentials();
+    const plexAuth = createPlexAuthMock(storedCredentials, overrides);
+    const navigation = createNavigationMock();
+    const lifecycle = createLifecycleMock();
 
     return {
         startTime: Date.now() - 10,
-        plexAuth: plexAuth as never,
-        navigation: {
-            getCurrentScreen: jest.fn().mockReturnValue('player'),
-            goTo: jest.fn(),
-        } as never,
-        lifecycle: {
-            setPhase: jest.fn(),
-        } as never,
+        plexAuth,
+        navigation,
+        lifecycle,
         updateModuleStatus: jest.fn(),
         configureDiscoveryStorage: jest.fn(),
         seedSubtitleLanguageFromPlexUser: jest.fn(),
@@ -80,6 +110,10 @@ function createInputs(overrides: Partial<Phase2AuthGateInputs['plexAuth']> = {})
             registerProfileResume: jest.fn(),
         },
     };
+}
+
+function applyPolicy(inputs: Phase2AuthGateTestInputs): Promise<boolean> {
+    return applyPhase2AuthGatePolicy(inputs as unknown as Phase2AuthGateInputs);
 }
 
 describe('applyPhase2AuthGatePolicy', () => {
@@ -97,10 +131,45 @@ describe('applyPhase2AuthGatePolicy', () => {
             storeCredentials: jest.fn().mockRejectedValue(error),
         });
 
-        await expect(applyPhase2AuthGatePolicy(inputs)).rejects.toThrow('storage write failed');
+        await expect(applyPolicy(inputs)).rejects.toThrow('storage write failed');
 
         expect(inputs.handlers.registerAuthResume).not.toHaveBeenCalled();
         expect(inputs.navigation.goTo).not.toHaveBeenCalledWith('auth');
+    });
+
+    it('stores a PlexAuthDataV2-compatible credential payload after validation succeeds', async () => {
+        const inputs = createInputs();
+
+        await expect(applyPolicy(inputs)).resolves.toBe(true);
+
+        expect(inputs.plexAuth.storeCredentials).toHaveBeenCalledWith({
+            accountToken: {
+                token: 'account-token',
+                userId: 'account-user',
+                username: 'account',
+                email: 'account@example.com',
+                thumb: '',
+                expiresAt: expect.any(Date),
+                issuedAt: expect.any(Date),
+            },
+            activeToken: {
+                token: 'active-token',
+                userId: 'active-user',
+                username: 'active',
+                email: 'active@example.com',
+                thumb: '',
+                expiresAt: expect.any(Date),
+                issuedAt: expect.any(Date),
+            },
+            activeUserId: 'active-user',
+            selectedServerByUserId: {
+                'active-user': {
+                    serverId: null,
+                    serverUri: null,
+                },
+            },
+            deviceKey: null,
+        });
     });
 
     it('falls back to auth resume for explicit auth failures', async () => {
@@ -109,7 +178,7 @@ describe('applyPhase2AuthGatePolicy', () => {
             validateToken: jest.fn().mockRejectedValue(error),
         });
 
-        await expect(applyPhase2AuthGatePolicy(inputs)).resolves.toBe(false);
+        await expect(applyPolicy(inputs)).resolves.toBe(false);
 
         expect(inputs.updateModuleStatus).toHaveBeenCalledWith('plex-auth', 'pending');
         expect(inputs.handlers.registerAuthResume).toHaveBeenCalledTimes(1);
