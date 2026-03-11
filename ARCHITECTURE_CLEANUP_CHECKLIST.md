@@ -171,12 +171,13 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - collapse trivial pass-through helpers that become obviously redundant during the extraction
 - Cleanup track:
   - [x] `P1-W1` break the `Orchestrator` / `core` startup import cycle without adding another compatibility seam
-    - Completed via `docs/plans/2026-03-10-p1-w1-break-orchestrator-core-import-cycle.md` by moving `OrchestratorConfig` and `ModuleStatus` ownership to `src/core/orchestrator/OrchestratorTypes.ts` and preserving `src/Orchestrator.ts` as the public re-export surface.
-  - [x] `P1-W2` extract coordinator construction and dependency assembly paths that still make `AppOrchestrator` the central runtime factory (done 2026-03-10; plan: docs/plans/2026-03-10-p1-w2-extract-orchestrator-runtime-factory.md)
-  - [x] `P1-W3` split remaining coarse-grained startup policy out of `InitializationCoordinator` (done 2026-03-10; plan: docs/plans/2026-03-10-p1-w3-split-initializationcoordinator-startup-policy.md)
-  - [x] `P1-W4` remove leftover pass-through runtime helpers, duplicate lifecycle handoffs, and any transitional seams created by the round-2 extraction (done 2026-03-10; plan: docs/plans/2026-03-10-p1-w4-remove-orchestrator-runtime-transitional-seams.md)
+    - Completed by moving `OrchestratorConfig` and `ModuleStatus` ownership to `src/core/orchestrator/OrchestratorTypes.ts` and preserving `src/Orchestrator.ts` as the public re-export surface.
+  - [x] `P1-W2` extract coordinator construction and dependency assembly paths that still make `AppOrchestrator` the central runtime factory (done 2026-03-10)
+  - [x] `P1-W3` split remaining coarse-grained startup policy out of `InitializationCoordinator` (done 2026-03-10)
+  - [x] `P1-W4` remove leftover pass-through runtime helpers, duplicate lifecycle handoffs, and any transitional seams created by the round-2 extraction (done 2026-03-10)
   - [x] `P1-W5` run a full cleanup pass for this priority so the remaining `AppOrchestrator` surface matches the intended steady-state boundary rather than a partially reduced hotspot (done 2026-03-10)
   - [x] `P1-EXIT` run the priority-exit review before moving to `P2` (done `2026-03-11` in `.worktrees/p1-exit-closeout`)
+    - historical section summary: `docs/archive/plans/2026-03-11-priority-1-runtime-composition-section-summary.md`
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 1
     - required: retire or explicitly defer `abstraction_fitness::orchestrator_passthrough_facade`
     - mapped imported issues:
