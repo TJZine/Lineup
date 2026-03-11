@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 
 import {
     buildChecklistPlanPathMessages,
+    checkArchiveSectionSummaryConformance,
     checkPlanConformance,
     classifyChecklistPlanPathStatus,
     EVAL_PROMPT_INVENTORY_END_MARKER,
@@ -919,6 +920,34 @@ function checkPlanArchiveCoherence(errors) {
     }
 }
 
+function checkArchivedSectionSummaryConformance(errors) {
+    const trackedPlanPaths = getTrackedPlanPaths(errors);
+    if (trackedPlanPaths === FAILED_GIT) {
+        return;
+    }
+
+    const summaryFiles = Array.from(trackedPlanPaths)
+        .filter((relativePath) => relativePath.startsWith('docs/archive/plans/'))
+        .filter((relativePath) => relativePath.endsWith('section-summary.md'))
+        .sort();
+
+    for (const relativePath of summaryFiles) {
+        const content = readRepoFile(relativePath, errors);
+        if (content === null) {
+            continue;
+        }
+
+        const result = checkArchiveSectionSummaryConformance({ filePath: relativePath, content });
+        if (!result.isSectionSummary || result.errors.length === 0) {
+            continue;
+        }
+
+        for (const error of result.errors) {
+            errors.push(`${relativePath} harness-ingestion triage ${error}`);
+        }
+    }
+}
+
 function checkSkillMirrorManifest(errors) {
     const manifestContent = readRepoFile(SKILL_MIRROR_MANIFEST_PATH, errors);
     if (manifestContent === null) {
@@ -1167,6 +1196,7 @@ function main() {
     checkCleanupPriorityExitContracts(errors);
     checkChecklistPlanPaths(errors, warnings);
     checkPlanArchiveCoherence(errors);
+    checkArchivedSectionSummaryConformance(errors);
     checkSkillMirrorManifest(errors);
     checkTrackedCodexRoleConfig(errors);
     checkSeriousPlanConformance(errors);

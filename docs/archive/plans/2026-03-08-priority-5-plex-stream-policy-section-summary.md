@@ -131,6 +131,15 @@ The original completed P5 plans were useful during implementation, but they do n
 
 The repo keeps the durable lessons and reference points, but drops the long execution directives that are no longer needed for active handoff.
 
+## Harness Ingestion Triage
+
+- status: `absorbed`
+- recommended action: `historical-corpus`
+- why: The strongest reusable lessons from this section were already absorbed into the historical corpus review, with eval-roadmap expansion handled from that tracked synthesis instead of from the raw section summary itself.
+- tracked follow-up: `docs/agentic/historical-plan-corpus-review.md`, `docs/agentic/evals-roadmap.md`
+- local-only holding note: `none`
+- revisit trigger: `none`
+
 ## Future Use
 
 Use this summary as the historical reference surface for:

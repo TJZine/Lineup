@@ -120,6 +120,15 @@ The original archived P4 plans were useful during the transition from active wor
 
 The repo keeps the durable lessons and reference points, but drops the long step-by-step execution directives that are no longer needed for active handoff.
 
+## Harness Ingestion Triage
+
+- status: `absorbed`
+- recommended action: `historical-corpus`
+- why: The section produced reusable planning and anti-pattern lessons that were already folded into the historical corpus review and used to seed the tracked Priority 4 eval surfaces.
+- tracked follow-up: `docs/agentic/historical-plan-corpus-review.md`, `docs/agentic/evals/prompts/`
+- local-only holding note: `none`
+- revisit trigger: `none`
+
 ## Future Use
 
 Use this summary as the historical reference surface for:

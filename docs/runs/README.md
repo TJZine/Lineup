@@ -14,6 +14,10 @@ Local-only by default:
 - `docs/runs/<date>-<topic>/Implement.md`
 - `docs/runs/<date>-<topic>/Documentation.md`
 
+For deferred harness-ingestion candidates from archived section summaries, use:
+
+- `docs/runs/<date>-harness-ingestion-triage/Documentation.md`
+
 Use this directory when a major structural or multi-session task needs durable local execution memory without adding high-churn artifacts to the main repo history.
 
 If one of those local artifacts becomes durable repo guidance, promote the useful content into:

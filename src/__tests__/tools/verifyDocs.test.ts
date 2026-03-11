@@ -1033,6 +1033,99 @@ describe('verify-docs', () => {
         expect(stderr).not.toContain('missing required serious-plan sections');
     });
 
+    it('fails when an archived section summary omits the harness-ingestion triage block', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+        writeRepoFile(
+            repoRoot,
+            'docs/archive/plans/2026-03-11-priority-7-example-section-summary.md',
+            ['# Priority 7 Example Section Summary', '', 'Tracked summary placeholder.', ''].join('\n')
+        );
+        writeRepoFile(
+            repoRoot,
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md',
+            readFileSync(path.join(repoRoot, 'ARCHITECTURE_CLEANUP_CHECKLIST.md'), 'utf8') +
+                '\n- [x] Example done item (plan: docs/archive/plans/2026-03-11-priority-7-example-section-summary.md)\n'
+        );
+        runGit(['add', '.'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('harness-ingestion triage');
+        expect(result.stderr).toContain('2026-03-11-priority-7-example-section-summary.md');
+    });
+
+    it('fails when an archived section summary defers harness ingestion without the local holding convention', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+        writeRepoFile(
+            repoRoot,
+            'docs/archive/plans/2026-03-11-priority-7-example-section-summary.md',
+            [
+                '# Priority 7 Example Section Summary',
+                '',
+                '## Harness Ingestion Triage',
+                '',
+                '- status: `deferred`',
+                '- recommended action: `targeted-eval`',
+                '- why: Interesting but not durable yet.',
+                '- tracked follow-up: `none`',
+                '- local-only holding note: `none`',
+                '- revisit trigger: `none`',
+                '',
+            ].join('\n')
+        );
+        writeRepoFile(
+            repoRoot,
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md',
+            readFileSync(path.join(repoRoot, 'ARCHITECTURE_CLEANUP_CHECKLIST.md'), 'utf8') +
+                '\n- [x] Example done item (plan: docs/archive/plans/2026-03-11-priority-7-example-section-summary.md)\n'
+        );
+        runGit(['add', '.'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('local-only holding-note convention');
+        expect(result.stderr).toContain('revisit trigger');
+    });
+
+    it('fails when an archived section summary requests a harness update loop without tracked follow-up paths', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+        writeRepoFile(
+            repoRoot,
+            'docs/archive/plans/2026-03-11-priority-7-example-section-summary.md',
+            [
+                '# Priority 7 Example Section Summary',
+                '',
+                '## Harness Ingestion Triage',
+                '',
+                '- status: `pending`',
+                '- recommended action: `harness-update-loop`',
+                '- why: The same verifier blind spot appeared across multiple work units.',
+                '- tracked follow-up: `none`',
+                '- local-only holding note: `none`',
+                '- revisit trigger: `none`',
+                '',
+            ].join('\n')
+        );
+        writeRepoFile(
+            repoRoot,
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md',
+            readFileSync(path.join(repoRoot, 'ARCHITECTURE_CLEANUP_CHECKLIST.md'), 'utf8') +
+                '\n- [x] Example done item (plan: docs/archive/plans/2026-03-11-priority-7-example-section-summary.md)\n'
+        );
+        runGit(['add', '.'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('tracked follow-up');
+        expect(result.stderr).toContain('harness-update-loop');
+    });
+
     it('fails when feature implement prompt omits the re-plan stop condition for remediation findings', () => {
         const repoRoot = createRepoFixture({
             'docs/agentic/session-prompts/feature-implement.md': [

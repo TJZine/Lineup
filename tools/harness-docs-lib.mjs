@@ -148,6 +148,14 @@ export const EVAL_PROMPT_INVENTORY = [
 
 export const EXPECTED_SESSION_PROMPT_FILES = SESSION_PROMPT_INVENTORY.map(({ file }) => file);
 export const EXPECTED_EVAL_PROMPT_FILES = EVAL_PROMPT_INVENTORY.map(({ file }) => file);
+export const HARNESS_INGESTION_TRIAGE_STATUSES = ['none', 'deferred', 'pending', 'absorbed'];
+export const HARNESS_INGESTION_TRIAGE_ACTIONS = [
+    'none',
+    'historical-corpus',
+    'targeted-eval',
+    'workflow-docs',
+    'harness-update-loop',
+];
 
 const PLAN_SECTION_RULES = [
     { label: 'goal', patterns: [/^\*\*Goal:\*\*/im, /^## Goal$/im] },
@@ -175,6 +183,59 @@ const PLAN_SECTION_RULES = [
     { label: 'rollback notes', patterns: [/^## Rollback Notes$/im] },
     { label: 'commit checkpoints', patterns: [/^## Commit Checkpoints$/im] },
 ];
+
+function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+function extractMarkdownSection(content, heading) {
+    const headingPattern = new RegExp(`^## ${escapeRegExp(heading)}\\s*$`, 'mu');
+    const match = headingPattern.exec(content);
+    if (match === null) {
+        return null;
+    }
+
+    const sectionStart = match.index + match[0].length;
+    const remaining = content.slice(sectionStart);
+    const nextHeadingIndex = remaining.search(/^##\s+/mu);
+    const sectionContent = nextHeadingIndex === -1 ? remaining : remaining.slice(0, nextHeadingIndex);
+
+    return sectionContent.trim();
+}
+
+function parseInlineField(section, label) {
+    const pattern = new RegExp(`^- ${escapeRegExp(label)}:\\s*(.+)$`, 'mu');
+    const match = pattern.exec(section);
+    if (match === null) {
+        return null;
+    }
+
+    return match[1].trim().replace(/`([^`]+)`/gu, '$1').trim();
+}
+
+function isArchiveSectionSummaryPath(filePath) {
+    return filePath.startsWith('docs/archive/plans/') && filePath.endsWith('section-summary.md');
+}
+
+function isTrackedFollowUpValue(value) {
+    if (value === 'none') {
+        return true;
+    }
+
+    return value
+        .split(/\s*,\s*/u)
+        .map((entry) => entry.replace(/^`(.+)`$/u, '$1').trim())
+        .every(
+            (entry) =>
+                /^(agents\.md|ARCHITECTURE_CLEANUP_CHECKLIST\.md|docs\/[a-z0-9/_-]+(?:\.md|\/))$/u.test(entry) &&
+                !entry.startsWith('docs/runs/') &&
+                !entry.startsWith('docs/agentic/evals/baselines/')
+        );
+}
+
+function isLocalHoldingConvention(value) {
+    return value.startsWith('docs/runs/<date>-harness-ingestion-triage/');
+}
 
 export function parseSkillMirrorManifest(content) {
     const entries = [];
@@ -288,6 +349,152 @@ export function replaceManagedSection(content, { startMarker, endMarker, replace
         ...lines.slice(0, startIndex + 1),
         replacement,
         ...lines.slice(endIndex),
+    ].join('\n');
+}
+
+export function extractHarnessIngestionTriage(content) {
+    const section = extractMarkdownSection(content, 'Harness Ingestion Triage');
+    if (section === null) {
+        return {
+            status: null,
+            recommendedAction: null,
+            why: null,
+            trackedFollowUp: null,
+            localOnlyHoldingNote: null,
+            revisitTrigger: null,
+            errors: ['missing required section: Harness Ingestion Triage'],
+        };
+    }
+
+    const triage = {
+        status: parseInlineField(section, 'status'),
+        recommendedAction: parseInlineField(section, 'recommended action'),
+        why: parseInlineField(section, 'why'),
+        trackedFollowUp: parseInlineField(section, 'tracked follow-up'),
+        localOnlyHoldingNote: parseInlineField(section, 'local-only holding note'),
+        revisitTrigger: parseInlineField(section, 'revisit trigger'),
+        errors: [],
+    };
+
+    if (triage.status === null) {
+        triage.errors.push('missing required triage field: status');
+    } else if (!HARNESS_INGESTION_TRIAGE_STATUSES.includes(triage.status)) {
+        triage.errors.push(
+            `invalid harness-ingestion triage status: ${triage.status} (expected one of: ${HARNESS_INGESTION_TRIAGE_STATUSES.join(', ')})`
+        );
+    }
+
+    if (triage.recommendedAction === null) {
+        triage.errors.push('missing required triage field: recommended action');
+    } else if (!HARNESS_INGESTION_TRIAGE_ACTIONS.includes(triage.recommendedAction)) {
+        triage.errors.push(
+            `invalid harness-ingestion recommended action: ${triage.recommendedAction} (expected one of: ${HARNESS_INGESTION_TRIAGE_ACTIONS.join(', ')})`
+        );
+    }
+
+    if (triage.why === null || triage.why.length === 0) {
+        triage.errors.push('missing required triage field: why');
+    }
+
+    if (triage.trackedFollowUp === null || triage.trackedFollowUp.length === 0) {
+        triage.errors.push('missing required triage field: tracked follow-up');
+    } else if (!isTrackedFollowUpValue(triage.trackedFollowUp)) {
+        triage.errors.push(
+            'harness-ingestion tracked follow-up must point at tracked docs (or `none`), not local-only artifacts'
+        );
+    }
+
+    if (triage.localOnlyHoldingNote === null || triage.localOnlyHoldingNote.length === 0) {
+        triage.errors.push('missing required triage field: local-only holding note');
+    }
+
+    if (triage.revisitTrigger === null || triage.revisitTrigger.length === 0) {
+        triage.errors.push('missing required triage field: revisit trigger');
+    }
+
+    if (triage.errors.length > 0) {
+        return triage;
+    }
+
+    if (triage.status === 'none') {
+        if (triage.recommendedAction !== 'none') {
+            triage.errors.push('status `none` must keep recommended action set to `none`');
+        }
+        if (triage.trackedFollowUp !== 'none') {
+            triage.errors.push('status `none` must keep tracked follow-up set to `none`');
+        }
+        if (triage.localOnlyHoldingNote !== 'none') {
+            triage.errors.push('status `none` must keep local-only holding note set to `none`');
+        }
+        if (triage.revisitTrigger !== 'none') {
+            triage.errors.push('status `none` must keep revisit trigger set to `none`');
+        }
+        return triage;
+    }
+
+    if (triage.recommendedAction === 'none') {
+        triage.errors.push('non-`none` harness-ingestion status must name a non-`none` recommended action');
+    }
+
+    if (triage.status === 'deferred') {
+        if (!isLocalHoldingConvention(triage.localOnlyHoldingNote)) {
+            triage.errors.push(
+                'deferred harness-ingestion triage must point at the local-only holding-note convention under docs/runs/<date>-harness-ingestion-triage/'
+            );
+        }
+        if (triage.revisitTrigger === 'none') {
+            triage.errors.push('deferred harness-ingestion triage must name a non-`none` revisit trigger');
+        }
+        return triage;
+    }
+
+    if (triage.trackedFollowUp === 'none') {
+        triage.errors.push(
+            `status \`${triage.status}\` with recommended action \`${triage.recommendedAction}\` must name tracked follow-up docs`
+        );
+    }
+
+    return triage;
+}
+
+export function checkArchiveSectionSummaryConformance({ filePath, content }) {
+    if (!isArchiveSectionSummaryPath(filePath)) {
+        return {
+            filePath,
+            isSectionSummary: false,
+            errors: [],
+            triage: null,
+        };
+    }
+
+    const triage = extractHarnessIngestionTriage(content);
+    return {
+        filePath,
+        isSectionSummary: true,
+        errors: triage.errors,
+        triage,
+    };
+}
+
+export function buildHarnessIngestionReport(entries) {
+    const actionableEntries = entries.filter(({ status }) => status === 'pending' || status === 'deferred');
+    if (actionableEntries.length === 0) {
+        return 'No archived section summaries currently require harness-ingestion follow-up.';
+    }
+
+    return [
+        'Pending harness-ingestion follow-up:',
+        ...actionableEntries.flatMap((entry) => {
+            const lines = [
+                `- ${entry.filePath} :: ${entry.status} :: ${entry.recommendedAction} :: ${entry.trackedFollowUp}`,
+                `  Why: ${entry.why}`,
+            ];
+            if (entry.status === 'deferred') {
+                lines.push(`  Local-only note: ${entry.localOnlyHoldingNote}`);
+                lines.push(`  Revisit: ${entry.revisitTrigger}`);
+            }
+            return lines;
+        }),
     ].join('\n');
 }
 

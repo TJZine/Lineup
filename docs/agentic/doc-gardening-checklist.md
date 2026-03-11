@@ -26,6 +26,7 @@
 - run `npm run plans:stale` to review active-plan archive candidates without auto-archiving them
 - stale decision index entries are removed or fixed
 - completed sections or standout archived plans are reviewed for updates to `docs/agentic/historical-plan-corpus-review.md`
+- run `npm run harness:ingestion` after archiving a completed section summary and during broader doc-gardening passes
 
 ## Skill Mirror Checks
 
