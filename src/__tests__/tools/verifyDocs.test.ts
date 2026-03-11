@@ -181,8 +181,13 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '',
             '- Disposition vocabulary:',
             '  - `owned follow-up`: assign one single final owner.',
+            '  - `security triage`: a fresh `desloppify status` result that either says `no open P0 security findings` or lists the exact open/deferred `P0` security issue ids.',
             '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
             '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
+            '- Cleanup slice execution template:',
+            '  - `security triage`: `no open P0 security findings`, or the deferred/resolved `P0` security findings for this slice',
+            '- Priority exit command checklist:',
+            '  - confirm the `P0` security gate is either cleared or explicitly deferred before the next priority begins',
             '',
             '- [ ] `P1-EXIT`',
             '  - required: record every mapped imported issue with an exact disposition',
@@ -240,7 +245,7 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '# Cleanup Implement (Fixture)',
             '',
             '- Prepare the `P#-EXIT` evidence and checklist update in the same pass.',
-            '- Include any deferred or split items with their single final owners.',
+            '- Include any deferred or split items with their exact issue id, single final owner, and reason and revisit trigger.',
             '- Ask for a `priority-exit review` when the task closes a priority and do not start `P(n+1)` work in the same session.',
             '',
         ].join('\n')
@@ -254,6 +259,7 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '',
             '- `owned follow-up` means one single final owner.',
             '- Every deferred item needs a revisit trigger.',
+            '- `security triage` must say `no open P0 security findings` or list the exact `P0` security issue ids still open/deferred.',
             '- A `priority-exit review` must ensure no `P(n+1)` plan or implementation work is being approved while `P#-EXIT` is still unresolved.',
             '',
         ].join('\n')
@@ -819,8 +825,13 @@ describe('verify-docs', () => {
                 '',
                 '- Disposition vocabulary:',
                 '  - `owned follow-up`: assign one single final owner.',
+                '  - `security triage`: a fresh `desloppify status` result that either says `no open P0 security findings` or lists the exact open/deferred `P0` security issue ids.',
                 '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
                 '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
+                '- Cleanup slice execution template:',
+                '  - `security triage`: `no open P0 security findings`, or the deferred/resolved `P0` security findings for this slice',
+                '- Priority exit command checklist:',
+                '  - confirm the `P0` security gate is either cleared or explicitly deferred before the next priority begins',
                 '',
                 '- [x] Example done item (plan: docs/archive/plans/example-summary.md)',
                 '- [ ] Local draft item (plan: docs/plans/example-draft.md)',
@@ -870,8 +881,13 @@ describe('verify-docs', () => {
                 '',
                 '- Disposition vocabulary:',
                 '  - `owned follow-up`: assign one single final owner.',
+                '  - `security triage`: a fresh `desloppify status` result that either says `no open P0 security findings` or lists the exact open/deferred `P0` security issue ids.',
                 '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
                 '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
+                '- Cleanup slice execution template:',
+                '  - `security triage`: `no open P0 security findings`, or the deferred/resolved `P0` security findings for this slice',
+                '- Priority exit command checklist:',
+                '  - confirm the `P0` security gate is either cleared or explicitly deferred before the next priority begins',
                 '',
                 '- [x] Example done item (plan: docs/archive/plans/example-summary.md)',
                 '- [ ] Local draft item (plan: docs/plans/example-draft.md)',
@@ -921,8 +937,13 @@ describe('verify-docs', () => {
                 '',
                 '- Disposition vocabulary:',
                 '  - `owned follow-up`: assign one single final owner.',
+                '  - `security triage`: a fresh `desloppify status` result that either says `no open P0 security findings` or lists the exact open/deferred `P0` security issue ids.',
                 '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
                 '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
+                '- Cleanup slice execution template:',
+                '  - `security triage`: `no open P0 security findings`, or the deferred/resolved `P0` security findings for this slice',
+                '- Priority exit command checklist:',
+                '  - confirm the `P0` security gate is either cleared or explicitly deferred before the next priority begins',
                 '',
                 '- [ ] Local draft item A (plan: docs/plans/example-draft.md)',
                 '- [ ] Local draft item B (plan: docs/plans/example-draft.md)',
@@ -1380,6 +1401,26 @@ describe('verify-docs', () => {
         expect(result.stderr).toContain('cleanup-review prompt doc');
     });
 
+    it('fails when cleanup-review omits P0-scoped security triage guidance', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/cleanup-review.md': [
+                '# Cleanup Review',
+                '',
+                '- `owned follow-up` means one single final owner.',
+                '- Every deferred item needs a revisit trigger.',
+                '- `security triage` may say `none open` or list the exact security issue ids still open/deferred.',
+                '- A `priority-exit review` must ensure no `P(n+1)` plan or implementation work is being approved while `P#-EXIT` is still unresolved.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('cleanup-review prompt doc');
+    });
+
     it('fails when cleanup-implement omits the priority-exit readiness ownership markers', () => {
         const repoRoot = createRepoFixture({
             'docs/agentic/session-prompts/cleanup-implement.md': [
@@ -1397,13 +1438,33 @@ describe('verify-docs', () => {
         expect(result.stderr).toContain('cleanup-implement prompt doc');
     });
 
-    it('accepts cleanup-implement guidance that uses canonical single final owner markers', () => {
+    it('fails when cleanup-implement omits exact issue ids and deferral metadata for deferred items', () => {
         const repoRoot = createRepoFixture({
             'docs/agentic/session-prompts/cleanup-implement.md': [
                 '# Cleanup Implement',
                 '',
                 '- Prepare the `P#-EXIT` evidence and checklist update.',
                 '- For any deferred/split item, name one single final owner.',
+                '- Run a priority-exit review before moving to the next priority.',
+                '- Do not start `P(n+1)` work in the same session.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('cleanup-implement prompt doc');
+    });
+
+    it('accepts cleanup-implement guidance that uses canonical single final owner markers', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/cleanup-implement.md': [
+                '# Cleanup Implement',
+                '',
+                '- Prepare the `P#-EXIT` evidence and checklist update.',
+                '- For any deferred/split item, name the exact issue id, one single final owner, and the reason and revisit trigger.',
                 '- Run a priority-exit review before moving to the next priority.',
                 '- Do not start `P(n+1)` work in the same session.',
                 '',
@@ -1425,6 +1486,7 @@ describe('verify-docs', () => {
                 '',
                 '- Disposition vocabulary:',
                 '  - `owned follow-up`: assign one single final owner.',
+                '  - `security triage`: a fresh `desloppify status` result that either says `no open P0 security findings` or lists the exact open/deferred `P0` security issue ids.',
                 '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
                 '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
                 '',
@@ -1457,12 +1519,97 @@ describe('verify-docs', () => {
                 '',
                 '- Disposition vocabulary:',
                 '  - `owned follow-up`: assign one single final owner.',
+                '  - `security triage`: a fresh `desloppify status` result that either says `no open P0 security findings` or lists the exact open/deferred `P0` security issue ids.',
                 '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
                 '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
                 '',
                 '- [ ] `P1-EXIT`',
                 '  - required: record every mapped imported issue with an exact disposition',
                 '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P2-EXIT`',
+                '  - other: no exit marker here',
+                '- [ ] `P3-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P4-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P5-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P6-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P7-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P8-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Checklist doc is missing the required line inside `P2-EXIT` block');
+    });
+
+    it('fails when the cleanup slice execution template uses generic security wording', () => {
+        const repoRoot = createRepoFixture({
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md': [
+                '# Checklist',
+                '',
+                '## Execution Hygiene',
+                '',
+                '- Disposition vocabulary:',
+                '  - `owned follow-up`: assign one single final owner.',
+                '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
+                '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
+                '- Cleanup slice execution template:',
+                '  - `security triage`: `none open`, or the deferred/resolved security findings for this slice',
+                '- Priority exit command checklist:',
+                '  - confirm the `P0` security gate is either cleared or explicitly deferred before the next priority begins',
+                '',
+                '- [ ] `P1-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P2-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P3-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P4-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P5-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P6-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P7-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P8-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Checklist doc is missing required cleanup-slice security marker');
+    });
+
+    it('fails when `P2-EXIT` is mentioned in `P1-EXIT` prose before the real heading', () => {
+        const repoRoot = createRepoFixture({
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md': [
+                '# Checklist',
+                '',
+                '## Execution Hygiene',
+                '',
+                '- Disposition vocabulary:',
+                '  - `owned follow-up`: assign one single final owner.',
+                '  - `security triage`: a fresh `desloppify status` result that either says `no open P0 security findings` or lists the exact open/deferred `P0` security issue ids.',
+                '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
+                '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
+                '',
+                '- [ ] `P1-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '  - note: revisit `P2-EXIT` before shipping',
                 '- [ ] `P2-EXIT`',
                 '  - other: no exit marker here',
                 '- [ ] `P3-EXIT`',

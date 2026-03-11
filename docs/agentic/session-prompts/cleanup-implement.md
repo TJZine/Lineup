@@ -47,11 +47,11 @@ Return:
 2. what verification actually ran
 3. any remaining risks or follow-up items
 4. whether the checklist item or plan status should be updated
-   - if this closes the last planned `P#-W#` item in a priority, include the exact priority-exit evidence, any deferred/split items with their single final owner, and whether the outgoing review should be treated as a priority-exit review
+   - if this closes the last planned `P#-W#` item in a priority, include the exact priority-exit evidence, any deferred/split items with their exact issue id, single final owner, and reason and revisit trigger, and whether the outgoing review should be treated as a priority-exit review
 5. a `NEXT_SESSION_HANDOFF` block that routes to `lineup-cleanup-review` and includes:
    - `TASK`
    - `PLAN`
    - `ARTIFACT`
    - `FILES`
-   - a pasteable implementation-review request unless the task is fully blocked before code changes
+   - a pasteable implementation-review request unless the task is fully blocked before code changes; for claimed priority closeout, repeat the same deferred/split-item exact issue id, single final owner, and reason and revisit trigger metadata in that request
    - when the session claims priority closeout, explicitly request a priority-exit review rather than a normal slice review
