@@ -21,7 +21,6 @@ import {
 } from './interfaces';
 import {
     PlexApiError,
-    getOrCreateClientId,
     buildRequestHeaders,
     readPlexResponse,
     parsePinResponse,
@@ -32,6 +31,7 @@ import {
     fetchWithTimeout,
 } from './helpers';
 import { AppErrorCode } from '../../lifecycle/types';
+import { resolveClientIdentifier } from './clientIdentifier';
 
 // Re-export for consumers
 export { PlexApiError } from './helpers';
@@ -52,11 +52,9 @@ export class PlexAuth implements IPlexAuth {
      * @param config - Plex API client identification config
      */
     constructor(config: PlexAuthConfig) {
-        // Ensure client ID is persisted
-        const clientId = getOrCreateClientId();
         const configWithClientId: PlexAuthConfig = {
             ...config,
-            clientIdentifier: config.clientIdentifier || clientId,
+            clientIdentifier: resolveClientIdentifier(config.clientIdentifier),
         };
 
         this._emitter = new EventEmitter<PlexAuthEvents>();

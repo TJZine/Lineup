@@ -29,17 +29,12 @@ import {
 import { AppDiagnosticsSurface } from './core/app-shell/AppDiagnosticsSurface';
 import { AppToastPresenter } from './core/app-shell/AppToastPresenter';
 import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
-import type { PlexAuthConfig } from './modules/plex/auth';
+import { resolveClientIdentifier, type PlexAuthConfig } from './modules/plex/auth';
 import { AuthScreen } from './modules/ui/auth';
 import { ProfileSelectScreen } from './modules/ui/profile-select';
 import { ServerSelectScreen } from './modules/ui/server-select';
 import { SplashScreen } from './modules/ui/splash';
 import { ThemeManager } from './modules/ui/theme';
-import { STORAGE_KEYS } from './types';
-import {
-    safeLocalStorageGet,
-    safeLocalStorageSet,
-} from './utils/storage';
 import { summarizeErrorForLog } from './utils/errors';
 
 // ============================================
@@ -512,45 +507,9 @@ export class App {
      */
     private _getPlexConfig(): PlexAuthConfig {
         const config = { ...DEFAULT_PLEX_CONFIG };
-
-        // Get or generate client identifier
-        let clientId = safeLocalStorageGet(STORAGE_KEYS.CLIENT_ID) ?? '';
-        const isSaneClientId = (value: string): boolean =>
-            value.length > 0 && value.length <= 128 && /^[a-zA-Z0-9._-]+$/.test(value);
-        if (!isSaneClientId(clientId)) {
-            clientId = this._generateClientId();
-            safeLocalStorageSet(STORAGE_KEYS.CLIENT_ID, clientId);
-        }
-        config.clientIdentifier = clientId;
+        config.clientIdentifier = resolveClientIdentifier();
 
         return config;
-    }
-
-    /**
-     * Generate a unique client identifier.
-     * Uses crypto.randomUUID if available, falls back to Math.random.
-     */
-    private _generateClientId(): string {
-        // Prefer crypto.randomUUID() if available (Chromium 92+)
-        // Note: Some webOS versions may not support this despite Chromium version
-        if (
-            typeof crypto !== 'undefined' &&
-            typeof crypto.randomUUID === 'function'
-        ) {
-            try {
-                return `lineup-${crypto.randomUUID()}`;
-            } catch {
-                // Fall through to Math.random fallback
-            }
-        }
-
-        // Fallback to Math.random (adequate for non-security-sensitive client ID)
-        const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-        let result = 'lineup-';
-        for (let i = 0; i < 16; i++) {
-            result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return result;
     }
 
     /**
