@@ -6,7 +6,7 @@ import { read, blockFor, declarationValue } from './helpers/css-test-utils';
 describe('directv-classic theme contract', () => {
     it('keeps shared DirecTV tokens valid while reserving yellow for EPG-only helper tokens', () => {
         const themesCss = read('src/styles/themes.css');
-        const block = themesCss.match(/\.theme-directv\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
+        const block = blockFor(themesCss, '.theme-directv');
 
         expect(block).toContain('--focus-color: #00a6d6;');
         expect(block).toContain('--panel-surface: rgba(0, 28, 56, 0.94);');

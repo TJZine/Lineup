@@ -64,7 +64,9 @@ const setupStorage = (): void => {
             delete storage[key];
         },
         clear: () => {
-            Object.keys(storage).forEach((key) => delete storage[key]);
+            Object.keys(storage).forEach((key) => {
+                delete storage[key];
+            });
         },
         key: (index: number) => Object.keys(storage)[index] ?? null,
         get length() {

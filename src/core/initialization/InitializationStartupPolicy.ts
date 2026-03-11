@@ -79,10 +79,12 @@ export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs
         return;
     }
 
-    inputs.navigation.replaceScreen('player');
     if (!inputs.channelManager) {
+        inputs.openServerSelect();
         return;
     }
+
+    inputs.navigation.replaceScreen('player');
 
     let channelToPlay = inputs.channelManager.getCurrentChannel();
 
@@ -255,6 +257,7 @@ export function buildEpgConfigWithStartupPolicy(
         LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED,
         true
     );
+    const previousOnLayoutModeChange = inputs.epgConfig.onLayoutModeChange ?? null;
 
     return {
         ...inputs.epgConfig,
@@ -317,6 +320,9 @@ export function buildEpgConfigWithStartupPolicy(
             };
         },
         onLayoutModeChange: (mode: 'overlay' | 'classic'): void => {
+            if (previousOnLayoutModeChange) {
+                previousOnLayoutModeChange(mode);
+            }
             const videoContainer = document.getElementById('video-container');
             if (!videoContainer) return;
             if (mode === 'classic') {

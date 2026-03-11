@@ -106,4 +106,31 @@ describe('createPriorityOneControllersAndBinder playbackState wiring', () => {
         expect(playbackState.setShouldAutoShowInfoBannerOnNextPlay).toHaveBeenCalledWith(true);
         expect(playbackState.setPendingNowPlayingChannelId).toHaveBeenCalledWith(null);
     });
+
+    it('treats missing playbackRecovery.resolveStreamForProgram as no stream without reporting failure', async () => {
+        const program = makeProgram();
+        const playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors> = {
+            getCurrentProgramForPlayback: jest.fn().mockReturnValue(null),
+            setCurrentProgramForPlayback: jest.fn(),
+            getCurrentStreamDescriptor: jest.fn().mockReturnValue(null),
+            setCurrentStreamDescriptor: jest.fn(),
+            getCurrentStreamDecision: jest.fn().mockReturnValue(null),
+            setCurrentStreamDecision: jest.fn(),
+            getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
+            setPendingNowPlayingChannelId: jest.fn(),
+            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
+            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
+        };
+
+        const deps = makeDeps(playbackState);
+        (deps.playbackRecovery as unknown as { resolveStreamForProgram?: unknown }).resolveStreamForProgram = undefined;
+
+        const priorityOne = createPriorityOneControllersAndBinder(deps);
+
+        await priorityOne.playbackStartController.handleProgramStart(program);
+
+        expect((deps.videoPlayer as unknown as { loadStream: jest.Mock }).loadStream).not.toHaveBeenCalled();
+        expect(deps.playbackRecovery.handlePlaybackFailure).not.toHaveBeenCalled();
+        expect(deps.onPlaybackStartFailure).not.toHaveBeenCalled();
+    });
 });
