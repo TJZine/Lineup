@@ -400,7 +400,12 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - `security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::407` -> `deferred`
       - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::224` -> `deferred`
       - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::729` -> `deferred`
-      - required verification before closing `P4-W4`: rerun `desloppify show security --status open --no-budget --top 200` plus targeted `desloppify show <security-issue-id>` checks for each inherited id above
+      - required verification before closing `P4-W4`:
+        - `desloppify show security --status open --no-budget --top 200`
+        - `desloppify show security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::366`
+        - `desloppify show security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::407`
+        - `desloppify show security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::224`
+        - `desloppify show security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::729`
   - [ ] `P4-W5` remove transitional coordinator glue, timing bridges, duplicated EPG status literals, and force-cast config residue created by the round-2 decomposition
     - inherited follow-ups:
       - source: `P1-EXIT`
@@ -414,7 +419,17 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - `security::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::security::log_sensitive::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::495` -> `deferred`
       - source: `P2-EXIT`
       - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `split follow-up` (final owner `P4-W5`)
-      - required verification before closing `P4-W5`: rerun `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23`, rerun `desloppify show security --status open --no-budget --top 200`, and rerun targeted `desloppify show <security-issue-id>` checks for each inherited security id above
+      - required verification before closing `P4-W5`:
+        - `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23`
+        - `desloppify show security --status open --no-budget --top 200`
+        - `desloppify show security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::32`
+        - `desloppify show security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::40`
+        - `desloppify show security::src/modules/ui/epg/EPGComponent.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGComponent.ts::243`
+        - `desloppify show security::src/modules/ui/epg/EPGInfoPanel.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGInfoPanel.ts::104`
+        - `desloppify show security::src/modules/ui/epg/EPGTimeHeader.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGTimeHeader.ts::91`
+        - `desloppify show security::src/modules/ui/epg/EPGVirtualizer.ts::security::insecure_random::src/modules/ui/epg/EPGVirtualizer.ts::652`
+        - `desloppify show security::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::security::innerHTML_assignment::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::136`
+        - `desloppify show security::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::security::log_sensitive::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::495`
   - [ ] `P4-EXIT` run the priority-exit review before moving to `P5`
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 4
 
