@@ -1380,6 +1380,42 @@ describe('verify-docs', () => {
         expect(result.stderr).toContain('cleanup-review prompt doc');
     });
 
+    it('fails when cleanup-implement omits the priority-exit readiness ownership markers', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/cleanup-implement.md': [
+                '# Cleanup Implement',
+                '',
+                '- Execute the approved plan.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('cleanup-implement prompt doc');
+    });
+
+    it('accepts cleanup-implement guidance that uses canonical single final owner markers', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/cleanup-implement.md': [
+                '# Cleanup Implement',
+                '',
+                '- Prepare the `P#-EXIT` evidence and checklist update.',
+                '- For any deferred/split item, name one single final owner.',
+                '- Run a priority-exit review before moving to the next priority.',
+                '- Do not start `P(n+1)` work in the same session.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+    });
+
     it('fails when the checklist does not repeat the required exit-enforcement line for every priority', () => {
         const repoRoot = createRepoFixture({
             'ARCHITECTURE_CLEANUP_CHECKLIST.md': [
@@ -1409,6 +1445,46 @@ describe('verify-docs', () => {
         const result = runVerifier(repoRoot);
 
         expect(result.status).toBe(1);
-        expect(result.stderr).toContain('Checklist doc must require the same exact priority-exit disposition/ownership/security line for every `P#-EXIT` item');
+        expect(result.stderr).toContain('Checklist doc is missing the required line inside `P2-EXIT` block');
+    });
+
+    it('fails when a checklist repeats the exit requirement globally but omits it inside a specific `P#-EXIT` block', () => {
+        const repoRoot = createRepoFixture({
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md': [
+                '# Checklist',
+                '',
+                '## Execution Hygiene',
+                '',
+                '- Disposition vocabulary:',
+                '  - `owned follow-up`: assign one single final owner.',
+                '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
+                '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
+                '',
+                '- [ ] `P1-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P2-EXIT`',
+                '  - other: no exit marker here',
+                '- [ ] `P3-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P4-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P5-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P6-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P7-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P8-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Checklist doc is missing the required line inside `P2-EXIT` block');
     });
 });

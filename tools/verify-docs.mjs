@@ -732,16 +732,26 @@ function checkCleanupPriorityExitContracts(errors) {
         }
 
         const exitRequirementMarker = 'required: record every mapped imported issue with an exact disposition';
-        const exitRequirementCount = checklist.match(new RegExp(exitRequirementMarker, 'gu'))?.length ?? 0;
-        if (exitRequirementCount < 8) {
-            errors.push(
-                'Checklist doc must require the same exact priority-exit disposition/ownership/security line for every `P#-EXIT` item'
-            );
-        }
-
         for (let priority = 1; priority <= 8; priority += 1) {
-            if (!checklist.includes(`\`P${priority}-EXIT\``)) {
-                errors.push(`Checklist doc is missing the \`P${priority}-EXIT\` gate.`);
+            const blockMarker = `\`P${priority}-EXIT\``;
+            const startIndex = checklist.indexOf(blockMarker);
+            if (startIndex === -1) {
+                errors.push(`Checklist doc is missing the ${blockMarker} gate.`);
+                continue;
+            }
+
+            let endIndex = checklist.length;
+            for (let nextPriority = priority + 1; nextPriority <= 8; nextPriority += 1) {
+                const nextMarker = `\`P${nextPriority}-EXIT\``;
+                const nextIndex = checklist.indexOf(nextMarker, startIndex + blockMarker.length);
+                if (nextIndex !== -1 && nextIndex < endIndex) {
+                    endIndex = nextIndex;
+                }
+            }
+
+            const block = checklist.slice(startIndex, endIndex);
+            if (!block.includes(exitRequirementMarker)) {
+                errors.push(`Checklist doc is missing the required line inside ${blockMarker} block`);
             }
         }
     }
@@ -806,7 +816,7 @@ function checkCleanupPriorityExitContracts(errors) {
         const normalized = normalizeDocText(cleanupImplement);
         const requiredCleanupImplementMarkers = [
             'prepare the p#-exit evidence and checklist update',
-            'single final owners',
+            'single final owner',
             'priority-exit review',
             'do not start p(n+1) work in the same session',
         ];

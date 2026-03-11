@@ -47,7 +47,7 @@ Return:
 2. what verification actually ran
 3. any remaining risks or follow-up items
 4. whether the checklist item or plan status should be updated
-   - if this closes the last planned `P#-W#` item in a priority, include the exact priority-exit evidence, any deferred/split items with their single final owners, and whether the outgoing review should be treated as a priority-exit review
+   - if this closes the last planned `P#-W#` item in a priority, include the exact priority-exit evidence, any deferred/split items with their single final owner, and whether the outgoing review should be treated as a priority-exit review
 5. a `NEXT_SESSION_HANDOFF` block that routes to `lineup-cleanup-review` and includes:
    - `TASK`
    - `PLAN`
