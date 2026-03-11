@@ -77,6 +77,7 @@ This is the operating runbook for agent-driven development in Lineup.
    - priority-exit review must verify:
      - every imported review issue mapped to that priority is retired, explicitly deferred, or split into a new owned follow-up
      - every deferred or split item has one named final owner plus a reason and revisit trigger, especially when one issue was mapped across multiple `P#-W#` items
+     - every deferred or split item is mirrored into its destination checklist work item (`Pn-Wm`) with exact issue id(s) and required verification command(s), not only in the source `P#-EXIT` record
      - the `P0` security gate has been cleared or explicitly deferred with exact issue ids
      - the strongest verification/evidence commands for that priority have been rerun on current code
      - no `P(n+1)` checklist item, plan, or implementation work has been opened while `P#-EXIT` is still unresolved
@@ -85,6 +86,7 @@ This is the operating runbook for agent-driven development in Lineup.
    - complete the matching `P#-EXIT` item and its auditable exit record before opening `P(n+1)` in the checklist or minting new tracked plans for `P(n+1)`
    - update current-state or reference docs when ownership changes
    - update tracked plan references when a plan moves from `docs/plans/` to `docs/archive/plans/`
+   - when a `P#-EXIT` record reassigns an issue to `Pn-Wm`, update the destination `Pn-Wm` checklist bullet in the same pass with an explicit inherited-follow-up note (source exit, exact issue id(s), and required verification command(s))
    - when archiving a completed cleanup section or a standout implementation plan, review whether it adds new reusable patterns or anti-patterns and update `docs/agentic/historical-plan-corpus-review.md` in the same pass
    - when archiving a completed section summary (`*section-summary.md`), add the required `Harness Ingestion Triage` block and run `npm run harness:ingestion`
    - when a local `docs/runs/<date>-<topic>/` bundle or eval baseline changes the workflow conclusion, write the durable lesson into a tracked workflow doc or tracked eval summary in the same pass

@@ -76,7 +76,7 @@ Use it to keep the highest-risk imported findings tied to concrete work units. F
 
 Do not close a listed work unit while its mapped imported issue still remains unresolved without recording the reason.
 
-- `abstraction_fitness::orchestrator_passthrough_facade` -> `P1-W2`, `P1-W4`
+- `abstraction_fitness::orchestrator_passthrough_facade` -> `P1-W2`, `P1-W4`, `P4-W2`
 - `cross_module_architecture::orchestrator_initialization_cycle` -> `P1-W1`
 - `cross_module_architecture::storage_owner_boundary_drift` -> `P3-W2`, `P3-W3`, `P3-W4`
 - `api_surface_coherence::fetch_with_timeout_signature_drift` -> `P5-W1`
@@ -86,7 +86,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
 - `contract_coherence::channel_manager_boundary_contract_mismatch` -> `P6-W2`
 - `contract_coherence::channel_scheduler_mutable_buffer_api` -> `P6-W2`
 - `contract_coherence::resolve_channel_items_leaks_cached_reference` -> `P6-W2`
-- `convention_outlier::container_id_convention_split` -> `P2-W4`
+- `convention_outlier::container_id_convention_split` -> `P2-W4`, `P4-W5`
 - `convention_outlier::scheduler_namespace_export_outlier` -> `P6-W4`
 - `test_strategy::untested_core_error_helpers` -> `P7-W1`
 - `test_strategy::bootstrap_internal_seam_coupling` -> `P7-W1`
@@ -143,6 +143,12 @@ Do not close a listed work unit while its mapped imported issue still remains un
     - rerun the same `desloppify` evidence commands used at slice start
     - run the verification commands named in the active plan
     - update this checklist if the slice completed a `P#-W#` item or changed the evidence snapshot
+- Reassignment carry-forward checklist:
+  - when any `P#-EXIT` record marks an issue as `deferred` or `split follow-up` with owner `Pn-Wm`, update the destination `Pn-Wm` checklist item in the same pass with an `Inherited follow-ups` block
+  - each `Inherited follow-ups` block must include: source exit (`P#-EXIT`), exact issue id(s), disposition (`deferred` or `split follow-up`), and the exact verification command(s) required before closing `Pn-Wm`
+  - do not rely on the source exit record alone; the destination work item must be self-sufficient for a fresh session
+  - when drafting the destination tracked plan, copy every inherited issue id into the plan evidence/verification section and re-check each id before marking the destination item complete
+  - if an inherited issue is re-deferred at destination closeout, record the new single final owner and revisit trigger in that destination exit record
 
 ## Priority 1: Complete Runtime Composition Cleanup In `AppOrchestrator`
 
@@ -382,9 +388,33 @@ Do not close a listed work unit while its mapped imported issue still remains un
 - Cleanup track:
   - [ ] `P4-W1` split the next bounded concern out of `EPGCoordinator` and `EPGComponent`, not just one temporary seam
   - [ ] `P4-W2` narrow `ChannelSetupCoordinator` so planning, build execution, rerun workflow, and persistence are not co-owned
+    - inherited follow-ups:
+      - source: `P1-EXIT`
+      - `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` -> `split follow-up` (final owner `P4-W2`)
+      - required verification before closing `P4-W2`: `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b`
   - [ ] `P4-W3` audit and split `NavigationManager` where focus-rule logic and input/timing logic are separable
   - [ ] `P4-W4` finish remaining round-2 cleanup in `SettingsScreen` / `ChannelSetupScreen` where the imported review still flags coarse ownership or cleanup residue
+    - inherited follow-ups:
+      - source: `P1-EXIT`
+      - `security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::366` -> `deferred`
+      - `security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::407` -> `deferred`
+      - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::224` -> `deferred`
+      - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::729` -> `deferred`
+      - required verification before closing `P4-W4`: rerun `desloppify show security --status open --no-budget --top 200` plus targeted `desloppify show <security-issue-id>` checks for each inherited id above
   - [ ] `P4-W5` remove transitional coordinator glue, timing bridges, duplicated EPG status literals, and force-cast config residue created by the round-2 decomposition
+    - inherited follow-ups:
+      - source: `P1-EXIT`
+      - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::32` -> `deferred`
+      - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::40` -> `deferred`
+      - `security::src/modules/ui/epg/EPGComponent.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGComponent.ts::243` -> `deferred`
+      - `security::src/modules/ui/epg/EPGInfoPanel.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGInfoPanel.ts::104` -> `deferred`
+      - `security::src/modules/ui/epg/EPGTimeHeader.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGTimeHeader.ts::91` -> `deferred`
+      - `security::src/modules/ui/epg/EPGVirtualizer.ts::security::insecure_random::src/modules/ui/epg/EPGVirtualizer.ts::652` -> `deferred`
+      - `security::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::security::innerHTML_assignment::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::136` -> `deferred`
+      - `security::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::security::log_sensitive::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::495` -> `deferred`
+      - source: `P2-EXIT`
+      - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `split follow-up` (final owner `P4-W5`)
+      - required verification before closing `P4-W5`: rerun `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23`, rerun `desloppify show security --status open --no-budget --top 200`, and rerun targeted `desloppify show <security-issue-id>` checks for each inherited security id above
   - [ ] `P4-EXIT` run the priority-exit review before moving to `P5`
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 4
 
