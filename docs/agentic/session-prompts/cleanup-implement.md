@@ -30,6 +30,7 @@ Use this prompt for Tier 2 or Tier 3 work when an approved cleanup plan already 
 - if a local run bundle changes the workflow conclusion, commit the updated tracked baseline-summary or workflow doc before closeout and keep only the raw bundle local
 - terminology: `tracked baseline-summary` means tracked durable conclusion, while `local-only eval artifacts` means raw run outputs/transcripts kept out of git
 - keep `update_plan` aligned with actual progress
+- if the approved plan closes the last planned `P#-W#` item in a priority, prepare the `P#-EXIT` evidence and checklist update in the same pass or report exactly why exit is still blocked; do not start `P(n+1)` work in the same session while that exit remains unresolved
 
 ## Verification Requirements
 
@@ -46,9 +47,11 @@ Return:
 2. what verification actually ran
 3. any remaining risks or follow-up items
 4. whether the checklist item or plan status should be updated
+   - if this closes the last planned `P#-W#` item in a priority, include the exact priority-exit evidence, any deferred/split items with their single final owner, and whether the outgoing review should be treated as a priority-exit review
 5. a `NEXT_SESSION_HANDOFF` block that routes to `lineup-cleanup-review` and includes:
    - `TASK`
    - `PLAN`
    - `ARTIFACT`
    - `FILES`
    - a pasteable implementation-review request unless the task is fully blocked before code changes
+   - when the session claims priority closeout, explicitly request a priority-exit review rather than a normal slice review

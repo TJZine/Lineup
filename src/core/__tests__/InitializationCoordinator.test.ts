@@ -43,19 +43,22 @@ describe('InitializationCoordinator (Plex Home)', () => {
         jest.clearAllMocks();
     });
 
-    type CoordinatorHarness = {
-        coordinator: InitializationCoordinator;
-        deps: InitializationDependencies;
-        callbacks: InitializationCallbacks;
-    };
+	    type CoordinatorHarness = {
+	        coordinator: InitializationCoordinator;
+	        deps: InitializationDependencies;
+	        callbacks: InitializationCallbacks;
+	    };
 
-    const makeCoordinator = (
-        depsOverrides: Partial<InitializationDependencies> = {}
-    ): CoordinatorHarness => {
-        const navigation = {
-            getCurrentScreen: jest.fn().mockReturnValue('splash'),
-            goTo: jest.fn(),
-            replaceScreen: jest.fn(),
+	    const makeCoordinator = (
+	        depsOverrides: Partial<InitializationDependencies> = {},
+	        configOverrides: Partial<{
+	            epgConfig: unknown;
+	        }> = {}
+	    ): CoordinatorHarness => {
+	        const navigation = {
+	            getCurrentScreen: jest.fn().mockReturnValue('splash'),
+	            goTo: jest.fn(),
+	            replaceScreen: jest.fn(),
             getScreenParams: jest.fn().mockReturnValue({}),
             getState: jest.fn().mockReturnValue({ screenStack: [] }),
         } as unknown as InitializationDependencies['navigation'];
@@ -114,16 +117,16 @@ describe('InitializationCoordinator (Plex Home)', () => {
         };
 
         const coordinator = new InitializationCoordinator(
-            {
-                plexConfig: {} as never,
-                navConfig: {} as never,
-                playerConfig: {} as never,
-                epgConfig: {} as never,
-                nowPlayingInfoConfig: {} as never,
-                playerOsdConfig: {} as never,
-                channelNumberOverlayConfig: {} as never,
-                channelBadgeConfig: { containerId: CHANNEL_BADGE_CONTAINER_ID } as never,
-                miniGuideConfig: {} as never,
+	            {
+	                plexConfig: {} as never,
+	                navConfig: {} as never,
+	                playerConfig: {} as never,
+	                epgConfig: (configOverrides.epgConfig ?? ({} as never)) as never,
+	                nowPlayingInfoConfig: {} as never,
+	                playerOsdConfig: {} as never,
+	                channelNumberOverlayConfig: {} as never,
+	                channelBadgeConfig: { containerId: CHANNEL_BADGE_CONTAINER_ID } as never,
+	                miniGuideConfig: {} as never,
                 channelTransitionConfig: {} as never,
                 playbackOptionsConfig: {} as never,
             },
@@ -242,19 +245,165 @@ describe('InitializationCoordinator (Plex Home)', () => {
         expect(order).toContain('init');
     });
 
-    describe('EPG layoutMode fallback injection', () => {
-        it('defaults to classic when storage is unset', async () => {
-            localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
+    describe('Phase 3 startup policy branches', () => {
+        it('marks discovery error, navigates to server-select, and does not register server resume when discovery init fails', async () => {
+            const { coordinator, deps, callbacks } = makeCoordinator();
+            const navigation = deps.navigation as unknown as { goTo: jest.Mock };
+            const plexDiscovery = deps.plexDiscovery as unknown as {
+                initialize: jest.Mock;
+                on: jest.Mock;
+            };
+
+            plexDiscovery.initialize.mockRejectedValue(new Error('discovery init failed'));
+
+            await coordinator.runStartup(3);
+
+            expect(callbacks.updateModuleStatus).toHaveBeenCalledWith(
+                'plex-server-discovery',
+                'error'
+            );
+            expect(navigation.goTo).toHaveBeenCalledWith('server-select');
+            expect(plexDiscovery.on).not.toHaveBeenCalled();
+        });
+
+        it('marks statuses pending, registers server resume, and navigates to server-select when discovery is disconnected', async () => {
+            const { coordinator, deps, callbacks } = makeCoordinator();
+            const navigation = deps.navigation as unknown as { goTo: jest.Mock };
+            const plexDiscovery = deps.plexDiscovery as unknown as {
+                initialize: jest.Mock;
+                isConnected: jest.Mock;
+                on: jest.Mock;
+            };
+
+            plexDiscovery.initialize.mockResolvedValue(undefined);
+            plexDiscovery.isConnected.mockReturnValue(false);
+
+            await coordinator.runStartup(3);
+
+            expect(callbacks.updateModuleStatus).toHaveBeenCalledWith(
+                'plex-server-discovery',
+                'pending',
+                undefined,
+                expect.any(Number)
+            );
+            expect(callbacks.updateModuleStatus).toHaveBeenCalledWith(
+                'plex-library',
+                'pending',
+                undefined,
+                expect.any(Number)
+            );
+            expect(callbacks.updateModuleStatus).toHaveBeenCalledWith(
+                'plex-stream-resolver',
+                'pending',
+                undefined,
+                expect.any(Number)
+            );
+            expect(plexDiscovery.on).toHaveBeenCalledWith('connectionChange', expect.any(Function));
+            expect(navigation.goTo).toHaveBeenCalledWith('server-select');
+        });
+    });
+
+	    describe('post-ready routing policy', () => {
+	        it('routes to audio-setup when audio and channel setup are both required', async () => {
+	            const { coordinator, deps, callbacks } = makeCoordinator();
+	            const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
+
+            (callbacks.shouldRunAudioSetup as jest.Mock).mockReturnValue(true);
+            (callbacks.shouldRunChannelSetup as jest.Mock).mockReturnValue(true);
+
+            await coordinator.runStartup(5);
+
+            expect(navigation.replaceScreen).toHaveBeenCalledWith('audio-setup');
+        });
+
+	        it('routes to channel-setup when only channel setup is required', async () => {
+	            const { coordinator, deps, callbacks } = makeCoordinator();
+	            const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
+
+            (callbacks.shouldRunAudioSetup as jest.Mock).mockReturnValue(false);
+            (callbacks.shouldRunChannelSetup as jest.Mock).mockReturnValue(true);
+
+            await coordinator.runStartup(5);
+
+	            expect(navigation.replaceScreen).toHaveBeenCalledWith('channel-setup');
+	        });
+
+	        it('opens server select when channel manager is unavailable', async () => {
+	            const { coordinator, deps, callbacks } = makeCoordinator({
+	                channelManager: null,
+	            });
+	            const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
+
+	            await coordinator.runStartup(5);
+
+	            expect(callbacks.openServerSelect).toHaveBeenCalled();
+	            expect(navigation.replaceScreen).not.toHaveBeenCalled();
+	        });
+
+	        it('routes to player and switches to current channel when present', async () => {
+	            const currentChannel = { id: 'current-channel-id' };
+	            const { coordinator, deps, callbacks } = makeCoordinator({
+	                channelManager: {
+                    getCurrentChannel: jest.fn().mockReturnValue(currentChannel),
+                    getAllChannels: jest.fn().mockReturnValue([]),
+                } as unknown as InitializationDependencies['channelManager'],
+            });
+            const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
+
+            await coordinator.runStartup(5);
+
+            expect(navigation.replaceScreen).toHaveBeenCalledWith('player');
+            expect(callbacks.switchToChannel).toHaveBeenCalledWith(currentChannel.id);
+            expect(callbacks.openServerSelect).not.toHaveBeenCalled();
+        });
+
+        it('routes to player and switches to first channel when no current channel exists', async () => {
+            const firstChannel = { id: 'first-channel-id' };
+            const { coordinator, deps, callbacks } = makeCoordinator({
+                channelManager: {
+                    getCurrentChannel: jest.fn().mockReturnValue(null),
+                    getAllChannels: jest.fn().mockReturnValue([firstChannel]),
+                } as unknown as InitializationDependencies['channelManager'],
+            });
+            const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
+
+            await coordinator.runStartup(5);
+
+            expect(navigation.replaceScreen).toHaveBeenCalledWith('player');
+            expect(callbacks.switchToChannel).toHaveBeenCalledWith(firstChannel.id);
+            expect(callbacks.openServerSelect).not.toHaveBeenCalled();
+        });
+
+        it('routes to player and opens server select when no channels exist', async () => {
+            const { coordinator, deps, callbacks } = makeCoordinator({
+                channelManager: {
+                    getCurrentChannel: jest.fn().mockReturnValue(null),
+                    getAllChannels: jest.fn().mockReturnValue([]),
+                } as unknown as InitializationDependencies['channelManager'],
+            });
+            const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
+
+            await coordinator.runStartup(5);
+
+            expect(navigation.replaceScreen).toHaveBeenCalledWith('player');
+            expect(callbacks.switchToChannel).not.toHaveBeenCalled();
+            expect(callbacks.openServerSelect).toHaveBeenCalled();
+        });
+    });
+
+	    describe('EPG layoutMode fallback injection', () => {
+	        it('defaults to classic when storage is unset', async () => {
+	            localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
 
             const epg = { initialize: jest.fn() } as unknown as InitializationDependencies['epg'];
             const { coordinator } = makeCoordinator({ epg, plexLibrary: null });
 
             await coordinator.runStartup(5);
 
-            expect((epg as unknown as { initialize: jest.Mock }).initialize).toHaveBeenCalledWith(
-                expect.objectContaining({ layoutMode: 'classic' })
-            );
-        });
+	            expect((epg as unknown as { initialize: jest.Mock }).initialize).toHaveBeenCalledWith(
+	                expect.objectContaining({ layoutMode: 'classic' })
+	            );
+	        });
 
         it('uses overlay only when storage is exactly overlay', async () => {
             localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
@@ -269,17 +418,35 @@ describe('InitializationCoordinator (Plex Home)', () => {
             );
         });
 
-        it('treats invalid stored values as classic', async () => {
-            localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, 'weird');
+	        it('treats invalid stored values as classic', async () => {
+	            localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, 'weird');
 
             const epg = { initialize: jest.fn() } as unknown as InitializationDependencies['epg'];
             const { coordinator } = makeCoordinator({ epg, plexLibrary: null });
 
             await coordinator.runStartup(5);
 
-            expect((epg as unknown as { initialize: jest.Mock }).initialize).toHaveBeenCalledWith(
-                expect.objectContaining({ layoutMode: 'classic' })
-            );
-        });
-    });
-});
+	            expect((epg as unknown as { initialize: jest.Mock }).initialize).toHaveBeenCalledWith(
+	                expect.objectContaining({ layoutMode: 'classic' })
+	            );
+	        });
+
+	        it('preserves supplied onLayoutModeChange when shaping EPG config', async () => {
+	            const onLayoutModeChange = jest.fn();
+	            const epg = { initialize: jest.fn() } as unknown as InitializationDependencies['epg'];
+	            const { coordinator } = makeCoordinator(
+	                { epg, plexLibrary: null },
+	                { epgConfig: { onLayoutModeChange } as never }
+	            );
+
+	            await coordinator.runStartup(5);
+
+	            const initArg = (epg as unknown as { initialize: jest.Mock }).initialize.mock.calls[0]?.[0] as {
+	                onLayoutModeChange?: (mode: 'overlay' | 'classic') => void;
+	            };
+	            initArg.onLayoutModeChange?.('classic');
+
+	            expect(onLayoutModeChange).toHaveBeenCalledWith('classic');
+	        });
+	    });
+	});

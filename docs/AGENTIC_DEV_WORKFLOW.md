@@ -52,6 +52,8 @@ This is the operating runbook for agent-driven development in Lineup.
    - for serious tracked plans, follow [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md)
    - before freezing a serious tracked plan, run the planner self-check from the plan standard so unresolved seams, wrong owners, contradictory scope, or missing evidence are surfaced before execution
    - if an architecture seam or adjacent contract change is still undecided, resolve that boundary before freezing a “decision-point-free” execution plan
+   - if a cleanup slice is the last planned `P#-W#` item for a priority, add an explicit priority-exit step before any `P(n+1)` work begins
+   - a final `P#-W#` plan is incomplete unless its `Priority-exit readiness` section names every mapped imported issue with an exact disposition, assigns a single final owner to every deferred or split-follow-up item, records exact `P0` security issue ids plus revisit triggers for anything not cleared, and lists the evidence/commands that will close `P#-EXIT`
    - move completed or superseded tracked plans to `docs/archive/plans/` once they stop being the active handoff surface
    - use `docs/runs/` for local-only major-task execution bundles and run logs
    - when drafting or reviewing serious tracked plans, use `docs/agentic/historical-plan-corpus-review.md` alongside `docs/agentic/plan-authoring-standard.md` as calibration for strong plan shape and eval seeding
@@ -71,8 +73,16 @@ This is the operating runbook for agent-driven development in Lineup.
 9. Review before closeout.
    - AI review is the baseline pass
    - humans still own architecture, product intent, and merge decisions
+   - if the work claims to finish a cleanup priority, run a priority-exit review before starting or planning the next priority
+   - priority-exit review must verify:
+     - every imported review issue mapped to that priority is retired, explicitly deferred, or split into a new owned follow-up
+     - every deferred or split item has one named final owner plus a reason and revisit trigger, especially when one issue was mapped across multiple `P#-W#` items
+     - the `P0` security gate has been cleared or explicitly deferred with exact issue ids
+     - the strongest verification/evidence commands for that priority have been rerun on current code
+     - no `P(n+1)` checklist item, plan, or implementation work has been opened while `P#-EXIT` is still unresolved
 10. Update the right memory surface in the same pass.
    - update [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md) when a cleanup work unit is completed
+   - complete the matching `P#-EXIT` item and its auditable exit record before opening `P(n+1)` in the checklist or minting new tracked plans for `P(n+1)`
    - update current-state or reference docs when ownership changes
    - update tracked plan references when a plan moves from `docs/plans/` to `docs/archive/plans/`
    - when archiving a completed cleanup section or a standout implementation plan, review whether it adds new reusable patterns or anti-patterns and update `docs/agentic/historical-plan-corpus-review.md` in the same pass

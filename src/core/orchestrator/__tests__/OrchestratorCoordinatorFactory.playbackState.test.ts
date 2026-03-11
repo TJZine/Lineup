@@ -1,0 +1,197 @@
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import { DebugOverridesStore } from '../../../modules/debug/DebugOverridesStore';
+import type { StreamDecision } from '../../../modules/plex/stream';
+import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
+import {
+    createOrchestratorCoordinators,
+    type OrchestratorCoordinatorFactoryDeps,
+} from '../OrchestratorCoordinatorFactory';
+import type { OrchestratorPlaybackStateAccessors } from '../OrchestratorPlaybackStateAccessors';
+
+const makeProgram = (): ScheduledProgram =>
+    ({
+        item: {
+            ratingKey: 'item-1',
+            title: 'Program',
+            durationMs: 60_000,
+            type: 'movie',
+        },
+        elapsedMs: 0,
+        scheduledStartTime: 0,
+        scheduledEndTime: 60_000,
+        remainingMs: 60_000,
+        scheduleIndex: 0,
+        loopNumber: 0,
+        streamDescriptor: null,
+        isCurrent: true,
+    } as unknown as ScheduledProgram);
+
+const makeDecision = (): StreamDecision =>
+    ({
+        isTranscoding: false,
+        isDirectPlay: true,
+        container: 'mp4',
+        videoCodec: 'h264',
+        audioCodec: 'aac',
+        bitrate: 8_000,
+        width: 1920,
+        height: 1080,
+        protocol: 'http',
+        playbackUrl: 'https://example.invalid/stream.mp4',
+        subtitleDelivery: 'embed',
+        sessionId: 'sess-1',
+        mediaIndex: 0,
+        partIndex: 0,
+        partKey: '/library/parts/1/1/file.mp4',
+        selectedAudioStream: null,
+        selectedSubtitleStream: null,
+        directPlay: { reasons: [] },
+    } as unknown as StreamDecision);
+
+const setupStorage = (): void => {
+    const globalAny = globalThis as unknown as { localStorage?: Storage };
+    if (typeof globalAny.localStorage !== 'undefined') {
+        return;
+    }
+
+    const storage: Record<string, string> = {};
+    globalAny.localStorage = {
+        getItem: (key: string) => (key in storage ? storage[key] ?? null : null),
+        setItem: (key: string, value: string) => {
+            storage[key] = value;
+        },
+        removeItem: (key: string) => {
+            delete storage[key];
+        },
+        clear: () => {
+            Object.keys(storage).forEach((key) => {
+                delete storage[key];
+            });
+        },
+        key: (index: number) => Object.keys(storage)[index] ?? null,
+        get length() {
+            return Object.keys(storage).length;
+        },
+    } as Storage;
+};
+
+const makeDeps = (
+    playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors>
+): OrchestratorCoordinatorFactoryDeps => {
+    const debugOverridesStore = new DebugOverridesStore();
+    debugOverridesStore.writeNowPlayingStreamDebugEnabled(true);
+    const moduleStatus = new Map<string, { status: 'ready' | 'pending' | 'error' }>();
+    moduleStatus.set('epg-ui', { status: 'ready' });
+
+    return {
+        config: null,
+        moduleStatus: moduleStatus as OrchestratorCoordinatorFactoryDeps['moduleStatus'],
+        getInitCoordinator: (): null => null,
+        navigation: {
+            isModalOpen: jest.fn().mockReturnValue(false),
+            getCurrentScreen: jest.fn().mockReturnValue('player'),
+        } as unknown as OrchestratorCoordinatorFactoryDeps['navigation'],
+        plexAuth: {
+            getAuthHeaders: jest.fn().mockReturnValue({}),
+            getCurrentUser: jest.fn().mockReturnValue(null),
+        } as unknown as OrchestratorCoordinatorFactoryDeps['plexAuth'],
+        plexDiscovery: {
+            getServerUri: jest.fn().mockReturnValue('https://example.invalid'),
+        } as unknown as OrchestratorCoordinatorFactoryDeps['plexDiscovery'],
+        plexLibrary: {} as OrchestratorCoordinatorFactoryDeps['plexLibrary'],
+        plexStreamResolver: {} as OrchestratorCoordinatorFactoryDeps['plexStreamResolver'],
+        channelManager: {
+            getCurrentChannel: jest.fn().mockReturnValue(null),
+        } as unknown as OrchestratorCoordinatorFactoryDeps['channelManager'],
+        scheduler: {
+            getCurrentProgram: jest.fn().mockReturnValue(null),
+            getNextProgram: jest.fn().mockReturnValue(null),
+        } as unknown as OrchestratorCoordinatorFactoryDeps['scheduler'],
+        videoPlayer: {} as OrchestratorCoordinatorFactoryDeps['videoPlayer'],
+        lifecycle: {
+            saveState: jest.fn().mockResolvedValue(undefined),
+        } as unknown as OrchestratorCoordinatorFactoryDeps['lifecycle'],
+        epg: {} as OrchestratorCoordinatorFactoryDeps['epg'],
+        nowPlayingInfo: {
+            resetAutoHideTimer: jest.fn(),
+        } as unknown as OrchestratorCoordinatorFactoryDeps['nowPlayingInfo'],
+        playerOsd: {
+            isVisible: jest.fn().mockReturnValue(false),
+        } as unknown as OrchestratorCoordinatorFactoryDeps['playerOsd'],
+        channelNumberOverlay: {} as OrchestratorCoordinatorFactoryDeps['channelNumberOverlay'],
+        channelBadgeOverlay: {
+            hide: jest.fn(),
+            isVisible: jest.fn().mockReturnValue(false),
+        } as unknown as OrchestratorCoordinatorFactoryDeps['channelBadgeOverlay'],
+        miniGuide: {
+            isVisible: jest.fn().mockReturnValue(false),
+        } as unknown as OrchestratorCoordinatorFactoryDeps['miniGuide'],
+        channelTransitionOverlay: {} as OrchestratorCoordinatorFactoryDeps['channelTransitionOverlay'],
+        playbackOptionsModal: {} as OrchestratorCoordinatorFactoryDeps['playbackOptionsModal'],
+        exitConfirmModal: {} as OrchestratorCoordinatorFactoryDeps['exitConfirmModal'],
+        sleepTimer: {
+            cyclePreset: jest.fn().mockReturnValue(15),
+            getRemainingMs: jest.fn().mockReturnValue(0),
+        } as unknown as OrchestratorCoordinatorFactoryDeps['sleepTimer'],
+        debugOverridesStore,
+        playbackState,
+        lastChannelChangeSource: jest.fn().mockReturnValue(null),
+        setLastChannelChangeSource: jest.fn(),
+        setActiveScheduleDayKey: jest.fn(),
+        getSelectedServerId: jest.fn().mockReturnValue('server-1'),
+        getLocalMidnightMs: jest.fn().mockReturnValue(0),
+        getLocalDayKey: jest.fn().mockReturnValue(0),
+        buildDailyScheduleConfig: jest.fn().mockReturnValue({} as never),
+        buildPlexResourceUrl: jest.fn().mockReturnValue('https://example.invalid/resource'),
+        getMimeType: jest.fn().mockReturnValue('video/mp4'),
+        getPlaybackInfoSnapshot: jest.fn().mockReturnValue(null),
+        refreshPlaybackInfoSnapshot: jest.fn().mockResolvedValue(null),
+        switchToChannel: jest.fn().mockResolvedValue(undefined),
+        stopPlayback: jest.fn(),
+        stopActiveTranscodeSession: jest.fn(),
+        switchToNextChannel: jest.fn(),
+        switchToPreviousChannel: jest.fn(),
+        switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue('failed'),
+        toggleEPG: jest.fn(),
+        handleGlobalError: jest.fn(),
+        onOverlayVisibilityChange: jest.fn(),
+        toggleNowPlayingInfoOverlay: jest.fn(),
+        nowPlayingHandler: jest.fn().mockReturnValue(null),
+    };
+};
+
+describe('createOrchestratorCoordinators playbackState wiring', () => {
+    beforeAll(() => {
+        setupStorage();
+    });
+
+    beforeEach(() => {
+        localStorage.clear();
+    });
+
+    it('routes now-playing debug stream text through playbackState accessors', () => {
+        const decision = makeDecision();
+        const program = makeProgram();
+        const playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors> = {
+            getCurrentProgramForPlayback: jest.fn().mockReturnValue(program),
+            setCurrentProgramForPlayback: jest.fn(),
+            getCurrentStreamDescriptor: jest.fn().mockReturnValue(null),
+            setCurrentStreamDescriptor: jest.fn(),
+            getCurrentStreamDecision: jest.fn().mockReturnValue(decision),
+            setCurrentStreamDecision: jest.fn(),
+            getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
+            setPendingNowPlayingChannelId: jest.fn(),
+            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
+            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
+        };
+
+        localStorage.setItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG, '1');
+        const coordinators = createOrchestratorCoordinators(makeDeps(playbackState));
+
+        const debugText = coordinators.nowPlayingDebugManager.buildNowPlayingStreamDebugText();
+
+        expect(debugText).toContain('DIRECT PLAY');
+        expect(playbackState.getCurrentProgramForPlayback).toHaveBeenCalled();
+        expect(playbackState.getCurrentStreamDecision).toHaveBeenCalled();
+    });
+});

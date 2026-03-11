@@ -582,9 +582,6 @@ export class App {
         const message = error instanceof Error ? error.message : String(error);
         const root = document.getElementById('app');
         if (root) {
-            // Clear existing content
-            root.innerHTML = '';
-
             // Create container
             const container = document.createElement('div');
             container.className = 'fatal-error';
@@ -604,7 +601,7 @@ export class App {
             instructPara.textContent = 'Please refresh the page or restart the application.';
             container.appendChild(instructPara);
 
-            root.appendChild(container);
+            root.replaceChildren(container);
         }
     }
 

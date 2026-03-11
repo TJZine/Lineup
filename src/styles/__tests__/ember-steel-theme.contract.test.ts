@@ -1,31 +1,7 @@
 /**
  * @jest-environment node
  */
-import fs from 'node:fs';
-import path from 'node:path';
-
-const read = (relativePath: string): string =>
-    fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
-
-const blockFor = (css: string, selector: string): string => {
-    const selectorPattern = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // Match selector blocks even when the selector is part of a grouped selector list.
-    // Keep this resilient to formatting changes (commas/newlines/indentation).
-    const match = css.match(new RegExp(`(^|\\n)\\s*${selectorPattern}\\s*(?:,\\s*)?[^\\{]*\\{[\\s\\S]*?\\}`, 'm'));
-    if (!match) {
-        throw new Error(`Selector block not found: ${selector}`);
-    }
-    return match[0];
-};
-
-const declarationValue = (block: string, property: string): string => {
-    const regex = new RegExp(`${property}\\s*:\\s*([^;]+);`);
-    const match = block.match(regex);
-    if (!match || typeof match[1] !== 'string') {
-        throw new Error(`Property not found: ${property}`);
-    }
-    return match[1].replace(/\s+/g, ' ').trim();
-};
+import { read, blockFor, declarationValue } from './helpers/css-test-utils';
 
 describe('ember-steel theme contract', () => {
     it('defines the neutral steel token block and brighter ember accent', () => {
@@ -67,14 +43,15 @@ describe('ember-steel theme contract', () => {
     it('uses theme tokens for ember-scoped visual values and only in ember scope', () => {
         const epgCss = read('src/modules/ui/epg/styles.css');
         const emberBanner = blockFor(epgCss, '.theme-ember-steel .epg-container.layout-classic .epg-time-header-sticky');
-        const emberNowPlaying = blockFor(
-            epgCss,
-            '.theme-ember-steel .epg-container.layout-classic .epg-cell-episode,\n.theme-ember-steel .epg-container.layout-classic .epg-info-quality-badge,\n.theme-ember-steel .epg-container.layout-classic .epg-info-pill'
-        );
+        const emberEpisode = blockFor(epgCss, '.theme-ember-steel .epg-container.layout-classic .epg-cell-episode');
+        const emberQuality = blockFor(epgCss, '.theme-ember-steel .epg-container.layout-classic .epg-info-quality-badge');
+        const emberPill = blockFor(epgCss, '.theme-ember-steel .epg-container.layout-classic .epg-info-pill');
 
         expect(declarationValue(emberBanner, 'background')).toContain('var(--scrim-tint-rgb)');
         expect(declarationValue(emberBanner, 'color')).toBe('var(--color-text-primary)');
-        expect(declarationValue(emberNowPlaying, 'background')).toContain('var(--scrim-tint-rgb)');
+        expect(declarationValue(emberEpisode, 'background')).toContain('var(--scrim-tint-rgb)');
+        expect(declarationValue(emberQuality, 'background')).toContain('var(--scrim-tint-rgb)');
+        expect(declarationValue(emberPill, 'background')).toContain('var(--scrim-tint-rgb)');
     });
 
     it('keeps the generic classic-guide palette unchanged outside the ember-specific override block', () => {
