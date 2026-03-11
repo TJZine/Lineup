@@ -271,9 +271,38 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - [x] `P2-W2` narrow the `App` screen-visibility seam so it coordinates shell surfaces rather than feature details (done 2026-03-11; plan: `docs/plans/2026-03-11-p2-w2-narrow-app-screen-visibility-seam.md`; verification: `npm test -- src/core/app-shell/__tests__/AppScreenVisibilityCoordinator.test.ts`, `npm test -- src/__tests__/App.test.ts`, `npm test -- src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts`, `npm run typecheck`, `npm run verify`)
   - [x] `P2-W3` remove any remaining feature-specific persistence or trust-boundary policy from `App` (done 2026-03-11; plan: `docs/plans/2026-03-11-p2-w3-remove-app-persistence-trust-policy.md`; verification: `npm run typecheck`, `npm test -- src/modules/plex/auth/__tests__/config.test.ts`, `npm test -- src/__tests__/App.test.ts`, `npm test -- src/core/__tests__/InitializationCoordinator.test.ts`, `npm run verify`, `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`, `desloppify show security::src/core/initialization/InitializationStartupPolicy.ts::security::log_sensitive::src/core/initialization/InitializationStartupPolicy.ts::211`)
     - mapped security issue disposition: `security::src/core/initialization/InitializationStartupPolicy.ts::security::log_sensitive::src/core/initialization/InitializationStartupPolicy.ts::211` -> `resolved` (targeted query now returns `No open issues matching ...`; no replacement security id for `InitializationStartupPolicy.ts`)
-  - [ ] `P2-W4` clean up shell-level glue, duplicate container knowledge, and any app-shell transitional seams left after the boundary cleanup
+  - [ ] `P2-W4` clean up shell-level glue, duplicate container knowledge, and any app-shell transitional seams left after the boundary cleanup (implementation executed 2026-03-11; plan: `docs/plans/2026-03-11-p2-w4-app-shell-transitional-cleanup.md`)
+    - implementation evidence:
+      - rewired `src/App.ts` and `src/core/app-shell/AppContainerFactory.ts` to consume module-owned container id constants exported by `src/modules/ui/now-playing-info/constants.ts` and `src/modules/ui/playback-options/constants.ts`
+      - rewired `src/__tests__/fixtures/appShellContainerIds.ts` to consume the same module-owned ids
+      - replaced shell/startup clear-path `.innerHTML = ''` usage with `replaceChildren()` in:
+        - `src/core/app-shell/AppBlockingErrorOverlayPresenter.ts`
+        - `src/modules/ui/audio-setup/AudioSetupScreen.ts`
+        - `src/modules/ui/splash/SplashScreen.ts`
+    - verification evidence:
+      - `npm test -- src/core/app-shell/__tests__/AppContainerFactory.test.ts` -> pass
+      - `npm test -- src/core/app-shell/__tests__/AppBlockingErrorOverlayPresenter.test.ts` -> pass
+      - `npm test -- src/modules/ui/splash/__tests__/SplashScreen.test.ts` -> pass
+      - `npm test -- src/modules/ui/audio-setup/__tests__/AudioSetupScreen.test.ts` -> pass
+      - `npm test -- src/__tests__/App.test.ts` -> pass
+      - `npm run typecheck` -> pass
+      - `npm run verify` -> pass
+      - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"` -> pass
+      - `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> still reports `1 open issue`
+      - `desloppify show security::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::security::innerHTML_assignment::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::49` -> `No open issues matching ...`
+      - `desloppify show security::src/modules/ui/audio-setup/AudioSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/audio-setup/AudioSetupScreen.ts::420` -> `No open issues matching ...`
+      - `desloppify show security::src/modules/ui/splash/SplashScreen.ts::security::innerHTML_assignment::src/modules/ui/splash/SplashScreen.ts::19` -> `No open issues matching ...`
+    - gate status:
+      - `P2-W4` remains open until `P2-EXIT` records the final disposition for `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23`
+      - if that review id is still open at exit time, `P2-EXIT` must record a `split follow-up` to `P4-W5` with one final owner, reason, and revisit trigger before any `P3` planning/work begins
   - [ ] `P2-EXIT` run the priority-exit review before moving to `P3`
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 2
+    - blocking note from `P2-W4` implementation:
+      - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` is still reported open by targeted query after implementation verification
+      - if it remains open during `P2-EXIT`, required disposition is `split follow-up`
+      - final owner: `P4-W5`
+      - reason: `P2-W4` rewired the known literals to module-owned constants, but `desloppify` still flags residual convention drift requiring follow-up confirmation during the Priority 4 transitional cleanup pass
+      - revisit trigger: start of `P4-W5`, or `P4-EXIT` if the issue remains open then
 
 ## Priority 3: Consolidate Persistence Ownership And Storage Policy
 
