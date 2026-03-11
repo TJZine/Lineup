@@ -266,7 +266,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - normalize shell-level naming or helper placement where touched
   - reduce obvious boilerplate in shell-only presenters if it falls out naturally from the main cleanup
 - Cleanup track:
-  - [ ] `P2-W1` move client-identifier ownership behind one explicit owner used by both `App` and Plex auth (this work item fully absorbs the client-ID unification seam previously duplicated under `P3-W1`)
+  - [x] `P2-W1` move client-identifier ownership behind one explicit owner used by both `App` and Plex auth (completed 2026-03-11; plan: `docs/plans/2026-03-11-p2-w1-unify-client-identifier-ownership.md`; this item fully absorbed the client-ID unification seam previously duplicated under `P3-W1`)
   - [ ] `P2-W2` narrow the `App` screen-visibility seam so it coordinates shell surfaces rather than feature details
   - [ ] `P2-W3` remove any remaining feature-specific persistence or trust-boundary policy from `App`
   - [ ] `P2-W4` clean up shell-level glue, duplicate container knowledge, and any app-shell transitional seams left after the boundary cleanup
@@ -301,7 +301,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - normalize storage helper naming where ownership cleanup exposes awkward seams
   - consolidate tiny adjacent persistence helpers if they are clearly duplicate after the owner map is cleaned up
 - Cleanup track:
-  - [ ] `P3-W1` (post-`P2-W1`) audit client-identifier usage for residual non-owner direct-storage bypasses and ensure the single sanctioned owner remains intact while Priority 3 completes the broader persistence-owner map
+  - [ ] `P3-W1` (post-`P2-W1`) audit client-identifier usage for residual non-owner direct-storage bypasses only; keep `resolveClientIdentifier(preferred?: string): string` as the single sanctioned owner API while Priority 3 completes the broader persistence-owner map
   - [ ] `P3-W2` decide and document the intended owner for lifecycle persistence versus channel-specific persistence edges
   - [ ] `P3-W3` isolate, wrap, or explicitly document the remaining direct-storage exceptions for EPG debug logging and channel-setup stale-key cleanup
   - [ ] `P3-W4` audit the rest of the repo for storage-owner drift and remove any newly discovered raw-storage bypasses before closing the priority
