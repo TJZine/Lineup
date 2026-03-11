@@ -47,6 +47,7 @@ Use this prompt for Tier 2 or Tier 3 work when you need a serious implementation
 - include commit checkpoints only for tracked work
 - do not rely on ignored local material unless a tracked curated reference already exists
 - if adjacent files may need contract/type changes, either place them in scope explicitly or freeze them explicitly and explain how the extraction still works
+- if the plan closes the last planned `P#-W#` item in a priority, include a `Priority-exit readiness` section that names every mapped imported issue with an exact disposition, assigns a single final owner to every deferred or split-follow-up item, records exact `P0` security issue ids and revisit triggers for anything not cleared, and names the `P#-EXIT` checklist update/evidence refresh that blocks `P(n+1)`
 
 ## Stop Conditions
 
@@ -58,6 +59,7 @@ Stop and revise the plan instead of continuing when:
 - the plan would require fallback paths or compatibility shims that the repo policy forbids
 - the plan needs “mechanical wiring” in files that are simultaneously declared out of scope
 - the plan depends on stale ownership assumptions or stale file references
+- the final `P#-W#` plan still leaves a mapped imported issue without one single final owner or leaves `P0` security disposition implicit
 
 ## Output Contract
 
@@ -67,6 +69,7 @@ Return:
 2. the locked decisions and invariants
 3. the main impacted files or symbols
 4. the exact verification commands
+   - if this is the final `P#-W#` for a priority, include the exact priority-exit evidence and `P#-EXIT` update that must happen before `P(n+1)`
 5. any risks or unknowns that still need review before implementation
 6. the result of the planner self-check if anything had to be resolved before the plan became execution-safe
 7. a `NEXT_SESSION_HANDOFF` block that routes to `lineup-cleanup-review` and includes:
@@ -74,4 +77,4 @@ Return:
    - `PLAN`
    - `ARTIFACT`
    - `FILES`
-   - a pasteable review request for the finished plan
+   - a pasteable review request for the finished plan, explicitly calling out priority-exit readiness when the plan claims priority closeout

@@ -16,6 +16,14 @@ Use this prompt for adversarial review of a cleanup artifact from any orchestrat
 
 ## Review Mode
 
+Use this disposition vocabulary literally:
+
+- `deferred`: the issue stays open, but the artifact names the exact issue id, current owner, reason, and revisit trigger
+- `split follow-up`: the artifact does not retire the issue now and instead hands the remaining gap to one exact successor owner
+- `owned follow-up`: the one exact successor owner named by a `split follow-up` record; do not accept shared implicit ownership
+- `security triage`: a fresh `desloppify status` result that either says `none open` or lists the exact security issue ids still open/deferred
+- `priority-exit review`: the blocking review required after the last planned `P#-W#` item and before any `P(n+1)` work, plan, or checklist progress
+
 If reviewing a plan, focus on:
 
 - freshness for a no-context session
@@ -37,6 +45,7 @@ If reviewing a plan, focus on:
 - if the plan claims to close the last `P#-W#` item in a priority:
   - missing priority-exit readiness
   - missing mapped-imported-issue disposition
+  - missing exact final owner for a deferred or split-follow-up issue
   - missing `P0` security-gate disposition before `P(n+1)`
 
 If reviewing an implementation, focus on:
@@ -49,8 +58,10 @@ If reviewing an implementation, focus on:
 - new slop, fallback paths, or cross-boundary shortcuts
 - if the artifact claims to close the last `P#-W#` item in a priority, treat it as a priority-exit review too:
   - verify every imported review issue mapped to that priority is retired, explicitly deferred, or split into a new owned follow-up
+  - verify every deferred or split item names one single final owner plus a reason and revisit trigger, especially when one imported issue was mapped to multiple `P#-W#` items
   - verify the `P0` security gate has been cleared or explicitly deferred with exact issue ids
   - verify the checklist is not advancing to `P(n+1)` while known priority-local debt is still open without a recorded reason
+  - verify no `P(n+1)` plan or implementation work is being approved while `P#-EXIT` is still unresolved
 
 ## Output Contract
 
@@ -70,5 +81,5 @@ If reviewing an implementation, focus on:
   - the likely bug/regression vectors are accounted for by scope, invariants, and verification
 - for claimed priority closeout, treat “ready to move to the next priority” as meaning:
   - the matching `P#-EXIT` gate is satisfied
-  - mapped imported issues and security triage have an auditable disposition
+  - mapped imported issues and security triage have an auditable disposition with exact issue ids, owners, reasons, and revisit triggers
   - the remaining debt in that priority area is either intentionally owned elsewhere or explicitly deferred

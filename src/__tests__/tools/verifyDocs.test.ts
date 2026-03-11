@@ -157,6 +157,9 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '',
             'Route task family before choosing a tier.',
             '',
+            'A final `P#-W#` plan must include a `Priority-exit readiness` section, assign a single final owner to each deferred or split follow-up item, and record any exact `P0` security issue ids before starting or planning the next priority.',
+            'No `P(n+1)` checklist item, plan, or implementation work may open while `P#-EXIT` is unresolved.',
+            '',
             '[cleanup-plan](./agentic/session-prompts/cleanup-plan.md)',
             '[cleanup-review](./agentic/session-prompts/cleanup-review.md)',
             '[feature-plan](./agentic/session-prompts/feature-plan.md)',
@@ -168,9 +171,93 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
         ].join('\n')
     );
 
+    writeRepoFile(
+        repoRoot,
+        'ARCHITECTURE_CLEANUP_CHECKLIST.md',
+        [
+            '# Checklist',
+            '',
+            '## Execution Hygiene',
+            '',
+            '- Disposition vocabulary:',
+            '  - `owned follow-up`: assign one single final owner.',
+            '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
+            '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
+            '',
+            '- [ ] `P1-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P2-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P3-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P4-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P5-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P6-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P7-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P8-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '',
+        ].join('\n')
+    );
+
+    writeRepoFile(
+        repoRoot,
+        'docs/agentic/plan-authoring-standard.md',
+        [
+            '# Plan Standard',
+            '',
+            '- The exact `P#-EXIT` checklist update must be named.',
+            '- Every deferred item needs an exact issue id, a single final owner, and a revisit trigger.',
+            '',
+        ].join('\n')
+    );
+
     for (const prompt of expectedSessionPromptFiles) {
         writeRepoFile(repoRoot, `docs/agentic/session-prompts/${prompt}`);
     }
+
+    writeRepoFile(
+        repoRoot,
+        'docs/agentic/session-prompts/cleanup-plan.md',
+        [
+            '# Cleanup Plan (Fixture)',
+            '',
+            '- Include `Priority-exit readiness` when the plan claims priority closeout.',
+            '- Assign a single final owner to every deferred or split follow-up item.',
+            '- Record exact `P0` security issue ids and the `P#-EXIT` checklist update.',
+            '',
+        ].join('\n')
+    );
+
+    writeRepoFile(
+        repoRoot,
+        'docs/agentic/session-prompts/cleanup-implement.md',
+        [
+            '# Cleanup Implement (Fixture)',
+            '',
+            '- Prepare the `P#-EXIT` evidence and checklist update in the same pass.',
+            '- Include any deferred or split items with their single final owners.',
+            '- Ask for a `priority-exit review` when the task closes a priority and do not start `P(n+1)` work in the same session.',
+            '',
+        ].join('\n')
+    );
+
+    writeRepoFile(
+        repoRoot,
+        'docs/agentic/session-prompts/cleanup-review.md',
+        [
+            '# Cleanup Review (Fixture)',
+            '',
+            '- `owned follow-up` means one single final owner.',
+            '- Every deferred item needs a revisit trigger.',
+            '- A `priority-exit review` must ensure no `P(n+1)` plan or implementation work is being approved while `P#-EXIT` is still unresolved.',
+            '',
+        ].join('\n')
+    );
 
     writeRepoFile(
         repoRoot,
@@ -728,8 +815,31 @@ describe('verify-docs', () => {
             'ARCHITECTURE_CLEANUP_CHECKLIST.md': [
                 '# Checklist',
                 '',
+                '## Execution Hygiene',
+                '',
+                '- Disposition vocabulary:',
+                '  - `owned follow-up`: assign one single final owner.',
+                '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
+                '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
+                '',
                 '- [x] Example done item (plan: docs/archive/plans/example-summary.md)',
                 '- [ ] Local draft item (plan: docs/plans/example-draft.md)',
+                '- [ ] `P1-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P2-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P3-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P4-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P5-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P6-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P7-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P8-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
                 '',
             ].join('\n'),
             'docs/archive/plans/example-summary.md': [
@@ -756,8 +866,31 @@ describe('verify-docs', () => {
             'ARCHITECTURE_CLEANUP_CHECKLIST.md': [
                 '# Checklist',
                 '',
+                '## Execution Hygiene',
+                '',
+                '- Disposition vocabulary:',
+                '  - `owned follow-up`: assign one single final owner.',
+                '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
+                '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
+                '',
                 '- [x] Example done item (plan: docs/archive/plans/example-summary.md)',
                 '- [ ] Local draft item (plan: docs/plans/example-draft.md)',
+                '- [ ] `P1-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P2-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P3-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P4-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P5-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P6-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P7-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P8-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
                 '',
             ].join('\n'),
             'docs/archive/plans/example-summary.md': [
@@ -784,8 +917,31 @@ describe('verify-docs', () => {
             'ARCHITECTURE_CLEANUP_CHECKLIST.md': [
                 '# Checklist',
                 '',
+                '## Execution Hygiene',
+                '',
+                '- Disposition vocabulary:',
+                '  - `owned follow-up`: assign one single final owner.',
+                '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
+                '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
+                '',
                 '- [ ] Local draft item A (plan: docs/plans/example-draft.md)',
                 '- [ ] Local draft item B (plan: docs/plans/example-draft.md)',
+                '- [ ] `P1-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P2-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P3-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P4-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P5-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P6-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P7-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P8-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
                 '',
             ].join('\n'),
         });
@@ -1186,5 +1342,73 @@ describe('verify-docs', () => {
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('contradictory outgoing review guidance');
+    });
+
+    it('fails when cleanup-plan omits the priority-exit readiness ownership/security contract', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/cleanup-plan.md': [
+                '# Cleanup Plan',
+                '',
+                '- Include verification commands.',
+                '- Include rollback notes.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('cleanup-plan prompt doc');
+    });
+
+    it('fails when cleanup-review omits single-owner or revisit-trigger priority-exit guidance', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/cleanup-review.md': [
+                '# Cleanup Review',
+                '',
+                '- Verify mapped imported issues are resolved or deferred.',
+                '- Run a priority-exit review before moving to the next priority.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('cleanup-review prompt doc');
+    });
+
+    it('fails when the checklist does not repeat the required exit-enforcement line for every priority', () => {
+        const repoRoot = createRepoFixture({
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md': [
+                '# Checklist',
+                '',
+                '## Execution Hygiene',
+                '',
+                '- Disposition vocabulary:',
+                '  - `owned follow-up`: assign one single final owner.',
+                '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
+                '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
+                '',
+                '- [ ] `P1-EXIT`',
+                '  - required: record every mapped imported issue with an exact disposition',
+                '- [ ] `P2-EXIT`',
+                '- [ ] `P3-EXIT`',
+                '- [ ] `P4-EXIT`',
+                '- [ ] `P5-EXIT`',
+                '- [ ] `P6-EXIT`',
+                '- [ ] `P7-EXIT`',
+                '- [ ] `P8-EXIT`',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Checklist doc must require the same exact priority-exit disposition/ownership/security line for every `P#-EXIT` item');
     });
 });

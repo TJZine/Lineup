@@ -93,13 +93,22 @@ Do not close a listed work unit while its mapped imported issue still remains un
 
 ## Execution Hygiene
 
+- Disposition vocabulary:
+  - `resolved`: the exact imported or security issue is retired by the current slice or priority exit, and the closing evidence has been refreshed on current code
+  - `deferred`: the issue stays open, but the record names the exact issue id, current owner, reason, and revisit trigger; nothing deferred is implicitly accepted
+  - `split follow-up`: the current slice is not the final owner; the remaining gap is handed to one exact successor owner
+  - `owned follow-up`: the exact successor owner named by a `split follow-up` record; each split issue must have one single final owner, not shared implicit ownership across multiple `P#-W#` items
+  - `security triage`: a fresh `desloppify status` result for the current slice or exit that either says `none open` or lists the exact open/deferred security issue ids plus reasons and revisit triggers
+  - `priority-exit review`: the blocking review run after the last planned `P#-W#` item in a priority and before any `P(n+1)` work, plan, or checklist progress begins
 - Security deferral record format:
   - `issue`: exact `desloppify` issue id or security finding reference
+  - `owner`: exact current owner responsible for clearing or revisiting the deferred item
   - `reason`: why it is being deferred instead of resolved now
   - `revisit trigger`: the concrete condition or date that forces re-triage
 - Priority exit record format:
-  - `mapped imported issues`: every imported issue mapped to the priority, each marked `resolved`, `deferred`, or `split follow-up`
-  - `security triage`: `none open`, or the exact deferred/resolved security findings blocking next-priority work
+  - `mapped imported issues`: every imported issue mapped to the priority, each with its exact issue id and one disposition: `resolved`, `deferred`, or `split follow-up`
+  - `follow-up ownership`: for every `deferred` or `split follow-up` item, the exact current owner, reason, and revisit trigger; if an imported issue was mapped across multiple `P#-W#` items, nominate one single final owner here
+  - `security triage`: `none open`, or the exact deferred/resolved security findings blocking next-priority work, with exact issue ids and revisit triggers for anything still open
   - `residuals`: any meaningful debt intentionally left in the priority area, plus its new owner
   - `verification`: exact commands used for the priority-exit review, including `desloppify` evidence refresh and task-specific gates
 - Cleanup slice execution template:
@@ -107,14 +116,16 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - `imported review issues`: exact mapped or newly assigned imported review issue ids being retired
   - `security triage`: `none open`, or the deferred/resolved security findings for this slice
   - `verification`: exact commands that prove the slice is complete
-  - `deferred items`: anything intentionally left open with a concrete reason
+  - `deferred items`: anything intentionally left open with its exact issue id, owner, reason, and revisit trigger
 - Priority exit command checklist:
   - rerun `desloppify status`
   - rerun `desloppify show review --status open`
   - rerun any task-specific `desloppify show <issue-or-area>` commands needed to verify mapped imported issues
   - rerun the strongest task-specific verification used by the closing work units
-  - confirm every mapped imported issue for the priority is either retired here or explicitly deferred/split with a reason
+  - confirm every mapped imported issue for the priority is either retired here or explicitly deferred/split with an exact owner, reason, and revisit trigger
+  - confirm every issue mapped across multiple `P#-W#` items has one single final owner at exit
   - confirm the `P0` security gate is either cleared or explicitly deferred before the next priority begins
+  - confirm no `P(n+1)` work, plan, or checklist progress has been opened before this exit record is complete
 - Evidence refresh checklist:
   - rerun `desloppify status`
   - rerun `desloppify show review --status open`
@@ -163,7 +174,8 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - [x] `P1-W4` remove leftover pass-through runtime helpers, duplicate lifecycle handoffs, and any transitional seams created by the round-2 extraction (done 2026-03-10; plan: docs/plans/2026-03-10-p1-w4-remove-orchestrator-runtime-transitional-seams.md)
   - [x] `P1-W5` run a full cleanup pass for this priority so the remaining `AppOrchestrator` surface matches the intended steady-state boundary rather than a partially reduced hotspot (done 2026-03-10)
   - [ ] `P1-EXIT` run the priority-exit review before moving to `P2`
-    - required: retire or explicitly defer `abstraction_fitness::orchestrator_passthrough_facade`, record `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 1
+    - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 1
+    - required: retire or explicitly defer `abstraction_fitness::orchestrator_passthrough_facade`
 
 ## Priority 2: Finish App-Shell And Startup Boundary Cleanup
 
@@ -195,6 +207,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - [ ] `P2-W3` remove any remaining feature-specific persistence or trust-boundary policy from `App`
   - [ ] `P2-W4` clean up shell-level glue, duplicate container knowledge, and any app-shell transitional seams left after the boundary cleanup
   - [ ] `P2-EXIT` run the priority-exit review before moving to `P3`
+    - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 2
 
 ## Priority 3: Consolidate Persistence Ownership And Storage Policy
 
@@ -230,6 +243,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - [ ] `P3-W4` audit the rest of the repo for storage-owner drift and remove any newly discovered raw-storage bypasses before closing the priority
   - [ ] `P3-W5` refresh `CURRENT_STATE` and adjacent docs so the persistence-owner list is accurate and complete
   - [ ] `P3-EXIT` run the priority-exit review before moving to `P4`
+    - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 3
 
 ## Priority 4: Complete UI And Coordinator Round-2 Decomposition
 
@@ -264,6 +278,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - [ ] `P4-W4` finish remaining round-2 cleanup in `SettingsScreen` / `ChannelSetupScreen` where the imported review still flags coarse ownership or cleanup residue
   - [ ] `P4-W5` remove transitional coordinator glue, timing bridges, duplicated EPG status literals, and force-cast config residue created by the round-2 decomposition
   - [ ] `P4-EXIT` run the priority-exit review before moving to `P5`
+    - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 4
 
 ## Priority 5: Tighten Plex/Auth/Discovery Trust Boundaries
 
@@ -297,6 +312,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - [ ] `P5-W3` consolidate token-in-URL usage and origin-trust checks behind one clear policy surface or a very small set of aligned surfaces
   - [ ] `P5-W4` remove any remaining sibling policy drift that the imported subjective findings flag inside Plex-facing modules
   - [ ] `P5-EXIT` run the priority-exit review before moving to `P6`
+    - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 5
 
 ## Priority 6: Complete Scheduler And Channel Domain Cleanup
 
@@ -328,6 +344,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - [ ] `P6-W3` reduce utility-layer catch-all drift where feature-specific helpers belong closer to their owners
   - [ ] `P6-W4` run a final scheduler-domain cleanup pass to remove transitional helpers, duplicate conventions, namespace-export drift, and stale abstraction residue
   - [ ] `P6-EXIT` run the priority-exit review before moving to `P7`
+    - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 6
 
 ## Priority 7: Improve Test Strategy And Public Seam Realism
 
@@ -358,6 +375,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - [ ] `P7-W3` tighten test utility patterns and timing assertions that currently encourage incidental mechanics over behavior-level checks
   - [ ] `P7-W4` run a follow-up cleanup pass on redundant, overbuilt, or brittle tests in the affected hotspot areas
   - [ ] `P7-EXIT` run the priority-exit review before moving to `P8`
+    - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 7
 
 ## Priority 8: Remove Cleanup Residue, AI-Slop Ceremony, And Control-Plane Drift
 
@@ -389,16 +407,19 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - [ ] `P8-W3` remove review-history breadcrumbs, migration residue comments, and stale cleanup scaffolding from production code across the affected priorities
   - [ ] `P8-W4` audit remaining control-plane wording drift so active docs stay live and archives stay historical
   - [ ] `P8-EXIT` run the priority-exit review before declaring the cleanup backlog complete
+    - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 8
 
 ## Closeout Rules For This Checklist
 
 - Do not close a priority after one bounded extraction if meaningful debt in that same priority area is still known to remain.
-- Treat `P#-EXIT` as a required gate, not optional polish: do not start `P(n+1)` until `P#-EXIT` is complete or explicitly deferred with a reason.
+- Treat `P#-EXIT` as a required gate, not optional polish: do not start, plan, or mark progress on `P(n+1)` work until the current priority's `P#-EXIT` record is complete.
+- If `P#-EXIT` itself must be deferred, record that deferral inside the `P#-EXIT` item with exact blocking issue ids, a single current owner, a reason, and a revisit trigger.
 - Do not mint new multi-session work plans from lower priorities until a higher-priority blocker is resolved, explicitly deprioritized, or accepted as deferred.
 - Do not bypass the `P0` security triage gate just because a lower-numbered cleanup priority is next in sequence.
 - Do not mark a mapped `P#-W#` item complete while its linked imported review issue still remains open unless the remaining gap is explicitly documented as deferred or intentionally split into a follow-up work unit.
 - Do not mark `P#-EXIT` complete until every imported review issue mapped to that priority is either retired, explicitly deferred, or intentionally split into a new owned follow-up work unit.
 - Do not mark `P#-EXIT` complete until the `P0` security gate has either been cleared or explicitly deferred for the next slice with exact issue ids and revisit triggers.
+- Do not leave a multiply-mapped imported review issue with shared implicit ownership at priority exit; the exit record must nominate one single final owner.
 - Do not leave imported review issues unowned: every open imported review issue must either be pre-mapped in this file, assigned in the active implementation plan for the touched priority, or explicitly deferred with a reason.
 - The priority order was re-checked against the full subjective import on `2026-03-10`; keep this order unless newer evidence materially changes ROI.
 - After any cleanup slice materially changes the evidence, refresh:

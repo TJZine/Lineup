@@ -131,11 +131,13 @@ For a final `P#-W#` plan in a cleanup priority, the verification section must al
 - `desloppify show review --status open`
 - any `desloppify show <mapped-issue>` calls needed to verify imported-issue retirement
 - the strongest task-specific verification already required by the plan
+- the exact `P#-EXIT` checklist update and evidence refresh the implementer must complete before any `P(n+1)` work starts
 
 The priority-exit readiness section must explicitly record:
 
-- every imported review issue mapped to the priority and whether this plan retires it, defers it, or splits it into a follow-up owner
-- the expected `P0` security-gate disposition before the next priority begins
+- every imported review issue mapped to the priority, with its exact issue id, and whether this plan retires it, defers it, or splits it into a follow-up owner
+- for every deferred or split item, the exact current or follow-up owner, the reason it remains open, and the revisit trigger; if one issue spans multiple `P#-W#` items, nominate one single final owner
+- the expected `P0` security-gate disposition before the next priority begins, including exact issue ids and revisit triggers for anything not cleared
 - any residual debt in the priority area that is intentionally left behind, with its new owner
 
 ## Anti-Patterns To Avoid
@@ -150,3 +152,4 @@ The priority-exit readiness section must explicitly record:
 - plans that record only partial Codanna evidence without the required fallback notes
 - plans that commit local-only artifacts
 - plans that require raw local-only source material when a tracked curated reference should exist instead
+- plans that claim priority closeout while leaving the final owner of a mapped imported issue implicit

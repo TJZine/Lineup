@@ -712,6 +712,131 @@ function checkFeatureRemediationPromptContracts(errors) {
     }
 }
 
+function checkCleanupPriorityExitContracts(errors) {
+    const checklist = readRepoFile('ARCHITECTURE_CLEANUP_CHECKLIST.md', errors);
+    if (checklist !== null) {
+        const normalized = normalizeDocText(checklist);
+        const requiredChecklistMarkers = [
+            'disposition vocabulary',
+            'owned follow-up',
+            'single final owner',
+            'priority-exit review',
+            'mark progress on p(n+1) work until the current priority',
+            'p#-exit record is complete',
+        ];
+
+        for (const marker of requiredChecklistMarkers) {
+            if (!normalized.includes(marker)) {
+                errors.push(`Checklist doc is missing required priority-exit enforcement marker: ${marker}`);
+            }
+        }
+
+        const exitRequirementMarker = 'required: record every mapped imported issue with an exact disposition';
+        const exitRequirementCount = checklist.match(new RegExp(exitRequirementMarker, 'gu'))?.length ?? 0;
+        if (exitRequirementCount < 8) {
+            errors.push(
+                'Checklist doc must require the same exact priority-exit disposition/ownership/security line for every `P#-EXIT` item'
+            );
+        }
+
+        for (let priority = 1; priority <= 8; priority += 1) {
+            if (!checklist.includes(`\`P${priority}-EXIT\``)) {
+                errors.push(`Checklist doc is missing the \`P${priority}-EXIT\` gate.`);
+            }
+        }
+    }
+
+    const workflow = readRepoFile('docs/AGENTIC_DEV_WORKFLOW.md', errors);
+    if (workflow !== null) {
+        const normalized = normalizeDocText(workflow);
+        const requiredWorkflowMarkers = [
+            'priority-exit readiness section',
+            'single final owner',
+            'starting or planning the next priority',
+            'p(n+1) checklist item',
+            'implementation work',
+            'p#-exit',
+            'unresolved',
+        ];
+
+        for (const marker of requiredWorkflowMarkers) {
+            if (!normalized.includes(marker)) {
+                errors.push(`Workflow doc is missing required priority-exit alignment marker: ${marker}`);
+            }
+        }
+    }
+
+    const planStandard = readRepoFile('docs/agentic/plan-authoring-standard.md', errors);
+    if (planStandard !== null) {
+        const normalized = normalizeDocText(planStandard);
+        const requiredPlanMarkers = [
+            'exact issue id',
+            'single final owner',
+            'revisit trigger',
+            'the exact p#-exit checklist update',
+        ];
+
+        for (const marker of requiredPlanMarkers) {
+            if (!normalized.includes(marker)) {
+                errors.push(`Plan authoring standard doc is missing required priority-exit marker: ${marker}`);
+            }
+        }
+    }
+
+    const cleanupPlan = readRepoFile('docs/agentic/session-prompts/cleanup-plan.md', errors);
+    if (cleanupPlan !== null) {
+        const normalized = normalizeDocText(cleanupPlan);
+        const requiredCleanupPlanMarkers = [
+            'priority-exit readiness',
+            'single final owner',
+            'exact p0 security issue ids',
+            'p#-exit checklist update',
+            'priority closeout',
+        ];
+
+        for (const marker of requiredCleanupPlanMarkers) {
+            if (!normalized.includes(marker)) {
+                errors.push(`cleanup-plan prompt doc is missing required priority-exit planning marker: ${marker}`);
+            }
+        }
+    }
+
+    const cleanupImplement = readRepoFile('docs/agentic/session-prompts/cleanup-implement.md', errors);
+    if (cleanupImplement !== null) {
+        const normalized = normalizeDocText(cleanupImplement);
+        const requiredCleanupImplementMarkers = [
+            'prepare the p#-exit evidence and checklist update',
+            'single final owners',
+            'priority-exit review',
+            'do not start p(n+1) work in the same session',
+        ];
+
+        for (const marker of requiredCleanupImplementMarkers) {
+            if (!normalized.includes(marker)) {
+                errors.push(`cleanup-implement prompt doc is missing required priority-exit execution marker: ${marker}`);
+            }
+        }
+    }
+
+    const cleanupReview = readRepoFile('docs/agentic/session-prompts/cleanup-review.md', errors);
+    if (cleanupReview !== null) {
+        const normalized = normalizeDocText(cleanupReview);
+        const requiredCleanupReviewMarkers = [
+            'owned follow-up',
+            'single final owner',
+            'revisit trigger',
+            'priority-exit review',
+            'no p(n+1) plan or implementation work is being approved while p#-exit is still unresolved',
+        ];
+
+        for (const marker of requiredCleanupReviewMarkers) {
+            if (!normalized.includes(marker)) {
+                errors.push(`cleanup-review prompt doc is missing required priority-exit review marker: ${marker}`);
+            }
+        }
+    }
+}
+
 function checkChecklistPlanPaths(errors, warnings) {
     const checklist = readRepoFile('ARCHITECTURE_CLEANUP_CHECKLIST.md', errors);
     if (checklist === null) {
@@ -1001,6 +1126,7 @@ function main() {
     checkEvalPromptReadme(errors);
     checkWorkflowRoutingSplit(errors);
     checkFeatureRemediationPromptContracts(errors);
+    checkCleanupPriorityExitContracts(errors);
     checkChecklistPlanPaths(errors, warnings);
     checkPlanArchiveCoherence(errors);
     checkSkillMirrorManifest(errors);
