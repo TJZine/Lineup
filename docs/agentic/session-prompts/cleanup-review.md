@@ -34,6 +34,10 @@ If reviewing a plan, focus on:
 - hidden design decisions disguised as implementation steps
 - stale paths, stale repo names, or local-only dependencies
 - likely bug or regression vectors suggested by the proposed implementation path
+- if the plan claims to close the last `P#-W#` item in a priority:
+  - missing priority-exit readiness
+  - missing mapped-imported-issue disposition
+  - missing `P0` security-gate disposition before `P(n+1)`
 
 If reviewing an implementation, focus on:
 
@@ -43,6 +47,10 @@ If reviewing an implementation, focus on:
 - missing or weak verification
 - accidental local-only artifact changes
 - new slop, fallback paths, or cross-boundary shortcuts
+- if the artifact claims to close the last `P#-W#` item in a priority, treat it as a priority-exit review too:
+  - verify every imported review issue mapped to that priority is retired, explicitly deferred, or split into a new owned follow-up
+  - verify the `P0` security gate has been cleared or explicitly deferred with exact issue ids
+  - verify the checklist is not advancing to `P(n+1)` while known priority-local debt is still open without a recorded reason
 
 ## Output Contract
 
@@ -60,3 +68,7 @@ If reviewing an implementation, focus on:
   - no hidden architecture or scope decisions remain
   - the execution path is feasible without inventing code structure on the fly
   - the likely bug/regression vectors are accounted for by scope, invariants, and verification
+- for claimed priority closeout, treat “ready to move to the next priority” as meaning:
+  - the matching `P#-EXIT` gate is satisfied
+  - mapped imported issues and security triage have an auditable disposition
+  - the remaining debt in that priority area is either intentionally owned elsewhere or explicitly deferred

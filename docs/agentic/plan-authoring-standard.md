@@ -41,6 +41,10 @@ Every serious tracked implementation plan must include:
 12. Rollback notes for high-risk work
 13. Commit checkpoints for tracked work
 
+If the plan is intended to close the last `P#-W#` item in a cleanup priority, it must also include:
+
+14. Priority-exit readiness
+
 Use section titles that make those requirements obvious to a fresh session. Do not rely on implied structure or house style memory.
 
 ## Fresh-Session Rules
@@ -120,6 +124,19 @@ The goal is not to maximize tool usage for its own sake. The goal is to leave a 
   - `npm run verify:docs` for control-plane and docs work
   - at least `npm run typecheck` plus `npm test` for logic-only TypeScript changes unless the task needs broader coverage
 - Add rollback notes for high-risk work so a fresh session can unwind safely if parity breaks.
+
+For a final `P#-W#` plan in a cleanup priority, the verification section must also name the priority-exit evidence that will be rerun before moving on:
+
+- `desloppify status`
+- `desloppify show review --status open`
+- any `desloppify show <mapped-issue>` calls needed to verify imported-issue retirement
+- the strongest task-specific verification already required by the plan
+
+The priority-exit readiness section must explicitly record:
+
+- every imported review issue mapped to the priority and whether this plan retires it, defers it, or splits it into a follow-up owner
+- the expected `P0` security-gate disposition before the next priority begins
+- any residual debt in the priority area that is intentionally left behind, with its new owner
 
 ## Anti-Patterns To Avoid
 
