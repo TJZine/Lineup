@@ -208,7 +208,7 @@ export async function applyPhase2AuthGatePolicy(inputs: Phase2AuthGateInputs): P
                 return false;
             }
         } catch {
-            console.error('[InitializationStartupPolicy] Token validation failed.');
+            // Validation failure falls through to the auth resume path below.
         }
     }
 

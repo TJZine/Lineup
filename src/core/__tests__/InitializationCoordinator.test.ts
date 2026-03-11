@@ -174,6 +174,31 @@ describe('InitializationCoordinator (Plex Home)', () => {
         expect(navigation.goTo).toHaveBeenCalledWith('profile-select');
     });
 
+    it('marks auth pending and registers auth resume when token validation throws', async () => {
+        const { coordinator, deps, callbacks } = makeCoordinator();
+        const plexAuth = deps.plexAuth as unknown as {
+            getStoredCredentials: jest.Mock;
+            validateToken: jest.Mock;
+            on: jest.Mock;
+        };
+        const navigation = deps.navigation as unknown as { goTo: jest.Mock };
+
+        plexAuth.getStoredCredentials.mockResolvedValue(
+            createStoredCredentials('active-token', 'account-token')
+        );
+        plexAuth.validateToken.mockRejectedValue(new Error('validation down'));
+
+        await coordinator.runStartup(2);
+
+        expect(callbacks.updateModuleStatus).toHaveBeenCalledWith('plex-auth', 'pending');
+        expect(plexAuth.on).toHaveBeenCalledWith('authChange', expect.any(Function));
+        expect(
+            plexAuth.on.mock.calls.filter(([event]: [string]) => event === 'authChange')
+        ).toHaveLength(1);
+        expect(plexAuth.on).not.toHaveBeenCalledWith('profileChange', expect.any(Function));
+        expect(navigation.goTo).toHaveBeenCalledWith('auth');
+    });
+
     it('configures discovery storage before resuming Phase 3 on profileChange', async () => {
         const { coordinator, deps, callbacks } = makeCoordinator();
 
