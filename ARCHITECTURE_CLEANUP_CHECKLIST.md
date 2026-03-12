@@ -121,8 +121,9 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - `verification`: exact commands that prove the slice is complete
   - `deferred items`: anything intentionally left open with its exact issue id, owner, reason, and revisit trigger
 - Priority exit command checklist:
-  - for any checklist disposition that depends on `desloppify`, run the authoritative `desloppify` evidence commands on the target integration branch that will carry the checklist state forward (normally the active working branch), not in an isolated worktree
-  - when a cleanup slice was implemented in a worktree, switch to the integration branch before running authoritative `desloppify` evidence; do not duplicate full evidence passes across both branches
+  - do not run authoritative `desloppify` evidence commands in worktrees; run them on the target integration branch that will carry the checklist state forward (normally the active working branch)
+  - if a worktree run is unavoidable, first synchronize the full `.desloppify` state from the integration branch, mark the output provisional, and rerun the same commands on the integration branch before recording any disposition
+  - when a cleanup slice was implemented in a worktree, switch to the integration branch before running authoritative `desloppify` evidence; avoid duplicate full evidence passes across both branches
   - rerun `desloppify status`
   - rerun `desloppify show review --status open`
   - rerun any task-specific `desloppify show <issue-or-area>` commands needed to verify mapped imported issues
@@ -133,6 +134,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - confirm no `P(n+1)` work, plan, or checklist progress has been opened before this exit record is complete
 - Evidence refresh checklist:
   - refresh authoritative `desloppify` evidence on the same integration branch where checklist updates are committed; treat worktree-only output as non-authoritative for checklist/plan dispositions
+  - do not cite worktree-only `desloppify` output as final evidence unless the same commands were rerun on the integration branch
   - rerun `desloppify status`
   - rerun `desloppify show review --status open`
   - refresh hotspot counts with `wc -l` for the files listed in the evidence snapshot

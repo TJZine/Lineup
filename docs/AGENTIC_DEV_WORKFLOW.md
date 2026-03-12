@@ -30,7 +30,8 @@ This is the operating runbook for agent-driven development in Lineup.
    - Prefer Codanna using [`docs/agentic/codanna-playbook.md`](./agentic/codanna-playbook.md).
    - Use Codanna for both code and repo-doc discovery before falling back to `rg`.
    - Fall back to `rg` only when Codanna is missing or insufficient.
-   - For any task that uses `desloppify` outputs as acceptance or checklist evidence, run those authoritative `desloppify` commands on the integration branch that will receive the updates; treat worktree-only `desloppify` output as provisional.
+   - For any task that uses `desloppify` outputs as acceptance or checklist evidence, run those authoritative `desloppify` commands on the integration branch that will receive the updates.
+   - Do not run authoritative `desloppify` evidence passes in worktrees. If a worktree run is unavoidable, synchronize the full `.desloppify` state first, treat output as provisional, and rerun on the integration branch before recording dispositions.
 3. Load the right source-of-truth docs.
    - architecture truth: [`docs/architecture/CURRENT_STATE.md`](./architecture/CURRENT_STATE.md)
    - active cleanup backlog: [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md)
