@@ -13,6 +13,7 @@ import { EPGTimeHeader } from './EPGTimeHeader';
 import { EPGChannelList } from './EPGChannelList';
 import { EPGErrorBoundary } from './EPGErrorBoundary';
 import { EPGLibraryTabs } from './EPGLibraryTabs';
+import { EPGVisibleRangeEmitter } from './EPGVisibleRangeEmitter';
 import { rafThrottle, appendEpgDebugLog, formatTimeRange } from './utils';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { safeLocalStorageGet } from '../../../utils/storage';
@@ -24,6 +25,7 @@ import type {
     EPGEventMap,
     EPGInternalState,
     EPGFocusPosition,
+    EpgVisibleRange,
     ScheduledProgram,
     ScheduleWindow,
     ChannelConfig,
@@ -83,7 +85,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private nowWatchingProgramElement: HTMLElement | null = null;
     private nowWatchingTimeElement: HTMLElement | null = null;
     private hasRenderedOnce: boolean = false;
-    private lastVisibleRangeKey: string | null = null;
+    private _visibleRangeEmitter: EPGVisibleRangeEmitter = new EPGVisibleRangeEmitter();
     private channelIds: string[] = [];
     private _isSelectInProgress: boolean = false;
     private _placeholderAutoFocusKeys: Set<string> = new Set();
@@ -133,6 +135,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
 
         this.config = { ...DEFAULT_EPG_CONFIG, ...config } as EPGConfig;
+        this._visibleRangeEmitter = new EPGVisibleRangeEmitter(this.config.onVisibleRangeChange);
         this._debugEnabled = this._readDebugEnabledFromStorage();
         this._lastDebugEnabledStorageReadMs = Date.now();
         try {
@@ -289,6 +292,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this._debugEnabled = false;
         this._lastDebugEnabledStorageReadMs = Date.now();
         this._lastRenderGridDebugLogMs = 0;
+        this._visibleRangeEmitter = new EPGVisibleRangeEmitter();
 
         this.errorBoundary.destroy();
         this.removeAllListeners();
@@ -612,7 +616,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         this.containerElement.classList.add(EPG_CLASSES.CONTAINER_VISIBLE);
         this.state.isVisible = true;
-        this.lastVisibleRangeKey = null;
+        this._visibleRangeEmitter.reset();
         this.syncPeekMode();
         this.applyLayoutMode();
         this.updateNowWatchingBanner();
@@ -771,7 +775,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.config.visibleHours = normalized;
         const maxOffset = Math.max(0, (this.config.totalHours * 60) - (this.config.visibleHours * 60));
         this.state.scrollPosition.timeOffset = Math.max(0, Math.min(this.state.scrollPosition.timeOffset, maxOffset));
-        this.lastVisibleRangeKey = null;
+        this._visibleRangeEmitter.reset();
 
         this._refreshPixelsPerMinuteForCurrentViewport();
         this.timeHeader.refreshLayout();
@@ -1893,18 +1897,14 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         const timeEndMs = this.state.gridAnchorTime +
             ((this.state.scrollPosition.timeOffset + (this.config.visibleHours * 60)) * 60000);
 
-        const rangeKey = `${channelStart}-${channelEnd}-${timeStartMs}-${timeEndMs}`;
-        if (rangeKey === this.lastVisibleRangeKey) {
-            return;
-        }
-
-        this.lastVisibleRangeKey = rangeKey;
-        this.config.onVisibleRangeChange({
+        const range: EpgVisibleRange = {
             channelStart,
             channelEnd,
             timeStartMs,
             timeEndMs,
-        });
+        };
+
+        this._visibleRangeEmitter.emit(range);
     }
 
     private setTimeOffsetToNow(): void {

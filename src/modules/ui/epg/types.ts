@@ -43,12 +43,7 @@ export interface EPGConfig {
     /** Auto-scroll to current time on open */
     autoScrollToNow: boolean;
     /** Optional callback when visible range changes */
-    onVisibleRangeChange?: (range: {
-        channelStart: number;
-        channelEnd: number;
-        timeStartMs: number;
-        timeEndMs: number;
-    }) => void;
+    onVisibleRangeChange?: (range: EpgVisibleRange) => void;
     /** Optional callback to resolve relative Plex thumb paths to absolute URLs, with optional size hints. */
     resolveThumbUrl?: (pathOrUrl: string | null, width?: number, height?: number) => string | null;
     /** Optional callback to fetch Plex item details for focused programs (used for HDR/DV badges). */
@@ -82,6 +77,13 @@ export interface EPGConfig {
      * Set to 0 to log every render (not recommended).
      */
     debugRenderGridLogIntervalMs?: number;
+}
+
+export interface EpgVisibleRange {
+    channelStart: number;
+    channelEnd: number;
+    timeStartMs: number;
+    timeEndMs: number;
 }
 
 /**
