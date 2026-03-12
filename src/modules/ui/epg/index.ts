@@ -25,5 +25,5 @@ export type {
     ChannelConfig,
 } from './types';
 
-export { EPG_CONSTANTS, EPG_CLASSES, DEFAULT_EPG_CONFIG } from './constants';
+export { EPG_CONSTANTS, EPG_CLASSES, DEFAULT_EPG_CONFIG, EPG_CONTAINER_ID } from './constants';
 export { formatTime, formatTimeRange, formatDuration, rafThrottle } from './utils';

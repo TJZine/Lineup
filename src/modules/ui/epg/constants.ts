@@ -3,6 +3,10 @@
  * @module modules/ui/epg/constants
  */
 
+import type { EPGConfig } from './types';
+
+export const EPG_CONTAINER_ID = 'epg-container' as const;
+
 /**
  * EPG configuration constants.
  * See ADR-003 for rationale on MAX_DOM_ELEMENTS and buffer sizes.
@@ -143,8 +147,8 @@ export const EPG_ERRORS = {
 /**
  * Default EPG configuration values.
  */
-export const DEFAULT_EPG_CONFIG = {
-    containerId: 'epg-container',
+export const DEFAULT_EPG_CONFIG: EPGConfig = {
+    containerId: EPG_CONTAINER_ID,
     visibleChannels: EPG_CONSTANTS.VISIBLE_CHANNELS,
     timeSlotMinutes: EPG_CONSTANTS.TIME_SLOT_MINUTES,
     visibleHours: EPG_CONSTANTS.VISIBLE_HOURS,
@@ -160,4 +164,4 @@ export const DEFAULT_EPG_CONFIG = {
     showNowWatchingBanner: true,
     debugStorageRefreshIntervalMs: 500,
     debugRenderGridLogIntervalMs: 1000,
-} as const;
+};

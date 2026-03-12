@@ -3,6 +3,8 @@
  * @module modules/ui/mini-guide/constants
  */
 
+export const MINI_GUIDE_CONTAINER_ID = 'mini-guide-container' as const;
+
 export const MINI_GUIDE_CLASSES = {
     CONTAINER: 'mini-guide',
     VISIBLE: 'visible',

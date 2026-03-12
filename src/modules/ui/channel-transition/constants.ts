@@ -4,6 +4,7 @@
  */
 
 export const CHANNEL_TRANSITION_SHOW_DELAY_MS = 175;
+export const CHANNEL_TRANSITION_CONTAINER_ID = 'channel-transition-container' as const;
 
 export const CHANNEL_TRANSITION_CLASSES = {
     CONTAINER: 'channel-transition',
