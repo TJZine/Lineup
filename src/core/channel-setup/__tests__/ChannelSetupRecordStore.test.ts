@@ -32,10 +32,10 @@ describe('ChannelSetupRecordStore', () => {
     it('returns null for missing records', () => {
         const storage = new Map<string, string>();
         const store = new ChannelSetupRecordStore({
-            storageGet: (key) => storage.get(key) ?? null,
-            storageSet: (key, value) => storage.set(key, value),
-            storageRemove: (key) => storage.delete(key),
-            normalizeConfig: (config) => config,
+            storageGet: (key: string): string | null => storage.get(key) ?? null,
+            storageSet: (key: string, value: string): void => void storage.set(key, value),
+            storageRemove: (key: string): void => void storage.delete(key),
+            normalizeConfig: (config: ChannelSetupConfig): ChannelSetupConfig => config,
         });
 
         expect(store.getRecord('server-1')).toBeNull();
@@ -51,10 +51,10 @@ describe('ChannelSetupRecordStore', () => {
             updatedAt: Date.now(),
         }));
         const store = new ChannelSetupRecordStore({
-            storageGet: (key) => storage.get(key) ?? null,
-            storageSet: (key, value) => storage.set(key, value),
-            storageRemove: (key) => storage.delete(key),
-            normalizeConfig: (config) => config,
+            storageGet: (key: string): string | null => storage.get(key) ?? null,
+            storageSet: (key: string, value: string): void => void storage.set(key, value),
+            storageRemove: (key: string): void => void storage.delete(key),
+            normalizeConfig: (config: ChannelSetupConfig): ChannelSetupConfig => config,
         });
 
         expect(store.getRecord('server-1')).toBeNull();
@@ -72,9 +72,9 @@ describe('ChannelSetupRecordStore', () => {
             maxChannels: 200,
         }));
         const store = new ChannelSetupRecordStore({
-            storageGet: (key) => storage.get(key) ?? null,
-            storageSet: (key, value) => storage.set(key, value),
-            storageRemove: (key) => storage.delete(key),
+            storageGet: (key: string): string | null => storage.get(key) ?? null,
+            storageSet: (key: string, value: string): void => void storage.set(key, value),
+            storageRemove: (key: string): void => void storage.delete(key),
             normalizeConfig,
         });
 
@@ -93,10 +93,10 @@ describe('ChannelSetupRecordStore', () => {
             updatedAt: 202,
         }));
         const store = new ChannelSetupRecordStore({
-            storageGet: (key) => storage.get(key) ?? null,
-            storageSet: (key, value) => storage.set(key, value),
-            storageRemove: (key) => storage.delete(key),
-            normalizeConfig: (config) => config,
+            storageGet: (key: string): string | null => storage.get(key) ?? null,
+            storageSet: (key: string, value: string): void => void storage.set(key, value),
+            storageRemove: (key: string): void => void storage.delete(key),
+            normalizeConfig: (config: ChannelSetupConfig): ChannelSetupConfig => config,
         });
 
         const record = store.markSetupComplete('server-1', createConfig({ minItemsPerChannel: 7 }));
@@ -110,10 +110,10 @@ describe('ChannelSetupRecordStore', () => {
 
     it('cleanupStaleBuildKeys removes temp build keys only', () => {
         const store = new ChannelSetupRecordStore({
-            storageGet: () => null,
-            storageSet: () => undefined,
-            storageRemove: () => undefined,
-            normalizeConfig: (config) => config,
+            storageGet: (): string | null => null,
+            storageSet: (_key: string, _value: string): void => undefined,
+            storageRemove: (_key: string): void => undefined,
+            normalizeConfig: (config: ChannelSetupConfig): ChannelSetupConfig => config,
         });
         localStorage.clear();
         localStorage.setItem('lineup_channels_build_tmp_v1:abc', '1');

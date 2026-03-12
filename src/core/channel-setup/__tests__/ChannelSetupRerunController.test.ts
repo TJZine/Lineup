@@ -5,14 +5,18 @@ const createController = (overrides?: Partial<{
     getSelectedServerId: () => string | null;
     getChannelCount: () => number;
     hasSetupRecord: (serverId: string) => boolean;
-}>) => {
+}>): {
+    controller: ChannelSetupRerunController;
+    navigation: jest.Mocked<INavigationManager>;
+    clearSetupRecord: jest.Mock<void, [string]>;
+} => {
     const navigation = {
         goTo: jest.fn(),
     } as unknown as jest.Mocked<INavigationManager>;
     const clearSetupRecord = jest.fn();
-    const getSelectedServerId = overrides?.getSelectedServerId ?? (() => 'server-1');
-    const getChannelCount = overrides?.getChannelCount ?? (() => 1);
-    const hasSetupRecord = overrides?.hasSetupRecord ?? (() => true);
+    const getSelectedServerId = overrides?.getSelectedServerId ?? (() : string | null => 'server-1');
+    const getChannelCount = overrides?.getChannelCount ?? (() : number => 1);
+    const hasSetupRecord = overrides?.hasSetupRecord ?? ((_serverId: string): boolean => true);
 
     const controller = new ChannelSetupRerunController({
         navigation,
