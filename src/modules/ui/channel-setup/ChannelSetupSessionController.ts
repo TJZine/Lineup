@@ -6,7 +6,7 @@ import type {
     ChannelSetupRecord,
     ChannelSetupReview,
 } from '../../../Orchestrator';
-import type { AppOrchestrator } from '../../../Orchestrator';
+import type { ChannelSetupSessionGateway } from '../../../core/channel-setup/ChannelSetupSessionGateway';
 import {
     DEFAULT_CHANNEL_SETUP_MAX,
     MAX_CHANNELS,
@@ -75,23 +75,7 @@ export type EstimateKey = keyof ChannelSetupPreview['estimates'];
 
 export type SetupStep = 1 | 2 | 3;
 
-export type ChannelSetupOrchestrator = Pick<
-    AppOrchestrator,
-    | 'getNavigation'
-    | 'getLibrariesForSetup'
-    | 'getChannelSetupRecord'
-    | 'openServerSelect'
-    | 'switchToChannelByNumber'
-    | 'openEPG'
-    | 'createChannelsFromSetup'
-    | 'markSetupComplete'
-    | 'getSetupPreview'
-    | 'getSetupReview'
-    | 'getSetupContextForSelectedServer'
-    | 'getSelectedServerStorageKey'
-    | 'getServerHealthStorageKey'
-    | 'getSelectedServerId'
->;
+export type ChannelSetupOrchestrator = ChannelSetupSessionGateway;
 
 export const strategySupportsMixedScope = (key: SetupStrategyKey): boolean =>
     MIXED_SCOPE_STRATEGY_KEYS.has(key);

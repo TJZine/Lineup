@@ -160,9 +160,9 @@ export class ChannelSetupScreen {
         }
     }
 
-    constructor(container: HTMLElement, orchestrator: ChannelSetupOrchestrator) {
+    constructor(container: HTMLElement, sessionGateway: ChannelSetupOrchestrator) {
         this._container = container;
-        this._orchestrator = orchestrator;
+        this._orchestrator = sessionGateway;
         this._serverSelectionStore = new ServerSelectionStore(() => ({
             selectedServerKey: this._orchestrator.getSelectedServerStorageKey(),
             serverHealthKey: this._orchestrator.getServerHealthStorageKey(),

@@ -116,6 +116,7 @@ import { createOrchestratorCoordinators } from './core/orchestrator/Orchestrator
 import { createPriorityOneControllersAndBinder } from './core/orchestrator/OrchestratorPriorityOneControllerFactory';
 import type { OrchestratorPlaybackStateAccessors } from './core/orchestrator/OrchestratorPlaybackStateAccessors';
 import { ChannelSetupCoordinator } from './core/channel-setup';
+import type { ChannelSetupSessionGateway } from './core/channel-setup/ChannelSetupSessionGateway';
 import type {
     ChannelSetupConfig,
     ChannelSetupContext,
@@ -257,6 +258,7 @@ export interface IAppOrchestrator {
     getSelectedServerId(): string | null;
     getSelectedServerStorageKey(): string;
     getServerHealthStorageKey(): string;
+    getChannelSetupSessionGateway(): ChannelSetupSessionGateway;
     getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibraryType[]>;
     getChannelSetupRecord(serverId: string): ChannelSetupRecord | null;
     getSetupContextForSelectedServer(): ChannelSetupContext;
@@ -356,6 +358,37 @@ export class AppOrchestrator implements IAppOrchestrator {
     private readonly _storageContext: OrchestratorStorageContext;
     private readonly _debugOverridesStore = new DebugOverridesStore();
     private readonly _playbackStateAccessors: OrchestratorPlaybackStateAccessors;
+    private readonly _channelSetupSessionGateway: ChannelSetupSessionGateway = {
+        getNavigation: (): INavigationManager | null => this.getNavigation(),
+        getSelectedServerStorageKey: (): string => this.getSelectedServerStorageKey(),
+        getServerHealthStorageKey: (): string => this.getServerHealthStorageKey(),
+        getSelectedServerId: (): string | null => this.getSelectedServerId(),
+        openServerSelect: (): void => this.openServerSelect(),
+        switchToChannelByNumber: (number: number, options?: { signal?: AbortSignal }): Promise<void> =>
+            this.switchToChannelByNumber(number, options),
+        openEPG: (): void => this.openEPG(),
+        requestChannelSetupRerun: (): void => this.requestChannelSetupRerun(),
+        getLibrariesForSetup: (signal?: AbortSignal | null): Promise<PlexLibraryType[]> =>
+            this.getLibrariesForSetup(signal),
+        getChannelSetupRecord: (serverId: string): ChannelSetupRecord | null =>
+            this.getChannelSetupRecord(serverId),
+        getSetupContextForSelectedServer: (): ChannelSetupContext =>
+            this.getSetupContextForSelectedServer(),
+        getSetupPreview: (
+            config: ChannelSetupConfig,
+            options?: { signal?: AbortSignal }
+        ): Promise<ChannelSetupPreview> => this.getSetupPreview(config, options),
+        getSetupReview: (
+            config: ChannelSetupConfig,
+            options?: { signal?: AbortSignal }
+        ): Promise<ChannelSetupReview> => this.getSetupReview(config, options),
+        createChannelsFromSetup: (
+            config: ChannelSetupConfig,
+            options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }
+        ): Promise<ChannelBuildSummary> => this.createChannelsFromSetup(config, options),
+        markSetupComplete: (serverId: string, setupConfig: ChannelSetupConfig): void =>
+            this.markSetupComplete(serverId, setupConfig),
+    };
 
     constructor(platformServices?: PlatformServices) {
         this._platformServices = platformServices ?? webosPlatformServices;
@@ -1183,6 +1216,10 @@ export class AppOrchestrator implements IAppOrchestrator {
         }
         this._plexDiscovery.clearSelection();
         void this._persistSelectedServerForActiveUser(null, null);
+    }
+
+    getChannelSetupSessionGateway(): ChannelSetupSessionGateway {
+        return this._channelSetupSessionGateway;
     }
 
     async getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibraryType[]> {

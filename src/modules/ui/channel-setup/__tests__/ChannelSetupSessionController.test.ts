@@ -44,6 +44,7 @@ const createOrchestrator = (overrides: OrchestratorOverrides = {}): jest.Mocked<
     openServerSelect: jest.fn(),
     switchToChannelByNumber: jest.fn(),
     openEPG: jest.fn(),
+    requestChannelSetupRerun: jest.fn(),
     createChannelsFromSetup: jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT),
     markSetupComplete: jest.fn(),
     getSetupPreview: jest.fn().mockResolvedValue(DEFAULT_PREVIEW),
