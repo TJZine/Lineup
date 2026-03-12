@@ -519,19 +519,32 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - `npm run verify`
       - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`
       - `desloppify show security --status open --no-budget --top 50` (12 open `T2` issues; no `P0`)
-  - [ ] `P4-W4` finish remaining round-2 cleanup in `SettingsScreen` / `ChannelSetupScreen` where the imported review still flags coarse ownership or cleanup residue
+  - [x] `P4-W4` finish remaining round-2 cleanup in `SettingsScreen` / `ChannelSetupScreen` where the imported review still flags coarse ownership or cleanup residue
+    - completed by:
+      - replacing `innerHTML = ''` clear paths with `replaceChildren()` in `SettingsScreen` (`_detailItems`, `_container`) and `ChannelSetupScreen` (`_contentEl` load-error + rerender paths) without changing render/focus sequencing.
+      - preserving existing shared-helper ownership (`syncFocusableRegistry`, `renderCappedWarnings`) and keeping scope limited to the four inherited security IDs.
     - inherited follow-ups:
       - source: `P1-EXIT`
-      - `security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::366` -> `deferred`
-      - `security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::407` -> `deferred`
-      - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::224` -> `deferred`
-      - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::729` -> `deferred`
-      - required verification before closing `P4-W4`:
-        - `desloppify show security --status open --no-budget --top 200`
-        - `desloppify show security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::366`
-        - `desloppify show security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::407`
-        - `desloppify show security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::224`
-        - `desloppify show security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::729`
+    - imported issue disposition:
+      - `security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::366` -> `resolved`
+        verification command: `desloppify show security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::366` -> `No open issues matching`.
+      - `security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::407` -> `resolved`
+        verification command: `desloppify show security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::407` -> `No open issues matching`.
+      - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::224` -> `resolved`
+        verification command: `desloppify show security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::224` -> `No open issues matching`.
+      - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::729` -> `resolved`
+        verification command: `desloppify show security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::729` -> `No open issues matching`.
+    - verification:
+      - `npm run typecheck`
+      - `rg -n "\.innerHTML\s*=\s*''" src/modules/ui/settings/SettingsScreen.ts src/modules/ui/channel-setup/ChannelSetupScreen.ts` (no matches)
+      - `npm test -- src/modules/ui/settings/__tests__/SettingsScreen.test.ts`
+      - `npm test -- src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`
+      - `npm test -- src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts` (no tests found in default Jest config; contracts execute via `npm run test:contracts`, which passed under `npm run verify`)
+      - `npm test -- src/modules/ui/common/__tests__/syncFocusableRegistry.test.ts src/modules/ui/common/__tests__/renderCappedWarnings.test.ts`
+      - `npm run verify:docs`
+      - `npm run verify`
+      - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`
+      - `desloppify show security --status open --no-budget --top 200` (8 open `T2` issues remain; none are the four `P4-W4` IDs)
   - [ ] `P4-W5` remove transitional coordinator glue, timing bridges, duplicated EPG status literals, and force-cast config residue created by the round-2 decomposition
     - inherited follow-ups:
       - source: `P1-EXIT`
