@@ -133,7 +133,7 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
                 clearLogo.onerror = null;
                 clearLogo.onload = null;
             }
-            this.containerElement.innerHTML = '';
+            this.containerElement.replaceChildren();
             this.containerElement.classList.remove('visible');
         }
         this.containerElement = null;

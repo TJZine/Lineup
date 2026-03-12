@@ -29,7 +29,7 @@ export class ChannelTransitionOverlay implements IChannelTransitionOverlay {
         }
         this.containerElement = container;
         this.containerElement.classList.add(CHANNEL_TRANSITION_CLASSES.CONTAINER);
-        this.containerElement.innerHTML = this.createTemplate();
+        this.containerElement.replaceChildren(this.createTemplateElement());
         this.containerElement.classList.remove(CHANNEL_TRANSITION_CLASSES.VISIBLE);
         this.isVisibleFlag = false;
         this.cacheElements();
@@ -37,7 +37,7 @@ export class ChannelTransitionOverlay implements IChannelTransitionOverlay {
 
     destroy(): void {
         if (this.containerElement) {
-            this.containerElement.innerHTML = '';
+            this.containerElement.replaceChildren();
             this.containerElement.classList.remove(CHANNEL_TRANSITION_CLASSES.VISIBLE);
         }
         this.containerElement = null;
@@ -88,15 +88,26 @@ export class ChannelTransitionOverlay implements IChannelTransitionOverlay {
         };
     }
 
-    private createTemplate(): string {
-        return `
-      <div class="${CHANNEL_TRANSITION_CLASSES.PANEL}">
-        <div class="${CHANNEL_TRANSITION_CLASSES.SPINNER}"></div>
-        <div class="${CHANNEL_TRANSITION_CLASSES.TEXT}">
-          <div class="${CHANNEL_TRANSITION_CLASSES.TITLE}"></div>
-          <div class="${CHANNEL_TRANSITION_CLASSES.SUBTITLE}"></div>
-        </div>
-      </div>
-    `;
+    private createTemplateElement(): HTMLElement {
+        const panel = document.createElement('div');
+        panel.className = CHANNEL_TRANSITION_CLASSES.PANEL;
+
+        const spinner = document.createElement('div');
+        spinner.className = CHANNEL_TRANSITION_CLASSES.SPINNER;
+        panel.appendChild(spinner);
+
+        const text = document.createElement('div');
+        text.className = CHANNEL_TRANSITION_CLASSES.TEXT;
+
+        const title = document.createElement('div');
+        title.className = CHANNEL_TRANSITION_CLASSES.TITLE;
+        text.appendChild(title);
+
+        const subtitle = document.createElement('div');
+        subtitle.className = CHANNEL_TRANSITION_CLASSES.SUBTITLE;
+        text.appendChild(subtitle);
+
+        panel.appendChild(text);
+        return panel;
     }
 }
