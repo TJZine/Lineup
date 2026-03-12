@@ -121,6 +121,8 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - `verification`: exact commands that prove the slice is complete
   - `deferred items`: anything intentionally left open with its exact issue id, owner, reason, and revisit trigger
 - Priority exit command checklist:
+  - run priority-exit evidence commands on the target integration branch that will carry the checklist state forward (normally the active working branch), not only on an isolated worktree branch
+  - if a worktree is used for draft verification, re-run all mapped-issue `desloppify show <issue-id>` checks on the target integration branch immediately before recording `resolved` dispositions
   - rerun `desloppify status`
   - rerun `desloppify show review --status open`
   - rerun any task-specific `desloppify show <issue-or-area>` commands needed to verify mapped imported issues
@@ -130,6 +132,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - confirm the `P0` security gate is either cleared or explicitly deferred before the next priority begins
   - confirm no `P(n+1)` work, plan, or checklist progress has been opened before this exit record is complete
 - Evidence refresh checklist:
+  - refresh evidence on the same branch where checklist updates are committed; do not treat worktree-only output as final gate evidence
   - rerun `desloppify status`
   - rerun `desloppify show review --status open`
   - refresh hotspot counts with `wc -l` for the files listed in the evidence snapshot
