@@ -273,9 +273,9 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - normalize shell-level naming or helper placement where touched
   - reduce obvious boilerplate in shell-only presenters if it falls out naturally from the main cleanup
 - Cleanup track:
-  - [x] `P2-W1` move client-identifier ownership behind one explicit owner used by both `App` and Plex auth (completed 2026-03-11; plan: `docs/plans/2026-03-11-p2-w1-unify-client-identifier-ownership.md`; this item fully absorbed the client-ID unification seam previously duplicated under `P3-W1`)
-  - [x] `P2-W2` narrow the `App` screen-visibility seam so it coordinates shell surfaces rather than feature details (done 2026-03-11; plan: `docs/plans/2026-03-11-p2-w2-narrow-app-screen-visibility-seam.md`; verification: `npm test -- src/core/app-shell/__tests__/AppScreenVisibilityCoordinator.test.ts`, `npm test -- src/__tests__/App.test.ts`, `npm test -- src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts`, `npm run typecheck`, `npm run verify`)
-  - [x] `P2-W3` remove any remaining feature-specific persistence or trust-boundary policy from `App` (done 2026-03-11; plan: `docs/plans/2026-03-11-p2-w3-remove-app-persistence-trust-policy.md`; verification: `npm run typecheck`, `npm test -- src/modules/plex/auth/__tests__/config.test.ts`, `npm test -- src/__tests__/App.test.ts`, `npm test -- src/core/__tests__/InitializationCoordinator.test.ts`, `npm run verify`, `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`, `desloppify show security::src/core/initialization/InitializationStartupPolicy.ts::security::log_sensitive::src/core/initialization/InitializationStartupPolicy.ts::211`)
+  - [x] `P2-W1` move client-identifier ownership behind one explicit owner used by both `App` and Plex auth (completed 2026-03-11; this item fully absorbed the client-ID unification seam previously duplicated under `P3-W1`)
+  - [x] `P2-W2` narrow the `App` screen-visibility seam so it coordinates shell surfaces rather than feature details (done 2026-03-11; verification: `npm test -- src/core/app-shell/__tests__/AppScreenVisibilityCoordinator.test.ts`, `npm test -- src/__tests__/App.test.ts`, `npm test -- src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts`, `npm run typecheck`, `npm run verify`)
+  - [x] `P2-W3` remove any remaining feature-specific persistence or trust-boundary policy from `App` (done 2026-03-11; verification: `npm run typecheck`, `npm test -- src/modules/plex/auth/__tests__/config.test.ts`, `npm test -- src/__tests__/App.test.ts`, `npm test -- src/core/__tests__/InitializationCoordinator.test.ts`, `npm run verify`, `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`, `desloppify show security::src/core/initialization/InitializationStartupPolicy.ts::security::log_sensitive::src/core/initialization/InitializationStartupPolicy.ts::211`)
     - mapped security issue disposition: `security::src/core/initialization/InitializationStartupPolicy.ts::security::log_sensitive::src/core/initialization/InitializationStartupPolicy.ts::211` -> `resolved` (targeted query now returns `No open issues matching ...`; no replacement security id for `InitializationStartupPolicy.ts`)
   - [x] `P2-W4` clean up shell-level glue, duplicate container knowledge, and any app-shell transitional seams left after the boundary cleanup (done 2026-03-11; plan: `docs/plans/2026-03-11-p2-w4-app-shell-transitional-cleanup.md`; final imported-issue disposition recorded under `P2-EXIT`)
     - implementation evidence:
@@ -351,13 +351,76 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - normalize storage helper naming where ownership cleanup exposes awkward seams
   - consolidate tiny adjacent persistence helpers if they are clearly duplicate after the owner map is cleaned up
 - Cleanup track:
-  - [x] `P3-W1` (post-`P2-W1`) audit client-identifier usage for residual non-owner direct-storage bypasses only; keep `resolveClientIdentifier(preferred?: string): string` as the single sanctioned owner API while Priority 3 completes the broader persistence-owner map (completed 2026-03-11; plan: `docs/plans/2026-03-11-p3-w1-client-identifier-bypass-audit.md`; no production bypass drift found; deterministic audit commands: `rg -n "localStorage\\.(getItem|setItem|removeItem)\\(PLEX_AUTH_CONSTANTS\\.CLIENT_ID_KEY" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`, `rg -n "STORAGE_KEYS\\.CLIENT_ID|LINEUP_STORAGE_KEYS\\.CLIENT_ID|CLIENT_ID_KEY|lineup_client_id" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`, `rg -n "localStorage\\.(getItem|setItem|removeItem)\\([^)]*(CLIENT_ID|lineup_client_id)" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`, `rg -n "resolveClientIdentifier\\s*\\(" src/modules/plex/auth src/App.ts`)
-  - [ ] `P3-W2` decide and document the intended owner for lifecycle persistence versus channel-specific persistence edges
-  - [ ] `P3-W3` isolate, wrap, or explicitly document the remaining direct-storage exceptions for EPG debug logging and channel-setup stale-key cleanup
-  - [ ] `P3-W4` audit the rest of the repo for storage-owner drift and remove any newly discovered raw-storage bypasses before closing the priority
-  - [ ] `P3-W5` refresh `CURRENT_STATE` and adjacent docs so the persistence-owner list is accurate and complete
-  - [ ] `P3-EXIT` run the priority-exit review before moving to `P4`
+  - [x] `P3-W1` (post-`P2-W1`) audit client-identifier usage for residual non-owner direct-storage bypasses only; keep `resolveClientIdentifier(preferred?: string): string` as the single sanctioned owner API while Priority 3 completes the broader persistence-owner map (completed 2026-03-11; no production bypass drift found; deterministic audit commands: `rg -n "localStorage\\.(getItem|setItem|removeItem)\\(PLEX_AUTH_CONSTANTS\\.CLIENT_ID_KEY" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`, `rg -n "STORAGE_KEYS\\.CLIENT_ID|LINEUP_STORAGE_KEYS\\.CLIENT_ID|CLIENT_ID_KEY|lineup_client_id" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`, `rg -n "localStorage\\.(getItem|setItem|removeItem)\\([^)]*(CLIENT_ID|lineup_client_id)" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`, `rg -n "resolveClientIdentifier\\s*\\(" src/modules/plex/auth src/App.ts`)
+  - [x] `P3-W2` decide and document the intended owner for lifecycle persistence versus channel-specific persistence edges (done 2026-03-11)
+    - locked owner split: lifecycle persistence remains lifecycle-only (`lineup_app_state` via `StateManager`), while channel persistence keys (including selected/current channel state) remain scheduler-owned through `ChannelPersistenceStore`/`ChannelRepository`; `OrchestratorStorageContext` only derives and supplies those storage-key strings upstream, and the runtime stores consume plain key strings plus safe storage helpers directly.
+    - explicit `P3-W3` exception deferrals retained: `src/modules/ui/epg/utils.ts` (`appendEpgDebugLog`) and `src/core/channel-setup/ChannelSetupCoordinator.ts` (`cleanupStaleChannelBuildKeys`).
+    - verification sequence for this slice: `npm test -- src/modules/lifecycle/__tests__/StateManager.test.ts src/modules/lifecycle/__tests__/AppLifecycle.test.ts`, `npm run typecheck`, `npm run verify:docs`, `npm test`.
+  - [x] `P3-W3` isolate, wrap, or explicitly document the remaining direct-storage exceptions for EPG debug logging and channel-setup stale-key cleanup (completed 2026-03-11; plan: `docs/plans/2026-03-11-p3-w3-direct-storage-exception-wrap.md`)
+    - wrapped `src/core/channel-setup/ChannelSetupCoordinator.ts` (`cleanupStaleChannelBuildKeys`) behind `safeLocalStorageRemoveByPrefixes` in `src/utils/storage.ts`.
+    - wrapped `src/modules/ui/epg/utils.ts` (`appendEpgDebugLog`/debug flag and log payload access) behind sanctioned `safeLocalStorageGet`/`safeLocalStorageSet` helpers.
+    - added targeted behavior coverage in `src/utils/__tests__/storage.test.ts`, `src/core/channel-setup/__tests__/ChannelSetupCoordinator.test.ts`, and `src/modules/ui/epg/__tests__/utils.test.ts`.
+    - verification sequence for this slice: `npm test -- src/utils/__tests__/storage.test.ts`, `npm test -- src/core/channel-setup/__tests__/ChannelSetupCoordinator.test.ts`, `npm test -- src/modules/ui/epg/__tests__/utils.test.ts src/modules/ui/epg/__tests__/EPGCoordinator.test.ts src/modules/ui/epg/__tests__/EPGTimeHeader.test.ts`, `npm run typecheck`, `npm run verify:docs`, `npm run verify`.
+  - [x] `P3-W4` audit the rest of the repo for storage-owner drift and remove any newly discovered raw-storage bypasses before closing the priority (completed 2026-03-11; plan: `docs/plans/2026-03-11-p3-w4-storage-owner-drift-audit.md`)
+    - deterministic production audit commands (comment-safe, non-test files):
+      - `rg -n --pcre2 "^(?!\\s*(//|/\\*|\\*)).*\\blocalStorage\\.(getItem|setItem|removeItem|clear|key)\\(" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`
+      - `rg -n --pcre2 "^(?!\\s*(//|/\\*|\\*)).*\\blocalStorage\\.(getItem|setItem|removeItem|clear|key)\\(" src --glob '!**/__tests__/**' --glob '!**/*.test.ts' | rg -v "src/modules/lifecycle/StateManager.ts|src/utils/storage.ts"`
+    - remediated non-owner raw-storage call site: `src/modules/ui/epg/EPGComponent.ts` now routes `LINEUP_STORAGE_KEYS.EPG_DEBUG` reads through `safeLocalStorageGet` while preserving `debugStorageRefreshIntervalMs` polling cadence.
+    - targeted coverage added: `src/modules/ui/epg/__tests__/EPGComponent.test.ts` (`respects configurable debug refresh interval for same-tab storage toggles`).
+    - verification sequence for this slice:
+      - `npm test -- src/modules/ui/epg/__tests__/EPGComponent.test.ts -t "configurable debug refresh interval"`
+      - `npm test -- src/modules/ui/epg/__tests__/EPGComponent.test.ts src/modules/ui/epg/__tests__/utils.test.ts`
+      - `npm run verify:docs`
+      - `npm run typecheck`
+      - `npm run verify`
+      - `desloppify status`
+      - `desloppify show review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe --no-budget`
+      - `rg -n --pcre2 "^(?!\\s*(//|/\\*|\\*)).*\\blocalStorage\\.(getItem|setItem|removeItem|clear|key)\\(" src --glob '!**/__tests__/**' --glob '!**/*.test.ts' | rg -v "src/modules/lifecycle/StateManager.ts|src/utils/storage.ts"`
+    - imported issue disposition checkpoint: `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe` remains open after this slice; exact successor owner for final disposition is `P3-EXIT`.
+  - [x] `P3-W5` refresh `CURRENT_STATE` and adjacent docs so the persistence-owner list is accurate and complete (completed 2026-03-11)
+    - refreshed owner-map docs:
+      - `docs/architecture/CURRENT_STATE.md`
+      - `docs/architecture/modules.md`
+    - verification:
+      - `npm run verify:docs` -> pass
+  - [x] `P3-W6` runtime storage-owner drift residual cleanup for `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe` (completed 2026-03-11)
+    - final runtime residuals retired with typed owner routing:
+      - `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`
+      - `ProfileSelectScreen` -> injected `ProfileSessionStore` seam (wired in `App` and tests only)
+      - `ThemeManager` -> `ThemePreferencesStore` (new)
+      - `EPGInfoPanel` -> `NowPlayingDisplayStore` + `EpgPreferencesStore`
+    - closure evidence rerun (`2026-03-12`):
+      - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"` -> completed
+      - `desloppify status` -> completed
+      - `desloppify show review --status open --no-budget --top 200` -> completed
+      - `desloppify show review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe --no-budget` -> `No open issues matching ...`
+      - `desloppify show security --status open --no-budget --top 200` -> 12 open `T2 [medium]` issues, no `P0`
+      - filtered raw-storage query (`... | rg -v "src/modules/lifecycle/StateManager.ts|src/utils/storage.ts"`) -> no matches
+      - related-files guard query (`LINEUP_STORAGE_KEYS|safeLocalStorage|readStoredBoolean` over mapped related files) -> no matches
+      - `npm run verify:docs` -> pass
+      - `npm run verify` -> pass
+  - [x] `P3-EXIT` run the priority-exit review before moving to `P4` (completed 2026-03-12; priority-exit review required before opening `P4` work)
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 3
+    - mapped imported issues:
+      - `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe` -> `resolved`
+        reason: the final four runtime residual bypasses were retired and the mapped review issue no longer appears as open on refreshed evidence.
+    - follow-up ownership:
+      - none; no `deferred` or `split follow-up` items remain for `P3`.
+    - security triage:
+      - exact `P0` gate disposition: `no open P0 security findings` (`desloppify show security --status open --no-budget --top 200` reports 12 open `T2 [medium]` items only).
+    - residuals:
+      - no additional Priority 3 storage-owner residual is intentionally left open.
+    - verification:
+      - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`
+      - `desloppify status`
+      - `desloppify show review --status open --no-budget --top 200`
+      - `desloppify show review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe --no-budget`
+      - `desloppify show security --status open --no-budget --top 200`
+      - `rg -n --pcre2 "^(?!\\s*(//|/\\*|\\*)).*\\blocalStorage\\.(getItem|setItem|removeItem|clear|key)\\(" src --glob '!**/__tests__/**' --glob '!**/*.test.ts' | rg -v "src/modules/lifecycle/StateManager.ts|src/utils/storage.ts"`
+      - `rg -n "LINEUP_STORAGE_KEYS|safeLocalStorage|readStoredBoolean" src/core/InitializationCoordinator.ts src/modules/navigation/NavigationCoordinator.ts src/modules/player/PlaybackRecoveryManager.ts src/modules/ui/epg/EPGCoordinator.ts src/modules/ui/now-playing-info/NowPlayingInfoCoordinator.ts src/shared/subtitle-mode.ts`
+      - `rg -n "PlayerOsdCoordinator|ProfileSelectScreen|ThemeManager|EPGInfoPanel" src/modules/ui/player-osd/PlayerOsdCoordinator.ts src/modules/ui/profile-select/ProfileSelectScreen.ts src/modules/ui/theme/ThemeManager.ts src/modules/ui/epg/EPGInfoPanel.ts`
+      - `npm run verify:docs`
+      - `npm run verify`
 
 ## Priority 4: Complete UI And Coordinator Round-2 Decomposition
 

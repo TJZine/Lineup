@@ -11,8 +11,7 @@ import type { IPlexLibrary, PlexMediaItem } from '../../plex/library';
 import type { INowPlayingInfoOverlay, NowPlayingInfoViewModel } from './index';
 import type { NowPlayingInfoConfig } from './types';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from './constants';
-import { readStoredBoolean, safeLocalStorageGet } from '../../../utils/storage';
-import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import { NowPlayingDisplayStore } from '../../settings/NowPlayingDisplayStore';
 import { type PlaybackInfoSnapshotLike } from '../../../utils/playbackSummary';
 import { formatAudioCodec } from '../../../utils/mediaFormat';
 import { extractHdrLabelFromPlexMedia } from '../../plex/stream/hdr';
@@ -46,6 +45,7 @@ interface NowPlayingInfoCoordinatorDeps {
     // Playback snapshot for mode/details
     getPlaybackInfoSnapshot: () => PlaybackInfoSnapshotLike | null;
     refreshPlaybackInfoSnapshot: () => Promise<PlaybackInfoSnapshotLike>;
+    nowPlayingDisplayStore?: NowPlayingDisplayStore;
 }
 
 export class NowPlayingInfoCoordinator {
@@ -54,14 +54,17 @@ export class NowPlayingInfoCoordinator {
     private nowPlayingInfoDetails: PlexMediaItem | null = null;
     private nowPlayingInfoDetailsRatingKey: string | null = null;
     private cinematicNowPlaying = false;
+    private readonly _nowPlayingDisplayStore: NowPlayingDisplayStore;
 
-    constructor(private readonly deps: NowPlayingInfoCoordinatorDeps) { }
+    constructor(private readonly deps: NowPlayingInfoCoordinatorDeps) {
+        this._nowPlayingDisplayStore = deps.nowPlayingDisplayStore ?? new NowPlayingDisplayStore();
+    }
 
     handleModalOpen(modalId: string): void {
         if (modalId !== this.deps.nowPlayingModalId) {
             return;
         }
-        this.cinematicNowPlaying = readStoredBoolean(LINEUP_STORAGE_KEYS.CINEMATIC_NOW_PLAYING, false);
+        this.cinematicNowPlaying = this._nowPlayingDisplayStore.readCinematicNowPlayingEnabled(false);
         const overlay = this.deps.getNowPlayingInfo();
         const channelManager = this.deps.getChannelManager();
         if (!overlay || !channelManager) {
@@ -269,7 +272,7 @@ export class NowPlayingInfoCoordinator {
         if (backdropPath) {
             backdropUrl = this.deps.buildPlexResourceUrl(backdropPath);
         }
-        const preferClearLogos = readStoredBoolean(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, true);
+        const preferClearLogos = this._nowPlayingDisplayStore.readPreferClearLogosEnabled(true);
         const clearLogoPath =
             details?.clearLogo ?? (item as { clearLogo?: string | null }).clearLogo ?? null;
         const clearLogoUrl = preferClearLogos && clearLogoPath
@@ -555,46 +558,15 @@ export class NowPlayingInfoCoordinator {
 }
 
 export function getNowPlayingInfoAutoHideMs(
-    config: NowPlayingInfoConfig | null | undefined
+    config: NowPlayingInfoConfig | null | undefined,
+    nowPlayingDisplayStore: NowPlayingDisplayStore = new NowPlayingDisplayStore()
 ): number {
-    const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS);
-    const parsed = parseStoredNowPlayingInfoAutoHideMs(raw);
     const configured = config?.autoHideMs;
-    const candidates = [
-        ...(typeof parsed === 'number' ? [parsed] : []),
-        ...(typeof configured === 'number' && Number.isFinite(configured) ? [configured] : []),
-    ];
-    for (const candidate of candidates) {
-        if (candidate === 0) {
-            if (
-                NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS.includes(
-                    0 as (typeof NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS)[number]
-                )
-            ) {
-                return 0;
-            }
-            continue;
-        }
-        if (candidate > 0) {
-            const normalized = Math.max(1000, Math.floor(candidate));
-            if (
-                NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS.includes(
-                    normalized as (typeof NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS)[number]
-                )
-            ) {
-                return normalized;
-            }
-        }
-    }
-    return NOW_PLAYING_INFO_DEFAULTS.autoHideMs;
-}
-
-function parseStoredNowPlayingInfoAutoHideMs(raw: string | null): number | null {
-    if (raw === null) return null;
-    const trimmed = raw.trim();
-    if (!/^\d+$/.test(trimmed)) {
-        return null;
-    }
-    const parsed = Number.parseInt(trimmed, 10);
-    return Number.isFinite(parsed) ? parsed : null;
+    const configuredFallback = typeof configured === 'number' && Number.isFinite(configured)
+        ? (configured === 0 ? 0 : Math.max(1000, Math.floor(configured)))
+        : NOW_PLAYING_INFO_DEFAULTS.autoHideMs;
+    return nowPlayingDisplayStore.readClampedAutoHideMs(
+        NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS,
+        configuredFallback
+    );
 }

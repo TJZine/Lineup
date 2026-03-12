@@ -12,6 +12,7 @@ import type { INavigationManager } from '../../modules/navigation';
 import type { AppError } from '../../modules/lifecycle';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS, MAX_CHANNEL_NUMBER } from '../../modules/scheduler/channel-manager/constants';
 import { redactSensitiveTokens } from '../../utils/redact';
+import { safeLocalStorageRemoveByPrefixes } from '../../utils/storage';
 
 import type {
     ChannelSetupConfig,
@@ -399,30 +400,10 @@ export class ChannelSetupCoordinator {
 
     // --- Called during initialize to clean up crash leftovers ---
     cleanupStaleChannelBuildKeys(): void {
-        try {
-            // Direct localStorage enumeration is intentional: deps only support single-key ops.
-            const prefixes = [
-                'lineup_channels_build_tmp_v1:',
-                'lineup_current_channel_build_tmp_v1:',
-            ];
-            const keysToRemove: string[] = [];
-            for (let i = 0; i < localStorage.length; i++) {
-                const k = localStorage.key(i);
-                if (!k) continue;
-                if (prefixes.some((p) => k.startsWith(p))) {
-                    keysToRemove.push(k);
-                }
-            }
-            for (const k of keysToRemove) {
-                try {
-                    localStorage.removeItem(k);
-                } catch {
-                    // ignore
-                }
-            }
-        } catch {
-            // ignore
-        }
+        safeLocalStorageRemoveByPrefixes([
+            'lineup_channels_build_tmp_v1:',
+            'lineup_current_channel_build_tmp_v1:',
+        ]);
     }
 
     private _getChannelSetupStorageKey(serverId: string): string {

@@ -1,3 +1,7 @@
+/**
+ * @jest-environment jsdom
+ */
+
 import { ChannelSetupCoordinator } from '../ChannelSetupCoordinator';
 import type { ChannelSetupCoordinatorDeps } from '../ChannelSetupCoordinator';
 import type { ChannelSetupConfig, ChannelSetupRecord, SetupStrategyConfig, SetupStrategyKey } from '../types';
@@ -242,6 +246,19 @@ describe('ChannelSetupCoordinator', () => {
         expect(storageRemove).toHaveBeenCalledWith('lineup_channel_setup_v2:server-9');
         expect(navigation.goTo).toHaveBeenCalledWith('channel-setup');
         expect(coordinator.shouldRunChannelSetup()).toBe(true);
+    });
+
+    it('cleanupStaleChannelBuildKeys removes only temp build keys and does not throw', () => {
+        const { coordinator } = createCoordinator();
+        localStorage.clear();
+        localStorage.setItem('lineup_channels_build_tmp_v1:abc', '1');
+        localStorage.setItem('lineup_current_channel_build_tmp_v1:def', '2');
+        localStorage.setItem('lineup_channel_setup_v2:server-1', 'keep');
+
+        expect(() => coordinator.cleanupStaleChannelBuildKeys()).not.toThrow();
+        expect(localStorage.getItem('lineup_channels_build_tmp_v1:abc')).toBe(null);
+        expect(localStorage.getItem('lineup_current_channel_build_tmp_v1:def')).toBe(null);
+        expect(localStorage.getItem('lineup_channel_setup_v2:server-1')).toBe('keep');
     });
 
     it('getSetupContextForSelectedServer returns first-time when selected server has no channels', () => {

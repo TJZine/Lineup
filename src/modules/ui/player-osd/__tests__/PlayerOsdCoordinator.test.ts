@@ -2,13 +2,13 @@
  * @jest-environment jsdom
  */
 import { INFO_BANNER_AUTO_HIDE_MS, PlayerOsdCoordinator } from '../PlayerOsdCoordinator';
-import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import type { IPlayerOsdOverlay } from '../interfaces';
 import type { INavigationManager } from '../../../navigation';
 import type { IVideoPlayer } from '../../../player';
 import type { AudioTrack, PlaybackState, SubtitleTrack } from '../../../player/types';
 import type { ChannelConfig } from '../../../scheduler/channel-manager';
 import type { ScheduledProgram } from '../../../scheduler/scheduler';
+import type { NowPlayingDisplayStore } from '../../../settings/NowPlayingDisplayStore';
 
 const AUTO_HIDE_MS = 3000;
 
@@ -97,6 +97,9 @@ function makeCoordinatorOptions(
         getAutoHideMs: (): number => AUTO_HIDE_MS,
         getNavigation: (): INavigationManager => navigation,
         buildPlexResourceUrl: jest.fn().mockReturnValue(null),
+        nowPlayingDisplayStore: {
+            readPreferClearLogosEnabled: jest.fn().mockReturnValue(true),
+        } as unknown as NowPlayingDisplayStore,
         playbackOptionsModalId: 'playback-options',
         preparePlaybackOptionsModal: jest.fn().mockReturnValue({
             focusableIds: ['playback-subtitle-off'],
@@ -521,26 +524,24 @@ describe('PlayerOsdCoordinator', () => {
     });
 
     it('omits clearLogoUrl when prefer clear logos is disabled', () => {
-        localStorage.setItem(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, '0');
-        try {
-            const overlay = makeOverlay();
-            const coordinator = new PlayerOsdCoordinator(
-                makeCoordinatorOptions({
-                    getOverlay: () => overlay,
-                    getCurrentProgram: () => ({
-                        ...makeProgram(),
-                        item: { ...makeProgram().item, clearLogo: '/logo' } as unknown as ScheduledProgram['item'],
-                    }),
-                    buildPlexResourceUrl: jest.fn((path) => `http://mock${path}`) as unknown as (path: string) => string,
-                })
-            );
+        const overlay = makeOverlay();
+        const coordinator = new PlayerOsdCoordinator(
+            makeCoordinatorOptions({
+                getOverlay: () => overlay,
+                getCurrentProgram: () => ({
+                    ...makeProgram(),
+                    item: { ...makeProgram().item, clearLogo: '/logo' } as unknown as ScheduledProgram['item'],
+                }),
+                buildPlexResourceUrl: jest.fn((path) => `http://mock${path}`) as unknown as (path: string) => string,
+                nowPlayingDisplayStore: {
+                    readPreferClearLogosEnabled: jest.fn().mockReturnValue(false),
+                } as unknown as NowPlayingDisplayStore,
+            })
+        );
 
-            coordinator.poke('play');
+        coordinator.poke('play');
 
-            const vm = (overlay.setViewModel as jest.Mock).mock.calls[0]?.[0] as { clearLogoUrl?: string | null };
-            expect(vm.clearLogoUrl).toBeUndefined();
-        } finally {
-            localStorage.removeItem(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS);
-        }
+        const vm = (overlay.setViewModel as jest.Mock).mock.calls[0]?.[0] as { clearLogoUrl?: string | null };
+        expect(vm.clearLogoUrl).toBeUndefined();
     });
 });

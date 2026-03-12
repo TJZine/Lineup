@@ -38,6 +38,7 @@ import { ProfileSelectScreen } from './modules/ui/profile-select';
 import { ServerSelectScreen } from './modules/ui/server-select';
 import { SplashScreen } from './modules/ui/splash';
 import { ThemeManager } from './modules/ui/theme';
+import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';
 import { summarizeErrorForLog } from './utils/errors';
 
 // ============================================
@@ -128,6 +129,7 @@ const ERROR_OVERLAY_MODAL_ID = 'modal:error-overlay';
 export class App {
     private _orchestrator: AppOrchestrator | null = null;
     private readonly _debugOverridesStore = new DebugOverridesStore();
+    private readonly _profileSessionStore = new ProfileSessionStore();
     private readonly _blockingErrorOverlayPresenter = new AppBlockingErrorOverlayPresenter({
         getNavigation: (): INavigationManager | null => this._orchestrator?.getNavigation() ?? null,
         modalId: ERROR_OVERLAY_MODAL_ID,
@@ -324,7 +326,11 @@ export class App {
         }
         this._splashScreen = new SplashScreen(containerRefs.splashContainer);
         this._authScreen = new AuthScreen(containerRefs.authContainer, this._orchestrator);
-        this._profileSelectScreen = new ProfileSelectScreen(containerRefs.profileSelectContainer, this._orchestrator);
+        this._profileSelectScreen = new ProfileSelectScreen(
+            containerRefs.profileSelectContainer,
+            this._orchestrator,
+            this._profileSessionStore
+        );
         this._serverSelectScreen = new ServerSelectScreen(
             containerRefs.serverSelectContainer,
             this._orchestrator

@@ -11,10 +11,9 @@ import type { ScheduledProgram } from '../../scheduler/scheduler';
 import type { IPlayerOsdOverlay } from './interfaces';
 import type { PlayerOsdReason, PlayerOsdViewModel } from './types';
 import type { PlaybackOptionsSectionId } from '../playback-options/types';
+import type { NowPlayingDisplayStore } from '../../settings/NowPlayingDisplayStore';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
 import { getChannelNameForDisplay } from '../channelDisplay';
-import { readStoredBoolean } from '../../../utils/storage';
-import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 
 const RECENT_USER_ACTION_MS = 2000;
 const OSD_THROTTLE_MS = 250;
@@ -42,6 +41,7 @@ interface PlayerOsdCoordinatorDeps {
     cycleSleepTimerPreset?: () => number;
     getSleepTimerRemainingMs?: () => number;
     onVisibilityChange?: (visible: boolean) => void;
+    nowPlayingDisplayStore: NowPlayingDisplayStore;
     playbackOptionsModalId: string;
     preparePlaybackOptionsModal: (
         preferredSection: PlaybackOptionsSectionId
@@ -274,7 +274,7 @@ export class PlayerOsdCoordinator {
         const subtitle = program?.item.fullTitle && program.item.fullTitle !== program.item.title
             ? program.item.fullTitle
             : null;
-        const preferClearLogos = readStoredBoolean(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, true);
+        const preferClearLogos = this.deps.nowPlayingDisplayStore.readPreferClearLogosEnabled(true);
         const clearLogoPath = program?.item.clearLogo ?? null;
         const clearLogoUrl = preferClearLogos && clearLogoPath
             ? this.deps.buildPlexResourceUrl(clearLogoPath)

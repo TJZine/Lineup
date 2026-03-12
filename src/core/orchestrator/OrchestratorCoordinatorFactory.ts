@@ -88,8 +88,11 @@ import type { IInitializationCoordinator } from '../InitializationCoordinator';
 import type { ModuleStatus, OrchestratorConfig } from './OrchestratorTypes';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import { NowPlayingDebugManager } from '../../modules/debug/NowPlayingDebugManager';
+import { EpgPreferencesStore } from '../../modules/settings/EpgPreferencesStore';
+import { NowPlayingDisplayStore } from '../../modules/settings/NowPlayingDisplayStore';
+import { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
+import { SubtitlePreferencesStore } from '../../modules/settings/SubtitlePreferencesStore';
 import { safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from '../../utils/storage';
-import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import { summarizeErrorForLog } from '../../utils/errors';
 import type { ToastInput } from '../../modules/ui/toast/types';
 import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
@@ -121,6 +124,10 @@ export interface OrchestratorCoordinatorFactoryDeps {
     sleepTimer: SleepTimerManager;
 
     debugOverridesStore: DebugOverridesStore;
+    subtitlePreferencesStore: SubtitlePreferencesStore;
+    epgPreferencesStore: EpgPreferencesStore;
+    nowPlayingDisplayStore: NowPlayingDisplayStore;
+    profileSessionStore: ProfileSessionStore;
 
     playbackState: OrchestratorPlaybackStateAccessors;
     lastChannelChangeSource: () => 'remote' | 'number' | 'guide' | null;
@@ -200,6 +207,7 @@ export function createOrchestratorCoordinators(
                 type: 'warning',
             });
         },
+        epgPreferencesStore: deps.epgPreferencesStore,
     });
 
     const channelSetup = new ChannelSetupCoordinator({
@@ -250,7 +258,7 @@ export function createOrchestratorCoordinators(
             nowPlayingDebugManager.maybeFetchNowPlayingStreamDecisionForDebugHud() ??
             Promise.resolve(),
         getAutoHideMs: (): number =>
-            getNowPlayingInfoAutoHideMs(deps.config?.nowPlayingInfoConfig),
+            getNowPlayingInfoAutoHideMs(deps.config?.nowPlayingInfoConfig, deps.nowPlayingDisplayStore),
         getCurrentProgramForPlayback: (): ScheduledProgram | null =>
             deps.playbackState.getCurrentProgramForPlayback(),
         getPlaybackInfoSnapshot: (): PlaybackInfoSnapshotLike | null => deps.getPlaybackInfoSnapshot(),
@@ -259,6 +267,7 @@ export function createOrchestratorCoordinators(
         onVisibilityChange: (visible: boolean): void => {
             deps.onOverlayVisibilityChange(visible);
         },
+        nowPlayingDisplayStore: deps.nowPlayingDisplayStore,
     });
 
     const playerOsdCoordinator = new PlayerOsdCoordinator({
@@ -276,6 +285,7 @@ export function createOrchestratorCoordinators(
             deps.buildPlexResourceUrl(pathOrUrl),
         cycleSleepTimerPreset: (): number => deps.sleepTimer.cyclePreset(),
         getSleepTimerRemainingMs: (): number => deps.sleepTimer.getRemainingMs(),
+        nowPlayingDisplayStore: deps.nowPlayingDisplayStore,
         playbackOptionsModalId: PLAYBACK_OPTIONS_MODAL_ID,
         preparePlaybackOptionsModal: (
             preferredSection
@@ -328,6 +338,7 @@ export function createOrchestratorCoordinators(
             if (!handler) return;
             handler(type ? { message, type } : message);
         },
+        subtitlePreferencesStore: deps.subtitlePreferencesStore,
     });
 
     const exitConfirmCoordinator = new ExitConfirmCoordinator({
@@ -359,7 +370,7 @@ export function createOrchestratorCoordinators(
         getServerUri: (): string | null =>
             deps.plexDiscovery.getServerUri() ?? null,
         getPreferredSubtitleLanguage: (): string | null =>
-            safeLocalStorageGet(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE),
+            deps.subtitlePreferencesStore.readSubtitleLanguage(),
         getPlexPreferredSubtitleLanguage: (): string | null =>
             deps.plexAuth.getCurrentUser()?.preferredSubtitleLanguage ?? null,
         notifySubtitleUnavailable: (): void => {
@@ -370,6 +381,7 @@ export function createOrchestratorCoordinators(
             if (!handler) return;
             handler(type ? { message, type } : message);
         },
+        subtitlePreferencesStore: deps.subtitlePreferencesStore,
         handleGlobalError: (error: AppError, context: string): void =>
             deps.handleGlobalError(error, context),
     });
@@ -506,6 +518,8 @@ export function createOrchestratorCoordinators(
         reportToast: (toast: { message: string; type: 'warning' | 'error' | 'info' | 'success' }): void => {
             deps.nowPlayingHandler()?.(toast);
         },
+        readKeepPlayingInSettings: (): boolean =>
+            deps.profileSessionStore.readKeepPlayingInSettings(false),
     });
 
     return {

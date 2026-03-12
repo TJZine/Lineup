@@ -137,6 +137,15 @@ Use `search_documents` when:
 
 This keeps repo docs as queryable context instead of relying on memory or manual browsing alone.
 
+Document-search reliability notes for this repo:
+
+- Prefer short anchored noun phrases over sentence-like prompts.
+- Good: `CURRENT_STATE persistence owner map P3-W5`
+- Avoid: `refresh CURRENT_STATE and adjacent docs so the persistence-owner list is accurate and complete`
+- If `search_documents` stalls, times out, or returns obviously noisy hits, retry once with a narrower anchor and once with a broader anchor before falling back.
+- For deterministic fallback, use `rg` plus direct reads and record that `search_documents` was insufficient in the task notes/plan.
+- Repo-local mitigation: `.codanna/settings.toml` keeps `documents.search.highlight = false` because Codanna `0.9.14` can panic while building highlighted previews for some overlapping multi-word matches. Re-enable only after the upstream preview/highlighting bug is fixed.
+
 ## Lineup-Specific Heuristics
 
 - Architecture work:

@@ -8,7 +8,7 @@ import { SETTINGS_STORAGE_KEYS } from '../constants';
 import type { SettingsSelectConfig, SettingsToggleConfig } from '../types';
 import { ThemeManager } from '../../theme';
 import * as ConfigEvents from '../../../../config/events';
-import { getSubtitleMode } from '../../../../shared/subtitle-mode';
+import { SubtitlePreferencesStore } from '../../../settings/SubtitlePreferencesStore';
 
 beforeEach(() => {
     localStorage.clear();
@@ -64,7 +64,7 @@ it('writes subtitle mode, emits subtitle callback, and invalidates state', () =>
 
     (subtitleMode as SettingsSelectConfig).onChange(0);
 
-    expect(getSubtitleMode()).toBe('off');
+    expect(new SubtitlePreferencesStore().readSubtitleMode()).toBe('off');
     expect(onSubtitleModeChange).toHaveBeenCalledWith('off');
     expect(onStateInvalidated).toHaveBeenCalledTimes(1);
 });

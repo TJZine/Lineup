@@ -29,8 +29,6 @@ describe('AppLifecycle', () => {
             createDefaultState: jest.fn().mockReturnValue({
                 version: 1,
                 plexAuth: null,
-                channelConfigs: [],
-                currentChannelIndex: 0,
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             }),
@@ -100,8 +98,6 @@ describe('AppLifecycle', () => {
             const savedState: PersistentState = {
                 version: 1,
                 plexAuth: null,
-                channelConfigs: [],
-                currentChannelIndex: 0,
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
@@ -116,8 +112,6 @@ describe('AppLifecycle', () => {
             const savedState: PersistentState = {
                 version: 1,
                 plexAuth: null,
-                channelConfigs: [],
-                currentChannelIndex: 0,
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };

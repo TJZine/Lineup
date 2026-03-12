@@ -8,7 +8,6 @@ import { IStateManager } from './interfaces';
 import {
     PersistentState,
     UserPreferences,
-    ChannelConfig,
 } from './types';
 import {
     STORAGE_CONFIG,
@@ -122,8 +121,6 @@ export class StateManager implements IStateManager {
         return {
             version: this._currentVersion,
             plexAuth: null,
-            channelConfigs: [],
-            currentChannelIndex: 0,
             userPreferences: { ...DEFAULT_USER_PREFERENCES } as UserPreferences,
             lastUpdated: Date.now(),
         };
@@ -210,31 +207,13 @@ export class StateManager implements IStateManager {
         const lastUpdated =
             typeof state['lastUpdated'] === 'number' ? state['lastUpdated'] : Date.now();
 
-        const channelConfigs = this._filterValidChannelConfigs(state['channelConfigs']);
-
         const userPreferences = this._isValidUserPreferences(state['userPreferences'])
             ? (state['userPreferences'] as UserPreferences)
             : ({ ...DEFAULT_USER_PREFERENCES } as UserPreferences);
 
-        let currentChannelIndex =
-            typeof state['currentChannelIndex'] === 'number' &&
-            Number.isFinite(state['currentChannelIndex'])
-                ? state['currentChannelIndex']
-                : 0;
-        if (channelConfigs.length === 0) {
-            currentChannelIndex = 0;
-        } else {
-            currentChannelIndex = Math.max(
-                0,
-                Math.min(channelConfigs.length - 1, currentChannelIndex)
-            );
-        }
-
         return {
             version,
             plexAuth: null,
-            channelConfigs,
-            currentChannelIndex,
             userPreferences,
             lastUpdated,
         };
@@ -242,25 +221,6 @@ export class StateManager implements IStateManager {
 
     private _isRecord(value: unknown): value is Record<string, unknown> {
         return typeof value === 'object' && value !== null;
-    }
-
-    private _filterValidChannelConfigs(value: unknown): ChannelConfig[] {
-        if (!Array.isArray(value)) {
-            return [];
-        }
-        return value.filter((entry) => this._isValidChannelConfig(entry)) as ChannelConfig[];
-    }
-
-    private _isValidChannelConfig(value: unknown): value is ChannelConfig {
-        if (!this._isRecord(value)) {
-            return false;
-        }
-        return (
-            typeof value['id'] === 'string' &&
-            typeof value['name'] === 'string' &&
-            typeof value['number'] === 'number' &&
-            Number.isFinite(value['number'])
-        );
     }
 
     private _isValidUserPreferences(value: unknown): value is UserPreferences {

@@ -1,40 +1,29 @@
 /**
- * @fileoverview Subtitle mode helpers.
+ * @fileoverview Pure subtitle mode helpers.
  * @module shared/subtitle-mode
  * @version 1.0.0
  */
-
-import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
-import { safeLocalStorageGet, safeLocalStorageSet } from '../utils/storage';
 
 export type SubtitleMode = 'off' | 'direct' | 'standard' | 'full';
 
 const SUBTITLE_MODES: readonly SubtitleMode[] = ['off', 'direct', 'standard', 'full'] as const;
 
-function isSubtitleMode(value: unknown): value is SubtitleMode {
+export function isSubtitleMode(value: unknown): value is SubtitleMode {
     return typeof value === 'string' && (SUBTITLE_MODES as readonly string[]).includes(value);
 }
 
-function normalizeSubtitleMode(value: string | null): SubtitleMode | null {
+export function parseSubtitleMode(value: string | null | undefined): SubtitleMode | null {
     if (!value) return null;
     const trimmed = value.trim().toLowerCase();
     if (isSubtitleMode(trimmed)) return trimmed;
     return null;
 }
 
-/**
- * Read the effective subtitle mode.
- */
-export function getSubtitleMode(): SubtitleMode {
-    const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.SUBTITLE_MODE);
-    const normalized = normalizeSubtitleMode(raw);
-    if (normalized) return normalized;
-
-    return 'full';
-}
-
-export function setSubtitleMode(mode: SubtitleMode): void {
-    safeLocalStorageSet(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, mode);
+export function normalizeSubtitleMode(
+    value: string | null | undefined,
+    fallback: SubtitleMode = 'full'
+): SubtitleMode {
+    return parseSubtitleMode(value) ?? fallback;
 }
 
 export function subtitleModeAllowsBurnIn(mode: SubtitleMode): boolean {

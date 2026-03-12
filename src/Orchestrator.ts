@@ -129,12 +129,15 @@ import { NowPlayingDebugManager } from './modules/debug/NowPlayingDebugManager';
 import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
 import { NowPlayingInfoCoordinator } from './modules/ui/now-playing-info/NowPlayingInfoCoordinator';
 import { PlaybackOptionsCoordinator } from './modules/ui/playback-options';
+import { EpgPreferencesStore } from './modules/settings/EpgPreferencesStore';
+import { NowPlayingDisplayStore } from './modules/settings/NowPlayingDisplayStore';
+import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';
+import { SubtitlePreferencesStore } from './modules/settings/SubtitlePreferencesStore';
 import type { IDisposable } from './utils/interfaces';
 import { createMulberry32 } from './utils/prng';
 import {
     readStoredBoolean,
     safeLocalStorageGet,
-    safeLocalStorageSet,
 } from './utils/storage';
 import { LINEUP_STORAGE_KEYS } from './config/storageKeys';
 import { getRecoveryActions as getRecoveryActionsHelper } from './core/error-recovery/RecoveryActions';
@@ -318,6 +321,10 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _exitConfirmModal: ExitConfirmModal | null = null;
     private _exitConfirmCoordinator: ExitConfirmCoordinator | null = null;
     private _sleepTimer: SleepTimerManager | null = null;
+    private readonly _subtitlePreferencesStore = new SubtitlePreferencesStore();
+    private readonly _epgPreferencesStore = new EpgPreferencesStore();
+    private readonly _nowPlayingDisplayStore = new NowPlayingDisplayStore();
+    private readonly _profileSessionStore = new ProfileSessionStore();
     private _nowPlayingDebugManager: NowPlayingDebugManager | null = null;
     private _playbackRecovery: PlaybackRecoveryManager | null = null;
     private _channelTuning: ChannelTuningCoordinator | null = null;
@@ -473,6 +480,8 @@ export class AppOrchestrator implements IAppOrchestrator {
                 channelTransition: this._channelTransitionOverlay,
                 playbackOptions: this._playbackOptionsModal,
                 exitConfirm: this._exitConfirmModal,
+                epgPreferencesStore: this._epgPreferencesStore,
+                profileSessionStore: this._profileSessionStore,
             },
             {
                 updateModuleStatus: this._updateModuleStatus.bind(this),
@@ -565,6 +574,10 @@ export class AppOrchestrator implements IAppOrchestrator {
             exitConfirmModal: this._exitConfirmModal,
             sleepTimer: this._sleepTimer,
             debugOverridesStore: this._debugOverridesStore,
+            subtitlePreferencesStore: this._subtitlePreferencesStore,
+            epgPreferencesStore: this._epgPreferencesStore,
+            nowPlayingDisplayStore: this._nowPlayingDisplayStore,
+            profileSessionStore: this._profileSessionStore,
             playbackState: this._playbackStateAccessors,
             lastChannelChangeSource: (): 'remote' | 'number' | 'guide' | null => this._lastChannelChangeSource,
             setLastChannelChangeSource: (source: 'remote' | 'number' | 'guide' | null): void => {
@@ -1548,7 +1561,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     }
 
     private _seedSubtitleLanguageFromPlexUser(): void {
-        const existing = safeLocalStorageGet(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE);
+        const existing = this._subtitlePreferencesStore.readSubtitleLanguage();
         if (typeof existing === 'string' && existing.trim().length > 0) {
             return;
         }
@@ -1560,7 +1573,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         if (normalized.length === 0) {
             return;
         }
-        safeLocalStorageSet(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE, normalized);
+        this._subtitlePreferencesStore.writeSubtitleLanguage(normalized);
     }
 
     private async _configureChannelManagerStorageForSelectedServer(): Promise<void> {

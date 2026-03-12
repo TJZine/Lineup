@@ -8,6 +8,7 @@ import {
     isEpgDebugLoggingEnabled,
 } from '../utils';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
+import * as storageHelpers from '../../../../utils/storage';
 
 describe('formatCellTimeLabel', () => {
     it('returns full range when forceFull is true', () => {
@@ -28,9 +29,15 @@ describe('formatCellTimeLabel', () => {
 
 describe('appendEpgDebugLog', () => {
     beforeEach(() => {
+        jest.useFakeTimers();
         __resetEpgDebugStateForTests();
         localStorage.clear();
         jest.restoreAllMocks();
+    });
+
+    afterEach(() => {
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
     });
 
     it('reuses a cached debug flag between rapid calls', () => {
@@ -59,5 +66,31 @@ describe('appendEpgDebugLog', () => {
             .filter((key) => key === LINEUP_STORAGE_KEYS.EPG_DEBUG).length;
 
         expect(debugReads).toBe(1);
+    });
+
+    it('normalizes non-array stored debug log payloads to an empty list before append', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_DEBUG, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_DEBUG_LOG, '{"bad":true}');
+
+        appendEpgDebugLog('event:normalized', { ok: true });
+        jest.advanceTimersByTime(300);
+
+        const stored = localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG_LOG);
+        expect(stored).toBeTruthy();
+        const parsed = JSON.parse(stored as string) as Array<{ event: string }>;
+        expect(parsed).toHaveLength(1);
+        expect(parsed[0]?.event).toBe('event:normalized');
+    });
+
+    it('remains non-throwing when debug log storage write fails', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_DEBUG, '1');
+        const setSpy = jest.spyOn(storageHelpers, 'safeLocalStorageSet').mockReturnValue(false);
+
+        expect(() => {
+            appendEpgDebugLog('event:write-fail', { ok: true });
+            jest.advanceTimersByTime(300);
+        }).not.toThrow();
+
+        expect(setSpy).toHaveBeenCalled();
     });
 });

@@ -11,14 +11,9 @@ import type { ScheduledProgram } from './types';
 import type { PlexMediaItem } from '../../plex/library';
 import { extractHdrLabelFromPlexMedia } from '../../plex/stream/hdr';
 import { formatContentRatingBadge } from '../../../utils/contentRating';
-import {
-    parseStoredEpgInfoBackgroundMode,
-    readStoredBoolean,
-    safeLocalStorageGet,
-    safeLocalStorageRemove,
-} from '../../../utils/storage';
+import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
+import { NowPlayingDisplayStore } from '../../settings/NowPlayingDisplayStore';
 import { extractDominantColor } from '../../../utils/color/extractDominantColor';
-import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 
 const MAX_DYNAMIC_COLOR_CACHE_ENTRIES = 128;
 const DYNAMIC_COLOR_FAILURE_COOLDOWN_MS = 60_000;
@@ -28,6 +23,8 @@ const DYNAMIC_COLOR_FAILURE_COOLDOWN_MS = 60_000;
  * Displays program details in an overlay at the bottom of the EPG.
  */
 export class EPGInfoPanel implements IEPGInfoPanel {
+    private readonly epgPreferencesStore = new EpgPreferencesStore();
+    private readonly nowPlayingDisplayStore = new NowPlayingDisplayStore();
     private containerElement: HTMLElement | null = null;
     private backdropElement: HTMLImageElement | null = null;
     private posterElement: HTMLImageElement | null = null;
@@ -339,7 +336,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         }
         const hasShowTitleText = Boolean(showTitle?.textContent?.trim());
 
-        const preferClearLogos = readStoredBoolean(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, true);
+        const preferClearLogos = this.nowPlayingDisplayStore.readPreferClearLogosEnabled(true);
         const clearLogoPath = (item as { clearLogo?: string | null }).clearLogo ?? null;
         const clearLogoUrl = preferClearLogos && clearLogoPath
             ? (this.thumbResolver?.(clearLogoPath, 520, 84) ?? null)
@@ -622,15 +619,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     }
 
     private resolveInfoBackgroundMode(): 0 | 1 | 2 {
-        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
-        const parsed = parseStoredEpgInfoBackgroundMode(raw);
-        if (parsed !== null) {
-            return parsed;
-        }
-        if (raw !== null) {
-            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
-        }
-        return 0;
+        return this.epgPreferencesStore.readInfoBackgroundMode(0);
     }
 
     private resolvePosterSampleUrl(program: ScheduledProgram): string | null {

@@ -86,6 +86,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 - app lifecycle phases
 - persistence coordination
 - error recovery and cleanup
+- owns the lifecycle-only `lineup_app_state` storage boundary via `src/modules/lifecycle/StateManager.ts`
 
 ### `src/modules/navigation/`
 
@@ -154,6 +155,16 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - audio settings storage ownership
 - `src/modules/settings/AudioSettingsStore.ts`
+- EPG settings storage ownership
+- `src/modules/settings/EpgPreferencesStore.ts`
+- now-playing display settings storage ownership
+- `src/modules/settings/NowPlayingDisplayStore.ts`
+- profile session storage ownership
+- `src/modules/settings/ProfileSessionStore.ts`
+- subtitle preferences storage ownership
+- `src/modules/settings/SubtitlePreferencesStore.ts`
+- theme preference storage ownership
+- `src/modules/settings/ThemePreferencesStore.ts`
 
 ### `src/modules/debug/`
 
@@ -169,6 +180,14 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - channel persistence ownership and normalization for channel manager
 - `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`
+- `src/modules/scheduler/channel-manager/ChannelRepository.ts`
+- owns server/user-scoped channel key families (including selected/current channel state) configured by `src/core/orchestrator/OrchestratorStorageContext.ts`
+
+### Direct-storage Exception Wraps (`P3-W3`, completed 2026-03-11)
+
+- `src/modules/ui/epg/utils.ts` (`appendEpgDebugLog`) now routes EPG debug storage reads/writes through `src/utils/storage.ts` helpers
+- `src/core/channel-setup/ChannelSetupCoordinator.ts` (`cleanupStaleChannelBuildKeys`) now routes stale temp-key cleanup through `src/utils/storage.ts` prefix-based helper
+- broader repo drift cleanup is still tracked under `P3-W4`
 
 ## UI Modules
 

@@ -18,7 +18,6 @@ export type {
     ConnectionStatus,
     PersistentState,
     UserPreferences,
-    ChannelConfig,
     LifecycleEventMap,
     LifecycleAppError,
     AppLifecycleState,

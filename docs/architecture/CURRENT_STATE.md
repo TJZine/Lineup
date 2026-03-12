@@ -43,6 +43,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - `src/modules/lifecycle/`
 - owns lifecycle state, visibility, persistence coordination, and recovery concerns
+- `src/modules/lifecycle/StateManager.ts` owns the lifecycle storage key `lineup_app_state` only (versioned lifecycle payload: `plexAuth` null marker, `userPreferences`, `lastUpdated`)
 
 ### Navigation
 
@@ -62,6 +63,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - `src/modules/scheduler/`
 - owns scheduling behavior, shuffle logic, and channel domain flows
+- channel-domain persistence ownership (including selected/current channel state) stays in `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts` and `src/modules/scheduler/channel-manager/ChannelRepository.ts`, with server/user-scoped keys configured through `src/core/orchestrator/OrchestratorStorageContext.ts`
 
 ### Player
 
@@ -72,11 +74,19 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - `src/modules/ui/settings/SettingsStore.ts`
 - `src/modules/settings/AudioSettingsStore.ts`
+- `src/modules/settings/EpgPreferencesStore.ts`
+- `src/modules/settings/NowPlayingDisplayStore.ts`
+- `src/modules/settings/ProfileSessionStore.ts`
+- `src/modules/settings/SubtitlePreferencesStore.ts`
+- `src/modules/settings/ThemePreferencesStore.ts`
 - `src/modules/debug/DebugOverridesStore.ts`
 - `src/modules/plex/discovery/ServerSelectionStore.ts`
 - `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`
 - `src/modules/plex/auth/clientIdentifier.ts`
 - these are the current designated owners for storage-backed state
+- runtime consumers route mapped key families through typed stores (for example `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`, `ProfileSelectScreen` -> `ProfileSessionStore`, `ThemeManager` -> `ThemePreferencesStore`, `EPGInfoPanel` -> `NowPlayingDisplayStore`/`EpgPreferencesStore`)
+- `src/modules/ui/epg/utils.ts` and `src/core/channel-setup/ChannelSetupCoordinator.ts` now route their former direct-storage exception paths through sanctioned helpers in `src/utils/storage.ts` (`P3-W3`, completed 2026-03-11)
+- repo-wide residual direct-storage drift audit/remediation remains in `P3-W4`
 
 ### UI
 

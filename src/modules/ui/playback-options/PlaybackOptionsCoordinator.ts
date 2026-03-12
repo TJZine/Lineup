@@ -14,7 +14,11 @@ import type { IVideoPlayer } from '../../player';
 import type { ScheduledProgram } from '../../scheduler/scheduler';
 import type { SubtitleTrack } from '../../player/types';
 import { BURN_IN_SUBTITLE_FORMATS } from '../../player/constants';
-import { getSubtitleMode, setSubtitleMode, subtitleModeAllowsBurnIn, subtitleModeIsDirectOnly } from '../../../shared/subtitle-mode';
+import {
+    subtitleModeAllowsBurnIn,
+    subtitleModeIsDirectOnly,
+} from '../../../shared/subtitle-mode';
+import { SubtitlePreferencesStore } from '../../settings/SubtitlePreferencesStore';
 import type { ToastType } from '../toast/types';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
 import type { StreamDescriptor } from '../../player/types';
@@ -31,9 +35,11 @@ interface PlaybackOptionsCoordinatorDeps {
     getCurrentProgram: () => ScheduledProgram | null;
     requestBurnInSubtitle?: (trackId: string, reason: string) => boolean | Promise<boolean>;
     notifyToast?: (message: string, type?: ToastType) => void;
+    subtitlePreferencesStore?: SubtitlePreferencesStore;
 }
 
 export class PlaybackOptionsCoordinator {
+    private readonly _subtitlePreferencesStore: SubtitlePreferencesStore;
     private pendingViewModel: PlaybackOptionsViewModel | null = null;
     private pendingFocusableIds: string[] = [];
     private pendingPreferredFocusId: string | null = null;
@@ -42,7 +48,9 @@ export class PlaybackOptionsCoordinator {
     private readonly subtitleProbeCache: Map<string, 'supported' | 'unsupported'> = new Map();
     private _subtitleSelectToken = 0;
 
-    constructor(private readonly deps: PlaybackOptionsCoordinatorDeps) { }
+    constructor(private readonly deps: PlaybackOptionsCoordinatorDeps) {
+        this._subtitlePreferencesStore = deps.subtitlePreferencesStore ?? new SubtitlePreferencesStore();
+    }
 
     prepareModal(
         preferredSection: PlaybackOptionsSectionId = 'subtitles'
@@ -105,7 +113,7 @@ export class PlaybackOptionsCoordinator {
 
     private buildViewModel(): PlaybackOptionsViewModel {
         const player = this.deps.getVideoPlayer();
-        const subtitleMode = getSubtitleMode();
+        const subtitleMode = this._subtitlePreferencesStore.readSubtitleMode('full');
         const externalOnly = subtitleModeIsDirectOnly(subtitleMode);
         const allowBurnIn = subtitleModeAllowsBurnIn(subtitleMode);
         const subtitleTracks = player?.getAvailableSubtitles() ?? [];
@@ -276,10 +284,10 @@ export class PlaybackOptionsCoordinator {
         const player = this.deps.getVideoPlayer();
         if (!player) return;
         if (trackId) {
-            const mode = getSubtitleMode();
+            const mode = this._subtitlePreferencesStore.readSubtitleMode('full');
             if (mode === 'off') {
                 // Selecting a subtitle should implicitly enable subtitle handling.
-                setSubtitleMode('standard');
+                this._subtitlePreferencesStore.writeSubtitleMode('standard');
             }
         }
         const track = trackId
@@ -307,7 +315,7 @@ export class PlaybackOptionsCoordinator {
         token: number,
         player: IVideoPlayer
     ): Promise<boolean> {
-        const mode = getSubtitleMode();
+        const mode = this._subtitlePreferencesStore.readSubtitleMode('full');
         const allowBurnIn = subtitleModeAllowsBurnIn(mode);
         if (!allowBurnIn) {
             return true;

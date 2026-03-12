@@ -46,21 +46,8 @@ export interface UserPreferences {
 }
 
 /**
- * Minimal channel configuration for persistence.
- * Full type defined in channel-manager module.
- */
-export interface ChannelConfig {
-    /** Unique channel identifier */
-    id: string;
-    /** Display name */
-    name: string;
-    /** Channel number for quick access */
-    number: number;
-}
-
-/**
  * Persistent state saved to localStorage.
- * Includes version for migrations.
+ * Includes lifecycle-only fields and a schema version for migrations.
  */
 export interface PersistentState {
     /** Schema version for migrations */
@@ -70,10 +57,6 @@ export interface PersistentState {
      * @deprecated Always null; authentication is managed by the PlexAuth module.
      */
     plexAuth: null;
-    /** Channel configurations */
-    channelConfigs: ChannelConfig[];
-    /** Current channel index */
-    currentChannelIndex: number;
     /** User preferences */
     userPreferences: UserPreferences;
     /** Last update timestamp */

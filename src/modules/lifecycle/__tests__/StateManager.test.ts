@@ -92,8 +92,6 @@ describe('StateManager', () => {
             const state: PersistentState = {
                 version: 1,
                 plexAuth: null,
-                channelConfigs: [],
-                currentChannelIndex: 0,
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
@@ -135,8 +133,6 @@ describe('StateManager', () => {
             const futureState = {
                 version: 999,
                 plexAuth: null,
-                channelConfigs: [],
-                currentChannelIndex: 0,
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
@@ -148,12 +144,10 @@ describe('StateManager', () => {
             expect(loaded?.version).toBe(999);
         });
 
-        it('should ignore persisted plexAuth without wiping other fields', async () => {
+        it('should ignore persisted plexAuth without wiping lifecycle-owned fields', async () => {
             const state = {
                 version: 1,
                 plexAuth: 0,
-                channelConfigs: [{ id: 'c1', name: 'Channel 1', number: 1 }],
-                currentChannelIndex: 0,
                 userPreferences: { theme: 'light', volume: 50, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
@@ -162,8 +156,7 @@ describe('StateManager', () => {
             const loaded = await stateManager.load();
 
             expect(loaded?.plexAuth).toBeNull();
-            expect(loaded?.channelConfigs).toHaveLength(1);
-            expect(loaded?.currentChannelIndex).toBe(0);
+            expect(loaded?.userPreferences).toEqual(state.userPreferences);
         });
 
         it('should drop persisted plexAuth data', async () => {
@@ -174,8 +167,6 @@ describe('StateManager', () => {
                     selectedServerId: null,
                     selectedServerUri: null,
                 },
-                channelConfigs: [],
-                currentChannelIndex: 0,
                 userPreferences: { theme: 'dark', volume: 60, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
@@ -190,8 +181,6 @@ describe('StateManager', () => {
             const state = {
                 version: 1,
                 plexAuth: null,
-                channelConfigs: [],
-                currentChannelIndex: 0,
                 userPreferences: { theme: 'nope', volume: 999 },
                 lastUpdated: Date.now(),
             };
@@ -202,7 +191,7 @@ describe('StateManager', () => {
             expect(loaded?.userPreferences).toEqual(stateManager.createDefaultState().userPreferences);
         });
 
-        it('should salvage valid channel configs when some entries are invalid', async () => {
+        it('should ignore legacy channel fields from older persisted payloads', async () => {
             const state = {
                 version: 1,
                 plexAuth: null,
@@ -219,11 +208,11 @@ describe('StateManager', () => {
 
             const loaded = await stateManager.load();
 
-            expect(loaded?.channelConfigs).toHaveLength(2);
             expect(loaded).not.toBeNull();
             if (!loaded) return;
-            expect(loaded.channelConfigs.map((config) => config.id)).toEqual(['c1', 'c2']);
-            expect(loaded.currentChannelIndex).toBe(1);
+            expect(loaded.userPreferences).toEqual(state.userPreferences);
+            expect('channelConfigs' in loaded).toBe(false);
+            expect('currentChannelIndex' in loaded).toBe(false);
         });
 
         it('should repair minimal state after migration', async () => {
@@ -233,8 +222,7 @@ describe('StateManager', () => {
             const loaded = await stateManager.load();
 
             expect(loaded).not.toBeNull();
-            expect(loaded?.channelConfigs).toEqual([]);
-            expect(loaded?.currentChannelIndex).toBe(0);
+            expect(loaded?.userPreferences).toEqual(stateManager.createDefaultState().userPreferences);
         });
     });
 
@@ -254,8 +242,6 @@ describe('StateManager', () => {
 
             expect(state.version).toBe(STORAGE_CONFIG.STATE_VERSION);
             expect(state.plexAuth).toBeNull();
-            expect(state.channelConfigs).toEqual([]);
-            expect(state.currentChannelIndex).toBe(0);
             expect(state.userPreferences).toBeDefined();
             expect(state.lastUpdated).toBeGreaterThan(0);
         });

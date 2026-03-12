@@ -10,8 +10,7 @@ import type { IEPGComponent } from './interfaces';
 import type { EPGConfig } from './types';
 import type { IChannelManager, ChannelConfig, ResolvedChannelContent } from '../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig, ScheduleWindow } from '../../scheduler/scheduler';
-import { readStoredBoolean, safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from '../../../utils/storage';
-import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import {
     computeBackgroundWarmQueueCaps,
@@ -47,6 +46,7 @@ export interface EPGCoordinatorDeps {
     setLastChannelChangeSourceToGuide: () => void;
     switchToChannel: (channelId: string) => Promise<void>;
     reportEpgInitWarning: (error: unknown) => void;
+    epgPreferencesStore?: EpgPreferencesStore;
 }
 
 const EPG_SCHEDULE_CACHE_TTL_MS = 2 * 60_000;
@@ -86,6 +86,7 @@ type BackgroundWarmQueueState = {
 };
 
 export class EPGCoordinator {
+    private readonly _epgPreferencesStore: EpgPreferencesStore;
     private _epgScheduleLoadToken = 0;
     private _epgScheduleInFlight = new Map<string, { controller: AbortController; rangeKey: string }>();
     private _epgScheduleRangeKeyByChannel = new Map<string, { rangeKey: string; loadedAt: number }>();
@@ -117,7 +118,9 @@ export class EPGCoordinator {
         firstVisibleScheduleReadyMs: number | null;
     } | null = null;
 
-    constructor(private readonly deps: EPGCoordinatorDeps) { }
+    constructor(private readonly deps: EPGCoordinatorDeps) {
+        this._epgPreferencesStore = deps.epgPreferencesStore ?? new EpgPreferencesStore();
+    }
 
     /**
      * Clear schedule caches and "loaded range" markers.
@@ -129,23 +132,19 @@ export class EPGCoordinator {
     }
 
     private _isLibraryTabsEnabled(): boolean {
-        return readStoredBoolean(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, true);
+        return this._epgPreferencesStore.readLibraryTabsEnabled(true);
     }
 
     private _isAggressivePreloadEnabled(): boolean {
-        return readStoredBoolean(LINEUP_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, false);
+        return this._epgPreferencesStore.readAggressivePreloadEnabled(false);
     }
 
     private _readSelectedLibraryId(): string | null {
-        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
-        if (!raw) return null;
-        const trimmed = raw.trim();
-        return trimmed ? trimmed : null;
+        return this._epgPreferencesStore.readSelectedLibraryId();
     }
 
     private _readGuideDensity(): 'detailed' | 'wide' {
-        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY);
-        return raw === 'wide' ? 'wide' : DEFAULT_GUIDE_DENSITY;
+        return this._epgPreferencesStore.readGuideDensity(DEFAULT_GUIDE_DENSITY);
     }
 
     private _getBaseVisibleHours(): number {
@@ -216,7 +215,7 @@ export class EPGCoordinator {
 
         if (!tabsEnabled || !hasMultipleLibraries || (selectedId && !hasSelectedMatch)) {
             if (options.mutateStorage && selectedId) {
-                safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
+                this._epgPreferencesStore.writeSelectedLibraryId(null);
             }
             selectedId = null;
         }
@@ -294,7 +293,7 @@ export class EPGCoordinator {
         const { selectedId, tabsEnabled, shouldFilter, libraries } = this._getLibraryFilterState(all);
 
         // Category colors
-        const categoryColorsEnabled = readStoredBoolean(LINEUP_STORAGE_KEYS.GUIDE_CATEGORY_COLORS, true);
+        const categoryColorsEnabled = this._epgPreferencesStore.readGuideCategoryColorsEnabled(true);
         epg.setCategoryColorsEnabled(categoryColorsEnabled);
 
         // Tabs (only show if enabled; EPGComponent will hide if <=1 library)
@@ -304,9 +303,8 @@ export class EPGCoordinator {
             epg.setLibraryTabs([], null);
         }
 
-        const storedLayoutMode = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
-        const layoutMode = storedLayoutMode === 'overlay' ? 'overlay' : 'classic';
-        const nowWatchingEnabled = readStoredBoolean(LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, true);
+        const layoutMode = this._epgPreferencesStore.readLayoutMode('classic');
+        const nowWatchingEnabled = this._epgPreferencesStore.readNowWatchingEnabled(true);
         epg.setLayoutMode(layoutMode);
         epg.setNowWatchingBannerEnabled(nowWatchingEnabled);
         epg.setVisibleHours(this._getVisibleHoursForCurrentFilter(all, selectedId, shouldFilter));
@@ -491,11 +489,7 @@ export class EPGCoordinator {
         epg.on('channelSelected', handler);
 
         const onFilter = (payload: { libraryId: string | null }): void => {
-            if (payload.libraryId) {
-                safeLocalStorageSet(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, payload.libraryId);
-            } else {
-                safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
-            }
+            this._epgPreferencesStore.writeSelectedLibraryId(payload.libraryId ?? null);
 
             const epgInstance = this.deps.getEpg();
             if (epgInstance) {
