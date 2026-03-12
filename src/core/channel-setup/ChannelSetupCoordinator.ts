@@ -12,7 +12,6 @@ import type { INavigationManager } from '../../modules/navigation';
 import type { AppError } from '../../modules/lifecycle';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS, MAX_CHANNEL_NUMBER } from '../../modules/scheduler/channel-manager/constants';
 import { redactSensitiveTokens } from '../../utils/redact';
-import { safeLocalStorageRemoveByPrefixes } from '../../utils/storage';
 
 import type {
     ChannelSetupConfig,
@@ -42,6 +41,8 @@ import {
     MIXED_SCOPE_STRATEGY_KEYS,
     SETUP_STRATEGY_KEYS,
 } from './constants';
+import { ChannelSetupRecordStore } from './ChannelSetupRecordStore';
+import { ChannelSetupRerunController } from './ChannelSetupRerunController';
 
 const SELECTABLE_STRATEGY_KEYS: SetupStrategyKey[] = [...SETUP_STRATEGY_KEYS];
 
@@ -69,9 +70,24 @@ export interface ChannelSetupCoordinatorDeps {
 }
 
 export class ChannelSetupCoordinator {
-    private _channelSetupRerunRequested = false;
+    private readonly _recordStore: ChannelSetupRecordStore;
+    private readonly _rerunController: ChannelSetupRerunController;
 
-    constructor(private readonly deps: ChannelSetupCoordinatorDeps) { }
+    constructor(private readonly deps: ChannelSetupCoordinatorDeps) {
+        this._recordStore = new ChannelSetupRecordStore({
+            storageGet: (key: string): string | null => this.deps.storageGet(key),
+            storageSet: (key: string, value: string): void => this.deps.storageSet(key, value),
+            storageRemove: (key: string): void => this.deps.storageRemove(key),
+            normalizeConfig: (config: ChannelSetupConfig): ChannelSetupConfig => this._normalizeConfig(config),
+        });
+        this._rerunController = new ChannelSetupRerunController({
+            navigation: this.deps.navigation,
+            getSelectedServerId: (): string | null => this.deps.getSelectedServerId(),
+            clearSetupRecord: (serverId: string): void => this._recordStore.clearRecord(serverId),
+            getChannelCount: (): number => this.deps.channelManager.getAllChannels().length,
+            hasSetupRecord: (serverId: string): boolean => this._recordStore.getRecord(serverId) !== null,
+        });
+    }
 
     // --- Public API mirrored from AppOrchestrator ---
     async getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibraryType[]> {
@@ -85,7 +101,7 @@ export class ChannelSetupCoordinator {
     }
 
     getSetupRecord(serverId: string): ChannelSetupRecord | null {
-        return this._getChannelSetupRecord(serverId);
+        return this._recordStore.getRecord(serverId);
     }
 
     getSetupContextForSelectedServer(): ChannelSetupContext {
@@ -349,65 +365,22 @@ export class ChannelSetupCoordinator {
     }
 
     markSetupComplete(serverId: string, setupConfig: ChannelSetupConfig): void {
-        const storageKey = this._getChannelSetupStorageKey(serverId);
-        const existing = this._getChannelSetupRecord(serverId);
-        const createdAt = existing?.createdAt ?? Date.now();
-        const normalizedConfig = this._normalizeConfig(setupConfig);
-        const record: ChannelSetupRecord = {
-            serverId,
-            selectedLibraryIds: [...normalizedConfig.selectedLibraryIds],
-            strategyConfig: { ...normalizedConfig.strategyConfig },
-            channelExpansion: normalizedConfig.channelExpansion ?? DEFAULT_CHANNEL_EXPANSION,
-            seriesOrdering: normalizedConfig.seriesOrdering ?? DEFAULT_SERIES_ORDERING,
-            maxChannels: normalizedConfig.maxChannels,
-            buildMode: normalizedConfig.buildMode,
-            actorStudioCombineMode: normalizedConfig.actorStudioCombineMode,
-            minItemsPerChannel: normalizedConfig.minItemsPerChannel,
-            createdAt,
-            updatedAt: Date.now(),
-        };
-        this.deps.storageSet(storageKey, JSON.stringify(record));
-        this._channelSetupRerunRequested = false;
+        this._recordStore.markSetupComplete(serverId, setupConfig);
+        this._rerunController.clearRerunRequest();
     }
 
     requestChannelSetupRerun(): void {
-        const serverId = this.deps.getSelectedServerId();
-        if (!serverId) {
-            return;
-        }
-        this.deps.storageRemove(this._getChannelSetupStorageKey(serverId));
-        this._channelSetupRerunRequested = true;
-        const navigation = this.deps.navigation;
-        navigation.goTo('channel-setup');
+        this._rerunController.requestChannelSetupRerun();
     }
 
     // --- Used by InitializationCoordinator + NavigationCoordinator ---
     shouldRunChannelSetup(): boolean {
-        const channelManager = this.deps.channelManager;
-        const serverId = this.deps.getSelectedServerId();
-        if (!serverId) {
-            return false;
-        }
-        if (this._channelSetupRerunRequested) {
-            return true;
-        }
-        if (channelManager.getAllChannels().length === 0) {
-            return true;
-        }
-        const record = this._getChannelSetupRecord(serverId);
-        return record === null;
+        return this._rerunController.shouldRunChannelSetup();
     }
 
     // --- Called during initialize to clean up crash leftovers ---
     cleanupStaleChannelBuildKeys(): void {
-        safeLocalStorageRemoveByPrefixes([
-            'lineup_channels_build_tmp_v1:',
-            'lineup_current_channel_build_tmp_v1:',
-        ]);
-    }
-
-    private _getChannelSetupStorageKey(serverId: string): string {
-        return `lineup_channel_setup_v2:${serverId}`;
+        this._recordStore.cleanupStaleBuildKeys();
     }
 
     private _normalizeConfig(config: ChannelSetupConfig): ChannelSetupConfig {
@@ -815,98 +788,6 @@ export class ChannelSetupCoordinator {
             updated.name = planned.name;
         }
         return updated;
-    }
-
-    private _getChannelSetupRecord(serverId: string): ChannelSetupRecord | null {
-        const stored = this.deps.storageGet(this._getChannelSetupStorageKey(serverId));
-        if (!stored) {
-            return null;
-        }
-        try {
-            const parsed = JSON.parse(stored) as Partial<ChannelSetupRecord>;
-            if (!parsed || parsed.serverId !== serverId) {
-                return null;
-            }
-            if (
-                !Array.isArray(parsed.selectedLibraryIds) ||
-                !parsed.selectedLibraryIds.every((id) => typeof id === 'string')
-            ) {
-                return null;
-            }
-            const rawStrategyConfig = parsed.strategyConfig as unknown;
-            if (!rawStrategyConfig || typeof rawStrategyConfig !== 'object') {
-                return null;
-            }
-            const strategyConfig = SETUP_STRATEGY_KEYS.reduce<Record<SetupStrategyKey, SetupStrategyConfig>>((acc, key) => {
-                const raw = (rawStrategyConfig as Record<string, unknown>)[key] as unknown;
-                if (!raw || typeof raw !== 'object') {
-                    throw new Error(`Missing strategyConfig.${key}`);
-                }
-                const enabled = (raw as { enabled?: unknown }).enabled;
-                const priority = (raw as { priority?: unknown }).priority;
-                const scope = (raw as { scope?: unknown }).scope;
-                if (typeof enabled !== 'boolean') {
-                    throw new Error(`Invalid strategyConfig.${key}.enabled`);
-                }
-                if (typeof priority !== 'number' || !Number.isFinite(priority)) {
-                    throw new Error(`Invalid strategyConfig.${key}.priority`);
-                }
-                if (scope !== 'per-library' && scope !== 'cross-library') {
-                    throw new Error(`Invalid strategyConfig.${key}.scope`);
-                }
-                acc[key] = { enabled, priority, scope };
-                return acc;
-            }, {} as Record<SetupStrategyKey, SetupStrategyConfig>);
-
-            if (typeof parsed.createdAt !== 'number' || !Number.isFinite(parsed.createdAt)) {
-                return null;
-            }
-            if (typeof parsed.updatedAt !== 'number' || !Number.isFinite(parsed.updatedAt)) {
-                return null;
-            }
-            const maxChannels = typeof parsed.maxChannels === 'number' && Number.isFinite(parsed.maxChannels)
-                ? parsed.maxChannels
-                : DEFAULT_CHANNEL_SETUP_MAX;
-            const minItemsPerChannel = typeof parsed.minItemsPerChannel === 'number' && Number.isFinite(parsed.minItemsPerChannel)
-                ? parsed.minItemsPerChannel
-                : DEFAULT_MIN_ITEMS_PER_CHANNEL;
-            const buildMode = parsed.buildMode === 'append' || parsed.buildMode === 'merge'
-                ? parsed.buildMode
-                : 'replace';
-            const actorStudioCombineMode = parsed.actorStudioCombineMode === 'combined'
-                ? parsed.actorStudioCombineMode
-                : 'separate';
-            const channelExpansion = typeof parsed.channelExpansion === 'object' && parsed.channelExpansion !== null
-                ? parsed.channelExpansion as ChannelExpansionConfig
-                : undefined;
-            const seriesOrdering = typeof parsed.seriesOrdering === 'object' && parsed.seriesOrdering !== null
-                ? parsed.seriesOrdering as SeriesOrderingConfig
-                : undefined;
-            const baseConfig: ChannelSetupConfig = {
-                serverId: parsed.serverId,
-                selectedLibraryIds: parsed.selectedLibraryIds,
-                maxChannels,
-                buildMode,
-                strategyConfig,
-                actorStudioCombineMode,
-                minItemsPerChannel,
-            };
-            if (channelExpansion) {
-                baseConfig.channelExpansion = channelExpansion;
-            }
-            if (seriesOrdering) {
-                baseConfig.seriesOrdering = seriesOrdering;
-            }
-            const normalizedConfig = this._normalizeConfig(baseConfig);
-
-            return {
-                ...normalizedConfig,
-                createdAt: parsed.createdAt,
-                updatedAt: parsed.updatedAt,
-            };
-        } catch {
-            return null;
-        }
     }
 
     private _hashSeed(value: string): number {
