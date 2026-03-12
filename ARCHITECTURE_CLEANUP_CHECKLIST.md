@@ -216,12 +216,12 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - `deferred`
         - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::32`
         - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::40`
-        - `security::src/modules/ui/epg/EPGComponent.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGComponent.ts::243`
-        - `security::src/modules/ui/epg/EPGInfoPanel.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGInfoPanel.ts::104`
+        - `security::src/modules/ui/epg/EPGComponent.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGComponent.ts::244`
+        - `security::src/modules/ui/epg/EPGInfoPanel.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGInfoPanel.ts::101`
         - `security::src/modules/ui/epg/EPGTimeHeader.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGTimeHeader.ts::91`
         - `security::src/modules/ui/epg/EPGVirtualizer.ts::security::insecure_random::src/modules/ui/epg/EPGVirtualizer.ts::652`
         - `security::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::security::innerHTML_assignment::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::136`
-        - `security::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::security::log_sensitive::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::495`
+        - `security::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::security::log_sensitive::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::503`
         owner: `P4-W5`
         reason: these are residual UI/overlay cleanup items that should be cleared in the Priority 4 cleanup pass once the main coordinator splits are frozen.
         revisit trigger: start of `P4-W5`, or `P4-EXIT` if any of these ids are still open.
@@ -550,12 +550,12 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - source: `P1-EXIT`
       - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::32` -> `deferred`
       - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::40` -> `deferred`
-      - `security::src/modules/ui/epg/EPGComponent.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGComponent.ts::243` -> `deferred`
-      - `security::src/modules/ui/epg/EPGInfoPanel.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGInfoPanel.ts::104` -> `deferred`
+      - `security::src/modules/ui/epg/EPGComponent.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGComponent.ts::244` -> `deferred`
+      - `security::src/modules/ui/epg/EPGInfoPanel.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGInfoPanel.ts::101` -> `deferred`
       - `security::src/modules/ui/epg/EPGTimeHeader.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGTimeHeader.ts::91` -> `deferred`
       - `security::src/modules/ui/epg/EPGVirtualizer.ts::security::insecure_random::src/modules/ui/epg/EPGVirtualizer.ts::652` -> `deferred`
       - `security::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::security::innerHTML_assignment::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::136` -> `deferred`
-      - `security::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::security::log_sensitive::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::495` -> `deferred`
+      - `security::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::security::log_sensitive::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::503` -> `deferred`
       - source: `P2-EXIT`
       - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `split follow-up` (final owner `P4-W5`)
       - source: `P4-W1`
@@ -576,12 +576,12 @@ Do not close a listed work unit while its mapped imported issue still remains un
         - `desloppify show security --status open --no-budget --top 200`
         - `desloppify show security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::32`
         - `desloppify show security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::40`
-        - `desloppify show security::src/modules/ui/epg/EPGComponent.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGComponent.ts::243`
-        - `desloppify show security::src/modules/ui/epg/EPGInfoPanel.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGInfoPanel.ts::104`
+        - `desloppify show security::src/modules/ui/epg/EPGComponent.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGComponent.ts::244`
+        - `desloppify show security::src/modules/ui/epg/EPGInfoPanel.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGInfoPanel.ts::101`
         - `desloppify show security::src/modules/ui/epg/EPGTimeHeader.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGTimeHeader.ts::91`
         - `desloppify show security::src/modules/ui/epg/EPGVirtualizer.ts::security::insecure_random::src/modules/ui/epg/EPGVirtualizer.ts::652`
         - `desloppify show security::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::security::innerHTML_assignment::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::136`
-        - `desloppify show security::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::security::log_sensitive::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::495`
+        - `desloppify show security::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::security::log_sensitive::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::503`
   - [ ] `P4-EXIT` run the priority-exit review before moving to `P5`
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 4
 
