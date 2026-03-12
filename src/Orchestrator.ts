@@ -37,7 +37,6 @@ import {
 } from './modules/plex/discovery';
 import {
     type IPlexLibrary,
-    type PlexLibraryType,
 } from './modules/plex/library';
 import {
     type IPlexStreamResolver,
@@ -115,17 +114,11 @@ import { createOrchestratorModules } from './core/orchestrator/OrchestratorModul
 import { createOrchestratorCoordinators } from './core/orchestrator/OrchestratorCoordinatorFactory';
 import { createPriorityOneControllersAndBinder } from './core/orchestrator/OrchestratorPriorityOneControllerFactory';
 import type { OrchestratorPlaybackStateAccessors } from './core/orchestrator/OrchestratorPlaybackStateAccessors';
-import { ChannelSetupCoordinator } from './core/channel-setup';
-import type { ChannelSetupSessionGateway } from './core/channel-setup/ChannelSetupSessionGateway';
-import type {
-    ChannelSetupConfig,
-    ChannelSetupContext,
-    ChannelBuildSummary,
-    ChannelBuildProgress,
-    ChannelSetupRecord,
-    ChannelSetupPreview,
-    ChannelSetupReview,
-} from './core/channel-setup/types';
+import {
+    ChannelSetupCoordinator,
+    createChannelSetupSessionGateway,
+    type ChannelSetupSessionGateway,
+} from './core/channel-setup';
 import { NowPlayingDebugManager } from './modules/debug/NowPlayingDebugManager';
 import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
 import { NowPlayingInfoCoordinator } from './modules/ui/now-playing-info/NowPlayingInfoCoordinator';
@@ -350,44 +343,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     private readonly _storageContext: OrchestratorStorageContext;
     private readonly _debugOverridesStore = new DebugOverridesStore();
     private readonly _playbackStateAccessors: OrchestratorPlaybackStateAccessors;
-    private readonly _channelSetupSessionGateway: ChannelSetupSessionGateway = {
-        getNavigation: (): INavigationManager | null => this.getNavigation(),
-        getSelectedServerStorageKey: (): string => this.getSelectedServerStorageKey(),
-        getServerHealthStorageKey: (): string => this.getServerHealthStorageKey(),
-        getSelectedServerId: (): string | null => this.getSelectedServerId(),
-        openServerSelect: (): void => this.openServerSelect(),
-        switchToChannelByNumber: (number: number, options?: { signal?: AbortSignal }): Promise<void> =>
-            this.switchToChannelByNumber(number, options),
-        openEPG: (): void => this.openEPG(),
-        requestChannelSetupRerun: (): void => this._channelSetup?.requestChannelSetupRerun(),
-        getLibrariesForSetup: (signal?: AbortSignal | null): Promise<PlexLibraryType[]> =>
-            this._channelSetup?.getLibrariesForSetup(signal ?? null)
-                ?? Promise.reject(new Error('Channel setup not initialized')),
-        getChannelSetupRecord: (serverId: string): ChannelSetupRecord | null =>
-            this._channelSetup?.getSetupRecord(serverId) ?? null,
-        getSetupContextForSelectedServer: (): ChannelSetupContext =>
-            this._channelSetup?.getSetupContextForSelectedServer() ?? 'unknown',
-        getSetupPreview: (
-            config: ChannelSetupConfig,
-            options?: { signal?: AbortSignal }
-        ): Promise<ChannelSetupPreview> =>
-            this._channelSetup?.getSetupPreview(config, options)
-                ?? Promise.reject(new Error('Channel setup not initialized')),
-        getSetupReview: (
-            config: ChannelSetupConfig,
-            options?: { signal?: AbortSignal }
-        ): Promise<ChannelSetupReview> =>
-            this._channelSetup?.getSetupReview(config, options)
-                ?? Promise.reject(new Error('Channel setup not initialized')),
-        createChannelsFromSetup: (
-            config: ChannelSetupConfig,
-            options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }
-        ): Promise<ChannelBuildSummary> =>
-            this._channelSetup?.createChannelsFromSetup(config, options)
-                ?? Promise.reject(new Error('Channel setup not initialized')),
-        markSetupComplete: (serverId: string, setupConfig: ChannelSetupConfig): void =>
-            this._channelSetup?.markSetupComplete(serverId, setupConfig),
-    };
+    private readonly _channelSetupSessionGateway: ChannelSetupSessionGateway;
 
     constructor(platformServices?: PlatformServices) {
         this._platformServices = platformServices ?? webosPlatformServices;
@@ -424,6 +380,17 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this._shouldAutoShowInfoBannerOnNextPlay = value;
             },
         };
+        this._channelSetupSessionGateway = createChannelSetupSessionGateway({
+            getNavigation: (): INavigationManager | null => this.getNavigation(),
+            getSelectedServerStorageKey: (): string => this.getSelectedServerStorageKey(),
+            getServerHealthStorageKey: (): string => this.getServerHealthStorageKey(),
+            getSelectedServerId: (): string | null => this.getSelectedServerId(),
+            openServerSelect: (): void => this.openServerSelect(),
+            switchToChannelByNumber: (number: number, options?: { signal?: AbortSignal }): Promise<void> =>
+                this.switchToChannelByNumber(number, options),
+            openEPG: (): void => this.openEPG(),
+            getChannelSetupCoordinator: (): ChannelSetupCoordinator | null => this._channelSetup,
+        });
         this._initializeModuleStatus();
     }
 

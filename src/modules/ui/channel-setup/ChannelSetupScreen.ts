@@ -6,7 +6,7 @@
 
 import {
     type ChannelBuildProgress,
-} from '../../../Orchestrator';
+} from '../../../core/channel-setup/types';
 import type { FocusableElement, KeyEvent } from '../../navigation';
 import { ServerSelectionStore } from '../../plex/discovery/ServerSelectionStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';

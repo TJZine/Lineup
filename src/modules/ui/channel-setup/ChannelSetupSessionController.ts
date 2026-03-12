@@ -5,7 +5,7 @@ import type {
     ChannelSetupPreview,
     ChannelSetupRecord,
     ChannelSetupReview,
-} from '../../../Orchestrator';
+} from '../../../core/channel-setup/types';
 import type { ChannelSetupSessionGateway } from '../../../core/channel-setup/ChannelSetupSessionGateway';
 import {
     DEFAULT_CHANNEL_SETUP_MAX,
