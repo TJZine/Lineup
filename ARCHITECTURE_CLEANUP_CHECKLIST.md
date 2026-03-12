@@ -468,7 +468,9 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216` -> `deferred` (still open on 2026-03-12; final owner `P4-EXIT`)
         - reason: top-level EPG ownership remains shared across large classes and orchestrator wiring.
         - revisit trigger: resolve before marking `P4-EXIT` complete; rerun `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget`.
-      - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> `resolved` (rechecked 2026-03-12 during `P4-EXIT`; command now returns `No open issues matching ...`)
+      - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> `deferred` (rechecked on `feature/initial-build` on 2026-03-12; command reports `1 open issues matching ...`; final owner `P4-EXIT`)
+        - reason: cross-module EPG subsystem coupling remains above desired cleanup threshold on current-branch evidence.
+        - revisit trigger: resolve before marking `P4-EXIT` complete; rerun `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --no-budget`.
     - Mapped inherited security issue disposition (refreshed 2026-03-12 via `desloppify show security --status open --no-budget --top 200` after force-rescan):
       - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::32` -> `resolved` (`No open issues matching`)
       - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::40` -> `resolved` (`No open issues matching`)
@@ -482,12 +484,13 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - [ ] `P4-W6` retire remaining EPG/coordinator ownership seams inherited from `P4-EXIT`
     - Inherited follow-ups:
       - source: `P4-EXIT`
-      - issue id(s): `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b`, `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d`, `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216`
+      - issue id(s): `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b`, `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d`, `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216`, `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d`
       - disposition: `split follow-up`
       - required verification command(s):
         - `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b --no-budget`
         - `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --no-budget`
         - `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget`
+        - `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --no-budget`
         - `npm run verify`
   - [ ] `P4-W7` retire remaining navigation/container-id drift inherited from `P4-EXIT`
     - Inherited follow-ups:
@@ -500,7 +503,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
         - `npm run verify`
   - [ ] `P4-EXIT` run the priority-exit review before moving to `P5`
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 4
-    - mapped imported issues (refreshed 2026-03-12 in `.worktrees/p4-exit-review`):
+    - mapped imported issues (refreshed 2026-03-12; revalidated on `feature/initial-build` for `b900285d`):
       - `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` -> `split follow-up`
         - reason: targeted refresh still reports one open issue spanning `src/Orchestrator.ts`, `src/modules/ui/channel-setup/ChannelSetupSessionController.ts`, and `src/core/channel-setup/ChannelSetupCoordinator.ts`; the remaining work is Priority 4 boundary cleanup rather than a P5 trust-boundary task.
         - owner: `P4-W6`
@@ -521,12 +524,15 @@ Do not close a listed work unit while its mapped imported issue still remains un
         - reason: targeted refresh still reports one open issue across `src/modules/ui/epg/EPGComponent.ts`, `src/modules/ui/epg/EPGCoordinator.ts`, and `src/Orchestrator.ts`; top-level EPG ownership is still blurred.
         - owner: `P4-W6`
         - revisit trigger: before marking `P4-W6` complete, rerun `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget`.
-      - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> `resolved`
-        - reason: targeted refresh command returned `No open issues matching: review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d`.
+      - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> `split follow-up`
+        - reason: current-branch targeted refresh still reports one open issue (`1 open issues matching`) across `src/modules/ui/epg/types.ts`, `src/modules/ui/epg/EPGCoordinator.ts`, and `src/modules/ui/epg/EPGComponent.ts`.
+        - owner: `P4-W6`
+        - revisit trigger: before marking `P4-W6` complete, rerun `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --no-budget`.
     - follow-up ownership:
       - `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` -> owner `P4-W6`
       - `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d` -> owner `P4-W6`
       - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216` -> owner `P4-W6`
+      - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> owner `P4-W6`
       - `review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f` -> owner `P4-W7`
       - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> owner `P4-W7`
     - security triage:
