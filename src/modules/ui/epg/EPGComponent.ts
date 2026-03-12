@@ -15,6 +15,7 @@ import { EPGErrorBoundary } from './EPGErrorBoundary';
 import { EPGLibraryTabs } from './EPGLibraryTabs';
 import { rafThrottle, appendEpgDebugLog, formatTimeRange } from './utils';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import { safeLocalStorageGet } from '../../../utils/storage';
 import type { IEPGComponent } from './interfaces';
 import type {
     EPGConfig,
@@ -197,11 +198,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     }
 
     private _readDebugEnabledFromStorage(): boolean {
-        try {
-            return localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG) === '1';
-        } catch {
-            return false;
-        }
+        return safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_DEBUG) === '1';
     }
 
     private isDebugEnabled(): boolean {
