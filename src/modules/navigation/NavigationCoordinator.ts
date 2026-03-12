@@ -10,9 +10,8 @@ import type { IVideoPlayer } from '../player';
 import type { IPlexAuth } from '../plex/auth';
 import { NOW_PLAYING_INFO_MODAL_ID } from '../ui/now-playing-info';
 import type { PlaybackOptionsSectionId } from '../ui/playback-options/types';
-import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import { DeveloperSettingsStore } from '../settings/DeveloperSettingsStore';
-import { readStoredBoolean } from '../../utils/storage';
+import { ProfileSessionStore } from '../settings/ProfileSessionStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 
@@ -76,10 +75,12 @@ export interface NavigationCoordinatorDeps {
     hidePlayerOsd: () => void;
     hideChannelTransition: () => void;
     reportToast?: (toast: { message: string; type: 'warning' | 'error' | 'info' | 'success' }) => void;
+    readKeepPlayingInSettings?: () => boolean;
 }
 
 export class NavigationCoordinator {
     private readonly _developerSettingsStore = new DeveloperSettingsStore();
+    private readonly _profileSessionStore = new ProfileSessionStore();
     private _epgRepeatTimer: ReturnType<typeof setTimeout> | null = null;
     private _epgRepeatButton: 'up' | 'down' | 'left' | 'right' | null = null;
     private _epgRepeatStartMs = 0;
@@ -752,7 +753,8 @@ export class NavigationCoordinator {
     }
 
     private _shouldKeepPlayingInSettings(): boolean {
-        return readStoredBoolean(LINEUP_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS, false);
+        return this.deps.readKeepPlayingInSettings?.() ??
+            this._profileSessionStore.readKeepPlayingInSettings(false);
     }
 
     private _isDebugLoggingEnabled(): boolean {

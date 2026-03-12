@@ -32,6 +32,8 @@ import type { IPlaybackOptionsModal } from '../modules/ui/playback-options';
 import { ExitConfirmModal, EXIT_CONFIRM_CONTAINER_ID } from '../modules/ui/exit-confirm';
 import type { IDisposable } from '../utils/interfaces';
 import type { OrchestratorConfig, ModuleStatus } from './orchestrator/OrchestratorTypes';
+import { EpgPreferencesStore } from '../modules/settings/EpgPreferencesStore';
+import { ProfileSessionStore } from '../modules/settings/ProfileSessionStore';
 import { summarizeErrorForLog } from '../utils/errors';
 import {
     applyPhase2AuthGatePolicy,
@@ -67,6 +69,8 @@ export interface InitializationDependencies {
     channelTransition: IChannelTransitionOverlay | null;
     playbackOptions: IPlaybackOptionsModal | null;
     exitConfirm: ExitConfirmModal | null;
+    epgPreferencesStore: EpgPreferencesStore;
+    profileSessionStore: ProfileSessionStore;
 }
 
 /**
@@ -405,6 +409,8 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             lifecycle: this._deps.lifecycle,
             updateModuleStatus: this._callbacks.updateModuleStatus,
             configureDiscoveryStorage: this._callbacks.configureDiscoveryStorage,
+            readShowProfilePickerOnStartup: (): boolean =>
+                this._deps.profileSessionStore.readShowProfilePickerOnStartup(false),
             handlers: {
                 registerAuthResume: (): void => this._registerAuthResume(),
                 registerProfileResume: (): void => this._registerProfileResume(),
@@ -583,6 +589,10 @@ export class InitializationCoordinator implements IInitializationCoordinator {
                 channelManager: this._deps.channelManager,
                 scheduler: this._deps.scheduler,
                 buildPlexResourceUrl: this._callbacks.buildPlexResourceUrl,
+                readEpgLayoutMode: (): 'overlay' | 'classic' =>
+                    this._deps.epgPreferencesStore.readLayoutMode('classic'),
+                readShowNowWatchingBanner: (): boolean =>
+                    this._deps.epgPreferencesStore.readNowWatchingEnabled(true),
             });
             this._deps.epg!.initialize(epgConfigWithResolver);
             this._callbacks.updateModuleStatus(

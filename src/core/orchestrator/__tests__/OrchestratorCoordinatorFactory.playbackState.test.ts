@@ -1,5 +1,9 @@
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { DebugOverridesStore } from '../../../modules/debug/DebugOverridesStore';
+import { EpgPreferencesStore } from '../../../modules/settings/EpgPreferencesStore';
+import { NowPlayingDisplayStore } from '../../../modules/settings/NowPlayingDisplayStore';
+import { ProfileSessionStore } from '../../../modules/settings/ProfileSessionStore';
+import { SubtitlePreferencesStore } from '../../../modules/settings/SubtitlePreferencesStore';
 import type { StreamDecision } from '../../../modules/plex/stream';
 import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
 import {
@@ -79,6 +83,10 @@ const makeDeps = (
     playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors>
 ): OrchestratorCoordinatorFactoryDeps => {
     const debugOverridesStore = new DebugOverridesStore();
+    const subtitlePreferencesStore = new SubtitlePreferencesStore();
+    const epgPreferencesStore = new EpgPreferencesStore();
+    const nowPlayingDisplayStore = new NowPlayingDisplayStore();
+    const profileSessionStore = new ProfileSessionStore();
     debugOverridesStore.writeNowPlayingStreamDebugEnabled(true);
     const moduleStatus = new Map<string, { status: 'ready' | 'pending' | 'error' }>();
     moduleStatus.set('epg-ui', { status: 'ready' });
@@ -134,6 +142,10 @@ const makeDeps = (
             getRemainingMs: jest.fn().mockReturnValue(0),
         } as unknown as OrchestratorCoordinatorFactoryDeps['sleepTimer'],
         debugOverridesStore,
+        subtitlePreferencesStore,
+        epgPreferencesStore,
+        nowPlayingDisplayStore,
+        profileSessionStore,
         playbackState,
         lastChannelChangeSource: jest.fn().mockReturnValue(null),
         setLastChannelChangeSource: jest.fn(),

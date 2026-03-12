@@ -6,6 +6,8 @@ import { InitializationCoordinator } from '../InitializationCoordinator';
 import type { InitializationDependencies, InitializationCallbacks } from '../InitializationCoordinator';
 import type { PlexAuthDataV2 } from '../../modules/plex/auth';
 import { CHANNEL_BADGE_CONTAINER_ID } from '../../modules/ui/channel-badge';
+import { EpgPreferencesStore } from '../../modules/settings/EpgPreferencesStore';
+import { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
 import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 
 const createStoredCredentials = (
@@ -97,6 +99,8 @@ describe('InitializationCoordinator (Plex Home)', () => {
             channelTransition: null,
             playbackOptions: null,
             exitConfirm: null,
+            epgPreferencesStore: new EpgPreferencesStore(),
+            profileSessionStore: new ProfileSessionStore(),
             ...depsOverrides,
         };
 

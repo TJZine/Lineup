@@ -17,12 +17,12 @@ import type { IChannelScheduler, ScheduledProgram } from '../scheduler/scheduler
 import type { IVideoPlayer, StreamDescriptor } from './index';
 import type { AudioTrack, SubtitleTrack } from './types';
 import { TEXT_SUBTITLE_FORMATS } from './constants';
-import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import {
-    isStoredTrue,
-    safeLocalStorageGet,
-} from '../../utils/storage';
-import { getSubtitleMode, subtitleModeAllowsBurnIn, subtitleModeIsDirectOnly } from '../../shared/subtitle-mode';
+    subtitleModeAllowsBurnIn,
+    subtitleModeIsDirectOnly,
+    type SubtitleMode,
+} from '../../shared/subtitle-mode';
+import { SubtitlePreferencesStore } from '../settings/SubtitlePreferencesStore';
 import { redactSensitiveTokens } from '../../utils/redact';
 import { summarizeErrorForLog } from '../../utils/errors';
 
@@ -46,6 +46,7 @@ export interface PlaybackRecoveryDeps {
     getPlexPreferredSubtitleLanguage?: () => string | null;
     notifySubtitleUnavailable: () => void;
     notifyToast?: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
+    subtitlePreferencesStore?: SubtitlePreferencesStore;
 
     handleGlobalError: (error: AppError, context: string) => void;
 }
@@ -64,6 +65,7 @@ type DisableBurnInSubtitlesResult =
     | { outcome: 'failed' };
 
 export class PlaybackRecoveryManager {
+    private readonly _subtitlePreferencesStore: SubtitlePreferencesStore;
     // Playback fast-fail guard: prevents tight skip loops when all items fail to play.
     private _playbackFailureWindowStartMs: number = 0;
     private _playbackFailureCount: number = 0;
@@ -76,20 +78,20 @@ export class PlaybackRecoveryManager {
     private _burnInAttemptedForItemKey: Set<string> = new Set();
     private _streamRecoveryInProgress: boolean = false;
 
-    constructor(private readonly deps: PlaybackRecoveryDeps) { }
+    constructor(private readonly deps: PlaybackRecoveryDeps) {
+        this._subtitlePreferencesStore = deps.subtitlePreferencesStore ?? new SubtitlePreferencesStore();
+    }
 
     isStreamRecoveryInProgress(): boolean {
         return this._streamRecoveryInProgress;
     }
 
     private _preferForcedSubtitles(): boolean {
-        try {
-            return isStoredTrue(
-                safeLocalStorageGet(LINEUP_STORAGE_KEYS.SUBTITLE_PREFER_FORCED)
-            );
-        } catch {
-            return false;
-        }
+        return this._subtitlePreferencesStore.readSubtitlePreferForced(false);
+    }
+
+    private _readSubtitleMode(): SubtitleMode {
+        return this._subtitlePreferencesStore.readSubtitleMode('full');
     }
 
     private _getCurrentItemKey(): string | null {
@@ -127,7 +129,7 @@ export class PlaybackRecoveryManager {
         _itemKey: string | null,
         tracks: SubtitleTrack[]
     ): string | null {
-        const mode = getSubtitleMode();
+        const mode = this._readSubtitleMode();
         if (mode === 'off') return null;
         const externalOnly = subtitleModeIsDirectOnly(mode);
         const eligible = tracks.filter((t) => {
@@ -536,7 +538,7 @@ export class PlaybackRecoveryManager {
                 track.default = track.id === selectedAudioId;
             }
         }
-        const subtitleMode = getSubtitleMode();
+        const subtitleMode = this._readSubtitleMode();
         const subtitlesEnabled = subtitleMode !== 'off';
         const subtitleTracks = subtitlesEnabled
             ? this._mapSubtitleTracks(decision.availableSubtitleStreams ?? [])
@@ -560,7 +562,7 @@ export class PlaybackRecoveryManager {
                         : null,
                 onUnavailable: this.deps.notifySubtitleUnavailable,
                 onDeactivate: ({ trackId, reason }): boolean => {
-                    const allowBurnIn = subtitleModeAllowsBurnIn(getSubtitleMode());
+                    const allowBurnIn = subtitleModeAllowsBurnIn(this._readSubtitleMode());
                     if (!allowBurnIn) {
                         return false;
                     }

@@ -8,9 +8,7 @@ import type { IChannelManager } from '../../modules/scheduler/channel-manager';
 import type { IChannelScheduler } from '../../modules/scheduler/scheduler';
 import type { IVideoPlayer } from '../../modules/player';
 import { formatTimeRange } from '../../modules/ui/epg';
-import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import type { OrchestratorConfig, ModuleStatus } from '../orchestrator/OrchestratorTypes';
-import { readStoredBoolean, safeLocalStorageGet } from '../../utils/storage';
 import { summarizeErrorForLog } from '../../utils/errors';
 
 type UpdateModuleStatus = (
@@ -42,6 +40,7 @@ export interface Phase2AuthGateInputs {
     lifecycle: Phase2AuthLifecycle | null;
     updateModuleStatus: UpdateModuleStatus;
     configureDiscoveryStorage: () => void;
+    readShowProfilePickerOnStartup: () => boolean;
     seedSubtitleLanguageFromPlexUser?: () => void;
     handlers: Pick<StartupResumeHandlers, 'registerAuthResume' | 'registerProfileResume'>;
 }
@@ -72,6 +71,8 @@ export interface EpgStartupConfigInputs {
     channelManager: IChannelManager | null;
     scheduler: IChannelScheduler | null;
     buildPlexResourceUrl: (pathOrUrl: string | null) => string | null;
+    readEpgLayoutMode: () => 'overlay' | 'classic';
+    readShowNowWatchingBanner: () => boolean;
 }
 
 export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs): Promise<void> {
@@ -156,10 +157,7 @@ export async function applyPhase2AuthGatePolicy(inputs: Phase2AuthGateInputs): P
 
                 const currentScreen = inputs.navigation.getCurrentScreen();
                 const isAuthScreen = currentScreen === 'auth';
-                const showPickerOnStartup = readStoredBoolean(
-                    LINEUP_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP,
-                    false
-                );
+                const showPickerOnStartup = inputs.readShowProfilePickerOnStartup();
                 if (isAuthScreen || showPickerOnStartup) {
                     try {
                         const users = await inputs.plexAuth.getHomeUsers();
@@ -271,13 +269,8 @@ export async function applyPhase3ServerGatePolicy(inputs: Phase3ServerGateInputs
 export function buildEpgConfigWithStartupPolicy(
     inputs: EpgStartupConfigInputs
 ): OrchestratorConfig['epgConfig'] {
-    const storedLayoutMode = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
-    const layoutMode: 'overlay' | 'classic' =
-        storedLayoutMode === 'overlay' ? 'overlay' : 'classic';
-    const showNowWatchingBanner = readStoredBoolean(
-        LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED,
-        true
-    );
+    const layoutMode = inputs.readEpgLayoutMode();
+    const showNowWatchingBanner = inputs.readShowNowWatchingBanner();
     const previousOnLayoutModeChange = inputs.epgConfig.onLayoutModeChange ?? null;
 
     return {

@@ -1,0 +1,137 @@
+import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
+import {
+    parseStoredEpgInfoBackgroundMode,
+    readStoredBooleanAndClean,
+    safeLocalStorageGet,
+    safeLocalStorageRemove,
+    safeLocalStorageSet,
+} from '../../utils/storage';
+
+export type EpgLayoutMode = 'overlay' | 'classic';
+export type EpgGuideDensity = 'detailed' | 'wide';
+export type EpgPastItemsWindow = 'auto' | '0' | '15' | '30';
+
+const EPG_PAST_ITEMS_WINDOWS: readonly EpgPastItemsWindow[] = ['auto', '0', '15', '30'];
+
+export class EpgPreferencesStore {
+    readLibraryTabsEnabled(fallback: boolean = true): boolean {
+        return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, fallback);
+    }
+
+    writeLibraryTabsEnabled(enabled: boolean): void {
+        safeLocalStorageSet(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, enabled ? '1' : '0');
+    }
+
+    readAggressivePreloadEnabled(fallback: boolean = false): boolean {
+        return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, fallback);
+    }
+
+    writeAggressivePreloadEnabled(enabled: boolean): void {
+        safeLocalStorageSet(LINEUP_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, enabled ? '1' : '0');
+    }
+
+    readSelectedLibraryId(): string | null {
+        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
+        if (!raw) {
+            return null;
+        }
+        const trimmed = raw.trim();
+        if (!trimmed) {
+            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
+            return null;
+        }
+        return trimmed;
+    }
+
+    writeSelectedLibraryId(libraryId: string | null): void {
+        if (typeof libraryId !== 'string') {
+            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
+            return;
+        }
+        const trimmed = libraryId.trim();
+        if (!trimmed) {
+            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
+            return;
+        }
+        safeLocalStorageSet(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, trimmed);
+    }
+
+    readGuideDensity(fallback: EpgGuideDensity = 'detailed'): EpgGuideDensity {
+        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY);
+        if (raw === 'wide') {
+            return 'wide';
+        }
+        if (raw === 'detailed' || raw === null) {
+            return 'detailed';
+        }
+        safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY);
+        return fallback;
+    }
+
+    writeGuideDensity(density: EpgGuideDensity): void {
+        safeLocalStorageSet(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, density);
+    }
+
+    readLayoutMode(fallback: EpgLayoutMode = 'classic'): EpgLayoutMode {
+        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
+        if (raw === 'overlay') {
+            return 'overlay';
+        }
+        if (raw === 'classic' || raw === null) {
+            return 'classic';
+        }
+        safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
+        return fallback;
+    }
+
+    writeLayoutMode(mode: EpgLayoutMode): void {
+        safeLocalStorageSet(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, mode);
+    }
+
+    readNowWatchingEnabled(fallback: boolean = true): boolean {
+        return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, fallback);
+    }
+
+    writeNowWatchingEnabled(enabled: boolean): void {
+        safeLocalStorageSet(LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, enabled ? '1' : '0');
+    }
+
+    readGuideCategoryColorsEnabled(fallback: boolean = true): boolean {
+        return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.GUIDE_CATEGORY_COLORS, fallback);
+    }
+
+    writeGuideCategoryColorsEnabled(enabled: boolean): void {
+        safeLocalStorageSet(LINEUP_STORAGE_KEYS.GUIDE_CATEGORY_COLORS, enabled ? '1' : '0');
+    }
+
+    readPastItemsWindow(fallback: EpgPastItemsWindow = 'auto'): EpgPastItemsWindow {
+        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW);
+        if (raw && EPG_PAST_ITEMS_WINDOWS.includes(raw as EpgPastItemsWindow)) {
+            return raw as EpgPastItemsWindow;
+        }
+        if (raw !== null) {
+            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW);
+        }
+        return fallback;
+    }
+
+    writePastItemsWindow(window: EpgPastItemsWindow): void {
+        safeLocalStorageSet(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, window);
+    }
+
+    readInfoBackgroundMode(fallback: 0 | 1 | 2 = 0): 0 | 1 | 2 {
+        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+        const parsed = parseStoredEpgInfoBackgroundMode(raw);
+        if (parsed !== null) {
+            return parsed;
+        }
+        if (raw !== null) {
+            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+        }
+        return fallback;
+    }
+
+    writeInfoBackgroundMode(mode: 0 | 1 | 2): void {
+        safeLocalStorageSet(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, String(mode));
+    }
+}

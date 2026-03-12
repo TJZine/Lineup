@@ -103,6 +103,7 @@ function createInputs(overrides: Phase2PlexAuthOverrides = {}): Phase2AuthGateTe
         lifecycle,
         updateModuleStatus: jest.fn(),
         configureDiscoveryStorage: jest.fn(),
+        readShowProfilePickerOnStartup: jest.fn(() => false),
         seedSubtitleLanguageFromPlexUser: jest.fn(),
         handlers: {
             registerAuthResume: jest.fn(),

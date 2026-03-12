@@ -2,7 +2,7 @@ import { DEFAULT_THEME, THEME_OPTIONS } from './theme';
 import type { GuideSettingChange, SettingsCategoryConfig } from './types';
 import { SettingsStore } from './SettingsStore';
 import { ThemeManager } from '../theme';
-import { getSubtitleMode, setSubtitleMode, type SubtitleMode } from '../../../shared/subtitle-mode';
+import type { SubtitleMode } from '../../../shared/subtitle-mode';
 import { dispatchDebugLoggingChanged } from '../../../config/events';
 import { TRANSCODE_QUALITY_OPTIONS } from '../../../config/transcodeQuality';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from '../now-playing-info';
@@ -95,7 +95,7 @@ export class SettingsScreenStateController {
                     })),
                     onChange: (value: number): void => {
                         const mode = this._valueToSubtitleMode(value);
-                        setSubtitleMode(mode);
+                        this._settingsStore.writeSubtitleMode(mode);
                         this._onSubtitleModeChange?.(mode);
                         this._onStateInvalidated?.();
                     },
@@ -394,7 +394,7 @@ export class SettingsScreenStateController {
     }
 
     private _readSubtitleModeValue(): number {
-        return this._subtitleModeToValue(getSubtitleMode());
+        return this._subtitleModeToValue(this._settingsStore.readSubtitleMode());
     }
 
     private _readSubtitleLanguageValue(): number {
