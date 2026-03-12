@@ -30,6 +30,7 @@ This is the operating runbook for agent-driven development in Lineup.
    - Prefer Codanna using [`docs/agentic/codanna-playbook.md`](./agentic/codanna-playbook.md).
    - Use Codanna for both code and repo-doc discovery before falling back to `rg`.
    - Fall back to `rg` only when Codanna is missing or insufficient.
+   - For any task that uses `desloppify` outputs as acceptance or checklist evidence, run those authoritative `desloppify` commands on the integration branch that will receive the updates; treat worktree-only `desloppify` output as provisional.
 3. Load the right source-of-truth docs.
    - architecture truth: [`docs/architecture/CURRENT_STATE.md`](./architecture/CURRENT_STATE.md)
    - active cleanup backlog: [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md)
@@ -75,6 +76,7 @@ This is the operating runbook for agent-driven development in Lineup.
    - humans still own architecture, product intent, and merge decisions
    - if the work claims to finish a cleanup priority, run a priority-exit review before starting or planning the next priority
    - priority-exit review must verify:
+     - authoritative `desloppify` evidence/verification commands were run on the integration branch that will carry the checklist updates; do not use worktree-only evidence for final dispositions
      - every imported review issue mapped to that priority is retired, explicitly deferred, or split into a new owned follow-up
      - every deferred or split item has one named final owner plus a reason and revisit trigger, especially when one issue was mapped across multiple `P#-W#` items
      - every deferred or split item is mirrored into its destination checklist work item (`Pn-Wm`) with exact issue id(s) and required verification command(s), not only in the source `P#-EXIT` record

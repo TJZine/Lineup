@@ -121,8 +121,8 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - `verification`: exact commands that prove the slice is complete
   - `deferred items`: anything intentionally left open with its exact issue id, owner, reason, and revisit trigger
 - Priority exit command checklist:
-  - run priority-exit evidence commands on the target integration branch that will carry the checklist state forward (normally the active working branch), not only on an isolated worktree branch
-  - if a worktree is used for draft verification, re-run all mapped-issue `desloppify show <issue-id>` checks on the target integration branch immediately before recording `resolved` dispositions
+  - for any checklist disposition that depends on `desloppify`, run the authoritative `desloppify` evidence commands on the target integration branch that will carry the checklist state forward (normally the active working branch), not in an isolated worktree
+  - when a cleanup slice was implemented in a worktree, switch to the integration branch before running authoritative `desloppify` evidence; do not duplicate full evidence passes across both branches
   - rerun `desloppify status`
   - rerun `desloppify show review --status open`
   - rerun any task-specific `desloppify show <issue-or-area>` commands needed to verify mapped imported issues
@@ -132,12 +132,13 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - confirm the `P0` security gate is either cleared or explicitly deferred before the next priority begins
   - confirm no `P(n+1)` work, plan, or checklist progress has been opened before this exit record is complete
 - Evidence refresh checklist:
-  - refresh evidence on the same branch where checklist updates are committed; do not treat worktree-only output as final gate evidence
+  - refresh authoritative `desloppify` evidence on the same integration branch where checklist updates are committed; treat worktree-only output as non-authoritative for checklist/plan dispositions
   - rerun `desloppify status`
   - rerun `desloppify show review --status open`
   - refresh hotspot counts with `wc -l` for the files listed in the evidence snapshot
   - update this checklist in the same pass when a priority closes, strict score shifts materially, or the imported review ownership map changes
 - Cleanup slice command checklist:
+  - run any `desloppify` command outputs that will be cited as final checklist evidence on the integration branch (not a worktree-only branch)
   - start of slice:
     - `desloppify status`
     - `desloppify show review --status open`
