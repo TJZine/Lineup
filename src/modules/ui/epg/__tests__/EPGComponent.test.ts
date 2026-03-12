@@ -248,6 +248,52 @@ describe('EPGComponent', () => {
         }
     });
 
+    it('dedupes visible range emissions across repeated renders with unchanged range', () => {
+        const onVisibleRangeChange = jest.fn();
+        const { epg: localEpg, container: localContainer } = createEpgInstance({
+            containerId: 'epg-container-visible-range-dedupe',
+            onVisibleRangeChange,
+        });
+
+        try {
+            const channel = createMockChannel(0);
+            localEpg.loadChannels([channel]);
+            localEpg.loadScheduleForChannel(channel.id, createMockSchedule(channel.id, 3));
+
+            localEpg.show();
+            expect(onVisibleRangeChange).toHaveBeenCalledTimes(1);
+
+            localEpg.loadScheduleForChannel(channel.id, createMockSchedule(channel.id, 3));
+            expect(onVisibleRangeChange).toHaveBeenCalledTimes(1);
+        } finally {
+            localEpg.destroy();
+            localContainer.remove();
+        }
+    });
+
+    it('resets visible range dedupe across close/open cycles', () => {
+        const onVisibleRangeChange = jest.fn();
+        const { epg: localEpg, container: localContainer } = createEpgInstance({
+            containerId: 'epg-container-visible-range-reset',
+            onVisibleRangeChange,
+        });
+
+        try {
+            const channel = createMockChannel(0);
+            localEpg.loadChannels([channel]);
+            localEpg.loadScheduleForChannel(channel.id, createMockSchedule(channel.id, 3));
+
+            localEpg.show();
+            localEpg.hide();
+            localEpg.show();
+
+            expect(onVisibleRangeChange).toHaveBeenCalledTimes(2);
+        } finally {
+            localEpg.destroy();
+            localContainer.remove();
+        }
+    });
+
     it('respects configurable debug refresh interval for same-tab storage toggles', () => {
         const getItemSpy = jest.spyOn(Storage.prototype, 'getItem');
         const nowSpy = jest.spyOn(Date, 'now');
