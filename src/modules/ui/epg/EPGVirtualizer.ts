@@ -92,6 +92,7 @@ export class EPGVirtualizer {
     private visibleCells: Map<string, CellRenderData> = new Map();
 
     private cellChildrenCache: WeakMap<HTMLElement, CellChildren> = new WeakMap();
+    private poolSequence = 0;
     private focusedVisibleCellKey: string | null = null;
 
     /** Total channel count */
@@ -649,7 +650,7 @@ export class EPGVirtualizer {
         );
 
         // Add to pool with unique key
-        const poolKey = `pool-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const poolKey = `pool-${Date.now()}-${this.poolSequence++}`;
         this.elementPool.set(poolKey, element);
 
         // Prevent pool from growing unbounded

@@ -27,6 +27,9 @@ describe('ChannelTransitionOverlay', () => {
 
         expect(container.classList.contains(CHANNEL_TRANSITION_CLASSES.CONTAINER)).toBe(true);
         expect(container.querySelector(`.${CHANNEL_TRANSITION_CLASSES.PANEL}`)).not.toBeNull();
+        expect(container.querySelector(`.${CHANNEL_TRANSITION_CLASSES.SPINNER}`)).not.toBeNull();
+        expect(container.querySelector(`.${CHANNEL_TRANSITION_CLASSES.TITLE}`)).not.toBeNull();
+        expect(container.querySelector(`.${CHANNEL_TRANSITION_CLASSES.SUBTITLE}`)).not.toBeNull();
         expect(overlay.isVisible()).toBe(false);
 
         overlay.show();
@@ -84,7 +87,7 @@ describe('ChannelTransitionOverlay', () => {
 
         overlay.destroy();
 
-        expect(container.innerHTML).toBe('');
+        expect(container.childElementCount).toBe(0);
         expect(container.classList.contains(CHANNEL_TRANSITION_CLASSES.VISIBLE)).toBe(false);
         expect(overlay.isVisible()).toBe(false);
     });

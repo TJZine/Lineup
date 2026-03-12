@@ -22,7 +22,7 @@ import { SubtitlePreferencesStore } from '../../settings/SubtitlePreferencesStor
 import type { ToastType } from '../toast/types';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
 import type { StreamDescriptor } from '../../player/types';
-import { redactSensitiveTokens } from '../../../utils/redact';
+import { summarizeErrorForLog } from '../../../utils/errors';
 
 export const SUBTITLE_PROBE_TOTAL_TIMEOUT_MS = 400;
 
@@ -497,10 +497,7 @@ export class PlaybackOptionsCoordinator {
         const player = this.deps.getVideoPlayer();
         if (!player) return;
         player.setAudioTrack(trackId).catch((error) => {
-            const safeError = error instanceof Error
-                ? `${error.name}: ${error.message}`
-                : String(error);
-            console.error('[PlaybackOptions] Audio track switch failed:', redactSensitiveTokens(safeError));
+            console.error('[PlaybackOptions] Audio track switch failed:', summarizeErrorForLog(error));
         }).finally(() => {
             this.refreshIfOpen();
         });

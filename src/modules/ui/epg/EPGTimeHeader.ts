@@ -88,7 +88,7 @@ export class EPGTimeHeader {
     private renderSlots(): void {
         if (!this.slotsElement || !this.config) return;
 
-        this.slotsElement.innerHTML = '';
+        this.slotsElement.replaceChildren();
         this.slotElements = [];
 
         const totalMinutes = this.config.totalHours * 60;

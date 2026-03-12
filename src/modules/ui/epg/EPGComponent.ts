@@ -37,7 +37,7 @@ import type {
  * Implements virtualized rendering for 60fps performance on TV hardware.
  */
 export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGComponent {
-    private config: EPGConfig = DEFAULT_EPG_CONFIG as unknown as EPGConfig;
+    private config: EPGConfig = { ...DEFAULT_EPG_CONFIG };
 
     private state: EPGInternalState = {
         isInitialized: false,
@@ -134,8 +134,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             return;
         }
 
-        this.config = { ...DEFAULT_EPG_CONFIG, ...config } as EPGConfig;
-        this._visibleRangeEmitter = new EPGVisibleRangeEmitter(this.config.onVisibleRangeChange);
+        this.config = { ...DEFAULT_EPG_CONFIG, ...config };
         this._debugEnabled = this._readDebugEnabledFromStorage();
         this._lastDebugEnabledStorageReadMs = Date.now();
         try {
@@ -241,7 +240,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         if (this.containerElement) {
             this.containerElement.style.removeProperty('--epg-row-height');
-            this.containerElement.innerHTML = '';
+            this.containerElement.replaceChildren();
             this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_VISIBLE);
             this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_PEEK);
             this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_CLASSIC);

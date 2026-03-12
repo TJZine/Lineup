@@ -13,17 +13,9 @@ import type { IChannelManager, ChannelConfig, ResolvedChannelContent } from '../
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig, ScheduleWindow } from '../../scheduler/scheduler';
 import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
-import {
-    computeBackgroundWarmQueueCaps,
-    computeEpgScheduleRangeMs,
-    getBackgroundWarmQueueAction,
-    partitionPrefetchChannels,
-    type EpgStorageSnapshotForScheduleRange,
-} from './EPGCoordinatorPolicies';
-import { buildLibraries, countLibraryTypeVotes } from './epgLibraryUtils';
-import { EPGVisibleRangeRefreshQueue } from './EPGVisibleRangeRefreshQueue';
+import type { ModuleRuntimeStatus } from '../../../core/module-status';
 
-export type EpgUiStatus = 'pending' | 'initializing' | 'ready' | 'error' | 'disabled' | undefined;
+export type EpgUiStatus = ModuleRuntimeStatus | undefined;
 
 export interface EPGCoordinatorDeps {
     getEpg: () => IEPGComponent | null;
