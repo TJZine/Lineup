@@ -155,6 +155,16 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - audio settings storage ownership
 - `src/modules/settings/AudioSettingsStore.ts`
+- EPG settings storage ownership
+- `src/modules/settings/EpgPreferencesStore.ts`
+- now-playing display settings storage ownership
+- `src/modules/settings/NowPlayingDisplayStore.ts`
+- profile session storage ownership
+- `src/modules/settings/ProfileSessionStore.ts`
+- subtitle preferences storage ownership
+- `src/modules/settings/SubtitlePreferencesStore.ts`
+- theme preference storage ownership
+- `src/modules/settings/ThemePreferencesStore.ts`
 
 ### `src/modules/debug/`
 
