@@ -8,7 +8,6 @@ import type { IChannelManager } from '../../modules/scheduler/channel-manager';
 import type { IPlexLibrary, PlexLibraryType } from '../../modules/plex/library';
 import type { INavigationManager } from '../../modules/navigation';
 import type { AppError } from '../../modules/lifecycle';
-import { safeLocalStorageRemoveByPrefixes } from '../../utils/storage';
 
 import type {
     ChannelSetupConfig,
@@ -136,9 +135,6 @@ export class ChannelSetupCoordinator {
 
     // --- Called during initialize to clean up crash leftovers ---
     cleanupStaleChannelBuildKeys(): void {
-        safeLocalStorageRemoveByPrefixes([
-            'lineup_channels_build_tmp_v1:',
-            'lineup_current_channel_build_tmp_v1:',
-        ]);
+        this._recordStore.cleanupStaleBuildKeys();
     }
 }
