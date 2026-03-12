@@ -377,44 +377,49 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - `desloppify show review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe --no-budget`
       - `rg -n --pcre2 "^(?!\\s*(//|/\\*|\\*)).*\\blocalStorage\\.(getItem|setItem|removeItem|clear|key)\\(" src --glob '!**/__tests__/**' --glob '!**/*.test.ts' | rg -v "src/modules/lifecycle/StateManager.ts|src/utils/storage.ts"`
     - imported issue disposition checkpoint: `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe` remains open after this slice; exact successor owner for final disposition is `P3-EXIT`.
-  - [ ] `P3-W5` refresh `CURRENT_STATE` and adjacent docs so the persistence-owner list is accurate and complete
-  - [ ] `P3-W6` runtime storage-owner drift residual cleanup for `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe` (plan: `docs/plans/2026-03-11-p3-w6-runtime-storage-owner-drift-residual-cleanup.md`)
-    - locked owner layer: introduce focused non-UI owners under `src/modules/settings/` (`SubtitlePreferencesStore`, `EpgPreferencesStore`, `NowPlayingDisplayStore`, `ProfileSessionStore`) and inject narrow APIs into runtime consumers instead of using generic storage helpers from core/player/shared modules.
-    - explicit subtitle migration requirement: remove storage-backed free functions from `src/shared/subtitle-mode.ts` and route `PlaybackRecoveryManager`, `PlaybackOptionsCoordinator`, and `SettingsScreenStateController` through typed owner APIs.
-    - deterministic blocker rule: `P3-EXIT` remains blocked while this mapped issue is open and still cites runtime files.
-    - required closure evidence:
+  - [x] `P3-W5` refresh `CURRENT_STATE` and adjacent docs so the persistence-owner list is accurate and complete (completed 2026-03-11; plan: `docs/plans/2026-03-11-p3-w6-runtime-storage-owner-drift-residual-cleanup.md`)
+    - refreshed owner-map docs:
+      - `docs/architecture/CURRENT_STATE.md`
+      - `docs/architecture/modules.md`
+    - verification:
+      - `npm run verify:docs` -> pass
+  - [x] `P3-W6` runtime storage-owner drift residual cleanup for `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe` (completed 2026-03-11; plan: `docs/plans/2026-03-11-p3-w6-runtime-storage-owner-drift-residual-cleanup.md`)
+    - final runtime residuals retired with typed owner routing:
+      - `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`
+      - `ProfileSelectScreen` -> injected `ProfileSessionStore` seam (wired in `App` and tests only)
+      - `ThemeManager` -> `ThemePreferencesStore` (new)
+      - `EPGInfoPanel` -> `NowPlayingDisplayStore` + `EpgPreferencesStore`
+    - closure evidence rerun (`2026-03-12`):
+      - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"` -> completed
+      - `desloppify status` -> completed
+      - `desloppify show review --status open --no-budget --top 200` -> completed
+      - `desloppify show review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe --no-budget` -> `No open issues matching ...`
+      - `desloppify show security --status open --no-budget --top 200` -> 12 open `T2 [medium]` issues, no `P0`
+      - filtered raw-storage query (`... | rg -v "src/modules/lifecycle/StateManager.ts|src/utils/storage.ts"`) -> no matches
+      - related-files guard query (`LINEUP_STORAGE_KEYS|safeLocalStorage|readStoredBoolean` over mapped related files) -> no matches
+      - `npm run verify:docs` -> pass
+      - `npm run verify` -> pass
+  - [x] `P3-EXIT` run the priority-exit review before moving to `P4` (completed 2026-03-12; priority-exit review required before opening `P4` work)
+    - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 3
+    - mapped imported issues:
+      - `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe` -> `resolved`
+        reason: the final four runtime residual bypasses were retired and the mapped review issue no longer appears as open on refreshed evidence.
+    - follow-up ownership:
+      - none; no `deferred` or `split follow-up` items remain for `P3`.
+    - security triage:
+      - exact `P0` gate disposition: `no open P0 security findings` (`desloppify show security --status open --no-budget --top 200` reports 12 open `T2 [medium]` items only).
+    - residuals:
+      - no additional Priority 3 storage-owner residual is intentionally left open.
+    - verification:
+      - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`
       - `desloppify status`
-      - `desloppify show review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe --no-budget`
       - `desloppify show review --status open --no-budget --top 200`
+      - `desloppify show review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe --no-budget`
       - `desloppify show security --status open --no-budget --top 200`
       - `rg -n --pcre2 "^(?!\\s*(//|/\\*|\\*)).*\\blocalStorage\\.(getItem|setItem|removeItem|clear|key)\\(" src --glob '!**/__tests__/**' --glob '!**/*.test.ts' | rg -v "src/modules/lifecycle/StateManager.ts|src/utils/storage.ts"`
+      - `rg -n "LINEUP_STORAGE_KEYS|safeLocalStorage|readStoredBoolean" src/core/InitializationCoordinator.ts src/modules/navigation/NavigationCoordinator.ts src/modules/player/PlaybackRecoveryManager.ts src/modules/ui/epg/EPGCoordinator.ts src/modules/ui/now-playing-info/NowPlayingInfoCoordinator.ts src/shared/subtitle-mode.ts`
       - `npm run verify:docs`
       - `npm run verify`
-    - implementation checkpoint (`2026-03-11` session):
-      - added focused owner layer under `src/modules/settings/`:
-        - `SubtitlePreferencesStore`
-        - `EpgPreferencesStore`
-        - `NowPlayingDisplayStore`
-        - `ProfileSessionStore`
-      - migrated subtitle storage ownership:
-        - `src/shared/subtitle-mode.ts` is now pure mode/normalization helpers only (no storage access)
-        - `PlaybackRecoveryManager`, `PlaybackOptionsCoordinator`, and `SettingsScreenStateController` now consume typed subtitle-owner APIs
-      - rewired runtime consumers through typed owner APIs:
-        - `InitializationStartupPolicy`
-        - `NavigationCoordinator`
-        - `EPGCoordinator`
-        - `NowPlayingInfoCoordinator`
-        - `OrchestratorCoordinatorFactory` wiring path
-      - verification/evidence rerun results:
-        - `npm run verify:docs` -> pass
-        - `npm run verify` -> pass
-        - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"` -> completed
-        - `desloppify show review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe --no-budget` -> issue remains open
-        - filtered raw-storage query (`... | rg -v "src/modules/lifecycle/StateManager.ts|src/utils/storage.ts"`) -> no matches
-      - deterministic disposition: keep `P3-W6` open and keep `P3-EXIT` blocked until the mapped issue retires or is explicitly deferred with final-owner metadata at exit review.
-  - [ ] `P3-EXIT` run the priority-exit review before moving to `P4`
-    - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 3
-    - blocked by `P3-W6` while `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe` remains open.
 
 ## Priority 4: Complete UI And Coordinator Round-2 Decomposition
 
