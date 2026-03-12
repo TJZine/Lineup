@@ -216,7 +216,22 @@ Other review signals:
   - [x] P4-W2 - Split one bounded concern out of `EPGComponent` (recommended: navigation or info-panel orchestration) (done 2026-03-06; plan: docs/plans/2026-03-06-p4-w2-epg-info-panel-orchestration-split-implementation.md)
   - [x] P4-W3 - Split one bounded concern out of `ChannelSetupScreen` (recommended: step orchestration vs view rendering) (done 2026-03-06; plan: docs/plans/2026-03-06-p4-w3-channel-setup-session-flow-split-implementation.md)
   - [x] P4-W4 - Consolidate repeated focus/render helpers into reusable UI primitives only after the first three extractions are stable (done 2026-03-06; plan: docs/plans/2026-03-06-p4-w4-ui-focus-render-primitives-consolidation-implementation.md)
-  - [x] P4-W5 - Cleanup pass for Priority 4: remove placeholder view glue, dead DOM refs, temporary focus bridges, and transitional UI conditionals introduced during the screen splits (done 2026-03-06; plan: docs/plans/2026-03-06-p4-w5-priority-4-cleanup-pass-implementation.md)
+  - [x] P4-W5 - Cleanup pass for Priority 4: remove placeholder view glue, dead DOM refs, temporary focus bridges, and transitional UI conditionals introduced during the screen splits (done 2026-03-12; plan: docs/plans/2026-03-12-p4-w5-priority-4-cleanup-pass.md)
+    - Mapped imported review issues disposition (refreshed 2026-03-12 via `desloppify show review --status open` + per-id checks):
+      - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `resolved` (`No open issues matching`)
+      - `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d` -> `resolved` (`No open issues matching`)
+      - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216` -> `resolved` (`No open issues matching`)
+      - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> `resolved` (`No open issues matching`)
+    - Mapped inherited security issue disposition (refreshed 2026-03-12 via `desloppify show security --status open --no-budget --top 200` + per-id checks):
+      - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::32` -> `resolved` (`No open issues matching`)
+      - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::40` -> `resolved` (`No open issues matching`)
+      - `security::src/modules/ui/epg/EPGComponent.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGComponent.ts::244` -> `resolved` (`No open issues matching`)
+      - `security::src/modules/ui/epg/EPGInfoPanel.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGInfoPanel.ts::101` -> `resolved` (`No open issues matching`)
+      - `security::src/modules/ui/epg/EPGTimeHeader.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGTimeHeader.ts::91` -> `resolved` (`No open issues matching`)
+      - `security::src/modules/ui/epg/EPGVirtualizer.ts::security::insecure_random::src/modules/ui/epg/EPGVirtualizer.ts::652` -> `resolved` (`No open issues matching`)
+      - `security::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::security::innerHTML_assignment::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::136` -> `resolved` (`No open issues matching`)
+      - `security::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::security::log_sensitive::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::503` -> `resolved` (`No open issues matching`)
+    - Gate: `P4-EXIT` remains required before any `P5` item can be marked ready or started.
 
 ## Priority 5: Break PlexStreamResolver Into A Pipeline Of Policies
 
