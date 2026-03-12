@@ -361,10 +361,60 @@ Do not close a listed work unit while its mapped imported issue still remains un
     - wrapped `src/modules/ui/epg/utils.ts` (`appendEpgDebugLog`/debug flag and log payload access) behind sanctioned `safeLocalStorageGet`/`safeLocalStorageSet` helpers.
     - added targeted behavior coverage in `src/utils/__tests__/storage.test.ts`, `src/core/channel-setup/__tests__/ChannelSetupCoordinator.test.ts`, and `src/modules/ui/epg/__tests__/utils.test.ts`.
     - verification sequence for this slice: `npm test -- src/utils/__tests__/storage.test.ts`, `npm test -- src/core/channel-setup/__tests__/ChannelSetupCoordinator.test.ts`, `npm test -- src/modules/ui/epg/__tests__/utils.test.ts src/modules/ui/epg/__tests__/EPGCoordinator.test.ts src/modules/ui/epg/__tests__/EPGTimeHeader.test.ts`, `npm run typecheck`, `npm run verify:docs`, `npm run verify`.
-  - [ ] `P3-W4` audit the rest of the repo for storage-owner drift and remove any newly discovered raw-storage bypasses before closing the priority
+  - [x] `P3-W4` audit the rest of the repo for storage-owner drift and remove any newly discovered raw-storage bypasses before closing the priority (completed 2026-03-11; plan: `docs/plans/2026-03-11-p3-w4-storage-owner-drift-audit.md`)
+    - deterministic production audit commands (comment-safe, non-test files):
+      - `rg -n --pcre2 "^(?!\\s*(//|/\\*|\\*)).*\\blocalStorage\\.(getItem|setItem|removeItem|clear|key)\\(" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`
+      - `rg -n --pcre2 "^(?!\\s*(//|/\\*|\\*)).*\\blocalStorage\\.(getItem|setItem|removeItem|clear|key)\\(" src --glob '!**/__tests__/**' --glob '!**/*.test.ts' | rg -v "src/modules/lifecycle/StateManager.ts|src/utils/storage.ts"`
+    - remediated non-owner raw-storage call site: `src/modules/ui/epg/EPGComponent.ts` now routes `LINEUP_STORAGE_KEYS.EPG_DEBUG` reads through `safeLocalStorageGet` while preserving `debugStorageRefreshIntervalMs` polling cadence.
+    - targeted coverage added: `src/modules/ui/epg/__tests__/EPGComponent.test.ts` (`respects configurable debug refresh interval for same-tab storage toggles`).
+    - verification sequence for this slice:
+      - `npm test -- src/modules/ui/epg/__tests__/EPGComponent.test.ts -t "configurable debug refresh interval"`
+      - `npm test -- src/modules/ui/epg/__tests__/EPGComponent.test.ts src/modules/ui/epg/__tests__/utils.test.ts`
+      - `npm run verify:docs`
+      - `npm run typecheck`
+      - `npm run verify`
+      - `desloppify status`
+      - `desloppify show review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe --no-budget`
+      - `rg -n --pcre2 "^(?!\\s*(//|/\\*|\\*)).*\\blocalStorage\\.(getItem|setItem|removeItem|clear|key)\\(" src --glob '!**/__tests__/**' --glob '!**/*.test.ts' | rg -v "src/modules/lifecycle/StateManager.ts|src/utils/storage.ts"`
+    - imported issue disposition checkpoint: `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe` remains open after this slice; exact successor owner for final disposition is `P3-EXIT`.
   - [ ] `P3-W5` refresh `CURRENT_STATE` and adjacent docs so the persistence-owner list is accurate and complete
+  - [ ] `P3-W6` runtime storage-owner drift residual cleanup for `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe` (plan: `docs/plans/2026-03-11-p3-w6-runtime-storage-owner-drift-residual-cleanup.md`)
+    - locked owner layer: introduce focused non-UI owners under `src/modules/settings/` (`SubtitlePreferencesStore`, `EpgPreferencesStore`, `NowPlayingDisplayStore`, `ProfileSessionStore`) and inject narrow APIs into runtime consumers instead of using generic storage helpers from core/player/shared modules.
+    - explicit subtitle migration requirement: remove storage-backed free functions from `src/shared/subtitle-mode.ts` and route `PlaybackRecoveryManager`, `PlaybackOptionsCoordinator`, and `SettingsScreenStateController` through typed owner APIs.
+    - deterministic blocker rule: `P3-EXIT` remains blocked while this mapped issue is open and still cites runtime files.
+    - required closure evidence:
+      - `desloppify status`
+      - `desloppify show review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe --no-budget`
+      - `desloppify show review --status open --no-budget --top 200`
+      - `desloppify show security --status open --no-budget --top 200`
+      - `rg -n --pcre2 "^(?!\\s*(//|/\\*|\\*)).*\\blocalStorage\\.(getItem|setItem|removeItem|clear|key)\\(" src --glob '!**/__tests__/**' --glob '!**/*.test.ts' | rg -v "src/modules/lifecycle/StateManager.ts|src/utils/storage.ts"`
+      - `npm run verify:docs`
+      - `npm run verify`
+    - implementation checkpoint (`2026-03-11` session):
+      - added focused owner layer under `src/modules/settings/`:
+        - `SubtitlePreferencesStore`
+        - `EpgPreferencesStore`
+        - `NowPlayingDisplayStore`
+        - `ProfileSessionStore`
+      - migrated subtitle storage ownership:
+        - `src/shared/subtitle-mode.ts` is now pure mode/normalization helpers only (no storage access)
+        - `PlaybackRecoveryManager`, `PlaybackOptionsCoordinator`, and `SettingsScreenStateController` now consume typed subtitle-owner APIs
+      - rewired runtime consumers through typed owner APIs:
+        - `InitializationStartupPolicy`
+        - `NavigationCoordinator`
+        - `EPGCoordinator`
+        - `NowPlayingInfoCoordinator`
+        - `OrchestratorCoordinatorFactory` wiring path
+      - verification/evidence rerun results:
+        - `npm run verify:docs` -> pass
+        - `npm run verify` -> pass
+        - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"` -> completed
+        - `desloppify show review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe --no-budget` -> issue remains open
+        - filtered raw-storage query (`... | rg -v "src/modules/lifecycle/StateManager.ts|src/utils/storage.ts"`) -> no matches
+      - deterministic disposition: keep `P3-W6` open and keep `P3-EXIT` blocked until the mapped issue retires or is explicitly deferred with final-owner metadata at exit review.
   - [ ] `P3-EXIT` run the priority-exit review before moving to `P4`
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 3
+    - blocked by `P3-W6` while `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe` remains open.
 
 ## Priority 4: Complete UI And Coordinator Round-2 Decomposition
 
