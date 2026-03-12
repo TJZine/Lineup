@@ -475,11 +475,27 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --no-budget`
       - `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget`
       - `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --no-budget`
-  - [ ] `P4-W2` narrow `ChannelSetupCoordinator` so planning, build execution, rerun workflow, and persistence are not co-owned
-    - inherited follow-ups:
+  - [x] `P4-W2` narrow `ChannelSetupCoordinator` so planning, build execution, rerun workflow, and persistence are not co-owned (completed 2026-03-12; plan: `docs/plans/2026-03-12-p4-w2-channel-setup-coordinator-ownership-split.md`)
+    - completed by:
+      - introducing `src/core/channel-setup/ChannelSetupSessionGateway.ts` and migrating `ChannelSetupScreen`/`ChannelSetupSessionController` plus app-shell screen creation to the gateway accessor path (`AppOrchestrator.getChannelSetupSessionGateway()`).
+      - extracting persistence ownership to `src/core/channel-setup/ChannelSetupRecordStore.ts` and rerun workflow ownership to `src/core/channel-setup/ChannelSetupRerunController.ts`.
+      - extracting planning/build ownership into `src/core/channel-setup/ChannelSetupPlanningService.ts` and `src/core/channel-setup/ChannelSetupBuildExecutor.ts`, leaving `ChannelSetupCoordinator` as composition/delegation owner.
+      - retiring orchestrator channel-setup pass-through facade methods and rewiring `ServerSelectScreen` rerun through the channel-setup gateway.
+    - inherited follow-up disposition:
       - source: `P1-EXIT`
-      - `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` -> `split follow-up` (final owner `P4-W2`)
-      - required verification before closing `P4-W2`: `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b`
+      - `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` -> `resolved`
+        reason: channel-setup consumers now depend on `getChannelSetupSessionGateway()` and orchestrator pass-through facade methods were removed.
+        verification command: `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` -> `No open issues matching`
+    - verification:
+      - `npm run typecheck`
+      - `npm test -- src/core/channel-setup/__tests__/ChannelSetupCoordinator.test.ts src/core/channel-setup/__tests__/ChannelSetupRecordStore.test.ts src/core/channel-setup/__tests__/ChannelSetupRerunController.test.ts`
+      - `npm test -- src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts` (`ChannelSetupScreen.contracts.test.ts` is covered by `npm run test:contracts`)
+      - `npm test -- src/modules/ui/server-select/__tests__/ServerSelectScreen.test.ts`
+      - `npm test -- src/__tests__/Orchestrator.test.ts -t "channel setup"`
+      - `npm run verify:docs`
+      - `npm run verify`
+      - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`
+      - `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b`
   - [ ] `P4-W3` audit and split `NavigationManager` where focus-rule logic and input/timing logic are separable
   - [ ] `P4-W4` finish remaining round-2 cleanup in `SettingsScreen` / `ChannelSetupScreen` where the imported review still flags coarse ownership or cleanup residue
     - inherited follow-ups:

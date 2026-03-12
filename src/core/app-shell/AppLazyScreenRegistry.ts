@@ -166,7 +166,10 @@ export class AppLazyScreenRegistry {
                     const latestOrchestrator = this._getOrchestrator();
                     if (!latestOrchestrator) return null;
 
-                    const screen = new ChannelSetupScreen(container, latestOrchestrator);
+                    const screen = new ChannelSetupScreen(
+                        container,
+                        latestOrchestrator.getChannelSetupSessionGateway()
+                    );
 
                     if (this._destroyed) {
                         screen.destroy();

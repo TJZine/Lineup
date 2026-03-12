@@ -27,7 +27,7 @@ type OrchestratorStub = {
     getNavigation: () => NavigationStub;
     discoverServers: jest.Mock;
     selectServer: jest.Mock;
-    requestChannelSetupRerun: jest.Mock;
+    getChannelSetupSessionGateway: () => { requestChannelSetupRerun: jest.Mock };
     clearSelectedServer: jest.Mock;
     getSelectedServerStorageKey: () => string;
     getServerHealthStorageKey: () => string;
@@ -35,11 +35,12 @@ type OrchestratorStub = {
 
 const createOrchestratorStub = (): OrchestratorStub => {
     const navigation = createNavigationStub();
+    const requestChannelSetupRerun = jest.fn();
     return {
         getNavigation: () => navigation,
         discoverServers: jest.fn(),
         selectServer: jest.fn().mockResolvedValue(false),
-        requestChannelSetupRerun: jest.fn(),
+        getChannelSetupSessionGateway: () => ({ requestChannelSetupRerun }),
         clearSelectedServer: jest.fn(),
         getSelectedServerStorageKey: () => 'selected-server-id',
         getServerHealthStorageKey: () => 'server-health',
