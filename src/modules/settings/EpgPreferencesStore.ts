@@ -5,6 +5,8 @@ import {
     safeLocalStorageGet,
     safeLocalStorageRemove,
     safeLocalStorageSet,
+    readTrimmedStringAndClean,
+    writeTrimmedStringOrRemove,
 } from '../../utils/storage';
 
 export type EpgLayoutMode = 'overlay' | 'classic';
@@ -31,29 +33,11 @@ export class EpgPreferencesStore {
     }
 
     readSelectedLibraryId(): string | null {
-        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
-        if (raw == null) {
-            return null;
-        }
-        const trimmed = raw.trim();
-        if (!trimmed) {
-            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
-            return null;
-        }
-        return trimmed;
+        return readTrimmedStringAndClean(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
     }
 
     writeSelectedLibraryId(libraryId: string | null): void {
-        if (typeof libraryId !== 'string') {
-            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
-            return;
-        }
-        const trimmed = libraryId.trim();
-        if (!trimmed) {
-            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
-            return;
-        }
-        safeLocalStorageSet(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, trimmed);
+        writeTrimmedStringOrRemove(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, libraryId);
     }
 
     readGuideDensity(fallback: EpgGuideDensity = 'detailed'): EpgGuideDensity {

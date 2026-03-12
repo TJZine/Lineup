@@ -45,6 +45,42 @@ export function safeLocalStorageRemove(key: string): boolean {
 }
 
 /**
+ * Read a string value, trimming whitespace and removing blank persisted entries.
+ * Returns null when missing, unavailable, or blank after trimming.
+ */
+export function readTrimmedStringAndClean(key: string): string | null {
+    const raw = safeLocalStorageGet(key);
+    if (raw == null) {
+        return null;
+    }
+    const trimmed = raw.trim();
+    if (!trimmed) {
+        safeLocalStorageRemove(key);
+        return null;
+    }
+    return trimmed;
+}
+
+/**
+ * Persist a trimmed string value or remove the key when the input is nullish/blank.
+ * Storage failures remain non-fatal through the safe helper layer.
+ */
+export function writeTrimmedStringOrRemove(key: string, value: string | null): void {
+    if (typeof value !== 'string') {
+        safeLocalStorageRemove(key);
+        return;
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+        safeLocalStorageRemove(key);
+        return;
+    }
+
+    safeLocalStorageSet(key, trimmed);
+}
+
+/**
  * Remove localStorage keys matching any provided prefix.
  * Returns the list of removed keys. Never throws.
  */

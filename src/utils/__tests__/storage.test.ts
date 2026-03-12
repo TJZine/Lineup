@@ -3,10 +3,12 @@
  */
 
 import {
+    readTrimmedStringAndClean,
     readStoredBoolean,
     readStoredBooleanAndClean,
     readStoredBooleanMaybeAndClean,
     safeLocalStorageRemoveByPrefixes,
+    writeTrimmedStringOrRemove,
 } from '../storage';
 
 describe('storage helpers', () => {
@@ -55,6 +57,27 @@ describe('storage helpers', () => {
         expect(readStoredBooleanAndClean('missing', true)).toBe(true);
     });
 
+    it('readTrimmedStringAndClean trims valid strings and removes blank values', () => {
+        localStorage.setItem('profile', '  user-1  ');
+        expect(readTrimmedStringAndClean('profile')).toBe('user-1');
+        expect(localStorage.getItem('profile')).toBe('  user-1  ');
+
+        localStorage.setItem('profile', '   ');
+        expect(readTrimmedStringAndClean('profile')).toBeNull();
+        expect(localStorage.getItem('profile')).toBeNull();
+    });
+
+    it('writeTrimmedStringOrRemove persists trimmed values and removes nullish or blank inputs', () => {
+        writeTrimmedStringOrRemove('profile', '  user-2  ');
+        expect(localStorage.getItem('profile')).toBe('user-2');
+
+        writeTrimmedStringOrRemove('profile', '   ');
+        expect(localStorage.getItem('profile')).toBeNull();
+
+        writeTrimmedStringOrRemove('profile', null);
+        expect(localStorage.getItem('profile')).toBeNull();
+    });
+
     it('safeLocalStorageRemoveByPrefixes removes only matching keys', () => {
         localStorage.setItem('lineup_channels_build_tmp_v1:a', '1');
         localStorage.setItem('lineup_current_channel_build_tmp_v1:b', '1');
@@ -78,10 +101,11 @@ describe('storage helpers', () => {
         const getLength = jest.spyOn(Storage.prototype, 'length', 'get').mockImplementation(() => {
             throw new Error('blocked');
         });
-
-        expect(safeLocalStorageRemoveByPrefixes(['lineup_'])).toEqual([]);
-
-        getLength.mockRestore();
+        try {
+            expect(safeLocalStorageRemoveByPrefixes(['lineup_'])).toEqual([]);
+        } finally {
+            getLength.mockRestore();
+        }
     });
 
     it('safeLocalStorageRemoveByPrefixes skips only null keys from storage iteration', () => {
@@ -100,19 +124,21 @@ describe('storage helpers', () => {
             clear: jest.fn(),
         } as Pick<Storage, 'length' | 'key' | 'removeItem'> as Storage;
 
-        Object.defineProperty(globalThis, 'localStorage', {
-            configurable: true,
-            value: customStorage,
-        });
+        try {
+            Object.defineProperty(globalThis, 'localStorage', {
+                configurable: true,
+                value: customStorage,
+            });
 
-        expect(safeLocalStorageRemoveByPrefixes([''])).toEqual(['', 'lineup_valid']);
-        expect(removeItem).toHaveBeenNthCalledWith(1, '');
-        expect(removeItem).toHaveBeenNthCalledWith(2, 'lineup_valid');
-
-        Object.defineProperty(globalThis, 'localStorage', {
-            configurable: true,
-            value: originalLocalStorage,
-        });
+            expect(safeLocalStorageRemoveByPrefixes([''])).toEqual(['', 'lineup_valid']);
+            expect(removeItem).toHaveBeenNthCalledWith(1, '');
+            expect(removeItem).toHaveBeenNthCalledWith(2, 'lineup_valid');
+        } finally {
+            Object.defineProperty(globalThis, 'localStorage', {
+                configurable: true,
+                value: originalLocalStorage,
+            });
+        }
     });
 
 });

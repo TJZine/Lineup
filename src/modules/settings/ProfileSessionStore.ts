@@ -1,9 +1,9 @@
 import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import {
     readStoredBooleanAndClean,
-    safeLocalStorageGet,
-    safeLocalStorageRemove,
     safeLocalStorageSet,
+    readTrimmedStringAndClean,
+    writeTrimmedStringOrRemove,
 } from '../../utils/storage';
 
 export class ProfileSessionStore {
@@ -24,30 +24,10 @@ export class ProfileSessionStore {
     }
 
     readLastProfileId(): string | null {
-        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID);
-        if (typeof raw !== 'string') {
-            return null;
-        }
-        const trimmed = raw.trim();
-        if (!trimmed) {
-            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID);
-            return null;
-        }
-        return trimmed;
+        return readTrimmedStringAndClean(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID);
     }
 
     writeLastProfileId(profileId: string | null): void {
-        if (typeof profileId !== 'string') {
-            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID);
-            return;
-        }
-
-        const trimmed = profileId.trim();
-        if (!trimmed) {
-            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID);
-            return;
-        }
-
-        safeLocalStorageSet(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID, trimmed);
+        writeTrimmedStringOrRemove(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID, profileId);
     }
 }
