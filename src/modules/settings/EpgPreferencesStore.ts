@@ -32,7 +32,7 @@ export class EpgPreferencesStore {
 
     readSelectedLibraryId(): string | null {
         const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
-        if (!raw) {
+        if (raw == null) {
             return null;
         }
         const trimmed = raw.trim();
@@ -58,13 +58,12 @@ export class EpgPreferencesStore {
 
     readGuideDensity(fallback: EpgGuideDensity = 'detailed'): EpgGuideDensity {
         const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY);
-        if (raw === 'wide') {
-            return 'wide';
+        if (raw === 'wide' || raw === 'detailed') {
+            return raw;
         }
-        if (raw === 'detailed' || raw === null) {
-            return 'detailed';
+        if (raw !== null) {
+            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY);
         }
-        safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY);
         return fallback;
     }
 
@@ -74,13 +73,12 @@ export class EpgPreferencesStore {
 
     readLayoutMode(fallback: EpgLayoutMode = 'classic'): EpgLayoutMode {
         const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
-        if (raw === 'overlay') {
-            return 'overlay';
+        if (raw === 'overlay' || raw === 'classic') {
+            return raw;
         }
-        if (raw === 'classic' || raw === null) {
-            return 'classic';
+        if (raw !== null) {
+            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
         }
-        safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
         return fallback;
     }
 

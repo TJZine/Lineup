@@ -84,4 +84,35 @@ describe('storage helpers', () => {
         getLength.mockRestore();
     });
 
+    it('safeLocalStorageRemoveByPrefixes skips only null keys from storage iteration', () => {
+        const originalLocalStorage = globalThis.localStorage;
+        const removeItem = jest.fn();
+        const customStorage = {
+            get length(): number {
+                return 2;
+            },
+            key: (index: number): string | null => {
+                if (index === 0) return '';
+                if (index === 1) return 'lineup_valid';
+                return null;
+            },
+            removeItem,
+            clear: jest.fn(),
+        } as Pick<Storage, 'length' | 'key' | 'removeItem'> as Storage;
+
+        Object.defineProperty(globalThis, 'localStorage', {
+            configurable: true,
+            value: customStorage,
+        });
+
+        expect(safeLocalStorageRemoveByPrefixes([''])).toEqual(['', 'lineup_valid']);
+        expect(removeItem).toHaveBeenNthCalledWith(1, '');
+        expect(removeItem).toHaveBeenNthCalledWith(2, 'lineup_valid');
+
+        Object.defineProperty(globalThis, 'localStorage', {
+            configurable: true,
+            value: originalLocalStorage,
+        });
+    });
+
 });

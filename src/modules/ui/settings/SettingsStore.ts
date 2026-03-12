@@ -1,5 +1,5 @@
 import { TRANSCODE_QUALITY_OPTIONS } from '../../../config/transcodeQuality';
-import { NOW_PLAYING_INFO_DEFAULTS } from '../now-playing-info/constants';
+import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from '../now-playing-info/constants';
 import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
 import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
 import { NowPlayingDisplayStore } from '../../settings/NowPlayingDisplayStore';
@@ -330,6 +330,6 @@ export class SettingsStore {
     }
 
     writeNowPlayingAutoHideValue(value: number): void {
-        this._nowPlayingDisplayStore.writeAutoHideMs(value);
+        this._nowPlayingDisplayStore.writeAutoHideMs(value, NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS);
     }
 }

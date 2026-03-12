@@ -46,4 +46,19 @@ describe('EpgPreferencesStore', () => {
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE)).toBeNull();
     });
+
+    it('returns caller fallbacks for missing layout and density values without persisting them', () => {
+        expect(store.readGuideDensity('wide')).toBe('wide');
+        expect(store.readLayoutMode('overlay')).toBe('overlay');
+
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBeNull();
+    });
+
+    it('removes blank stored library filters when reading', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, '');
+
+        expect(store.readSelectedLibraryId()).toBeNull();
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
+    });
 });

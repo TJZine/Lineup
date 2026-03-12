@@ -56,7 +56,7 @@ export function safeLocalStorageRemoveByPrefixes(prefixes: readonly string[]): s
         const keysToRemove: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (!key) continue;
+            if (key === null) continue;
             if (!prefixes.some((prefix) => key.startsWith(prefix))) continue;
             keysToRemove.push(key);
         }

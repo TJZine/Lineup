@@ -52,7 +52,11 @@ export class NowPlayingDisplayStore {
         return normalized;
     }
 
-    writeAutoHideMs(value: number): void {
-        safeLocalStorageSet(LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, String(value));
+    writeAutoHideMs(value: number, validOptions: readonly number[]): void {
+        const normalized = validOptions.includes(value)
+            ? value
+            : (validOptions[0] ?? value);
+
+        safeLocalStorageSet(LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, String(normalized));
     }
 }

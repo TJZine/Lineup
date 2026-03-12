@@ -31,4 +31,11 @@ describe('NowPlayingDisplayStore', () => {
         expect(store.readClampedAutoHideMs(NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, 7000)).toBe(0);
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS)).toBe('0');
     });
+
+    it('normalizes invalid auto-hide writes to the first valid option', () => {
+        store.writeAutoHideMs(7_000, NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS);
+
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS)).toBe('0');
+        expect(store.readClampedAutoHideMs(NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, 7_000)).toBe(0);
+    });
 });

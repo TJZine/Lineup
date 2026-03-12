@@ -33,4 +33,20 @@ describe('ProfileSessionStore', () => {
         expect(store.readLastProfileId()).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID)).toBeNull();
     });
+
+    it('returns provided boolean fallbacks when storage is empty', () => {
+        expect(store.readShowProfilePickerOnStartup(false)).toBe(false);
+        expect(store.readShowProfilePickerOnStartup(true)).toBe(true);
+        expect(store.readKeepPlayingInSettings(false)).toBe(false);
+
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP)).toBeNull();
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS)).toBeNull();
+    });
+
+    it('removes blank last profile ids when reading', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID, '   ');
+
+        expect(store.readLastProfileId()).toBeNull();
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID)).toBeNull();
+    });
 });

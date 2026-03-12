@@ -30,6 +30,7 @@ export class ProfileSessionStore {
         }
         const trimmed = raw.trim();
         if (!trimmed) {
+            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID);
             return null;
         }
         return trimmed;

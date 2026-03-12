@@ -69,7 +69,7 @@ const createOrchestratorStub = (users: Array<{
 };
 
 describe('ProfileSelectScreen', () => {
-    const profileSessionStore = new ProfileSessionStore();
+    let profileSessionStore: ProfileSessionStore;
     const expectedPinFocusableIds = [
         'btn-profile-pin-1',
         'btn-profile-pin-2',
@@ -87,6 +87,7 @@ describe('ProfileSelectScreen', () => {
 
     beforeEach(() => {
         jest.useFakeTimers();
+        profileSessionStore = new ProfileSessionStore();
     });
 
     afterEach(() => {
@@ -355,6 +356,7 @@ describe('ProfileSelectScreen', () => {
             { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
         ];
         const orchestrator = createOrchestratorStub(users);
+        const writeLastProfileIdSpy = jest.spyOn(profileSessionStore, 'writeLastProfileId');
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -374,6 +376,26 @@ describe('ProfileSelectScreen', () => {
 
         expect(orchestrator.switchHomeUser).toHaveBeenCalledTimes(1);
         expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', '1234');
+        expect(writeLastProfileIdSpy).toHaveBeenCalledWith('2');
+    });
+
+    it('clears last profile id when switching to the main account', async () => {
+        const users = [{ id: '1', title: 'Admin', thumb: null, admin: true, protected: false }];
+        const orchestrator = createOrchestratorStub(users);
+        const writeLastProfileIdSpy = jest.spyOn(profileSessionStore, 'writeLastProfileId');
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(container, orchestrator as never, profileSessionStore as never);
+        screen.show();
+
+        await flushPromisesAndTimers();
+
+        (container.querySelector('#btn-profile-main') as HTMLButtonElement).click();
+        await flushPromisesAndTimers();
+
+        expect(orchestrator.useMainAccountProfile).toHaveBeenCalledTimes(1);
+        expect(writeLastProfileIdSpy).toHaveBeenCalledWith(null);
     });
 
     it('keeps just-filled class only on the newest slot', async () => {
