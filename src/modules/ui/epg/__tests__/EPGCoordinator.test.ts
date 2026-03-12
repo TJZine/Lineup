@@ -1342,6 +1342,45 @@ describe('EPGCoordinator', () => {
         }
     });
 
+    it('refreshEpgSchedulesForRange immediate call preempts armed debounce and settles pending promise', async () => {
+        useDeterministicFakeTimers();
+        try {
+            const { deps } = makeDeps();
+            const coordinator = new EPGCoordinator(deps);
+            const refreshSpy = jest.spyOn(
+                coordinator as unknown as { _refreshEpgSchedulesForRange: (range: unknown, reason: string) => Promise<void> },
+                '_refreshEpgSchedulesForRange'
+            );
+
+            const debouncedPromise = coordinator.refreshEpgSchedulesForRange(
+                { channelStart: 0, channelEnd: 1, timeStartMs: 0, timeEndMs: 0 },
+                { debounceMs: 75, reason: 'visible-range' }
+            );
+            const secondDebouncedPromise = coordinator.refreshEpgSchedulesForRange(
+                { channelStart: 1, channelEnd: 2, timeStartMs: 60_000, timeEndMs: 120_000 },
+                { debounceMs: 75, reason: 'visible-range' }
+            );
+
+            const immediatePromise = coordinator.refreshEpgSchedulesForRange(
+                { channelStart: 2, channelEnd: 3, timeStartMs: 120_000, timeEndMs: 180_000 },
+                { debounceMs: 0, reason: 'library-filter' }
+            );
+
+            await Promise.all([immediatePromise, debouncedPromise, secondDebouncedPromise]);
+            expect(refreshSpy).toHaveBeenCalledTimes(1);
+            expect(refreshSpy).toHaveBeenCalledWith(
+                { channelStart: 2, channelEnd: 3, timeStartMs: 120_000, timeEndMs: 180_000 },
+                'library-filter'
+            );
+
+            jest.advanceTimersByTime(100);
+            await flushPromises();
+            expect(refreshSpy).toHaveBeenCalledTimes(1);
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
     it('refreshEpgScheduleForLiveChannel uses scheduler window for current channel', () => {
         const windowPrograms = [baseProgram('c0', 5)];
         const scheduler: IChannelScheduler = {

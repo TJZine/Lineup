@@ -7,7 +7,7 @@
 import { ShuffleGenerator, ScheduleCalculator } from '../../scheduler/scheduler';
 import { appendEpgDebugLog, isEpgDebugLoggingEnabled } from './utils';
 import type { IEPGComponent } from './interfaces';
-import type { EPGConfig } from './types';
+import type { EPGConfig, EpgVisibleRange } from './types';
 import type { IChannelManager, ChannelConfig, ResolvedChannelContent } from '../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig, ScheduleWindow } from '../../scheduler/scheduler';
 import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
@@ -20,6 +20,7 @@ import {
     type EpgStorageSnapshotForScheduleRange,
 } from './EPGCoordinatorPolicies';
 import { buildLibraries, countLibraryTypeVotes } from './epgLibraryUtils';
+import { EPGVisibleRangeRefreshQueue } from './EPGVisibleRangeRefreshQueue';
 
 export type EpgUiStatus = 'pending' | 'initializing' | 'ready' | 'error' | 'disabled' | undefined;
 
@@ -92,17 +93,7 @@ export class EPGCoordinator {
     private _epgScheduleRangeKeyByChannel = new Map<string, { rangeKey: string; loadedAt: number }>();
     private _epgScheduleCache = new Map<string, { rangeKey: string; schedule: ScheduleWindow; loadedAt: number }>();
     private _epgScheduleCacheMaxEntries = EPG_SCHEDULE_CACHE_MIN_ENTRIES;
-    private _visibleRangeTimer: ReturnType<typeof setTimeout> | null = null;
-    private _pendingVisibleRange: {
-        channelStart: number;
-        channelEnd: number;
-        timeStartMs: number;
-        timeEndMs: number;
-    } | null = null;
-    private _pendingVisibleRangeReason: string | null = null;
-    private _pendingVisibleRangePromise: Promise<void> | null = null;
-    private _pendingVisibleRangeResolve: (() => void) | null = null;
-    private _pendingVisibleRangeReject: ((error: unknown) => void) | null = null;
+    private _visibleRangeRefreshQueue: EPGVisibleRangeRefreshQueue;
     private _backgroundWarmQueueState: BackgroundWarmQueueState | null = null;
     private _backgroundWarmQueueTimer: ReturnType<typeof setTimeout> | null = null;
     private _backgroundWarmQueueIdleHandle: number | null = null;
@@ -120,6 +111,9 @@ export class EPGCoordinator {
 
     constructor(private readonly deps: EPGCoordinatorDeps) {
         this._epgPreferencesStore = deps.epgPreferencesStore ?? new EpgPreferencesStore();
+        this._visibleRangeRefreshQueue = new EPGVisibleRangeRefreshQueue(
+            (range: EpgVisibleRange, reason: string) => this._refreshEpgSchedulesForRange(range, reason)
+        );
     }
 
     /**
@@ -415,46 +409,7 @@ export class EPGCoordinator {
         timeStartMs: number;
         timeEndMs: number;
     }, options?: { reason?: string; debounceMs?: number }): Promise<void> {
-        const debounceMs = Math.max(0, options?.debounceMs ?? 80);
-        const reason = options?.reason ?? 'visible-range';
-        if (debounceMs === 0) {
-            await this._refreshEpgSchedulesForRange(range, reason);
-            return;
-        }
-        this._pendingVisibleRange = range;
-        this._pendingVisibleRangeReason = reason;
-        if (this._visibleRangeTimer) {
-            return this._pendingVisibleRangePromise ?? Promise.resolve();
-        }
-        if (!this._pendingVisibleRangePromise) {
-            this._pendingVisibleRangePromise = new Promise<void>((resolve, reject) => {
-                this._pendingVisibleRangeResolve = resolve;
-                this._pendingVisibleRangeReject = reject;
-            });
-        }
-        this._visibleRangeTimer = setTimeout(() => {
-            this._visibleRangeTimer = null;
-            const pending = this._pendingVisibleRange;
-            const pendingReason = this._pendingVisibleRangeReason;
-            this._pendingVisibleRange = null;
-            this._pendingVisibleRangeReason = null;
-            const resolvePending = this._pendingVisibleRangeResolve;
-            const rejectPending = this._pendingVisibleRangeReject;
-            this._pendingVisibleRangeResolve = null;
-            this._pendingVisibleRangeReject = null;
-            if (!pending) {
-                resolvePending?.();
-                this._pendingVisibleRangePromise = null;
-                return;
-            }
-            this._refreshEpgSchedulesForRange(pending, pendingReason ?? 'visible-range')
-                .then(() => resolvePending?.())
-                .catch((error: unknown) => rejectPending?.(error))
-                .finally(() => {
-                    this._pendingVisibleRangePromise = null;
-                });
-        }, debounceMs);
-        return this._pendingVisibleRangePromise ?? Promise.resolve();
+        return this._visibleRangeRefreshQueue.request(range, options);
     }
 
     wireEpgEvents(): Array<() => void> {
