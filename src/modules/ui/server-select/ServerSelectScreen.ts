@@ -75,7 +75,7 @@ export class ServerSelectScreen {
                     variant: 'secondary',
                     onSelect: (): void => {
                         this._clearError();
-                        this._orchestrator.requestChannelSetupRerun();
+                        this._orchestrator.getChannelSetupSessionGateway().requestChannelSetupRerun();
                     },
                 },
                 {

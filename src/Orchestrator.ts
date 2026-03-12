@@ -259,14 +259,6 @@ export interface IAppOrchestrator {
     getSelectedServerStorageKey(): string;
     getServerHealthStorageKey(): string;
     getChannelSetupSessionGateway(): ChannelSetupSessionGateway;
-    getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibraryType[]>;
-    getChannelSetupRecord(serverId: string): ChannelSetupRecord | null;
-    getSetupContextForSelectedServer(): ChannelSetupContext;
-    getSetupPreview(config: ChannelSetupConfig, options?: { signal?: AbortSignal }): Promise<ChannelSetupPreview>;
-    getSetupReview(config: ChannelSetupConfig, options?: { signal?: AbortSignal }): Promise<ChannelSetupReview>;
-    createChannelsFromSetup(config: ChannelSetupConfig, options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }): Promise<ChannelBuildSummary>;
-    markSetupComplete(serverId: string, setupConfig: ChannelSetupConfig): void;
-    requestChannelSetupRerun(): void;
     handleGlobalError(error: AppError, context: string): void;
     registerErrorHandler(moduleId: string, handler: (error: AppError) => boolean): void;
     getRecoveryActions(errorCode: AppErrorCode): ErrorRecoveryAction[];
@@ -367,27 +359,34 @@ export class AppOrchestrator implements IAppOrchestrator {
         switchToChannelByNumber: (number: number, options?: { signal?: AbortSignal }): Promise<void> =>
             this.switchToChannelByNumber(number, options),
         openEPG: (): void => this.openEPG(),
-        requestChannelSetupRerun: (): void => this.requestChannelSetupRerun(),
+        requestChannelSetupRerun: (): void => this._channelSetup?.requestChannelSetupRerun(),
         getLibrariesForSetup: (signal?: AbortSignal | null): Promise<PlexLibraryType[]> =>
-            this.getLibrariesForSetup(signal),
+            this._channelSetup?.getLibrariesForSetup(signal ?? null)
+                ?? Promise.reject(new Error('Channel setup not initialized')),
         getChannelSetupRecord: (serverId: string): ChannelSetupRecord | null =>
-            this.getChannelSetupRecord(serverId),
+            this._channelSetup?.getSetupRecord(serverId) ?? null,
         getSetupContextForSelectedServer: (): ChannelSetupContext =>
-            this.getSetupContextForSelectedServer(),
+            this._channelSetup?.getSetupContextForSelectedServer() ?? 'unknown',
         getSetupPreview: (
             config: ChannelSetupConfig,
             options?: { signal?: AbortSignal }
-        ): Promise<ChannelSetupPreview> => this.getSetupPreview(config, options),
+        ): Promise<ChannelSetupPreview> =>
+            this._channelSetup?.getSetupPreview(config, options)
+                ?? Promise.reject(new Error('Channel setup not initialized')),
         getSetupReview: (
             config: ChannelSetupConfig,
             options?: { signal?: AbortSignal }
-        ): Promise<ChannelSetupReview> => this.getSetupReview(config, options),
+        ): Promise<ChannelSetupReview> =>
+            this._channelSetup?.getSetupReview(config, options)
+                ?? Promise.reject(new Error('Channel setup not initialized')),
         createChannelsFromSetup: (
             config: ChannelSetupConfig,
             options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }
-        ): Promise<ChannelBuildSummary> => this.createChannelsFromSetup(config, options),
+        ): Promise<ChannelBuildSummary> =>
+            this._channelSetup?.createChannelsFromSetup(config, options)
+                ?? Promise.reject(new Error('Channel setup not initialized')),
         markSetupComplete: (serverId: string, setupConfig: ChannelSetupConfig): void =>
-            this.markSetupComplete(serverId, setupConfig),
+            this._channelSetup?.markSetupComplete(serverId, setupConfig),
     };
 
     constructor(platformServices?: PlatformServices) {
@@ -1220,51 +1219,6 @@ export class AppOrchestrator implements IAppOrchestrator {
 
     getChannelSetupSessionGateway(): ChannelSetupSessionGateway {
         return this._channelSetupSessionGateway;
-    }
-
-    async getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibraryType[]> {
-        return this._channelSetup?.getLibrariesForSetup(signal ?? null)
-            ?? Promise.reject(new Error('Channel setup not initialized'));
-    }
-
-    getChannelSetupRecord(serverId: string): ChannelSetupRecord | null {
-        return this._channelSetup?.getSetupRecord(serverId) ?? null;
-    }
-
-    getSetupContextForSelectedServer(): ChannelSetupContext {
-        return this._channelSetup?.getSetupContextForSelectedServer() ?? 'unknown';
-    }
-
-    async getSetupPreview(
-        config: ChannelSetupConfig,
-        options?: { signal?: AbortSignal }
-    ): Promise<ChannelSetupPreview> {
-        return this._channelSetup?.getSetupPreview(config, options)
-            ?? Promise.reject(new Error('Channel setup not initialized'));
-    }
-
-    async getSetupReview(
-        config: ChannelSetupConfig,
-        options?: { signal?: AbortSignal }
-    ): Promise<ChannelSetupReview> {
-        return this._channelSetup?.getSetupReview(config, options)
-            ?? Promise.reject(new Error('Channel setup not initialized'));
-    }
-
-    async createChannelsFromSetup(
-        config: ChannelSetupConfig,
-        options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }
-    ): Promise<ChannelBuildSummary> {
-        return this._channelSetup?.createChannelsFromSetup(config, options)
-            ?? Promise.reject(new Error('Channel setup not initialized'));
-    }
-
-    markSetupComplete(serverId: string, setupConfig: ChannelSetupConfig): void {
-        this._channelSetup?.markSetupComplete(serverId, setupConfig);
-    }
-
-    requestChannelSetupRerun(): void {
-        this._channelSetup?.requestChannelSetupRerun();
     }
 
     /**
