@@ -14,8 +14,9 @@ import type { EpgPastItemsWindowSetting } from '../settings/types';
 import { readStoredBoolean, safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from '../../../utils/storage';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
+import type { ModuleRuntimeStatus } from '../../../core/module-status';
 
-export type EpgUiStatus = 'pending' | 'initializing' | 'ready' | 'error' | 'disabled' | undefined;
+export type EpgUiStatus = ModuleRuntimeStatus | undefined;
 
 export interface EPGCoordinatorDeps {
     getEpg: () => IEPGComponent | null;

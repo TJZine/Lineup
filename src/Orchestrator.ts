@@ -176,6 +176,7 @@ import type { ToastInput } from './modules/ui/toast/types';
 import type { PlatformServices } from './platform';
 import { webosPlatformServices } from './platform';
 import { isAbortLikeError, summarizeErrorForLog } from './utils/errors';
+import type { ModuleRuntimeStatus } from './core/module-status';
 
 // ============================================
 // Types
@@ -187,7 +188,7 @@ import { isAbortLikeError, summarizeErrorForLog } from './utils/errors';
 export interface ModuleStatus {
     id: string;
     name: string;
-    status: 'pending' | 'initializing' | 'ready' | 'error' | 'disabled';
+    status: ModuleRuntimeStatus;
     loadTimeMs?: number;
     error?: AppError;
 }
@@ -657,7 +658,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             getEpg: (): IEPGComponent | null => this._epg,
             getChannelManager: (): IChannelManager | null => this._channelManager,
             getScheduler: (): IChannelScheduler | null => this._scheduler,
-            getEpgUiStatus: (): EpgUiStatus => this._moduleStatus.get('epg-ui')?.status as EpgUiStatus,
+            getEpgUiStatus: (): EpgUiStatus => this._moduleStatus.get('epg-ui')?.status,
             ensureEpgInitialized: (): Promise<void> =>
                 this._initCoordinator?.ensureEPGInitialized() ?? Promise.resolve(),
             getEpgConfig: (): EPGConfig | null => this._config?.epgConfig ?? null,
