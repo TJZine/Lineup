@@ -363,7 +363,7 @@ export class ChannelSetupScreen {
             }
             const session = this._session.getSnapshot();
             if (session.loadError) {
-                this._contentEl.innerHTML = '';
+                this._contentEl.replaceChildren();
                 this._stepEl.textContent = '';
                 this._statusEl.textContent = 'Library load failed.';
                 this._detailEl.textContent = '';
@@ -404,7 +404,7 @@ export class ChannelSetupScreen {
         if (token !== this._visibilityToken) {
             return;
         }
-        this._contentEl.innerHTML = '';
+        this._contentEl.replaceChildren();
 
         const session = this._session.getSnapshot();
         if (session.step === 1) {
