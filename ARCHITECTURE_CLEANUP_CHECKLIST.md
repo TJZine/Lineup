@@ -455,9 +455,15 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - `src/modules/ui/epg/EPGVisibleRangeRefreshQueue.ts` for coordinator-side debounce/coalescing with immediate-preempts-debounced semantics.
     - Verified mixed-mode queue contract: immediate `debounceMs: 0` requests preempt armed visible-range timers, stale queued timers do not execute, and pending debounced callers settle from the immediate refresh outcome.
     - Mapped imported issue dispositions:
-      - `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d` -> `resolved` (`desloppify show ... --no-budget`: no open issue match).
-      - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216` -> `resolved` (`desloppify show ... --no-budget`: no open issue match).
-      - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> `resolved` (`desloppify show ... --no-budget`: no open issue match).
+      - `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d` -> `split follow-up` (final owner `P4-W5`)
+        - reason: `P4-W1` retired visible-range emission/queue ownership, but `EPGCoordinator` still co-owns broader orchestration/cache/queue seams that remain in Priority 4 cleanup-pass scope.
+        - revisit trigger: before marking `P4-W5` complete, rerun `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --no-budget`.
+      - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216` -> `split follow-up` (final owner `P4-W5`)
+        - reason: top-level EPG owner blur still spans `EPGComponent` and `EPGCoordinator` beyond the visible-range seam extracted in `P4-W1`.
+        - revisit trigger: before marking `P4-W5` complete, rerun `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget`.
+      - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> `split follow-up` (final owner `P4-W5`)
+        - reason: subsystem-level EPG coupling remains open after the bounded visible-range extraction and is explicitly in `P4-W5` transitional-residue scope.
+        - revisit trigger: before marking `P4-W5` complete, rerun `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --no-budget`.
     - Verification:
       - `npm run typecheck`
       - `npm test -- src/modules/ui/epg/__tests__/EPGVisibleRangeEmitter.test.ts`
@@ -501,7 +507,20 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - `security::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::security::log_sensitive::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::495` -> `deferred`
       - source: `P2-EXIT`
       - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `split follow-up` (final owner `P4-W5`)
+      - source: `P4-W1`
+      - `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d` -> `split follow-up` (final owner `P4-W5`)
+        - reason: `P4-W1` extracted visible-range queue ownership only; remaining coordinator seam-overload cleanup is part of the `P4-W5` transitional EPG cleanup pass.
+        - revisit trigger: `P4-W5` closeout evidence refresh.
+      - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216` -> `split follow-up` (final owner `P4-W5`)
+        - reason: `P4-W1` narrowed one bounded seam, but top-level owner blur across EPG classes still remains.
+        - revisit trigger: `P4-W5` closeout evidence refresh.
+      - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> `split follow-up` (final owner `P4-W5`)
+        - reason: broader cross-module EPG coupling remains open and belongs to the P4 cleanup-pass owner.
+        - revisit trigger: `P4-W5` closeout evidence refresh.
       - required verification before closing `P4-W5`:
+        - `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --no-budget`
+        - `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget`
+        - `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --no-budget`
         - `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23`
         - `desloppify show security --status open --no-budget --top 200`
         - `desloppify show security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::32`
