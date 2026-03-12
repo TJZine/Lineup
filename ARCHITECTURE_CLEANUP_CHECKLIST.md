@@ -449,7 +449,26 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - align small UI helper naming or file placement while the ownership split is already in motion
   - delete redundant local glue code that becomes dead after the main extraction
 - Cleanup track:
-  - [ ] `P4-W1` split the next bounded concern out of `EPGCoordinator` and `EPGComponent`, not just one temporary seam
+  - [x] `P4-W1` split the next bounded concern out of `EPGCoordinator` and `EPGComponent`, not just one temporary seam (done 2026-03-12; plan: `docs/plans/2026-03-12-p4-w1-epg-visible-range-ownership-split.md`)
+    - Completed by extracting visible-range ownership into:
+      - `src/modules/ui/epg/EPGVisibleRangeEmitter.ts` for component-side range-key dedupe/emission.
+      - `src/modules/ui/epg/EPGVisibleRangeRefreshQueue.ts` for coordinator-side debounce/coalescing with immediate-preempts-debounced semantics.
+    - Verified mixed-mode queue contract: immediate `debounceMs: 0` requests preempt armed visible-range timers, stale queued timers do not execute, and pending debounced callers settle from the immediate refresh outcome.
+    - Mapped imported issue dispositions:
+      - `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d` -> `resolved` (`desloppify show ... --no-budget`: no open issue match).
+      - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216` -> `resolved` (`desloppify show ... --no-budget`: no open issue match).
+      - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> `resolved` (`desloppify show ... --no-budget`: no open issue match).
+    - Verification:
+      - `npm run typecheck`
+      - `npm test -- src/modules/ui/epg/__tests__/EPGVisibleRangeEmitter.test.ts`
+      - `npm test -- src/modules/ui/epg/__tests__/EPGVisibleRangeRefreshQueue.test.ts`
+      - `npm test -- src/modules/ui/epg/__tests__/EPGComponent.test.ts`
+      - `npm test -- src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`
+      - `npm run verify`
+      - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`
+      - `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --no-budget`
+      - `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget`
+      - `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --no-budget`
   - [ ] `P4-W2` narrow `ChannelSetupCoordinator` so planning, build execution, rerun workflow, and persistence are not co-owned
     - inherited follow-ups:
       - source: `P1-EXIT`
