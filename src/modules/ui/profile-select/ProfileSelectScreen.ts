@@ -11,8 +11,7 @@ import { PlexApiError } from '../../plex/auth';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
 import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
-import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
-import { safeLocalStorageGet, safeLocalStorageSet } from '../../../utils/storage';
+import type { ProfileSessionStore } from '../../settings/ProfileSessionStore';
 
 const PIN_LENGTH = 4;
 const PIN_MODAL_ID = 'profile-pin';
@@ -61,7 +60,11 @@ export class ProfileSelectScreen {
     private _pinJustFilledTimeoutId: ReturnType<typeof setTimeout> | null = null;
     private _pinErrorTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    constructor(container: HTMLElement, orchestrator: AppOrchestrator) {
+    constructor(
+        container: HTMLElement,
+        orchestrator: AppOrchestrator,
+        private readonly profileSessionStore: ProfileSessionStore
+    ) {
         this._container = container;
         this._orchestrator = orchestrator;
         this._container.classList.add('screen', 'profile-select');
@@ -297,7 +300,7 @@ export class ProfileSelectScreen {
         this._listEl.replaceChildren();
         this._userButtonIds = [];
         const buttonIds = this._buildUserButtonIds(users.map((user) => user.id));
-        const lastUsedId = safeLocalStorageGet(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID);
+        const lastUsedId = this.profileSessionStore.readLastProfileId();
 
         users.forEach((user, index) => {
             const button = document.createElement('button');
@@ -387,7 +390,7 @@ export class ProfileSelectScreen {
         try {
             await this._orchestrator.useMainAccountProfile();
             // Clear last-used hint — main account bypasses profile cards.
-            safeLocalStorageSet(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID, '');
+            this.profileSessionStore.writeLastProfileId(null);
             this._navigateToServerSelect();
         } catch (error) {
             this._handleError(error, 'Unable to switch profile.');
@@ -413,7 +416,7 @@ export class ProfileSelectScreen {
         this._isSwitching = true;
         try {
             await this._orchestrator.switchHomeUser(userId, pin);
-            safeLocalStorageSet(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID, userId);
+            this.profileSessionStore.writeLastProfileId(userId);
             this._navigateToServerSelect();
             return true;
         } catch (error) {

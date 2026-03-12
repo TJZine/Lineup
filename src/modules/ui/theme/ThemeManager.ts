@@ -5,8 +5,7 @@
 
 import { THEME_CLASSES, DEFAULT_THEME } from '../settings/theme';
 import type { ThemeName } from '../settings/theme';
-import { safeLocalStorageGet, safeLocalStorageSet } from '../../../utils/storage';
-import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import { ThemePreferencesStore } from '../../settings/ThemePreferencesStore';
 
 /**
  * Manages application theming.
@@ -15,6 +14,7 @@ import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 export class ThemeManager {
     private static _instance: ThemeManager | null = null;
     private _currentTheme: ThemeName = DEFAULT_THEME;
+    private readonly _themePreferencesStore = new ThemePreferencesStore();
 
     static getInstance(): ThemeManager {
         if (!ThemeManager._instance) {
@@ -36,7 +36,7 @@ export class ThemeManager {
     }
 
     private _loadSavedTheme(): void {
-        const saved = safeLocalStorageGet(LINEUP_STORAGE_KEYS.THEME);
+        const saved = this._themePreferencesStore.readTheme();
         const isThemeName = (value: string | null): value is ThemeName =>
             !!value && Object.prototype.hasOwnProperty.call(THEME_CLASSES, value);
         if (isThemeName(saved)) {
@@ -46,7 +46,7 @@ export class ThemeManager {
         }
 
         this._currentTheme = DEFAULT_THEME;
-        safeLocalStorageSet(LINEUP_STORAGE_KEYS.THEME, this._currentTheme);
+        this._themePreferencesStore.writeTheme(this._currentTheme);
         this._applyTheme(this._currentTheme);
     }
 
@@ -57,7 +57,7 @@ export class ThemeManager {
     setTheme(theme: ThemeName): void {
         if (theme === this._currentTheme) return;
         this._currentTheme = theme;
-        safeLocalStorageSet(LINEUP_STORAGE_KEYS.THEME, theme);
+        this._themePreferencesStore.writeTheme(theme);
         this._applyTheme(theme);
     }
 

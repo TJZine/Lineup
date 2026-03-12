@@ -285,6 +285,7 @@ export function createOrchestratorCoordinators(
             deps.buildPlexResourceUrl(pathOrUrl),
         cycleSleepTimerPreset: (): number => deps.sleepTimer.cyclePreset(),
         getSleepTimerRemainingMs: (): number => deps.sleepTimer.getRemainingMs(),
+        nowPlayingDisplayStore: deps.nowPlayingDisplayStore,
         playbackOptionsModalId: PLAYBACK_OPTIONS_MODAL_ID,
         preparePlaybackOptionsModal: (
             preferredSection
