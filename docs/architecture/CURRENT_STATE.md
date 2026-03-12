@@ -82,10 +82,11 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - `src/modules/debug/DebugOverridesStore.ts`
 - `src/modules/plex/discovery/ServerSelectionStore.ts`
 - `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`
+- `src/core/channel-setup/ChannelSetupRecordStore.ts`
 - `src/modules/plex/auth/clientIdentifier.ts`
 - these are the current designated owners for storage-backed state
 - runtime consumers route mapped key families through typed stores (for example `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`, `ProfileSelectScreen` -> `ProfileSessionStore`, `ThemeManager` -> `ThemePreferencesStore`, `EPGInfoPanel` -> `NowPlayingDisplayStore`/`EpgPreferencesStore`)
-- `src/modules/ui/epg/utils.ts` and `src/core/channel-setup/ChannelSetupCoordinator.ts` now route their former direct-storage exception paths through sanctioned helpers in `src/utils/storage.ts` (`P3-W3`, completed 2026-03-11)
+- `src/modules/ui/epg/utils.ts` and `src/core/channel-setup/ChannelSetupRecordStore.ts` route channel-setup/EPG storage exception cleanup paths through sanctioned helpers in `src/utils/storage.ts` (`P3-W3` + `P4-W2`)
 - repo-wide residual direct-storage drift audit/remediation remains in `P3-W4`
 
 ### UI
