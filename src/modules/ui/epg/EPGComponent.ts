@@ -16,6 +16,7 @@ import { EPGLibraryTabs } from './EPGLibraryTabs';
 import { rafThrottle, appendEpgDebugLog, formatTimeRange } from './utils';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { safeLocalStorageGet } from '../../../utils/storage';
+import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
 import type { IEPGComponent } from './interfaces';
 import type {
     EPGConfig,
@@ -89,8 +90,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private _libraryTabs: EPGLibraryTabs | null = null;
     private _isLibraryTabsFocused = false;
     private _lastNowWatchingTuple: [string, string, string] | null = null;
-    private _appliedLayoutMode: 'overlay' | 'classic' | null = null;
-    private _appliedPipMode: 'overlay' | 'classic' | null = null;
+    private _appliedLayoutMode: EpgLayoutMode | null = null;
+    private _appliedPipMode: EpgLayoutMode | null = null;
     private _debugEnabled: boolean = false;
     private _lastDebugEnabledStorageReadMs: number = 0;
     private _lastRenderGridDebugLogMs: number = 0;
@@ -454,7 +455,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         const container = this.containerElement;
         if (!header || !showcase || !container) return;
 
-        const mode: 'overlay' | 'classic' = this.config.layoutMode ?? 'classic';
+        const mode: EpgLayoutMode = this.config.layoutMode ?? 'classic';
         const isVisible = this.state.isVisible;
         const isClassicVisible = mode === 'classic' && isVisible;
 
@@ -576,7 +577,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
     private applyLayoutMode(): void {
         if (!this.containerElement) return;
-        const mode: 'overlay' | 'classic' = this.config.layoutMode ?? 'classic';
+        const mode: EpgLayoutMode = this.config.layoutMode ?? 'classic';
         const didLayoutModeChange = mode !== this._appliedLayoutMode;
         if (didLayoutModeChange) {
             this._appliedLayoutMode = mode;
@@ -587,7 +588,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             }
         }
 
-        const pipMode: 'overlay' | 'classic' =
+        const pipMode: EpgLayoutMode =
             mode === 'classic' && this.config.isVideoPlaying?.() === true ? 'classic' : 'overlay';
         if (pipMode !== this._appliedPipMode) {
             this._appliedPipMode = pipMode;
@@ -754,7 +755,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
     }
 
-    setLayoutMode(mode: 'overlay' | 'classic'): void {
+    setLayoutMode(mode: EpgLayoutMode): void {
         this.config.layoutMode = mode;
         if (this.state.isVisible) {
             this.applyLayoutMode();
@@ -903,7 +904,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         if (!banner) return;
         const classicRail = this.classicNowPlayingElement;
         const classicRailChannel = this.classicNowPlayingChannelElement;
-        const mode: 'overlay' | 'classic' = this.config.layoutMode ?? 'classic';
+        const mode: EpgLayoutMode = this.config.layoutMode ?? 'classic';
 
         if (!this.config.showNowWatchingBanner || !this.config.getCurrentChannelInfo) {
             if (classicRail) {

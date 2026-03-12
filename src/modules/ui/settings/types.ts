@@ -4,6 +4,10 @@
  * @version 1.0.0
  */
 
+import type {
+    EpgGuideDensity,
+    EpgLayoutMode,
+} from '../../settings/EpgPreferencesStore';
 import type { ThemeName } from './theme';
 
 /**
@@ -152,8 +156,8 @@ export type EpgPastItemsWindowSetting = 'auto' | '0' | '15' | '30';
 
 export type GuideSettingChange =
     | { key: 'categoryColors' | 'libraryTabs' | 'nowWatchingBanner' | 'aggressivePreload'; enabled: boolean }
-    | { key: 'layoutMode'; mode: 'overlay' | 'classic' }
-    | { key: 'guideDensity'; density: 'detailed' | 'wide' }
+    | { key: 'layoutMode'; mode: EpgLayoutMode }
+    | { key: 'guideDensity'; density: EpgGuideDensity }
     | { key: 'pastItemsWindow'; value: EpgPastItemsWindowSetting }
     | { key: 'infoBackgroundMode'; mode: 0 | 1 | 2 };
 

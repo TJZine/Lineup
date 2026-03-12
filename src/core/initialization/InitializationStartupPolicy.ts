@@ -7,6 +7,7 @@ import type { IPlexStreamResolver } from '../../modules/plex/stream';
 import type { IChannelManager } from '../../modules/scheduler/channel-manager';
 import type { IChannelScheduler } from '../../modules/scheduler/scheduler';
 import type { IVideoPlayer } from '../../modules/player';
+import type { EpgLayoutMode } from '../../modules/settings/EpgPreferencesStore';
 import { formatTimeRange } from '../../modules/ui/epg';
 import type { OrchestratorConfig, ModuleStatus } from '../orchestrator/OrchestratorTypes';
 import { summarizeErrorForLog } from '../../utils/errors';
@@ -71,7 +72,7 @@ export interface EpgStartupConfigInputs {
     channelManager: IChannelManager | null;
     scheduler: IChannelScheduler | null;
     buildPlexResourceUrl: (pathOrUrl: string | null) => string | null;
-    readEpgLayoutMode: () => 'overlay' | 'classic';
+    readEpgLayoutMode: () => EpgLayoutMode;
     readShowNowWatchingBanner: () => boolean;
 }
 
@@ -333,7 +334,7 @@ export function buildEpgConfigWithStartupPolicy(
                 timeLabel: hasValidTimes ? formatTimeRange(startTime, endTime) : '',
             };
         },
-        onLayoutModeChange: (mode: 'overlay' | 'classic'): void => {
+        onLayoutModeChange: (mode: EpgLayoutMode): void => {
             if (previousOnLayoutModeChange) {
                 previousOnLayoutModeChange(mode);
             }

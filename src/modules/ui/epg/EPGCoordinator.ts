@@ -5,6 +5,7 @@
  */
 
 import { ShuffleGenerator, ScheduleCalculator } from '../../scheduler/scheduler';
+import type { EpgGuideDensity } from '../../settings/EpgPreferencesStore';
 import { appendEpgDebugLog, isEpgDebugLoggingEnabled } from './utils';
 import type { IEPGComponent } from './interfaces';
 import type { EPGConfig } from './types';
@@ -59,7 +60,7 @@ const EPG_BACKGROUND_WARM_IDLE_TIMEOUT_MS = 120;
 const EPG_BACKGROUND_WARM_TIMER_DELAY_MS = 24;
 const EPG_BACKGROUND_WARM_BACKPRESSURE_DELAY_MS = 120;
 const EPG_BACKGROUND_DEBUG_LOG_EVERY_N = 20;
-const DEFAULT_GUIDE_DENSITY: 'detailed' | 'wide' = 'detailed';
+const DEFAULT_GUIDE_DENSITY: EpgGuideDensity = 'detailed';
 const DETAILED_VISIBLE_HOURS = 2;
 const WIDE_VISIBLE_HOURS = 3;
 
@@ -143,7 +144,7 @@ export class EPGCoordinator {
         return this._epgPreferencesStore.readSelectedLibraryId();
     }
 
-    private _readGuideDensity(): 'detailed' | 'wide' {
+    private _readGuideDensity(): EpgGuideDensity {
         return this._epgPreferencesStore.readGuideDensity(DEFAULT_GUIDE_DENSITY);
     }
 

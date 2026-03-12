@@ -5,6 +5,7 @@
 
 import type { ScheduledProgram, ScheduleWindow } from '../../scheduler/scheduler/types';
 import type { ChannelConfig } from '../../scheduler/channel-manager/types';
+import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
 
 // Re-export imported types for convenience
 export type { ScheduledProgram, ScheduleWindow, ChannelConfig };
@@ -57,8 +58,8 @@ export interface EPGConfig {
     ) => Promise<import('../../plex/library').PlexMediaItem | null>;
     /** Optional callback to detect if video is currently playing */
     isVideoPlaying?: () => boolean;
-    /** Optional layout mode (overlay/classic) */
-    layoutMode?: 'overlay' | 'classic';
+    /** Optional layout mode */
+    layoutMode?: EpgLayoutMode;
     /** Optional toggle for now watching banner */
     showNowWatchingBanner?: boolean;
     /** Optional callback to fetch current channel + program info */
@@ -69,7 +70,7 @@ export interface EPGConfig {
         timeLabel: string;
     } | null;
     /** Optional callback when layout mode changes */
-    onLayoutModeChange?: (mode: 'overlay' | 'classic') => void;
+    onLayoutModeChange?: (mode: EpgLayoutMode) => void;
     /**
      * Debug flag refresh interval for same-tab devtools toggles.
      * StorageEvent does not fire in the same document that calls localStorage.setItem(),

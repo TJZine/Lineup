@@ -32,7 +32,7 @@ import type { IPlaybackOptionsModal } from '../modules/ui/playback-options';
 import { ExitConfirmModal, EXIT_CONFIRM_CONTAINER_ID } from '../modules/ui/exit-confirm';
 import type { IDisposable } from '../utils/interfaces';
 import type { OrchestratorConfig, ModuleStatus } from './orchestrator/OrchestratorTypes';
-import { EpgPreferencesStore } from '../modules/settings/EpgPreferencesStore';
+import { EpgPreferencesStore, type EpgLayoutMode } from '../modules/settings/EpgPreferencesStore';
 import { ProfileSessionStore } from '../modules/settings/ProfileSessionStore';
 import { summarizeErrorForLog } from '../utils/errors';
 import {
@@ -589,7 +589,7 @@ export class InitializationCoordinator implements IInitializationCoordinator {
                 channelManager: this._deps.channelManager,
                 scheduler: this._deps.scheduler,
                 buildPlexResourceUrl: this._callbacks.buildPlexResourceUrl,
-                readEpgLayoutMode: (): 'overlay' | 'classic' =>
+                readEpgLayoutMode: (): EpgLayoutMode =>
                     this._deps.epgPreferencesStore.readLayoutMode('classic'),
                 readShowNowWatchingBanner: (): boolean =>
                     this._deps.epgPreferencesStore.readNowWatchingEnabled(true),
