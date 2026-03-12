@@ -135,6 +135,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
 
         this.config = { ...DEFAULT_EPG_CONFIG, ...config };
+        this._visibleRangeEmitter = new EPGVisibleRangeEmitter(this.config.onVisibleRangeChange);
         this._debugEnabled = this._readDebugEnabledFromStorage();
         this._lastDebugEnabledStorageReadMs = Date.now();
         try {

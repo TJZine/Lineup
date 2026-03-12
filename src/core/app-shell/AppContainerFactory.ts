@@ -5,6 +5,8 @@ import { PLAYER_OSD_CONTAINER_ID } from '../../modules/ui/player-osd';
 import { CHANNEL_NUMBER_OVERLAY_CONTAINER_ID } from '../../modules/ui/channel-number-overlay';
 import { MINI_GUIDE_CONTAINER_ID } from '../../modules/ui/mini-guide';
 import { CHANNEL_TRANSITION_CONTAINER_ID } from '../../modules/ui/channel-transition';
+import { NOW_PLAYING_INFO_CONTAINER_ID } from '../../modules/ui/now-playing-info/constants';
+import { PLAYBACK_OPTIONS_CONTAINER_ID } from '../../modules/ui/playback-options/constants';
 
 export interface AppContainerRefs {
     splashContainer: HTMLElement;

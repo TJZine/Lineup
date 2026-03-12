@@ -14,6 +14,7 @@ import type { INavigationManager, NavigationConfig } from './modules/navigation'
 import type { VideoPlayerConfig } from './modules/player';
 import { EPG_CONTAINER_ID, type EPGConfig } from './modules/ui/epg';
 import type { NowPlayingInfoConfig } from './modules/ui/now-playing-info';
+import { NOW_PLAYING_INFO_CONTAINER_ID } from './modules/ui/now-playing-info/constants';
 import { PLAYER_OSD_CONTAINER_ID, type PlayerOsdConfig } from './modules/ui/player-osd';
 import { CHANNEL_NUMBER_OVERLAY_CONTAINER_ID, type ChannelNumberOverlayConfig } from './modules/ui/channel-number-overlay';
 import { CHANNEL_BADGE_CONTAINER_ID, type ChannelBadgeConfig } from './modules/ui/channel-badge';

@@ -183,7 +183,7 @@ export function createOrchestratorCoordinators(
         getEpg: (): IEPGComponent | null => deps.epg,
         getChannelManager: (): IChannelManager | null => deps.channelManager,
         getScheduler: (): IChannelScheduler | null => deps.scheduler,
-        getEpgUiStatus: (): EpgUiStatus => deps.moduleStatus.get('epg-ui')?.status as EpgUiStatus,
+        getEpgUiStatus: (): EpgUiStatus => deps.moduleStatus.get('epg-ui')?.status,
         ensureEpgInitialized: (): Promise<void> =>
             deps.getInitCoordinator()?.ensureEPGInitialized() ?? Promise.resolve(),
         getEpgConfig: (): EPGConfig | null => deps.config?.epgConfig ?? null,

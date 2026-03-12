@@ -458,12 +458,20 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - [x] P4-W3 - Split one bounded concern out of `ChannelSetupScreen` (recommended: step orchestration vs view rendering) (done 2026-03-06; plan: docs/plans/2026-03-06-p4-w3-channel-setup-session-flow-split-implementation.md)
   - [x] P4-W4 - Consolidate repeated focus/render helpers into reusable UI primitives only after the first three extractions are stable (done 2026-03-06; plan: docs/plans/2026-03-06-p4-w4-ui-focus-render-primitives-consolidation-implementation.md)
   - [x] P4-W5 - Cleanup pass for Priority 4: remove placeholder view glue, dead DOM refs, temporary focus bridges, and transitional UI conditionals introduced during the screen splits (done 2026-03-12; plan: docs/plans/2026-03-12-p4-w5-priority-4-cleanup-pass.md)
-    - Mapped imported review issues disposition (refreshed 2026-03-12 via `desloppify show review --status open` + per-id checks):
-      - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `resolved` (`No open issues matching`)
-      - `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d` -> `resolved` (`No open issues matching`)
-      - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216` -> `resolved` (`No open issues matching`)
-      - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> `resolved` (`No open issues matching`)
-    - Mapped inherited security issue disposition (refreshed 2026-03-12 via `desloppify show security --status open --no-budget --top 200` + per-id checks):
+    - Mapped imported review issues disposition (refreshed 2026-03-12 after `desloppify scan --force-rescan ...`, `desloppify status`, and `desloppify show review --status open`):
+      - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `deferred` (still open on 2026-03-12; final owner `P4-EXIT`)
+        - reason: container-id conventions remain partially split across App/app-shell wiring despite the constant-wiring cleanup in this slice.
+        - revisit trigger: resolve before marking `P4-EXIT` complete; rerun `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23 --no-budget`.
+      - `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d` -> `deferred` (still open on 2026-03-12; final owner `P4-EXIT`)
+        - reason: `EPGCoordinator` remains a broad integration seam after this cleanup pass.
+        - revisit trigger: resolve before marking `P4-EXIT` complete; rerun `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --no-budget`.
+      - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216` -> `deferred` (still open on 2026-03-12; final owner `P4-EXIT`)
+        - reason: top-level EPG ownership remains shared across large classes and orchestrator wiring.
+        - revisit trigger: resolve before marking `P4-EXIT` complete; rerun `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget`.
+      - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> `deferred` (still open on 2026-03-12; final owner `P4-EXIT`)
+        - reason: cross-module EPG subsystem coupling remains above desired cleanup threshold.
+        - revisit trigger: resolve before marking `P4-EXIT` complete; rerun `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --no-budget`.
+    - Mapped inherited security issue disposition (refreshed 2026-03-12 via `desloppify show security --status open --no-budget --top 200` after force-rescan):
       - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::32` -> `resolved` (`No open issues matching`)
       - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::40` -> `resolved` (`No open issues matching`)
       - `security::src/modules/ui/epg/EPGComponent.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGComponent.ts::244` -> `resolved` (`No open issues matching`)
@@ -473,6 +481,8 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - `security::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::security::innerHTML_assignment::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::136` -> `resolved` (`No open issues matching`)
       - `security::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::security::log_sensitive::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::503` -> `resolved` (`No open issues matching`)
     - Gate: `P4-EXIT` remains required before any `P5` item can be marked ready or started.
+  - [ ] `P4-EXIT` run the priority-exit review before moving to `P5`
+    - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 4
 
 ## Priority 5: Tighten Plex/Auth/Discovery Trust Boundaries
 

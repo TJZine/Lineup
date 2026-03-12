@@ -148,22 +148,12 @@ import type { ToastInput } from './modules/ui/toast/types';
 import type { PlatformServices } from './platform';
 import { webosPlatformServices } from './platform';
 import { isAbortLikeError, summarizeErrorForLog } from './utils/errors';
-import type { ModuleRuntimeStatus } from './core/module-status';
 
 // ============================================
 // Types
 // ============================================
 
-/**
- * Module health status
- */
-export interface ModuleStatus {
-    id: string;
-    name: string;
-    status: ModuleRuntimeStatus;
-    loadTimeMs?: number;
-    error?: AppError;
-}
+export type { ModuleStatus, OrchestratorConfig } from './core/orchestrator/OrchestratorTypes';
 
 export type {
     ChannelSetupConfig,
@@ -568,33 +558,29 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _createCoordinators(): void {
         // This method assumes `initialize()` has already created the module instances it references.
         // It must not perform side effects other than assigning coordinator fields.
-        this._epgCoordinator = new EPGCoordinator({
-            getEpg: (): IEPGComponent | null => this._epg,
-            getChannelManager: (): IChannelManager | null => this._channelManager,
-            getScheduler: (): IChannelScheduler | null => this._scheduler,
-            getEpgUiStatus: (): EpgUiStatus => this._moduleStatus.get('epg-ui')?.status,
-            ensureEpgInitialized: (): Promise<void> =>
-                this._initCoordinator?.ensureEPGInitialized() ?? Promise.resolve(),
-            getEpgConfig: (): EPGConfig | null => this._config?.epgConfig ?? null,
-            getLocalMidnightMs: (t: number): number => this._getLocalMidnightMs(t),
-            buildDailyScheduleConfig: (
-                channel: ChannelConfig,
-                items: ResolvedChannelContent['items'],
-                referenceTimeMs: number
-            ): ScheduleConfig => this._buildDailyScheduleConfig(channel, items, referenceTimeMs),
-            getPreserveFocusOnOpen: (): boolean => this._lastChannelChangeSource === 'guide',
-            setLastChannelChangeSourceToGuide: (): void => {
-                this._lastChannelChangeSource = 'guide';
-            },
-            switchToChannel: (channelId: string): Promise<void> => this.switchToChannel(channelId),
-            reportEpgInitWarning: (error: unknown): void => {
-                console.warn('[EPG_INIT] Deferred guide initialization failed:', summarizeErrorForLog(error));
-                this._nowPlayingHandler?.({
-                    message: 'Guide unavailable right now. Try again.',
-                    type: 'warning',
-                });
-            },
-        });
+        if (
+            !this._lifecycle ||
+            !this._navigation ||
+            !this._plexAuth ||
+            !this._plexDiscovery ||
+            !this._plexLibrary ||
+            !this._plexStreamResolver ||
+            !this._channelManager ||
+            !this._scheduler ||
+            !this._videoPlayer ||
+            !this._epg ||
+            !this._nowPlayingInfo ||
+            !this._playerOsd ||
+            !this._channelNumberOverlay ||
+            !this._channelBadgeOverlay ||
+            !this._miniGuide ||
+            !this._channelTransitionOverlay ||
+            !this._playbackOptionsModal ||
+            !this._exitConfirmModal ||
+            !this._sleepTimer
+        ) {
+            throw new Error('Orchestrator coordinator initialization requires module instances');
+        }
 
         const coordinators = createOrchestratorCoordinators({
             config: this._config,
