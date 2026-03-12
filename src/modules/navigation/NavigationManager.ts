@@ -20,6 +20,8 @@ import {
 } from './interfaces';
 import { FocusManager } from './FocusManager';
 import { RemoteHandler } from './RemoteHandler';
+import { NavigationFocusPolicy } from './NavigationFocusPolicy';
+import { NavigationInputTimingController } from './NavigationInputTimingController';
 import {
     DEFAULT_NAVIGATION_CONFIG,
     INITIAL_SCREEN,
@@ -29,16 +31,6 @@ import {
 } from './constants';
 import { DeveloperSettingsStore } from '../settings/DeveloperSettingsStore';
 import type { PlatformInputService } from '../../platform';
-
-/**
- * Channel number input state.
- */
-interface ChannelNumberInput {
-    digits: string;
-    timeoutMs: number;
-    maxDigits: number;
-    timer: number | null;
-}
 
 /**
  * Internal state for NavigationManager.
@@ -82,20 +74,27 @@ export class NavigationManager
     private _boundFocusInHandler: (event: FocusEvent) => void;
     private _isInitialized: boolean = false;
     private _clickHandlers: Map<string, () => void> = new Map();
-    private _dpadRepeatDelayTimer: number | null = null;
-    private _dpadRepeatIntervalTimer: number | null = null;
-    private _activeDpadButton: 'up' | 'down' | 'left' | 'right' | null = null;
+    private readonly _focusPolicy: NavigationFocusPolicy;
+    private readonly _inputTimingController: NavigationInputTimingController;
     private _suppressedLogTimestamps: Map<string, number> = new Map();
-    private _channelInput: ChannelNumberInput = {
-        digits: '',
-        timeoutMs: CHANNEL_INPUT_CONFIG.TIMEOUT_MS,
-        maxDigits: CHANNEL_INPUT_CONFIG.MAX_DIGITS,
-        timer: null,
-    };
 
     constructor(inputService?: PlatformInputService) {
         super();
         this._focusManager = new FocusManager();
+        this._focusPolicy = new NavigationFocusPolicy();
+        this._inputTimingController = new NavigationInputTimingController({
+            getRepeatConfig: (): { delayMs: number; intervalMs: number } => ({
+                delayMs: this._state.config.keyRepeatDelayMs,
+                intervalMs: this._state.config.keyRepeatIntervalMs,
+            }),
+            getChannelInputConfig: (): { timeoutMs: number; maxDigits: number } => ({
+                timeoutMs: CHANNEL_INPUT_CONFIG.TIMEOUT_MS,
+                maxDigits: CHANNEL_INPUT_CONFIG.MAX_DIGITS,
+            }),
+            tryMoveFocus: (direction): boolean => this.moveFocus(direction),
+            emitChannelInputUpdate: (payload): void => this.emit('channelInputUpdate', payload),
+            emitChannelNumberEntered: (payload): void => this.emit('channelNumberEntered', payload),
+        });
         this._remoteHandler = new RemoteHandler(inputService);
         this._boundFocusInHandler = this._handleFocusIn.bind(this);
         this._state = {
@@ -160,15 +159,7 @@ export class NavigationManager
             this._pointerHideTimer = null;
         }
 
-        // Clean up D-pad repeat timers
-        this._stopDpadRepeat();
-
-        // Clean up channel input timer
-        if (this._channelInput.timer !== null) {
-            window.clearTimeout(this._channelInput.timer);
-            this._channelInput.timer = null;
-        }
-        this._channelInput.digits = '';
+        this._inputTimingController.destroy();
 
         // Remove pointer mode listeners
         document.removeEventListener('mousemove', this._handlePointerMove);
@@ -375,34 +366,20 @@ export class NavigationManager
             return false;
         }
 
-        const neighborId = this._focusManager.findNeighbor(currentId, direction);
-        if (!neighborId) {
+        const policyResult = this._focusPolicy.evaluateMove({
+            direction,
+            neighborId: this._focusManager.findNeighbor(currentId, direction),
+            modalStack: this._state.modalStack,
+            modalFocusableIds: this._state.modalFocusableIds,
+        });
+        if (!policyResult.allowed || !policyResult.targetId) {
+            if (policyResult.reason === 'modal_open') {
+                this._logInputSuppressed(policyResult.reason, direction);
+            }
             return false;
         }
 
-        // Enforce modal focus trap: only allow navigation within modal scope
-        if (this._state.modalStack.length > 0) {
-            const topModalId = this._state.modalStack[this._state.modalStack.length - 1];
-            if (topModalId !== undefined) {
-                const modalFocusables = this._state.modalFocusableIds.get(topModalId);
-                // If modal has registered focusables, enforce trap within those elements
-                if (modalFocusables && modalFocusables.length > 0) {
-                    const isNeighborInModal = modalFocusables.indexOf(neighborId) !== -1;
-                    if (!isNeighborInModal) {
-                        // Block navigation outside modal
-                        this._logInputSuppressed('modal_open', direction);
-                        return false;
-                    }
-                } else {
-                    // Modal has no registered focusables - block ALL directional navigation
-                    // per spec: "MUST NOT allow navigation outside modal when open"
-                    this._logInputSuppressed('modal_open', direction);
-                    return false;
-                }
-            }
-        }
-
-        this.setFocus(neighborId);
+        this.setFocus(policyResult.targetId);
         return true;
     }
 
@@ -688,7 +665,7 @@ export class NavigationManager
             keyEvent.button !== 'left' &&
             keyEvent.button !== 'right'
         ) {
-            this._stopDpadRepeat();
+            this._inputTimingController.handleNonDirectionalKeyDown();
         }
 
         // Emit keyPress event
@@ -716,12 +693,7 @@ export class NavigationManager
             case 'down':
             case 'left':
             case 'right':
-                if (!keyEvent.isRepeat) {
-                    const moved = this.moveFocus(keyEvent.button);
-                    if (moved) {
-                        this._startDpadRepeat(keyEvent.button);
-                    }
-                }
+                this._inputTimingController.handleDirectionalKeyDown(keyEvent.button, keyEvent.isRepeat);
                 break;
 
             case 'ok':
@@ -742,7 +714,7 @@ export class NavigationManager
             case 'num7':
             case 'num8':
             case 'num9':
-                this._handleNumberKey(keyEvent.button);
+                this._inputTimingController.handleNumberKey(keyEvent.button);
                 break;
 
             case 'guide':
@@ -768,114 +740,7 @@ export class NavigationManager
      */
     private _handleKeyUp(button: RemoteButton): void {
         this.emit('keyUp', { button });
-        if (button === this._activeDpadButton) {
-            this._stopDpadRepeat();
-        }
-    }
-
-    /**
-     * Start D-pad repeat after configured delay, then at configured interval.
-     */
-    private _startDpadRepeat(button: 'up' | 'down' | 'left' | 'right'): void {
-        this._stopDpadRepeat();
-        this._activeDpadButton = button;
-
-        const delayMs = this._state.config.keyRepeatDelayMs;
-        const intervalMs = this._state.config.keyRepeatIntervalMs;
-
-        this._dpadRepeatDelayTimer = window.setTimeout(() => {
-            this._dpadRepeatDelayTimer = null;
-            this._dpadRepeatIntervalTimer = window.setInterval(() => {
-                if (!this._activeDpadButton) {
-                    this._stopDpadRepeat();
-                    return;
-                }
-                const moved = this.moveFocus(this._activeDpadButton);
-                if (!moved) {
-                    this._stopDpadRepeat();
-                }
-            }, intervalMs);
-        }, delayMs);
-    }
-
-    /**
-     * Stop D-pad repeat timers.
-     */
-    private _stopDpadRepeat(): void {
-        this._activeDpadButton = null;
-
-        if (this._dpadRepeatDelayTimer !== null) {
-            window.clearTimeout(this._dpadRepeatDelayTimer);
-            this._dpadRepeatDelayTimer = null;
-        }
-        if (this._dpadRepeatIntervalTimer !== null) {
-            window.clearInterval(this._dpadRepeatIntervalTimer);
-            this._dpadRepeatIntervalTimer = null;
-        }
-    }
-
-    /**
-     * Handle number key press for channel input.
-     * @param button - The number button pressed (num0-num9)
-     */
-    private _handleNumberKey(button: RemoteButton): void {
-        // Extract digit from button name (e.g., 'num5' -> '5')
-        const digit = button.replace('num', '');
-
-        // Clear existing timeout
-        if (this._channelInput.timer !== null) {
-            window.clearTimeout(this._channelInput.timer);
-        }
-
-        // Append digit
-        this._channelInput.digits += digit;
-
-        // Show overlay with current digits
-        this.emit('channelInputUpdate', {
-            digits: this._channelInput.digits,
-            isComplete: false,
-        });
-
-        // If max digits reached, commit immediately
-        if (this._channelInput.digits.length >= this._channelInput.maxDigits) {
-            this._commitChannelNumber();
-            return;
-        }
-
-        // Set timeout to commit after delay
-        this._channelInput.timer = window.setTimeout(() => {
-            this._commitChannelNumber();
-        }, this._channelInput.timeoutMs);
-    }
-
-    /**
-     * Commit the channel number and emit event.
-     */
-    private _commitChannelNumber(): void {
-        if (this._channelInput.timer !== null) {
-            window.clearTimeout(this._channelInput.timer);
-        }
-        this._channelInput.timer = null;
-
-        if (this._channelInput.digits.length === 0) {
-            // Nothing to commit; just clear UI
-            this.emit('channelInputUpdate', { digits: '', isComplete: true });
-            return;
-        }
-
-        const channelNumber = parseInt(this._channelInput.digits, 10);
-
-        // Reset input state
-        this._channelInput.digits = '';
-
-        if (!Number.isFinite(channelNumber)) {
-            this.emit('channelInputUpdate', { digits: '', isComplete: true });
-            return;
-        }
-
-        // Emit events for orchestrator to handle
-        this.emit('channelNumberEntered', { channelNumber });
-        this.emit('channelInputUpdate', { digits: '', isComplete: true });
+        this._inputTimingController.handleDirectionalKeyUp(button);
     }
 
     /**

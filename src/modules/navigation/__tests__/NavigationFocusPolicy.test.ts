@@ -1,0 +1,69 @@
+import { NavigationFocusPolicy } from '../NavigationFocusPolicy';
+
+describe('NavigationFocusPolicy', () => {
+    let policy: NavigationFocusPolicy;
+
+    beforeEach(() => {
+        policy = new NavigationFocusPolicy();
+    });
+
+    it('allows movement when neighbor exists and no modal is open', () => {
+        const result = policy.evaluateMove({
+            direction: 'right',
+            neighborId: 'btn-2',
+            modalStack: [],
+            modalFocusableIds: new Map(),
+        });
+
+        expect(result).toEqual({
+            allowed: true,
+            targetId: 'btn-2',
+            reason: null,
+        });
+    });
+
+    it('blocks movement when modal trap excludes the neighbor', () => {
+        const result = policy.evaluateMove({
+            direction: 'up',
+            neighborId: 'outside',
+            modalStack: ['confirm-modal'],
+            modalFocusableIds: new Map([['confirm-modal', ['inside-a', 'inside-b']]]),
+        });
+
+        expect(result).toEqual({
+            allowed: false,
+            targetId: null,
+            reason: 'modal_open',
+        });
+    });
+
+    it('blocks movement when modal is open without registered focusables', () => {
+        const result = policy.evaluateMove({
+            direction: 'down',
+            neighborId: 'any-target',
+            modalStack: ['confirm-modal'],
+            modalFocusableIds: new Map(),
+        });
+
+        expect(result).toEqual({
+            allowed: false,
+            targetId: null,
+            reason: 'modal_open',
+        });
+    });
+
+    it('returns reason tagging for no-neighbor cases', () => {
+        const result = policy.evaluateMove({
+            direction: 'left',
+            neighborId: null,
+            modalStack: [],
+            modalFocusableIds: new Map(),
+        });
+
+        expect(result).toEqual({
+            allowed: false,
+            targetId: null,
+            reason: 'no_neighbor',
+        });
+    });
+});

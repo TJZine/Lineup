@@ -496,7 +496,29 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - `npm run verify`
       - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`
       - `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b`
-  - [ ] `P4-W3` audit and split `NavigationManager` where focus-rule logic and input/timing logic are separable
+  - [x] `P4-W3` audit and split `NavigationManager` where focus-rule logic and input/timing logic are separable (completed 2026-03-12; plan: `docs/plans/2026-03-12-p4-w3-navigation-manager-focus-input-split.md`)
+    - completed by:
+      - introducing `src/modules/navigation/NavigationFocusPolicy.ts` to own directional focus-rule policy (including modal focus-trap allow/block decisions and suppression reason tagging).
+      - introducing `src/modules/navigation/NavigationInputTimingController.ts` to own D-pad repeat lifecycle and channel-number input buffering/timer state, leaving `NavigationManager` as event-routing/orchestration owner.
+      - rewiring `src/modules/navigation/NavigationManager.ts` to delegate focus policy + input/timing behavior while keeping public navigation contracts and event payloads unchanged.
+      - adding focused coverage in `src/modules/navigation/__tests__/NavigationFocusPolicy.test.ts` and `src/modules/navigation/__tests__/NavigationInputTimingController.test.ts`, plus full `NavigationManager` regression coverage.
+    - imported issue disposition:
+      - `review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f` -> `resolved`
+        reason: repeat/channel-number mutable state ownership moved out of `NavigationManager` into a dedicated input/timing collaborator, and modal focus-rule policy moved into a dedicated focus-policy collaborator.
+        verification command: `desloppify show review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f --no-budget` -> `No open issues matching`.
+    - verification:
+      - `npm run typecheck`
+      - `rg -n "_activeDpadButton|_channelInput|_dpadRepeatDelayTimer|_dpadRepeatIntervalTimer" src/modules/navigation/NavigationManager.ts` (no matches)
+      - `git diff --exit-code -- src/modules/navigation/interfaces.ts src/modules/navigation/index.ts`
+      - `npm test -- src/modules/navigation/__tests__/NavigationFocusPolicy.test.ts`
+      - `npm test -- src/modules/navigation/__tests__/NavigationInputTimingController.test.ts`
+      - `npm test -- src/modules/navigation/__tests__/NavigationManager.test.ts`
+      - `npm test -- src/modules/navigation/__tests__/NavigationCoordinator.test.ts`
+      - `npm test -- src/modules/ui/epg/__tests__/EPGComponent.test.ts -t "handleNavigation"` (suite matched but no tests selected)
+      - `npm run verify:docs`
+      - `npm run verify`
+      - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`
+      - `desloppify show security --status open --no-budget --top 50` (12 open `T2` issues; no `P0`)
   - [ ] `P4-W4` finish remaining round-2 cleanup in `SettingsScreen` / `ChannelSetupScreen` where the imported review still flags coarse ownership or cleanup residue
     - inherited follow-ups:
       - source: `P1-EXIT`
