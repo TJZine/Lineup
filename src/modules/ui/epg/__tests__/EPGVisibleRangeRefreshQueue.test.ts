@@ -9,6 +9,14 @@ describe('EPGVisibleRangeRefreshQueue', () => {
         timeEndMs: (id * 1000) + 500,
     });
 
+    const deferred = (): { promise: Promise<void>; resolve: () => void } => {
+        let resolve!: () => void;
+        const promise = new Promise<void>((innerResolve) => {
+            resolve = innerResolve;
+        });
+        return { promise, resolve };
+    };
+
     afterEach(() => {
         jest.useRealTimers();
     });
@@ -63,14 +71,6 @@ describe('EPGVisibleRangeRefreshQueue', () => {
 
     it('immediate preemption does not reuse the debounced promise for newly queued refreshes', async () => {
         jest.useFakeTimers();
-        const deferred = (): { promise: Promise<void>; resolve: () => void } => {
-            let resolve!: () => void;
-            const promise = new Promise<void>((innerResolve) => {
-                resolve = innerResolve;
-            });
-            return { promise, resolve };
-        };
-
         const immediateRefresh = deferred();
         const queuedRefresh = deferred();
         const refreshFn = jest
@@ -110,13 +110,6 @@ describe('EPGVisibleRangeRefreshQueue', () => {
 
     it('awaits the immediate refresh when a debounced refresh is already in flight', async () => {
         jest.useFakeTimers();
-        const deferred = (): { promise: Promise<void>; resolve: () => void } => {
-            let resolve!: () => void;
-            const promise = new Promise<void>((innerResolve) => {
-                resolve = innerResolve;
-            });
-            return { promise, resolve };
-        };
         const debouncedRefresh = deferred();
         const immediateRefresh = deferred();
         const refreshFn = jest
@@ -151,13 +144,6 @@ describe('EPGVisibleRangeRefreshQueue', () => {
 
     it('creates a fresh promise for debounced requests queued while a refresh is already running', async () => {
         jest.useFakeTimers();
-        const deferred = (): { promise: Promise<void>; resolve: () => void } => {
-            let resolve!: () => void;
-            const promise = new Promise<void>((innerResolve) => {
-                resolve = innerResolve;
-            });
-            return { promise, resolve };
-        };
         const firstRefresh = deferred();
         const secondRefresh = deferred();
         const refreshFn = jest

@@ -23,10 +23,10 @@ export interface ChannelSetupBuildExecutorDeps {
 export class ChannelSetupBuildExecutor {
     constructor(private readonly _deps: ChannelSetupBuildExecutorDeps) {}
 
-    async createChannelsFromSetup(
-        config: ChannelSetupConfig,
-        options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }
-    ): Promise<ChannelBuildSummary> {
+	    async createChannelsFromSetup(
+	        config: ChannelSetupConfig,
+	        options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }
+	    ): Promise<ChannelBuildSummary> {
         const signal = options?.signal;
         const reportProgress = (
             task: ChannelBuildProgress['task'],
@@ -104,6 +104,14 @@ export class ChannelSetupBuildExecutor {
                 error: (msg, ...args): void => console.error(msg, ...args.map(summarizeErrorForLog)),
             },
         });
+
+        const safeCleanup = (label: string, fn: () => void): void => {
+            try {
+                fn();
+            } catch (error: unknown) {
+                console.warn(`[ChannelSetup] cleanup failed (${label}):`, summarizeErrorForLog(error));
+            }
+        };
 
         const finalSummary: ChannelBuildSummary = {
             created: 0,
@@ -218,16 +226,20 @@ export class ChannelSetupBuildExecutor {
             await this._deps.channelManager.replaceAllChannels(finalChannels);
 
             reportProgress('refresh_epg', 'Refreshing guide...', 'Loading schedules', 0, null);
-            this._deps.primeEpgChannels();
-            await this._deps.refreshEpgSchedules({ reason: 'channel-setup', debounceMs: 0 });
-
+            try {
+                this._deps.primeEpgChannels();
+                await this._deps.refreshEpgSchedules({ reason: 'channel-setup', debounceMs: 0 });
+            } catch (error: unknown) {
+                console.warn('[ChannelSetup] EPG refresh failed after commit:', summarizeErrorForLog(error));
+                reportProgress('refresh_epg', 'Refreshing guide...', 'Guide refresh failed (channels saved)', 0, null);
+            }
         } catch (e) {
             console.error('[ChannelSetup] Channel build failed:', summarizeErrorForLog(e));
             throw e;
         } finally {
-            builder.dispose();
-            this._deps.storageRemove(tempKey);
-            this._deps.storageRemove(tempCurrentKey);
+            safeCleanup('builder.dispose', () => builder.dispose());
+            safeCleanup(`storageRemove(${tempKey})`, () => this._deps.storageRemove(tempKey));
+            safeCleanup(`storageRemove(${tempCurrentKey})`, () => this._deps.storageRemove(tempCurrentKey));
         }
 
         reportProgress('done', 'Done!', `Built ${finalSummary.created} channels`, finalSummary.created, finalSummary.created);

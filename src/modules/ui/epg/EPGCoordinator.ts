@@ -110,6 +110,23 @@ export class EPGCoordinator {
         );
     }
 
+    private _refreshEpgSchedulesBestEffort(options?: { reason?: string; debounceMs?: number }): void {
+        void this.refreshEpgSchedules(options).catch((error: unknown) => {
+            if (isAbortLikeError(error)) return;
+            console.error('[EPGCoordinator] refreshEpgSchedules failed:', summarizeErrorForLog(error));
+        });
+    }
+
+    private _refreshEpgSchedulesForRangeBestEffort(
+        range: EpgVisibleRange,
+        options?: { reason?: string; debounceMs?: number }
+    ): void {
+        void this.refreshEpgSchedulesForRange(range, options).catch((error: unknown) => {
+            if (isAbortLikeError(error)) return;
+            console.error('[EPGCoordinator] refreshEpgSchedulesForRange failed:', summarizeErrorForLog(error));
+        });
+    }
+
     /**
      * Clear schedule caches and "loaded range" markers.
      * Use this when the UI schedules are cleared (e.g. after library filter changes)
@@ -129,7 +146,7 @@ export class EPGCoordinator {
             if (previousOnVisibleRangeChange) {
                 previousOnVisibleRangeChange(range);
             }
-            void this.refreshEpgSchedulesForRange(range, { reason: 'visible-range' });
+            this._refreshEpgSchedulesForRangeBestEffort(range, { reason: 'visible-range' });
         };
     }
 
@@ -164,7 +181,7 @@ export class EPGCoordinator {
             change.key === 'aggressivePreload' ||
             change.key === 'pastItemsWindow'
         ) {
-            void this.refreshEpgSchedules({ reason: 'guide-settings' });
+            this._refreshEpgSchedulesBestEffort({ reason: 'guide-settings' });
         }
     }
 
@@ -291,7 +308,7 @@ export class EPGCoordinator {
         const status = this.deps.getEpgUiStatus();
         if (status === 'ready') {
             this.primeEpgChannels();
-            void this.refreshEpgSchedules();
+            this._refreshEpgSchedulesBestEffort();
             show();
             return;
         }
@@ -300,7 +317,7 @@ export class EPGCoordinator {
         void this.deps.ensureEpgInitialized()
             .then(() => {
                 this.primeEpgChannels();
-                void this.refreshEpgSchedules();
+                this._refreshEpgSchedulesBestEffort();
                 show();
             })
             .catch((error: unknown) => {
@@ -517,7 +534,7 @@ export class EPGCoordinator {
                 epg2.focusChannel(0);
             }
 
-            void this.refreshEpgSchedules({ reason: 'library-filter', debounceMs: 0 });
+            this._refreshEpgSchedulesBestEffort({ reason: 'library-filter', debounceMs: 0 });
         };
 
         epg.on('libraryFilterChanged', onFilter);
