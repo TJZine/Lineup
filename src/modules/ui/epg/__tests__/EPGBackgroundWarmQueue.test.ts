@@ -1,4 +1,7 @@
-import { EPGBackgroundWarmQueue } from '../EPGBackgroundWarmQueue';
+import {
+    EPGBackgroundWarmQueue,
+    type EPGBackgroundWarmQueueDeps,
+} from '../EPGBackgroundWarmQueue';
 import type { ChannelConfig, PlaybackMode } from '../../../scheduler/channel-manager';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
@@ -37,10 +40,10 @@ describe('EPGBackgroundWarmQueue', () => {
         const runForChannel = jest.fn().mockResolvedValue(undefined);
 
         const queue = new EPGBackgroundWarmQueue({
-            getActiveRefreshId: () => activeRefreshId,
-            getCacheSize: () => 0,
-            getCacheLimit: () => 500,
-            getInFlightCount: () => 0,
+            getActiveRefreshId: (): number => activeRefreshId,
+            getCacheSize: (): number => 0,
+            getCacheLimit: (): number => 500,
+            getInFlightCount: (): number => 0,
             onCancel,
         });
 
@@ -65,10 +68,10 @@ describe('EPGBackgroundWarmQueue', () => {
         const runForChannel = jest.fn().mockResolvedValue(undefined);
 
         const queue = new EPGBackgroundWarmQueue({
-            getActiveRefreshId: () => activeRefreshId,
-            getCacheSize: () => 0,
-            getCacheLimit: () => 500,
-            getInFlightCount: () => 0,
+            getActiveRefreshId: (): number => activeRefreshId,
+            getCacheSize: (): number => 0,
+            getCacheLimit: (): number => 500,
+            getInFlightCount: (): number => 0,
             onCancel,
         });
 
@@ -93,11 +96,13 @@ describe('EPGBackgroundWarmQueue', () => {
         const runForChannel = jest.fn().mockResolvedValue(undefined);
 
         const queue = new EPGBackgroundWarmQueue({
-            getActiveRefreshId: () => activeRefreshId,
-            getCacheSize: () => 0,
-            getCacheLimit: () => 500,
-            getInFlightCount: () => 0,
-            getWarmQueueAction: (inputs) => {
+            getActiveRefreshId: (): number => activeRefreshId,
+            getCacheSize: (): number => 0,
+            getCacheLimit: (): number => 500,
+            getInFlightCount: (): number => 0,
+            getWarmQueueAction: (
+                inputs
+            ): ReturnType<NonNullable<EPGBackgroundWarmQueueDeps['getWarmQueueAction']>> => {
                 calls += 1;
                 if (calls === 1) {
                     return { kind: 'backpressure' };
