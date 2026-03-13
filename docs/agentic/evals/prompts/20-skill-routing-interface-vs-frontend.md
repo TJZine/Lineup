@@ -2,7 +2,7 @@
 
 ## Source
 
-- routing defaults in [`AGENTS.md`](../../../../AGENTS.md)
+- routing defaults in [`agents.md`](../../../../agents.md)
 - workflow routing in [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../AGENTIC_DEV_WORKFLOW.md)
 - skill topology in [`docs/agentic/skill-strategy.md`](../../skill-strategy.md)
 - feature prompt routing in [`docs/agentic/session-prompts/feature-plan.md`](../../session-prompts/feature-plan.md), [`docs/agentic/session-prompts/feature-implement.md`](../../session-prompts/feature-implement.md), and [`docs/agentic/session-prompts/feature-review.md`](../../session-prompts/feature-review.md)
@@ -49,8 +49,8 @@ Report findings ordered by severity. If you find a routing ambiguity, propose a 
 
 - Codanna-first repo-doc discovery (example query): `skill mirror allowlist interface-design frontend-design`
 - Codanna-first routing query (example query): `feature-plan ui-composition-patterns interface-design frontend-design`
-- Fallback grep: `rg -n "\\b(frontend-design|interface-design)\\b" AGENTS.md docs .codex/skills -S`
-- `sed -n '1,80p' AGENTS.md`
+- Fallback grep: `rg -n "\\b(frontend-design|interface-design)\\b" agents.md docs .codex/skills -S`
+- `sed -n '1,80p' agents.md`
 - `sed -n '20,60p' docs/AGENTIC_DEV_WORKFLOW.md`
 - `sed -n '70,95p' docs/agentic/skill-strategy.md`
 - `sed -n '1,120p' docs/agentic/skill-mirror-allowlist.txt`
