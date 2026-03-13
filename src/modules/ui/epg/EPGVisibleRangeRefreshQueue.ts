@@ -86,35 +86,28 @@ export class EPGVisibleRangeRefreshQueue {
     }
 
     private _runImmediateAndPreemptQueued(range: EpgVisibleRange, reason: string): Promise<void> {
-        const hadArmedDebounce = this._timer !== null;
         if (this._timer) {
             clearTimeout(this._timer);
             this._timer = null;
         }
 
+        const pendingPromise = this._pendingPromise;
         const resolvePending = this._pendingResolve;
         const rejectPending = this._pendingReject;
-        const pendingPromise = this._pendingPromise;
+        this._pendingPromise = null;
+        this._pendingResolve = null;
+        this._pendingReject = null;
         this._pendingRange = null;
         this._pendingReason = null;
-        if (hadArmedDebounce) {
-            this._pendingResolve = null;
-            this._pendingReject = null;
-        }
 
         const immediatePromise = this._refreshFn(range, reason);
-        if (!pendingPromise || !hadArmedDebounce) {
+        if (!pendingPromise) {
             return immediatePromise;
         }
 
         void immediatePromise
             .then(() => resolvePending?.())
-            .catch((error: unknown) => rejectPending?.(error))
-            .finally(() => {
-                if (this._pendingPromise === pendingPromise) {
-                    this._pendingPromise = null;
-                }
-            });
+            .catch((error: unknown) => rejectPending?.(error));
 
         return immediatePromise;
     }

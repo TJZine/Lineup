@@ -55,11 +55,14 @@ describe('EPGBackgroundWarmQueue', () => {
             concurrency: 1,
         });
 
+        expect(onCancel).toHaveBeenCalledWith('replace-background-warm-queue', null);
+
         jest.advanceTimersByTime(1_000);
+        await flushPromises();
         await flushPromises();
 
         expect(runForChannel).toHaveBeenCalledTimes(2);
-        expect(onCancel).toHaveBeenCalledWith('replace-background-warm-queue', null);
+        expect(onCancel).toHaveBeenCalledWith('warm-queue-complete', expect.any(Object));
     });
 
     it('cancels stale refresh queues before any channel work starts', async () => {

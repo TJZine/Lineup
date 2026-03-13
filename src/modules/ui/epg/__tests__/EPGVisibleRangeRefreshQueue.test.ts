@@ -61,6 +61,53 @@ describe('EPGVisibleRangeRefreshQueue', () => {
         await Promise.all([immediate, debounced, secondDebounced]);
     });
 
+    it('immediate preemption does not reuse the debounced promise for newly queued refreshes', async () => {
+        jest.useFakeTimers();
+        const deferred = (): { promise: Promise<void>; resolve: () => void } => {
+            let resolve!: () => void;
+            const promise = new Promise<void>((innerResolve) => {
+                resolve = innerResolve;
+            });
+            return { promise, resolve };
+        };
+
+        const immediateRefresh = deferred();
+        const queuedRefresh = deferred();
+        const refreshFn = jest
+            .fn()
+            .mockImplementationOnce(() => immediateRefresh.promise)
+            .mockImplementationOnce(() => queuedRefresh.promise);
+
+        const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
+
+        const debounced = queue.request(range(1), { debounceMs: 75, reason: 'visible-range' });
+        const immediate = queue.request(range(2), { debounceMs: 0, reason: 'manual' });
+        expect(refreshFn).toHaveBeenCalledTimes(1);
+        expect(refreshFn).toHaveBeenCalledWith(range(2), 'manual');
+
+        const queued = queue.request(range(3), { debounceMs: 50, reason: 'visible-range' });
+
+        let queuedResolved = false;
+        void queued.then(() => {
+            queuedResolved = true;
+        });
+
+        immediateRefresh.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(queuedResolved).toBe(false);
+
+        jest.advanceTimersByTime(50);
+        await Promise.resolve();
+        expect(refreshFn).toHaveBeenCalledTimes(2);
+        expect(refreshFn).toHaveBeenNthCalledWith(2, range(3), 'visible-range');
+
+        queuedRefresh.resolve();
+        await expect(queued).resolves.toBeUndefined();
+        await expect(immediate).resolves.toBeUndefined();
+        await expect(debounced).resolves.toBeUndefined();
+    });
+
     it('awaits the immediate refresh when a debounced refresh is already in flight', async () => {
         jest.useFakeTimers();
         const deferred = (): { promise: Promise<void>; resolve: () => void } => {
