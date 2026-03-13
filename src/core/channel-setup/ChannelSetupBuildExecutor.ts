@@ -49,6 +49,8 @@ export class ChannelSetupBuildExecutor {
         reportProgress('fetch_playlists', 'Preparing...', 'Loading libraries', 0, null);
 
         let libraries;
+        let epgRefreshFailed = false;
+
         try {
             libraries = await this._deps.planningService.getLibrariesForSetup(signal ?? null);
         } catch (e) {
@@ -230,6 +232,7 @@ export class ChannelSetupBuildExecutor {
                 this._deps.primeEpgChannels();
                 await this._deps.refreshEpgSchedules({ reason: 'channel-setup', debounceMs: 0 });
             } catch (error: unknown) {
+                epgRefreshFailed = true;
                 console.warn('[ChannelSetup] EPG refresh failed after commit:', summarizeErrorForLog(error));
                 reportProgress('refresh_epg', 'Refreshing guide...', 'Guide refresh failed (channels saved)', 0, null);
             }
@@ -242,7 +245,10 @@ export class ChannelSetupBuildExecutor {
             safeCleanup(`storageRemove(${tempCurrentKey})`, () => this._deps.storageRemove(tempCurrentKey));
         }
 
-        reportProgress('done', 'Done!', `Built ${finalSummary.created} channels`, finalSummary.created, finalSummary.created);
+        const finalDetail = epgRefreshFailed
+            ? `Built ${finalSummary.created} channels (guide refresh failed)`
+            : `Built ${finalSummary.created} channels`;
+        reportProgress('done', 'Done!', finalDetail, finalSummary.created, finalSummary.created);
         return finalSummary;
     }
 

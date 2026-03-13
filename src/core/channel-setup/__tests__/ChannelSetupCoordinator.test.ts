@@ -643,6 +643,77 @@ describe('ChannelSetupCoordinator', () => {
         expect(disposeOrder as number).toBeLessThan(firstRemoveOrder as number);
     });
 
+    it('keeps a saved-but-refresh-failed warning in the final progress update', async () => {
+        const { coordinator, plexLibrary, deps } = createCoordinator({
+            refreshEpgSchedules: jest.fn().mockRejectedValue(new Error('refresh failed')),
+        });
+        const progressEvents: Array<{ task: string; label: string; detail: string }> = [];
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        plexLibrary.getLibraries.mockResolvedValue([] as PlexLibraryType[]);
+        plexLibrary.getPlaylists.mockResolvedValue([
+            { ratingKey: 'pl1', key: '/playlists/pl1', title: 'Favorites', thumb: null, duration: 0, leafCount: 10 },
+        ]);
+
+        const summary = await coordinator.createChannelsFromSetup(
+            createConfig({
+                strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
+            }),
+            {
+                onProgress: (event): void => {
+                    progressEvents.push({
+                        task: event.task,
+                        label: event.label,
+                        detail: event.detail,
+                    });
+                },
+            }
+        );
+
+        expect(summary.created).toBe(1);
+        expect(deps.primeEpgChannels).toHaveBeenCalledTimes(1);
+        expect(deps.refreshEpgSchedules).toHaveBeenCalledTimes(1);
+        expect(progressEvents.at(-1)).toEqual({
+            task: 'done',
+            label: 'Done!',
+            detail: 'Built 1 channels (guide refresh failed)',
+        });
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[ChannelSetup] EPG refresh failed after commit:',
+            expect.objectContaining({ message: 'refresh failed' })
+        );
+
+        warnSpy.mockRestore();
+    });
+
+    it('logs cleanup failures without masking a successful build', async () => {
+        const cleanupError = new Error('temp storage unavailable');
+        const storageRemove = jest.fn(() => {
+            throw cleanupError;
+        });
+        const { coordinator, plexLibrary, channelManager } = createCoordinator({
+            storageRemove,
+        });
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        plexLibrary.getLibraries.mockResolvedValue([] as PlexLibraryType[]);
+        plexLibrary.getPlaylists.mockResolvedValue([
+            { ratingKey: 'pl1', key: '/playlists/pl1', title: 'Favorites', thumb: null, duration: 0, leafCount: 10 },
+        ]);
+
+        const summary = await coordinator.createChannelsFromSetup(createConfig({
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
+        }));
+
+        expect(summary.created).toBe(1);
+        expect(channelManager.replaceAllChannels).toHaveBeenCalledTimes(1);
+        expect(storageRemove).toHaveBeenCalledTimes(2);
+        expect(warnSpy).toHaveBeenCalledWith(
+            expect.stringContaining('[ChannelSetup] cleanup failed (storageRemove('),
+            expect.objectContaining({ message: 'temp storage unavailable' })
+        );
+
+        warnSpy.mockRestore();
+    });
+
     it('merge mode updates auto-generated names and preserves ids', async () => {
         const { coordinator, plexLibrary, channelManager } = createCoordinator();
         plexLibrary.getLibraries.mockResolvedValue([] as PlexLibraryType[]);
