@@ -28,7 +28,7 @@ export class NavigationFocusPolicy {
 
         const topModalId = modalStack[modalStack.length - 1];
         if (!topModalId) {
-            return { allowed: true, targetId: neighborId, reason: null };
+            return { allowed: false, targetId: null, reason: 'modal_open' };
         }
 
         const modalFocusables = modalFocusableIds.get(topModalId);
