@@ -3,11 +3,12 @@
  * @module modules/ui/now-playing-info/constants
  */
 
+import { APP_SHELL_CONTAINER_IDS } from '../common/appShellContainerIds';
+
 export const NOW_PLAYING_INFO_MODAL_ID = 'now-playing-info';
-export const NOW_PLAYING_INFO_CONTAINER_ID = 'now-playing-info-container';
 
 export const NOW_PLAYING_INFO_CLASSES = {
-    CONTAINER: NOW_PLAYING_INFO_CONTAINER_ID,
+    CONTAINER: APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO,
     CINEMATIC: 'now-playing-info-cinematic',
     PANEL: 'now-playing-info-panel',
     BACKDROP: 'now-playing-info-backdrop',

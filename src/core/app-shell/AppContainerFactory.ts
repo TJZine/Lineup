@@ -5,8 +5,7 @@ import { PLAYER_OSD_CONTAINER_ID } from '../../modules/ui/player-osd';
 import { CHANNEL_NUMBER_OVERLAY_CONTAINER_ID } from '../../modules/ui/channel-number-overlay';
 import { MINI_GUIDE_CONTAINER_ID } from '../../modules/ui/mini-guide';
 import { CHANNEL_TRANSITION_CONTAINER_ID } from '../../modules/ui/channel-transition';
-import { NOW_PLAYING_INFO_CONTAINER_ID } from '../../modules/ui/now-playing-info/constants';
-import { PLAYBACK_OPTIONS_CONTAINER_ID } from '../../modules/ui/playback-options/constants';
+import { APP_SHELL_CONTAINER_IDS } from '../../modules/ui/common/appShellContainerIds';
 
 export interface AppContainerRefs {
     splashContainer: HTMLElement;
@@ -61,10 +60,10 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
     epgContainer.className = 'epg-container';
 
     // Now Playing Info overlay container
-    void getOrCreateDiv(root, NOW_PLAYING_INFO_CONTAINER_ID);
+    void getOrCreateDiv(root, APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO);
 
     // Playback Options modal container
-    void getOrCreateDiv(root, PLAYBACK_OPTIONS_CONTAINER_ID);
+    void getOrCreateDiv(root, APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS);
 
     // Exit confirmation modal container
     void getOrCreateDiv(root, EXIT_CONFIRM_CONTAINER_ID);

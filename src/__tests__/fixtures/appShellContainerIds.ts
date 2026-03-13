@@ -5,8 +5,7 @@ import { PLAYER_OSD_CONTAINER_ID } from '../../modules/ui/player-osd';
 import { CHANNEL_NUMBER_OVERLAY_CONTAINER_ID } from '../../modules/ui/channel-number-overlay';
 import { MINI_GUIDE_CONTAINER_ID } from '../../modules/ui/mini-guide';
 import { CHANNEL_TRANSITION_CONTAINER_ID } from '../../modules/ui/channel-transition';
-import { NOW_PLAYING_INFO_CONTAINER_ID } from '../../modules/ui/now-playing-info/constants';
-import { PLAYBACK_OPTIONS_CONTAINER_ID } from '../../modules/ui/playback-options/constants';
+import { APP_SHELL_CONTAINER_IDS } from '../../modules/ui/common/appShellContainerIds';
 
 export const EXPECTED_CONTAINER_IDS = [
     'video-container',
@@ -16,8 +15,8 @@ export const EXPECTED_CONTAINER_IDS = [
     MINI_GUIDE_CONTAINER_ID,
     CHANNEL_TRANSITION_CONTAINER_ID,
     EPG_CONTAINER_ID,
-    NOW_PLAYING_INFO_CONTAINER_ID,
-    PLAYBACK_OPTIONS_CONTAINER_ID,
+    APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO,
+    APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS,
     EXIT_CONFIRM_CONTAINER_ID,
     'splash-container',
     'auth-container',

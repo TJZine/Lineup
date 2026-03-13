@@ -4,11 +4,12 @@
  * @version 1.0.0
  */
 
+import { APP_SHELL_CONTAINER_IDS } from '../common/appShellContainerIds';
+
 export const PLAYBACK_OPTIONS_MODAL_ID = 'playback-options';
-export const PLAYBACK_OPTIONS_CONTAINER_ID = 'playback-options-container';
 
 export const PLAYBACK_OPTIONS_CLASSES = {
-    CONTAINER: PLAYBACK_OPTIONS_CONTAINER_ID,
+    CONTAINER: APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS,
     PANEL: 'playback-options-panel',
     HEADER: 'playback-options-header',
     TITLE: 'playback-options-title',
