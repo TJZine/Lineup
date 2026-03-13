@@ -96,6 +96,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - `src/modules/ui/`
 - owns TV screens, overlays, shared primitives, and user-visible composition
 - `src/modules/ui/common/appShellContainerIds.ts` is the shared owner for app-shell overlay container IDs consumed by app-shell wiring and feature constants
+- `src/modules/ui/epg/EPGCoordinator.ts` owns EPG runtime policy entrypoints (open/close/toggle/guide-setting handling and schedule-policy orchestration), while `src/Orchestrator.ts` remains a delegation surface that wires this owner
 - visual rules are governed by [`docs/design/ui-design-language.md`](../design/ui-design-language.md)
 
 ## Current Hotspots
