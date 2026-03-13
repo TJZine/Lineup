@@ -498,6 +498,8 @@ Do not close a listed work unit while its mapped imported issue still remains un
           - `d78a6eb` `cleanup(p4-w6): split epg schedule refresh runtime ownership`
           - `93e175c` `cleanup(p4-w6): delegate epg runtime policy ownership from orchestrator`
           - `44f6693` `cleanup(p4-w6): introduce epg-owned domain types and adapters`
+          - `0299fe1` `cleanup(p4-w6): tighten channel-setup session gateway seam`
+          - `7d95bdc` `cleanup(p4-w6): trim epg adapter surface and restore verify`
         - task verification:
           - `npm test -- src/__tests__/Orchestrator.test.ts -t "guide|epg|server-swap"` -> `PASS`
           - `npm test -- src/modules/ui/epg/__tests__/EPGCoordinator.test.ts` -> `PASS`
@@ -505,7 +507,9 @@ Do not close a listed work unit while its mapped imported issue still remains un
           - `npm test -- src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts` -> `PASS`
           - `npm test -- src/core/__tests__/InitializationCoordinator.test.ts -t "EPG"` -> `PASS`
           - `npm run typecheck` -> `PASS`
-      - mapped issue evidence refresh (2026-03-13):
+          - `npm test -- src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/modules/ui/epg/__tests__/EPGBackgroundWarmQueue.test.ts src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts src/modules/ui/epg/__tests__/EPGCoordinator.test.ts src/modules/ui/epg/__tests__/EPGComponent.test.ts src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts src/core/__tests__/InitializationCoordinator.test.ts src/__tests__/Orchestrator.test.ts` -> `PASS`
+          - `npm run verify` -> `PASS`
+      - mapped issue evidence refresh (2026-03-13, rerun after follow-up cleanup commits):
         - `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b --no-budget` -> `1 open issues matching ...`
         - `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --no-budget` -> `1 open issues matching ...`
         - `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget` -> `1 open issues matching ...`
@@ -521,7 +525,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
         - `npm run verify`
       - verification gate status (2026-03-13):
         - `npm run verify:docs` -> `PASS` (warnings for pre-existing untracked checklist plan-path references)
-        - `npm run verify` -> `FAIL` (`eslint` reports 13 `@typescript-eslint/explicit-function-return-type` errors in `src/modules/ui/epg/__tests__/EPGBackgroundWarmQueue.test.ts`)
+        - `npm run verify` -> `PASS`
   - [ ] `P4-W7` retire remaining navigation/container-id drift inherited from `P4-EXIT`
     - Inherited follow-ups:
       - source: `P4-EXIT`
