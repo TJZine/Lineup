@@ -7,10 +7,14 @@
 import type { EpgGuideDensity } from '../../settings/EpgPreferencesStore';
 import { appendEpgDebugLog, isEpgDebugLoggingEnabled } from './utils';
 import type { IEPGComponent } from './interfaces';
-import type { EPGConfig, EpgVisibleRange } from './types';
+import type { ChannelConfig as EpgChannel, EPGConfig, EpgVisibleRange, ScheduledProgram as EpgScheduledProgram } from './types';
 import type { GuideSettingChange } from '../settings/types';
-import type { IChannelManager, ChannelConfig, ResolvedChannelContent } from '../../scheduler/channel-manager';
-import type { IChannelScheduler, ScheduledProgram, ScheduleConfig, ScheduleWindow } from '../../scheduler/scheduler';
+import type { IChannelManager, ChannelConfig as SchedulerChannelConfig, ResolvedChannelContent } from '../../scheduler/channel-manager';
+import type {
+    IChannelScheduler,
+    ScheduleConfig,
+    ScheduleWindow as SchedulerScheduleWindow,
+} from '../../scheduler/scheduler';
 import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import type { ModuleRuntimeStatus } from '../../../core/module-status';
@@ -21,6 +25,7 @@ import {
 import { buildLibraries, countLibraryTypeVotes } from './epgLibraryUtils';
 import { EPGVisibleRangeRefreshQueue } from './EPGVisibleRangeRefreshQueue';
 import { EPGScheduleRefreshRuntime } from './EPGScheduleRefreshRuntime';
+import { toEpgChannels, toEpgScheduleWindow } from './adapters';
 
 export type EpgUiStatus = ModuleRuntimeStatus | undefined;
 
@@ -37,7 +42,7 @@ export interface EPGCoordinatorDeps {
     getEpgScheduleRangeSnapshot: () => EpgStorageSnapshotForScheduleRange;
 
     buildDailyScheduleConfig: (
-        channel: ChannelConfig,
+        channel: SchedulerChannelConfig,
         items: ResolvedChannelContent['items'],
         referenceTimeMs: number
     ) => ScheduleConfig;
@@ -72,17 +77,17 @@ export class EPGCoordinator {
             getEpgUiStatus: (): EpgUiStatus => this.deps.getEpgUiStatus(),
             getEpgScheduleRangeMs: (): { startTime: number; endTime: number } | null =>
                 this._getEpgScheduleRangeMs(),
-            getLibraryFilterState: (allChannels: ChannelConfig[]): { selectedId: string | null; shouldFilter: boolean } => {
+            getLibraryFilterState: (allChannels: SchedulerChannelConfig[]): { selectedId: string | null; shouldFilter: boolean } => {
                 const { selectedId, shouldFilter } = this._getLibraryFilterState(allChannels);
                 return { selectedId, shouldFilter };
             },
             getVisibleChannels: (
-                allChannels: ChannelConfig[],
+                allChannels: SchedulerChannelConfig[],
                 selectedId: string | null,
                 shouldFilter: boolean
-            ): ChannelConfig[] => this._getVisibleChannels(allChannels, selectedId, shouldFilter),
+            ): SchedulerChannelConfig[] => this._getVisibleChannels(allChannels, selectedId, shouldFilter),
             buildDailyScheduleConfig: (
-                channel: ChannelConfig,
+                channel: SchedulerChannelConfig,
                 items: ResolvedChannelContent['items'],
                 referenceTimeMs: number
             ): ScheduleConfig => this.deps.buildDailyScheduleConfig(channel, items, referenceTimeMs),
@@ -93,7 +98,7 @@ export class EPGCoordinator {
                 prefetchCount: number,
                 aggressive: boolean
             ): number => this._getScheduleLoadConcurrency(channelCount, prefetchCount, aggressive),
-            cloneScheduleWindow: (window: ScheduleWindow): ScheduleWindow => this._cloneScheduleWindow(window),
+            cloneScheduleWindow: (window: SchedulerScheduleWindow): SchedulerScheduleWindow => this._cloneScheduleWindow(window),
             isAggressivePreloadEnabled: (): boolean => this._isAggressivePreloadEnabled(),
             isDebugEnabled: (): boolean => this._isDebugEnabled(),
             appendDebugLog: (event: string, payload: Record<string, unknown>): void => {
@@ -184,7 +189,7 @@ export class EPGCoordinator {
     }
 
     private _inferLibraryType(
-        channels: ChannelConfig[],
+        channels: SchedulerChannelConfig[],
         selectedId: string
     ): 'movie' | 'show' | null {
         const { movieVotes, showVotes } = countLibraryTypeVotes(channels, selectedId);
@@ -199,7 +204,7 @@ export class EPGCoordinator {
     }
 
     private _getVisibleHoursForCurrentFilter(
-        channels: ChannelConfig[],
+        channels: SchedulerChannelConfig[],
         selectedId: string | null,
         shouldFilter: boolean
     ): number {
@@ -217,7 +222,11 @@ export class EPGCoordinator {
         return this._getBaseVisibleHours();
     }
 
-    private _getVisibleChannels(all: ChannelConfig[], selectedId: string | null, shouldFilter: boolean): ChannelConfig[] {
+    private _getVisibleChannels(
+        all: SchedulerChannelConfig[],
+        selectedId: string | null,
+        shouldFilter: boolean
+    ): SchedulerChannelConfig[] {
         if (!shouldFilter || !selectedId) return all;
         return all.filter((c) => {
             if (c.sourceLibraryId === selectedId) return true;
@@ -227,7 +236,7 @@ export class EPGCoordinator {
         });
     }
 
-    private _computeLibraryFilterState(all: ChannelConfig[], options: { mutateStorage: boolean }): {
+    private _computeLibraryFilterState(all: SchedulerChannelConfig[], options: { mutateStorage: boolean }): {
         selectedId: string | null;
         tabsEnabled: boolean;
         shouldFilter: boolean;
@@ -256,7 +265,7 @@ export class EPGCoordinator {
         return { selectedId, tabsEnabled, shouldFilter, libraries };
     }
 
-    private _getLibraryFilterState(all: ChannelConfig[]): {
+    private _getLibraryFilterState(all: SchedulerChannelConfig[]): {
         selectedId: string | null;
         tabsEnabled: boolean;
         shouldFilter: boolean;
@@ -342,7 +351,7 @@ export class EPGCoordinator {
         epg.setVisibleHours(this._getVisibleHoursForCurrentFilter(all, selectedId, shouldFilter));
 
         const visible = this._getVisibleChannels(all, selectedId, shouldFilter);
-        epg.loadChannels(visible);
+        epg.loadChannels(toEpgChannels(visible));
     }
 
     async refreshEpgSchedules(options?: { reason?: string; debounceMs?: number }): Promise<void> {
@@ -390,7 +399,7 @@ export class EPGCoordinator {
         try {
             const window = scheduler.getScheduleWindow(range.startTime, range.endTime);
             const schedule = this._cloneScheduleWindow(window);
-            epg.loadScheduleForChannel(current.id, schedule);
+            epg.loadScheduleForChannel(current.id, toEpgScheduleWindow(schedule));
             this._scheduleRefreshRuntime.cacheScheduleForRange(
                 current.id,
                 range.startTime,
@@ -432,7 +441,7 @@ export class EPGCoordinator {
         try {
             const window = scheduler.getScheduleWindow(range.startTime, range.endTime);
             const schedule = this._cloneScheduleWindow(window);
-            epg.loadScheduleForChannel(current.id, schedule);
+            epg.loadScheduleForChannel(current.id, toEpgScheduleWindow(schedule));
             this._scheduleRefreshRuntime.cacheScheduleForRange(
                 current.id,
                 range.startTime,
@@ -461,7 +470,7 @@ export class EPGCoordinator {
         const epg = this.deps.getEpg();
         if (!epg) return [];
 
-        const handler = (payload: { channel: ChannelConfig; program: ScheduledProgram }): void => {
+        const handler = (payload: { channel: EpgChannel; program: EpgScheduledProgram }): void => {
             const now = Date.now();
             if (
                 payload.program.scheduleIndex === -1 ||
@@ -537,7 +546,7 @@ export class EPGCoordinator {
         return computeEpgScheduleRangeMs(this.deps, Date.now(), storage);
     }
 
-    private _cloneScheduleWindow(window: ScheduleWindow): ScheduleWindow {
+    private _cloneScheduleWindow(window: SchedulerScheduleWindow): SchedulerScheduleWindow {
         return { ...window, programs: [...window.programs] };
     }
 

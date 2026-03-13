@@ -8,7 +8,7 @@ import { EPG_CLASSES } from './constants';
 import { formatTime, formatDuration } from './utils';
 import type { IEPGInfoPanel } from './interfaces';
 import type { ScheduledProgram } from './types';
-import type { PlexMediaItem } from '../../plex/library';
+import type { EpgItemDetails } from './domainTypes';
 import { extractHdrLabelFromPlexMedia } from '../../plex/stream/hdr';
 import { formatContentRatingBadge } from '../../../utils/contentRating';
 import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
@@ -41,7 +41,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private thumbResolver:
         ((pathOrUrl: string | null, width?: number, height?: number) => string | null) | null = null;
     private fetchItemDetails:
-        ((ratingKey: string, options?: { signal?: AbortSignal | null }) => Promise<PlexMediaItem | null>) | null = null;
+        ((ratingKey: string, options?: { signal?: AbortSignal | null }) => Promise<EpgItemDetails | null>) | null = null;
     private qualityBadges: HTMLElement[] = [];
     private hdrCache = new Map<string, string>();
     private hdrFetchToken = 0;
@@ -77,7 +77,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
      * Set callback to fetch Plex item details (used for HDR/DV badge fallback).
      */
     setFetchItemDetails(
-        fetcher: ((ratingKey: string, options?: { signal?: AbortSignal | null }) => Promise<PlexMediaItem | null>) | null
+        fetcher: ((ratingKey: string, options?: { signal?: AbortSignal | null }) => Promise<EpgItemDetails | null>) | null
     ): void {
         this.fetchItemDetails = fetcher;
     }

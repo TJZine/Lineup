@@ -2,13 +2,14 @@ import { AppErrorCode, type AppError, type IAppLifecycle } from '../../modules/l
 import type { INavigationManager } from '../../modules/navigation';
 import type { IPlexAuth } from '../../modules/plex/auth';
 import type { IPlexServerDiscovery } from '../../modules/plex/discovery';
-import type { IPlexLibrary, PlexMediaItem } from '../../modules/plex/library';
+import type { IPlexLibrary } from '../../modules/plex/library';
 import type { IPlexStreamResolver } from '../../modules/plex/stream';
 import type { IChannelManager } from '../../modules/scheduler/channel-manager';
 import type { IChannelScheduler } from '../../modules/scheduler/scheduler';
 import type { IVideoPlayer } from '../../modules/player';
 import type { EpgLayoutMode } from '../../modules/settings/EpgPreferencesStore';
 import { formatTimeRange } from '../../modules/ui/epg';
+import { toEpgItemDetails } from '../../modules/ui/epg/adapters';
 import type { OrchestratorConfig, ModuleStatus } from '../orchestrator/OrchestratorTypes';
 import { summarizeErrorForLog } from '../../utils/errors';
 
@@ -278,14 +279,14 @@ export function buildEpgConfigWithStartupPolicy(
         ...inputs.epgConfig,
         layoutMode,
         showNowWatchingBanner,
-        fetchItemDetails: (
+        fetchItemDetails: async (
             ratingKey: string,
             options?: { signal?: AbortSignal | null }
-        ): Promise<PlexMediaItem | null> =>
-            inputs.plexLibrary?.getItem(
+        ) =>
+            toEpgItemDetails(await (inputs.plexLibrary?.getItem(
                 ratingKey,
                 { signal: options?.signal ?? null }
-            ) ?? Promise.resolve(null),
+            ) ?? Promise.resolve(null))),
         resolveThumbUrl: (
             pathOrUrl: string | null,
             width?: number,

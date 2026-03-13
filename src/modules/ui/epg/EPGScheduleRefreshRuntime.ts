@@ -15,6 +15,7 @@ import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import type { ModuleRuntimeStatus } from '../../../core/module-status';
 import { EPGBackgroundWarmQueue } from './EPGBackgroundWarmQueue';
 import { EPGScheduleCacheStore } from './EPGScheduleCacheStore';
+import { toEpgScheduleWindow } from './adapters';
 
 const EPG_BACKGROUND_DEBUG_LOG_EVERY_N = 20;
 
@@ -283,7 +284,7 @@ export class EPGScheduleRefreshRuntime {
                 if (firstVisibleScheduleReadyMs === null && visibleRangeIds.has(channelId)) {
                     firstVisibleScheduleReadyMs = Date.now() - refreshStartedAt;
                 }
-                epg.loadScheduleForChannel(channelId, schedule);
+                epg.loadScheduleForChannel(channelId, toEpgScheduleWindow(schedule));
             }
 
             if (phase === 'background' && debugEnabled && this._backgroundDebugState?.refreshId === refreshId) {

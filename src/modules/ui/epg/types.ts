@@ -3,12 +3,18 @@
  * @module modules/ui/epg/types
  */
 
-import type { ScheduledProgram, ScheduleWindow } from '../../scheduler/scheduler/types';
-import type { ChannelConfig } from '../../scheduler/channel-manager/types';
 import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
+import type {
+    EpgChannel,
+    EpgItemDetails,
+    EpgScheduleWindow,
+    EpgScheduledProgram,
+} from './domainTypes';
 
-// Re-export imported types for convenience
-export type { ScheduledProgram, ScheduleWindow, ChannelConfig };
+// Re-export EPG-owned aliases for UI contracts.
+export type ScheduledProgram = EpgScheduledProgram;
+export type ScheduleWindow = EpgScheduleWindow;
+export type ChannelConfig = EpgChannel;
 
 // ============================================
 // EPG Configuration & State
@@ -50,7 +56,7 @@ export interface EPGConfig {
     fetchItemDetails?: (
         ratingKey: string,
         options?: { signal?: AbortSignal | null }
-    ) => Promise<import('../../plex/library').PlexMediaItem | null>;
+    ) => Promise<EpgItemDetails | null>;
     /** Optional callback to detect if video is currently playing */
     isVideoPlaying?: () => boolean;
     /** Optional layout mode */
