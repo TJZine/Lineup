@@ -492,12 +492,36 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - source: `P4-EXIT`
       - issue id(s): `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b`, `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d`, `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216`, `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d`
       - disposition: `split follow-up`
+      - implementation evidence (2026-03-13 on `feature/initial-build`):
+        - completed commits:
+          - `b51e504` `cleanup(p4-w6): retire remaining channel-setup orchestrator passthrough residue`
+          - `d78a6eb` `cleanup(p4-w6): split epg schedule refresh runtime ownership`
+          - `93e175c` `cleanup(p4-w6): delegate epg runtime policy ownership from orchestrator`
+          - `44f6693` `cleanup(p4-w6): introduce epg-owned domain types and adapters`
+        - task verification:
+          - `npm test -- src/__tests__/Orchestrator.test.ts -t "guide|epg|server-swap"` -> `PASS`
+          - `npm test -- src/modules/ui/epg/__tests__/EPGCoordinator.test.ts` -> `PASS`
+          - `npm test -- src/modules/ui/epg/__tests__/EPGComponent.test.ts` -> `PASS`
+          - `npm test -- src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts` -> `PASS`
+          - `npm test -- src/core/__tests__/InitializationCoordinator.test.ts -t "EPG"` -> `PASS`
+          - `npm run typecheck` -> `PASS`
+      - mapped issue evidence refresh (2026-03-13):
+        - `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b --no-budget` -> `1 open issues matching ...`
+        - `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --no-budget` -> `1 open issues matching ...`
+        - `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget` -> `1 open issues matching ...`
+        - `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --no-budget` -> `1 open issues matching ...`
+      - disposition after refresh: all four mapped issue ids remain open; `P4-W6` stays open.
+      - single final owner: `P4-W6`
+      - revisit trigger: before marking `P4-W6` complete, rerun the four mapped `desloppify show review::<id> --no-budget` commands and `npm run verify`.
       - required verification command(s):
         - `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b --no-budget`
         - `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --no-budget`
         - `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget`
         - `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --no-budget`
         - `npm run verify`
+      - verification gate status (2026-03-13):
+        - `npm run verify:docs` -> `PASS` (warnings for pre-existing untracked checklist plan-path references)
+        - `npm run verify` -> `FAIL` (`eslint` reports 13 `@typescript-eslint/explicit-function-return-type` errors in `src/modules/ui/epg/__tests__/EPGBackgroundWarmQueue.test.ts`)
   - [ ] `P4-W7` retire remaining navigation/container-id drift inherited from `P4-EXIT`
     - Inherited follow-ups:
       - source: `P4-EXIT`
@@ -509,7 +533,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
         - `npm run verify`
   - [ ] `P4-EXIT` run the priority-exit review before moving to `P5`
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 4
-    - mapped imported issues (refreshed 2026-03-12; revalidated on `feature/initial-build` for `b900285d`):
+    - mapped imported issues (refreshed 2026-03-13 on `feature/initial-build`):
       - `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` -> `split follow-up`
         - reason: targeted refresh still reports one open issue spanning `src/Orchestrator.ts`, `src/modules/ui/channel-setup/ChannelSetupSessionController.ts`, and `src/core/channel-setup/ChannelSetupCoordinator.ts`; the remaining work is Priority 4 boundary cleanup rather than a P5 trust-boundary task.
         - owner: `P4-W6`
