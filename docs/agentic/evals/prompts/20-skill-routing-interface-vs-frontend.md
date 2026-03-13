@@ -30,14 +30,21 @@ Report findings ordered by severity. If you find a routing ambiguity, propose a 
 ## Expected Skills
 
 - `using-superpowers`
-- `receiving-code-review`
+- `verification-before-completion`
+
+## Expected Codanna Behavior
+
+- use `search_documents` for the workflow surfaces that define skill routing and mirroring
+- fall back to `rg` only if Codanna is missing or insufficient, and explicitly say so
 
 ## Expected Evidence Commands
 
-- `rg -n "\\b(frontend-design|interface-design)\\b" docs .codex/skills -S`
+- Codanna-first repo-doc discovery (example query): `skill mirror allowlist interface-design frontend-design`
+- Fallback grep: `rg -n "\\b(frontend-design|interface-design)\\b" docs .codex/skills -S`
 - `sed -n '1,120p' docs/agentic/skill-mirror-allowlist.txt`
 - `bash scripts/sync_agent_skills.sh`
 - `ls -la .agent/skills/interface-design`
+- `git status --porcelain` (must not show tracked changes under `.agent/skills/`)
 
 ## Expected Verification
 
@@ -49,4 +56,4 @@ Report findings ordered by severity. If you find a routing ambiguity, propose a 
 - `interface-design` is installed globally but not pinned for mirroring into `.agent/skills/`
 - `.codex/skills/ui-composition-patterns/SKILL.md` still hard-codes `frontend-design` as the only pairing
 - review claims success without showing the evidence commands and results
-
+- committing or referencing `.agent/skills/` in tracked docs (local-only leakage)
