@@ -16,12 +16,13 @@ import {
     FocusableElement,
     FocusGroup,
     RemoteButton,
-    KeyEvent,
 } from './interfaces';
 import { FocusManager } from './FocusManager';
 import { RemoteHandler } from './RemoteHandler';
 import { NavigationFocusPolicy } from './NavigationFocusPolicy';
-import { NavigationInputTimingController } from './NavigationInputTimingController';
+import { NavigationRemoteInputRouter } from './NavigationRemoteInputRouter';
+import { NavigationDirectionalRepeatController } from './NavigationDirectionalRepeatController';
+import { NavigationChannelNumberInputController } from './NavigationChannelNumberInputController';
 import {
     DEFAULT_NAVIGATION_CONFIG,
     INITIAL_SCREEN,
@@ -75,25 +76,44 @@ export class NavigationManager
     private _isInitialized: boolean = false;
     private _clickHandlers: Map<string, () => void> = new Map();
     private readonly _focusPolicy: NavigationFocusPolicy;
-    private readonly _inputTimingController: NavigationInputTimingController;
+    private readonly _remoteInputRouter: NavigationRemoteInputRouter;
+    private readonly _directionalRepeatController: NavigationDirectionalRepeatController;
+    private readonly _channelNumberInputController: NavigationChannelNumberInputController;
     private _suppressedLogTimestamps: Map<string, number> = new Map();
 
     constructor(inputService?: PlatformInputService) {
         super();
         this._focusManager = new FocusManager();
         this._focusPolicy = new NavigationFocusPolicy();
-        this._inputTimingController = new NavigationInputTimingController({
+        this._directionalRepeatController = new NavigationDirectionalRepeatController({
             getRepeatConfig: (): { delayMs: number; intervalMs: number } => ({
                 delayMs: this._state.config.keyRepeatDelayMs,
                 intervalMs: this._state.config.keyRepeatIntervalMs,
             }),
+            tryMoveFocus: (direction): boolean => this.moveFocus(direction),
+        });
+        this._channelNumberInputController = new NavigationChannelNumberInputController({
             getChannelInputConfig: (): { timeoutMs: number; maxDigits: number } => ({
                 timeoutMs: CHANNEL_INPUT_CONFIG.TIMEOUT_MS,
                 maxDigits: CHANNEL_INPUT_CONFIG.MAX_DIGITS,
             }),
-            tryMoveFocus: (direction): boolean => this.moveFocus(direction),
             emitChannelInputUpdate: (payload): void => this.emit('channelInputUpdate', payload),
             emitChannelNumberEntered: (payload): void => this.emit('channelNumberEntered', payload),
+        });
+        this._remoteInputRouter = new NavigationRemoteInputRouter({
+            isInputBlocked: (): boolean => this._state.isInputBlocked,
+            logInputSuppressed: (reason, button): void => this._logInputSuppressed(reason, button),
+            cancelDirectionalRepeat: (): void => this._directionalRepeatController.stop(),
+            emitKeyPress: (keyEvent): void => this.emit('keyPress', keyEvent),
+            repairFocusDesync: (): void => this._repairFocusDesync(),
+            handleDirectionalKeyDown: (button, isRepeat): void => (
+                this._directionalRepeatController.handleDirectionalKeyDown(button, isRepeat)
+            ),
+            handleOk: (): void => this._handleOkButton(),
+            handleBack: (): void => this._handleBackButton(),
+            handleNumberKey: (button): void => this._channelNumberInputController.handleNumberKey(button),
+            emitGuide: (): void => this.emit('guide', undefined),
+            emitSettings: (): void => this.emit('settings', undefined),
         });
         this._remoteHandler = new RemoteHandler(inputService);
         this._boundFocusInHandler = this._handleFocusIn.bind(this);
@@ -125,7 +145,7 @@ export class NavigationManager
 
         // Subscribe to remote events
         this._keyDownDisposable = this._remoteHandler.on('keyDown', (keyEvent) => {
-            this._handleKeyEvent(keyEvent);
+            this._remoteInputRouter.handleKeyEvent(keyEvent);
         });
         this._keyUpDisposable = this._remoteHandler.on('keyUp', ({ button }) => {
             this._handleKeyUp(button);
@@ -159,7 +179,8 @@ export class NavigationManager
             this._pointerHideTimer = null;
         }
 
-        this._inputTimingController.destroy();
+        this._directionalRepeatController.destroy();
+        this._channelNumberInputController.destroy();
 
         // Remove pointer mode listeners
         document.removeEventListener('mousemove', this._handlePointerMove);
@@ -616,6 +637,16 @@ export class NavigationManager
         this._focusManager.focus(currentId);
     }
 
+    private _repairFocusDesync(): void {
+        if (typeof document === 'undefined' || document.activeElement !== document.body) {
+            return;
+        }
+        const currentId = this._focusManager.getCurrentFocusId();
+        if (currentId) {
+            this._focusManager.focus(currentId);
+        }
+    }
+
     private _isDebugLoggingEnabled(): boolean {
         return this._developerSettingsStore.readDebugLoggingEnabled(false);
     }
@@ -650,97 +681,11 @@ export class NavigationManager
     }
 
     /**
-     * Handle key events from remote handler.
-     */
-    private _handleKeyEvent(keyEvent: KeyEvent): void {
-        if (this._state.isInputBlocked) {
-            this._logInputSuppressed('input_blocked', keyEvent.button);
-            return;
-        }
-
-        // Any non-directional key press cancels D-pad repeat
-        if (
-            keyEvent.button !== 'up' &&
-            keyEvent.button !== 'down' &&
-            keyEvent.button !== 'left' &&
-            keyEvent.button !== 'right'
-        ) {
-            this._inputTimingController.handleNonDirectionalKeyDown();
-        }
-
-        // Emit keyPress event
-        this.emit('keyPress', keyEvent);
-
-        // If handlers consumed the event, stop further navigation handling.
-        if (keyEvent.handled) {
-            return;
-        }
-
-        // GLOBAL FOCUS SENTINEL: Check for focus desync (Browser vs App)
-        // This handles cases where buttons were disabled/enabled and browser focus dropped to body
-        if (typeof document !== 'undefined' && document.activeElement === document.body) {
-            const currentId = this._focusManager.getCurrentFocusId();
-            if (currentId) {
-                // App thinks we have focus, but browser is on body.
-                // Attempt to re-apply focus to the known element.
-                this._focusManager.focus(currentId);
-            }
-        }
-
-        // Handle navigation keys
-        switch (keyEvent.button) {
-            case 'up':
-            case 'down':
-            case 'left':
-            case 'right':
-                this._inputTimingController.handleDirectionalKeyDown(keyEvent.button, keyEvent.isRepeat);
-                break;
-
-            case 'ok':
-                this._handleOkButton();
-                break;
-
-            case 'back':
-                this._handleBackButton();
-                break;
-
-            case 'num0':
-            case 'num1':
-            case 'num2':
-            case 'num3':
-            case 'num4':
-            case 'num5':
-            case 'num6':
-            case 'num7':
-            case 'num8':
-            case 'num9':
-                this._inputTimingController.handleNumberKey(keyEvent.button);
-                break;
-
-            case 'guide':
-            case 'green':
-                // Emit guide event for orchestrator to handle (toggle EPG)
-                // Green used as fallback since OS may intercept native guide button
-                this.emit('guide', undefined);
-                break;
-
-            case 'yellow':
-                // Emit settings event for orchestrator to handle (open Settings)
-                this.emit('settings', undefined);
-                break;
-
-            default:
-                // Other buttons are handled by event listeners
-                break;
-        }
-    }
-
-    /**
      * Handle key up events from remote handler.
      */
     private _handleKeyUp(button: RemoteButton): void {
         this.emit('keyUp', { button });
-        this._inputTimingController.handleDirectionalKeyUp(button);
+        this._directionalRepeatController.handleDirectionalKeyUp(button);
     }
 
     /**

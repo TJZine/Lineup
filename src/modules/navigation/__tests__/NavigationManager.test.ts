@@ -357,6 +357,15 @@ describe('NavigationManager', () => {
             }
         });
 
+        it('emits settings from yellow button at navigation layer', () => {
+            const settingsHandler = jest.fn();
+            nav.on('settings', settingsHandler);
+
+            dispatchKeyEvent(405);
+
+            expect(settingsHandler).toHaveBeenCalledTimes(1);
+        });
+
         it('should not emit keyPress for unmapped keys', () => {
             const handler = jest.fn();
             nav.on('keyPress', handler);
