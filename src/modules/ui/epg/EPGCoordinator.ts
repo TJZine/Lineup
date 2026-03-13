@@ -8,6 +8,7 @@ import type { EpgGuideDensity } from '../../settings/EpgPreferencesStore';
 import { appendEpgDebugLog, isEpgDebugLoggingEnabled } from './utils';
 import type { IEPGComponent } from './interfaces';
 import type { EPGConfig, EpgVisibleRange } from './types';
+import type { GuideSettingChange } from '../settings/types';
 import type { IChannelManager, ChannelConfig, ResolvedChannelContent } from '../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig, ScheduleWindow } from '../../scheduler/scheduler';
 import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
@@ -111,6 +112,55 @@ export class EPGCoordinator {
      */
     clearScheduleCaches(): void {
         this._scheduleRefreshRuntime.clearScheduleCaches();
+    }
+
+    attachVisibleRangeRefreshPolicy(epgConfig: EPGConfig | null | undefined): void {
+        if (!epgConfig) {
+            return;
+        }
+
+        const previousOnVisibleRangeChange = epgConfig.onVisibleRangeChange ?? null;
+        epgConfig.onVisibleRangeChange = (range): void => {
+            if (previousOnVisibleRangeChange) {
+                previousOnVisibleRangeChange(range);
+            }
+            void this.refreshEpgSchedulesForRange(range, { reason: 'visible-range' });
+        };
+    }
+
+    handleGuideSettingChange(change: GuideSettingChange): void {
+        const epg = this.deps.getEpg();
+        if (!epg) return;
+        if (!epg.isVisible()) return;
+
+        if (change.key === 'layoutMode') {
+            epg.setLayoutMode(change.mode);
+            return;
+        }
+
+        if (change.key === 'nowWatchingBanner') {
+            epg.setNowWatchingBannerEnabled(change.enabled);
+            return;
+        }
+
+        if (change.key === 'infoBackgroundMode') {
+            return;
+        }
+
+        if (change.key === 'libraryTabs' || change.key === 'aggressivePreload' || change.key === 'pastItemsWindow') {
+            this.clearScheduleCaches();
+            epg.clearSchedules();
+        }
+
+        this.primeEpgChannels();
+        if (
+            change.key === 'libraryTabs' ||
+            change.key === 'guideDensity' ||
+            change.key === 'aggressivePreload' ||
+            change.key === 'pastItemsWindow'
+        ) {
+            void this.refreshEpgSchedules({ reason: 'guide-settings' });
+        }
     }
 
     private _isLibraryTabsEnabled(): boolean {

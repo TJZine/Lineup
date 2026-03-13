@@ -561,6 +561,7 @@ describe('AppOrchestrator', () => {
         // NOTE: `jest.clearAllMocks()` clears call history but does not reset mock implementations.
         // Prefer per-test `mockResolvedValueOnce()` stubs to avoid cross-test leakage.
         jest.clearAllMocks();
+        mockLocalStorage.getItem.mockReturnValue(null);
         schedulerHandlers = {};
         playerHandlers = {};
         navHandlers = {};
@@ -1770,6 +1771,18 @@ describe('AppOrchestrator', () => {
             orchestrator.onGuideSettingChange({ key: 'nowWatchingBanner', enabled: false });
 
             expect(mockEpg.setNowWatchingBannerEnabled).toHaveBeenCalledWith(false);
+        });
+
+        it('delegates guide-setting policy entrypoints to EPGCoordinator', () => {
+            const delegateSpy = jest.spyOn(EPGCoordinator.prototype, 'handleGuideSettingChange');
+            const change = { key: 'guideDensity', density: 'wide' } as const;
+
+            try {
+                orchestrator.onGuideSettingChange(change);
+                expect(delegateSpy).toHaveBeenCalledWith(change);
+            } finally {
+                delegateSpy.mockRestore();
+            }
         });
 
         it('ignores info background mode changes while EPG is visible', () => {

@@ -1589,4 +1589,53 @@ describe('EPGCoordinator', () => {
         expect(epg.focusChannel).toHaveBeenCalledWith(0);
         expect(refreshSpy).toHaveBeenCalledWith({ reason: 'library-filter', debounceMs: 0 });
     });
+
+    it('attachVisibleRangeRefreshPolicy preserves prior callback and delegates refresh to coordinator policy', () => {
+        const { deps } = makeDeps();
+        const coordinator = new EPGCoordinator(deps);
+        const previousOnVisibleRangeChange = jest.fn();
+        const refreshSpy = jest
+            .spyOn(coordinator, 'refreshEpgSchedulesForRange')
+            .mockResolvedValue(undefined);
+        const epgConfig: EPGConfig = {
+            containerId: 'epg',
+            visibleChannels: 5,
+            timeSlotMinutes: 30,
+            visibleHours: 3,
+            totalHours: 24,
+            pixelsPerMinute: 4,
+            rowHeight: 80,
+            showCurrentTimeIndicator: true,
+            autoScrollToNow: false,
+            onVisibleRangeChange: previousOnVisibleRangeChange,
+        };
+        const range = {
+            channelStart: 1,
+            channelEnd: 4,
+            timeStartMs: 1000,
+            timeEndMs: 2000,
+        };
+
+        coordinator.attachVisibleRangeRefreshPolicy(epgConfig);
+        epgConfig.onVisibleRangeChange?.(range);
+
+        expect(previousOnVisibleRangeChange).toHaveBeenCalledWith(range);
+        expect(refreshSpy).toHaveBeenCalledWith(range, { reason: 'visible-range' });
+    });
+
+    it('handleGuideSettingChange delegates guide-setting policy when EPG is visible', () => {
+        const { deps, epg } = makeDeps();
+        const coordinator = new EPGCoordinator(deps);
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+        const primeSpy = jest.spyOn(coordinator, 'primeEpgChannels');
+        const refreshSpy = jest
+            .spyOn(coordinator, 'refreshEpgSchedules')
+            .mockResolvedValue(undefined);
+
+        coordinator.handleGuideSettingChange({ key: 'aggressivePreload', enabled: true });
+
+        expect(epg.clearSchedules).toHaveBeenCalled();
+        expect(primeSpy).toHaveBeenCalled();
+        expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
+    });
 });

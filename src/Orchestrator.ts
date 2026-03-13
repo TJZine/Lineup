@@ -445,15 +445,6 @@ export class AppOrchestrator implements IAppOrchestrator {
         this._configureDiscoveryStorageKeysForActiveUser();
 
         this._createCoordinators();
-        if (this._config.epgConfig) {
-            const previousOnVisibleRangeChange = this._config.epgConfig.onVisibleRangeChange ?? null;
-            this._config.epgConfig.onVisibleRangeChange = (range): void => {
-                if (previousOnVisibleRangeChange) {
-                    previousOnVisibleRangeChange(range);
-                }
-                this._epgCoordinator?.refreshEpgSchedulesForRange(range, { reason: 'visible-range' });
-            };
-        }
         this._channelSetup?.cleanupStaleChannelBuildKeys();
         this._initializePriorityOneControllers();
 
@@ -1294,39 +1285,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     }
 
     onGuideSettingChange(change: GuideSettingChange): void {
-        const epg = this._epg;
-        const epgCoordinator = this._epgCoordinator;
-        if (!epg || !epgCoordinator) return;
-        if (!epg.isVisible()) return;
-
-        if (change.key === 'layoutMode') {
-            epg.setLayoutMode(change.mode);
-            return;
-        }
-
-        if (change.key === 'nowWatchingBanner') {
-            epg.setNowWatchingBannerEnabled(change.enabled);
-            return;
-        }
-
-        if (change.key === 'infoBackgroundMode') {
-            return;
-        }
-
-        if (change.key === 'libraryTabs' || change.key === 'aggressivePreload' || change.key === 'pastItemsWindow') {
-            epgCoordinator.clearScheduleCaches();
-            epg.clearSchedules();
-        }
-
-        epgCoordinator.primeEpgChannels();
-        if (
-            change.key === 'libraryTabs' ||
-            change.key === 'guideDensity' ||
-            change.key === 'aggressivePreload' ||
-            change.key === 'pastItemsWindow'
-        ) {
-            void epgCoordinator.refreshEpgSchedules({ reason: 'guide-settings' });
-        }
+        this._epgCoordinator?.handleGuideSettingChange(change);
     }
 
     /**

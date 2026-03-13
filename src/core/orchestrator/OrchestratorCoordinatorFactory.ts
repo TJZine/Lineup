@@ -209,6 +209,7 @@ export function createOrchestratorCoordinators(
         },
         epgPreferencesStore: deps.epgPreferencesStore,
     });
+    epgCoordinator.attachVisibleRangeRefreshPolicy(deps.config?.epgConfig ?? null);
 
     const channelSetup = new ChannelSetupCoordinator({
         plexLibrary: deps.plexLibrary,
