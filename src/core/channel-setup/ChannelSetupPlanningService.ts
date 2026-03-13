@@ -46,6 +46,7 @@ export interface ChannelSetupPlanningServiceDeps {
 
 export type ChannelSetupPlanBuildResult = {
     plan: ReturnType<typeof buildChannelSetupPlan> | null;
+    warnings: string[];
     canceled: boolean;
     lastTask?: ChannelBuildProgress['task'];
     errorsTotal: number;
@@ -111,7 +112,7 @@ export class ChannelSetupPlanningService {
         if (planResult.canceled || !planResult.plan) {
             return {
                 estimates: this._emptyEstimates(),
-                warnings: [],
+                warnings: [...planResult.warnings],
                 reachedMaxChannels: false,
             };
         }
@@ -131,7 +132,11 @@ export class ChannelSetupPlanningService {
         const planResult = await this.buildSetupPlan(normalizedConfig, libraries, options?.signal ?? null);
         if (planResult.canceled || !planResult.plan) {
             return {
-                preview: { estimates: this._emptyEstimates(), warnings: [], reachedMaxChannels: false },
+                preview: {
+                    estimates: this._emptyEstimates(),
+                    warnings: [...planResult.warnings],
+                    reachedMaxChannels: false,
+                },
                 diff: { summary: { created: 0, removed: 0, unchanged: 0 }, samples: { created: [], removed: [], unchanged: [] } },
             };
         }
@@ -175,6 +180,16 @@ export class ChannelSetupPlanningService {
         const scanItemsByLibraryId = new Map<string, PlexMediaItem[]>();
         const actorsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
         const studiosByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
+        const collectWarnings = (): string[] => Array.from(warnings);
+        const addPartialWarning = (
+            task: ChannelBuildProgress['task'],
+            detail: string,
+            error: unknown
+        ): void => {
+            const summary = summarizeErrorForLog(error);
+            const message = summary.message ?? (summary.code !== undefined ? String(summary.code) : 'unknown error');
+            warnings.add(`Partial setup plan (${task}): ${detail} (${message})`);
+        };
 
         if (config.strategyConfig.playlists.enabled) {
             reportProgress?.('fetch_playlists', 'Fetching playlists...', 'Scanning server', 0, null);
@@ -185,9 +200,19 @@ export class ChannelSetupPlanningService {
                 playlists.push(...fetched);
             } catch (e) {
                 if (isAbortLike(e, signal ?? undefined)) {
-                    return { plan: null, canceled: true, lastTask: 'fetch_playlists', errorsTotal, playlistMs, collectionsMs, libraryQueryMs };
+                    return {
+                        plan: null,
+                        warnings: collectWarnings(),
+                        canceled: true,
+                        lastTask: 'fetch_playlists',
+                        errorsTotal,
+                        playlistMs,
+                        collectionsMs,
+                        libraryQueryMs,
+                    };
                 }
                 console.warn('Failed to fetch playlists:', summarizeErrorForLog(e));
+                addPartialWarning('fetch_playlists', 'fetch_playlists failed', e);
                 errorsTotal++;
             }
         }
@@ -198,7 +223,16 @@ export class ChannelSetupPlanningService {
             const library = selectedLibraries[libIndex];
             if (!library) continue;
             if (checkCanceled()) {
-                return { plan: null, canceled: true, lastTask: 'scan_library_items', errorsTotal, playlistMs, collectionsMs, libraryQueryMs };
+                return {
+                    plan: null,
+                    warnings: collectWarnings(),
+                    canceled: true,
+                    lastTask: 'scan_library_items',
+                    errorsTotal,
+                    playlistMs,
+                    collectionsMs,
+                    libraryQueryMs,
+                };
             }
 
             if (config.strategyConfig.collections.enabled) {
@@ -210,9 +244,19 @@ export class ChannelSetupPlanningService {
                     collectionsByLibraryId.set(library.id, collections);
                 } catch (e) {
                     if (isAbortLike(e, signal ?? undefined)) {
-                        return { plan: null, canceled: true, lastTask: 'fetch_collections', errorsTotal, playlistMs, collectionsMs, libraryQueryMs };
+                        return {
+                            plan: null,
+                            warnings: collectWarnings(),
+                            canceled: true,
+                            lastTask: 'fetch_collections',
+                            errorsTotal,
+                            playlistMs,
+                            collectionsMs,
+                            libraryQueryMs,
+                        };
                     }
                     console.warn(`Failed to fetch collections for library ${library.title}:`, summarizeErrorForLog(e));
+                    addPartialWarning('fetch_collections', `fetch_collections failed for ${library.title}`, e);
                     errorsTotal++;
                     collectionsByLibraryId.set(library.id, []);
                 }
@@ -265,9 +309,19 @@ export class ChannelSetupPlanningService {
                     scanItemsByLibraryId.set(library.id, scanItems);
                 } catch (e) {
                     if (isAbortLike(e, signal ?? undefined)) {
-                        return { plan: null, canceled: true, lastTask: 'scan_library_items', errorsTotal, playlistMs, collectionsMs, libraryQueryMs };
+                        return {
+                            plan: null,
+                            warnings: collectWarnings(),
+                            canceled: true,
+                            lastTask: 'scan_library_items',
+                            errorsTotal,
+                            playlistMs,
+                            collectionsMs,
+                            libraryQueryMs,
+                        };
                     }
                     console.warn(`Failed to scan items for ${library.title}:`, summarizeErrorForLog(e));
+                    addPartialWarning('scan_library_items', `scan_library_items failed for ${library.title}`, e);
                     errorsTotal++;
                 }
             }
@@ -287,9 +341,19 @@ export class ChannelSetupPlanningService {
                     studiosByLibraryId.set(library.id, studios);
                 } catch (e) {
                     if (isAbortLike(e, signal ?? undefined)) {
-                        return { plan: null, canceled: true, lastTask: 'scan_library_items', errorsTotal, playlistMs, collectionsMs, libraryQueryMs };
+                        return {
+                            plan: null,
+                            warnings: collectWarnings(),
+                            canceled: true,
+                            lastTask: 'scan_library_items',
+                            errorsTotal,
+                            playlistMs,
+                            collectionsMs,
+                            libraryQueryMs,
+                        };
                     }
                     console.warn(`Failed to fetch studios for ${library.title}:`, summarizeErrorForLog(e));
+                    addPartialWarning('scan_library_items', `fetch_studios failed for ${library.title}`, e);
                     errorsTotal++;
                 }
             }
@@ -309,9 +373,19 @@ export class ChannelSetupPlanningService {
                     actorsByLibraryId.set(library.id, actors);
                 } catch (e) {
                     if (isAbortLike(e, signal ?? undefined)) {
-                        return { plan: null, canceled: true, lastTask: 'scan_library_items', errorsTotal, playlistMs, collectionsMs, libraryQueryMs };
+                        return {
+                            plan: null,
+                            warnings: collectWarnings(),
+                            canceled: true,
+                            lastTask: 'scan_library_items',
+                            errorsTotal,
+                            playlistMs,
+                            collectionsMs,
+                            libraryQueryMs,
+                        };
                     }
                     console.warn(`Failed to fetch actors for ${library.title}:`, summarizeErrorForLog(e));
+                    addPartialWarning('scan_library_items', `fetch_actors failed for ${library.title}`, e);
                     errorsTotal++;
                 }
             }
@@ -330,7 +404,15 @@ export class ChannelSetupPlanningService {
             seedFor: (value: string): number => this._hashSeed(value),
         });
 
-        return { plan, canceled: false, errorsTotal, playlistMs, collectionsMs, libraryQueryMs };
+        return {
+            plan,
+            warnings: collectWarnings(),
+            canceled: false,
+            errorsTotal,
+            playlistMs,
+            collectionsMs,
+            libraryQueryMs,
+        };
     }
 
     getPendingChannelsForMode(

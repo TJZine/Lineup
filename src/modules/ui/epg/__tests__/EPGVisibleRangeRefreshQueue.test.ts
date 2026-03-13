@@ -60,4 +60,45 @@ describe('EPGVisibleRangeRefreshQueue', () => {
 
         await Promise.all([immediate, debounced, secondDebounced]);
     });
+
+    it('awaits the immediate refresh when a debounced refresh is already in flight', async () => {
+        jest.useFakeTimers();
+        const deferred = (): { promise: Promise<void>; resolve: () => void } => {
+            let resolve!: () => void;
+            const promise = new Promise<void>((innerResolve) => {
+                resolve = innerResolve;
+            });
+            return { promise, resolve };
+        };
+        const debouncedRefresh = deferred();
+        const immediateRefresh = deferred();
+        const refreshFn = jest
+            .fn()
+            .mockImplementationOnce(() => debouncedRefresh.promise)
+            .mockImplementationOnce(() => immediateRefresh.promise);
+
+        const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
+
+        const debounced = queue.request(range(1), { debounceMs: 50, reason: 'visible-range' });
+        jest.advanceTimersByTime(50);
+        await Promise.resolve();
+
+        const immediate = queue.request(range(2), { debounceMs: 0, reason: 'manual' });
+        expect(immediate).not.toBe(debounced);
+        expect(refreshFn).toHaveBeenNthCalledWith(1, range(1), 'visible-range');
+        expect(refreshFn).toHaveBeenNthCalledWith(2, range(2), 'manual');
+
+        let immediateSettled = false;
+        void immediate.then(() => {
+            immediateSettled = true;
+        });
+
+        debouncedRefresh.resolve();
+        await Promise.resolve();
+        expect(immediateSettled).toBe(false);
+
+        immediateRefresh.resolve();
+        await expect(immediate).resolves.toBeUndefined();
+        await expect(debounced).resolves.toBeUndefined();
+    });
 });

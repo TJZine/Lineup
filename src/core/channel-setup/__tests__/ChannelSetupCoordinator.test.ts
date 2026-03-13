@@ -4,15 +4,18 @@
 
 import { ChannelSetupCoordinator } from '../ChannelSetupCoordinator';
 import type { ChannelSetupCoordinatorDeps } from '../ChannelSetupCoordinator';
+import { ChannelSetupPlanningService } from '../ChannelSetupPlanningService';
 import type { ChannelSetupConfig, ChannelSetupRecord, SetupStrategyConfig, SetupStrategyKey } from '../types';
 import type { IPlexLibrary, PlexLibraryType, PlexMediaItem } from '../../../modules/plex/library';
 import type { IChannelManager, ChannelConfig } from '../../../modules/scheduler/channel-manager';
 import type { INavigationManager } from '../../../modules/navigation';
 import { DEFAULT_STRATEGY_PRIORITIES, MIXED_SCOPE_STRATEGY_KEYS, SETUP_STRATEGY_KEYS } from '../constants';
+import { MAX_CHANNEL_NUMBER } from '../../../modules/scheduler/channel-manager/constants';
 
 const mockBuilder = {
     createChannel: jest.fn(),
     getAllChannels: jest.fn(),
+    dispose: jest.fn(),
 };
 
 jest.mock('../../../modules/scheduler/channel-manager', () => ({
@@ -176,6 +179,7 @@ describe('ChannelSetupCoordinator', () => {
             return channel;
         });
         mockBuilder.getAllChannels.mockImplementation(() => builtChannels);
+        mockBuilder.dispose.mockReset();
     });
 
     it('shouldRunChannelSetup returns false without server id', () => {
@@ -557,6 +561,50 @@ describe('ChannelSetupCoordinator', () => {
         expect(replaceArgs?.[1]?.number).toBe(2);
     });
 
+    it('counts cap-truncated pending channels as skipped in append mode', async () => {
+        const { coordinator, plexLibrary, channelManager } = createCoordinator();
+        plexLibrary.getLibraries.mockResolvedValue([] as PlexLibraryType[]);
+        plexLibrary.getPlaylists.mockResolvedValue([
+            { ratingKey: 'pl1', key: '/playlists/pl1', title: 'Favorites', thumb: null, duration: 0, leafCount: 10 },
+        ]);
+        channelManager.getAllChannels.mockReturnValue(
+            Array.from({ length: MAX_CHANNEL_NUMBER }, (_, index) => ({
+                ...mockChannelConfig,
+                id: `existing-${index + 1}`,
+                number: index + 1,
+                name: `Existing ${index + 1}`,
+            }))
+        );
+
+        const summary = await coordinator.createChannelsFromSetup(createConfig({
+            buildMode: 'append',
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
+        }));
+
+        expect(summary.created).toBe(0);
+        expect(summary.skipped).toBe(1);
+        expect(summary.reachedMaxChannels).toBe(true);
+    });
+
+    it('disposes the temporary builder before removing temp storage keys', async () => {
+        const { coordinator, plexLibrary, storageRemove } = createCoordinator();
+        plexLibrary.getLibraries.mockResolvedValue([] as PlexLibraryType[]);
+        plexLibrary.getPlaylists.mockResolvedValue([
+            { ratingKey: 'pl1', key: '/playlists/pl1', title: 'Favorites', thumb: null, duration: 0, leafCount: 10 },
+        ]);
+
+        await coordinator.createChannelsFromSetup(createConfig({
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
+        }));
+
+        expect(mockBuilder.dispose).toHaveBeenCalledTimes(1);
+        const disposeOrder = mockBuilder.dispose.mock.invocationCallOrder[0];
+        const firstRemoveOrder = storageRemove.mock.invocationCallOrder[0];
+        expect(firstRemoveOrder).toBeDefined();
+        expect(disposeOrder).toBeDefined();
+        expect(disposeOrder as number).toBeLessThan(firstRemoveOrder as number);
+    });
+
     it('merge mode updates auto-generated names and preserves ids', async () => {
         const { coordinator, plexLibrary, channelManager } = createCoordinator();
         plexLibrary.getLibraries.mockResolvedValue([] as PlexLibraryType[]);
@@ -888,5 +936,79 @@ describe('ChannelSetupCoordinator', () => {
         expect(genreChannels[0]?.name).toBe('Action');
         expect(genreChannels[0]?.contentSource.type).toBe('mixed');
         expect((genreChannels[0]?.contentSource as { mixMode?: string }).mixMode).toBe('interleave');
+    });
+
+    it('surfaces playlist fetch failures as preview warnings', async () => {
+        const { coordinator, plexLibrary } = createCoordinator();
+        plexLibrary.getPlaylists.mockRejectedValue({
+            name: 'Error',
+            code: 'NETWORK_TIMEOUT',
+            message: 'playlist fetch failed',
+        });
+
+        const preview = await coordinator.getSetupPreview(createConfig({
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
+        }));
+
+        expect(preview.warnings).toEqual(
+            expect.arrayContaining([
+                expect.stringContaining('fetch_playlists'),
+                expect.stringContaining('playlist fetch failed'),
+            ])
+        );
+    });
+
+    it('surfaces scan failures as review warnings', async () => {
+        const { coordinator, plexLibrary } = createCoordinator();
+        plexLibrary.getLibraries.mockResolvedValue([
+            { id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 },
+        ] as PlexLibraryType[]);
+        plexLibrary.getLibraryItems.mockRejectedValue({
+            name: 'Error',
+            code: 'SERVER_ERROR',
+            message: 'scan failed',
+        });
+
+        const review = await coordinator.getSetupReview(createConfig({
+            selectedLibraryIds: ['m1'],
+            strategyConfig: createStrategyConfig({ genres: { enabled: true } }),
+            minItemsPerChannel: 1,
+        }));
+
+        expect(review.preview.warnings).toEqual(
+            expect.arrayContaining([
+                expect.stringContaining('scan_library_items'),
+                expect.stringContaining('scan failed'),
+            ])
+        );
+    });
+
+    it('buildSetupPlan returns explicit warnings alongside partial plan results', async () => {
+        const { plexLibrary, channelManager } = createCoordinator();
+        const planningService = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        plexLibrary.getPlaylists.mockRejectedValue({
+            name: 'Error',
+            code: 'NETWORK_TIMEOUT',
+            message: 'playlist fetch failed',
+        });
+
+        const result = await planningService.buildSetupPlan(
+            planningService.normalizeConfig(createConfig({
+                strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
+            })),
+            [],
+            null
+        );
+        const resultWithWarnings = result as typeof result & { warnings?: string[] };
+
+        expect(result.canceled).toBe(false);
+        expect(result.plan).not.toBeNull();
+        expect(resultWithWarnings.warnings).toEqual(
+            expect.arrayContaining([
+                expect.stringContaining('fetch_playlists'),
+                expect.stringContaining('playlist fetch failed'),
+            ])
+        );
+        expect(result.plan?.warnings).toEqual(expect.arrayContaining(resultWithWarnings.warnings ?? []));
     });
 });

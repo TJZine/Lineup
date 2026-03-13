@@ -128,6 +128,9 @@ export class ChannelSetupBuildExecutor {
             const maxCreates = buildMode === 'replace'
                 ? pendingToCreate.length
                 : Math.min(pendingToCreate.length, availableNumbers.length);
+            const cappedSkippedCount = Math.max(0, pendingToCreate.length - maxCreates);
+
+            finalSummary.skipped = skippedCount + cappedSkippedCount;
 
             for (const p of pendingToCreate) {
                 pIndex++;
@@ -220,6 +223,7 @@ export class ChannelSetupBuildExecutor {
             console.error('[ChannelSetup] Channel build failed:', summarizeErrorForLog(e));
             throw e;
         } finally {
+            builder.dispose();
             this._deps.storageRemove(tempKey);
             this._deps.storageRemove(tempCurrentKey);
         }
