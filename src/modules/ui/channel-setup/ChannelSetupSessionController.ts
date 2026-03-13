@@ -676,16 +676,18 @@ export class ChannelSetupSessionController {
         }
 
         this._previewAbortController?.abort();
-        this._previewAbortController = new AbortController();
+        const previewAbortController = new AbortController();
+        this._previewAbortController = previewAbortController;
         this._isPreviewLoading = true;
         this._previewError = null;
         onStateChange();
 
         try {
             const preview = await this._sessionGateway.getSetupPreview(config, {
-                signal: this._previewAbortController.signal,
+                signal: previewAbortController.signal,
             });
             if (token !== this._sessionToken) return;
+            if (this._previewAbortController !== previewAbortController) return;
             const prevEstimates = this._preview?.estimates ?? null;
             this._preview = preview;
             this._lastPreviewKey = key;
@@ -696,14 +698,15 @@ export class ChannelSetupSessionController {
             }
         } catch (error) {
             if (token !== this._sessionToken) return;
-            if (isAbortLikeError(error, this._previewAbortController?.signal)) {
+            if (this._previewAbortController !== previewAbortController) return;
+            if (isAbortLikeError(error, previewAbortController.signal)) {
                 return;
             }
             this._previewError = error instanceof Error ? error.message : 'Unable to estimate channels.';
             this._preview = null;
             this._clearPreviewDeltas();
         } finally {
-            if (token === this._sessionToken) {
+            if (token === this._sessionToken && this._previewAbortController === previewAbortController) {
                 this._isPreviewLoading = false;
                 if (this._step === 2) {
                     onStateChange();

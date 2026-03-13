@@ -31,26 +31,29 @@ const createDeferred = <T>(): {
     return { promise, resolve, reject };
 };
 
-type OrchestratorOverrides = Partial<ChannelSetupSessionGateway>;
+type OrchestratorOverrides = Partial<jest.Mocked<ChannelSetupSessionGateway>>;
 
-const createOrchestrator = (overrides: OrchestratorOverrides = {}): jest.Mocked<ChannelSetupSessionGateway> => ({
-    getNavigation: jest.fn(() => null),
-    getLibrariesForSetup: jest.fn().mockResolvedValue([]),
-    getChannelSetupRecord: jest.fn(() => null),
-    getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
-    getSelectedServerStorageKey: jest.fn(() => 'selected-server-key'),
-    getServerHealthStorageKey: jest.fn(() => 'server-health-key'),
-    getSelectedServerId: jest.fn(() => null),
-    openServerSelect: jest.fn(),
-    switchToChannelByNumber: jest.fn(),
-    openEPG: jest.fn(),
-    requestChannelSetupRerun: jest.fn(),
-    createChannelsFromSetup: jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT),
-    markSetupComplete: jest.fn(),
-    getSetupPreview: jest.fn().mockResolvedValue(DEFAULT_PREVIEW),
-    getSetupReview: jest.fn().mockResolvedValue(DEFAULT_REVIEW),
-    ...overrides,
-} as unknown as jest.Mocked<ChannelSetupSessionGateway>);
+const createOrchestrator = (overrides: OrchestratorOverrides = {}): jest.Mocked<ChannelSetupSessionGateway> => {
+    const base: jest.Mocked<ChannelSetupSessionGateway> = {
+        getNavigation: jest.fn(() => null),
+        getLibrariesForSetup: jest.fn().mockResolvedValue([]),
+        getChannelSetupRecord: jest.fn((_serverId: string) => null),
+        getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
+        getSelectedServerStorageKey: jest.fn(() => 'selected-server-key'),
+        getServerHealthStorageKey: jest.fn(() => 'server-health-key'),
+        getSelectedServerId: jest.fn(() => null),
+        openServerSelect: jest.fn(),
+        switchToChannelByNumber: jest.fn((_number: number) => Promise.resolve()),
+        openEPG: jest.fn(),
+        requestChannelSetupRerun: jest.fn(),
+        createChannelsFromSetup: jest.fn((_config, _options) => Promise.resolve(DEFAULT_BUILD_RESULT)),
+        markSetupComplete: jest.fn((_serverId: string, _setupConfig) => {}),
+        getSetupPreview: jest.fn().mockResolvedValue(DEFAULT_PREVIEW),
+        getSetupReview: jest.fn().mockResolvedValue(DEFAULT_REVIEW),
+    };
+
+    return { ...base, ...overrides };
+};
 
 describe('ChannelSetupSessionController', () => {
     beforeEach(() => {
@@ -247,7 +250,7 @@ describe('ChannelSetupSessionController', () => {
 
         const orchestrator = createOrchestrator({
             getLibrariesForSetup: jest.fn().mockResolvedValue(libraries),
-            getChannelSetupRecord: jest.fn(() => record),
+            getChannelSetupRecord: jest.fn((_serverId: string) => record),
         });
 
         const controller = new ChannelSetupSessionController({
@@ -302,7 +305,7 @@ describe('ChannelSetupSessionController', () => {
 
         const orchestrator = createOrchestrator({
             getLibrariesForSetup: jest.fn().mockResolvedValue(libraries),
-            getChannelSetupRecord: jest.fn(() => unsafeRecord),
+            getChannelSetupRecord: jest.fn((_serverId: string) => unsafeRecord),
         });
 
         const controller = new ChannelSetupSessionController({
@@ -568,6 +571,52 @@ describe('ChannelSetupSessionController', () => {
         expect(controller.getSnapshot().previewDeltas).toEqual({});
     });
 
+    it('schedulePreview() stale completion does not clear newer preview loading state', async (): Promise<void> => {
+        const first = createDeferred<typeof DEFAULT_PREVIEW>();
+        const second = createDeferred<typeof DEFAULT_PREVIEW>();
+        const getSetupPreview = jest
+            .fn()
+            .mockImplementationOnce(() => first.promise)
+            .mockImplementationOnce(() => second.promise);
+
+        const orchestrator = createOrchestrator({
+            getSetupPreview,
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+        const controller = new ChannelSetupSessionController({
+            orchestrator,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        await controller.loadLibraries();
+        controller.setStep(2);
+
+        controller.schedulePreview(jest.fn());
+        jest.advanceTimersByTime(450);
+        await flushPromises();
+        expect(controller.getSnapshot().isPreviewLoading).toBe(true);
+
+        controller.updateStrategyState((draft) => {
+            draft.maxChannels = 300;
+        });
+        controller.schedulePreview(jest.fn());
+        jest.advanceTimersByTime(450);
+        await flushPromises();
+        expect(getSetupPreview).toHaveBeenCalledTimes(2);
+        expect(controller.getSnapshot().isPreviewLoading).toBe(true);
+
+        first.resolve(DEFAULT_PREVIEW);
+        await flushPromises();
+        expect(controller.getSnapshot().preview).toBeNull();
+        expect(controller.getSnapshot().isPreviewLoading).toBe(true);
+
+        second.resolve(DEFAULT_PREVIEW);
+        await flushPromises();
+        expect(controller.getSnapshot().preview).toEqual(DEFAULT_PREVIEW);
+        expect(controller.getSnapshot().isPreviewLoading).toBe(false);
+    });
+
     it('ensureReviewLoaded() handles success, failure, and abort-like interruption', async (): Promise<void> => {
         const getSetupReview = jest
             .fn()
@@ -739,7 +788,7 @@ describe('ChannelSetupSessionController', () => {
 
     it('beginBuild() returns success and marks setup complete only on success', async (): Promise<void> => {
         const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
-        const markSetupComplete = jest.fn();
+        const markSetupComplete = jest.fn((_serverId: string, _setupConfig: ChannelSetupConfig) => {});
         const orchestrator = createOrchestrator({
             createChannelsFromSetup,
             markSetupComplete,
@@ -761,7 +810,7 @@ describe('ChannelSetupSessionController', () => {
 
     it('beginBuild() returns success with bookkeeping warning when markSetupComplete fails after successful build', async (): Promise<void> => {
         const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
-        const markSetupComplete = jest.fn(() => {
+        const markSetupComplete = jest.fn((_serverId: string, _setupConfig: ChannelSetupConfig) => {
             throw new Error('persist failed');
         });
         const orchestrator = createOrchestrator({
@@ -825,7 +874,7 @@ describe('ChannelSetupSessionController', () => {
 
     it('expand-lineup style state updates are preserved in build config and setup completion', async (): Promise<void> => {
         const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
-        const markSetupComplete = jest.fn();
+        const markSetupComplete = jest.fn((_serverId: string, _setupConfig: ChannelSetupConfig) => {});
         const orchestrator = createOrchestrator({
             createChannelsFromSetup,
             markSetupComplete,
