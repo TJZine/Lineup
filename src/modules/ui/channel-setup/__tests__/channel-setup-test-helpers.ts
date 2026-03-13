@@ -1,7 +1,7 @@
 import type { PlexLibrary as PlexLibraryModel } from '../../../plex/library/types';
 import type { FocusableElement, KeyEvent } from '../../../navigation/interfaces';
 import { PLEX_DISCOVERY_CONSTANTS } from '../../../plex/discovery/constants';
-import type { ChannelSetupOrchestrator } from '../ChannelSetupScreen';
+import type { ChannelSetupSessionGateway } from '../../../../core/channel-setup/ChannelSetupSessionGateway';
 
 type Focusable = Pick<FocusableElement, 'id' | 'neighbors'>;
 
@@ -125,8 +125,8 @@ export const createNavigationMock = (): NavigationMock => {
 };
 
 export const createOrchestrator = (
-    overrides: Partial<ChannelSetupOrchestrator> = {}
-): ChannelSetupOrchestrator => ({
+    overrides: Partial<ChannelSetupSessionGateway> = {}
+): ChannelSetupSessionGateway => ({
     getNavigation: jest.fn(() => null),
     getLibrariesForSetup: jest.fn().mockResolvedValue([]),
     getChannelSetupRecord: jest.fn(() => null),
@@ -143,7 +143,7 @@ export const createOrchestrator = (
     getSetupPreview: jest.fn().mockResolvedValue(DEFAULT_PREVIEW),
     getSetupReview: jest.fn().mockResolvedValue(DEFAULT_REVIEW),
     ...overrides,
-} satisfies ChannelSetupOrchestrator);
+} satisfies ChannelSetupSessionGateway);
 
 // Intentionally button-only to enforce accessible remote-first UI semantics.
 export const clickButton = (container: HTMLElement, selector: string): void => {

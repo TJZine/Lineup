@@ -75,8 +75,6 @@ export type EstimateKey = keyof ChannelSetupPreview['estimates'];
 
 export type SetupStep = 1 | 2 | 3;
 
-export type ChannelSetupOrchestrator = ChannelSetupSessionGateway;
-
 export const strategySupportsMixedScope = (key: SetupStrategyKey): boolean =>
     MIXED_SCOPE_STRATEGY_KEYS.has(key);
 
@@ -148,7 +146,7 @@ export type ChannelSetupBuildOutcome =
         kind: 'success';
         serverId: string;
         config: ChannelSetupConfig;
-        result: Awaited<ReturnType<ChannelSetupOrchestrator['createChannelsFromSetup']>>;
+        result: Awaited<ReturnType<ChannelSetupSessionGateway['createChannelsFromSetup']>>;
         bookkeepingError?: string;
     };
 
@@ -194,7 +192,7 @@ const cloneReview = (review: ChannelSetupReview | null): ChannelSetupReview | nu
 };
 
 export class ChannelSetupSessionController {
-    private readonly _orchestrator: ChannelSetupOrchestrator;
+    private readonly _sessionGateway: ChannelSetupSessionGateway;
     private readonly _getSelectedServerId: () => string | null;
 
     private _step: SetupStep = 1;
@@ -237,10 +235,10 @@ export class ChannelSetupSessionController {
     private _sessionToken = 0;
 
     constructor(deps: {
-        orchestrator: ChannelSetupOrchestrator;
+        orchestrator: ChannelSetupSessionGateway;
         getSelectedServerId: () => string | null;
     }) {
-        this._orchestrator = deps.orchestrator;
+        this._sessionGateway = deps.orchestrator;
         this._getSelectedServerId = deps.getSelectedServerId;
     }
 
@@ -296,14 +294,14 @@ export class ChannelSetupSessionController {
         this._loadError = null;
 
         try {
-            const libraries = await this._orchestrator.getLibrariesForSetup();
+            const libraries = await this._sessionGateway.getLibrariesForSetup();
             if (token !== this._sessionToken) {
                 return;
             }
 
             this._libraries = libraries;
             const serverId = this._getSelectedServerId();
-            const record = serverId ? this._orchestrator.getChannelSetupRecord(serverId) : null;
+            const record = serverId ? this._sessionGateway.getChannelSetupRecord(serverId) : null;
             if (record) {
                 this._applySetupRecord(record);
             } else {
@@ -330,7 +328,7 @@ export class ChannelSetupSessionController {
 
     syncSetupContext(): void {
         try {
-            const context = this._orchestrator.getSetupContextForSelectedServer();
+            const context = this._sessionGateway.getSetupContextForSelectedServer();
             if (context === 'first-time' || context === 'existing' || context === 'unknown') {
                 this._setupContext = context;
                 return;
@@ -528,7 +526,7 @@ export class ChannelSetupSessionController {
 
         try {
             if (shouldFetchReview()) {
-                const review = await this._orchestrator.getSetupReview(this.buildConfig(serverId), {
+                const review = await this._sessionGateway.getSetupReview(this.buildConfig(serverId), {
                     signal: reviewAbortController.signal,
                 });
                 if (token !== this._sessionToken) return;
@@ -580,7 +578,7 @@ export class ChannelSetupSessionController {
         const config = this.buildConfig(serverId);
 
         try {
-            const result = await this._orchestrator.createChannelsFromSetup(config, {
+            const result = await this._sessionGateway.createChannelsFromSetup(config, {
                 signal: buildAbortController.signal,
                 onProgress: options.onProgress,
             });
@@ -595,7 +593,7 @@ export class ChannelSetupSessionController {
 
             let bookkeepingError: string | undefined;
             try {
-                this._orchestrator.markSetupComplete(serverId, config);
+                this._sessionGateway.markSetupComplete(serverId, config);
             } catch (error) {
                 if (isAbortLikeError(error, buildAbortController.signal)) {
                     return { kind: 'canceled' };
@@ -671,7 +669,7 @@ export class ChannelSetupSessionController {
         onStateChange();
 
         try {
-            const preview = await this._orchestrator.getSetupPreview(config, {
+            const preview = await this._sessionGateway.getSetupPreview(config, {
                 signal: this._previewAbortController.signal,
             });
             if (token !== this._sessionToken) return;

@@ -381,14 +381,17 @@ export class AppOrchestrator implements IAppOrchestrator {
             },
         };
         this._channelSetupSessionGateway = createChannelSetupSessionGateway({
-            getNavigation: (): INavigationManager | null => this.getNavigation(),
-            getSelectedServerStorageKey: (): string => this.getSelectedServerStorageKey(),
-            getServerHealthStorageKey: (): string => this.getServerHealthStorageKey(),
-            getSelectedServerId: (): string | null => this.getSelectedServerId(),
-            openServerSelect: (): void => this.openServerSelect(),
+            getNavigation: (): INavigationManager | null => this._navigation,
+            getSelectedServerStorageKey: (): string => this._storageContext.getSelectedServerStorageKey(),
+            getServerHealthStorageKey: (): string => this._storageContext.getServerHealthStorageKey(),
+            getSelectedServerId: (): string | null => this._getSelectedServerId(),
+            openServerSelect: (): void => {
+                this._navigation?.goTo('server-select', { allowAutoConnect: false });
+            },
             switchToChannelByNumber: (number: number, options?: { signal?: AbortSignal }): Promise<void> =>
-                this.switchToChannelByNumber(number, options),
-            openEPG: (): void => this.openEPG(),
+                this._channelTuning?.switchToChannelByNumber(number, options).then((): void => undefined)
+                ?? Promise.resolve(),
+            openEPG: (): void => this._epgCoordinator?.openEPG(),
             getChannelSetupCoordinator: (): ChannelSetupCoordinator | null => this._channelSetup,
         });
         this._initializeModuleStatus();

@@ -33,13 +33,11 @@ import {
 import { scrollToNearest } from './focus/scrollToNearest';
 import {
     ChannelSetupSessionController,
-    type ChannelSetupOrchestrator,
     type EstimateKey,
     type StrategyStepMutableState,
     strategySupportsMixedScope,
 } from './ChannelSetupSessionController';
-
-export type { ChannelSetupOrchestrator } from './ChannelSetupSessionController';
+import type { ChannelSetupSessionGateway } from '../../../core/channel-setup/ChannelSetupSessionGateway';
 
 const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
 
@@ -64,7 +62,7 @@ const SHOW_SVG = `
 
 export class ChannelSetupScreen {
     private _container: HTMLElement;
-    private _orchestrator: ChannelSetupOrchestrator;
+    private _sessionGateway: ChannelSetupSessionGateway;
     private readonly _serverSelectionStore: ServerSelectionStore;
     private readonly _focus: ChannelSetupFocusCoordinator;
     private _destroyScreenShell: (() => void) | null = null;
@@ -160,18 +158,18 @@ export class ChannelSetupScreen {
         }
     }
 
-    constructor(container: HTMLElement, sessionGateway: ChannelSetupOrchestrator) {
+    constructor(container: HTMLElement, sessionGateway: ChannelSetupSessionGateway) {
         this._container = container;
-        this._orchestrator = sessionGateway;
+        this._sessionGateway = sessionGateway;
         this._serverSelectionStore = new ServerSelectionStore(() => ({
-            selectedServerKey: this._orchestrator.getSelectedServerStorageKey(),
-            serverHealthKey: this._orchestrator.getServerHealthStorageKey(),
+            selectedServerKey: this._sessionGateway.getSelectedServerStorageKey(),
+            serverHealthKey: this._sessionGateway.getServerHealthStorageKey(),
         }));
         this._focus = new ChannelSetupFocusCoordinator({
-            getNavigation: (): ReturnType<ChannelSetupOrchestrator['getNavigation']> => this._orchestrator.getNavigation(),
+            getNavigation: (): ReturnType<ChannelSetupSessionGateway['getNavigation']> => this._sessionGateway.getNavigation(),
         });
         this._session = new ChannelSetupSessionController({
-            orchestrator: this._orchestrator,
+            orchestrator: this._sessionGateway,
             getSelectedServerId: (): string | null => this._getSelectedServerId(),
         });
 
@@ -226,7 +224,7 @@ export class ChannelSetupScreen {
         const token = this._visibilityToken;
         this._container.style.display = 'flex';
         this._container.classList.add('visible');
-        const nav = this._orchestrator.getNavigation();
+        const nav = this._sessionGateway.getNavigation();
         if (nav && !this._navKeyHandler) {
             this._navKeyHandler = (event: KeyEvent): void => {
                 const session = this._session.getSnapshot();
@@ -384,7 +382,7 @@ export class ChannelSetupScreen {
         this._visibilityToken += 1;
         this._session.endSession();
         if (this._navKeyHandler) {
-            const nav = this._orchestrator.getNavigation();
+            const nav = this._sessionGateway.getNavigation();
             nav?.off('keyPress', this._navKeyHandler);
             this._navKeyHandler = null;
         }
@@ -395,7 +393,7 @@ export class ChannelSetupScreen {
 
     private _renderStep(): void {
         const token = this._visibilityToken;
-        const nav = this._orchestrator.getNavigation();
+        const nav = this._sessionGateway.getNavigation();
         const focusedId = nav?.getFocusedElement()?.id ?? null;
         if (focusedId && this._preferredFocusId === null) {
             this._preferredFocusId = focusedId;
@@ -467,7 +465,7 @@ export class ChannelSetupScreen {
                 this._renderStep();
             },
             onBack: () => {
-                this._orchestrator.openServerSelect();
+                this._sessionGateway.openServerSelect();
             },
             onNext: () => {
                 this._session.setStep(2);
@@ -491,7 +489,7 @@ export class ChannelSetupScreen {
         clearAllButton: HTMLButtonElement,
         listButtons: HTMLButtonElement[]
     ): void {
-        const nav = this._orchestrator.getNavigation();
+        const nav = this._sessionGateway.getNavigation();
         if (!nav) {
             return;
         }
@@ -881,12 +879,12 @@ export class ChannelSetupScreen {
                 this._renderStep();
             },
             onDone: () => {
-                const nav = this._orchestrator.getNavigation();
+                const nav = this._sessionGateway.getNavigation();
                 if (nav) {
                     nav.replaceScreen('player');
                 }
-                this._orchestrator.switchToChannelByNumber(1)
-                    .then(() => this._orchestrator.openEPG())
+                this._sessionGateway.switchToChannelByNumber(1)
+                    .then(() => this._sessionGateway.openEPG())
                     .catch((error: unknown) => {
                         if (isAbortLikeError(error)) return;
                         console.error('[ChannelSetup] Switch to channel 1 failed:', summarizeErrorForLog(error));
@@ -1007,7 +1005,7 @@ export class ChannelSetupScreen {
             this._preferredFocusId = null;
         }
 
-        const nav = this._orchestrator.getNavigation();
+        const nav = this._sessionGateway.getNavigation();
         if (nav && !doneButton.disabled) {
             nav.setFocus(doneButton.id);
         } else {
@@ -1047,6 +1045,6 @@ export class ChannelSetupScreen {
         if (stored) {
             return stored;
         }
-        return this._orchestrator.getSelectedServerId();
+        return this._sessionGateway.getSelectedServerId();
     }
 }

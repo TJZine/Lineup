@@ -1,11 +1,11 @@
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
 import { DEFAULT_MIN_ITEMS_PER_CHANNEL } from '../../../../core/channel-setup/constants';
-import type { ChannelSetupConfig, ChannelSetupRecord } from '../../../../Orchestrator';
+import type { ChannelSetupConfig, ChannelSetupRecord } from '../../../../core/channel-setup/types';
+import type { ChannelSetupSessionGateway } from '../../../../core/channel-setup/ChannelSetupSessionGateway';
 import type { PlexLibrary as PlexLibraryModel } from '../../../plex/library/types';
 import {
     ChannelSetupSessionController,
     type ChannelSetupBuildOutcome,
-    type ChannelSetupOrchestrator,
 } from '../ChannelSetupSessionController';
 import { DEFAULT_BUILD_RESULT, DEFAULT_PREVIEW, DEFAULT_REVIEW, makeLibrary } from './channel-setup-test-helpers';
 
@@ -31,9 +31,9 @@ const createDeferred = <T>(): {
     return { promise, resolve, reject };
 };
 
-type OrchestratorOverrides = Partial<ChannelSetupOrchestrator>;
+type OrchestratorOverrides = Partial<ChannelSetupSessionGateway>;
 
-const createOrchestrator = (overrides: OrchestratorOverrides = {}): jest.Mocked<ChannelSetupOrchestrator> => ({
+const createOrchestrator = (overrides: OrchestratorOverrides = {}): jest.Mocked<ChannelSetupSessionGateway> => ({
     getNavigation: jest.fn(() => null),
     getLibrariesForSetup: jest.fn().mockResolvedValue([]),
     getChannelSetupRecord: jest.fn(() => null),
@@ -50,7 +50,7 @@ const createOrchestrator = (overrides: OrchestratorOverrides = {}): jest.Mocked<
     getSetupPreview: jest.fn().mockResolvedValue(DEFAULT_PREVIEW),
     getSetupReview: jest.fn().mockResolvedValue(DEFAULT_REVIEW),
     ...overrides,
-} as unknown as jest.Mocked<ChannelSetupOrchestrator>);
+} as unknown as jest.Mocked<ChannelSetupSessionGateway>);
 
 describe('ChannelSetupSessionController', () => {
     beforeEach(() => {
@@ -404,7 +404,7 @@ describe('ChannelSetupSessionController', () => {
 
     it('syncSetupContext() preserves first-time/existing/unknown and falls back to unknown', (): void => {
         const getSetupContextForSelectedServer = jest
-            .fn<ReturnType<ChannelSetupOrchestrator['getSetupContextForSelectedServer']>, []>()
+            .fn<ReturnType<ChannelSetupSessionGateway['getSetupContextForSelectedServer']>, []>()
             .mockReturnValueOnce('first-time')
             .mockReturnValueOnce('existing')
             .mockReturnValueOnce('unknown')
