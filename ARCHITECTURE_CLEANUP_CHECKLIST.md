@@ -530,7 +530,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - verification gate status (2026-03-13):
         - `npm run verify:docs` -> `PASS` (warnings for pre-existing untracked checklist plan-path references)
         - `npm run verify` -> `PASS`
-  - [ ] `P4-W7` retire remaining navigation/container-id drift inherited from `P4-EXIT`
+  - [x] `P4-W7` retire remaining navigation/container-id drift inherited from `P4-EXIT` (done 2026-03-13; plan: `docs/plans/2026-03-13-p4-w7-navigation-container-id-closeout.md`)
     - Inherited follow-ups:
       - source: `P4-EXIT`
       - issue id(s): `review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f`, `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23`
@@ -541,6 +541,38 @@ Do not close a listed work unit while its mapped imported issue still remains un
         - `desloppify show review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f --no-budget`
         - `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23 --no-budget`
         - `npm run verify`
+    - implementation evidence:
+      - extracted key-routing ownership from `NavigationManager` into `src/modules/navigation/NavigationRemoteInputRouter.ts`
+      - split timing ownership into `src/modules/navigation/NavigationDirectionalRepeatController.ts` and `src/modules/navigation/NavigationChannelNumberInputController.ts`
+      - wired `NavigationManager` directly to `NavigationRemoteInputRouter`, `NavigationDirectionalRepeatController`, and `NavigationChannelNumberInputController` (no extra low-level facade owner)
+      - deleted `src/modules/navigation/NavigationInputTimingController.ts` and `src/modules/navigation/__tests__/NavigationInputTimingController.test.ts`
+      - added focused navigation tests:
+        - `src/modules/navigation/__tests__/NavigationRemoteInputRouter.test.ts`
+        - `src/modules/navigation/__tests__/NavigationDirectionalRepeatController.test.ts`
+        - `src/modules/navigation/__tests__/NavigationChannelNumberInputController.test.ts`
+      - added `NavigationManager` regression coverage for yellow-button settings emission at the navigation layer
+      - centralized app-shell container-id ownership to `src/modules/ui/common/appShellContainerIds.ts` and rewired:
+        - `src/core/app-shell/AppContainerFactory.ts`
+        - `src/App.ts`
+        - `src/modules/ui/now-playing-info/constants.ts`
+        - `src/modules/ui/playback-options/constants.ts`
+        - `src/__tests__/fixtures/appShellContainerIds.ts`
+    - verification evidence (2026-03-13):
+      - `npm run typecheck` -> `PASS`
+      - `npm test -- src/modules/navigation/__tests__/NavigationRemoteInputRouter.test.ts src/modules/navigation/__tests__/NavigationDirectionalRepeatController.test.ts src/modules/navigation/__tests__/NavigationChannelNumberInputController.test.ts src/modules/navigation/__tests__/NavigationManager.test.ts src/modules/navigation/__tests__/NavigationCoordinator.test.ts src/core/app-shell/__tests__/AppContainerFactory.test.ts src/__tests__/App.test.ts` -> `PASS`
+      - `npm run verify` -> `PASS` (includes `typecheck`, `lint`, `lint:css`, `test:all`, `verify:docs`, `build`)
+      - `desloppify plan reopen review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `Reopened 2 issue(s).`
+      - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"` -> `PASS`
+      - `desloppify show review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f --no-budget` -> `1 open issues matching ...` (post-reopen baseline)
+      - `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23 --no-budget` -> `1 open issues matching ...` (post-reopen baseline)
+      - `desloppify review --run-batches --runner codex --parallel --dimensions design_coherence,convention_outlier --force-review-rerun --scan-after-import` -> `completed batches; import blocked for partial-dimension coverage`
+      - `desloppify review --import-run /Users/tristan/Software/Lineup/.desloppify/subagents/runs/20260313_093821 --allow-partial --scan-after-import` -> `imported 2 dimensions; +7 new issues, 62 resolved`
+      - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"` -> `PASS` (post-review refresh)
+      - `desloppify show review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f --no-budget` -> `No open issues matching ...`
+      - `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23 --no-budget` -> `No open issues matching ...`
+    - final disposition:
+      - `review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f` -> `resolved`
+      - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `resolved`
   - [ ] `P4-W8` retire remaining top-level orchestrator/EPG ownership blur inherited from `P4-W6`
     - Inherited follow-ups:
       - source: `P4-W6`
@@ -606,14 +638,10 @@ Do not close a listed work unit while its mapped imported issue still remains un
         - reason: targeted refresh still reports one open issue spanning `src/Orchestrator.ts`, `src/modules/ui/channel-setup/ChannelSetupSessionController.ts`, and `src/core/channel-setup/ChannelSetupCoordinator.ts`; the remaining work is a top-level ownership/abstraction fit seam rather than a general P5 trust-boundary task.
         - owner: `P4-W8`
         - revisit trigger: before marking `P4-W8` complete, rerun `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b --no-budget` and require `No open issues matching`.
-      - `review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f` -> `split follow-up`
-        - reason: targeted refresh still reports one open issue in `src/modules/navigation/NavigationManager.ts`; it remains an unresolved Priority 4 navigation decomposition seam.
-        - owner: `P4-W7`
-        - revisit trigger: before marking `P4-W7` complete, rerun `desloppify show review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f --no-budget`.
-      - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `split follow-up`
-        - reason: targeted refresh still reports one open issue across `src/core/app-shell/AppContainerFactory.ts`, `src/App.ts`, `src/modules/ui/now-playing-info/constants.ts`, and `src/modules/ui/playback-options/constants.ts`; this remains tied to Priority 4 closeout boundaries.
-        - owner: `P4-W7`
-        - revisit trigger: before marking `P4-W7` complete, rerun `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23 --no-budget`.
+      - `review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f` -> `resolved`
+        - reason: `P4-W7` extracted low-level key-routing/timing ownership into focused navigation collaborators and the refreshed targeted detector check now returns `No open issues matching ...`.
+      - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `resolved`
+        - reason: `P4-W7` centralized app-shell container-id ownership in `src/modules/ui/common/appShellContainerIds.ts`, rewired the mapped files, and refreshed targeted detector check now returns `No open issues matching ...`.
       - `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d` -> `split follow-up`
         - reason: targeted refresh still reports one open issue in `src/modules/ui/epg/EPGCoordinator.ts` and `src/modules/ui/epg/EPGCoordinatorPolicies.ts`; EPG seam ownership cleanup remains outstanding.
         - owner: `P4-W9`
@@ -631,8 +659,6 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d` -> owner `P4-W9`
       - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216` -> owner `P4-W8`
       - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> owner `P4-W9`
-      - `review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f` -> owner `P4-W7`
-      - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> owner `P4-W7`
     - security triage:
       - exact `P0` gate disposition: `no open P0 security findings` (`desloppify show security --status open --no-budget --top 200` reports `No open issues for Security`)
       - deferred `P1-EXIT` security follow-ups reconciled at `P4-EXIT`:
@@ -641,7 +667,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
         - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::224` -> `resolved` (`No open issues matching ...`)
         - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::729` -> `resolved` (`No open issues matching ...`)
     - residuals:
-      - Priority 4 remains open pending `P4-W7`, `P4-W8`, and `P4-W9`; no `P5` work is permitted while this exit item remains unresolved.
+      - Priority 4 remains open pending `P4-W8` and `P4-W9`; no `P5` work is permitted while this exit item remains unresolved.
     - verification (2026-03-12, `.worktrees/p4-exit-review`):
       - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`
       - `desloppify review --import-run /Users/tristan/Software/Lineup/.desloppify/subagents/runs/20260309_211514 --scan-after-import`
@@ -661,8 +687,8 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - `npm run verify`
       - `npm run verify:docs`
     - gate decision:
-      - `P4-EXIT` remains blocked on unresolved mapped imported review issues owned by `P4-W7`, `P4-W8`, and `P4-W9`.
-      - `P5` remains blocked until `P4-W7`, `P4-W8`, `P4-W9`, and this exit item are complete with refreshed evidence.
+      - `P4-EXIT` remains blocked on unresolved mapped imported review issues owned by `P4-W8` and `P4-W9`.
+      - `P5` remains blocked until `P4-W8`, `P4-W9`, and this exit item are complete with refreshed evidence.
 
 ## Priority 5: Tighten Plex/Auth/Discovery Trust Boundaries
 

@@ -49,6 +49,8 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - `src/modules/navigation/`
 - owns remote handling, focus/navigation flow, and navigation coordination
+- `src/modules/navigation/NavigationManager.ts` owns navigation state, screen stack, modal stack, and focus operations
+- `src/modules/navigation/NavigationManager.ts` delegates low-level key routing and timing behavior to `NavigationRemoteInputRouter`, `NavigationDirectionalRepeatController`, and `NavigationChannelNumberInputController`
 
 ### Plex
 
@@ -93,6 +95,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - `src/modules/ui/`
 - owns TV screens, overlays, shared primitives, and user-visible composition
+- `src/modules/ui/common/appShellContainerIds.ts` is the shared owner for app-shell overlay container IDs consumed by app-shell wiring and feature constants
 - visual rules are governed by [`docs/design/ui-design-language.md`](../design/ui-design-language.md)
 
 ## Current Hotspots
