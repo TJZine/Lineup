@@ -487,7 +487,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - `security::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::security::innerHTML_assignment::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::136` -> `resolved` (`No open issues matching`)
       - `security::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::security::log_sensitive::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::503` -> `resolved` (`No open issues matching`)
     - Gate: `P4-EXIT` remains required before any `P5` item can be marked ready or started.
-  - [ ] `P4-W6` retire remaining EPG/coordinator ownership seams inherited from `P4-EXIT`
+  - [x] `P4-W6` retire remaining EPG/coordinator ownership seams inherited from `P4-EXIT` (implementation complete 2026-03-13; remaining mapped ids split into `P4-W8` and `P4-W9`)
     - Inherited follow-ups:
       - source: `P4-EXIT`
       - issue id(s): `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b`, `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d`, `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216`, `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d`
@@ -514,9 +514,13 @@ Do not close a listed work unit while its mapped imported issue still remains un
         - `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --no-budget` -> `1 open issues matching ...`
         - `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget` -> `1 open issues matching ...`
         - `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --no-budget` -> `1 open issues matching ...`
-      - disposition after refresh: all four mapped issue ids remain open; `P4-W6` stays open.
-      - single final owner: `P4-W6`
-      - revisit trigger: before marking `P4-W6` complete, rerun the four mapped `desloppify show review::<id> --no-budget` commands and `npm run verify`.
+      - disposition after refresh:
+        - `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` -> `split follow-up`, owner `P4-W8`
+        - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216` -> `split follow-up`, owner `P4-W8`
+        - `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d` -> `split follow-up`, owner `P4-W9`
+        - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> `split follow-up`, owner `P4-W9`
+      - reason: `P4-W6` narrowed the seams and restored the verification gate, but the authoritative mapped `desloppify` review queries still report all four ids open. The remaining work is now split by owner shape so closeout can require detector retirement instead of subjective improvement.
+      - revisit trigger: retire the mapped ids only through `P4-W8` / `P4-W9` and rerun their exact `desloppify show review::<id> --no-budget` commands plus `npm run verify` before marking either successor item complete.
       - required verification command(s):
         - `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b --no-budget`
         - `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --no-budget`
@@ -531,17 +535,77 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - source: `P4-EXIT`
       - issue id(s): `review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f`, `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23`
       - disposition: `split follow-up`
+      - closure standard: do not mark `P4-W7` complete because the navigation/container-id area is merely cleaner. Mark it complete only when both mapped `desloppify show review::<id> --no-budget` commands return `No open issues matching` on current code.
+      - sequencing note: complete `P4-W7` before opening `P4-W8` or `P4-W9` implementation so navigation/container-id cleanup does not get mixed into the remaining EPG/orchestrator ownership work.
       - required verification command(s):
         - `desloppify show review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f --no-budget`
         - `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23 --no-budget`
+        - `npm run verify`
+  - [ ] `P4-W8` retire remaining top-level orchestrator/EPG ownership blur inherited from `P4-W6`
+    - Inherited follow-ups:
+      - source: `P4-W6`
+      - issue id(s): `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b`, `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216`
+      - disposition: `split follow-up`
+      - closure standard: do not mark `P4-W8` complete because the code is "better." Mark it complete only when both mapped `desloppify show review::<id> --no-budget` commands return `No open issues matching` on current code.
+      - required outcomes:
+        - `src/Orchestrator.ts` is reduced to composition-root wiring/delegation for channel-setup and EPG flows; it must not remain the public owner of residual UI-facing storage/session/guide policy pass-throughs just under renamed seams.
+        - one exact top-level owner is responsible for EPG runtime policy entrypoints and orchestration semantics; `Orchestrator` may wire that owner, but it must not co-own the same policy branches.
+        - any API or ownership change needed to clear these ids is mirrored into the relevant current-state architecture docs in the same pass.
+      - expected focus files:
+        - `src/Orchestrator.ts`
+        - `src/core/orchestrator/**`
+        - `src/core/channel-setup/**`
+        - `src/modules/ui/epg/EPGCoordinator.ts`
+        - `src/modules/ui/epg/EPGComponent.ts`
+        - `src/__tests__/Orchestrator.test.ts`
+        - `src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`
+        - `src/modules/ui/epg/__tests__/EPGComponent.test.ts`
+        - `docs/architecture/CURRENT_STATE.md` (if ownership wording changes)
+      - required verification command(s):
+        - `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b --no-budget`
+        - `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget`
+        - `npm test -- src/__tests__/Orchestrator.test.ts -t "channel setup|guide|epg|server-swap"`
+        - `npm test -- src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`
+        - `npm test -- src/modules/ui/epg/__tests__/EPGComponent.test.ts`
+        - `npm run verify`
+  - [ ] `P4-W9` retire remaining EPG subsystem overload/coupling inherited from `P4-W6`
+    - Inherited follow-ups:
+      - source: `P4-W6`
+      - issue id(s): `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d`, `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d`
+      - disposition: `split follow-up`
+      - closure standard: do not mark `P4-W9` complete because helper extraction reduced file size. Mark it complete only when both mapped `desloppify show review::<id> --no-budget` commands return `No open issues matching` on current code.
+      - required outcomes:
+        - `EPGCoordinator` no longer remains the single integration owner for schedule refresh, cache policy, visible-range policy, event wiring, and cross-boundary orchestration; the remaining workflow owners must be explicit, durable collaborators.
+        - the EPG subsystem no longer carries direct scheduler/Plex model coupling except at explicit boundary adapter points; UI-facing surfaces and subsystem seams must be EPG-owned rather than scheduler/Plex-shaped by default.
+        - `EPGComponent` and adjacent EPG runtime owners are reduced in responsibility enough that the remaining detector concerns are actually retired rather than merely redistributed.
+      - expected focus files:
+        - `src/modules/ui/epg/EPGCoordinator.ts`
+        - `src/modules/ui/epg/EPGComponent.ts`
+        - `src/modules/ui/epg/types.ts`
+        - `src/modules/ui/epg/interfaces.ts`
+        - `src/modules/ui/epg/domainTypes.ts`
+        - `src/modules/ui/epg/adapters.ts`
+        - `src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`
+        - `src/modules/ui/epg/__tests__/EPGComponent.test.ts`
+        - `src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts`
+        - `src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts`
+        - `src/modules/ui/epg/__tests__/EPGBackgroundWarmQueue.test.ts`
+      - required verification command(s):
+        - `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --no-budget`
+        - `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --no-budget`
+        - `npm test -- src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`
+        - `npm test -- src/modules/ui/epg/__tests__/EPGComponent.test.ts`
+        - `npm test -- src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts`
+        - `npm test -- src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts`
+        - `npm test -- src/modules/ui/epg/__tests__/EPGBackgroundWarmQueue.test.ts`
         - `npm run verify`
   - [ ] `P4-EXIT` run the priority-exit review before moving to `P5`
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 4
     - mapped imported issues (refreshed 2026-03-13 on `feature/initial-build`):
       - `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` -> `split follow-up`
-        - reason: targeted refresh still reports one open issue spanning `src/Orchestrator.ts`, `src/modules/ui/channel-setup/ChannelSetupSessionController.ts`, and `src/core/channel-setup/ChannelSetupCoordinator.ts`; the remaining work is Priority 4 boundary cleanup rather than a P5 trust-boundary task.
-        - owner: `P4-W6`
-        - revisit trigger: before marking `P4-W6` complete, rerun `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b --no-budget`.
+        - reason: targeted refresh still reports one open issue spanning `src/Orchestrator.ts`, `src/modules/ui/channel-setup/ChannelSetupSessionController.ts`, and `src/core/channel-setup/ChannelSetupCoordinator.ts`; the remaining work is a top-level ownership/abstraction fit seam rather than a general P5 trust-boundary task.
+        - owner: `P4-W8`
+        - revisit trigger: before marking `P4-W8` complete, rerun `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b --no-budget` and require `No open issues matching`.
       - `review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f` -> `split follow-up`
         - reason: targeted refresh still reports one open issue in `src/modules/navigation/NavigationManager.ts`; it remains an unresolved Priority 4 navigation decomposition seam.
         - owner: `P4-W7`
@@ -552,21 +616,21 @@ Do not close a listed work unit while its mapped imported issue still remains un
         - revisit trigger: before marking `P4-W7` complete, rerun `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23 --no-budget`.
       - `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d` -> `split follow-up`
         - reason: targeted refresh still reports one open issue in `src/modules/ui/epg/EPGCoordinator.ts` and `src/modules/ui/epg/EPGCoordinatorPolicies.ts`; EPG seam ownership cleanup remains outstanding.
-        - owner: `P4-W6`
-        - revisit trigger: before marking `P4-W6` complete, rerun `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --no-budget`.
+        - owner: `P4-W9`
+        - revisit trigger: before marking `P4-W9` complete, rerun `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --no-budget` and require `No open issues matching`.
       - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216` -> `split follow-up`
         - reason: targeted refresh still reports one open issue across `src/modules/ui/epg/EPGComponent.ts`, `src/modules/ui/epg/EPGCoordinator.ts`, and `src/Orchestrator.ts`; top-level EPG ownership is still blurred.
-        - owner: `P4-W6`
-        - revisit trigger: before marking `P4-W6` complete, rerun `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget`.
+        - owner: `P4-W8`
+        - revisit trigger: before marking `P4-W8` complete, rerun `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget` and require `No open issues matching`.
       - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> `split follow-up`
         - reason: current-branch targeted refresh still reports one open issue (`1 open issues matching`) across `src/modules/ui/epg/types.ts`, `src/modules/ui/epg/EPGCoordinator.ts`, and `src/modules/ui/epg/EPGComponent.ts`.
-        - owner: `P4-W6`
-        - revisit trigger: before marking `P4-W6` complete, rerun `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --no-budget`.
+        - owner: `P4-W9`
+        - revisit trigger: before marking `P4-W9` complete, rerun `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --no-budget` and require `No open issues matching`.
     - follow-up ownership:
-      - `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` -> owner `P4-W6`
-      - `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d` -> owner `P4-W6`
-      - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216` -> owner `P4-W6`
-      - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> owner `P4-W6`
+      - `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` -> owner `P4-W8`
+      - `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d` -> owner `P4-W9`
+      - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216` -> owner `P4-W8`
+      - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> owner `P4-W9`
       - `review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f` -> owner `P4-W7`
       - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> owner `P4-W7`
     - security triage:
@@ -577,7 +641,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
         - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::224` -> `resolved` (`No open issues matching ...`)
         - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::729` -> `resolved` (`No open issues matching ...`)
     - residuals:
-      - Priority 4 remains open pending `P4-W6` and `P4-W7`; no `P5` work is permitted while this exit item remains unresolved.
+      - Priority 4 remains open pending `P4-W7`, `P4-W8`, and `P4-W9`; no `P5` work is permitted while this exit item remains unresolved.
     - verification (2026-03-12, `.worktrees/p4-exit-review`):
       - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`
       - `desloppify review --import-run /Users/tristan/Software/Lineup/.desloppify/subagents/runs/20260309_211514 --scan-after-import`
@@ -597,8 +661,8 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - `npm run verify`
       - `npm run verify:docs`
     - gate decision:
-      - `P4-EXIT` remains blocked on unresolved mapped imported review issues owned by `P4-W6` and `P4-W7`.
-      - `P5` remains blocked until `P4-W6`, `P4-W7`, and this exit item are complete with refreshed evidence.
+      - `P4-EXIT` remains blocked on unresolved mapped imported review issues owned by `P4-W7`, `P4-W8`, and `P4-W9`.
+      - `P5` remains blocked until `P4-W7`, `P4-W8`, `P4-W9`, and this exit item are complete with refreshed evidence.
 
 ## Priority 5: Tighten Plex/Auth/Discovery Trust Boundaries
 
