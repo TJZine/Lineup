@@ -311,7 +311,8 @@ export class EPGCoordinator {
     }
 
     closeEPG(): void {
-        this._scheduleRefreshRuntime.cancelBackgroundWarmQueue('close-epg');
+        this._visibleRangeRefreshQueue.cancelPendingRefresh();
+        this._scheduleRefreshRuntime.abortAllInFlightSchedules('close-epg');
         this.deps.getEpg()?.hide();
     }
 

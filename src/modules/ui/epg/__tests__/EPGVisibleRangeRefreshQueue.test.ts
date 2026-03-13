@@ -101,4 +101,56 @@ describe('EPGVisibleRangeRefreshQueue', () => {
         await expect(immediate).resolves.toBeUndefined();
         await expect(debounced).resolves.toBeUndefined();
     });
+
+    it('creates a fresh promise for debounced requests queued while a refresh is already running', async () => {
+        jest.useFakeTimers();
+        const deferred = (): { promise: Promise<void>; resolve: () => void } => {
+            let resolve!: () => void;
+            const promise = new Promise<void>((innerResolve) => {
+                resolve = innerResolve;
+            });
+            return { promise, resolve };
+        };
+        const firstRefresh = deferred();
+        const secondRefresh = deferred();
+        const refreshFn = jest
+            .fn()
+            .mockImplementationOnce(() => firstRefresh.promise)
+            .mockImplementationOnce(() => secondRefresh.promise);
+
+        const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
+
+        const first = queue.request(range(1), { debounceMs: 50, reason: 'visible-range' });
+        jest.advanceTimersByTime(50);
+        await Promise.resolve();
+
+        const second = queue.request(range(2), { debounceMs: 50, reason: 'library-filter' });
+        expect(second).not.toBe(first);
+
+        jest.advanceTimersByTime(50);
+        await Promise.resolve();
+
+        expect(refreshFn).toHaveBeenNthCalledWith(1, range(1), 'visible-range');
+        expect(refreshFn).toHaveBeenNthCalledWith(2, range(2), 'library-filter');
+
+        firstRefresh.resolve();
+        await expect(first).resolves.toBeUndefined();
+
+        secondRefresh.resolve();
+        await expect(second).resolves.toBeUndefined();
+    });
+
+    it('cancelPendingRefresh() resolves the queued promise and suppresses the scheduled refresh', async () => {
+        jest.useFakeTimers();
+        const refreshFn = jest.fn().mockResolvedValue(undefined);
+        const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
+
+        const pending = queue.request(range(1), { debounceMs: 50, reason: 'visible-range' });
+        queue.cancelPendingRefresh();
+
+        jest.advanceTimersByTime(50);
+
+        await expect(pending).resolves.toBeUndefined();
+        expect(refreshFn).not.toHaveBeenCalled();
+    });
 });

@@ -17,6 +17,27 @@ export class EPGVisibleRangeRefreshQueue {
 
     constructor(private readonly _refreshFn: RefreshFn) { }
 
+    cancelPendingRefresh(): void {
+        const hadQueuedRefresh = this._timer !== null || this._pendingRange !== null;
+        if (!hadQueuedRefresh) {
+            return;
+        }
+
+        if (this._timer) {
+            clearTimeout(this._timer);
+            this._timer = null;
+        }
+
+        const resolvePending = this._pendingResolve;
+        this._pendingRange = null;
+        this._pendingReason = null;
+        this._pendingPromise = null;
+        this._pendingResolve = null;
+        this._pendingReject = null;
+
+        resolvePending?.();
+    }
+
     request(range: EpgVisibleRange, options?: QueueOptions): Promise<void> {
         const debounceMs = Math.max(0, options?.debounceMs ?? 80);
         const reason = options?.reason ?? 'visible-range';
@@ -45,6 +66,7 @@ export class EPGVisibleRangeRefreshQueue {
             const pendingReason = this._pendingReason;
             this._pendingRange = null;
             this._pendingReason = null;
+            this._pendingPromise = null;
             const resolvePending = this._pendingResolve;
             const rejectPending = this._pendingReject;
             this._pendingResolve = null;
@@ -52,16 +74,12 @@ export class EPGVisibleRangeRefreshQueue {
 
             if (!pending) {
                 resolvePending?.();
-                this._pendingPromise = null;
                 return;
             }
 
             this._refreshFn(pending, pendingReason ?? 'visible-range')
                 .then(() => resolvePending?.())
-                .catch((error: unknown) => rejectPending?.(error))
-                .finally(() => {
-                    this._pendingPromise = null;
-                });
+                .catch((error: unknown) => rejectPending?.(error));
         }, debounceMs);
 
         return this._pendingPromise ?? Promise.resolve();

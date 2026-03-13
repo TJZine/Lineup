@@ -130,4 +130,94 @@ describe('EPGBackgroundWarmQueue', () => {
         await flushPromises();
         expect(runForChannel).toHaveBeenCalledTimes(1);
     });
+
+    it('continues warming later channels when one channel load fails', async () => {
+        const idleScheduler = globalThis as typeof globalThis & {
+            requestIdleCallback?: typeof globalThis.requestIdleCallback;
+            cancelIdleCallback?: typeof globalThis.cancelIdleCallback;
+        };
+        const priorRequestIdleCallback = idleScheduler.requestIdleCallback;
+        const priorCancelIdleCallback = idleScheduler.cancelIdleCallback;
+        delete idleScheduler.requestIdleCallback;
+        delete idleScheduler.cancelIdleCallback;
+
+        let activeRefreshId = 1;
+        const onCancel = jest.fn();
+        const onError = jest.fn();
+        const failure = new Error('warm failed');
+        const runForChannel = jest.fn().mockImplementation(async (channel: ChannelConfig) => {
+            if (channel.id === 'c1') {
+                throw failure;
+            }
+        });
+
+        const queue = new EPGBackgroundWarmQueue({
+            getActiveRefreshId: (): number => activeRefreshId,
+            getCacheSize: (): number => 0,
+            getCacheLimit: (): number => 500,
+            getInFlightCount: (): number => 0,
+            onCancel,
+            onError,
+        });
+
+        queue.start({
+            refreshId: 1,
+            reason: 'visible-range',
+            channels: [makeChannel('c1', 1), makeChannel('c2', 2), makeChannel('c3', 3)],
+            runForChannel,
+            concurrency: 1,
+        });
+
+        try {
+            for (let i = 0; i < 20; i += 1) {
+                jest.advanceTimersByTime(50);
+                await flushPromises();
+            }
+
+            expect(runForChannel).toHaveBeenCalledTimes(3);
+            expect(onError).toHaveBeenCalledWith(failure);
+            expect(onCancel).toHaveBeenCalledWith('warm-queue-complete', expect.any(Object));
+        } finally {
+            idleScheduler.requestIdleCallback = priorRequestIdleCallback;
+            idleScheduler.cancelIdleCallback = priorCancelIdleCallback;
+        }
+    });
+
+    it('cancels the prior queue when replacement channels are empty', async () => {
+        let activeRefreshId = 1;
+        const onCancel = jest.fn();
+        const runForChannel = jest.fn().mockResolvedValue(undefined);
+
+        const queue = new EPGBackgroundWarmQueue({
+            getActiveRefreshId: (): number => activeRefreshId,
+            getCacheSize: (): number => 0,
+            getCacheLimit: (): number => 500,
+            getInFlightCount: (): number => 0,
+            onCancel,
+        });
+
+        queue.start({
+            refreshId: 1,
+            reason: 'visible-range',
+            channels: [makeChannel('c1', 1)],
+            runForChannel,
+            concurrency: 1,
+        });
+
+        onCancel.mockClear();
+
+        queue.start({
+            refreshId: 2,
+            reason: 'visible-range',
+            channels: [],
+            runForChannel,
+            concurrency: 1,
+        });
+
+        jest.advanceTimersByTime(1_000);
+        await flushPromises();
+
+        expect(onCancel).toHaveBeenCalledWith('replace-background-warm-queue', expect.any(Object));
+        expect(runForChannel).not.toHaveBeenCalled();
+    });
 });

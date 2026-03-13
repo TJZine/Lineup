@@ -150,7 +150,7 @@ export class EPGScheduleRefreshRuntime {
     abortAllInFlightSchedules(reason = 'abort-all-inflight'): void {
         this._warmQueue.cancel(reason);
         for (const entry of this._inFlightByChannel.values()) {
-            entry.controller.abort();
+            entry.controller.abort(reason);
         }
         this._inFlightByChannel.clear();
     }

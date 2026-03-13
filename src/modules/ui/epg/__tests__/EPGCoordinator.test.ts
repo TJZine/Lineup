@@ -321,6 +321,74 @@ describe('EPGCoordinator', () => {
         expect(deps.reportEpgInitWarning).toHaveBeenCalledWith(error);
     });
 
+    it('closeEPG cancels queued visible-range refreshes before they start', async () => {
+        useDeterministicFakeTimers();
+        try {
+            const { deps, epg, channelManager } = makeDeps();
+            const resolveChannelContent = jest.spyOn(channelManager, 'resolveChannelContent');
+            const coordinator = new EPGCoordinator(deps);
+
+            const pending = coordinator.refreshEpgSchedulesForRange(
+                { channelStart: 0, channelEnd: 1, timeStartMs: 0, timeEndMs: 0 },
+                { debounceMs: 50, reason: 'visible-range' }
+            );
+
+            coordinator.closeEPG();
+            jest.advanceTimersByTime(50);
+            await pending;
+
+            expect(resolveChannelContent).not.toHaveBeenCalled();
+            expect(epg.hide).toHaveBeenCalled();
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('closeEPG aborts in-flight immediate schedule loads', async () => {
+        useDeterministicFakeTimers();
+        try {
+            let capturedSignal: AbortSignal | undefined;
+            const base = makeDeps();
+            const { deps, epg } = makeDeps({
+                getScheduler: () =>
+                ({
+                    getState: () => ({ isActive: false, channelId: 'other' }),
+                    getScheduleWindow: jest.fn(),
+                } as unknown as IChannelScheduler),
+                getChannelManager: () =>
+                ({
+                    ...base.channelManager,
+                    getAllChannels: () => [makeChannel('c0', 1)],
+                    getCurrentChannel: () => makeChannel('c0', 1),
+                    resolveChannelContent: jest.fn().mockImplementation(
+                        (_id: string, options?: { signal?: AbortSignal }) => new Promise<ResolvedChannelContent>((_, reject) => {
+                            capturedSignal = options?.signal;
+                            options?.signal?.addEventListener('abort', () => {
+                                reject(new DOMException('Aborted', 'AbortError'));
+                            }, { once: true });
+                        })
+                    ),
+                } as IChannelManager),
+            });
+            const coordinator = new EPGCoordinator(deps);
+
+            const refreshPromise = coordinator.refreshEpgSchedulesForRange(
+                { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 0 },
+                { debounceMs: 0, reason: 'visible-range' }
+            );
+            await Promise.resolve();
+
+            coordinator.closeEPG();
+            await refreshPromise;
+
+            expect(capturedSignal).toBeDefined();
+            expect(capturedSignal?.aborted).toBe(true);
+            expect(epg.hide).toHaveBeenCalled();
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
     it('primeEpgChannels applies filtering when tabs enabled and selected', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');

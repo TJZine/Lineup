@@ -50,6 +50,7 @@ export class EPGBackgroundWarmQueue {
 
     start(options: EPGBackgroundWarmQueueStartOptions): void {
         if (options.channels.length === 0) {
+            this._cancelInternal('replace-background-warm-queue');
             return;
         }
 
@@ -89,6 +90,13 @@ export class EPGBackgroundWarmQueue {
             runForChannel: previousState.runForChannel,
             concurrency: previousState.concurrency,
         } : null);
+    }
+
+    private _reportBatchError(error: unknown): void {
+        this._deps.onError?.(error);
+        if (!this._deps.onError) {
+            console.error('[EPG] background warm batch failed:', summarizeErrorForLog(error));
+        }
     }
 
     private _scheduleNextBatch(): void {
@@ -147,20 +155,23 @@ export class EPGBackgroundWarmQueue {
                     while (true) {
                         const channel = batch[cursor++];
                         if (!channel) return;
-                        await state.runForChannel(channel);
+                        try {
+                            await state.runForChannel(channel);
+                        } catch (error) {
+                            this._reportBatchError(error);
+                        }
                     }
                 }
             );
             await Promise.all(workers);
-            this._scheduleNextBatch();
+            if (this._state === state) {
+                this._scheduleNextBatch();
+            }
         };
 
         const runBatchSafe = (): void => {
             runBatch().catch((error: unknown) => {
-                this._deps.onError?.(error);
-                if (!this._deps.onError) {
-                    console.error('[EPG] background warm batch failed:', summarizeErrorForLog(error));
-                }
+                this._reportBatchError(error);
             });
         };
 
