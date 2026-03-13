@@ -49,7 +49,7 @@ Prompt shape:
 
 Pass conditions:
 
-- the agent uses `frontend-design` plus `ui-composition-patterns` where appropriate
+- the agent uses `interface-design` or `frontend-design` plus `ui-composition-patterns` where appropriate
 - focus ownership remains explicit
 - hidden UI does not retain timers/listeners
 - `npm run verify` is selected for risky UI work

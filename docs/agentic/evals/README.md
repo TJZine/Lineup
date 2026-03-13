@@ -77,6 +77,8 @@ Build and refresh eval prompts from:
   - 18 Detect Unresolved Seam Before Freezing Plan
 - [`19-multi-agent-role-selection-and-delegation-discipline`](./prompts/19-multi-agent-role-selection-and-delegation-discipline.md)
   - 19 Multi-Agent Role Selection And Delegation Discipline
+- [`20-skill-routing-interface-vs-frontend`](./prompts/20-skill-routing-interface-vs-frontend.md)
+  - 20 Skill Routing Interface-vs-Frontend
 <!-- END MANAGED EVAL PROMPT INVENTORY -->
 
 ## How To Run A Manual Eval

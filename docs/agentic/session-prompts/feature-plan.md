@@ -18,7 +18,9 @@ Do not use this launcher for cleanup-only refactors; use [`cleanup-plan.md`](./c
 
 1. load `using-superpowers`
 2. load `brainstorming` before hardening any implementation plan
-3. load `frontend-design` only when the task includes real UI creation or redesign
+3. load a global UI skill only when the task includes real UI creation or redesign:
+   - `interface-design` for product interfaces (dashboards/admin/settings/tools/data-heavy UI)
+   - `frontend-design` for marketing/landing pages and other brand-forward surfaces
 4. load matching repo-local boundary skills when ownership/composition boundaries are implicated
 5. use `writing-plans` for the plan format
 
@@ -35,7 +37,7 @@ Do not use this launcher for cleanup-only refactors; use [`cleanup-plan.md`](./c
 
 - follow [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md) for serious tracked plans
 - distinguish feature/design intent work from cleanup/refactor remediation work
-- for UI creation/redesign, reference [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) and require `frontend-design`
+- for UI creation/redesign, reference [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) and require the appropriate global UI skill (`interface-design` or `frontend-design`)
 - resolve any open architecture seam, ownership seam, or adjacent contract decision before freezing the execution steps
 - include the full Codanna evidence trail for serious feature/design plans:
   - `semantic_search_with_context` result or explicit fallback note

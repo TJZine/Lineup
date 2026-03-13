@@ -70,21 +70,24 @@ Local-only by default:
 ## Why These Skills
 
 - `architecture-boundaries`: protects composition roots and hotspot decomposition.
-- `ui-composition-patterns`: pairs the global `frontend-design` skill with Lineup's TV-specific design language and focus rules.
+- `ui-composition-patterns`: pairs global UI design skills with Lineup's TV-specific design language and focus rules.
 - `persistence-boundaries`: keeps storage ownership centralized and typed.
 - `plex-integration-boundaries`: keeps Plex transport/policy complexity out of unrelated modules.
-- `frontend-design`: strongest existing global UI-generation skill and already aligned with your anti-slop goals.
+- `frontend-design`: marketing/brand-forward UI generation (landing pages, posters, high-aesthetic surfaces) aligned with anti-slop goals.
+- `interface-design`: product interface design skill for dashboards/admin/settings/tools and other data-heavy UIs.
 - `desloppify`: useful for recurring debt audits and cleanup planning as the architecture cleanup continues.
 
 ## UI Skill Recommendation
 
 For UI work, the default stack should be:
 
-1. Global `frontend-design` for direction, visual quality, and non-generic execution.
+1. Choose one global UI skill based on intent:
+   - `interface-design` for product interfaces (dashboards/admin/settings/tools/data-heavy UI)
+   - `frontend-design` for marketing/landing pages and other brand-forward surfaces
 2. Repo-local `ui-composition-patterns` for Lineup-specific TV composition, focus, motion, and cleanup rules.
 3. Repo-local `architecture-boundaries` when UI work starts changing ownership or expanding hotspot classes.
 
-I do not recommend adding more generic UI skills yet. The better move is to keep one strong global design skill and layer repo-specific constraints on top of it.
+Keep the set minimal: two global UI skills with a clear boundary is preferable to many overlapping “design” skills.
 
 ## Copy / Refresh Commands
 

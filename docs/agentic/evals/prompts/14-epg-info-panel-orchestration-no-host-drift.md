@@ -19,7 +19,7 @@ Extract the info-panel orchestration concern out of `EPGComponent` into one focu
 - `brainstorming`
 - `architecture-boundaries`
 - `ui-composition-patterns`
-- `frontend-design` in preservation mode
+- `interface-design` (preserve existing visual language)
 
 ## Expected Codanna Behavior
 

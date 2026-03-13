@@ -38,7 +38,7 @@ When reviewing a feature/design plan, require evidence of:
 - clear design direction and constraints
 - correct task routing and orchestration tier for the actual work
 - correct `brainstorming` usage before implementation hardening
-- correct `frontend-design` usage and repo design-doc references when UI creation/redesign applies
+- correct `interface-design` or `frontend-design` usage and repo design-doc references when UI creation/redesign applies
 - explicit scope boundaries, verification commands, and stop conditions
 - no hidden architecture seams, ownership seams, or adjacent contract changes left for the implementer to invent
 - full Codanna evidence trail plus explicit fallback logging when used

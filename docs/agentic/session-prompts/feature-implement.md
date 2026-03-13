@@ -36,7 +36,9 @@ Tier 2 uses this as the default implementer launcher. Tier 3 feature or mixed wo
 - if the approving review output and the tracked plan disagree, reconcile them before editing instead of picking one ad hoc
 - if repo state contradicts the plan, update the plan first instead of improvising
 - keep feature intent and cleanup intent separated; do not let cleanup-only shortcuts steer net-new behavior
-- for UI creation/redesign, follow [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) and use `frontend-design`
+- for UI creation/redesign, follow [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) and use the appropriate global UI skill:
+  - `interface-design` for product interfaces (dashboards/admin/settings/tools/data-heavy UI)
+  - `frontend-design` for marketing/landing pages and other brand-forward surfaces
 - prefer extraction and focused collaborators over growing hotspot files
 - do not add fallback paths, migration shims, or dual-path logic unless explicitly approved
 - do not commit local-only artifacts such as `.agent/skills/`, `docs/runs/<instance>/`, raw run bundles, or raw eval baseline artifacts

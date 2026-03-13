@@ -18,7 +18,7 @@ Split `SettingsScreen` so storage/state ownership is separated from view and foc
 
 - `using-superpowers`
 - `brainstorming`
-- `frontend-design`
+- `interface-design`
 - `ui-composition-patterns`
 - `persistence-boundaries`
 - `architecture-boundaries`

@@ -25,7 +25,10 @@ This is the operating runbook for agent-driven development in Lineup.
    - add `brainstorming` when shaping new functionality, behavior, or design
    - add the matching repo-local boundary skill(s) when the task crosses that boundary
    - for cleanup/refactor planning, the default planning order is: `using-superpowers` -> `brainstorming` -> matching repo-local boundary skill(s) -> `writing-plans`
-   - for feature/design planning, the default planning order is: `using-superpowers` -> `brainstorming` -> `frontend-design` when UI creation/redesign is actually in scope -> matching repo-local boundary skill(s) -> `writing-plans`
+   - for feature/design planning, the default planning order is: `using-superpowers` -> `brainstorming` -> a global UI skill when UI creation/redesign is actually in scope:
+     - `interface-design` for product interfaces (dashboards/admin/settings/tools/data-heavy UI)
+     - `frontend-design` for marketing/landing pages and other brand-forward surfaces
+     -> matching repo-local boundary skill(s) -> `writing-plans`
 2. Run evidence sweep.
    - Prefer Codanna using [`docs/agentic/codanna-playbook.md`](./agentic/codanna-playbook.md).
    - Use Codanna for both code and repo-doc discovery before falling back to `rg`.
