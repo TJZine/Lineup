@@ -268,61 +268,110 @@ export class ChannelSetupPlanningService {
                 || config.strategyConfig.decades.enabled
             ) {
                 reportProgress?.('scan_library_items', 'Resolving filters...', library.title, libIndex, selectedLibraries.length);
-                try {
-                    const scanOptions: LibraryQueryOptions = {
-                        signal,
-                        limit: CHANNEL_SETUP_SCAN_LIMIT,
-                    };
+                const scanOptions: LibraryQueryOptions = {
+                    signal,
+                    limit: CHANNEL_SETUP_SCAN_LIMIT,
+                };
 
-                    let tagItems: PlexMediaItem[] = [];
-                    let scanItems: PlexMediaItem[] = [];
+                const addScanTruncationWarning = (
+                    scope: 'tags' | 'episodes' | 'items',
+                    configuredCount: number | undefined
+                ): void => {
+                    if (!Number.isFinite(configuredCount)) return;
+                    if (Number(configuredCount) <= CHANNEL_SETUP_SCAN_LIMIT) return;
+                    warnings.add(
+                        `Partial setup plan (scan_library_items): ` +
+                        `${library.title} ${scope} truncated at ${CHANNEL_SETUP_SCAN_LIMIT} items`
+                    );
+                };
 
-                    if (library.type === 'show') {
-                        if (config.strategyConfig.genres.enabled || config.strategyConfig.directors.enabled) {
+                if (library.type === 'show') {
+                    if (config.strategyConfig.genres.enabled || config.strategyConfig.directors.enabled) {
+                        try {
                             const tagOptions: LibraryQueryOptions = {
                                 signal,
                                 limit: CHANNEL_SETUP_SCAN_LIMIT,
                                 filter: { type: PLEX_MEDIA_TYPES.SHOW },
                             };
                             const tagStart = Date.now();
-                            tagItems = await this._deps.plexLibrary.getLibraryItems(library.id, tagOptions);
+                            const tagItems = await this._deps.plexLibrary.getLibraryItems(library.id, tagOptions);
                             libraryQueryMs += Date.now() - tagStart;
+                            tagItemsByLibraryId.set(library.id, tagItems);
+                            addScanTruncationWarning('tags', library.contentCount);
+                        } catch (e) {
+                            if (isAbortLike(e, signal ?? undefined)) {
+                                return {
+                                    plan: null,
+                                    warnings: collectWarnings(),
+                                    canceled: true,
+                                    lastTask: 'scan_library_items',
+                                    errorsTotal,
+                                    playlistMs,
+                                    collectionsMs,
+                                    libraryQueryMs,
+                                };
+                            }
+                            console.warn(`Failed to scan tag items for ${library.title}:`, summarizeErrorForLog(e));
+                            addPartialWarning('scan_library_items', `scan_library_items tag fetch failed for ${library.title}`, e);
+                            errorsTotal++;
                         }
-                        if (config.strategyConfig.decades.enabled) {
+                    }
+
+                    if (config.strategyConfig.decades.enabled) {
+                        try {
                             const episodeOptions: LibraryQueryOptions = {
                                 signal,
                                 limit: CHANNEL_SETUP_SCAN_LIMIT,
                                 filter: { type: PLEX_MEDIA_TYPES.EPISODE },
                             };
                             const scanStart = Date.now();
-                            scanItems = await this._deps.plexLibrary.getLibraryItems(library.id, episodeOptions);
+                            const scanItems = await this._deps.plexLibrary.getLibraryItems(library.id, episodeOptions);
                             libraryQueryMs += Date.now() - scanStart;
+                            scanItemsByLibraryId.set(library.id, scanItems);
+                            addScanTruncationWarning('episodes', library.episodeCount);
+                        } catch (e) {
+                            if (isAbortLike(e, signal ?? undefined)) {
+                                return {
+                                    plan: null,
+                                    warnings: collectWarnings(),
+                                    canceled: true,
+                                    lastTask: 'scan_library_items',
+                                    errorsTotal,
+                                    playlistMs,
+                                    collectionsMs,
+                                    libraryQueryMs,
+                                };
+                            }
+                            console.warn(`Failed to scan episode items for ${library.title}:`, summarizeErrorForLog(e));
+                            addPartialWarning('scan_library_items', `scan_library_items episode fetch failed for ${library.title}`, e);
+                            errorsTotal++;
                         }
-                    } else {
+                    }
+                } else {
+                    try {
                         const scanStart = Date.now();
-                        tagItems = await this._deps.plexLibrary.getLibraryItems(library.id, scanOptions);
+                        const tagItems = await this._deps.plexLibrary.getLibraryItems(library.id, scanOptions);
                         libraryQueryMs += Date.now() - scanStart;
-                        scanItems = tagItems;
+                        tagItemsByLibraryId.set(library.id, tagItems);
+                        scanItemsByLibraryId.set(library.id, tagItems);
+                        addScanTruncationWarning('items', library.contentCount);
+                    } catch (e) {
+                        if (isAbortLike(e, signal ?? undefined)) {
+                            return {
+                                plan: null,
+                                warnings: collectWarnings(),
+                                canceled: true,
+                                lastTask: 'scan_library_items',
+                                errorsTotal,
+                                playlistMs,
+                                collectionsMs,
+                                libraryQueryMs,
+                            };
+                        }
+                        console.warn(`Failed to scan items for ${library.title}:`, summarizeErrorForLog(e));
+                        addPartialWarning('scan_library_items', `scan_library_items failed for ${library.title}`, e);
+                        errorsTotal++;
                     }
-
-                    tagItemsByLibraryId.set(library.id, tagItems);
-                    scanItemsByLibraryId.set(library.id, scanItems);
-                } catch (e) {
-                    if (isAbortLike(e, signal ?? undefined)) {
-                        return {
-                            plan: null,
-                            warnings: collectWarnings(),
-                            canceled: true,
-                            lastTask: 'scan_library_items',
-                            errorsTotal,
-                            playlistMs,
-                            collectionsMs,
-                            libraryQueryMs,
-                        };
-                    }
-                    console.warn(`Failed to scan items for ${library.title}:`, summarizeErrorForLog(e));
-                    addPartialWarning('scan_library_items', `scan_library_items failed for ${library.title}`, e);
-                    errorsTotal++;
                 }
             }
 

@@ -139,6 +139,7 @@ export class ChannelSetupBuildExecutor {
                 }
 
                 if (checkCanceled()) {
+                    finalSummary.reachedMaxChannels = reachedMax;
                     finalSummary.canceled = true;
                     finalSummary.lastTask = 'create_channels';
                     return finalSummary;
@@ -188,6 +189,7 @@ export class ChannelSetupBuildExecutor {
                     finalSummary.created++;
                 } catch (e) {
                     if (isAbortLike(e, signal ?? undefined)) {
+                        finalSummary.reachedMaxChannels = reachedMax;
                         finalSummary.canceled = true;
                         finalSummary.lastTask = 'create_channels';
                         return finalSummary;
