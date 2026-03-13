@@ -1,9 +1,6 @@
-import type { Direction } from './interfaces';
-
 export type NavigationFocusSuppressionReason = 'modal_open' | 'no_neighbor';
 
 export interface EvaluateFocusMoveInput {
-    direction: Direction;
     neighborId: string | null;
     modalStack: string[];
     modalFocusableIds: Map<string, string[]>;

@@ -9,7 +9,6 @@ describe('NavigationFocusPolicy', () => {
 
     it('allows movement when neighbor exists and no modal is open', () => {
         const result = policy.evaluateMove({
-            direction: 'right',
             neighborId: 'btn-2',
             modalStack: [],
             modalFocusableIds: new Map(),
@@ -24,7 +23,6 @@ describe('NavigationFocusPolicy', () => {
 
     it('blocks movement when modal trap excludes the neighbor', () => {
         const result = policy.evaluateMove({
-            direction: 'up',
             neighborId: 'outside',
             modalStack: ['confirm-modal'],
             modalFocusableIds: new Map([['confirm-modal', ['inside-a', 'inside-b']]]),
@@ -39,7 +37,6 @@ describe('NavigationFocusPolicy', () => {
 
     it('blocks movement when modal is open without registered focusables', () => {
         const result = policy.evaluateMove({
-            direction: 'down',
             neighborId: 'any-target',
             modalStack: ['confirm-modal'],
             modalFocusableIds: new Map(),
@@ -54,7 +51,6 @@ describe('NavigationFocusPolicy', () => {
 
     it('returns reason tagging for no-neighbor cases', () => {
         const result = policy.evaluateMove({
-            direction: 'left',
             neighborId: null,
             modalStack: [],
             modalFocusableIds: new Map(),

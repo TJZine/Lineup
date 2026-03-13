@@ -388,7 +388,6 @@ export class NavigationManager
         }
 
         const policyResult = this._focusPolicy.evaluateMove({
-            direction,
             neighborId: this._focusManager.findNeighbor(currentId, direction),
             modalStack: this._state.modalStack,
             modalFocusableIds: this._state.modalFocusableIds,
@@ -628,23 +627,24 @@ export class NavigationManager
      */
     private _handleFocusIn(_event: FocusEvent): void {
         if (!this._isInitialized) return;
-        if (typeof document === 'undefined') return;
-        if (document.activeElement !== document.body) return;
-
-        const currentId = this._focusManager.getCurrentFocusId();
-        if (!currentId) return;
-
-        this._focusManager.focus(currentId);
+        this._restoreFocusIfBodyActive();
     }
 
     private _repairFocusDesync(): void {
+        this._restoreFocusIfBodyActive();
+    }
+
+    private _restoreFocusIfBodyActive(): void {
         if (typeof document === 'undefined' || document.activeElement !== document.body) {
             return;
         }
+
         const currentId = this._focusManager.getCurrentFocusId();
-        if (currentId) {
-            this._focusManager.focus(currentId);
+        if (!currentId) {
+            return;
         }
+
+        this._focusManager.focus(currentId);
     }
 
     private _isDebugLoggingEnabled(): boolean {
