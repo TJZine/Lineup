@@ -218,14 +218,15 @@ export class ChannelSetupBuildExecutor {
 
             reportProgress('apply_channels', 'Saving...', 'Saving library', finalSummary.created, finalSummary.created);
             const builtChannels = builder.getAllChannels();
+            const currentChannelId = this._deps.channelManager.getCurrentChannel()?.id ?? null;
             let finalChannels = builtChannels;
             if (buildMode === 'append') {
-                finalChannels = [...existingChannels, ...builtChannels];
+                finalChannels = [...existingChannels, ...builtChannels].sort(compareChannelsByNumber);
             } else if (buildMode === 'merge') {
                 const mergedExisting = this._mergeExistingChannels(existingChannels, diff);
-                finalChannels = [...mergedExisting, ...builtChannels];
+                finalChannels = [...mergedExisting, ...builtChannels].sort(compareChannelsByNumber);
             }
-            await this._deps.channelManager.replaceAllChannels(finalChannels);
+            await this._deps.channelManager.replaceAllChannels(finalChannels, { currentChannelId });
 
             reportProgress('refresh_epg', 'Refreshing guide...', 'Loading schedules', 0, null);
             try {
@@ -350,4 +351,8 @@ function isAbortLike(error: unknown, signal?: AbortSignal): boolean {
         if (namedError.name === 'AbortError') return true;
     }
     return false;
+}
+
+function compareChannelsByNumber(left: ChannelConfig, right: ChannelConfig): number {
+    return left.number - right.number;
 }

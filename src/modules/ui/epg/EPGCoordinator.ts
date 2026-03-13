@@ -136,17 +136,20 @@ export class EPGCoordinator {
         this._scheduleRefreshRuntime.clearScheduleCaches();
     }
 
-    attachVisibleRangeRefreshPolicy(epgConfig: EPGConfig | null | undefined): void {
+    withVisibleRangeRefreshPolicy(epgConfig: EPGConfig | null | undefined): EPGConfig | null {
         if (!epgConfig) {
-            return;
+            return null;
         }
 
         const previousOnVisibleRangeChange = epgConfig.onVisibleRangeChange ?? null;
-        epgConfig.onVisibleRangeChange = (range): void => {
-            if (previousOnVisibleRangeChange) {
-                previousOnVisibleRangeChange(range);
-            }
-            this._refreshEpgSchedulesForRangeBestEffort(range, { reason: 'visible-range' });
+        return {
+            ...epgConfig,
+            onVisibleRangeChange: (range): void => {
+                if (previousOnVisibleRangeChange) {
+                    previousOnVisibleRangeChange(range);
+                }
+                this._refreshEpgSchedulesForRangeBestEffort(range, { reason: 'visible-range' });
+            },
         };
     }
 

@@ -1658,7 +1658,7 @@ describe('EPGCoordinator', () => {
         expect(refreshSpy).toHaveBeenCalledWith({ reason: 'library-filter', debounceMs: 0 });
     });
 
-    it('attachVisibleRangeRefreshPolicy preserves prior callback and delegates refresh to coordinator policy', () => {
+    it('withVisibleRangeRefreshPolicy returns a wrapped config without mutating the caller-owned config', () => {
         const { deps } = makeDeps();
         const coordinator = new EPGCoordinator(deps);
         const previousOnVisibleRangeChange = jest.fn();
@@ -1684,8 +1684,13 @@ describe('EPGCoordinator', () => {
             timeEndMs: 2000,
         };
 
-        coordinator.attachVisibleRangeRefreshPolicy(epgConfig);
-        epgConfig.onVisibleRangeChange?.(range);
+        const wrappedConfig = coordinator.withVisibleRangeRefreshPolicy(epgConfig);
+
+        expect(wrappedConfig).not.toBe(epgConfig);
+        expect(wrappedConfig?.onVisibleRangeChange).not.toBe(epgConfig.onVisibleRangeChange);
+        expect(epgConfig.onVisibleRangeChange).toBe(previousOnVisibleRangeChange);
+
+        wrappedConfig?.onVisibleRangeChange?.(range);
 
         expect(previousOnVisibleRangeChange).toHaveBeenCalledWith(range);
         expect(refreshSpy).toHaveBeenCalledWith(range, { reason: 'visible-range' });
