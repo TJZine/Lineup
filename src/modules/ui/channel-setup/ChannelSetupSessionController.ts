@@ -209,6 +209,7 @@ export class ChannelSetupSessionController {
     private _minItems: number = DEFAULT_MIN_ITEMS_PER_CHANNEL;
 
     private _buildAbortController: AbortController | null = null;
+    private _loadAbortController: AbortController | null = null;
     private _previewAbortController: AbortController | null = null;
     private _reviewAbortController: AbortController | null = null;
     private _previewTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -280,8 +281,11 @@ export class ChannelSetupSessionController {
     endSession(): void {
         this._sessionToken += 1;
         this._cleanupStep2AsyncState();
+        this._loadAbortController?.abort();
+        this._loadAbortController = null;
         this._buildAbortController?.abort();
         this._buildAbortController = null;
+        this._isLoading = false;
         this._isBuilding = false;
     }
 
@@ -292,9 +296,12 @@ export class ChannelSetupSessionController {
         }
         this._isLoading = true;
         this._loadError = null;
+        this._loadAbortController?.abort();
+        const loadAbortController = new AbortController();
+        this._loadAbortController = loadAbortController;
 
         try {
-            const libraries = await this._sessionGateway.getLibrariesForSetup();
+            const libraries = await this._sessionGateway.getLibrariesForSetup(loadAbortController.signal);
             if (token !== this._sessionToken) {
                 return;
             }
@@ -315,11 +322,17 @@ export class ChannelSetupSessionController {
             if (token !== this._sessionToken) {
                 return;
             }
+            if (isAbortLikeError(error, loadAbortController.signal)) {
+                return;
+            }
             this._libraries = [];
             this._selectedLibraryIds = new Set();
             this._recordApplied = false;
             this._loadError = error instanceof Error ? error.message : 'Unable to load libraries.';
         } finally {
+            if (this._loadAbortController === loadAbortController) {
+                this._loadAbortController = null;
+            }
             if (token === this._sessionToken) {
                 this._isLoading = false;
             }
@@ -700,9 +713,11 @@ export class ChannelSetupSessionController {
     }
 
     private _resetState(): void {
+        this._loadAbortController?.abort();
         this._buildAbortController?.abort();
         this._previewAbortController?.abort();
         this._reviewAbortController?.abort();
+        this._loadAbortController = null;
         this._buildAbortController = null;
         this._previewAbortController = null;
         this._reviewAbortController = null;

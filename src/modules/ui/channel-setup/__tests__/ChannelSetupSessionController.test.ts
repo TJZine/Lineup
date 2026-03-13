@@ -370,6 +370,40 @@ describe('ChannelSetupSessionController', () => {
         expect(snapshot.isLoading).toBe(false);
     });
 
+    it('loadLibraries() passes an abort signal and ends loading quietly when the session ends', async (): Promise<void> => {
+        let capturedSignal: AbortSignal | null | undefined;
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockImplementation((signal?: AbortSignal | null) => {
+                capturedSignal = signal;
+                if (!signal) {
+                    return Promise.reject(new Error('missing signal'));
+                }
+
+                return new Promise<PlexLibraryModel[]>((_, reject) => {
+                    signal.addEventListener('abort', () => {
+                        reject(new DOMException('Aborted', 'AbortError'));
+                    }, { once: true });
+                });
+            }),
+        });
+        const controller = new ChannelSetupSessionController({
+            orchestrator,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        const loadPromise = controller.loadLibraries();
+        expect(controller.getSnapshot().isLoading).toBe(true);
+
+        controller.endSession();
+        await loadPromise;
+
+        expect(capturedSignal).toBeDefined();
+        expect(capturedSignal?.aborted).toBe(true);
+        expect(controller.getSnapshot().isLoading).toBe(false);
+        expect(controller.getSnapshot().loadError).toBeNull();
+    });
+
     it('getSnapshot() returns detached mutable state copies', async (): Promise<void> => {
         const orchestrator = createOrchestrator({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
