@@ -586,6 +586,45 @@ describe('ChannelSetupCoordinator', () => {
         expect(replaceArgs?.map((channel: ChannelConfig) => channel.number)).toEqual([1, 2, 3]);
     });
 
+    it('reuses the same lowest free number after a failed append-mode create', async () => {
+        const { coordinator, plexLibrary, channelManager } = createCoordinator();
+        plexLibrary.getLibraries.mockResolvedValue([] as PlexLibraryType[]);
+        plexLibrary.getPlaylists.mockResolvedValue([
+            { ratingKey: 'pl1', key: '/playlists/pl1', title: 'Favorites', thumb: null, duration: 0, leafCount: 10 },
+            { ratingKey: 'pl2', key: '/playlists/pl2', title: 'Watchlist', thumb: null, duration: 0, leafCount: 10 },
+        ]);
+        channelManager.getAllChannels.mockReturnValue([
+            { ...mockChannelConfig, id: 'c1', number: 1, name: 'Existing 1' },
+            { ...mockChannelConfig, id: 'c3', number: 3, name: 'Existing 3' },
+        ]);
+
+        let failedOnce = false;
+        mockBuilder.createChannel.mockImplementationOnce(async () => {
+            failedOnce = true;
+            throw new Error('builder failed');
+        });
+
+        await coordinator.createChannelsFromSetup(createConfig({
+            buildMode: 'append',
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
+        }));
+
+        expect(failedOnce).toBe(true);
+        expect(mockBuilder.createChannel).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({ number: 2 }),
+            expect.any(Object)
+        );
+        expect(mockBuilder.createChannel).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({ number: 2 }),
+            expect.any(Object)
+        );
+
+        const [replaceArgs] = channelManager.replaceAllChannels.mock.calls[0] ?? [];
+        expect(replaceArgs?.map((channel: ChannelConfig) => channel.number)).toEqual([1, 2, 3]);
+    });
+
     it('counts cap-truncated pending channels as skipped in append mode', async () => {
         const { coordinator, plexLibrary, channelManager } = createCoordinator();
         plexLibrary.getLibraries.mockResolvedValue([] as PlexLibraryType[]);

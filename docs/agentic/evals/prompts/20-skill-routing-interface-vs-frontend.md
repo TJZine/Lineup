@@ -66,7 +66,7 @@ Report findings ordered by severity. If you find a routing ambiguity, propose a 
 - pass requires exit code `0`
 - fail on any non-zero exit code
 - fail if the verifier reports broken links, unresolved tracked doc references, or managed prompt/docs inventory drift
-- source references in lines 5-11 must resolve to existing tracked files; any missing-path or broken-link report is a failed eval run
+- Source section entries must resolve to existing tracked files; any missing-path or broken-link report is a failed eval run
 
 ## Output Contract
 

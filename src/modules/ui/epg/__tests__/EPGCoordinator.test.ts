@@ -914,6 +914,32 @@ describe('EPGCoordinator', () => {
         expect(epg.loadChannels).not.toHaveBeenCalled();
     });
 
+    it('ignores stale initialization rejections after a newer open request starts', async () => {
+        let rejectFirst!: (error: unknown) => void;
+        const ensure = jest
+            .fn()
+            .mockImplementationOnce(
+                () =>
+                    new Promise<void>((_, reject) => {
+                        rejectFirst = reject;
+                    })
+            )
+            .mockResolvedValueOnce(undefined);
+        const { deps, epg } = makeDeps({
+            getEpgUiStatus: () => 'initializing',
+            ensureEpgInitialized: ensure,
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.openEPG();
+        coordinator.openEPG();
+        rejectFirst(new Error('stale init failed'));
+        await flushPromises();
+
+        expect(epg.hide).not.toHaveBeenCalled();
+        expect(deps.reportEpgInitWarning).not.toHaveBeenCalled();
+    });
+
 	    it('preseeds current channel schedule when scheduler is active and channel is visible', () => {
 	        const { deps, epg } = makeDeps();
 	        const coordinator = new EPGCoordinator(deps);
@@ -1735,6 +1761,33 @@ describe('EPGCoordinator', () => {
 
         expect(epg.clearSchedules).toHaveBeenCalled();
         expect(primeSpy).toHaveBeenCalled();
+        expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
+    });
+
+    it('handleGuideSettingChange cancels queued and in-flight schedule work before visible refresh', () => {
+        const { deps, epg } = makeDeps();
+        const coordinator = new EPGCoordinator(deps);
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+        const queueCancelSpy = jest.spyOn(
+            (coordinator as unknown as {
+                _visibleRangeRefreshQueue: { cancelPendingRefresh: () => void };
+            })._visibleRangeRefreshQueue,
+            'cancelPendingRefresh'
+        );
+        const abortSpy = jest.spyOn(
+            (coordinator as unknown as {
+                _scheduleRefreshRuntime: { abortAllInFlightSchedules: (reason?: string) => void };
+            })._scheduleRefreshRuntime,
+            'abortAllInFlightSchedules'
+        );
+        const refreshSpy = jest
+            .spyOn(coordinator, 'refreshEpgSchedules')
+            .mockResolvedValue(undefined);
+
+        coordinator.handleGuideSettingChange({ key: 'aggressivePreload', enabled: true });
+
+        expect(queueCancelSpy).toHaveBeenCalledTimes(1);
+        expect(abortSpy).toHaveBeenCalledWith('guide-settings');
         expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
     });
 

@@ -185,16 +185,21 @@ export class ChannelSetupBuildExecutor {
                     if (p.buildStrategy !== undefined) channelParams.buildStrategy = p.buildStrategy;
                     if (p.sourceLibraryId !== undefined) channelParams.sourceLibraryId = p.sourceLibraryId;
                     if (p.sourceLibraryName !== undefined) channelParams.sourceLibraryName = p.sourceLibraryName;
+                    let pendingNumberReserved = false;
                     if (buildMode !== 'replace') {
-                        const nextNumber = availableNumbers.shift();
-                        if (!nextNumber) {
+                        const nextNumber = availableNumbers[0];
+                        if (nextNumber === undefined) {
                             reachedMax = true;
                             break;
                         }
                         channelParams.number = nextNumber;
+                        pendingNumberReserved = true;
                     }
 
                     await builder.createChannel(channelParams, { signal: signal ?? null });
+                    if (pendingNumberReserved) {
+                        availableNumbers.shift();
+                    }
 
                     finalSummary.created++;
                 } catch (e) {

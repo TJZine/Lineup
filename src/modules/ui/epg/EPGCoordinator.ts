@@ -137,6 +137,11 @@ export class EPGCoordinator {
         this._scheduleRefreshRuntime.clearScheduleCaches();
     }
 
+    private _cancelScheduledRefreshWork(reason: string): void {
+        this._visibleRangeRefreshQueue.cancelPendingRefresh();
+        this._scheduleRefreshRuntime.abortAllInFlightSchedules(reason);
+    }
+
     withVisibleRangeRefreshPolicy(epgConfig: EPGConfig | null | undefined): EPGConfig | null {
         if (!epgConfig) {
             return null;
@@ -162,6 +167,7 @@ export class EPGCoordinator {
             change.key === 'libraryTabs' || change.key === 'aggressivePreload' || change.key === 'pastItemsWindow';
 
         if (shouldInvalidateSchedules) {
+            this._cancelScheduledRefreshWork('guide-settings');
             this.clearScheduleCaches();
             epg.clearSchedules();
         }
@@ -333,6 +339,9 @@ export class EPGCoordinator {
                 show();
             })
             .catch((error: unknown) => {
+                if (requestId !== this._openRequestId) {
+                    return;
+                }
                 console.error('[EPGCoordinator] Failed to init EPG:', summarizeErrorForLog(error));
                 this.deps.getEpg()?.hide();
                 this.deps.reportEpgInitWarning(error);
@@ -341,8 +350,7 @@ export class EPGCoordinator {
 
     closeEPG(): void {
         this._openRequestId++;
-        this._visibleRangeRefreshQueue.cancelPendingRefresh();
-        this._scheduleRefreshRuntime.abortAllInFlightSchedules('close-epg');
+        this._cancelScheduledRefreshWork('close-epg');
         this.deps.getEpg()?.hide();
     }
 
@@ -536,7 +544,7 @@ export class EPGCoordinator {
                 epgInstance.clearSchedules();
             }
             this._scheduleRefreshRuntime.clearLoadedScheduleMarkers();
-            this._scheduleRefreshRuntime.abortAllInFlightSchedules('library-filter');
+            this._cancelScheduledRefreshWork('library-filter');
 
             this.primeEpgChannels();
 
