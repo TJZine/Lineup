@@ -67,6 +67,7 @@ export class EPGCoordinator {
     private readonly _epgPreferencesStore: EpgPreferencesStore;
     private _visibleRangeRefreshQueue: EPGVisibleRangeRefreshQueue;
     private readonly _scheduleRefreshRuntime: EPGScheduleRefreshRuntime;
+    private _openRequestId = 0;
 
     constructor(private readonly deps: EPGCoordinatorDeps) {
         this._epgPreferencesStore = deps.epgPreferencesStore ?? new EpgPreferencesStore();
@@ -156,6 +157,15 @@ export class EPGCoordinator {
     handleGuideSettingChange(change: GuideSettingChange): void {
         const epg = this.deps.getEpg();
         if (!epg) return;
+
+        const shouldInvalidateSchedules =
+            change.key === 'libraryTabs' || change.key === 'aggressivePreload' || change.key === 'pastItemsWindow';
+
+        if (shouldInvalidateSchedules) {
+            this.clearScheduleCaches();
+            epg.clearSchedules();
+        }
+
         if (!epg.isVisible()) return;
 
         if (change.key === 'layoutMode') {
@@ -170,11 +180,6 @@ export class EPGCoordinator {
 
         if (change.key === 'infoBackgroundMode') {
             return;
-        }
-
-        if (change.key === 'libraryTabs' || change.key === 'aggressivePreload' || change.key === 'pastItemsWindow') {
-            this.clearScheduleCaches();
-            epg.clearSchedules();
         }
 
         this.primeEpgChannels();
@@ -297,6 +302,7 @@ export class EPGCoordinator {
     openEPG(): void {
         const epg = this.deps.getEpg();
         if (!epg) return;
+        const requestId = ++this._openRequestId;
 
         const show = (): void => {
             this._preseedCurrentChannelSchedule();
@@ -319,6 +325,9 @@ export class EPGCoordinator {
         show();
         void this.deps.ensureEpgInitialized()
             .then(() => {
+                if (requestId !== this._openRequestId) {
+                    return;
+                }
                 this.primeEpgChannels();
                 this._refreshEpgSchedulesBestEffort();
                 show();
@@ -331,6 +340,7 @@ export class EPGCoordinator {
     }
 
     closeEPG(): void {
+        this._openRequestId++;
         this._visibleRangeRefreshQueue.cancelPendingRefresh();
         this._scheduleRefreshRuntime.abortAllInFlightSchedules('close-epg');
         this.deps.getEpg()?.hide();

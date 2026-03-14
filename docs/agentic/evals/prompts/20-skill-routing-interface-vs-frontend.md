@@ -27,8 +27,8 @@ Adversarially review the tracked repo workflow surfaces for skill routing and mi
 2) Validate the mirroring mechanism is correct and reproducible:
    - `docs/agentic/skill-mirror-allowlist.txt` includes both `global:frontend-design` and `global:interface-design`
    - `scripts/sync_agent_skills.sh` will fail loudly if a pinned global skill is missing
-   - after running the sync, `.agent/skills/interface-design/` and `.agent/skills/frontend-design/` exist and contain `SKILL.md` and `LICENSE.txt`
-   - `git status --porcelain` does not show tracked changes under `.agent/skills/`
+   - the local skill mirror produced by the sync contains the expected frontend/interface design skill copies with `SKILL.md` and `LICENSE.txt`
+   - the verification flow does not leave tracked mirror churn behind (`git status --porcelain` stays clean for tracked files)
 
 3) Validate Lineup UI work still layers TV constraints correctly:
    - `.codex/skills/ui-composition-patterns/SKILL.md` pairs with the correct global UI skill and still points to `docs/design/ui-design-language.md`
@@ -56,13 +56,17 @@ Report findings ordered by severity. If you find a routing ambiguity, propose a 
 - `sed -n '1,120p' docs/agentic/skill-mirror-allowlist.txt`
 - `sed -n '1,140p' scripts/sync_agent_skills.sh`
 - `sed -n '1,60p' .codex/skills/ui-composition-patterns/SKILL.md`
-- `bash scripts/sync_agent_skills.sh`
-- `ls -la .agent/skills/interface-design .agent/skills/frontend-design`
-- `git status --porcelain` (must not show tracked changes under `.agent/skills/`)
+- prerequisite: refresh the local skill mirror once before running this eval; do not run `scripts/sync_agent_skills.sh` as part of the eval itself
+- confirm the refreshed local mirror contains the expected frontend/interface design skill copies with `SKILL.md` and `LICENSE.txt`
+- `git status --porcelain` (must not show tracked changes introduced by the verification flow)
 
 ## Expected Verification
 
 - `npm run verify:docs`
+- pass requires exit code `0`
+- fail on any non-zero exit code
+- fail if the verifier reports broken links, unresolved tracked doc references, or managed prompt/docs inventory drift
+- source references in lines 5-11 must resolve to existing tracked files; any missing-path or broken-link report is a failed eval run
 
 ## Output Contract
 
@@ -74,7 +78,7 @@ Report findings ordered by severity. If you find a routing ambiguity, propose a 
 ## Fail Conditions
 
 - any tracked workflow or prompt surface still routes all UI creation/redesign to `frontend-design` instead of the product-vs-marketing split
-- `frontend-design` or `interface-design` is missing from the mirror allowlist or missing after sync
+- `frontend-design` or `interface-design` is missing from the mirror allowlist or from the refreshed local mirror
 - `.codex/skills/ui-composition-patterns/SKILL.md` still hard-codes `frontend-design` as the only pairing
 - review claims success without showing the evidence commands and results
-- committing or referencing `.agent/skills/` in tracked docs (local-only leakage)
+- the eval depends on mutating local-only mirror output during the eval run, or treats local mirror artifacts as tracked deliverables

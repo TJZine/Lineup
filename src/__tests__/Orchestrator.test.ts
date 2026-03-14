@@ -1874,7 +1874,7 @@ describe('AppOrchestrator', () => {
             }
         });
 
-        it('ignores aggressive preload change when EPG hidden', () => {
+        it('invalidates cached schedules but skips refresh when aggressive preload changes while EPG is hidden', () => {
             mockEpg.isVisible.mockReturnValue(false);
             const clearSpy = jest.spyOn(EPGCoordinator.prototype, 'clearScheduleCaches');
             const primeSpy = jest.spyOn(EPGCoordinator.prototype, 'primeEpgChannels');
@@ -1883,10 +1883,10 @@ describe('AppOrchestrator', () => {
             try {
                 orchestrator.onGuideSettingChange({ key: 'aggressivePreload', enabled: true });
 
-                expect(clearSpy).not.toHaveBeenCalled();
+                expect(clearSpy).toHaveBeenCalled();
                 expect(primeSpy).not.toHaveBeenCalled();
                 expect(refreshSpy).not.toHaveBeenCalled();
-                expect(mockEpg.clearSchedules).not.toHaveBeenCalled();
+                expect(mockEpg.clearSchedules).toHaveBeenCalled();
             } finally {
                 clearSpy.mockRestore();
                 primeSpy.mockRestore();

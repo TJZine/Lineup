@@ -888,6 +888,32 @@ describe('EPGCoordinator', () => {
         expect(epg.loadChannels).toHaveBeenCalled();
     });
 
+    it('openEPG does not reopen the guide after closeEPG runs while initialization is pending', async () => {
+        let resolveEnsure!: () => void;
+        const ensure = jest.fn().mockImplementation(
+            () =>
+                new Promise<void>((resolve) => {
+                    resolveEnsure = resolve;
+                })
+        );
+        const { deps, epg } = makeDeps({
+            getEpgUiStatus: () => 'initializing',
+            ensureEpgInitialized: ensure,
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.openEPG();
+        expect(epg.show).toHaveBeenCalledTimes(1);
+
+        coordinator.closeEPG();
+        resolveEnsure();
+        await flushPromises();
+
+        expect(epg.hide).toHaveBeenCalledTimes(1);
+        expect(epg.show).toHaveBeenCalledTimes(1);
+        expect(epg.loadChannels).not.toHaveBeenCalled();
+    });
+
 	    it('preseeds current channel schedule when scheduler is active and channel is visible', () => {
 	        const { deps, epg } = makeDeps();
 	        const coordinator = new EPGCoordinator(deps);
@@ -1710,5 +1736,23 @@ describe('EPGCoordinator', () => {
         expect(epg.clearSchedules).toHaveBeenCalled();
         expect(primeSpy).toHaveBeenCalled();
         expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
+    });
+
+    it('handleGuideSettingChange still invalidates cached schedules while the guide is hidden', () => {
+        const { deps, epg } = makeDeps();
+        const coordinator = new EPGCoordinator(deps);
+        (epg.isVisible as jest.Mock).mockReturnValue(false);
+        const clearSpy = jest.spyOn(coordinator, 'clearScheduleCaches');
+        const primeSpy = jest.spyOn(coordinator, 'primeEpgChannels');
+        const refreshSpy = jest
+            .spyOn(coordinator, 'refreshEpgSchedules')
+            .mockResolvedValue(undefined);
+
+        coordinator.handleGuideSettingChange({ key: 'aggressivePreload', enabled: true });
+
+        expect(clearSpy).toHaveBeenCalledTimes(1);
+        expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
+        expect(primeSpy).not.toHaveBeenCalled();
+        expect(refreshSpy).not.toHaveBeenCalled();
     });
 });

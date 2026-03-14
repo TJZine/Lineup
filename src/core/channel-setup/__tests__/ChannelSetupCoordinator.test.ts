@@ -1194,16 +1194,15 @@ describe('ChannelSetupCoordinator', () => {
             [],
             null
         );
-        const resultWithWarnings = result as typeof result & { warnings?: string[] };
 
         expect(result.canceled).toBe(false);
         expect(result.plan).not.toBeNull();
-        expect(resultWithWarnings.warnings).toEqual(
+        expect(result.warnings).toEqual(
             expect.arrayContaining([
                 expect.stringContaining('fetch_playlists'),
                 expect.stringContaining('playlist fetch failed'),
             ])
         );
-        expect(result.plan?.warnings).toEqual(expect.arrayContaining(resultWithWarnings.warnings ?? []));
+        expect(result.plan?.warnings).toEqual(expect.arrayContaining(result.warnings));
     });
 });
