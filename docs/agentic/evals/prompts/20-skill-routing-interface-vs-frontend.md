@@ -73,6 +73,7 @@ Report findings ordered by severity. If you find a routing ambiguity, propose a 
 
 - findings first, ordered by severity
 - each finding names the exact file path, why it violates the prompt intent, and a concrete patch recommendation
+- include an `Evidence` section that lists the exact commands/tools used and the observed result for each item (for example: `rg ...` -> matched files, `sed ...` -> reviewed section, `git status --porcelain` -> clean/dirty)
 - if no material findings exist, say so explicitly and note any residual risk
 - end with an overall rubric verdict (`pass` / `soft-fail` / `fail`) plus short per-dimension justification
 
@@ -81,5 +82,5 @@ Report findings ordered by severity. If you find a routing ambiguity, propose a 
 - any tracked workflow or prompt surface still routes all UI creation/redesign to `frontend-design` instead of the product-vs-marketing split
 - `frontend-design` or `interface-design` is missing from the mirror allowlist or from the refreshed local mirror
 - `.codex/skills/ui-composition-patterns/SKILL.md` still hard-codes `frontend-design` as the only pairing
-- review claims success without showing the evidence commands and results
+- review omits the required `Evidence` section, or claims success without showing the evidence commands/tools and observed results
 - the eval depends on mutating local-only mirror output during the eval run, or treats local mirror artifacts as tracked deliverables
