@@ -59,20 +59,29 @@ export class ChannelSetupBuildExecutor {
                 return { created: 0, skipped: 0, reachedMaxChannels: false, errorCount: 0, canceled: true, lastTask: 'fetch_playlists' };
             }
             throw e;
-        }
+	        }
 
-        const normalizedConfig = this._deps.planningService.normalizeConfig(config);
-        const planResult = await this._deps.planningService.buildSetupPlan(
-            normalizedConfig,
-            libraries,
-            signal ?? null,
-            reportProgress
-        );
+	        const normalizedConfig = this._deps.planningService.normalizeConfig(config);
+	        let planResult;
+	        try {
+	            planResult = await this._deps.planningService.buildSetupPlan(
+	                normalizedConfig,
+	                libraries,
+	                signal ?? null,
+	                reportProgress
+	            );
+	        } catch (e) {
+	            if (isAbortLike(e, signal ?? undefined)) {
+	                reportProgress('build_pending', 'Preparing...', 'Canceled', 0, null);
+	                return { created: 0, skipped: 0, reachedMaxChannels: false, errorCount: 0, canceled: true, lastTask: 'build_pending' };
+	            }
+	            throw e;
+	        }
 
-        if (planResult.canceled || !planResult.plan) {
-            return {
-                created: 0,
-                skipped: 0,
+	        if (planResult.canceled || !planResult.plan) {
+	            return {
+	                created: 0,
+	                skipped: 0,
                 reachedMaxChannels: false,
                 errorCount: planResult.errorsTotal,
                 canceled: true,

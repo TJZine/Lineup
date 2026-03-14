@@ -542,20 +542,21 @@ export class EPGCoordinator {
         };
         epg.on('channelSelected', handler);
 
-        const onFilter = (payload: { libraryId: string | null }): void => {
-            this._epgPreferencesStore.writeSelectedLibraryId(payload.libraryId ?? null);
+	        const onFilter = (payload: { libraryId: string | null }): void => {
+	            this._epgPreferencesStore.writeSelectedLibraryId(payload.libraryId ?? null);
 
-            const epgInstance = this.deps.getEpg();
-            if (epgInstance) {
-                epgInstance.clearSchedules();
-            }
-            this._scheduleRefreshRuntime.clearLoadedScheduleMarkers();
-            this._cancelScheduledRefreshWork('library-filter');
+	            this._cancelScheduledRefreshWork('library-filter');
+	            this._scheduleRefreshRuntime.clearLoadedScheduleMarkers();
 
-            this.primeEpgChannels();
+	            const epgInstance = this.deps.getEpg();
+	            if (epgInstance) {
+	                epgInstance.clearSchedules();
+	            }
 
-            // Reset to top to avoid scroll offsets pointing past end after filtering
-            const epg2 = this.deps.getEpg();
+	            this.primeEpgChannels();
+
+	            // Reset to top to avoid scroll offsets pointing past end after filtering
+	            const epg2 = this.deps.getEpg();
             if (epg2) {
                 epg2.scrollToChannel(0);
                 epg2.focusChannel(0);
