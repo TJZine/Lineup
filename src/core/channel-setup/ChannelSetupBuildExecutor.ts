@@ -23,10 +23,10 @@ export interface ChannelSetupBuildExecutorDeps {
 export class ChannelSetupBuildExecutor {
     constructor(private readonly _deps: ChannelSetupBuildExecutorDeps) {}
 
-	    async createChannelsFromSetup(
-	        config: ChannelSetupConfig,
-	        options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }
-	    ): Promise<ChannelBuildSummary> {
+		    async createChannelsFromSetup(
+		        config: ChannelSetupConfig,
+		        options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }
+		    ): Promise<ChannelBuildSummary> {
         const signal = options?.signal;
         const reportProgress = (
             task: ChannelBuildProgress['task'],
@@ -90,16 +90,16 @@ export class ChannelSetupBuildExecutor {
 
         const existingChannels = this._deps.channelManager.getAllChannels();
         const diff = diffChannelPlans(existingChannels, pending);
-        const pendingToCreate = this._deps.planningService.getPendingChannelsForMode(normalizedConfig.buildMode, pending, diff);
+	        const pendingToCreate = this._deps.planningService.getPendingChannelsForMode(normalizedConfig.buildMode, pending, diff);
 
-        reportProgress('create_channels', 'Shuffling...', 'Setting up lineup', 0, pendingToCreate.length);
+	        reportProgress('create_channels', 'Shuffling...', 'Setting up lineup', 0, pendingToCreate.length);
 
-        const tempKeyId = String(Date.now());
-        const tempKey = `lineup_channels_build_tmp_v1:${tempKeyId}`;
-        const tempCurrentKey = `lineup_current_channel_build_tmp_v1:${tempKeyId}`;
-        const builder = new ChannelManager({
-            plexLibrary: this._deps.plexLibrary,
-            storageKey: tempKey,
+	        const tempKeyId = `${Date.now()}-${generateUUID()}`;
+	        const tempKey = `lineup_channels_build_tmp_v1:${tempKeyId}`;
+	        const tempCurrentKey = `lineup_current_channel_build_tmp_v1:${tempKeyId}`;
+	        const builder = new ChannelManager({
+	            plexLibrary: this._deps.plexLibrary,
+	            storageKey: tempKey,
             currentChannelKey: tempCurrentKey,
             logger: {
                 warn: (msg, ...args): void => console.warn(msg, ...args.map(summarizeErrorForLog)),
@@ -253,20 +253,20 @@ export class ChannelSetupBuildExecutor {
         const finalDetail = epgRefreshFailed
             ? `Built ${finalSummary.created} channels (guide refresh failed)`
             : `Built ${finalSummary.created} channels`;
-        reportProgress('done', 'Done!', finalDetail, finalSummary.created, finalSummary.created);
-        return finalSummary;
-    }
+	        reportProgress('done', 'Done!', finalDetail, finalSummary.created, finalSummary.created);
+	        return finalSummary;
+	    }
 
-    private _getAvailableChannelNumbers(existingChannels: ChannelConfig[]): number[] {
-        const used = new Set(existingChannels.map((channel) => channel.number));
-        const available: number[] = [];
-        for (let i = 1; i <= MAX_CHANNEL_NUMBER; i++) {
-            if (!used.has(i)) {
-                available.push(i);
-            }
-        }
-        return available;
-    }
+		    private _getAvailableChannelNumbers(existingChannels: ChannelConfig[]): number[] {
+	        const used = new Set(existingChannels.map((channel) => channel.number));
+	        const available: number[] = [];
+	        for (let i = 1; i <= MAX_CHANNEL_NUMBER; i++) {
+	            if (!used.has(i)) {
+	                available.push(i);
+		    }
+	}
+	        return available;
+	    }
 
     private _mergeExistingChannels(existingChannels: ChannelConfig[], diff: ChannelDiffResult): ChannelConfig[] {
         const plannedById = new Map<string, PendingChannel>();
@@ -355,6 +355,22 @@ function isAbortLike(error: unknown, signal?: AbortSignal): boolean {
         if (namedError.name === 'AbortError') return true;
     }
     return false;
+}
+
+function generateUUID(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        try {
+            return crypto.randomUUID();
+        } catch {
+            // Fall back to Math.random implementation.
+        }
+    }
+
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+    });
 }
 
 function compareChannelsByNumber(left: ChannelConfig, right: ChannelConfig): number {

@@ -344,50 +344,61 @@ describe('EPGCoordinator', () => {
         }
     });
 
-    it('closeEPG aborts in-flight immediate schedule loads', async () => {
-        useDeterministicFakeTimers();
-        try {
-            let capturedSignal: AbortSignal | undefined;
-            const base = makeDeps();
-            const { deps, epg } = makeDeps({
-                getScheduler: () =>
-                ({
-                    getState: () => ({ isActive: false, channelId: 'other' }),
-                    getScheduleWindow: jest.fn(),
-                } as unknown as IChannelScheduler),
-                getChannelManager: () =>
-                ({
-                    ...base.channelManager,
-                    getAllChannels: () => [makeChannel('c0', 1)],
-                    getCurrentChannel: () => makeChannel('c0', 1),
-                    resolveChannelContent: jest.fn().mockImplementation(
-                        (_id: string, options?: { signal?: AbortSignal }) => new Promise<ResolvedChannelContent>((_, reject) => {
-                            capturedSignal = options?.signal;
-                            options?.signal?.addEventListener('abort', () => {
-                                reject(new DOMException('Aborted', 'AbortError'));
-                            }, { once: true });
-                        })
-                    ),
-                } as IChannelManager),
-            });
-            const coordinator = new EPGCoordinator(deps);
+        it('closeEPG aborts in-flight immediate schedule loads', async () => {
+            useDeterministicFakeTimers();
+            try {
+                let capturedSignal: AbortSignal | undefined;
+                let signalRegisteredResolve: (() => void) | null = null;
+                const signalRegistered = new Promise<void>((resolve) => {
+                    signalRegisteredResolve = resolve;
+                });
 
-            const refreshPromise = coordinator.refreshEpgSchedulesForRange(
-                { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 0 },
-                { debounceMs: 0, reason: 'visible-range' }
-            );
-            await Promise.resolve();
+                const base = makeDeps();
+                const { deps, epg } = makeDeps({
+                    getScheduler: () =>
+                    ({
+                        getState: () => ({ isActive: false, channelId: 'other' }),
+                        getScheduleWindow: jest.fn(),
+                    } as unknown as IChannelScheduler),
+                    getChannelManager: () =>
+                    ({
+                        ...base.channelManager,
+                        getAllChannels: () => [makeChannel('c0', 1)],
+                        getCurrentChannel: () => makeChannel('c0', 1),
+                        resolveChannelContent: jest.fn().mockImplementation(
+                            (_id: string, options?: { signal?: AbortSignal }) =>
+                                new Promise<ResolvedChannelContent>((_, reject) => {
+                                    capturedSignal = options?.signal;
+                                    signalRegisteredResolve?.();
+                                    options?.signal?.addEventListener(
+                                        'abort',
+                                        () => {
+                                            reject(new DOMException('Aborted', 'AbortError'));
+                                        },
+                                        { once: true }
+                                    );
+                                })
+                        ),
+                    } as IChannelManager),
+                });
+                const coordinator = new EPGCoordinator(deps);
 
-            coordinator.closeEPG();
-            await refreshPromise;
+                const refreshPromise = coordinator.refreshEpgSchedulesForRange(
+                    { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 0 },
+                    { debounceMs: 0, reason: 'visible-range' }
+                );
+                await signalRegistered;
 
-            expect(capturedSignal).toBeDefined();
-            expect(capturedSignal?.aborted).toBe(true);
-            expect(epg.hide).toHaveBeenCalled();
-        } finally {
-            jest.useRealTimers();
-        }
-    });
+                coordinator.closeEPG();
+                await refreshPromise;
+
+                expect(capturedSignal).toBeDefined();
+                expect(capturedSignal?.aborted).toBe(true);
+                expect(epg.hide).toHaveBeenCalled();
+            } finally {
+                jest.useRealTimers();
+            }
+        });
 
     it('primeEpgChannels applies filtering when tabs enabled and selected', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
@@ -1821,21 +1832,48 @@ describe('EPGCoordinator', () => {
         expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
     });
 
-    it('handleGuideSettingChange still invalidates cached schedules while the guide is hidden', () => {
-        const { deps, epg } = makeDeps();
-        const coordinator = new EPGCoordinator(deps);
-        (epg.isVisible as jest.Mock).mockReturnValue(false);
-        const clearSpy = jest.spyOn(coordinator, 'clearScheduleCaches');
-        const primeSpy = jest.spyOn(coordinator, 'primeEpgChannels');
-        const refreshSpy = jest
-            .spyOn(coordinator, 'refreshEpgSchedules')
-            .mockResolvedValue(undefined);
+        it('handleGuideSettingChange still invalidates cached schedules while the guide is hidden', () => {
+            const { deps, epg } = makeDeps();
+            const coordinator = new EPGCoordinator(deps);
+            (epg.isVisible as jest.Mock).mockReturnValue(false);
+            const clearSpy = jest.spyOn(coordinator, 'clearScheduleCaches');
+            const primeSpy = jest.spyOn(coordinator, 'primeEpgChannels');
+            const refreshSpy = jest
+                .spyOn(coordinator, 'refreshEpgSchedules')
+                .mockResolvedValue(undefined);
 
-        coordinator.handleGuideSettingChange({ key: 'aggressivePreload', enabled: true });
+            coordinator.handleGuideSettingChange({ key: 'aggressivePreload', enabled: true });
 
-        expect(clearSpy).toHaveBeenCalledTimes(1);
-        expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
-        expect(primeSpy).not.toHaveBeenCalled();
-        expect(refreshSpy).not.toHaveBeenCalled();
+            expect(clearSpy).toHaveBeenCalledTimes(1);
+            expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
+            expect(primeSpy).not.toHaveBeenCalled();
+            expect(refreshSpy).not.toHaveBeenCalled();
+        });
+
+        it('handleGuideSettingChange cancels queued and in-flight schedule work even when EPG is unmounted', () => {
+            const { deps, epg } = makeDeps({
+                getEpg: () => null,
+            });
+            const coordinator = new EPGCoordinator(deps);
+            const queueCancelSpy = jest.spyOn(
+                (coordinator as unknown as {
+                    _visibleRangeRefreshQueue: { cancelPendingRefresh: () => void };
+                })._visibleRangeRefreshQueue,
+                'cancelPendingRefresh'
+            );
+            const abortSpy = jest.spyOn(
+                (coordinator as unknown as {
+                    _scheduleRefreshRuntime: { abortAllInFlightSchedules: (reason?: string) => void };
+                })._scheduleRefreshRuntime,
+                'abortAllInFlightSchedules'
+            );
+            const clearSpy = jest.spyOn(coordinator, 'clearScheduleCaches');
+
+            coordinator.handleGuideSettingChange({ key: 'aggressivePreload', enabled: true });
+
+            expect(queueCancelSpy).toHaveBeenCalledTimes(1);
+            expect(abortSpy).toHaveBeenCalledWith('guide-settings');
+            expect(clearSpy).toHaveBeenCalledTimes(1);
+            expect(epg.clearSchedules).not.toHaveBeenCalled();
+        });
     });
-});

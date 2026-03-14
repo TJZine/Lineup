@@ -160,9 +160,6 @@ export class EPGCoordinator {
     }
 
     handleGuideSettingChange(change: GuideSettingChange): void {
-        const epg = this.deps.getEpg();
-        if (!epg) return;
-
         const shouldInvalidateSchedules =
             change.key === 'libraryTabs' ||
             change.key === 'guideDensity' ||
@@ -172,6 +169,12 @@ export class EPGCoordinator {
         if (shouldInvalidateSchedules) {
             this._cancelScheduledRefreshWork('guide-settings');
             this.clearScheduleCaches();
+        }
+
+        const epg = this.deps.getEpg();
+        if (!epg) return;
+
+        if (shouldInvalidateSchedules) {
             epg.clearSchedules();
         }
 
