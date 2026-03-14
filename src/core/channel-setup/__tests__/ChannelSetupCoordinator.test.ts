@@ -604,7 +604,7 @@ describe('ChannelSetupCoordinator', () => {
             throw new Error('builder failed');
         });
 
-        await coordinator.createChannelsFromSetup(createConfig({
+        const summary = await coordinator.createChannelsFromSetup(createConfig({
             buildMode: 'append',
             strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
         }));
@@ -620,6 +620,8 @@ describe('ChannelSetupCoordinator', () => {
             expect.objectContaining({ number: 2 }),
             expect.any(Object)
         );
+        expect(summary.errorCount).toBe(1);
+        expect(summary.skipped).toBe(0);
 
         const [replaceArgs] = channelManager.replaceAllChannels.mock.calls[0] ?? [];
         expect(replaceArgs?.map((channel: ChannelConfig) => channel.number)).toEqual([1, 2, 3]);

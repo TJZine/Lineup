@@ -1791,6 +1791,36 @@ describe('EPGCoordinator', () => {
         expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
     });
 
+    it('handleGuideSettingChange invalidates guideDensity changes before visible refresh', () => {
+        const { deps, epg } = makeDeps();
+        const coordinator = new EPGCoordinator(deps);
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+        const clearSpy = jest.spyOn(coordinator, 'clearScheduleCaches');
+        const queueCancelSpy = jest.spyOn(
+            (coordinator as unknown as {
+                _visibleRangeRefreshQueue: { cancelPendingRefresh: () => void };
+            })._visibleRangeRefreshQueue,
+            'cancelPendingRefresh'
+        );
+        const abortSpy = jest.spyOn(
+            (coordinator as unknown as {
+                _scheduleRefreshRuntime: { abortAllInFlightSchedules: (reason?: string) => void };
+            })._scheduleRefreshRuntime,
+            'abortAllInFlightSchedules'
+        );
+        const refreshSpy = jest
+            .spyOn(coordinator, 'refreshEpgSchedules')
+            .mockResolvedValue(undefined);
+
+        coordinator.handleGuideSettingChange({ key: 'guideDensity', density: 'wide' });
+
+        expect(queueCancelSpy).toHaveBeenCalledTimes(1);
+        expect(abortSpy).toHaveBeenCalledWith('guide-settings');
+        expect(clearSpy).toHaveBeenCalledTimes(1);
+        expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
+        expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
+    });
+
     it('handleGuideSettingChange still invalidates cached schedules while the guide is hidden', () => {
         const { deps, epg } = makeDeps();
         const coordinator = new EPGCoordinator(deps);

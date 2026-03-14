@@ -126,6 +126,7 @@ export class ChannelSetupBuildExecutor {
 
         try {
             let pIndex = 0;
+            let attemptedCount = 0;
             const buildMode = normalizedConfig.buildMode ?? 'replace';
             const availableNumbers = buildMode === 'replace'
                 ? []
@@ -138,10 +139,6 @@ export class ChannelSetupBuildExecutor {
             const maxCreates = buildMode === 'replace'
                 ? pendingToCreate.length
                 : Math.min(pendingToCreate.length, availableNumbers.length);
-            const cappedSkippedCount = Math.max(0, pendingToCreate.length - maxCreates);
-
-            finalSummary.skipped = skippedCount + cappedSkippedCount;
-
             for (const p of pendingToCreate) {
                 pIndex++;
                 if (finalSummary.created >= maxCreates) {
@@ -160,6 +157,7 @@ export class ChannelSetupBuildExecutor {
                 }
 
                 try {
+                    attemptedCount++;
                     const channelParams: Partial<ChannelConfig> = {
                         name: p.name,
                         contentSource: p.contentSource,
@@ -213,6 +211,7 @@ export class ChannelSetupBuildExecutor {
                     finalSummary.errorCount++;
                 }
             }
+            finalSummary.skipped = skippedCount + Math.max(0, pendingToCreate.length - attemptedCount);
             finalSummary.reachedMaxChannels = reachedMax;
 
             if (checkCanceled()) {

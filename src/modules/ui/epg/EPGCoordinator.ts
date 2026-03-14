@@ -164,7 +164,10 @@ export class EPGCoordinator {
         if (!epg) return;
 
         const shouldInvalidateSchedules =
-            change.key === 'libraryTabs' || change.key === 'aggressivePreload' || change.key === 'pastItemsWindow';
+            change.key === 'libraryTabs' ||
+            change.key === 'guideDensity' ||
+            change.key === 'aggressivePreload' ||
+            change.key === 'pastItemsWindow';
 
         if (shouldInvalidateSchedules) {
             this._cancelScheduledRefreshWork('guide-settings');

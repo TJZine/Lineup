@@ -1815,6 +1815,7 @@ describe('AppOrchestrator', () => {
                 key === 'lineup_epg_guide_density' ? 'wide' : null
             );
             mockEpg.isVisible.mockReturnValue(true);
+            const clearSpy = jest.spyOn(EPGCoordinator.prototype, 'clearScheduleCaches');
             const refreshSpy = jest
                 .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
                 .mockResolvedValue(undefined);
@@ -1824,8 +1825,11 @@ describe('AppOrchestrator', () => {
                 orchestrator.onGuideSettingChange({ key: 'guideDensity', density: 'wide' });
 
                 expect(mockEpg.setVisibleHours).toHaveBeenCalledWith(3);
+                expect(clearSpy).toHaveBeenCalled();
+                expect(mockEpg.clearSchedules).toHaveBeenCalled();
                 expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
             } finally {
+                clearSpy.mockRestore();
                 refreshSpy.mockRestore();
             }
         });
