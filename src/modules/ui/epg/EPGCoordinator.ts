@@ -312,17 +312,17 @@ export class EPGCoordinator {
     }
 
     openEPG(): void {
-        const epg = this.deps.getEpg();
-        if (!epg) return;
+        const initialEpg = this.deps.getEpg();
+        if (!initialEpg) return;
         const requestId = ++this._openRequestId;
 
-        const show = (): void => {
-            this._preseedCurrentChannelSchedule();
+        const show = (epgInstance: IEPGComponent): void => {
+            this._preseedCurrentChannelSchedule(epgInstance);
             const preserveFocus = this.deps.getPreserveFocusOnOpen();
-            epg.show({ preserveFocus });
+            epgInstance.show({ preserveFocus });
             if (!preserveFocus) {
-                this._focusEpgOnCurrentChannel();
-                epg.focusNow();
+                this._focusEpgOnCurrentChannel(epgInstance);
+                epgInstance.focusNow();
             }
         };
 
@@ -330,19 +330,23 @@ export class EPGCoordinator {
         if (status === 'ready') {
             this.primeEpgChannels();
             this._refreshEpgSchedulesBestEffort();
-            show();
+            show(initialEpg);
             return;
         }
 
-        show();
+        show(initialEpg);
         void this.deps.ensureEpgInitialized()
             .then(() => {
                 if (requestId !== this._openRequestId) {
                     return;
                 }
+                const epgAfterInit = this.deps.getEpg();
+                if (!epgAfterInit) {
+                    return;
+                }
                 this.primeEpgChannels();
                 this._refreshEpgSchedulesBestEffort();
-                show();
+                show(epgAfterInit);
             })
             .catch((error: unknown) => {
                 if (requestId !== this._openRequestId) {
@@ -460,8 +464,8 @@ export class EPGCoordinator {
         }
     }
 
-    private _preseedCurrentChannelSchedule(): void {
-        const epg = this.deps.getEpg();
+    private _preseedCurrentChannelSchedule(epgOverride?: IEPGComponent): void {
+        const epg = epgOverride ?? this.deps.getEpg();
         const channelManager = this.deps.getChannelManager();
         const scheduler = this.deps.getScheduler();
         if (!epg || !channelManager || !scheduler) return;
@@ -542,42 +546,31 @@ export class EPGCoordinator {
         };
         epg.on('channelSelected', handler);
 
-	        const onFilter = (payload: { libraryId: string | null }): void => {
-	            this._epgPreferencesStore.writeSelectedLibraryId(payload.libraryId ?? null);
+        const onFilter = (payload: { libraryId: string | null }): void => {
+            this._epgPreferencesStore.writeSelectedLibraryId(payload.libraryId ?? null);
 
-	            this._cancelScheduledRefreshWork('library-filter');
-	            this._scheduleRefreshRuntime.clearLoadedScheduleMarkers();
+            this._cancelScheduledRefreshWork('library-filter');
+            this._scheduleRefreshRuntime.clearLoadedScheduleMarkers();
 
-	            const epgInstance = this.deps.getEpg();
-	            if (epgInstance) {
-	                epgInstance.clearSchedules();
-	            }
+            epg.clearSchedules();
 
-	            this.primeEpgChannels();
+            this.primeEpgChannels();
 
-	            // Reset to top to avoid scroll offsets pointing past end after filtering
-	            if (epgInstance) {
-	                epgInstance.scrollToChannel(0);
-	                epgInstance.focusChannel(0);
-	            }
+            // Reset to top to avoid scroll offsets pointing past end after filtering
+            epg.scrollToChannel(0);
+            epg.focusChannel(0);
 
-	            this._refreshEpgSchedulesBestEffort({ reason: 'library-filter', debounceMs: 0 });
-	        };
+            this._refreshEpgSchedulesBestEffort({ reason: 'library-filter', debounceMs: 0 });
+        };
 
         epg.on('libraryFilterChanged', onFilter);
 
         return [
             (): void => {
-                const epgInstance = this.deps.getEpg();
-                if (epgInstance) {
-                    epgInstance.off('channelSelected', handler);
-                }
+                epg.off('channelSelected', handler);
             },
             (): void => {
-                const epgInstance = this.deps.getEpg();
-                if (epgInstance) {
-                    epgInstance.off('libraryFilterChanged', onFilter);
-                }
+                epg.off('libraryFilterChanged', onFilter);
             },
         ];
     }
@@ -628,8 +621,8 @@ export class EPGCoordinator {
         await this._scheduleRefreshRuntime.refreshForRange(range, reason);
     }
 
-    private _focusEpgOnCurrentChannel(): void {
-        const epg = this.deps.getEpg();
+    private _focusEpgOnCurrentChannel(epgOverride?: IEPGComponent): void {
+        const epg = epgOverride ?? this.deps.getEpg();
         const channelManager = this.deps.getChannelManager();
         if (!epg || !channelManager) return;
         const current = channelManager.getCurrentChannel();

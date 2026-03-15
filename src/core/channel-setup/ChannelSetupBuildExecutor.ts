@@ -133,13 +133,15 @@ export class ChannelSetupBuildExecutor {
             lastTask: 'Initializing...',
         };
 
-        try {
-            let pIndex = 0;
-            let attemptedCount = 0;
-            const buildMode = normalizedConfig.buildMode ?? 'replace';
-            const availableNumbers = buildMode === 'replace'
-                ? []
-                : this._getAvailableChannelNumbers(existingChannels);
+	        try {
+	            let pIndex = 0;
+	            let attemptedCount = 0;
+	            const computeSkipped = (): number =>
+	                skippedCount + Math.max(0, pendingToCreate.length - attemptedCount);
+	            const buildMode = normalizedConfig.buildMode ?? 'replace';
+	            const availableNumbers = buildMode === 'replace'
+	                ? []
+	                : this._getAvailableChannelNumbers(existingChannels);
 
             if (buildMode !== 'replace' && pendingToCreate.length > availableNumbers.length) {
                 reachedMax = true;
@@ -154,12 +156,13 @@ export class ChannelSetupBuildExecutor {
                     break;
                 }
 
-                if (checkCanceled()) {
-                    finalSummary.reachedMaxChannels = reachedMax;
-                    finalSummary.canceled = true;
-                    finalSummary.lastTask = 'create_channels';
-                    return finalSummary;
-                }
+	                if (checkCanceled()) {
+	                    finalSummary.skipped = computeSkipped();
+	                    finalSummary.reachedMaxChannels = reachedMax;
+	                    finalSummary.canceled = true;
+	                    finalSummary.lastTask = 'create_channels';
+	                    return finalSummary;
+	                }
 
                 if (pIndex % 5 === 0) {
                     reportProgress('create_channels', 'Creating channels...', `Channel ${finalSummary.created + 1}`, pIndex, pendingToCreate.length);
@@ -209,19 +212,20 @@ export class ChannelSetupBuildExecutor {
                     }
 
                     finalSummary.created++;
-                } catch (e) {
-                    if (isAbortLike(e, signal ?? undefined)) {
-                        finalSummary.reachedMaxChannels = reachedMax;
-                        finalSummary.canceled = true;
-                        finalSummary.lastTask = 'create_channels';
-                        return finalSummary;
-                    }
-                    console.warn(`Failed to create channel ${p.name}:`, summarizeErrorForLog(e));
-                    finalSummary.errorCount++;
-                }
-            }
-            finalSummary.skipped = skippedCount + Math.max(0, pendingToCreate.length - attemptedCount);
-            finalSummary.reachedMaxChannels = reachedMax;
+	                } catch (e) {
+	                    if (isAbortLike(e, signal ?? undefined)) {
+	                        finalSummary.skipped = computeSkipped();
+	                        finalSummary.reachedMaxChannels = reachedMax;
+	                        finalSummary.canceled = true;
+	                        finalSummary.lastTask = 'create_channels';
+	                        return finalSummary;
+	                    }
+	                    console.warn(`Failed to create channel ${p.name}:`, summarizeErrorForLog(e));
+	                    finalSummary.errorCount++;
+	                }
+	            }
+	            finalSummary.skipped = computeSkipped();
+	            finalSummary.reachedMaxChannels = reachedMax;
 
             if (checkCanceled()) {
                 finalSummary.canceled = true;
