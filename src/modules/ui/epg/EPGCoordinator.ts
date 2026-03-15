@@ -556,14 +556,13 @@ export class EPGCoordinator {
 	            this.primeEpgChannels();
 
 	            // Reset to top to avoid scroll offsets pointing past end after filtering
-	            const epg2 = this.deps.getEpg();
-            if (epg2) {
-                epg2.scrollToChannel(0);
-                epg2.focusChannel(0);
-            }
+	            if (epgInstance) {
+	                epgInstance.scrollToChannel(0);
+	                epgInstance.focusChannel(0);
+	            }
 
-            this._refreshEpgSchedulesBestEffort({ reason: 'library-filter', debounceMs: 0 });
-        };
+	            this._refreshEpgSchedulesBestEffort({ reason: 'library-filter', debounceMs: 0 });
+	        };
 
         epg.on('libraryFilterChanged', onFilter);
 
