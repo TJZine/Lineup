@@ -1831,7 +1831,7 @@ describe('AppOrchestrator', () => {
                 expect(mockEpg.setVisibleHours).toHaveBeenCalledWith(3);
                 expect(clearSpy).toHaveBeenCalled();
                 expect(mockEpg.clearSchedules).toHaveBeenCalled();
-                expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
+                expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
             } finally {
                 clearSpy.mockRestore();
                 refreshSpy.mockRestore();
@@ -1852,7 +1852,7 @@ describe('AppOrchestrator', () => {
                 expect(clearSpy).toHaveBeenCalled();
                 expect(mockEpg.clearSchedules).toHaveBeenCalled();
                 expect(primeSpy).toHaveBeenCalled();
-                expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
+                expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
             } finally {
                 clearSpy.mockRestore();
                 primeSpy.mockRestore();
@@ -1874,7 +1874,7 @@ describe('AppOrchestrator', () => {
                 expect(clearSpy).toHaveBeenCalled();
                 expect(mockEpg.clearSchedules).toHaveBeenCalled();
                 expect(primeSpy).toHaveBeenCalled();
-                expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
+                expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
             } finally {
                 clearSpy.mockRestore();
                 primeSpy.mockRestore();

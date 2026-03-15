@@ -733,6 +733,7 @@ describe('ChannelSetupCoordinator', () => {
         );
 
         expect(summary.created).toBe(1);
+        expect(summary.lastTask).toBe('done');
         expect(deps.primeEpgChannels).toHaveBeenCalledTimes(1);
         expect(deps.refreshEpgSchedules).toHaveBeenCalledTimes(1);
         expect(progressEvents.at(-1)).toEqual({
@@ -746,6 +747,22 @@ describe('ChannelSetupCoordinator', () => {
         );
 
         warnSpy.mockRestore();
+    });
+
+    it('returns done as the lastTask after a successful build', async () => {
+        const { coordinator, plexLibrary } = createCoordinator();
+        plexLibrary.getLibraries.mockResolvedValue([] as PlexLibraryType[]);
+        plexLibrary.getPlaylists.mockResolvedValue([
+            { ratingKey: 'pl1', key: '/playlists/pl1', title: 'Favorites', thumb: null, duration: 0, leafCount: 10 },
+        ]);
+
+        const summary = await coordinator.createChannelsFromSetup(createConfig({
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
+        }));
+
+        expect(summary.created).toBe(1);
+        expect(summary.canceled).toBe(false);
+        expect(summary.lastTask).toBe('done');
     });
 
     it('logs cleanup failures without masking a successful build', async () => {

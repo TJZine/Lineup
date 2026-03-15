@@ -201,7 +201,7 @@ export class EPGCoordinator {
             change.key === 'aggressivePreload' ||
             change.key === 'pastItemsWindow'
         ) {
-            this._refreshEpgSchedulesBestEffort({ reason: 'guide-settings' });
+            this._refreshEpgSchedulesBestEffort({ reason: 'guide-settings', debounceMs: 0 });
         }
     }
 
@@ -316,7 +316,7 @@ export class EPGCoordinator {
         if (!initialEpg) return;
         const requestId = ++this._openRequestId;
 
-        const show = (epgInstance: IEPGComponent): void => {
+        const showAndRefresh = (epgInstance: IEPGComponent): void => {
             this._preseedCurrentChannelSchedule(epgInstance);
             const preserveFocus = this.deps.getPreserveFocusOnOpen();
             epgInstance.show({ preserveFocus });
@@ -324,17 +324,23 @@ export class EPGCoordinator {
                 this._focusEpgOnCurrentChannel(epgInstance);
                 epgInstance.focusNow();
             }
+            this._refreshEpgSchedulesBestEffort({ debounceMs: 0 });
         };
 
         const status = this.deps.getEpgUiStatus();
         if (status === 'ready') {
             this.primeEpgChannels();
-            this._refreshEpgSchedulesBestEffort();
-            show(initialEpg);
+            showAndRefresh(initialEpg);
             return;
         }
 
-        show(initialEpg);
+        const preserveFocus = this.deps.getPreserveFocusOnOpen();
+        this._preseedCurrentChannelSchedule(initialEpg);
+        initialEpg.show({ preserveFocus });
+        if (!preserveFocus) {
+            this._focusEpgOnCurrentChannel(initialEpg);
+            initialEpg.focusNow();
+        }
         void this.deps.ensureEpgInitialized()
             .then(() => {
                 if (requestId !== this._openRequestId) {
@@ -345,8 +351,7 @@ export class EPGCoordinator {
                     return;
                 }
                 this.primeEpgChannels();
-                this._refreshEpgSchedulesBestEffort();
-                show(epgAfterInit);
+                showAndRefresh(epgAfterInit);
             })
             .catch((error: unknown) => {
                 if (requestId !== this._openRequestId) {

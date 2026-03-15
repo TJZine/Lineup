@@ -1,6 +1,6 @@
 import { ChannelManager } from '../../modules/scheduler/channel-manager';
 import type { IChannelManager, ChannelConfig } from '../../modules/scheduler/channel-manager';
-import type { IPlexLibrary } from '../../modules/plex/library';
+import type { IPlexLibrary, PlexLibraryType } from '../../modules/plex/library';
 import { MAX_CHANNEL_NUMBER } from '../../modules/scheduler/channel-manager/constants';
 import { redactSensitiveTokens } from '../../utils/redact';
 import type {
@@ -9,7 +9,7 @@ import type {
     ChannelSetupConfig,
 } from './types';
 import { diffChannelPlans, type PendingChannel, type ChannelDiffResult } from './ChannelSetupPlanner';
-import type { ChannelSetupPlanningService } from './ChannelSetupPlanningService';
+import type { ChannelSetupPlanBuildResult, ChannelSetupPlanningService } from './ChannelSetupPlanningService';
 
 export interface ChannelSetupBuildExecutorDeps {
     plexLibrary: IPlexLibrary;
@@ -48,7 +48,7 @@ export class ChannelSetupBuildExecutor {
 
         reportProgress('fetch_playlists', 'Preparing...', 'Loading libraries', 0, null);
 
-        let libraries;
+        let libraries: PlexLibraryType[];
         let epgRefreshFailed = false;
 
         try {
@@ -62,7 +62,7 @@ export class ChannelSetupBuildExecutor {
 	        }
 
 	        const normalizedConfig = this._deps.planningService.normalizeConfig(config);
-	        let planResult;
+	        let planResult: ChannelSetupPlanBuildResult;
 	        try {
 	            planResult = await this._deps.planningService.buildSetupPlan(
 	                normalizedConfig,
@@ -130,7 +130,7 @@ export class ChannelSetupBuildExecutor {
             reachedMaxChannels: false,
             errorCount: planResult.errorsTotal,
             canceled: false,
-            lastTask: 'Initializing...',
+            lastTask: 'create_channels',
         };
 
 	        try {
@@ -234,6 +234,7 @@ export class ChannelSetupBuildExecutor {
             }
 
             reportProgress('apply_channels', 'Saving...', 'Saving library', finalSummary.created, finalSummary.created);
+            finalSummary.lastTask = 'apply_channels';
             const builtChannels = builder.getAllChannels();
             const currentChannelId = this._deps.channelManager.getCurrentChannel()?.id ?? null;
             let finalChannels = builtChannels;
@@ -246,6 +247,7 @@ export class ChannelSetupBuildExecutor {
             await this._deps.channelManager.replaceAllChannels(finalChannels, { currentChannelId });
 
             reportProgress('refresh_epg', 'Refreshing guide...', 'Loading schedules', 0, null);
+            finalSummary.lastTask = 'refresh_epg';
             try {
                 this._deps.primeEpgChannels();
                 await this._deps.refreshEpgSchedules({ reason: 'channel-setup', debounceMs: 0 });
@@ -266,6 +268,7 @@ export class ChannelSetupBuildExecutor {
 	        const finalDetail = epgRefreshFailed
 	            ? `Built ${finalSummary.created} channels (guide refresh failed)`
 	            : `Built ${finalSummary.created} channels`;
+	        finalSummary.lastTask = 'done';
 	        reportProgress('done', 'Done!', finalDetail, finalSummary.created, finalSummary.created);
 	        return finalSummary;
 	    }

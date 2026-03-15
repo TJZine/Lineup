@@ -290,17 +290,62 @@ describe('EPGCoordinator', () => {
         expect(partitioned.immediateChannels[partitioned.immediateChannels.length - 1]?.id).toBe('c27');
     });
 
-    it('openEPG primes and refreshes when ready before show', async () => {
+    it('openEPG primes and queues an immediate refresh after show when ready', async () => {
         const { deps, epg } = makeDeps();
         const coordinator = new EPGCoordinator(deps);
+        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedulesForRange').mockResolvedValue(undefined);
 
         coordinator.openEPG();
 
         expect(epg.loadChannels).toHaveBeenCalled();
-        expect(epg.setGridAnchorTime).toHaveBeenCalled();
         expect(epg.show).toHaveBeenCalledTimes(1);
+        expect(refreshSpy).toHaveBeenCalledWith(
+            {
+                channelStart: 0,
+                channelEnd: 3,
+                timeStartMs: 0,
+                timeEndMs: 0,
+            },
+            { reason: 'manual', debounceMs: 0 }
+        );
+        expect((epg.show as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
+            refreshSpy.mock.invocationCallOrder[0] as number
+        );
         // focusNow called when not preserving focus
         expect(epg.focusNow).toHaveBeenCalled();
+    });
+
+    it('openEPG computes the initial refresh range from the post-show view window', async () => {
+        const postShowRange = {
+            startTime: 60_000,
+            endTime: 180_000,
+            startChannelIndex: 2,
+            endChannelIndex: 6,
+        };
+        const { deps, epg } = makeDeps();
+        (epg.show as jest.Mock).mockImplementation(() => {
+            (epg.getState as jest.Mock).mockReturnValue({
+                isVisible: true,
+                focusedCell: null,
+                scrollPosition: { channelOffset: 2, timeOffset: 1 },
+                viewWindow: postShowRange,
+                currentTime: 60_000,
+            });
+        });
+        const coordinator = new EPGCoordinator(deps);
+        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedulesForRange').mockResolvedValue(undefined);
+
+        coordinator.openEPG();
+
+        expect(refreshSpy).toHaveBeenCalledWith(
+            {
+                channelStart: postShowRange.startChannelIndex,
+                channelEnd: postShowRange.endChannelIndex,
+                timeStartMs: postShowRange.startTime,
+                timeEndMs: postShowRange.endTime,
+            },
+            { reason: 'manual', debounceMs: 0 }
+        );
     });
 
     it('openEPG handles promise rejection by hiding EPG and reporting warning', async () => {
@@ -1772,7 +1817,7 @@ describe('EPGCoordinator', () => {
 
         expect(epg.clearSchedules).toHaveBeenCalled();
         expect(primeSpy).toHaveBeenCalled();
-        expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
+        expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
     });
 
     it('handleGuideSettingChange cancels queued and in-flight schedule work before visible refresh', () => {
@@ -1799,7 +1844,7 @@ describe('EPGCoordinator', () => {
 
         expect(queueCancelSpy).toHaveBeenCalledTimes(1);
         expect(abortSpy).toHaveBeenCalledWith('guide-settings');
-        expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
+        expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
     });
 
     it('handleGuideSettingChange invalidates guideDensity changes before visible refresh', () => {
@@ -1829,7 +1874,7 @@ describe('EPGCoordinator', () => {
         expect(abortSpy).toHaveBeenCalledWith('guide-settings');
         expect(clearSpy).toHaveBeenCalledTimes(1);
         expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
-        expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings' });
+        expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
     });
 
         it('handleGuideSettingChange still invalidates cached schedules while the guide is hidden', () => {

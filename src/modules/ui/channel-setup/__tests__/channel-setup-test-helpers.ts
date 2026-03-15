@@ -2,6 +2,7 @@ import type { PlexLibrary as PlexLibraryModel } from '../../../plex/library/type
 import type { FocusableElement, KeyEvent } from '../../../navigation/interfaces';
 import { PLEX_DISCOVERY_CONSTANTS } from '../../../plex/discovery/constants';
 import type { ChannelSetupSessionGateway } from '../../../../core/channel-setup/ChannelSetupSessionGateway';
+import type { ChannelBuildSummary } from '../../../../core/channel-setup/types';
 
 type Focusable = Pick<FocusableElement, 'id' | 'neighbors'>;
 
@@ -70,7 +71,7 @@ export const DEFAULT_REVIEW = {
     },
 };
 
-export const DEFAULT_BUILD_RESULT = {
+export const DEFAULT_BUILD_RESULT: ChannelBuildSummary = {
     created: 1,
     skipped: 0,
     reachedMaxChannels: false,
