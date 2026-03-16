@@ -86,9 +86,9 @@ export class ChannelSetupBuildExecutor {
 	            return {
 	                created: 0,
 	                skipped: 0,
-                reachedMaxChannels: false,
-                errorCount: planResult.errorsTotal,
-                canceled: true,
+	                reachedMaxChannels: false,
+	                errorCount: planResult.errorsTotal,
+                canceled: planResult.canceled,
                 lastTask: planResult.lastTask ?? 'build_pending',
             };
         }
@@ -383,13 +383,8 @@ function summarizeErrorForLog(error: unknown): { name?: string; code?: unknown; 
     };
 }
 
-function isAbortLike(error: unknown, signal?: AbortSignal): boolean {
+function isAbortLike(_error: unknown, signal?: AbortSignal): boolean {
     if (signal?.aborted) return true;
-    if (typeof DOMException !== 'undefined' && error instanceof DOMException && error.name === 'AbortError') return true;
-    if (error && typeof error === 'object' && 'name' in error) {
-        const namedError = error as { name?: unknown };
-        if (namedError.name === 'AbortError') return true;
-    }
     return false;
 }
 

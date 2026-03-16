@@ -301,7 +301,10 @@ export class ChannelSetupPlanningService {
                 reportProgress?.('scan_library_items', 'Resolving filters...', library.title, libIndex, selectedLibraries.length);
                 const genreType = library.type === 'show' ? PLEX_MEDIA_TYPES.SHOW : PLEX_MEDIA_TYPES.MOVIE;
                 const detailType = library.type === 'show' ? PLEX_MEDIA_TYPES.EPISODE : PLEX_MEDIA_TYPES.MOVIE;
-                const requireEntries = library.contentCount > 0;
+                // Force requireEntries to true if the library is a content-bearing type (movie|show)
+                // but its count is 0, since that zero may stem from a fetch failure rather than a truly empty library.
+                const isContentBearingType = library.type === 'movie' || library.type === 'show';
+                const requireEntries = library.contentCount > 0 || (library.contentCount === 0 && isContentBearingType);
 
                 if (config.strategyConfig.genres.enabled) {
                     try {
@@ -617,12 +620,7 @@ function summarizeErrorForLog(error: unknown): { name?: string; code?: unknown; 
     };
 }
 
-function isAbortLike(error: unknown, signal?: AbortSignal): boolean {
+function isAbortLike(_error: unknown, signal?: AbortSignal): boolean {
     if (signal?.aborted) return true;
-    if (typeof DOMException !== 'undefined' && error instanceof DOMException && error.name === 'AbortError') return true;
-    if (error && typeof error === 'object' && 'name' in error) {
-        const namedError = error as { name?: unknown };
-        if (namedError.name === 'AbortError') return true;
-    }
     return false;
 }

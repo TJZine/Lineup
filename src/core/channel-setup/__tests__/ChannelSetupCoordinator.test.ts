@@ -380,24 +380,32 @@ describe('ChannelSetupCoordinator', () => {
         expect(summary.lastTask).toBe('init');
     });
 
-    it('createChannelsFromSetup treats AbortError as cancellation without errors', async () => {
+    it('createChannelsFromSetup treats actual aborted signals as cancellation without errors', async () => {
         const { coordinator, plexLibrary } = createCoordinator();
-        plexLibrary.getPlaylists.mockRejectedValue({ name: 'AbortError' });
+        const controller = new AbortController();
+        plexLibrary.getPlaylists.mockImplementation(() => {
+            controller.abort();
+            return Promise.reject(new DOMException('Aborted', 'AbortError'));
+        });
 
         const summary = await coordinator.createChannelsFromSetup(createConfig({
             strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
-        }));
+        }), { signal: controller.signal });
 
         expect(summary.canceled).toBe(true);
         expect(summary.lastTask).toBe('fetch_playlists');
         expect(summary.errorCount).toBe(0);
     });
 
-    it('createChannelsFromSetup treats AbortError from getLibrariesForSetup as cancellation', async () => {
+    it('createChannelsFromSetup treats aborted getLibrariesForSetup as cancellation', async () => {
         const { coordinator, plexLibrary } = createCoordinator();
-        plexLibrary.getLibraries.mockRejectedValue({ name: 'AbortError' });
+        const controller = new AbortController();
+        plexLibrary.getLibraries.mockImplementation(() => {
+            controller.abort();
+            return Promise.reject(new DOMException('Aborted', 'AbortError'));
+        });
 
-        const summary = await coordinator.createChannelsFromSetup(createConfig());
+        const summary = await coordinator.createChannelsFromSetup(createConfig(), { signal: controller.signal });
 
         expect(summary.canceled).toBe(true);
         expect(summary.lastTask).toBe('fetch_playlists');
