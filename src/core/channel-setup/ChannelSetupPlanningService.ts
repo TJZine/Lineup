@@ -35,6 +35,7 @@ import {
     MIXED_SCOPE_STRATEGY_KEYS,
     SETUP_STRATEGY_KEYS,
 } from './constants';
+import { isSignalAborted } from './utils';
 
 const SELECTABLE_STRATEGY_KEYS: SetupStrategyKey[] = [...SETUP_STRATEGY_KEYS];
 
@@ -232,7 +233,7 @@ export class ChannelSetupPlanningService {
                 playlistMs += Date.now() - playlistsStart;
                 playlists.push(...fetched);
             } catch (e) {
-                if (isAbortLike(e, signal ?? undefined)) {
+                if (isSignalAborted(signal ?? undefined)) {
                     return {
                         plan: null,
                         warnings: collectWarnings(),
@@ -274,7 +275,7 @@ export class ChannelSetupPlanningService {
                     collectionsMs += Date.now() - collectionsStart;
                     collectionsByLibraryId.set(library.id, collections);
                 } catch (e) {
-                    if (isAbortLike(e, signal ?? undefined)) {
+                    if (isSignalAborted(signal ?? undefined)) {
                         return {
                             plan: null,
                             warnings: collectWarnings(),
@@ -301,10 +302,7 @@ export class ChannelSetupPlanningService {
                 reportProgress?.('scan_library_items', 'Resolving filters...', library.title, libIndex, selectedLibraries.length);
                 const genreType = library.type === 'show' ? PLEX_MEDIA_TYPES.SHOW : PLEX_MEDIA_TYPES.MOVIE;
                 const detailType = library.type === 'show' ? PLEX_MEDIA_TYPES.EPISODE : PLEX_MEDIA_TYPES.MOVIE;
-                // Force requireEntries to true if the library is a content-bearing type (movie|show)
-                // but its count is 0, since that zero may stem from a fetch failure rather than a truly empty library.
-                const isContentBearingType = library.type === 'movie' || library.type === 'show';
-                const requireEntries = library.contentCount > 0 || (library.contentCount === 0 && isContentBearingType);
+                const requireEntries = library.contentCount > 0;
 
                 if (config.strategyConfig.genres.enabled) {
                     try {
@@ -324,7 +322,7 @@ export class ChannelSetupPlanningService {
                         }
                         genresByLibraryId.set(library.id, genres);
                     } catch (e) {
-                        if (isAbortLike(e, signal ?? undefined)) {
+                        if (isSignalAborted(signal ?? undefined)) {
                             return {
                                 plan: null,
                                 warnings: collectWarnings(),
@@ -359,7 +357,7 @@ export class ChannelSetupPlanningService {
                         }
                         directorsByLibraryId.set(library.id, directors);
                     } catch (e) {
-                        if (isAbortLike(e, signal ?? undefined)) {
+                        if (isSignalAborted(signal ?? undefined)) {
                             return {
                                 plan: null,
                                 warnings: collectWarnings(),
@@ -394,7 +392,7 @@ export class ChannelSetupPlanningService {
                         }
                         yearsByLibraryId.set(library.id, years);
                     } catch (e) {
-                        if (isAbortLike(e, signal ?? undefined)) {
+                        if (isSignalAborted(signal ?? undefined)) {
                             return {
                                 plan: null,
                                 warnings: collectWarnings(),
@@ -426,7 +424,7 @@ export class ChannelSetupPlanningService {
                     libraryQueryMs += Date.now() - studiosStart;
                     studiosByLibraryId.set(library.id, studios);
                 } catch (e) {
-                    if (isAbortLike(e, signal ?? undefined)) {
+                    if (isSignalAborted(signal ?? undefined)) {
                         return {
                             plan: null,
                             warnings: collectWarnings(),
@@ -458,7 +456,7 @@ export class ChannelSetupPlanningService {
                     libraryQueryMs += Date.now() - actorsStart;
                     actorsByLibraryId.set(library.id, actors);
                 } catch (e) {
-                    if (isAbortLike(e, signal ?? undefined)) {
+                    if (isSignalAborted(signal ?? undefined)) {
                         return {
                             plan: null,
                             warnings: collectWarnings(),
@@ -618,9 +616,4 @@ function summarizeErrorForLog(error: unknown): { name?: string; code?: unknown; 
         ...('code' in e ? { code: e.code } : {}),
         ...(typeof e.message === 'string' ? { message: redactSensitiveTokens(e.message) } : {}),
     };
-}
-
-function isAbortLike(_error: unknown, signal?: AbortSignal): boolean {
-    if (signal?.aborted) return true;
-    return false;
 }
