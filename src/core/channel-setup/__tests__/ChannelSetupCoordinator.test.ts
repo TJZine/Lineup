@@ -765,6 +765,36 @@ describe('ChannelSetupCoordinator', () => {
         expect(summary.lastTask).toBe('done');
     });
 
+    it('treats progress callback failures as non-fatal and completes the build', async () => {
+        const { coordinator, plexLibrary } = createCoordinator();
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        plexLibrary.getLibraries.mockResolvedValue([] as PlexLibraryType[]);
+        plexLibrary.getPlaylists.mockResolvedValue([
+            { ratingKey: 'pl1', key: '/playlists/pl1', title: 'Favorites', thumb: null, duration: 0, leafCount: 10 },
+        ]);
+
+        const summary = await coordinator.createChannelsFromSetup(
+            createConfig({
+                strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
+            }),
+            {
+                onProgress: (): void => {
+                    throw new Error('progress blew up');
+                },
+            }
+        );
+
+        expect(summary.created).toBe(1);
+        expect(summary.canceled).toBe(false);
+        expect(summary.lastTask).toBe('done');
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[ChannelSetup] progress callback failed:',
+            expect.objectContaining({ message: 'progress blew up' })
+        );
+
+        warnSpy.mockRestore();
+    });
+
     it('logs cleanup failures without masking a successful build', async () => {
         const cleanupError = new Error('temp storage unavailable');
         const storageRemove = jest.fn(() => {

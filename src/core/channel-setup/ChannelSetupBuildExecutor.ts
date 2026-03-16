@@ -35,7 +35,11 @@ export class ChannelSetupBuildExecutor {
             current: number,
             total: number | null
         ): void => {
-            options?.onProgress?.({ task, label, detail, current, total });
+            try {
+                options?.onProgress?.({ task, label, detail, current, total });
+            } catch (error: unknown) {
+                console.warn('[ChannelSetup] progress callback failed:', summarizeErrorForLog(error));
+            }
         };
 
         const checkCanceled = (): boolean => {
