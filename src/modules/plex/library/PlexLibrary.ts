@@ -647,7 +647,9 @@ export class PlexLibrary implements IPlexLibrary {
             signal: options.signal ?? null,
         });
         if (!response) {
-            this._notifyUnsupportedTagDirectory(options, 'unavailable', label, libraryId);
+            if (options.requireEntries) {
+                this._notifyUnsupportedTagDirectory(options, 'unavailable', label, libraryId);
+            }
             return [];
         }
         const directories = response.MediaContainer.Directory || [];
