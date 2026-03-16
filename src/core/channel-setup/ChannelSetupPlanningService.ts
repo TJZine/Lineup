@@ -5,6 +5,7 @@ import type {
     PlexTagDirectoryItem,
     PlexPlaylist,
     PlexCollection,
+    PlexTagDirectoryUnsupportedReason,
 } from '../../modules/plex/library';
 import { PLEX_MEDIA_TYPES } from '../../modules/plex/library';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../modules/scheduler/channel-manager/constants';
@@ -189,6 +190,39 @@ export class ChannelSetupPlanningService {
             const message = summary.message ?? (summary.code !== undefined ? String(summary.code) : 'unknown error');
             warnings.add(`Partial setup plan (${task}): ${detail} (${message})`);
         };
+        const buildCanceledScanResult = (): ChannelSetupPlanBuildResult => ({
+            plan: null,
+            warnings: collectWarnings(),
+            canceled: true,
+            lastTask: 'scan_library_items',
+            errorsTotal,
+            playlistMs,
+            collectionsMs,
+            libraryQueryMs,
+        });
+        const stopForRequiredTagDirectory = (
+            label: 'Genres' | 'Directors' | 'Years',
+            libraryTitle: string,
+            type: number,
+            reason: PlexTagDirectoryUnsupportedReason | 'error',
+            error?: unknown
+        ): ChannelSetupPlanBuildResult => {
+            const baseLabel = label.toLowerCase();
+            if (reason === 'error') {
+                const summary = summarizeErrorForLog(error);
+                const detail = summary.message ?? (summary.code !== undefined ? String(summary.code) : 'unknown error');
+                warnings.add(
+                    `Required ${baseLabel} tag directory (type=${type}) failed for ${libraryTitle} (${detail}); stop and re-plan.`
+                );
+            } else {
+                const detail = reason === 'empty' ? 'returned no entries' : 'is unsupported';
+                warnings.add(
+                    `Required ${baseLabel} tag directory (type=${type}) ${detail} for ${libraryTitle}; stop and re-plan.`
+                );
+            }
+            errorsTotal++;
+            return buildCanceledScanResult();
+        };
 
         if (config.strategyConfig.playlists.enabled) {
             reportProgress?.('fetch_playlists', 'Fetching playlists...', 'Scanning server', 0, null);
@@ -267,18 +301,24 @@ export class ChannelSetupPlanningService {
                 reportProgress?.('scan_library_items', 'Resolving filters...', library.title, libIndex, selectedLibraries.length);
                 const genreType = library.type === 'show' ? PLEX_MEDIA_TYPES.SHOW : PLEX_MEDIA_TYPES.MOVIE;
                 const detailType = library.type === 'show' ? PLEX_MEDIA_TYPES.EPISODE : PLEX_MEDIA_TYPES.MOVIE;
+                const requireEntries = library.contentCount > 0;
 
                 if (config.strategyConfig.genres.enabled) {
                     try {
                         const tagStart = Date.now();
+                        let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
                         const genres = await this._deps.plexLibrary.getGenres(library.id, {
                             type: genreType,
                             signal,
-                            onUnsupported: () => {
-                                warnings.add('Genres endpoint not supported by this Plex server.');
+                            requireEntries,
+                            onUnsupported: (reason) => {
+                                unsupportedReason = reason;
                             },
                         });
                         libraryQueryMs += Date.now() - tagStart;
+                        if (unsupportedReason) {
+                            return stopForRequiredTagDirectory('Genres', library.title, genreType, unsupportedReason);
+                        }
                         genresByLibraryId.set(library.id, genres);
                     } catch (e) {
                         if (isAbortLike(e, signal ?? undefined)) {
@@ -294,22 +334,26 @@ export class ChannelSetupPlanningService {
                             };
                         }
                         console.warn(`Failed to fetch genres for ${library.title}:`, summarizeErrorForLog(e));
-                        addPartialWarning('scan_library_items', `scan_library_items genres fetch failed for ${library.title}`, e);
-                        errorsTotal++;
+                        return stopForRequiredTagDirectory('Genres', library.title, genreType, 'error', e);
                     }
                 }
 
                 if (config.strategyConfig.directors.enabled) {
                     try {
                         const tagStart = Date.now();
+                        let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
                         const directors = await this._deps.plexLibrary.getDirectors(library.id, {
                             type: detailType,
                             signal,
-                            onUnsupported: () => {
-                                warnings.add('Directors endpoint not supported by this Plex server.');
+                            requireEntries,
+                            onUnsupported: (reason) => {
+                                unsupportedReason = reason;
                             },
                         });
                         libraryQueryMs += Date.now() - tagStart;
+                        if (unsupportedReason) {
+                            return stopForRequiredTagDirectory('Directors', library.title, detailType, unsupportedReason);
+                        }
                         directorsByLibraryId.set(library.id, directors);
                     } catch (e) {
                         if (isAbortLike(e, signal ?? undefined)) {
@@ -325,22 +369,26 @@ export class ChannelSetupPlanningService {
                             };
                         }
                         console.warn(`Failed to fetch directors for ${library.title}:`, summarizeErrorForLog(e));
-                        addPartialWarning('scan_library_items', `scan_library_items directors fetch failed for ${library.title}`, e);
-                        errorsTotal++;
+                        return stopForRequiredTagDirectory('Directors', library.title, detailType, 'error', e);
                     }
                 }
 
                 if (config.strategyConfig.decades.enabled) {
                     try {
                         const tagStart = Date.now();
+                        let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
                         const years = await this._deps.plexLibrary.getYears(library.id, {
                             type: detailType,
                             signal,
-                            onUnsupported: () => {
-                                warnings.add('Years endpoint not supported by this Plex server.');
+                            requireEntries,
+                            onUnsupported: (reason) => {
+                                unsupportedReason = reason;
                             },
                         });
                         libraryQueryMs += Date.now() - tagStart;
+                        if (unsupportedReason) {
+                            return stopForRequiredTagDirectory('Years', library.title, detailType, unsupportedReason);
+                        }
                         yearsByLibraryId.set(library.id, years);
                     } catch (e) {
                         if (isAbortLike(e, signal ?? undefined)) {
@@ -356,8 +404,7 @@ export class ChannelSetupPlanningService {
                             };
                         }
                         console.warn(`Failed to fetch years for ${library.title}:`, summarizeErrorForLog(e));
-                        addPartialWarning('scan_library_items', `scan_library_items years fetch failed for ${library.title}`, e);
-                        errorsTotal++;
+                        return stopForRequiredTagDirectory('Years', library.title, detailType, 'error', e);
                     }
                 }
             }

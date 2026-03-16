@@ -940,6 +940,21 @@ describe('PlexLibrary', () => {
             expect(years).toEqual([]);
             expect(onUnsupported).toHaveBeenCalledTimes(1);
         });
+
+        it('should invoke callback when required genres endpoint returns no directory entries', async () => {
+            mockFetchJson({ MediaContainer: { Directory: [] } });
+            const onUnsupported = jest.fn();
+            const library = new PlexLibrary(mockConfig);
+
+            const genres = await library.getGenres('1', {
+                type: PLEX_MEDIA_TYPES.SHOW,
+                onUnsupported,
+                requireEntries: true,
+            });
+
+            expect(genres).toEqual([]);
+            expect(onUnsupported).toHaveBeenCalledWith('empty');
+        });
     });
 
     describe('error handling', () => {

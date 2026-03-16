@@ -1244,7 +1244,7 @@ describe('ChannelSetupCoordinator', () => {
         );
     });
 
-    it('surfaces scan failures as review warnings', async () => {
+    it('surfaces required tag-directory stop warnings in review when a tag fetch fails', async () => {
         const { coordinator, plexLibrary } = createCoordinator();
         plexLibrary.getLibraries.mockResolvedValue([
             { id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 },
@@ -1263,10 +1263,11 @@ describe('ChannelSetupCoordinator', () => {
 
         expect(review.preview.warnings).toEqual(
             expect.arrayContaining([
-                expect.stringContaining('scan_library_items'),
+                expect.stringContaining('stop and re-plan'),
                 expect.stringContaining('scan failed'),
             ])
         );
+        expect(review.diff.summary).toEqual({ created: 0, removed: 0, unchanged: 0 });
     });
 
     it('buildSetupPlan returns explicit warnings alongside partial plan results', async () => {
