@@ -546,6 +546,7 @@
   position: relative;
   height: 100%;
   width: 100%;
+  clip-path: inset(0 0 0 var(--epg-time-header-sticky-width-px, 0));
 }
 
 .epg-time-header-sticky {

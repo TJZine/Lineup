@@ -2,8 +2,6 @@ import type { IChannelManager } from '../../modules/scheduler/channel-manager';
 import type {
     IPlexLibrary,
     PlexLibraryType,
-    PlexMediaItem,
-    LibraryQueryOptions,
     PlexTagDirectoryItem,
     PlexPlaylist,
     PlexCollection,
@@ -176,8 +174,9 @@ export class ChannelSetupPlanningService {
 
         const playlists: PlexPlaylist[] = [];
         const collectionsByLibraryId = new Map<string, PlexCollection[]>();
-        const tagItemsByLibraryId = new Map<string, PlexMediaItem[]>();
-        const scanItemsByLibraryId = new Map<string, PlexMediaItem[]>();
+        const genresByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
+        const directorsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
+        const yearsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
         const actorsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
         const studiosByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
         const collectWarnings = (): string[] => Array.from(warnings);
@@ -216,8 +215,6 @@ export class ChannelSetupPlanningService {
                 errorsTotal++;
             }
         }
-
-        const CHANNEL_SETUP_SCAN_LIMIT = 500;
 
         for (let libIndex = 0; libIndex < selectedLibraries.length; libIndex++) {
             const library = selectedLibraries[libIndex];
@@ -268,93 +265,21 @@ export class ChannelSetupPlanningService {
                 || config.strategyConfig.decades.enabled
             ) {
                 reportProgress?.('scan_library_items', 'Resolving filters...', library.title, libIndex, selectedLibraries.length);
-                const scanOptions: LibraryQueryOptions = {
-                    signal,
-                    limit: CHANNEL_SETUP_SCAN_LIMIT,
-                };
+                const genreType = library.type === 'show' ? PLEX_MEDIA_TYPES.SHOW : PLEX_MEDIA_TYPES.MOVIE;
+                const detailType = library.type === 'show' ? PLEX_MEDIA_TYPES.EPISODE : PLEX_MEDIA_TYPES.MOVIE;
 
-                const addScanTruncationWarning = (
-                    scope: 'tags' | 'episodes' | 'items',
-                    configuredCount: number | undefined
-                ): void => {
-                    if (!Number.isFinite(configuredCount)) return;
-                    if (Number(configuredCount) <= CHANNEL_SETUP_SCAN_LIMIT) return;
-                    warnings.add(
-                        `Partial setup plan (scan_library_items): ` +
-                        `${library.title} ${scope} truncated at ${CHANNEL_SETUP_SCAN_LIMIT} items`
-                    );
-                };
-
-                if (library.type === 'show') {
-                    if (config.strategyConfig.genres.enabled || config.strategyConfig.directors.enabled) {
-                        try {
-                            const tagOptions: LibraryQueryOptions = {
-                                signal,
-                                limit: CHANNEL_SETUP_SCAN_LIMIT,
-                                filter: { type: PLEX_MEDIA_TYPES.SHOW },
-                            };
-                            const tagStart = Date.now();
-                            const tagItems = await this._deps.plexLibrary.getLibraryItems(library.id, tagOptions);
-                            libraryQueryMs += Date.now() - tagStart;
-                            tagItemsByLibraryId.set(library.id, tagItems);
-                            addScanTruncationWarning('tags', library.contentCount);
-                        } catch (e) {
-                            if (isAbortLike(e, signal ?? undefined)) {
-                                return {
-                                    plan: null,
-                                    warnings: collectWarnings(),
-                                    canceled: true,
-                                    lastTask: 'scan_library_items',
-                                    errorsTotal,
-                                    playlistMs,
-                                    collectionsMs,
-                                    libraryQueryMs,
-                                };
-                            }
-                            console.warn(`Failed to scan tag items for ${library.title}:`, summarizeErrorForLog(e));
-                            addPartialWarning('scan_library_items', `scan_library_items tag fetch failed for ${library.title}`, e);
-                            errorsTotal++;
-                        }
-                    }
-
-                    if (config.strategyConfig.decades.enabled) {
-                        try {
-                            const episodeOptions: LibraryQueryOptions = {
-                                signal,
-                                limit: CHANNEL_SETUP_SCAN_LIMIT,
-                                filter: { type: PLEX_MEDIA_TYPES.EPISODE },
-                            };
-                            const scanStart = Date.now();
-                            const scanItems = await this._deps.plexLibrary.getLibraryItems(library.id, episodeOptions);
-                            libraryQueryMs += Date.now() - scanStart;
-                            scanItemsByLibraryId.set(library.id, scanItems);
-                            addScanTruncationWarning('episodes', library.episodeCount);
-                        } catch (e) {
-                            if (isAbortLike(e, signal ?? undefined)) {
-                                return {
-                                    plan: null,
-                                    warnings: collectWarnings(),
-                                    canceled: true,
-                                    lastTask: 'scan_library_items',
-                                    errorsTotal,
-                                    playlistMs,
-                                    collectionsMs,
-                                    libraryQueryMs,
-                                };
-                            }
-                            console.warn(`Failed to scan episode items for ${library.title}:`, summarizeErrorForLog(e));
-                            addPartialWarning('scan_library_items', `scan_library_items episode fetch failed for ${library.title}`, e);
-                            errorsTotal++;
-                        }
-                    }
-                } else {
+                if (config.strategyConfig.genres.enabled) {
                     try {
-                        const scanStart = Date.now();
-                        const tagItems = await this._deps.plexLibrary.getLibraryItems(library.id, scanOptions);
-                        libraryQueryMs += Date.now() - scanStart;
-                        tagItemsByLibraryId.set(library.id, tagItems);
-                        scanItemsByLibraryId.set(library.id, tagItems);
-                        addScanTruncationWarning('items', library.contentCount);
+                        const tagStart = Date.now();
+                        const genres = await this._deps.plexLibrary.getGenres(library.id, {
+                            type: genreType,
+                            signal,
+                            onUnsupported: () => {
+                                warnings.add('Genres endpoint not supported by this Plex server.');
+                            },
+                        });
+                        libraryQueryMs += Date.now() - tagStart;
+                        genresByLibraryId.set(library.id, genres);
                     } catch (e) {
                         if (isAbortLike(e, signal ?? undefined)) {
                             return {
@@ -368,8 +293,70 @@ export class ChannelSetupPlanningService {
                                 libraryQueryMs,
                             };
                         }
-                        console.warn(`Failed to scan items for ${library.title}:`, summarizeErrorForLog(e));
-                        addPartialWarning('scan_library_items', `scan_library_items failed for ${library.title}`, e);
+                        console.warn(`Failed to fetch genres for ${library.title}:`, summarizeErrorForLog(e));
+                        addPartialWarning('scan_library_items', `scan_library_items genres fetch failed for ${library.title}`, e);
+                        errorsTotal++;
+                    }
+                }
+
+                if (config.strategyConfig.directors.enabled) {
+                    try {
+                        const tagStart = Date.now();
+                        const directors = await this._deps.plexLibrary.getDirectors(library.id, {
+                            type: detailType,
+                            signal,
+                            onUnsupported: () => {
+                                warnings.add('Directors endpoint not supported by this Plex server.');
+                            },
+                        });
+                        libraryQueryMs += Date.now() - tagStart;
+                        directorsByLibraryId.set(library.id, directors);
+                    } catch (e) {
+                        if (isAbortLike(e, signal ?? undefined)) {
+                            return {
+                                plan: null,
+                                warnings: collectWarnings(),
+                                canceled: true,
+                                lastTask: 'scan_library_items',
+                                errorsTotal,
+                                playlistMs,
+                                collectionsMs,
+                                libraryQueryMs,
+                            };
+                        }
+                        console.warn(`Failed to fetch directors for ${library.title}:`, summarizeErrorForLog(e));
+                        addPartialWarning('scan_library_items', `scan_library_items directors fetch failed for ${library.title}`, e);
+                        errorsTotal++;
+                    }
+                }
+
+                if (config.strategyConfig.decades.enabled) {
+                    try {
+                        const tagStart = Date.now();
+                        const years = await this._deps.plexLibrary.getYears(library.id, {
+                            type: detailType,
+                            signal,
+                            onUnsupported: () => {
+                                warnings.add('Years endpoint not supported by this Plex server.');
+                            },
+                        });
+                        libraryQueryMs += Date.now() - tagStart;
+                        yearsByLibraryId.set(library.id, years);
+                    } catch (e) {
+                        if (isAbortLike(e, signal ?? undefined)) {
+                            return {
+                                plan: null,
+                                warnings: collectWarnings(),
+                                canceled: true,
+                                lastTask: 'scan_library_items',
+                                errorsTotal,
+                                playlistMs,
+                                collectionsMs,
+                                libraryQueryMs,
+                            };
+                        }
+                        console.warn(`Failed to fetch years for ${library.title}:`, summarizeErrorForLog(e));
+                        addPartialWarning('scan_library_items', `scan_library_items years fetch failed for ${library.title}`, e);
                         errorsTotal++;
                     }
                 }
@@ -445,8 +432,9 @@ export class ChannelSetupPlanningService {
             libraries,
             playlists,
             collectionsByLibraryId,
-            tagItemsByLibraryId,
-            scanItemsByLibraryId,
+            genresByLibraryId,
+            directorsByLibraryId,
+            yearsByLibraryId,
             actorsByLibraryId,
             studiosByLibraryId,
             warnings: Array.from(warnings),

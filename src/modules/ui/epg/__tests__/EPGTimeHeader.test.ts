@@ -65,4 +65,20 @@ describe('EPGTimeHeader', () => {
         expect(debugEnabledSpy).toHaveBeenCalledTimes(1);
         expect(appendSpy).not.toHaveBeenCalled();
     });
+
+    it('syncs slot clip inset width from sticky label offset', () => {
+        const slots = container.querySelector(`.${EPG_CLASSES.TIME_HEADER_SLOTS}`) as HTMLElement;
+        const sticky = container.querySelector(`.${EPG_CLASSES.TIME_HEADER_STICKY}`) as HTMLElement;
+
+        expect(slots).not.toBeNull();
+        expect(sticky).not.toBeNull();
+
+        Object.defineProperty(sticky, 'offsetWidth', { configurable: true, value: 53 });
+        timeHeader.updateScrollPosition(30);
+        expect(slots.style.getPropertyValue('--epg-time-header-sticky-width-px')).toBe('53px');
+
+        Object.defineProperty(sticky, 'offsetWidth', { configurable: true, value: 0 });
+        timeHeader.updateScrollPosition(45);
+        expect(slots.style.getPropertyValue('--epg-time-header-sticky-width-px')).toBe('0px');
+    });
 });

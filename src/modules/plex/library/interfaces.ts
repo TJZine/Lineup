@@ -169,6 +169,39 @@ export interface IPlexLibrary {
         options: { type: number; signal?: AbortSignal | null; onUnsupported?: () => void }
     ): Promise<PlexTagDirectoryItem[]>;
 
+    /**
+     * Get genres for a library section (tag directory).
+     * @param libraryId - Library section ID
+     * @param options - Query options (type required)
+     * @returns Promise resolving to list of tag directory entries
+     */
+    getGenres(
+        libraryId: string,
+        options: { type: number; signal?: AbortSignal | null; onUnsupported?: () => void }
+    ): Promise<PlexTagDirectoryItem[]>;
+
+    /**
+     * Get directors for a library section (tag directory).
+     * @param libraryId - Library section ID
+     * @param options - Query options (type required)
+     * @returns Promise resolving to list of tag directory entries
+     */
+    getDirectors(
+        libraryId: string,
+        options: { type: number; signal?: AbortSignal | null; onUnsupported?: () => void }
+    ): Promise<PlexTagDirectoryItem[]>;
+
+    /**
+     * Get years for a library section (tag directory).
+     * @param libraryId - Library section ID
+     * @param options - Query options (type required)
+     * @returns Promise resolving to list of tag directory entries
+     */
+    getYears(
+        libraryId: string,
+        options: { type: number; signal?: AbortSignal | null; onUnsupported?: () => void }
+    ): Promise<PlexTagDirectoryItem[]>;
+
     // Image URLs
 
     /**

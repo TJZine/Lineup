@@ -6,7 +6,7 @@ import { ChannelSetupCoordinator } from '../ChannelSetupCoordinator';
 import type { ChannelSetupCoordinatorDeps } from '../ChannelSetupCoordinator';
 import { ChannelSetupPlanningService } from '../ChannelSetupPlanningService';
 import type { ChannelSetupConfig, ChannelSetupRecord, SetupStrategyConfig, SetupStrategyKey } from '../types';
-import type { IPlexLibrary, PlexLibraryType, PlexMediaItem } from '../../../modules/plex/library';
+import type { IPlexLibrary, PlexLibraryType, PlexTagDirectoryItem } from '../../../modules/plex/library';
 import type { IChannelManager, ChannelConfig } from '../../../modules/scheduler/channel-manager';
 import type { INavigationManager } from '../../../modules/navigation';
 import { DEFAULT_STRATEGY_PRIORITIES, MIXED_SCOPE_STRATEGY_KEYS, SETUP_STRATEGY_KEYS } from '../constants';
@@ -94,6 +94,9 @@ const createCoordinator = (overrides?: Partial<ChannelSetupCoordinatorDeps>): Co
         getLibraryItemCount: jest.fn().mockResolvedValue(0),
         getActors: jest.fn().mockResolvedValue([]),
         getStudios: jest.fn().mockResolvedValue([]),
+        getGenres: jest.fn().mockResolvedValue([]),
+        getDirectors: jest.fn().mockResolvedValue([]),
+        getYears: jest.fn().mockResolvedValue([]),
     } as unknown as jest.Mocked<IPlexLibrary>;
 
     const channelManager = {
@@ -406,7 +409,7 @@ describe('ChannelSetupCoordinator', () => {
         plexLibrary.getLibraries.mockResolvedValue([
             { id: 'lib1', title: 'Movies', type: 'movie', contentCount: 25 },
         ] as PlexLibraryType[]);
-        plexLibrary.getLibraryItems.mockResolvedValue([]);
+        plexLibrary.getGenres.mockResolvedValue([{ key: 'action', title: 'Action', count: 1 }]);
 
         await coordinator.createChannelsFromSetup(createConfig({
             selectedLibraryIds: ['lib1'],
@@ -414,7 +417,7 @@ describe('ChannelSetupCoordinator', () => {
             minItemsPerChannel: Number.NaN,
         }));
 
-        expect(plexLibrary.getLibraryItems).toHaveBeenCalled();
+        expect(plexLibrary.getGenres).toHaveBeenCalled();
     });
 
     it('logs safe summaries for playlist fetch errors', async () => {
@@ -1168,12 +1171,12 @@ describe('ChannelSetupCoordinator', () => {
             { id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 },
             { id: 's1', title: 'Shows', type: 'show', contentCount: 25 },
         ] as PlexLibraryType[]);
-        plexLibrary.getLibraryItems.mockImplementation(async (libraryId: string) => {
+        plexLibrary.getGenres.mockImplementation(async (libraryId: string) => {
             if (libraryId === 'm1') {
-                return [{ genres: ['Action'] }] as unknown as PlexMediaItem[];
+                return [{ key: 'action', title: 'Action', count: 1 }] as unknown as PlexTagDirectoryItem[];
             }
             if (libraryId === 's1') {
-                return [{ genres: ['Action'] }] as unknown as PlexMediaItem[];
+                return [{ key: 'action', title: 'Action', count: 1 }] as unknown as PlexTagDirectoryItem[];
             }
             return [];
         });
@@ -1197,12 +1200,12 @@ describe('ChannelSetupCoordinator', () => {
             { id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 },
             { id: 's1', title: 'Shows', type: 'show', contentCount: 25 },
         ] as PlexLibraryType[]);
-        plexLibrary.getLibraryItems.mockImplementation(async (libraryId: string) => {
+        plexLibrary.getGenres.mockImplementation(async (libraryId: string) => {
             if (libraryId === 'm1') {
-                return [{ genres: ['Action'] }] as unknown as PlexMediaItem[];
+                return [{ key: 'action', title: 'Action', count: 1 }] as unknown as PlexTagDirectoryItem[];
             }
             if (libraryId === 's1') {
-                return [{ genres: ['Action'] }] as unknown as PlexMediaItem[];
+                return [{ key: 'action', title: 'Action', count: 1 }] as unknown as PlexTagDirectoryItem[];
             }
             return [];
         });
@@ -1246,7 +1249,7 @@ describe('ChannelSetupCoordinator', () => {
         plexLibrary.getLibraries.mockResolvedValue([
             { id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 },
         ] as PlexLibraryType[]);
-        plexLibrary.getLibraryItems.mockRejectedValue({
+        plexLibrary.getGenres.mockRejectedValue({
             name: 'Error',
             code: 'SERVER_ERROR',
             message: 'scan failed',

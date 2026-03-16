@@ -37,6 +37,12 @@ export class EPGTimeHeader {
     private slotElements: HTMLElement[] = [];
     private lastTimeOffsetMinutes: number = 0;
 
+    private _syncSlotsOcclusionWidth(): void {
+        if (!this.slotsElement || !this.stickyElement) return;
+        const px = Math.max(0, Math.ceil(this.stickyElement.offsetWidth));
+        this.slotsElement.style.setProperty('--epg-time-header-sticky-width-px', `${px}px`);
+    }
+
     /**
      * Initialize the time header.
      *
@@ -66,6 +72,7 @@ export class EPGTimeHeader {
 
         this.renderSlots();
         this.updateStickyLabel(0);
+        this._syncSlotsOcclusionWidth();
     }
 
     /**
@@ -158,6 +165,7 @@ export class EPGTimeHeader {
         const translateX = -(timeOffset * this.config.pixelsPerMinute);
         this.slotsElement.style.transform = `translateX(${translateX}px)`;
         this.updateStickyLabel(timeOffset);
+        this._syncSlotsOcclusionWidth();
 
         if (isEpgDebugLoggingEnabled()) {
             appendEpgDebugLog('EPGTimeHeader.scroll', {

@@ -662,6 +662,54 @@ export class PlexLibrary implements IPlexLibrary {
         return parseDirectoryTags(directories);
     }
 
+    async getGenres(
+        libraryId: string,
+        options: { type: number; signal?: AbortSignal | null; onUnsupported?: () => void }
+    ): Promise<PlexTagDirectoryItem[]> {
+        const params: Record<string, string | number> = { type: options.type };
+        const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_GENRES(libraryId), params);
+        const response = await this._fetchWithRetry<PlexMediaContainer<RawDirectoryTag>>(url, { signal: options.signal ?? null });
+        if (!response) {
+            this._logger.warn(`[PlexLibrary] Genres endpoint unavailable for library ${libraryId}`);
+            options.onUnsupported?.();
+            return [];
+        }
+        const directories = response.MediaContainer.Directory || [];
+        return parseDirectoryTags(directories);
+    }
+
+    async getDirectors(
+        libraryId: string,
+        options: { type: number; signal?: AbortSignal | null; onUnsupported?: () => void }
+    ): Promise<PlexTagDirectoryItem[]> {
+        const params: Record<string, string | number> = { type: options.type };
+        const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_DIRECTORS(libraryId), params);
+        const response = await this._fetchWithRetry<PlexMediaContainer<RawDirectoryTag>>(url, { signal: options.signal ?? null });
+        if (!response) {
+            this._logger.warn(`[PlexLibrary] Directors endpoint unavailable for library ${libraryId}`);
+            options.onUnsupported?.();
+            return [];
+        }
+        const directories = response.MediaContainer.Directory || [];
+        return parseDirectoryTags(directories);
+    }
+
+    async getYears(
+        libraryId: string,
+        options: { type: number; signal?: AbortSignal | null; onUnsupported?: () => void }
+    ): Promise<PlexTagDirectoryItem[]> {
+        const params: Record<string, string | number> = { type: options.type };
+        const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_YEARS(libraryId), params);
+        const response = await this._fetchWithRetry<PlexMediaContainer<RawDirectoryTag>>(url, { signal: options.signal ?? null });
+        if (!response) {
+            this._logger.warn(`[PlexLibrary] Years endpoint unavailable for library ${libraryId}`);
+            options.onUnsupported?.();
+            return [];
+        }
+        const directories = response.MediaContainer.Directory || [];
+        return parseDirectoryTags(directories);
+    }
+
     // ============================================
     // Image URLs
     // ============================================

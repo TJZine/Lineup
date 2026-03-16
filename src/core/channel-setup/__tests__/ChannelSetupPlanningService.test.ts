@@ -5,7 +5,8 @@
 import { ChannelSetupPlanningService } from '../ChannelSetupPlanningService';
 import type { ChannelSetupConfig, SetupStrategyConfig, SetupStrategyKey } from '../types';
 import { DEFAULT_STRATEGY_PRIORITIES, MIXED_SCOPE_STRATEGY_KEYS, SETUP_STRATEGY_KEYS } from '../constants';
-import type { IPlexLibrary, PlexLibraryType, PlexMediaItem } from '../../../modules/plex/library';
+import { PLEX_MEDIA_TYPES } from '../../../modules/plex/library';
+import type { IPlexLibrary, PlexLibraryType, PlexTagDirectoryItem } from '../../../modules/plex/library';
 import type { IChannelManager } from '../../../modules/scheduler/channel-manager';
 
 const makeLibrary = (overrides: Partial<PlexLibraryType>): PlexLibraryType => ({
@@ -22,20 +23,10 @@ const makeLibrary = (overrides: Partial<PlexLibraryType>): PlexLibraryType => ({
     ...overrides,
 });
 
-const makeMediaItem = (overrides: Partial<PlexMediaItem>): PlexMediaItem => ({
-    ratingKey: overrides.ratingKey ?? 'rk1',
-    key: overrides.key ?? '/library/metadata/1',
-    type: overrides.type ?? 'show',
-    title: overrides.title ?? 'Item',
-    sortTitle: overrides.sortTitle ?? 'Item',
-    summary: overrides.summary ?? '',
-    year: overrides.year ?? 2000,
-    durationMs: overrides.durationMs ?? 0,
-    addedAt: overrides.addedAt ?? new Date(0),
-    updatedAt: overrides.updatedAt ?? new Date(0),
-    thumb: overrides.thumb ?? null,
-    art: overrides.art ?? null,
-    media: overrides.media ?? [],
+const makeTag = (overrides: Partial<PlexTagDirectoryItem>): PlexTagDirectoryItem => ({
+    key: 'tag',
+    title: 'Tag One',
+    count: 1,
     ...overrides,
 });
 
@@ -68,20 +59,22 @@ const createConfig = (
 };
 
 describe('ChannelSetupPlanningService', () => {
-    it('preserves tagItems when episode scan fails for show libraries', async () => {
+    it('uses tag directories and avoids scan truncation warning for show libraries', async () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
-            getLibraryItems: jest
-                .fn()
-                .mockResolvedValueOnce([
-                    makeMediaItem({ ratingKey: 'rk1', genres: ['Comedy'] }),
-                    makeMediaItem({ ratingKey: 'rk2', genres: ['Comedy'] }),
-                    makeMediaItem({ ratingKey: 'rk3', genres: ['Comedy'] }),
-                    makeMediaItem({ ratingKey: 'rk4', genres: ['Comedy'] }),
-                    makeMediaItem({ ratingKey: 'rk5', genres: ['Comedy'] }),
-                ])
-                .mockRejectedValueOnce(new Error('episode scan failed')),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn().mockResolvedValue([
+                makeTag({ title: 'Comedy', count: 10 }),
+            ]),
+            getDirectors: jest.fn().mockResolvedValue([
+                makeTag({ title: 'Jane Doe', count: 12 }),
+            ]),
+            getYears: jest.fn().mockResolvedValue([
+                makeTag({ title: '1981', count: 3 }),
+                makeTag({ title: '1988', count: 2 }),
+                makeTag({ title: '1995', count: 4 }),
+            ]),
             getActors: jest.fn(),
             getStudios: jest.fn(),
         } as unknown as jest.Mocked<IPlexLibrary>;
@@ -93,19 +86,41 @@ describe('ChannelSetupPlanningService', () => {
         const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
         const config = service.normalizeConfig(createConfig({
             selectedLibraryIds: ['shows'],
-            minItemsPerChannel: 5,
+            minItemsPerChannel: 3,
             strategyConfig: {
                 genres: { enabled: true, priority: 1, scope: 'per-library' },
                 decades: { enabled: true, priority: 2, scope: 'per-library' },
+                directors: { enabled: true, priority: 3, scope: 'per-library' },
             },
         }));
 
-        const libraries = [makeLibrary({ id: 'shows', title: 'Shows', type: 'show' })];
+        const libraries = [makeLibrary({
+            id: 'shows',
+            title: 'Shows',
+            type: 'show',
+            contentCount: 1200,
+        })];
         const result = await service.buildSetupPlan(config, libraries, null);
 
         expect(result.canceled).toBe(false);
         expect(result.plan).not.toBeNull();
-        expect(result.warnings.join('\n')).toContain('Partial setup plan (scan_library_items)');
-        expect(result.plan?.pendingChannels.some((c) => c.name.includes('Comedy'))).toBe(true);
+        expect(result.warnings.join('\n')).not.toContain('truncated at 500');
+        expect(result.warnings.join('\n')).not.toContain('scan_library_items');
+        expect(plexLibrary.getLibraryItems).not.toHaveBeenCalled();
+        expect(plexLibrary.getGenres).toHaveBeenCalledWith(
+            'shows',
+            expect.objectContaining({ type: PLEX_MEDIA_TYPES.SHOW })
+        );
+        expect(plexLibrary.getDirectors).toHaveBeenCalledWith(
+            'shows',
+            expect.objectContaining({ type: PLEX_MEDIA_TYPES.EPISODE })
+        );
+        expect(plexLibrary.getYears).toHaveBeenCalledWith(
+            'shows',
+            expect.objectContaining({ type: PLEX_MEDIA_TYPES.EPISODE })
+        );
+        expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - Comedy'))).toBe(true);
+        expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - Jane Doe'))).toBe(true);
+        expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - 1980s'))).toBe(true);
     });
 });

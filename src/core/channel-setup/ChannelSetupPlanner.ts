@@ -13,7 +13,6 @@ import { DEFAULT_MIN_ITEMS_PER_CHANNEL, DEFAULT_STRATEGY_PRIORITIES } from './co
 import { DEFAULT_CHANNEL_SETUP_MAX } from '../../modules/scheduler/channel-manager/constants';
 import type {
     PlexLibraryType,
-    PlexMediaItem,
     PlexCollection,
     PlexPlaylist,
     PlexTagDirectoryItem,
@@ -46,8 +45,9 @@ interface ChannelSetupPlanInput {
     libraries: PlexLibraryType[];
     playlists: PlexPlaylist[];
     collectionsByLibraryId: Map<string, PlexCollection[]>;
-    tagItemsByLibraryId: Map<string, PlexMediaItem[]>;
-    scanItemsByLibraryId: Map<string, PlexMediaItem[]>;
+    genresByLibraryId: Map<string, PlexTagDirectoryItem[]>;
+    directorsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
+    yearsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
     actorsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
     studiosByLibraryId: Map<string, PlexTagDirectoryItem[]>;
     warnings: string[];
@@ -117,8 +117,9 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
         libraries,
         playlists,
         collectionsByLibraryId,
-        tagItemsByLibraryId,
-        scanItemsByLibraryId,
+        genresByLibraryId,
+        directorsByLibraryId,
+        yearsByLibraryId,
         actorsByLibraryId,
         studiosByLibraryId,
         warnings,
@@ -196,27 +197,12 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
         });
     };
 
-    const countTags = (
-        items: PlexMediaItem[],
-        field: 'genres' | 'directors'
-    ): { label: string; count: number }[] => {
-        const counts = new Map<string, { label: string; count: number }>();
-        for (const item of items) {
-            const values = item[field];
-            if (!values) continue;
-            for (const value of values) {
-                const trimmed = value.trim();
-                if (!trimmed) continue;
-                const key = trimmed.toLowerCase();
-                const existing = counts.get(key);
-                if (existing) {
-                    existing.count++;
-                } else {
-                    counts.set(key, { label: trimmed, count: 1 });
-                }
-            }
+    const toDecade = (tag: PlexTagDirectoryItem): number | null => {
+        const year = Number.parseInt(tag.title, 10);
+        if (!Number.isFinite(year)) {
+            return null;
         }
-        return Array.from(counts.values()).sort((a, b) => a.label.localeCompare(b.label));
+        return Math.floor(year / 10) * 10;
     };
 
     // 0. Server-wide Playlists
@@ -305,18 +291,18 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
 
         // 3. Item Scanning Strategies (per-library only pass)
         if (isStrategyEnabled('genres') || isStrategyEnabled('directors') || isStrategyEnabled('decades')) {
-            const tagItems = tagItemsByLibraryId.get(library.id) ?? [];
-            const scanItems = scanItemsByLibraryId.get(library.id) ?? [];
+            const genres = sortTags(genresByLibraryId.get(library.id) ?? []);
+            const directors = sortTags(directorsByLibraryId.get(library.id) ?? []);
+            const years = yearsByLibraryId.get(library.id) ?? [];
 
             if (isStrategyEnabled('genres') && getStrategyScope('genres') === 'per-library') {
-                const genres = countTags(tagItems, 'genres');
                 const candidates: CategoryCandidate[] = [];
                 for (const genre of genres) {
                     if (genre.count < minItems) continue;
                     candidates.push({
                         strategy: 'genres',
-                        categoryKey: `${library.id}:${genre.label.toLowerCase()}`,
-                        categoryLabel: genre.label,
+                        categoryKey: `${library.id}:${genre.title.toLowerCase()}`,
+                        categoryLabel: genre.title,
                         itemCount: genre.count,
                         baseSource: {
                             type: 'library',
@@ -343,14 +329,13 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
             }
 
             if (isStrategyEnabled('directors') && getStrategyScope('directors') === 'per-library') {
-                const directors = countTags(tagItems, 'directors');
                 const candidates: CategoryCandidate[] = [];
                 for (const director of directors) {
                     if (director.count < minItems) continue;
                     candidates.push({
                         strategy: 'directors',
-                        categoryKey: `${library.id}:${director.label.toLowerCase()}`,
-                        categoryLabel: director.label,
+                        categoryKey: `${library.id}:${director.title.toLowerCase()}`,
+                        categoryLabel: director.title,
                         itemCount: director.count,
                         baseSource: {
                             type: 'library',
@@ -378,15 +363,19 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
 
             if (isStrategyEnabled('decades')) {
                 const decadeCounts = new Map<number, number>();
-                for (const item of scanItems) {
-                    if (item.year) {
-                        const decade = Math.floor(item.year / 10) * 10;
-                        decadeCounts.set(decade, (decadeCounts.get(decade) || 0) + 1);
+                for (const yearTag of years) {
+                    const decade = toDecade(yearTag);
+                    if (decade === null) {
+                        continue;
                     }
+                    decadeCounts.set(decade, (decadeCounts.get(decade) || 0) + (yearTag.count || 0));
                 }
-                const sortedDecades = Array.from(decadeCounts.keys()).sort((a, b) => a - b);
+                const sortedDecades = Array.from(decadeCounts.entries())
+                    .filter((entry): entry is [number, number] => entry[1] >= minItems)
+                    .sort((a, b) => a[0] - b[0])
+                    .map(([decade]) => decade);
+
                 for (const decade of sortedDecades) {
-                    if ((decadeCounts.get(decade) || 0) < minItems) continue;
                     addStrategyChannel('decades', {
                         name: `${library.title} - ${decade}s`,
                         contentSource: {
@@ -413,19 +402,19 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
     if (isStrategyEnabled('genres') && getStrategyScope('genres') === 'cross-library') {
         const grouped = new Map<string, { label: string; totalCount: number; sources: ChannelConfig['contentSource'][] }>();
         for (const library of selectedLibraries) {
-            const tagItems = tagItemsByLibraryId.get(library.id) ?? [];
-            const genres = countTags(tagItems, 'genres');
+            const tagItems = genresByLibraryId.get(library.id) ?? [];
+            const genres = sortTags(tagItems);
             for (const genre of genres) {
-                const key = genre.label.trim().toLowerCase();
+                const key = genre.title.trim().toLowerCase();
                 if (!key) continue;
-                const entry = grouped.get(key) ?? { label: genre.label, totalCount: 0, sources: [] };
+                const entry = grouped.get(key) ?? { label: genre.title, totalCount: 0, sources: [] as ChannelConfig['contentSource'][] };
                 entry.totalCount += genre.count;
                 entry.sources.push({
                     type: 'library',
                     libraryId: library.id,
                     libraryType: library.type === 'movie' ? 'movie' : 'show',
                     includeWatched: true,
-                    libraryFilter: { genre: genre.label },
+                    libraryFilter: { genre: genre.title },
                 });
                 grouped.set(key, entry);
             }
@@ -458,19 +447,19 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
     if (isStrategyEnabled('directors') && getStrategyScope('directors') === 'cross-library') {
         const grouped = new Map<string, { label: string; totalCount: number; sources: ChannelConfig['contentSource'][] }>();
         for (const library of selectedLibraries) {
-            const tagItems = tagItemsByLibraryId.get(library.id) ?? [];
-            const directors = countTags(tagItems, 'directors');
+            const tagItems = directorsByLibraryId.get(library.id) ?? [];
+            const directors = sortTags(tagItems);
             for (const director of directors) {
-                const key = director.label.trim().toLowerCase();
+                const key = director.title.trim().toLowerCase();
                 if (!key) continue;
-                const entry = grouped.get(key) ?? { label: director.label, totalCount: 0, sources: [] };
+                const entry = grouped.get(key) ?? { label: director.title, totalCount: 0, sources: [] as ChannelConfig['contentSource'][] };
                 entry.totalCount += director.count;
                 entry.sources.push({
                     type: 'library',
                     libraryId: library.id,
                     libraryType: library.type === 'movie' ? 'movie' : 'show',
                     includeWatched: true,
-                    libraryFilter: { director: director.label },
+                    libraryFilter: { director: director.title },
                 });
                 grouped.set(key, entry);
             }

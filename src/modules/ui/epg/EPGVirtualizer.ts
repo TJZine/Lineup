@@ -1197,7 +1197,9 @@ export class EPGVirtualizer {
         const title = this.getCellChildren(focusedCell.cellElement).title;
         if (!title) return;
 
-        const overflowPx = title.scrollWidth - title.clientWidth;
+        const textShiftPx = Math.max(0, focusedCell.textShiftPx);
+        const effectiveClientWidth = Math.max(0, title.clientWidth - textShiftPx);
+        const overflowPx = title.scrollWidth - effectiveClientWidth;
         if (overflowPx <= 12) return;
 
         const durationMs = Math.max(1600, Math.min(3200, overflowPx * 30));
