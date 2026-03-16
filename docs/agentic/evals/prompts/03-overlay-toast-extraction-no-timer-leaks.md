@@ -16,7 +16,7 @@ Make the smallest possible diff to pull toast and blocking overlay presentation 
 
 - `using-superpowers`
 - `brainstorming`
-- `frontend-design`
+- `interface-design`
 - `ui-composition-patterns`
 - `architecture-boundaries`
 

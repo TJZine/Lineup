@@ -4,6 +4,7 @@ import { EpgPreferencesStore } from '../../../modules/settings/EpgPreferencesSto
 import { NowPlayingDisplayStore } from '../../../modules/settings/NowPlayingDisplayStore';
 import { ProfileSessionStore } from '../../../modules/settings/ProfileSessionStore';
 import { SubtitlePreferencesStore } from '../../../modules/settings/SubtitlePreferencesStore';
+import type { EPGConfig } from '../../../modules/ui/epg';
 import type { StreamDecision } from '../../../modules/plex/stream';
 import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
 import {
@@ -205,5 +206,43 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
         expect(debugText).toContain('DIRECT PLAY');
         expect(playbackState.getCurrentProgramForPlayback).toHaveBeenCalled();
         expect(playbackState.getCurrentStreamDecision).toHaveBeenCalled();
+    });
+
+    it('replaces config.epgConfig with a wrapped visible-range handler instead of mutating the original object', () => {
+        const playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors> = {
+            getCurrentProgramForPlayback: jest.fn().mockReturnValue(null),
+            setCurrentProgramForPlayback: jest.fn(),
+            getCurrentStreamDescriptor: jest.fn().mockReturnValue(null),
+            setCurrentStreamDescriptor: jest.fn(),
+            getCurrentStreamDecision: jest.fn().mockReturnValue(null),
+            setCurrentStreamDecision: jest.fn(),
+            getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
+            setPendingNowPlayingChannelId: jest.fn(),
+            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
+            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
+        };
+        const previousOnVisibleRangeChange = jest.fn();
+        const originalEpgConfig: EPGConfig = {
+            containerId: 'epg',
+            visibleChannels: 5,
+            timeSlotMinutes: 30,
+            visibleHours: 3,
+            totalHours: 24,
+            pixelsPerMinute: 4,
+            rowHeight: 80,
+            showCurrentTimeIndicator: true,
+            autoScrollToNow: false,
+            onVisibleRangeChange: previousOnVisibleRangeChange,
+        };
+        const deps = makeDeps(playbackState);
+        deps.config = {
+            epgConfig: originalEpgConfig,
+        } as OrchestratorCoordinatorFactoryDeps['config'];
+
+        createOrchestratorCoordinators(deps);
+
+        expect(deps.config?.epgConfig).not.toBe(originalEpgConfig);
+        expect(originalEpgConfig.onVisibleRangeChange).toBe(previousOnVisibleRangeChange);
+        expect(deps.config?.epgConfig.onVisibleRangeChange).not.toBe(previousOnVisibleRangeChange);
     });
 });

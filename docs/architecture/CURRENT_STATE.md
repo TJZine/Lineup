@@ -49,6 +49,8 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - `src/modules/navigation/`
 - owns remote handling, focus/navigation flow, and navigation coordination
+- `src/modules/navigation/NavigationManager.ts` owns navigation state, screen stack, modal stack, and focus operations
+- `src/modules/navigation/NavigationManager.ts` delegates low-level key routing and timing behavior to `NavigationRemoteInputRouter`, `NavigationDirectionalRepeatController`, and `NavigationChannelNumberInputController`
 
 ### Plex
 
@@ -82,16 +84,19 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - `src/modules/debug/DebugOverridesStore.ts`
 - `src/modules/plex/discovery/ServerSelectionStore.ts`
 - `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`
+- `src/core/channel-setup/ChannelSetupRecordStore.ts`
 - `src/modules/plex/auth/clientIdentifier.ts`
 - these are the current designated owners for storage-backed state
 - runtime consumers route mapped key families through typed stores (for example `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`, `ProfileSelectScreen` -> `ProfileSessionStore`, `ThemeManager` -> `ThemePreferencesStore`, `EPGInfoPanel` -> `NowPlayingDisplayStore`/`EpgPreferencesStore`)
-- `src/modules/ui/epg/utils.ts` and `src/core/channel-setup/ChannelSetupCoordinator.ts` now route their former direct-storage exception paths through sanctioned helpers in `src/utils/storage.ts` (`P3-W3`, completed 2026-03-11)
+- `src/modules/ui/epg/utils.ts` and `src/core/channel-setup/ChannelSetupRecordStore.ts` route channel-setup/EPG storage exception cleanup paths through sanctioned helpers in `src/utils/storage.ts` (`P3-W3` + `P4-W2`)
 - repo-wide residual direct-storage drift audit/remediation remains in `P3-W4`
 
 ### UI
 
 - `src/modules/ui/`
 - owns TV screens, overlays, shared primitives, and user-visible composition
+- `src/modules/ui/common/appShellContainerIds.ts` is the shared owner for app-shell overlay container IDs consumed by app-shell wiring and feature constants
+- `src/modules/ui/epg/EPGCoordinator.ts` owns EPG runtime policy entrypoints (open/close/toggle/guide-setting handling and schedule-policy orchestration), while `src/Orchestrator.ts` remains a delegation surface that wires this owner
 - visual rules are governed by [`docs/design/ui-design-language.md`](../design/ui-design-language.md)
 
 ## Current Hotspots

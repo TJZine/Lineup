@@ -25,11 +25,17 @@ This is the operating runbook for agent-driven development in Lineup.
    - add `brainstorming` when shaping new functionality, behavior, or design
    - add the matching repo-local boundary skill(s) when the task crosses that boundary
    - for cleanup/refactor planning, the default planning order is: `using-superpowers` -> `brainstorming` -> matching repo-local boundary skill(s) -> `writing-plans`
-   - for feature/design planning, the default planning order is: `using-superpowers` -> `brainstorming` -> `frontend-design` when UI creation/redesign is actually in scope -> matching repo-local boundary skill(s) -> `writing-plans`
+   - for feature/design planning, the default planning order is:
+     `using-superpowers` -> `brainstorming` -> one global UI skill when UI creation/redesign is actually in scope -> matching repo-local boundary skill(s) -> `writing-plans`
+     - choose exactly one global UI skill:
+       - `interface-design` for product interfaces (dashboards/admin/settings/tools/data-heavy UI)
+       - `frontend-design` for marketing/landing pages and other brand-forward surfaces
 2. Run evidence sweep.
    - Prefer Codanna using [`docs/agentic/codanna-playbook.md`](./agentic/codanna-playbook.md).
    - Use Codanna for both code and repo-doc discovery before falling back to `rg`.
    - Fall back to `rg` only when Codanna is missing or insufficient.
+   - For any task that uses `desloppify` outputs as acceptance or checklist evidence, run those authoritative `desloppify` commands on the integration branch that will receive the updates.
+   - Do not run authoritative `desloppify` evidence passes in worktrees. If a worktree run is unavoidable, synchronize the full `.desloppify` state first, treat output as provisional, and rerun on the integration branch before recording dispositions.
 3. Load the right source-of-truth docs.
    - architecture truth: [`docs/architecture/CURRENT_STATE.md`](./architecture/CURRENT_STATE.md)
    - active cleanup backlog: [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md)
@@ -75,6 +81,7 @@ This is the operating runbook for agent-driven development in Lineup.
    - humans still own architecture, product intent, and merge decisions
    - if the work claims to finish a cleanup priority, run a priority-exit review before starting or planning the next priority
    - priority-exit review must verify:
+     - authoritative `desloppify` evidence requirements are satisfied; see Step 2 for the canonical integration-branch rule
      - every imported review issue mapped to that priority is retired, explicitly deferred, or split into a new owned follow-up
      - every deferred or split item has one named final owner plus a reason and revisit trigger, especially when one issue was mapped across multiple `P#-W#` items
      - every deferred or split item is mirrored into its destination checklist work item (`Pn-Wm`) with exact issue id(s) and required verification command(s), not only in the source `P#-EXIT` record

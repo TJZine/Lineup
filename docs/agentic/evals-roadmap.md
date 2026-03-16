@@ -49,7 +49,10 @@ Prompt shape:
 
 Pass conditions:
 
-- the agent uses `frontend-design` plus `ui-composition-patterns` where appropriate
+- the agent uses the correct global UI skill for the surface:
+  - `interface-design` for product interfaces, overlays, settings, tools, and other product-facing UI
+  - `frontend-design` for marketing, landing pages, and other brand-forward surfaces
+- `ui-composition-patterns` is loaded as a supporting Lineup-specific TV UI skill when the task touches screens, overlays, focus, motion, or cleanup behavior
 - focus ownership remains explicit
 - hidden UI does not retain timers/listeners
 - `npm run verify` is selected for risky UI work

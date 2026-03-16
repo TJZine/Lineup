@@ -221,7 +221,7 @@ export class SettingsScreen {
         if (this._detailItems) {
             const renderItems = (): void => {
                 if (!this._detailItems) return;
-                this._detailItems.innerHTML = '';
+                this._detailItems.replaceChildren();
                 if (activeCategory) {
                     for (const item of activeCategory.items) {
                         this._activeCategoryItemIds.push(item.id);
@@ -726,7 +726,7 @@ export class SettingsScreen {
         this._detailItems = null;
         this._switchProfileButton = null;
         this._cancelDetailFrames();
-        this._container.innerHTML = '';
+        this._container.replaceChildren();
     }
 }
 

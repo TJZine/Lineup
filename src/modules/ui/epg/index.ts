@@ -13,6 +13,13 @@ export { EPGErrorBoundary } from './EPGErrorBoundary';
 
 export type { IEPGComponent, IEPGInfoPanel } from './interfaces';
 export type {
+    EpgChannel,
+    EpgItemDetails,
+    EpgProgramItem,
+    EpgScheduleWindow,
+    EpgScheduledProgram,
+} from './domainTypes';
+export type {
     EPGConfig,
     EPGState,
     EPGFocusPosition,
@@ -25,5 +32,5 @@ export type {
     ChannelConfig,
 } from './types';
 
-export { EPG_CONSTANTS, EPG_CLASSES, DEFAULT_EPG_CONFIG } from './constants';
+export { EPG_CONSTANTS, EPG_CLASSES, DEFAULT_EPG_CONFIG, EPG_CONTAINER_ID } from './constants';
 export { formatTime, formatTimeRange, formatDuration, rafThrottle } from './utils';

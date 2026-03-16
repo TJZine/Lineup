@@ -1,3 +1,5 @@
+export const CHANNEL_NUMBER_OVERLAY_CONTAINER_ID = 'channel-number-overlay-container' as const;
+
 export const CHANNEL_NUMBER_CLASSES = {
     CONTAINER: 'channel-number-overlay',
     PANEL: 'channel-number-panel',

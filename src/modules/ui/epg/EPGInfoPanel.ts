@@ -8,7 +8,7 @@ import { EPG_CLASSES } from './constants';
 import { formatTime, formatDuration } from './utils';
 import type { IEPGInfoPanel } from './interfaces';
 import type { ScheduledProgram } from './types';
-import type { PlexMediaItem } from '../../plex/library';
+import type { EpgItemDetails } from './domainTypes';
 import { extractHdrLabelFromPlexMedia } from '../../plex/stream/hdr';
 import { formatContentRatingBadge } from '../../../utils/contentRating';
 import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
@@ -41,7 +41,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private thumbResolver:
         ((pathOrUrl: string | null, width?: number, height?: number) => string | null) | null = null;
     private fetchItemDetails:
-        ((ratingKey: string, options?: { signal?: AbortSignal | null }) => Promise<PlexMediaItem | null>) | null = null;
+        ((ratingKey: string, options?: { signal?: AbortSignal | null }) => Promise<EpgItemDetails | null>) | null = null;
     private qualityBadges: HTMLElement[] = [];
     private hdrCache = new Map<string, string>();
     private hdrFetchToken = 0;
@@ -77,7 +77,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
      * Set callback to fetch Plex item details (used for HDR/DV badge fallback).
      */
     setFetchItemDetails(
-        fetcher: ((ratingKey: string, options?: { signal?: AbortSignal | null }) => Promise<PlexMediaItem | null>) | null
+        fetcher: ((ratingKey: string, options?: { signal?: AbortSignal | null }) => Promise<EpgItemDetails | null>) | null
     ): void {
         this.fetchItemDetails = fetcher;
     }
@@ -98,7 +98,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     initialize(parentElement: HTMLElement): void {
         this.containerElement = document.createElement('div');
         this.containerElement.className = EPG_CLASSES.INFO_PANEL;
-        this.containerElement.innerHTML = this.createTemplate();
+        this.containerElement.replaceChildren(this.createTemplateElement());
         this.containerElement.style.display = 'flex';
         this.containerElement.style.visibility = 'hidden';
         this.containerElement.style.opacity = '0';
@@ -158,37 +158,82 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     }
 
     /**
-     * Create the HTML template for the info panel.
+     * Create the DOM template for the info panel.
      */
-    private createTemplate(): string {
-        return `
-  <div class="${EPG_CLASSES.INFO_BACKDROP}" aria-hidden="true">
-    <div class="${EPG_CLASSES.INFO_GRADIENT_A} ${EPG_CLASSES.INFO_GRADIENT_ACTIVE}"></div>
-    <div class="${EPG_CLASSES.INFO_GRADIENT_B}"></div>
-    <img class="${EPG_CLASSES.INFO_BACKDROP_IMG}" alt="" />
-  </div>
-  <div class="${EPG_CLASSES.INFO_POSTER_WRAP}">
-    <img class="${EPG_CLASSES.INFO_POSTER}" alt="" />
-  </div>
-  <div class="${EPG_CLASSES.INFO_CONTENT}">
-      <div class="${EPG_CLASSES.INFO_HEADER}">
-      <div class="${EPG_CLASSES.INFO_HEADING}">
-        <img class="${EPG_CLASSES.INFO_CLEAR_LOGO}" alt="" style="display:none" />
-        <div class="${EPG_CLASSES.INFO_SHOW} ${EPG_CLASSES.INFO_EYEBROW}"></div>
-        <div class="${EPG_CLASSES.INFO_TITLE}"></div>
-        <div class="${EPG_CLASSES.INFO_GENRES}"></div>
-      </div>
-      <div class="${EPG_CLASSES.INFO_META_CLUSTER}">
-        <div class="${EPG_CLASSES.INFO_TAGS}" aria-hidden="true"></div>
-      </div>
-    </div>
-    <div class="${EPG_CLASSES.INFO_META}"></div>
-    <div class="${EPG_CLASSES.INFO_QUALITY}"></div>
-    <div class="${EPG_CLASSES.INFO_DESCRIPTION}">
-      <div class="${EPG_CLASSES.INFO_DESCRIPTION_INNER}"></div>
-    </div>
-  </div>
-`;
+    private createTemplateElement(): DocumentFragment {
+        const fragment = document.createDocumentFragment();
+
+        const backdrop = document.createElement('div');
+        backdrop.className = EPG_CLASSES.INFO_BACKDROP;
+        backdrop.setAttribute('aria-hidden', 'true');
+        const gradientA = document.createElement('div');
+        gradientA.className = `${EPG_CLASSES.INFO_GRADIENT_A} ${EPG_CLASSES.INFO_GRADIENT_ACTIVE}`;
+        backdrop.appendChild(gradientA);
+        const gradientB = document.createElement('div');
+        gradientB.className = EPG_CLASSES.INFO_GRADIENT_B;
+        backdrop.appendChild(gradientB);
+        const backdropImage = document.createElement('img');
+        backdropImage.className = EPG_CLASSES.INFO_BACKDROP_IMG;
+        backdropImage.setAttribute('alt', '');
+        backdrop.appendChild(backdropImage);
+        fragment.appendChild(backdrop);
+
+        const posterWrap = document.createElement('div');
+        posterWrap.className = EPG_CLASSES.INFO_POSTER_WRAP;
+        const poster = document.createElement('img');
+        poster.className = EPG_CLASSES.INFO_POSTER;
+        poster.setAttribute('alt', '');
+        posterWrap.appendChild(poster);
+        fragment.appendChild(posterWrap);
+
+        const content = document.createElement('div');
+        content.className = EPG_CLASSES.INFO_CONTENT;
+        const header = document.createElement('div');
+        header.className = EPG_CLASSES.INFO_HEADER;
+        const heading = document.createElement('div');
+        heading.className = EPG_CLASSES.INFO_HEADING;
+        const clearLogo = document.createElement('img');
+        clearLogo.className = EPG_CLASSES.INFO_CLEAR_LOGO;
+        clearLogo.setAttribute('alt', '');
+        clearLogo.style.display = 'none';
+        heading.appendChild(clearLogo);
+        const show = document.createElement('div');
+        show.className = `${EPG_CLASSES.INFO_SHOW} ${EPG_CLASSES.INFO_EYEBROW}`;
+        heading.appendChild(show);
+        const title = document.createElement('div');
+        title.className = EPG_CLASSES.INFO_TITLE;
+        heading.appendChild(title);
+        const genres = document.createElement('div');
+        genres.className = EPG_CLASSES.INFO_GENRES;
+        heading.appendChild(genres);
+        header.appendChild(heading);
+
+        const metaCluster = document.createElement('div');
+        metaCluster.className = EPG_CLASSES.INFO_META_CLUSTER;
+        const tags = document.createElement('div');
+        tags.className = EPG_CLASSES.INFO_TAGS;
+        tags.setAttribute('aria-hidden', 'true');
+        metaCluster.appendChild(tags);
+        header.appendChild(metaCluster);
+        content.appendChild(header);
+
+        const meta = document.createElement('div');
+        meta.className = EPG_CLASSES.INFO_META;
+        content.appendChild(meta);
+
+        const quality = document.createElement('div');
+        quality.className = EPG_CLASSES.INFO_QUALITY;
+        content.appendChild(quality);
+
+        const description = document.createElement('div');
+        description.className = EPG_CLASSES.INFO_DESCRIPTION;
+        const descriptionInner = document.createElement('div');
+        descriptionInner.className = EPG_CLASSES.INFO_DESCRIPTION_INNER;
+        description.appendChild(descriptionInner);
+        content.appendChild(description);
+
+        fragment.appendChild(content);
+        return fragment;
     }
 
     /**

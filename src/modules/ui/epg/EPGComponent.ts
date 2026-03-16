@@ -13,9 +13,11 @@ import { EPGTimeHeader } from './EPGTimeHeader';
 import { EPGChannelList } from './EPGChannelList';
 import { EPGErrorBoundary } from './EPGErrorBoundary';
 import { EPGLibraryTabs } from './EPGLibraryTabs';
+import { EPGVisibleRangeEmitter } from './EPGVisibleRangeEmitter';
 import { rafThrottle, appendEpgDebugLog, formatTimeRange } from './utils';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { safeLocalStorageGet } from '../../../utils/storage';
+import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
 import type { IEPGComponent } from './interfaces';
 import type {
     EPGConfig,
@@ -23,6 +25,7 @@ import type {
     EPGEventMap,
     EPGInternalState,
     EPGFocusPosition,
+    EpgVisibleRange,
     ScheduledProgram,
     ScheduleWindow,
     ChannelConfig,
@@ -34,7 +37,7 @@ import type {
  * Implements virtualized rendering for 60fps performance on TV hardware.
  */
 export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGComponent {
-    private config: EPGConfig = DEFAULT_EPG_CONFIG as unknown as EPGConfig;
+    private config: EPGConfig = { ...DEFAULT_EPG_CONFIG };
 
     private state: EPGInternalState = {
         isInitialized: false,
@@ -82,15 +85,15 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private nowWatchingProgramElement: HTMLElement | null = null;
     private nowWatchingTimeElement: HTMLElement | null = null;
     private hasRenderedOnce: boolean = false;
-    private lastVisibleRangeKey: string | null = null;
+    private _visibleRangeEmitter: EPGVisibleRangeEmitter = new EPGVisibleRangeEmitter();
     private channelIds: string[] = [];
     private _isSelectInProgress: boolean = false;
     private _placeholderAutoFocusKeys: Set<string> = new Set();
     private _libraryTabs: EPGLibraryTabs | null = null;
     private _isLibraryTabsFocused = false;
     private _lastNowWatchingTuple: [string, string, string] | null = null;
-    private _appliedLayoutMode: 'overlay' | 'classic' | null = null;
-    private _appliedPipMode: 'overlay' | 'classic' | null = null;
+    private _appliedLayoutMode: EpgLayoutMode | null = null;
+    private _appliedPipMode: EpgLayoutMode | null = null;
     private _debugEnabled: boolean = false;
     private _lastDebugEnabledStorageReadMs: number = 0;
     private _lastRenderGridDebugLogMs: number = 0;
@@ -131,7 +134,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             return;
         }
 
-        this.config = { ...DEFAULT_EPG_CONFIG, ...config } as EPGConfig;
+        this.config = { ...DEFAULT_EPG_CONFIG, ...config };
+        this._visibleRangeEmitter = new EPGVisibleRangeEmitter(this.config.onVisibleRangeChange);
         this._debugEnabled = this._readDebugEnabledFromStorage();
         this._lastDebugEnabledStorageReadMs = Date.now();
         try {
@@ -237,7 +241,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         if (this.containerElement) {
             this.containerElement.style.removeProperty('--epg-row-height');
-            this.containerElement.innerHTML = '';
+            this.containerElement.replaceChildren();
             this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_VISIBLE);
             this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_PEEK);
             this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_CLASSIC);
@@ -288,6 +292,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this._debugEnabled = false;
         this._lastDebugEnabledStorageReadMs = Date.now();
         this._lastRenderGridDebugLogMs = 0;
+        this._visibleRangeEmitter = new EPGVisibleRangeEmitter();
 
         this.errorBoundary.destroy();
         this.removeAllListeners();
@@ -454,7 +459,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         const container = this.containerElement;
         if (!header || !showcase || !container) return;
 
-        const mode: 'overlay' | 'classic' = this.config.layoutMode ?? 'classic';
+        const mode: EpgLayoutMode = this.config.layoutMode ?? 'classic';
         const isVisible = this.state.isVisible;
         const isClassicVisible = mode === 'classic' && isVisible;
 
@@ -576,7 +581,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
     private applyLayoutMode(): void {
         if (!this.containerElement) return;
-        const mode: 'overlay' | 'classic' = this.config.layoutMode ?? 'classic';
+        const mode: EpgLayoutMode = this.config.layoutMode ?? 'classic';
         const didLayoutModeChange = mode !== this._appliedLayoutMode;
         if (didLayoutModeChange) {
             this._appliedLayoutMode = mode;
@@ -587,7 +592,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             }
         }
 
-        const pipMode: 'overlay' | 'classic' =
+        const pipMode: EpgLayoutMode =
             mode === 'classic' && this.config.isVideoPlaying?.() === true ? 'classic' : 'overlay';
         if (pipMode !== this._appliedPipMode) {
             this._appliedPipMode = pipMode;
@@ -611,7 +616,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         this.containerElement.classList.add(EPG_CLASSES.CONTAINER_VISIBLE);
         this.state.isVisible = true;
-        this.lastVisibleRangeKey = null;
+        this._visibleRangeEmitter.reset();
         this.syncPeekMode();
         this.applyLayoutMode();
         this.updateNowWatchingBanner();
@@ -754,7 +759,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
     }
 
-    setLayoutMode(mode: 'overlay' | 'classic'): void {
+    setLayoutMode(mode: EpgLayoutMode): void {
         this.config.layoutMode = mode;
         if (this.state.isVisible) {
             this.applyLayoutMode();
@@ -770,7 +775,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.config.visibleHours = normalized;
         const maxOffset = Math.max(0, (this.config.totalHours * 60) - (this.config.visibleHours * 60));
         this.state.scrollPosition.timeOffset = Math.max(0, Math.min(this.state.scrollPosition.timeOffset, maxOffset));
-        this.lastVisibleRangeKey = null;
+        this._visibleRangeEmitter.reset();
 
         this._refreshPixelsPerMinuteForCurrentViewport();
         this.timeHeader.refreshLayout();
@@ -903,7 +908,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         if (!banner) return;
         const classicRail = this.classicNowPlayingElement;
         const classicRailChannel = this.classicNowPlayingChannelElement;
-        const mode: 'overlay' | 'classic' = this.config.layoutMode ?? 'classic';
+        const mode: EpgLayoutMode = this.config.layoutMode ?? 'classic';
 
         if (!this.config.showNowWatchingBanner || !this.config.getCurrentChannelInfo) {
             if (classicRail) {
@@ -1892,18 +1897,14 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         const timeEndMs = this.state.gridAnchorTime +
             ((this.state.scrollPosition.timeOffset + (this.config.visibleHours * 60)) * 60000);
 
-        const rangeKey = `${channelStart}-${channelEnd}-${timeStartMs}-${timeEndMs}`;
-        if (rangeKey === this.lastVisibleRangeKey) {
-            return;
-        }
-
-        this.lastVisibleRangeKey = rangeKey;
-        this.config.onVisibleRangeChange({
+        const range: EpgVisibleRange = {
             channelStart,
             channelEnd,
             timeStartMs,
             timeEndMs,
-        });
+        };
+
+        this._visibleRangeEmitter.emit(range);
     }
 
     private setTimeOffsetToNow(): void {

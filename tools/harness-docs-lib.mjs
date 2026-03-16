@@ -144,6 +144,11 @@ export const EVAL_PROMPT_INVENTORY = [
         linkText: '19-multi-agent-role-selection-and-delegation-discipline',
         title: '19 Multi-Agent Role Selection And Delegation Discipline',
     },
+    {
+        file: '20-skill-routing-interface-vs-frontend.md',
+        linkText: '20-skill-routing-interface-vs-frontend',
+        title: '20 Skill Routing Interface-vs-Frontend',
+    },
 ];
 
 export const EXPECTED_SESSION_PROMPT_FILES = SESSION_PROMPT_INVENTORY.map(({ file }) => file);

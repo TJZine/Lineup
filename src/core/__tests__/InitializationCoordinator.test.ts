@@ -6,7 +6,7 @@ import { InitializationCoordinator } from '../InitializationCoordinator';
 import type { InitializationDependencies, InitializationCallbacks } from '../InitializationCoordinator';
 import type { PlexAuthDataV2 } from '../../modules/plex/auth';
 import { CHANNEL_BADGE_CONTAINER_ID } from '../../modules/ui/channel-badge';
-import { EpgPreferencesStore } from '../../modules/settings/EpgPreferencesStore';
+import { EpgPreferencesStore, type EpgLayoutMode } from '../../modules/settings/EpgPreferencesStore';
 import { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
 import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 
@@ -468,7 +468,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	            await coordinator.runStartup(5);
 
 	            const initArg = (epg as unknown as { initialize: jest.Mock }).initialize.mock.calls[0]?.[0] as {
-	                onLayoutModeChange?: (mode: 'overlay' | 'classic') => void;
+	                onLayoutModeChange?: (mode: EpgLayoutMode) => void;
 	            };
 	            initArg.onLayoutModeChange?.('classic');
 

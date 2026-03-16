@@ -14,6 +14,7 @@ Use this prompt for Tier 2 or Tier 3 work when an approved cleanup plan already 
 ## What This Session Must Do
 
 - execute the approved plan in a repo-local worktree under `.worktrees/` when the task is more than a tiny edit
+- exception: for any task where `desloppify` output is used as authoritative checklist/plan evidence, execute those `desloppify` commands only on the target integration branch (no worktree evidence pass)
 - re-check the plan freshness gate before changing files
 - run Codanna impact confirmation again before risky/shared-symbol edits if the code moved since planning
 - implement one work unit at a time without widening scope
@@ -22,6 +23,8 @@ Use this prompt for Tier 2 or Tier 3 work when an approved cleanup plan already 
 ## Implementation Constraints
 
 - follow the plan exactly unless current repo state contradicts it
+- for any cleanup task that records `desloppify`-based dispositions, do not run authoritative `desloppify` evidence in a worktree; use the integration branch as the single source of truth for recorded dispositions
+- if a worktree `desloppify` run is unavoidable, synchronize the full `.desloppify` state first, treat output as provisional, and rerun the same commands on the integration branch before recording dispositions
 - if repo state contradicts the plan, update the plan first instead of improvising
 - prefer extraction and focused collaborators over growing hotspot files
 - do not add fallback paths, migration shims, or dual-path logic unless explicitly approved

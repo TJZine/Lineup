@@ -3,6 +3,7 @@
  * @module modules/ui/epg/interfaces
  */
 
+import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
 import type {
     ScheduledProgram,
     ScheduleWindow,
@@ -66,9 +67,9 @@ export interface IEPGComponent {
 
     /**
      * Set EPG layout mode.
-     * @param mode - overlay or classic
+     * @param mode - EPG layout presentation mode
      */
-    setLayoutMode(mode: 'overlay' | 'classic'): void;
+    setLayoutMode(mode: EpgLayoutMode): void;
 
     /**
      * Set visible timeline hours.
@@ -211,9 +212,9 @@ export interface IEPGComponent {
  * Program details overlay.
  */
 export interface IEPGInfoPanel {
-    setPresentationMode(mode: 'classic' | 'overlay'): void;
+    setPresentationMode(mode: EpgLayoutMode): void;
 
-    getPresentationMode(): 'classic' | 'overlay';
+    getPresentationMode(): EpgLayoutMode;
 
     /**
      * Show the info panel with program details.

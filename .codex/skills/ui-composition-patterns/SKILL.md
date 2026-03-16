@@ -9,7 +9,12 @@ description: Use when building or refactoring screens, overlays, focus flows, or
 
 Use this skill to adapt global UI-generation skills to Lineup's actual TV UI constraints.
 
-For net-new visual direction or major redesigns, pair this with the global `frontend-design` skill first. This skill defines how Lineup UI should be composed and constrained once implementation starts.
+For net-new visual direction or major redesigns, pair this with a global UI design skill first:
+
+- Use `interface-design` for product interfaces (dashboards/admin/settings/tools/data-heavy UI).
+- Use `frontend-design` for marketing/landing pages and other brand-forward surfaces.
+
+This skill defines how Lineup UI should be composed and constrained once implementation starts.
 
 ## Design Source Of Truth
 

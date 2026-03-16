@@ -3,11 +3,18 @@
  * @module modules/ui/epg/types
  */
 
-import type { ScheduledProgram, ScheduleWindow } from '../../scheduler/scheduler/types';
-import type { ChannelConfig } from '../../scheduler/channel-manager/types';
+import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
+import type {
+    EpgChannel,
+    EpgItemDetails,
+    EpgScheduleWindow,
+    EpgScheduledProgram,
+} from './domainTypes';
 
-// Re-export imported types for convenience
-export type { ScheduledProgram, ScheduleWindow, ChannelConfig };
+// Re-export EPG-owned aliases for UI contracts.
+export type ScheduledProgram = EpgScheduledProgram;
+export type ScheduleWindow = EpgScheduleWindow;
+export type ChannelConfig = EpgChannel;
 
 // ============================================
 // EPG Configuration & State
@@ -42,23 +49,18 @@ export interface EPGConfig {
     /** Auto-scroll to current time on open */
     autoScrollToNow: boolean;
     /** Optional callback when visible range changes */
-    onVisibleRangeChange?: (range: {
-        channelStart: number;
-        channelEnd: number;
-        timeStartMs: number;
-        timeEndMs: number;
-    }) => void;
+    onVisibleRangeChange?: (range: EpgVisibleRange) => void;
     /** Optional callback to resolve relative Plex thumb paths to absolute URLs, with optional size hints. */
     resolveThumbUrl?: (pathOrUrl: string | null, width?: number, height?: number) => string | null;
     /** Optional callback to fetch Plex item details for focused programs (used for HDR/DV badges). */
     fetchItemDetails?: (
         ratingKey: string,
         options?: { signal?: AbortSignal | null }
-    ) => Promise<import('../../plex/library').PlexMediaItem | null>;
+    ) => Promise<EpgItemDetails | null>;
     /** Optional callback to detect if video is currently playing */
     isVideoPlaying?: () => boolean;
-    /** Optional layout mode (overlay/classic) */
-    layoutMode?: 'overlay' | 'classic';
+    /** Optional layout mode */
+    layoutMode?: EpgLayoutMode;
     /** Optional toggle for now watching banner */
     showNowWatchingBanner?: boolean;
     /** Optional callback to fetch current channel + program info */
@@ -69,7 +71,7 @@ export interface EPGConfig {
         timeLabel: string;
     } | null;
     /** Optional callback when layout mode changes */
-    onLayoutModeChange?: (mode: 'overlay' | 'classic') => void;
+    onLayoutModeChange?: (mode: EpgLayoutMode) => void;
     /**
      * Debug flag refresh interval for same-tab devtools toggles.
      * StorageEvent does not fire in the same document that calls localStorage.setItem(),
@@ -81,6 +83,13 @@ export interface EPGConfig {
      * Set to 0 to log every render (not recommended).
      */
     debugRenderGridLogIntervalMs?: number;
+}
+
+export interface EpgVisibleRange {
+    channelStart: number;
+    channelEnd: number;
+    timeStartMs: number;
+    timeEndMs: number;
 }
 
 /**

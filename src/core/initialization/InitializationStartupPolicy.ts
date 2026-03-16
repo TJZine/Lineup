@@ -2,12 +2,14 @@ import { AppErrorCode, type AppError, type IAppLifecycle } from '../../modules/l
 import type { INavigationManager } from '../../modules/navigation';
 import type { IPlexAuth } from '../../modules/plex/auth';
 import type { IPlexServerDiscovery } from '../../modules/plex/discovery';
-import type { IPlexLibrary, PlexMediaItem } from '../../modules/plex/library';
+import type { IPlexLibrary } from '../../modules/plex/library';
 import type { IPlexStreamResolver } from '../../modules/plex/stream';
 import type { IChannelManager } from '../../modules/scheduler/channel-manager';
 import type { IChannelScheduler } from '../../modules/scheduler/scheduler';
 import type { IVideoPlayer } from '../../modules/player';
+import type { EpgLayoutMode } from '../../modules/settings/EpgPreferencesStore';
 import { formatTimeRange } from '../../modules/ui/epg';
+import { toEpgItemDetails } from '../../modules/ui/epg/adapters';
 import type { OrchestratorConfig, ModuleStatus } from '../orchestrator/OrchestratorTypes';
 import { summarizeErrorForLog } from '../../utils/errors';
 
@@ -71,7 +73,7 @@ export interface EpgStartupConfigInputs {
     channelManager: IChannelManager | null;
     scheduler: IChannelScheduler | null;
     buildPlexResourceUrl: (pathOrUrl: string | null) => string | null;
-    readEpgLayoutMode: () => 'overlay' | 'classic';
+    readEpgLayoutMode: () => EpgLayoutMode;
     readShowNowWatchingBanner: () => boolean;
 }
 
@@ -277,14 +279,14 @@ export function buildEpgConfigWithStartupPolicy(
         ...inputs.epgConfig,
         layoutMode,
         showNowWatchingBanner,
-        fetchItemDetails: (
+        fetchItemDetails: async (
             ratingKey: string,
             options?: { signal?: AbortSignal | null }
-        ): Promise<PlexMediaItem | null> =>
-            inputs.plexLibrary?.getItem(
+        ) =>
+            toEpgItemDetails(await (inputs.plexLibrary?.getItem(
                 ratingKey,
                 { signal: options?.signal ?? null }
-            ) ?? Promise.resolve(null),
+            ) ?? Promise.resolve(null))),
         resolveThumbUrl: (
             pathOrUrl: string | null,
             width?: number,
@@ -333,7 +335,7 @@ export function buildEpgConfigWithStartupPolicy(
                 timeLabel: hasValidTimes ? formatTimeRange(startTime, endTime) : '',
             };
         },
-        onLayoutModeChange: (mode: 'overlay' | 'classic'): void => {
+        onLayoutModeChange: (mode: EpgLayoutMode): void => {
             if (previousOnLayoutModeChange) {
                 previousOnLayoutModeChange(mode);
             }

@@ -1,3 +1,4 @@
+import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
 import type { IEPGInfoPanel } from './interfaces';
 import type { ScheduledProgram } from './types';
 
@@ -22,7 +23,7 @@ export class EPGInfoPanelCoordinator {
     private infoPanelElement: HTMLElement | null = null;
     private overlayShowcaseElement: HTMLElement | null = null;
     private classicShowcaseInfoElement: HTMLElement | null = null;
-    private layoutMode: 'overlay' | 'classic' = 'overlay';
+    private layoutMode: EpgLayoutMode = 'overlay';
     private fullUpdateTimer: ReturnType<typeof setTimeout> | null = null;
     private pendingProgramKey: string | null = null;
     private destroyed = false;
@@ -43,7 +44,7 @@ export class EPGInfoPanelCoordinator {
         this.syncHost();
     }
 
-    setLayoutMode(mode: 'overlay' | 'classic'): void {
+    setLayoutMode(mode: EpgLayoutMode): void {
         if (this.destroyed) {
             return;
         }

@@ -37,7 +37,6 @@ import {
 } from './modules/plex/discovery';
 import {
     type IPlexLibrary,
-    type PlexLibraryType,
 } from './modules/plex/library';
 import {
     type IPlexStreamResolver,
@@ -115,16 +114,11 @@ import { createOrchestratorModules } from './core/orchestrator/OrchestratorModul
 import { createOrchestratorCoordinators } from './core/orchestrator/OrchestratorCoordinatorFactory';
 import { createPriorityOneControllersAndBinder } from './core/orchestrator/OrchestratorPriorityOneControllerFactory';
 import type { OrchestratorPlaybackStateAccessors } from './core/orchestrator/OrchestratorPlaybackStateAccessors';
-import { ChannelSetupCoordinator } from './core/channel-setup';
-import type {
-    ChannelSetupConfig,
-    ChannelSetupContext,
-    ChannelBuildSummary,
-    ChannelBuildProgress,
-    ChannelSetupRecord,
-    ChannelSetupPreview,
-    ChannelSetupReview,
-} from './core/channel-setup/types';
+import {
+    ChannelSetupCoordinator,
+    createChannelSetupSessionGateway,
+    type ChannelSetupSessionGateway,
+} from './core/channel-setup';
 import { NowPlayingDebugManager } from './modules/debug/NowPlayingDebugManager';
 import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
 import { NowPlayingInfoCoordinator } from './modules/ui/now-playing-info/NowPlayingInfoCoordinator';
@@ -257,14 +251,7 @@ export interface IAppOrchestrator {
     getSelectedServerId(): string | null;
     getSelectedServerStorageKey(): string;
     getServerHealthStorageKey(): string;
-    getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibraryType[]>;
-    getChannelSetupRecord(serverId: string): ChannelSetupRecord | null;
-    getSetupContextForSelectedServer(): ChannelSetupContext;
-    getSetupPreview(config: ChannelSetupConfig, options?: { signal?: AbortSignal }): Promise<ChannelSetupPreview>;
-    getSetupReview(config: ChannelSetupConfig, options?: { signal?: AbortSignal }): Promise<ChannelSetupReview>;
-    createChannelsFromSetup(config: ChannelSetupConfig, options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }): Promise<ChannelBuildSummary>;
-    markSetupComplete(serverId: string, setupConfig: ChannelSetupConfig): void;
-    requestChannelSetupRerun(): void;
+    getChannelSetupSessionGateway(): ChannelSetupSessionGateway;
     handleGlobalError(error: AppError, context: string): void;
     registerErrorHandler(moduleId: string, handler: (error: AppError) => boolean): void;
     getRecoveryActions(errorCode: AppErrorCode): ErrorRecoveryAction[];
@@ -356,6 +343,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     private readonly _storageContext: OrchestratorStorageContext;
     private readonly _debugOverridesStore = new DebugOverridesStore();
     private readonly _playbackStateAccessors: OrchestratorPlaybackStateAccessors;
+    private readonly _channelSetupSessionGateway: ChannelSetupSessionGateway;
 
     constructor(platformServices?: PlatformServices) {
         this._platformServices = platformServices ?? webosPlatformServices;
@@ -392,6 +380,20 @@ export class AppOrchestrator implements IAppOrchestrator {
                 this._shouldAutoShowInfoBannerOnNextPlay = value;
             },
         };
+        this._channelSetupSessionGateway = createChannelSetupSessionGateway({
+            getNavigation: (): INavigationManager | null => this._navigation,
+            getSelectedServerStorageKey: (): string => this._storageContext.getSelectedServerStorageKey(),
+            getServerHealthStorageKey: (): string => this._storageContext.getServerHealthStorageKey(),
+            getSelectedServerId: (): string | null => this._getSelectedServerId(),
+            openServerSelect: (): void => {
+                this._navigation?.goTo('server-select', { allowAutoConnect: false });
+            },
+            switchToChannelByNumber: (number: number, options?: { signal?: AbortSignal }): Promise<void> =>
+                this._channelTuning?.switchToChannelByNumber(number, options).then((): void => undefined)
+                ?? Promise.resolve(),
+            openEPG: (): void => this._epgCoordinator?.openEPG(),
+            getChannelSetupCoordinator: (): ChannelSetupCoordinator | null => this._channelSetup,
+        });
         this._initializeModuleStatus();
     }
 
@@ -446,15 +448,6 @@ export class AppOrchestrator implements IAppOrchestrator {
         this._configureDiscoveryStorageKeysForActiveUser();
 
         this._createCoordinators();
-        if (this._config.epgConfig) {
-            const previousOnVisibleRangeChange = this._config.epgConfig.onVisibleRangeChange ?? null;
-            this._config.epgConfig.onVisibleRangeChange = (range): void => {
-                if (previousOnVisibleRangeChange) {
-                    previousOnVisibleRangeChange(range);
-                }
-                this._epgCoordinator?.refreshEpgSchedulesForRange(range, { reason: 'visible-range' });
-            };
-        }
         this._channelSetup?.cleanupStaleChannelBuildKeys();
         this._initializePriorityOneControllers();
 
@@ -1185,49 +1178,8 @@ export class AppOrchestrator implements IAppOrchestrator {
         void this._persistSelectedServerForActiveUser(null, null);
     }
 
-    async getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibraryType[]> {
-        return this._channelSetup?.getLibrariesForSetup(signal ?? null)
-            ?? Promise.reject(new Error('Channel setup not initialized'));
-    }
-
-    getChannelSetupRecord(serverId: string): ChannelSetupRecord | null {
-        return this._channelSetup?.getSetupRecord(serverId) ?? null;
-    }
-
-    getSetupContextForSelectedServer(): ChannelSetupContext {
-        return this._channelSetup?.getSetupContextForSelectedServer() ?? 'unknown';
-    }
-
-    async getSetupPreview(
-        config: ChannelSetupConfig,
-        options?: { signal?: AbortSignal }
-    ): Promise<ChannelSetupPreview> {
-        return this._channelSetup?.getSetupPreview(config, options)
-            ?? Promise.reject(new Error('Channel setup not initialized'));
-    }
-
-    async getSetupReview(
-        config: ChannelSetupConfig,
-        options?: { signal?: AbortSignal }
-    ): Promise<ChannelSetupReview> {
-        return this._channelSetup?.getSetupReview(config, options)
-            ?? Promise.reject(new Error('Channel setup not initialized'));
-    }
-
-    async createChannelsFromSetup(
-        config: ChannelSetupConfig,
-        options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }
-    ): Promise<ChannelBuildSummary> {
-        return this._channelSetup?.createChannelsFromSetup(config, options)
-            ?? Promise.reject(new Error('Channel setup not initialized'));
-    }
-
-    markSetupComplete(serverId: string, setupConfig: ChannelSetupConfig): void {
-        this._channelSetup?.markSetupComplete(serverId, setupConfig);
-    }
-
-    requestChannelSetupRerun(): void {
-        this._channelSetup?.requestChannelSetupRerun();
+    getChannelSetupSessionGateway(): ChannelSetupSessionGateway {
+        return this._channelSetupSessionGateway;
     }
 
     /**
@@ -1336,39 +1288,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     }
 
     onGuideSettingChange(change: GuideSettingChange): void {
-        const epg = this._epg;
-        const epgCoordinator = this._epgCoordinator;
-        if (!epg || !epgCoordinator) return;
-        if (!epg.isVisible()) return;
-
-        if (change.key === 'layoutMode') {
-            epg.setLayoutMode(change.mode);
-            return;
-        }
-
-        if (change.key === 'nowWatchingBanner') {
-            epg.setNowWatchingBannerEnabled(change.enabled);
-            return;
-        }
-
-        if (change.key === 'infoBackgroundMode') {
-            return;
-        }
-
-        if (change.key === 'libraryTabs' || change.key === 'aggressivePreload' || change.key === 'pastItemsWindow') {
-            epgCoordinator.clearScheduleCaches();
-            epg.clearSchedules();
-        }
-
-        epgCoordinator.primeEpgChannels();
-        if (
-            change.key === 'libraryTabs' ||
-            change.key === 'guideDensity' ||
-            change.key === 'aggressivePreload' ||
-            change.key === 'pastItemsWindow'
-        ) {
-            void epgCoordinator.refreshEpgSchedules({ reason: 'guide-settings' });
-        }
+        this._epgCoordinator?.handleGuideSettingChange(change);
     }
 
     /**

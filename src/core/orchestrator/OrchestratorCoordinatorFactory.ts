@@ -183,7 +183,7 @@ export function createOrchestratorCoordinators(
         getEpg: (): IEPGComponent | null => deps.epg,
         getChannelManager: (): IChannelManager | null => deps.channelManager,
         getScheduler: (): IChannelScheduler | null => deps.scheduler,
-        getEpgUiStatus: (): EpgUiStatus => deps.moduleStatus.get('epg-ui')?.status as EpgUiStatus,
+        getEpgUiStatus: (): EpgUiStatus => deps.moduleStatus.get('epg-ui')?.status,
         ensureEpgInitialized: (): Promise<void> =>
             deps.getInitCoordinator()?.ensureEPGInitialized() ?? Promise.resolve(),
         getEpgConfig: (): EPGConfig | null => deps.config?.epgConfig ?? null,
@@ -209,6 +209,10 @@ export function createOrchestratorCoordinators(
         },
         epgPreferencesStore: deps.epgPreferencesStore,
     });
+    if (deps.config?.epgConfig) {
+        deps.config.epgConfig =
+            epgCoordinator.withVisibleRangeRefreshPolicy(deps.config.epgConfig) ?? deps.config.epgConfig;
+    }
 
     const channelSetup = new ChannelSetupCoordinator({
         plexLibrary: deps.plexLibrary,

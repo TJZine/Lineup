@@ -10,11 +10,12 @@ import type { MiniGuideConfig } from '../../modules/ui/mini-guide';
 import type { NowPlayingInfoConfig } from '../../modules/ui/now-playing-info';
 import type { PlaybackOptionsConfig } from '../../modules/ui/playback-options';
 import type { PlayerOsdConfig } from '../../modules/ui/player-osd';
+import type { ModuleRuntimeStatus } from '../module-status';
 
 export interface ModuleStatus {
     id: string;
     name: string;
-    status: 'pending' | 'initializing' | 'ready' | 'error' | 'disabled';
+    status: ModuleRuntimeStatus;
     loadTimeMs?: number;
     error?: AppError;
 }
