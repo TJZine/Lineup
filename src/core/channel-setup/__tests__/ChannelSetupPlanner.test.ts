@@ -107,8 +107,9 @@ describe('ChannelSetupPlanner', () => {
             libraries: [],
             playlists,
             collectionsByLibraryId: new Map(),
-            tagItemsByLibraryId: new Map(),
-            scanItemsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
             warnings: [],
@@ -144,8 +145,9 @@ describe('ChannelSetupPlanner', () => {
             libraries: [],
             playlists,
             collectionsByLibraryId: new Map(),
-            tagItemsByLibraryId: new Map(),
-            scanItemsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
             warnings: [],
@@ -179,8 +181,9 @@ describe('ChannelSetupPlanner', () => {
             collectionsByLibraryId: new Map([
                 ['s1', [{ ratingKey: 'co1', key: '/library/collections/co1', title: 'Classics', thumb: null, childCount: 10 }]],
             ]),
-            tagItemsByLibraryId: new Map(),
-            scanItemsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
             warnings: [],
@@ -230,8 +233,9 @@ describe('ChannelSetupPlanner', () => {
             ] as PlexLibraryType[],
             playlists: [],
             collectionsByLibraryId: new Map(),
-            tagItemsByLibraryId: new Map(),
-            scanItemsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map([
                 ['s1', [{ key: 'actor-1', title: 'Jane Doe', count: 10 }]],
                 ['s2', [{ key: 'actor-1', title: 'Jane Doe', count: 10 }]],
@@ -268,8 +272,9 @@ describe('ChannelSetupPlanner', () => {
             collectionsByLibraryId: new Map([
                 ['s1', [{ ratingKey: 'co1', key: '/library/collections/co1', title: 'Classics', thumb: null, childCount: 10 }]],
             ]),
-            tagItemsByLibraryId: new Map(),
-            scanItemsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
             warnings: [],
@@ -299,8 +304,9 @@ describe('ChannelSetupPlanner', () => {
             collectionsByLibraryId: new Map([
                 ['s1', [{ ratingKey: 'co1', key: '/library/collections/co1', title: 'Classics', thumb: null, childCount: 10 }]],
             ]),
-            tagItemsByLibraryId: new Map(),
-            scanItemsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
             warnings: [],
@@ -334,8 +340,9 @@ describe('ChannelSetupPlanner', () => {
             collectionsByLibraryId: new Map([
                 ['s1', [{ ratingKey: 'co1', key: '/library/collections/co1', title: 'Classics', thumb: null, childCount: 10 }]],
             ]),
-            tagItemsByLibraryId: new Map(),
-            scanItemsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
             warnings: [],
@@ -345,5 +352,34 @@ describe('ChannelSetupPlanner', () => {
         expect(plan.pendingChannels.map((channel) => channel.name)).toEqual(['Classics']);
         const base = plan.pendingChannels.find((channel) => channel.name === 'Classics');
         expect(base?.playbackMode).toBe('shuffle');
+    });
+
+    it('derives decades from summed year directories', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['s1'],
+                strategyConfig: createStrategyConfig({ decades: { enabled: true } }),
+                minItemsPerChannel: 5,
+            }),
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 1200 }] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map([
+                ['s1', [
+                    { key: '1981', title: '1981', count: 2 },
+                    { key: '1988', title: '1988', count: 3 },
+                    { key: '1995', title: '1995', count: 4 },
+                ]],
+            ]),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(plan.pendingChannels.map((channel) => channel.name)).toContain('Shows - 1980s');
+        expect(plan.pendingChannels.map((channel) => channel.name)).not.toContain('Shows - 1990s');
     });
 });
