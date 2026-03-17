@@ -16,6 +16,15 @@ import type {
     PlexLibraryEvents,
 } from './types';
 
+export type PlexTagDirectoryUnsupportedReason = 'unavailable' | 'empty';
+
+export interface PlexTagDirectoryQueryOptions {
+    type: number;
+    signal?: AbortSignal | null;
+    onUnsupported?: (reason: PlexTagDirectoryUnsupportedReason) => void;
+    requireEntries?: boolean;
+}
+
 // ============================================
 // Main Interface
 // ============================================
@@ -155,7 +164,7 @@ export interface IPlexLibrary {
      */
     getActors(
         libraryId: string,
-        options: { type: number; signal?: AbortSignal | null; onUnsupported?: () => void }
+        options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]>;
 
     /**
@@ -166,7 +175,7 @@ export interface IPlexLibrary {
      */
     getStudios(
         libraryId: string,
-        options: { type: number; signal?: AbortSignal | null; onUnsupported?: () => void }
+        options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]>;
 
     /**
@@ -177,7 +186,7 @@ export interface IPlexLibrary {
      */
     getGenres(
         libraryId: string,
-        options: { type: number; signal?: AbortSignal | null; onUnsupported?: () => void }
+        options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]>;
 
     /**
@@ -188,7 +197,7 @@ export interface IPlexLibrary {
      */
     getDirectors(
         libraryId: string,
-        options: { type: number; signal?: AbortSignal | null; onUnsupported?: () => void }
+        options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]>;
 
     /**
@@ -199,7 +208,7 @@ export interface IPlexLibrary {
      */
     getYears(
         libraryId: string,
-        options: { type: number; signal?: AbortSignal | null; onUnsupported?: () => void }
+        options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]>;
 
     // Image URLs
