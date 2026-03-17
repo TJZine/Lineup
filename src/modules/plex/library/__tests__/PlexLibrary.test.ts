@@ -916,6 +916,7 @@ describe('PlexLibrary', () => {
             const genres = await library.getGenres('1', { type: PLEX_MEDIA_TYPES.SHOW, onUnsupported, requireEntries: true });
 
             expect(genres).toEqual([]);
+            expect(onUnsupported).toHaveBeenCalledWith('unavailable');
             expect(onUnsupported).toHaveBeenCalledTimes(1);
         });
 
@@ -927,6 +928,7 @@ describe('PlexLibrary', () => {
             const directors = await library.getDirectors('1', { type: PLEX_MEDIA_TYPES.EPISODE, onUnsupported, requireEntries: true });
 
             expect(directors).toEqual([]);
+            expect(onUnsupported).toHaveBeenCalledWith('unavailable');
             expect(onUnsupported).toHaveBeenCalledTimes(1);
         });
 
@@ -938,6 +940,7 @@ describe('PlexLibrary', () => {
             const years = await library.getYears('1', { type: PLEX_MEDIA_TYPES.EPISODE, onUnsupported, requireEntries: true });
 
             expect(years).toEqual([]);
+            expect(onUnsupported).toHaveBeenCalledWith('unavailable');
             expect(onUnsupported).toHaveBeenCalledTimes(1);
         });
 
