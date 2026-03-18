@@ -117,7 +117,7 @@ describe('ChannelSetupPlanningService', () => {
         );
         expect(plexLibrary.getYears).toHaveBeenCalledWith(
             'shows',
-            expect.objectContaining({ type: PLEX_MEDIA_TYPES.EPISODE })
+            expect.objectContaining({ type: PLEX_MEDIA_TYPES.SHOW })
         );
         expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - Comedy'))).toBe(true);
         expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - Jane Doe'))).toBe(true);

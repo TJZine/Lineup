@@ -334,7 +334,7 @@ export class ChannelSetupPlanningService {
                     try {
                         const tagStart = Date.now();
                         const years = await this._deps.plexLibrary.getYears(library.id, {
-                            type: detailType,
+                            type: genreType,
                             signal,
                             onUnsupported: () => {
                                 warnings.add('Years endpoint not supported by this Plex server.');
