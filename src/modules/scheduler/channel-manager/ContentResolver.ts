@@ -439,6 +439,15 @@ export class ContentResolver {
             return items.map((item, index) => this._toResolvedItem(item, index));
         }
 
+        const hasGenreLibraryFilter = source.libraryFilter && 'genre' in source.libraryFilter;
+        if (hasGenreLibraryFilter) {
+            const items = await this._library.getLibraryItems(source.libraryId, {
+                ...options,
+                filter: { ...source.libraryFilter, type: PLEX_MEDIA_TYPES.SHOW },
+            });
+            return items.map((item, index) => this._toResolvedItem(item, index));
+        }
+
         // --- TV Library "Fast Path" with Parent Decoration (Issue 2/3) ---
 
         // 1. Fetch episodes directly (Plex type=4)

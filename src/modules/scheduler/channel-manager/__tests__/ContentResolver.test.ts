@@ -698,6 +698,63 @@ describe('ContentResolver', () => {
             expect(result.map((item) => item.ratingKey)).toEqual(['l1', 'l2', 'c1', 'c2']);
         });
 
+        it('fetches Shows (not episodes) when TV library source has genre libraryFilter, then expands via show containers', async () => {
+            const shows = [
+                createMockItem({
+                    ratingKey: 'show1',
+                    type: 'show',
+                    title: 'Action Show',
+                    durationMs: 0,
+                    genres: ['Action'],
+                }),
+            ];
+            const episodes = [
+                createMockEpisode(1, 1, {
+                    ratingKey: 'ep1',
+                    grandparentRatingKey: 'show1',
+                }),
+                createMockEpisode(1, 2, {
+                    ratingKey: 'ep2',
+                    grandparentRatingKey: 'show1',
+                }),
+            ];
+
+            mockLibrary.getLibraryItems.mockResolvedValue(shows);
+            mockLibrary.getShowEpisodes.mockResolvedValue(episodes);
+
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'show-lib',
+                libraryType: 'show',
+                includeWatched: true,
+                libraryFilter: { genre: 'Action' },
+            };
+
+            const result = await resolver.resolveSource(source);
+
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledWith(
+                'show-lib',
+                expect.objectContaining({
+                    filter: expect.objectContaining({
+                        genre: 'Action',
+                        type: PLEX_MEDIA_TYPES.SHOW,
+                    }),
+                })
+            );
+            expect(mockLibrary.getLibraryItems).not.toHaveBeenCalledWith(
+                'show-lib',
+                expect.objectContaining({
+                    filter: expect.objectContaining({
+                        type: PLEX_MEDIA_TYPES.EPISODE,
+                    }),
+                })
+            );
+            expect(mockLibrary.getShowEpisodes).toHaveBeenCalledWith('show1', expect.anything());
+            expect(result).toHaveLength(2);
+            expect(result[0]!.type).toBe('episode');
+            expect(result[0]!.ratingKey).toBe('ep1');
+        });
+
         it('resolves mixed category sources across movie and show libraries with same filter key', async () => {
             mockLibrary.getLibraryItems.mockImplementation(async (libraryId, options) => {
                 if (libraryId === 'movie-lib') {
@@ -706,15 +763,25 @@ describe('ContentResolver', () => {
                         createMockItem({ ratingKey: 'm2', genres: ['Action'] }),
                     ];
                 }
-                if (libraryId === 'show-lib' && options?.filter?.type === PLEX_MEDIA_TYPES.EPISODE) {
+                if (libraryId === 'show-lib' && options?.filter?.type === PLEX_MEDIA_TYPES.SHOW) {
                     return [
-                        createMockEpisode(1, 1, { ratingKey: 's1e1', genres: ['Action'] }),
+                        createMockItem({
+                            ratingKey: 'show1',
+                            type: 'show',
+                            genres: ['Action'],
+                        }),
                     ];
                 }
                 if (libraryId === 'show-lib') {
                     return [];
                 }
                 return [];
+            });
+            mockLibrary.getShowEpisodes.mockImplementation((showKey: string) => {
+                if (showKey === 'show1') {
+                    return Promise.resolve([createMockEpisode(1, 1, { ratingKey: 's1e1', genres: ['Action'] })]);
+                }
+                return Promise.resolve([]);
             });
 
             const source: MixedContentSource = {
@@ -747,7 +814,7 @@ describe('ContentResolver', () => {
             );
             expect(mockLibrary.getLibraryItems).toHaveBeenCalledWith(
                 'show-lib',
-                expect.objectContaining({ filter: expect.objectContaining({ genre: 'Action', type: PLEX_MEDIA_TYPES.EPISODE }) })
+                expect.objectContaining({ filter: expect.objectContaining({ genre: 'Action', type: PLEX_MEDIA_TYPES.SHOW }) })
             );
         });
 
