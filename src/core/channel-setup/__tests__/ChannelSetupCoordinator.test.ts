@@ -1192,6 +1192,14 @@ describe('ChannelSetupCoordinator', () => {
         expect(genreChannels).toHaveLength(2);
         expect(genreChannels.map((cfg) => cfg.name)).toEqual(['Movies - Action', 'Shows - Action']);
         expect(genreChannels.every((cfg) => cfg.contentSource.type === 'library')).toBe(true);
+        expect(
+            genreChannels.every(
+                (cfg) =>
+                    cfg.contentSource.type === 'library'
+                    && cfg.contentSource.libraryFilter?.genre === 'Action'
+                    && cfg.contentFilters === undefined
+            )
+        ).toBe(true);
     });
 
     it('creates mixed cross-library genre channels only when explicitly enabled', async () => {

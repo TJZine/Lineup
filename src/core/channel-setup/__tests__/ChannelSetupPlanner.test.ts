@@ -164,6 +164,80 @@ describe('ChannelSetupPlanner', () => {
         expect(diff.matchedPairs).toHaveLength(plan.pendingChannels.length);
     });
 
+    it('emits per-library genre channels using libraryFilter instead of contentFilters', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['s1'],
+                strategyConfig: createStrategyConfig({ genres: { enabled: true } }),
+                minItemsPerChannel: 1,
+            }),
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 25 }] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map([['s1', [{ key: 'action', title: 'Action', count: 10 }]]]),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        const action = plan.pendingChannels.find((c) => c.name === 'Shows - Action');
+        expect(action).toBeDefined();
+        expect(action?.contentSource).toEqual(expect.objectContaining({
+            type: 'library',
+            libraryId: 's1',
+            libraryType: 'show',
+            includeWatched: true,
+            libraryFilter: { genre: 'Action' },
+        }));
+        expect(action?.contentFilters).toBeUndefined();
+    });
+
+    it('marks a legacy per-library genre channel as replaced when libraryFilter becomes source-of-truth', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['s1'],
+                strategyConfig: createStrategyConfig({ genres: { enabled: true } }),
+                minItemsPerChannel: 1,
+            }),
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 25 }] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map([['s1', [{ key: 'action', title: 'Action', count: 10 }]]]),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        const plannedGenreChannel = plan.pendingChannels.find((c) => c.name === 'Shows - Action');
+        expect(plannedGenreChannel).toBeDefined();
+
+        const legacyExisting = makeExistingChannel(
+            {
+                ...plannedGenreChannel!,
+                contentSource: {
+                    type: 'library',
+                    libraryId: 's1',
+                    libraryType: 'show',
+                    includeWatched: true,
+                },
+                contentFilters: [{ field: 'genre', operator: 'eq', value: 'Action' }],
+            } as PendingChannel,
+            0
+        );
+
+        const diff = diffChannelPlans([legacyExisting], plan.pendingChannels);
+        expect(diff.summary).toEqual({ created: 1, removed: 1, unchanged: 0 });
+        expect(diff.created).toHaveLength(1);
+        expect(diff.removed).toHaveLength(1);
+        expect(diff.unchanged).toHaveLength(0);
+    });
+
     it('generates block variants for series-derived channels with unique identity keys', () => {
         const plan = buildChannelSetupPlan({
             config: createConfig({
