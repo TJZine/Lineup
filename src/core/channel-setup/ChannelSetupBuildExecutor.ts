@@ -10,6 +10,7 @@ import type {
 } from './types';
 import { diffChannelPlans, type PendingChannel, type ChannelDiffResult } from './ChannelSetupPlanner';
 import type { ChannelSetupPlanBuildResult, ChannelSetupPlanningService } from './ChannelSetupPlanningService';
+import { isSignalAborted } from './utils';
 
 export interface ChannelSetupBuildExecutorDeps {
     plexLibrary: IPlexLibrary;
@@ -58,7 +59,7 @@ export class ChannelSetupBuildExecutor {
         try {
             libraries = await this._deps.planningService.getLibrariesForSetup(signal ?? null);
         } catch (e) {
-            if (isAbortLike(e, signal ?? undefined)) {
+            if (isSignalAborted(signal ?? undefined)) {
                 reportProgress('fetch_playlists', 'Preparing...', 'Canceled', 0, null);
                 return { created: 0, skipped: 0, reachedMaxChannels: false, errorCount: 0, canceled: true, lastTask: 'fetch_playlists' };
             }
@@ -75,7 +76,7 @@ export class ChannelSetupBuildExecutor {
 	                reportProgress
 	            );
 	        } catch (e) {
-	            if (isAbortLike(e, signal ?? undefined)) {
+	            if (isSignalAborted(signal ?? undefined)) {
 	                reportProgress('build_pending', 'Preparing...', 'Canceled', 0, null);
 	                return { created: 0, skipped: 0, reachedMaxChannels: false, errorCount: 0, canceled: true, lastTask: 'build_pending' };
 	            }
@@ -86,9 +87,9 @@ export class ChannelSetupBuildExecutor {
 	            return {
 	                created: 0,
 	                skipped: 0,
-                reachedMaxChannels: false,
-                errorCount: planResult.errorsTotal,
-                canceled: true,
+	                reachedMaxChannels: false,
+	                errorCount: planResult.errorsTotal,
+                canceled: planResult.canceled,
                 lastTask: planResult.lastTask ?? 'build_pending',
             };
         }
@@ -217,7 +218,7 @@ export class ChannelSetupBuildExecutor {
 
                     finalSummary.created++;
 	                } catch (e) {
-	                    if (isAbortLike(e, signal ?? undefined)) {
+	                    if (isSignalAborted(signal ?? undefined)) {
 	                        finalSummary.skipped = computeSkipped();
 	                        finalSummary.reachedMaxChannels = reachedMax;
 	                        finalSummary.canceled = true;
@@ -382,18 +383,6 @@ function summarizeErrorForLog(error: unknown): { name?: string; code?: unknown; 
         ...(typeof e.message === 'string' ? { message: redactSensitiveTokens(e.message) } : {}),
     };
 }
-
-function isAbortLike(error: unknown, signal?: AbortSignal): boolean {
-    if (signal?.aborted) return true;
-    if (signal) return false;
-    if (typeof DOMException !== 'undefined' && error instanceof DOMException && error.name === 'AbortError') return true;
-    if (error && typeof error === 'object' && 'name' in error) {
-        const namedError = error as { name?: unknown };
-        if (namedError.name === 'AbortError') return true;
-    }
-    return false;
-}
-
 function generateUUID(): string {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
         try {

@@ -380,24 +380,32 @@ describe('ChannelSetupCoordinator', () => {
         expect(summary.lastTask).toBe('init');
     });
 
-    it('createChannelsFromSetup treats AbortError as cancellation without errors', async () => {
+    it('createChannelsFromSetup treats actual aborted signals as cancellation without errors', async () => {
         const { coordinator, plexLibrary } = createCoordinator();
-        plexLibrary.getPlaylists.mockRejectedValue({ name: 'AbortError' });
+        const controller = new AbortController();
+        plexLibrary.getPlaylists.mockImplementation(() => {
+            controller.abort();
+            return Promise.reject(new DOMException('Aborted', 'AbortError'));
+        });
 
         const summary = await coordinator.createChannelsFromSetup(createConfig({
             strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
-        }));
+        }), { signal: controller.signal });
 
         expect(summary.canceled).toBe(true);
         expect(summary.lastTask).toBe('fetch_playlists');
         expect(summary.errorCount).toBe(0);
     });
 
-    it('createChannelsFromSetup treats AbortError from getLibrariesForSetup as cancellation', async () => {
+    it('createChannelsFromSetup treats aborted getLibrariesForSetup as cancellation', async () => {
         const { coordinator, plexLibrary } = createCoordinator();
-        plexLibrary.getLibraries.mockRejectedValue({ name: 'AbortError' });
+        const controller = new AbortController();
+        plexLibrary.getLibraries.mockImplementation(() => {
+            controller.abort();
+            return Promise.reject(new DOMException('Aborted', 'AbortError'));
+        });
 
-        const summary = await coordinator.createChannelsFromSetup(createConfig());
+        const summary = await coordinator.createChannelsFromSetup(createConfig(), { signal: controller.signal });
 
         expect(summary.canceled).toBe(true);
         expect(summary.lastTask).toBe('fetch_playlists');
@@ -1277,7 +1285,7 @@ describe('ChannelSetupCoordinator', () => {
         );
     });
 
-    it('surfaces scan failures as review warnings', async () => {
+    it('surfaces required tag-directory stop warnings in review when a tag fetch fails', async () => {
         const { coordinator, plexLibrary } = createCoordinator();
         plexLibrary.getLibraries.mockResolvedValue([
             { id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 },
@@ -1296,10 +1304,11 @@ describe('ChannelSetupCoordinator', () => {
 
         expect(review.preview.warnings).toEqual(
             expect.arrayContaining([
-                expect.stringContaining('scan_library_items'),
+                expect.stringContaining('stop and re-plan'),
                 expect.stringContaining('scan failed'),
             ])
         );
+        expect(review.diff.summary).toEqual({ created: 0, removed: 0, unchanged: 0 });
     });
 
     it('buildSetupPlan returns explicit warnings alongside partial plan results', async () => {

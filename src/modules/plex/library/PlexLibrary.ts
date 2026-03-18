@@ -10,7 +10,12 @@ import type { IDisposable } from '../../../utils/interfaces';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { fnv1a32Hex } from '../../../utils/hash';
 import { redactUrlForLog } from '../../../utils/redact';
-import type { IPlexLibrary, PlexLibraryConfig } from './interfaces';
+import type {
+    IPlexLibrary,
+    PlexLibraryConfig,
+    PlexTagDirectoryQueryOptions,
+    PlexTagDirectoryUnsupportedReason,
+} from './interfaces';
 import type {
     PlexLibrary as PlexLibraryType,
     PlexMediaItem,
@@ -630,84 +635,75 @@ export class PlexLibrary implements IPlexLibrary {
     // Actor/Studio Tags
     // ============================================
 
-    async getActors(
+    private async _getLibrarySectionTags(
         libraryId: string,
-        options: { type: number; signal?: AbortSignal | null; onUnsupported?: () => void }
+        endpoint: (id: string) => string,
+        label: string,
+        options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]> {
         const params: Record<string, string | number> = { type: options.type };
-        const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_ACTORS(libraryId), params);
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawDirectoryTag>>(url, { signal: options.signal ?? null });
+        const url = this._buildUrl(endpoint(libraryId), params);
+        const response = await this._fetchWithRetry<PlexMediaContainer<RawDirectoryTag>>(url, {
+            signal: options.signal ?? null,
+        });
         if (!response) {
-            this._logger.warn(`[PlexLibrary] Actors endpoint unavailable for library ${libraryId}`);
-            options.onUnsupported?.();
+            if (options.requireEntries) {
+                this._notifyUnsupportedTagDirectory(options, 'unavailable', label, libraryId);
+            }
             return [];
         }
         const directories = response.MediaContainer.Directory || [];
+        if (options.requireEntries === true && directories.length === 0) {
+            this._notifyUnsupportedTagDirectory(options, 'empty', label, libraryId);
+            return [];
+        }
         return parseDirectoryTags(directories);
+    }
+
+    private _notifyUnsupportedTagDirectory(
+        options: PlexTagDirectoryQueryOptions,
+        reason: PlexTagDirectoryUnsupportedReason,
+        label: string,
+        libraryId: string
+    ): void {
+        const detail = reason === 'empty' ? 'returned no directory entries' : 'endpoint unavailable';
+        this._logger.warn(`[PlexLibrary] ${label} ${detail} for library ${libraryId}`);
+        options.onUnsupported?.(reason);
+    }
+
+    async getActors(
+        libraryId: string,
+        options: PlexTagDirectoryQueryOptions
+    ): Promise<PlexTagDirectoryItem[]> {
+        return this._getLibrarySectionTags(libraryId, PLEX_ENDPOINTS.LIBRARY_SECTION_ACTORS, 'Actors', options);
     }
 
     async getStudios(
         libraryId: string,
-        options: { type: number; signal?: AbortSignal | null; onUnsupported?: () => void }
+        options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]> {
-        const params: Record<string, string | number> = { type: options.type };
-        const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_STUDIOS(libraryId), params);
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawDirectoryTag>>(url, { signal: options.signal ?? null });
-        if (!response) {
-            this._logger.warn(`[PlexLibrary] Studios endpoint unavailable for library ${libraryId}`);
-            options.onUnsupported?.();
-            return [];
-        }
-        const directories = response.MediaContainer.Directory || [];
-        return parseDirectoryTags(directories);
+        return this._getLibrarySectionTags(libraryId, PLEX_ENDPOINTS.LIBRARY_SECTION_STUDIOS, 'Studios', options);
     }
 
     async getGenres(
         libraryId: string,
-        options: { type: number; signal?: AbortSignal | null; onUnsupported?: () => void }
+        options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]> {
-        const params: Record<string, string | number> = { type: options.type };
-        const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_GENRES(libraryId), params);
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawDirectoryTag>>(url, { signal: options.signal ?? null });
-        if (!response) {
-            this._logger.warn(`[PlexLibrary] Genres endpoint unavailable for library ${libraryId}`);
-            options.onUnsupported?.();
-            return [];
-        }
-        const directories = response.MediaContainer.Directory || [];
-        return parseDirectoryTags(directories);
+        return this._getLibrarySectionTags(libraryId, PLEX_ENDPOINTS.LIBRARY_SECTION_GENRES, 'Genres', options);
     }
 
     async getDirectors(
         libraryId: string,
-        options: { type: number; signal?: AbortSignal | null; onUnsupported?: () => void }
+        options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]> {
-        const params: Record<string, string | number> = { type: options.type };
-        const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_DIRECTORS(libraryId), params);
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawDirectoryTag>>(url, { signal: options.signal ?? null });
-        if (!response) {
-            this._logger.warn(`[PlexLibrary] Directors endpoint unavailable for library ${libraryId}`);
-            options.onUnsupported?.();
-            return [];
-        }
-        const directories = response.MediaContainer.Directory || [];
-        return parseDirectoryTags(directories);
+        return this._getLibrarySectionTags(libraryId, PLEX_ENDPOINTS.LIBRARY_SECTION_DIRECTORS, 'Directors', options);
     }
 
     async getYears(
         libraryId: string,
-        options: { type: number; signal?: AbortSignal | null; onUnsupported?: () => void }
+        options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]> {
-        const params: Record<string, string | number> = { type: options.type };
-        const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_YEARS(libraryId), params);
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawDirectoryTag>>(url, { signal: options.signal ?? null });
-        if (!response) {
-            this._logger.warn(`[PlexLibrary] Years endpoint unavailable for library ${libraryId}`);
-            options.onUnsupported?.();
-            return [];
-        }
-        const directories = response.MediaContainer.Directory || [];
-        return parseDirectoryTags(directories);
+        return this._getLibrarySectionTags(libraryId, PLEX_ENDPOINTS.LIBRARY_SECTION_YEARS, 'Years', options);
     }
 
     // ============================================
