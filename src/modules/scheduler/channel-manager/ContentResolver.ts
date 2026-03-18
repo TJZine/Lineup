@@ -230,7 +230,7 @@ export class ContentResolver {
 
     private async _expandShowContainers(
         items: ResolvedContentItem[],
-        options?: { signal?: AbortSignal | null }
+        options?: { signal?: AbortSignal | null; strict?: boolean }
     ): Promise<ResolvedContentItem[]> {
         const expanded: ResolvedContentItem[] = [];
 
@@ -241,8 +241,13 @@ export class ContentResolver {
             }
 
             try {
-                const episodes = await this._library.getShowEpisodes(item.ratingKey, options);
+                const episodes = await this._library.getShowEpisodes(item.ratingKey, {
+                    signal: options?.signal ?? null,
+                });
                 if (episodes.length === 0) {
+                    if (options?.strict) {
+                        throw new Error(`Show item returned no episodes during strict expansion (${item.ratingKey})`);
+                    }
                     this._logger.warn('Show item returned no episodes during expansion', item.ratingKey);
                     continue;
                 }
@@ -267,6 +272,9 @@ export class ContentResolver {
                     expanded.push(this._toResolvedItem(merged, 0));
                 }
             } catch (error) {
+                if (options?.strict || isAbortLike(error, options?.signal ?? undefined)) {
+                    throw error;
+                }
                 this._logger.warn('Failed to expand show item', item.ratingKey, error);
             }
         }
@@ -445,7 +453,11 @@ export class ContentResolver {
                 ...options,
                 filter: { ...source.libraryFilter, type: PLEX_MEDIA_TYPES.SHOW },
             });
-            return items.map((item, index) => this._toResolvedItem(item, index));
+            const resolvedShows = items.map((item, index) => this._toResolvedItem(item, index));
+            return this._expandShowContainers(resolvedShows, {
+                signal: options?.signal ?? null,
+                strict: true,
+            });
         }
 
         // --- TV Library "Fast Path" with Parent Decoration (Issue 2/3) ---
