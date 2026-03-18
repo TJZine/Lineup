@@ -31,7 +31,7 @@ Route task family first. Choose risk tier second.
 
 | Task Type | Use This Path | Prompt Family | Notes |
 |---|---|---|---|
-| cleanup/refactor | checklist cleanup units, bounded remediation, refactors with no net-new feature intent | `cleanup-*` | `cleanup-loop` is only for Tier 3 cleanup controller work. |
+| cleanup/refactor | checklist cleanup units, standalone bugfix/remediation, bounded remediation, refactors with no net-new feature intent | `cleanup-*` | choose `checklist-linked` vs `standalone remediation` before tiering; `cleanup-loop` is only for Tier 3 cleanup controller work. |
 | feature/design | net-new capability, behavior expansion, product/design direction work, UI creation/redesign | `feature-plan` + `feature-implement` + `feature-review` | Tier 2 feature flow uses the same tracked planner/reviewer/implementer prompt family as cleanup, with planner -> reviewer -> implementer -> reviewer sequencing. |
 | mixed | feature delivery that also includes a cleanup slice (for example hotspot extraction, ownership correction, or required doc refresh) | route by primary intent and split slices explicitly | Use `cleanup-*` only for the cleanup slice, never as umbrella control for full feature delivery. |
 
@@ -40,6 +40,15 @@ Mixed-task examples:
 - feature delivery that also extracts hotspot responsibilities
 - UI redesign that also changes ownership
 - new feature work that also requires current-state or API doc updates
+
+Cleanup sub-routing:
+
+- `checklist-linked`
+  - use when the cleanup task already belongs to a tracked checklist item or priority-exit gate
+  - these tasks should update [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md) in the same pass when status changes
+- `standalone remediation`
+  - use for QA/debugging/bug-fix work and other bounded remediation that is not owned by an existing checklist item
+  - do not invent a checklist item just to route through the cleanup prompts
 
 Tier 3 rule for feature or mixed work:
 
@@ -65,12 +74,14 @@ Each launcher should:
 2. load [`agents.md`](../../../agents.md), [`docs/agentic/document-map.md`](../document-map.md), and [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
 3. load the matching file in this directory
 4. follow the workflow in that file without duplicating repo policy text inline
+5. load repo-local `model-selection` only when the user explicitly asks for model guidance or the outgoing handoff meets the auto-trigger conditions in [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md#session-handoffs)
 
 ## When To Stay Reusable
 
 Use these reusable launchers for Tier 2 cleanup work:
 
 - routine `P#-W#` cleanup items
+- standalone QA/debugging/bug-fix remediation with no net-new feature intent
 - bounded refactors with one planner, one implementer, and one reviewer
 - plan refreshes for active tracked plans
 
@@ -107,4 +118,5 @@ When a run bundle exists, the reusable launcher should use it as task-specific c
 - Prefer explicit read order, exact deliverables, and exact stop conditions.
 - Do not create a new reusable prompt for every feature or checklist item.
 - Planner, reviewer, and implementer prompts should emit a pasteable `NEXT_SESSION_HANDOFF` block when another session is expected.
+- Emit `MODEL_SUGGESTION` only when the user explicitly asked for model advice or the handoff is high-risk under the workflow trigger; do not make model advice an always-on tax.
 - Update these templates when the repo workflow changes materially.

@@ -37,6 +37,7 @@ The skill layout and workflow in this repo are based on a small set of recurring
 ### Repo-Local Codex Skills
 
 - `architecture-boundaries`
+- `model-selection`
 - `ui-composition-patterns`
 - `persistence-boundaries`
 - `plex-integration-boundaries`
@@ -73,6 +74,7 @@ Local-only by default:
 - `ui-composition-patterns`: pairs global UI design skills with Lineup's TV-specific design language and focus rules.
 - `persistence-boundaries`: keeps storage ownership centralized and typed.
 - `plex-integration-boundaries`: keeps Plex transport/policy complexity out of unrelated modules.
+- `model-selection`: keeps Lineup session-to-session model advice explicit, cheap by default, and only auto-emitted for high-risk handoffs.
 - `frontend-design`: marketing/brand-forward UI generation (landing pages, posters, high-aesthetic surfaces) aligned with anti-slop goals.
 - `interface-design`: product interface design skill for dashboards/admin/settings/tools and other data-heavy UIs.
 - `desloppify`: useful for recurring debt audits and cleanup planning as the architecture cleanup continues.

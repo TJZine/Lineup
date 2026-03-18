@@ -67,3 +67,4 @@ Return:
    - `ARTIFACT` (the patched implementation artifact, diff target, or reviewed commit containing the actual changes; do not point back to the incoming findings artifact)
    - `FILES`
    - a pasteable implementation-review request unless the task is fully blocked before code changes
+   - if the user explicitly asked for model guidance, or if the handoff is Tier 3 or architecture-risk score `>= 2`, include a `MODEL_SUGGESTION` block immediately before `NEXT_SESSION_HANDOFF` using repo-local `model-selection`

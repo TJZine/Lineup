@@ -44,6 +44,9 @@ This is the operating runbook for agent-driven development in Lineup.
 4. Route task family before choosing a tier.
    - Use the authoritative routing table in [`docs/agentic/session-prompts/README.md`](./agentic/session-prompts/README.md#routing-authoritative).
    - choose exactly one task family first: cleanup/refactor, feature/design, or mixed
+   - if the task family is `cleanup/refactor`, choose one cleanup subtype before selecting a tier:
+     - `checklist-linked`: tracked checklist work such as a `P#-W#` item, `P#-EXIT`, or other cleanup slice that must update [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md)
+     - `standalone remediation`: QA/debugging/bug-fix work or other bounded remediation with no net-new feature intent and no existing checklist owner; do not invent checklist linkage just to use the cleanup lane
    - for mixed work, split feature and cleanup slices explicitly so cleanup prompts are only used for the cleanup slice
 5. Choose the orchestration tier before editing.
    - Tier 1: small bounded low-risk work uses one session/agent plus review before closeout
@@ -55,6 +58,7 @@ This is the operating runbook for agent-driven development in Lineup.
 6. Plan explicitly before multi-step work.
    - keep the authoritative plan in `update_plan`
    - write or refresh `docs/plans/*` when a task requires durable, tracked task memory
+   - for cleanup work, record whether the task is `checklist-linked` or `standalone remediation` before freezing the plan; only `checklist-linked` tasks should promise checklist updates or priority-exit progress
    - for serious tracked plans, follow [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md)
    - before freezing a serious tracked plan, run the planner self-check from the plan standard so unresolved seams, wrong owners, contradictory scope, or missing evidence are surfaced before execution
    - if an architecture seam or adjacent contract change is still undecided, resolve that boundary before freezing a “decision-point-free” execution plan
@@ -89,7 +93,8 @@ This is the operating runbook for agent-driven development in Lineup.
      - the strongest verification/evidence commands for that priority have been rerun on current code
      - no `P(n+1)` checklist item, plan, or implementation work has been opened while `P#-EXIT` is still unresolved
 10. Update the right memory surface in the same pass.
-   - update [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md) when a cleanup work unit is completed
+   - update [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md) when a `checklist-linked` cleanup work unit is completed
+   - for `standalone remediation`, do not create or update checklist linkage unless the task is intentionally promoted into tracked cleanup backlog
    - complete the matching `P#-EXIT` item and its auditable exit record before opening `P(n+1)` in the checklist or minting new tracked plans for `P(n+1)`
    - update current-state or reference docs when ownership changes
    - update tracked plan references when a plan moves from `docs/plans/` to `docs/archive/plans/`
@@ -123,6 +128,8 @@ Use Codex multi-agent support only when it improves reliability for non-critical
   - local storage, settings, selected server state, channel persistence
 - `plex-integration-boundaries`
   - Plex auth, discovery, library, stream, subtitle, playback-URL work
+- `model-selection`
+  - explicit "which model should I use?" requests and high-risk handoffs that need a model recommendation for the next session
 
 For skill topology and mirror policy, see [`docs/agentic/skill-strategy.md`](./agentic/skill-strategy.md).
 
@@ -150,6 +157,28 @@ For larger multi-session or hotspot work, create a task-specific run bundle in [
 ## Session Handoffs
 
 Planner, reviewer, and implementer sessions should end with a pasteable next-session handoff whenever another session is expected.
+
+When the user explicitly asks for model guidance, or when the outgoing handoff is Tier 3 or has architecture-risk score `>= 2`, include a `MODEL_SUGGESTION` block immediately before the handoff. Omit it for Tier 1 and low-risk Tier 2 work by default to avoid spending tokens on routine recommendations.
+
+Architecture-risk score:
+
+- start at `0`
+- add `+1` for each:
+  - hotspot file or composition root involved
+  - ownership move or cross-module wiring change
+  - more than one repo-local boundary skill applies
+  - priority-exit, checklist, or merge-blocking review consequence
+  - mixed routing ambiguity or likely hidden dependency
+
+Use this shape when the trigger applies:
+
+```text
+MODEL_SUGGESTION
+PLANNER: <model or "n/a">
+IMPLEMENTER: <model or "n/a">
+REVIEWER: <model or "n/a">
+WHY: <short reason tied to the risk signals>
+```
 
 Use a fenced text block with this shape:
 
