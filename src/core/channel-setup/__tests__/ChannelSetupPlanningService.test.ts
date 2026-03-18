@@ -162,7 +162,8 @@ describe('ChannelSetupPlanningService', () => {
 
         const result = await service.buildSetupPlan(config, libraries, null);
 
-        expect(result.canceled).toBe(true);
+        expect(result.canceled).toBe(false);
+        expect(result.blockedMessage).toContain('stop and re-plan');
         expect(result.lastTask).toBe('scan_library_items');
         expect(result.plan).toBeNull();
         expect(result.warnings.join('\n')).toContain('stop and re-plan');
@@ -207,7 +208,8 @@ describe('ChannelSetupPlanningService', () => {
 
         const result = await service.buildSetupPlan(config, libraries, null);
 
-        expect(result.canceled).toBe(true);
+        expect(result.canceled).toBe(false);
+        expect(result.blockedMessage).toContain('stop and re-plan');
         expect(result.lastTask).toBe('scan_library_items');
         expect(result.plan).toBeNull();
         expect(result.warnings.join('\n')).toContain('stop and re-plan');

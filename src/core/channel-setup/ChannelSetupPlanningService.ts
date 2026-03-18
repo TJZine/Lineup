@@ -48,6 +48,7 @@ export type ChannelSetupPlanBuildResult = {
     plan: ReturnType<typeof buildChannelSetupPlan> | null;
     warnings: string[];
     canceled: boolean;
+    blockedMessage?: string;
     lastTask?: ChannelBuildProgress['task'];
     errorsTotal: number;
     playlistMs: number;
@@ -201,6 +202,19 @@ export class ChannelSetupPlanningService {
             collectionsMs,
             libraryQueryMs,
         });
+
+        const buildBlockedScanResult = (message: string): ChannelSetupPlanBuildResult => ({
+            plan: null,
+            warnings: collectWarnings(),
+            canceled: false,
+            blockedMessage: message,
+            lastTask: 'scan_library_items',
+            errorsTotal,
+            playlistMs,
+            collectionsMs,
+            libraryQueryMs,
+        });
+
         const stopForRequiredTagDirectory = (
             label: 'Genres' | 'Directors' | 'Years',
             libraryTitle: string,
@@ -209,21 +223,21 @@ export class ChannelSetupPlanningService {
             error?: unknown
         ): ChannelSetupPlanBuildResult => {
             const baseLabel = label.toLowerCase();
+            let message: string;
             if (reason === 'error') {
                 const summary = summarizeErrorForLog(error);
                 const detail = summary.message ?? (summary.code !== undefined ? String(summary.code) : 'unknown error');
-                warnings.add(
-                    `Required ${baseLabel} tag directory (type=${type}) failed for ${libraryTitle} (${detail}); stop and re-plan.`
-                );
+                message = `Required ${baseLabel} tag directory (type=${type}) failed for ${libraryTitle} (${detail}); stop and re-plan.`;
             } else {
                 const detail = reason === 'empty' ? 'returned no entries' : 'is unsupported';
-                warnings.add(
-                    `Required ${baseLabel} tag directory (type=${type}) ${detail} for ${libraryTitle}; stop and re-plan.`
-                );
+                message = `Required ${baseLabel} tag directory (type=${type}) ${detail} for ${libraryTitle}; stop and re-plan.`;
             }
+            warnings.add(message);
             errorsTotal++;
-            return buildCanceledScanResult();
+            return buildBlockedScanResult(message);
         };
+
+        void buildCanceledScanResult;
 
         if (config.strategyConfig.playlists.enabled) {
             reportProgress?.('fetch_playlists', 'Fetching playlists...', 'Scanning server', 0, null);

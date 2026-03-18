@@ -768,6 +768,33 @@ describe('ChannelSetupSessionController', () => {
         expect(outcome).toEqual<ChannelSetupBuildOutcome>({ kind: 'canceled' });
     });
 
+    it('beginBuild() returns blocked outcome for required tag-directory failures', async (): Promise<void> => {
+        const orchestrator = createOrchestrator({
+            createChannelsFromSetup: jest.fn().mockResolvedValue({
+                ...DEFAULT_BUILD_RESULT,
+                canceled: false,
+                blockedMessage: 'Required genres tag directory (type=2) is unsupported for Shows; stop and re-plan.',
+                created: 0,
+            }),
+        });
+
+        const controller = new ChannelSetupSessionController({
+            orchestrator,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        const outcome = await controller.beginBuild({
+            onProgress: jest.fn(),
+            onStateChange: jest.fn(),
+        });
+
+        expect(outcome).toEqual<ChannelSetupBuildOutcome>({
+            kind: 'blocked',
+            message: 'Required genres tag directory (type=2) is unsupported for Shows; stop and re-plan.',
+        });
+    });
+
     it('beginBuild() returns error outcome for non-abort failures', async (): Promise<void> => {
         const orchestrator = createOrchestrator({
             createChannelsFromSetup: jest.fn().mockRejectedValue(new Error('boom')),

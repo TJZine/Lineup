@@ -141,6 +141,7 @@ export type ChannelSetupSessionSnapshot = {
 export type ChannelSetupBuildOutcome =
     | { kind: 'missing-server' }
     | { kind: 'canceled' }
+    | { kind: 'blocked'; message: string }
     | { kind: 'error'; message: string }
     | {
         kind: 'success';
@@ -598,6 +599,10 @@ export class ChannelSetupSessionController {
 
             if (token !== this._sessionToken) {
                 return { kind: 'canceled' };
+            }
+
+            if (result.blockedMessage) {
+                return { kind: 'blocked', message: result.blockedMessage };
             }
 
             if (result.canceled) {

@@ -84,6 +84,9 @@ export class ChannelSetupBuildExecutor {
 	        }
 
 	        if (planResult.canceled || !planResult.plan) {
+            const blockedSummary = planResult.blockedMessage !== undefined
+                ? { blockedMessage: planResult.blockedMessage }
+                : {};
 	            return {
 	                created: 0,
 	                skipped: 0,
@@ -91,6 +94,7 @@ export class ChannelSetupBuildExecutor {
 	                errorCount: planResult.errorsTotal,
                 canceled: planResult.canceled,
                 lastTask: planResult.lastTask ?? 'build_pending',
+                ...blockedSummary,
             };
         }
 
