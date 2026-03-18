@@ -404,6 +404,31 @@ describe('ChannelSetupCoordinator', () => {
         expect(summary.errorCount).toBe(0);
     });
 
+    it('createChannelsFromSetup treats playlist AbortError as a non-cancel failure when the caller signal is not aborted', async () => {
+        const { coordinator, plexLibrary } = createCoordinator();
+        const controller = new AbortController();
+        plexLibrary.getPlaylists.mockRejectedValue(new DOMException('Aborted', 'AbortError'));
+
+        const summary = await coordinator.createChannelsFromSetup(createConfig({
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
+        }), { signal: controller.signal });
+
+        expect(controller.signal.aborted).toBe(false);
+        expect(summary.canceled).toBe(false);
+        expect(summary.errorCount).toBeGreaterThan(0);
+    });
+
+    it('createChannelsFromSetup does not treat getLibraries AbortError as cancellation when the caller signal is not aborted', async () => {
+        const { coordinator, plexLibrary } = createCoordinator();
+        const controller = new AbortController();
+        plexLibrary.getLibraries.mockRejectedValue(new DOMException('Aborted', 'AbortError'));
+
+        await expect(
+            coordinator.createChannelsFromSetup(createConfig(), { signal: controller.signal })
+        ).rejects.toThrow('Aborted');
+        expect(controller.signal.aborted).toBe(false);
+    });
+
     it('createChannelsFromSetup falls back to default minItems for non-finite values', async () => {
         const { coordinator, plexLibrary } = createCoordinator();
         plexLibrary.getLibraries.mockResolvedValue([

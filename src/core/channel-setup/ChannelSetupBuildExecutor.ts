@@ -385,6 +385,7 @@ function summarizeErrorForLog(error: unknown): { name?: string; code?: unknown; 
 
 function isAbortLike(error: unknown, signal?: AbortSignal): boolean {
     if (signal?.aborted) return true;
+    if (signal) return false;
     if (typeof DOMException !== 'undefined' && error instanceof DOMException && error.name === 'AbortError') return true;
     if (error && typeof error === 'object' && 'name' in error) {
         const namedError = error as { name?: unknown };

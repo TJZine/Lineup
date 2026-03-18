@@ -334,7 +334,7 @@ export class ChannelSetupPlanningService {
                     try {
                         const tagStart = Date.now();
                         const years = await this._deps.plexLibrary.getYears(library.id, {
-                            type: genreType,
+                            type: detailType,
                             signal,
                             onUnsupported: () => {
                                 warnings.add('Years endpoint not supported by this Plex server.');
@@ -572,6 +572,7 @@ function summarizeErrorForLog(error: unknown): { name?: string; code?: unknown; 
 
 function isAbortLike(error: unknown, signal?: AbortSignal): boolean {
     if (signal?.aborted) return true;
+    if (signal) return false;
     if (typeof DOMException !== 'undefined' && error instanceof DOMException && error.name === 'AbortError') return true;
     if (error && typeof error === 'object' && 'name' in error) {
         const namedError = error as { name?: unknown };

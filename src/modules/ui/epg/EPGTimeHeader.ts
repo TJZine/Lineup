@@ -213,6 +213,7 @@ export class EPGTimeHeader {
         this.gridAnchorTime = anchorTime;
         this.renderSlots();
         this.updateStickyLabel(this.lastTimeOffsetMinutes);
+        this._syncSlotsOcclusionWidth();
     }
 
     private updateStickyLabel(timeOffset: number): void {
