@@ -6,7 +6,12 @@ import { ChannelSetupPlanningService } from '../ChannelSetupPlanningService';
 import type { ChannelSetupConfig, SetupStrategyConfig, SetupStrategyKey } from '../types';
 import { DEFAULT_STRATEGY_PRIORITIES, MIXED_SCOPE_STRATEGY_KEYS, SETUP_STRATEGY_KEYS } from '../constants';
 import { PLEX_MEDIA_TYPES } from '../../../modules/plex/library';
-import type { IPlexLibrary, PlexLibraryType, PlexTagDirectoryItem } from '../../../modules/plex/library';
+import type {
+    IPlexLibrary,
+    PlexLibraryType,
+    PlexTagDirectoryItem,
+    PlexTagDirectoryUnsupportedReason,
+} from '../../../modules/plex/library';
 import type { IChannelManager } from '../../../modules/scheduler/channel-manager';
 
 const makeLibrary = (overrides: Partial<PlexLibraryType>): PlexLibraryType => ({
@@ -130,8 +135,12 @@ describe('ChannelSetupPlanningService', () => {
             getCollections: jest.fn(),
             getLibraryItems: jest.fn(),
             getGenres: jest.fn().mockImplementation(
-                async (_libraryId: string, options: { onUnsupported?: (reason: string) => void }) => {
-                    options.onUnsupported?.('unavailable');
+                async (
+                    _libraryId: string,
+                    options: { onUnsupported?: (reason: PlexTagDirectoryUnsupportedReason) => void }
+                ) => {
+                    const reason: PlexTagDirectoryUnsupportedReason = 'unavailable';
+                    options.onUnsupported?.(reason);
                     return [];
                 }
             ),

@@ -237,8 +237,6 @@ export class ChannelSetupPlanningService {
             return buildBlockedScanResult(message);
         };
 
-        void buildCanceledScanResult;
-
         if (config.strategyConfig.playlists.enabled) {
             reportProgress?.('fetch_playlists', 'Fetching playlists...', 'Scanning server', 0, null);
             try {
@@ -269,16 +267,7 @@ export class ChannelSetupPlanningService {
             const library = selectedLibraries[libIndex];
             if (!library) continue;
             if (checkCanceled()) {
-                return {
-                    plan: null,
-                    warnings: collectWarnings(),
-                    canceled: true,
-                    lastTask: 'scan_library_items',
-                    errorsTotal,
-                    playlistMs,
-                    collectionsMs,
-                    libraryQueryMs,
-                };
+                return buildCanceledScanResult();
             }
 
             if (config.strategyConfig.collections.enabled) {
@@ -337,16 +326,7 @@ export class ChannelSetupPlanningService {
                         genresByLibraryId.set(library.id, genres);
                     } catch (e) {
                         if (isSignalAborted(signal ?? undefined)) {
-                            return {
-                                plan: null,
-                                warnings: collectWarnings(),
-                                canceled: true,
-                                lastTask: 'scan_library_items',
-                                errorsTotal,
-                                playlistMs,
-                                collectionsMs,
-                                libraryQueryMs,
-                            };
+                            return buildCanceledScanResult();
                         }
                         console.warn(`Failed to fetch genres for ${library.title}:`, summarizeErrorForLog(e));
                         return stopForRequiredTagDirectory('Genres', library.title, genreType, 'error', e);
@@ -372,16 +352,7 @@ export class ChannelSetupPlanningService {
                         directorsByLibraryId.set(library.id, directors);
                     } catch (e) {
                         if (isSignalAborted(signal ?? undefined)) {
-                            return {
-                                plan: null,
-                                warnings: collectWarnings(),
-                                canceled: true,
-                                lastTask: 'scan_library_items',
-                                errorsTotal,
-                                playlistMs,
-                                collectionsMs,
-                                libraryQueryMs,
-                            };
+                            return buildCanceledScanResult();
                         }
                         console.warn(`Failed to fetch directors for ${library.title}:`, summarizeErrorForLog(e));
                         return stopForRequiredTagDirectory('Directors', library.title, detailType, 'error', e);
@@ -407,16 +378,7 @@ export class ChannelSetupPlanningService {
                         yearsByLibraryId.set(library.id, years);
                     } catch (e) {
                         if (isSignalAborted(signal ?? undefined)) {
-                            return {
-                                plan: null,
-                                warnings: collectWarnings(),
-                                canceled: true,
-                                lastTask: 'scan_library_items',
-                                errorsTotal,
-                                playlistMs,
-                                collectionsMs,
-                                libraryQueryMs,
-                            };
+                            return buildCanceledScanResult();
                         }
                         console.warn(`Failed to fetch years for ${library.title}:`, summarizeErrorForLog(e));
                         return stopForRequiredTagDirectory('Years', library.title, detailType, 'error', e);
@@ -439,16 +401,7 @@ export class ChannelSetupPlanningService {
                     studiosByLibraryId.set(library.id, studios);
                 } catch (e) {
                     if (isSignalAborted(signal ?? undefined)) {
-                        return {
-                            plan: null,
-                            warnings: collectWarnings(),
-                            canceled: true,
-                            lastTask: 'scan_library_items',
-                            errorsTotal,
-                            playlistMs,
-                            collectionsMs,
-                            libraryQueryMs,
-                        };
+                        return buildCanceledScanResult();
                     }
                     console.warn(`Failed to fetch studios for ${library.title}:`, summarizeErrorForLog(e));
                     addPartialWarning('scan_library_items', `fetch_studios failed for ${library.title}`, e);
@@ -471,16 +424,7 @@ export class ChannelSetupPlanningService {
                     actorsByLibraryId.set(library.id, actors);
                 } catch (e) {
                     if (isSignalAborted(signal ?? undefined)) {
-                        return {
-                            plan: null,
-                            warnings: collectWarnings(),
-                            canceled: true,
-                            lastTask: 'scan_library_items',
-                            errorsTotal,
-                            playlistMs,
-                            collectionsMs,
-                            libraryQueryMs,
-                        };
+                        return buildCanceledScanResult();
                     }
                     console.warn(`Failed to fetch actors for ${library.title}:`, summarizeErrorForLog(e));
                     addPartialWarning('scan_library_items', `fetch_actors failed for ${library.title}`, e);

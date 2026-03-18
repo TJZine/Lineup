@@ -601,7 +601,7 @@ export class ChannelSetupSessionController {
                 return { kind: 'canceled' };
             }
 
-            if (result.blockedMessage) {
+            if (result.blockedMessage !== undefined) {
                 return { kind: 'blocked', message: result.blockedMessage };
             }
 
