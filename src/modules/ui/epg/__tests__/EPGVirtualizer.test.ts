@@ -1401,6 +1401,66 @@ describe('EPGVirtualizer', () => {
             }
         });
 
+        it('recomputes visible overflow using text-shift width for focused cells', () => {
+            jest.useFakeTimers();
+            try {
+                const channelId = 'ch-ticker-text-shift';
+                const start = gridAnchorTime;
+                const end = start + 20 * 60 * 1000;
+
+                const schedule: ScheduleWindow = {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                    programs: [{
+                        item: {
+                            ratingKey: 'ticker-text-shift-1',
+                            type: 'movie',
+                            title: 'Long Title That Requires Text Shift To Overflow',
+                            fullTitle: 'Long Title That Requires Text Shift To Overflow',
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    }],
+                };
+
+                virtualizer.setChannelCount(1);
+                const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+                virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+                const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+                const title = cell.querySelector('.epg-cell-title') as HTMLElement;
+
+                Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 110 });
+                Object.defineProperty(title, 'clientWidth', { configurable: true, value: 100 });
+
+                const visibleCells = virtualizer as unknown as {
+                    visibleCells: Map<string, { textShiftPx: number }>;
+                };
+                const key = `${channelId}-${start}`;
+                const focusedCellData = visibleCells.visibleCells.get(key);
+                expect(focusedCellData).toBeDefined();
+                focusedCellData!.textShiftPx = 40;
+
+                virtualizer.setFocusedCell(channelId, start);
+
+                expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
+                jest.advanceTimersByTime(900);
+                expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(true);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
         it('keeps ticker-ready class applied for focused tiny overflowing title before run delay', () => {
             jest.useFakeTimers();
             try {

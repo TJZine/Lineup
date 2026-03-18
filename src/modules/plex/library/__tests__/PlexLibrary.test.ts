@@ -841,6 +841,134 @@ describe('PlexLibrary', () => {
             expect(studios[1]).not.toHaveProperty('fastKey');
             expect(studios[1]).not.toHaveProperty('thumb');
         });
+
+        it('should return genres from directory entries', async () => {
+            mockFetchJson(mockTagDirectoryResponse);
+            const library = new PlexLibrary(mockConfig);
+
+            const genres = await library.getGenres('1', { type: PLEX_MEDIA_TYPES.SHOW });
+
+            expect(genres).toHaveLength(2);
+            expect(genres[0]).toMatchObject({
+                key: 't1',
+                title: 'Tag One',
+                count: 12,
+            });
+            expect(fetch).toHaveBeenCalledWith(
+                expect.stringContaining('/library/sections/1/genre'),
+                expect.any(Object)
+            );
+            expect(fetch).toHaveBeenCalledWith(
+                expect.stringContaining('type=2'),
+                expect.any(Object)
+            );
+        });
+
+        it('should return directors from directory entries', async () => {
+            mockFetchJson(mockTagDirectoryResponse);
+            const library = new PlexLibrary(mockConfig);
+
+            const directors = await library.getDirectors('1', { type: PLEX_MEDIA_TYPES.EPISODE });
+
+            expect(directors).toHaveLength(2);
+            expect(directors[0]).toMatchObject({
+                key: 't1',
+                title: 'Tag One',
+                count: 12,
+            });
+            expect(fetch).toHaveBeenCalledWith(
+                expect.stringContaining('/library/sections/1/director'),
+                expect.any(Object)
+            );
+            expect(fetch).toHaveBeenCalledWith(
+                expect.stringContaining('type=4'),
+                expect.any(Object)
+            );
+        });
+
+        it('should return years from directory entries', async () => {
+            mockFetchJson(mockTagDirectoryResponse);
+            const library = new PlexLibrary(mockConfig);
+
+            const years = await library.getYears('1', { type: PLEX_MEDIA_TYPES.EPISODE });
+
+            expect(years).toHaveLength(2);
+            expect(years[0]).toMatchObject({
+                key: 't1',
+                title: 'Tag One',
+                count: 12,
+            });
+            expect(fetch).toHaveBeenCalledWith(
+                expect.stringContaining('/library/sections/1/year'),
+                expect.any(Object)
+            );
+            expect(fetch).toHaveBeenCalledWith(
+                expect.stringContaining('type=4'),
+                expect.any(Object)
+            );
+        });
+
+        it('should return [] and invoke callback when genres endpoint is unavailable and requireEntries is true', async () => {
+            mockFetchJson({ error: 'Not found' }, 404);
+            const onUnsupported = jest.fn();
+            const library = new PlexLibrary(mockConfig);
+
+            const genres = await library.getGenres('1', { type: PLEX_MEDIA_TYPES.SHOW, onUnsupported, requireEntries: true });
+
+            expect(genres).toEqual([]);
+            expect(onUnsupported).toHaveBeenCalledWith('unavailable');
+            expect(onUnsupported).toHaveBeenCalledTimes(1);
+        });
+
+        it('should return [] and invoke callback when directors endpoint is unavailable and requireEntries is true', async () => {
+            mockFetchJson({ error: 'Not found' }, 404);
+            const onUnsupported = jest.fn();
+            const library = new PlexLibrary(mockConfig);
+
+            const directors = await library.getDirectors('1', { type: PLEX_MEDIA_TYPES.EPISODE, onUnsupported, requireEntries: true });
+
+            expect(directors).toEqual([]);
+            expect(onUnsupported).toHaveBeenCalledWith('unavailable');
+            expect(onUnsupported).toHaveBeenCalledTimes(1);
+        });
+
+        it('should return [] and invoke callback when years endpoint is unavailable and requireEntries is true', async () => {
+            mockFetchJson({ error: 'Not found' }, 404);
+            const onUnsupported = jest.fn();
+            const library = new PlexLibrary(mockConfig);
+
+            const years = await library.getYears('1', { type: PLEX_MEDIA_TYPES.EPISODE, onUnsupported, requireEntries: true });
+
+            expect(years).toEqual([]);
+            expect(onUnsupported).toHaveBeenCalledWith('unavailable');
+            expect(onUnsupported).toHaveBeenCalledTimes(1);
+        });
+
+        it('should return [] and NOT invoke callback when genres endpoint is unavailable but requireEntries is false', async () => {
+            mockFetchJson({ error: 'Not found' }, 404);
+            const onUnsupported = jest.fn();
+            const library = new PlexLibrary(mockConfig);
+
+            const genres = await library.getGenres('1', { type: PLEX_MEDIA_TYPES.SHOW, onUnsupported }); // requireEntries defaults to false
+
+            expect(genres).toEqual([]);
+            expect(onUnsupported).not.toHaveBeenCalled();
+        });
+
+        it('should invoke callback when required genres endpoint returns no directory entries', async () => {
+            mockFetchJson({ MediaContainer: { Directory: [] } });
+            const onUnsupported = jest.fn();
+            const library = new PlexLibrary(mockConfig);
+
+            const genres = await library.getGenres('1', {
+                type: PLEX_MEDIA_TYPES.SHOW,
+                onUnsupported,
+                requireEntries: true,
+            });
+
+            expect(genres).toEqual([]);
+            expect(onUnsupported).toHaveBeenCalledWith('empty');
+        });
     });
 
     describe('error handling', () => {

@@ -53,6 +53,7 @@ export interface ChannelBuildSummary {
     reachedMaxChannels: boolean;
     errorCount: number;
     canceled: boolean;
+    blockedMessage?: string;
     lastTask?: ChannelBuildProgress['task'] | 'init';
 }
 

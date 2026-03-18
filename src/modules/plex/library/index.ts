@@ -6,7 +6,12 @@
 
 export { PlexLibrary, PlexLibraryError, PlexLibraryErrorCode } from './PlexLibrary';
 export { mapPlexLibraryErrorCodeToAppErrorCode } from './types';
-export type { IPlexLibrary, PlexLibraryConfig } from './interfaces';
+export type {
+    IPlexLibrary,
+    PlexLibraryConfig,
+    PlexTagDirectoryQueryOptions,
+    PlexTagDirectoryUnsupportedReason,
+} from './interfaces';
 export type {
     PlexLibrary as PlexLibraryType,
     PlexLibraryType as PlexLibraryTypeEnum,

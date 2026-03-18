@@ -698,6 +698,148 @@ describe('ContentResolver', () => {
             expect(result.map((item) => item.ratingKey)).toEqual(['l1', 'l2', 'c1', 'c2']);
         });
 
+        it('fetches Shows (not episodes) when TV library source has genre libraryFilter, then expands via show containers', async () => {
+            const shows = [
+                createMockItem({
+                    ratingKey: 'show1',
+                    type: 'show',
+                    title: 'Action Show',
+                    durationMs: 0,
+                    genres: ['Action'],
+                }),
+            ];
+            const episodes = [
+                createMockEpisode(1, 1, {
+                    ratingKey: 'ep1',
+                    grandparentRatingKey: 'show1',
+                }),
+                createMockEpisode(1, 2, {
+                    ratingKey: 'ep2',
+                    grandparentRatingKey: 'show1',
+                }),
+            ];
+
+            mockLibrary.getLibraryItems.mockResolvedValue(shows);
+            mockLibrary.getShowEpisodes.mockResolvedValue(episodes);
+
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'show-lib',
+                libraryType: 'show',
+                includeWatched: true,
+                libraryFilter: { genre: 'Action' },
+            };
+
+            const result = await resolver.resolveSource(source);
+
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledWith(
+                'show-lib',
+                expect.objectContaining({
+                    filter: expect.objectContaining({
+                        genre: 'Action',
+                        type: PLEX_MEDIA_TYPES.SHOW,
+                    }),
+                })
+            );
+            expect(mockLibrary.getLibraryItems).not.toHaveBeenCalledWith(
+                'show-lib',
+                expect.objectContaining({
+                    filter: expect.objectContaining({
+                        type: PLEX_MEDIA_TYPES.EPISODE,
+                    }),
+                })
+            );
+            expect(mockLibrary.getShowEpisodes).toHaveBeenCalledWith('show1', expect.anything());
+            expect(result).toHaveLength(2);
+            expect(result[0]!.type).toBe('episode');
+            expect(result[0]!.ratingKey).toBe('ep1');
+        });
+
+        it('propagates show expansion failures for genre-filtered TV library sources instead of returning partial results', async () => {
+            const shows = [
+                createMockItem({
+                    ratingKey: 'show1',
+                    type: 'show',
+                    title: 'Action Show',
+                    durationMs: 0,
+                    genres: ['Action'],
+                }),
+            ];
+
+            mockLibrary.getLibraryItems.mockResolvedValue(shows);
+            mockLibrary.getShowEpisodes.mockRejectedValue(new Error('allLeaves failed'));
+
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'show-lib',
+                libraryType: 'show',
+                includeWatched: true,
+                libraryFilter: { genre: 'Action' },
+            };
+
+            await expect(resolver.resolveSource(source)).rejects.toThrow('allLeaves failed');
+        });
+
+        it('fails genre-filtered TV library resolution when a matched show expands to zero episodes', async () => {
+            const shows = [
+                createMockItem({
+                    ratingKey: 'show1',
+                    type: 'show',
+                    title: 'Action Show',
+                    durationMs: 0,
+                    genres: ['Action'],
+                }),
+            ];
+
+            mockLibrary.getLibraryItems.mockResolvedValue(shows);
+            mockLibrary.getShowEpisodes.mockResolvedValue([]);
+
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'show-lib',
+                libraryType: 'show',
+                includeWatched: true,
+                libraryFilter: { genre: 'Action' },
+            };
+
+            await expect(resolver.resolveSource(source)).rejects.toThrow(
+                'Show item returned no episodes during strict expansion (show1)'
+            );
+        });
+
+        it('does not cache partial genre-filtered TV results after strict expansion failure', async () => {
+            const shows = [
+                createMockItem({
+                    ratingKey: 'show1',
+                    type: 'show',
+                    title: 'Action Show',
+                    durationMs: 0,
+                    genres: ['Action'],
+                }),
+            ];
+
+            let attempt = 0;
+            mockLibrary.getLibraryItems.mockResolvedValue(shows);
+            mockLibrary.getShowEpisodes.mockImplementation(async () => {
+                attempt += 1;
+                throw new Error(`allLeaves failed ${attempt}`);
+            });
+
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'show-lib',
+                libraryType: 'show',
+                includeWatched: true,
+                libraryFilter: { genre: 'Action' },
+            };
+
+            await expect(resolver.resolveSource(source)).rejects.toThrow('allLeaves failed 1');
+            await expect(resolver.resolveSource(source)).rejects.toThrow('allLeaves failed 2');
+
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(2);
+            expect(mockLibrary.getShowEpisodes).toHaveBeenCalledTimes(2);
+        });
+
         it('resolves mixed category sources across movie and show libraries with same filter key', async () => {
             mockLibrary.getLibraryItems.mockImplementation(async (libraryId, options) => {
                 if (libraryId === 'movie-lib') {
@@ -706,15 +848,25 @@ describe('ContentResolver', () => {
                         createMockItem({ ratingKey: 'm2', genres: ['Action'] }),
                     ];
                 }
-                if (libraryId === 'show-lib' && options?.filter?.type === PLEX_MEDIA_TYPES.EPISODE) {
+                if (libraryId === 'show-lib' && options?.filter?.type === PLEX_MEDIA_TYPES.SHOW) {
                     return [
-                        createMockEpisode(1, 1, { ratingKey: 's1e1', genres: ['Action'] }),
+                        createMockItem({
+                            ratingKey: 'show1',
+                            type: 'show',
+                            genres: ['Action'],
+                        }),
                     ];
                 }
                 if (libraryId === 'show-lib') {
                     return [];
                 }
                 return [];
+            });
+            mockLibrary.getShowEpisodes.mockImplementation((showKey: string) => {
+                if (showKey === 'show1') {
+                    return Promise.resolve([createMockEpisode(1, 1, { ratingKey: 's1e1', genres: ['Action'] })]);
+                }
+                return Promise.resolve([]);
             });
 
             const source: MixedContentSource = {
@@ -747,7 +899,7 @@ describe('ContentResolver', () => {
             );
             expect(mockLibrary.getLibraryItems).toHaveBeenCalledWith(
                 'show-lib',
-                expect.objectContaining({ filter: expect.objectContaining({ genre: 'Action', type: PLEX_MEDIA_TYPES.EPISODE }) })
+                expect.objectContaining({ filter: expect.objectContaining({ genre: 'Action', type: PLEX_MEDIA_TYPES.SHOW }) })
             );
         });
 

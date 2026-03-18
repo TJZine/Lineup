@@ -6,7 +6,7 @@ import { ChannelSetupCoordinator } from '../ChannelSetupCoordinator';
 import type { ChannelSetupCoordinatorDeps } from '../ChannelSetupCoordinator';
 import { ChannelSetupPlanningService } from '../ChannelSetupPlanningService';
 import type { ChannelSetupConfig, ChannelSetupRecord, SetupStrategyConfig, SetupStrategyKey } from '../types';
-import type { IPlexLibrary, PlexLibraryType, PlexMediaItem } from '../../../modules/plex/library';
+import type { IPlexLibrary, PlexLibraryType, PlexTagDirectoryItem } from '../../../modules/plex/library';
 import type { IChannelManager, ChannelConfig } from '../../../modules/scheduler/channel-manager';
 import type { INavigationManager } from '../../../modules/navigation';
 import { DEFAULT_STRATEGY_PRIORITIES, MIXED_SCOPE_STRATEGY_KEYS, SETUP_STRATEGY_KEYS } from '../constants';
@@ -94,6 +94,9 @@ const createCoordinator = (overrides?: Partial<ChannelSetupCoordinatorDeps>): Co
         getLibraryItemCount: jest.fn().mockResolvedValue(0),
         getActors: jest.fn().mockResolvedValue([]),
         getStudios: jest.fn().mockResolvedValue([]),
+        getGenres: jest.fn().mockResolvedValue([]),
+        getDirectors: jest.fn().mockResolvedValue([]),
+        getYears: jest.fn().mockResolvedValue([]),
     } as unknown as jest.Mocked<IPlexLibrary>;
 
     const channelManager = {
@@ -377,28 +380,61 @@ describe('ChannelSetupCoordinator', () => {
         expect(summary.lastTask).toBe('init');
     });
 
-    it('createChannelsFromSetup treats AbortError as cancellation without errors', async () => {
+    it('createChannelsFromSetup treats actual aborted signals as cancellation without errors', async () => {
         const { coordinator, plexLibrary } = createCoordinator();
-        plexLibrary.getPlaylists.mockRejectedValue({ name: 'AbortError' });
+        const controller = new AbortController();
+        plexLibrary.getPlaylists.mockImplementation(() => {
+            controller.abort();
+            return Promise.reject(new DOMException('Aborted', 'AbortError'));
+        });
 
         const summary = await coordinator.createChannelsFromSetup(createConfig({
             strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
-        }));
+        }), { signal: controller.signal });
 
         expect(summary.canceled).toBe(true);
         expect(summary.lastTask).toBe('fetch_playlists');
         expect(summary.errorCount).toBe(0);
     });
 
-    it('createChannelsFromSetup treats AbortError from getLibrariesForSetup as cancellation', async () => {
+    it('createChannelsFromSetup treats aborted getLibrariesForSetup as cancellation', async () => {
         const { coordinator, plexLibrary } = createCoordinator();
-        plexLibrary.getLibraries.mockRejectedValue({ name: 'AbortError' });
+        const controller = new AbortController();
+        plexLibrary.getLibraries.mockImplementation(() => {
+            controller.abort();
+            return Promise.reject(new DOMException('Aborted', 'AbortError'));
+        });
 
-        const summary = await coordinator.createChannelsFromSetup(createConfig());
+        const summary = await coordinator.createChannelsFromSetup(createConfig(), { signal: controller.signal });
 
         expect(summary.canceled).toBe(true);
         expect(summary.lastTask).toBe('fetch_playlists');
         expect(summary.errorCount).toBe(0);
+    });
+
+    it('createChannelsFromSetup treats playlist AbortError as a non-cancel failure when the caller signal is not aborted', async () => {
+        const { coordinator, plexLibrary } = createCoordinator();
+        const controller = new AbortController();
+        plexLibrary.getPlaylists.mockRejectedValue(new DOMException('Aborted', 'AbortError'));
+
+        const summary = await coordinator.createChannelsFromSetup(createConfig({
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
+        }), { signal: controller.signal });
+
+        expect(controller.signal.aborted).toBe(false);
+        expect(summary.canceled).toBe(false);
+        expect(summary.errorCount).toBeGreaterThan(0);
+    });
+
+    it('createChannelsFromSetup does not treat getLibraries AbortError as cancellation when the caller signal is not aborted', async () => {
+        const { coordinator, plexLibrary } = createCoordinator();
+        const controller = new AbortController();
+        plexLibrary.getLibraries.mockRejectedValue(new DOMException('Aborted', 'AbortError'));
+
+        await expect(
+            coordinator.createChannelsFromSetup(createConfig(), { signal: controller.signal })
+        ).rejects.toThrow('Aborted');
+        expect(controller.signal.aborted).toBe(false);
     });
 
     it('createChannelsFromSetup falls back to default minItems for non-finite values', async () => {
@@ -406,7 +442,7 @@ describe('ChannelSetupCoordinator', () => {
         plexLibrary.getLibraries.mockResolvedValue([
             { id: 'lib1', title: 'Movies', type: 'movie', contentCount: 25 },
         ] as PlexLibraryType[]);
-        plexLibrary.getLibraryItems.mockResolvedValue([]);
+        plexLibrary.getGenres.mockResolvedValue([{ key: 'action', title: 'Action', count: 1 }]);
 
         await coordinator.createChannelsFromSetup(createConfig({
             selectedLibraryIds: ['lib1'],
@@ -414,7 +450,7 @@ describe('ChannelSetupCoordinator', () => {
             minItemsPerChannel: Number.NaN,
         }));
 
-        expect(plexLibrary.getLibraryItems).toHaveBeenCalled();
+        expect(plexLibrary.getGenres).toHaveBeenCalled();
     });
 
     it('logs safe summaries for playlist fetch errors', async () => {
@@ -763,6 +799,36 @@ describe('ChannelSetupCoordinator', () => {
         expect(summary.created).toBe(1);
         expect(summary.canceled).toBe(false);
         expect(summary.lastTask).toBe('done');
+    });
+
+    it('treats progress callback failures as non-fatal and completes the build', async () => {
+        const { coordinator, plexLibrary } = createCoordinator();
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        plexLibrary.getLibraries.mockResolvedValue([] as PlexLibraryType[]);
+        plexLibrary.getPlaylists.mockResolvedValue([
+            { ratingKey: 'pl1', key: '/playlists/pl1', title: 'Favorites', thumb: null, duration: 0, leafCount: 10 },
+        ]);
+
+        const summary = await coordinator.createChannelsFromSetup(
+            createConfig({
+                strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
+            }),
+            {
+                onProgress: (): void => {
+                    throw new Error('progress blew up');
+                },
+            }
+        );
+
+        expect(summary.created).toBe(1);
+        expect(summary.canceled).toBe(false);
+        expect(summary.lastTask).toBe('done');
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[ChannelSetup] progress callback failed:',
+            expect.objectContaining({ message: 'progress blew up' })
+        );
+
+        warnSpy.mockRestore();
     });
 
     it('logs cleanup failures without masking a successful build', async () => {
@@ -1138,12 +1204,12 @@ describe('ChannelSetupCoordinator', () => {
             { id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 },
             { id: 's1', title: 'Shows', type: 'show', contentCount: 25 },
         ] as PlexLibraryType[]);
-        plexLibrary.getLibraryItems.mockImplementation(async (libraryId: string) => {
+        plexLibrary.getGenres.mockImplementation(async (libraryId: string) => {
             if (libraryId === 'm1') {
-                return [{ genres: ['Action'] }] as unknown as PlexMediaItem[];
+                return [{ key: 'action', title: 'Action', count: 1 }] as unknown as PlexTagDirectoryItem[];
             }
             if (libraryId === 's1') {
-                return [{ genres: ['Action'] }] as unknown as PlexMediaItem[];
+                return [{ key: 'action', title: 'Action', count: 1 }] as unknown as PlexTagDirectoryItem[];
             }
             return [];
         });
@@ -1159,6 +1225,14 @@ describe('ChannelSetupCoordinator', () => {
         expect(genreChannels).toHaveLength(2);
         expect(genreChannels.map((cfg) => cfg.name)).toEqual(['Movies - Action', 'Shows - Action']);
         expect(genreChannels.every((cfg) => cfg.contentSource.type === 'library')).toBe(true);
+        expect(
+            genreChannels.every(
+                (cfg) =>
+                    cfg.contentSource.type === 'library'
+                    && cfg.contentSource.libraryFilter?.genre === 'Action'
+                    && cfg.contentFilters === undefined
+            )
+        ).toBe(true);
     });
 
     it('creates mixed cross-library genre channels only when explicitly enabled', async () => {
@@ -1167,12 +1241,12 @@ describe('ChannelSetupCoordinator', () => {
             { id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 },
             { id: 's1', title: 'Shows', type: 'show', contentCount: 25 },
         ] as PlexLibraryType[]);
-        plexLibrary.getLibraryItems.mockImplementation(async (libraryId: string) => {
+        plexLibrary.getGenres.mockImplementation(async (libraryId: string) => {
             if (libraryId === 'm1') {
-                return [{ genres: ['Action'] }] as unknown as PlexMediaItem[];
+                return [{ key: 'action', title: 'Action', count: 1 }] as unknown as PlexTagDirectoryItem[];
             }
             if (libraryId === 's1') {
-                return [{ genres: ['Action'] }] as unknown as PlexMediaItem[];
+                return [{ key: 'action', title: 'Action', count: 1 }] as unknown as PlexTagDirectoryItem[];
             }
             return [];
         });
@@ -1211,12 +1285,12 @@ describe('ChannelSetupCoordinator', () => {
         );
     });
 
-    it('surfaces scan failures as review warnings', async () => {
+    it('surfaces required tag-directory stop warnings in review when a tag fetch fails', async () => {
         const { coordinator, plexLibrary } = createCoordinator();
         plexLibrary.getLibraries.mockResolvedValue([
             { id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 },
         ] as PlexLibraryType[]);
-        plexLibrary.getLibraryItems.mockRejectedValue({
+        plexLibrary.getGenres.mockRejectedValue({
             name: 'Error',
             code: 'SERVER_ERROR',
             message: 'scan failed',
@@ -1230,10 +1304,11 @@ describe('ChannelSetupCoordinator', () => {
 
         expect(review.preview.warnings).toEqual(
             expect.arrayContaining([
-                expect.stringContaining('scan_library_items'),
+                expect.stringContaining('stop and re-plan'),
                 expect.stringContaining('scan failed'),
             ])
         );
+        expect(review.diff.summary).toEqual({ created: 0, removed: 0, unchanged: 0 });
     });
 
     it('buildSetupPlan returns explicit warnings alongside partial plan results', async () => {

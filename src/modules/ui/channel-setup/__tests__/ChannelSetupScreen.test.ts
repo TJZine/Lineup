@@ -861,6 +861,40 @@ describe('ChannelSetupScreen', () => {
         expect(container.textContent ?? '').not.toContain('Build failed');
     });
 
+    it('renders blocked build outcomes as actionable setup errors, not cancellations', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const createChannelsFromSetup = jest.fn().mockResolvedValue({
+            ...DEFAULT_BUILD_RESULT,
+            canceled: false,
+            blockedMessage: 'Required genres tag directory (type=2) is unsupported for Shows; stop and re-plan.',
+            created: 0,
+        });
+
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+            createChannelsFromSetup,
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-next');
+        await flushPromises();
+        await flushPromises();
+
+        expect(container.textContent ?? '').toContain('Action required');
+        expect(container.textContent ?? '').toContain('Plan blocked');
+        expect(container.textContent ?? '').toContain('No changes were applied.');
+        expect(container.textContent ?? '').toContain('Required genres tag directory');
+        expect(container.textContent ?? '').not.toContain('Canceled');
+    });
+
     it('disables Confirm & Replace until replace confirmation is toggled', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);

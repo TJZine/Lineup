@@ -919,6 +919,28 @@ export class ChannelSetupScreen {
         cancelButton.focus();
     }
 
+    private _applyBuildBlockedUI(
+        cancelButton: HTMLButtonElement,
+        doneButton: HTMLButtonElement,
+        barFill: HTMLElement,
+        taskLabel: HTMLElement,
+        detailLabel: HTMLElement,
+        message: string
+    ): void {
+        this._statusEl.textContent = 'Action required';
+        this._detailEl.textContent = 'No changes were applied.';
+        this._errorEl.textContent = message;
+        taskLabel.textContent = 'Plan blocked';
+        detailLabel.textContent = 'Review the warning and adjust setup before retrying.';
+        barFill.style.width = '0%';
+        barFill.classList.remove('indeterminate');
+
+        cancelButton.disabled = false;
+        cancelButton.textContent = 'Back';
+        doneButton.disabled = true;
+        cancelButton.focus();
+    }
+
     private async _startBuild(
         cancelButton: HTMLButtonElement,
         doneButton: HTMLButtonElement,
@@ -963,6 +985,11 @@ export class ChannelSetupScreen {
             cancelButton.disabled = false;
             cancelButton.textContent = 'Back';
             doneButton.disabled = true;
+            return;
+        }
+
+        if (outcome.kind === 'blocked') {
+            this._applyBuildBlockedUI(cancelButton, doneButton, barFill, taskLabel, detailLabel, outcome.message);
             return;
         }
 
