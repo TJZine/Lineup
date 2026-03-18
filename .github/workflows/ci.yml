@@ -2,6 +2,9 @@ name: Lineup CI
 
 on:
   push:
+    branches:
+      - main
+      - develop
   pull_request:
 
 concurrency:
@@ -19,7 +22,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22.19.0'
+          node-version: '24.14.0'
           cache: 'npm'
 
       - name: Install dependencies
@@ -36,7 +39,7 @@ jobs:
       &node_matrix
       fail-fast: false
       matrix:
-        node-version: ['20.19.0', '22.19.0']
+        node-version: ['22.22.1', '24.14.0']
     steps:
       - uses: actions/checkout@v4
       
@@ -93,19 +96,19 @@ jobs:
         run: npm ci
       
       - name: Run tests
-        if: matrix.node-version != '22.19.0'
+        if: matrix.node-version != '24.14.0'
         run: npm test
 
       - name: Run tests (with coverage)
-        if: matrix.node-version == '22.19.0'
+        if: matrix.node-version == '24.14.0'
         run: npm run test:coverage
 
       - name: Run governance tests (contracts/policy/types)
-        if: matrix.node-version == '22.19.0'
+        if: matrix.node-version == '24.14.0'
         run: npm run test:contracts
       
       - name: Upload coverage
-        if: matrix.node-version == '22.19.0'
+        if: matrix.node-version == '24.14.0'
         uses: codecov/codecov-action@v4
         with:
           fail_ci_if_error: false
@@ -113,7 +116,7 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   build:
-    name: Build (Node 22.19.0)
+    name: Build (Node 24.14.0)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [docs, lint, type-check, test]
@@ -123,7 +126,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22.19.0'
+          node-version: '24.14.0'
           cache: 'npm'
       
       - name: Install dependencies
