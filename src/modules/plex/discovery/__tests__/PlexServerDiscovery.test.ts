@@ -805,6 +805,85 @@ describe('PlexServerDiscovery', () => {
             expect(selectedServer!.id).toBe('srv1');
         });
 
+        it('does not revert to a stale pending server id on subsequent initialize after selecting a new server', async () => {
+            mockLocalStorage.setItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY, 'srvA');
+
+            const mockServers = [
+                {
+                    clientIdentifier: 'srvA',
+                    name: 'A',
+                    sourceTitle: 'testuser',
+                    ownerId: 'owner1',
+                    owned: true,
+                    provides: 'server',
+                    connections: [
+                        {
+                            uri: 'https://a:32400',
+                            protocol: 'https',
+                            address: 'a',
+                            port: 32400,
+                            local: true,
+                            relay: false,
+                        },
+                    ],
+                },
+                {
+                    clientIdentifier: 'srvB',
+                    name: 'B',
+                    sourceTitle: 'testuser',
+                    ownerId: 'owner1',
+                    owned: true,
+                    provides: 'server',
+                    connections: [
+                        {
+                            uri: 'https://b:32400',
+                            protocol: 'https',
+                            address: 'b',
+                            port: 32400,
+                            local: true,
+                            relay: false,
+                        },
+                    ],
+                },
+            ];
+
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: () => null },
+                json: async () => mockServers,
+                text: async () => JSON.stringify(mockServers),
+            });
+
+            const discovery = new PlexServerDiscovery(mockConfig);
+            const fastestSpy = jest.spyOn(discovery, 'findFastestConnection').mockImplementation(async (server) => ({
+                connection: {
+                    ...server.connections[0]!,
+                    latencyMs: 1,
+                },
+                authRequired: false,
+            }));
+
+            const connectionChanges: Array<string | null> = [];
+            discovery.on('connectionChange', (uri) => {
+                connectionChanges.push(uri);
+            });
+
+            await discovery.initialize();
+            expect(discovery.getSelectedServer()?.id).toBe('srvA');
+
+            await discovery.selectServer('srvB');
+            expect(discovery.getSelectedServer()?.id).toBe('srvB');
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srvB');
+
+            await discovery.initialize();
+
+            expect(discovery.getSelectedServer()?.id).toBe('srvB');
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srvB');
+            expect(fastestSpy).toHaveBeenCalledTimes(2);
+            expect(connectionChanges).toHaveLength(2);
+        });
+
         it('should re-test connection on restore', async () => {
             mockLocalStorage.setItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY, 'srv1');
 

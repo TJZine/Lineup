@@ -39,7 +39,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     private _getAuthHeaders: () => Record<string, string>;
     private _mixedContentConfig: MixedContentConfig;
     private _serverSelectionStore: ServerSelectionStore;
-    private _pendingServerId: string | undefined;
     private _discoveryPromise: Promise<PlexServer[]> | null = null;
     private _discoveryContextVersion = 0;
     private _selectedServerStorageKey: string;
@@ -67,8 +66,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             isDiscovering: false,
         };
 
-        // Restore persisted selection
-        this._restoreSelection();
     }
 
     // ============================================
@@ -564,7 +561,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     public clearSelection(): void {
         this._state.selectedServer = null;
         this._state.selectedConnection = null;
-        this._pendingServerId = undefined;
         this._serverSelectionStore.clearSelectedServerId();
         this._emitter.emit('serverChange', null);
         this._emitter.emit('connectionChange', null);
@@ -645,12 +641,10 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         this._discoveryPromise = null;
         this._selectedServerStorageKey = normalizedSelectedServerKey;
         this._serverHealthStorageKey = normalizedServerHealthKey;
-        this._pendingServerId = undefined;
         this._state.selectedServer = null;
         this._state.selectedConnection = null;
         this._state.lastRefreshAt = null;
         this._state.servers = [];
-        this._restoreSelection();
     }
 
     // ============================================
@@ -906,19 +900,25 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return redactUrlForLog(url);
     }
 
-    /**
-     * Restore saved server selection synchronously (for constructor).
-     */
-    private _restoreSelection(): void {
-        const savedServerId = this._serverSelectionStore.readSelectedServerId();
-        if (savedServerId) {
-            this._pendingServerId = savedServerId;
-        }
-    }
-
     private async _restoreSelectionAsync(): Promise<void> {
-        if (this._pendingServerId && this._state.servers.length > 0) {
-            await this.selectServer(this._pendingServerId);
+        if (this._state.servers.length === 0) {
+            return;
         }
+
+        // Storage at initialize-time is the source of truth.
+        const savedServerId = this._serverSelectionStore.readSelectedServerId();
+
+        if (!savedServerId) {
+            return;
+        }
+
+        if (
+            this._state.selectedServer?.id === savedServerId &&
+            this._state.selectedConnection !== null
+        ) {
+            return;
+        }
+
+        await this.selectServer(savedServerId);
     }
 }
