@@ -242,6 +242,29 @@ describe('ChannelTuningCoordinator', () => {
         expect(channelManager.resolveChannelContent).toHaveBeenCalledWith('ch1', { signal: null });
     });
 
+    it('uses post-resolve current time for non-snapshot schedule build and day-key stamping', async () => {
+        const { coordinator, deps, channelManager, buildDailyScheduleConfig } = createCoordinator();
+        let nowValue = 1_000_000;
+        const nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => nowValue);
+        deps.getLocalDayKey.mockImplementation((timeMs: number) => timeMs);
+        channelManager.resolveChannelContent.mockImplementation(async () => {
+            nowValue = 1_500_000;
+            return resolvedContent;
+        });
+
+        await coordinator.switchToChannel('ch1');
+
+        expect(buildDailyScheduleConfig).toHaveBeenCalledWith(
+            mockChannel,
+            resolvedContent.items,
+            1_500_000
+        );
+        expect(deps.getLocalDayKey).toHaveBeenCalledWith(1_500_000);
+        expect(deps.setActiveScheduleDayKey).toHaveBeenCalledWith(1_500_000);
+
+        nowSpy.mockRestore();
+    });
+
     it('propagates ChannelError code + recoverable', async () => {
         const { coordinator, deps, channelManager, scheduler, videoPlayer } = createCoordinator();
         const consoleSpy = jest.spyOn(console, 'error').mockImplementation();

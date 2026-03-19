@@ -243,13 +243,14 @@ export class ChannelTuningCoordinator {
                 return 'failed';
             }
 
-            const now = Date.now();
+            const snapshotValidationReferenceTimeMs = Date.now();
             const snapshotValidation = this._validateGuideSelectionSnapshot(
                 options?.guideSelectionSnapshot,
                 channelId,
-                now
+                snapshotValidationReferenceTimeMs
             );
             let scheduleItems: ResolvedContentItem[] | null = null;
+            let scheduleReferenceTimeMs = snapshotValidationReferenceTimeMs;
             if (snapshotValidation.valid && snapshotValidation.snapshot) {
                 scheduleItems = [...snapshotValidation.snapshot.orderedItems];
                 issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'channelTuning.guideSnapshotApplied', {
@@ -278,6 +279,7 @@ export class ChannelTuningCoordinator {
                         signal: signal ?? null,
                     });
                     scheduleItems = content.items;
+                    scheduleReferenceTimeMs = Date.now();
                     issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'channelTuning.resolveChannelContent', {
                         channelId,
                         resolvedAt: content.resolvedAt,
@@ -353,13 +355,17 @@ export class ChannelTuningCoordinator {
             videoPlayer.stop();
 
             // Configure scheduler
-            const scheduleConfig = this.deps.buildDailyScheduleConfig(channel, scheduleItems, now);
+            const scheduleConfig = this.deps.buildDailyScheduleConfig(
+                channel,
+                scheduleItems,
+                scheduleReferenceTimeMs
+            );
             this.deps.setPendingNowPlayingChannelId(channelId);
             scheduler.loadChannel(scheduleConfig);
-            this.deps.setActiveScheduleDayKey(this.deps.getLocalDayKey(now));
+            this.deps.setActiveScheduleDayKey(this.deps.getLocalDayKey(scheduleReferenceTimeMs));
             issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'channelTuning.schedulerLoaded', {
                 channelId,
-                referenceTimeMs: now,
+                referenceTimeMs: scheduleReferenceTimeMs,
                 anchorTime: scheduleConfig.anchorTime,
                 playbackMode: scheduleConfig.playbackMode,
                 shuffleSeed: scheduleConfig.shuffleSeed,
