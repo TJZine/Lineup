@@ -235,7 +235,13 @@ export interface IAppOrchestrator {
     getPlaybackInfoSnapshot(): PlaybackInfoSnapshot;
     refreshPlaybackInfoSnapshot(): Promise<PlaybackInfoSnapshot>;
     setSubtitleTrack(trackId: string | null): Promise<void>;
-    switchToChannel(channelId: string, options?: { signal?: AbortSignal }): Promise<void>;
+    switchToChannel(
+        channelId: string,
+        options?: {
+            signal?: AbortSignal;
+            guideSelectionSnapshot?: import('./core/channel-tuning').GuideSelectionSnapshot;
+        }
+    ): Promise<void>;
     switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void>;
     openEPG(): void;
     closeEPG(): void;
@@ -595,7 +601,10 @@ export class AppOrchestrator implements IAppOrchestrator {
             getMimeType: (decision: StreamDecision): string => this._getMimeType(decision),
             getPlaybackInfoSnapshot: (): PlaybackInfoSnapshot | null => this.getPlaybackInfoSnapshot(),
             refreshPlaybackInfoSnapshot: (): Promise<PlaybackInfoSnapshot> => this.refreshPlaybackInfoSnapshot(),
-            switchToChannel: (channelId: string): Promise<void> => this.switchToChannel(channelId),
+            switchToChannel: (
+                channelId: string,
+                options?: { guideSelectionSnapshot?: import('./core/channel-tuning').GuideSelectionSnapshot }
+            ): Promise<void> => this.switchToChannel(channelId, options),
             stopPlayback: (): void => this._stopPlayback(),
             stopActiveTranscodeSession: (): void => this._requirePlaybackRuntimeController().stopActiveTranscodeSession(),
             switchToNextChannel: (): void => this._switchToNextChannel(),
@@ -1160,6 +1169,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             if (this._initCoordinator) {
                 await this._initCoordinator.runStartup(3);
                 if (this._epg) {
+                    this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
                     this._epgCoordinator?.clearScheduleCaches();
                     this._epg.clearSchedules();
                 }
@@ -1191,7 +1201,13 @@ export class AppOrchestrator implements IAppOrchestrator {
      * Stops current playback, resolves content, configures scheduler, and syncs.
      * @param channelId - ID of channel to switch to
      */
-    async switchToChannel(channelId: string, options?: { signal?: AbortSignal }): Promise<void> {
+    async switchToChannel(
+        channelId: string,
+        options?: {
+            signal?: AbortSignal;
+            guideSelectionSnapshot?: import('./core/channel-tuning').GuideSelectionSnapshot;
+        }
+    ): Promise<void> {
         if (!this._channelTuning) {
             if (!this._channelManager || !this._scheduler || !this._videoPlayer) {
                 console.error('Modules not initialized');
@@ -1675,6 +1691,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         this._scheduler.loadChannel(this._buildDailyScheduleConfig(current, content.items, now));
         this._scheduler.syncToCurrentTime();
 
+        this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
         await this._epgCoordinator?.refreshEpgSchedules();
         this._activeScheduleDayKey = dayKey;
         this._pendingDayRolloverDayKey = null;

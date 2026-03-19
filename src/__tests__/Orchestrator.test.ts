@@ -20,6 +20,7 @@ import type { INowPlayingInfoOverlay, NowPlayingInfoConfig } from '../modules/ui
 import { CHANNEL_BADGE_CONTAINER_ID } from '../modules/ui/channel-badge';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import { InitializationCoordinator } from '../core';
+import { ChannelTuningCoordinator } from '../core/channel-tuning';
 import type { PlatformServices } from '../platform';
 import { webosPlatformServices } from '../platform';
 import type { StreamDecision } from '../modules/plex/stream';
@@ -940,6 +941,47 @@ describe('AppOrchestrator', () => {
         });
     });
 
+    describe('schedule day rollover', () => {
+        it('clears the selected-channel snapshot and rebuilds the active schedule before refreshing EPG schedules on day rollover', async () => {
+            await orchestrator.initialize(mockConfig);
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.validateToken.mockResolvedValue(true);
+            mockPlexDiscovery.isConnected.mockReturnValue(true);
+            await orchestrator.start();
+
+            const clearSelectedSnapshotSpy = jest.spyOn(EPGCoordinator.prototype, 'clearSelectedChannelScheduleSnapshot');
+            const refreshSpy = jest.spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules').mockResolvedValue(undefined);
+            const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(new Date('2026-03-19T12:00:00.000Z').getTime());
+
+            (orchestrator as unknown as { _activeScheduleDayKey: number | null })._activeScheduleDayKey = 20260318;
+            mockScheduler.getCurrentProgram.mockReturnValue(null);
+            mockChannelManager.getCurrentChannel.mockReturnValue(mockChannel);
+            mockChannelManager.resolveChannelContent.mockResolvedValue({
+                channelId: mockChannel.id,
+                items: [],
+                orderedItems: [],
+                totalDurationMs: 0,
+                resolvedAt: Date.now(),
+            });
+
+            await (orchestrator as unknown as { _handleScheduleDayRollover: () => Promise<void> })
+                ._handleScheduleDayRollover();
+
+            expect(mockChannelManager.resolveChannelContent).toHaveBeenCalledWith(mockChannel.id);
+            expect(mockScheduler.loadChannel).toHaveBeenCalled();
+            expect(refreshSpy).toHaveBeenCalledTimes(1);
+            const clearOrder = clearSelectedSnapshotSpy.mock.invocationCallOrder[0];
+            const refreshOrder = refreshSpy.mock.invocationCallOrder[0];
+            expect(clearOrder).toBeDefined();
+            expect(refreshOrder).toBeDefined();
+            expect(clearOrder as number).toBeLessThan(refreshOrder as number);
+
+            nowSpy.mockRestore();
+            clearSelectedSnapshotSpy.mockRestore();
+            refreshSpy.mockRestore();
+        });
+    });
+
     describe('profile switching', () => {
         beforeEach(() => {
             mockVideoPlayer.stop.mockClear();
@@ -1509,6 +1551,27 @@ describe('AppOrchestrator', () => {
             await orchestrator.switchToChannel('ch1');
 
             expect(mockScheduler.syncToCurrentTime).toHaveBeenCalled();
+        });
+
+        it('forwards guide selection snapshots through switchToChannel without transforming them', async () => {
+            const switchSpy = jest.spyOn(ChannelTuningCoordinator.prototype, 'switchToChannel');
+            const guideSelectionSnapshot = {
+                channelId: 'ch1',
+                ratingKey: 'rk-1',
+                scheduledStartTime: 1_000,
+                scheduledEndTime: 61_000,
+                source: 'resolved-immediate' as const,
+                referenceTimeMs: 10_000,
+                dayKey: 123,
+                orderedItems: [],
+            };
+
+            await orchestrator.switchToChannel('ch1', { guideSelectionSnapshot });
+
+            expect(switchSpy).toHaveBeenCalledWith('ch1', {
+                guideSelectionSnapshot,
+            });
+            switchSpy.mockRestore();
         });
 
         it('should handle non-existent channel gracefully', async () => {

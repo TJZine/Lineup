@@ -178,6 +178,70 @@ describe('ChannelTuningCoordinator', () => {
         expect(videoPlayer.stop).toHaveBeenCalledTimes(1);
     });
 
+    it('uses a guide-selected snapshot to seed scheduler load without resolving channel content again', async () => {
+        const { coordinator, channelManager, buildDailyScheduleConfig } = createCoordinator();
+        const snapshotItems: ResolvedChannelContent['items'] = [
+            {
+                ratingKey: 'rk-1',
+                type: 'movie',
+                title: 'Program 1',
+                fullTitle: 'Program 1',
+                durationMs: 60_000,
+                thumb: null,
+                year: 2024,
+                scheduledIndex: 0,
+            },
+        ];
+        channelManager.resolveChannelContent.mockClear();
+
+        await coordinator.switchToChannel('ch1', {
+            guideSelectionSnapshot: {
+                channelId: 'ch1',
+                ratingKey: 'rk-1',
+                scheduledStartTime: 1_000,
+                scheduledEndTime: 61_000,
+                source: 'resolved-immediate',
+                referenceTimeMs: 10_000,
+                dayKey: 123,
+                orderedItems: snapshotItems,
+            },
+        });
+
+        expect(channelManager.resolveChannelContent).not.toHaveBeenCalled();
+        expect(buildDailyScheduleConfig).toHaveBeenCalledWith(mockChannel, snapshotItems, expect.any(Number));
+    });
+
+    it('falls back to resolveChannelContent when the guide snapshot day key is stale', async () => {
+        const { coordinator, deps, channelManager } = createCoordinator();
+        deps.getLocalDayKey.mockReturnValue(456);
+
+        await coordinator.switchToChannel('ch1', {
+            guideSelectionSnapshot: {
+                channelId: 'ch1',
+                ratingKey: 'rk-1',
+                scheduledStartTime: 1_000,
+                scheduledEndTime: 61_000,
+                source: 'resolved-immediate',
+                referenceTimeMs: 10_000,
+                dayKey: 123,
+                orderedItems: [
+                    {
+                        ratingKey: 'rk-1',
+                        type: 'movie',
+                        title: 'Program 1',
+                        fullTitle: 'Program 1',
+                        durationMs: 60_000,
+                        thumb: null,
+                        year: 2024,
+                        scheduledIndex: 0,
+                    },
+                ],
+            },
+        });
+
+        expect(channelManager.resolveChannelContent).toHaveBeenCalledWith('ch1', { signal: null });
+    });
+
     it('propagates ChannelError code + recoverable', async () => {
         const { coordinator, deps, channelManager, scheduler, videoPlayer } = createCoordinator();
         const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
