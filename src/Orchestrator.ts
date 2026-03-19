@@ -121,6 +121,7 @@ import {
 } from './core/channel-setup';
 import { NowPlayingDebugManager } from './modules/debug/NowPlayingDebugManager';
 import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
+import { IssueDiagnosticsStore } from './modules/debug/IssueDiagnosticsStore';
 import { NowPlayingInfoCoordinator } from './modules/ui/now-playing-info/NowPlayingInfoCoordinator';
 import { PlaybackOptionsCoordinator } from './modules/ui/playback-options';
 import { EpgPreferencesStore } from './modules/settings/EpgPreferencesStore';
@@ -147,6 +148,9 @@ import { isAbortLikeError, summarizeErrorForLog } from './utils/errors';
 // ============================================
 
 export type { ModuleStatus, OrchestratorConfig } from './core/orchestrator/OrchestratorTypes';
+
+const QA_003B_ISSUE_ID = 'QA-003b';
+const issueDiagnosticsStore = new IssueDiagnosticsStore();
 
 export type {
     ChannelSetupConfig,
@@ -1706,9 +1710,19 @@ export class AppOrchestrator implements IAppOrchestrator {
             return;
         }
 
+        issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'orchestrator.subtitleTrackChange', {
+            trackId: event.trackId,
+            currentSubtitleDelivery: this._currentStreamDecision?.subtitleDelivery ?? null,
+            currentSubtitleMode: this._currentStreamDecision?.transcodeRequest?.subtitleMode ?? null,
+        });
+
         if (!event.trackId) {
             const decision = this._currentStreamDecision ?? null;
             if (decision?.transcodeRequest?.subtitleMode === 'burn') {
+                issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'orchestrator.subtitleTrackOff.disableBurnInAttempt', {
+                    trackId: null,
+                    subtitleMode: decision.transcodeRequest.subtitleMode,
+                });
                 const warnDisableFailed = (): void => {
                     if (!this._nowPlayingHandler) return;
                     this._nowPlayingHandler({ message: 'Failed to disable burn-in subtitles', type: 'warning' });
@@ -1749,6 +1763,10 @@ export class AppOrchestrator implements IAppOrchestrator {
             event.trackId,
             'subtitle_track_change'
         );
+        issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'orchestrator.subtitleTrackChange.burnInAttempt', {
+            trackId: event.trackId,
+            format,
+        });
     }
 
     private _handlePlexLibraryAuthExpired(): void {

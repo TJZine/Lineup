@@ -15,6 +15,7 @@ import type {
     ScheduleConfig,
     ScheduleWindow as SchedulerScheduleWindow,
 } from '../../scheduler/scheduler';
+import { IssueDiagnosticsStore } from '../../debug/IssueDiagnosticsStore';
 import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import type { ModuleRuntimeStatus } from '../../../core/module-status';
@@ -62,6 +63,8 @@ const EPG_SCHEDULE_CACHE_MAX_ENTRIES_AGGRESSIVE = 360;
 const DEFAULT_GUIDE_DENSITY: EpgGuideDensity = 'detailed';
 const DETAILED_VISIBLE_HOURS = 2;
 const WIDE_VISIBLE_HOURS = 3;
+const QA_003B_ISSUE_ID = 'QA-003b';
+const issueDiagnosticsStore = new IssueDiagnosticsStore();
 
 export class EPGCoordinator {
     private readonly _epgPreferencesStore: EpgPreferencesStore;
@@ -453,6 +456,20 @@ export class EPGCoordinator {
         try {
             const window = scheduler.getScheduleWindow(range.startTime, range.endTime);
             const schedule = this._cloneScheduleWindow(window);
+            const now = Date.now();
+            const currentProgram =
+                schedule.programs.find((program) => now >= program.scheduledStartTime && now < program.scheduledEndTime) ??
+                null;
+            issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'epg.liveRowOverwrite', {
+                channelId: current.id,
+                source: 'live-scheduler',
+                rangeStartTime: range.startTime,
+                rangeEndTime: range.endTime,
+                currentRatingKey: currentProgram?.item.ratingKey ?? null,
+                currentScheduledStartTime: currentProgram?.scheduledStartTime ?? null,
+                currentScheduledEndTime: currentProgram?.scheduledEndTime ?? null,
+                programCount: schedule.programs.length,
+            });
             epg.loadScheduleForChannel(current.id, toEpgScheduleWindow(schedule));
             this._scheduleRefreshRuntime.cacheScheduleForRange(
                 current.id,
@@ -542,6 +559,14 @@ export class EPGCoordinator {
             if (now < scheduledStartTime || now >= scheduledEndTime) {
                 return;
             }
+            issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'epg.channelSelected', {
+                channelId: payload.channel.id,
+                ratingKey: payload.program.item.ratingKey,
+                scheduledStartTime,
+                scheduledEndTime,
+                scheduleIndex: payload.program.scheduleIndex,
+                selectedAt: now,
+            });
             this.deps.setLastChannelChangeSourceToGuide();
             this.closeEPG();
             this.deps.switchToChannel(payload.channel.id).catch((error: unknown) => {

@@ -9,6 +9,7 @@ import type {
     ScheduleConfig,
     ScheduleWindow,
 } from '../../scheduler/scheduler';
+import { IssueDiagnosticsStore } from '../../debug/IssueDiagnosticsStore';
 import type { IEPGComponent } from './interfaces';
 import { computeBackgroundWarmQueueCaps, partitionPrefetchChannels } from './EPGCoordinatorPolicies';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
@@ -18,6 +19,8 @@ import { EPGScheduleCacheStore } from './EPGScheduleCacheStore';
 import { toEpgScheduleWindow } from './adapters';
 
 const EPG_BACKGROUND_DEBUG_LOG_EVERY_N = 20;
+const QA_003B_ISSUE_ID = 'QA-003b';
+const issueDiagnosticsStore = new IssueDiagnosticsStore();
 
 type EpgUiStatus = ModuleRuntimeStatus | undefined;
 
@@ -269,7 +272,16 @@ export class EPGScheduleRefreshRuntime {
         const applySchedule = (
             channelId: string,
             schedule: ScheduleWindow,
-            options?: { updateCache?: boolean; phase?: 'immediate' | 'background' }
+            options?: {
+                updateCache?: boolean;
+                phase?: 'immediate' | 'background';
+                source?:
+                | 'live-scheduler'
+                | 'schedule-cache'
+                | 'schedule-cache-stale'
+                | 'resolved-immediate'
+                | 'resolved-background';
+            }
         ): void => {
             const phase = options?.phase ?? 'immediate';
             const shouldApplyToUi = phase !== 'background';
@@ -284,6 +296,21 @@ export class EPGScheduleRefreshRuntime {
                 if (firstVisibleScheduleReadyMs === null && visibleRangeIds.has(channelId)) {
                     firstVisibleScheduleReadyMs = Date.now() - refreshStartedAt;
                 }
+                const now = Date.now();
+                const currentProgram =
+                    schedule.programs.find((program) => now >= program.scheduledStartTime && now < program.scheduledEndTime) ??
+                    null;
+                issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'epg.scheduleApplied', {
+                    channelId,
+                    phase,
+                    source: options?.source ?? 'resolved-immediate',
+                    rangeKey,
+                    programCount: schedule.programs.length,
+                    currentRatingKey: currentProgram?.item.ratingKey ?? null,
+                    currentScheduledStartTime: currentProgram?.scheduledStartTime ?? null,
+                    currentScheduledEndTime: currentProgram?.scheduledEndTime ?? null,
+                    sampleRatingKeys: schedule.programs.slice(0, 3).map((program) => program.item.ratingKey),
+                });
                 epg.loadScheduleForChannel(channelId, toEpgScheduleWindow(schedule));
             }
 
@@ -359,7 +386,10 @@ export class EPGScheduleRefreshRuntime {
                 const schedulerState = scheduler.getState();
                 if (schedulerState.isActive && schedulerState.channelId === channel.id) {
                     const liveWindow = scheduler.getScheduleWindow(startTime, endTime);
-                    applySchedule(channel.id, this._deps.cloneScheduleWindow(liveWindow), { phase });
+                    applySchedule(channel.id, this._deps.cloneScheduleWindow(liveWindow), {
+                        phase,
+                        source: 'live-scheduler',
+                    });
                     liveScheduleHits += 1;
                     return;
                 }
@@ -369,11 +399,18 @@ export class EPGScheduleRefreshRuntime {
             if (cached) {
                 const cachedSchedule = this._deps.cloneScheduleWindow(cached.schedule);
                 if (cached.isStale) {
-                    applySchedule(channel.id, cachedSchedule, { updateCache: false, phase });
+                    applySchedule(channel.id, cachedSchedule, {
+                        updateCache: false,
+                        phase,
+                        source: 'schedule-cache-stale',
+                    });
                     staleCacheHits += 1;
                 } else {
                     cacheHits += 1;
-                    applySchedule(channel.id, cachedSchedule, { phase });
+                    applySchedule(channel.id, cachedSchedule, {
+                        phase,
+                        source: 'schedule-cache',
+                    });
                     return;
                 }
             }
@@ -417,7 +454,10 @@ export class EPGScheduleRefreshRuntime {
                     index,
                     scheduleConfig.anchorTime
                 );
-                applySchedule(channel.id, { startTime, endTime, programs }, { phase });
+                applySchedule(channel.id, { startTime, endTime, programs }, {
+                    phase,
+                    source: phase === 'background' ? 'resolved-background' : 'resolved-immediate',
+                });
             } catch (error) {
                 if (isAbortLikeError(error, controller.signal)) {
                     return;

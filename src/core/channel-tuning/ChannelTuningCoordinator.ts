@@ -17,6 +17,7 @@ import type {
     IChannelScheduler,
     ScheduleConfig,
 } from '../../modules/scheduler/scheduler';
+import { IssueDiagnosticsStore } from '../../modules/debug/IssueDiagnosticsStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
 
 export type { ChannelSwitchOutcome } from '../../types/channelSwitch';
@@ -62,6 +63,9 @@ function createAbortLikeError(message: string): Error {
     error.name = 'AbortError';
     return error;
 }
+
+const QA_003B_ISSUE_ID = 'QA-003b';
+const issueDiagnosticsStore = new IssueDiagnosticsStore();
 
 export class ChannelTuningCoordinator {
     private _isChannelSwitching = false;
@@ -238,6 +242,15 @@ export class ChannelTuningCoordinator {
                 content = await channelManager.resolveChannelContent(channelId, {
                     signal: signal ?? null,
                 });
+                issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'channelTuning.resolveChannelContent', {
+                    channelId,
+                    resolvedAt: content.resolvedAt,
+                    fromCache: content.fromCache ?? false,
+                    isStale: content.isStale ?? false,
+                    cacheReason: content.cacheReason ?? null,
+                    itemCount: content.items.length,
+                    sampleRatingKeys: content.items.slice(0, 5).map((item) => item.ratingKey),
+                });
             } catch (error: unknown) {
                 if (isAbortLikeError(error, signal)) {
                     return 'aborted';
@@ -308,6 +321,15 @@ export class ChannelTuningCoordinator {
             this.deps.setPendingNowPlayingChannelId(channelId);
             scheduler.loadChannel(scheduleConfig);
             this.deps.setActiveScheduleDayKey(this.deps.getLocalDayKey(now));
+            issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'channelTuning.schedulerLoaded', {
+                channelId,
+                referenceTimeMs: now,
+                anchorTime: scheduleConfig.anchorTime,
+                playbackMode: scheduleConfig.playbackMode,
+                shuffleSeed: scheduleConfig.shuffleSeed,
+                contentCount: scheduleConfig.content.length,
+                sampleRatingKeys: scheduleConfig.content.slice(0, 5).map((item) => item.ratingKey),
+            });
 
             // Sync to current time (this will emit programStart)
             try {

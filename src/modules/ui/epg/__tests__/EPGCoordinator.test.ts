@@ -1558,6 +1558,7 @@ describe('EPGCoordinator', () => {
     });
 
     it('refreshEpgScheduleForLiveChannel uses scheduler window for current channel', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, '1');
         const windowPrograms = [baseProgram('c0', 5)];
         const scheduler: IChannelScheduler = {
             getState: () => ({ isActive: true, channelId: 'c0' }),
@@ -1576,6 +1577,10 @@ describe('EPGCoordinator', () => {
             endTime: 20,
             programs: windowPrograms,
         });
+        const stored = JSON.parse(
+            localStorage.getItem(LINEUP_STORAGE_KEYS.ISSUE_DIAGNOSTICS_LOG) as string
+        ) as Array<{ event: string }>;
+        expect(stored.map((entry) => entry.event)).toContain('epg.liveRowOverwrite');
     });
 
     it('uses conservative warm-queue caps only at very-large-guide threshold (260+)', () => {
@@ -1620,6 +1625,7 @@ describe('EPGCoordinator', () => {
     });
 
     it('wireEpgEvents returns unsubscribers and triggers switch when program eligible', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, '1');
         const hide = jest.fn();
         const epg: IEPGComponent = {
             on: jest.fn(),
@@ -1671,6 +1677,10 @@ describe('EPGCoordinator', () => {
         expect(setSource).toHaveBeenCalled();
         expect(hide).toHaveBeenCalled();
         expect(switchToChannel).toHaveBeenCalledWith('c1');
+        const stored = JSON.parse(
+            localStorage.getItem(LINEUP_STORAGE_KEYS.ISSUE_DIAGNOSTICS_LOG) as string
+        ) as Array<{ event: string }>;
+        expect(stored.map((entry) => entry.event)).toContain('epg.channelSelected');
 
         unsubChannel!();
         expect(epg.off).toHaveBeenCalledWith('channelSelected', handler);

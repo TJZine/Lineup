@@ -22,9 +22,13 @@ import {
     subtitleModeIsDirectOnly,
     type SubtitleMode,
 } from '../../shared/subtitle-mode';
+import { IssueDiagnosticsStore } from '../debug/IssueDiagnosticsStore';
 import { SubtitlePreferencesStore } from '../settings/SubtitlePreferencesStore';
 import { redactSensitiveTokens } from '../../utils/redact';
 import { summarizeErrorForLog } from '../../utils/errors';
+
+const QA_003B_ISSUE_ID = 'QA-003b';
+const issueDiagnosticsStore = new IssueDiagnosticsStore();
 
 export interface PlaybackRecoveryDeps {
     getVideoPlayer: () => IVideoPlayer | null;
@@ -328,6 +332,22 @@ export class PlaybackRecoveryManager {
 
         // Single/rare failure: skip as before
         if (scheduler) {
+            const schedulerState =
+                typeof scheduler.getState === 'function'
+                    ? scheduler.getState()
+                    : null;
+            issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'playbackRecovery.skipToNext', {
+                context: redactSensitiveTokens(context),
+                itemKey: this._getCurrentItemKey(),
+                channelId:
+                    schedulerState &&
+                    typeof schedulerState === 'object' &&
+                    'channelId' in schedulerState
+                        ? (schedulerState as { channelId?: unknown }).channelId ?? null
+                        : null,
+                failureCount: this._playbackFailureCount,
+                safeError: summarizeErrorForLog(error),
+            });
             scheduler.skipToNext();
         }
     }
