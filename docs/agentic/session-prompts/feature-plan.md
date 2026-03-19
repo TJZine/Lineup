@@ -79,3 +79,4 @@ Return:
    - `ARTIFACT`
    - `FILES`
    - a pasteable review request for the finished plan
+   - if the user explicitly asked for model guidance, or if the handoff is Tier 3 or architecture-risk score `>= 2`, include a `MODEL_SUGGESTION` block immediately before `NEXT_SESSION_HANDOFF` using repo-local `model-selection`

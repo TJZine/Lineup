@@ -72,6 +72,7 @@ When reviewing a feature/design implementation, focus on:
     - if findings are concrete fixable implementation defects (bugs, missed requirements, missing tests, localized refactors): route to `lineup-feature-implement` and treat `ARTIFACT` as the concrete fix findings artifact (commonly named `implementation-findings.md`) for the fix session
     - when unsure, bias toward routing to `lineup-feature-plan` so decisions and invariants are repaired before coding
   - when reviewing an implementation with no material findings: no handoff block is required if closeout is complete
+  - if the user explicitly asked for model guidance, or if the handoff is Tier 3 or architecture-risk score `>= 2`, include a `MODEL_SUGGESTION` block immediately before `NEXT_SESSION_HANDOFF` using repo-local `model-selection`
 - for plan review, treat “implementation-ready” as meaning:
   - no hidden product/design or architecture decisions remain
   - the implementation path is feasible without inventing missing UI or boundary structure mid-task

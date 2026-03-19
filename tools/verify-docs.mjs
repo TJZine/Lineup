@@ -792,6 +792,8 @@ function checkCleanupPriorityExitContracts(errors) {
             'implementation work',
             'p#-exit',
             'unresolved',
+            'checklist-linked',
+            'standalone remediation',
         ];
 
         for (const marker of requiredWorkflowMarkers) {
@@ -827,6 +829,8 @@ function checkCleanupPriorityExitContracts(errors) {
             'exact p0 security issue ids',
             'p#-exit checklist update',
             'priority closeout',
+            'checklist-linked',
+            'standalone remediation',
         ];
 
         for (const marker of requiredCleanupPlanMarkers) {
@@ -846,6 +850,8 @@ function checkCleanupPriorityExitContracts(errors) {
             'reason and revisit trigger',
             'priority-exit review',
             'do not start p(n+1) work in the same session',
+            'standalone remediation',
+            'no checklist update applies',
         ];
 
         for (const marker of requiredCleanupImplementMarkers) {

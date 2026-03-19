@@ -16,6 +16,9 @@ Use this prompt for Tier 2 or Tier 3 work when an approved cleanup plan already 
 - execute the approved plan in a repo-local worktree under `.worktrees/` when the task is more than a tiny edit
 - exception: for any task where `desloppify` output is used as authoritative checklist/plan evidence, execute those `desloppify` commands only on the target integration branch (no worktree evidence pass)
 - re-check the plan freshness gate before changing files
+- preserve the approved cleanup subtype during execution:
+  - `checklist-linked` tasks carry their checklist or priority-exit updates
+  - `standalone remediation` tasks stay out of checklist bookkeeping unless the approved plan explicitly promotes them
 - run Codanna impact confirmation again before risky/shared-symbol edits if the code moved since planning
 - implement one work unit at a time without widening scope
 - update the tracked docs that the plan explicitly requires in the same pass
@@ -33,6 +36,7 @@ Use this prompt for Tier 2 or Tier 3 work when an approved cleanup plan already 
 - if a local run bundle changes the workflow conclusion, commit the updated tracked baseline-summary or workflow doc before closeout and keep only the raw bundle local
 - terminology: `tracked baseline-summary` means tracked durable conclusion, while `local-only eval artifacts` means raw run outputs/transcripts kept out of git
 - keep `update_plan` aligned with actual progress
+- if the approved plan is `standalone remediation`, do not create or update checklist linkage unless the plan explicitly says the result should be promoted into tracked cleanup backlog
 - if the approved plan closes the last planned `P#-W#` item in a priority, prepare the `P#-EXIT` evidence and checklist update in the same pass or report exactly why exit is still blocked; do not start `P(n+1)` work in the same session while that exit remains unresolved
 
 ## Verification Requirements
@@ -50,11 +54,13 @@ Return:
 2. what verification actually ran
 3. any remaining risks or follow-up items
 4. whether the checklist item or plan status should be updated
+   - for `standalone remediation`, say explicitly when no checklist update applies
    - if this closes the last planned `P#-W#` item in a priority, include the exact priority-exit evidence, any deferred/split items with their exact issue id, single final owner, and reason and revisit trigger, and whether the outgoing review should be treated as a priority-exit review
 5. a `NEXT_SESSION_HANDOFF` block that routes to `lineup-cleanup-review` and includes:
    - `TASK`
    - `PLAN`
    - `ARTIFACT`
    - `FILES`
-   - a pasteable implementation-review request unless the task is fully blocked before code changes; for claimed priority closeout, repeat the same deferred/split-item exact issue id, single final owner, and reason and revisit trigger metadata in that request
+   - a pasteable implementation-review request unless the task is fully blocked before code changes; for claimed priority closeout, repeat the same deferred/split-item exact issue id, single final owner, and reason and revisit trigger metadata in that request, and for `standalone remediation` say explicitly that no checklist update is expected
    - when the session claims priority closeout, explicitly request a priority-exit review rather than a normal slice review
+   - if the user explicitly asked for model guidance, or if the handoff is Tier 3 or architecture-risk score `>= 2`, include a `MODEL_SUGGESTION` block immediately before `NEXT_SESSION_HANDOFF` using repo-local `model-selection`

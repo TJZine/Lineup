@@ -28,6 +28,7 @@ If reviewing a plan, focus on:
 
 - freshness for a no-context session
 - wrong task routing or wrong orchestration tier for the actual work
+- missing or incorrect cleanup subtype (`checklist-linked` vs `standalone remediation`)
 - missing scope boundaries
 - contradictory scope boundaries, especially around adjacent contract/type files
 - unresolved architecture seams or ownership seams hidden inside task steps
@@ -55,6 +56,7 @@ If reviewing an implementation, focus on:
 - regressions, architecture leakage, and responsibility growth
 - deviation from the approved plan
 - missing doc updates
+- incorrect checklist bookkeeping for `standalone remediation`, or missing checklist updates for `checklist-linked` work
 - missing or weak verification
 - accidental local-only artifact changes
 - new slop, fallback paths, or cross-boundary shortcuts
@@ -78,6 +80,7 @@ If reviewing an implementation, focus on:
   - when reviewing a plan with no material findings: route to `lineup-cleanup-implement`
   - when reviewing an implementation with material findings: route back to `lineup-cleanup-implement`
   - when reviewing an implementation with no material findings: no handoff block is required if closeout is complete
+  - if the user explicitly asked for model guidance, or if the handoff is Tier 3 or architecture-risk score `>= 2`, include a `MODEL_SUGGESTION` block immediately before `NEXT_SESSION_HANDOFF` using repo-local `model-selection`
 - for plan review, treat “implementation-ready” as meaning:
   - no hidden architecture or scope decisions remain
   - the execution path is feasible without inventing code structure on the fly

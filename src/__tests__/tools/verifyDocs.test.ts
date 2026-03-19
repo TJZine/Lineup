@@ -157,8 +157,12 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '',
             'Route task family before choosing a tier.',
             '',
+            '- For cleanup/refactor work, choose `checklist-linked` or `standalone remediation` before selecting a tier.',
+            '- Record whether cleanup work is `checklist-linked` or `standalone remediation` before freezing the plan.',
+            '',
             'A final `P#-W#` plan must include a `Priority-exit readiness` section, assign a single final owner to each deferred or split follow-up item, and record any exact `P0` security issue ids before starting or planning the next priority.',
             'No `P(n+1)` checklist item, plan, or implementation work may open while `P#-EXIT` is unresolved.',
+            'Update the checklist only for `checklist-linked` cleanup work; for `standalone remediation`, no checklist update applies unless the task is intentionally promoted.',
             '',
             '[cleanup-plan](./agentic/session-prompts/cleanup-plan.md)',
             '[cleanup-review](./agentic/session-prompts/cleanup-review.md)',
@@ -234,6 +238,8 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '- Include `Priority-exit readiness` when the plan claims priority closeout.',
             '- Assign a single final owner to every deferred or split follow-up item.',
             '- Record exact `P0` security issue ids and the `P#-EXIT` checklist update.',
+            '- Mark cleanup work as `checklist-linked` or `standalone remediation` before freezing the plan.',
+            '- Only `checklist-linked` work should claim priority closeout.',
             '',
         ].join('\n')
     );
@@ -247,6 +253,7 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '- Prepare the `P#-EXIT` evidence and checklist update in the same pass.',
             '- Include any deferred or split items with their exact issue id, single final owner, and reason and revisit trigger.',
             '- Ask for a `priority-exit review` when the task closes a priority and do not start `P(n+1)` work in the same session.',
+            '- For `standalone remediation`, state that no checklist update applies.',
             '',
         ].join('\n')
     );
@@ -1560,6 +1567,7 @@ describe('verify-docs', () => {
                 '- For any deferred/split item, name the exact issue id, one single final owner, and the reason and revisit trigger.',
                 '- Run a priority-exit review before moving to the next priority.',
                 '- Do not start `P(n+1)` work in the same session.',
+                '- For standalone remediation, state that no checklist update applies.',
                 '',
             ].join('\n'),
         });

@@ -197,7 +197,7 @@ export class EPGScheduleRefreshRuntime {
         }
 
         const shuffler = new ShuffleGenerator();
-        const aggressive = this._deps.isAggressivePreloadEnabled();
+        const aggressive = this._deps.isAggressivePreloadEnabled() || reason === 'server-swap';
         this._cacheStore.setMaxEntries(this._deps.computeScheduleCacheLimit(channels.length, aggressive));
 
         const liveChannelId = channelManager.getCurrentChannel()?.id ?? null;

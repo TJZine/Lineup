@@ -143,6 +143,30 @@ const createRuntime = (
 };
 
 describe('EPGScheduleRefreshRuntime', () => {
+    it('threads server-swap into the aggressive-dependent branches', async () => {
+        const computeScheduleCacheLimit = jest.fn(() => 64);
+        const getScheduleLoadConcurrency = jest.fn(() => 1);
+        const { runtime } = createRuntime({
+            isAggressivePreloadEnabled: () => false,
+            computeScheduleCacheLimit,
+            getScheduleLoadConcurrency,
+        });
+
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+        expect(computeScheduleCacheLimit).toHaveBeenLastCalledWith(1, false);
+        expect(getScheduleLoadConcurrency).toHaveBeenLastCalledWith(1, expect.any(Number), false);
+
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'server-swap'
+        );
+        expect(computeScheduleCacheLimit).toHaveBeenLastCalledWith(1, true);
+        expect(getScheduleLoadConcurrency).toHaveBeenLastCalledWith(1, expect.any(Number), true);
+    });
+
     it('aborts stale in-flight loads when a force-refresh request arrives', async () => {
         const channel = makeChannel('c1', 1);
         const deferred = {
