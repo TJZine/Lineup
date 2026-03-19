@@ -1757,6 +1757,25 @@ describe('EPGCoordinator', () => {
         const { deps, epg } = makeDeps({ switchToChannel });
         const coordinator = new EPGCoordinator(deps);
         jest.spyOn(Date, 'now').mockReturnValue(5_000);
+        (epg.getState as jest.Mock).mockReturnValue({
+            isVisible: true,
+            focusedCell: {
+                kind: 'program',
+                channelIndex: 1,
+                programIndex: 0,
+                program: null,
+                focusTimeMs: 5_000,
+                cellElement: null,
+            },
+            scrollPosition: { channelOffset: 0, timeOffset: 0 },
+            viewWindow: {
+                startTime: 0,
+                endTime: 10_000,
+                startChannelIndex: 0,
+                endChannelIndex: 2,
+            },
+            currentTime: 5_000,
+        });
 
         await coordinator.refreshEpgSchedulesForRange(
             { channelStart: 0, channelEnd: 2, timeStartMs: 0, timeEndMs: 10_000 },

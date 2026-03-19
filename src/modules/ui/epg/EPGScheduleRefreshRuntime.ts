@@ -52,10 +52,11 @@ type AppliedScheduleSource =
     | 'resolved-background';
 
 type SelectedRowSnapshotSeed = {
-    source: AppliedScheduleSource;
+    channelId: string;
+    source: 'resolved-immediate';
     dayKey: number;
     referenceTimeMs: number;
-    orderedItems: ResolvedChannelContent['items'] | null;
+    orderedItems: ResolvedChannelContent['items'];
 };
 
 export interface GuideSelectionSnapshotRequest {
@@ -104,7 +105,7 @@ export class EPGScheduleRefreshRuntime {
     private readonly _cacheStore = new EPGScheduleCacheStore();
     private readonly _warmQueue: EPGBackgroundWarmQueue;
     private _backgroundDebugState: BackgroundDebugState | null = null;
-    private _selectedRowSnapshotSeedByChannel = new Map<string, SelectedRowSnapshotSeed>();
+    private _selectedRowSnapshotSeed: SelectedRowSnapshotSeed | null = null;
 
     constructor(private readonly _deps: EPGScheduleRefreshRuntimeDeps) {
         this._warmQueue = new EPGBackgroundWarmQueue({
@@ -164,7 +165,7 @@ export class EPGScheduleRefreshRuntime {
     clearScheduleCaches(): void {
         this._warmQueue.cancel('clear-schedule-caches');
         this._cacheStore.clearScheduleCaches();
-        this._selectedRowSnapshotSeedByChannel.clear();
+        this._selectedRowSnapshotSeed = null;
     }
 
     clearLoadedScheduleMarkers(): void {
@@ -172,7 +173,7 @@ export class EPGScheduleRefreshRuntime {
     }
 
     clearSelectedChannelScheduleSnapshot(): void {
-        this._selectedRowSnapshotSeedByChannel.clear();
+        this._selectedRowSnapshotSeed = null;
     }
 
     async buildGuideSelectionSnapshot(
@@ -184,13 +185,13 @@ export class EPGScheduleRefreshRuntime {
         }
 
         const dayKey = this._getLocalDayKey(request.selectedAt);
-        const seed = this._selectedRowSnapshotSeedByChannel.get(request.channelId);
+        const seed = this._selectedRowSnapshotSeed;
+        this._selectedRowSnapshotSeed = null;
         if (
             seed &&
+            seed.channelId === request.channelId &&
             seed.source === 'resolved-immediate' &&
             seed.dayKey === dayKey &&
-            seed.orderedItems &&
-            seed.orderedItems.length > 0 &&
             seed.orderedItems.some((item) => item.ratingKey === request.ratingKey)
         ) {
             return {
@@ -308,6 +309,7 @@ export class EPGScheduleRefreshRuntime {
         const visibleStart = Math.max(0, Math.min(range.channelStart, channels.length - 1));
         const visibleEnd = Math.min(channels.length, range.channelEnd + 1);
         const visibleRangeIds = new Set(channels.slice(visibleStart, visibleEnd).map((channel) => channel.id));
+        this._selectedRowSnapshotSeed = null;
 
         const neededIds = new Set([...immediateChannels, ...backgroundChannels].map((channel) => channel.id));
         const abortAll = reason === 'library-filter' || forceRefresh;
@@ -368,14 +370,20 @@ export class EPGScheduleRefreshRuntime {
             }
 
             if (shouldApplyToUi) {
-                this._selectedRowSnapshotSeedByChannel.set(channelId, {
-                    source: options?.source ?? 'resolved-immediate',
-                    dayKey: this._getLocalDayKey(startTime),
-                    referenceTimeMs: startTime,
-                    orderedItems: options?.materializationSeed
-                        ? this._cloneResolvedItems(options.materializationSeed)
-                        : null,
-                });
+                if (
+                    focusedChannelId &&
+                    channelId === focusedChannelId &&
+                    options?.source === 'resolved-immediate' &&
+                    options.materializationSeed
+                ) {
+                    this._selectedRowSnapshotSeed = {
+                        channelId,
+                        source: 'resolved-immediate',
+                        dayKey: this._getLocalDayKey(startTime),
+                        referenceTimeMs: startTime,
+                        orderedItems: this._cloneResolvedItems(options.materializationSeed),
+                    };
+                }
                 if (firstVisibleScheduleReadyMs === null && visibleRangeIds.has(channelId)) {
                     firstVisibleScheduleReadyMs = Date.now() - refreshStartedAt;
                 }
