@@ -1347,6 +1347,53 @@ describe('EPGVirtualizer', () => {
             expect(tinyTime.style.display).toBe('none');
         });
 
+        it('uses full episode title text in the focused tiny-tier title node', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-focused-episode-tiny';
+            const start = gridAnchorTime;
+            const end = start + (20 * 60000); // tiny tier at 4px/min => 80px
+
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60000),
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'ep-focused-1',
+                            type: 'episode',
+                            title: 'The Edge Of Recovery',
+                            fullTitle: 'Great Show - S01E09 - The Edge Of Recovery',
+                            showTitle: 'Great Show',
+                            seasonNumber: 1,
+                            episodeNumber: 9,
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+            virtualizer.setFocusedCell(channelId, start);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_TINY)).toBe(true);
+
+            const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+            expect(title.textContent).toBe('Great Show - S01E09 - The Edge Of Recovery');
+        });
+
         it('starts one-shot ticker only after 900ms for focused truncated titles', () => {
             jest.useFakeTimers();
             try {
@@ -1508,6 +1555,60 @@ describe('EPGVirtualizer', () => {
                 expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
                 jest.advanceTimersByTime(899);
                 expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('uses the focused title text itself as the ticker payload for episodes', () => {
+            jest.useFakeTimers();
+            try {
+                const channelId = 'ch-focused-episode-ticker';
+                const start = gridAnchorTime;
+                const end = start + 20 * 60 * 1000;
+                const fullTitle = 'Great Show - S01E09 - The Edge Of Recovery';
+
+                const schedule: ScheduleWindow = {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                    programs: [{
+                        item: {
+                            ratingKey: 'ep-focused-ticker-1',
+                            type: 'episode',
+                            title: 'The Edge Of Recovery',
+                            fullTitle,
+                            showTitle: 'Great Show',
+                            seasonNumber: 1,
+                            episodeNumber: 9,
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    }],
+                };
+
+                virtualizer.setChannelCount(1);
+                const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+                virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+                const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+                const title = cell.querySelector('.epg-cell-title') as HTMLElement;
+                Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 360 });
+                Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
+
+                virtualizer.setFocusedCell(channelId, start);
+
+                expect(title.textContent).toBe(fullTitle);
+                expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(true);
             } finally {
                 jest.useRealTimers();
             }
