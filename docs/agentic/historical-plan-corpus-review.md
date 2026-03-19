@@ -1,6 +1,6 @@
 # Historical Plan Corpus Review
 
-> Reviewed initially 2026-03-05 from a local-only imported corpus containing the full Priority 2 (`P2-W1` through `P2-W5`) implementation plans from the architecture cleanup. Expanded 2026-03-08 with local reviews of the Priority 5 Plex integration-boundary plan set and the Priority 6 channel persistence plan set, then expanded again 2026-03-11 with the archived Priority 1 runtime-composition plan set.
+> Reviewed initially 2026-03-05 from a local-only imported corpus containing the full Priority 2 (`P2-W1` through `P2-W5`) implementation plans from the architecture cleanup. Expanded 2026-03-08 with local reviews of the Priority 5 Plex integration-boundary plan set and the Priority 6 channel persistence plan set, expanded again 2026-03-11 with the archived Priority 1 runtime-composition plan set, and expanded 2026-03-19 with the local Priority 4 run bundle from `docs/runs/2026-03-13-p4-plan-cleanup/`.
 
 ## Purpose
 
@@ -58,6 +58,21 @@ Additional corpus reviewed 2026-03-11 from archived workspace material during Pr
 - `2026-03-10-p1-w5-priority-1-runtime-cleanup-pass.md`
 
 The completed Priority 1 section is preserved as tracked historical memory in [`2026-03-11-priority-1-runtime-composition-section-summary.md`](../archive/plans/2026-03-11-priority-1-runtime-composition-section-summary.md). The section summary is the durable tracked surface for future sessions; the long execution plans do not need to remain tracked.
+
+Additional local corpus reviewed 2026-03-19 from `docs/runs/2026-03-13-p4-plan-cleanup/`:
+
+- `2026-03-12-p4-exit-priority-4-exit-review.md`
+- `2026-03-12-p4-w1-epg-visible-range-ownership-split.md`
+- `2026-03-12-p4-w2-channel-setup-coordinator-ownership-split.md`
+- `2026-03-12-p4-w3-navigation-manager-focus-input-split.md`
+- `2026-03-12-p4-w4-settings-channelsetup-innerhtml-cleanup.md`
+- `2026-03-12-p4-w5-priority-4-cleanup-pass.md`
+- `2026-03-12-p4-w6-epg-coordinator-ownership-seam-retirement.md`
+- `2026-03-13-p4-w7-navigation-container-id-closeout.md`
+- `2026-03-13-p4-w8-orchestrator-epg-ownership-reconciliation.md`
+- `2026-03-13-p4-w9-epg-subsystem-overload-coupling-closeout.md`
+
+These files remain local run-bundle source material only. The durable lessons are promoted here and into the tracked workflow docs.
 
 ## Why This Matters
 
@@ -203,6 +218,26 @@ Keep:
 - explicit statements about what remains with the composition root versus what moves behind the new collaborator
 - extraction sequencing that starts with structural decoupling, then moves assembly/policy, then runs cleanup after the stable seams are proven
 
+### 14. Detector-backed closeout works best when detector evidence is paired with a source audit
+
+The reviewed Priority 4 run bundle adds a stronger closeout pattern than the earlier corpus: plans that reconcile detector output with checklist state do not trust detector silence by itself. The strongest `P4-W8` and `P4-W9` plans require current-code reads plus an ownership/coupling proof before they retire the remaining checklist items.
+
+Keep:
+
+- detector checks as one input, not the whole closure argument
+- explicit source-audit or ownership-proof sections for closeout plans that are reconciling stale or contradictory checklist state
+- stop conditions that force re-planning when detector output and current code disagree
+
+### 15. Local run bundles still need truthful path surfaces
+
+The local Priority 4 run bundle surfaced a memory-hygiene failure mode: local artifacts sometimes referenced themselves as `docs/plans/...` in handoff blocks or required-reading sections even though the files lived under `docs/runs/...`. That creates avoidable fresh-session drift.
+
+Keep:
+
+- true `docs/runs/...` paths for local run-bundle artifacts until something is intentionally promoted
+- promotion notes that say which tracked doc absorbed the durable lesson
+- handoff blocks that preserve the actual artifact location instead of relabeling it to look tracked
+
 ## Anti-Patterns To Avoid
 
 ### 1. Stale repo identity and pathing
@@ -257,6 +292,13 @@ Do not keep:
 - execution-grade plans that still require the implementer to choose which contract must widen
 
 ### 6. Partial evidence and stale skill guidance
+
+The Priority 4 run bundle also exposed a narrower drift pattern: some local run-bundle plans reused tracked-plan wording and `docs/plans/...` handoff targets even though the artifacts were still local-only `docs/runs/...` files.
+
+Do not keep:
+
+- run-bundle handoffs or required-reading sections that rewrite local artifact paths into tracked-plan paths
+- detector-only closeout claims for ownership/coupling issues when the plan never proves the current-code ownership state
 
 Some later plans were strong structurally but still drifted on evidence and process guidance.
 

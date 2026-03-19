@@ -64,8 +64,10 @@ This is the operating runbook for agent-driven development in Lineup.
    - if an architecture seam or adjacent contract change is still undecided, resolve that boundary before freezing a “decision-point-free” execution plan
    - if a cleanup slice is the last planned `P#-W#` item for a priority, add an explicit priority-exit step before any `P(n+1)` work begins
    - a final `P#-W#` plan is incomplete unless its `Priority-exit readiness` section names every mapped imported issue with an exact disposition, assigns a single final owner to every deferred or split-follow-up item, records exact `P0` security issue ids plus revisit triggers for anything not cleared, and lists the evidence/commands that will close `P#-EXIT`
+   - when a plan's main job is closeout or reconciliation of detector-backed ownership/coupling findings, do not treat detector silence alone as sufficient evidence; require a current-code source audit, ownership proof matrix, or equivalent explicit justification tied to the checklist outcome being claimed
    - move completed or superseded tracked plans to `docs/archive/plans/` once they stop being the active handoff surface
    - use `docs/runs/` for local-only major-task execution bundles and run logs
+   - keep path surfaces truthful across memory tiers: local run-bundle artifacts should continue to reference `docs/runs/...` until their durable lessons are promoted into tracked docs; do not relabel local artifacts as `docs/plans/...` in handoffs or required-reading sections
    - when drafting or reviewing serious tracked plans, use `docs/agentic/historical-plan-corpus-review.md` alongside `docs/agentic/plan-authoring-standard.md` as calibration for strong plan shape and eval seeding
    - for serious tracked plans, record the full Codanna evidence trail: `semantic_search_with_context`, `search_documents` when repo-doc context matters, `analyze_impact`, and any explicit fallback reads
    - record the Codanna impact snapshot for risky/shared-symbol edits

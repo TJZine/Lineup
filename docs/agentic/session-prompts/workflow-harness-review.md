@@ -179,6 +179,7 @@ Flag:
 - verifier gaps that allow role-declaration drift, missing role config files, or read-only-role contract drift
 - checks that are too weak to catch real entropy
 - checks that are so strict they create noise without protecting quality
+- local run-bundle path drift that makes `docs/runs/...` artifacts look like `docs/plans/...` in handoffs or required-reading sections
 
 ### 6. Plan And Execution Quality
 
@@ -198,6 +199,7 @@ Flag:
 - scope ambiguity
 - local-only dependencies in tracked plans
 - failure to turn strong historical work into reusable standards or eval seeds
+- detector-backed closeout plans that rely on `No open issues matching` without an explicit current-code source audit or ownership proof when reconciling checklist state
 
 ### 7. Eval Maturity
 

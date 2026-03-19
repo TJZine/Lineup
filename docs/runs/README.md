@@ -26,6 +26,13 @@ If one of those local artifacts becomes durable repo guidance, promote the usefu
 - `docs/architecture/` for current-state truth
 - `docs/agentic/` for workflow or harness guidance
 
+Path hygiene rules:
+
+- keep local run-bundle artifact paths truthful: if the file lives under `docs/runs/...`, reference it as `docs/runs/...`
+- do not rewrite a local run-bundle artifact as `docs/plans/...` just because the content looks plan-like
+- only switch a reference to `docs/plans/...` after the artifact has actually been promoted into a tracked plan
+- when a tracked doc absorbs a durable lesson from a run bundle, record which tracked doc absorbed it instead of pretending the run artifact itself became tracked
+
 Close out each run bundle by recording:
 
 - the durable lesson learned
