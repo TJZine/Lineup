@@ -622,8 +622,10 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
      * @returns Promise resolving when initialization is complete
      */
     public async initialize(): Promise<void> {
+        const previousRefreshAt = this._state.lastRefreshAt;
         await this.discoverServers();
-        await this._restoreSelectionAsync();
+        const refreshedDiscovery = this._state.lastRefreshAt !== previousRefreshAt;
+        await this._restoreSelectionAsync({ forceReselect: refreshedDiscovery });
     }
 
     public setStorageKeys(selectedServerKey: string, serverHealthKey: string): void {
@@ -900,7 +902,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return redactUrlForLog(url);
     }
 
-    private async _restoreSelectionAsync(): Promise<void> {
+    private async _restoreSelectionAsync(options?: { forceReselect?: boolean }): Promise<void> {
         if (this._state.servers.length === 0) {
             return;
         }
@@ -913,6 +915,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         }
 
         if (
+            options?.forceReselect !== true &&
             this._state.selectedServer?.id === savedServerId &&
             this._state.selectedConnection !== null
         ) {
