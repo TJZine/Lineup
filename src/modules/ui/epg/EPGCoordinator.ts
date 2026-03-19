@@ -684,13 +684,23 @@ export class EPGCoordinator {
         program: EpgScheduledProgram,
         selectedAt: number
     ): Promise<void> {
-        const snapshot = await this._scheduleRefreshRuntime.buildGuideSelectionSnapshot({
-            channelId,
-            ratingKey: program.item.ratingKey,
-            scheduledStartTime: program.scheduledStartTime,
-            scheduledEndTime: program.scheduledEndTime,
-            selectedAt,
-        });
+        let snapshot: GuideSelectionSnapshot | null = null;
+        try {
+            snapshot = await this._scheduleRefreshRuntime.buildGuideSelectionSnapshot({
+                channelId,
+                ratingKey: program.item.ratingKey,
+                scheduledStartTime: program.scheduledStartTime,
+                scheduledEndTime: program.scheduledEndTime,
+                selectedAt,
+            });
+        } catch (error: unknown) {
+            issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'epg.guideSnapshotBuildFailed', {
+                channelId,
+                ratingKey: program.item.ratingKey,
+                selectedAt,
+                safeError: summarizeErrorForLog(error),
+            });
+        }
         this.closeEPG();
         await this.deps.switchToChannel(channelId, snapshot ? { guideSelectionSnapshot: snapshot } : undefined);
     }

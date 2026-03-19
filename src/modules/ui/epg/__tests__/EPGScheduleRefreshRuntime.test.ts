@@ -335,6 +335,66 @@ describe('EPGScheduleRefreshRuntime', () => {
         expect(resolveChannelItemsForSchedule).toHaveBeenCalledWith('c1', { signal: null });
     });
 
+    it('retains the focused-row seed when a mismatched snapshot request does not use it', async () => {
+        const channels = [makeChannel('c1', 1), makeChannel('c2', 2)];
+        const resolveChannelItemsForSchedule = jest.fn(async (channelId: string) => makeResolvedItems(channelId));
+        const { runtime } = createRuntime({
+            channelManager: {
+                getAllChannels: jest.fn(() => channels),
+                getChannel: jest.fn((channelId: string) => (
+                    channels.find((channel) => channel.id === channelId) ?? null
+                )),
+                resolveChannelItemsForSchedule,
+            },
+            epg: {
+                getState: jest.fn().mockReturnValue({
+                    isVisible: true,
+                    focusedCell: {
+                        kind: 'program',
+                        channelIndex: 0,
+                        programIndex: 0,
+                        program: null,
+                        focusTimeMs: 0,
+                        cellElement: null,
+                    },
+                    scrollPosition: { channelOffset: 0, timeOffset: 0 },
+                    viewWindow: {
+                        startTime: 0,
+                        endTime: 60_000,
+                        startChannelIndex: 0,
+                        endChannelIndex: 1,
+                    },
+                    currentTime: 0,
+                }),
+            },
+        });
+
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 1, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        const mismatchSnapshot = await runtime.buildGuideSelectionSnapshot({
+            channelId: 'c2',
+            ratingKey: 'c2-0',
+            scheduledStartTime: 0,
+            scheduledEndTime: 60_000,
+            selectedAt: 1_000,
+        });
+        const focusedSnapshot = await runtime.buildGuideSelectionSnapshot({
+            channelId: 'c1',
+            ratingKey: 'c1-0',
+            scheduledStartTime: 0,
+            scheduledEndTime: 60_000,
+            selectedAt: 1_000,
+        });
+
+        expect(mismatchSnapshot?.source).toBe('on-demand-materialized');
+        expect(focusedSnapshot?.source).toBe('resolved-immediate');
+        expect(resolveChannelItemsForSchedule).toHaveBeenCalledTimes(1);
+        expect(resolveChannelItemsForSchedule).toHaveBeenCalledWith('c2', { signal: null });
+    });
+
     it('does not retain resolved-immediate seeds for non-focused immediate rows', async () => {
         const channels = [makeChannel('c1', 1), makeChannel('c2', 2), makeChannel('c3', 3)];
         const resolveChannelItemsForSchedule = jest.fn(async (channelId: string) => makeResolvedItems(channelId));

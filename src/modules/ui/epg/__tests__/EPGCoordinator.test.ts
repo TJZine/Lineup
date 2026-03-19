@@ -1865,6 +1865,52 @@ describe('EPGCoordinator', () => {
         );
     });
 
+    it('falls back to direct tune when guide snapshot materialization fails', async () => {
+        const switchToChannel = jest.fn().mockResolvedValue(undefined);
+        const resolveChannelItemsForSchedule = jest.fn(async () => {
+            throw new Error('snapshot materialization failed');
+        });
+        const { deps, epg } = makeDeps({
+            switchToChannel,
+            getChannelManager: () => ({
+                ...(makeDeps().deps.getChannelManager() as IChannelManager),
+                resolveChannelItemsForSchedule,
+            } as IChannelManager),
+        });
+        (epg.getState as jest.Mock).mockReturnValue({
+            isVisible: true,
+            focusedCell: null,
+            scrollPosition: { channelOffset: 0, timeOffset: 0 },
+            viewWindow: {
+                startTime: 0,
+                endTime: 10_000,
+                startChannelIndex: 0,
+                endChannelIndex: 0,
+            },
+            currentTime: 5_000,
+        });
+
+        const coordinator = new EPGCoordinator(deps);
+        jest.spyOn(Date, 'now').mockReturnValue(5_000);
+
+        coordinator.wireEpgEvents();
+        const handler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'channelSelected')?.[1];
+        handler?.({
+            channel: makeChannel('c0', 1),
+            program: {
+                ...baseProgram('c0', 0),
+                scheduledStartTime: 4_000,
+                scheduledEndTime: 6_000,
+            } as ScheduledProgram,
+        });
+
+        await flushPromises();
+
+        expect(resolveChannelItemsForSchedule).toHaveBeenCalledWith('c0', { signal: null });
+        expect(epg.hide).toHaveBeenCalled();
+        expect(switchToChannel).toHaveBeenCalledWith('c0', undefined);
+    });
+
     it('library filter change clears schedules, primes, and refreshes', () => {
         const epg: IEPGComponent = {
             on: jest.fn(),

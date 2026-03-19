@@ -186,7 +186,6 @@ export class EPGScheduleRefreshRuntime {
 
         const dayKey = this._getLocalDayKey(request.selectedAt);
         const seed = this._selectedRowSnapshotSeed;
-        this._selectedRowSnapshotSeed = null;
         if (
             seed &&
             seed.channelId === request.channelId &&
@@ -194,6 +193,7 @@ export class EPGScheduleRefreshRuntime {
             seed.dayKey === dayKey &&
             seed.orderedItems.some((item) => item.ratingKey === request.ratingKey)
         ) {
+            this._selectedRowSnapshotSeed = null;
             return {
                 channelId: request.channelId,
                 ratingKey: request.ratingKey,
