@@ -113,7 +113,10 @@ export function createDropdownPopover(config: DropdownPopoverConfig): {
             const element = optionElements[i];
             if (!optionId || !element) continue;
 
-            const neighbors: { up?: string; down?: string } = {};
+            const neighbors: { up?: string; down?: string; left?: string; right?: string } = {
+                left: optionId,
+                right: optionId,
+            };
             const upId = i > 0 ? optionIds[i - 1] : undefined;
             const downId = i < optionIds.length - 1 ? optionIds[i + 1] : undefined;
             if (upId) neighbors.up = upId;

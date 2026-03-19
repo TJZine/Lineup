@@ -165,6 +165,29 @@ describe('createDropdownPopover', () => {
         expect(nav.setFocus).toHaveBeenCalledWith('settings-dropdown-option-1');
     });
 
+    it('keeps left and right navigation trapped on the focused dropdown option', () => {
+        const container = document.createElement('div');
+        const anchor = document.createElement('button');
+        const nav = createNavigationStub();
+        document.body.append(container);
+        container.append(anchor);
+
+        createDropdownPopover({
+            anchor,
+            container,
+            options: makeOptions(3),
+            currentValue: '1',
+            onSelect: () => {},
+            onDismiss: () => {},
+            nav,
+            cssClass: 'settings-dropdown',
+            optionCssClass: 'settings-dropdown-option',
+        });
+
+        expect(nav.focusables.get('settings-dropdown-option-1')?.neighbors.left).toBe('settings-dropdown-option-1');
+        expect(nav.focusables.get('settings-dropdown-option-1')?.neighbors.right).toBe('settings-dropdown-option-1');
+    });
+
     it('unregisters all focusables on destroy', () => {
         const container = document.createElement('div');
         const anchor = document.createElement('button');
