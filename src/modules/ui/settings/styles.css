@@ -377,7 +377,7 @@
   background: var(--panel-surface, rgba(24, 24, 24, 0.92));
   border: var(--panel-border, 1px solid rgba(255, 255, 255, 0.10));
   border-radius: var(--panel-radius, 10px);
-  box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.55));
+  box-shadow: none;
   max-height: 320px;
   overflow-y: auto;
   animation: settings-dropdown-enter 150ms ease-out both;
