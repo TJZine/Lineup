@@ -873,11 +873,11 @@ export class EPGVirtualizer {
         }
 
         const rawShowTitle = (item.showTitle ?? '').trim();
+        const subtitleText = this.normalizeEpisodeTitleForSubtitle(item.title);
         const showTitle =
             rawShowTitle ||
-            this.extractShowTitleFromFullTitle(item.fullTitle, item.title) ||
+            this.extractShowTitleFromFullTitle(item.fullTitle, subtitleText) ||
             '';
-        const subtitleText = this.normalizeEpisodeTitleForSubtitle(item.title);
 
         if (title) {
             title.textContent = this.getProgramCellTitleText(cellData, cellData.isFocused);
@@ -909,11 +909,11 @@ export class EPGVirtualizer {
         }
 
         const rawShowTitle = (item.showTitle ?? '').trim();
+        const episodeTitle = this.normalizeEpisodeTitleForSubtitle(item.title);
         const showTitle =
             rawShowTitle ||
-            this.extractShowTitleFromFullTitle(item.fullTitle, item.title) ||
+            this.extractShowTitleFromFullTitle(item.fullTitle, episodeTitle) ||
             '';
-        const episodeTitle = this.normalizeEpisodeTitleForSubtitle(item.title);
 
         if (!isFocused) {
             return showTitle || item.title;

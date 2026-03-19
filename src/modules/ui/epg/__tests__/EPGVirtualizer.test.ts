@@ -1716,6 +1716,51 @@ describe('EPGVirtualizer', () => {
             }
         });
 
+        it('derives show title from fullTitle when episode title includes a leading episode code', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-episode-normalized-show-title';
+            const start = gridAnchorTime;
+            const end = start + 20 * 60 * 1000;
+
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                programs: [{
+                    item: {
+                        ratingKey: 'ep-normalized-show-title-1',
+                        type: 'episode',
+                        title: 'S01E09 - The Edge Of Recovery',
+                        fullTitle: 'Great Show - The Edge Of Recovery',
+                        showTitle: '',
+                        seasonNumber: 1,
+                        episodeNumber: 9,
+                        durationMs: end - start,
+                        thumb: null,
+                        year: 2026,
+                        scheduledIndex: 0,
+                    },
+                    scheduledStartTime: start,
+                    scheduledEndTime: end,
+                    elapsedMs: 0,
+                    remainingMs: end - start,
+                    scheduleIndex: 0,
+                    loopNumber: 0,
+                    streamDescriptor: null,
+                    isCurrent: false,
+                }],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+            const cell = container.querySelector(`[data-key=\"${channelId}-${start}\"]`) as HTMLElement;
+            const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+            const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
+
+            expect(title.textContent).toBe('Great Show');
+            expect(subtitle.textContent).toBe('The Edge Of Recovery');
+        });
+
         it('suppresses focused ticker when prefers-reduced-motion is enabled', () => {
             jest.useFakeTimers();
             const realMatchMedia = globalThis.matchMedia;
