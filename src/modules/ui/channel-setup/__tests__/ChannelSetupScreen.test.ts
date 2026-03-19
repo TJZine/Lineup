@@ -513,7 +513,7 @@ describe('ChannelSetupScreen', () => {
         expect(minItemsButtonAfter?.textContent).toBe(minItemsTextBefore);
     });
 
-    it('cycles adjustable values on click with wrap behavior', async () => {
+    it('updates adjustable values through dropdown selection', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -534,15 +534,19 @@ describe('ChannelSetupScreen', () => {
         expect(minItemsButton?.textContent ?? '').toContain(String(DEFAULT_MIN_ITEMS_PER_CHANNEL));
 
         clickButton(container, '#setup-min-items');
+        clickButton(container, '#setup-dropdown-option-2');
         expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('10');
 
         clickButton(container, '#setup-min-items');
+        clickButton(container, '#setup-dropdown-option-3');
         expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('20');
 
         clickButton(container, '#setup-min-items');
+        clickButton(container, '#setup-dropdown-option-4');
         expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('50');
 
         clickButton(container, '#setup-min-items');
+        clickButton(container, '#setup-dropdown-option-0');
         expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('1');
     });
 

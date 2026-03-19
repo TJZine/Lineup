@@ -71,6 +71,7 @@ export class StrategyStepController {
         stateText: string;
         onClick: () => void;
         disabled?: boolean;
+        showChevron?: boolean;
     }): HTMLButtonElement {
         const button = document.createElement('button');
         button.id = options.id;
@@ -90,11 +91,23 @@ export class StrategyStepController {
         state.className = 'setup-toggle-state';
         state.textContent = options.stateText;
 
+        if (options.showChevron) {
+            const chevron = document.createElement('span');
+            chevron.className = 'setup-toggle-chevron';
+            chevron.textContent = '▾';
+            chevron.setAttribute('aria-hidden', 'true');
+            state.appendChild(chevron);
+        }
+
         button.appendChild(label);
         button.appendChild(meta);
         button.appendChild(state);
         button.addEventListener('click', options.onClick);
         return button;
+    }
+
+    private _capitalize(value: string): string {
+        return value.charAt(0).toUpperCase() + value.slice(1);
     }
 
     render(ctx: StepRenderContext, deps: StrategyStepDeps): void {
@@ -113,29 +126,49 @@ export class StrategyStepController {
 
         const buildModeButton = this._createToggleButton({
             id: STEP2_CONTROL_IDS.buildMode,
-            className: 'setup-toggle',
+            className: 'setup-toggle setup-toggle--adjustable',
             label: 'Build mode',
             meta: 'Replace, append, or merge with your lineup.',
-            stateText: state.buildMode.charAt(0).toUpperCase() + state.buildMode.slice(1),
+            stateText: this._capitalize(state.buildMode),
+            showChevron: true,
             onClick: () => {
-                deps.applySettingChange(STEP2_CONTROL_IDS.buildMode, (draft) => {
-                    const modes: Array<typeof draft.buildMode> = ['replace', 'append', 'merge'];
-                    const currentIndex = modes.indexOf(draft.buildMode);
-                    const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % modes.length : 0;
-                    draft.buildMode = modes[nextIndex] ?? 'replace';
+                deps.openDropdown({
+                    anchorId: STEP2_CONTROL_IDS.buildMode,
+                    options: [
+                        { label: 'Replace', value: 'replace' },
+                        { label: 'Append', value: 'append' },
+                        { label: 'Merge', value: 'merge' },
+                    ],
+                    currentValue: state.buildMode,
+                    onSelect: (value) => {
+                        deps.applySettingChange(STEP2_CONTROL_IDS.buildMode, (draft) => {
+                            draft.buildMode = value as typeof draft.buildMode;
+                        });
+                    },
                 });
             },
         });
 
         const combineButton = this._createToggleButton({
             id: STEP2_CONTROL_IDS.combineMode,
-            className: 'setup-toggle',
+            className: 'setup-toggle setup-toggle--adjustable',
             label: 'Actor/Studio combine',
             meta: 'Separate movies + TV or combine together.',
             stateText: state.actorStudioCombineMode === 'combined' ? 'Combined' : 'Separate',
+            showChevron: true,
             onClick: () => {
-                deps.applySettingChange(STEP2_CONTROL_IDS.combineMode, (draft) => {
-                    draft.actorStudioCombineMode = draft.actorStudioCombineMode === 'combined' ? 'separate' : 'combined';
+                deps.openDropdown({
+                    anchorId: STEP2_CONTROL_IDS.combineMode,
+                    options: [
+                        { label: 'Separate', value: 'separate' },
+                        { label: 'Combined', value: 'combined' },
+                    ],
+                    currentValue: state.actorStudioCombineMode,
+                    onSelect: (value) => {
+                        deps.applySettingChange(STEP2_CONTROL_IDS.combineMode, (draft) => {
+                            draft.actorStudioCombineMode = value as typeof draft.actorStudioCombineMode;
+                        });
+                    },
                 });
             },
         });
@@ -212,17 +245,20 @@ export class StrategyStepController {
             label: 'Alternate Lineup Copies',
             meta: 'How many extra copies per generated channel.',
             stateText: String(state.channelExpansion.alternateLineupCopies),
+            showChevron: true,
             onClick: () => {
                 if (!state.channelExpansion.addAlternateLineups) {
                     return;
                 }
-                deps.applySettingChange(STEP2_CONTROL_IDS.alternateLineupCopies, (draft) => {
-                    draft.channelExpansion.alternateLineupCopies = deps.stepPreset(
-                        [1, 2, 3],
-                        draft.channelExpansion.alternateLineupCopies,
-                        'right',
-                        'wrap'
-                    );
+                deps.openDropdown({
+                    anchorId: STEP2_CONTROL_IDS.alternateLineupCopies,
+                    options: [1, 2, 3].map((value) => ({ label: String(value), value: String(value) })),
+                    currentValue: String(state.channelExpansion.alternateLineupCopies),
+                    onSelect: (value) => {
+                        deps.applySettingChange(STEP2_CONTROL_IDS.alternateLineupCopies, (draft) => {
+                            draft.channelExpansion.alternateLineupCopies = Number(value);
+                        });
+                    },
                 });
             },
         });
@@ -237,15 +273,24 @@ export class StrategyStepController {
 
         const baseModeButton = this._createToggleButton({
             id: STEP2_CONTROL_IDS.seriesBaseMode,
-            className: `setup-toggle${state.seriesOrdering.basePlaybackMode !== 'shuffle' ? ' selected' : ''}`,
+            className: `setup-toggle setup-toggle--adjustable${state.seriesOrdering.basePlaybackMode !== 'shuffle' ? ' selected' : ''}`,
             label: 'Base Series Mode',
             meta: 'Default playback mode for TV-derived channels.',
             stateText: baseModeStateText,
+            showChevron: true,
             onClick: () => {
-                deps.applySettingChange(STEP2_CONTROL_IDS.seriesBaseMode, (draft) => {
-                    const index = baseModeOptions.indexOf(draft.seriesOrdering.basePlaybackMode);
-                    const nextIndex = index >= 0 ? (index + 1) % baseModeOptions.length : 0;
-                    draft.seriesOrdering.basePlaybackMode = baseModeOptions[nextIndex] ?? 'shuffle';
+                deps.openDropdown({
+                    anchorId: STEP2_CONTROL_IDS.seriesBaseMode,
+                    options: baseModeOptions.map((value) => ({
+                        label: this._capitalize(value),
+                        value,
+                    })),
+                    currentValue: state.seriesOrdering.basePlaybackMode,
+                    onSelect: (value) => {
+                        deps.applySettingChange(STEP2_CONTROL_IDS.seriesBaseMode, (draft) => {
+                            draft.seriesOrdering.basePlaybackMode = value as typeof draft.seriesOrdering.basePlaybackMode;
+                        });
+                    },
                 });
             },
         });
@@ -257,17 +302,20 @@ export class StrategyStepController {
             label: 'Base Block Size',
             meta: 'Episodes per show before switching in block mode.',
             stateText: String(state.seriesOrdering.baseBlockSize),
+            showChevron: true,
             onClick: () => {
                 if (state.seriesOrdering.basePlaybackMode !== 'block') {
                     return;
                 }
-                deps.applySettingChange(STEP2_CONTROL_IDS.seriesBaseBlockSize, (draft) => {
-                    draft.seriesOrdering.baseBlockSize = deps.stepPreset(
-                        blockSizeOptions,
-                        draft.seriesOrdering.baseBlockSize,
-                        'right',
-                        'wrap'
-                    );
+                deps.openDropdown({
+                    anchorId: STEP2_CONTROL_IDS.seriesBaseBlockSize,
+                    options: blockSizeOptions.map((value) => ({ label: String(value), value: String(value) })),
+                    currentValue: String(state.seriesOrdering.baseBlockSize),
+                    onSelect: (value) => {
+                        deps.applySettingChange(STEP2_CONTROL_IDS.seriesBaseBlockSize, (draft) => {
+                            draft.seriesOrdering.baseBlockSize = Number(value);
+                        });
+                    },
                 });
             },
         });
@@ -280,15 +328,24 @@ export class StrategyStepController {
 
         const variantTypeButton = this._createToggleButton({
             id: STEP2_CONTROL_IDS.seriesVariantType,
-            className: `setup-toggle${state.channelExpansion.variantType !== 'none' ? ' selected' : ''}`,
+            className: `setup-toggle setup-toggle--adjustable${state.channelExpansion.variantType !== 'none' ? ' selected' : ''}`,
             label: 'Variant Type',
             meta: 'Optional extra series channel mode.',
             stateText: variantTypeStateText,
+            showChevron: true,
             onClick: () => {
-                deps.applySettingChange(STEP2_CONTROL_IDS.seriesVariantType, (draft) => {
-                    const index = variantTypeOptions.indexOf(draft.channelExpansion.variantType);
-                    const nextIndex = index >= 0 ? (index + 1) % variantTypeOptions.length : 0;
-                    draft.channelExpansion.variantType = variantTypeOptions[nextIndex] ?? 'none';
+                deps.openDropdown({
+                    anchorId: STEP2_CONTROL_IDS.seriesVariantType,
+                    options: variantTypeOptions.map((value) => ({
+                        label: this._capitalize(value),
+                        value,
+                    })),
+                    currentValue: state.channelExpansion.variantType,
+                    onSelect: (value) => {
+                        deps.applySettingChange(STEP2_CONTROL_IDS.seriesVariantType, (draft) => {
+                            draft.channelExpansion.variantType = value as typeof draft.channelExpansion.variantType;
+                        });
+                    },
                 });
             },
         });
@@ -300,17 +357,20 @@ export class StrategyStepController {
             label: 'Variant Block Size',
             meta: 'Block size for generated block variants.',
             stateText: String(state.channelExpansion.variantBlockSize),
+            showChevron: true,
             onClick: () => {
                 if (state.channelExpansion.variantType !== 'block') {
                     return;
                 }
-                deps.applySettingChange(STEP2_CONTROL_IDS.seriesVariantBlockSize, (draft) => {
-                    draft.channelExpansion.variantBlockSize = deps.stepPreset(
-                        blockSizeOptions,
-                        draft.channelExpansion.variantBlockSize,
-                        'right',
-                        'wrap'
-                    );
+                deps.openDropdown({
+                    anchorId: STEP2_CONTROL_IDS.seriesVariantBlockSize,
+                    options: blockSizeOptions.map((value) => ({ label: String(value), value: String(value) })),
+                    currentValue: String(state.channelExpansion.variantBlockSize),
+                    onSelect: (value) => {
+                        deps.applySettingChange(STEP2_CONTROL_IDS.seriesVariantBlockSize, (draft) => {
+                            draft.channelExpansion.variantBlockSize = Number(value);
+                        });
+                    },
                 });
             },
         });
@@ -321,14 +381,17 @@ export class StrategyStepController {
             label: 'Max channels',
             meta: `Default ${DEFAULT_CHANNEL_SETUP_MAX}. Limit up to ${MAX_CHANNELS}.`,
             stateText: String(state.maxChannels),
+            showChevron: true,
             onClick: () => {
-                deps.applySettingChange(STEP2_CONTROL_IDS.maxChannels, (draft) => {
-                    draft.maxChannels = deps.stepPreset(
-                        deps.channelLimitOptions,
-                        draft.maxChannels,
-                        'right',
-                        'wrap'
-                    );
+                deps.openDropdown({
+                    anchorId: STEP2_CONTROL_IDS.maxChannels,
+                    options: deps.channelLimitOptions.map((value) => ({ label: String(value), value: String(value) })),
+                    currentValue: String(state.maxChannels),
+                    onSelect: (value) => {
+                        deps.applySettingChange(STEP2_CONTROL_IDS.maxChannels, (draft) => {
+                            draft.maxChannels = Number(value);
+                        });
+                    },
                 });
             },
         });
@@ -339,14 +402,17 @@ export class StrategyStepController {
             label: 'Min items',
             meta: 'Minimum content items per channel.',
             stateText: String(state.minItems),
+            showChevron: true,
             onClick: () => {
-                deps.applySettingChange(STEP2_CONTROL_IDS.minItems, (draft) => {
-                    draft.minItems = deps.stepPreset(
-                        deps.minItemsOptions,
-                        draft.minItems,
-                        'right',
-                        'wrap'
-                    );
+                deps.openDropdown({
+                    anchorId: STEP2_CONTROL_IDS.minItems,
+                    options: deps.minItemsOptions.map((value) => ({ label: String(value), value: String(value) })),
+                    currentValue: String(state.minItems),
+                    onSelect: (value) => {
+                        deps.applySettingChange(STEP2_CONTROL_IDS.minItems, (draft) => {
+                            draft.minItems = Number(value);
+                        });
+                    },
                 });
             },
         });
