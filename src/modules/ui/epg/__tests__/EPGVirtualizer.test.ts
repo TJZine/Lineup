@@ -1394,6 +1394,51 @@ describe('EPGVirtualizer', () => {
             expect(title.textContent).toBe('Great Show - S01E09 - The Edge Of Recovery');
         });
 
+        it('uses full non-episode title text in the focused title node when fullTitle differs', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-focused-movie-fulltitle';
+            const start = gridAnchorTime;
+            const end = start + (20 * 60000); // tiny tier at 4px/min => 80px
+            const fullTitle = 'The Square (2017)';
+
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60000),
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'movie-focused-1',
+                            type: 'movie',
+                            title: 'The Square',
+                            fullTitle,
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2017,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+            virtualizer.setFocusedCell(channelId, start);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_TINY)).toBe(true);
+
+            const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+            expect(title.textContent).toBe(fullTitle);
+        });
+
         it('starts one-shot ticker only after 900ms for focused truncated titles', () => {
             jest.useFakeTimers();
             try {

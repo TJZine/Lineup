@@ -899,6 +899,12 @@ export class EPGVirtualizer {
 
         const item = cellData.program.item;
         if (item.type !== 'episode') {
+            if (isFocused) {
+                const fullTitle = item.fullTitle.trim();
+                if (fullTitle.length > 0) {
+                    return fullTitle;
+                }
+            }
             return item.title;
         }
 
