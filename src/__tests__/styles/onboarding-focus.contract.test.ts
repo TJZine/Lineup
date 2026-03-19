@@ -41,7 +41,32 @@ describe('onboarding focus style contract', () => {
         if (reducedMotionStart < 0) {
             throw new Error('Expected reduced-motion block in channel setup styles');
         }
-        const reducedMotionBlock = css.slice(reducedMotionStart);
+
+        const blockOpen = css.indexOf('{', reducedMotionStart);
+        if (blockOpen < 0) {
+            throw new Error('Expected opening brace for reduced-motion block');
+        }
+
+        let depth = 0;
+        let blockEnd = -1;
+        for (let index = blockOpen; index < css.length; index += 1) {
+            const char = css[index];
+            if (char === '{') {
+                depth += 1;
+            } else if (char === '}') {
+                depth -= 1;
+                if (depth === 0) {
+                    blockEnd = index;
+                    break;
+                }
+            }
+        }
+
+        if (blockEnd < 0) {
+            throw new Error('Expected closing brace for reduced-motion block');
+        }
+
+        const reducedMotionBlock = css.slice(reducedMotionStart, blockEnd + 1);
 
         expect(reducedMotionBlock).toMatch(/\.setup-dropdown\s*\{[\s\S]*animation:\s*none\s*;/s);
     });
