@@ -45,4 +45,11 @@ describe('onboarding focus style contract', () => {
 
         expect(reducedMotionBlock).toMatch(/\.setup-dropdown\s*\{[\s\S]*animation:\s*none\s*;/s);
     });
+
+    it('anchors setup dropdowns to a positioned setup body host', () => {
+        const css = read('src/modules/ui/channel-setup/styles.css');
+
+        expect(css).toMatch(/\.setup-body\s*\{[\s\S]*position:\s*relative\s*;/s);
+        expect(css).toMatch(/\.setup-dropdown\s*\{[\s\S]*position:\s*absolute\s*;/s);
+    });
 });

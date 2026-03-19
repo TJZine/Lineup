@@ -332,6 +332,10 @@
     min-height: 0;
 }
 
+.setup-body {
+    position: relative;
+}
+
 #channel-setup-container .setup-panel {
     overflow-y: auto;
     overflow-x: hidden;
