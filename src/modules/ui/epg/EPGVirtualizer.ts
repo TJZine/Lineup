@@ -838,12 +838,6 @@ export class EPGVirtualizer {
         children.progressFill.style.width = `${progress.toFixed(2)}%`;
     }
 
-    private shouldUseExpandedFocusedTitle(cellData: CellRenderData): boolean {
-        return cellData.kind === 'program'
-            && cellData.isFocused
-            && this.getCellWidthTier(cellData.width) === 'tiny';
-    }
-
     private updateEpisodePresentation(children: CellChildren, cellData: CellRenderData): void {
         const { meta, episode, subtitle, title } = children;
         if (!meta || !episode) return;
@@ -886,27 +880,26 @@ export class EPGVirtualizer {
             '';
 
         if (title) {
-            title.textContent = this.getProgramCellTitleText(cellData);
+            title.textContent = this.getProgramCellTitleText(cellData, cellData.isFocused);
         }
 
         if (subtitle) {
             const shouldShowSubtitle =
-                !this.shouldUseExpandedFocusedTitle(cellData) &&
+                !cellData.isFocused &&
                 (Boolean(showTitle) || (subtitleText.length > 0 && subtitleText !== item.title));
             subtitle.textContent = shouldShowSubtitle ? subtitleText : '';
             subtitle.style.display = shouldShowSubtitle ? 'block' : 'none';
         }
     }
 
-    private getProgramCellTitleText(cellData: CellRenderData): string {
+    private getProgramCellTitleText(cellData: CellRenderData, isFocused: boolean): string {
         if (cellData.kind !== 'program') {
             return cellData.placeholder.label;
         }
 
         const item = cellData.program.item;
-        const useExpandedFocusedTitle = this.shouldUseExpandedFocusedTitle(cellData);
         if (item.type !== 'episode') {
-            if (useExpandedFocusedTitle) {
+            if (isFocused) {
                 const fullTitle = item.fullTitle.trim();
                 if (fullTitle.length > 0) {
                     return fullTitle;
@@ -922,7 +915,7 @@ export class EPGVirtualizer {
             this.extractShowTitleFromFullTitle(item.fullTitle, episodeTitle) ||
             '';
 
-        if (!useExpandedFocusedTitle) {
+        if (!isFocused) {
             return showTitle || item.title;
         }
 
@@ -1052,7 +1045,7 @@ export class EPGVirtualizer {
         // Set content
         if (cellData.kind === 'program') {
             if (children.title) {
-                children.title.textContent = this.getProgramCellTitleText(cellData);
+                children.title.textContent = this.getProgramCellTitleText(cellData, cellData.isFocused);
             }
             this.updateCellTimeLabel(
                 children.time,
@@ -1282,7 +1275,7 @@ export class EPGVirtualizer {
         const tier = this.getCellWidthTier(cellData.width);
         if (cellData.kind === 'program') {
             if (children.title) {
-                children.title.textContent = this.getProgramCellTitleText(cellData);
+                children.title.textContent = this.getProgramCellTitleText(cellData, cellData.isFocused);
             }
             this.updateCellTimeLabel(
                 children.time,
