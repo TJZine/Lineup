@@ -576,6 +576,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .setup-dropdown {
+        animation: none;
+    }
+
     .setup-stagger-in {
         animation: none;
     }

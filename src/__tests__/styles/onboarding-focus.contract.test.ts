@@ -31,4 +31,18 @@ describe('onboarding focus style contract', () => {
         );
         expect(css).toMatch(/@media\s*\(forced-colors:\s*active\)/);
     });
+
+    it('disables setup dropdown animation when reduced motion is requested', () => {
+        const css = read('src/modules/ui/channel-setup/styles.css');
+
+        expect(css).toMatch(/\.setup-dropdown\s*\{[\s\S]*animation:\s*setup-dropdown-enter 150ms ease-out both\s*;/s);
+
+        const reducedMotionStart = css.lastIndexOf('@media (prefers-reduced-motion: reduce)');
+        if (reducedMotionStart < 0) {
+            throw new Error('Expected reduced-motion block in channel setup styles');
+        }
+        const reducedMotionBlock = css.slice(reducedMotionStart);
+
+        expect(reducedMotionBlock).toMatch(/\.setup-dropdown\s*\{[\s\S]*animation:\s*none\s*;/s);
+    });
 });
