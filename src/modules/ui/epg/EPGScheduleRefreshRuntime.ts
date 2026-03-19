@@ -17,6 +17,7 @@ import type { ModuleRuntimeStatus } from '../../../core/module-status';
 import { EPGBackgroundWarmQueue } from './EPGBackgroundWarmQueue';
 import { EPGScheduleCacheStore } from './EPGScheduleCacheStore';
 import { toEpgScheduleWindow } from './adapters';
+import type { GuideSelectionSnapshot } from '../../../core/channel-tuning';
 
 const EPG_BACKGROUND_DEBUG_LOG_EVERY_N = 20;
 const QA_003B_ISSUE_ID = 'QA-003b';
@@ -42,6 +43,28 @@ type BackgroundDebugState = {
     cacheMisses: number;
     firstVisibleScheduleReadyMs: number | null;
 };
+
+type AppliedScheduleSource =
+    | 'live-scheduler'
+    | 'schedule-cache'
+    | 'schedule-cache-stale'
+    | 'resolved-immediate'
+    | 'resolved-background';
+
+type SelectedRowSnapshotSeed = {
+    source: AppliedScheduleSource;
+    dayKey: number;
+    referenceTimeMs: number;
+    orderedItems: ResolvedChannelContent['items'] | null;
+};
+
+export interface GuideSelectionSnapshotRequest {
+    channelId: string;
+    ratingKey: string;
+    scheduledStartTime: number;
+    scheduledEndTime: number;
+    selectedAt: number;
+}
 
 export interface EPGScheduleRefreshRuntimeDeps {
     getEpg: () => IEPGComponent | null;
@@ -81,6 +104,7 @@ export class EPGScheduleRefreshRuntime {
     private readonly _cacheStore = new EPGScheduleCacheStore();
     private readonly _warmQueue: EPGBackgroundWarmQueue;
     private _backgroundDebugState: BackgroundDebugState | null = null;
+    private _selectedRowSnapshotSeedByChannel = new Map<string, SelectedRowSnapshotSeed>();
 
     constructor(private readonly _deps: EPGScheduleRefreshRuntimeDeps) {
         this._warmQueue = new EPGBackgroundWarmQueue({
@@ -140,10 +164,65 @@ export class EPGScheduleRefreshRuntime {
     clearScheduleCaches(): void {
         this._warmQueue.cancel('clear-schedule-caches');
         this._cacheStore.clearScheduleCaches();
+        this._selectedRowSnapshotSeedByChannel.clear();
     }
 
     clearLoadedScheduleMarkers(): void {
         this._cacheStore.clearLoadedSchedules();
+    }
+
+    clearSelectedChannelScheduleSnapshot(): void {
+        this._selectedRowSnapshotSeedByChannel.clear();
+    }
+
+    async buildGuideSelectionSnapshot(
+        request: GuideSelectionSnapshotRequest
+    ): Promise<GuideSelectionSnapshot | null> {
+        const channelManager = this._deps.getChannelManager();
+        if (!channelManager) {
+            return null;
+        }
+
+        const dayKey = this._getLocalDayKey(request.selectedAt);
+        const seed = this._selectedRowSnapshotSeedByChannel.get(request.channelId);
+        if (
+            seed &&
+            seed.source === 'resolved-immediate' &&
+            seed.dayKey === dayKey &&
+            seed.orderedItems &&
+            seed.orderedItems.length > 0 &&
+            seed.orderedItems.some((item) => item.ratingKey === request.ratingKey)
+        ) {
+            return {
+                channelId: request.channelId,
+                ratingKey: request.ratingKey,
+                scheduledStartTime: request.scheduledStartTime,
+                scheduledEndTime: request.scheduledEndTime,
+                source: 'resolved-immediate',
+                referenceTimeMs: seed.referenceTimeMs,
+                dayKey: seed.dayKey,
+                orderedItems: this._cloneResolvedItems(seed.orderedItems),
+            };
+        }
+
+        const resolveItemsForSchedule = (channelManager as Partial<IChannelManager>).resolveChannelItemsForSchedule;
+        const orderedItems = typeof resolveItemsForSchedule === 'function'
+            ? await resolveItemsForSchedule.call(channelManager, request.channelId, { signal: null })
+            : (await channelManager.resolveChannelContent(request.channelId, { signal: null })).items;
+        if (!orderedItems.some((item) => item.ratingKey === request.ratingKey)) {
+            return null;
+        }
+
+        return {
+            channelId: request.channelId,
+            ratingKey: request.ratingKey,
+            scheduledStartTime: request.scheduledStartTime,
+            scheduledEndTime: request.scheduledEndTime,
+            source: 'on-demand-materialized',
+            referenceTimeMs: request.selectedAt,
+            dayKey,
+            orderedItems: this._cloneResolvedItems(orderedItems),
+        };
     }
 
     cancelBackgroundWarmQueue(reason: string): void {
@@ -275,12 +354,8 @@ export class EPGScheduleRefreshRuntime {
             options?: {
                 updateCache?: boolean;
                 phase?: 'immediate' | 'background';
-                source?:
-                | 'live-scheduler'
-                | 'schedule-cache'
-                | 'schedule-cache-stale'
-                | 'resolved-immediate'
-                | 'resolved-background';
+                source?: AppliedScheduleSource;
+                materializationSeed?: ResolvedChannelContent['items'];
             }
         ): void => {
             const phase = options?.phase ?? 'immediate';
@@ -293,6 +368,14 @@ export class EPGScheduleRefreshRuntime {
             }
 
             if (shouldApplyToUi) {
+                this._selectedRowSnapshotSeedByChannel.set(channelId, {
+                    source: options?.source ?? 'resolved-immediate',
+                    dayKey: this._getLocalDayKey(startTime),
+                    referenceTimeMs: startTime,
+                    orderedItems: options?.materializationSeed
+                        ? this._cloneResolvedItems(options.materializationSeed)
+                        : null,
+                });
                 if (firstVisibleScheduleReadyMs === null && visibleRangeIds.has(channelId)) {
                     firstVisibleScheduleReadyMs = Date.now() - refreshStartedAt;
                 }
@@ -457,6 +540,7 @@ export class EPGScheduleRefreshRuntime {
                 applySchedule(channel.id, { startTime, endTime, programs }, {
                     phase,
                     source: phase === 'background' ? 'resolved-background' : 'resolved-immediate',
+                    ...(phase === 'background' ? {} : { materializationSeed: items }),
                 });
             } catch (error) {
                 if (isAbortLikeError(error, controller.signal)) {
@@ -540,6 +624,15 @@ export class EPGScheduleRefreshRuntime {
 
     private _getScheduleRangeKey(startTime: number, endTime: number): string {
         return `${startTime}-${endTime}`;
+    }
+
+    private _cloneResolvedItems(items: ResolvedChannelContent['items']): ResolvedChannelContent['items'] {
+        return items.map((item) => ({ ...item }));
+    }
+
+    private _getLocalDayKey(timeMs: number): number {
+        const date = new Date(timeMs);
+        return (date.getFullYear() * 10000) + ((date.getMonth() + 1) * 100) + date.getDate();
     }
 
     private _pruneInFlightSchedules(

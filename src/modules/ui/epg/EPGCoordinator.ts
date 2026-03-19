@@ -27,6 +27,7 @@ import { buildLibraries, countLibraryTypeVotes } from './epgLibraryUtils';
 import { EPGVisibleRangeRefreshQueue } from './EPGVisibleRangeRefreshQueue';
 import { EPGScheduleRefreshRuntime } from './EPGScheduleRefreshRuntime';
 import { toEpgChannels, toEpgScheduleWindow } from './adapters';
+import type { GuideSelectionSnapshot } from '../../../core/channel-tuning';
 
 export type EpgUiStatus = ModuleRuntimeStatus | undefined;
 
@@ -51,7 +52,10 @@ export interface EPGCoordinatorDeps {
     getPreserveFocusOnOpen: () => boolean;
 
     setLastChannelChangeSourceToGuide: () => void;
-    switchToChannel: (channelId: string) => Promise<void>;
+    switchToChannel: (
+        channelId: string,
+        options?: { guideSelectionSnapshot?: GuideSelectionSnapshot }
+    ) => Promise<void>;
     reportEpgInitWarning: (error: unknown) => void;
     epgPreferencesStore?: EpgPreferencesStore;
 }
@@ -140,6 +144,10 @@ export class EPGCoordinator {
         this._scheduleRefreshRuntime.clearScheduleCaches();
     }
 
+    clearSelectedChannelScheduleSnapshot(): void {
+        this._scheduleRefreshRuntime.clearSelectedChannelScheduleSnapshot();
+    }
+
     private _cancelScheduledRefreshWork(reason: string): void {
         this._visibleRangeRefreshQueue.cancelPendingRefresh();
         this._scheduleRefreshRuntime.abortAllInFlightSchedules(reason);
@@ -172,6 +180,7 @@ export class EPGCoordinator {
         if (shouldInvalidateSchedules) {
             this._cancelScheduledRefreshWork('guide-settings');
             this.clearScheduleCaches();
+            this.clearSelectedChannelScheduleSnapshot();
         }
 
         const epg = this.deps.getEpg();
@@ -568,8 +577,7 @@ export class EPGCoordinator {
                 selectedAt: now,
             });
             this.deps.setLastChannelChangeSourceToGuide();
-            this.closeEPG();
-            this.deps.switchToChannel(payload.channel.id).catch((error: unknown) => {
+            void this._switchToGuideSelectedChannel(payload.channel.id, payload.program, now).catch((error: unknown) => {
                 if (isAbortLikeError(error)) return;
                 console.error('[EPG] switchToChannel failed:', summarizeErrorForLog(error));
             });
@@ -580,6 +588,7 @@ export class EPGCoordinator {
             this._epgPreferencesStore.writeSelectedLibraryId(payload.libraryId ?? null);
 
             this._cancelScheduledRefreshWork('library-filter');
+            this.clearSelectedChannelScheduleSnapshot();
             this._scheduleRefreshRuntime.clearLoadedScheduleMarkers();
 
             epg.clearSchedules();
@@ -668,5 +677,21 @@ export class EPGCoordinator {
 
     private _isDebugEnabled(): boolean {
         return isEpgDebugLoggingEnabled();
+    }
+
+    private async _switchToGuideSelectedChannel(
+        channelId: string,
+        program: EpgScheduledProgram,
+        selectedAt: number
+    ): Promise<void> {
+        const snapshot = await this._scheduleRefreshRuntime.buildGuideSelectionSnapshot({
+            channelId,
+            ratingKey: program.item.ratingKey,
+            scheduledStartTime: program.scheduledStartTime,
+            scheduledEndTime: program.scheduledEndTime,
+            selectedAt,
+        });
+        this.closeEPG();
+        await this.deps.switchToChannel(channelId, snapshot ? { guideSelectionSnapshot: snapshot } : undefined);
     }
 }

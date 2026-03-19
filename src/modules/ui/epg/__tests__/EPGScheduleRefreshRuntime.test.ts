@@ -106,6 +106,7 @@ const createRuntime = (
 
     const channelManager: IChannelManager = {
         getAllChannels: jest.fn(() => [channel]),
+        getChannel: jest.fn((channelId: string) => (channelId === channel.id ? channel : null)),
         getCurrentChannel: jest.fn(() => null),
         resolveChannelContent: jest.fn(async (channelId: string) => ({
             ...createResolvedContent(channelId),
@@ -281,5 +282,38 @@ describe('EPGScheduleRefreshRuntime', () => {
         );
 
         expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not retain background preload rows as selected-row snapshot seeds', async () => {
+        const channels = Array.from({ length: 20 }, (_, index) => makeChannel(`c${index + 1}`, index + 1));
+        const resolveChannelContent = jest.fn(async (channelId: string) => createResolvedContent(channelId));
+        const resolveChannelItemsForSchedule = jest.fn(async (channelId: string) => makeResolvedItems(channelId));
+        const { runtime } = createRuntime({
+            channelManager: {
+                getAllChannels: jest.fn(() => channels),
+                getChannel: jest.fn((channelId: string) => (
+                    channels.find((channel) => channel.id === channelId) ?? null
+                )),
+                resolveChannelContent,
+                resolveChannelItemsForSchedule,
+            },
+            getScheduleLoadConcurrency: () => 1,
+        });
+
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        const snapshot = await runtime.buildGuideSelectionSnapshot({
+            channelId: 'c20',
+            ratingKey: 'c20-0',
+            scheduledStartTime: 0,
+            scheduledEndTime: 60_000,
+            selectedAt: 1_000,
+        });
+
+        expect(snapshot?.source).toBe('on-demand-materialized');
+        expect(resolveChannelItemsForSchedule).toHaveBeenCalledWith('c20', { signal: null });
     });
 });
