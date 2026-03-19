@@ -100,6 +100,12 @@ export interface StrategyStepDeps {
         focusId: string,
         mutate: (state: StrategyStepMutableState) => void
     ) => void;
+    openDropdown: (config: {
+        anchorId: string;
+        options: Array<{ label: string; value: string }>;
+        currentValue: string;
+        onSelect: (value: string) => void;
+    }) => void;
     onBack: () => void;
     onNext: () => void;
     registerStep2Focusables: (

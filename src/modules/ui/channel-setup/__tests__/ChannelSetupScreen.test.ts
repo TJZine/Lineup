@@ -449,13 +449,15 @@ describe('ChannelSetupScreen', () => {
 
         clickButton(container, '#setup-category-series-ordering');
 
-        // Enter block mode so base block size is enabled, then click it to remember focus.
-        clickButton(container, '#setup-series-base-mode'); // shuffle -> sequential
-        clickButton(container, '#setup-series-base-mode'); // sequential -> block
-        clickButton(container, '#setup-series-base-block-size'); // remembers this control for the category
+        clickButton(container, '#setup-series-base-mode');
+        expect(container.querySelector('#setup-dropdown')).not.toBeNull();
+        clickButton(container, '#setup-dropdown-option-2'); // Block
 
-        // Switch away from block mode; block size control becomes disabled.
-        clickButton(container, '#setup-series-base-mode'); // block -> shuffle
+        clickButton(container, '#setup-series-base-block-size'); // remember this control
+
+        clickButton(container, '#setup-series-base-mode');
+        expect(container.querySelector('#setup-dropdown')).not.toBeNull();
+        clickButton(container, '#setup-dropdown-option-0'); // Shuffle
 
         nav.setMockFocus('setup-category-series-ordering');
         const transfer = nav.emitKeyPress('right');
@@ -513,7 +515,7 @@ describe('ChannelSetupScreen', () => {
         expect(minItemsButtonAfter?.textContent).toBe(minItemsTextBefore);
     });
 
-    it('cycles adjustable values on click with wrap behavior', async () => {
+    it('updates adjustable values through dropdown selection', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -534,16 +536,307 @@ describe('ChannelSetupScreen', () => {
         expect(minItemsButton?.textContent ?? '').toContain(String(DEFAULT_MIN_ITEMS_PER_CHANNEL));
 
         clickButton(container, '#setup-min-items');
+        clickButton(container, '#setup-dropdown-option-2');
         expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('10');
 
         clickButton(container, '#setup-min-items');
+        clickButton(container, '#setup-dropdown-option-3');
         expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('20');
 
         clickButton(container, '#setup-min-items');
+        clickButton(container, '#setup-dropdown-option-4');
         expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('50');
 
         clickButton(container, '#setup-min-items');
+        clickButton(container, '#setup-dropdown-option-0');
         expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('1');
+    });
+
+    describe('Step 2 dropdown menus', () => {
+        it('opens a dropdown when a multi-value control is clicked', async () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            const orchestrator = createOrchestrator({
+                getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            });
+
+            const screen = new ChannelSetupScreen(container, orchestrator);
+            screen.show();
+            await flushPromises();
+            await enterStep2(container);
+
+            clickButton(container, '#setup-category-build-options');
+            clickButton(container, '#setup-build-mode');
+
+            expect(container.querySelector('#setup-dropdown')).not.toBeNull();
+        });
+
+        it('sets focus to the current-value option on dropdown open', async () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            const nav = createNavigationMock();
+            const orchestrator = createOrchestrator({
+                getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+                getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            });
+
+            const screen = new ChannelSetupScreen(container, orchestrator);
+            screen.show();
+            await flushPromises();
+            await enterStep2(container);
+
+            clickButton(container, '#setup-category-build-options');
+            clickButton(container, '#setup-build-mode');
+
+            expect(nav.setFocus).toHaveBeenLastCalledWith('setup-dropdown-option-0');
+        });
+
+        it('calls applySettingChange and closes dropdown on option select', async () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            const orchestrator = createOrchestrator({
+                getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            });
+
+            const screen = new ChannelSetupScreen(container, orchestrator);
+            screen.show();
+            await flushPromises();
+            await enterStep2(container);
+
+            clickButton(container, '#setup-category-build-options');
+            clickButton(container, '#setup-build-mode');
+            clickButton(container, '#setup-dropdown-option-2');
+            await flushPromises();
+
+            expect(container.querySelector('#setup-dropdown')).toBeNull();
+            expect((container.querySelector('#setup-build-mode') as HTMLButtonElement | null)?.textContent ?? '').toContain('Merge');
+        });
+
+        it('restores focus to the originating control after dismiss', async () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            const nav = createNavigationMock();
+            const orchestrator = createOrchestrator({
+                getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+                getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            });
+
+            const screen = new ChannelSetupScreen(container, orchestrator);
+            screen.show();
+            await flushPromises();
+            await enterStep2(container);
+
+            clickButton(container, '#setup-category-build-options');
+            clickButton(container, '#setup-build-mode');
+            nav.setMockFocus('setup-dropdown-option-0');
+
+            nav.emitKeyPress('back');
+
+            expect(nav.setFocus).toHaveBeenLastCalledWith('setup-build-mode');
+        });
+
+        it('dismisses dropdown on Back key press', async () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            const nav = createNavigationMock();
+            const orchestrator = createOrchestrator({
+                getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+                getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            });
+
+            const screen = new ChannelSetupScreen(container, orchestrator);
+            screen.show();
+            await flushPromises();
+            await enterStep2(container);
+
+            clickButton(container, '#setup-category-build-options');
+            clickButton(container, '#setup-build-mode');
+            nav.setMockFocus('setup-dropdown-option-0');
+
+            const event = nav.emitKeyPress('back');
+
+            expect(event.handled).toBe(true);
+            expect(container.querySelector('#setup-dropdown')).toBeNull();
+        });
+
+        it('closes the previous dropdown when a new one is opened', async () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            const orchestrator = createOrchestrator({
+                getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            });
+
+            const screen = new ChannelSetupScreen(container, orchestrator);
+            screen.show();
+            await flushPromises();
+            await enterStep2(container);
+
+            clickButton(container, '#setup-category-build-options');
+            clickButton(container, '#setup-build-mode');
+            expect(container.querySelectorAll('#setup-dropdown')).toHaveLength(1);
+
+            clickButton(container, '#setup-combine-mode');
+
+            expect(container.querySelectorAll('#setup-dropdown')).toHaveLength(1);
+            expect(container.querySelector('#setup-dropdown-option-1')?.textContent ?? '').toContain('Combined');
+        });
+
+        it('does not open a dropdown for disabled block-size controls', async () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            const orchestrator = createOrchestrator({
+                getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            });
+
+            const screen = new ChannelSetupScreen(container, orchestrator);
+            screen.show();
+            await flushPromises();
+            await enterStep2(container);
+
+            clickButton(container, '#setup-category-series-ordering');
+            const blockSizeButton = container.querySelector('#setup-series-base-block-size') as HTMLButtonElement | null;
+            expect(blockSizeButton?.disabled).toBe(true);
+
+            clickButton(container, '#setup-series-base-block-size');
+
+            expect(container.querySelector('#setup-dropdown')).toBeNull();
+        });
+
+        it('updates preview after selection without mutating on left nav', async () => {
+            jest.useFakeTimers();
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            const nav = createNavigationMock();
+            const getSetupPreview = jest.fn().mockResolvedValue(DEFAULT_PREVIEW);
+            const orchestrator = createOrchestrator({
+                getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+                getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+                getSetupPreview,
+                getSelectedServerId: jest.fn(() => 'server-1'),
+            });
+
+            const screen = new ChannelSetupScreen(container, orchestrator);
+            screen.show();
+            await flushPromises();
+            await enterStep2(container);
+
+            jest.advanceTimersByTime(450);
+            await flushPromises();
+            getSetupPreview.mockClear();
+
+            clickButton(container, '#setup-category-limits');
+            const beforeLeft = (container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '';
+            clickButton(container, '#setup-min-items');
+            clickButton(container, '#setup-dropdown-option-2');
+            await flushPromises();
+
+            jest.advanceTimersByTime(450);
+            await flushPromises();
+            expect(getSetupPreview).toHaveBeenCalled();
+
+            nav.setMockFocus('setup-min-items');
+            const leftEvent = nav.emitKeyPress('left');
+
+            expect(leftEvent.handled).toBe(true);
+            expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').not.toBe(beforeLeft);
+        });
+
+        it('keeps dropdown open while preview refresh state changes are emitted', async () => {
+            jest.useFakeTimers();
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            let resolvePreview: ((value: typeof DEFAULT_PREVIEW) => void) | undefined;
+            const previewPromise = new Promise<typeof DEFAULT_PREVIEW>((resolve) => {
+                resolvePreview = resolve;
+            });
+
+            const orchestrator = createOrchestrator({
+                getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+                getSetupPreview: jest.fn(() => previewPromise),
+                getSelectedServerId: jest.fn(() => 'server-1'),
+            });
+
+            const screen = new ChannelSetupScreen(container, orchestrator);
+            screen.show();
+            await flushPromises();
+            await enterStep2(container);
+
+            clickButton(container, '#setup-category-limits');
+            clickButton(container, '#setup-min-items');
+            expect(container.querySelector('#setup-dropdown')).not.toBeNull();
+
+            clickButton(container, '#setup-dropdown-option-2');
+            clickButton(container, '#setup-min-items');
+            expect(container.querySelector('#setup-dropdown')).not.toBeNull();
+
+            jest.advanceTimersByTime(450);
+            await flushPromises();
+
+            expect(container.querySelector('#setup-dropdown')).not.toBeNull();
+
+            resolvePreview?.(DEFAULT_PREVIEW);
+            await flushPromises();
+            jest.useRealTimers();
+        });
+
+        it('does not force a second render after dropdown selection', async () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            const orchestrator = createOrchestrator({
+                getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            });
+
+            const screen = new ChannelSetupScreen(container, orchestrator);
+            const renderSpy = jest.spyOn(screen as unknown as { _renderStep: () => void }, '_renderStep');
+
+            screen.show();
+            await flushPromises();
+            await enterStep2(container);
+            clickButton(container, '#setup-category-build-options');
+
+            renderSpy.mockClear();
+
+            clickButton(container, '#setup-build-mode');
+            clickButton(container, '#setup-dropdown-option-2');
+            await flushPromises();
+
+            expect(renderSpy).toHaveBeenCalledTimes(1);
+        });
+
+        it('cleans up dropdown on hide', async () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            const nav = createNavigationMock();
+            const orchestrator = createOrchestrator({
+                getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+                getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            });
+
+            const screen = new ChannelSetupScreen(container, orchestrator);
+            screen.show();
+            await flushPromises();
+            await enterStep2(container);
+
+            clickButton(container, '#setup-category-build-options');
+            clickButton(container, '#setup-build-mode');
+            expect(container.querySelector('#setup-dropdown')).not.toBeNull();
+
+            screen.hide();
+
+            expect(container.querySelector('#setup-dropdown')).toBeNull();
+            expect(nav.focusables.has('setup-dropdown-option-0')).toBe(false);
+        });
     });
 
     it('renders preview strip below split and collapsed by default', async () => {

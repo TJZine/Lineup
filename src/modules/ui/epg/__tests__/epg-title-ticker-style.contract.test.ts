@@ -16,6 +16,14 @@ describe('EPG title ticker style contract', () => {
         );
     });
 
+    it('overrides tiny-tier line clamp while focused ticker classes are active', () => {
+        const css = read('src/modules/ui/epg/styles.css');
+
+        expect(css).toMatch(
+            /\.epg-cell-tier-tiny\.focused\s+\.epg-cell-title\.epg-cell-title-ticker-ready,\s*\.epg-cell-tier-tiny\.focused\s+\.epg-cell-title\.epg-cell-title-ticker-running\s*\{[^}]*display:\s*block;[^}]*white-space:\s*nowrap;[^}]*text-overflow:\s*clip;[^}]*-webkit-line-clamp:\s*unset;[^}]*\}/s
+        );
+    });
+
     it('limits the dynamic bleed wash to bleed mode only', () => {
         const css = read('src/modules/ui/epg/styles.css');
 

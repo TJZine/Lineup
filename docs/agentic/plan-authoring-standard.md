@@ -92,6 +92,12 @@ For serious tracked plans, the evidence block should be explicit enough that a f
 - `analyze_impact`: result summary
 - direct tracked-doc reads or `rg`: what was read and why fallback was needed
 
+When a tracked plan is mainly reconciling detector output with checklist/doc closeout state, the evidence bar is higher:
+
+- detector silence is necessary but not sufficient for closure
+- add a current-code source audit, ownership proof matrix, or equivalent explicit justification showing why the checklist outcome is true on the code as it exists now
+- if detector output and source audit disagree, stop and resolve that contradiction before claiming closeout
+
 The goal is not to maximize tool usage for its own sake. The goal is to leave a clear evidence trail that explains why the chosen plan shape is the repo-best-practice choice for this task.
 
 ## Invariants And Scope Rules
@@ -152,3 +158,5 @@ The priority-exit readiness section must explicitly record:
 - plans that commit local-only artifacts
 - plans that require raw local-only source material when a tracked curated reference should exist instead
 - plans that claim priority closeout while leaving the final owner of a mapped imported issue implicit
+- plans that cite local run-bundle artifacts under `docs/plans/...` instead of their real `docs/runs/...` path
+- plans that treat `No open issues matching` as sufficient closeout proof for ownership/coupling findings without a current-code source audit

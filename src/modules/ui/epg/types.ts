@@ -241,10 +241,6 @@ export interface EPGInternalState {
     currentTime: number;
     /** Grid anchor time (start of schedule day) */
     gridAnchorTime: number;
-    /** Whether horizontal scrub label is currently visible */
-    isScrubbingHorizontally: boolean;
-    /** Program key currently shown by scrub label */
-    scrubLabelProgramKey: string | null;
     /** Last render timestamp for throttling */
     lastRenderTime: number;
 }

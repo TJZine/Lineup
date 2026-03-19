@@ -14,6 +14,7 @@ import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../scheduler/channel
 import {
     SETUP_STRATEGY_KEYS,
 } from '../../../core/channel-setup/constants';
+import { createDropdownPopover } from '../common/CreateDropdownPopover';
 import { createScreenShell } from '../common/ScreenShell';
 import { renderCappedWarnings } from '../common/render/renderCappedWarnings';
 import { ChannelSetupFocusCoordinator } from './focus/ChannelSetupFocusCoordinator';
@@ -84,6 +85,8 @@ export class ChannelSetupScreen {
     private _preferredFocusId: string | null = null;
     private _visibilityToken = 0;
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
+    private _activeDropdown: { destroy: () => void; dismiss: () => void } | null = null;
+    private _pendingDropdownDeferredRender = false;
     private _previewPanelId = 'setup-preview-panel';
     private _maxPreviewWarnings = 5;
     private _lastReorder: { key: SetupStrategyKey; dir: 'up' | 'down' } | null = null;
@@ -229,6 +232,12 @@ export class ChannelSetupScreen {
             this._navKeyHandler = (event: KeyEvent): void => {
                 const session = this._session.getSnapshot();
                 if (event.handled || session.step !== 2) return;
+                if (this._activeDropdown && event.button === 'back') {
+                    event.handled = true;
+                    event.originalEvent.preventDefault();
+                    this._dismissDropdown();
+                    return;
+                }
                 const focusedId = nav.getFocusedElement()?.id ?? null;
                 if (!focusedId) return;
 
@@ -380,6 +389,7 @@ export class ChannelSetupScreen {
 
     hide(): void {
         this._visibilityToken += 1;
+        this._closeDropdown();
         this._session.endSession();
         if (this._navKeyHandler) {
             const nav = this._sessionGateway.getNavigation();
@@ -397,6 +407,10 @@ export class ChannelSetupScreen {
         const focusedId = nav?.getFocusedElement()?.id ?? null;
         if (focusedId && this._preferredFocusId === null) {
             this._preferredFocusId = focusedId;
+        }
+        if (this._activeDropdown) {
+            this._pendingDropdownDeferredRender = true;
+            return;
         }
         this._focus.unregisterAll();
         if (token !== this._visibilityToken) {
@@ -612,7 +626,41 @@ export class ChannelSetupScreen {
                     }
                 }
 
+                if (this._activeDropdown) {
+                    this._pendingDropdownDeferredRender = true;
+                    return;
+                }
+
                 this._renderStep();
+            },
+            openDropdown: (config) => {
+                this._closeDropdown();
+                const anchor = document.getElementById(config.anchorId);
+                if (!(anchor instanceof HTMLElement)) {
+                    return;
+                }
+                const nav = this._sessionGateway.getNavigation();
+                this._activeDropdown = createDropdownPopover({
+                    anchor,
+                    container: this._contentEl,
+                    options: config.options,
+                    currentValue: config.currentValue,
+                    onSelect: (value) => {
+                        try {
+                            config.onSelect(value);
+                        } finally {
+                            this._closeDropdown();
+                            this._preferredFocusId = config.anchorId;
+                            this._flushDeferredDropdownRender();
+                        }
+                    },
+                    onDismiss: () => {
+                        nav?.setFocus(config.anchorId);
+                    },
+                    nav,
+                    cssClass: 'setup-dropdown',
+                    optionCssClass: 'setup-dropdown-option',
+                });
             },
             onBack: () => {
                 this._grabbedPriorityKey = null;
@@ -632,6 +680,38 @@ export class ChannelSetupScreen {
                 : '',
             schedulePreview: () => this._session.schedulePreview(() => this._renderStep()),
         });
+    }
+
+    private _closeDropdown(): void {
+        if (!this._activeDropdown) {
+            return;
+        }
+        const dropdown = this._activeDropdown;
+        this._activeDropdown = null;
+        dropdown.destroy();
+    }
+
+    private _flushDeferredDropdownRender(): void {
+        if (!this._pendingDropdownDeferredRender) {
+            return;
+        }
+        this._pendingDropdownDeferredRender = false;
+        this._renderStep();
+    }
+
+    private _dismissDropdown(): void {
+        if (!this._activeDropdown) {
+            return;
+        }
+        const dropdown = this._activeDropdown;
+        try {
+            dropdown.dismiss();
+        } finally {
+            if (this._activeDropdown === dropdown) {
+                this._activeDropdown = null;
+            }
+        }
+        this._flushDeferredDropdownRender();
     }
 
     private _categoryButtonId(category: StrategyCategoryKey): string {

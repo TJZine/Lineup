@@ -873,23 +873,62 @@ export class EPGVirtualizer {
         }
 
         const rawShowTitle = (item.showTitle ?? '').trim();
+        const subtitleText = this.normalizeEpisodeTitleForSubtitle(item.title);
         const showTitle =
             rawShowTitle ||
-            this.extractShowTitleFromFullTitle(item.fullTitle, item.title) ||
+            this.extractShowTitleFromFullTitle(item.fullTitle, subtitleText) ||
             '';
-        const subtitleText = this.normalizeEpisodeTitleForSubtitle(item.title);
 
         if (title) {
-            title.textContent = showTitle || item.title;
+            title.textContent = this.getProgramCellTitleText(cellData, cellData.isFocused);
         }
 
         if (subtitle) {
             const shouldShowSubtitle =
-                Boolean(showTitle) ||
-                (subtitleText.length > 0 && subtitleText !== item.title);
+                !cellData.isFocused &&
+                (Boolean(showTitle) || (subtitleText.length > 0 && subtitleText !== item.title));
             subtitle.textContent = shouldShowSubtitle ? subtitleText : '';
             subtitle.style.display = shouldShowSubtitle ? 'block' : 'none';
         }
+    }
+
+    private getProgramCellTitleText(cellData: CellRenderData, isFocused: boolean): string {
+        if (cellData.kind !== 'program') {
+            return cellData.placeholder.label;
+        }
+
+        const item = cellData.program.item;
+        if (item.type !== 'episode') {
+            if (isFocused) {
+                const fullTitle = item.fullTitle.trim();
+                if (fullTitle.length > 0) {
+                    return fullTitle;
+                }
+            }
+            return item.title;
+        }
+
+        const rawShowTitle = (item.showTitle ?? '').trim();
+        const episodeTitle = this.normalizeEpisodeTitleForSubtitle(item.title);
+        const showTitle =
+            rawShowTitle ||
+            this.extractShowTitleFromFullTitle(item.fullTitle, episodeTitle) ||
+            '';
+
+        if (!isFocused) {
+            return showTitle || item.title;
+        }
+
+        const fullTitle = item.fullTitle.trim();
+        if (fullTitle.length > 0) {
+            return fullTitle;
+        }
+
+        if (showTitle.length > 0 && episodeTitle.length > 0 && showTitle !== episodeTitle) {
+            return `${showTitle} - ${episodeTitle}`;
+        }
+
+        return item.title;
     }
 
     private getCellWidthTier(width: number): CellWidthTier {
@@ -1005,8 +1044,9 @@ export class EPGVirtualizer {
 
         // Set content
         if (cellData.kind === 'program') {
-            const isEpisode = cellData.program.item.type === 'episode';
-            if (children.title && !isEpisode) children.title.textContent = cellData.program.item.title;
+            if (children.title) {
+                children.title.textContent = this.getProgramCellTitleText(cellData, cellData.isFocused);
+            }
             this.updateCellTimeLabel(
                 children.time,
                 tier,
@@ -1186,6 +1226,13 @@ export class EPGVirtualizer {
         return globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
     }
 
+    private measureReadyStateTickerOverflow(title: HTMLElement, textShiftPx: number): number {
+        title.classList.add(EPG_CLASSES.CELL_TITLE_TICKER_READY);
+        void title.offsetWidth;
+        const effectiveClientWidth = Math.max(0, title.clientWidth - textShiftPx);
+        return Math.max(0, title.scrollWidth - effectiveClientWidth);
+    }
+
     private _syncFocusedTitleTickerForVisibleFocus(): void {
         this._clearFocusedTitleTicker();
         if (this._prefersReducedMotion()) return;
@@ -1200,12 +1247,26 @@ export class EPGVirtualizer {
         const textShiftPx = Math.max(0, focusedCell.textShiftPx);
         const effectiveClientWidth = Math.max(0, title.clientWidth - textShiftPx);
         const overflowPx = title.scrollWidth - effectiveClientWidth;
-        if (overflowPx <= 12) return;
+        const tier = this.getCellWidthTier(focusedCell.width);
+        const clampHiddenPx = title.scrollHeight - title.clientHeight;
+        const hasClampHiddenText = tier === 'tiny' && clampHiddenPx > 2;
 
-        const durationMs = Math.max(1600, Math.min(3200, overflowPx * 30));
+        if (overflowPx <= 12 && !hasClampHiddenText) {
+            return;
+        }
+
+        const travelPx = hasClampHiddenText
+            ? this.measureReadyStateTickerOverflow(title, textShiftPx)
+            : Math.max(overflowPx, 0);
+        if (travelPx <= 12) {
+            title.classList.remove(EPG_CLASSES.CELL_TITLE_TICKER_READY);
+            return;
+        }
+
+        const durationMs = Math.max(1600, Math.min(3200, travelPx * 30));
         title.classList.add(EPG_CLASSES.CELL_TITLE_TICKER_READY);
         title.style.setProperty('--epg-title-ticker-duration-ms', `${durationMs}ms`);
-        title.style.setProperty('--epg-title-ticker-distance-px', `${overflowPx}px`);
+        title.style.setProperty('--epg-title-ticker-distance-px', `${travelPx}px`);
 
         this._focusedTickerTitle = title;
         this._focusedTickerTimer = setTimeout(() => {
@@ -1227,8 +1288,9 @@ export class EPGVirtualizer {
         const children = this.getCellChildren(element);
         const tier = this.getCellWidthTier(cellData.width);
         if (cellData.kind === 'program') {
-            const isEpisode = cellData.program.item.type === 'episode';
-            if (children.title && !isEpisode) children.title.textContent = cellData.program.item.title;
+            if (children.title) {
+                children.title.textContent = this.getProgramCellTitleText(cellData, cellData.isFocused);
+            }
             this.updateCellTimeLabel(
                 children.time,
                 tier,
@@ -1276,6 +1338,7 @@ export class EPGVirtualizer {
      */
     setFocusedCell(channelId: string, programStartTime: number, focusTimeMs?: number): HTMLElement | null {
         const key = `${channelId}-${programStartTime}`;
+        const nowMs = Date.now();
 
         // Resolve target first so we can synchronize data + visual focus state in one pass.
         let targetCellData = this.visibleCells.get(key);
@@ -1309,8 +1372,7 @@ export class EPGVirtualizer {
                 previousFocused.isFocused = false;
                 if (previousFocused.cellElement) {
                     previousFocused.cellElement.classList.remove(EPG_CLASSES.CELL_FOCUSED);
-                    this.updateCellTimeLabelForCell(previousFocused);
-                    this.updateLiveBadge(previousFocused.cellElement, previousFocused.isCurrent);
+                    this.updateCellContent(previousFocused, nowMs);
                 }
             }
         } else {
@@ -1321,8 +1383,7 @@ export class EPGVirtualizer {
                 candidate.isFocused = false;
                 if (candidate.cellElement) {
                     candidate.cellElement.classList.remove(EPG_CLASSES.CELL_FOCUSED);
-                    this.updateCellTimeLabelForCell(candidate);
-                    this.updateLiveBadge(candidate.cellElement, candidate.isCurrent);
+                    this.updateCellContent(candidate, nowMs);
                 }
             }
         }
@@ -1333,8 +1394,7 @@ export class EPGVirtualizer {
             if (targetCellData.cellElement) {
                 targetCellData.cellElement.classList.add(EPG_CLASSES.CELL_FOCUSED);
                 if (focusChanged) {
-                    this.updateCellTimeLabelForCell(targetCellData);
-                    this.updateLiveBadge(targetCellData.cellElement, targetCellData.isCurrent);
+                    this.updateCellContent(targetCellData, nowMs);
                 }
             }
             this.focusedVisibleCellKey = targetCellData.key;
