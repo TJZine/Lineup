@@ -1240,12 +1240,19 @@ export class EPGVirtualizer {
         const textShiftPx = Math.max(0, focusedCell.textShiftPx);
         const effectiveClientWidth = Math.max(0, title.clientWidth - textShiftPx);
         const overflowPx = title.scrollWidth - effectiveClientWidth;
-        if (overflowPx <= 12) return;
+        const tier = this.getCellWidthTier(focusedCell.width);
+        const clampHiddenPx = title.scrollHeight - title.clientHeight;
+        const hasClampHiddenText = tier === 'tiny' && clampHiddenPx > 2;
 
-        const durationMs = Math.max(1600, Math.min(3200, overflowPx * 30));
+        if (overflowPx <= 12 && !hasClampHiddenText) {
+            return;
+        }
+
+        const travelPx = Math.max(overflowPx, hasClampHiddenText ? 24 : 0);
+        const durationMs = Math.max(1600, Math.min(3200, travelPx * 30));
         title.classList.add(EPG_CLASSES.CELL_TITLE_TICKER_READY);
         title.style.setProperty('--epg-title-ticker-duration-ms', `${durationMs}ms`);
-        title.style.setProperty('--epg-title-ticker-distance-px', `${overflowPx}px`);
+        title.style.setProperty('--epg-title-ticker-distance-px', `${travelPx}px`);
 
         this._focusedTickerTitle = title;
         this._focusedTickerTimer = setTimeout(() => {

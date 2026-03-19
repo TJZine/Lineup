@@ -1605,6 +1605,63 @@ describe('EPGVirtualizer', () => {
             }
         });
 
+        it('starts focused ticker when tiny-tier title is hidden by line clamp without horizontal overflow', () => {
+            jest.useFakeTimers();
+            try {
+                const channelId = 'ch-ticker-clamp-only';
+                const start = gridAnchorTime;
+                const end = start + 20 * 60 * 1000;
+
+                const schedule: ScheduleWindow = {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                    programs: [{
+                        item: {
+                            ratingKey: 'ticker-clamp-only-1',
+                            type: 'movie',
+                            title: 'Alpha Beta Gamma Delta Epsilon Zeta Eta Theta Iota Kappa Lambda',
+                            fullTitle: 'Alpha Beta Gamma Delta Epsilon Zeta Eta Theta Iota Kappa Lambda',
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    }],
+                };
+
+                virtualizer.setChannelCount(1);
+                const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+                virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+                const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+                expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_TINY)).toBe(true);
+
+                const title = cell.querySelector('.epg-cell-title') as HTMLElement;
+                Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 80 });
+                Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
+                Object.defineProperty(title, 'scrollHeight', { configurable: true, value: 60 });
+                Object.defineProperty(title, 'clientHeight', { configurable: true, value: 40 });
+
+                virtualizer.setFocusedCell(channelId, start);
+
+                expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(true);
+                expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
+
+                jest.advanceTimersByTime(900);
+                expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(true);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
         it('uses the focused title text itself as the ticker payload for episodes', () => {
             jest.useFakeTimers();
             try {
