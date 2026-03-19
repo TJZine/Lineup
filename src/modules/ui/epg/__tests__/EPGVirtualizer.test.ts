@@ -1394,7 +1394,7 @@ describe('EPGVirtualizer', () => {
             expect(title.textContent).toBe('Great Show - S01E09 - The Edge Of Recovery');
         });
 
-        it('uses full non-episode title text in the focused title node when fullTitle differs', () => {
+        it('uses full non-episode title text in the focused tiny-tier title node when fullTitle differs', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-movie-fulltitle';
             const start = gridAnchorTime;
@@ -1437,6 +1437,100 @@ describe('EPGVirtualizer', () => {
 
             const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
             expect(title.textContent).toBe(fullTitle);
+        });
+
+        it('keeps wide focused movie titles on the primary title text instead of expanding to fullTitle', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-focused-wide-movie';
+            const start = gridAnchorTime;
+            const end = start + (60 * 60000); // wide tier at 4px/min => 240px
+
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60000),
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'movie-focused-wide-1',
+                            type: 'movie',
+                            title: 'The Square',
+                            fullTitle: 'The Square (2017)',
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2017,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+            virtualizer.setFocusedCell(channelId, start);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_WIDE)).toBe(true);
+
+            const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+            expect(title.textContent).toBe('The Square');
+        });
+
+        it('keeps episode subtitle visible on focused non-tiny cells', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-focused-wide-episode';
+            const start = gridAnchorTime;
+            const end = start + (60 * 60000); // wide tier at 4px/min => 240px
+
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60000),
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'ep-focused-wide-1',
+                            type: 'episode',
+                            title: 'The Edge Of Recovery',
+                            fullTitle: 'Great Show - S01E09 - The Edge Of Recovery',
+                            showTitle: 'Great Show',
+                            seasonNumber: 1,
+                            episodeNumber: 9,
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+            virtualizer.setFocusedCell(channelId, start);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_WIDE)).toBe(true);
+
+            const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+            const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
+            expect(title.textContent).toBe('Great Show');
+            expect(subtitle.textContent).toBe('The Edge Of Recovery');
+            expect(subtitle.style.display).toBe('block');
         });
 
         it('starts one-shot ticker only after 900ms for focused truncated titles', () => {
