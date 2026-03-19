@@ -1226,6 +1226,13 @@ export class EPGVirtualizer {
         return globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
     }
 
+    private measureReadyStateTickerOverflow(title: HTMLElement, textShiftPx: number): number {
+        title.classList.add(EPG_CLASSES.CELL_TITLE_TICKER_READY);
+        void title.offsetWidth;
+        const effectiveClientWidth = Math.max(0, title.clientWidth - textShiftPx);
+        return Math.max(0, title.scrollWidth - effectiveClientWidth);
+    }
+
     private _syncFocusedTitleTickerForVisibleFocus(): void {
         this._clearFocusedTitleTicker();
         if (this._prefersReducedMotion()) return;
@@ -1248,7 +1255,14 @@ export class EPGVirtualizer {
             return;
         }
 
-        const travelPx = Math.max(overflowPx, hasClampHiddenText ? 24 : 0);
+        const travelPx = hasClampHiddenText
+            ? this.measureReadyStateTickerOverflow(title, textShiftPx)
+            : Math.max(overflowPx, 0);
+        if (travelPx <= 12) {
+            title.classList.remove(EPG_CLASSES.CELL_TITLE_TICKER_READY);
+            return;
+        }
+
         const durationMs = Math.max(1600, Math.min(3200, travelPx * 30));
         title.classList.add(EPG_CLASSES.CELL_TITLE_TICKER_READY);
         title.style.setProperty('--epg-title-ticker-duration-ms', `${durationMs}ms`);

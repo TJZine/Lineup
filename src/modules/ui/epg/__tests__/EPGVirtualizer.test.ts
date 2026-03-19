@@ -1645,7 +1645,10 @@ describe('EPGVirtualizer', () => {
                 expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_TINY)).toBe(true);
 
                 const title = cell.querySelector('.epg-cell-title') as HTMLElement;
-                Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 80 });
+                Object.defineProperty(title, 'scrollWidth', {
+                    configurable: true,
+                    get: () => title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_READY) ? 220 : 80,
+                });
                 Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
                 Object.defineProperty(title, 'scrollHeight', { configurable: true, value: 60 });
                 Object.defineProperty(title, 'clientHeight', { configurable: true, value: 40 });
@@ -1654,6 +1657,7 @@ describe('EPGVirtualizer', () => {
 
                 expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(true);
                 expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
+                expect(title.style.getPropertyValue('--epg-title-ticker-distance-px')).toBe('140px');
 
                 jest.advanceTimersByTime(900);
                 expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(true);
