@@ -536,7 +536,10 @@ jest.mock('../modules/ui/epg', () => ({
 
 describe('AppOrchestrator', () => {
     let orchestrator: AppOrchestrator;
-    let schedulerHandlers: { programStart?: (program: unknown) => void };
+    let schedulerHandlers: {
+        programStart?: (program: unknown) => void;
+        scheduleSync?: () => void;
+    };
     let playerHandlers: {
         ended?: () => void;
         error?: (error: unknown) => void;
@@ -579,12 +582,18 @@ describe('AppOrchestrator', () => {
                 if (event === 'programStart') {
                     schedulerHandlers.programStart = handler;
                 }
+                if (event === 'scheduleSync') {
+                    schedulerHandlers.scheduleSync = handler as () => void;
+                }
                 return jest.fn();
             });
         (mockScheduler.off as jest.Mock).mockImplementation(
             (event: string, handler: (payload: unknown) => void) => {
                 if (event === 'programStart' && schedulerHandlers.programStart === handler) {
                     delete schedulerHandlers.programStart;
+                }
+                if (event === 'scheduleSync' && schedulerHandlers.scheduleSync === handler) {
+                    delete schedulerHandlers.scheduleSync;
                 }
             });
 
@@ -951,9 +960,8 @@ describe('AppOrchestrator', () => {
 
             const clearSelectedSnapshotSpy = jest.spyOn(EPGCoordinator.prototype, 'clearSelectedChannelScheduleSnapshot');
             const refreshSpy = jest.spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules').mockResolvedValue(undefined);
-            const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(new Date('2026-03-19T12:00:00.000Z').getTime());
-
-            (orchestrator as unknown as { _activeScheduleDayKey: number | null })._activeScheduleDayKey = 20260318;
+            const nowSpy = jest.spyOn(Date, 'now');
+            nowSpy.mockReturnValue(new Date('2026-03-18T12:00:00.000Z').getTime());
             mockScheduler.getCurrentProgram.mockReturnValue(null);
             mockChannelManager.getCurrentChannel.mockReturnValue(mockChannel);
             mockChannelManager.resolveChannelContent.mockResolvedValue({
@@ -964,8 +972,11 @@ describe('AppOrchestrator', () => {
                 resolvedAt: Date.now(),
             });
 
-            await (orchestrator as unknown as { _handleScheduleDayRollover: () => Promise<void> })
-                ._handleScheduleDayRollover();
+            await orchestrator.switchToChannel(mockChannel.id);
+            nowSpy.mockReturnValue(new Date('2026-03-19T12:00:00.000Z').getTime());
+            schedulerHandlers.scheduleSync?.();
+            await Promise.resolve();
+            await Promise.resolve();
 
             expect(mockChannelManager.resolveChannelContent).toHaveBeenCalledWith(mockChannel.id);
             expect(mockScheduler.loadChannel).toHaveBeenCalled();
