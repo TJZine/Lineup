@@ -86,6 +86,7 @@ export class ChannelSetupScreen {
     private _visibilityToken = 0;
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
     private _activeDropdown: { destroy: () => void; dismiss: () => void } | null = null;
+    private _pendingDropdownDeferredRender = false;
     private _previewPanelId = 'setup-preview-panel';
     private _maxPreviewWarnings = 5;
     private _lastReorder: { key: SetupStrategyKey; dir: 'up' | 'down' } | null = null;
@@ -407,7 +408,10 @@ export class ChannelSetupScreen {
         if (focusedId && this._preferredFocusId === null) {
             this._preferredFocusId = focusedId;
         }
-        this._closeDropdown();
+        if (this._activeDropdown) {
+            this._pendingDropdownDeferredRender = true;
+            return;
+        }
         this._focus.unregisterAll();
         if (token !== this._visibilityToken) {
             return;
@@ -622,6 +626,11 @@ export class ChannelSetupScreen {
                     }
                 }
 
+                if (this._activeDropdown) {
+                    this._pendingDropdownDeferredRender = true;
+                    return;
+                }
+
                 this._renderStep();
             },
             openDropdown: (config) => {
@@ -642,7 +651,7 @@ export class ChannelSetupScreen {
                         } finally {
                             this._closeDropdown();
                             this._preferredFocusId = config.anchorId;
-                            this._renderStep();
+                            this._flushDeferredDropdownRender();
                         }
                     },
                     onDismiss: () => {
@@ -682,6 +691,14 @@ export class ChannelSetupScreen {
         dropdown.destroy();
     }
 
+    private _flushDeferredDropdownRender(): void {
+        if (!this._pendingDropdownDeferredRender) {
+            return;
+        }
+        this._pendingDropdownDeferredRender = false;
+        this._renderStep();
+    }
+
     private _dismissDropdown(): void {
         if (!this._activeDropdown) {
             return;
@@ -694,6 +711,7 @@ export class ChannelSetupScreen {
                 this._activeDropdown = null;
             }
         }
+        this._flushDeferredDropdownRender();
     }
 
     private _categoryButtonId(category: StrategyCategoryKey): string {

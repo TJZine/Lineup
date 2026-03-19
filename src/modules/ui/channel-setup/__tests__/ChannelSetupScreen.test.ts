@@ -449,13 +449,15 @@ describe('ChannelSetupScreen', () => {
 
         clickButton(container, '#setup-category-series-ordering');
 
-        // Enter block mode so base block size is enabled, then click it to remember focus.
-        clickButton(container, '#setup-series-base-mode'); // shuffle -> sequential
-        clickButton(container, '#setup-series-base-mode'); // sequential -> block
-        clickButton(container, '#setup-series-base-block-size'); // remembers this control for the category
+        clickButton(container, '#setup-series-base-mode');
+        expect(container.querySelector('#setup-dropdown')).not.toBeNull();
+        clickButton(container, '#setup-dropdown-option-2'); // Block
 
-        // Switch away from block mode; block size control becomes disabled.
-        clickButton(container, '#setup-series-base-mode'); // block -> shuffle
+        clickButton(container, '#setup-series-base-block-size'); // remember this control
+
+        clickButton(container, '#setup-series-base-mode');
+        expect(container.querySelector('#setup-dropdown')).not.toBeNull();
+        clickButton(container, '#setup-dropdown-option-0'); // Shuffle
 
         nav.setMockFocus('setup-category-series-ordering');
         const transfer = nav.emitKeyPress('right');
@@ -745,6 +747,70 @@ describe('ChannelSetupScreen', () => {
 
             expect(leftEvent.handled).toBe(true);
             expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').not.toBe(beforeLeft);
+        });
+
+        it('keeps dropdown open while preview refresh state changes are emitted', async () => {
+            jest.useFakeTimers();
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            let resolvePreview: ((value: typeof DEFAULT_PREVIEW) => void) | undefined;
+            const previewPromise = new Promise<typeof DEFAULT_PREVIEW>((resolve) => {
+                resolvePreview = resolve;
+            });
+
+            const orchestrator = createOrchestrator({
+                getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+                getSetupPreview: jest.fn(() => previewPromise),
+                getSelectedServerId: jest.fn(() => 'server-1'),
+            });
+
+            const screen = new ChannelSetupScreen(container, orchestrator);
+            screen.show();
+            await flushPromises();
+            await enterStep2(container);
+
+            clickButton(container, '#setup-category-limits');
+            clickButton(container, '#setup-min-items');
+            expect(container.querySelector('#setup-dropdown')).not.toBeNull();
+
+            clickButton(container, '#setup-dropdown-option-2');
+            clickButton(container, '#setup-min-items');
+            expect(container.querySelector('#setup-dropdown')).not.toBeNull();
+
+            jest.advanceTimersByTime(450);
+            await flushPromises();
+
+            expect(container.querySelector('#setup-dropdown')).not.toBeNull();
+
+            resolvePreview?.(DEFAULT_PREVIEW);
+            await flushPromises();
+            jest.useRealTimers();
+        });
+
+        it('does not force a second render after dropdown selection', async () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            const orchestrator = createOrchestrator({
+                getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            });
+
+            const screen = new ChannelSetupScreen(container, orchestrator);
+            const renderSpy = jest.spyOn(screen as unknown as { _renderStep: () => void }, '_renderStep');
+
+            screen.show();
+            await flushPromises();
+            await enterStep2(container);
+            clickButton(container, '#setup-category-build-options');
+
+            renderSpy.mockClear();
+
+            clickButton(container, '#setup-build-mode');
+            clickButton(container, '#setup-dropdown-option-2');
+            await flushPromises();
+
+            expect(renderSpy).toHaveBeenCalledTimes(1);
         });
 
         it('cleans up dropdown on hide', async () => {
