@@ -1162,98 +1162,22 @@ describe('EPGComponent', () => {
             expect(container.querySelector(`.${EPG_CLASSES.PROGRAM_EDGE_MASK_RIGHT}`)).not.toBeNull();
         });
 
-        it('shows and hides scrub label with deterministic timer behavior', () => {
-            jest.useFakeTimers();
-            try {
-                const moved = epg.handleNavigation('right');
-                expect(moved).toBe(true);
+        it('does not render a horizontal scrub overlay during navigation', () => {
+            const moved = epg.handleNavigation('right');
+            expect(moved).toBe(true);
 
-                const scrubLabel = container.querySelector(`.${EPG_CLASSES.SCRUB_LABEL}`) as HTMLElement;
-                expect(scrubLabel).not.toBeNull();
-                expect(scrubLabel.hidden).toBe(false);
-                expect(scrubLabel.classList.contains(EPG_CLASSES.SCRUB_LABEL_VISIBLE)).toBe(true);
-
-                jest.advanceTimersByTime(449);
-                expect(scrubLabel.hidden).toBe(false);
-                jest.advanceTimersByTime(1);
-                expect(scrubLabel.hidden).toBe(true);
-                expect(scrubLabel.classList.contains(EPG_CLASSES.SCRUB_LABEL_VISIBLE)).toBe(false);
-            } finally {
-                jest.useRealTimers();
-            }
+            const scrubLabel = container.querySelector('.epg-scrub-label');
+            expect(scrubLabel).toBeNull();
         });
 
-        it('refreshes scrub label content on rapid horizontal navigation', () => {
-            const firstMove = epg.handleNavigation('right');
-            expect(firstMove).toBe(true);
-            const titleEl = container.querySelector(`.${EPG_CLASSES.SCRUB_LABEL_TITLE}`) as HTMLElement;
-            const timeEl = container.querySelector(`.${EPG_CLASSES.SCRUB_LABEL_TIME}`) as HTMLElement;
-            const channelEl = container.querySelector(`.${EPG_CLASSES.SCRUB_LABEL_CHANNEL}`) as HTMLElement;
-            expect(titleEl.textContent).toBe('Program 2');
-            expect(channelEl.textContent).toContain('Channel 1');
-            expect(timeEl.textContent).toContain(' - ');
-
-            const secondMove = epg.handleNavigation('right');
-            expect(secondMove).toBe(true);
-            expect(titleEl.textContent).toBe('Program 3');
-        });
-
-        it('hides scrub label immediately on vertical navigation', () => {
-            const movedRight = epg.handleNavigation('right');
-            expect(movedRight).toBe(true);
-            const scrubLabel = container.querySelector(`.${EPG_CLASSES.SCRUB_LABEL}`) as HTMLElement;
-            expect(scrubLabel.hidden).toBe(false);
-
-            const movedDown = epg.handleNavigation('down');
-            expect(movedDown).toBe(true);
-            expect(scrubLabel.hidden).toBe(true);
-            expect(scrubLabel.classList.contains(EPG_CLASSES.SCRUB_LABEL_VISIBLE)).toBe(false);
-        });
-
-        it('hides scrub label immediately on page navigation', () => {
-            const movedRight = epg.handleNavigation('right');
-            expect(movedRight).toBe(true);
-            const scrubLabel = container.querySelector(`.${EPG_CLASSES.SCRUB_LABEL}`) as HTMLElement;
-            expect(scrubLabel.hidden).toBe(false);
-
-            const paged = epg.handlePage('down');
-            expect(paged).toBe(true);
-            expect(scrubLabel.hidden).toBe(true);
-            expect(scrubLabel.classList.contains(EPG_CLASSES.SCRUB_LABEL_VISIBLE)).toBe(false);
-        });
-
-        it('cleans scrub label timer and visibility on hide and destroy', () => {
-            jest.useFakeTimers();
-            try {
-                epg.handleNavigation('right');
-                const scrubLabel = container.querySelector(`.${EPG_CLASSES.SCRUB_LABEL}`) as HTMLElement;
-                expect(scrubLabel.hidden).toBe(false);
-
-                epg.hide();
-                expect(scrubLabel.hidden).toBe(true);
-                jest.advanceTimersByTime(1000);
-                expect(scrubLabel.hidden).toBe(true);
-
-                epg.show();
-                epg.focusProgram(0, 0);
-                epg.handleNavigation('right');
-                expect(scrubLabel.hidden).toBe(false);
-                epg.destroy();
-                jest.advanceTimersByTime(1000);
-            } finally {
-                jest.useRealTimers();
-            }
-        });
-
-        it('does not interfere with focused program and info panel updates', () => {
+        it('keeps focused program and info panel updates without scrub overlay', () => {
             const moved = epg.handleNavigation('right');
             expect(moved).toBe(true);
             const focused = epg.getState().focusedCell;
             expect(focused?.kind).toBe('program');
 
-            const scrubTitle = container.querySelector(`.${EPG_CLASSES.SCRUB_LABEL_TITLE}`) as HTMLElement;
             const infoTitle = container.querySelector('.epg-info-title') as HTMLElement;
-            expect(scrubTitle.textContent).toBe('Program 2');
+            expect(container.querySelector('.epg-scrub-label')).toBeNull();
             expect(infoTitle.textContent).toBe('Program 2');
         });
     });
