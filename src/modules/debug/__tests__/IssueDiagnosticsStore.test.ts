@@ -40,6 +40,25 @@ describe('IssueDiagnosticsStore', () => {
         expect(parsed[0]?.event).toBe('event:normalized');
     });
 
+    it('truncates stored entries to the maximum size when appending', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, '1');
+        const maxEntries = 250;
+        const existing = Array.from({ length: maxEntries }, (_, index) => ({
+            ts: index,
+            issue: 'QA-003b',
+            event: `event:${index}`,
+            data: { index },
+        }));
+        localStorage.setItem(LINEUP_STORAGE_KEYS.ISSUE_DIAGNOSTICS_LOG, JSON.stringify(existing));
+
+        store.append('QA-003b', 'event:new', { ok: true });
+
+        const entries = store.readEntries();
+        expect(entries).toHaveLength(maxEntries);
+        expect(entries[0]?.event).toBe('event:1');
+        expect(entries[entries.length - 1]?.event).toBe('event:new');
+    });
+
     it('does not append when debug logging is disabled', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, '0');
 

@@ -961,35 +961,37 @@ describe('AppOrchestrator', () => {
             const clearSelectedSnapshotSpy = jest.spyOn(EPGCoordinator.prototype, 'clearSelectedChannelScheduleSnapshot');
             const refreshSpy = jest.spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules').mockResolvedValue(undefined);
             const nowSpy = jest.spyOn(Date, 'now');
-            nowSpy.mockReturnValue(new Date('2026-03-18T12:00:00.000Z').getTime());
-            mockScheduler.getCurrentProgram.mockReturnValue(null);
-            mockChannelManager.getCurrentChannel.mockReturnValue(mockChannel);
-            mockChannelManager.resolveChannelContent.mockResolvedValue({
-                channelId: mockChannel.id,
-                items: [],
-                orderedItems: [],
-                totalDurationMs: 0,
-                resolvedAt: Date.now(),
-            });
+            try {
+                nowSpy.mockReturnValue(new Date('2026-03-18T12:00:00.000Z').getTime());
+                mockScheduler.getCurrentProgram.mockReturnValue(null);
+                mockChannelManager.getCurrentChannel.mockReturnValue(mockChannel);
+                mockChannelManager.resolveChannelContent.mockResolvedValue({
+                    channelId: mockChannel.id,
+                    items: [],
+                    orderedItems: [],
+                    totalDurationMs: 0,
+                    resolvedAt: Date.now(),
+                });
 
-            await orchestrator.switchToChannel(mockChannel.id);
-            nowSpy.mockReturnValue(new Date('2026-03-19T12:00:00.000Z').getTime());
-            schedulerHandlers.scheduleSync?.();
-            await Promise.resolve();
-            await Promise.resolve();
+                await orchestrator.switchToChannel(mockChannel.id);
+                nowSpy.mockReturnValue(new Date('2026-03-19T12:00:00.000Z').getTime());
+                schedulerHandlers.scheduleSync?.();
+                await Promise.resolve();
+                await Promise.resolve();
 
-            expect(mockChannelManager.resolveChannelContent).toHaveBeenCalledWith(mockChannel.id);
-            expect(mockScheduler.loadChannel).toHaveBeenCalled();
-            expect(refreshSpy).toHaveBeenCalledTimes(1);
-            const clearOrder = clearSelectedSnapshotSpy.mock.invocationCallOrder[0];
-            const refreshOrder = refreshSpy.mock.invocationCallOrder[0];
-            expect(clearOrder).toBeDefined();
-            expect(refreshOrder).toBeDefined();
-            expect(clearOrder as number).toBeLessThan(refreshOrder as number);
-
-            nowSpy.mockRestore();
-            clearSelectedSnapshotSpy.mockRestore();
-            refreshSpy.mockRestore();
+                expect(mockChannelManager.resolveChannelContent).toHaveBeenCalledWith(mockChannel.id);
+                expect(mockScheduler.loadChannel).toHaveBeenCalled();
+                expect(refreshSpy).toHaveBeenCalledTimes(1);
+                const clearOrder = clearSelectedSnapshotSpy.mock.invocationCallOrder[0];
+                const refreshOrder = refreshSpy.mock.invocationCallOrder[0];
+                expect(clearOrder).toBeDefined();
+                expect(refreshOrder).toBeDefined();
+                expect(clearOrder as number).toBeLessThan(refreshOrder as number);
+            } finally {
+                nowSpy.mockRestore();
+                clearSelectedSnapshotSpy.mockRestore();
+                refreshSpy.mockRestore();
+            }
         });
     });
 

@@ -332,19 +332,11 @@ export class PlaybackRecoveryManager {
 
         // Single/rare failure: skip as before
         if (scheduler) {
-            const schedulerState =
-                typeof scheduler.getState === 'function'
-                    ? scheduler.getState()
-                    : null;
+            const schedulerState = scheduler.getState();
             issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'playbackRecovery.skipToNext', {
                 context: redactSensitiveTokens(context),
                 itemKey: this._getCurrentItemKey(),
-                channelId:
-                    schedulerState &&
-                    typeof schedulerState === 'object' &&
-                    'channelId' in schedulerState
-                        ? (schedulerState as { channelId?: unknown }).channelId ?? null
-                        : null,
+                channelId: schedulerState.channelId ?? null,
                 failureCount: this._playbackFailureCount,
                 safeError: summarizeErrorForLog(error),
             });
