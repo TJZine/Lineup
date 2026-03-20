@@ -51,6 +51,8 @@ const makeResolvedItem = (channelId: string, idx: number): ResolvedContentItem =
     scheduledIndex: idx,
 } as ResolvedContentItem);
 
+const makeResolvedItems = (channelId: string): ResolvedContentItem[] => [makeResolvedItem(channelId, 0)];
+
 const baseProgram = (channelId: string, idx: number): ScheduledProgram =>
 ({
     item: makeResolvedItem(channelId, idx),
@@ -1909,6 +1911,86 @@ describe('EPGCoordinator', () => {
         expect(resolveChannelItemsForSchedule).toHaveBeenCalledWith('c0', { signal: null });
         expect(epg.hide).toHaveBeenCalled();
         expect(switchToChannel).toHaveBeenCalledWith('c0', undefined);
+    });
+
+    it('ignores stale guide selection work after a newer selection starts', async () => {
+        let resolveFirstSelection: (items: ResolvedContentItem[]) => void = () => undefined;
+        let firstSelectionPending = false;
+        const resolveChannelItemsForSchedule = jest
+            .fn<Promise<ResolvedChannelContent['items']>, [string, { signal?: AbortSignal | null }?]>()
+            .mockImplementationOnce(
+                () => new Promise<ResolvedChannelContent['items']>((resolve) => {
+                    firstSelectionPending = true;
+                    resolveFirstSelection = resolve;
+                })
+            )
+            .mockImplementationOnce(async (channelId: string) => makeResolvedItems(channelId));
+        const switchToChannel = jest.fn().mockResolvedValue(undefined);
+        const channels = [makeChannel('c0', 1), makeChannel('c1', 2)];
+        const { deps, epg } = makeDeps({
+            switchToChannel,
+            getChannelManager: () => ({
+                ...(makeDeps().deps.getChannelManager() as IChannelManager),
+                getAllChannels: () => channels,
+                getChannel: (channelId: string) => channels.find((channel) => channel.id === channelId) ?? null,
+                resolveChannelItemsForSchedule,
+            } as IChannelManager),
+        });
+        (epg.getState as jest.Mock).mockReturnValue({
+            isVisible: true,
+            focusedCell: null,
+            scrollPosition: { channelOffset: 0, timeOffset: 0 },
+            viewWindow: {
+                startTime: 0,
+                endTime: 10_000,
+                startChannelIndex: 0,
+                endChannelIndex: 1,
+            },
+            currentTime: 5_000,
+        });
+
+        const coordinator = new EPGCoordinator(deps);
+        jest.spyOn(Date, 'now').mockReturnValue(5_000);
+
+        coordinator.wireEpgEvents();
+        const handler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'channelSelected')?.[1];
+
+        handler?.({
+            channel: makeChannel('c0', 1),
+            program: {
+                ...baseProgram('c0', 0),
+                scheduledStartTime: 4_000,
+                scheduledEndTime: 6_000,
+            } as ScheduledProgram,
+        });
+        await flushPromises();
+
+        handler?.({
+            channel: makeChannel('c1', 2),
+            program: {
+                ...baseProgram('c1', 0),
+                scheduledStartTime: 4_000,
+                scheduledEndTime: 6_000,
+            } as ScheduledProgram,
+        });
+        await flushPromises();
+
+        expect(switchToChannel).toHaveBeenCalledTimes(1);
+        expect(switchToChannel).toHaveBeenLastCalledWith(
+            'c1',
+            expect.objectContaining({
+                guideSelectionSnapshot: expect.objectContaining({
+                    channelId: 'c1',
+                }),
+            })
+        );
+
+        if (firstSelectionPending) {
+            resolveFirstSelection(makeResolvedItems('c0'));
+        }
+        await flushPromises();
+
+        expect(switchToChannel).toHaveBeenCalledTimes(1);
     });
 
     it('library filter change clears schedules, primes, and refreshes', () => {

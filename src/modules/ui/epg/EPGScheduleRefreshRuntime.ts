@@ -370,6 +370,7 @@ export class EPGScheduleRefreshRuntime {
             }
 
             if (shouldApplyToUi) {
+                const now = Date.now();
                 if (
                     focusedChannelId &&
                     channelId === focusedChannelId &&
@@ -379,15 +380,14 @@ export class EPGScheduleRefreshRuntime {
                     this._selectedRowSnapshotSeed = {
                         channelId,
                         source: 'resolved-immediate',
-                        dayKey: this._getLocalDayKey(startTime),
-                        referenceTimeMs: startTime,
+                        dayKey: this._getLocalDayKey(now),
+                        referenceTimeMs: now,
                         orderedItems: this._cloneResolvedItems(options.materializationSeed),
                     };
                 }
                 if (firstVisibleScheduleReadyMs === null && visibleRangeIds.has(channelId)) {
                     firstVisibleScheduleReadyMs = Date.now() - refreshStartedAt;
                 }
-                const now = Date.now();
                 const currentProgram =
                     schedule.programs.find((program) => now >= program.scheduledStartTime && now < program.scheduledEndTime) ??
                     null;

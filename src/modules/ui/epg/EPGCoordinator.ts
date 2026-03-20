@@ -75,6 +75,7 @@ export class EPGCoordinator {
     private _visibleRangeRefreshQueue: EPGVisibleRangeRefreshQueue;
     private readonly _scheduleRefreshRuntime: EPGScheduleRefreshRuntime;
     private _openRequestId = 0;
+    private _guideSelectionRequestId = 0;
 
     constructor(private readonly deps: EPGCoordinatorDeps) {
         this._epgPreferencesStore = deps.epgPreferencesStore ?? new EpgPreferencesStore();
@@ -376,7 +377,14 @@ export class EPGCoordinator {
     }
 
     closeEPG(): void {
+        this._closeEpg(true);
+    }
+
+    private _closeEpg(invalidateGuideSelection: boolean): void {
         this._openRequestId++;
+        if (invalidateGuideSelection) {
+            this._guideSelectionRequestId++;
+        }
         this._cancelScheduledRefreshWork('close-epg');
         this.deps.getEpg()?.hide();
     }
@@ -684,6 +692,7 @@ export class EPGCoordinator {
         program: EpgScheduledProgram,
         selectedAt: number
     ): Promise<void> {
+        const requestId = ++this._guideSelectionRequestId;
         let snapshot: GuideSelectionSnapshot | null = null;
         try {
             snapshot = await this._scheduleRefreshRuntime.buildGuideSelectionSnapshot({
@@ -701,7 +710,10 @@ export class EPGCoordinator {
                 safeError: summarizeErrorForLog(error),
             });
         }
-        this.closeEPG();
+        if (requestId !== this._guideSelectionRequestId) {
+            return;
+        }
+        this._closeEpg(false);
         await this.deps.switchToChannel(channelId, snapshot ? { guideSelectionSnapshot: snapshot } : undefined);
     }
 }
