@@ -1578,13 +1578,15 @@ describe('AppOrchestrator', () => {
                 dayKey: 123,
                 orderedItems: [],
             };
+            try {
+                await orchestrator.switchToChannel('ch1', { guideSelectionSnapshot });
 
-            await orchestrator.switchToChannel('ch1', { guideSelectionSnapshot });
-
-            expect(switchSpy).toHaveBeenCalledWith('ch1', {
-                guideSelectionSnapshot,
-            });
-            switchSpy.mockRestore();
+                expect(switchSpy).toHaveBeenCalledWith('ch1', {
+                    guideSelectionSnapshot,
+                });
+            } finally {
+                switchSpy.mockRestore();
+            }
         });
 
         it('should handle non-existent channel gracefully', async () => {
