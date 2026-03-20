@@ -84,6 +84,7 @@ import {
 import { SleepTimerManager } from '../../modules/ui/sleep-timer';
 import { ChannelSetupCoordinator } from '../channel-setup';
 import { ChannelTuningCoordinator } from '../channel-tuning';
+import type { GuideSelectionSnapshot } from '../channel-tuning';
 import type { IInitializationCoordinator } from '../InitializationCoordinator';
 import type { ModuleStatus, OrchestratorConfig } from './OrchestratorTypes';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
@@ -147,7 +148,10 @@ export interface OrchestratorCoordinatorFactoryDeps {
     getPlaybackInfoSnapshot: () => PlaybackInfoSnapshotLike | null;
     refreshPlaybackInfoSnapshot: () => Promise<PlaybackInfoSnapshotLike>;
 
-    switchToChannel: (channelId: string) => Promise<void>;
+    switchToChannel: (
+        channelId: string,
+        options?: { guideSelectionSnapshot?: GuideSelectionSnapshot }
+    ) => Promise<void>;
     stopPlayback: () => void;
     stopActiveTranscodeSession: () => void;
     switchToNextChannel: () => void;
@@ -199,7 +203,10 @@ export function createOrchestratorCoordinators(
         setLastChannelChangeSourceToGuide: (): void => {
             deps.setLastChannelChangeSource('guide');
         },
-        switchToChannel: (channelId: string): Promise<void> => deps.switchToChannel(channelId),
+        switchToChannel: (
+            channelId: string,
+            options?: { guideSelectionSnapshot?: GuideSelectionSnapshot }
+        ): Promise<void> => deps.switchToChannel(channelId, options),
         reportEpgInitWarning: (error: unknown): void => {
             console.warn('[EPG_INIT] Deferred guide initialization failed:', summarizeErrorForLog(error));
             deps.nowPlayingHandler()?.({
@@ -227,6 +234,7 @@ export function createOrchestratorCoordinators(
             safeLocalStorageRemove(key);
         },
         handleGlobalError: (error: AppError, context: string): void => deps.handleGlobalError(error, context),
+        clearSelectedChannelScheduleSnapshot: (): void => epgCoordinator.clearSelectedChannelScheduleSnapshot(),
         primeEpgChannels: (): void => epgCoordinator.primeEpgChannels(),
         refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }): Promise<void> =>
             epgCoordinator.refreshEpgSchedules(options),

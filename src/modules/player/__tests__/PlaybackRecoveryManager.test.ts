@@ -179,6 +179,7 @@ describe('PlaybackRecoveryManager', () => {
 
     it('skips on failures until tripped, then pauses and surfaces error', () => {
         const { manager, scheduler, deps } = setup();
+        localStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, '1');
         const handleGlobalError = deps.handleGlobalError as jest.Mock;
 
         manager.handlePlaybackFailure('context', new Error('boom'));
@@ -186,6 +187,10 @@ describe('PlaybackRecoveryManager', () => {
 
         expect(scheduler.skipToNext).toHaveBeenCalledTimes(2);
         expect(scheduler.pauseSyncTimer).not.toHaveBeenCalled();
+        const stored = JSON.parse(
+            localStorage.getItem(LINEUP_STORAGE_KEYS.ISSUE_DIAGNOSTICS_LOG) as string
+        ) as Array<{ event: string }>;
+        expect(stored.filter((entry) => entry.event === 'playbackRecovery.skipToNext')).toHaveLength(2);
 
         manager.handlePlaybackFailure('context', new Error('boom'));
 

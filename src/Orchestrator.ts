@@ -121,6 +121,7 @@ import {
 } from './core/channel-setup';
 import { NowPlayingDebugManager } from './modules/debug/NowPlayingDebugManager';
 import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
+import { IssueDiagnosticsStore } from './modules/debug/IssueDiagnosticsStore';
 import { NowPlayingInfoCoordinator } from './modules/ui/now-playing-info/NowPlayingInfoCoordinator';
 import { PlaybackOptionsCoordinator } from './modules/ui/playback-options';
 import { EpgPreferencesStore } from './modules/settings/EpgPreferencesStore';
@@ -147,6 +148,9 @@ import { isAbortLikeError, summarizeErrorForLog } from './utils/errors';
 // ============================================
 
 export type { ModuleStatus, OrchestratorConfig } from './core/orchestrator/OrchestratorTypes';
+
+const QA_003B_ISSUE_ID = 'QA-003b';
+const issueDiagnosticsStore = new IssueDiagnosticsStore();
 
 export type {
     ChannelSetupConfig,
@@ -231,7 +235,13 @@ export interface IAppOrchestrator {
     getPlaybackInfoSnapshot(): PlaybackInfoSnapshot;
     refreshPlaybackInfoSnapshot(): Promise<PlaybackInfoSnapshot>;
     setSubtitleTrack(trackId: string | null): Promise<void>;
-    switchToChannel(channelId: string, options?: { signal?: AbortSignal }): Promise<void>;
+    switchToChannel(
+        channelId: string,
+        options?: {
+            signal?: AbortSignal;
+            guideSelectionSnapshot?: import('./core/channel-tuning').GuideSelectionSnapshot;
+        }
+    ): Promise<void>;
     switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void>;
     openEPG(): void;
     closeEPG(): void;
@@ -591,7 +601,10 @@ export class AppOrchestrator implements IAppOrchestrator {
             getMimeType: (decision: StreamDecision): string => this._getMimeType(decision),
             getPlaybackInfoSnapshot: (): PlaybackInfoSnapshot | null => this.getPlaybackInfoSnapshot(),
             refreshPlaybackInfoSnapshot: (): Promise<PlaybackInfoSnapshot> => this.refreshPlaybackInfoSnapshot(),
-            switchToChannel: (channelId: string): Promise<void> => this.switchToChannel(channelId),
+            switchToChannel: (
+                channelId: string,
+                options?: { guideSelectionSnapshot?: import('./core/channel-tuning').GuideSelectionSnapshot }
+            ): Promise<void> => this.switchToChannel(channelId, options),
             stopPlayback: (): void => this._stopPlayback(),
             stopActiveTranscodeSession: (): void => this._requirePlaybackRuntimeController().stopActiveTranscodeSession(),
             switchToNextChannel: (): void => this._switchToNextChannel(),
@@ -1156,6 +1169,7 @@ export class AppOrchestrator implements IAppOrchestrator {
             if (this._initCoordinator) {
                 await this._initCoordinator.runStartup(3);
                 if (this._epg) {
+                    this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
                     this._epgCoordinator?.clearScheduleCaches();
                     this._epg.clearSchedules();
                 }
@@ -1187,7 +1201,13 @@ export class AppOrchestrator implements IAppOrchestrator {
      * Stops current playback, resolves content, configures scheduler, and syncs.
      * @param channelId - ID of channel to switch to
      */
-    async switchToChannel(channelId: string, options?: { signal?: AbortSignal }): Promise<void> {
+    async switchToChannel(
+        channelId: string,
+        options?: {
+            signal?: AbortSignal;
+            guideSelectionSnapshot?: import('./core/channel-tuning').GuideSelectionSnapshot;
+        }
+    ): Promise<void> {
         if (!this._channelTuning) {
             if (!this._channelManager || !this._scheduler || !this._videoPlayer) {
                 console.error('Modules not initialized');
@@ -1671,6 +1691,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         this._scheduler.loadChannel(this._buildDailyScheduleConfig(current, content.items, now));
         this._scheduler.syncToCurrentTime();
 
+        this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
         await this._epgCoordinator?.refreshEpgSchedules();
         this._activeScheduleDayKey = dayKey;
         this._pendingDayRolloverDayKey = null;
@@ -1706,9 +1727,19 @@ export class AppOrchestrator implements IAppOrchestrator {
             return;
         }
 
+        issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'orchestrator.subtitleTrackChange', {
+            trackId: event.trackId,
+            currentSubtitleDelivery: this._currentStreamDecision?.subtitleDelivery ?? null,
+            currentSubtitleMode: this._currentStreamDecision?.transcodeRequest?.subtitleMode ?? null,
+        });
+
         if (!event.trackId) {
             const decision = this._currentStreamDecision ?? null;
             if (decision?.transcodeRequest?.subtitleMode === 'burn') {
+                issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'orchestrator.subtitleTrackOff.disableBurnInAttempt', {
+                    trackId: null,
+                    subtitleMode: decision.transcodeRequest.subtitleMode,
+                });
                 const warnDisableFailed = (): void => {
                     if (!this._nowPlayingHandler) return;
                     this._nowPlayingHandler({ message: 'Failed to disable burn-in subtitles', type: 'warning' });
@@ -1749,6 +1780,10 @@ export class AppOrchestrator implements IAppOrchestrator {
             event.trackId,
             'subtitle_track_change'
         );
+        issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'orchestrator.subtitleTrackChange.burnInAttempt', {
+            trackId: event.trackId,
+            format,
+        });
     }
 
     private _handlePlexLibraryAuthExpired(): void {

@@ -12,12 +12,15 @@ import type {
     IChannelManager,
     ChannelConfig,
     ResolvedChannelContent,
+    ResolvedContentItem,
 } from '../../modules/scheduler/channel-manager';
 import type {
     IChannelScheduler,
     ScheduleConfig,
 } from '../../modules/scheduler/scheduler';
+import { IssueDiagnosticsStore } from '../../modules/debug/IssueDiagnosticsStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
+import type { GuideSelectionSnapshot } from './GuideSelectionSnapshot';
 
 export type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
@@ -48,10 +51,15 @@ export interface ChannelTuningCoordinatorDeps {
 
 interface QueuedSwitchRequest {
     channelId: string;
-    signal: AbortSignal | undefined;
+    options: ChannelSwitchOptions | undefined;
     completion: Promise<ChannelSwitchOutcome>;
     resolve: (outcome: ChannelSwitchOutcome) => void;
     reject: (error: unknown) => void;
+}
+
+export interface ChannelSwitchOptions {
+    signal?: AbortSignal;
+    guideSelectionSnapshot?: GuideSelectionSnapshot;
 }
 
 function createAbortLikeError(message: string): Error {
@@ -62,6 +70,9 @@ function createAbortLikeError(message: string): Error {
     error.name = 'AbortError';
     return error;
 }
+
+const QA_003B_ISSUE_ID = 'QA-003b';
+const issueDiagnosticsStore = new IssueDiagnosticsStore();
 
 export class ChannelTuningCoordinator {
     private _isChannelSwitching = false;
@@ -81,7 +92,7 @@ export class ChannelTuningCoordinator {
      */
     async switchToChannel(
         channelId: string,
-        options?: { signal?: AbortSignal }
+        options?: ChannelSwitchOptions
     ): Promise<ChannelSwitchOutcome> {
         const channelManager = this.deps.getChannelManager();
         const scheduler = this.deps.getScheduler();
@@ -95,7 +106,7 @@ export class ChannelTuningCoordinator {
             return 'aborted';
         }
 
-        const request = this._createSwitchRequest(channelId, options?.signal);
+        const request = this._createSwitchRequest(channelId, options);
 
         // Prevent concurrent state corruption while preserving latest user intent.
         if (this._isChannelSwitching) {
@@ -125,7 +136,7 @@ export class ChannelTuningCoordinator {
 
     private _createSwitchRequest(
         channelId: string,
-        signal: AbortSignal | undefined
+        options: ChannelSwitchOptions | undefined
     ): QueuedSwitchRequest {
         let resolveFn: (outcome: ChannelSwitchOutcome) => void = () => undefined;
         let rejectFn: (error: unknown) => void = () => undefined;
@@ -135,7 +146,7 @@ export class ChannelTuningCoordinator {
         });
         return {
             channelId,
-            signal,
+            options,
             completion,
             resolve: resolveFn,
             reject: rejectFn,
@@ -162,7 +173,7 @@ export class ChannelTuningCoordinator {
                 const current = request;
                 request = null;
 
-                if (current.signal?.aborted) {
+                if (current.options?.signal?.aborted) {
                     current.resolve('aborted');
                     request = this._takePendingSwitch();
                     continue;
@@ -174,7 +185,7 @@ export class ChannelTuningCoordinator {
                         channelManager,
                         scheduler,
                         videoPlayer,
-                        current.signal
+                        current.options
                     );
                     current.resolve(outcome);
                 } catch (error: unknown) {
@@ -206,8 +217,9 @@ export class ChannelTuningCoordinator {
         channelManager: IChannelManager,
         scheduler: IChannelScheduler,
         videoPlayer: IVideoPlayer,
-        signal: AbortSignal | undefined
+        options: ChannelSwitchOptions | undefined
     ): Promise<ChannelSwitchOutcome> {
+        const signal = options?.signal;
         if (signal?.aborted) {
             return 'aborted';
         }
@@ -231,48 +243,88 @@ export class ChannelTuningCoordinator {
                 return 'failed';
             }
 
-            // Resolve channel content BEFORE stopping player
-            // This prevents blank screen if resolution fails
-            let content: ResolvedChannelContent;
-            try {
-                content = await channelManager.resolveChannelContent(channelId, {
-                    signal: signal ?? null,
+            const snapshotValidationReferenceTimeMs = Date.now();
+            const snapshotValidation = this._validateGuideSelectionSnapshot(
+                options?.guideSelectionSnapshot,
+                channelId,
+                snapshotValidationReferenceTimeMs
+            );
+            let scheduleItems: ResolvedContentItem[] | null = null;
+            let scheduleReferenceTimeMs = snapshotValidationReferenceTimeMs;
+            if (snapshotValidation.valid && snapshotValidation.snapshot) {
+                scheduleItems = [...snapshotValidation.snapshot.orderedItems];
+                issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'channelTuning.guideSnapshotApplied', {
+                    channelId,
+                    source: snapshotValidation.snapshot.source,
+                    dayKey: snapshotValidation.snapshot.dayKey,
+                    ratingKey: snapshotValidation.snapshot.ratingKey,
+                    scheduledStartTime: snapshotValidation.snapshot.scheduledStartTime,
+                    scheduledEndTime: snapshotValidation.snapshot.scheduledEndTime,
+                    itemCount: scheduleItems.length,
+                    sampleRatingKeys: scheduleItems.slice(0, 5).map((item) => item.ratingKey),
                 });
-            } catch (error: unknown) {
-                if (isAbortLikeError(error, signal)) {
-                    return 'aborted';
-                }
+            } else if (snapshotValidation.reason) {
+                issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'channelTuning.guideSnapshotRejected', {
+                    channelId,
+                    reason: snapshotValidation.reason,
+                });
+            }
 
-                console.error('Failed to resolve channel content:', summarizeErrorForLog(error));
+            if (!scheduleItems) {
+                // Resolve channel content BEFORE stopping player
+                // This prevents blank screen if resolution fails
+                let content: ResolvedChannelContent;
+                try {
+                    content = await channelManager.resolveChannelContent(channelId, {
+                        signal: signal ?? null,
+                    });
+                    scheduleItems = content.items;
+                    scheduleReferenceTimeMs = Date.now();
+                    issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'channelTuning.resolveChannelContent', {
+                        channelId,
+                        resolvedAt: content.resolvedAt,
+                        fromCache: content.fromCache ?? false,
+                        isStale: content.isStale ?? false,
+                        cacheReason: content.cacheReason ?? null,
+                        itemCount: content.items.length,
+                        sampleRatingKeys: content.items.slice(0, 5).map((item) => item.ratingKey),
+                    });
+                } catch (error: unknown) {
+                    if (isAbortLikeError(error, signal)) {
+                        return 'aborted';
+                    }
 
-                if (
-                    error &&
-                    typeof error === 'object' &&
-                    'code' in error &&
-                    typeof (error as { code?: unknown }).code === 'string' &&
-                    'message' in error &&
-                    typeof (error as { message?: unknown }).message === 'string'
-                ) {
-                    const errWithCode = error as { code: string; message: string; recoverable?: boolean };
-                    this.deps.handleGlobalError(
-                        {
-                            code: errWithCode.code as AppErrorCode,
-                            message: errWithCode.message,
-                            recoverable: Boolean(errWithCode.recoverable),
-                        },
-                        'switchToChannel'
-                    );
-                } else {
-                    this.deps.handleGlobalError(
-                        {
-                            code: AppErrorCode.CONTENT_UNAVAILABLE,
-                            message: `Failed to switch to channel: ${channel.name}`,
-                            recoverable: true,
-                        },
-                        'switchToChannel'
-                    );
+                    console.error('Failed to resolve channel content:', summarizeErrorForLog(error));
+
+                    if (
+                        error &&
+                        typeof error === 'object' &&
+                        'code' in error &&
+                        typeof (error as { code?: unknown }).code === 'string' &&
+                        'message' in error &&
+                        typeof (error as { message?: unknown }).message === 'string'
+                    ) {
+                        const errWithCode = error as { code: string; message: string; recoverable?: boolean };
+                        this.deps.handleGlobalError(
+                            {
+                                code: errWithCode.code as AppErrorCode,
+                                message: errWithCode.message,
+                                recoverable: Boolean(errWithCode.recoverable),
+                            },
+                            'switchToChannel'
+                        );
+                    } else {
+                        this.deps.handleGlobalError(
+                            {
+                                code: AppErrorCode.CONTENT_UNAVAILABLE,
+                                message: `Failed to switch to channel: ${channel.name}`,
+                                recoverable: true,
+                            },
+                            'switchToChannel'
+                        );
+                    }
+                    return 'failed';
                 }
-                return 'failed';
             }
 
             if (signal?.aborted) {
@@ -303,11 +355,23 @@ export class ChannelTuningCoordinator {
             videoPlayer.stop();
 
             // Configure scheduler
-            const now = Date.now();
-            const scheduleConfig = this.deps.buildDailyScheduleConfig(channel, content.items, now);
+            const scheduleConfig = this.deps.buildDailyScheduleConfig(
+                channel,
+                scheduleItems,
+                scheduleReferenceTimeMs
+            );
             this.deps.setPendingNowPlayingChannelId(channelId);
             scheduler.loadChannel(scheduleConfig);
-            this.deps.setActiveScheduleDayKey(this.deps.getLocalDayKey(now));
+            this.deps.setActiveScheduleDayKey(this.deps.getLocalDayKey(scheduleReferenceTimeMs));
+            issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'channelTuning.schedulerLoaded', {
+                channelId,
+                referenceTimeMs: scheduleReferenceTimeMs,
+                anchorTime: scheduleConfig.anchorTime,
+                playbackMode: scheduleConfig.playbackMode,
+                shuffleSeed: scheduleConfig.shuffleSeed,
+                contentCount: scheduleConfig.content.length,
+                sampleRatingKeys: scheduleConfig.content.slice(0, 5).map((item) => item.ratingKey),
+            });
 
             // Sync to current time (this will emit programStart)
             try {
@@ -394,5 +458,35 @@ export class ChannelTuningCoordinator {
             console.error('Failed to switch by channel number:', summarizeErrorForLog(error));
             return 'failed';
         }
+    }
+
+    private _validateGuideSelectionSnapshot(
+        snapshot: GuideSelectionSnapshot | undefined,
+        channelId: string,
+        referenceTimeMs: number
+    ): { valid: true; snapshot: GuideSelectionSnapshot } | { valid: false; snapshot: null; reason: string | null } {
+        if (!snapshot) {
+            return { valid: false, snapshot: null, reason: null };
+        }
+        if (snapshot.channelId !== channelId) {
+            return { valid: false, snapshot: null, reason: 'channel-mismatch' };
+        }
+        if (snapshot.dayKey !== this.deps.getLocalDayKey(referenceTimeMs)) {
+            return { valid: false, snapshot: null, reason: 'day-mismatch' };
+        }
+        if (
+            !Number.isFinite(snapshot.scheduledStartTime) ||
+            !Number.isFinite(snapshot.scheduledEndTime) ||
+            snapshot.scheduledStartTime >= snapshot.scheduledEndTime
+        ) {
+            return { valid: false, snapshot: null, reason: 'invalid-program-window' };
+        }
+        if (!Array.isArray(snapshot.orderedItems) || snapshot.orderedItems.length === 0) {
+            return { valid: false, snapshot: null, reason: 'missing-items' };
+        }
+        if (!snapshot.orderedItems.some((item) => item.ratingKey === snapshot.ratingKey)) {
+            return { valid: false, snapshot: null, reason: 'rating-key-mismatch' };
+        }
+        return { valid: true, snapshot };
     }
 }

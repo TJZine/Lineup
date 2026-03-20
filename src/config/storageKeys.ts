@@ -65,6 +65,7 @@ export const LINEUP_STORAGE_KEYS = {
 
     // Developer / Debug
     DEBUG_LOGGING: 'lineup_debug_logging',
+    ISSUE_DIAGNOSTICS_LOG: 'lineup_debug_issue_log',
     SUBTITLE_DEBUG_LOGGING: 'lineup_subtitle_debug_logging',
     SHOW_FPS: 'lineup_show_fps',
 

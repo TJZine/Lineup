@@ -7,6 +7,7 @@ import type {
 } from '../../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduleConfig, ScheduleWindow } from '../../../scheduler/scheduler';
 import type { IEPGComponent } from '../interfaces';
+import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,
@@ -48,6 +49,28 @@ const createResolvedContent = (channelId: string): ResolvedChannelContent => {
     };
 };
 
+const createLocalStorageMock = (): Storage => {
+    let store: Record<string, string> = {};
+    return {
+        getItem: (key: string): string | null => (
+            Object.prototype.hasOwnProperty.call(store, key) ? (store[key] ?? null) : null
+        ),
+        setItem: (key: string, value: string): void => {
+            store[key] = String(value);
+        },
+        removeItem: (key: string): void => {
+            delete store[key];
+        },
+        clear: (): void => {
+            store = {};
+        },
+        key: (index: number): string | null => Object.keys(store)[index] ?? null,
+        get length(): number {
+            return Object.keys(store).length;
+        },
+    } as Storage;
+};
+
 const createRuntime = (
     overrides: Partial<EPGScheduleRefreshRuntimeDeps> & {
         channelManager?: Partial<IChannelManager>;
@@ -83,6 +106,7 @@ const createRuntime = (
 
     const channelManager: IChannelManager = {
         getAllChannels: jest.fn(() => [channel]),
+        getChannel: jest.fn((channelId: string) => (channelId === channel.id ? channel : null)),
         getCurrentChannel: jest.fn(() => null),
         resolveChannelContent: jest.fn(async (channelId: string) => ({
             ...createResolvedContent(channelId),
@@ -143,6 +167,13 @@ const createRuntime = (
 };
 
 describe('EPGScheduleRefreshRuntime', () => {
+    beforeEach(() => {
+        if (!globalThis.localStorage) {
+            (globalThis as { localStorage?: Storage }).localStorage = createLocalStorageMock();
+        }
+        localStorage.clear();
+    });
+
     it('threads server-swap into the aggressive-dependent branches', async () => {
         const computeScheduleCacheLimit = jest.fn(() => 64);
         const getScheduleLoadConcurrency = jest.fn(() => 1);
@@ -165,6 +196,30 @@ describe('EPGScheduleRefreshRuntime', () => {
         );
         expect(computeScheduleCacheLimit).toHaveBeenLastCalledWith(1, true);
         expect(getScheduleLoadConcurrency).toHaveBeenLastCalledWith(1, expect.any(Number), true);
+    });
+
+    it('records schedule source diagnostics for immediate UI-applied rows when debug logging is enabled', async () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, '1');
+        const { runtime } = createRuntime();
+
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        const stored = JSON.parse(
+            localStorage.getItem(LINEUP_STORAGE_KEYS.ISSUE_DIAGNOSTICS_LOG) as string
+        ) as Array<{ event: string; data: { source?: string } }>;
+        expect(stored).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    event: 'epg.scheduleApplied',
+                    data: expect.objectContaining({
+                        source: 'resolved-immediate',
+                    }),
+                }),
+            ])
+        );
     });
 
     it('aborts stale in-flight loads when a force-refresh request arrives', async () => {
@@ -227,5 +282,267 @@ describe('EPGScheduleRefreshRuntime', () => {
         );
 
         expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses resolved-immediate selected-row seed as a one-shot handoff', async () => {
+        const now = new Date('2026-03-20T12:00:00-04:00').getTime();
+        const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+        const resolveChannelItemsForSchedule = jest.fn(async (channelId: string) => makeResolvedItems(channelId));
+        const { runtime } = createRuntime({
+            channelManager: {
+                resolveChannelItemsForSchedule,
+            },
+            epg: {
+                getState: jest.fn().mockReturnValue({
+                    isVisible: true,
+                    focusedCell: {
+                        kind: 'program',
+                        channelIndex: 0,
+                        programIndex: 0,
+                        program: null,
+                        focusTimeMs: 0,
+                        cellElement: null,
+                    },
+                    scrollPosition: { channelOffset: 0, timeOffset: 0 },
+                    viewWindow: {
+                        startTime: 0,
+                        endTime: 60_000,
+                        startChannelIndex: 0,
+                        endChannelIndex: 0,
+                    },
+                    currentTime: 0,
+                }),
+            },
+        });
+        try {
+            await runtime.refreshForRange(
+                { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+                'visible-range'
+            );
+
+            const snapshotRequest = {
+                channelId: 'c1',
+                ratingKey: 'c1-0',
+                scheduledStartTime: 0,
+                scheduledEndTime: 60_000,
+                selectedAt: now,
+            };
+
+            const firstSnapshot = await runtime.buildGuideSelectionSnapshot(snapshotRequest);
+            const secondSnapshot = await runtime.buildGuideSelectionSnapshot(snapshotRequest);
+
+            expect(firstSnapshot?.source).toBe('resolved-immediate');
+            expect(secondSnapshot?.source).toBe('on-demand-materialized');
+            expect(resolveChannelItemsForSchedule).toHaveBeenCalledTimes(1);
+            expect(resolveChannelItemsForSchedule).toHaveBeenCalledWith('c1', { signal: null });
+        } finally {
+            nowSpy.mockRestore();
+        }
+    });
+
+    it('uses current wall-clock time for focused-row seed day key and reference time', async () => {
+        const now = new Date('2026-03-20T00:05:00-04:00').getTime();
+        const priorDayRangeStart = new Date('2026-03-19T23:00:00-04:00').getTime();
+        const rangeEnd = new Date('2026-03-20T01:00:00-04:00').getTime();
+        const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+        const resolveChannelItemsForSchedule = jest.fn(async (channelId: string) => makeResolvedItems(channelId));
+        const { runtime } = createRuntime({
+            getEpgScheduleRangeMs: () => ({ startTime: priorDayRangeStart, endTime: rangeEnd }),
+            channelManager: {
+                resolveChannelItemsForSchedule,
+            },
+            epg: {
+                getState: jest.fn().mockReturnValue({
+                    isVisible: true,
+                    focusedCell: {
+                        kind: 'program',
+                        channelIndex: 0,
+                        programIndex: 0,
+                        program: null,
+                        focusTimeMs: now,
+                        cellElement: null,
+                    },
+                    scrollPosition: { channelOffset: 0, timeOffset: 0 },
+                    viewWindow: {
+                        startTime: priorDayRangeStart,
+                        endTime: rangeEnd,
+                        startChannelIndex: 0,
+                        endChannelIndex: 0,
+                    },
+                    currentTime: now,
+                }),
+            },
+        });
+
+        try {
+            await runtime.refreshForRange(
+                { channelStart: 0, channelEnd: 0, timeStartMs: priorDayRangeStart, timeEndMs: rangeEnd },
+                'visible-range'
+            );
+
+            const snapshot = await runtime.buildGuideSelectionSnapshot({
+                channelId: 'c1',
+                ratingKey: 'c1-0',
+                scheduledStartTime: priorDayRangeStart,
+                scheduledEndTime: rangeEnd,
+                selectedAt: now,
+            });
+
+            expect(snapshot?.source).toBe('resolved-immediate');
+            expect(snapshot?.referenceTimeMs).toBe(now);
+            expect(snapshot?.dayKey).toBe(20260320);
+            expect(resolveChannelItemsForSchedule).not.toHaveBeenCalled();
+        } finally {
+            nowSpy.mockRestore();
+        }
+    });
+
+    it('retains the focused-row seed when a mismatched snapshot request does not use it', async () => {
+        const now = new Date('2026-03-20T12:00:00-04:00').getTime();
+        const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+        const channels = [makeChannel('c1', 1), makeChannel('c2', 2)];
+        const resolveChannelItemsForSchedule = jest.fn(async (channelId: string) => makeResolvedItems(channelId));
+        const { runtime } = createRuntime({
+            channelManager: {
+                getAllChannels: jest.fn(() => channels),
+                getChannel: jest.fn((channelId: string) => (
+                    channels.find((channel) => channel.id === channelId) ?? null
+                )),
+                resolveChannelItemsForSchedule,
+            },
+            epg: {
+                getState: jest.fn().mockReturnValue({
+                    isVisible: true,
+                    focusedCell: {
+                        kind: 'program',
+                        channelIndex: 0,
+                        programIndex: 0,
+                        program: null,
+                        focusTimeMs: 0,
+                        cellElement: null,
+                    },
+                    scrollPosition: { channelOffset: 0, timeOffset: 0 },
+                    viewWindow: {
+                        startTime: 0,
+                        endTime: 60_000,
+                        startChannelIndex: 0,
+                        endChannelIndex: 1,
+                    },
+                    currentTime: 0,
+                }),
+            },
+        });
+        try {
+            await runtime.refreshForRange(
+                { channelStart: 0, channelEnd: 1, timeStartMs: 0, timeEndMs: 60_000 },
+                'visible-range'
+            );
+
+            const mismatchSnapshot = await runtime.buildGuideSelectionSnapshot({
+                channelId: 'c2',
+                ratingKey: 'c2-0',
+                scheduledStartTime: 0,
+                scheduledEndTime: 60_000,
+                selectedAt: now,
+            });
+            const focusedSnapshot = await runtime.buildGuideSelectionSnapshot({
+                channelId: 'c1',
+                ratingKey: 'c1-0',
+                scheduledStartTime: 0,
+                scheduledEndTime: 60_000,
+                selectedAt: now,
+            });
+
+            expect(mismatchSnapshot?.source).toBe('on-demand-materialized');
+            expect(focusedSnapshot?.source).toBe('resolved-immediate');
+            expect(resolveChannelItemsForSchedule).toHaveBeenCalledTimes(1);
+            expect(resolveChannelItemsForSchedule).toHaveBeenCalledWith('c2', { signal: null });
+        } finally {
+            nowSpy.mockRestore();
+        }
+    });
+
+    it('does not retain resolved-immediate seeds for non-focused immediate rows', async () => {
+        const channels = [makeChannel('c1', 1), makeChannel('c2', 2), makeChannel('c3', 3)];
+        const resolveChannelItemsForSchedule = jest.fn(async (channelId: string) => makeResolvedItems(channelId));
+        const { runtime } = createRuntime({
+            channelManager: {
+                getAllChannels: jest.fn(() => channels),
+                getChannel: jest.fn((channelId: string) => (
+                    channels.find((channel) => channel.id === channelId) ?? null
+                )),
+                resolveChannelItemsForSchedule,
+            },
+            epg: {
+                getState: jest.fn().mockReturnValue({
+                    isVisible: true,
+                    focusedCell: {
+                        kind: 'program',
+                        channelIndex: 0,
+                        programIndex: 0,
+                        program: null,
+                        focusTimeMs: 0,
+                        cellElement: null,
+                    },
+                    scrollPosition: { channelOffset: 0, timeOffset: 0 },
+                    viewWindow: {
+                        startTime: 0,
+                        endTime: 60_000,
+                        startChannelIndex: 0,
+                        endChannelIndex: 2,
+                    },
+                    currentTime: 0,
+                }),
+            },
+        });
+
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 2, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        const snapshot = await runtime.buildGuideSelectionSnapshot({
+            channelId: 'c2',
+            ratingKey: 'c2-0',
+            scheduledStartTime: 0,
+            scheduledEndTime: 60_000,
+            selectedAt: 1_000,
+        });
+
+        expect(snapshot?.source).toBe('on-demand-materialized');
+        expect(resolveChannelItemsForSchedule).toHaveBeenCalledWith('c2', { signal: null });
+    });
+
+    it('does not retain background preload rows as selected-row snapshot seeds', async () => {
+        const channels = Array.from({ length: 20 }, (_, index) => makeChannel(`c${index + 1}`, index + 1));
+        const resolveChannelContent = jest.fn(async (channelId: string) => createResolvedContent(channelId));
+        const resolveChannelItemsForSchedule = jest.fn(async (channelId: string) => makeResolvedItems(channelId));
+        const { runtime } = createRuntime({
+            channelManager: {
+                getAllChannels: jest.fn(() => channels),
+                getChannel: jest.fn((channelId: string) => (
+                    channels.find((channel) => channel.id === channelId) ?? null
+                )),
+                resolveChannelContent,
+                resolveChannelItemsForSchedule,
+            },
+            getScheduleLoadConcurrency: () => 1,
+        });
+
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        const snapshot = await runtime.buildGuideSelectionSnapshot({
+            channelId: 'c20',
+            ratingKey: 'c20-0',
+            scheduledStartTime: 0,
+            scheduledEndTime: 60_000,
+            selectedAt: 1_000,
+        });
+
+        expect(snapshot?.source).toBe('on-demand-materialized');
+        expect(resolveChannelItemsForSchedule).toHaveBeenCalledWith('c20', { signal: null });
     });
 });

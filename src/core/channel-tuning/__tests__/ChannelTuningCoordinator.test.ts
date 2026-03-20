@@ -1,6 +1,7 @@
 import { ChannelTuningCoordinator } from '../ChannelTuningCoordinator';
 import { AppErrorCode } from '../../../modules/lifecycle';
 import type { IVideoPlayer } from '../../../modules/player';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import type {
     IChannelManager,
     ChannelConfig,
@@ -33,6 +34,28 @@ const createScheduleConfig = (channelId: string, anchorTime: number): ScheduleCo
     shuffleSeed: 0,
     loopSchedule: true,
 });
+
+const createLocalStorageMock = (): Storage => {
+    let store: Record<string, string> = {};
+    return {
+        getItem: (key: string): string | null => (
+            Object.prototype.hasOwnProperty.call(store, key) ? (store[key] ?? null) : null
+        ),
+        setItem: (key: string, value: string): void => {
+            store[key] = String(value);
+        },
+        removeItem: (key: string): void => {
+            delete store[key];
+        },
+        clear: (): void => {
+            store = {};
+        },
+        key: (index: number): string | null => Object.keys(store)[index] ?? null,
+        get length(): number {
+            return Object.keys(store).length;
+        },
+    } as Storage;
+};
 
 type CoordinatorHarness = {
     coordinator: ChannelTuningCoordinator;
@@ -107,6 +130,13 @@ const createCoordinator = (): CoordinatorHarness => {
 };
 
 describe('ChannelTuningCoordinator', () => {
+    beforeEach(() => {
+        if (!globalThis.localStorage) {
+            (globalThis as { localStorage?: Storage }).localStorage = createLocalStorageMock();
+        }
+        localStorage.clear();
+    });
+
     it('passes AbortSignal into resolveChannelContent', async () => {
         const { coordinator, channelManager } = createCoordinator();
         const controller = new AbortController();
@@ -118,6 +148,7 @@ describe('ChannelTuningCoordinator', () => {
 
     it('uses a single now for schedule + dayKey', async () => {
         const { coordinator, deps, buildDailyScheduleConfig } = createCoordinator();
+        localStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, '1');
         const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
 
         await coordinator.switchToChannel('ch1');
@@ -125,6 +156,15 @@ describe('ChannelTuningCoordinator', () => {
         expect(buildDailyScheduleConfig).toHaveBeenCalledWith(mockChannel, resolvedContent.items, 1_000_000);
         expect(deps.getLocalDayKey).toHaveBeenCalledWith(1_000_000);
         expect(deps.setActiveScheduleDayKey).toHaveBeenCalledWith(123);
+        const stored = JSON.parse(
+            localStorage.getItem(LINEUP_STORAGE_KEYS.ISSUE_DIAGNOSTICS_LOG) as string
+        ) as Array<{ event: string }>;
+        expect(stored.map((entry) => entry.event)).toEqual(
+            expect.arrayContaining([
+                'channelTuning.resolveChannelContent',
+                'channelTuning.schedulerLoaded',
+            ])
+        );
 
         nowSpy.mockRestore();
     });
@@ -136,6 +176,93 @@ describe('ChannelTuningCoordinator', () => {
 
         expect(deps.stopActiveTranscodeSession).toHaveBeenCalledTimes(1);
         expect(videoPlayer.stop).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses a guide-selected snapshot to seed scheduler load without resolving channel content again', async () => {
+        const { coordinator, channelManager, buildDailyScheduleConfig } = createCoordinator();
+        const snapshotItems: ResolvedChannelContent['items'] = [
+            {
+                ratingKey: 'rk-1',
+                type: 'movie',
+                title: 'Program 1',
+                fullTitle: 'Program 1',
+                durationMs: 60_000,
+                thumb: null,
+                year: 2024,
+                scheduledIndex: 0,
+            },
+        ];
+        channelManager.resolveChannelContent.mockClear();
+
+        await coordinator.switchToChannel('ch1', {
+            guideSelectionSnapshot: {
+                channelId: 'ch1',
+                ratingKey: 'rk-1',
+                scheduledStartTime: 1_000,
+                scheduledEndTime: 61_000,
+                source: 'resolved-immediate',
+                referenceTimeMs: 10_000,
+                dayKey: 123,
+                orderedItems: snapshotItems,
+            },
+        });
+
+        expect(channelManager.resolveChannelContent).not.toHaveBeenCalled();
+        expect(buildDailyScheduleConfig).toHaveBeenCalledWith(mockChannel, snapshotItems, expect.any(Number));
+    });
+
+    it('falls back to resolveChannelContent when the guide snapshot day key is stale', async () => {
+        const { coordinator, deps, channelManager } = createCoordinator();
+        deps.getLocalDayKey.mockReturnValue(456);
+
+        await coordinator.switchToChannel('ch1', {
+            guideSelectionSnapshot: {
+                channelId: 'ch1',
+                ratingKey: 'rk-1',
+                scheduledStartTime: 1_000,
+                scheduledEndTime: 61_000,
+                source: 'resolved-immediate',
+                referenceTimeMs: 10_000,
+                dayKey: 123,
+                orderedItems: [
+                    {
+                        ratingKey: 'rk-1',
+                        type: 'movie',
+                        title: 'Program 1',
+                        fullTitle: 'Program 1',
+                        durationMs: 60_000,
+                        thumb: null,
+                        year: 2024,
+                        scheduledIndex: 0,
+                    },
+                ],
+            },
+        });
+
+        expect(channelManager.resolveChannelContent).toHaveBeenCalledWith('ch1', { signal: null });
+    });
+
+    it('uses post-resolve current time for non-snapshot schedule build and day-key stamping', async () => {
+        const { coordinator, deps, channelManager, buildDailyScheduleConfig } = createCoordinator();
+        let nowValue = 1_000_000;
+        const nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => nowValue);
+        deps.getLocalDayKey.mockImplementation((timeMs: number) => timeMs);
+        channelManager.resolveChannelContent.mockImplementation(async () => {
+            nowValue = 1_500_000;
+            return resolvedContent;
+        });
+
+        await coordinator.switchToChannel('ch1');
+
+        expect(buildDailyScheduleConfig).toHaveBeenCalledWith(
+            mockChannel,
+            resolvedContent.items,
+            1_500_000
+        );
+        expect(deps.getLocalDayKey).toHaveBeenCalledWith(1_500_000);
+        expect(deps.setActiveScheduleDayKey).toHaveBeenCalledWith(1_500_000);
+
+        nowSpy.mockRestore();
     });
 
     it('propagates ChannelError code + recoverable', async () => {

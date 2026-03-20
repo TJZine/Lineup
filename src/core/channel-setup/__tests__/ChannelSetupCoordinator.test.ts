@@ -129,6 +129,7 @@ const createCoordinator = (overrides?: Partial<ChannelSetupCoordinatorDeps>): Co
         storageSet,
         storageRemove,
         handleGlobalError: jest.fn(),
+        clearSelectedChannelScheduleSnapshot: jest.fn(),
         primeEpgChannels: jest.fn(),
         refreshEpgSchedules: jest.fn().mockResolvedValue(undefined),
         ...overrides,
@@ -783,6 +784,29 @@ describe('ChannelSetupCoordinator', () => {
         );
 
         warnSpy.mockRestore();
+    });
+
+    it('clears the selected-channel snapshot before refreshing EPG with { reason: "channel-setup", debounceMs: 0 } from createChannelsFromSetup', async () => {
+        const clearSelectedChannelScheduleSnapshot = jest.fn();
+        const { coordinator, plexLibrary, deps } = createCoordinator({
+            clearSelectedChannelScheduleSnapshot,
+        });
+        plexLibrary.getLibraries.mockResolvedValue([] as PlexLibraryType[]);
+        plexLibrary.getPlaylists.mockResolvedValue([
+            { ratingKey: 'pl1', key: '/playlists/pl1', title: 'Favorites', thumb: null, duration: 0, leafCount: 10 },
+        ]);
+
+        await coordinator.createChannelsFromSetup(createConfig({
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
+        }));
+
+        expect(clearSelectedChannelScheduleSnapshot).toHaveBeenCalledTimes(1);
+        expect(deps.refreshEpgSchedules).toHaveBeenCalledWith({ reason: 'channel-setup', debounceMs: 0 });
+        const clearOrder = clearSelectedChannelScheduleSnapshot.mock.invocationCallOrder[0];
+        const refreshOrder = (deps.refreshEpgSchedules as jest.Mock).mock.invocationCallOrder[0];
+        expect(clearOrder).toBeDefined();
+        expect(refreshOrder).toBeDefined();
+        expect(clearOrder as number).toBeLessThan(refreshOrder as number);
     });
 
     it('returns done as the lastTask after a successful build', async () => {

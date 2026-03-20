@@ -39,6 +39,7 @@ export interface ChannelSetupCoordinatorDeps {
     handleGlobalError: (error: AppError, context: string) => void;
 
     // EPG hooks (do not inject the whole epg coordinator object)
+    clearSelectedChannelScheduleSnapshot: () => void;
     primeEpgChannels: () => void;
     refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }) => Promise<void>;
 
@@ -61,6 +62,7 @@ export class ChannelSetupCoordinator {
             plexLibrary: this.deps.plexLibrary,
             channelManager: this.deps.channelManager,
             storageRemove: (key: string): void => this.deps.storageRemove(key),
+            clearSelectedChannelScheduleSnapshot: (): void => this.deps.clearSelectedChannelScheduleSnapshot(),
             primeEpgChannels: (): void => this.deps.primeEpgChannels(),
             refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }): Promise<void> =>
                 this.deps.refreshEpgSchedules(options),

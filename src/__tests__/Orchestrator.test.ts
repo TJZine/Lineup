@@ -20,6 +20,7 @@ import type { INowPlayingInfoOverlay, NowPlayingInfoConfig } from '../modules/ui
 import { CHANNEL_BADGE_CONTAINER_ID } from '../modules/ui/channel-badge';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import { InitializationCoordinator } from '../core';
+import { ChannelTuningCoordinator } from '../core/channel-tuning';
 import type { PlatformServices } from '../platform';
 import { webosPlatformServices } from '../platform';
 import type { StreamDecision } from '../modules/plex/stream';
@@ -535,7 +536,10 @@ jest.mock('../modules/ui/epg', () => ({
 
 describe('AppOrchestrator', () => {
     let orchestrator: AppOrchestrator;
-    let schedulerHandlers: { programStart?: (program: unknown) => void };
+    let schedulerHandlers: {
+        programStart?: (program: unknown) => void;
+        scheduleSync?: () => void;
+    };
     let playerHandlers: {
         ended?: () => void;
         error?: (error: unknown) => void;
@@ -578,12 +582,18 @@ describe('AppOrchestrator', () => {
                 if (event === 'programStart') {
                     schedulerHandlers.programStart = handler;
                 }
+                if (event === 'scheduleSync') {
+                    schedulerHandlers.scheduleSync = handler as () => void;
+                }
                 return jest.fn();
             });
         (mockScheduler.off as jest.Mock).mockImplementation(
             (event: string, handler: (payload: unknown) => void) => {
                 if (event === 'programStart' && schedulerHandlers.programStart === handler) {
                     delete schedulerHandlers.programStart;
+                }
+                if (event === 'scheduleSync' && schedulerHandlers.scheduleSync === handler) {
+                    delete schedulerHandlers.scheduleSync;
                 }
             });
 
@@ -936,6 +946,51 @@ describe('AppOrchestrator', () => {
                 primeSpy.mockRestore();
                 refreshSpy.mockRestore();
                 runStartupSpy.mockRestore();
+            }
+        });
+    });
+
+    describe('schedule day rollover', () => {
+        it('clears the selected-channel snapshot and rebuilds the active schedule before refreshing EPG schedules on day rollover', async () => {
+            await orchestrator.initialize(mockConfig);
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.validateToken.mockResolvedValue(true);
+            mockPlexDiscovery.isConnected.mockReturnValue(true);
+            await orchestrator.start();
+
+            const clearSelectedSnapshotSpy = jest.spyOn(EPGCoordinator.prototype, 'clearSelectedChannelScheduleSnapshot');
+            const refreshSpy = jest.spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules').mockResolvedValue(undefined);
+            const nowSpy = jest.spyOn(Date, 'now');
+            try {
+                nowSpy.mockReturnValue(new Date('2026-03-18T12:00:00.000Z').getTime());
+                mockScheduler.getCurrentProgram.mockReturnValue(null);
+                mockChannelManager.getCurrentChannel.mockReturnValue(mockChannel);
+                mockChannelManager.resolveChannelContent.mockResolvedValue({
+                    channelId: mockChannel.id,
+                    items: [],
+                    orderedItems: [],
+                    totalDurationMs: 0,
+                    resolvedAt: Date.now(),
+                });
+
+                await orchestrator.switchToChannel(mockChannel.id);
+                nowSpy.mockReturnValue(new Date('2026-03-19T12:00:00.000Z').getTime());
+                schedulerHandlers.scheduleSync?.();
+                await Promise.resolve();
+                await Promise.resolve();
+
+                expect(mockChannelManager.resolveChannelContent).toHaveBeenCalledWith(mockChannel.id);
+                expect(mockScheduler.loadChannel).toHaveBeenCalled();
+                expect(refreshSpy).toHaveBeenCalledTimes(1);
+                const clearOrder = clearSelectedSnapshotSpy.mock.invocationCallOrder[0];
+                const refreshOrder = refreshSpy.mock.invocationCallOrder[0];
+                expect(clearOrder).toBeDefined();
+                expect(refreshOrder).toBeDefined();
+                expect(clearOrder as number).toBeLessThan(refreshOrder as number);
+            } finally {
+                nowSpy.mockRestore();
+                clearSelectedSnapshotSpy.mockRestore();
+                refreshSpy.mockRestore();
             }
         });
     });
@@ -1509,6 +1564,29 @@ describe('AppOrchestrator', () => {
             await orchestrator.switchToChannel('ch1');
 
             expect(mockScheduler.syncToCurrentTime).toHaveBeenCalled();
+        });
+
+        it('forwards guide selection snapshots through switchToChannel without transforming them', async () => {
+            const switchSpy = jest.spyOn(ChannelTuningCoordinator.prototype, 'switchToChannel');
+            const guideSelectionSnapshot = {
+                channelId: 'ch1',
+                ratingKey: 'rk-1',
+                scheduledStartTime: 1_000,
+                scheduledEndTime: 61_000,
+                source: 'resolved-immediate' as const,
+                referenceTimeMs: 10_000,
+                dayKey: 123,
+                orderedItems: [],
+            };
+            try {
+                await orchestrator.switchToChannel('ch1', { guideSelectionSnapshot });
+
+                expect(switchSpy).toHaveBeenCalledWith('ch1', {
+                    guideSelectionSnapshot,
+                });
+            } finally {
+                switchSpy.mockRestore();
+            }
         });
 
         it('should handle non-existent channel gracefully', async () => {
