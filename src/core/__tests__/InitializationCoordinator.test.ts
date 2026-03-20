@@ -424,7 +424,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             const epg = { initialize: jest.fn() } as unknown as InitializationDependencies['epg'];
             const { coordinator } = makeCoordinator({ epg, plexLibrary: null });
 
-            await coordinator.runStartup(5);
+            await coordinator.ensureEPGInitialized();
 
 	            expect((epg as unknown as { initialize: jest.Mock }).initialize).toHaveBeenCalledWith(
 	                expect.objectContaining({ layoutMode: 'classic' })
@@ -437,7 +437,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             const epg = { initialize: jest.fn() } as unknown as InitializationDependencies['epg'];
             const { coordinator } = makeCoordinator({ epg, plexLibrary: null });
 
-            await coordinator.runStartup(5);
+            await coordinator.ensureEPGInitialized();
 
             expect((epg as unknown as { initialize: jest.Mock }).initialize).toHaveBeenCalledWith(
                 expect.objectContaining({ layoutMode: 'overlay' })
@@ -450,7 +450,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             const epg = { initialize: jest.fn() } as unknown as InitializationDependencies['epg'];
             const { coordinator } = makeCoordinator({ epg, plexLibrary: null });
 
-            await coordinator.runStartup(5);
+            await coordinator.ensureEPGInitialized();
 
 	            expect((epg as unknown as { initialize: jest.Mock }).initialize).toHaveBeenCalledWith(
 	                expect.objectContaining({ layoutMode: 'classic' })
@@ -465,7 +465,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	                { epgConfig: { onLayoutModeChange } as never }
 	            );
 
-	            await coordinator.runStartup(5);
+	            await coordinator.ensureEPGInitialized();
 
 	            const initArg = (epg as unknown as { initialize: jest.Mock }).initialize.mock.calls[0]?.[0] as {
 	                onLayoutModeChange?: (mode: EpgLayoutMode) => void;
