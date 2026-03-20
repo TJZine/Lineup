@@ -192,6 +192,7 @@ export class InitializationCoordinator implements IInitializationCoordinator {
     // ============================================
 
     async runStartup(startPhase: 1 | 2 | 3 | 4 | 5): Promise<void> {
+        this._cancelEpgWarmup();
         if (this._startupInProgress) {
             this._startupQueuedPhase = this._startupQueuedPhase === null
                 ? startPhase
@@ -208,6 +209,8 @@ export class InitializationCoordinator implements IInitializationCoordinator {
 
         try {
             while (true) {
+                const shouldEagerlyInitEpgForPass = phaseToRun > 1;
+                const willRunPhase4 = phaseToRun <= 4;
                 this._callbacks.setReady(false);
 
                 // Force phase to initializing to ensure 'ready' event is emitted at the end
@@ -248,6 +251,12 @@ export class InitializationCoordinator implements IInitializationCoordinator {
                     await this._ensureCorePlayerUiInitialized();
                 }
 
+                if (shouldEagerlyInitEpgForPass) {
+                    await this._initPhase5({
+                        ensureCorePlayerUi: !willRunPhase4,
+                    });
+                }
+
                 this._callbacks.setupEventWiring();
                 this._callbacks.setReady(true);
                 if (this._deps.lifecycle) {
@@ -270,7 +279,7 @@ export class InitializationCoordinator implements IInitializationCoordinator {
                 this.clearProfileResume();
 
                 if (this._startupQueuedPhase === null) {
-                    shouldScheduleEpgWarmup = true;
+                    shouldScheduleEpgWarmup = !shouldEagerlyInitEpgForPass;
                     break;
                 }
                 phaseToRun = this._startupQueuedPhase;
@@ -574,18 +583,25 @@ export class InitializationCoordinator implements IInitializationCoordinator {
     /**
      * Phase 5: Initialize EPG
      */
-    private async _initPhase5(): Promise<void> {
+    private async _initPhase5(options?: { ensureCorePlayerUi?: boolean }): Promise<void> {
+        const ensureCorePlayerUi = options?.ensureCorePlayerUi ?? true;
         if (this._callbacks.getModuleStatus('epg-ui') === 'ready') {
-            await this._ensureCorePlayerUiInitialized();
+            if (ensureCorePlayerUi) {
+                await this._ensureCorePlayerUiInitialized();
+            }
             return;
         }
         if (this._epgInitPromise) {
             await this._epgInitPromise;
-            await this._ensureCorePlayerUiInitialized();
+            if (ensureCorePlayerUi) {
+                await this._ensureCorePlayerUiInitialized();
+            }
             return;
         }
         if (!this._deps.epg || !this._config) {
-            await this._ensureCorePlayerUiInitialized();
+            if (ensureCorePlayerUi) {
+                await this._ensureCorePlayerUiInitialized();
+            }
             return;
         }
 
@@ -625,7 +641,9 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             });
 
         await this._epgInitPromise;
-        await this._ensureCorePlayerUiInitialized();
+        if (ensureCorePlayerUi) {
+            await this._ensureCorePlayerUiInitialized();
+        }
     }
 
     private async _ensureCorePlayerUiInitialized(): Promise<void> {

@@ -566,4 +566,118 @@ describe('DeferredEpgComponent', () => {
             'scrollToChannel:7',
         ]);
     });
+
+    it('does not mark the runtime initialized when replay fails and allows a retry', async () => {
+        const callLog: string[] = [];
+        let failReplay = true;
+        const loader = jest.fn(async () => ({
+            EPGComponent: class FakeRuntime implements IEPGComponent {
+                initialize(): void {
+                    callLog.push('initialize');
+                }
+                ensureReady(): Promise<void> {
+                    return Promise.resolve();
+                }
+                show(): void {}
+                hide(): void {}
+                toggle(): void {}
+                isVisible(): boolean {
+                    return false;
+                }
+                loadChannels(channels: ChannelConfig[]): void {
+                    callLog.push(`loadChannels:${channels.length}`);
+                    if (failReplay) {
+                        throw new Error('replay failed');
+                    }
+                }
+                setCategoryColorsEnabled(): void {}
+                setLayoutMode(): void {}
+                setVisibleHours(): void {}
+                setNowWatchingBannerEnabled(): void {}
+                setLibraryTabs(): void {}
+                loadScheduleForChannel(): void {}
+                clearSchedules(): void {}
+                refreshCurrentTime(): void {}
+                focusChannel(channelIndex: number): void {
+                    callLog.push(`focusChannel:${channelIndex}`);
+                }
+                focusProgram(): void {}
+                focusNow(): void {}
+                scrollToTime(): void {}
+                scrollToChannel(): void {}
+                getState(): EPGState {
+                    return {
+                        isVisible: false,
+                        focusedCell: null,
+                        scrollPosition: { channelOffset: 0, timeOffset: 0 },
+                        viewWindow: {
+                            startTime: 0,
+                            endTime: 0,
+                            startChannelIndex: 0,
+                            endChannelIndex: 0,
+                        },
+                        currentTime: 0,
+                    };
+                }
+                getFocusedProgram(): ScheduledProgram | null {
+                    return null;
+                }
+                handleNavigation(): boolean {
+                    return false;
+                }
+                handlePage(): boolean {
+                    return false;
+                }
+                handleSelect(): boolean {
+                    return false;
+                }
+                handleBack(): boolean {
+                    return false;
+                }
+                setGridAnchorTime(): void {}
+                destroy(): void {}
+                on(): void {}
+                off(): void {}
+            },
+        }));
+
+        const component = new DeferredEpgComponent(loader as never);
+        component.initialize(makeConfig());
+        component.loadChannels([makeChannel('ch-1')]);
+
+        await expect(component.ensureReady()).rejects.toThrow('replay failed');
+
+        component.focusChannel(3);
+        expect(callLog).not.toContain('focusChannel:3');
+
+        failReplay = false;
+        await component.ensureReady();
+        component.focusChannel(3);
+
+        expect(callLog).toEqual([
+            'initialize',
+            'loadChannels:1',
+            'initialize',
+            'loadChannels:1',
+            'focusChannel:3',
+            'focusChannel:3',
+        ]);
+    });
+
+    it('rolls back deferred visibility state when show fails to load the runtime', async () => {
+        const loader = jest.fn(async () => {
+            throw new Error('chunk load failed');
+        });
+        const component = new DeferredEpgComponent(loader as never);
+        component.initialize(makeConfig());
+
+        component.show({ preserveFocus: true });
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(component.isVisible()).toBe(false);
+        expect(component.getState().isVisible).toBe(false);
+    });
 });

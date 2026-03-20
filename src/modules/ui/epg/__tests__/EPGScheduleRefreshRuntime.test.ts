@@ -366,6 +366,28 @@ describe('EPGScheduleRefreshRuntime', () => {
         expect(capturedSignals[0]).toBe(controller.signal);
     });
 
+    it('returns null when on-demand guide snapshot materialization is aborted', async () => {
+        const resolveChannelItemsForSchedule = jest.fn(async () => {
+            throw new DOMException('Aborted', 'AbortError');
+        });
+        const { runtime } = createRuntime({
+            channelManager: {
+                resolveChannelItemsForSchedule,
+            },
+        });
+        const controller = new AbortController();
+
+        const snapshot = await runtime.buildGuideSelectionSnapshot({
+            channelId: 'c1',
+            ratingKey: 'c1-0',
+            scheduledStartTime: 0,
+            scheduledEndTime: 60_000,
+            selectedAt: 1_000,
+        }, controller.signal);
+
+        expect(snapshot).toBeNull();
+    });
+
     it('uses current wall-clock time for focused-row seed day key and reference time', async () => {
         const now = new Date('2026-03-20T00:05:00-04:00').getTime();
         const priorDayRangeStart = new Date('2026-03-19T23:00:00-04:00').getTime();

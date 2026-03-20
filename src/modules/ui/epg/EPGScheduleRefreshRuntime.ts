@@ -211,9 +211,17 @@ export class EPGScheduleRefreshRuntime {
         }
 
         const resolveItemsForSchedule = (channelManager as Partial<IChannelManager>).resolveChannelItemsForSchedule;
-        const orderedItems = typeof resolveItemsForSchedule === 'function'
-            ? await resolveItemsForSchedule.call(channelManager, request.channelId, { signal: signal ?? null })
-            : (await channelManager.resolveChannelContent(request.channelId, { signal: signal ?? null })).items;
+        let orderedItems: ResolvedChannelContent['items'];
+        try {
+            orderedItems = typeof resolveItemsForSchedule === 'function'
+                ? await resolveItemsForSchedule.call(channelManager, request.channelId, { signal: signal ?? null })
+                : (await channelManager.resolveChannelContent(request.channelId, { signal: signal ?? null })).items;
+        } catch (error: unknown) {
+            if (isAbortLikeError(error, signal ?? undefined)) {
+                return null;
+            }
+            throw error;
+        }
         if (signal?.aborted) {
             return null;
         }

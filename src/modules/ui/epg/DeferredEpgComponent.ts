@@ -39,6 +39,7 @@ export class DeferredEpgComponent extends EventEmitter<EPGEventMap> implements I
     private _lastShowOptions: { preserveFocus?: boolean } | undefined;
     private _pendingFocusCommand: PendingFocusCommand | null = null;
     private _runtimeBridges: Array<() => void> = [];
+    private _visibilityRequestId = 0;
 
     constructor(loader: EpgRuntimeLoader = () => import('./EPGComponent')) {
         super();
@@ -82,6 +83,9 @@ export class DeferredEpgComponent extends EventEmitter<EPGEventMap> implements I
     }
 
     show(options?: { preserveFocus?: boolean }): void {
+        const previousDesired = this._desiredVisible;
+        const previousOptions = this._lastShowOptions;
+        const requestId = ++this._visibilityRequestId;
         this._desiredVisible = true;
         this._lastShowOptions = options;
 
@@ -90,10 +94,17 @@ export class DeferredEpgComponent extends EventEmitter<EPGEventMap> implements I
             return;
         }
 
-        void this.ensureReady().catch(() => undefined);
+        void this.ensureReady().catch(() => {
+            if (this._runtimeInitialized || requestId !== this._visibilityRequestId) {
+                return;
+            }
+            this._desiredVisible = previousDesired;
+            this._lastShowOptions = previousOptions;
+        });
     }
 
     hide(): void {
+        this._visibilityRequestId += 1;
         this._desiredVisible = false;
         this._lastShowOptions = undefined;
 
@@ -344,12 +355,11 @@ export class DeferredEpgComponent extends EventEmitter<EPGEventMap> implements I
     }
 
     private _initializeRuntimeIfPossible(): void {
-        if (!this._runtime || !this._config || this._destroyed) {
+        if (!this._runtime || !this._config || this._destroyed || this._runtimeInitialized) {
             return;
         }
 
         this._runtime.initialize(this._config);
-        this._runtimeInitialized = true;
 
         if (this._gridAnchorTime !== null) {
             this._runtime.setGridAnchorTime(this._gridAnchorTime);
@@ -393,6 +403,8 @@ export class DeferredEpgComponent extends EventEmitter<EPGEventMap> implements I
         if (this._desiredVisible && !this._runtime.isVisible()) {
             this._runtime.show(this._lastShowOptions);
         }
+
+        this._runtimeInitialized = true;
     }
 
     private _applyPendingFocusCommand(): void {

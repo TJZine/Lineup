@@ -3,19 +3,33 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 const STARTUP_MAX_BYTES = 500000;
+const STARTUP_ENTRY_MODULE = normalizeModulePath('src/bootstrap.ts');
 const REQUIRED_DEFERRED_MODULES = [
-    '/src/modules/ui/auth/AuthScreen.ts',
-    '/src/modules/ui/profile-select/ProfileSelectScreen.ts',
-    '/src/modules/ui/server-select/ServerSelectScreen.ts',
-    '/src/modules/ui/settings/SettingsScreen.ts',
-    '/src/modules/ui/channel-setup/ChannelSetupScreen.ts',
-    '/src/modules/ui/epg/EPGComponent.ts',
-];
+    '../../modules/ui/auth/AuthScreen',
+    '../../modules/ui/profile-select/ProfileSelectScreen',
+    '../../modules/ui/server-select/ServerSelectScreen',
+    '../../modules/ui/audio-setup',
+    '../../modules/ui/settings/SettingsScreen',
+    '../../modules/ui/settings/SettingsStore',
+    '../../modules/ui/channel-setup/ChannelSetupScreen',
+    '../../modules/ui/epg/EPGComponent',
+].map((specifier) => normalizeLazyModuleSpecifier(specifier));
 
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
 function fail(message) {
     throw new Error(message);
+}
+
+function normalizeModulePath(modulePath) {
+    return String(modulePath)
+        .replace(/\\/gu, '/')
+        .replace(/^\//u, '')
+        .replace(/\.(?:[cm]?[jt]sx?)$/u, '');
+}
+
+function normalizeLazyModuleSpecifier(specifier) {
+    return normalizeModulePath(path.posix.join('src/core/app-shell', specifier));
 }
 
 function runBuildAnalyze() {
@@ -52,7 +66,7 @@ function collectModulePaths(assetNode) {
         );
         const srcIndex = normalizedParts.indexOf('src');
         if (srcIndex >= 0) {
-            modules.add(normalizedParts.slice(srcIndex).join('/'));
+            modules.add(normalizeModulePath(normalizedParts.slice(srcIndex).join('/')));
         }
     });
     return modules;
@@ -82,7 +96,7 @@ function main() {
         fail('No emitted .js assets found in bundle-stats.json tree.');
     }
 
-    const bootstrapOwners = jsAssets.filter((asset) => collectModulePaths(asset).has('src/bootstrap.ts'));
+    const bootstrapOwners = jsAssets.filter((asset) => collectModulePaths(asset).has(STARTUP_ENTRY_MODULE));
     if (bootstrapOwners.length !== 1) {
         const names = bootstrapOwners.map((asset) => String(asset.name)).join(', ') || '(none)';
         fail(
@@ -114,13 +128,12 @@ function main() {
     const startupModules = collectModulePaths(startupAsset);
     const deferredChunkMap = new Map();
     for (const modulePath of REQUIRED_DEFERRED_MODULES) {
-        const normalized = modulePath.replace(/^\//u, '');
-        if (startupModules.has(normalized)) {
+        if (startupModules.has(modulePath)) {
             fail(`Deferred module leaked into startup entry ${startupAssetName}: ${modulePath}`);
         }
 
         const emittedIn = jsAssets
-            .filter((asset) => collectModulePaths(asset).has(normalized))
+            .filter((asset) => collectModulePaths(asset).has(modulePath))
             .map((asset) => String(asset.name));
         if (emittedIn.length === 0) {
             fail(`Required deferred module was not emitted in any .js chunk: ${modulePath}`);

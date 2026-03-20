@@ -234,6 +234,8 @@ export function createOrchestratorCoordinators(
             safeLocalStorageRemove(key);
         },
         handleGlobalError: (error: AppError, context: string): void => deps.handleGlobalError(error, context),
+        ensureEpgInitialized: (): Promise<void> =>
+            deps.getInitCoordinator()?.ensureEPGInitialized() ?? Promise.resolve(),
         clearSelectedChannelScheduleSnapshot: (): void => epgCoordinator.clearSelectedChannelScheduleSnapshot(),
         primeEpgChannels: (): void => epgCoordinator.primeEpgChannels(),
         refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }): Promise<void> =>

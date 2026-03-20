@@ -57,7 +57,8 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	            epgConfig: unknown;
 	        }> = {}
 	    ): CoordinatorHarness => {
-	        const navigation = {
+        const navigation = {
+            initialize: jest.fn(),
 	            getCurrentScreen: jest.fn().mockReturnValue('splash'),
 	            goTo: jest.fn(),
 	            replaceScreen: jest.fn(),
@@ -366,6 +367,81 @@ describe('InitializationCoordinator (Plex Home)', () => {
             'exit-confirm',
             'ready-true',
         ]);
+    });
+
+    it('awaits EPG initialization before marking rerun startup ready', async () => {
+        const callOrder: string[] = [];
+        const epg = {
+            initialize: jest.fn(() => {
+                callOrder.push('epg-initialize');
+            }),
+            ensureReady: jest.fn(async () => {
+                callOrder.push('epg-ready');
+            }),
+        } as unknown as InitializationDependencies['epg'];
+        const { coordinator, deps, callbacks } = makeCoordinator({
+            epg,
+        });
+        const plexDiscovery = deps.plexDiscovery as unknown as {
+            initialize: jest.Mock;
+            isConnected: jest.Mock;
+        };
+
+        plexDiscovery.initialize.mockResolvedValue(undefined);
+        plexDiscovery.isConnected.mockReturnValue(true);
+        (callbacks.setReady as jest.Mock).mockImplementation((ready: boolean) => {
+            if (ready) {
+                callOrder.push('ready-true');
+            }
+        });
+
+        await coordinator.runStartup(3);
+
+        expect(callOrder).toEqual([
+            'epg-initialize',
+            'epg-ready',
+            'ready-true',
+        ]);
+    });
+
+    it('cancels a pending warmup timer when a rerun eagerly initializes EPG', async () => {
+        jest.useFakeTimers();
+        const epg = {
+            initialize: jest.fn(),
+            ensureReady: jest.fn(async () => undefined),
+        } as unknown as InitializationDependencies['epg'];
+        const { coordinator, deps } = makeCoordinator({
+            epg,
+        });
+        const plexAuth = deps.plexAuth as unknown as {
+            getStoredCredentials: jest.Mock;
+            validateToken: jest.Mock;
+        };
+        const plexDiscovery = deps.plexDiscovery as unknown as {
+            initialize: jest.Mock;
+            isConnected: jest.Mock;
+        };
+
+        try {
+            plexAuth.getStoredCredentials.mockResolvedValue(
+                createStoredCredentials('active-token', 'account-token')
+            );
+            plexAuth.validateToken.mockResolvedValue(true);
+            plexDiscovery.initialize.mockResolvedValue(undefined);
+            plexDiscovery.isConnected.mockReturnValue(true);
+
+            await coordinator.runStartup(1);
+            expect((epg as unknown as { ensureReady: jest.Mock }).ensureReady).not.toHaveBeenCalled();
+
+            await coordinator.runStartup(3);
+            expect((epg as unknown as { ensureReady: jest.Mock }).ensureReady).toHaveBeenCalledTimes(1);
+
+            await jest.advanceTimersByTimeAsync(1500);
+
+            expect((epg as unknown as { ensureReady: jest.Mock }).ensureReady).toHaveBeenCalledTimes(1);
+        } finally {
+            jest.useRealTimers();
+        }
     });
 
 	    describe('post-ready routing policy', () => {

@@ -16,6 +16,7 @@ export interface ChannelSetupBuildExecutorDeps {
     plexLibrary: IPlexLibrary;
     channelManager: IChannelManager;
     storageRemove: (key: string) => void;
+    ensureEpgInitialized: () => Promise<void>;
     clearSelectedChannelScheduleSnapshot: () => void;
     primeEpgChannels: () => void;
     refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }) => Promise<void>;
@@ -259,6 +260,7 @@ export class ChannelSetupBuildExecutor {
             reportProgress('refresh_epg', 'Refreshing guide...', 'Loading schedules', 0, null);
             finalSummary.lastTask = 'refresh_epg';
             try {
+                await this._deps.ensureEpgInitialized();
                 this._deps.clearSelectedChannelScheduleSnapshot();
                 this._deps.primeEpgChannels();
                 await this._deps.refreshEpgSchedules({ reason: 'channel-setup', debounceMs: 0 });
