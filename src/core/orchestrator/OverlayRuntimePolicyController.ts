@@ -2,6 +2,7 @@ export interface OverlayRuntimePolicyControllerDeps {
     hasChannelBadgeOverlay(): boolean;
     getPlayerOsdVisible(): boolean;
     getNowPlayingInfoVisible(): boolean;
+    getEpgVisible(): boolean;
     getCurrentChannel(): { number: number; name: string } | null;
     showChannelBadge(input: { channelNumber: number; channelName: string }): void;
     hideChannelBadge(): void;
@@ -25,8 +26,9 @@ export class OverlayRuntimePolicyController {
 
         const osdVisible = this._deps.getPlayerOsdVisible();
         const nowPlayingVisible = this._deps.getNowPlayingInfoVisible();
+        const epgVisible = this._deps.getEpgVisible();
 
-        if (!osdVisible && !nowPlayingVisible) {
+        if ((!osdVisible && !nowPlayingVisible) || epgVisible) {
             this._deps.hideChannelBadge();
             return;
         }

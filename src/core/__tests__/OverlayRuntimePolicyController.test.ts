@@ -15,6 +15,7 @@ const makeOverlayHarness = (
         hasChannelBadgeOverlay: jest.fn<boolean, []>().mockReturnValue(true),
         getPlayerOsdVisible: jest.fn<boolean, []>().mockReturnValue(false),
         getNowPlayingInfoVisible: jest.fn<boolean, []>().mockReturnValue(false),
+        getEpgVisible: jest.fn<boolean, []>().mockReturnValue(false),
         getCurrentChannel: jest.fn<
             { number: number; name: string } | null,
             []
@@ -84,6 +85,7 @@ describe('OverlayRuntimePolicyController', () => {
         const { controller, deps } = makeOverlayHarness({
             getPlayerOsdVisible: jest.fn().mockReturnValue(false),
             getNowPlayingInfoVisible: jest.fn().mockReturnValue(true),
+            getEpgVisible: jest.fn().mockReturnValue(false),
             getCurrentChannel: jest.fn().mockReturnValue({ number: 7, name: 'Movies' }),
         });
 
@@ -115,6 +117,21 @@ describe('OverlayRuntimePolicyController', () => {
             });
         }
     );
+
+    it('hides the badge while the EPG is open even if the player OSD is visible', () => {
+        const { controller, deps } = makeOverlayHarness({
+            getPlayerOsdVisible: jest.fn().mockReturnValue(true),
+            getNowPlayingInfoVisible: jest.fn().mockReturnValue(false),
+            getEpgVisible: jest.fn().mockReturnValue(true),
+            getCurrentChannel: jest.fn().mockReturnValue({ number: 11, name: 'Drama' }),
+        });
+
+        controller.syncChannelBadgeOverlay();
+
+        expect(deps.hideChannelBadge).toHaveBeenCalledTimes(1);
+        expect(deps.getCurrentChannel).not.toHaveBeenCalled();
+        expect(deps.showChannelBadge).not.toHaveBeenCalled();
+    });
 
     it('does nothing when navigation is unavailable', () => {
         const { controller, deps } = makeOverlayHarness({

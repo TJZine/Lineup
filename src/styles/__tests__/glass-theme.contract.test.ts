@@ -45,7 +45,9 @@ describe('glass theme contract', () => {
     it('locks the Glass EPG focus and time-indicator accent to theme tokens', () => {
         const epgCss = read('src/modules/ui/epg/styles.css');
 
-        expect(epgCss).toMatch(/\.theme-glass\s+\.epg-cell\.focused\s*\{[^}]*box-shadow:\s*0 0 0 3px var\(--focus-color\) inset/s);
+        expect(epgCss).toMatch(/\.theme-glass\s+\.epg-cell\.focused\s*\{[^}]*background:\s*rgba\(var\(--focus-color-rgb\), 0\.15\);/s);
+        expect(epgCss).toMatch(/\.theme-glass\s+\.epg-cell\.focused\s*\{[^}]*border:\s*1px solid rgba\(var\(--focus-color-rgb\), 0\.26\);/s);
+        expect(epgCss).toMatch(/\.theme-glass\s+\.epg-cell\.focused\s*\{[^}]*box-shadow:\s*none;/s);
         expect(epgCss).toMatch(/\.theme-glass\s+\.epg-time-indicator\s*\{[^}]*background:\s*var\(--color-primary\);/s);
     });
 });

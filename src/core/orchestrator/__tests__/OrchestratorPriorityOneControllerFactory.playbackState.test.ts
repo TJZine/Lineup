@@ -46,6 +46,7 @@ const makeDeps = (
     channelBadgeOverlay: null,
     playerOsd: null,
     nowPlayingInfo: null,
+    epg: null,
     channelManager: null,
     navigation: null,
     playbackState,

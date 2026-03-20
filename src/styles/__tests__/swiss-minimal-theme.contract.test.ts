@@ -29,7 +29,13 @@ describe('swiss minimal theme contract', () => {
             /\.theme-swiss\s+\.epg-container\.layout-classic\s*\{[^}]*--classic-cell-radius:\s*0px;/s
         );
         expect(epgCss).toMatch(
-            /\.theme-swiss\s+\.epg-container\.layout-classic\s+\.epg-cell\.focused\s*\{[^}]*box-shadow:\s*0 0 0 4px var\(--focus-color\) inset;/s
+            /\.theme-swiss\s+\.epg-container\.layout-classic\s+\.epg-cell\.focused\s*\{[^}]*background:\s*rgba\(var\(--focus-color-rgb\), 0\.12\);/s
+        );
+        expect(epgCss).toMatch(
+            /\.theme-swiss\s+\.epg-container\.layout-classic\s+\.epg-cell\.focused\s*\{[^}]*border-color:\s*rgba\(var\(--focus-color-rgb\), 0\.12\);/s
+        );
+        expect(epgCss).toMatch(
+            /\.theme-swiss\s+\.epg-container\.layout-classic\s+\.epg-cell\.focused\s*\{[^}]*box-shadow:\s*none;/s
         );
     });
 

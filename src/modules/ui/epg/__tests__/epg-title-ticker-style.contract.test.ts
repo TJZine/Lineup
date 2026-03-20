@@ -10,9 +10,14 @@ describe('EPG title ticker style contract', () => {
         const css = read('src/modules/ui/epg/styles.css');
 
         expect(css).toMatch(/@keyframes\s+epg-title-ticker/s);
-        expect(css).toMatch(/\.epg-cell-title\.epg-cell-title-ticker-running\s*\{[^}]*animation:/s);
+        expect(css).toMatch(
+            /\.epg-cell-title\.epg-cell-title-ticker-running\s+\.epg-cell-title-text\s*\{[^}]*animation:/s
+        );
         expect(css).toMatch(
             /\.epg-cell-title\.epg-cell-title-ticker-ready[^{]*\{[^}]*text-overflow:\s*clip;[^}]*\}/s
+        );
+        expect(css).toMatch(
+            /\.epg-cell-subtitle\.epg-cell-subtitle-ticker-running\s+\.epg-cell-subtitle-text\s*\{[^}]*animation:/s
         );
     });
 
@@ -21,6 +26,20 @@ describe('EPG title ticker style contract', () => {
 
         expect(css).toMatch(
             /\.epg-cell-tier-tiny\.focused\s+\.epg-cell-title\.epg-cell-title-ticker-ready,\s*\.epg-cell-tier-tiny\.focused\s+\.epg-cell-title\.epg-cell-title-ticker-running\s*\{[^}]*display:\s*block;[^}]*white-space:\s*nowrap;[^}]*text-overflow:\s*clip;[^}]*-webkit-line-clamp:\s*unset;[^}]*\}/s
+        );
+    });
+
+    it('switches focused cells to the full-width two-line layout and hides the in-cell time rail', () => {
+        const css = read('src/modules/ui/epg/styles.css');
+
+        expect(css).toMatch(
+            /\.epg-cell\.focused\s*\{[^}]*grid-template-columns:\s*1fr;[^}]*\}/s
+        );
+        expect(css).toMatch(
+            /\.epg-cell\.focused\s+\.epg-cell-time\s*\{[^}]*display:\s*none;[^}]*\}/s
+        );
+        expect(css).toMatch(
+            /\.epg-cell\.focused\s+\.epg-cell-rail\s*\{[^}]*position:\s*absolute;[^}]*\}/s
         );
     });
 

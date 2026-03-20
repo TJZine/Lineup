@@ -66,12 +66,31 @@ type VisibleTextMetrics = {
 
 type CellChildren = {
     title: HTMLElement | null;
+    titleText: HTMLElement | null;
     time: HTMLElement | null;
     meta: HTMLElement | null;
     episode: HTMLElement | null;
     subtitle: HTMLElement | null;
+    subtitleText: HTMLElement | null;
+    rail: HTMLElement | null;
     liveBadge: HTMLElement | null;
     progressFill: HTMLElement | null;
+};
+
+type CellTextLayout = {
+    title: string;
+    subtitle: string;
+    showSubtitle: boolean;
+};
+
+type TickerTarget = {
+    viewport: HTMLElement;
+    content: HTMLElement;
+    readyClass: string;
+    runningClass: string;
+    distanceVarName: string;
+    durationVarName: string;
+    supportsClampMeasurement: boolean;
 };
 
 /**
@@ -98,7 +117,7 @@ export class EPGVirtualizer {
     /** Total channel count */
     private totalChannels: number = 0;
     private _focusedTickerTimer: ReturnType<typeof setTimeout> | null = null;
-    private _focusedTickerTitle: HTMLElement | null = null;
+    private _focusedTickerTargets: TickerTarget[] = [];
     private isDebugEnabled(): boolean {
         return isEpgDebugLoggingEnabled();
     }
@@ -115,7 +134,7 @@ export class EPGVirtualizer {
         config: EPGConfig,
         gridAnchorTime: number
     ): void {
-        this._clearFocusedTitleTicker();
+        this._clearFocusedTickers();
         if (this.contentElement) {
             this.contentElement.remove();
             this.contentElement = null;
@@ -140,7 +159,7 @@ export class EPGVirtualizer {
      * Destroy the virtualizer and clean up resources.
      */
     destroy(): void {
-        this._clearFocusedTitleTicker();
+        this._clearFocusedTickers();
         this.forceRecycleAll();
         this.elementPool.clear();
         this.visibleCells.clear();
@@ -597,10 +616,16 @@ export class EPGVirtualizer {
 
         const title = document.createElement('div');
         title.className = EPG_CLASSES.CELL_TITLE;
+        const titleText = document.createElement('span');
+        titleText.className = EPG_CLASSES.CELL_TITLE_TEXT;
+        title.appendChild(titleText);
         content.appendChild(title);
 
         const subtitle = document.createElement('div');
         subtitle.className = EPG_CLASSES.CELL_SUBTITLE;
+        const subtitleText = document.createElement('span');
+        subtitleText.className = EPG_CLASSES.CELL_SUBTITLE_TEXT;
+        subtitle.appendChild(subtitleText);
         content.appendChild(subtitle);
 
         const rail = document.createElement('div');
@@ -669,8 +694,8 @@ export class EPGVirtualizer {
      * @param element - Element to reset
      */
     private resetElement(element: HTMLElement): void {
-        const { meta, episode, subtitle, title, time, liveBadge, progressFill } = this.getCellChildren(element);
-        this._clearFocusedTitleTickerForTitle(title);
+        const { meta, episode, subtitle, subtitleText, titleText, time, liveBadge, progressFill } = this.getCellChildren(element);
+        this._clearFocusedTickersForElement(element);
         if (meta) {
             meta.style.display = 'none';
         }
@@ -678,10 +703,12 @@ export class EPGVirtualizer {
             episode.textContent = '';
         }
         if (subtitle) {
-            subtitle.textContent = '';
+            if (subtitleText) {
+                subtitleText.textContent = '';
+            }
             subtitle.style.display = 'none';
         }
-        if (title) title.textContent = '';
+        if (titleText) titleText.textContent = '';
         if (time) {
             time.textContent = '';
             time.style.display = 'block';
@@ -807,10 +834,13 @@ export class EPGVirtualizer {
         }
         const children = {
             title: element.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement | null,
+            titleText: element.querySelector(`.${EPG_CLASSES.CELL_TITLE_TEXT}`) as HTMLElement | null,
             time: element.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement | null,
             meta: element.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement | null,
             episode: element.querySelector(`.${EPG_CLASSES.CELL_EPISODE}`) as HTMLElement | null,
             subtitle: element.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement | null,
+            subtitleText: element.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE_TEXT}`) as HTMLElement | null,
+            rail: element.querySelector(`.${EPG_CLASSES.CELL_RAIL}`) as HTMLElement | null,
             liveBadge: element.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement | null,
             progressFill: element.querySelector(`.${EPG_CLASSES.CELL_PROGRESS_FILL}`) as HTMLElement | null,
         };
@@ -838,15 +868,76 @@ export class EPGVirtualizer {
         children.progressFill.style.width = `${progress.toFixed(2)}%`;
     }
 
+    private getProgramCellTextLayout(cellData: CellRenderData, isFocused: boolean): CellTextLayout {
+        if (cellData.kind !== 'program') {
+            return {
+                title: cellData.placeholder.label,
+                subtitle: '',
+                showSubtitle: false,
+            };
+        }
+
+        const item = cellData.program.item;
+        if (item.type !== 'episode') {
+            const focusedFullTitle = item.fullTitle.trim();
+            return {
+                title: isFocused && focusedFullTitle.length > 0 ? focusedFullTitle : item.title,
+                subtitle: '',
+                showSubtitle: false,
+            };
+        }
+
+        const episodeTitle = this.normalizeEpisodeTitleForSubtitle(item.title);
+        const showTitle = (item.showTitle ?? '').trim() ||
+            this.extractShowTitleFromFullTitle(item.fullTitle, episodeTitle) ||
+            '';
+        const canSplitFocusedLines =
+            showTitle.length > 0 &&
+            episodeTitle.length > 0 &&
+            showTitle !== episodeTitle;
+
+        if (isFocused) {
+            if (canSplitFocusedLines) {
+                return {
+                    title: showTitle,
+                    subtitle: episodeTitle,
+                    showSubtitle: true,
+                };
+            }
+
+            const fullTitle = item.fullTitle.trim();
+            return {
+                title: fullTitle.length > 0 ? fullTitle : item.title,
+                subtitle: '',
+                showSubtitle: false,
+            };
+        }
+
+        const showSubtitle =
+            Boolean(showTitle) || (episodeTitle.length > 0 && episodeTitle !== item.title);
+        return {
+            title: showTitle || item.title,
+            subtitle: showSubtitle ? episodeTitle : '',
+            showSubtitle,
+        };
+    }
+
     private updateEpisodePresentation(children: CellChildren, cellData: CellRenderData): void {
-        const { meta, episode, subtitle, title } = children;
+        const { meta, episode, subtitle, subtitleText, titleText } = children;
         if (!meta || !episode) return;
+
+        const textLayout = this.getProgramCellTextLayout(cellData, cellData.isFocused);
+        if (titleText) {
+            titleText.textContent = textLayout.title;
+        }
 
         if (cellData.kind !== 'program') {
             episode.textContent = '';
             meta.style.display = 'none';
             if (subtitle) {
-                subtitle.textContent = '';
+                if (subtitleText) {
+                    subtitleText.textContent = '';
+                }
                 subtitle.style.display = 'none';
             }
             return;
@@ -857,7 +948,9 @@ export class EPGVirtualizer {
             episode.textContent = '';
             meta.style.display = 'none';
             if (subtitle) {
-                subtitle.textContent = '';
+                if (subtitleText) {
+                    subtitleText.textContent = '';
+                }
                 subtitle.style.display = 'none';
             }
             return;
@@ -872,63 +965,12 @@ export class EPGVirtualizer {
             meta.style.display = 'none';
         }
 
-        const rawShowTitle = (item.showTitle ?? '').trim();
-        const subtitleText = this.normalizeEpisodeTitleForSubtitle(item.title);
-        const showTitle =
-            rawShowTitle ||
-            this.extractShowTitleFromFullTitle(item.fullTitle, subtitleText) ||
-            '';
-
-        if (title) {
-            title.textContent = this.getProgramCellTitleText(cellData, cellData.isFocused);
-        }
-
         if (subtitle) {
-            const shouldShowSubtitle =
-                !cellData.isFocused &&
-                (Boolean(showTitle) || (subtitleText.length > 0 && subtitleText !== item.title));
-            subtitle.textContent = shouldShowSubtitle ? subtitleText : '';
-            subtitle.style.display = shouldShowSubtitle ? 'block' : 'none';
-        }
-    }
-
-    private getProgramCellTitleText(cellData: CellRenderData, isFocused: boolean): string {
-        if (cellData.kind !== 'program') {
-            return cellData.placeholder.label;
-        }
-
-        const item = cellData.program.item;
-        if (item.type !== 'episode') {
-            if (isFocused) {
-                const fullTitle = item.fullTitle.trim();
-                if (fullTitle.length > 0) {
-                    return fullTitle;
-                }
+            if (subtitleText) {
+                subtitleText.textContent = textLayout.showSubtitle ? textLayout.subtitle : '';
             }
-            return item.title;
+            subtitle.style.display = textLayout.showSubtitle ? 'block' : 'none';
         }
-
-        const rawShowTitle = (item.showTitle ?? '').trim();
-        const episodeTitle = this.normalizeEpisodeTitleForSubtitle(item.title);
-        const showTitle =
-            rawShowTitle ||
-            this.extractShowTitleFromFullTitle(item.fullTitle, episodeTitle) ||
-            '';
-
-        if (!isFocused) {
-            return showTitle || item.title;
-        }
-
-        const fullTitle = item.fullTitle.trim();
-        if (fullTitle.length > 0) {
-            return fullTitle;
-        }
-
-        if (showTitle.length > 0 && episodeTitle.length > 0 && showTitle !== episodeTitle) {
-            return `${showTitle} - ${episodeTitle}`;
-        }
-
-        return item.title;
     }
 
     private getCellWidthTier(width: number): CellWidthTier {
@@ -938,7 +980,12 @@ export class EPGVirtualizer {
         return 'tiny';
     }
 
-    private applyWidthTierPresentation(element: HTMLElement, children: CellChildren, tier: CellWidthTier): void {
+    private applyWidthTierPresentation(
+        element: HTMLElement,
+        children: CellChildren,
+        tier: CellWidthTier,
+        isFocused: boolean
+    ): void {
         element.classList.remove(
             EPG_CLASSES.CELL_TIER_WIDE,
             EPG_CLASSES.CELL_TIER_MEDIUM,
@@ -946,24 +993,24 @@ export class EPGVirtualizer {
             EPG_CLASSES.CELL_TIER_TINY
         );
 
-        const { time, meta, subtitle } = children;
+        const { time, meta, subtitle, subtitleText } = children;
         const hasMetaContent = (meta?.textContent ?? '').trim().length > 0;
-        const hasSubtitleContent = (subtitle?.textContent ?? '').trim().length > 0;
+        const hasSubtitleContent = (subtitleText?.textContent ?? '').trim().length > 0;
 
         if (tier === 'wide') {
             element.classList.add(EPG_CLASSES.CELL_TIER_WIDE);
             if (meta) meta.style.display = hasMetaContent ? 'flex' : 'none';
             if (subtitle) subtitle.style.display = hasSubtitleContent ? 'block' : 'none';
-            if (time) time.style.display = 'block';
+            if (time) time.style.display = isFocused ? 'none' : 'block';
         } else if (tier === 'medium') {
             element.classList.add(EPG_CLASSES.CELL_TIER_MEDIUM);
             if (meta) meta.style.display = 'none';
             if (subtitle) subtitle.style.display = hasSubtitleContent ? 'block' : 'none';
-            if (time) time.style.display = 'block';
+            if (time) time.style.display = isFocused ? 'none' : 'block';
         } else if (tier === 'narrow' || tier === 'tiny') {
             element.classList.add(tier === 'narrow' ? EPG_CLASSES.CELL_TIER_NARROW : EPG_CLASSES.CELL_TIER_TINY);
             if (meta) meta.style.display = 'none';
-            if (subtitle) subtitle.style.display = 'none';
+            if (subtitle) subtitle.style.display = isFocused && hasSubtitleContent ? 'block' : 'none';
             if (time) time.style.display = 'none';
         }
     }
@@ -1044,8 +1091,8 @@ export class EPGVirtualizer {
 
         // Set content
         if (cellData.kind === 'program') {
-            if (children.title) {
-                children.title.textContent = this.getProgramCellTitleText(cellData, cellData.isFocused);
+            if (children.titleText) {
+                children.titleText.textContent = this.getProgramCellTextLayout(cellData, cellData.isFocused).title;
             }
             this.updateCellTimeLabel(
                 children.time,
@@ -1056,7 +1103,7 @@ export class EPGVirtualizer {
             );
             element.classList.remove(EPG_CLASSES.CELL_LOADING);
         } else {
-            if (children.title) children.title.textContent = cellData.placeholder.label;
+            if (children.titleText) children.titleText.textContent = cellData.placeholder.label;
             this.updateCellTimeLabel(
                 children.time,
                 tier,
@@ -1067,7 +1114,7 @@ export class EPGVirtualizer {
             element.classList.add(EPG_CLASSES.CELL_LOADING);
         }
         this.updateEpisodePresentation(children, cellData);
-        this.applyWidthTierPresentation(element, children, tier);
+        this.applyWidthTierPresentation(element, children, tier, cellData.isFocused);
 
         if (cellData.textShiftPx > 0) {
             element.classList.add(EPG_CLASSES.CELL_TEXT_SHIFTED);
@@ -1198,80 +1245,127 @@ export class EPGVirtualizer {
         badge.textContent = shouldCompact ? '' : 'LIVE';
     }
 
-    private _clearFocusedTitleTicker(): void {
+    private _clearFocusedTickers(): void {
         if (this._focusedTickerTimer) {
             clearTimeout(this._focusedTickerTimer);
             this._focusedTickerTimer = null;
         }
-        if (this._focusedTickerTitle) {
-            this._focusedTickerTitle.classList.remove(
-                EPG_CLASSES.CELL_TITLE_TICKER_READY,
-                EPG_CLASSES.CELL_TITLE_TICKER_RUNNING
-            );
-            this._focusedTickerTitle.style.removeProperty('--epg-title-ticker-duration-ms');
-            this._focusedTickerTitle.style.removeProperty('--epg-title-ticker-distance-px');
-            this._focusedTickerTitle.style.transform = '';
-            this._focusedTickerTitle = null;
+        for (const target of this._focusedTickerTargets) {
+            target.viewport.classList.remove(target.readyClass, target.runningClass);
+            target.viewport.style.removeProperty(target.durationVarName);
+            target.viewport.style.removeProperty(target.distanceVarName);
         }
+        this._focusedTickerTargets = [];
     }
 
-    private _clearFocusedTitleTickerForTitle(title: HTMLElement | null): void {
-        if (title && this._focusedTickerTitle && this._focusedTickerTitle !== title) {
-            return;
+    private _clearFocusedTickersForElement(element: HTMLElement): void {
+        if (this._focusedTickerTargets.some((target) => element.contains(target.viewport))) {
+            this._clearFocusedTickers();
         }
-        this._clearFocusedTitleTicker();
     }
 
     private _prefersReducedMotion(): boolean {
         return globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
     }
 
-    private measureReadyStateTickerOverflow(title: HTMLElement, textShiftPx: number): number {
-        title.classList.add(EPG_CLASSES.CELL_TITLE_TICKER_READY);
-        void title.offsetWidth;
-        const effectiveClientWidth = Math.max(0, title.clientWidth - textShiftPx);
-        return Math.max(0, title.scrollWidth - effectiveClientWidth);
+    private measureReadyStateTickerOverflow(target: TickerTarget, textShiftPx: number): number {
+        target.viewport.classList.add(target.readyClass);
+        void target.viewport.offsetWidth;
+        const effectiveClientWidth = Math.max(0, target.viewport.clientWidth - textShiftPx);
+        const contentWidth = Math.max(target.content.scrollWidth, target.viewport.scrollWidth);
+        return Math.max(0, contentWidth - effectiveClientWidth);
+    }
+
+    private buildTickerTarget(
+        viewport: HTMLElement | null,
+        content: HTMLElement | null,
+        options: Omit<TickerTarget, 'viewport' | 'content'>
+    ): TickerTarget | null {
+        if (!viewport || !content) {
+            return null;
+        }
+
+        const text = content.textContent?.trim() ?? '';
+        if (text.length === 0) {
+            return null;
+        }
+
+        return {
+            viewport,
+            content,
+            ...options,
+        };
     }
 
     private _syncFocusedTitleTickerForVisibleFocus(): void {
-        this._clearFocusedTitleTicker();
+        this._clearFocusedTickers();
         if (this._prefersReducedMotion()) return;
 
         const focusedKey = this.focusedVisibleCellKey;
         const focusedCell = focusedKey ? this.visibleCells.get(focusedKey) : null;
         if (!focusedCell?.cellElement) return;
 
-        const title = this.getCellChildren(focusedCell.cellElement).title;
-        if (!title) return;
+        const children = this.getCellChildren(focusedCell.cellElement);
+        const targets = [
+            this.buildTickerTarget(children.title, children.titleText, {
+                readyClass: EPG_CLASSES.CELL_TITLE_TICKER_READY,
+                runningClass: EPG_CLASSES.CELL_TITLE_TICKER_RUNNING,
+                distanceVarName: '--epg-title-ticker-distance-px',
+                durationVarName: '--epg-title-ticker-duration-ms',
+                supportsClampMeasurement: true,
+            }),
+            this.buildTickerTarget(children.subtitle, children.subtitleText, {
+                readyClass: EPG_CLASSES.CELL_SUBTITLE_TICKER_READY,
+                runningClass: EPG_CLASSES.CELL_SUBTITLE_TICKER_RUNNING,
+                distanceVarName: '--epg-subtitle-ticker-distance-px',
+                durationVarName: '--epg-subtitle-ticker-duration-ms',
+                supportsClampMeasurement: false,
+            }),
+        ].filter((target): target is TickerTarget => target !== null);
+        if (targets.length === 0) return;
 
         const textShiftPx = Math.max(0, focusedCell.textShiftPx);
-        const effectiveClientWidth = Math.max(0, title.clientWidth - textShiftPx);
-        const overflowPx = title.scrollWidth - effectiveClientWidth;
         const tier = this.getCellWidthTier(focusedCell.width);
-        const clampHiddenPx = title.scrollHeight - title.clientHeight;
-        const hasClampHiddenText = tier === 'tiny' && clampHiddenPx > 2;
+        const activeTargets: TickerTarget[] = [];
 
-        if (overflowPx <= 12 && !hasClampHiddenText) {
+        for (const target of targets) {
+            const effectiveClientWidth = Math.max(0, target.viewport.clientWidth - textShiftPx);
+            const contentWidth = Math.max(target.content.scrollWidth, target.viewport.scrollWidth);
+            const overflowPx = contentWidth - effectiveClientWidth;
+            const clampHiddenPx = target.viewport.scrollHeight - target.viewport.clientHeight;
+            const hasClampHiddenText =
+                target.supportsClampMeasurement &&
+                tier === 'tiny' &&
+                clampHiddenPx > 2;
+
+            if (overflowPx <= 12 && !hasClampHiddenText) {
+                continue;
+            }
+
+            const travelPx = hasClampHiddenText
+                ? this.measureReadyStateTickerOverflow(target, textShiftPx)
+                : Math.max(overflowPx, 0);
+            if (travelPx <= 12) {
+                target.viewport.classList.remove(target.readyClass);
+                continue;
+            }
+
+            const durationMs = Math.max(1600, Math.min(3200, travelPx * 30));
+            target.viewport.classList.add(target.readyClass);
+            target.viewport.style.setProperty(target.durationVarName, `${durationMs}ms`);
+            target.viewport.style.setProperty(target.distanceVarName, `${travelPx}px`);
+            activeTargets.push(target);
+        }
+
+        if (activeTargets.length === 0) {
             return;
         }
 
-        const travelPx = hasClampHiddenText
-            ? this.measureReadyStateTickerOverflow(title, textShiftPx)
-            : Math.max(overflowPx, 0);
-        if (travelPx <= 12) {
-            title.classList.remove(EPG_CLASSES.CELL_TITLE_TICKER_READY);
-            return;
-        }
-
-        const durationMs = Math.max(1600, Math.min(3200, travelPx * 30));
-        title.classList.add(EPG_CLASSES.CELL_TITLE_TICKER_READY);
-        title.style.setProperty('--epg-title-ticker-duration-ms', `${durationMs}ms`);
-        title.style.setProperty('--epg-title-ticker-distance-px', `${travelPx}px`);
-
-        this._focusedTickerTitle = title;
+        this._focusedTickerTargets = activeTargets;
         this._focusedTickerTimer = setTimeout(() => {
-            if (!this._focusedTickerTitle) return;
-            this._focusedTickerTitle.classList.add(EPG_CLASSES.CELL_TITLE_TICKER_RUNNING);
+            for (const target of this._focusedTickerTargets) {
+                target.viewport.classList.add(target.runningClass);
+            }
         }, 900);
     }
 
@@ -1288,8 +1382,8 @@ export class EPGVirtualizer {
         const children = this.getCellChildren(element);
         const tier = this.getCellWidthTier(cellData.width);
         if (cellData.kind === 'program') {
-            if (children.title) {
-                children.title.textContent = this.getProgramCellTitleText(cellData, cellData.isFocused);
+            if (children.titleText) {
+                children.titleText.textContent = this.getProgramCellTextLayout(cellData, cellData.isFocused).title;
             }
             this.updateCellTimeLabel(
                 children.time,
@@ -1300,7 +1394,7 @@ export class EPGVirtualizer {
             );
             element.classList.remove(EPG_CLASSES.CELL_LOADING);
         } else {
-            if (children.title) children.title.textContent = cellData.placeholder.label;
+            if (children.titleText) children.titleText.textContent = cellData.placeholder.label;
             this.updateCellTimeLabel(
                 children.time,
                 tier,
@@ -1311,7 +1405,7 @@ export class EPGVirtualizer {
             element.classList.add(EPG_CLASSES.CELL_LOADING);
         }
         this.updateEpisodePresentation(children, cellData);
-        this.applyWidthTierPresentation(element, children, tier);
+        this.applyWidthTierPresentation(element, children, tier, cellData.isFocused);
         this.updateProgressPresentation(children, cellData, nowMs);
     }
 
@@ -1319,7 +1413,7 @@ export class EPGVirtualizer {
      * Force recycle all elements when memory pressure detected.
      */
     forceRecycleAll(): void {
-        this._clearFocusedTitleTicker();
+        this._clearFocusedTickers();
         for (const [key, cellData] of this.visibleCells) {
             this.recycleElement(key, cellData);
         }

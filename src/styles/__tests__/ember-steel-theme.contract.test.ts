@@ -26,11 +26,11 @@ describe('ember-steel theme contract', () => {
         const emberClassicCellTitle = blockFor(epgCss, '.theme-ember-steel .epg-container.layout-classic .epg-cell-title');
 
         expect(declarationValue(emberCellFocused, 'background')).toBe('rgba(var(--focus-color-rgb), 0.18)');
-        expect(declarationValue(emberCellFocused, 'box-shadow')).toBe('0 0 0 3px var(--focus-color) inset');
+        expect(declarationValue(emberCellFocused, 'box-shadow')).toBe('none');
 
         expect(declarationValue(emberClassicCellFocused, 'background')).toBe('rgba(var(--focus-color-rgb), 0.22)');
         expect(declarationValue(emberClassicCellFocused, 'border-color')).toBe('rgba(var(--focus-color-rgb), 0.18)');
-        expect(declarationValue(emberClassicCellFocused, 'box-shadow')).toBe('0 0 0 3px var(--focus-color) inset');
+        expect(declarationValue(emberClassicCellFocused, 'box-shadow')).toBe('none');
 
         expect(declarationValue(emberClassicTimeHeader, 'background')).toBe('rgb(var(--scrim-tint-rgb) / 96%)');
         expect(declarationValue(emberClassicChannelList, 'background')).toBe('rgb(var(--scrim-tint-rgb) / 98%)');

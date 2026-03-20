@@ -17,6 +17,7 @@ import type {
     IChannelScheduler,
     ScheduledProgram,
 } from '../../modules/scheduler/scheduler';
+import type { IEPGComponent } from '../../modules/ui/epg';
 import {
     OrchestratorEventBinder,
     type OrchestratorEventBinderDeps,
@@ -45,6 +46,7 @@ export interface OrchestratorPriorityOneControllerFactoryDeps {
     channelBadgeOverlay: { show: (input: { channelNumber: number; channelName: string }) => void; hide: () => void } | null;
     playerOsd: { isVisible: () => boolean } | null;
     nowPlayingInfo: { isVisible: () => boolean } | null;
+    epg: IEPGComponent | null;
     channelManager: IChannelManager | null;
     navigation: INavigationManager | null;
 
@@ -101,6 +103,7 @@ export function createPriorityOneControllersAndBinder(
         hasChannelBadgeOverlay: (): boolean => deps.channelBadgeOverlay !== null,
         getPlayerOsdVisible: (): boolean => deps.playerOsd?.isVisible() ?? false,
         getNowPlayingInfoVisible: (): boolean => deps.nowPlayingInfo?.isVisible() ?? false,
+        getEpgVisible: (): boolean => deps.epg?.isVisible() ?? false,
         getCurrentChannel: (): { number: number; name: string } | null => {
             const channel = deps.channelManager?.getCurrentChannel() ?? null;
             return channel

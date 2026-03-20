@@ -1845,6 +1845,7 @@ export class AppOrchestrator implements IAppOrchestrator {
                 channelBadgeOverlay: this._channelBadgeOverlay,
                 playerOsd: this._playerOsd,
                 nowPlayingInfo: this._nowPlayingInfo,
+                epg: this._epg,
                 channelManager: this._channelManager,
                 navigation: this._navigation,
                 plexLibrary: this._plexLibrary,
