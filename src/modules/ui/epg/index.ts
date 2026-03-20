@@ -5,6 +5,7 @@
  */
 
 export { EPGComponent } from './EPGComponent';
+export { DeferredEpgComponent } from './DeferredEpgComponent';
 export { EPGInfoPanel } from './EPGInfoPanel';
 export { EPGVirtualizer, positionCell } from './EPGVirtualizer';
 export { EPGTimeHeader } from './EPGTimeHeader';
