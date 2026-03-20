@@ -88,117 +88,161 @@ const makeSchedule = (ratingKey: string): ScheduleWindow => ({
     programs: [makeProgram(ratingKey)],
 });
 
+const makeState = (isVisible: boolean = false): EPGState => ({
+    isVisible,
+    focusedCell: null,
+    scrollPosition: { channelOffset: 0, timeOffset: 0 },
+    viewWindow: {
+        startTime: 0,
+        endTime: 0,
+        startChannelIndex: 0,
+        endChannelIndex: 0,
+    },
+    currentTime: 0,
+});
+
+type FakeRuntimeOverrides = Partial<IEPGComponent>;
+
+const createFakeRuntime = (overrides: FakeRuntimeOverrides = {}): new () => IEPGComponent => (
+    class FakeRuntime implements IEPGComponent {
+        constructor() {
+            Object.assign(this, overrides);
+        }
+
+        initialize(): void {}
+        ensureReady(): Promise<void> {
+            return Promise.resolve();
+        }
+        show(): void {}
+        hide(): void {}
+        toggle(): void {}
+        isVisible(): boolean {
+            return false;
+        }
+        loadChannels(): void {}
+        setCategoryColorsEnabled(): void {}
+        setLayoutMode(): void {}
+        setVisibleHours(): void {}
+        setNowWatchingBannerEnabled(): void {}
+        setLibraryTabs(): void {}
+        loadScheduleForChannel(): void {}
+        clearSchedules(): void {}
+        refreshCurrentTime(): void {}
+        focusChannel(): void {}
+        focusProgram(): void {}
+        focusNow(): void {}
+        scrollToTime(): void {}
+        scrollToChannel(): void {}
+        getState(): EPGState {
+            return makeState();
+        }
+        getFocusedProgram(): ScheduledProgram | null {
+            return null;
+        }
+        handleNavigation(): boolean {
+            return false;
+        }
+        handlePage(): boolean {
+            return false;
+        }
+        handleSelect(): boolean {
+            return false;
+        }
+        handleBack(): boolean {
+            return false;
+        }
+        setGridAnchorTime(): void {}
+        destroy(): void {}
+        on(): void {}
+        off(): void {}
+    }
+);
+
+const createLoader = (overrides: FakeRuntimeOverrides = {}): jest.Mock => jest.fn(async () => ({
+    EPGComponent: createFakeRuntime(overrides),
+}));
+
 describe('DeferredEpgComponent', () => {
     it('does not load the runtime during initialize()', async () => {
         const calls: RuntimeCall[] = [];
-        const loader = jest.fn(async () => ({
-            EPGComponent: class FakeRuntime implements IEPGComponent {
-                initialize(config: EPGConfig): void {
-                    calls.push(['initialize', config]);
-                }
-                ensureReady(): Promise<void> {
-                    return Promise.resolve();
-                }
-                show(options?: { preserveFocus?: boolean }): void {
-                    calls.push(['show', options]);
-                }
-                hide(): void {
-                    calls.push(['hide']);
-                }
-                toggle(): void {
-                    calls.push(['toggle']);
-                }
-                isVisible(): boolean {
-                    return false;
-                }
-                loadChannels(channels: ChannelConfig[]): void {
-                    calls.push(['loadChannels', channels]);
-                }
-                setCategoryColorsEnabled(enabled: boolean): void {
-                    calls.push(['setCategoryColorsEnabled', enabled]);
-                }
-                setLayoutMode(mode: EpgLayoutMode): void {
-                    calls.push(['setLayoutMode', mode]);
-                }
-                setVisibleHours(hours: number): void {
-                    calls.push(['setVisibleHours', hours]);
-                }
-                setNowWatchingBannerEnabled(enabled: boolean): void {
-                    calls.push(['setNowWatchingBannerEnabled', enabled]);
-                }
-                setLibraryTabs(
-                    libraries: Array<{ id: string; name: string }>,
-                    selectedId: string | null
-                ): void {
-                    calls.push(['setLibraryTabs', libraries, selectedId]);
-                }
-                loadScheduleForChannel(channelId: string, schedule: ScheduleWindow): void {
-                    calls.push(['loadScheduleForChannel', channelId, schedule]);
-                }
-                clearSchedules(): void {
-                    calls.push(['clearSchedules']);
-                }
-                refreshCurrentTime(): void {
-                    calls.push(['refreshCurrentTime']);
-                }
-                focusChannel(channelIndex: number): void {
-                    calls.push(['focusChannel', channelIndex]);
-                }
-                focusProgram(channelIndex: number, programIndex: number): void {
-                    calls.push(['focusProgram', channelIndex, programIndex]);
-                }
-                focusNow(): void {
-                    calls.push(['focusNow']);
-                }
-                scrollToTime(time: number): void {
-                    calls.push(['scrollToTime', time]);
-                }
-                scrollToChannel(channelIndex: number): void {
-                    calls.push(['scrollToChannel', channelIndex]);
-                }
-                getState(): EPGState {
-                    return {
-                        isVisible: false,
-                        focusedCell: null,
-                        scrollPosition: { channelOffset: 0, timeOffset: 0 },
-                        viewWindow: {
-                            startTime: 0,
-                            endTime: 0,
-                            startChannelIndex: 0,
-                            endChannelIndex: 0,
-                        },
-                        currentTime: 0,
-                    };
-                }
-                getFocusedProgram(): ScheduledProgram | null {
-                    return null;
-                }
-                handleNavigation(direction: 'up' | 'down' | 'left' | 'right'): boolean {
-                    calls.push(['handleNavigation', direction]);
-                    return false;
-                }
-                handlePage(direction: 'up' | 'down'): boolean {
-                    calls.push(['handlePage', direction]);
-                    return false;
-                }
-                handleSelect(): boolean {
-                    calls.push(['handleSelect']);
-                    return false;
-                }
-                handleBack(): boolean {
-                    calls.push(['handleBack']);
-                    return false;
-                }
-                setGridAnchorTime(anchorTime: number): void {
-                    calls.push(['setGridAnchorTime', anchorTime]);
-                }
-                destroy(): void {
-                    calls.push(['destroy']);
-                }
-                on(): void {}
-                off(): void {}
+        const loader = createLoader({
+            initialize(config: EPGConfig): void {
+                calls.push(['initialize', config]);
             },
-        }));
+            show(options?: { preserveFocus?: boolean }): void {
+                calls.push(['show', options]);
+            },
+            hide(): void {
+                calls.push(['hide']);
+            },
+            toggle(): void {
+                calls.push(['toggle']);
+            },
+            loadChannels(channels: ChannelConfig[]): void {
+                calls.push(['loadChannels', channels]);
+            },
+            setCategoryColorsEnabled(enabled: boolean): void {
+                calls.push(['setCategoryColorsEnabled', enabled]);
+            },
+            setLayoutMode(mode: EpgLayoutMode): void {
+                calls.push(['setLayoutMode', mode]);
+            },
+            setVisibleHours(hours: number): void {
+                calls.push(['setVisibleHours', hours]);
+            },
+            setNowWatchingBannerEnabled(enabled: boolean): void {
+                calls.push(['setNowWatchingBannerEnabled', enabled]);
+            },
+            setLibraryTabs(libraries: Array<{ id: string; name: string }>, selectedId: string | null): void {
+                calls.push(['setLibraryTabs', libraries, selectedId]);
+            },
+            loadScheduleForChannel(channelId: string, schedule: ScheduleWindow): void {
+                calls.push(['loadScheduleForChannel', channelId, schedule]);
+            },
+            clearSchedules(): void {
+                calls.push(['clearSchedules']);
+            },
+            refreshCurrentTime(): void {
+                calls.push(['refreshCurrentTime']);
+            },
+            focusChannel(channelIndex: number): void {
+                calls.push(['focusChannel', channelIndex]);
+            },
+            focusProgram(channelIndex: number, programIndex: number): void {
+                calls.push(['focusProgram', channelIndex, programIndex]);
+            },
+            focusNow(): void {
+                calls.push(['focusNow']);
+            },
+            scrollToTime(time: number): void {
+                calls.push(['scrollToTime', time]);
+            },
+            scrollToChannel(channelIndex: number): void {
+                calls.push(['scrollToChannel', channelIndex]);
+            },
+            handleNavigation(direction: 'up' | 'down' | 'left' | 'right'): boolean {
+                calls.push(['handleNavigation', direction]);
+                return false;
+            },
+            handlePage(direction: 'up' | 'down'): boolean {
+                calls.push(['handlePage', direction]);
+                return false;
+            },
+            handleSelect(): boolean {
+                calls.push(['handleSelect']);
+                return false;
+            },
+            handleBack(): boolean {
+                calls.push(['handleBack']);
+                return false;
+            },
+            setGridAnchorTime(anchorTime: number): void {
+                calls.push(['setGridAnchorTime', anchorTime]);
+            },
+            destroy(): void {
+                calls.push(['destroy']);
+            },
+        });
 
         const component = new DeferredEpgComponent(loader as never);
 
@@ -209,67 +253,7 @@ describe('DeferredEpgComponent', () => {
     });
 
     it('loads the runtime once when ensureReady() is called', async () => {
-        const loader = jest.fn(async () => ({
-            EPGComponent: class FakeRuntime implements IEPGComponent {
-                initialize(): void {}
-                ensureReady(): Promise<void> {
-                    return Promise.resolve();
-                }
-                show(): void {}
-                hide(): void {}
-                toggle(): void {}
-                isVisible(): boolean {
-                    return false;
-                }
-                loadChannels(): void {}
-                setCategoryColorsEnabled(): void {}
-                setLayoutMode(): void {}
-                setVisibleHours(): void {}
-                setNowWatchingBannerEnabled(): void {}
-                setLibraryTabs(): void {}
-                loadScheduleForChannel(): void {}
-                clearSchedules(): void {}
-                refreshCurrentTime(): void {}
-                focusChannel(): void {}
-                focusProgram(): void {}
-                focusNow(): void {}
-                scrollToTime(): void {}
-                scrollToChannel(): void {}
-                getState(): EPGState {
-                    return {
-                        isVisible: false,
-                        focusedCell: null,
-                        scrollPosition: { channelOffset: 0, timeOffset: 0 },
-                        viewWindow: {
-                            startTime: 0,
-                            endTime: 0,
-                            startChannelIndex: 0,
-                            endChannelIndex: 0,
-                        },
-                        currentTime: 0,
-                    };
-                }
-                getFocusedProgram(): ScheduledProgram | null {
-                    return null;
-                }
-                handleNavigation(): boolean {
-                    return false;
-                }
-                handlePage(): boolean {
-                    return false;
-                }
-                handleSelect(): boolean {
-                    return false;
-                }
-                handleBack(): boolean {
-                    return false;
-                }
-                setGridAnchorTime(): void {}
-                destroy(): void {}
-                on(): void {}
-                off(): void {}
-            },
-        }));
+        const loader = createLoader();
 
         const component = new DeferredEpgComponent(loader as never);
         await component.ensureReady();
@@ -280,91 +264,44 @@ describe('DeferredEpgComponent', () => {
 
     it('replays queued config, channels, schedules, layout mode, banner mode, and tabs after load', async () => {
         const callLog: string[] = [];
-        const loader = jest.fn(async () => ({
-            EPGComponent: class FakeRuntime implements IEPGComponent {
-                initialize(config: EPGConfig): void {
-                    callLog.push(`initialize:${config.containerId}`);
-                }
-                ensureReady(): Promise<void> {
-                    return Promise.resolve();
-                }
-                show(): void {
-                    callLog.push('show');
-                }
-                hide(): void {
-                    callLog.push('hide');
-                }
-                toggle(): void {
-                    callLog.push('toggle');
-                }
-                isVisible(): boolean {
-                    return false;
-                }
-                loadChannels(channels: ChannelConfig[]): void {
-                    callLog.push(`loadChannels:${channels.map((channel) => channel.id).join(',')}`);
-                }
-                setCategoryColorsEnabled(enabled: boolean): void {
-                    callLog.push(`setCategoryColorsEnabled:${enabled}`);
-                }
-                setLayoutMode(mode: EpgLayoutMode): void {
-                    callLog.push(`setLayoutMode:${mode}`);
-                }
-                setVisibleHours(hours: number): void {
-                    callLog.push(`setVisibleHours:${hours}`);
-                }
-                setNowWatchingBannerEnabled(enabled: boolean): void {
-                    callLog.push(`setNowWatchingBannerEnabled:${enabled}`);
-                }
-                setLibraryTabs(libraries: Array<{ id: string; name: string }>, selectedId: string | null): void {
-                    callLog.push(`setLibraryTabs:${libraries.length}:${selectedId ?? 'null'}`);
-                }
-                loadScheduleForChannel(channelId: string): void {
-                    callLog.push(`loadScheduleForChannel:${channelId}`);
-                }
-                clearSchedules(): void {
-                    callLog.push('clearSchedules');
-                }
-                refreshCurrentTime(): void {}
-                focusChannel(): void {}
-                focusProgram(): void {}
-                focusNow(): void {}
-                scrollToTime(): void {}
-                scrollToChannel(): void {}
-                getState(): EPGState {
-                    return {
-                        isVisible: false,
-                        focusedCell: null,
-                        scrollPosition: { channelOffset: 0, timeOffset: 0 },
-                        viewWindow: {
-                            startTime: 0,
-                            endTime: 0,
-                            startChannelIndex: 0,
-                            endChannelIndex: 0,
-                        },
-                        currentTime: 0,
-                    };
-                }
-                getFocusedProgram(): ScheduledProgram | null {
-                    return null;
-                }
-                handleNavigation(): boolean {
-                    return false;
-                }
-                handlePage(): boolean {
-                    return false;
-                }
-                handleSelect(): boolean {
-                    return false;
-                }
-                handleBack(): boolean {
-                    return false;
-                }
-                setGridAnchorTime(): void {}
-                destroy(): void {}
-                on(): void {}
-                off(): void {}
+        const loader = createLoader({
+            initialize(config: EPGConfig): void {
+                callLog.push(`initialize:${config.containerId}`);
             },
-        }));
+            show(): void {
+                callLog.push('show');
+            },
+            hide(): void {
+                callLog.push('hide');
+            },
+            toggle(): void {
+                callLog.push('toggle');
+            },
+            loadChannels(channels: ChannelConfig[]): void {
+                callLog.push(`loadChannels:${channels.map((channel) => channel.id).join(',')}`);
+            },
+            setCategoryColorsEnabled(enabled: boolean): void {
+                callLog.push(`setCategoryColorsEnabled:${enabled}`);
+            },
+            setLayoutMode(mode: EpgLayoutMode): void {
+                callLog.push(`setLayoutMode:${mode}`);
+            },
+            setVisibleHours(hours: number): void {
+                callLog.push(`setVisibleHours:${hours}`);
+            },
+            setNowWatchingBannerEnabled(enabled: boolean): void {
+                callLog.push(`setNowWatchingBannerEnabled:${enabled}`);
+            },
+            setLibraryTabs(libraries: Array<{ id: string; name: string }>, selectedId: string | null): void {
+                callLog.push(`setLibraryTabs:${libraries.length}:${selectedId ?? 'null'}`);
+            },
+            loadScheduleForChannel(channelId: string): void {
+                callLog.push(`loadScheduleForChannel:${channelId}`);
+            },
+            clearSchedules(): void {
+                callLog.push('clearSchedules');
+            },
+        });
 
         const component = new DeferredEpgComponent(loader as never);
         const config = makeConfig();
@@ -397,72 +334,21 @@ describe('DeferredEpgComponent', () => {
     it('shows the real runtime after queued show() once load resolves', async () => {
         const callLog: string[] = [];
         let visible = false;
-        const loader = jest.fn(async () => ({
-            EPGComponent: class FakeRuntime implements IEPGComponent {
-                initialize(): void {}
-                ensureReady(): Promise<void> {
-                    return Promise.resolve();
-                }
-                show(): void {
-                    visible = true;
-                    callLog.push('show');
-                }
-                hide(): void {
-                    visible = false;
-                }
-                toggle(): void {}
-                isVisible(): boolean {
-                    return visible;
-                }
-                loadChannels(): void {}
-                setCategoryColorsEnabled(): void {}
-                setLayoutMode(): void {}
-                setVisibleHours(): void {}
-                setNowWatchingBannerEnabled(): void {}
-                setLibraryTabs(): void {}
-                loadScheduleForChannel(): void {}
-                clearSchedules(): void {}
-                refreshCurrentTime(): void {}
-                focusChannel(): void {}
-                focusProgram(): void {}
-                focusNow(): void {}
-                scrollToTime(): void {}
-                scrollToChannel(): void {}
-                getState(): EPGState {
-                    return {
-                        isVisible: visible,
-                        focusedCell: null,
-                        scrollPosition: { channelOffset: 0, timeOffset: 0 },
-                        viewWindow: {
-                            startTime: 0,
-                            endTime: 0,
-                            startChannelIndex: 0,
-                            endChannelIndex: 0,
-                        },
-                        currentTime: 0,
-                    };
-                }
-                getFocusedProgram(): ScheduledProgram | null {
-                    return null;
-                }
-                handleNavigation(): boolean {
-                    return false;
-                }
-                handlePage(): boolean {
-                    return false;
-                }
-                handleSelect(): boolean {
-                    return false;
-                }
-                handleBack(): boolean {
-                    return false;
-                }
-                setGridAnchorTime(): void {}
-                destroy(): void {}
-                on(): void {}
-                off(): void {}
+        const loader = createLoader({
+            show(): void {
+                visible = true;
+                callLog.push('show');
             },
-        }));
+            hide(): void {
+                visible = false;
+            },
+            isVisible(): boolean {
+                return visible;
+            },
+            getState(): EPGState {
+                return makeState(visible);
+            },
+        });
 
         const component = new DeferredEpgComponent(loader as never);
         component.initialize(makeConfig());
@@ -476,77 +362,29 @@ describe('DeferredEpgComponent', () => {
 
     it('forwards focus and scroll commands after runtime load', async () => {
         const callLog: string[] = [];
-        const loader = jest.fn(async () => ({
-            EPGComponent: class FakeRuntime implements IEPGComponent {
-                initialize(): void {}
-                ensureReady(): Promise<void> {
-                    return Promise.resolve();
-                }
-                show(): void {}
-                hide(): void {}
-                toggle(): void {}
-                isVisible(): boolean {
-                    return true;
-                }
-                loadChannels(): void {}
-                setCategoryColorsEnabled(): void {}
-                setLayoutMode(): void {}
-                setVisibleHours(): void {}
-                setNowWatchingBannerEnabled(): void {}
-                setLibraryTabs(): void {}
-                loadScheduleForChannel(): void {}
-                clearSchedules(): void {}
-                refreshCurrentTime(): void {}
-                focusChannel(channelIndex: number): void {
-                    callLog.push(`focusChannel:${channelIndex}`);
-                }
-                focusProgram(channelIndex: number, programIndex: number): void {
-                    callLog.push(`focusProgram:${channelIndex}:${programIndex}`);
-                }
-                focusNow(): void {
-                    callLog.push('focusNow');
-                }
-                scrollToTime(time: number): void {
-                    callLog.push(`scrollToTime:${time}`);
-                }
-                scrollToChannel(channelIndex: number): void {
-                    callLog.push(`scrollToChannel:${channelIndex}`);
-                }
-                getState(): EPGState {
-                    return {
-                        isVisible: true,
-                        focusedCell: null,
-                        scrollPosition: { channelOffset: 0, timeOffset: 0 },
-                        viewWindow: {
-                            startTime: 0,
-                            endTime: 0,
-                            startChannelIndex: 0,
-                            endChannelIndex: 0,
-                        },
-                        currentTime: 0,
-                    };
-                }
-                getFocusedProgram(): ScheduledProgram | null {
-                    return null;
-                }
-                handleNavigation(): boolean {
-                    return false;
-                }
-                handlePage(): boolean {
-                    return false;
-                }
-                handleSelect(): boolean {
-                    return false;
-                }
-                handleBack(): boolean {
-                    return false;
-                }
-                setGridAnchorTime(): void {}
-                destroy(): void {}
-                on(): void {}
-                off(): void {}
+        const loader = createLoader({
+            isVisible(): boolean {
+                return true;
             },
-        }));
+            getState(): EPGState {
+                return makeState(true);
+            },
+            focusChannel(channelIndex: number): void {
+                callLog.push(`focusChannel:${channelIndex}`);
+            },
+            focusProgram(channelIndex: number, programIndex: number): void {
+                callLog.push(`focusProgram:${channelIndex}:${programIndex}`);
+            },
+            focusNow(): void {
+                callLog.push('focusNow');
+            },
+            scrollToTime(time: number): void {
+                callLog.push(`scrollToTime:${time}`);
+            },
+            scrollToChannel(channelIndex: number): void {
+                callLog.push(`scrollToChannel:${channelIndex}`);
+            },
+        });
 
         const component = new DeferredEpgComponent(loader as never);
         component.initialize(makeConfig());
@@ -570,76 +408,20 @@ describe('DeferredEpgComponent', () => {
     it('does not mark the runtime initialized when replay fails and allows a retry', async () => {
         const callLog: string[] = [];
         let failReplay = true;
-        const loader = jest.fn(async () => ({
-            EPGComponent: class FakeRuntime implements IEPGComponent {
-                initialize(): void {
-                    callLog.push('initialize');
-                }
-                ensureReady(): Promise<void> {
-                    return Promise.resolve();
-                }
-                show(): void {}
-                hide(): void {}
-                toggle(): void {}
-                isVisible(): boolean {
-                    return false;
-                }
-                loadChannels(channels: ChannelConfig[]): void {
-                    callLog.push(`loadChannels:${channels.length}`);
-                    if (failReplay) {
-                        throw new Error('replay failed');
-                    }
-                }
-                setCategoryColorsEnabled(): void {}
-                setLayoutMode(): void {}
-                setVisibleHours(): void {}
-                setNowWatchingBannerEnabled(): void {}
-                setLibraryTabs(): void {}
-                loadScheduleForChannel(): void {}
-                clearSchedules(): void {}
-                refreshCurrentTime(): void {}
-                focusChannel(channelIndex: number): void {
-                    callLog.push(`focusChannel:${channelIndex}`);
-                }
-                focusProgram(): void {}
-                focusNow(): void {}
-                scrollToTime(): void {}
-                scrollToChannel(): void {}
-                getState(): EPGState {
-                    return {
-                        isVisible: false,
-                        focusedCell: null,
-                        scrollPosition: { channelOffset: 0, timeOffset: 0 },
-                        viewWindow: {
-                            startTime: 0,
-                            endTime: 0,
-                            startChannelIndex: 0,
-                            endChannelIndex: 0,
-                        },
-                        currentTime: 0,
-                    };
-                }
-                getFocusedProgram(): ScheduledProgram | null {
-                    return null;
-                }
-                handleNavigation(): boolean {
-                    return false;
-                }
-                handlePage(): boolean {
-                    return false;
-                }
-                handleSelect(): boolean {
-                    return false;
-                }
-                handleBack(): boolean {
-                    return false;
-                }
-                setGridAnchorTime(): void {}
-                destroy(): void {}
-                on(): void {}
-                off(): void {}
+        const loader = createLoader({
+            initialize(): void {
+                callLog.push('initialize');
             },
-        }));
+            loadChannels(channels: ChannelConfig[]): void {
+                callLog.push(`loadChannels:${channels.length}`);
+                if (failReplay) {
+                    throw new Error('replay failed');
+                }
+            },
+            focusChannel(channelIndex: number): void {
+                callLog.push(`focusChannel:${channelIndex}`);
+            },
+        });
 
         const component = new DeferredEpgComponent(loader as never);
         component.initialize(makeConfig());

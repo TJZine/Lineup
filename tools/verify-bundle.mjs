@@ -90,13 +90,21 @@ function main() {
         fail(`Missing bundle stats file: ${statsPath}`);
     }
 
-    const stats = JSON.parse(readFileSync(statsPath, 'utf8'));
+    let stats;
+    try {
+        stats = JSON.parse(readFileSync(statsPath, 'utf8'));
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        fail(`Failed to parse bundle stats file ${statsPath}: ${message}`);
+    }
     const jsAssets = getJsAssets(stats);
     if (jsAssets.length === 0) {
         fail('No emitted .js assets found in bundle-stats.json tree.');
     }
 
-    const bootstrapOwners = jsAssets.filter((asset) => collectModulePaths(asset).has(STARTUP_ENTRY_MODULE));
+    const assetModules = new Map(jsAssets.map((asset) => [asset, collectModulePaths(asset)]));
+
+    const bootstrapOwners = jsAssets.filter((asset) => assetModules.get(asset)?.has(STARTUP_ENTRY_MODULE));
     if (bootstrapOwners.length !== 1) {
         const names = bootstrapOwners.map((asset) => String(asset.name)).join(', ') || '(none)';
         fail(
@@ -125,7 +133,7 @@ function main() {
         }
     }
 
-    const startupModules = collectModulePaths(startupAsset);
+    const startupModules = assetModules.get(startupAsset) ?? new Set();
     const deferredChunkMap = new Map();
     for (const modulePath of REQUIRED_DEFERRED_MODULES) {
         if (startupModules.has(modulePath)) {
@@ -133,7 +141,7 @@ function main() {
         }
 
         const emittedIn = jsAssets
-            .filter((asset) => collectModulePaths(asset).has(modulePath))
+            .filter((asset) => assetModules.get(asset)?.has(modulePath))
             .map((asset) => String(asset.name));
         if (emittedIn.length === 0) {
             fail(`Required deferred module was not emitted in any .js chunk: ${modulePath}`);
