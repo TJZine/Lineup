@@ -33,19 +33,20 @@ export default defineConfig(({ command }) => {
                         const normalizedId = normalizePath(id);
                         if (normalizedId.includes('/node_modules/')) return 'vendor';
                         if (
-                            normalizedId.includes('/src/modules/ui/epg/') ||
-                            normalizedId.includes('/src/modules/plex/') ||
-                            normalizedId.includes('/src/modules/player/') ||
-                            normalizedId.includes('/src/modules/scheduler/') ||
-                            normalizedId.includes('/src/modules/navigation/') ||
-                            normalizedId.includes('/src/modules/lifecycle/') ||
-                            normalizedId.includes('/src/core/')
+                            normalizedId.includes('/src/modules/ui/channel-setup/')
+                            || normalizedId.includes('/src/core/channel-setup/')
                         ) {
-                            // Keep tightly-coupled runtime systems together to avoid circular chunk warnings.
-                            return 'engine';
+                            return 'channel-setup-flow';
+                        }
+                        if (
+                            normalizedId.includes('/src/modules/ui/settings/')
+                            && !normalizedId.endsWith('/src/modules/ui/settings/theme.ts')
+                        ) {
+                            return 'settings-flow';
                         }
                         return undefined;
                     },
+                    onlyExplicitManualChunks: true,
                 },
             },
         },
