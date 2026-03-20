@@ -203,6 +203,7 @@ const makeDeps = (
         getPreserveFocusOnOpen: () => false,
         setLastChannelChangeSourceToGuide: jest.fn(),
         switchToChannel: jest.fn().mockResolvedValue(undefined),
+        onVisibilityChange: jest.fn(),
         reportEpgInitWarning: jest.fn(),
         ...overrides,
     };
@@ -1626,9 +1627,10 @@ describe('EPGCoordinator', () => {
         expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBe(0);
     });
 
-    it('wireEpgEvents returns unsubscribers and triggers switch when program eligible', async () => {
+    it('wireEpgEvents returns unsubscribers, forwards visibility changes, and triggers switch when program eligible', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, '1');
         const hide = jest.fn();
+        const onVisibilityChange = jest.fn();
         const epg: IEPGComponent = {
             on: jest.fn(),
             off: jest.fn(),
@@ -1656,18 +1658,28 @@ describe('EPGCoordinator', () => {
         const setSource = jest.fn();
         const deps = makeDeps({
             getEpg: () => epg,
+            onVisibilityChange,
             setLastChannelChangeSourceToGuide: setSource,
             switchToChannel,
         }).deps;
         const coordinator = new EPGCoordinator(deps);
         jest.spyOn(Date, 'now').mockReturnValue(5_000);
 
-        const [unsubChannel, unsubFilter] = coordinator.wireEpgEvents();
+        const [unsubChannel, unsubFilter, unsubOpen, unsubClose] = coordinator.wireEpgEvents();
         expect(typeof unsubChannel).toBe('function');
         expect(typeof unsubFilter).toBe('function');
+        expect(typeof unsubOpen).toBe('function');
+        expect(typeof unsubClose).toBe('function');
 
         const handlerCall = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'channelSelected');
         expect(handlerCall).toBeDefined();
+        const openHandler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'open')?.[1];
+        const closeHandler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'close')?.[1];
+        openHandler?.();
+        closeHandler?.();
+        expect(onVisibilityChange).toHaveBeenNthCalledWith(1, true);
+        expect(onVisibilityChange).toHaveBeenNthCalledWith(2, false);
+
         const handler = handlerCall?.[1];
         handler({
             channel: makeChannel('c1', 1),
@@ -1702,6 +1714,14 @@ describe('EPGCoordinator', () => {
         unsubFilter!();
         if (filterHandler) {
             expect(epg.off).toHaveBeenCalledWith('libraryFilterChanged', filterHandler);
+        }
+        unsubOpen!();
+        unsubClose!();
+        if (openHandler) {
+            expect(epg.off).toHaveBeenCalledWith('open', openHandler);
+        }
+        if (closeHandler) {
+            expect(epg.off).toHaveBeenCalledWith('close', closeHandler);
         }
     });
 

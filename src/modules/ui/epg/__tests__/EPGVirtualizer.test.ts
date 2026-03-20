@@ -1394,7 +1394,7 @@ describe('EPGVirtualizer', () => {
             const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
             const time = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
             expect(title.textContent).toBe('Great Show');
-            expect(subtitle.textContent).toBe('The Edge Of Recovery');
+            expect(subtitle.textContent).toBe('S01E09 - The Edge Of Recovery');
             expect(subtitle.style.display).toBe('block');
             expect(time.style.display).toBe('none');
         });
@@ -1723,9 +1723,14 @@ describe('EPGVirtualizer', () => {
                 virtualizer.setFocusedCell(channelId, start);
 
                 expect(title.textContent).toBe(showTitle);
-                expect(subtitle.textContent).toBe(episodeTitle);
+                expect(subtitle.textContent).toBe(`S01E09 - ${episodeTitle}`);
                 expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(true);
                 expect(subtitle.classList.contains('epg-cell-subtitle-ticker-ready')).toBe(true);
+                expect(subtitle.style.getPropertyValue('--epg-subtitle-ticker-distance-px')).toBe('280px');
+
+                jest.advanceTimersByTime(900);
+                expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(true);
+                expect(subtitle.classList.contains('epg-cell-subtitle-ticker-running')).toBe(true);
             } finally {
                 jest.useRealTimers();
             }

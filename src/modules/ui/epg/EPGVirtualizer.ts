@@ -81,6 +81,7 @@ type CellTextLayout = {
     title: string;
     subtitle: string;
     showSubtitle: boolean;
+    focusedCompactSubtitle?: string;
 };
 
 type TickerTarget = {
@@ -884,6 +885,7 @@ export class EPGVirtualizer {
                 title: isFocused && focusedFullTitle.length > 0 ? focusedFullTitle : item.title,
                 subtitle: '',
                 showSubtitle: false,
+                focusedCompactSubtitle: '',
             };
         }
 
@@ -895,6 +897,9 @@ export class EPGVirtualizer {
             showTitle.length > 0 &&
             episodeTitle.length > 0 &&
             showTitle !== episodeTitle;
+        const episodeTag = this.formatEpisodeTag(item);
+        const focusedCompactSubtitle =
+            episodeTitle.length > 0 && episodeTag ? `${episodeTag} - ${episodeTitle}` : episodeTitle;
 
         if (isFocused) {
             if (canSplitFocusedLines) {
@@ -902,6 +907,7 @@ export class EPGVirtualizer {
                     title: showTitle,
                     subtitle: episodeTitle,
                     showSubtitle: true,
+                    focusedCompactSubtitle,
                 };
             }
 
@@ -910,6 +916,7 @@ export class EPGVirtualizer {
                 title: fullTitle.length > 0 ? fullTitle : item.title,
                 subtitle: '',
                 showSubtitle: false,
+                focusedCompactSubtitle: '',
             };
         }
 
@@ -919,10 +926,15 @@ export class EPGVirtualizer {
             title: showTitle || item.title,
             subtitle: showSubtitle ? episodeTitle : '',
             showSubtitle,
+            focusedCompactSubtitle,
         };
     }
 
-    private updateEpisodePresentation(children: CellChildren, cellData: CellRenderData): void {
+    private updateEpisodePresentation(
+        children: CellChildren,
+        cellData: CellRenderData,
+        tier: CellWidthTier
+    ): void {
         const { meta, episode, subtitle, subtitleText, titleText } = children;
         if (!meta || !episode) return;
 
@@ -966,8 +978,12 @@ export class EPGVirtualizer {
         }
 
         if (subtitle) {
+            const shouldInlineEpisodeTag = cellData.isFocused && tier !== 'wide';
+            const subtitleValue = shouldInlineEpisodeTag && textLayout.focusedCompactSubtitle
+                ? textLayout.focusedCompactSubtitle
+                : textLayout.subtitle;
             if (subtitleText) {
-                subtitleText.textContent = textLayout.showSubtitle ? textLayout.subtitle : '';
+                subtitleText.textContent = textLayout.showSubtitle ? subtitleValue : '';
             }
             subtitle.style.display = textLayout.showSubtitle ? 'block' : 'none';
         }
@@ -1113,7 +1129,7 @@ export class EPGVirtualizer {
             );
             element.classList.add(EPG_CLASSES.CELL_LOADING);
         }
-        this.updateEpisodePresentation(children, cellData);
+        this.updateEpisodePresentation(children, cellData, tier);
         this.applyWidthTierPresentation(element, children, tier, cellData.isFocused);
 
         if (cellData.textShiftPx > 0) {
@@ -1404,7 +1420,7 @@ export class EPGVirtualizer {
             );
             element.classList.add(EPG_CLASSES.CELL_LOADING);
         }
-        this.updateEpisodePresentation(children, cellData);
+        this.updateEpisodePresentation(children, cellData, tier);
         this.applyWidthTierPresentation(element, children, tier, cellData.isFocused);
         this.updateProgressPresentation(children, cellData, nowMs);
     }

@@ -207,6 +207,9 @@ export function createOrchestratorCoordinators(
             channelId: string,
             options?: { guideSelectionSnapshot?: GuideSelectionSnapshot }
         ): Promise<void> => deps.switchToChannel(channelId, options),
+        onVisibilityChange: (visible: boolean): void => {
+            deps.onOverlayVisibilityChange(visible);
+        },
         reportEpgInitWarning: (error: unknown): void => {
             console.warn('[EPG_INIT] Deferred guide initialization failed:', summarizeErrorForLog(error));
             deps.nowPlayingHandler()?.({

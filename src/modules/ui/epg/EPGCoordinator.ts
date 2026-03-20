@@ -58,6 +58,7 @@ export interface EPGCoordinatorDeps {
         channelId: string,
         options?: EpgChannelSwitchOptions
     ) => Promise<void>;
+    onVisibilityChange?: (visible: boolean) => void;
     reportEpgInitWarning: (error: unknown) => void;
     epgPreferencesStore?: EpgPreferencesStore;
 }
@@ -620,6 +621,14 @@ export class EPGCoordinator {
         };
 
         epg.on('libraryFilterChanged', onFilter);
+        const onOpen = (): void => {
+            this.deps.onVisibilityChange?.(true);
+        };
+        const onClose = (): void => {
+            this.deps.onVisibilityChange?.(false);
+        };
+        epg.on('open', onOpen);
+        epg.on('close', onClose);
 
         return [
             (): void => {
@@ -627,6 +636,12 @@ export class EPGCoordinator {
             },
             (): void => {
                 epg.off('libraryFilterChanged', onFilter);
+            },
+            (): void => {
+                epg.off('open', onOpen);
+            },
+            (): void => {
+                epg.off('close', onClose);
             },
         ];
     }

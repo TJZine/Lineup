@@ -747,6 +747,20 @@
   }
 }
 
+@keyframes epg-subtitle-ticker {
+  0%, 20% {
+    transform: translateX(0);
+  }
+
+  55%, 80% {
+    transform: translateX(calc(-1 * var(--epg-subtitle-ticker-distance-px, 0px)));
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
 
   .epg-cell.loading::before,
@@ -889,7 +903,7 @@
 }
 
 .epg-cell-subtitle.epg-cell-subtitle-ticker-running .epg-cell-subtitle-text {
-  animation: epg-title-ticker var(--epg-subtitle-ticker-duration-ms, 2400ms) linear infinite;
+  animation: epg-subtitle-ticker var(--epg-subtitle-ticker-duration-ms, 2400ms) linear infinite;
 }
 
 .epg-cell-time.epg-cell-time-compact {
