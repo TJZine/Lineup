@@ -528,6 +528,7 @@ const mockEpg = {
 
 jest.mock('../modules/ui/epg', () => ({
     EPGComponent: jest.fn(() => mockEpg),
+    DeferredEpgComponent: jest.fn(() => mockEpg),
 }));
 
 // ============================================
@@ -677,7 +678,7 @@ describe('AppOrchestrator', () => {
             expect(require('../modules/scheduler/channel-manager').ChannelManager).toHaveBeenCalled();
             expect(require('../modules/scheduler/scheduler').ChannelScheduler).toHaveBeenCalled();
             expect(require('../modules/player').VideoPlayer).toHaveBeenCalled();
-            expect(require('../modules/ui/epg').EPGComponent).toHaveBeenCalled();
+            expect(require('../modules/ui/epg').DeferredEpgComponent).toHaveBeenCalled();
         });
 
         it('wires injected platform services into lifecycle/navigation/stream/player seams', async () => {
@@ -1274,6 +1275,30 @@ describe('AppOrchestrator', () => {
             await orchestrator.start();
 
             expect(orchestrator.isReady()).toBe(true);
+        });
+
+        it('should defer EPG initialization until the warmup timer fires', async () => {
+            jest.useFakeTimers();
+            const ensureEpgInitializedSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'ensureEPGInitialized')
+                .mockResolvedValue(undefined);
+
+            try {
+                mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+                mockPlexAuth.validateToken.mockResolvedValue(true);
+                mockPlexDiscovery.isConnected.mockReturnValue(true);
+
+                await orchestrator.start();
+
+                expect(ensureEpgInitializedSpy).not.toHaveBeenCalled();
+
+                await jest.advanceTimersByTimeAsync(1500);
+
+                expect(ensureEpgInitializedSpy).toHaveBeenCalledTimes(1);
+            } finally {
+                ensureEpgInitializedSpy.mockRestore();
+                jest.useRealTimers();
+            }
         });
 
         it('should call requestMediaSession once after player initialization', async () => {
@@ -1890,6 +1915,7 @@ describe('AppOrchestrator', () => {
         });
 
         it('refreshes schedules when guide density changes while EPG is visible', async () => {
+            jest.useFakeTimers();
             mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
@@ -1904,6 +1930,7 @@ describe('AppOrchestrator', () => {
 
             try {
                 await orchestrator.start();
+                await jest.advanceTimersByTimeAsync(1500);
                 orchestrator.onGuideSettingChange({ key: 'guideDensity', density: 'wide' });
 
                 expect(mockEpg.setVisibleHours).toHaveBeenCalledWith(3);
@@ -1913,6 +1940,7 @@ describe('AppOrchestrator', () => {
             } finally {
                 clearSpy.mockRestore();
                 refreshSpy.mockRestore();
+                jest.useRealTimers();
             }
         });
 

@@ -328,6 +328,11 @@ export class EPGCoordinator {
         const initialEpg = this.deps.getEpg();
         if (!initialEpg) return;
         const requestId = ++this._openRequestId;
+        const status = this.deps.getEpgUiStatus();
+
+        if (status !== 'ready' && initialEpg.ensureReady) {
+            void initialEpg.ensureReady().catch(() => undefined);
+        }
 
         const showAndRefresh = (epgInstance: IEPGComponent): void => {
             this._preseedCurrentChannelSchedule(epgInstance);
@@ -340,7 +345,6 @@ export class EPGCoordinator {
             this._refreshEpgSchedulesBestEffort({ debounceMs: 0 });
         };
 
-        const status = this.deps.getEpgUiStatus();
         if (status === 'ready') {
             this.primeEpgChannels();
             showAndRefresh(initialEpg);
