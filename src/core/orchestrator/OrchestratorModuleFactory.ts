@@ -19,7 +19,7 @@ import {
 } from '../../modules/scheduler/channel-manager';
 import { ChannelScheduler, type IChannelScheduler } from '../../modules/scheduler/scheduler';
 import { VideoPlayer, type IVideoPlayer } from '../../modules/player';
-import { EPGComponent, type IEPGComponent } from '../../modules/ui/epg';
+import { DeferredEpgComponent, type IEPGComponent } from '../../modules/ui/epg';
 import {
     NowPlayingInfoOverlay,
     type INowPlayingInfoOverlay,
@@ -135,7 +135,7 @@ export function createOrchestratorModules(deps: OrchestratorModuleFactoryDeps): 
         playbackService: deps.platformServices.playback,
         subtitleService: deps.platformServices.subtitle,
     });
-    const epg = new EPGComponent();
+    const epg = new DeferredEpgComponent();
     const nowPlayingInfo = new NowPlayingInfoOverlay();
     const playerOsd = new PlayerOsdOverlay();
     const channelNumberOverlay = new ChannelNumberOverlay();
