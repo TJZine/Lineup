@@ -1666,7 +1666,9 @@ describe('EPGCoordinator', () => {
         expect(typeof unsubChannel).toBe('function');
         expect(typeof unsubFilter).toBe('function');
 
-        const handler = (epg.on as jest.Mock).mock.calls[0][1];
+        const handlerCall = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'channelSelected');
+        expect(handlerCall).toBeDefined();
+        const handler = handlerCall?.[1];
         handler({
             channel: makeChannel('c1', 1),
             program: {
@@ -1856,7 +1858,12 @@ describe('EPGCoordinator', () => {
 
         await flushPromises();
 
-        expect(resolveChannelItemsForSchedule).toHaveBeenCalledWith('c19', { signal: null });
+        expect(resolveChannelItemsForSchedule).toHaveBeenCalledWith(
+            'c19',
+            expect.objectContaining({
+                signal: expect.objectContaining({ aborted: false }),
+            })
+        );
         expect(switchToChannel).toHaveBeenCalledWith(
             'c19',
             expect.objectContaining({
@@ -1908,7 +1915,12 @@ describe('EPGCoordinator', () => {
 
         await flushPromises();
 
-        expect(resolveChannelItemsForSchedule).toHaveBeenCalledWith('c0', { signal: null });
+        expect(resolveChannelItemsForSchedule).toHaveBeenCalledWith(
+            'c0',
+            expect.objectContaining({
+                signal: expect.objectContaining({ aborted: false }),
+            })
+        );
         expect(epg.hide).toHaveBeenCalled();
         expect(switchToChannel).toHaveBeenCalledWith('c0', undefined);
     });
@@ -1916,11 +1928,13 @@ describe('EPGCoordinator', () => {
     it('ignores stale guide selection work after a newer selection starts', async () => {
         let resolveFirstSelection: (items: ResolvedContentItem[]) => void = () => undefined;
         let firstSelectionPending = false;
+        let firstSelectionSignal: AbortSignal | null | undefined;
         const resolveChannelItemsForSchedule = jest
             .fn<Promise<ResolvedChannelContent['items']>, [string, { signal?: AbortSignal | null }?]>()
             .mockImplementationOnce(
-                () => new Promise<ResolvedChannelContent['items']>((resolve) => {
+                (_channelId, options) => new Promise<ResolvedChannelContent['items']>((resolve) => {
                     firstSelectionPending = true;
+                    firstSelectionSignal = options?.signal;
                     resolveFirstSelection = resolve;
                 })
             )
@@ -1975,6 +1989,8 @@ describe('EPGCoordinator', () => {
         });
         await flushPromises();
 
+        expect(firstSelectionSignal).toBeDefined();
+        expect(firstSelectionSignal?.aborted).toBe(true);
         expect(switchToChannel).toHaveBeenCalledTimes(1);
         expect(switchToChannel).toHaveBeenLastCalledWith(
             'c1',
@@ -1991,6 +2007,95 @@ describe('EPGCoordinator', () => {
         await flushPromises();
 
         expect(switchToChannel).toHaveBeenCalledTimes(1);
+    });
+
+    it('guide setting changes abort pending guide selection work and prevent stale tunes', async () => {
+        let resolveSelection: (items: ResolvedContentItem[]) => void = () => undefined;
+        let selectionSignal: AbortSignal | null | undefined;
+        const resolveChannelItemsForSchedule = jest
+            .fn<Promise<ResolvedChannelContent['items']>, [string, { signal?: AbortSignal | null }?]>()
+            .mockImplementation(
+                (_channelId, options) => new Promise<ResolvedChannelContent['items']>((resolve) => {
+                    selectionSignal = options?.signal;
+                    resolveSelection = resolve;
+                })
+            );
+        const switchToChannel = jest.fn().mockResolvedValue(undefined);
+        const { deps, epg } = makeDeps({
+            switchToChannel,
+            getChannelManager: () => ({
+                ...(makeDeps().deps.getChannelManager() as IChannelManager),
+                resolveChannelItemsForSchedule,
+            } as IChannelManager),
+        });
+        const coordinator = new EPGCoordinator(deps);
+        jest.spyOn(Date, 'now').mockReturnValue(5_000);
+
+        coordinator.wireEpgEvents();
+        const handler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'channelSelected')?.[1];
+
+        handler?.({
+            channel: makeChannel('c0', 1),
+            program: {
+                ...baseProgram('c0', 0),
+                scheduledStartTime: 4_000,
+                scheduledEndTime: 6_000,
+            } as ScheduledProgram,
+        });
+        await flushPromises();
+
+        coordinator.handleGuideSettingChange({ key: 'guideDensity', density: 'wide' });
+        resolveSelection(makeResolvedItems('c0'));
+        await flushPromises();
+
+        expect(selectionSignal).toBeDefined();
+        expect(selectionSignal?.aborted).toBe(true);
+        expect(switchToChannel).not.toHaveBeenCalled();
+    });
+
+    it('library filter changes abort pending guide selection work and prevent stale tunes', async () => {
+        let resolveSelection: (items: ResolvedContentItem[]) => void = () => undefined;
+        let selectionSignal: AbortSignal | null | undefined;
+        const resolveChannelItemsForSchedule = jest
+            .fn<Promise<ResolvedChannelContent['items']>, [string, { signal?: AbortSignal | null }?]>()
+            .mockImplementation(
+                (_channelId, options) => new Promise<ResolvedChannelContent['items']>((resolve) => {
+                    selectionSignal = options?.signal;
+                    resolveSelection = resolve;
+                })
+            );
+        const switchToChannel = jest.fn().mockResolvedValue(undefined);
+        const { deps, epg } = makeDeps({
+            switchToChannel,
+            getChannelManager: () => ({
+                ...(makeDeps().deps.getChannelManager() as IChannelManager),
+                resolveChannelItemsForSchedule,
+            } as IChannelManager),
+        });
+        const coordinator = new EPGCoordinator(deps);
+        jest.spyOn(Date, 'now').mockReturnValue(5_000);
+
+        coordinator.wireEpgEvents();
+        const handler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'channelSelected')?.[1];
+        const filterHandler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'libraryFilterChanged')?.[1];
+
+        handler?.({
+            channel: makeChannel('c0', 1),
+            program: {
+                ...baseProgram('c0', 0),
+                scheduledStartTime: 4_000,
+                scheduledEndTime: 6_000,
+            } as ScheduledProgram,
+        });
+        await flushPromises();
+
+        filterHandler?.({ libraryId: 'lib-1' });
+        resolveSelection(makeResolvedItems('c0'));
+        await flushPromises();
+
+        expect(selectionSignal).toBeDefined();
+        expect(selectionSignal?.aborted).toBe(true);
+        expect(switchToChannel).not.toHaveBeenCalled();
     });
 
     it('library filter change clears schedules, primes, and refreshes', () => {

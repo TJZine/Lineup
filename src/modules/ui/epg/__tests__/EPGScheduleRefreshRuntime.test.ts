@@ -340,6 +340,32 @@ describe('EPGScheduleRefreshRuntime', () => {
         }
     });
 
+    it('threads an AbortSignal through on-demand guide snapshot materialization', async () => {
+        const capturedSignals: Array<AbortSignal | null | undefined> = [];
+        const resolveChannelItemsForSchedule = jest.fn(async (_channelId: string, options?: { signal?: AbortSignal | null }) => {
+            capturedSignals.push(options?.signal);
+            return makeResolvedItems('c1');
+        });
+        const { runtime } = createRuntime({
+            channelManager: {
+                resolveChannelItemsForSchedule,
+            },
+        });
+        const controller = new AbortController();
+
+        const snapshot = await runtime.buildGuideSelectionSnapshot({
+            channelId: 'c1',
+            ratingKey: 'c1-0',
+            scheduledStartTime: 0,
+            scheduledEndTime: 60_000,
+            selectedAt: 1_000,
+        }, controller.signal);
+
+        expect(snapshot?.source).toBe('on-demand-materialized');
+        expect(capturedSignals).toHaveLength(1);
+        expect(capturedSignals[0]).toBe(controller.signal);
+    });
+
     it('uses current wall-clock time for focused-row seed day key and reference time', async () => {
         const now = new Date('2026-03-20T00:05:00-04:00').getTime();
         const priorDayRangeStart = new Date('2026-03-19T23:00:00-04:00').getTime();
@@ -390,7 +416,12 @@ describe('EPGScheduleRefreshRuntime', () => {
 
             expect(snapshot?.source).toBe('resolved-immediate');
             expect(snapshot?.referenceTimeMs).toBe(now);
-            expect(snapshot?.dayKey).toBe(20260320);
+            const expectedDate = new Date(now);
+            const expectedDayKey =
+                (expectedDate.getFullYear() * 10000) +
+                ((expectedDate.getMonth() + 1) * 100) +
+                expectedDate.getDate();
+            expect(snapshot?.dayKey).toBe(expectedDayKey);
             expect(resolveChannelItemsForSchedule).not.toHaveBeenCalled();
         } finally {
             nowSpy.mockRestore();

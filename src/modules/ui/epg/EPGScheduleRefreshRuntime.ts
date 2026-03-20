@@ -177,8 +177,12 @@ export class EPGScheduleRefreshRuntime {
     }
 
     async buildGuideSelectionSnapshot(
-        request: GuideSelectionSnapshotRequest
+        request: GuideSelectionSnapshotRequest,
+        signal?: AbortSignal | null
     ): Promise<GuideSelectionSnapshot | null> {
+        if (signal?.aborted) {
+            return null;
+        }
         const channelManager = this._deps.getChannelManager();
         if (!channelManager) {
             return null;
@@ -208,8 +212,11 @@ export class EPGScheduleRefreshRuntime {
 
         const resolveItemsForSchedule = (channelManager as Partial<IChannelManager>).resolveChannelItemsForSchedule;
         const orderedItems = typeof resolveItemsForSchedule === 'function'
-            ? await resolveItemsForSchedule.call(channelManager, request.channelId, { signal: null })
-            : (await channelManager.resolveChannelContent(request.channelId, { signal: null })).items;
+            ? await resolveItemsForSchedule.call(channelManager, request.channelId, { signal: signal ?? null })
+            : (await channelManager.resolveChannelContent(request.channelId, { signal: signal ?? null })).items;
+        if (signal?.aborted) {
+            return null;
+        }
         if (!orderedItems.some((item) => item.ratingKey === request.ratingKey)) {
             return null;
         }
