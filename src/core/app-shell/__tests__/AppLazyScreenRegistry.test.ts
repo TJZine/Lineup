@@ -3,6 +3,7 @@
  */
 
 import type { AppOrchestrator } from '../../../Orchestrator';
+import { ProfileSessionStore } from '../../../modules/settings/ProfileSessionStore';
 import { SettingsStore } from '../../../modules/ui/settings/SettingsStore';
 import { AppLazyScreenRegistry } from '../AppLazyScreenRegistry';
 
@@ -100,12 +101,79 @@ describe('AppLazyScreenRegistry', () => {
     it('returns null when required dependencies are missing', async () => {
         const registry = new AppLazyScreenRegistry({
             getOrchestrator: (): null => null,
+            profileSessionStore: new ProfileSessionStore(),
             containers: {},
         });
 
+        await expect(registry.ensureAuthScreen()).resolves.toBeNull();
+        await expect(registry.ensureProfileSelectScreen()).resolves.toBeNull();
+        await expect(registry.ensureServerSelectScreen()).resolves.toBeNull();
         await expect(registry.ensureAudioSetupScreen()).resolves.toBeNull();
         await expect(registry.ensureChannelSetupScreen()).resolves.toBeNull();
         await expect(registry.ensureSettingsScreen()).resolves.toBeNull();
+    });
+
+    it('dedupes concurrent auth/profile/server screen loads and caches instances', async () => {
+        const authScreen = makeScreen();
+        const profileSelectScreen = makeScreen();
+        const serverSelectScreen = makeScreen();
+        const AuthScreen = jest.fn().mockImplementation(() => authScreen);
+        const ProfileSelectScreen = jest.fn().mockImplementation(() => profileSelectScreen);
+        const ServerSelectScreen = jest.fn().mockImplementation(() => serverSelectScreen);
+        const profileSessionStore = new ProfileSessionStore();
+
+        const registry = new AppLazyScreenRegistry({
+            getOrchestrator: makeOrchestrator,
+            profileSessionStore,
+            containers: {
+                authContainer: document.createElement('div'),
+                profileSelectContainer: document.createElement('div'),
+                serverSelectContainer: document.createElement('div'),
+            },
+            loaders: {
+                loadAuthScreen: jest.fn().mockResolvedValue({ AuthScreen }),
+                loadProfileSelectScreen: jest.fn().mockResolvedValue({ ProfileSelectScreen }),
+                loadServerSelectScreen: jest.fn().mockResolvedValue({ ServerSelectScreen }),
+            },
+        });
+
+        const [firstAuth, secondAuth] = await Promise.all([
+            registry.ensureAuthScreen(),
+            registry.ensureAuthScreen(),
+        ]);
+        const thirdAuth = await registry.ensureAuthScreen();
+        expect(AuthScreen).toHaveBeenCalledTimes(1);
+        expect(firstAuth).toBe(authScreen as never);
+        expect(secondAuth).toBe(authScreen as never);
+        expect(thirdAuth).toBe(authScreen as never);
+        expect(registry.getAuthScreen()).toBe(authScreen as never);
+
+        const [firstProfile, secondProfile] = await Promise.all([
+            registry.ensureProfileSelectScreen(),
+            registry.ensureProfileSelectScreen(),
+        ]);
+        const thirdProfile = await registry.ensureProfileSelectScreen();
+        expect(ProfileSelectScreen).toHaveBeenCalledTimes(1);
+        expect(ProfileSelectScreen).toHaveBeenCalledWith(
+            expect.any(HTMLElement),
+            expect.anything(),
+            profileSessionStore
+        );
+        expect(firstProfile).toBe(profileSelectScreen as never);
+        expect(secondProfile).toBe(profileSelectScreen as never);
+        expect(thirdProfile).toBe(profileSelectScreen as never);
+        expect(registry.getProfileSelectScreen()).toBe(profileSelectScreen as never);
+
+        const [firstServer, secondServer] = await Promise.all([
+            registry.ensureServerSelectScreen(),
+            registry.ensureServerSelectScreen(),
+        ]);
+        const thirdServer = await registry.ensureServerSelectScreen();
+        expect(ServerSelectScreen).toHaveBeenCalledTimes(1);
+        expect(firstServer).toBe(serverSelectScreen as never);
+        expect(secondServer).toBe(serverSelectScreen as never);
+        expect(thirdServer).toBe(serverSelectScreen as never);
+        expect(registry.getServerSelectScreen()).toBe(serverSelectScreen as never);
     });
 
     it('dedupes concurrent settings loads and caches the instance', async () => {
@@ -117,6 +185,7 @@ describe('AppLazyScreenRegistry', () => {
 
         const registry = new AppLazyScreenRegistry({
             getOrchestrator: makeOrchestrator,
+            profileSessionStore: new ProfileSessionStore(),
             containers: {
                 settingsContainer: document.createElement('div'),
             },
@@ -150,6 +219,7 @@ describe('AppLazyScreenRegistry', () => {
 
         const registry = new AppLazyScreenRegistry({
             getOrchestrator: makeOrchestrator,
+            profileSessionStore: new ProfileSessionStore(),
             containers: {
                 channelSetupContainer: document.createElement('div'),
             },
@@ -182,6 +252,7 @@ describe('AppLazyScreenRegistry', () => {
 
         const registry = new AppLazyScreenRegistry({
             getOrchestrator: makeOrchestrator,
+            profileSessionStore: new ProfileSessionStore(),
             containers: {
                 audioSetupContainer: document.createElement('div'),
             },
@@ -212,6 +283,7 @@ describe('AppLazyScreenRegistry', () => {
 
         const registry = new AppLazyScreenRegistry({
             getOrchestrator: makeOrchestrator,
+            profileSessionStore: new ProfileSessionStore(),
             containers: {
                 settingsContainer: document.createElement('div'),
                 channelSetupContainer: document.createElement('div'),
@@ -242,6 +314,7 @@ describe('AppLazyScreenRegistry', () => {
 
         const registry = new AppLazyScreenRegistry({
             getOrchestrator: makeOrchestrator,
+            profileSessionStore: new ProfileSessionStore(),
             containers: {
                 settingsContainer: document.createElement('div'),
                 channelSetupContainer: document.createElement('div'),
@@ -281,6 +354,7 @@ describe('AppLazyScreenRegistry', () => {
 
         const registry = new AppLazyScreenRegistry({
             getOrchestrator: makeOrchestrator,
+            profileSessionStore: new ProfileSessionStore(),
             containers: {
                 settingsContainer: document.createElement('div'),
             },
@@ -303,17 +377,33 @@ describe('AppLazyScreenRegistry', () => {
 
     it('destroy clears timers, destroys cached screens, and blocks future ensures', async () => {
         const audioSetupScreen = makeScreen();
+        const authScreen = makeScreen();
+        const profileSelectScreen = makeScreen();
+        const serverSelectScreen = makeScreen();
         const channelSetupScreen = makeScreen();
         const settingsScreen = makeScreen();
 
         const registry = new AppLazyScreenRegistry({
             getOrchestrator: makeOrchestrator,
+            profileSessionStore: new ProfileSessionStore(),
             containers: {
+                authContainer: document.createElement('div'),
+                profileSelectContainer: document.createElement('div'),
+                serverSelectContainer: document.createElement('div'),
                 audioSetupContainer: document.createElement('div'),
                 channelSetupContainer: document.createElement('div'),
                 settingsContainer: document.createElement('div'),
             },
             loaders: {
+                loadAuthScreen: jest.fn().mockResolvedValue({
+                    AuthScreen: jest.fn().mockImplementation(() => authScreen),
+                }),
+                loadProfileSelectScreen: jest.fn().mockResolvedValue({
+                    ProfileSelectScreen: jest.fn().mockImplementation(() => profileSelectScreen),
+                }),
+                loadServerSelectScreen: jest.fn().mockResolvedValue({
+                    ServerSelectScreen: jest.fn().mockImplementation(() => serverSelectScreen),
+                }),
                 loadAudioSetupScreen: jest.fn().mockResolvedValue({
                     AudioSetupScreen: jest.fn().mockImplementation(() => audioSetupScreen),
                 }),
@@ -331,6 +421,9 @@ describe('AppLazyScreenRegistry', () => {
 
         expect(jest.getTimerCount()).toBe(2);
 
+        await registry.ensureAuthScreen();
+        await registry.ensureProfileSelectScreen();
+        await registry.ensureServerSelectScreen();
         await registry.ensureAudioSetupScreen();
         await registry.ensureChannelSetupScreen();
         await registry.ensureSettingsScreen();
@@ -338,9 +431,15 @@ describe('AppLazyScreenRegistry', () => {
         registry.destroy();
 
         expect(jest.getTimerCount()).toBe(0);
+        expect(authScreen.destroy).toHaveBeenCalledTimes(1);
+        expect(profileSelectScreen.destroy).toHaveBeenCalledTimes(1);
+        expect(serverSelectScreen.destroy).toHaveBeenCalledTimes(1);
         expect(audioSetupScreen.destroy).toHaveBeenCalledTimes(1);
         expect(channelSetupScreen.destroy).toHaveBeenCalledTimes(1);
         expect(settingsScreen.destroy).toHaveBeenCalledTimes(1);
+        await expect(registry.ensureAuthScreen()).resolves.toBeNull();
+        await expect(registry.ensureProfileSelectScreen()).resolves.toBeNull();
+        await expect(registry.ensureServerSelectScreen()).resolves.toBeNull();
         await expect(registry.ensureAudioSetupScreen()).resolves.toBeNull();
         await expect(registry.ensureChannelSetupScreen()).resolves.toBeNull();
         await expect(registry.ensureSettingsScreen()).resolves.toBeNull();

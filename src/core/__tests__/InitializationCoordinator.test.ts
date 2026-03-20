@@ -329,6 +329,45 @@ describe('InitializationCoordinator (Plex Home)', () => {
         });
     });
 
+    it('initializes core player UI before marking startup ready after phase 4', async () => {
+        const callOrder: string[] = [];
+        const nowPlayingInfo = {
+            initialize: jest.fn(() => {
+                callOrder.push('now-playing-info');
+            }),
+        } as unknown as InitializationDependencies['nowPlayingInfo'];
+        const playbackOptions = {
+            initialize: jest.fn(() => {
+                callOrder.push('playback-options');
+            }),
+        } as unknown as InitializationDependencies['playbackOptions'];
+        const exitConfirm = {
+            initialize: jest.fn(() => {
+                callOrder.push('exit-confirm');
+            }),
+        } as unknown as InitializationDependencies['exitConfirm'];
+        const { coordinator, callbacks } = makeCoordinator({
+            nowPlayingInfo,
+            playbackOptions,
+            exitConfirm,
+        });
+
+        (callbacks.setReady as jest.Mock).mockImplementation((ready: boolean) => {
+            if (ready) {
+                callOrder.push('ready-true');
+            }
+        });
+
+        await coordinator.runStartup(4);
+
+        expect(callOrder).toEqual([
+            'now-playing-info',
+            'playback-options',
+            'exit-confirm',
+            'ready-true',
+        ]);
+    });
+
 	    describe('post-ready routing policy', () => {
 	        it('routes to audio-setup when audio and channel setup are both required', async () => {
 	            const { coordinator, deps, callbacks } = makeCoordinator();

@@ -245,6 +245,7 @@ export class InitializationCoordinator implements IInitializationCoordinator {
 
                 if (phaseToRun <= 4) {
                     await this._initPhase4();
+                    await this._ensureCorePlayerUiInitialized();
                 }
 
                 this._callbacks.setupEventWiring();
