@@ -1400,7 +1400,7 @@ describe('EPGVirtualizer', () => {
             expect(time.style.display).toBe('none');
         });
 
-        it('keeps focused compact mode tied to split-lane episode presentation, not overflow', () => {
+        it('keeps focused compact mode tied to split-lane episode presentation, even when focused title overflows', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-episode-no-split';
             const start = gridAnchorTime;
@@ -1438,15 +1438,22 @@ describe('EPGVirtualizer', () => {
 
             const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
             virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
-            virtualizer.setFocusedCell(channelId, start);
 
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
             const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
             const time = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
+            Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 320 });
+            Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
+            Object.defineProperty(title, 'scrollHeight', { configurable: true, value: 40 });
+            Object.defineProperty(title, 'clientHeight', { configurable: true, value: 40 });
+
+            virtualizer.setFocusedCell(channelId, start);
 
             expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(false);
             expect(subtitle.style.display).toBe('none');
             expect(time.style.display).toBe('block');
+            expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_READY)).toBe(true);
         });
 
         it('uses full non-episode title text in the focused title node when fullTitle differs', () => {
