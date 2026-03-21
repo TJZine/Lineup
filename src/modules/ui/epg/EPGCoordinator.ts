@@ -385,7 +385,7 @@ export class EPGCoordinator {
                 console.error('[EPGCoordinator] Failed to init EPG:', summarizeErrorForLog(error));
                 const epgForRollback = this.deps.getEpg();
                 epgForRollback?.hide();
-                this._reportVisibilityIfChanged(epgForRollback ?? initialEpg);
+                this._reportVisibilityIfChanged(epgForRollback);
                 this.deps.reportEpgInitWarning(error);
             });
     }

@@ -401,6 +401,38 @@ describe('EPGCoordinator', () => {
         expect(deps.reportEpgInitWarning).toHaveBeenCalledWith(error);
     });
 
+    it('openEPG rolls back visibility against current deps state when deferred init fails after the epg reference clears', async () => {
+        const error = new Error('Deferred init failed after epg unmounted');
+        let visible = false;
+        const ensure = jest.fn().mockRejectedValue(error);
+        const { deps, epg } = makeDeps({
+            getEpgUiStatus: () => 'pending',
+            ensureEpgInitialized: ensure,
+        });
+        let currentEpg: IEPGComponent | null = epg;
+        deps.getEpg = (): IEPGComponent | null => currentEpg;
+
+        (epg.show as jest.Mock).mockImplementation(() => {
+            visible = true;
+        });
+        (epg.hide as jest.Mock).mockImplementation(() => {
+            visible = false;
+        });
+        (epg.isVisible as jest.Mock).mockImplementation(() => visible);
+
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.openEPG();
+        expect(deps.onVisibilityChange).toHaveBeenNthCalledWith(1, true);
+
+        currentEpg = null;
+        await flushPromises();
+
+        expect(deps.onVisibilityChange).toHaveBeenNthCalledWith(2, false);
+        expect(epg.hide).not.toHaveBeenCalled();
+        expect(deps.reportEpgInitWarning).toHaveBeenCalledWith(error);
+    });
+
     it('closeEPG reports logical visibility even before runtime close events fire', () => {
         let visible = true;
         const { deps, epg } = makeDeps({

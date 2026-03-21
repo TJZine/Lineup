@@ -2556,6 +2556,73 @@ describe('EPGVirtualizer', () => {
             expect(liveBadge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
             expect(liveBadge.textContent).toBe('');
         });
+
+        it('recomputes focused compact ticker distance when current state changes the live rail width', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-focused-compact-current-ticker';
+            const start = gridAnchorTime + (10 * 60000);
+            const end = start + (20 * 60000); // tiny tier at 4px/min => 80px
+            const beforeCurrent = start - (5 * 60000);
+            jest.spyOn(Date, 'now').mockReturnValue(beforeCurrent);
+
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60000),
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'focused-compact-current-ticker-1',
+                            type: 'episode',
+                            title: 'The Episode With A Long Marquee Title',
+                            fullTitle: 'Prestige Show - S01E03 - The Episode With A Long Marquee Title',
+                            showTitle: 'Prestige Show',
+                            seasonNumber: 1,
+                            episodeNumber: 3,
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - beforeCurrent,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+            virtualizer.setFocusedCell(channelId, start, beforeCurrent);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+            const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
+            const liveBadge = cell.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement;
+
+            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
+            expect(liveBadge.hidden).toBe(true);
+
+            Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 160 });
+            Object.defineProperty(title, 'clientWidth', {
+                configurable: true,
+                get: () => (liveBadge.hidden ? 100 : 92),
+            });
+            Object.defineProperty(subtitle, 'scrollWidth', { configurable: true, value: 40 });
+            Object.defineProperty(subtitle, 'clientWidth', { configurable: true, value: 100 });
+
+            virtualizer.setFocusedCell(channelId, start, beforeCurrent);
+            expect(title.style.getPropertyValue('--epg-title-ticker-distance-px')).toBe('60px');
+
+            virtualizer.updateTemporalClasses(start + (2 * 60000));
+
+            expect(liveBadge.hidden).toBe(false);
+            expect(title.style.getPropertyValue('--epg-title-ticker-distance-px')).toBe('68px');
+        });
     });
 
     describe('element pool management', () => {
