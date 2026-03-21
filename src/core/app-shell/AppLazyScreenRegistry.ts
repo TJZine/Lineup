@@ -1,15 +1,25 @@
 import type { AppOrchestrator } from '../../Orchestrator';
+import type { AuthScreen } from '../../modules/ui/auth/AuthScreen';
 import type { AudioSetupScreen } from '../../modules/ui/audio-setup/AudioSetupScreen';
 import type { ChannelSetupScreen } from '../../modules/ui/channel-setup/ChannelSetupScreen';
+import type { ProfileSelectScreen } from '../../modules/ui/profile-select/ProfileSelectScreen';
+import type { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
+import type { ServerSelectScreen } from '../../modules/ui/server-select/ServerSelectScreen';
 import type { SettingsScreen } from '../../modules/ui/settings/SettingsScreen';
 
 export interface AppLazyScreenRegistryContainers {
+    authContainer?: HTMLElement | null;
+    profileSelectContainer?: HTMLElement | null;
+    serverSelectContainer?: HTMLElement | null;
     audioSetupContainer?: HTMLElement | null;
     channelSetupContainer?: HTMLElement | null;
     settingsContainer?: HTMLElement | null;
 }
 
 export interface AppLazyScreenRegistryLoaders {
+    loadAuthScreen: () => Promise<typeof import('../../modules/ui/auth/AuthScreen')>;
+    loadProfileSelectScreen: () => Promise<typeof import('../../modules/ui/profile-select/ProfileSelectScreen')>;
+    loadServerSelectScreen: () => Promise<typeof import('../../modules/ui/server-select/ServerSelectScreen')>;
     loadAudioSetupScreen: () => Promise<typeof import('../../modules/ui/audio-setup')>;
     loadChannelSetupScreen: () => Promise<typeof import('../../modules/ui/channel-setup/ChannelSetupScreen')>;
     loadSettingsScreen: () => Promise<typeof import('../../modules/ui/settings/SettingsScreen')>;
@@ -18,12 +28,16 @@ export interface AppLazyScreenRegistryLoaders {
 
 export interface AppLazyScreenRegistryOptions {
     getOrchestrator: () => AppOrchestrator | null;
+    profileSessionStore: ProfileSessionStore;
     containers: AppLazyScreenRegistryContainers;
     onAudioSetupComplete?: () => void;
     loaders?: Partial<AppLazyScreenRegistryLoaders>;
 }
 
 const DEFAULT_LOADERS: AppLazyScreenRegistryLoaders = {
+    loadAuthScreen: () => import('../../modules/ui/auth/AuthScreen'),
+    loadProfileSelectScreen: () => import('../../modules/ui/profile-select/ProfileSelectScreen'),
+    loadServerSelectScreen: () => import('../../modules/ui/server-select/ServerSelectScreen'),
     loadAudioSetupScreen: () => import('../../modules/ui/audio-setup'),
     loadChannelSetupScreen: () => import('../../modules/ui/channel-setup/ChannelSetupScreen'),
     loadSettingsScreen: () => import('../../modules/ui/settings/SettingsScreen'),
@@ -32,11 +46,18 @@ const DEFAULT_LOADERS: AppLazyScreenRegistryLoaders = {
 
 export class AppLazyScreenRegistry {
     private readonly _getOrchestrator: () => AppOrchestrator | null;
+    private readonly _profileSessionStore: ProfileSessionStore;
     private readonly _containers: AppLazyScreenRegistryContainers;
     private readonly _onAudioSetupComplete: () => void;
     private readonly _loaders: AppLazyScreenRegistryLoaders;
     private _destroyed = false;
 
+    private _authScreen: AuthScreen | null = null;
+    private _authScreenLoad: Promise<AuthScreen | null> | null = null;
+    private _profileSelectScreen: ProfileSelectScreen | null = null;
+    private _profileSelectScreenLoad: Promise<ProfileSelectScreen | null> | null = null;
+    private _serverSelectScreen: ServerSelectScreen | null = null;
+    private _serverSelectScreenLoad: Promise<ServerSelectScreen | null> | null = null;
     private _audioSetupScreen: AudioSetupScreen | null = null;
     private _audioSetupScreenLoad: Promise<AudioSetupScreen | null> | null = null;
     private _channelSetupScreen: ChannelSetupScreen | null = null;
@@ -48,12 +69,25 @@ export class AppLazyScreenRegistry {
 
     constructor(options: AppLazyScreenRegistryOptions) {
         this._getOrchestrator = options.getOrchestrator;
+        this._profileSessionStore = options.profileSessionStore;
         this._containers = options.containers;
         this._onAudioSetupComplete = options.onAudioSetupComplete ?? (() : void => {});
         this._loaders = {
             ...DEFAULT_LOADERS,
             ...options.loaders,
         };
+    }
+
+    getAuthScreen(): AuthScreen | null {
+        return this._authScreen;
+    }
+
+    getProfileSelectScreen(): ProfileSelectScreen | null {
+        return this._profileSelectScreen;
+    }
+
+    getServerSelectScreen(): ServerSelectScreen | null {
+        return this._serverSelectScreen;
     }
 
     getAudioSetupScreen(): AudioSetupScreen | null {
@@ -113,6 +147,112 @@ export class AppLazyScreenRegistry {
                 // Best-effort prefetch only.
             });
         }, 500);
+    }
+
+    async ensureAuthScreen(): Promise<AuthScreen | null> {
+        if (this._destroyed) return null;
+        if (this._authScreen) return this._authScreen;
+
+        const orchestrator = this._getOrchestrator();
+        const container = this._containers.authContainer;
+        if (!orchestrator || !container) return null;
+
+        if (!this._authScreenLoad) {
+            this._authScreenLoad = this._loaders.loadAuthScreen()
+                .then(({ AuthScreen }) => {
+                    if (this._destroyed) return null;
+
+                    const latestOrchestrator = this._getOrchestrator();
+                    if (!latestOrchestrator) return null;
+
+                    const screen = new AuthScreen(container, latestOrchestrator);
+
+                    if (this._destroyed) {
+                        screen.destroy();
+                        return null;
+                    }
+
+                    this._authScreen = screen;
+                    return screen;
+                })
+                .finally(() => {
+                    this._authScreenLoad = null;
+                });
+        }
+
+        return this._authScreenLoad;
+    }
+
+    async ensureProfileSelectScreen(): Promise<ProfileSelectScreen | null> {
+        if (this._destroyed) return null;
+        if (this._profileSelectScreen) return this._profileSelectScreen;
+
+        const orchestrator = this._getOrchestrator();
+        const container = this._containers.profileSelectContainer;
+        if (!orchestrator || !container) return null;
+
+        if (!this._profileSelectScreenLoad) {
+            this._profileSelectScreenLoad = this._loaders.loadProfileSelectScreen()
+                .then(({ ProfileSelectScreen }) => {
+                    if (this._destroyed) return null;
+
+                    const latestOrchestrator = this._getOrchestrator();
+                    if (!latestOrchestrator) return null;
+
+                    const screen = new ProfileSelectScreen(
+                        container,
+                        latestOrchestrator,
+                        this._profileSessionStore
+                    );
+
+                    if (this._destroyed) {
+                        screen.destroy();
+                        return null;
+                    }
+
+                    this._profileSelectScreen = screen;
+                    return screen;
+                })
+                .finally(() => {
+                    this._profileSelectScreenLoad = null;
+                });
+        }
+
+        return this._profileSelectScreenLoad;
+    }
+
+    async ensureServerSelectScreen(): Promise<ServerSelectScreen | null> {
+        if (this._destroyed) return null;
+        if (this._serverSelectScreen) return this._serverSelectScreen;
+
+        const orchestrator = this._getOrchestrator();
+        const container = this._containers.serverSelectContainer;
+        if (!orchestrator || !container) return null;
+
+        if (!this._serverSelectScreenLoad) {
+            this._serverSelectScreenLoad = this._loaders.loadServerSelectScreen()
+                .then(({ ServerSelectScreen }) => {
+                    if (this._destroyed) return null;
+
+                    const latestOrchestrator = this._getOrchestrator();
+                    if (!latestOrchestrator) return null;
+
+                    const screen = new ServerSelectScreen(container, latestOrchestrator);
+
+                    if (this._destroyed) {
+                        screen.destroy();
+                        return null;
+                    }
+
+                    this._serverSelectScreen = screen;
+                    return screen;
+                })
+                .finally(() => {
+                    this._serverSelectScreenLoad = null;
+                });
+        }
+
+        return this._serverSelectScreenLoad;
     }
 
     async ensureAudioSetupScreen(): Promise<AudioSetupScreen | null> {
@@ -238,14 +378,23 @@ export class AppLazyScreenRegistry {
         this.cancelSettingsPrefetch();
         this.cancelChannelSetupPrefetch();
 
+        this._authScreen?.destroy();
+        this._profileSelectScreen?.destroy();
+        this._serverSelectScreen?.destroy();
         this._audioSetupScreen?.destroy();
         this._channelSetupScreen?.destroy();
         this._settingsScreen?.destroy();
 
+        this._authScreen = null;
+        this._profileSelectScreen = null;
+        this._serverSelectScreen = null;
         this._audioSetupScreen = null;
         this._channelSetupScreen = null;
         this._settingsScreen = null;
 
+        this._authScreenLoad = null;
+        this._profileSelectScreenLoad = null;
+        this._serverSelectScreenLoad = null;
         this._audioSetupScreenLoad = null;
         this._channelSetupScreenLoad = null;
         this._settingsScreenLoad = null;

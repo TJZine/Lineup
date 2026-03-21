@@ -27,7 +27,9 @@ import { buildLibraries, countLibraryTypeVotes } from './epgLibraryUtils';
 import { EPGVisibleRangeRefreshQueue } from './EPGVisibleRangeRefreshQueue';
 import { EPGScheduleRefreshRuntime } from './EPGScheduleRefreshRuntime';
 import { toEpgChannels, toEpgScheduleWindow } from './adapters';
-import type { GuideSelectionSnapshot } from '../../../core/channel-tuning';
+import type { ChannelSwitchOptions, GuideSelectionSnapshot } from '../../../core/channel-tuning';
+
+type EpgChannelSwitchOptions = Pick<ChannelSwitchOptions, 'guideSelectionSnapshot'>;
 
 export type EpgUiStatus = ModuleRuntimeStatus | undefined;
 
@@ -54,7 +56,7 @@ export interface EPGCoordinatorDeps {
     setLastChannelChangeSourceToGuide: () => void;
     switchToChannel: (
         channelId: string,
-        options?: { guideSelectionSnapshot?: GuideSelectionSnapshot }
+        options?: EpgChannelSwitchOptions
     ) => Promise<void>;
     reportEpgInitWarning: (error: unknown) => void;
     epgPreferencesStore?: EpgPreferencesStore;
@@ -76,6 +78,7 @@ export class EPGCoordinator {
     private readonly _scheduleRefreshRuntime: EPGScheduleRefreshRuntime;
     private _openRequestId = 0;
     private _guideSelectionRequestId = 0;
+    private _guideSelectionController: AbortController | null = null;
 
     constructor(private readonly deps: EPGCoordinatorDeps) {
         this._epgPreferencesStore = deps.epgPreferencesStore ?? new EpgPreferencesStore();
@@ -179,6 +182,7 @@ export class EPGCoordinator {
             change.key === 'pastItemsWindow';
 
         if (shouldInvalidateSchedules) {
+            this._invalidateGuideSelection('guide-settings');
             this._cancelScheduledRefreshWork('guide-settings');
             this.clearScheduleCaches();
             this.clearSelectedChannelScheduleSnapshot();
@@ -328,6 +332,11 @@ export class EPGCoordinator {
         const initialEpg = this.deps.getEpg();
         if (!initialEpg) return;
         const requestId = ++this._openRequestId;
+        const status = this.deps.getEpgUiStatus();
+
+        if (status !== 'ready' && initialEpg.ensureReady) {
+            void initialEpg.ensureReady().catch(() => undefined);
+        }
 
         const showAndRefresh = (epgInstance: IEPGComponent): void => {
             this._preseedCurrentChannelSchedule(epgInstance);
@@ -340,7 +349,6 @@ export class EPGCoordinator {
             this._refreshEpgSchedulesBestEffort({ debounceMs: 0 });
         };
 
-        const status = this.deps.getEpgUiStatus();
         if (status === 'ready') {
             this.primeEpgChannels();
             showAndRefresh(initialEpg);
@@ -383,7 +391,7 @@ export class EPGCoordinator {
     private _closeEpg(invalidateGuideSelection: boolean): void {
         this._openRequestId++;
         if (invalidateGuideSelection) {
-            this._guideSelectionRequestId++;
+            this._invalidateGuideSelection('close-epg');
         }
         this._cancelScheduledRefreshWork('close-epg');
         this.deps.getEpg()?.hide();
@@ -595,6 +603,7 @@ export class EPGCoordinator {
         const onFilter = (payload: { libraryId: string | null }): void => {
             this._epgPreferencesStore.writeSelectedLibraryId(payload.libraryId ?? null);
 
+            this._invalidateGuideSelection('library-filter');
             this._cancelScheduledRefreshWork('library-filter');
             this.clearSelectedChannelScheduleSnapshot();
             this._scheduleRefreshRuntime.clearLoadedScheduleMarkers();
@@ -687,12 +696,28 @@ export class EPGCoordinator {
         return isEpgDebugLoggingEnabled();
     }
 
+    private _invalidateGuideSelection(reason: string): void {
+        this._guideSelectionRequestId += 1;
+        this._guideSelectionController?.abort(reason);
+        this._guideSelectionController = null;
+    }
+
+    private _startGuideSelectionRequest(): { requestId: number; controller: AbortController } {
+        this._invalidateGuideSelection('new-guide-selection');
+        const controller = new AbortController();
+        this._guideSelectionController = controller;
+        return {
+            requestId: this._guideSelectionRequestId,
+            controller,
+        };
+    }
+
     private async _switchToGuideSelectedChannel(
         channelId: string,
         program: EpgScheduledProgram,
         selectedAt: number
     ): Promise<void> {
-        const requestId = ++this._guideSelectionRequestId;
+        const { requestId, controller } = this._startGuideSelectionRequest();
         let snapshot: GuideSelectionSnapshot | null = null;
         try {
             snapshot = await this._scheduleRefreshRuntime.buildGuideSelectionSnapshot({
@@ -701,16 +726,23 @@ export class EPGCoordinator {
                 scheduledStartTime: program.scheduledStartTime,
                 scheduledEndTime: program.scheduledEndTime,
                 selectedAt,
-            });
+            }, controller.signal);
         } catch (error: unknown) {
+            if (isAbortLikeError(error, controller.signal)) {
+                return;
+            }
             issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'epg.guideSnapshotBuildFailed', {
                 channelId,
                 ratingKey: program.item.ratingKey,
                 selectedAt,
                 safeError: summarizeErrorForLog(error),
             });
+        } finally {
+            if (this._guideSelectionController === controller) {
+                this._guideSelectionController = null;
+            }
         }
-        if (requestId !== this._guideSelectionRequestId) {
+        if (controller.signal.aborted || requestId !== this._guideSelectionRequestId) {
             return;
         }
         this._closeEpg(false);

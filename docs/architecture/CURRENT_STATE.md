@@ -26,7 +26,18 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - application shell composition
 - startup flow and screen/runtime bootstrap
+- eagerly owns splash plus top-level app-shell composition only
 - should stay thin and avoid regaining feature-specific logic
+
+### `src/core/app-shell/AppLazyScreenRegistry.ts`
+
+- owner for deferred app-shell screen loading/instances (`auth`, `profile-select`, `server-select`, `audio-setup`, `channel-setup`, `settings`)
+- owns deferred-screen inflight loading state, prefetch timers, and deferred-screen cleanup
+
+### `src/core/app-shell/AppScreenVisibilityCoordinator.ts`
+
+- owner for route-driven app-shell show/hide policy
+- owns splash-backed deferred-screen reveal sequencing for startup and setup routes
 
 ### `src/core/InitializationCoordinator.ts`
 

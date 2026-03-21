@@ -57,7 +57,8 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	            epgConfig: unknown;
 	        }> = {}
 	    ): CoordinatorHarness => {
-	        const navigation = {
+        const navigation = {
+            initialize: jest.fn(),
 	            getCurrentScreen: jest.fn().mockReturnValue('splash'),
 	            goTo: jest.fn(),
 	            replaceScreen: jest.fn(),
@@ -329,6 +330,120 @@ describe('InitializationCoordinator (Plex Home)', () => {
         });
     });
 
+    it('initializes core player UI before marking startup ready after phase 4', async () => {
+        const callOrder: string[] = [];
+        const nowPlayingInfo = {
+            initialize: jest.fn(() => {
+                callOrder.push('now-playing-info');
+            }),
+        } as unknown as InitializationDependencies['nowPlayingInfo'];
+        const playbackOptions = {
+            initialize: jest.fn(() => {
+                callOrder.push('playback-options');
+            }),
+        } as unknown as InitializationDependencies['playbackOptions'];
+        const exitConfirm = {
+            initialize: jest.fn(() => {
+                callOrder.push('exit-confirm');
+            }),
+        } as unknown as InitializationDependencies['exitConfirm'];
+        const { coordinator, callbacks } = makeCoordinator({
+            nowPlayingInfo,
+            playbackOptions,
+            exitConfirm,
+        });
+
+        (callbacks.setReady as jest.Mock).mockImplementation((ready: boolean) => {
+            if (ready) {
+                callOrder.push('ready-true');
+            }
+        });
+
+        await coordinator.runStartup(4);
+
+        expect(callOrder).toEqual([
+            'now-playing-info',
+            'playback-options',
+            'exit-confirm',
+            'ready-true',
+        ]);
+    });
+
+    it('awaits EPG initialization before marking rerun startup ready', async () => {
+        const callOrder: string[] = [];
+        const epg = {
+            initialize: jest.fn(() => {
+                callOrder.push('epg-initialize');
+            }),
+            ensureReady: jest.fn(async () => {
+                callOrder.push('epg-ready');
+            }),
+        } as unknown as InitializationDependencies['epg'];
+        const { coordinator, deps, callbacks } = makeCoordinator({
+            epg,
+        });
+        const plexDiscovery = deps.plexDiscovery as unknown as {
+            initialize: jest.Mock;
+            isConnected: jest.Mock;
+        };
+
+        plexDiscovery.initialize.mockResolvedValue(undefined);
+        plexDiscovery.isConnected.mockReturnValue(true);
+        (callbacks.setReady as jest.Mock).mockImplementation((ready: boolean) => {
+            if (ready) {
+                callOrder.push('ready-true');
+            }
+        });
+
+        await coordinator.runStartup(3);
+
+        expect(callOrder).toEqual([
+            'epg-initialize',
+            'epg-ready',
+            'ready-true',
+        ]);
+    });
+
+    it('cancels a pending warmup timer when a rerun eagerly initializes EPG', async () => {
+        jest.useFakeTimers();
+        const epg = {
+            initialize: jest.fn(),
+            ensureReady: jest.fn(async () => undefined),
+        } as unknown as InitializationDependencies['epg'];
+        const { coordinator, deps } = makeCoordinator({
+            epg,
+        });
+        const plexAuth = deps.plexAuth as unknown as {
+            getStoredCredentials: jest.Mock;
+            validateToken: jest.Mock;
+        };
+        const plexDiscovery = deps.plexDiscovery as unknown as {
+            initialize: jest.Mock;
+            isConnected: jest.Mock;
+        };
+
+        try {
+            plexAuth.getStoredCredentials.mockResolvedValue(
+                createStoredCredentials('active-token', 'account-token')
+            );
+            plexAuth.validateToken.mockResolvedValue(true);
+            plexDiscovery.initialize.mockResolvedValue(undefined);
+            plexDiscovery.isConnected.mockReturnValue(true);
+
+            await coordinator.runStartup(1);
+            expect((epg as unknown as { ensureReady: jest.Mock }).ensureReady).not.toHaveBeenCalled();
+
+            await coordinator.runStartup(3);
+            expect((epg as unknown as { ensureReady: jest.Mock }).ensureReady).toHaveBeenCalledTimes(1);
+
+            await jest.advanceTimersByTimeAsync(1500);
+
+            expect((epg as unknown as { ensureReady: jest.Mock }).ensureReady).toHaveBeenCalledTimes(1);
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
 	    describe('post-ready routing policy', () => {
 	        it('routes to audio-setup when audio and channel setup are both required', async () => {
 	            const { coordinator, deps, callbacks } = makeCoordinator();
@@ -424,7 +539,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             const epg = { initialize: jest.fn() } as unknown as InitializationDependencies['epg'];
             const { coordinator } = makeCoordinator({ epg, plexLibrary: null });
 
-            await coordinator.runStartup(5);
+            await coordinator.ensureEPGInitialized();
 
 	            expect((epg as unknown as { initialize: jest.Mock }).initialize).toHaveBeenCalledWith(
 	                expect.objectContaining({ layoutMode: 'classic' })
@@ -437,7 +552,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             const epg = { initialize: jest.fn() } as unknown as InitializationDependencies['epg'];
             const { coordinator } = makeCoordinator({ epg, plexLibrary: null });
 
-            await coordinator.runStartup(5);
+            await coordinator.ensureEPGInitialized();
 
             expect((epg as unknown as { initialize: jest.Mock }).initialize).toHaveBeenCalledWith(
                 expect.objectContaining({ layoutMode: 'overlay' })
@@ -450,7 +565,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             const epg = { initialize: jest.fn() } as unknown as InitializationDependencies['epg'];
             const { coordinator } = makeCoordinator({ epg, plexLibrary: null });
 
-            await coordinator.runStartup(5);
+            await coordinator.ensureEPGInitialized();
 
 	            expect((epg as unknown as { initialize: jest.Mock }).initialize).toHaveBeenCalledWith(
 	                expect.objectContaining({ layoutMode: 'classic' })
@@ -465,7 +580,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	                { epgConfig: { onLayoutModeChange } as never }
 	            );
 
-	            await coordinator.runStartup(5);
+	            await coordinator.ensureEPGInitialized();
 
 	            const initArg = (epg as unknown as { initialize: jest.Mock }).initialize.mock.calls[0]?.[0] as {
 	                onLayoutModeChange?: (mode: EpgLayoutMode) => void;

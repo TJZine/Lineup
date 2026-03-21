@@ -712,6 +712,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
 - Nice-to-do while in the area:
   - clean up low-value defensive duplication in Plex parsing or request helpers when directly touched
   - standardize nearby auth/trust naming if it reduces future drift without creating extra scope
+  - keep an eye on startup-entry bundle shape while touching `PlexServerDiscovery`, `PlexStreamResolver`, and `SubtitleManager`; bundle wins are welcome, but not at the cost of signed-in startup correctness, instant guide open, or first-play reliability
 - Cleanup track:
   - [ ] `P5-W1` normalize auth/trust-boundary error handling and contracts across auth, discovery, library, player, and playback-options surfaces, including `fetchWithTimeout`, `validateToken()`, parser failure semantics, and shared auth-error codes
   - [ ] `P5-W2` remove inactive migration or compatibility branches from auth, subtitle, player, and related Plex surfaces after tests prove they are obsolete
@@ -744,6 +745,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
 - Nice-to-do while in the area:
   - standardize scheduler naming/protocol drift that becomes obvious during the main cleanup
   - simplify small adjacent helpers if the primary cleanup makes them redundant
+  - prefer extracting channel-setup planning/build weight and other startup-resident scheduler/channel helpers out of the cold-start graph when it falls out naturally from the ownership cleanup, before reaching for another broad `Orchestrator.ts` split
 - Cleanup track:
   - [ ] `P6-W1` remove review-history / issue-round comments and replace any remaining needed context with durable code comments or docs
   - [ ] `P6-W2` fix scheduler/channel contract mismatches and mutable read APIs in `ChannelManager` and `ChannelScheduler`, then extract or simplify any remaining responsibility clusters that still blur domain, retry, and persistence concerns

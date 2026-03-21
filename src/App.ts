@@ -32,9 +32,6 @@ import { AppDiagnosticsSurface } from './core/app-shell/AppDiagnosticsSurface';
 import { AppToastPresenter } from './core/app-shell/AppToastPresenter';
 import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
 import { createDefaultPlexAuthConfig } from './modules/plex/auth';
-import { AuthScreen } from './modules/ui/auth';
-import { ProfileSelectScreen } from './modules/ui/profile-select';
-import { ServerSelectScreen } from './modules/ui/server-select';
 import { SplashScreen } from './modules/ui/splash';
 import { ThemeManager } from './modules/ui/theme';
 import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';
@@ -139,9 +136,6 @@ export class App {
         showToast: (toast): void => this._toastPresenter.show(toast),
         debugOverridesStore: this._debugOverridesStore,
     });
-    private _authScreen: AuthScreen | null = null;
-    private _profileSelectScreen: ProfileSelectScreen | null = null;
-    private _serverSelectScreen: ServerSelectScreen | null = null;
     private _lazyScreenRegistry: AppLazyScreenRegistry | null = null;
     private _screenVisibilityCoordinator: AppScreenVisibilityCoordinator | null = null;
     private _splashScreen: SplashScreen | null = null;
@@ -271,12 +265,6 @@ export class App {
 
         this._splashScreen?.hide();
         this._splashScreen = null;
-        this._authScreen?.destroy();
-        this._authScreen = null;
-        this._profileSelectScreen?.destroy();
-        this._profileSelectScreen = null;
-        this._serverSelectScreen?.destroy();
-        this._serverSelectScreen = null;
         this._lazyScreenRegistry?.destroy();
         this._lazyScreenRegistry = null;
         this._screenVisibilityCoordinator = null;
@@ -324,22 +312,13 @@ export class App {
             return;
         }
         this._splashScreen = new SplashScreen(containerRefs.splashContainer);
-        this._authScreen = new AuthScreen(containerRefs.authContainer, this._orchestrator);
-        this._profileSelectScreen = new ProfileSelectScreen(
-            containerRefs.profileSelectContainer,
-            this._orchestrator,
-            this._profileSessionStore
-        );
-        this._serverSelectScreen = new ServerSelectScreen(
-            containerRefs.serverSelectContainer,
-            this._orchestrator
-        );
-        // Audio setup, Channel setup, and Settings remain lazy-loaded to
-        // reduce initial JS parse/compile cost on webOS. The registry owns
-        // all lazy-screen state, timers, and cleanup for those screens.
         this._lazyScreenRegistry = new AppLazyScreenRegistry({
             getOrchestrator: (): AppOrchestrator | null => this._orchestrator,
+            profileSessionStore: this._profileSessionStore,
             containers: {
+                authContainer: containerRefs.authContainer,
+                profileSelectContainer: containerRefs.profileSelectContainer,
+                serverSelectContainer: containerRefs.serverSelectContainer,
                 audioSetupContainer: containerRefs.audioSetupContainer,
                 channelSetupContainer: containerRefs.channelSetupContainer,
                 settingsContainer: containerRefs.settingsContainer,
@@ -355,9 +334,6 @@ export class App {
                 this._orchestrator?.getNavigation()?.getScreenParams() ?? {}
             ),
             getSplashScreen: (): SplashScreen | null => this._splashScreen,
-            getAuthScreen: (): AuthScreen | null => this._authScreen,
-            getProfileSelectScreen: (): ProfileSelectScreen | null => this._profileSelectScreen,
-            getServerSelectScreen: (): ServerSelectScreen | null => this._serverSelectScreen,
             getLazyScreenRegistry: (): AppLazyScreenRegistry | null => this._lazyScreenRegistry,
             onLazyScreenError: (error: unknown): void => {
                 this._handleLazyScreenError(error);

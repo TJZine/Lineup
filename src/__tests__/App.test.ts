@@ -27,49 +27,73 @@ jest.mock('../modules/ui/splash', () => ({
     },
 }));
 
-jest.mock('../modules/ui/auth', () => ({
-    AuthScreen: class AuthScreen {
-        show(): void {
-            return;
-        }
-        hide(): void {
-            return;
-        }
-        destroy(): void {
-            return;
-        }
-    },
-}));
+const authScreenChunkLoaded = jest.fn();
+const authScreenConstructed = jest.fn();
+jest.mock('../modules/ui/auth/AuthScreen', () => {
+    authScreenChunkLoaded();
+    return {
+        AuthScreen: class AuthScreen {
+            constructor(...args: unknown[]) {
+                authScreenConstructed(args);
+            }
+            show(): void {
+                return;
+            }
+            hide(): void {
+                return;
+            }
+            destroy(): void {
+                return;
+            }
+        },
+    };
+});
 
-jest.mock('../modules/ui/profile-select', () => ({
-    ProfileSelectScreen: class ProfileSelectScreen {
-        show(): void {
-            return;
-        }
-        hide(): void {
-            return;
-        }
-        destroy(): void {
-            return;
-        }
-    },
-}));
+const profileSelectScreenChunkLoaded = jest.fn();
+const profileSelectScreenConstructed = jest.fn();
+jest.mock('../modules/ui/profile-select/ProfileSelectScreen', () => {
+    profileSelectScreenChunkLoaded();
+    return {
+        ProfileSelectScreen: class ProfileSelectScreen {
+            constructor(...args: unknown[]) {
+                profileSelectScreenConstructed(args);
+            }
+            show(): void {
+                return;
+            }
+            hide(): void {
+                return;
+            }
+            destroy(): void {
+                return;
+            }
+        },
+    };
+});
 
 const serverSelectShow = jest.fn();
 const serverSelectHide = jest.fn();
-jest.mock('../modules/ui/server-select', () => ({
-    ServerSelectScreen: class ServerSelectScreen {
-        show(options?: unknown): void {
-            serverSelectShow(options);
-        }
-        hide(): void {
-            serverSelectHide();
-        }
-        destroy(): void {
-            return;
-        }
-    },
-}));
+const serverSelectScreenChunkLoaded = jest.fn();
+const serverSelectScreenConstructed = jest.fn();
+jest.mock('../modules/ui/server-select/ServerSelectScreen', () => {
+    serverSelectScreenChunkLoaded();
+    return {
+        ServerSelectScreen: class ServerSelectScreen {
+            constructor(...args: unknown[]) {
+                serverSelectScreenConstructed(args);
+            }
+            show(options?: unknown): void {
+                serverSelectShow(options);
+            }
+            hide(): void {
+                serverSelectHide();
+            }
+            destroy(): void {
+                return;
+            }
+        },
+    };
+});
 
 const settingsScreenChunkLoaded = jest.fn();
 const settingsScreenConstructed = jest.fn();
@@ -160,6 +184,12 @@ describe('App bootstrap smoke', () => {
             writable: true,
         });
 
+        authScreenChunkLoaded.mockClear();
+        authScreenConstructed.mockClear();
+        profileSelectScreenChunkLoaded.mockClear();
+        profileSelectScreenConstructed.mockClear();
+        serverSelectScreenChunkLoaded.mockClear();
+        serverSelectScreenConstructed.mockClear();
         settingsScreenChunkLoaded.mockClear();
         settingsScreenConstructed.mockClear();
         channelSetupScreenChunkLoaded.mockClear();
@@ -766,8 +796,36 @@ describe('App bootstrap smoke', () => {
         expect((window as { lineup?: unknown }).lineup).toBeUndefined();
     });
 
+    it('defers auth/profile/server startup screen construction until those routes are shown', async () => {
+        let current = 'player';
+        (AppOrchestrator.prototype.getCurrentScreen as unknown as jest.Mock).mockImplementation(() => current);
+        await bootstrapApp(() => {
+        });
+
+        expect(authScreenConstructed).toHaveBeenCalledTimes(0);
+        expect(profileSelectScreenConstructed).toHaveBeenCalledTimes(0);
+        expect(serverSelectScreenConstructed).toHaveBeenCalledTimes(0);
+
+        current = 'auth';
+        screenChangeHandler?.('player', 'auth');
+        await flushPromises();
+        expect(authScreenConstructed).toHaveBeenCalledTimes(1);
+
+        current = 'profile-select';
+        screenChangeHandler?.('auth', 'profile-select');
+        await flushPromises();
+        expect(profileSelectScreenConstructed).toHaveBeenCalledTimes(1);
+
+        current = 'server-select';
+        screenChangeHandler?.('profile-select', 'server-select');
+        await flushPromises();
+        expect(serverSelectScreenConstructed).toHaveBeenCalledTimes(1);
+    });
+
     it('applies screen visibility and schedules/cancels prefetches', async () => {
         jest.useFakeTimers();
+        let currentScreen: string | null = 'splash';
+        (AppOrchestrator.prototype.getCurrentScreen as unknown as jest.Mock).mockImplementation(() => currentScreen);
 
         const getScreenParams = jest
             .fn()
@@ -791,21 +849,31 @@ describe('App bootstrap smoke', () => {
         expect(typeof screenChangeHandler).toBe('function');
 
         // Exercise server-select show/hide paths and channel-setup prefetch scheduling/cancel.
+        currentScreen = 'server-select';
         screenChangeHandler?.('splash', 'server-select');
-        expect(jest.getTimerCount()).toBeGreaterThan(0);
+        await flushPromises(6);
         expect(serverSelectShow).toHaveBeenCalledWith({ allowAutoConnect: true });
+        currentScreen = 'auth';
         screenChangeHandler?.('server-select', 'auth');
-        expect(serverSelectHide).toHaveBeenCalledTimes(1);
+        await flushPromises(6);
+        expect(serverSelectHide).toHaveBeenCalled();
 
         // Validate non-boolean/missing screen params pass undefined options through App flow.
+        currentScreen = 'server-select';
         screenChangeHandler?.('auth', 'server-select');
+        await flushPromises(6);
         expect(serverSelectShow).toHaveBeenLastCalledWith(undefined);
+        currentScreen = 'auth';
         screenChangeHandler?.('server-select', 'auth');
+        await flushPromises(6);
+        currentScreen = 'server-select';
         screenChangeHandler?.('auth', 'server-select');
+        await flushPromises(6);
         expect(serverSelectShow).toHaveBeenLastCalledWith(undefined);
 
         // Exercise "ready guard" path which hides setup screens and schedules settings prefetch.
         isReadySpy.mockReturnValue(true);
+        currentScreen = 'player';
         screenChangeHandler?.('auth', 'player');
         screenChangeHandler?.('player', 'player');
 
@@ -831,10 +899,20 @@ describe('App bootstrap smoke', () => {
 
     it('prefetches ChannelSetupScreen after server-select delay', async () => {
         jest.useFakeTimers();
+        let currentScreen: string | null = 'splash';
+        (AppOrchestrator.prototype.getCurrentScreen as unknown as jest.Mock).mockImplementation(() => currentScreen);
         await bootstrapApp(() => {
         });
 
+        currentScreen = 'server-select';
         screenChangeHandler?.('splash', 'server-select');
+        await flushPromises();
+        currentScreen = 'auth';
+        screenChangeHandler?.('server-select', 'auth');
+        await flushPromises();
+        currentScreen = 'server-select';
+        screenChangeHandler?.('auth', 'server-select');
+        await flushPromises();
         jest.advanceTimersByTime(500);
         await flushPromises();
 

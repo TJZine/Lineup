@@ -32,18 +32,6 @@ export default defineConfig(({ command }) => {
                     manualChunks(id): string | undefined {
                         const normalizedId = normalizePath(id);
                         if (normalizedId.includes('/node_modules/')) return 'vendor';
-                        if (
-                            normalizedId.includes('/src/modules/ui/epg/') ||
-                            normalizedId.includes('/src/modules/plex/') ||
-                            normalizedId.includes('/src/modules/player/') ||
-                            normalizedId.includes('/src/modules/scheduler/') ||
-                            normalizedId.includes('/src/modules/navigation/') ||
-                            normalizedId.includes('/src/modules/lifecycle/') ||
-                            normalizedId.includes('/src/core/')
-                        ) {
-                            // Keep tightly-coupled runtime systems together to avoid circular chunk warnings.
-                            return 'engine';
-                        }
                         return undefined;
                     },
                 },

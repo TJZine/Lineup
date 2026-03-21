@@ -129,6 +129,7 @@ const createCoordinator = (overrides?: Partial<ChannelSetupCoordinatorDeps>): Co
         storageSet,
         storageRemove,
         handleGlobalError: jest.fn(),
+        ensureEpgInitialized: jest.fn().mockResolvedValue(undefined),
         clearSelectedChannelScheduleSnapshot: jest.fn(),
         primeEpgChannels: jest.fn(),
         refreshEpgSchedules: jest.fn().mockResolvedValue(undefined),
@@ -807,6 +808,33 @@ describe('ChannelSetupCoordinator', () => {
         expect(clearOrder).toBeDefined();
         expect(refreshOrder).toBeDefined();
         expect(clearOrder as number).toBeLessThan(refreshOrder as number);
+    });
+
+    it('awaits EPG readiness before priming and refreshing after a successful build', async () => {
+        const ensureEpgInitialized = jest.fn().mockResolvedValue(undefined);
+        const { coordinator, plexLibrary, deps } = createCoordinator({
+            ensureEpgInitialized,
+        });
+        plexLibrary.getLibraries.mockResolvedValue([] as PlexLibraryType[]);
+        plexLibrary.getPlaylists.mockResolvedValue([
+            { ratingKey: 'pl1', key: '/playlists/pl1', title: 'Favorites', thumb: null, duration: 0, leafCount: 10 },
+        ]);
+
+        await coordinator.createChannelsFromSetup(createConfig({
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
+        }));
+
+        expect(ensureEpgInitialized).toHaveBeenCalledTimes(1);
+        expect(deps.primeEpgChannels).toHaveBeenCalledTimes(1);
+        expect(deps.refreshEpgSchedules).toHaveBeenCalledWith({ reason: 'channel-setup', debounceMs: 0 });
+        const ensureOrder = ensureEpgInitialized.mock.invocationCallOrder[0];
+        const primeOrder = (deps.primeEpgChannels as jest.Mock).mock.invocationCallOrder[0];
+        const refreshOrder = (deps.refreshEpgSchedules as jest.Mock).mock.invocationCallOrder[0];
+        expect(ensureOrder).toBeDefined();
+        expect(primeOrder).toBeDefined();
+        expect(refreshOrder).toBeDefined();
+        expect(ensureOrder as number).toBeLessThan(primeOrder as number);
+        expect(primeOrder as number).toBeLessThan(refreshOrder as number);
     });
 
     it('returns done as the lastTask after a successful build', async () => {
