@@ -55,6 +55,7 @@ const TIER_MEDIUM_MIN_PX = 140;
 const TIER_NARROW_MIN_PX = 88;
 
 type CellWidthTier = 'wide' | 'medium' | 'narrow' | 'tiny';
+type FocusedLayoutMode = 'normal' | 'compact';
 
 type VisibleTextMetrics = {
     visibleLeftPx: number;
@@ -83,6 +84,7 @@ type CellTextLayout = {
     subtitle: string;
     showSubtitle: boolean;
     focusedCompactSubtitle?: string;
+    focusedLayoutMode: FocusedLayoutMode;
 };
 
 type TickerTarget = {
@@ -870,12 +872,17 @@ export class EPGVirtualizer {
         children.progressFill.style.width = `${progress.toFixed(2)}%`;
     }
 
-    private getProgramCellTextLayout(cellData: CellRenderData, isFocused: boolean): CellTextLayout {
+    private getProgramCellTextLayout(
+        cellData: CellRenderData,
+        isFocused: boolean,
+        tier: CellWidthTier
+    ): CellTextLayout {
         if (cellData.kind !== 'program') {
             return {
                 title: cellData.placeholder.label,
                 subtitle: '',
                 showSubtitle: false,
+                focusedLayoutMode: 'normal',
             };
         }
 
@@ -887,6 +894,7 @@ export class EPGVirtualizer {
                 subtitle: '',
                 showSubtitle: false,
                 focusedCompactSubtitle: '',
+                focusedLayoutMode: 'normal',
             };
         }
 
@@ -909,6 +917,7 @@ export class EPGVirtualizer {
                     subtitle: episodeTitle,
                     showSubtitle: true,
                     focusedCompactSubtitle,
+                    focusedLayoutMode: tier !== 'wide' ? 'compact' : 'normal',
                 };
             }
 
@@ -918,6 +927,7 @@ export class EPGVirtualizer {
                 subtitle: '',
                 showSubtitle: false,
                 focusedCompactSubtitle: '',
+                focusedLayoutMode: 'normal',
             };
         }
 
@@ -928,13 +938,13 @@ export class EPGVirtualizer {
             subtitle: showSubtitle ? episodeTitle : '',
             showSubtitle,
             focusedCompactSubtitle,
+            focusedLayoutMode: 'normal',
         };
     }
 
     private updateEpisodePresentation(
         children: CellChildren,
         cellData: CellRenderData,
-        tier: CellWidthTier,
         textLayout: CellTextLayout
     ): void {
         const { meta, episode, subtitle, subtitleText, titleText } = children;
@@ -979,7 +989,7 @@ export class EPGVirtualizer {
         }
 
         if (subtitle) {
-            const shouldInlineEpisodeTag = cellData.isFocused && tier !== 'wide';
+            const shouldInlineEpisodeTag = textLayout.focusedLayoutMode === 'compact';
             const subtitleValue = shouldInlineEpisodeTag && textLayout.focusedCompactSubtitle
                 ? textLayout.focusedCompactSubtitle
                 : textLayout.subtitle;
@@ -1001,7 +1011,8 @@ export class EPGVirtualizer {
         element: HTMLElement,
         children: CellChildren,
         tier: CellWidthTier,
-        cellData: CellRenderData
+        cellData: CellRenderData,
+        textLayout: CellTextLayout
     ): void {
         element.classList.remove(
             EPG_CLASSES.CELL_TIER_WIDE,
@@ -1014,7 +1025,7 @@ export class EPGVirtualizer {
         const hasMetaContent = (meta?.textContent ?? '').trim().length > 0;
         const hasSubtitleContent = (subtitleText?.textContent ?? '').trim().length > 0;
         const isFocused = cellData.isFocused;
-        const usesFocusedCompactLayout = this.shouldUseFocusedCompactLayout(cellData, tier);
+        const usesFocusedCompactLayout = isFocused && textLayout.focusedLayoutMode === 'compact';
         element.classList.toggle(EPG_CLASSES.CELL_FOCUSED_COMPACT, usesFocusedCompactLayout);
 
         if (tier === 'wide') {
@@ -1033,19 +1044,6 @@ export class EPGVirtualizer {
             if (subtitle) subtitle.style.display = usesFocusedCompactLayout && hasSubtitleContent ? 'block' : 'none';
             if (time) time.style.display = isFocused && !usesFocusedCompactLayout ? 'block' : 'none';
         }
-    }
-
-    private shouldUseFocusedCompactLayout(cellData: CellRenderData, tier: CellWidthTier): boolean {
-        if (!cellData.isFocused || cellData.kind !== 'program') {
-            return false;
-        }
-
-        if (cellData.program.item.type !== 'episode') {
-            return false;
-        }
-
-        const textLayout = this.getProgramCellTextLayout(cellData, true);
-        return textLayout.showSubtitle && tier !== 'wide';
     }
 
     private computeVisibleTextMetrics(input: {
@@ -1121,7 +1119,7 @@ export class EPGVirtualizer {
         const element = this.getOrCreateElement();
         const children = this.getCellChildren(element);
         const tier = this.getCellWidthTier(cellData.width);
-        const textLayout = this.getProgramCellTextLayout(cellData, cellData.isFocused);
+        const textLayout = this.getProgramCellTextLayout(cellData, cellData.isFocused, tier);
 
         // Set content
         if (cellData.kind === 'program') {
@@ -1147,8 +1145,8 @@ export class EPGVirtualizer {
             );
             element.classList.add(EPG_CLASSES.CELL_LOADING);
         }
-        this.updateEpisodePresentation(children, cellData, tier, textLayout);
-        this.applyWidthTierPresentation(element, children, tier, cellData);
+        this.updateEpisodePresentation(children, cellData, textLayout);
+        this.applyWidthTierPresentation(element, children, tier, cellData, textLayout);
 
         if (cellData.textShiftPx > 0) {
             element.classList.add(EPG_CLASSES.CELL_TEXT_SHIFTED);
@@ -1419,7 +1417,7 @@ export class EPGVirtualizer {
 
         const children = this.getCellChildren(element);
         const tier = this.getCellWidthTier(cellData.width);
-        const textLayout = this.getProgramCellTextLayout(cellData, cellData.isFocused);
+        const textLayout = this.getProgramCellTextLayout(cellData, cellData.isFocused, tier);
         if (cellData.kind === 'program') {
             if (children.titleText) {
                 children.titleText.textContent = textLayout.title;
@@ -1443,8 +1441,8 @@ export class EPGVirtualizer {
             );
             element.classList.add(EPG_CLASSES.CELL_LOADING);
         }
-        this.updateEpisodePresentation(children, cellData, tier, textLayout);
-        this.applyWidthTierPresentation(element, children, tier, cellData);
+        this.updateEpisodePresentation(children, cellData, textLayout);
+        this.applyWidthTierPresentation(element, children, tier, cellData, textLayout);
         this.updateProgressPresentation(children, cellData, nowMs);
     }
 
