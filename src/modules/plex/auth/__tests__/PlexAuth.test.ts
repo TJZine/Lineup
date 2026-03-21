@@ -379,6 +379,7 @@ describe('PlexAuth', () => {
             const headers = auth.getAuthHeaders();
 
             expect(headers['X-Plex-Token']).toBe('my-secret-token');
+            expect((headers as Record<string, string>)['x-plex-token']).toBeUndefined();
         });
     });
 
