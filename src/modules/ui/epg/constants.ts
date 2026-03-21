@@ -57,6 +57,7 @@ export const EPG_CLASSES = {
     PROGRAM_AREA: 'epg-program-area',
     CELL: 'epg-cell',
     CELL_FOCUSED: 'focused',
+    CELL_FOCUSED_COMPACT: 'epg-cell-focused-compact',
     CELL_CURRENT: 'current',
     CELL_PAST: 'past',
     CELL_LOADING: 'loading',

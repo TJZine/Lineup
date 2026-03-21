@@ -673,8 +673,6 @@
 
 .epg-cell.focused {
   background: var(--focus-color, #00a8e1);
-  grid-template-columns: 1fr;
-  gap: 6px;
   z-index: 10;
   box-shadow: none;
   outline: none;
@@ -910,7 +908,12 @@
   font-size: 14px;
 }
 
-.epg-cell.focused .epg-cell-rail {
+.epg-cell.focused.epg-cell-focused-compact {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.epg-cell.focused.epg-cell-focused-compact .epg-cell-rail {
   position: absolute;
   top: 8px;
   right: 10px;
@@ -918,7 +921,7 @@
   pointer-events: none;
 }
 
-.epg-cell.focused .epg-cell-time {
+.epg-cell.focused.epg-cell-focused-compact .epg-cell-time {
   display: none;
 }
 
@@ -940,6 +943,21 @@
   right: 10px;
   align-self: auto;
   pointer-events: none;
+}
+
+.epg-cell.focused:not(.epg-cell-focused-compact).epg-cell-tier-narrow,
+.epg-cell.focused:not(.epg-cell-focused-compact).epg-cell-tier-tiny {
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+}
+
+.epg-cell.focused:not(.epg-cell-focused-compact).epg-cell-tier-narrow .epg-cell-rail,
+.epg-cell.focused:not(.epg-cell-focused-compact).epg-cell-tier-tiny .epg-cell-rail {
+  position: static;
+  top: auto;
+  right: auto;
+  align-self: stretch;
+  pointer-events: auto;
 }
 
 .epg-cell-tier-narrow .epg-cell-time,

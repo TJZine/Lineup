@@ -1389,6 +1389,7 @@ describe('EPGVirtualizer', () => {
 
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
             expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_TINY)).toBe(true);
+            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
 
             const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
             const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
@@ -1736,7 +1737,7 @@ describe('EPGVirtualizer', () => {
             }
         });
 
-        it('hides the in-cell time on focused medium-width movie cells', () => {
+        it('keeps the in-cell time on focused medium-width movie cells', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-movie-medium-time-hidden';
             const start = gridAnchorTime;
@@ -1775,9 +1776,111 @@ describe('EPGVirtualizer', () => {
 
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
             expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_MEDIUM)).toBe(true);
+            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(false);
 
             const time = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
-            expect(time.style.display).toBe('none');
+            expect(time.style.display).toBe('block');
+        });
+
+        it('keeps the in-cell time on focused wide episode cells that can stay in the normal layout', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-focused-episode-wide-time-visible';
+            const start = gridAnchorTime;
+            const end = start + (60 * 60000); // wide tier at 4px/min => 240px
+
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60000),
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'episode-wide-1',
+                            type: 'episode',
+                            title: 'A Day At The Shore',
+                            fullTitle: 'Great Show - S01E03 - A Day At The Shore',
+                            showTitle: 'Great Show',
+                            seasonNumber: 1,
+                            episodeNumber: 3,
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+            virtualizer.setFocusedCell(channelId, start);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_WIDE)).toBe(true);
+            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(false);
+
+            const time = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
+            const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
+            expect(time.style.display).toBe('block');
+            expect(subtitle.style.display).toBe('block');
+        });
+
+        it('starts ticker when focused title overflow is small but still visible', () => {
+            jest.useFakeTimers();
+            try {
+                const channelId = 'ch-ticker-small-overflow';
+                const start = gridAnchorTime;
+                const end = start + 20 * 60 * 1000;
+
+                const schedule: ScheduleWindow = {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                    programs: [{
+                        item: {
+                            ratingKey: 'ticker-small-overflow-1',
+                            type: 'movie',
+                            title: 'Borderline Overflow Title',
+                            fullTitle: 'Borderline Overflow Title',
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    }],
+                };
+
+                virtualizer.setChannelCount(1);
+                const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+                virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+                const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+                const title = cell.querySelector('.epg-cell-title') as HTMLElement;
+                Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 88 });
+                Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
+
+                virtualizer.setFocusedCell(channelId, start);
+
+                expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(true);
+                jest.advanceTimersByTime(900);
+                expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(true);
+            } finally {
+                jest.useRealTimers();
+            }
         });
 
         it('derives show title from fullTitle when episode title includes a leading episode code', () => {
@@ -2229,7 +2332,7 @@ describe('EPGVirtualizer', () => {
             expect(badge.textContent).toBe('');
         });
 
-        it('keeps time hidden when tiny cell is focused', () => {
+        it('keeps time visible when a tiny movie cell is focused', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-time-focused';
             const schedule: ScheduleWindow = {
@@ -2266,10 +2369,11 @@ describe('EPGVirtualizer', () => {
             const timeLine = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
 
             expect(cell.classList.contains('epg-cell-tier-tiny')).toBe(true);
-            expect(timeLine.style.display).toBe('none');
+            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(false);
+            expect(timeLine.style.display).toBe('block');
         });
 
-        it('keeps time hidden and compact semantics after setFocusedCell without rerender', () => {
+        it('keeps compact time styling but restores the time line for focused tiny movie cells', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focus-update';
             const start = gridAnchorTime;
@@ -2312,7 +2416,7 @@ describe('EPGVirtualizer', () => {
             const focused = virtualizer.setFocusedCell(channelId, start, start + 5 * 60000);
             expect(focused).not.toBeNull();
             expect(timeLine.classList.contains(EPG_CLASSES.CELL_TIME_COMPACT)).toBe(true);
-            expect(timeLine.style.display).toBe('none');
+            expect(timeLine.style.display).toBe('block');
         });
 
         it('keeps time hidden and compact when tiny cell becomes current via temporal refresh', () => {
