@@ -496,6 +496,7 @@ describe('PlaybackOptionsCoordinator', () => {
 
             expect(requestBurnInSubtitle).toHaveBeenCalledWith('keyless', expect.any(String));
             expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalled();
+            expect(fetchMock).toHaveBeenCalledTimes(1);
         } finally {
             jest.useRealTimers();
             restore();

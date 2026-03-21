@@ -33,9 +33,9 @@ import {
     parseHomeUsers,
     parseSwitchResponse,
     fetchWithRetry,
-    fetchWithTimeout,
 } from './helpers';
 import { AppErrorCode } from '../../lifecycle/types';
+import { fetchWithTimeout } from '../shared/fetchWithTimeout';
 import { resolveClientIdentifier } from './clientIdentifier';
 
 // Re-export for consumers
@@ -200,23 +200,26 @@ export class PlexAuth implements IPlexAuth {
         const url = PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL + PLEX_AUTH_CONSTANTS.USER_ENDPOINT;
         const headers = buildRequestHeaders(this._state.config, token);
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(
-            function () { controller.abort(); },
-            PLEX_AUTH_CONSTANTS.TOKEN_VALIDATION_TIMEOUT_MS
-        );
-
         try {
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: headers,
-                signal: controller.signal,
-            });
-            clearTimeout(timeoutId);
+            const response = await fetchWithTimeout(
+                url,
+                { method: 'GET', headers: headers },
+                PLEX_AUTH_CONSTANTS.TOKEN_VALIDATION_TIMEOUT_MS
+            );
 
             if (response.status === 200) {
-                const data = await response.json();
-                const userToken = parseUserResponse(data, token);
+                let data: unknown;
+                try {
+                    data = await response.json();
+                } catch {
+                    throw new PlexApiError(
+                        AppErrorCode.PARSE_ERROR,
+                        'Failed to parse token validation response',
+                        response.status,
+                        false
+                    );
+                }
+                const userToken = parseUserResponse(data as Record<string, unknown>, token);
                 const isAccountToken = this._state.accountToken?.token === token;
                 const isActiveToken = this._state.activeToken?.token === token;
                 if (isAccountToken) {
@@ -235,10 +238,12 @@ export class PlexAuth implements IPlexAuth {
             }
             return false;
         } catch (error) {
-            clearTimeout(timeoutId);
             // Return false only on timeout (AbortError); throw on network errors
             if (error instanceof Error && error.name === 'AbortError') {
                 return false;
+            }
+            if (error instanceof PlexApiError) {
+                throw error;
             }
             throw new PlexApiError(
                 AppErrorCode.SERVER_UNREACHABLE,

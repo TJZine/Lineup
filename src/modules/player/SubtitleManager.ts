@@ -15,6 +15,7 @@ import {
 } from './subtitleConversion';
 import type { PlatformSubtitleService } from '../../platform';
 import { webosPlatformServices } from '../../platform';
+import { fetchWithTimeout } from '../plex/shared/fetchWithTimeout';
 
 interface SubtitleTrackContext {
     serverUri: string | null;
@@ -692,7 +693,12 @@ export class SubtitleManager {
         for (const entry of urlsToTry) {
             const suffix = entry.variant === 'lan_http' ? '_lan_http' : '';
             try {
-                const response = await fetch(entry.url.toString(), { headers, signal });
+                const response = await fetchWithTimeout(
+                    entry.url.toString(),
+                    { headers },
+                    10_000,
+                    signal
+                );
                 if (loadToken !== this._loadToken) return null;
                 if (!response.ok) {
                     let bodySample: string | null = null;

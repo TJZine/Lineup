@@ -38,7 +38,7 @@ import {
     selectCompatibleAudioTrack,
     shouldForceTranscodeAudioStreamId,
 } from './playbackCompatibilityPolicy';
-import { fetchWithTimeout } from './fetchWithTimeout';
+import { fetchWithTimeout } from '../shared/fetchWithTimeout';
 import { detectHdrLabel } from './hdr';
 import type { PlatformIdentityService } from '../../../platform';
 import { webosPlatformServices } from '../../../platform';

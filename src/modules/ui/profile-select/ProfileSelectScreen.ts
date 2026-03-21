@@ -8,6 +8,7 @@ import { AppOrchestrator } from '../../../Orchestrator';
 import type { PlexHomeUser } from '../../plex/auth';
 import type { FocusableElement, KeyEvent } from '../../navigation';
 import { PlexApiError } from '../../plex/auth';
+import { AppErrorCode } from '../../lifecycle/types';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
 import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
@@ -419,13 +420,13 @@ export class ProfileSelectScreen {
             return true;
         } catch (error) {
             if (error instanceof PlexApiError) {
-                if (pin && error.code === 'AUTH_FAILED') {
+                if (pin && error.code === AppErrorCode.AUTH_FAILED) {
                     this._handlePinError('Wrong PIN. Try again.');
                     return false;
                 }
                 if (
-                    error.code === 'AUTH_REQUIRED' ||
-                    error.code === 'AUTH_INVALID'
+                    error.code === AppErrorCode.AUTH_REQUIRED ||
+                    error.code === AppErrorCode.AUTH_INVALID
                 ) {
                     // Account token is no longer valid; force re-link.
                     await this._orchestrator.signOutPlex();

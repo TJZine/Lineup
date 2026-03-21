@@ -23,6 +23,7 @@ import type { ToastType } from '../toast/types';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
 import type { StreamDescriptor } from '../../player/types';
 import { summarizeErrorForLog } from '../../../utils/errors';
+import { fetchWithTimeout } from '../../plex/shared/fetchWithTimeout';
 
 export const SUBTITLE_PROBE_TOTAL_TIMEOUT_MS = 400;
 
@@ -446,18 +447,15 @@ export class PlaybackOptionsCoordinator {
 
         const startMs = Date.now();
         try {
-            const headController = new AbortController();
-            const headTimeoutId = setTimeout(() => headController.abort(), SUBTITLE_PROBE_TOTAL_TIMEOUT_MS);
             let response: Response;
-            try {
-                response = await fetch(url.toString(), {
+            response = await fetchWithTimeout(
+                url.toString(),
+                {
                 method: 'HEAD',
                 headers: { Accept: 'text/vtt, text/plain, */*' },
-                    signal: headController.signal,
-                });
-            } finally {
-                clearTimeout(headTimeoutId);
-            }
+                },
+                SUBTITLE_PROBE_TOTAL_TIMEOUT_MS
+            );
             if (!response.ok && (response.status === 405 || response.status === 501)) {
                 // Some Plex endpoints/proxies may not support HEAD reliably; fall back to GET.
                 const elapsedMs = Date.now() - startMs;
@@ -465,17 +463,14 @@ export class PlaybackOptionsCoordinator {
                 // Keep the total probe time bounded; don't double the worst-case latency.
                 const fallbackTimeoutMs = Math.max(50, remainingMs);
 
-                const getController = new AbortController();
-                const getTimeoutId = setTimeout(() => getController.abort(), fallbackTimeoutMs);
-                try {
-                    response = await fetch(url.toString(), {
+                response = await fetchWithTimeout(
+                    url.toString(),
+                    {
                         method: 'GET',
                         headers: { Accept: 'text/vtt, text/plain, */*' },
-                        signal: getController.signal,
-                    });
-                } finally {
-                    clearTimeout(getTimeoutId);
-                }
+                    },
+                    fallbackTimeoutMs
+                );
             }
             if (response.ok) {
                 this.subtitleProbeCache.set(cacheKey, 'supported');

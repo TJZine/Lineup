@@ -325,6 +325,24 @@ describe('PlexServerDiscovery', () => {
             expect(discovery.getServers()[0]!.id).toBe('srv-fresh');
             expect(fetch).toHaveBeenCalledTimes(2);
         });
+
+        it('classifies malformed discovery payloads as PARSE_ERROR without retrying', async () => {
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: () => 'text/plain' },
+                json: async () => {
+                    throw new SyntaxError('Unexpected token');
+                },
+                text: async () => 'not-a-json-or-xml-payload',
+            });
+
+            const discovery = new PlexServerDiscovery(mockConfig);
+            await expect(discovery.discoverServers()).rejects.toMatchObject({
+                code: 'PARSE_ERROR',
+            });
+            expect(fetch).toHaveBeenCalledTimes(1);
+        });
     });
 
     describe('testConnection', () => {

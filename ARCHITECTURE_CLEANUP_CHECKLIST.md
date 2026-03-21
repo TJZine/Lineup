@@ -714,7 +714,15 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - standardize nearby auth/trust naming if it reduces future drift without creating extra scope
   - keep an eye on startup-entry bundle shape while touching `PlexServerDiscovery`, `PlexStreamResolver`, and `SubtitleManager`; bundle wins are welcome, but not at the cost of signed-in startup correctness, instant guide open, or first-play reliability
 - Cleanup track:
-  - [ ] `P5-W1` normalize auth/trust-boundary error handling and contracts across auth, discovery, library, player, and playback-options surfaces, including `fetchWithTimeout`, `validateToken()`, parser failure semantics, and shared auth-error codes
+  - [x] `P5-W1` normalize auth/trust-boundary error handling and contracts across auth, discovery, library, player, and playback-options surfaces, including `fetchWithTimeout`, `validateToken()`, parser failure semantics, and shared auth-error codes (done 2026-03-21)
+    - Evidence note (2026-03-21):
+      - canonical `fetchWithTimeout` now lives in `src/modules/plex/shared/fetchWithTimeout.ts` with locked dual-signal OR semantics; stream-local helper removed.
+      - shared helper usage is normalized across auth (`PlexAuth` home-user + switch + validate paths), stream (`PlexStreamResolver`), playback-options subtitle probe (`PlaybackOptionsCoordinator`), and player subtitle fetch path (`SubtitleManager`) while preserving the existing XHR fallback.
+      - `PlexLibrary` timeout/upstream-abort behavior now routes through `fetchWithTimeoutCore` while preserving existing retry/backoff and response-shape contracts; focused regression coverage added for timeout exhaustion and upstream-abort rethrow behavior.
+      - `validateToken()` preserves timeout=`false` behavior, now throws canonical `PARSE_ERROR` for malformed payloads, and continues to throw `SERVER_UNREACHABLE` on network failures.
+      - profile-select no longer uses magic auth-code strings; comparisons now use `AppErrorCode.AUTH_FAILED|AUTH_REQUIRED|AUTH_INVALID`.
+      - discovery malformed-payload parsing now throws `AppErrorCode.PARSE_ERROR`, with regression asserting single-attempt (no pre-parse retry loop) behavior.
+      - verification run on current code: `npm run typecheck`; `npm test -- src/modules/plex/stream/__tests__/fetchWithTimeout.test.ts`; `npm test -- src/modules/plex/auth/__tests__/PlexAuth.test.ts`; `npm test -- src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts`; `npm test -- src/modules/plex/library/__tests__/PlexLibrary.test.ts`; `npm test -- src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts`; `npm test -- src/modules/player/__tests__/SubtitleManager.test.ts`; `npm run verify`.
   - [ ] `P5-W2` remove inactive migration or compatibility branches from auth, subtitle, player, and related Plex surfaces after tests prove they are obsolete
   - [ ] `P5-W3` consolidate token-in-URL usage and origin-trust checks behind one clear policy surface or a very small set of aligned surfaces
   - [ ] `P5-W4` remove any remaining sibling policy drift that the imported subjective findings flag inside Plex-facing modules

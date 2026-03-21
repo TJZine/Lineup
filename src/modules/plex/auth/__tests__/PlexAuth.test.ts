@@ -278,6 +278,62 @@ describe('PlexAuth', () => {
                 expect(currentUser.token).toBe('valid-token');
             }
         });
+
+        it('should return false when token validation times out', async () => {
+            jest.useFakeTimers();
+            try {
+                const auth = new PlexAuth(mockConfig);
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                    (_url: string, options?: RequestInit) =>
+                        new Promise((_resolve, reject) => {
+                            const signal = options?.signal as AbortSignal | undefined;
+                            if (!signal) return;
+                            signal.addEventListener(
+                                'abort',
+                                () => {
+                                    const abortError = new Error('The operation was aborted.');
+                                    abortError.name = 'AbortError';
+                                    reject(abortError);
+                                },
+                                { once: true }
+                            );
+                        })
+                );
+
+                const promise = auth.validateToken('slow-token');
+                await jest.advanceTimersByTimeAsync(PLEX_AUTH_CONSTANTS.TOKEN_VALIDATION_TIMEOUT_MS + 50);
+                await expect(promise).resolves.toBe(false);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('should throw SERVER_UNREACHABLE on network failure during validation', async () => {
+            const auth = new PlexAuth(mockConfig);
+            mockFetchFailure(new TypeError('Network error'));
+
+            await expect(auth.validateToken('valid-token')).rejects.toMatchObject({
+                code: 'SERVER_UNREACHABLE',
+            });
+        });
+
+        it('should throw PARSE_ERROR when token validation payload is malformed', async () => {
+            const auth = new PlexAuth(mockConfig);
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: function () { return null; } },
+                json: async function () {
+                    throw new SyntaxError('Unexpected token');
+                },
+                text: async function () { return 'not-json'; },
+            });
+
+            await expect(auth.validateToken('valid-token')).rejects.toMatchObject({
+                code: 'PARSE_ERROR',
+            });
+        });
+
     });
 
     describe('getAuthHeaders', () => {

@@ -8,7 +8,6 @@
 import { PLEX_AUTH_CONSTANTS } from './constants';
 import { PlexAuthConfig, PlexAuthToken, PlexPinRequest, PlexHomeUser } from './interfaces';
 import { AppErrorCode } from '../../lifecycle/types';
-import { fetchWithTimeoutCore } from '../shared/fetchWithTimeoutCore';
 
 /**
  * Error class for Plex API errors.
@@ -518,21 +517,6 @@ export function sleep(ms: number): Promise<void> {
     return new Promise(function (resolve) {
         setTimeout(resolve, ms);
     });
-}
-
-/**
- * Fetch with a hard timeout and optional external AbortSignal.
- * Aborts when either the timeout elapses or the external signal aborts.
- *
- * Note: Avoid logging URL/init from callers; tokens may be present in headers.
- */
-export async function fetchWithTimeout(
-    url: string,
-    options: RequestInit,
-    timeoutMs: number,
-    externalSignal?: AbortSignal | null
-): Promise<Response> {
-    return fetchWithTimeoutCore(url, options, timeoutMs, externalSignal ?? null);
 }
 
 /**

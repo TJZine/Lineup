@@ -46,6 +46,7 @@ import {
     parseDirectoryTags,
 } from './ResponseParser';
 import { PLEX_LIBRARY_CONSTANTS, PLEX_ENDPOINTS, PLEX_MEDIA_TYPES } from './constants';
+import { fetchWithTimeoutCore } from '../shared/fetchWithTimeoutCore';
 
 // ============================================
 // Error Class
@@ -854,50 +855,49 @@ export class PlexLibrary implements IPlexLibrary {
             let externalAborted = false;
             const externalSignal = options.signal ?? null;
             try {
-                const controller = new AbortController();
                 const onExternalAbort = (): void => {
                     externalAborted = true;
-                    controller.abort();
                 };
                 if (externalSignal) {
                     if (externalSignal.aborted) {
-                        throw new DOMException('The operation was aborted', 'AbortError');
+                        externalAborted = true;
                     }
                     externalSignal.addEventListener('abort', onExternalAbort, { once: true });
                 }
-                const timeoutId = setTimeout(
-                    () => controller.abort(),
-                    PLEX_LIBRARY_CONSTANTS.REQUEST_TIMEOUT_MS
-                );
+                const optionsWithoutSignal: RequestInit = { ...options };
+                delete (optionsWithoutSignal as { signal?: AbortSignal | null }).signal;
+
+                // Plex has started warning that `X-Plex-Container-Size` must be provided as a header.
+                // Lineup historically provides paging via query params; mirror those values as headers
+                // to avoid future 400s while keeping existing URL construction unchanged.
+                const pagingHeaders: Record<string, string> = {};
+                try {
+                    const u = new URL(url);
+                    const start = u.searchParams.get('X-Plex-Container-Start');
+                    const size = u.searchParams.get('X-Plex-Container-Size');
+                    if (start) pagingHeaders['X-Plex-Container-Start'] = start;
+                    if (size) pagingHeaders['X-Plex-Container-Size'] = size;
+                } catch {
+                    // Ignore invalid URLs; fetch will surface a more actionable error.
+                }
 
                 let response: Response;
                 try {
-                    // Plex has started warning that `X-Plex-Container-Size` must be provided as a header.
-                    // Lineup historically provides paging via query params; mirror those values as headers
-                    // to avoid future 400s while keeping existing URL construction unchanged.
-                    const pagingHeaders: Record<string, string> = {};
-                    try {
-                        const u = new URL(url);
-                        const start = u.searchParams.get('X-Plex-Container-Start');
-                        const size = u.searchParams.get('X-Plex-Container-Size');
-                        if (start) pagingHeaders['X-Plex-Container-Start'] = start;
-                        if (size) pagingHeaders['X-Plex-Container-Size'] = size;
-                    } catch {
-                        // Ignore invalid URLs; fetch will surface a more actionable error.
-                    }
-
-                    response = await fetch(url, {
-                        ...options,
-                        headers: {
-                            Accept: 'application/json',
-                            ...this._config.getAuthHeaders(),
-                            ...pagingHeaders,
-                            ...options.headers,
+                    response = await fetchWithTimeoutCore(
+                        url,
+                        {
+                            ...optionsWithoutSignal,
+                            headers: {
+                                Accept: 'application/json',
+                                ...this._config.getAuthHeaders(),
+                                ...pagingHeaders,
+                                ...options.headers,
+                            },
                         },
-                        signal: controller.signal,
-                    });
+                        PLEX_LIBRARY_CONSTANTS.REQUEST_TIMEOUT_MS,
+                        externalSignal
+                    );
                 } finally {
-                    clearTimeout(timeoutId);
                     if (externalSignal) {
                         externalSignal.removeEventListener('abort', onExternalAbort);
                     }
@@ -1010,7 +1010,14 @@ export class PlexLibrary implements IPlexLibrary {
                     throw error;
                 }
                 // Handle timeout/abort errors - retry with exponential backoff
-                if (error instanceof Error && error.name === 'AbortError') {
+                const errorName =
+                    typeof error === 'object' &&
+                    error !== null &&
+                    'name' in error &&
+                    typeof (error as { name?: unknown }).name === 'string'
+                        ? (error as { name: string }).name
+                        : '';
+                if (errorName === 'AbortError') {
                     if (timeoutRetries < PLEX_LIBRARY_CONSTANTS.MAX_TIMEOUT_RETRIES) {
                         const delay = PLEX_LIBRARY_CONSTANTS.TIMEOUT_RETRY_DELAYS[timeoutRetries] ?? 4000;
                         logger.warn(`[PlexLibrary] Network timeout, retry ${timeoutRetries + 1}/${PLEX_LIBRARY_CONSTANTS.MAX_TIMEOUT_RETRIES} after ${delay}ms`);

@@ -714,7 +714,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
         if (!contentType.includes('xml') && !text.trim().startsWith('<')) {
             throw new PlexApiError(
-                AppErrorCode.SERVER_UNREACHABLE,
+                AppErrorCode.PARSE_ERROR,
                 'Failed to parse server discovery response',
                 response.status,
                 false
@@ -725,7 +725,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         const doc = parser.parseFromString(text, 'application/xml');
         if (doc.getElementsByTagName('parsererror').length > 0) {
             throw new PlexApiError(
-                AppErrorCode.SERVER_UNREACHABLE,
+                AppErrorCode.PARSE_ERROR,
                 'Invalid XML response from server discovery',
                 response.status,
                 false

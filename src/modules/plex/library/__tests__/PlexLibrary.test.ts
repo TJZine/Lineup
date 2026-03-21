@@ -1,7 +1,7 @@
 import { PlexLibrary, PlexLibraryError, PlexLibraryErrorCode } from '../PlexLibrary';
 import type { PlexLibraryConfig } from '../interfaces';
 import { mockLocalStorage, installMockLocalStorage } from '../../../../__tests__/mocks/localStorage';
-import { PLEX_MEDIA_TYPES } from '../constants';
+import { PLEX_LIBRARY_CONSTANTS, PLEX_MEDIA_TYPES } from '../constants';
 
 // ============================================
 // Install Mock localStorage
@@ -1011,6 +1011,72 @@ describe('PlexLibrary', () => {
                 await jest.advanceTimersByTimeAsync(2000);
 
                 await rejection;
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('should throw NETWORK_TIMEOUT after exhausting timeout retries', async () => {
+            jest.useFakeTimers();
+            try {
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                    (_url: string, options?: RequestInit) =>
+                        new Promise((_resolve, reject) => {
+                            const signal = options?.signal as AbortSignal | undefined;
+                            if (signal?.aborted) {
+                                reject(new DOMException('The operation was aborted', 'AbortError'));
+                                return;
+                            }
+                            signal?.addEventListener(
+                                'abort',
+                                () => reject(new DOMException('The operation was aborted', 'AbortError')),
+                                { once: true }
+                            );
+                        })
+                );
+
+                const library = new PlexLibrary(mockConfig);
+                const request = library.getLibraries();
+                const rejection = expect(request).rejects.toMatchObject({
+                    code: PlexLibraryErrorCode.NETWORK_TIMEOUT,
+                });
+                await jest.runAllTimersAsync();
+
+                await rejection;
+                expect(fetch).toHaveBeenCalledTimes(PLEX_LIBRARY_CONSTANTS.MAX_TIMEOUT_RETRIES + 1);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('rethrows upstream aborts without treating them as retryable timeouts', async () => {
+            jest.useFakeTimers();
+            try {
+                const controller = new AbortController();
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                    (_url: string, options?: RequestInit) =>
+                        new Promise((_resolve, reject) => {
+                            const signal = options?.signal as AbortSignal | undefined;
+                            if (signal?.aborted) {
+                                reject(new DOMException('The operation was aborted', 'AbortError'));
+                                return;
+                            }
+                            signal?.addEventListener(
+                                'abort',
+                                () => reject(new DOMException('The operation was aborted', 'AbortError')),
+                                { once: true }
+                            );
+                        })
+                );
+
+                const library = new PlexLibrary(mockConfig);
+                const request = library.getLibraries({ signal: controller.signal });
+                const rejection = expect(request).rejects.toMatchObject({ name: 'AbortError' });
+                controller.abort();
+                await jest.runAllTimersAsync();
+
+                await rejection;
+                expect(fetch).toHaveBeenCalledTimes(1);
             } finally {
                 jest.useRealTimers();
             }
