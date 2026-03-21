@@ -234,7 +234,7 @@ describe('PlexAuth', () => {
     describe('validateToken', () => {
         it('should return true for valid token', async () => {
             const auth = new PlexAuth(mockConfig);
-            mockFetchJson({ id: 1, username: 'user' }, 200);
+            mockFetchJson({ id: 1, username: 'user', email: 'user@example.com' }, 200);
 
             const result = await auth.validateToken('valid-token');
 
@@ -332,6 +332,17 @@ describe('PlexAuth', () => {
             await expect(auth.validateToken('valid-token')).rejects.toMatchObject({
                 code: 'PARSE_ERROR',
             });
+        });
+
+        it('should throw PARSE_ERROR when token validation payload has invalid structure', async () => {
+            const auth = new PlexAuth(mockConfig);
+            mockFetchJson({}, 200);
+
+            await expect(auth.validateToken('valid-token')).rejects.toMatchObject({
+                code: 'PARSE_ERROR',
+            });
+            expect(auth.getCurrentUser()).toBeNull();
+            expect(auth.isAuthenticated()).toBe(false);
         });
 
     });
