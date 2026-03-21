@@ -260,8 +260,8 @@ export class ChannelSetupBuildExecutor {
             reportProgress('refresh_epg', 'Refreshing guide...', 'Loading schedules', 0, null);
             finalSummary.lastTask = 'refresh_epg';
             try {
-                await this._deps.ensureEpgInitialized();
                 this._deps.clearSelectedChannelScheduleSnapshot();
+                await this._deps.ensureEpgInitialized();
                 this._deps.primeEpgChannels();
                 await this._deps.refreshEpgSchedules({ reason: 'channel-setup', debounceMs: 0 });
             } catch (error: unknown) {

@@ -638,6 +638,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     hide(): void {
         if (!this.containerElement) return;
 
+        this.virtualizer.clearFocusedTickerState();
         this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_VISIBLE);
         this.state.isVisible = false;
         this.syncPeekMode();

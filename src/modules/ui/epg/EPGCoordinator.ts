@@ -58,6 +58,7 @@ export interface EPGCoordinatorDeps {
         channelId: string,
         options?: EpgChannelSwitchOptions
     ) => Promise<void>;
+    onVisibilityChange?: (visible: boolean) => void;
     reportEpgInitWarning: (error: unknown) => void;
     epgPreferencesStore?: EpgPreferencesStore;
 }
@@ -77,6 +78,7 @@ export class EPGCoordinator {
     private _visibleRangeRefreshQueue: EPGVisibleRangeRefreshQueue;
     private readonly _scheduleRefreshRuntime: EPGScheduleRefreshRuntime;
     private _openRequestId = 0;
+    private _lastReportedVisibility: boolean | null = null;
     private _guideSelectionRequestId = 0;
     private _guideSelectionController: AbortController | null = null;
 
@@ -342,6 +344,7 @@ export class EPGCoordinator {
             this._preseedCurrentChannelSchedule(epgInstance);
             const preserveFocus = this.deps.getPreserveFocusOnOpen();
             epgInstance.show({ preserveFocus });
+            this._reportVisibilityIfChanged(epgInstance);
             if (!preserveFocus) {
                 this._focusEpgOnCurrentChannel(epgInstance);
                 epgInstance.focusNow();
@@ -358,6 +361,7 @@ export class EPGCoordinator {
         const preserveFocus = this.deps.getPreserveFocusOnOpen();
         this._preseedCurrentChannelSchedule(initialEpg);
         initialEpg.show({ preserveFocus });
+        this._reportVisibilityIfChanged(initialEpg);
         if (!preserveFocus) {
             this._focusEpgOnCurrentChannel(initialEpg);
             initialEpg.focusNow();
@@ -379,7 +383,9 @@ export class EPGCoordinator {
                     return;
                 }
                 console.error('[EPGCoordinator] Failed to init EPG:', summarizeErrorForLog(error));
-                this.deps.getEpg()?.hide();
+                const epgForRollback = this.deps.getEpg();
+                epgForRollback?.hide();
+                this._reportVisibilityIfChanged(epgForRollback);
                 this.deps.reportEpgInitWarning(error);
             });
     }
@@ -394,7 +400,9 @@ export class EPGCoordinator {
             this._invalidateGuideSelection('close-epg');
         }
         this._cancelScheduledRefreshWork('close-epg');
-        this.deps.getEpg()?.hide();
+        const epg = this.deps.getEpg();
+        epg?.hide();
+        this._reportVisibilityIfChanged(epg);
     }
 
     toggleEPG(): void {
@@ -620,6 +628,14 @@ export class EPGCoordinator {
         };
 
         epg.on('libraryFilterChanged', onFilter);
+        const onOpen = (): void => {
+            this._reportVisibilityIfChanged(epg);
+        };
+        const onClose = (): void => {
+            this._reportVisibilityIfChanged(epg);
+        };
+        epg.on('open', onOpen);
+        epg.on('close', onClose);
 
         return [
             (): void => {
@@ -628,7 +644,24 @@ export class EPGCoordinator {
             (): void => {
                 epg.off('libraryFilterChanged', onFilter);
             },
+            (): void => {
+                epg.off('open', onOpen);
+            },
+            (): void => {
+                epg.off('close', onClose);
+            },
         ];
+    }
+
+    private _reportVisibilityIfChanged(epgOverride?: IEPGComponent | null): void {
+        const readVisibility = (epg: IEPGComponent | null | undefined): boolean | null =>
+            typeof epg?.isVisible === 'function' ? epg.isVisible() : null;
+        const visible = readVisibility(epgOverride) ?? readVisibility(this.deps.getEpg()) ?? false;
+        if (this._lastReportedVisibility === visible) {
+            return;
+        }
+        this._lastReportedVisibility = visible;
+        this.deps.onVisibilityChange?.(visible);
     }
 
     focusEpgOnCurrentChannel(): void {

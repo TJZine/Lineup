@@ -1,5 +1,9 @@
 import { EPGCoordinator, type EPGCoordinatorDeps, type EpgUiStatus } from '../EPGCoordinator';
 import type { IEPGComponent } from '../interfaces';
+import {
+    OverlayRuntimePolicyController,
+    type OverlayRuntimePolicyControllerDeps,
+} from '../../../../core/orchestrator/OverlayRuntimePolicyController';
 import type {
     IChannelManager,
     ChannelConfig,
@@ -203,6 +207,7 @@ const makeDeps = (
         getPreserveFocusOnOpen: () => false,
         setLastChannelChangeSourceToGuide: jest.fn(),
         switchToChannel: jest.fn().mockResolvedValue(undefined),
+        onVisibilityChange: jest.fn(),
         reportEpgInitWarning: jest.fn(),
         ...overrides,
     };
@@ -366,6 +371,83 @@ describe('EPGCoordinator', () => {
         expect(ensure).toHaveBeenCalled();
         expect(epg.hide).toHaveBeenCalled();
         expect(deps.reportEpgInitWarning).toHaveBeenCalledWith(error);
+    });
+
+    it('openEPG reports logical visibility immediately during deferred load and rolls it back on init failure', async () => {
+        const error = new Error('Deferred init failed');
+        let visible = false;
+        const ensure = jest.fn().mockRejectedValue(error);
+        const { deps, epg } = makeDeps({
+            getEpgUiStatus: () => 'pending',
+            ensureEpgInitialized: ensure,
+        });
+        (epg.show as jest.Mock).mockImplementation(() => {
+            visible = true;
+        });
+        (epg.hide as jest.Mock).mockImplementation(() => {
+            visible = false;
+        });
+        (epg.isVisible as jest.Mock).mockImplementation(() => visible);
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.openEPG();
+
+        expect(deps.onVisibilityChange).toHaveBeenNthCalledWith(1, true);
+
+        await flushPromises();
+
+        expect(deps.onVisibilityChange).toHaveBeenNthCalledWith(2, false);
+        expect(epg.hide).toHaveBeenCalledTimes(1);
+        expect(deps.reportEpgInitWarning).toHaveBeenCalledWith(error);
+    });
+
+    it('openEPG rolls back visibility against current deps state when deferred init fails after the epg reference clears', async () => {
+        const error = new Error('Deferred init failed after epg unmounted');
+        let visible = false;
+        const ensure = jest.fn().mockRejectedValue(error);
+        const { deps, epg } = makeDeps({
+            getEpgUiStatus: () => 'pending',
+            ensureEpgInitialized: ensure,
+        });
+        let currentEpg: IEPGComponent | null = epg;
+        deps.getEpg = (): IEPGComponent | null => currentEpg;
+
+        (epg.show as jest.Mock).mockImplementation(() => {
+            visible = true;
+        });
+        (epg.hide as jest.Mock).mockImplementation(() => {
+            visible = false;
+        });
+        (epg.isVisible as jest.Mock).mockImplementation(() => visible);
+
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.openEPG();
+        expect(deps.onVisibilityChange).toHaveBeenNthCalledWith(1, true);
+
+        currentEpg = null;
+        await flushPromises();
+
+        expect(deps.onVisibilityChange).toHaveBeenNthCalledWith(2, false);
+        expect(epg.hide).not.toHaveBeenCalled();
+        expect(deps.reportEpgInitWarning).toHaveBeenCalledWith(error);
+    });
+
+    it('closeEPG reports logical visibility even before runtime close events fire', () => {
+        let visible = true;
+        const { deps, epg } = makeDeps({
+            getEpgUiStatus: () => 'pending',
+        });
+        (epg.hide as jest.Mock).mockImplementation(() => {
+            visible = false;
+        });
+        (epg.isVisible as jest.Mock).mockImplementation(() => visible);
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.closeEPG();
+
+        expect(epg.hide).toHaveBeenCalledTimes(1);
+        expect(deps.onVisibilityChange).toHaveBeenCalledWith(false);
     });
 
     it('closeEPG cancels queued visible-range refreshes before they start', async () => {
@@ -1626,13 +1708,16 @@ describe('EPGCoordinator', () => {
         expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBe(0);
     });
 
-    it('wireEpgEvents returns unsubscribers and triggers switch when program eligible', async () => {
+    it('wireEpgEvents returns unsubscribers, forwards visibility changes, and triggers switch when program eligible', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, '1');
         const hide = jest.fn();
+        let epgVisible = false;
+        const onVisibilityChange = jest.fn();
         const epg: IEPGComponent = {
             on: jest.fn(),
             off: jest.fn(),
             hide,
+            isVisible: jest.fn().mockImplementation(() => epgVisible),
             getState: jest.fn().mockReturnValue({
                 isVisible: false,
                 focusedCell: null,
@@ -1656,18 +1741,30 @@ describe('EPGCoordinator', () => {
         const setSource = jest.fn();
         const deps = makeDeps({
             getEpg: () => epg,
+            onVisibilityChange,
             setLastChannelChangeSourceToGuide: setSource,
             switchToChannel,
         }).deps;
         const coordinator = new EPGCoordinator(deps);
         jest.spyOn(Date, 'now').mockReturnValue(5_000);
 
-        const [unsubChannel, unsubFilter] = coordinator.wireEpgEvents();
+        const [unsubChannel, unsubFilter, unsubOpen, unsubClose] = coordinator.wireEpgEvents();
         expect(typeof unsubChannel).toBe('function');
         expect(typeof unsubFilter).toBe('function');
+        expect(typeof unsubOpen).toBe('function');
+        expect(typeof unsubClose).toBe('function');
 
         const handlerCall = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'channelSelected');
         expect(handlerCall).toBeDefined();
+        const openHandler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'open')?.[1];
+        const closeHandler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'close')?.[1];
+        epgVisible = true;
+        openHandler?.();
+        epgVisible = false;
+        closeHandler?.();
+        expect(onVisibilityChange).toHaveBeenNthCalledWith(1, true);
+        expect(onVisibilityChange).toHaveBeenNthCalledWith(2, false);
+
         const handler = handlerCall?.[1];
         handler({
             channel: makeChannel('c1', 1),
@@ -1703,6 +1800,89 @@ describe('EPGCoordinator', () => {
         if (filterHandler) {
             expect(epg.off).toHaveBeenCalledWith('libraryFilterChanged', filterHandler);
         }
+        unsubOpen!();
+        unsubClose!();
+        if (openHandler) {
+            expect(epg.off).toHaveBeenCalledWith('open', openHandler);
+        }
+        if (closeHandler) {
+            expect(epg.off).toHaveBeenCalledWith('close', closeHandler);
+        }
+    });
+
+    it('resyncs channel badge visibility immediately on EPG open and close through the coordinator callback path', () => {
+        let epgVisible = false;
+        const epg: IEPGComponent = {
+            on: jest.fn(),
+            off: jest.fn(),
+            hide: jest.fn(),
+            isVisible: jest.fn().mockImplementation(() => epgVisible),
+            getState: jest.fn().mockReturnValue({
+                isVisible: false,
+                focusedCell: null,
+                scrollPosition: { channelOffset: 0, timeOffset: 0 },
+                viewWindow: {
+                    startTime: 0,
+                    endTime: 0,
+                    startChannelIndex: 0,
+                    endChannelIndex: 0,
+                },
+                currentTime: 0,
+            }),
+            clearSchedules: jest.fn(),
+            setCategoryColorsEnabled: jest.fn(),
+            setVisibleHours: jest.fn(),
+            setLibraryTabs: jest.fn(),
+            scrollToChannel: jest.fn(),
+            focusChannel: jest.fn(),
+        } as unknown as IEPGComponent;
+        const overlayDeps: jest.Mocked<OverlayRuntimePolicyControllerDeps> = {
+            hasChannelBadgeOverlay: jest.fn().mockReturnValue(true),
+            getPlayerOsdVisible: jest.fn().mockReturnValue(true),
+            getNowPlayingInfoVisible: jest.fn().mockReturnValue(false),
+            getEpgVisible: jest.fn().mockImplementation(() => epgVisible),
+            getCurrentChannel: jest.fn().mockReturnValue({ number: 55, name: 'Drama' }),
+            showChannelBadge: jest.fn(),
+            hideChannelBadge: jest.fn(),
+            hasNavigation: jest.fn().mockReturnValue(true),
+            hasNowPlayingInfoOverlay: jest.fn().mockReturnValue(true),
+            getCurrentScreen: jest.fn().mockReturnValue('player'),
+            hasCurrentProgramForPlayback: jest.fn().mockReturnValue(true),
+            isModalOpen: jest.fn().mockReturnValue(false),
+            openModal: jest.fn(),
+            closeModal: jest.fn(),
+            nowPlayingModalId: 'now-playing-info',
+        };
+        const overlayController = new OverlayRuntimePolicyController(overlayDeps);
+        const deps = makeDeps({
+            getEpg: () => epg,
+            onVisibilityChange: (visible: boolean): void => {
+                overlayController.handleOverlayVisibilityChange(visible);
+            },
+        }).deps;
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.wireEpgEvents();
+
+        overlayController.syncChannelBadgeOverlay();
+        expect(overlayDeps.showChannelBadge).toHaveBeenCalledTimes(1);
+        expect(overlayDeps.hideChannelBadge).not.toHaveBeenCalled();
+
+        const openHandler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'open')?.[1];
+        const closeHandler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'close')?.[1];
+
+        epgVisible = true;
+        openHandler?.();
+        expect(overlayDeps.hideChannelBadge).toHaveBeenCalledTimes(1);
+        expect(overlayDeps.showChannelBadge).toHaveBeenCalledTimes(1);
+
+        epgVisible = false;
+        closeHandler?.();
+        expect(overlayDeps.showChannelBadge).toHaveBeenCalledTimes(2);
+        expect(overlayDeps.showChannelBadge).toHaveBeenLastCalledWith({
+            channelNumber: 55,
+            channelName: 'Drama',
+        });
     });
 
     it('wireEpgEvents does not switch when selected program already ended', () => {

@@ -837,6 +837,33 @@ describe('ChannelSetupCoordinator', () => {
         expect(primeOrder as number).toBeLessThan(refreshOrder as number);
     });
 
+    it('clears the selected-channel snapshot even when EPG initialization fails after commit', async () => {
+        const ensureEpgInitialized = jest.fn().mockRejectedValue(new Error('epg init failed'));
+        const clearSelectedChannelScheduleSnapshot = jest.fn();
+        const { coordinator, plexLibrary, deps } = createCoordinator({
+            ensureEpgInitialized,
+            clearSelectedChannelScheduleSnapshot,
+        });
+        plexLibrary.getLibraries.mockResolvedValue([] as PlexLibraryType[]);
+        plexLibrary.getPlaylists.mockResolvedValue([
+            { ratingKey: 'pl1', key: '/playlists/pl1', title: 'Favorites', thumb: null, duration: 0, leafCount: 10 },
+        ]);
+
+        await coordinator.createChannelsFromSetup(createConfig({
+            strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
+        }));
+
+        expect(clearSelectedChannelScheduleSnapshot).toHaveBeenCalledTimes(1);
+        expect(ensureEpgInitialized).toHaveBeenCalledTimes(1);
+        expect(deps.primeEpgChannels).not.toHaveBeenCalled();
+        expect(deps.refreshEpgSchedules).not.toHaveBeenCalled();
+        const clearOrder = clearSelectedChannelScheduleSnapshot.mock.invocationCallOrder[0];
+        const ensureOrder = ensureEpgInitialized.mock.invocationCallOrder[0];
+        expect(clearOrder).toBeDefined();
+        expect(ensureOrder).toBeDefined();
+        expect(clearOrder as number).toBeLessThan(ensureOrder as number);
+    });
+
     it('returns done as the lastTask after a successful build', async () => {
         const { coordinator, plexLibrary } = createCoordinator();
         plexLibrary.getLibraries.mockResolvedValue([] as PlexLibraryType[]);
