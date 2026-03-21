@@ -168,7 +168,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         const tokenFromHeader = ((): string | null => {
             try {
                 const headers = this._config.getAuthHeaders();
-                const token = headers['X-Plex-Token'] ?? headers['x-plex-token'];
+                const token = headers['X-Plex-Token'];
                 return typeof token === 'string' && token.length > 0 ? token : null;
             } catch {
                 return null;

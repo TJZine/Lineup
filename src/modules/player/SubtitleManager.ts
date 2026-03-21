@@ -346,7 +346,7 @@ export class SubtitleManager {
     }
 
     private _getAuthTokenFromHeaders(headers: Record<string, string>): string | null {
-        const token = headers['X-Plex-Token'] ?? headers['x-plex-token'];
+        const token = headers['X-Plex-Token'];
         return typeof token === 'string' && token.length > 0 ? token : null;
     }
 
@@ -543,7 +543,6 @@ export class SubtitleManager {
                 // Keep query-first to avoid extra preflight work, then retry with token header.
                 const headerUrl = new URL(url.toString());
                 headerUrl.searchParams.delete('X-Plex-Token');
-                headerUrl.searchParams.delete('X-Plex-token');
                 attempts.push({
                     name: 'header',
                     url: headerUrl,

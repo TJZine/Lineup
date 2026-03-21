@@ -411,7 +411,7 @@ export class PlaybackOptionsCoordinator {
     }
 
     private getAuthTokenFromHeaders(headers: Record<string, string>): string | null {
-        const token = headers['X-Plex-Token'] ?? headers['x-plex-token'];
+        const token = headers['X-Plex-Token'];
         return typeof token === 'string' && token.length > 0 ? token : null;
     }
 
