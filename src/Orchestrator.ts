@@ -1096,12 +1096,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         await this._plexAuth.switchHomeUser(userId, { pin: pin ?? null });
         cleanupController.finalizeProfileSwitch();
         this._configureDiscoveryStorageKeysForActiveUser();
-
-        if (this._initCoordinator) {
-            await this._initCoordinator.runStartup(3);
-        } else {
-            await this._plexDiscovery.initialize();
-        }
+        await this._resumeStartupAfterProfileSwitch();
     }
 
     async useMainAccountProfile(): Promise<void> {
@@ -1117,12 +1112,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         await this._plexAuth.logoutActiveUser();
         cleanupController.finalizeProfileSwitch();
         this._configureDiscoveryStorageKeysForActiveUser();
-
-        if (this._initCoordinator) {
-            await this._initCoordinator.runStartup(3);
-        } else {
-            await this._plexDiscovery.initialize();
-        }
+        await this._resumeStartupAfterProfileSwitch();
     }
 
     async signOutPlex(): Promise<void> {
@@ -1190,6 +1180,18 @@ export class AppOrchestrator implements IAppOrchestrator {
         }
         this._plexDiscovery.clearSelection();
         void this._persistSelectedServerForActiveUser(null, null);
+    }
+
+    private async _resumeStartupAfterProfileSwitch(): Promise<void> {
+        this._navigation?.goTo('splash');
+        if (this._initCoordinator) {
+            await this._initCoordinator.runStartup(3);
+            return;
+        }
+        if (!this._plexDiscovery) {
+            throw new Error('PlexServerDiscovery not initialized');
+        }
+        await this._plexDiscovery.initialize();
     }
 
     getChannelSetupSessionGateway(): ChannelSetupSessionGateway {
