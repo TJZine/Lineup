@@ -1,5 +1,9 @@
 import { EPGCoordinator, type EPGCoordinatorDeps, type EpgUiStatus } from '../EPGCoordinator';
 import type { IEPGComponent } from '../interfaces';
+import {
+    OverlayRuntimePolicyController,
+    type OverlayRuntimePolicyControllerDeps,
+} from '../../../../core/orchestrator/OverlayRuntimePolicyController';
 import type {
     IChannelManager,
     ChannelConfig,
@@ -1723,6 +1727,81 @@ describe('EPGCoordinator', () => {
         if (closeHandler) {
             expect(epg.off).toHaveBeenCalledWith('close', closeHandler);
         }
+    });
+
+    it('resyncs channel badge visibility immediately on EPG open and close through the coordinator callback path', () => {
+        let epgVisible = false;
+        const epg: IEPGComponent = {
+            on: jest.fn(),
+            off: jest.fn(),
+            hide: jest.fn(),
+            isVisible: jest.fn().mockImplementation(() => epgVisible),
+            getState: jest.fn().mockReturnValue({
+                isVisible: false,
+                focusedCell: null,
+                scrollPosition: { channelOffset: 0, timeOffset: 0 },
+                viewWindow: {
+                    startTime: 0,
+                    endTime: 0,
+                    startChannelIndex: 0,
+                    endChannelIndex: 0,
+                },
+                currentTime: 0,
+            }),
+            clearSchedules: jest.fn(),
+            setCategoryColorsEnabled: jest.fn(),
+            setVisibleHours: jest.fn(),
+            setLibraryTabs: jest.fn(),
+            scrollToChannel: jest.fn(),
+            focusChannel: jest.fn(),
+        } as unknown as IEPGComponent;
+        const overlayDeps: jest.Mocked<OverlayRuntimePolicyControllerDeps> = {
+            hasChannelBadgeOverlay: jest.fn().mockReturnValue(true),
+            getPlayerOsdVisible: jest.fn().mockReturnValue(true),
+            getNowPlayingInfoVisible: jest.fn().mockReturnValue(false),
+            getEpgVisible: jest.fn().mockImplementation(() => epgVisible),
+            getCurrentChannel: jest.fn().mockReturnValue({ number: 55, name: 'Drama' }),
+            showChannelBadge: jest.fn(),
+            hideChannelBadge: jest.fn(),
+            hasNavigation: jest.fn().mockReturnValue(true),
+            hasNowPlayingInfoOverlay: jest.fn().mockReturnValue(true),
+            getCurrentScreen: jest.fn().mockReturnValue('player'),
+            hasCurrentProgramForPlayback: jest.fn().mockReturnValue(true),
+            isModalOpen: jest.fn().mockReturnValue(false),
+            openModal: jest.fn(),
+            closeModal: jest.fn(),
+            nowPlayingModalId: 'now-playing-info',
+        };
+        const overlayController = new OverlayRuntimePolicyController(overlayDeps);
+        const deps = makeDeps({
+            getEpg: () => epg,
+            onVisibilityChange: (visible: boolean): void => {
+                overlayController.handleOverlayVisibilityChange(visible);
+            },
+        }).deps;
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.wireEpgEvents();
+
+        overlayController.syncChannelBadgeOverlay();
+        expect(overlayDeps.showChannelBadge).toHaveBeenCalledTimes(1);
+        expect(overlayDeps.hideChannelBadge).not.toHaveBeenCalled();
+
+        const openHandler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'open')?.[1];
+        const closeHandler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'close')?.[1];
+
+        epgVisible = true;
+        openHandler?.();
+        expect(overlayDeps.hideChannelBadge).toHaveBeenCalledTimes(1);
+        expect(overlayDeps.showChannelBadge).toHaveBeenCalledTimes(1);
+
+        epgVisible = false;
+        closeHandler?.();
+        expect(overlayDeps.showChannelBadge).toHaveBeenCalledTimes(2);
+        expect(overlayDeps.showChannelBadge).toHaveBeenLastCalledWith({
+            channelNumber: 55,
+            channelName: 'Drama',
+        });
     });
 
     it('wireEpgEvents does not switch when selected program already ended', () => {
