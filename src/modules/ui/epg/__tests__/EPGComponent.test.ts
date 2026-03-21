@@ -446,6 +446,20 @@ describe('EPGComponent', () => {
             expect(closeHandler).toHaveBeenCalledTimes(1);
         });
 
+        it('clears focused ticker state when hiding the guide', () => {
+            const anyEpg = epg as unknown as {
+                virtualizer: {
+                    clearFocusedTickerState: () => void;
+                };
+            };
+            const clearFocusedTickerState = jest.spyOn(anyEpg.virtualizer, 'clearFocusedTickerState');
+
+            epg.show();
+            epg.hide();
+
+            expect(clearFocusedTickerState).toHaveBeenCalledTimes(1);
+        });
+
         it('refreshes the time indicator on visibilitychange when visible', () => {
             const nowSpy = jest.spyOn(Date, 'now');
             nowSpy.mockReturnValue(1_000_000);

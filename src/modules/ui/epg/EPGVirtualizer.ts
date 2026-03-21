@@ -934,12 +934,12 @@ export class EPGVirtualizer {
     private updateEpisodePresentation(
         children: CellChildren,
         cellData: CellRenderData,
-        tier: CellWidthTier
+        tier: CellWidthTier,
+        textLayout: CellTextLayout
     ): void {
         const { meta, episode, subtitle, subtitleText, titleText } = children;
         if (!meta || !episode) return;
 
-        const textLayout = this.getProgramCellTextLayout(cellData, cellData.isFocused);
         if (titleText) {
             titleText.textContent = textLayout.title;
         }
@@ -1121,11 +1121,12 @@ export class EPGVirtualizer {
         const element = this.getOrCreateElement();
         const children = this.getCellChildren(element);
         const tier = this.getCellWidthTier(cellData.width);
+        const textLayout = this.getProgramCellTextLayout(cellData, cellData.isFocused);
 
         // Set content
         if (cellData.kind === 'program') {
             if (children.titleText) {
-                children.titleText.textContent = this.getProgramCellTextLayout(cellData, cellData.isFocused).title;
+                children.titleText.textContent = textLayout.title;
             }
             this.updateCellTimeLabel(
                 children.time,
@@ -1146,7 +1147,7 @@ export class EPGVirtualizer {
             );
             element.classList.add(EPG_CLASSES.CELL_LOADING);
         }
-        this.updateEpisodePresentation(children, cellData, tier);
+        this.updateEpisodePresentation(children, cellData, tier, textLayout);
         this.applyWidthTierPresentation(element, children, tier, cellData);
 
         if (cellData.textShiftPx > 0) {
@@ -1291,6 +1292,10 @@ export class EPGVirtualizer {
         this._focusedTickerTargets = [];
     }
 
+    public clearFocusedTickerState(): void {
+        this._clearFocusedTickers();
+    }
+
     private _clearFocusedTickersForElement(element: HTMLElement): void {
         if (this._focusedTickerTargets.some((target) => element.contains(target.viewport))) {
             this._clearFocusedTickers();
@@ -1414,9 +1419,10 @@ export class EPGVirtualizer {
 
         const children = this.getCellChildren(element);
         const tier = this.getCellWidthTier(cellData.width);
+        const textLayout = this.getProgramCellTextLayout(cellData, cellData.isFocused);
         if (cellData.kind === 'program') {
             if (children.titleText) {
-                children.titleText.textContent = this.getProgramCellTextLayout(cellData, cellData.isFocused).title;
+                children.titleText.textContent = textLayout.title;
             }
             this.updateCellTimeLabel(
                 children.time,
@@ -1437,7 +1443,7 @@ export class EPGVirtualizer {
             );
             element.classList.add(EPG_CLASSES.CELL_LOADING);
         }
-        this.updateEpisodePresentation(children, cellData, tier);
+        this.updateEpisodePresentation(children, cellData, tier, textLayout);
         this.applyWidthTierPresentation(element, children, tier, cellData);
         this.updateProgressPresentation(children, cellData, nowMs);
     }

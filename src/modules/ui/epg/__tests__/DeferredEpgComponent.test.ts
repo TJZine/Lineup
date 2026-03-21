@@ -105,6 +105,8 @@ type FakeRuntimeOverrides = Partial<IEPGComponent>;
 
 const createFakeRuntime = (overrides: FakeRuntimeOverrides = {}): new () => IEPGComponent => (
     class FakeRuntime implements IEPGComponent {
+        private visible = (overrides as { visible?: boolean }).visible ?? false;
+
         constructor() {
             Object.assign(this, overrides);
         }
@@ -113,11 +115,15 @@ const createFakeRuntime = (overrides: FakeRuntimeOverrides = {}): new () => IEPG
         ensureReady(): Promise<void> {
             return Promise.resolve();
         }
-        show(): void {}
-        hide(): void {}
+        show(): void {
+            this.visible = true;
+        }
+        hide(): void {
+            this.visible = false;
+        }
         toggle(): void {}
         isVisible(): boolean {
-            return false;
+            return this.visible;
         }
         loadChannels(): void {}
         setCategoryColorsEnabled(): void {}
@@ -134,7 +140,7 @@ const createFakeRuntime = (overrides: FakeRuntimeOverrides = {}): new () => IEPG
         scrollToTime(): void {}
         scrollToChannel(): void {}
         getState(): EPGState {
-            return makeState();
+            return makeState(this.visible);
         }
         getFocusedProgram(): ScheduledProgram | null {
             return null;

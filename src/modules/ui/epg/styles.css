@@ -909,15 +909,15 @@
 }
 
 .epg-cell.focused.epg-cell-focused-compact {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 6px;
 }
 
 .epg-cell.focused.epg-cell-focused-compact .epg-cell-rail {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  align-self: auto;
+  position: static;
+  top: auto;
+  right: auto;
+  align-self: stretch;
   pointer-events: none;
 }
 

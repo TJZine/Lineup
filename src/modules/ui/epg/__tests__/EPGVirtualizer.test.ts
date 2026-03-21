@@ -1677,7 +1677,8 @@ describe('EPGVirtualizer', () => {
             try {
                 const channelId = 'ch-focused-episode-ticker';
                 const start = gridAnchorTime;
-                const end = start + 20 * 60 * 1000;
+                const mid = start + 20 * 60 * 1000;
+                const end = mid + 20 * 60 * 1000;
                 const showTitle = 'A Very Long Prestige Drama Title That Still Needs To Scroll';
                 const episodeTitle = 'An Even Longer Episode Title That Also Needs Full Marquee Travel';
 
@@ -1699,10 +1700,29 @@ describe('EPGVirtualizer', () => {
                             scheduledIndex: 0,
                         },
                         scheduledStartTime: start,
+                        scheduledEndTime: mid,
+                        elapsedMs: 0,
+                        remainingMs: mid - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    }, {
+                        item: {
+                            ratingKey: 'ep-focused-ticker-2',
+                            type: 'movie',
+                            title: 'Second Focus Target',
+                            fullTitle: 'Second Focus Target',
+                            durationMs: end - mid,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 1,
+                        },
+                        scheduledStartTime: mid,
                         scheduledEndTime: end,
                         elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
+                        remainingMs: end - mid,
+                        scheduleIndex: 1,
                         loopNumber: 0,
                         streamDescriptor: null,
                         isCurrent: false,
@@ -1732,6 +1752,14 @@ describe('EPGVirtualizer', () => {
                 jest.advanceTimersByTime(900);
                 expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(true);
                 expect(subtitle.classList.contains('epg-cell-subtitle-ticker-running')).toBe(true);
+
+                virtualizer.setFocusedCell(channelId, mid);
+                expect(subtitle.classList.contains('epg-cell-subtitle-ticker-ready')).toBe(false);
+                expect(subtitle.classList.contains('epg-cell-subtitle-ticker-running')).toBe(false);
+                expect(subtitle.style.getPropertyValue('--epg-subtitle-ticker-distance-px')).toBe('');
+
+                jest.advanceTimersByTime(900);
+                expect(subtitle.classList.contains('epg-cell-subtitle-ticker-running')).toBe(false);
             } finally {
                 jest.useRealTimers();
             }

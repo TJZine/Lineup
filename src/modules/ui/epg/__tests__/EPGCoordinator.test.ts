@@ -373,6 +373,51 @@ describe('EPGCoordinator', () => {
         expect(deps.reportEpgInitWarning).toHaveBeenCalledWith(error);
     });
 
+    it('openEPG reports logical visibility immediately during deferred load and rolls it back on init failure', async () => {
+        const error = new Error('Deferred init failed');
+        let visible = false;
+        const ensure = jest.fn().mockRejectedValue(error);
+        const { deps, epg } = makeDeps({
+            getEpgUiStatus: () => 'pending',
+            ensureEpgInitialized: ensure,
+        });
+        (epg.show as jest.Mock).mockImplementation(() => {
+            visible = true;
+        });
+        (epg.hide as jest.Mock).mockImplementation(() => {
+            visible = false;
+        });
+        (epg.isVisible as jest.Mock).mockImplementation(() => visible);
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.openEPG();
+
+        expect(deps.onVisibilityChange).toHaveBeenNthCalledWith(1, true);
+
+        await flushPromises();
+
+        expect(deps.onVisibilityChange).toHaveBeenNthCalledWith(2, false);
+        expect(epg.hide).toHaveBeenCalledTimes(1);
+        expect(deps.reportEpgInitWarning).toHaveBeenCalledWith(error);
+    });
+
+    it('closeEPG reports logical visibility even before runtime close events fire', () => {
+        let visible = true;
+        const { deps, epg } = makeDeps({
+            getEpgUiStatus: () => 'pending',
+        });
+        (epg.hide as jest.Mock).mockImplementation(() => {
+            visible = false;
+        });
+        (epg.isVisible as jest.Mock).mockImplementation(() => visible);
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.closeEPG();
+
+        expect(epg.hide).toHaveBeenCalledTimes(1);
+        expect(deps.onVisibilityChange).toHaveBeenCalledWith(false);
+    });
+
     it('closeEPG cancels queued visible-range refreshes before they start', async () => {
         useDeterministicFakeTimers();
         try {
@@ -1634,11 +1679,13 @@ describe('EPGCoordinator', () => {
     it('wireEpgEvents returns unsubscribers, forwards visibility changes, and triggers switch when program eligible', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, '1');
         const hide = jest.fn();
+        let epgVisible = false;
         const onVisibilityChange = jest.fn();
         const epg: IEPGComponent = {
             on: jest.fn(),
             off: jest.fn(),
             hide,
+            isVisible: jest.fn().mockImplementation(() => epgVisible),
             getState: jest.fn().mockReturnValue({
                 isVisible: false,
                 focusedCell: null,
@@ -1679,7 +1726,9 @@ describe('EPGCoordinator', () => {
         expect(handlerCall).toBeDefined();
         const openHandler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'open')?.[1];
         const closeHandler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'close')?.[1];
+        epgVisible = true;
         openHandler?.();
+        epgVisible = false;
         closeHandler?.();
         expect(onVisibilityChange).toHaveBeenNthCalledWith(1, true);
         expect(onVisibilityChange).toHaveBeenNthCalledWith(2, false);
