@@ -1555,6 +1555,58 @@ describe('EPGVirtualizer', () => {
             }
         });
 
+        it('does not arm focused ticker when ticker sync is disabled for focus updates', () => {
+            jest.useFakeTimers();
+            try {
+                const channelId = 'ch-ticker-disabled';
+                const start = gridAnchorTime;
+                const end = start + 20 * 60 * 1000;
+
+                const schedule: ScheduleWindow = {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                    programs: [{
+                        item: {
+                            ratingKey: 'ticker-disabled-1',
+                            type: 'movie',
+                            title: 'A Focused Title That Would Normally Overflow',
+                            fullTitle: 'A Focused Title That Would Normally Overflow',
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    }],
+                };
+
+                virtualizer.setChannelCount(1);
+                const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+                virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+                const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+                const title = cell.querySelector('.epg-cell-title') as HTMLElement;
+
+                Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 300 });
+                Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
+
+                virtualizer.setFocusedCell(channelId, start, undefined, { syncTicker: false });
+
+                expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(false);
+                jest.advanceTimersByTime(900);
+                expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
         it('recomputes visible overflow using text-shift width for focused cells', () => {
             jest.useFakeTimers();
             try {

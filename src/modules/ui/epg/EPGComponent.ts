@@ -1045,7 +1045,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         const cellElement = this.virtualizer.setFocusedCell(
             channel.id,
             program.scheduledStartTime,
-            focusTimeMs
+            focusTimeMs,
+            { syncTicker: this.state.isVisible }
         );
         this.state.focusedCell.cellElement = cellElement;
         if (didScroll || !cellElement) {
@@ -1733,7 +1734,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
                 focused.cellElement = this.virtualizer.setFocusedCell(
                     focusedChannel.id,
                     focusStartTime,
-                    focused.focusTimeMs
+                    focused.focusTimeMs,
+                    { syncTicker: this.state.isVisible }
                 );
             }
 
