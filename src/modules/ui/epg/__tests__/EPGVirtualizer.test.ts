@@ -1400,6 +1400,55 @@ describe('EPGVirtualizer', () => {
             expect(time.style.display).toBe('none');
         });
 
+        it('keeps focused compact mode tied to split-lane episode presentation, not overflow', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-focused-episode-no-split';
+            const start = gridAnchorTime;
+            const end = start + (20 * 60000); // tiny tier at 4px/min => 80px
+
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60000),
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'ep-focused-no-split-1',
+                            type: 'episode',
+                            title: 'Episode Without Split Lanes',
+                            fullTitle: 'Episode Without Split Lanes',
+                            showTitle: '',
+                            seasonNumber: 1,
+                            episodeNumber: 2,
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+            virtualizer.setFocusedCell(channelId, start);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
+            const time = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
+
+            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(false);
+            expect(subtitle.style.display).toBe('none');
+            expect(time.style.display).toBe('block');
+        });
+
         it('uses full non-episode title text in the focused title node when fullTitle differs', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-movie-fulltitle';
