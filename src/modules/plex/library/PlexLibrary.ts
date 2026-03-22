@@ -49,8 +49,8 @@ import { PLEX_LIBRARY_CONSTANTS, PLEX_ENDPOINTS, PLEX_MEDIA_TYPES } from './cons
 import { fetchWithTimeoutCore } from '../shared/fetchWithTimeoutCore';
 import {
     applyXPlexTokenQueryParam,
+    classifyPlexUrlOrigin,
     buildPlexUrlFromKey,
-    tryBuildPlexServerUrlFromKey,
 } from '../shared/plexUrl';
 
 // ============================================
@@ -730,39 +730,29 @@ export class PlexLibrary implements IPlexLibrary {
         if (!serverUri) return '';
 
         const token = this._config.getAuthToken() || '';
-        const isAbsoluteHttpUrl = /^https?:\/\//i.test(imagePath);
+        const originClassification = classifyPlexUrlOrigin(serverUri, imagePath);
 
         if (typeof width === 'number' && width > 0) {
-            if (isAbsoluteHttpUrl) {
-                const normalized = tryBuildPlexServerUrlFromKey(serverUri, imagePath);
-                if (!normalized) {
-                    return imagePath;
-                }
-                const url = new URL(PLEX_ENDPOINTS.PHOTO_TRANSCODE, serverUri);
-                applyXPlexTokenQueryParam(url.searchParams, token);
-                const resizeHeight = typeof height === 'number' ? height : width;
-                url.searchParams.set('width', String(width));
-                url.searchParams.set('height', String(resizeHeight));
-                url.searchParams.set('url', normalized.toString());
-                return url.toString();
-            }
-
-            // Use photo transcoder for resizing
             const resizeHeight = typeof height === 'number' ? height : width;
             const url = new URL(PLEX_ENDPOINTS.PHOTO_TRANSCODE, serverUri);
             applyXPlexTokenQueryParam(url.searchParams, token);
             url.searchParams.set('width', String(width));
             url.searchParams.set('height', String(resizeHeight));
-            url.searchParams.set('url', buildPlexUrlFromKey(serverUri, imagePath).toString());
+            url.searchParams.set(
+                'url',
+                originClassification === 'foreign-absolute'
+                    ? imagePath
+                    : buildPlexUrlFromKey(serverUri, imagePath).toString()
+            );
             return url.toString();
         }
 
         // Direct image URL
-        if (isAbsoluteHttpUrl) {
-            const normalized = tryBuildPlexServerUrlFromKey(serverUri, imagePath);
-            if (!normalized) {
-                return imagePath;
-            }
+        if (originClassification === 'foreign-absolute') {
+            return imagePath;
+        }
+        if (originClassification === 'server-absolute' || originClassification === 'server-relative') {
+            const normalized = buildPlexUrlFromKey(serverUri, imagePath);
             applyXPlexTokenQueryParam(normalized.searchParams, token);
             return normalized.toString();
         }

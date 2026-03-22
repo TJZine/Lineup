@@ -6,6 +6,7 @@
 import {
     applyXPlexQueryParamsFromHeaders,
     applyXPlexTokenQueryParamIfTrusted,
+    classifyPlexUrlOrigin,
     buildPlexUrlFromKey,
     isLikelyPlexServerKeyPath,
     PLEX_CLOUD_TRUSTED_ORIGINS,
@@ -40,21 +41,51 @@ describe('shared plexUrl helpers', () => {
     describe('isLikelyPlexServerKeyPath', () => {
         it('returns true for known Plex server key prefixes', () => {
             expect(isLikelyPlexServerKeyPath('/library/metadata/123')).toBe(true);
-            expect(isLikelyPlexServerKeyPath('https://malicious.example/video/:/transcode/universal/start.m3u8')).toBe(true);
             expect(isLikelyPlexServerKeyPath(':/metadata/456')).toBe(true);
         });
 
         it('returns false for external non-Plex URLs', () => {
+            expect(isLikelyPlexServerKeyPath('https://malicious.example/library/parts/9999/file.mp4?token=abc')).toBe(false);
             expect(isLikelyPlexServerKeyPath('https://cdn.example/images/poster.jpg')).toBe(false);
             expect(isLikelyPlexServerKeyPath('')).toBe(false);
         });
     });
 
+    describe('classifyPlexUrlOrigin', () => {
+        it('classifies same-origin Plex-looking absolute URLs as server-bound', () => {
+            expect(classifyPlexUrlOrigin(
+                'http://192.168.1.100:32400',
+                'http://192.168.1.100:32400/library/parts/12345/file.mp4'
+            )).toBe('server-absolute');
+        });
+
+        it('classifies foreign Plex-looking absolute URLs as external', () => {
+            expect(classifyPlexUrlOrigin(
+                'http://192.168.1.100:32400',
+                'https://malicious.example/library/parts/12345/file.mp4'
+            )).toBe('foreign-absolute');
+        });
+
+        it('classifies relative Plex keys as server-bound', () => {
+            expect(classifyPlexUrlOrigin(
+                'http://192.168.1.100:32400',
+                '/library/parts/12345/file.mp4'
+            )).toBe('server-relative');
+        });
+
+        it('classifies non-Plex absolute URLs as external', () => {
+            expect(classifyPlexUrlOrigin(
+                'http://192.168.1.100:32400',
+                'https://cdn.example/images/poster.jpg'
+            )).toBe('foreign-absolute');
+        });
+    });
+
     describe('tryBuildPlexServerUrlFromKey', () => {
-        it('rebases Plex-looking absolute URLs onto the server origin', () => {
+        it('rebases same-origin absolute URLs onto the server origin', () => {
             const url = tryBuildPlexServerUrlFromKey(
                 'http://192.168.1.100:32400',
-                'https://malicious.example/library/parts/9999/file.mp4?token=abc'
+                'http://192.168.1.100:32400/library/parts/9999/file.mp4?token=abc'
             );
 
             expect(url?.origin).toBe('http://192.168.1.100:32400');

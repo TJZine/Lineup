@@ -291,7 +291,7 @@ describe('PlaybackOptionsCoordinator', () => {
 
         const track = makeTextTrack({
             id: 'foreign',
-            key: 'https://cdn.example/subs/foreign.vtt',
+            key: 'https://malicious.example/library/streams/foreign',
             fetchableViaKey: true,
         });
         const url = (coordinator as unknown as {

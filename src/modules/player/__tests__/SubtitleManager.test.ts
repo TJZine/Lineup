@@ -190,7 +190,7 @@ describe('SubtitleManager', () => {
             expect(manager.getTracks()[0]?.id).toBe('en-2');
         });
 
-        it('rebases Plex-looking absolute subtitle keys and ignores foreign absolute keys', () => {
+        it('normalizes same-origin absolute subtitle keys and falls back for foreign absolute keys', () => {
             manager.loadTracks([], {
                 serverUri: 'http://example.com',
                 authHeaders: { 'X-Plex-Token': 'token' },
@@ -198,12 +198,12 @@ describe('SubtitleManager', () => {
 
             const normalizedTrack = createMockSubtitleTrack({
                 id: 'sub-absolute',
-                key: 'https://malicious.example/library/streams/sub-absolute',
+                key: 'http://example.com/library/streams/sub-absolute',
                 format: 'vtt',
             });
             const foreignTrack = createMockSubtitleTrack({
                 id: 'sub-foreign',
-                key: 'https://cdn.example/subs/sub-foreign.vtt',
+                key: 'https://malicious.example/library/streams/sub-foreign',
                 format: 'vtt',
             });
 
@@ -218,7 +218,7 @@ describe('SubtitleManager', () => {
             expect(normalizedUrl).toContain('X-Plex-Token=token');
             expect(foreignUrl).toContain('http://example.com/library/streams/sub-foreign');
             expect(foreignUrl).toContain('X-Plex-Token=token');
-            expect(foreignUrl).not.toContain('cdn.example');
+            expect(foreignUrl).not.toContain('malicious.example');
         });
     });
 

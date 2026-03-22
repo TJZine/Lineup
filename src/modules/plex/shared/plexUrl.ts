@@ -18,15 +18,58 @@ function parseUrlLike(value: string): URL | null {
     }
 }
 
+function isAbsoluteHttpUrl(value: string): boolean {
+    return /^https?:\/\//i.test(value.trim());
+}
+
 export function isLikelyPlexServerKeyPath(keyOrUrl: string): boolean {
     if (typeof keyOrUrl !== 'string' || keyOrUrl.trim().length === 0) {
         return false;
     }
-    const parsed = parseUrlLike(keyOrUrl.trim());
+    const trimmed = keyOrUrl.trim();
+    if (isAbsoluteHttpUrl(trimmed)) {
+        return false;
+    }
+    const parsed = parseUrlLike(trimmed);
     if (!parsed) {
         return false;
     }
     return PLEX_SERVER_KEY_PREFIXES.some((prefix) => parsed.pathname.startsWith(prefix));
+}
+
+export type PlexUrlOriginClassification =
+    | 'server-relative'
+    | 'server-absolute'
+    | 'foreign-absolute'
+    | 'invalid';
+
+export function classifyPlexUrlOrigin(baseUri: string, keyOrUrl: string): PlexUrlOriginClassification {
+    if (typeof keyOrUrl !== 'string' || keyOrUrl.trim().length === 0) {
+        return 'invalid';
+    }
+    let baseOrigin: string;
+    try {
+        baseOrigin = new URL(baseUri).origin;
+    } catch {
+        return 'invalid';
+    }
+
+    const trimmed = keyOrUrl.trim();
+    const parsed = parseUrlLike(trimmed);
+    if (!parsed) {
+        return 'invalid';
+    }
+
+    const hasKnownPrefix = PLEX_SERVER_KEY_PREFIXES.some((prefix) => parsed.pathname.startsWith(prefix));
+    if (!hasKnownPrefix) {
+        return isAbsoluteHttpUrl(trimmed) ? 'foreign-absolute' : 'invalid';
+    }
+
+    if (!isAbsoluteHttpUrl(trimmed)) {
+        return 'server-relative';
+    }
+
+    return parsed.origin === baseOrigin ? 'server-absolute' : 'foreign-absolute';
 }
 
 export function buildPlexUrlFromKey(baseUri: string, keyOrPath: string): URL {
@@ -40,7 +83,8 @@ export function buildPlexUrlFromKey(baseUri: string, keyOrPath: string): URL {
 }
 
 export function tryBuildPlexServerUrlFromKey(baseUri: string, keyOrUrl: string): URL | null {
-    if (!isLikelyPlexServerKeyPath(keyOrUrl)) {
+    const classification = classifyPlexUrlOrigin(baseUri, keyOrUrl);
+    if (classification !== 'server-relative' && classification !== 'server-absolute') {
         return null;
     }
     return buildPlexUrlFromKey(baseUri, keyOrUrl);

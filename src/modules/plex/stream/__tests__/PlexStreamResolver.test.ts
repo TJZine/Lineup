@@ -1021,7 +1021,7 @@ describe('PlexStreamResolver', () => {
                 language: 'English',
                 languageCode: 'en',
                 format: 'srt',
-                key: 'https://cdn.example/subs/sub-foreign.vtt',
+                key: 'https://malicious.example/library/streams/sub-foreign',
                 default: true,
             };
             mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
