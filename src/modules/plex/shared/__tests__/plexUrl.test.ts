@@ -6,6 +6,7 @@
 import {
     applyXPlexQueryParamsFromHeaders,
     applyXPlexTokenQueryParamIfTrusted,
+    buildPlexResourceUrlWithAuth,
     classifyPlexUrlOrigin,
     buildPlexUrlFromKey,
     isLikelyPlexServerKeyPath,
@@ -148,6 +149,44 @@ describe('shared plexUrl helpers', () => {
             const url = new URL('https://cdn.example/images/poster.jpg');
             applyXPlexTokenQueryParamIfTrusted(url, 'cloud-token', PLEX_CLOUD_TRUSTED_ORIGINS);
             expect(url.searchParams.get('X-Plex-Token')).toBeNull();
+        });
+    });
+
+    describe('buildPlexResourceUrlWithAuth', () => {
+        it('returns null when no base server URI is available', () => {
+            const result = buildPlexResourceUrlWithAuth(null, '/library/metadata/1', {
+                'X-Plex-Token': 'token-1',
+            });
+            expect(result).toBeNull();
+        });
+
+        it('keeps foreign absolute URLs unchanged and token-free', () => {
+            const result = buildPlexResourceUrlWithAuth(
+                'http://192.168.1.100:32400',
+                'https://cdn.example/images/poster.jpg',
+                { 'X-Plex-Token': 'token-1' }
+            );
+            expect(result).toBe('https://cdn.example/images/poster.jpg');
+        });
+
+        it('normalizes server-relative and server-absolute URLs and applies token query param', () => {
+            const relative = buildPlexResourceUrlWithAuth(
+                'http://192.168.1.100:32400',
+                '/library/metadata/1?includeChildren=1',
+                { 'X-Plex-Token': 'token-1' }
+            );
+            const sameOriginAbsolute = buildPlexResourceUrlWithAuth(
+                'http://192.168.1.100:32400',
+                'http://192.168.1.100:32400/library/metadata/2',
+                { 'X-Plex-Token': 'token-1' }
+            );
+
+            expect(relative).toBe(
+                'http://192.168.1.100:32400/library/metadata/1?includeChildren=1&X-Plex-Token=token-1'
+            );
+            expect(sameOriginAbsolute).toBe(
+                'http://192.168.1.100:32400/library/metadata/2?X-Plex-Token=token-1'
+            );
         });
     });
 });

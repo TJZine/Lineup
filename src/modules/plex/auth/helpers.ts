@@ -191,12 +191,28 @@ export function parseHomeUsers(payload: unknown): PlexHomeUser[] {
             try {
                 return parseHomeUsers(JSON.parse(text));
             } catch {
-                // Fall through to XML parser.
+                throw new PlexApiError(
+                    AppErrorCode.PARSE_ERROR,
+                    'Unable to parse Plex Home users JSON payload',
+                    undefined,
+                    false
+                );
             }
         }
-        const xmlUsers = parseHomeUsersXml(text);
-        if (xmlUsers.length > 0) {
-            return xmlUsers;
+        if (text.startsWith('<')) {
+            const xmlUsers = parseHomeUsersXml(text);
+            if (xmlUsers.length > 0) {
+                return xmlUsers;
+            }
+            if (isStructurallyValidXml(text)) {
+                return [];
+            }
+            throw new PlexApiError(
+                AppErrorCode.PARSE_ERROR,
+                'Unable to parse Plex Home users XML payload',
+                undefined,
+                false
+            );
         }
     }
 
@@ -217,6 +233,16 @@ export function parseHomeUsers(payload: unknown): PlexHomeUser[] {
     }
 
     return [];
+}
+
+function isStructurallyValidXml(payload: string): boolean {
+    if (typeof DOMParser !== 'undefined') {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(payload, 'application/xml');
+        return doc.getElementsByTagName('parsererror').length === 0;
+    }
+    const trimmed = payload.trim();
+    return /^<[\w:-]+(?:\s[^>]*)?>[\s\S]*<\/[\w:-]+>\s*$/.test(trimmed);
 }
 
 /**

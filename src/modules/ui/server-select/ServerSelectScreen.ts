@@ -401,16 +401,25 @@ export class ServerSelectScreen {
             const health = healthMap[server.id];
             const pill = document.createElement('div');
             const normalizedStatus =
-                health?.status === 'ok' || health?.status === 'unreachable' || health?.status === 'auth_required'
+                health?.status === 'ok'
+                || health?.status === 'unreachable'
+                || health?.status === 'auth_required'
+                || health?.status === 'auth_invalid'
                     ? health.status
                     : 'unknown';
-            const statusClass = normalizedStatus === 'auth_required' ? 'auth-required' : normalizedStatus;
+            const statusClass =
+                normalizedStatus === 'auth_required'
+                    ? 'auth-required'
+                    : normalizedStatus === 'auth_invalid'
+                        ? 'auth-invalid'
+                        : normalizedStatus;
             pill.className = `server-status-pill ${statusClass}`;
 
             let statusText = 'Unknown';
             if (normalizedStatus === 'ok') statusText = 'OK';
             else if (normalizedStatus === 'unreachable') statusText = 'Unreachable';
             else if (normalizedStatus === 'auth_required') statusText = 'Auth Required';
+            else if (normalizedStatus === 'auth_invalid') statusText = 'Auth Invalid';
 
             if (normalizedStatus === 'ok' && typeof health?.latencyMs === 'number' && Number.isFinite(health.latencyMs)) {
                 const ms = Math.round(health.latencyMs);

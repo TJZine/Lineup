@@ -398,6 +398,28 @@ describe('PlexServerDiscovery', () => {
             expect(lat).toBeNull();
         });
 
+        it('should classify 401 as auth_required', async () => {
+            mockFetchJson({ error: 'unauthorized' }, 401);
+            const discovery = new PlexServerDiscovery(mockConfig);
+            const mockServer = createMockServer();
+            const mockConnection = createMockConnection();
+
+            const result = await discovery.testConnection(mockServer, mockConnection);
+
+            expect(result).toBe('auth_required');
+        });
+
+        it('should classify 403 as auth_invalid', async () => {
+            mockFetchJson({ error: 'forbidden' }, 403);
+            const discovery = new PlexServerDiscovery(mockConfig);
+            const mockServer = createMockServer();
+            const mockConnection = createMockConnection();
+
+            const result = await discovery.testConnection(mockServer, mockConnection);
+
+            expect(result).toBe('auth_invalid');
+        });
+
         it('should timeout after the configured timeout', async () => {
             jest.useFakeTimers();
             try {
@@ -530,6 +552,25 @@ describe('PlexServerDiscovery', () => {
             const result = await discovery.findFastestConnection(mockServer);
 
             expect(result.connection).toBeNull();
+        });
+
+        it('tracks auth_invalid as the most severe auth state when probes mix 401 and 403', async () => {
+            const discovery = new PlexServerDiscovery(mockConfig);
+            const mockServer = createMockServer({
+                connections: [
+                    createMockConnection({ uri: 'https://one:32400', local: true, relay: false }),
+                    createMockConnection({ uri: 'https://two:32400', local: false, relay: false }),
+                ],
+            });
+            jest.spyOn(discovery, 'testConnection')
+                .mockResolvedValueOnce('auth_required')
+                .mockResolvedValueOnce('auth_invalid');
+
+            const result = await discovery.findFastestConnection(mockServer);
+
+            expect(result.connection).toBeNull();
+            expect(result.authRequired).toBe(true);
+            expect(result.authState).toBe('auth_invalid');
         });
 
 	        it('warns once when no working connections are found', async () => {
@@ -909,6 +950,7 @@ describe('PlexServerDiscovery', () => {
                     latencyMs: 1,
                 },
                 authRequired: false,
+                authState: null,
             }));
 
             const connectionChanges: Array<string | null> = [];
@@ -1039,6 +1081,7 @@ describe('PlexServerDiscovery', () => {
                     latencyMs: 1,
                 },
                 authRequired: false,
+                authState: null,
             }));
             const nowSpy = jest.spyOn(Date, 'now');
             let nowMs = 0;
@@ -1056,6 +1099,48 @@ describe('PlexServerDiscovery', () => {
             } finally {
                 nowSpy.mockRestore();
             }
+        });
+
+        it('persists auth_invalid when connection probes fail with forbidden state', async () => {
+            const mockServers = [
+                {
+                    clientIdentifier: 'srv1',
+                    name: 'Test Server',
+                    sourceTitle: 'testuser',
+                    ownerId: 'owner1',
+                    owned: true,
+                    provides: 'server',
+                    connections: [createMockConnection()],
+                },
+            ];
+
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: () => null },
+                json: async () => mockServers,
+                text: async () => JSON.stringify(mockServers),
+            });
+
+            const discovery = new PlexServerDiscovery(mockConfig);
+            await discovery.discoverServers();
+            jest.spyOn(discovery, 'findFastestConnection').mockResolvedValue({
+                connection: null,
+                authRequired: true,
+                authState: 'auth_invalid',
+            });
+
+            const selected = await discovery.selectServer('srv1');
+
+            expect(selected).toBe(false);
+            const rawHealth = mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY);
+            expect(rawHealth).toBeTruthy();
+            const parsed = rawHealth ? JSON.parse(rawHealth) : {};
+            expect(parsed['srv1']).toEqual(
+                expect.objectContaining({
+                    status: 'auth_invalid',
+                })
+            );
         });
     });
 

@@ -122,3 +122,28 @@ export function applyXPlexQueryParamsFromHeaders(
         params.set(key, value);
     }
 }
+
+export function buildPlexResourceUrlWithAuth(
+    baseUri: string | null,
+    pathOrUrl: string,
+    authHeaders: Record<string, unknown>
+): string | null {
+    if (!baseUri) {
+        return null;
+    }
+
+    const classification = classifyPlexUrlOrigin(baseUri, pathOrUrl);
+    if (classification === 'foreign-absolute') {
+        return pathOrUrl;
+    }
+    if (classification === 'invalid') {
+        return null;
+    }
+
+    const url = buildPlexUrlFromKey(baseUri, pathOrUrl);
+    const token = typeof authHeaders['X-Plex-Token'] === 'string'
+        ? authHeaders['X-Plex-Token']
+        : null;
+    applyXPlexTokenQueryParam(url.searchParams, token);
+    return url.toString();
+}

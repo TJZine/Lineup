@@ -695,6 +695,26 @@ describe('PlexAuth', () => {
             expect(users[1]).toMatchObject({ id: '2', title: 'Kid', protected: false, restricted: true });
         });
 
+        it('should throw PARSE_ERROR when home-user payload is malformed JSON text', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: () => 'text/plain' },
+                json: async () => {
+                    throw new SyntaxError('Unexpected token');
+                },
+                text: async () => '{"MediaContainer": {"User": [}',
+            });
+
+            await expect(auth.getHomeUsers()).rejects.toMatchObject({
+                code: 'PARSE_ERROR',
+            });
+        });
+
         it('should fall back to v1 endpoint when v2 returns empty profile payload', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');

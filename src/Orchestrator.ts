@@ -139,8 +139,7 @@ import { getRecoveryActions as getRecoveryActionsHelper } from './core/error-rec
 import { toLifecycleAppError as toLifecycleAppErrorHelper } from './core/error-recovery/LifecycleErrorAdapter';
 import type { ErrorRecoveryAction } from './core/error-recovery/types';
 import {
-    applyXPlexTokenQueryParam,
-    buildPlexUrlFromKey,
+    buildPlexResourceUrlWithAuth,
 } from './modules/plex/shared/plexUrl';
 import type { ToastInput } from './modules/ui/toast/types';
 import type { PlatformServices } from './platform';
@@ -1978,21 +1977,9 @@ export class AppOrchestrator implements IAppOrchestrator {
 
     private _buildPlexResourceUrl(pathOrUrl: string): string | null {
         try {
-            // If already absolute http(s), return as-is.
-            if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
-                return pathOrUrl;
-            }
-
             const baseUri = this._plexDiscovery?.getServerUri() ?? null;
-            if (!baseUri) {
-                return null;
-            }
-
-            const url = buildPlexUrlFromKey(baseUri, pathOrUrl);
             const headers = this._plexAuth?.getAuthHeaders() ?? {};
-            const token = headers['X-Plex-Token'];
-            applyXPlexTokenQueryParam(url.searchParams, typeof token === 'string' ? token : null);
-            return url.toString();
+            return buildPlexResourceUrlWithAuth(baseUri, pathOrUrl, headers);
         } catch {
             return null;
         }

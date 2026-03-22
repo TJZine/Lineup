@@ -275,12 +275,12 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
      * Test a specific connection to a server.
      * @param _server - Server to test (unused but kept for interface compatibility)
      * @param connection - Connection endpoint to test
-     * @returns Promise resolving to latency in ms, 'auth_required' if auth is needed, or null if failed
+     * @returns Promise resolving to latency in ms, auth state, or null if failed
      */
     public async testConnection(
         _server: PlexServer,
         connection: PlexConnection
-    ): Promise<number | 'auth_required' | null> {
+    ): Promise<number | 'auth_required' | 'auth_invalid' | null> {
         const url = new URL(PLEX_DISCOVERY_CONSTANTS.IDENTITY_ENDPOINT, connection.uri).toString();
         const headers = this._getAuthHeaders();
         const startTime = Date.now();
@@ -299,8 +299,11 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
             clearTimeout(timeoutId);
 
-            if (response.status === 401 || response.status === 403) {
+            if (response.status === 401) {
                 return 'auth_required';
+            }
+            if (response.status === 403) {
+                return 'auth_invalid';
             }
             if (!response.ok) {
                 return null;
@@ -323,9 +326,22 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
      */
     public async findFastestConnection(
         server: PlexServer
-    ): Promise<{ connection: PlexConnection | null; authRequired: boolean }> {
+    ): Promise<{
+        connection: PlexConnection | null;
+        authRequired: boolean;
+        authState: 'auth_required' | 'auth_invalid' | null;
+    }> {
         const config = this._mixedContentConfig;
-        let authRequired = false;
+        let authState: 'auth_required' | 'auth_invalid' | null = null;
+        const noteAuthState = (state: 'auth_required' | 'auth_invalid'): void => {
+            if (state === 'auth_invalid') {
+                authState = 'auth_invalid';
+                return;
+            }
+            if (authState === null) {
+                authState = 'auth_required';
+            }
+        };
 
         // Separate connections by protocol per mixed-content handling requirements
         const httpsConns = server.connections.filter(c => c.protocol === 'https');
@@ -342,27 +358,45 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             for (const conn of localHttps) {
                 const latency = await this.testConnection(server, conn);
                 if (latency === 'auth_required') {
-                    authRequired = true;
+                    noteAuthState('auth_required');
+                } else if (latency === 'auth_invalid') {
+                    noteAuthState('auth_invalid');
                 } else if (latency !== null) {
-                    return { connection: this._createConnectionWithLatency(conn, latency), authRequired };
+                    return {
+                        connection: this._createConnectionWithLatency(conn, latency),
+                        authRequired: authState !== null,
+                        authState,
+                    };
                 }
             }
 
             for (const conn of remoteHttps) {
                 const latency = await this.testConnection(server, conn);
                 if (latency === 'auth_required') {
-                    authRequired = true;
+                    noteAuthState('auth_required');
+                } else if (latency === 'auth_invalid') {
+                    noteAuthState('auth_invalid');
                 } else if (latency !== null) {
-                    return { connection: this._createConnectionWithLatency(conn, latency), authRequired };
+                    return {
+                        connection: this._createConnectionWithLatency(conn, latency),
+                        authRequired: authState !== null,
+                        authState,
+                    };
                 }
             }
 
             for (const conn of relayHttps) {
                 const latency = await this.testConnection(server, conn);
                 if (latency === 'auth_required') {
-                    authRequired = true;
+                    noteAuthState('auth_required');
+                } else if (latency === 'auth_invalid') {
+                    noteAuthState('auth_invalid');
                 } else if (latency !== null) {
-                    return { connection: this._createConnectionWithLatency(conn, latency), authRequired };
+                    return {
+                        connection: this._createConnectionWithLatency(conn, latency),
+                        authRequired: authState !== null,
+                        authState,
+                    };
                 }
             }
         }
@@ -382,9 +416,15 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                 };
                 const latency = await this.testConnection(server, upgradedConn);
                 if (latency === 'auth_required') {
-                    authRequired = true;
+                    noteAuthState('auth_required');
+                } else if (latency === 'auth_invalid') {
+                    noteAuthState('auth_invalid');
                 } else if (latency !== null) {
-                    return { connection: this._createConnectionWithLatency(upgradedConn, latency), authRequired };
+                    return {
+                        connection: this._createConnectionWithLatency(upgradedConn, latency),
+                        authRequired: authState !== null,
+                        authState,
+                    };
                 }
             }
         }
@@ -395,7 +435,9 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             for (const conn of localHttp) {
                 const latency = await this.testConnection(server, conn);
                 if (latency === 'auth_required') {
-                    authRequired = true;
+                    noteAuthState('auth_required');
+                } else if (latency === 'auth_invalid') {
+                    noteAuthState('auth_invalid');
                 } else if (latency !== null) {
                     if (config.logWarnings) {
                         console.warn('[Discovery] Selected HTTP connection (last resort)', {
@@ -403,20 +445,24 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                             relay: conn.relay,
                         });
                     }
-                    return { connection: this._createConnectionWithLatency(conn, latency), authRequired };
+                    return {
+                        connection: this._createConnectionWithLatency(conn, latency),
+                        authRequired: authState !== null,
+                        authState,
+                    };
                 }
             }
         }
 
         if (config.logWarnings) {
-            console.warn('[Discovery] No working connections found', {
-                serverId: server.id,
-                authRequired,
-                httpsCount: httpsConns.length,
-                httpCount: httpConns.length,
-            });
+                console.warn('[Discovery] No working connections found', {
+                    serverId: server.id,
+                    authRequired: authState !== null,
+                    httpsCount: httpsConns.length,
+                    httpCount: httpConns.length,
+                });
         }
-        return { connection: null, authRequired };
+        return { connection: null, authRequired: authState !== null, authState };
     }
 
     /**
@@ -454,10 +500,10 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             return false;
         }
 
-        const { connection, authRequired } = await this.findFastestConnection(server);
+        const { connection, authRequired, authState } = await this.findFastestConnection(server);
 
         if (!connection) {
-            this._persistServerHealth(serverId, authRequired ? 'auth_required' : 'unreachable');
+            this._persistServerHealth(serverId, authState ?? (authRequired ? 'auth_required' : 'unreachable'));
             return false;
         }
 
@@ -889,7 +935,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
     private _persistServerHealth(
         serverId: string,
-        status: 'ok' | 'unreachable' | 'auth_required',
+        status: 'ok' | 'unreachable' | 'auth_required' | 'auth_invalid',
         details?: { connection?: PlexConnection; latency?: number }
     ): void {
         const input = {

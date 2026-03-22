@@ -38,6 +38,7 @@ Pin-based OAuth flow for TV devices.
 interface IPlexAuth {
   requestPin(): Promise<PlexPinRequest>;
   checkPinStatus(pinId: number): Promise<PlexPinRequest>;
+  // Throws PlexApiError for malformed success payloads and non-abort network failures.
   validateToken(token: string): Promise<boolean>;
 }
 ```
@@ -79,11 +80,18 @@ interface IPlexServerDiscovery {
 ```typescript
 interface IPlexServerDiscovery {
   // Test a specific connection endpoint
-  // Returns latency in ms, or null if failed
-  testConnection(server: PlexServer, connection: PlexConnection): Promise<number | null>;
+  // Returns latency in ms, an auth state for 401/403, or null if failed.
+  testConnection(
+    server: PlexServer,
+    connection: PlexConnection
+  ): Promise<number | 'auth_required' | 'auth_invalid' | null>;
   
-  // Find the fastest working connection (priority: local > remote > relay)
-  findFastestConnection(server: PlexServer): Promise<PlexConnection | null>;
+  // Find the fastest working connection (priority: local > remote > relay).
+  findFastestConnection(server: PlexServer): Promise<{
+    connection: PlexConnection | null;
+    authRequired: boolean;
+    authState: 'auth_required' | 'auth_invalid' | null;
+  }>;
 }
 ```
 

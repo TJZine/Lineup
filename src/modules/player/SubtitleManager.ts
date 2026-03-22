@@ -927,24 +927,11 @@ export class SubtitleManager {
     }
 
     private _getSubtitleTranscodePaths(): string[] {
-        // Plex docs/examples for universal start use /library/metadata/{ratingKey}. For universal subtitles,
-        // behavior varies across server/profile combos, so try both metadata-path and (if present) part key.
-        // TODO(subtitle-endpoints): Identify the single reliable path shape for webOS and delete the losing branch.
+        // Canonical universal-subtitles path for Lineup.
         const ctx = this._subtitleContext;
         const itemKey = ctx?.itemKey ?? null;
         if (!itemKey) return [];
-        const paths: string[] = [`/library/metadata/${itemKey}`];
-        const partKey = typeof ctx?.partKey === 'string' ? ctx.partKey : null;
-        if (partKey && partKey.trim().length > 0) {
-            const trimmed = partKey.trim();
-            // Keep relative Plex paths. If it somehow becomes absolute, strip origin later by URL().
-            if (trimmed.startsWith('/')) {
-                if (!paths.includes(trimmed)) {
-                    paths.push(trimmed);
-                }
-            }
-        }
-        return paths;
+        return [`/library/metadata/${itemKey}`];
     }
 
     private _replaceTrackElement(track: SubtitleTrack, src: string, loadToken: number): void {

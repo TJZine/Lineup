@@ -426,6 +426,7 @@ Hello`,
                     'X-Plex-Client-Identifier': 'client-1',
                 },
                 itemKey: '999',
+                partKey: '/library/parts/part-777',
                 sessionId: 'sess-1',
             });
 
@@ -452,6 +453,7 @@ Hello`,
             const u = new URL(String(transcodeUrl));
             expect(u.pathname).toBe('/video/:/transcode/universal/subtitles');
             expect(u.searchParams.get('path')).toBe('/library/metadata/999');
+            expect(u.searchParams.get('path')).not.toBe('/library/parts/part-777');
             expect(u.searchParams.get('subtitleStreamID')).toBe('srt-1');
             expect(u.searchParams.get('format')).toBe('srt');
             expect(u.searchParams.get('download')).toBe('1');
