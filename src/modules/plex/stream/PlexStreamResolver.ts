@@ -44,8 +44,10 @@ import type { PlatformIdentityService } from '../../../platform';
 import { webosPlatformServices } from '../../../platform';
 import {
     applyXPlexQueryParamsFromHeaders,
+    applyXPlexTokenQueryParam,
     buildPlexUrlFromKey,
-} from './plexUrl';
+    tryBuildPlexServerUrlFromKey,
+} from '../shared/plexUrl';
 
 // Re-export types for consumers
 export { PlexStreamErrorCode } from './types';
@@ -155,11 +157,10 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         let urlSource: 'key' | 'id_fallback' = 'id_fallback';
         const baseUrl = ((): URL => {
             if (typeof options.subtitleStreamKey === 'string' && options.subtitleStreamKey.length > 0) {
-                try {
+                const normalized = tryBuildPlexServerUrlFromKey(serverUri, options.subtitleStreamKey);
+                if (normalized) {
                     urlSource = 'key';
-                    return new URL(options.subtitleStreamKey, serverUri);
-                } catch {
-                    // Fall through to ID-based URL
+                    return normalized;
                 }
             }
             return new URL(`/library/streams/${encodeURIComponent(options.subtitleStreamId)}`, serverUri);
@@ -188,7 +189,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             if (!tokenFromHeader) return null;
             try {
                 const u = new URL(baseUrl.toString());
-                if (!u.searchParams.has('X-Plex-Token')) u.searchParams.set('X-Plex-Token', tokenFromHeader);
+                applyXPlexTokenQueryParam(u.searchParams, tokenFromHeader);
                 return redactUrlForLog(u.toString());
             } catch {
                 return null;
@@ -982,7 +983,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
             const debugUrl = new URL(url.toString());
             if (debugUrl.searchParams.has('X-Plex-Token')) {
-                debugUrl.searchParams.set('X-Plex-Token', 'REDACTED');
+                applyXPlexTokenQueryParam(debugUrl.searchParams, 'REDACTED');
             }
             console.warn(
                 `[PlexStreamResolver] Transcode URL (compat=${compatMode ? '1' : '0'}):`,

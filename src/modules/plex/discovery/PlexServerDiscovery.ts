@@ -24,6 +24,10 @@ import { AppErrorCode } from '../../lifecycle/types';
 import { PlexApiError } from '../auth/helpers';
 import { redactSensitiveTokens, redactUrlForLog } from '../../../utils/redact';
 import { ServerSelectionStore } from './ServerSelectionStore';
+import {
+    applyXPlexTokenQueryParamIfTrusted,
+    PLEX_CLOUD_TRUSTED_ORIGINS,
+} from '../shared/plexUrl';
 
 // Re-export for consumers
 export { AppErrorCode, PlexApiError };
@@ -129,11 +133,11 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             ];
             if (token) {
                 const urlWithToken = new URL(baseUrlString);
-                urlWithToken.searchParams.set('X-Plex-Token', token);
+                applyXPlexTokenQueryParamIfTrusted(urlWithToken, token, PLEX_CLOUD_TRUSTED_ORIGINS);
                 variants.push({ url: urlWithToken.toString() });
 
                 const clientsUrlWithToken = new URL(clientsBaseUrl.toString());
-                clientsUrlWithToken.searchParams.set('X-Plex-Token', token);
+                applyXPlexTokenQueryParamIfTrusted(clientsUrlWithToken, token, PLEX_CLOUD_TRUSTED_ORIGINS);
                 variants.push({ url: clientsUrlWithToken.toString() });
             }
 

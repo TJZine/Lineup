@@ -689,6 +689,24 @@ describe('PlexLibrary', () => {
             expect(url).toContain('X-Plex-Token=mock-token');
         });
 
+        it('should return external absolute image URLs token-free', () => {
+            const library = new PlexLibrary(mockConfig);
+
+            const url = library.getImageUrl('https://cdn.example/images/poster.jpg');
+
+            expect(url).toBe('https://cdn.example/images/poster.jpg');
+        });
+
+        it('should normalize Plex-looking absolute image URLs onto the server origin', () => {
+            const library = new PlexLibrary(mockConfig);
+
+            const url = library.getImageUrl('https://malicious.example/library/metadata/123/thumb');
+
+            expect(url).toContain('http://192.168.1.100:32400/library/metadata/123/thumb');
+            expect(url).toContain('X-Plex-Token=mock-token');
+            expect(url).not.toContain('malicious.example');
+        });
+
         it('should use transcoder for resized images', () => {
             const library = new PlexLibrary(mockConfig);
 
@@ -706,6 +724,14 @@ describe('PlexLibrary', () => {
 
             expect(url).toContain('width=300');
             expect(url).toContain('height=300');
+        });
+
+        it('should return external absolute resized image URLs token-free', () => {
+            const library = new PlexLibrary(mockConfig);
+
+            const url = library.getImageUrl('https://cdn.example/images/poster.jpg', 300);
+
+            expect(url).toBe('https://cdn.example/images/poster.jpg');
         });
 
         it('should return empty string for empty path', () => {

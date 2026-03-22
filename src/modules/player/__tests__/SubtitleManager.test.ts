@@ -189,6 +189,37 @@ describe('SubtitleManager', () => {
             expect(manager.getTracks()).toHaveLength(1);
             expect(manager.getTracks()[0]?.id).toBe('en-2');
         });
+
+        it('rebases Plex-looking absolute subtitle keys and ignores foreign absolute keys', () => {
+            manager.loadTracks([], {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            });
+
+            const normalizedTrack = createMockSubtitleTrack({
+                id: 'sub-absolute',
+                key: 'https://malicious.example/library/streams/sub-absolute',
+                format: 'vtt',
+            });
+            const foreignTrack = createMockSubtitleTrack({
+                id: 'sub-foreign',
+                key: 'https://cdn.example/subs/sub-foreign.vtt',
+                format: 'vtt',
+            });
+
+            const normalizedUrl = (manager as unknown as {
+                _buildDirectTrackUrl: (track: SubtitleTrack) => string | null;
+            })._buildDirectTrackUrl(normalizedTrack);
+            const foreignUrl = (manager as unknown as {
+                _buildDirectTrackUrl: (track: SubtitleTrack) => string | null;
+            })._buildDirectTrackUrl(foreignTrack);
+
+            expect(normalizedUrl).toContain('http://example.com/library/streams/sub-absolute');
+            expect(normalizedUrl).toContain('X-Plex-Token=token');
+            expect(foreignUrl).toContain('http://example.com/library/streams/sub-foreign');
+            expect(foreignUrl).toContain('X-Plex-Token=token');
+            expect(foreignUrl).not.toContain('cdn.example');
+        });
     });
 
     // ========================================

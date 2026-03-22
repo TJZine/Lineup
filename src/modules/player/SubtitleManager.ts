@@ -16,6 +16,12 @@ import {
 import type { PlatformSubtitleService } from '../../platform';
 import { webosPlatformServices } from '../../platform';
 import { fetchWithTimeout } from '../plex/shared/fetchWithTimeout';
+import {
+    applyXPlexQueryParamsFromHeaders,
+    applyXPlexTokenQueryParam,
+    buildPlexUrlFromKey,
+    tryBuildPlexServerUrlFromKey,
+} from '../plex/shared/plexUrl';
 
 interface SubtitleTrackContext {
     serverUri: string | null;
@@ -355,7 +361,19 @@ export class SubtitleManager {
             const baseUri = this._subtitleContext?.serverUri ?? null;
             let url: URL;
             if (track.key) {
-                url = new URL(track.key, baseUri ?? undefined);
+                if (!baseUri) return null;
+                const isAbsoluteHttpUrl = /^https?:\/\//i.test(track.key);
+                if (isAbsoluteHttpUrl) {
+                    const normalized = tryBuildPlexServerUrlFromKey(baseUri, track.key);
+                    if (!normalized) {
+                        const path = `/library/streams/${encodeURIComponent(track.id)}`;
+                        url = new URL(path, baseUri);
+                    } else {
+                        url = normalized;
+                    }
+                } else {
+                    url = buildPlexUrlFromKey(baseUri, track.key);
+                }
             } else {
                 if (!baseUri) return null;
                 const path = `/library/streams/${encodeURIComponent(track.id)}`;
@@ -364,9 +382,7 @@ export class SubtitleManager {
             const authHeaders = this._subtitleContext?.authHeaders;
             if (authHeaders) {
                 const token = this._getAuthTokenFromHeaders(authHeaders);
-                if (token && !url.searchParams.has('X-Plex-Token')) {
-                    url.searchParams.set('X-Plex-Token', token);
-                }
+                applyXPlexTokenQueryParam(url.searchParams, token);
             }
             return url.toString();
         } catch {
@@ -894,21 +910,10 @@ export class SubtitleManager {
             }
 
             // Prefer token in query to avoid CORS preflight and to match <video>/<track> request constraints.
-            if (token) {
-                url.searchParams.set('X-Plex-Token', token);
-            }
+            applyXPlexTokenQueryParam(url.searchParams, token);
 
             // Carry through any X-Plex-* identity headers as query params (matches how direct-play URLs are built).
-            const headers = ctx?.authHeaders ?? {};
-            for (const [k, v] of Object.entries(headers)) {
-                if (!k.startsWith('X-Plex-')) continue;
-                if (typeof v !== 'string' || v.length === 0) continue;
-                // Avoid duplicating token in two casings.
-                if (k.toLowerCase() === 'x-plex-token') continue;
-                if (!url.searchParams.has(k)) {
-                    url.searchParams.set(k, v);
-                }
-            }
+            applyXPlexQueryParamsFromHeaders(url.searchParams, ctx?.authHeaders ?? {});
 
             // Some PMS setups require a client profile name for universal transcode endpoints.
             if (!url.searchParams.has('X-Plex-Client-Profile-Name')) {

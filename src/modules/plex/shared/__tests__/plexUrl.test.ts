@@ -5,10 +5,14 @@
 
 import {
     applyXPlexQueryParamsFromHeaders,
+    applyXPlexTokenQueryParamIfTrusted,
     buildPlexUrlFromKey,
+    isLikelyPlexServerKeyPath,
+    PLEX_CLOUD_TRUSTED_ORIGINS,
+    tryBuildPlexServerUrlFromKey,
 } from '../plexUrl';
 
-describe('plexUrl helpers', () => {
+describe('shared plexUrl helpers', () => {
     describe('buildPlexUrlFromKey', () => {
         it('normalizes relative keys to the provided base origin', () => {
             const url = buildPlexUrlFromKey(
@@ -30,6 +34,41 @@ describe('plexUrl helpers', () => {
             expect(url.origin).toBe('http://192.168.1.100:32400');
             expect(url.pathname).toBe('/library/parts/9999/file.mp4');
             expect(url.search).toBe('?token=abc');
+        });
+    });
+
+    describe('isLikelyPlexServerKeyPath', () => {
+        it('returns true for known Plex server key prefixes', () => {
+            expect(isLikelyPlexServerKeyPath('/library/metadata/123')).toBe(true);
+            expect(isLikelyPlexServerKeyPath('https://malicious.example/video/:/transcode/universal/start.m3u8')).toBe(true);
+            expect(isLikelyPlexServerKeyPath(':/metadata/456')).toBe(true);
+        });
+
+        it('returns false for external non-Plex URLs', () => {
+            expect(isLikelyPlexServerKeyPath('https://cdn.example/images/poster.jpg')).toBe(false);
+            expect(isLikelyPlexServerKeyPath('')).toBe(false);
+        });
+    });
+
+    describe('tryBuildPlexServerUrlFromKey', () => {
+        it('rebases Plex-looking absolute URLs onto the server origin', () => {
+            const url = tryBuildPlexServerUrlFromKey(
+                'http://192.168.1.100:32400',
+                'https://malicious.example/library/parts/9999/file.mp4?token=abc'
+            );
+
+            expect(url?.origin).toBe('http://192.168.1.100:32400');
+            expect(url?.pathname).toBe('/library/parts/9999/file.mp4');
+            expect(url?.search).toBe('?token=abc');
+        });
+
+        it('returns null for truly external absolute URLs', () => {
+            expect(
+                tryBuildPlexServerUrlFromKey(
+                    'http://192.168.1.100:32400',
+                    'https://cdn.example/images/poster.jpg'
+                )
+            ).toBeNull();
         });
     });
 
@@ -62,6 +101,22 @@ describe('plexUrl helpers', () => {
 
             expect(params.get('X-Plex-Client-Identifier')).toBe('new-id');
             expect(params.get('X-Plex-Token')).toBe('token-1');
+        });
+    });
+
+    describe('applyXPlexTokenQueryParamIfTrusted', () => {
+        it('attaches the token only for trusted Plex cloud origins', () => {
+            for (const origin of PLEX_CLOUD_TRUSTED_ORIGINS) {
+                const url = new URL('/api/v2/resources', origin);
+                applyXPlexTokenQueryParamIfTrusted(url, 'cloud-token', PLEX_CLOUD_TRUSTED_ORIGINS);
+                expect(url.searchParams.get('X-Plex-Token')).toBe('cloud-token');
+            }
+        });
+
+        it('does not attach tokens for untrusted origins', () => {
+            const url = new URL('https://cdn.example/images/poster.jpg');
+            applyXPlexTokenQueryParamIfTrusted(url, 'cloud-token', PLEX_CLOUD_TRUSTED_ORIGINS);
+            expect(url.searchParams.get('X-Plex-Token')).toBeNull();
         });
     });
 });

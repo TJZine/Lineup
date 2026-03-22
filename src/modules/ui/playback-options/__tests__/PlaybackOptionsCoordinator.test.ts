@@ -275,6 +275,35 @@ describe('PlaybackOptionsCoordinator', () => {
         }
     });
 
+    it('falls back to the server-relative subtitle probe URL for foreign absolute keys', async () => {
+        const player = createPlayer([]);
+        const coordinator = new PlaybackOptionsCoordinator({
+            playbackOptionsModalId: 'playback-options',
+            getNavigation: (): null => null,
+            getPlaybackOptionsModal: (): null => null,
+            getVideoPlayer: (): IVideoPlayer => player,
+            getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+            getCurrentStreamDescriptor: (): StreamDescriptor =>
+                ({
+                    subtitleContext: { serverUri: 'http://example.com', authHeaders: { 'X-Plex-Token': 'token' } },
+                } as unknown as StreamDescriptor),
+        });
+
+        const track = makeTextTrack({
+            id: 'foreign',
+            key: 'https://cdn.example/subs/foreign.vtt',
+            fetchableViaKey: true,
+        });
+        const url = (coordinator as unknown as {
+            buildSubtitleProbeUrl: (track: SubtitleTrack, context: NonNullable<StreamDescriptor['subtitleContext']>) => URL | null;
+        }).buildSubtitleProbeUrl(track, {
+            serverUri: 'http://example.com',
+            authHeaders: { 'X-Plex-Token': 'token' },
+        });
+
+        expect(url?.toString()).toBe('http://example.com/library/streams/foreign?X-Plex-Token=token');
+    });
+
     it('scopes subtitle probe cache by server identity', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 

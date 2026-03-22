@@ -24,6 +24,11 @@ import { formatAudioLabel } from '../../../utils/formatAudioLabel';
 import type { StreamDescriptor } from '../../player/types';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { fetchWithTimeout } from '../../plex/shared/fetchWithTimeout';
+import {
+    applyXPlexTokenQueryParam,
+    buildPlexUrlFromKey,
+    tryBuildPlexServerUrlFromKey,
+} from '../../plex/shared/plexUrl';
 
 export const SUBTITLE_PROBE_TOTAL_TIMEOUT_MS = 400;
 
@@ -419,13 +424,24 @@ export class PlaybackOptionsCoordinator {
         const baseUri = context.serverUri ?? null;
         if (!baseUri) return null;
         try {
-            const url = track.key
-                ? new URL(track.key, baseUri)
-                : new URL(`/library/streams/${encodeURIComponent(track.id)}`, baseUri);
-            const token = this.getAuthTokenFromHeaders(context.authHeaders);
-            if (token && !url.searchParams.has('X-Plex-Token')) {
-                url.searchParams.set('X-Plex-Token', token);
+            let url: URL;
+            if (track.key) {
+                const isAbsoluteHttpUrl = /^https?:\/\//i.test(track.key);
+                if (isAbsoluteHttpUrl) {
+                    const normalized = tryBuildPlexServerUrlFromKey(baseUri, track.key);
+                    if (!normalized) {
+                        url = new URL(`/library/streams/${encodeURIComponent(track.id)}`, baseUri);
+                    } else {
+                        url = normalized;
+                    }
+                } else {
+                    url = buildPlexUrlFromKey(baseUri, track.key);
+                }
+            } else {
+                url = new URL(`/library/streams/${encodeURIComponent(track.id)}`, baseUri);
             }
+            const token = this.getAuthTokenFromHeaders(context.authHeaders);
+            applyXPlexTokenQueryParam(url.searchParams, token);
             return url;
         } catch {
             return null;
