@@ -121,6 +121,35 @@ describe('PlexServerDiscovery', () => {
             expect(result[0]!.id).toBe('srv1');
         });
 
+        it('should only append token query params for trusted Plex cloud discovery origins', async () => {
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 500,
+                    headers: { get: () => null },
+                    json: async () => [],
+                    text: async () => '[]',
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => null },
+                    json: async () => [],
+                    text: async () => '[]',
+                });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            const discovery = new PlexServerDiscovery(mockConfig);
+
+            await discovery.discoverServers();
+
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(String(fetchMock.mock.calls[0]?.[0])).toContain('https://plex.tv/api/v2/resources');
+            expect(String(fetchMock.mock.calls[0]?.[0])).not.toContain('X-Plex-Token=');
+            expect(String(fetchMock.mock.calls[1]?.[0])).toContain('https://plex.tv/api/v2/resources');
+            expect(String(fetchMock.mock.calls[1]?.[0])).toContain('X-Plex-Token=mock-token');
+        });
+
         it('should parse server connections correctly', async () => {
             const mockServers = [
                 {

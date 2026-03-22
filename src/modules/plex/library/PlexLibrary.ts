@@ -47,6 +47,11 @@ import {
 } from './ResponseParser';
 import { PLEX_LIBRARY_CONSTANTS, PLEX_ENDPOINTS, PLEX_MEDIA_TYPES } from './constants';
 import { fetchWithTimeoutCore } from '../shared/fetchWithTimeoutCore';
+import {
+    applyXPlexTokenQueryParam,
+    buildPlexUrlFromKey,
+    tryBuildPlexServerUrlFromKey,
+} from '../shared/plexUrl';
 
 // ============================================
 // Error Class
@@ -725,25 +730,44 @@ export class PlexLibrary implements IPlexLibrary {
         if (!serverUri) return '';
 
         const token = this._config.getAuthToken() || '';
+        const isAbsoluteHttpUrl = /^https?:\/\//i.test(imagePath);
 
         if (typeof width === 'number' && width > 0) {
+            if (isAbsoluteHttpUrl) {
+                const normalized = tryBuildPlexServerUrlFromKey(serverUri, imagePath);
+                if (!normalized) {
+                    return imagePath;
+                }
+                const url = new URL(PLEX_ENDPOINTS.PHOTO_TRANSCODE, serverUri);
+                applyXPlexTokenQueryParam(url.searchParams, token);
+                const resizeHeight = typeof height === 'number' ? height : width;
+                url.searchParams.set('width', String(width));
+                url.searchParams.set('height', String(resizeHeight));
+                url.searchParams.set('url', normalized.toString());
+                return url.toString();
+            }
+
             // Use photo transcoder for resizing
             const resizeHeight = typeof height === 'number' ? height : width;
             const url = new URL(PLEX_ENDPOINTS.PHOTO_TRANSCODE, serverUri);
-            if (token) {
-                url.searchParams.set('X-Plex-Token', token);
-            }
+            applyXPlexTokenQueryParam(url.searchParams, token);
             url.searchParams.set('width', String(width));
             url.searchParams.set('height', String(resizeHeight));
-            url.searchParams.set('url', imagePath);
+            url.searchParams.set('url', buildPlexUrlFromKey(serverUri, imagePath).toString());
             return url.toString();
         }
 
         // Direct image URL
-        const url = new URL(imagePath, serverUri);
-        if (token) {
-            url.searchParams.set('X-Plex-Token', token);
+        if (isAbsoluteHttpUrl) {
+            const normalized = tryBuildPlexServerUrlFromKey(serverUri, imagePath);
+            if (!normalized) {
+                return imagePath;
+            }
+            applyXPlexTokenQueryParam(normalized.searchParams, token);
+            return normalized.toString();
         }
+        const url = buildPlexUrlFromKey(serverUri, imagePath);
+        applyXPlexTokenQueryParam(url.searchParams, token);
         return url.toString();
     }
 
