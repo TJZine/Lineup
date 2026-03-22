@@ -138,6 +138,10 @@ import { LINEUP_STORAGE_KEYS } from './config/storageKeys';
 import { getRecoveryActions as getRecoveryActionsHelper } from './core/error-recovery/RecoveryActions';
 import { toLifecycleAppError as toLifecycleAppErrorHelper } from './core/error-recovery/LifecycleErrorAdapter';
 import type { ErrorRecoveryAction } from './core/error-recovery/types';
+import {
+    applyXPlexTokenQueryParam,
+    buildPlexUrlFromKey,
+} from './modules/plex/shared/plexUrl';
 import type { ToastInput } from './modules/ui/toast/types';
 import type { PlatformServices } from './platform';
 import { webosPlatformServices } from './platform';
@@ -1984,15 +1988,10 @@ export class AppOrchestrator implements IAppOrchestrator {
                 return null;
             }
 
-            const url = new URL(pathOrUrl, baseUri);
+            const url = buildPlexUrlFromKey(baseUri, pathOrUrl);
             const headers = this._plexAuth?.getAuthHeaders() ?? {};
             const token = headers['X-Plex-Token'];
-            if (typeof token === 'string' && token.length > 0) {
-                // Note: We include the token as a query param because some webOS media/image fetch paths
-                // cannot reliably attach headers. This carries leak risk (logs/referrers/caches), so avoid
-                // logging these URLs and only use them where required.
-                url.searchParams.set('X-Plex-Token', token);
-            }
+            applyXPlexTokenQueryParam(url.searchParams, typeof token === 'string' ? token : null);
             return url.toString();
         } catch {
             return null;
