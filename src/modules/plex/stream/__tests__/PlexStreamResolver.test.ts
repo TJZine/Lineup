@@ -1044,6 +1044,11 @@ describe('PlexStreamResolver', () => {
 
             await resolver.resolveStream({ itemKey: '12345', subtitleStreamId: 'sub-foreign' });
 
+            expect(mockFetch).not.toHaveBeenCalledWith(
+                subtitleStream.key,
+                expect.anything()
+            );
+            expect(mockFetch).toHaveBeenCalledTimes(1);
             expect(mockFetch).toHaveBeenCalledWith(
                 'http://192.168.1.100:32400/library/streams/sub-foreign',
                 expect.objectContaining({
