@@ -203,4 +203,30 @@ describe('fetchWithTimeout', () => {
         await jest.advanceTimersByTimeAsync(100_001);
         await requestRejection;
     });
+
+    it('removes merged abort listeners after a successful request', async () => {
+        const optionsController = new AbortController();
+        const upstreamController = new AbortController();
+
+        const optionsRemoveSpy = jest.spyOn(optionsController.signal, 'removeEventListener');
+        const upstreamRemoveSpy = jest.spyOn(upstreamController.signal, 'removeEventListener');
+
+        const response = { ok: true, status: 200 } as Response;
+        mockFetch.mockResolvedValue(response);
+
+        await expect(
+            fetchWithTimeout(
+                'http://example.test/cleanup',
+                { method: 'GET', signal: optionsController.signal },
+                200,
+                upstreamController.signal
+            )
+        ).resolves.toBe(response);
+
+        expect(optionsRemoveSpy).toHaveBeenCalledWith('abort', expect.any(Function));
+        expect(upstreamRemoveSpy).toHaveBeenCalledWith('abort', expect.any(Function));
+
+        optionsRemoveSpy.mockRestore();
+        upstreamRemoveSpy.mockRestore();
+    });
 });
