@@ -42,7 +42,7 @@ describe('shared plexUrl helpers', () => {
     describe('isLikelyPlexServerKeyPath', () => {
         it('returns true for known Plex server key prefixes', () => {
             expect(isLikelyPlexServerKeyPath('/library/metadata/123')).toBe(true);
-            expect(isLikelyPlexServerKeyPath(':/metadata/456')).toBe(true);
+            expect(isLikelyPlexServerKeyPath('/:/metadata/456')).toBe(true);
         });
 
         it('returns false for external non-Plex URLs', () => {
