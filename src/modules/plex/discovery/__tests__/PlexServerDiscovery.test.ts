@@ -150,6 +150,43 @@ describe('PlexServerDiscovery', () => {
             expect(String(fetchMock.mock.calls[1]?.[0])).toContain('X-Plex-Token=mock-token');
         });
 
+        it('preserves Plex headers on tokenized discovery variants', async () => {
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 500,
+                    headers: { get: () => null },
+                    json: async () => [],
+                    text: async () => '[]',
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => null },
+                    json: async () => [],
+                    text: async () => '[]',
+                });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            const discovery = new PlexServerDiscovery(mockConfig);
+            await discovery.discoverServers();
+
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+
+            for (const [, init] of fetchMock.mock.calls as Array<[string, RequestInit]>) {
+                expect(init).toEqual(
+                    expect.objectContaining({
+                        method: 'GET',
+                        headers: expect.objectContaining({
+                            Accept: 'application/json',
+                            'X-Plex-Token': 'mock-token',
+                            'X-Plex-Client-Identifier': 'mock-client-id',
+                        }),
+                    })
+                );
+            }
+        });
+
         it('should parse server connections correctly', async () => {
             const mockServers = [
                 {
@@ -570,6 +607,26 @@ describe('PlexServerDiscovery', () => {
 
             expect(result.connection).toBeNull();
             expect(result.authRequired).toBe(true);
+            expect(result.authState).toBe('auth_invalid');
+        });
+
+        it('keeps authRequired false when probes only return auth_invalid', async () => {
+            const discovery = new PlexServerDiscovery(mockConfig);
+            const mockServer = createMockServer({
+                connections: [
+                    createMockConnection({ uri: 'https://one:32400', local: true, relay: false }),
+                    createMockConnection({ uri: 'https://two:32400', local: false, relay: false }),
+                ],
+            });
+
+            jest.spyOn(discovery, 'testConnection')
+                .mockResolvedValueOnce('auth_invalid')
+                .mockResolvedValueOnce('auth_invalid');
+
+            const result = await discovery.findFastestConnection(mockServer);
+
+            expect(result.connection).toBeNull();
+            expect(result.authRequired).toBe(false);
             expect(result.authState).toBe('auth_invalid');
         });
 

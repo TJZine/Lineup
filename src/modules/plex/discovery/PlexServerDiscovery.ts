@@ -134,11 +134,11 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             if (token) {
                 const urlWithToken = new URL(baseUrlString);
                 applyXPlexTokenQueryParamIfTrusted(urlWithToken, token, PLEX_CLOUD_TRUSTED_ORIGINS);
-                variants.push({ url: urlWithToken.toString() });
+                variants.push({ url: urlWithToken.toString(), headers });
 
                 const clientsUrlWithToken = new URL(clientsBaseUrl.toString());
                 applyXPlexTokenQueryParamIfTrusted(clientsUrlWithToken, token, PLEX_CLOUD_TRUSTED_ORIGINS);
-                variants.push({ url: clientsUrlWithToken.toString() });
+                variants.push({ url: clientsUrlWithToken.toString(), headers });
             }
 
             const maxAttempts = PLEX_DISCOVERY_CONSTANTS.MAX_DISCOVERY_ATTEMPTS;
@@ -332,12 +332,14 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         authState: 'auth_required' | 'auth_invalid' | null;
     }> {
         const config = this._mixedContentConfig;
+        let authRequired = false;
         let authState: 'auth_required' | 'auth_invalid' | null = null;
         const noteAuthState = (state: 'auth_required' | 'auth_invalid'): void => {
             if (state === 'auth_invalid') {
                 authState = 'auth_invalid';
                 return;
             }
+            authRequired = true;
             if (authState === null) {
                 authState = 'auth_required';
             }
@@ -364,7 +366,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                 } else if (latency !== null) {
                     return {
                         connection: this._createConnectionWithLatency(conn, latency),
-                        authRequired: authState !== null,
+                        authRequired,
                         authState,
                     };
                 }
@@ -379,7 +381,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                 } else if (latency !== null) {
                     return {
                         connection: this._createConnectionWithLatency(conn, latency),
-                        authRequired: authState !== null,
+                        authRequired,
                         authState,
                     };
                 }
@@ -394,7 +396,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                 } else if (latency !== null) {
                     return {
                         connection: this._createConnectionWithLatency(conn, latency),
-                        authRequired: authState !== null,
+                        authRequired,
                         authState,
                     };
                 }
@@ -447,7 +449,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                     }
                     return {
                         connection: this._createConnectionWithLatency(conn, latency),
-                        authRequired: authState !== null,
+                        authRequired,
                         authState,
                     };
                 }
@@ -455,14 +457,14 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         }
 
         if (config.logWarnings) {
-                console.warn('[Discovery] No working connections found', {
-                    serverId: server.id,
-                    authRequired: authState !== null,
-                    httpsCount: httpsConns.length,
-                    httpCount: httpConns.length,
-                });
+            console.warn('[Discovery] No working connections found', {
+                serverId: server.id,
+                authRequired,
+                httpsCount: httpsConns.length,
+                httpCount: httpConns.length,
+            });
         }
-        return { connection: null, authRequired: authState !== null, authState };
+        return { connection: null, authRequired, authState };
     }
 
     /**
