@@ -1221,7 +1221,7 @@ describe('PlexServerDiscovery', () => {
             await discovery.discoverServers();
             jest.spyOn(discovery, 'findFastestConnection').mockResolvedValue({
                 connection: null,
-                authRequired: true,
+                authRequired: false,
                 authState: 'auth_invalid',
             });
 
