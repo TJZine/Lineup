@@ -630,6 +630,44 @@ describe('PlexServerDiscovery', () => {
             expect(result.authState).toBe('auth_invalid');
         });
 
+        it('keeps authRequired false for https-upgrade success after only auth_invalid observations', async () => {
+            const discovery = new PlexServerDiscovery(mockConfig);
+            const mockServer = createMockServer({
+                connections: [
+                    createMockConnection({
+                        uri: 'http://auth-invalid:32400',
+                        protocol: 'http',
+                        local: false,
+                        relay: false,
+                    }),
+                    createMockConnection({
+                        uri: 'http://local-http:32400',
+                        protocol: 'http',
+                        local: true,
+                        relay: false,
+                    }),
+                ],
+            });
+
+            jest.spyOn(discovery, 'testConnection')
+                .mockResolvedValueOnce('auth_invalid')
+                .mockResolvedValueOnce(42);
+
+            const result = await discovery.findFastestConnection(mockServer);
+
+            expect(result.connection).toEqual(
+                expect.objectContaining({
+                    uri: 'https://local-http:32400',
+                    protocol: 'https',
+                    local: true,
+                    relay: false,
+                    latencyMs: 42,
+                })
+            );
+            expect(result.authRequired).toBe(false);
+            expect(result.authState).toBe('auth_invalid');
+        });
+
 	        it('warns once when no working connections are found', async () => {
 	            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 	            try {

@@ -424,7 +424,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                 } else if (latency !== null) {
                     return {
                         connection: this._createConnectionWithLatency(upgradedConn, latency),
-                        authRequired: authState !== null,
+                        authRequired,
                         authState,
                     };
                 }
