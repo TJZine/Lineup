@@ -820,14 +820,58 @@ Do not close a listed work unit while its mapped imported issue still remains un
 
       | Review issue id | Exact-id recheck | Source-audit command(s) | Source-audit outcome | Disposition |
       | --- | --- | --- | --- | --- |
-      | `review::.::holistic::type_safety::profile_select_error_code_literals::231c7047` | `No open issues matching ...` | <code>rg -n "AUTH_FAILED\|AUTH_REQUIRED\|AUTH_INVALID" src/modules/ui/profile-select/ProfileSelectScreen.ts</code> | `ProfileSelectScreen` still uses `AppErrorCode.AUTH_FAILED\|AUTH_REQUIRED\|AUTH_INVALID`. | `resolved` |
-      | `review::.::holistic::api_surface_coherence::validate_token_error_contract_gap::00c7d53a` | `No open issues matching ...` | <code>rg -n "validateToken\\(|throws\|PlexApiError" src/modules/plex/auth/interfaces.ts</code> | `validateToken()` throw contract remains explicit in interface docs. | `resolved` |
-      | `review::.::holistic::api_surface_coherence::parser_failure_semantics_mismatch::92d692a9` | `No open issues matching ...` | <code>rg -n "parseHomeUsers\|PARSE_ERROR\|getHomeUsers\|TODO\\(plex-home-endpoints\\)\|v1 fallback\|v2" src/modules/plex/auth/helpers.ts src/modules/plex/auth/PlexAuth.ts</code> | Parse-error and fallback ownership remains explicit (`PARSE_ERROR`, v2->v1 rationale). | `resolved` |
-      | `review::.::holistic::authorization_consistency::token_query_origin_policy_drift::93e82797` | `No open issues matching ...` | <code>rg -n "X-Plex-Token\|buildPlexResourceUrl\|buildPlexUrlFromKey\|applyXPlexQueryParamsFromHeaders\|getImageUrl\|foreign-origin\|origin\|searchParams\\.set\\('X-Plex-Token'" src/Orchestrator.ts src/modules/plex/library/PlexLibrary.ts src/modules/player/SubtitleManager.ts src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts src/modules/plex/shared/plexUrl.ts</code> | Token-query and origin classification remain centralized through shared Plex URL helpers. | `resolved` |
-      | `review::.::holistic::authorization_consistency::discovery_auth_state_collapse::962c7585` | `No open issues matching ...` | <code>rg -n "auth_required\|auth_invalid\|401\|403" src/modules/plex/discovery/interfaces.ts src/modules/plex/discovery/PlexServerDiscovery.ts src/modules/plex/discovery/ServerSelectionStore.ts</code> | Discovery contract still distinguishes `401 -> auth_required` and `403 -> auth_invalid`. | `resolved` |
-      | `review::.::holistic::api_surface_coherence::fetch_with_timeout_signature_drift::ba619efd` | `No open issues matching ...` | <code>rg -n "fetchWithTimeout\|fetchWithTimeoutCore\|from '../shared/fetchWithTimeoutCore'\|from './fetchWithTimeout'\|from '../stream/fetchWithTimeout'" src/modules/plex/auth/helpers.ts src/modules/plex/stream/fetchWithTimeout.ts src/modules/plex/shared/fetchWithTimeoutCore.ts; rg --files src/modules/plex/stream; rg -n "fetchWithTimeout\|fetchWithTimeoutCore" src/modules/plex/auth/helpers.ts src/modules/plex/stream src/modules/plex/shared/fetchWithTimeoutCore.ts</code> | Planned path `src/modules/plex/stream/fetchWithTimeout.ts` is absent on current code; stream usage points to shared helper path (`../shared/fetchWithTimeout`). | `resolved` |
-      | `review::.::holistic::incomplete_migration::plex_home_endpoint_dual_path_todo::861fbe1f` | `No open issues matching ...` | <code>rg -n "parseHomeUsers\|PARSE_ERROR\|getHomeUsers\|TODO\\(plex-home-endpoints\\)\|v1 fallback\|v2" src/modules/plex/auth/helpers.ts src/modules/plex/auth/PlexAuth.ts</code> | TODO framing remains retired; rationale + revisit trigger comment is present. | `resolved` |
-      | `review::.::holistic::incomplete_migration::subtitle_transcode_path_dual_branch::23e3c07c` | `No open issues matching ...` | <code>rg -n "_getSubtitleTranscodePaths\|/library/metadata/\|partKey" src/modules/player/SubtitleManager.ts</code> | `_getSubtitleTranscodePaths()` still returns only `/library/metadata/${itemKey}`. | `resolved` |
+      | `review::.::holistic::type_safety::profile_select_error_code_literals::231c7047` | `No open issues matching ...` | `Proof block A` | `ProfileSelectScreen` still uses `AppErrorCode.AUTH_FAILED|AUTH_REQUIRED|AUTH_INVALID`. | `resolved` |
+      | `review::.::holistic::api_surface_coherence::validate_token_error_contract_gap::00c7d53a` | `No open issues matching ...` | `Proof block B` | `validateToken()` throw contract remains explicit in interface docs. | `resolved` |
+      | `review::.::holistic::api_surface_coherence::parser_failure_semantics_mismatch::92d692a9` | `No open issues matching ...` | `Proof block C` | Parse-error and fallback ownership remains explicit (`PARSE_ERROR`, v2->v1 rationale). | `resolved` |
+      | `review::.::holistic::authorization_consistency::token_query_origin_policy_drift::93e82797` | `No open issues matching ...` | `Proof block D` | Token-query and origin classification remain centralized through shared Plex URL helpers. | `resolved` |
+      | `review::.::holistic::authorization_consistency::discovery_auth_state_collapse::962c7585` | `No open issues matching ...` | `Proof block E` | Discovery contract still distinguishes `401 -> auth_required` and `403 -> auth_invalid`. | `resolved` |
+      | `review::.::holistic::api_surface_coherence::fetch_with_timeout_signature_drift::ba619efd` | `No open issues matching ...` | `Proof block F` | Planned path `src/modules/plex/stream/fetchWithTimeout.ts` is absent on current code; stream usage points to shared helper path (`../shared/fetchWithTimeout`). | `resolved` |
+      | `review::.::holistic::incomplete_migration::plex_home_endpoint_dual_path_todo::861fbe1f` | `No open issues matching ...` | `Proof block G` | TODO framing remains retired; rationale + revisit trigger comment is present. | `resolved` |
+      | `review::.::holistic::incomplete_migration::subtitle_transcode_path_dual_branch::23e3c07c` | `No open issues matching ...` | `Proof block H` | `_getSubtitleTranscodePaths()` still returns only `/library/metadata/${itemKey}`. | `resolved` |
+
+      - Exact source-audit proof commands:
+
+        Proof block A:
+        ```bash
+        rg -n "AUTH_FAILED|AUTH_REQUIRED|AUTH_INVALID" src/modules/ui/profile-select/ProfileSelectScreen.ts
+        ```
+
+        Proof block B:
+        ```bash
+        rg -n "validateToken\(|throws|PlexApiError" src/modules/plex/auth/interfaces.ts
+        ```
+
+        Proof block C:
+        ```bash
+        rg -n "parseHomeUsers|PARSE_ERROR|getHomeUsers|TODO\(plex-home-endpoints\)|v1 fallback|v2" src/modules/plex/auth/helpers.ts src/modules/plex/auth/PlexAuth.ts
+        ```
+
+        Proof block D:
+        ```bash
+        rg -n "X-Plex-Token|buildPlexResourceUrl|buildPlexUrlFromKey|applyXPlexQueryParamsFromHeaders|getImageUrl|foreign-origin|origin|searchParams\.set\('X-Plex-Token'" src/Orchestrator.ts src/modules/plex/library/PlexLibrary.ts src/modules/player/SubtitleManager.ts src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts src/modules/plex/shared/plexUrl.ts
+        ```
+
+        Proof block E:
+        ```bash
+        rg -n "auth_required|auth_invalid|401|403" src/modules/plex/discovery/interfaces.ts src/modules/plex/discovery/PlexServerDiscovery.ts src/modules/plex/discovery/ServerSelectionStore.ts
+        ```
+
+        Proof block F:
+        ```bash
+        rg -n "fetchWithTimeout|fetchWithTimeoutCore|from '../shared/fetchWithTimeoutCore'|from './fetchWithTimeout'|from '../stream/fetchWithTimeout'" src/modules/plex/auth/helpers.ts src/modules/plex/stream/fetchWithTimeout.ts src/modules/plex/shared/fetchWithTimeoutCore.ts
+        rg --files src/modules/plex/stream
+        rg -n "fetchWithTimeout|fetchWithTimeoutCore" src/modules/plex/auth/helpers.ts src/modules/plex/stream src/modules/plex/shared/fetchWithTimeoutCore.ts
+        ```
+
+        Proof block G:
+        ```bash
+        rg -n "parseHomeUsers|PARSE_ERROR|getHomeUsers|TODO\(plex-home-endpoints\)|v1 fallback|v2" src/modules/plex/auth/helpers.ts src/modules/plex/auth/PlexAuth.ts
+        ```
+
+        Proof block H:
+        ```bash
+        rg -n "_getSubtitleTranscodePaths|/library/metadata/|partKey" src/modules/player/SubtitleManager.ts
+        ```
 
     - Imported-map reconciliation note:
       - `desloppify show review::.::holistic::authorization_consistency::profile_select_magic_auth_codes::fcb924cb --status open --no-budget` now returns `No open issues matching ...`
