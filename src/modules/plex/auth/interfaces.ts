@@ -228,6 +228,7 @@ export interface IPlexAuth {
      * Verify a token is still valid by calling Plex API.
      * @param token - Plex auth token to validate
      * @returns true if token is valid, false otherwise
+     * @throws PlexApiError for non-abort network failures and malformed success payloads
      */
     validateToken(token: string): Promise<boolean>;
 

@@ -23,6 +23,12 @@ import type { ToastType } from '../toast/types';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
 import type { StreamDescriptor } from '../../player/types';
 import { summarizeErrorForLog } from '../../../utils/errors';
+import { fetchWithTimeout } from '../../plex/shared/fetchWithTimeout';
+import {
+    applyXPlexTokenQueryParam,
+    buildPlexUrlFromKey,
+    tryBuildPlexServerUrlFromKey,
+} from '../../plex/shared/plexUrl';
 
 export const SUBTITLE_PROBE_TOTAL_TIMEOUT_MS = 400;
 
@@ -410,7 +416,7 @@ export class PlaybackOptionsCoordinator {
     }
 
     private getAuthTokenFromHeaders(headers: Record<string, string>): string | null {
-        const token = headers['X-Plex-Token'] ?? headers['x-plex-token'];
+        const token = headers['X-Plex-Token'];
         return typeof token === 'string' && token.length > 0 ? token : null;
     }
 
@@ -418,13 +424,24 @@ export class PlaybackOptionsCoordinator {
         const baseUri = context.serverUri ?? null;
         if (!baseUri) return null;
         try {
-            const url = track.key
-                ? new URL(track.key, baseUri)
-                : new URL(`/library/streams/${encodeURIComponent(track.id)}`, baseUri);
-            const token = this.getAuthTokenFromHeaders(context.authHeaders);
-            if (token && !url.searchParams.has('X-Plex-Token')) {
-                url.searchParams.set('X-Plex-Token', token);
+            let url: URL;
+            if (track.key) {
+                const isAbsoluteHttpUrl = /^https?:\/\//i.test(track.key);
+                if (isAbsoluteHttpUrl) {
+                    const normalized = tryBuildPlexServerUrlFromKey(baseUri, track.key);
+                    if (!normalized) {
+                        url = new URL(`/library/streams/${encodeURIComponent(track.id)}`, baseUri);
+                    } else {
+                        url = normalized;
+                    }
+                } else {
+                    url = buildPlexUrlFromKey(baseUri, track.key);
+                }
+            } else {
+                url = new URL(`/library/streams/${encodeURIComponent(track.id)}`, baseUri);
             }
+            const token = this.getAuthTokenFromHeaders(context.authHeaders);
+            applyXPlexTokenQueryParam(url.searchParams, token);
             return url;
         } catch {
             return null;
@@ -446,18 +463,15 @@ export class PlaybackOptionsCoordinator {
 
         const startMs = Date.now();
         try {
-            const headController = new AbortController();
-            const headTimeoutId = setTimeout(() => headController.abort(), SUBTITLE_PROBE_TOTAL_TIMEOUT_MS);
             let response: Response;
-            try {
-                response = await fetch(url.toString(), {
+            response = await fetchWithTimeout(
+                url.toString(),
+                {
                 method: 'HEAD',
                 headers: { Accept: 'text/vtt, text/plain, */*' },
-                    signal: headController.signal,
-                });
-            } finally {
-                clearTimeout(headTimeoutId);
-            }
+                },
+                SUBTITLE_PROBE_TOTAL_TIMEOUT_MS
+            );
             if (!response.ok && (response.status === 405 || response.status === 501)) {
                 // Some Plex endpoints/proxies may not support HEAD reliably; fall back to GET.
                 const elapsedMs = Date.now() - startMs;
@@ -465,17 +479,14 @@ export class PlaybackOptionsCoordinator {
                 // Keep the total probe time bounded; don't double the worst-case latency.
                 const fallbackTimeoutMs = Math.max(50, remainingMs);
 
-                const getController = new AbortController();
-                const getTimeoutId = setTimeout(() => getController.abort(), fallbackTimeoutMs);
-                try {
-                    response = await fetch(url.toString(), {
+                response = await fetchWithTimeout(
+                    url.toString(),
+                    {
                         method: 'GET',
                         headers: { Accept: 'text/vtt, text/plain, */*' },
-                        signal: getController.signal,
-                    });
-                } finally {
-                    clearTimeout(getTimeoutId);
-                }
+                    },
+                    fallbackTimeoutMs
+                );
             }
             if (response.ok) {
                 this.subtitleProbeCache.set(cacheKey, 'supported');

@@ -8,6 +8,7 @@ import { AppOrchestrator } from '../../../Orchestrator';
 import type { PlexHomeUser } from '../../plex/auth';
 import type { FocusableElement, KeyEvent } from '../../navigation';
 import { PlexApiError } from '../../plex/auth';
+import { AppErrorCode } from '../../lifecycle/types';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
 import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
@@ -385,13 +386,12 @@ export class ProfileSelectScreen {
     private async _handleUseMainAccount(): Promise<void> {
         if (this._isSwitching) return;
         this._clearError();
-        this._setStatus('Switching to main account...', { tone: 'loading' });
+        this._setStatus('Starting Lineup...', { tone: 'loading' });
         this._isSwitching = true;
         try {
             await this._orchestrator.useMainAccountProfile();
             // Clear last-used hint — main account bypasses profile cards.
             this.profileSessionStore.writeLastProfileId(null);
-            this._navigateToServerSelect();
         } catch (error) {
             this._handleError(error, 'Unable to switch profile.');
         } finally {
@@ -412,22 +412,21 @@ export class ProfileSelectScreen {
     }
 
     private async _switchUser(userId: string, pin?: string): Promise<boolean> {
-        this._setStatus('Switching profile...', { tone: 'loading' });
+        this._setStatus('Starting Lineup...', { tone: 'loading' });
         this._isSwitching = true;
         try {
             await this._orchestrator.switchHomeUser(userId, pin);
             this.profileSessionStore.writeLastProfileId(userId);
-            this._navigateToServerSelect();
             return true;
         } catch (error) {
             if (error instanceof PlexApiError) {
-                if (pin && error.code === 'AUTH_FAILED') {
+                if (pin && error.code === AppErrorCode.AUTH_FAILED) {
                     this._handlePinError('Wrong PIN. Try again.');
                     return false;
                 }
                 if (
-                    error.code === 'AUTH_REQUIRED' ||
-                    error.code === 'AUTH_INVALID'
+                    error.code === AppErrorCode.AUTH_REQUIRED ||
+                    error.code === AppErrorCode.AUTH_INVALID
                 ) {
                     // Account token is no longer valid; force re-link.
                     await this._orchestrator.signOutPlex();
@@ -439,11 +438,6 @@ export class ProfileSelectScreen {
         } finally {
             this._isSwitching = false;
         }
-    }
-
-    private _navigateToServerSelect(): void {
-        const nav = this._orchestrator.getNavigation();
-        nav?.goTo('server-select', { allowAutoConnect: true });
     }
 
     private _openPinModal(user: PlexHomeUser): void {

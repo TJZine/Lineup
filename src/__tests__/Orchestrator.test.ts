@@ -1057,6 +1057,7 @@ describe('AppOrchestrator', () => {
 
                 expect(clearProfileResumeSpy).toHaveBeenCalled();
                 expect(mockPlexAuth.switchHomeUser).toHaveBeenCalledWith('user-2', { pin: '1234' });
+                expect(mockNavigation.goTo).toHaveBeenCalledWith('splash');
                 expect(runStartupSpy).toHaveBeenCalledWith(3);
                 expect(mockVideoPlayer.stop).toHaveBeenCalled();
                 expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
@@ -1064,13 +1065,21 @@ describe('AppOrchestrator', () => {
 
                 const clearOrder = clearProfileResumeSpy.mock.invocationCallOrder[0];
                 const switchOrder = mockPlexAuth.switchHomeUser.mock.invocationCallOrder[0];
+                const splashOrder = mockNavigation.goTo.mock.invocationCallOrder[0];
                 const startupOrder = runStartupSpy.mock.invocationCallOrder[0];
                 expect(clearOrder).toBeDefined();
+                expect(splashOrder).toBeDefined();
                 expect(startupOrder).toBeDefined();
                 expect(switchOrder).toBeDefined();
-                if (clearOrder !== undefined && switchOrder !== undefined && startupOrder !== undefined) {
+                if (
+                    clearOrder !== undefined
+                    && switchOrder !== undefined
+                    && splashOrder !== undefined
+                    && startupOrder !== undefined
+                ) {
                     expect(clearOrder).toBeLessThan(switchOrder);
-                    expect(switchOrder).toBeLessThan(startupOrder);
+                    expect(switchOrder).toBeLessThan(splashOrder);
+                    expect(splashOrder).toBeLessThan(startupOrder);
                 }
             } finally {
                 clearProfileResumeSpy.mockRestore();
@@ -1128,6 +1137,7 @@ describe('AppOrchestrator', () => {
 
                 expect(clearProfileResumeSpy).toHaveBeenCalled();
                 expect(mockPlexAuth.logoutActiveUser).toHaveBeenCalledTimes(1);
+                expect(mockNavigation.goTo).toHaveBeenCalledWith('splash');
                 expect(runStartupSpy).toHaveBeenCalledWith(3);
                 expect(mockVideoPlayer.stop).toHaveBeenCalled();
                 expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
@@ -1135,13 +1145,21 @@ describe('AppOrchestrator', () => {
 
                 const clearOrder = clearProfileResumeSpy.mock.invocationCallOrder[0];
                 const logoutOrder = mockPlexAuth.logoutActiveUser.mock.invocationCallOrder[0];
+                const splashOrder = mockNavigation.goTo.mock.invocationCallOrder[0];
                 const startupOrder = runStartupSpy.mock.invocationCallOrder[0];
                 expect(clearOrder).toBeDefined();
+                expect(splashOrder).toBeDefined();
                 expect(startupOrder).toBeDefined();
                 expect(logoutOrder).toBeDefined();
-                if (clearOrder !== undefined && logoutOrder !== undefined && startupOrder !== undefined) {
+                if (
+                    clearOrder !== undefined
+                    && logoutOrder !== undefined
+                    && splashOrder !== undefined
+                    && startupOrder !== undefined
+                ) {
                     expect(clearOrder).toBeLessThan(logoutOrder);
-                    expect(logoutOrder).toBeLessThan(startupOrder);
+                    expect(logoutOrder).toBeLessThan(splashOrder);
+                    expect(splashOrder).toBeLessThan(startupOrder);
                 }
             } finally {
                 clearProfileResumeSpy.mockRestore();
@@ -1162,6 +1180,7 @@ describe('AppOrchestrator', () => {
                 await expect(orchestrator.switchHomeUser('user-2')).rejects.toThrow('switch failed');
 
                 expect(clearProfileResumeSpy).toHaveBeenCalledTimes(1);
+                expect(mockNavigation.goTo).not.toHaveBeenCalledWith('splash');
                 expect(runStartupSpy).not.toHaveBeenCalled();
                 expect(mockVideoPlayer.stop).toHaveBeenCalledTimes(1);
                 expect(mockScheduler.unloadChannel).not.toHaveBeenCalled();
@@ -1184,6 +1203,7 @@ describe('AppOrchestrator', () => {
                 await expect(orchestrator.useMainAccountProfile()).rejects.toThrow('logout failed');
 
                 expect(clearProfileResumeSpy).toHaveBeenCalledTimes(1);
+                expect(mockNavigation.goTo).not.toHaveBeenCalledWith('splash');
                 expect(runStartupSpy).not.toHaveBeenCalled();
                 expect(mockScheduler.unloadChannel).not.toHaveBeenCalled();
             } finally {

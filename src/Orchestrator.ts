@@ -138,6 +138,9 @@ import { LINEUP_STORAGE_KEYS } from './config/storageKeys';
 import { getRecoveryActions as getRecoveryActionsHelper } from './core/error-recovery/RecoveryActions';
 import { toLifecycleAppError as toLifecycleAppErrorHelper } from './core/error-recovery/LifecycleErrorAdapter';
 import type { ErrorRecoveryAction } from './core/error-recovery/types';
+import {
+    buildPlexResourceUrlWithAuth,
+} from './modules/plex/shared/plexUrl';
 import type { ToastInput } from './modules/ui/toast/types';
 import type { PlatformServices } from './platform';
 import { webosPlatformServices } from './platform';
@@ -1096,12 +1099,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         await this._plexAuth.switchHomeUser(userId, { pin: pin ?? null });
         cleanupController.finalizeProfileSwitch();
         this._configureDiscoveryStorageKeysForActiveUser();
-
-        if (this._initCoordinator) {
-            await this._initCoordinator.runStartup(3);
-        } else {
-            await this._plexDiscovery.initialize();
-        }
+        await this._resumeStartupAfterProfileSwitch();
     }
 
     async useMainAccountProfile(): Promise<void> {
@@ -1117,12 +1115,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         await this._plexAuth.logoutActiveUser();
         cleanupController.finalizeProfileSwitch();
         this._configureDiscoveryStorageKeysForActiveUser();
-
-        if (this._initCoordinator) {
-            await this._initCoordinator.runStartup(3);
-        } else {
-            await this._plexDiscovery.initialize();
-        }
+        await this._resumeStartupAfterProfileSwitch();
     }
 
     async signOutPlex(): Promise<void> {
@@ -1190,6 +1183,18 @@ export class AppOrchestrator implements IAppOrchestrator {
         }
         this._plexDiscovery.clearSelection();
         void this._persistSelectedServerForActiveUser(null, null);
+    }
+
+    private async _resumeStartupAfterProfileSwitch(): Promise<void> {
+        this._navigation?.goTo('splash');
+        if (this._initCoordinator) {
+            await this._initCoordinator.runStartup(3);
+            return;
+        }
+        if (!this._plexDiscovery) {
+            throw new Error('PlexServerDiscovery not initialized');
+        }
+        await this._plexDiscovery.initialize();
     }
 
     getChannelSetupSessionGateway(): ChannelSetupSessionGateway {
@@ -1972,26 +1977,9 @@ export class AppOrchestrator implements IAppOrchestrator {
 
     private _buildPlexResourceUrl(pathOrUrl: string): string | null {
         try {
-            // If already absolute http(s), return as-is.
-            if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
-                return pathOrUrl;
-            }
-
             const baseUri = this._plexDiscovery?.getServerUri() ?? null;
-            if (!baseUri) {
-                return null;
-            }
-
-            const url = new URL(pathOrUrl, baseUri);
             const headers = this._plexAuth?.getAuthHeaders() ?? {};
-            const token = headers['X-Plex-Token'];
-            if (typeof token === 'string' && token.length > 0) {
-                // Note: We include the token as a query param because some webOS media/image fetch paths
-                // cannot reliably attach headers. This carries leak risk (logs/referrers/caches), so avoid
-                // logging these URLs and only use them where required.
-                url.searchParams.set('X-Plex-Token', token);
-            }
-            return url.toString();
+            return buildPlexResourceUrlWithAuth(baseUri, pathOrUrl, headers);
         } catch {
             return null;
         }

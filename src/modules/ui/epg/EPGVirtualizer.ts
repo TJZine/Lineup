@@ -97,6 +97,10 @@ type TickerTarget = {
     supportsClampMeasurement: boolean;
 };
 
+type FocusedCellOptions = {
+    syncTicker?: boolean;
+};
+
 /**
  * EPG Virtualizer class.
  * Manages DOM element pooling and efficient grid rendering.
@@ -1482,7 +1486,12 @@ export class EPGVirtualizer {
      * @param programStartTime - Program start time (Unix ms)
      * @returns The focused element or null
      */
-    setFocusedCell(channelId: string, programStartTime: number, focusTimeMs?: number): HTMLElement | null {
+    setFocusedCell(
+        channelId: string,
+        programStartTime: number,
+        focusTimeMs?: number,
+        options?: FocusedCellOptions
+    ): HTMLElement | null {
         const key = `${channelId}-${programStartTime}`;
         const nowMs = Date.now();
 
@@ -1547,7 +1556,9 @@ export class EPGVirtualizer {
         } else {
             this.focusedVisibleCellKey = null;
         }
-        this._syncFocusedTitleTickerForVisibleFocus();
+        if (options?.syncTicker !== false) {
+            this._syncFocusedTitleTickerForVisibleFocus();
+        }
 
         if (targetCellData?.cellElement) {
             return targetCellData.cellElement;

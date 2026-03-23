@@ -8,7 +8,6 @@
 import { PLEX_AUTH_CONSTANTS } from './constants';
 import { PlexAuthConfig, PlexAuthToken, PlexPinRequest, PlexHomeUser } from './interfaces';
 import { AppErrorCode } from '../../lifecycle/types';
-import { fetchWithTimeoutCore } from '../shared/fetchWithTimeoutCore';
 
 /**
  * Error class for Plex API errors.
@@ -192,12 +191,28 @@ export function parseHomeUsers(payload: unknown): PlexHomeUser[] {
             try {
                 return parseHomeUsers(JSON.parse(text));
             } catch {
-                // Fall through to XML parser.
+                throw new PlexApiError(
+                    AppErrorCode.PARSE_ERROR,
+                    'Unable to parse Plex Home users JSON payload',
+                    undefined,
+                    false
+                );
             }
         }
-        const xmlUsers = parseHomeUsersXml(text);
-        if (xmlUsers.length > 0) {
-            return xmlUsers;
+        if (text.startsWith('<')) {
+            const xmlUsers = parseHomeUsersXml(text);
+            if (xmlUsers.length > 0) {
+                return xmlUsers;
+            }
+            if (isStructurallyValidXml(text)) {
+                return [];
+            }
+            throw new PlexApiError(
+                AppErrorCode.PARSE_ERROR,
+                'Unable to parse Plex Home users XML payload',
+                undefined,
+                false
+            );
         }
     }
 
@@ -218,6 +233,16 @@ export function parseHomeUsers(payload: unknown): PlexHomeUser[] {
     }
 
     return [];
+}
+
+function isStructurallyValidXml(payload: string): boolean {
+    if (typeof DOMParser !== 'undefined') {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(payload, 'application/xml');
+        return doc.getElementsByTagName('parsererror').length === 0;
+    }
+    const trimmed = payload.trim();
+    return /^<[\w:-]+(?:\s[^>]*)?>[\s\S]*<\/[\w:-]+>\s*$/.test(trimmed);
 }
 
 /**
@@ -518,21 +543,6 @@ export function sleep(ms: number): Promise<void> {
     return new Promise(function (resolve) {
         setTimeout(resolve, ms);
     });
-}
-
-/**
- * Fetch with a hard timeout and optional external AbortSignal.
- * Aborts when either the timeout elapses or the external signal aborts.
- *
- * Note: Avoid logging URL/init from callers; tokens may be present in headers.
- */
-export async function fetchWithTimeout(
-    url: string,
-    options: RequestInit,
-    timeoutMs: number,
-    externalSignal?: AbortSignal | null
-): Promise<Response> {
-    return fetchWithTimeoutCore(url, options, timeoutMs, externalSignal ?? null);
 }
 
 /**

@@ -33,9 +33,9 @@ import {
     parseHomeUsers,
     parseSwitchResponse,
     fetchWithRetry,
-    fetchWithTimeout,
 } from './helpers';
 import { AppErrorCode } from '../../lifecycle/types';
+import { fetchWithTimeout } from '../shared/fetchWithTimeout';
 import { resolveClientIdentifier } from './clientIdentifier';
 
 // Re-export for consumers
@@ -51,6 +51,16 @@ export class PlexAuth implements IPlexAuth {
     private _state: PlexAuthState;
     private _emitter: EventEmitter<PlexAuthEvents>;
     private _credentialsEpoch = 0;
+
+    private isValidUserPayload(payload: unknown): payload is Record<string, unknown> {
+        if (typeof payload !== 'object' || payload === null) return false;
+        const data = payload as Record<string, unknown>;
+        const id = data['id'];
+        const username = data['username'];
+        const email = data['email'];
+        const hasValidId = typeof id === 'string' || typeof id === 'number';
+        return hasValidId && typeof username === 'string' && typeof email === 'string';
+    }
 
     /**
      * Create a new PlexAuth instance.
@@ -200,22 +210,33 @@ export class PlexAuth implements IPlexAuth {
         const url = PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL + PLEX_AUTH_CONSTANTS.USER_ENDPOINT;
         const headers = buildRequestHeaders(this._state.config, token);
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(
-            function () { controller.abort(); },
-            PLEX_AUTH_CONSTANTS.TOKEN_VALIDATION_TIMEOUT_MS
-        );
-
         try {
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: headers,
-                signal: controller.signal,
-            });
-            clearTimeout(timeoutId);
+            const response = await fetchWithTimeout(
+                url,
+                { method: 'GET', headers: headers },
+                PLEX_AUTH_CONSTANTS.TOKEN_VALIDATION_TIMEOUT_MS
+            );
 
             if (response.status === 200) {
-                const data = await response.json();
+                let data: unknown;
+                try {
+                    data = await response.json();
+                } catch {
+                    throw new PlexApiError(
+                        AppErrorCode.PARSE_ERROR,
+                        'Failed to parse token validation response',
+                        response.status,
+                        false
+                    );
+                }
+                if (!this.isValidUserPayload(data)) {
+                    throw new PlexApiError(
+                        AppErrorCode.PARSE_ERROR,
+                        'Token validation response payload is missing required fields',
+                        response.status,
+                        false
+                    );
+                }
                 const userToken = parseUserResponse(data, token);
                 const isAccountToken = this._state.accountToken?.token === token;
                 const isActiveToken = this._state.activeToken?.token === token;
@@ -235,10 +256,12 @@ export class PlexAuth implements IPlexAuth {
             }
             return false;
         } catch (error) {
-            clearTimeout(timeoutId);
             // Return false only on timeout (AbortError); throw on network errors
             if (error instanceof Error && error.name === 'AbortError') {
                 return false;
+            }
+            if (error instanceof PlexApiError) {
+                throw error;
             }
             throw new PlexApiError(
                 AppErrorCode.SERVER_UNREACHABLE,
@@ -339,8 +362,10 @@ export class PlexAuth implements IPlexAuth {
         }
 
         const headers = buildRequestHeaders(this._state.config, this._state.accountToken.token);
-        // TODO(plex-home-endpoints): Confirm the canonical plex.tv Home endpoint for our auth flow.
-        // After collecting live traces on webOS + desktop, remove the endpoint branch that never succeeds.
+        // Keep v2-first with v1 fallback: some plex.tv variants return a 200 payload from v2
+        // with no usable Home users. Existing tests cover this fallback behavior.
+        // Revisit removing v1 only after capturing production traces proving v2 responses are
+        // consistently complete for webOS targets.
         const endpoints = [
             PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL + PLEX_AUTH_CONSTANTS.HOME_USERS_ENDPOINT,
             PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL_V1 + PLEX_AUTH_CONSTANTS.HOME_USERS_ENDPOINT,
@@ -411,6 +436,9 @@ export class PlexAuth implements IPlexAuth {
                 if (error instanceof PlexApiError) {
                     // For auth errors, bail immediately.
                     if (error.code === AppErrorCode.AUTH_REQUIRED || error.code === AppErrorCode.AUTH_INVALID) {
+                        throw error;
+                    }
+                    if (error.code === AppErrorCode.PARSE_ERROR) {
                         throw error;
                     }
                 }

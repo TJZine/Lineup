@@ -1001,6 +1001,72 @@ describe('PlexStreamResolver', () => {
             expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 8000);
             setTimeoutSpy.mockRestore();
         });
+
+        it('falls back to the server-relative debug probe URL for foreign absolute subtitle keys', async () => {
+            const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: jest.fn((key: string) =>
+                        key === LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING ? '1' : null
+                    ),
+                },
+                configurable: true,
+            });
+
+            const mockItem = createMockMediaItem();
+            const subtitleStream: PlexStream = {
+                id: 'sub-foreign',
+                streamType: 3,
+                codec: 'srt',
+                language: 'English',
+                languageCode: 'en',
+                format: 'srt',
+                key: 'https://malicious.example/library/streams/sub-foreign',
+                default: true,
+            };
+            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
+
+            const config = createMockConfig({
+                getAuthHeaders: () => ({
+                    'X-Plex-Token': 'mock-token',
+                    'X-Plex-Client-Identifier': 'test-client-id',
+                }),
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            mockFetch.mockResolvedValue(
+                new Response('WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nTest', {
+                    status: 200,
+                    headers: { 'content-type': 'text/vtt' },
+                })
+            );
+
+            await resolver.resolveStream({ itemKey: '12345', subtitleStreamId: 'sub-foreign' });
+
+            expect(mockFetch).not.toHaveBeenCalledWith(
+                subtitleStream.key,
+                expect.anything()
+            );
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(mockFetch).toHaveBeenCalledWith(
+                'http://192.168.1.100:32400/library/streams/sub-foreign',
+                expect.objectContaining({
+                    method: 'GET',
+                    cache: 'no-store',
+                    mode: 'cors',
+                    credentials: 'omit',
+                    headers: expect.objectContaining({
+                        'X-Plex-Token': 'mock-token',
+                        'X-Plex-Client-Identifier': 'test-client-id',
+                        Accept: 'text/vtt, text/plain, */*',
+                    }),
+                    signal: expect.any(AbortSignal),
+                })
+            );
+            expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 8000);
+            setTimeoutSpy.mockRestore();
+        });
     });
 
     // ========================================

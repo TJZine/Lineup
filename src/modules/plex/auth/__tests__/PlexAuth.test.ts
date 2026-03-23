@@ -234,7 +234,7 @@ describe('PlexAuth', () => {
     describe('validateToken', () => {
         it('should return true for valid token', async () => {
             const auth = new PlexAuth(mockConfig);
-            mockFetchJson({ id: 1, username: 'user' }, 200);
+            mockFetchJson({ id: 1, username: 'user', email: 'user@example.com' }, 200);
 
             const result = await auth.validateToken('valid-token');
 
@@ -278,6 +278,73 @@ describe('PlexAuth', () => {
                 expect(currentUser.token).toBe('valid-token');
             }
         });
+
+        it('should return false when token validation times out', async () => {
+            jest.useFakeTimers();
+            try {
+                const auth = new PlexAuth(mockConfig);
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                    (_url: string, options?: RequestInit) =>
+                        new Promise((_resolve, reject) => {
+                            const signal = options?.signal as AbortSignal | undefined;
+                            if (!signal) return;
+                            signal.addEventListener(
+                                'abort',
+                                () => {
+                                    const abortError = new Error('The operation was aborted.');
+                                    abortError.name = 'AbortError';
+                                    reject(abortError);
+                                },
+                                { once: true }
+                            );
+                        })
+                );
+
+                const promise = auth.validateToken('slow-token');
+                await jest.advanceTimersByTimeAsync(PLEX_AUTH_CONSTANTS.TOKEN_VALIDATION_TIMEOUT_MS + 50);
+                await expect(promise).resolves.toBe(false);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('should throw SERVER_UNREACHABLE on network failure during validation', async () => {
+            const auth = new PlexAuth(mockConfig);
+            mockFetchFailure(new TypeError('Network error'));
+
+            await expect(auth.validateToken('valid-token')).rejects.toMatchObject({
+                code: 'SERVER_UNREACHABLE',
+            });
+        });
+
+        it('should throw PARSE_ERROR when token validation payload is malformed', async () => {
+            const auth = new PlexAuth(mockConfig);
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: function () { return null; } },
+                json: async function () {
+                    throw new SyntaxError('Unexpected token');
+                },
+                text: async function () { return 'not-json'; },
+            });
+
+            await expect(auth.validateToken('valid-token')).rejects.toMatchObject({
+                code: 'PARSE_ERROR',
+            });
+        });
+
+        it('should throw PARSE_ERROR when token validation payload has invalid structure', async () => {
+            const auth = new PlexAuth(mockConfig);
+            mockFetchJson({}, 200);
+
+            await expect(auth.validateToken('valid-token')).rejects.toMatchObject({
+                code: 'PARSE_ERROR',
+            });
+            expect(auth.getCurrentUser()).toBeNull();
+            expect(auth.isAuthenticated()).toBe(false);
+        });
+
     });
 
     describe('getAuthHeaders', () => {
@@ -312,6 +379,7 @@ describe('PlexAuth', () => {
             const headers = auth.getAuthHeaders();
 
             expect(headers['X-Plex-Token']).toBe('my-secret-token');
+            expect((headers as Record<string, string>)['x-plex-token']).toBeUndefined();
         });
     });
 
@@ -625,6 +693,26 @@ describe('PlexAuth', () => {
             expect(users).toHaveLength(2);
             expect(users[0]).toMatchObject({ id: '1', title: 'Admin', protected: true });
             expect(users[1]).toMatchObject({ id: '2', title: 'Kid', protected: false, restricted: true });
+        });
+
+        it('should throw PARSE_ERROR when home-user payload is malformed JSON text', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: () => 'text/plain' },
+                json: async () => {
+                    throw new SyntaxError('Unexpected token');
+                },
+                text: async () => '{"MediaContainer": {"User": [}',
+            });
+
+            await expect(auth.getHomeUsers()).rejects.toMatchObject({
+                code: 'PARSE_ERROR',
+            });
         });
 
         it('should fall back to v1 endpoint when v2 returns empty profile payload', async () => {

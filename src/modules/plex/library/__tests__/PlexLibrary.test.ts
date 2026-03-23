@@ -1,7 +1,7 @@
 import { PlexLibrary, PlexLibraryError, PlexLibraryErrorCode } from '../PlexLibrary';
 import type { PlexLibraryConfig } from '../interfaces';
 import { mockLocalStorage, installMockLocalStorage } from '../../../../__tests__/mocks/localStorage';
-import { PLEX_MEDIA_TYPES } from '../constants';
+import { PLEX_LIBRARY_CONSTANTS, PLEX_MEDIA_TYPES } from '../constants';
 
 // ============================================
 // Install Mock localStorage
@@ -689,6 +689,37 @@ describe('PlexLibrary', () => {
             expect(url).toContain('X-Plex-Token=mock-token');
         });
 
+        it('should normalize same-origin absolute image URLs onto the server origin', () => {
+            const library = new PlexLibrary(mockConfig);
+
+            const url = library.getImageUrl('http://192.168.1.100:32400/library/metadata/123/thumb');
+
+            expect(url).toContain('http://192.168.1.100:32400/library/metadata/123/thumb');
+            expect(url).toContain('X-Plex-Token=mock-token');
+        });
+
+        it('should return external absolute image URLs token-free', () => {
+            const library = new PlexLibrary(mockConfig);
+
+            const url = library.getImageUrl('https://malicious.example/library/metadata/123/thumb');
+
+            expect(url).toBe('https://malicious.example/library/metadata/123/thumb');
+        });
+
+        it('should preserve resized external images through the Plex transcode path', () => {
+            const library = new PlexLibrary(mockConfig);
+
+            const url = library.getImageUrl('https://malicious.example/library/metadata/123/thumb', 300);
+            const parsed = new URL(url);
+
+            expect(parsed.origin).toBe('http://192.168.1.100:32400');
+            expect(parsed.pathname).toBe('/photo/:/transcode');
+            expect(parsed.searchParams.get('X-Plex-Token')).toBe('mock-token');
+            expect(parsed.searchParams.get('width')).toBe('300');
+            expect(parsed.searchParams.get('height')).toBe('300');
+            expect(parsed.searchParams.get('url')).toBe('https://malicious.example/library/metadata/123/thumb');
+        });
+
         it('should use transcoder for resized images', () => {
             const library = new PlexLibrary(mockConfig);
 
@@ -1011,6 +1042,72 @@ describe('PlexLibrary', () => {
                 await jest.advanceTimersByTimeAsync(2000);
 
                 await rejection;
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('should throw NETWORK_TIMEOUT after exhausting timeout retries', async () => {
+            jest.useFakeTimers();
+            try {
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                    (_url: string, options?: RequestInit) =>
+                        new Promise((_resolve, reject) => {
+                            const signal = options?.signal as AbortSignal | undefined;
+                            if (signal?.aborted) {
+                                reject(new DOMException('The operation was aborted', 'AbortError'));
+                                return;
+                            }
+                            signal?.addEventListener(
+                                'abort',
+                                () => reject(new DOMException('The operation was aborted', 'AbortError')),
+                                { once: true }
+                            );
+                        })
+                );
+
+                const library = new PlexLibrary(mockConfig);
+                const request = library.getLibraries();
+                const rejection = expect(request).rejects.toMatchObject({
+                    code: PlexLibraryErrorCode.NETWORK_TIMEOUT,
+                });
+                await jest.runAllTimersAsync();
+
+                await rejection;
+                expect(fetch).toHaveBeenCalledTimes(PLEX_LIBRARY_CONSTANTS.MAX_TIMEOUT_RETRIES + 1);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('rethrows upstream aborts without treating them as retryable timeouts', async () => {
+            jest.useFakeTimers();
+            try {
+                const controller = new AbortController();
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                    (_url: string, options?: RequestInit) =>
+                        new Promise((_resolve, reject) => {
+                            const signal = options?.signal as AbortSignal | undefined;
+                            if (signal?.aborted) {
+                                reject(new DOMException('The operation was aborted', 'AbortError'));
+                                return;
+                            }
+                            signal?.addEventListener(
+                                'abort',
+                                () => reject(new DOMException('The operation was aborted', 'AbortError')),
+                                { once: true }
+                            );
+                        })
+                );
+
+                const library = new PlexLibrary(mockConfig);
+                const request = library.getLibraries({ signal: controller.signal });
+                const rejection = expect(request).rejects.toMatchObject({ name: 'AbortError' });
+                controller.abort();
+                await jest.runAllTimersAsync();
+
+                await rejection;
+                expect(fetch).toHaveBeenCalledTimes(1);
             } finally {
                 jest.useRealTimers();
             }

@@ -15,6 +15,13 @@ import {
 } from './subtitleConversion';
 import type { PlatformSubtitleService } from '../../platform';
 import { webosPlatformServices } from '../../platform';
+import { fetchWithTimeout } from '../plex/shared/fetchWithTimeout';
+import {
+    applyXPlexQueryParamsFromHeaders,
+    applyXPlexTokenQueryParam,
+    buildPlexUrlFromKey,
+    tryBuildPlexServerUrlFromKey,
+} from '../plex/shared/plexUrl';
 
 interface SubtitleTrackContext {
     serverUri: string | null;
@@ -345,7 +352,7 @@ export class SubtitleManager {
     }
 
     private _getAuthTokenFromHeaders(headers: Record<string, string>): string | null {
-        const token = headers['X-Plex-Token'] ?? headers['x-plex-token'];
+        const token = headers['X-Plex-Token'];
         return typeof token === 'string' && token.length > 0 ? token : null;
     }
 
@@ -354,7 +361,19 @@ export class SubtitleManager {
             const baseUri = this._subtitleContext?.serverUri ?? null;
             let url: URL;
             if (track.key) {
-                url = new URL(track.key, baseUri ?? undefined);
+                if (!baseUri) return null;
+                const isAbsoluteHttpUrl = /^https?:\/\//i.test(track.key);
+                if (isAbsoluteHttpUrl) {
+                    const normalized = tryBuildPlexServerUrlFromKey(baseUri, track.key);
+                    if (!normalized) {
+                        const path = `/library/streams/${encodeURIComponent(track.id)}`;
+                        url = new URL(path, baseUri);
+                    } else {
+                        url = normalized;
+                    }
+                } else {
+                    url = buildPlexUrlFromKey(baseUri, track.key);
+                }
             } else {
                 if (!baseUri) return null;
                 const path = `/library/streams/${encodeURIComponent(track.id)}`;
@@ -363,9 +382,7 @@ export class SubtitleManager {
             const authHeaders = this._subtitleContext?.authHeaders;
             if (authHeaders) {
                 const token = this._getAuthTokenFromHeaders(authHeaders);
-                if (token && !url.searchParams.has('X-Plex-Token')) {
-                    url.searchParams.set('X-Plex-Token', token);
-                }
+                applyXPlexTokenQueryParam(url.searchParams, token);
             }
             return url.toString();
         } catch {
@@ -542,7 +559,6 @@ export class SubtitleManager {
                 // Keep query-first to avoid extra preflight work, then retry with token header.
                 const headerUrl = new URL(url.toString());
                 headerUrl.searchParams.delete('X-Plex-Token');
-                headerUrl.searchParams.delete('X-Plex-token');
                 attempts.push({
                     name: 'header',
                     url: headerUrl,
@@ -692,7 +708,12 @@ export class SubtitleManager {
         for (const entry of urlsToTry) {
             const suffix = entry.variant === 'lan_http' ? '_lan_http' : '';
             try {
-                const response = await fetch(entry.url.toString(), { headers, signal });
+                const response = await fetchWithTimeout(
+                    entry.url.toString(),
+                    { headers },
+                    10_000,
+                    signal
+                );
                 if (loadToken !== this._loadToken) return null;
                 if (!response.ok) {
                     let bodySample: string | null = null;
@@ -889,21 +910,10 @@ export class SubtitleManager {
             }
 
             // Prefer token in query to avoid CORS preflight and to match <video>/<track> request constraints.
-            if (token) {
-                url.searchParams.set('X-Plex-Token', token);
-            }
+            applyXPlexTokenQueryParam(url.searchParams, token);
 
             // Carry through any X-Plex-* identity headers as query params (matches how direct-play URLs are built).
-            const headers = ctx?.authHeaders ?? {};
-            for (const [k, v] of Object.entries(headers)) {
-                if (!k.startsWith('X-Plex-')) continue;
-                if (typeof v !== 'string' || v.length === 0) continue;
-                // Avoid duplicating token in two casings.
-                if (k.toLowerCase() === 'x-plex-token') continue;
-                if (!url.searchParams.has(k)) {
-                    url.searchParams.set(k, v);
-                }
-            }
+            applyXPlexQueryParamsFromHeaders(url.searchParams, ctx?.authHeaders ?? {});
 
             // Some PMS setups require a client profile name for universal transcode endpoints.
             if (!url.searchParams.has('X-Plex-Client-Profile-Name')) {
@@ -917,24 +927,11 @@ export class SubtitleManager {
     }
 
     private _getSubtitleTranscodePaths(): string[] {
-        // Plex docs/examples for universal start use /library/metadata/{ratingKey}. For universal subtitles,
-        // behavior varies across server/profile combos, so try both metadata-path and (if present) part key.
-        // TODO(subtitle-endpoints): Identify the single reliable path shape for webOS and delete the losing branch.
+        // Canonical universal-subtitles path for Lineup.
         const ctx = this._subtitleContext;
         const itemKey = ctx?.itemKey ?? null;
         if (!itemKey) return [];
-        const paths: string[] = [`/library/metadata/${itemKey}`];
-        const partKey = typeof ctx?.partKey === 'string' ? ctx.partKey : null;
-        if (partKey && partKey.trim().length > 0) {
-            const trimmed = partKey.trim();
-            // Keep relative Plex paths. If it somehow becomes absolute, strip origin later by URL().
-            if (trimmed.startsWith('/')) {
-                if (!paths.includes(trimmed)) {
-                    paths.push(trimmed);
-                }
-            }
-        }
-        return paths;
+        return [`/library/metadata/${itemKey}`];
     }
 
     private _replaceTrackElement(track: SubtitleTrack, src: string, loadToken: number): void {

@@ -189,6 +189,37 @@ describe('SubtitleManager', () => {
             expect(manager.getTracks()).toHaveLength(1);
             expect(manager.getTracks()[0]?.id).toBe('en-2');
         });
+
+        it('normalizes same-origin absolute subtitle keys and falls back for foreign absolute keys', () => {
+            manager.loadTracks([], {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            });
+
+            const normalizedTrack = createMockSubtitleTrack({
+                id: 'sub-absolute',
+                key: 'http://example.com/library/streams/sub-absolute',
+                format: 'vtt',
+            });
+            const foreignTrack = createMockSubtitleTrack({
+                id: 'sub-foreign',
+                key: 'https://malicious.example/library/streams/sub-foreign',
+                format: 'vtt',
+            });
+
+            const normalizedUrl = (manager as unknown as {
+                _buildDirectTrackUrl: (track: SubtitleTrack) => string | null;
+            })._buildDirectTrackUrl(normalizedTrack);
+            const foreignUrl = (manager as unknown as {
+                _buildDirectTrackUrl: (track: SubtitleTrack) => string | null;
+            })._buildDirectTrackUrl(foreignTrack);
+
+            expect(normalizedUrl).toContain('http://example.com/library/streams/sub-absolute');
+            expect(normalizedUrl).toContain('X-Plex-Token=token');
+            expect(foreignUrl).toContain('http://example.com/library/streams/sub-foreign');
+            expect(foreignUrl).toContain('X-Plex-Token=token');
+            expect(foreignUrl).not.toContain('malicious.example');
+        });
     });
 
     // ========================================
@@ -395,6 +426,7 @@ Hello`,
                     'X-Plex-Client-Identifier': 'client-1',
                 },
                 itemKey: '999',
+                partKey: '/library/parts/part-777',
                 sessionId: 'sess-1',
             });
 
@@ -421,6 +453,7 @@ Hello`,
             const u = new URL(String(transcodeUrl));
             expect(u.pathname).toBe('/video/:/transcode/universal/subtitles');
             expect(u.searchParams.get('path')).toBe('/library/metadata/999');
+            expect(u.searchParams.get('path')).not.toBe('/library/parts/part-777');
             expect(u.searchParams.get('subtitleStreamID')).toBe('srt-1');
             expect(u.searchParams.get('format')).toBe('srt');
             expect(u.searchParams.get('download')).toBe('1');

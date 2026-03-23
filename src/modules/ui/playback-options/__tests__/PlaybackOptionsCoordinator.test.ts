@@ -275,6 +275,35 @@ describe('PlaybackOptionsCoordinator', () => {
         }
     });
 
+    it('falls back to the server-relative subtitle probe URL for foreign absolute keys', async () => {
+        const player = createPlayer([]);
+        const coordinator = new PlaybackOptionsCoordinator({
+            playbackOptionsModalId: 'playback-options',
+            getNavigation: (): null => null,
+            getPlaybackOptionsModal: (): null => null,
+            getVideoPlayer: (): IVideoPlayer => player,
+            getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+            getCurrentStreamDescriptor: (): StreamDescriptor =>
+                ({
+                    subtitleContext: { serverUri: 'http://example.com', authHeaders: { 'X-Plex-Token': 'token' } },
+                } as unknown as StreamDescriptor),
+        });
+
+        const track = makeTextTrack({
+            id: 'foreign',
+            key: 'https://malicious.example/library/streams/foreign',
+            fetchableViaKey: true,
+        });
+        const url = (coordinator as unknown as {
+            buildSubtitleProbeUrl: (track: SubtitleTrack, context: NonNullable<StreamDescriptor['subtitleContext']>) => URL | null;
+        }).buildSubtitleProbeUrl(track, {
+            serverUri: 'http://example.com',
+            authHeaders: { 'X-Plex-Token': 'token' },
+        });
+
+        expect(url?.toString()).toBe('http://example.com/library/streams/foreign?X-Plex-Token=token');
+    });
+
     it('scopes subtitle probe cache by server identity', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
@@ -496,7 +525,70 @@ describe('PlaybackOptionsCoordinator', () => {
 
             expect(requestBurnInSubtitle).toHaveBeenCalledWith('keyless', expect.any(String));
             expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalled();
+            expect(fetchMock).toHaveBeenCalledTimes(1);
         } finally {
+            jest.useRealTimers();
+            restore();
+        }
+    });
+
+    it('keeps HEAD->GET probe fallback within total timeout budget', async (): Promise<void> => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        jest.useFakeTimers();
+        const dateNowSpy = jest.spyOn(Date, 'now')
+            .mockReturnValueOnce(1_000)
+            .mockReturnValueOnce(1_350);
+        const fetchMock = jest.fn().mockImplementation((_url: string, init?: RequestInit) => {
+            if (fetchMock.mock.calls.length === 1) {
+                return Promise.resolve({ ok: false, status: 501 });
+            }
+            return new Promise((_resolve, reject) => {
+                const signal = init?.signal;
+                if (!signal) return;
+                if (signal.aborted) {
+                    reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
+                    return;
+                }
+                signal.addEventListener('abort', () => {
+                    reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
+                });
+            });
+        });
+        const { restore } = installFetchMock(fetchMock);
+
+        try {
+            const player = createPlayer([makeTextTrack({ id: 'keyless', fetchableViaKey: false })]);
+            const requestBurnInSubtitle = jest.fn();
+
+            const coordinator = new PlaybackOptionsCoordinator({
+                playbackOptionsModalId: 'playback-options',
+                getNavigation: (): null => null,
+                getPlaybackOptionsModal: (): null => null,
+                getVideoPlayer: (): IVideoPlayer => player,
+                getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+                getCurrentStreamDescriptor: (): StreamDescriptor =>
+                    ({
+                        subtitleContext: { serverUri: 'http://example.com', authHeaders: { 'X-Plex-Token': 'token' } },
+                    } as unknown as StreamDescriptor),
+                requestBurnInSubtitle,
+            });
+
+            const viewModel = getViewModel(coordinator);
+            const option = viewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-keyless');
+            option?.onSelect?.();
+
+            await flushPromises();
+            jest.advanceTimersByTime(60);
+            await flushPromises();
+
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(fetchMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({ method: 'HEAD' }));
+            expect(fetchMock.mock.calls[1]?.[1]).toEqual(expect.objectContaining({ method: 'GET' }));
+            expect(requestBurnInSubtitle).toHaveBeenCalledWith('keyless', expect.any(String));
+            expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalled();
+        } finally {
+            dateNowSpy.mockRestore();
             jest.useRealTimers();
             restore();
         }

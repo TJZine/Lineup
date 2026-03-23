@@ -132,6 +132,31 @@ describe('ServerSelectScreen', () => {
         expect(localStorage.getItem(orchestrator.getServerHealthStorageKey())).toBeNull();
     });
 
+    it('renders auth_invalid health state explicitly', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([
+            { id: 'srv-1', name: 'Server One', owned: true },
+        ]);
+
+        localStorage.setItem(
+            orchestrator.getServerHealthStorageKey(),
+            JSON.stringify({
+                'srv-1': { status: 'auth_invalid', testedAt: Date.now() },
+            })
+        );
+
+        const screen = new ServerSelectScreen(container, orchestrator as never);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        const pill = container.querySelector('.server-status-pill') as HTMLElement;
+        expect(pill.textContent).toContain('Auth Invalid');
+        expect(pill.classList.contains('auth-invalid')).toBe(true);
+    });
+
     it('does not mutate persisted selection/health keys during show/refresh when storage is empty', async () => {
         const orchestrator = createOrchestratorStub();
         const container = document.createElement('div');

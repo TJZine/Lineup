@@ -714,12 +714,176 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - standardize nearby auth/trust naming if it reduces future drift without creating extra scope
   - keep an eye on startup-entry bundle shape while touching `PlexServerDiscovery`, `PlexStreamResolver`, and `SubtitleManager`; bundle wins are welcome, but not at the cost of signed-in startup correctness, instant guide open, or first-play reliability
 - Cleanup track:
-  - [ ] `P5-W1` normalize auth/trust-boundary error handling and contracts across auth, discovery, library, player, and playback-options surfaces, including `fetchWithTimeout`, `validateToken()`, parser failure semantics, and shared auth-error codes
-  - [ ] `P5-W2` remove inactive migration or compatibility branches from auth, subtitle, player, and related Plex surfaces after tests prove they are obsolete
-  - [ ] `P5-W3` consolidate token-in-URL usage and origin-trust checks behind one clear policy surface or a very small set of aligned surfaces
-  - [ ] `P5-W4` remove any remaining sibling policy drift that the imported subjective findings flag inside Plex-facing modules
-  - [ ] `P5-EXIT` run the priority-exit review before moving to `P6`
+  - [x] `P5-W1` normalize auth/trust-boundary error handling and contracts across auth, discovery, library, player, and playback-options surfaces, including `fetchWithTimeout`, `validateToken()`, parser failure semantics, and shared auth-error codes (done 2026-03-21)
+    - Evidence note (2026-03-21):
+      - canonical `fetchWithTimeout` now lives in `src/modules/plex/shared/fetchWithTimeout.ts` with locked dual-signal OR semantics; stream-local helper removed.
+      - shared helper usage is normalized across auth (`PlexAuth` home-user + switch + validate paths), stream (`PlexStreamResolver`), playback-options subtitle probe (`PlaybackOptionsCoordinator`), and player subtitle fetch path (`SubtitleManager`) while preserving the existing XHR fallback.
+      - `PlexLibrary` timeout/upstream-abort behavior now routes through `fetchWithTimeoutCore` while preserving existing retry/backoff and response-shape contracts; focused regression coverage added for timeout exhaustion and upstream-abort rethrow behavior.
+      - `validateToken()` preserves timeout=`false` behavior, now throws canonical `PARSE_ERROR` for malformed payloads, and continues to throw `SERVER_UNREACHABLE` on network failures.
+      - follow-up review remediation (2026-03-21): `validateToken()` now rejects structurally invalid `200` JSON payloads (for example `{}` missing `id`/`username`/`email`) with `PARSE_ERROR` before state mutation, preventing `"undefined"` identity persistence.
+      - follow-up review remediation (2026-03-21): playback-options coverage now includes a focused HEAD `501` -> GET fallback regression proving probe fallback stays bounded by `SUBTITLE_PROBE_TOTAL_TIMEOUT_MS` instead of expanding to an additional full timeout window.
+      - profile-select no longer uses magic auth-code strings; comparisons now use `AppErrorCode.AUTH_FAILED|AUTH_REQUIRED|AUTH_INVALID`.
+      - discovery malformed-payload parsing now throws `AppErrorCode.PARSE_ERROR`, with regression asserting single-attempt (no pre-parse retry loop) behavior.
+      - verification run on current code: `npm run typecheck`; `npm test -- src/modules/plex/stream/__tests__/fetchWithTimeout.test.ts`; `npm test -- src/modules/plex/auth/__tests__/PlexAuth.test.ts`; `npm test -- src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts`; `npm test -- src/modules/plex/library/__tests__/PlexLibrary.test.ts`; `npm test -- src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts`; `npm test -- src/modules/player/__tests__/SubtitleManager.test.ts`; `npm run verify`.
+      - verification run for the follow-up remediations: `npm test -- --runInBand src/modules/plex/auth/__tests__/PlexAuth.test.ts src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts`; `npm run verify`.
+  - [x] `P5-W2` remove inactive migration or compatibility branches from auth, subtitle, player, and related Plex surfaces after tests prove they are obsolete (done 2026-03-21)
+    - Evidence note (2026-03-21):
+      - removed lowercase token-header consumer fallbacks from `SubtitleManager`, `PlaybackOptionsCoordinator`, and `PlexStreamResolver`; removed dead `X-Plex-token` query-param deletion in subtitle header-retry URL construction.
+      - preserved active behavior: subtitle fetch retry ladder (`query`/`header`/`query_download`/`header_download`), XHR subtitle fetch fallback, LAN-http subtitle URL derivation, and transcode compat mode behavior.
+      - added canonical-header proof in `PlexAuth` coverage: authenticated `getAuthHeaders()` now explicitly asserts lowercase `x-plex-token` is absent.
+      - freshness/evidence sweeps recorded in this implementer artifact command log: `rg -n "\\?\\?\\s*headers\\['x-plex-token'\\]" src -S`; `rg -n -F "x-plex-token" src -S`; `rg -n "x-plex-token\\s*:" src -S`; `rg -n "\\[['\"]x-plex-token['\"]\\]\\s*=" src -S`; `rg -n "(setRequestHeader|searchParams\\.(set|append)|params\\.(set|append))\\(\\s*['\"]x-plex-token['\"]" src -S`; `rg -n -F "X-Plex-token" src -S`; strict-case producer audit confirmation: `rg -n -s -F "x-plex-token" src`; `rg -n -s "x-plex-token\\s*:" src`; `rg -n -s "\\[['\"]x-plex-token['\"]\\]\\s*=" src`; `rg -n -s "(setRequestHeader|searchParams\\.(set|append)|params\\.(set|append))\\(\\s*['\"]x-plex-token['\"]" src`.
+      - verification run on current code: `npm test -- --runInBand src/modules/plex/auth/__tests__/PlexAuth.test.ts`; `npm test -- --runInBand src/modules/player/__tests__/SubtitleManager.test.ts`; `npm test -- --runInBand src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts`; `npm test -- --runInBand src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts`; `npm run verify`.
+  - [x] `P5-W3` consolidate token-in-URL usage and origin-trust checks behind one clear policy surface or a very small set of aligned surfaces (done 2026-03-21)
+    - Evidence note (2026-03-21):
+      - shared Plex URL policy now classifies origin explicitly before rebasing: same-origin/server-relative Plex keys normalize, while foreign absolute URLs stay token-free and are not rebased just because their pathname starts with `/library/` or `/video/`.
+      - `PlexLibrary.getImageUrl()` preserves resized-image behavior for foreign absolute URLs by routing them through Plex transcode/proxy with the original external URL in the `url=` parameter.
+      - freshness/evidence sweeps recorded before editing: `rg -n "searchParams\\.set\\('X-Plex-Token'" src -S`; `rg -n "applyXPlexQueryParamsFromHeaders\\(" src -S`; `rg -n "buildPlexUrlFromKey\\(" src -S`.
+      - verification run on current code: `npm test -- --runInBand src/modules/plex/shared/__tests__/plexUrl.test.ts src/modules/plex/library/__tests__/PlexLibrary.test.ts src/modules/player/__tests__/SubtitleManager.test.ts src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts src/__tests__/Orchestrator.test.ts`; `npm run verify`; `npm run verify:docs`.
+      - `npm run verify` and `npm run verify:docs` both passed; `verify:docs` reported the same pre-existing untracked plan-path warnings already present on this branch.
+  - [x] `P5-W4` remove any remaining sibling policy drift that the imported subjective findings flag inside Plex-facing modules (done 2026-03-22)
+    - Evidence note (2026-03-22):
+      - live-state freeze and exact-id proof commands run before edits:
+        - `git status --short`
+        - `desloppify status`
+        - `desloppify show review --status open --no-budget --top 200`
+        - `desloppify show review --status open --no-budget --output /tmp/desloppify-review-open.json`
+        - `jq -r '.by_file["."][] | select((.detail.related_files|join("\n"))|test("src/modules/plex|src/modules/player/SubtitleManager\\.ts|src/modules/ui/playback-options/PlaybackOptionsCoordinator\\.ts")) | "\(.id)\t\(.summary)"' /tmp/desloppify-review-open.json`
+      - code-fix outcomes delivered in this slice:
+        - documented `validateToken()` throw contract in `src/modules/plex/auth/interfaces.ts`
+        - made malformed Plex Home user payloads fail loud with `PARSE_ERROR` (`src/modules/plex/auth/helpers.ts`, `src/modules/plex/auth/PlexAuth.ts`) with regression test coverage
+        - removed subtitle transcode dual-path branch and TODO (`src/modules/player/SubtitleManager.ts`) with regression proof in subtitle tests
+        - centralized Orchestrator Plex resource URL/token policy via shared helper (`src/modules/plex/shared/plexUrl.ts` + `src/Orchestrator.ts`) with origin-trust helper tests
+        - fixed non-optional discovery auth-state collapse by distinguishing `401 -> auth_required` and `403 -> auth_invalid` plus persisted severity (`src/modules/plex/discovery/interfaces.ts`, `src/modules/plex/discovery/PlexServerDiscovery.ts`, `src/modules/plex/discovery/ServerSelectionStore.ts`) with regression tests
+        - follow-up review remediation (2026-03-22): server-select UI now renders persisted `auth_invalid` as explicit `Auth Invalid` pill state with focused `ServerSelectScreen` coverage.
+        - follow-up review remediation (2026-03-22): refreshed `docs/api/plex-integration.md` contract snippets for `validateToken()` throw semantics and discovery auth-state return shapes.
+        - replaced unresolved Plex Home endpoint TODO framing with explicit rationale + revisit trigger comment in `src/modules/plex/auth/PlexAuth.ts`
+      - resolution-only outcomes validated against current source and retired:
+        - `review::.::holistic::type_safety::profile_select_error_code_literals::231c7047`
+        - `review::.::holistic::api_surface_coherence::fetch_with_timeout_signature_drift::ba619efd`
+      - exact review IDs resolved in this slice:
+        - `review::.::holistic::type_safety::profile_select_error_code_literals::231c7047`
+        - `review::.::holistic::api_surface_coherence::fetch_with_timeout_signature_drift::ba619efd`
+        - `review::.::holistic::api_surface_coherence::validate_token_error_contract_gap::00c7d53a`
+        - `review::.::holistic::api_surface_coherence::parser_failure_semantics_mismatch::92d692a9`
+        - `review::.::holistic::authorization_consistency::token_query_origin_policy_drift::93e82797`
+        - `review::.::holistic::authorization_consistency::discovery_auth_state_collapse::962c7585`
+        - `review::.::holistic::incomplete_migration::plex_home_endpoint_dual_path_todo::861fbe1f`
+        - `review::.::holistic::incomplete_migration::subtitle_transcode_path_dual_branch::23e3c07c`
+      - post-resolution exact-id recheck confirms each id above now returns `No open issues matching ...` via:
+        - `desloppify show review::.::holistic::type_safety::profile_select_error_code_literals::231c7047 --status open --no-budget`
+        - `desloppify show review::.::holistic::api_surface_coherence::fetch_with_timeout_signature_drift::ba619efd --status open --no-budget`
+        - `desloppify show review::.::holistic::api_surface_coherence::validate_token_error_contract_gap::00c7d53a --status open --no-budget`
+        - `desloppify show review::.::holistic::api_surface_coherence::parser_failure_semantics_mismatch::92d692a9 --status open --no-budget`
+        - `desloppify show review::.::holistic::authorization_consistency::token_query_origin_policy_drift::93e82797 --status open --no-budget`
+        - `desloppify show review::.::holistic::authorization_consistency::discovery_auth_state_collapse::962c7585 --status open --no-budget`
+        - `desloppify show review::.::holistic::incomplete_migration::plex_home_endpoint_dual_path_todo::861fbe1f --status open --no-budget`
+        - `desloppify show review::.::holistic::incomplete_migration::subtitle_transcode_path_dual_branch::23e3c07c --status open --no-budget`
+      - verification run on current code:
+        - `npm test -- --runInBand src/modules/plex/shared/__tests__/plexUrl.test.ts`
+        - `npm test -- --runInBand src/modules/player/__tests__/SubtitleManager.test.ts`
+        - `npm test -- --runInBand src/modules/plex/auth/__tests__/PlexAuth.test.ts`
+        - `npm test -- --runInBand src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts`
+        - `npm run verify`
+        - `npm run verify:docs`
+      - `npm run verify:docs` passed with pre-existing warnings for older untracked plan references already present in the checklist.
+      - deferrals: none (non-optional discovery `401/403` fix landed in this slice).
+    - P5 issue disposition matrix (exact ids from live-state freeze):
+
+      | Review issue id | Current status (after refresh) | Disposition (resolve-only / code-fix / defer-to-P5-EXIT) | Proof command(s) | Proof summary | Owner (if deferred) | Revisit trigger (if deferred) |
+      | --- | --- | --- | --- | --- | --- | --- |
+      | `review::.::holistic::type_safety::profile_select_error_code_literals::231c7047` | `closed` | `resolve-only` | <code>desloppify show review::.::holistic::type_safety::profile_select_error_code_literals::231c7047 --status open --no-budget --code</code> | Current source already used `AppErrorCode` constants in `ProfileSelectScreen`; resolved in living plan and no longer open. | n/a | n/a |
+      | `review::.::holistic::api_surface_coherence::validate_token_error_contract_gap::00c7d53a` | `closed` | `code-fix` | <code>desloppify show review::.::holistic::api_surface_coherence::validate_token_error_contract_gap::00c7d53a --status open --no-budget --code</code> | Added explicit throw contract for `validateToken()` in auth interface docs; focused auth tests and full verify passed. | n/a | n/a |
+      | `review::.::holistic::api_surface_coherence::parser_failure_semantics_mismatch::92d692a9` | `closed` | `code-fix` | <code>desloppify show review::.::holistic::api_surface_coherence::parser_failure_semantics_mismatch::92d692a9 --status open --no-budget --code</code> | Malformed Plex Home payloads now throw `PARSE_ERROR` consistently; regression coverage added in `PlexAuth.test.ts`. | n/a | n/a |
+      | `review::.::holistic::authorization_consistency::token_query_origin_policy_drift::93e82797` | `closed` | `code-fix` | <code>desloppify show review::.::holistic::authorization_consistency::token_query_origin_policy_drift::93e82797 --status open --no-budget --code</code> | `Orchestrator` now delegates to shared `plexUrl` helper for origin-safe tokenized resource URL behavior. | n/a | n/a |
+      | `review::.::holistic::authorization_consistency::discovery_auth_state_collapse::962c7585` | `closed` | `code-fix` | <code>desloppify show review::.::holistic::authorization_consistency::discovery_auth_state_collapse::962c7585 --status open --no-budget --code</code> | Discovery now distinguishes 401/403 and persists `auth_invalid` severity; regression tests cover mapping + persistence, and server-select now surfaces `auth_invalid` explicitly. | n/a | n/a |
+      | `review::.::holistic::api_surface_coherence::fetch_with_timeout_signature_drift::ba619efd` | `closed` | `resolve-only` | <code>desloppify show review::.::holistic::api_surface_coherence::fetch_with_timeout_signature_drift::ba619efd --status open --no-budget --code</code> | Shared helper was already unified; stream-local helper evidence path no longer existed in current source. | n/a | n/a |
+      | `review::.::holistic::incomplete_migration::plex_home_endpoint_dual_path_todo::861fbe1f` | `closed` | `code-fix` | <code>desloppify show review::.::holistic::incomplete_migration::plex_home_endpoint_dual_path_todo::861fbe1f --status open --no-budget --code</code> | Replaced unresolved TODO wording with explicit rationale + revisit trigger while preserving tested v2->v1 fallback behavior. | n/a | n/a |
+      | `review::.::holistic::incomplete_migration::subtitle_transcode_path_dual_branch::23e3c07c` | `closed` | `code-fix` | <code>desloppify show review::.::holistic::incomplete_migration::subtitle_transcode_path_dual_branch::23e3c07c --status open --no-budget --code</code> | Removed part-key transcode branch; canonical path is now metadata key only, with regression assertion in subtitle tests. | n/a | n/a |
+
+  - [x] `P5-EXIT` run the priority-exit review before moving to `P6` (done 2026-03-23)
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 5
+    - Priority-exit review evidence refresh (2026-03-23, integration branch `feature/initial-build`):
+      - freshness/routing checks:
+        - `git branch --show-current` -> `feature/initial-build`
+        - `rg -n "P5-W[1-4]|P5-EXIT|P6-W1|P6-EXIT" ARCHITECTURE_CLEANUP_CHECKLIST.md` -> `P5-W1..P5-W4` closed, `P5-EXIT` open, `P6-W1`/`P6-EXIT` still open and untouched
+        - `npm run plans:check` -> fails on pre-existing serious-plan conformance gaps in older untracked `docs/plans/*` files already present on this branch
+      - authoritative detector/state refresh:
+        - `git status --short`
+        - `desloppify status`
+        - `desloppify show review --status open --no-budget --top 200` -> `54 open issues matching 'review'`; refreshed exact-id checks below confirm no mapped Priority 5 review id reopened
+        - `desloppify show security --status open --no-budget --top 200` -> `No open issues for Security` (exact `P0` gate disposition: `no open P0 security findings`)
+      - stale-state reconciliation outcome:
+        - `.desloppify/plan.json` now reports no `uncommitted_issues` for the mapped P5 resolutions
+        - `.desloppify/state-typescript.json` no longer reports `needs_review_refresh=true` for `type_safety`, `api_surface_coherence`, `authorization_consistency`, or `incomplete_migration`
+        - remaining stale dimensions (`abstraction_fitness`, `dependency_health`, `design_coherence`, `error_consistency`, `logic_clarity`, `package_organization`) are outside the Priority 5 exit gate
+    - Current-code ownership-proof matrix (exact-id rechecks + source audits):
+
+      | Review issue id | Exact-id recheck | Source-audit command(s) | Source-audit outcome | Disposition |
+      | --- | --- | --- | --- | --- |
+      | `review::.::holistic::type_safety::profile_select_error_code_literals::231c7047` | `No open issues matching ...` | `Proof block A` | `ProfileSelectScreen` still uses `AppErrorCode.AUTH_FAILED|AUTH_REQUIRED|AUTH_INVALID`. | `resolved` |
+      | `review::.::holistic::api_surface_coherence::validate_token_error_contract_gap::00c7d53a` | `No open issues matching ...` | `Proof block B` | `validateToken()` throw contract remains explicit in interface docs. | `resolved` |
+      | `review::.::holistic::api_surface_coherence::parser_failure_semantics_mismatch::92d692a9` | `No open issues matching ...` | `Proof block C` | Parse-error and fallback ownership remains explicit (`PARSE_ERROR`, v2->v1 rationale). | `resolved` |
+      | `review::.::holistic::authorization_consistency::token_query_origin_policy_drift::93e82797` | `No open issues matching ...` | `Proof block D` | Token-query and origin classification remain centralized through shared Plex URL helpers. | `resolved` |
+      | `review::.::holistic::authorization_consistency::discovery_auth_state_collapse::962c7585` | `No open issues matching ...` | `Proof block E` | Discovery contract still distinguishes `401 -> auth_required` and `403 -> auth_invalid`. | `resolved` |
+      | `review::.::holistic::api_surface_coherence::fetch_with_timeout_signature_drift::ba619efd` | `No open issues matching ...` | `Proof block F` | Planned path `src/modules/plex/stream/fetchWithTimeout.ts` is absent on current code; stream usage points to shared helper path (`../shared/fetchWithTimeout`). | `resolved` |
+      | `review::.::holistic::incomplete_migration::plex_home_endpoint_dual_path_todo::861fbe1f` | `No open issues matching ...` | `Proof block G` | TODO framing remains retired; rationale + revisit trigger comment is present. | `resolved` |
+      | `review::.::holistic::incomplete_migration::subtitle_transcode_path_dual_branch::23e3c07c` | `No open issues matching ...` | `Proof block H` | `_getSubtitleTranscodePaths()` still returns only `/library/metadata/${itemKey}`. | `resolved` |
+
+      - Exact source-audit proof commands:
+
+        Proof block A:
+        ```bash
+        rg -n "AUTH_FAILED|AUTH_REQUIRED|AUTH_INVALID" src/modules/ui/profile-select/ProfileSelectScreen.ts
+        ```
+
+        Proof block B:
+        ```bash
+        rg -n "validateToken\(|throws|PlexApiError" src/modules/plex/auth/interfaces.ts
+        ```
+
+        Proof block C:
+        ```bash
+        rg -n "parseHomeUsers|PARSE_ERROR|getHomeUsers|TODO\(plex-home-endpoints\)|v1 fallback|v2" src/modules/plex/auth/helpers.ts src/modules/plex/auth/PlexAuth.ts
+        ```
+
+        Proof block D:
+        ```bash
+        rg -n "X-Plex-Token|buildPlexResourceUrl|buildPlexUrlFromKey|applyXPlexQueryParamsFromHeaders|getImageUrl|foreign-origin|origin|searchParams\.set\('X-Plex-Token'" src/Orchestrator.ts src/modules/plex/library/PlexLibrary.ts src/modules/player/SubtitleManager.ts src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts src/modules/plex/shared/plexUrl.ts
+        ```
+
+        Proof block E:
+        ```bash
+        rg -n "auth_required|auth_invalid|401|403" src/modules/plex/discovery/interfaces.ts src/modules/plex/discovery/PlexServerDiscovery.ts src/modules/plex/discovery/ServerSelectionStore.ts
+        ```
+
+        Proof block F:
+        ```bash
+        rg -n "fetchWithTimeout|fetchWithTimeoutCore|from '../shared/fetchWithTimeoutCore'|from './fetchWithTimeout'|from '../stream/fetchWithTimeout'" src/modules/plex/auth/helpers.ts src/modules/plex/stream/fetchWithTimeout.ts src/modules/plex/shared/fetchWithTimeoutCore.ts
+        rg --files src/modules/plex/stream
+        rg -n "fetchWithTimeout|fetchWithTimeoutCore" src/modules/plex/auth/helpers.ts src/modules/plex/stream src/modules/plex/shared/fetchWithTimeoutCore.ts
+        ```
+
+        Proof block G:
+        ```bash
+        rg -n "parseHomeUsers|PARSE_ERROR|getHomeUsers|TODO\(plex-home-endpoints\)|v1 fallback|v2" src/modules/plex/auth/helpers.ts src/modules/plex/auth/PlexAuth.ts
+        ```
+
+        Proof block H:
+        ```bash
+        rg -n "_getSubtitleTranscodePaths|/library/metadata/|partKey" src/modules/player/SubtitleManager.ts
+        ```
+
+    - Imported-map reconciliation note:
+      - `desloppify show review::.::holistic::authorization_consistency::profile_select_magic_auth_codes::fcb924cb --status open --no-budget` now returns `No open issues matching ...`
+      - the broader family query `desloppify show review::.::holistic::authorization_consistency::profile_select_magic_auth_codes --status open --no-budget` still advertises a legacy family-level review item, but current source audit plus the exact-id closeout set above show no remaining Priority 5 production contradiction
+    - Follow-up ownership:
+      - none; all mapped Priority 5 exact ids remain resolved on refreshed evidence, and the imported-map/profile-select contradiction was reconciled to exact-id proof without reopening production work
+    - Refreshed verification evidence:
+      - `npm run verify`
+      - `npm run verify:docs`
+    - Gate decision:
+      - `Priority 5 exit gates pass.`
+      - `Priority 5 may proceed to P6.`
 
 ## Priority 6: Complete Scheduler And Channel Domain Cleanup
 
