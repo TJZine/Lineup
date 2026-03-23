@@ -798,8 +798,44 @@ Do not close a listed work unit while its mapped imported issue still remains un
       | `review::.::holistic::api_surface_coherence::fetch_with_timeout_signature_drift::ba619efd` | `closed` | `resolve-only` | `desloppify show review::.::holistic::api_surface_coherence::fetch_with_timeout_signature_drift::ba619efd --status open --no-budget --code` | Shared helper was already unified; stream-local helper evidence path no longer existed in current source. | n/a | n/a |
       | `review::.::holistic::incomplete_migration::plex_home_endpoint_dual_path_todo::861fbe1f` | `closed` | `code-fix` | `desloppify show review::.::holistic::incomplete_migration::plex_home_endpoint_dual_path_todo::861fbe1f --status open --no-budget --code` | Replaced unresolved TODO wording with explicit rationale + revisit trigger while preserving tested v2->v1 fallback behavior. | n/a | n/a |
       | `review::.::holistic::incomplete_migration::subtitle_transcode_path_dual_branch::23e3c07c` | `closed` | `code-fix` | `desloppify show review::.::holistic::incomplete_migration::subtitle_transcode_path_dual_branch::23e3c07c --status open --no-budget --code` | Removed part-key transcode branch; canonical path is now metadata key only, with regression assertion in subtitle tests. | n/a | n/a |
-  - [ ] `P5-EXIT` run the priority-exit review before moving to `P6`
+  - [x] `P5-EXIT` run the priority-exit review before moving to `P6` (done 2026-03-23)
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 5
+    - Priority-exit review evidence refresh (2026-03-23, integration branch `feature/initial-build`):
+      - freshness/routing checks:
+        - `git branch --show-current` -> `feature/initial-build`
+        - `rg -n "P5-W[1-4]|P5-EXIT|P6-W1|P6-EXIT" ARCHITECTURE_CLEANUP_CHECKLIST.md` -> `P5-W1..P5-W4` closed, `P5-EXIT` open, `P6-W1`/`P6-EXIT` still open and untouched
+        - `npm run plans:check` -> fails on pre-existing serious-plan conformance gaps in older untracked `docs/plans/*` files already present on this branch
+      - authoritative detector/state refresh:
+        - `git status --short`
+        - `desloppify status`
+        - `desloppify show review --status open --no-budget --top 200` -> `54 open issues matching 'review'`; refreshed exact-id checks below confirm no mapped Priority 5 review id reopened
+        - `desloppify show security --status open --no-budget --top 200` -> `No open issues for Security` (exact `P0` gate disposition: `no open P0 security findings`)
+      - stale-state reconciliation outcome:
+        - `.desloppify/plan.json` now reports no `uncommitted_issues` for the mapped P5 resolutions
+        - `.desloppify/state-typescript.json` no longer reports `needs_review_refresh=true` for `type_safety`, `api_surface_coherence`, `authorization_consistency`, or `incomplete_migration`
+        - remaining stale dimensions (`abstraction_fitness`, `dependency_health`, `design_coherence`, `error_consistency`, `logic_clarity`, `package_organization`) are outside the Priority 5 exit gate
+    - Current-code ownership-proof matrix (exact-id rechecks + source audits):
+      | Review issue id | Exact-id recheck | Source-audit command(s) | Source-audit outcome | Disposition |
+      | --- | --- | --- | --- | --- |
+      | `review::.::holistic::type_safety::profile_select_error_code_literals::231c7047` | `No open issues matching ...` | `rg -n "AUTH_FAILED|AUTH_REQUIRED|AUTH_INVALID" src/modules/ui/profile-select/ProfileSelectScreen.ts` | `ProfileSelectScreen` still uses `AppErrorCode.AUTH_FAILED|AUTH_REQUIRED|AUTH_INVALID`. | `resolved` |
+      | `review::.::holistic::api_surface_coherence::validate_token_error_contract_gap::00c7d53a` | `No open issues matching ...` | `rg -n "validateToken\\(|throws|PlexApiError" src/modules/plex/auth/interfaces.ts` | `validateToken()` throw contract remains explicit in interface docs. | `resolved` |
+      | `review::.::holistic::api_surface_coherence::parser_failure_semantics_mismatch::92d692a9` | `No open issues matching ...` | `rg -n "parseHomeUsers|PARSE_ERROR|getHomeUsers|TODO\\(plex-home-endpoints\\)|v1 fallback|v2" src/modules/plex/auth/helpers.ts src/modules/plex/auth/PlexAuth.ts` | Parse-error and fallback ownership remains explicit (`PARSE_ERROR`, v2->v1 rationale). | `resolved` |
+      | `review::.::holistic::authorization_consistency::token_query_origin_policy_drift::93e82797` | `No open issues matching ...` | `rg -n "X-Plex-Token|buildPlexResourceUrl|buildPlexUrlFromKey|applyXPlexQueryParamsFromHeaders|getImageUrl|foreign-origin|origin|searchParams\\.set\\('X-Plex-Token'" src/Orchestrator.ts src/modules/plex/library/PlexLibrary.ts src/modules/player/SubtitleManager.ts src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts src/modules/plex/shared/plexUrl.ts` | Token-query and origin classification remain centralized through shared Plex URL helpers. | `resolved` |
+      | `review::.::holistic::authorization_consistency::discovery_auth_state_collapse::962c7585` | `No open issues matching ...` | `rg -n "auth_required|auth_invalid|401|403" src/modules/plex/discovery/interfaces.ts src/modules/plex/discovery/PlexServerDiscovery.ts src/modules/plex/discovery/ServerSelectionStore.ts` | Discovery contract still distinguishes `401 -> auth_required` and `403 -> auth_invalid`. | `resolved` |
+      | `review::.::holistic::api_surface_coherence::fetch_with_timeout_signature_drift::ba619efd` | `No open issues matching ...` | `rg -n "fetchWithTimeout|fetchWithTimeoutCore|from '../shared/fetchWithTimeoutCore'|from './fetchWithTimeout'|from '../stream/fetchWithTimeout'" src/modules/plex/auth/helpers.ts src/modules/plex/stream/fetchWithTimeout.ts src/modules/plex/shared/fetchWithTimeoutCore.ts`; `rg --files src/modules/plex/stream`; `rg -n "fetchWithTimeout|fetchWithTimeoutCore" src/modules/plex/auth/helpers.ts src/modules/plex/stream src/modules/plex/shared/fetchWithTimeoutCore.ts` | Planned path `src/modules/plex/stream/fetchWithTimeout.ts` is absent on current code; stream usage points to shared helper path (`../shared/fetchWithTimeout`). | `resolved` |
+      | `review::.::holistic::incomplete_migration::plex_home_endpoint_dual_path_todo::861fbe1f` | `No open issues matching ...` | `rg -n "parseHomeUsers|PARSE_ERROR|getHomeUsers|TODO\\(plex-home-endpoints\\)|v1 fallback|v2" src/modules/plex/auth/helpers.ts src/modules/plex/auth/PlexAuth.ts` | TODO framing remains retired; rationale + revisit trigger comment is present. | `resolved` |
+      | `review::.::holistic::incomplete_migration::subtitle_transcode_path_dual_branch::23e3c07c` | `No open issues matching ...` | `rg -n "_getSubtitleTranscodePaths|/library/metadata/|partKey" src/modules/player/SubtitleManager.ts` | `_getSubtitleTranscodePaths()` still returns only `/library/metadata/${itemKey}`. | `resolved` |
+    - Imported-map reconciliation note:
+      - `desloppify show review::.::holistic::authorization_consistency::profile_select_magic_auth_codes::fcb924cb --status open --no-budget` now returns `No open issues matching ...`
+      - the broader family query `desloppify show review::.::holistic::authorization_consistency::profile_select_magic_auth_codes --status open --no-budget` still advertises a legacy family-level review item, but current source audit plus the exact-id closeout set above show no remaining Priority 5 production contradiction
+    - Follow-up ownership:
+      - none; all mapped Priority 5 exact ids remain resolved on refreshed evidence, and the imported-map/profile-select contradiction was reconciled to exact-id proof without reopening production work
+    - Refreshed verification evidence:
+      - `npm run verify`
+      - `npm run verify:docs`
+    - Gate decision:
+      - `Priority 5 exit gates pass.`
+      - `Priority 5 may proceed to P6.`
 
 ## Priority 6: Complete Scheduler And Channel Domain Cleanup
 
