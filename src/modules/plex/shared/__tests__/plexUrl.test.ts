@@ -1,6 +1,6 @@
 /**
  * @fileoverview Unit tests for Plex URL helper functions.
- * @module modules/plex/stream/__tests__/plexUrl
+ * @module modules/plex/shared/__tests__/plexUrl
  */
 
 import {
@@ -157,6 +157,38 @@ describe('shared plexUrl helpers', () => {
             const result = buildPlexResourceUrlWithAuth(null, '/library/metadata/1', {
                 'X-Plex-Token': 'token-1',
             });
+            expect(result).toBeNull();
+        });
+
+        it('builds authenticated URLs for rooted relative metadata paths outside Plex server-key prefixes', () => {
+            const thumb = buildPlexResourceUrlWithAuth(
+                'http://192.168.1.100:32400',
+                '/thumb/path',
+                { 'X-Plex-Token': 'token-1' }
+            );
+            const art = buildPlexResourceUrlWithAuth(
+                'http://192.168.1.100:32400',
+                '/art/1',
+                { 'X-Plex-Token': 'token-1' }
+            );
+            const clearLogo = buildPlexResourceUrlWithAuth(
+                'http://192.168.1.100:32400',
+                '/clearlogo.png',
+                { 'X-Plex-Token': 'token-1' }
+            );
+
+            expect(thumb).toBe('http://192.168.1.100:32400/thumb/path?X-Plex-Token=token-1');
+            expect(art).toBe('http://192.168.1.100:32400/art/1?X-Plex-Token=token-1');
+            expect(clearLogo).toBe('http://192.168.1.100:32400/clearlogo.png?X-Plex-Token=token-1');
+        });
+
+        it('still returns null for malformed non-rooted relative resource strings', () => {
+            const result = buildPlexResourceUrlWithAuth(
+                'http://192.168.1.100:32400',
+                'thumb/path',
+                { 'X-Plex-Token': 'token-1' }
+            );
+
             expect(result).toBeNull();
         });
 

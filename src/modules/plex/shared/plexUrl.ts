@@ -22,6 +22,11 @@ function isAbsoluteHttpUrl(value: string): boolean {
     return /^https?:\/\//i.test(value.trim());
 }
 
+function isRootRelativePath(value: string): boolean {
+    const trimmed = value.trim();
+    return trimmed.startsWith('/') && !isAbsoluteHttpUrl(trimmed);
+}
+
 export function isLikelyPlexServerKeyPath(keyOrUrl: string): boolean {
     if (typeof keyOrUrl !== 'string' || keyOrUrl.trim().length === 0) {
         return false;
@@ -136,7 +141,7 @@ export function buildPlexResourceUrlWithAuth(
     if (classification === 'foreign-absolute') {
         return pathOrUrl;
     }
-    if (classification === 'invalid') {
+    if (classification === 'invalid' && !isRootRelativePath(pathOrUrl)) {
         return null;
     }
 
