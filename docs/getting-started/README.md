@@ -1,25 +1,22 @@
-# Getting Started with Lineup
+# Getting Started
 
-Welcome to Lineup! This guide will help you install the application, connect your Plex server, and start watching your first virtual channels.
+Start here if you are installing Lineup for the first time on an LG webOS TV.
 
-## 📚 What's Inside?
+## Recommended Order
 
-| Guide | Description | Time |
-|-------|-------------|------|
-| [Installation](installation.md) | Step-by-step installation instructions for your LG TV | 15 min |
-| [Quick Start](quick-start.md) | Fast-track guide to get your first channel playing | 5 min |
-| [Your First Channel](first-channel.md) | Detailed tutorial on creating and customizing channels | 10 min |
-| [Troubleshooting](../user-guide/troubleshooting.md) | Solutions for common setup issues | - |
+1. [Installation](installation.md)
+2. [Quick Start](quick-start.md)
+3. [Your First Channel](first-channel.md)
+4. [Troubleshooting](../user-guide/troubleshooting.md) if setup does not go smoothly
 
 ## Prerequisites
 
-Before you begin, ensure you have:
+- an LG Smart TV running webOS 6.0 or later
+- a Plex account
+- a Plex Media Server with content you want to turn into channels
+- a second device for PIN login and, during sideloading, installation tasks
 
-- **LG Smart TV** (2021 model or newer, running webOS 6.0+)
-- **Plex Media Server** with some video content (Movies or TV Shows)
-- **Plex Account** (Free or Plex Pass)
-- **Computer** on the same network (for initial installation)
+## Notes
 
-## Next Step
-
-👉 **[Go to Installation Guide](installation.md)**
+- Lineup is currently installed through LG Developer Mode.
+- If you are working from source instead of an already-built IPK, use [Development Setup](../development/setup.md).

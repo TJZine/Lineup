@@ -1,6 +1,6 @@
 ---
 name: Bug Report
-about: Create a report to help us improve Retune
+about: Create a report to help us improve Lineup
 title: 'bug: '
 labels: ['bug', 'triage']
 assignees: ''
@@ -11,7 +11,7 @@ assignees: ''
 
 - **webOS Version:** [e.g. 6.0, 22, 23]
 - **TV Model:** [e.g. LG C1, G3]
-- **Retune Version:** [e.g. 1.0.0]
+- **Lineup Version:** [e.g. 1.0.0]
 - **Plex Server Version:** [e.g. 1.32.0]
 
 ## Description

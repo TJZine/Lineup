@@ -1,217 +1,98 @@
-<h1 align="center">
-  <br>
-  📺 Lineup
-  <br>
-</h1>
+# Lineup
 
-<p align="center">
-  <strong>Transform your Plex library into live TV channels on LG webOS TVs.</strong>
-</p>
+Lineup turns a Plex library into a remote-friendly live TV experience on LG webOS TVs. Instead of picking something on demand, you build channels and tune into a schedule that keeps moving whether you are watching or not.
 
-<p align="center">
-  <a href="#-features">Features</a> •
-  <a href="#-quick-start">Quick Start</a> •
-  <a href="#-installation">Installation</a> •
-  <a href="#-documentation">Documentation</a> •
-  <a href="#-contributing">Contributing</a>
-</p>
+## Status
 
-<p align="center">
-  <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License: Apache 2.0">
-  <img src="https://img.shields.io/badge/platform-webOS%206.0%2B-brightgreen.svg" alt="Platform: webOS 6.0+">
-  <img src="https://img.shields.io/badge/typescript-5.3-blue.svg" alt="TypeScript 5.3">
-  <img src="https://img.shields.io/badge/node-%5E20.19.0_%7C%7C_%3E%3D22.12.0-green.svg" alt="Node ^20.19.0 || >=22.12.0">
-</p>
+Lineup is currently a sideloaded webOS app. Installation on a TV requires LG Developer Mode until a store release exists.
 
----
+## What You Get
 
-## What is Lineup?
+- live channel surfing backed by Plex libraries, collections, and playlists
+- a TV-style Electronic Program Guide
+- channel setup flows for building one channel or a full lineup
+- subtitle handling for direct, extracted, and burn-in paths
+- webOS remote-first navigation and startup flows
+- persistent channel and settings state between launches
 
-Lineup transforms your Plex media library into simulated **live television channels** on your LG Smart TV. Instead of browsing and selecting content on-demand, you can tune into curated channels that play content on a schedule—just like traditional broadcast TV.
-
-**Perfect for**:
-
-- 🛋️ Passive viewing without decision fatigue
-- 📺 Recreating the "cable TV" experience with your own content
-- 🎬 Themed movie marathons that run themselves
-- 📼 Nostalgic channel surfing through your media library
-
----
-
-## ✨ Features
-
-| Feature | Description |
-|---------|-------------|
-| 📊 **Electronic Program Guide** | Browse channels and schedules in a familiar TV guide grid |
-| 🔀 **Flexible Playback Modes** | Sequential, shuffle, or random playback per channel |
-| ⏱️ **Time-Based Scheduling** | Content plays based on wall-clock time—tune in mid-program like real TV |
-| 🏗️ **Bulk Channel Builder** | Auto-generate hundreds of channels from your libraries in one pass |
-| 🎮 **Full Remote Support** | Navigate with your LG Magic Remote or standard remote |
-| 💬 **Subtitle Support** | Multiple modes: direct, server extraction, and burn-in transcoding |
-| 🎥 **HDR & Dolby Vision** | Smart HDR10 fallback for Dolby Vision MKV content |
-| 💾 **Persistent Channels** | Your channel configurations survive app restarts |
-| 🔐 **Secure Plex Auth** | OAuth PIN-based login—no typing passwords on your TV |
-| 🖥️ **Multi-Server Support** | Connect to any Plex server you have access to |
-
----
-
-## 🚀 Quick Start
-
-Get Lineup running in 5 minutes:
-
-### Prerequisites
-
-- ✅ LG Smart TV (2021 or newer with webOS 6.0+)
-- ✅ Plex Media Server with content
-- ✅ Plex account (free or Plex Pass)
-
-### Steps
-
-1. **Install Lineup** on your LG TV (see [Installation](#-installation))
-2. **Launch the app** and note the PIN code displayed
-3. **Visit** [plex.tv/link](https://plex.tv/link) on any device
-4. **Enter the PIN** to authorize Lineup
-5. **Select your Plex server** when prompted
-6. **Create your first channel** from any library, collection, or show
-7. **Start watching!** 🎉
-
----
-
-## 📦 Installation
-
-### From Source (Developer)
-
-> [!NOTE]
-> End-user installation instructions will be added once the app is published to the LG Content Store.
-
-```bash
-# Clone the repository
-git clone https://github.com/TJZine/Lineup.git
-cd Lineup
-
-# Use the recommended Node version from .nvmrc
-nvm use
-
-# Install dependencies
-npm install
-
-# Build and package for webOS (lean production build)
-npm run package:webos
-
-# Install to your TV (replace 'my-tv' with your device name)
-# Replace <VERSION> with the filename emitted by the packaging step.
-ares-install --device my-tv com.lineup.app_<VERSION>_all.ipk
-
-# Launch the app
-ares-launch --device my-tv com.lineup.app
-```
-
-> [!TIP]
-> See the [Development Quick Reference](dev-workflow.md) for common commands, or [Environment Setup](docs/development/setup.md) for full setup instructions including webOS SDK installation.
-
----
-
-## 📖 Documentation
-
-| Document | Description |
-|----------|-------------|
-| **Getting Started** | |
-| [Quick Start](#-quick-start) | 5-minute setup guide |
-| [Installation](docs/getting-started/installation.md) | Step-by-step TV installation |
-| [Your First Channel](docs/getting-started/first-channel.md) | Create and customize your first channel |
-| **User Guides** | |
-| [Channel Management](docs/user-guide/channels.md) | Creating, editing, and bulk-building channels |
-| [Electronic Program Guide](docs/user-guide/epg.md) | Navigating the program guide |
-| [Subtitles](docs/user-guide/subtitles.md) | Subtitle modes and configuration |
-| [Remote Control Reference](docs/user-guide/remote-keys.md) | Button mappings and shortcuts |
-| [Troubleshooting](docs/user-guide/troubleshooting.md) | Solutions for common problems |
-| [FAQ](FAQ.md) | Frequently asked questions |
-| **Development** | |
-| [Development Quick Reference](dev-workflow.md) | Common dev commands and TV deployment |
-| [Environment Setup](docs/development/setup.md) | Full development environment setup |
-| [Testing Guide](docs/development/testing.md) | Unit, manual, and device testing |
-| [Debugging Guide](docs/development/debugging.md) | Browser and webOS remote debugging |
-| **Technical** | |
-| [Architecture Overview](docs/architecture/README.md) | System design and module breakdown |
-| [Plex API Reference](docs/api/plex-integration.md) | Plex integration interface contracts |
-| [Contributing](CONTRIBUTING.md) | How to contribute to Lineup |
-
----
-
-## 🎮 Remote Control
-
-| Button | Action |
-|--------|--------|
-| ↑ ↓ ← → | Navigate menus and EPG |
-| **OK** | Select / Confirm |
-| **Back** | Go back / Close overlay |
-| **Guide** | Open Electronic Program Guide |
-| **CH +/-** | Change channel |
-| **Play/Pause** | Toggle playback |
-| **Info** | Show current program info |
-
-<details>
-<summary>Keyboard Shortcuts (Browser Development)</summary>
-
-| Key | Remote Equivalent |
-|-----|-------------------|
-| Arrow Keys | D-pad |
-| Enter | OK |
-| Backspace / Escape | Back |
-| G | Guide |
-| Space | Play/Pause |
-| I | Info |
-
-</details>
-
----
-
-## 🔧 Requirements
+## Requirements
 
 | Component | Requirement |
-|-----------|-------------|
-| **TV** | LG Smart TV (2021+ with webOS 6.0 or later) |
-| **Node.js (development)** | `^20.19.0` \|\| `>=22.12.0` (recommended: `nvm use`) |
-| **Plex Server** | Plex Media Server (any recent version) |
-| **Plex Account** | Free or Plex Pass |
-| **Network** | TV and Plex server on same network (or Plex relay enabled) |
+| --- | --- |
+| TV | LG Smart TV running webOS 6.0 or later |
+| Plex | Plex Media Server plus a Plex account |
+| Node.js (development) | `>=22.12.0` |
+| Recommended local Node | `.nvmrc` currently pins `22.19.0` |
 
-### Supported Content
+## Quick Start
 
-- 🎬 Movies
-- 📺 TV Shows (episodes scheduled in order or shuffled)
-- 🎵 Music (audio-only channels)
-- 📁 Plex Collections and Playlists
+### On a TV
 
----
+1. Install the app in Developer Mode. Start with [Installation](docs/getting-started/installation.md).
+2. Launch Lineup and sign in through the Plex PIN flow.
+3. Select a Plex server.
+4. Run the first-time Channel Setup flow to build your first lineup.
+5. Open the guide, surf channels, and refine the lineup in settings.
 
-## 🤝 Contributing
+If you want the shortest path, use [Quick Start](docs/getting-started/quick-start.md).
 
-We welcome contributions! Whether it's:
+### From Source
 
-- 🐛 Bug reports
-- 💡 Feature requests
-- 📝 Documentation improvements
-- 🛠️ Code contributions
+```bash
+git clone https://github.com/TJZine/Lineup.git
+cd Lineup
+nvm use
+npm ci
+npm run verify
+npm run package:webos
+```
 
-Please read our [Contributing Guide](CONTRIBUTING.md) to get started.
+`npm run package:webos` produces the build and packages `dist/` into an installable IPK. For the full environment and deployment flow, see [Development Setup](docs/development/setup.md).
 
----
+## Documentation
 
-## 📜 License
+### Product and User Docs
 
-This project is licensed under the Apache License 2.0—see the [LICENSE](LICENSE) file for details.
+- [Getting Started](docs/getting-started/README.md)
+- [Installation](docs/getting-started/installation.md)
+- [Quick Start](docs/getting-started/quick-start.md)
+- [Your First Channel](docs/getting-started/first-channel.md)
+- [User Guide](docs/user-guide/README.md)
+- [Channel Management](docs/user-guide/channels.md)
+- [EPG Guide](docs/user-guide/epg.md)
+- [Subtitles](docs/user-guide/subtitles.md)
+- [Remote Keys](docs/user-guide/remote-keys.md)
+- [Troubleshooting](docs/user-guide/troubleshooting.md)
+- [FAQ](FAQ.md)
 
----
+### Development and Project Docs
 
-## 🙏 Acknowledgments
+- [Development Quick Reference](dev-workflow.md)
+- [Development Setup](docs/development/setup.md)
+- [Testing Guide](docs/development/testing.md)
+- [Debugging Guide](docs/development/debugging.md)
+- [Architecture Overview](docs/architecture/README.md)
+- [Current Architecture State](docs/architecture/CURRENT_STATE.md)
+- [Plex Integration Reference](docs/api/plex-integration.md)
+- [Contributing](CONTRIBUTING.md)
 
-- [Plex](https://plex.tv) for their excellent media server platform
-- [LG webOS TV](https://webostv.developer.lge.com) developer community
-- Inspired by [PseudoTV](https://github.com/pseudo-tv/PseudoTV) and similar projects
+## Development Commands
 
----
+```bash
+npm run dev
+npm run typecheck
+npm run test:all
+npm run verify
+npm run verify:docs
+npm run package:webos
+```
 
-<p align="center">
-  Made with ❤️ for cord-cutters who miss channel surfing
-</p>
+Use `npm run verify` before landing app changes. Use `npm run verify:docs` for documentation-only changes.
+
+## Contributing
+
+Issues, docs fixes, and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for the repo workflow, verification expectations, and issue/PR guidance.
+
+## License
+
+Lineup is licensed under Apache 2.0. See [LICENSE](LICENSE).
