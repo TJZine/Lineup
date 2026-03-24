@@ -18,33 +18,53 @@ export class SplashScreen {
         this._container.className = 'splash-screen screen';
         this._container.replaceChildren();
 
-        const crtContainer = document.createElement('div');
-        crtContainer.className = 'splash-crt-container';
+        const scene = document.createElement('div');
+        scene.className = 'splash-scene';
+
+        const ambientGlow = document.createElement('div');
+        ambientGlow.className = 'splash-ambient-glow';
 
         const content = document.createElement('div');
         content.className = 'splash-content';
 
-        const title = document.createElement('h1');
-        title.className = 'splash-title screen-title lineup-logo';
-        title.textContent = 'LINE';
-        const accent = document.createElement('span');
-        accent.className = 'lineup-logo-accent';
-        accent.textContent = 'UP';
-        title.appendChild(accent);
+        const brand = document.createElement('div');
+        brand.className = 'splash-brand';
+
+        const logoShell = document.createElement('div');
+        logoShell.className = 'splash-logo-shell';
+
+        const logoMark = document.createElement('img');
+        logoMark.className = 'splash-logo-mark';
+        logoMark.src = '/lineup-logo-mark.png';
+        logoMark.alt = '';
+        logoMark.decoding = 'sync';
+        logoMark.setAttribute('aria-hidden', 'true');
+        logoShell.appendChild(logoMark);
+
+        const wordmark = document.createElement('img');
+        wordmark.className = 'splash-wordmark';
+        wordmark.src = '/lineup-wordmark.png';
+        wordmark.alt = 'Lineup';
+        wordmark.decoding = 'sync';
 
         const subtitle = document.createElement('p');
         subtitle.className = 'splash-subtitle screen-subtitle';
-        subtitle.textContent = 'Warming up Plex, loading channels...';
+        subtitle.textContent = 'Connecting Plex and preparing your lineup.';
 
         const status = document.createElement('div');
         status.className = 'splash-status screen-status';
+        status.setAttribute('role', 'status');
+        status.setAttribute('aria-live', 'polite');
         status.textContent = 'Starting up…';
 
-        content.appendChild(title);
+        brand.appendChild(logoShell);
+        brand.appendChild(wordmark);
+        content.appendChild(brand);
         content.appendChild(subtitle);
         content.appendChild(status);
-        crtContainer.appendChild(content);
-        this._container.appendChild(crtContainer);
+        scene.appendChild(ambientGlow);
+        scene.appendChild(content);
+        this._container.appendChild(scene);
     }
 
     public updateStatus(text: string): void {

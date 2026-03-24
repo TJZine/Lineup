@@ -18,10 +18,16 @@ describe('SplashScreen', () => {
         const screen = new SplashScreen(container);
         expect(screen).toBeInstanceOf(SplashScreen);
         expect(container.className).toContain('splash-screen');
-        expect(container.querySelector('.splash-title')?.textContent).toBe('LINEUP');
-        expect(container.querySelector('.lineup-logo-accent')).not.toBeNull();
-        expect(container.querySelector('.splash-subtitle')?.textContent).toContain('Warming up Plex');
+        const logoMark = container.querySelector('.splash-logo-mark');
+        expect(logoMark).not.toBeNull();
+        expect((logoMark as HTMLImageElement).getAttribute('src')).toBe('/lineup-logo-mark.png');
+        const wordmark = container.querySelector('.splash-wordmark');
+        expect(wordmark).not.toBeNull();
+        expect((wordmark as HTMLImageElement).getAttribute('src')).toBe('/lineup-wordmark.png');
+        expect((wordmark as HTMLImageElement).getAttribute('alt')).toBe('Lineup');
+        expect(container.querySelector('.splash-subtitle')?.textContent).toContain('Connecting Plex');
         expect(container.querySelector('.splash-status')?.textContent).toBe('Starting up…');
+        expect(container.querySelector('.splash-status')?.getAttribute('role')).toBe('status');
     });
 
     it('updates status text when status element exists', () => {
