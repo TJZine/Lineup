@@ -5,11 +5,11 @@ Use this page for day-to-day commands. For the full agent/control-plane workflow
 ## Environment
 
 ```bash
-nvm use
+nvm install
 npm ci
 ```
 
-The repo currently pins Node `22.19.0` in `.nvmrc`. `package.json` requires Node `>=22.12.0`.
+The repo pins the recommended local Node version in `.nvmrc`. `package.json` requires Node `>=22.12.0`.
 
 ## Core Commands
 

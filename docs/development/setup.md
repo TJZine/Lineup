@@ -5,7 +5,7 @@ This guide covers the practical setup for working on Lineup locally and, when ne
 ## Prerequisites
 
 - Node `>=22.12.0`
-- the repo-pinned Node version from `.nvmrc` is recommended (`22.19.0` currently)
+- the repo-pinned Node version from `.nvmrc`
 - npm from the supported Node installation
 - optional for TV deployment: LG webOS CLI tools or a desktop installer such as webOS Dev Manager
 
@@ -14,7 +14,7 @@ This guide covers the practical setup for working on Lineup locally and, when ne
 ```bash
 git clone https://github.com/TJZine/Lineup.git
 cd Lineup
-nvm use
+nvm install
 npm ci
 ```
 

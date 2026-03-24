@@ -17,11 +17,15 @@ Fixes # (issue)
 
 List the commands you ran to verify the change.
 
+### For app/code changes
 - [ ] `npm run verify`
-- [ ] `npm run verify:docs` (docs-only or docs-touched changes)
-- [ ] Manual verification, if applicable:
-  - Platform: webOS Emulator / Physical TV / Browser
-  - Scenario:
+
+### For docs-only changes
+- [ ] `npm run verify:docs`
+
+### Manual verification, if applicable
+- Platform: webOS Emulator / Physical TV / Browser
+- Scenario:
 
 ## Checklist
 

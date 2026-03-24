@@ -35,7 +35,7 @@ export class SplashScreen {
 
         const logoMark = document.createElement('img');
         logoMark.className = 'splash-logo-mark';
-        logoMark.src = '/lineup-logo-mark.png';
+        logoMark.src = './lineup-logo-mark.png';
         logoMark.alt = '';
         logoMark.decoding = 'sync';
         logoMark.setAttribute('aria-hidden', 'true');
@@ -43,7 +43,7 @@ export class SplashScreen {
 
         const wordmark = document.createElement('img');
         wordmark.className = 'splash-wordmark';
-        wordmark.src = '/lineup-wordmark.png';
+        wordmark.src = './lineup-wordmark.png';
         wordmark.alt = 'Lineup';
         wordmark.decoding = 'sync';
 

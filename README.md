@@ -22,7 +22,7 @@ Lineup is currently a sideloaded webOS app. Installation on a TV requires LG Dev
 | TV | LG Smart TV running webOS 6.0 or later |
 | Plex | Plex Media Server plus a Plex account |
 | Node.js (development) | `>=22.12.0` |
-| Recommended local Node | `.nvmrc` currently pins `22.19.0` |
+| Recommended local Node | Use the version pinned in `.nvmrc` |
 
 ## Quick Start
 
@@ -41,7 +41,7 @@ If you want the shortest path, use [Quick Start](docs/getting-started/quick-star
 ```bash
 git clone https://github.com/TJZine/Lineup.git
 cd Lineup
-nvm use
+nvm install
 npm ci
 npm run verify
 npm run package:webos

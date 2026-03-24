@@ -5,7 +5,7 @@ Thanks for contributing. This repo values small, well-verified changes and docum
 ## Before You Start
 
 - use the supported Node runtime: `>=22.12.0`
-- prefer the repo-pinned local version from `.nvmrc` (`22.19.0` at the time of writing)
+- prefer the repo-pinned local version from `.nvmrc`
 - install dependencies from a clean checkout with `npm ci`
 - read [Development Setup](docs/development/setup.md) for environment details
 
@@ -21,7 +21,7 @@ Thanks for contributing. This repo values small, well-verified changes and docum
 ```bash
 git clone https://github.com/TJZine/Lineup.git
 cd Lineup
-nvm use
+nvm install
 npm ci
 ```
 
