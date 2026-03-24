@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./public/lineup-logo-mark.png" alt="Lineup logo mark" width="112">
+  <img src="./public/largeIcon.png" alt="Lineup logo mark" width="112">
 </p>
 
 <p align="center">
