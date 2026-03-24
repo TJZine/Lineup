@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="./public/largeIcon.png" alt="Lineup logo mark" width="112">
+  <img src="./public/lineup-logo-mark.png" alt="Lineup logo mark" width="224">
 </p>
 
 <p align="center">
-  <img src="./public/lineup-wordmark.png" alt="Lineup" width="520">
+  <img src="./public/lineup-wordmark-cropped.png" alt="Lineup" width="520">
 </p>
 
 <p align="center">
