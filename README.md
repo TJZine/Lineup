@@ -1,10 +1,36 @@
-# Lineup
+<p align="center">
+  <img src="./public/lineup-logo-mark.png" alt="Lineup logo mark" width="112">
+</p>
 
-Lineup turns a Plex library into a remote-friendly live TV experience on LG webOS TVs. Instead of picking something on demand, you build channels and tune into a schedule that keeps moving whether you are watching or not.
+<p align="center">
+  <img src="./public/lineup-wordmark.png" alt="Lineup" width="520">
+</p>
+
+<p align="center">
+  Turn a Plex library into a remote-friendly live TV experience on LG webOS.
+</p>
+
+<p align="center">
+  <a href="./docs/getting-started/quick-start.md">Quick Start</a> ·
+  <a href="./docs/getting-started/installation.md">Install on TV</a> ·
+  <a href="./docs/user-guide/README.md">User Guide</a> ·
+  <a href="./CONTRIBUTING.md">Contribute</a>
+</p>
 
 ## Status
 
-Lineup is currently a sideloaded webOS app. Installation on a TV requires LG Developer Mode until a store release exists.
+> [!NOTE]
+> Lineup is currently a sideloaded webOS app. Installation on a TV requires LG Developer Mode until a store release exists.
+
+## Start Here
+
+| Goal | Start Here |
+| --- | --- |
+| Install Lineup on a TV | [Installation](docs/getting-started/installation.md) |
+| Get from launch to first channel fast | [Quick Start](docs/getting-started/quick-start.md) |
+| Build a lineup from source | [Development Setup](docs/development/setup.md) |
+| Learn the core user flows | [User Guide](docs/user-guide/README.md) |
+| Contribute code or docs | [Contributing](CONTRIBUTING.md) |
 
 ## What You Get
 
@@ -53,28 +79,28 @@ npm run package:webos
 
 ### Product and User Docs
 
-- [Getting Started](docs/getting-started/README.md)
-- [Installation](docs/getting-started/installation.md)
-- [Quick Start](docs/getting-started/quick-start.md)
-- [Your First Channel](docs/getting-started/first-channel.md)
-- [User Guide](docs/user-guide/README.md)
-- [Channel Management](docs/user-guide/channels.md)
-- [EPG Guide](docs/user-guide/epg.md)
-- [Subtitles](docs/user-guide/subtitles.md)
-- [Remote Keys](docs/user-guide/remote-keys.md)
-- [Troubleshooting](docs/user-guide/troubleshooting.md)
-- [FAQ](FAQ.md)
+| Guide | Use It For |
+| --- | --- |
+| [Getting Started](docs/getting-started/README.md) | First-time install and first-run flow |
+| [Installation](docs/getting-started/installation.md) | TV sideloading and deployment |
+| [Quick Start](docs/getting-started/quick-start.md) | Fastest path to a working lineup |
+| [Your First Channel](docs/getting-started/first-channel.md) | Building a lineup more intentionally |
+| [User Guide](docs/user-guide/README.md) | Day-to-day usage and configuration |
+| [Troubleshooting](docs/user-guide/troubleshooting.md) | Common setup and playback issues |
+| [FAQ](FAQ.md) | Short answers to common questions |
 
 ### Development and Project Docs
 
-- [Development Quick Reference](dev-workflow.md)
-- [Development Setup](docs/development/setup.md)
-- [Testing Guide](docs/development/testing.md)
-- [Debugging Guide](docs/development/debugging.md)
-- [Architecture Overview](docs/architecture/README.md)
-- [Current Architecture State](docs/architecture/CURRENT_STATE.md)
-- [Plex Integration Reference](docs/api/plex-integration.md)
-- [Contributing](CONTRIBUTING.md)
+| Guide | Use It For |
+| --- | --- |
+| [Development Quick Reference](dev-workflow.md) | Day-to-day commands |
+| [Development Setup](docs/development/setup.md) | Local environment and packaging |
+| [Testing Guide](docs/development/testing.md) | Test scope and verification flow |
+| [Debugging Guide](docs/development/debugging.md) | Emulator, browser, and device debugging |
+| [Architecture Overview](docs/architecture/README.md) | Architecture reading order and references |
+| [Current Architecture State](docs/architecture/CURRENT_STATE.md) | Canonical architecture truth |
+| [Plex Integration Reference](docs/api/plex-integration.md) | Plex contract details |
+| [Contributing](CONTRIBUTING.md) | PR workflow and review expectations |
 
 ## Development Commands
 

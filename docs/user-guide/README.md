@@ -1,8 +1,11 @@
 # Lineup User Guide
 
-← [Back to Main README](../../README.md)
-
 Detailed documentation for using and configuring Lineup.
+
+> [!TIP]
+> If you are still getting Lineup onto a TV or signing in for the first time, start with [Getting Started](../getting-started/README.md) instead of this guide.
+
+## Guide Map
 
 | Topic | Description |
 |-------|-------------|
