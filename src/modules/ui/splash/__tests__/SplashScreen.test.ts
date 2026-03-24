@@ -21,6 +21,8 @@ describe('SplashScreen', () => {
         const logoMark = container.querySelector('.splash-logo-mark');
         expect(logoMark).not.toBeNull();
         expect((logoMark as HTMLImageElement).getAttribute('src')).toBe('./lineup-logo-mark.png');
+        expect((logoMark as HTMLImageElement).getAttribute('alt')).toBe('');
+        expect((logoMark as HTMLImageElement).getAttribute('aria-hidden')).toBe('true');
         const wordmark = container.querySelector('.splash-wordmark');
         expect(wordmark).not.toBeNull();
         expect((wordmark as HTMLImageElement).getAttribute('src')).toBe('./lineup-wordmark.png');

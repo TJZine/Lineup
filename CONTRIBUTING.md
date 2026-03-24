@@ -44,7 +44,7 @@ Recommended branch prefixes:
 
 ## Verification
 
-For most app changes:
+For app/code changes:
 
 ```bash
 npm run verify
