@@ -1,50 +1,95 @@
-# Development Environment Setup
+# Development Setup
 
-This project requires a specific setup to develop for LG webOS.
-
-> [!TIP]
-> This is a summary. For the comprehensive guide, please see **[dev-workflow.md](../../dev-workflow.md)**.
+This guide covers the practical setup for working on Lineup locally and, when needed, deploying builds to a webOS TV.
 
 ## Prerequisites
 
-- **Node.js**: `^20.19.0 || >=22.12.0` (recommended: `nvm use` with project `.nvmrc`)
-- **Package Manager**: npm v9+
-- **LG webOS TV SDK**: Latest version (CLI tools)
-- **VirtualBox 6.x**: Required for the Emulator
+- Node `>=22.12.0`
+- the repo-pinned Node version from `.nvmrc`
+- npm from the supported Node installation
+- optional for TV deployment: LG webOS CLI tools or a desktop installer such as webOS Dev Manager
 
-## Quick Setup
+## Clone and Install
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/TJZine/Lineup.git
 cd Lineup
-
-# 2. Install dependencies
-npm install
-
-# 3. Verify build
-npm run build
+nvm install
+npm ci
 ```
 
-## Running Locally (Browser)
+## Verify the Checkout
 
-Most logic can be tested in a standard browser.
+```bash
+npm run verify
+```
+
+For documentation-only work, `npm run verify:docs` is enough.
+
+## Browser Development
+
+Most UI, logic, and startup flows can be developed in a browser first.
 
 ```bash
 npm run dev
 ```
 
-Navigate to `http://localhost:5173`. Use **Arrow Keys** to simulate the remote.
+Open `http://localhost:5173` and use the keyboard as a remote substitute:
 
-## Running on Emulator
+- arrows: D-pad
+- `Enter`: OK
+- `Backspace` / `Escape`: Back
+- `G`: Guide
+- `Space`: Play/Pause
+- `I`: Info
 
-1. Start the webOS Emulator.
-2. Build and install:
+## webOS Tooling
 
-	   ```bash
-	   npm run build
-	   ares-package dist/
-	   # Replace <VERSION> with the filename emitted by the packaging step.
-	   ares-install --device emulator com.lineup.app_<VERSION>_all.ipk
-	   ares-launch --device emulator com.lineup.app
-	   ```
+If you need device deployment from the command line, install the webOS CLI:
+
+```bash
+npm install -g @webos-tools/cli
+```
+
+Then register a device:
+
+```bash
+ares-setup-device
+```
+
+You can also use webOS Dev Manager if you prefer a desktop UI for install and launch tasks.
+
+## Build and Package for webOS
+
+```bash
+npm run package:webos
+```
+
+This runs the lean production build and packages `dist/` into an IPK.
+
+## Install to a TV
+
+```bash
+ares-install --device my-tv com.lineup.app_<VERSION>_all.ipk
+ares-launch --device my-tv com.lineup.app
+```
+
+Replace:
+
+- `my-tv` with the device name from `ares-setup-device`
+- `<VERSION>` with the package filename emitted by the packaging step
+
+## Remote Debugging
+
+```bash
+ares-inspect --device my-tv --app com.lineup.app --open
+```
+
+For more debugging guidance, see [Debugging Guide](debugging.md).
+
+## Related Docs
+
+- [Development Quick Reference](../../dev-workflow.md)
+- [Testing Guide](testing.md)
+- [Debugging Guide](debugging.md)
+- [Installation Guide](../getting-started/installation.md)

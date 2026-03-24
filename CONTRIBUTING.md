@@ -1,331 +1,102 @@
 # Contributing to Lineup
 
-Thank you for your interest in contributing to Lineup! 🎉
+Thanks for contributing. This repo values small, well-verified changes and documentation that stays aligned with the code.
 
-Whether you're fixing bugs, adding features, improving documentation, or just asking questions, your contributions make this project better for everyone.
+## Before You Start
 
----
-
-## Table of Contents
-
-- [Ways to Contribute](#ways-to-contribute)
-- [Getting Started](#getting-started)
-- [Development Workflow](#development-workflow)
-- [Code Style](#code-style)
-- [Submitting Changes](#submitting-changes)
-- [Issue Guidelines](#issue-guidelines)
-- [Code of Conduct](#code-of-conduct)
-
----
+- use the supported Node runtime: `>=22.12.0`
+- prefer the repo-pinned local version from `.nvmrc`
+- install dependencies from a clean checkout with `npm ci`
+- read [Development Setup](docs/development/setup.md) for environment details
 
 ## Ways to Contribute
 
-| Type | Description |
-|------|-------------|
-| 🐛 **Bug Reports** | Found something broken? [Open an issue](../../issues/new?template=bug_report.md) |
-| 💡 **Feature Requests** | Have an idea? [Suggest a feature](../../issues/new?template=feature_request.md) |
-| 📝 **Documentation** | Improve guides, fix typos, add examples |
-| 🛠️ **Code** | Fix bugs, implement features, refactor |
-| 🧪 **Testing** | Add test coverage, report edge cases |
-| 🌍 **Translations** | Help localize the app (future) |
+- report bugs: https://github.com/TJZine/Lineup/issues/new?template=bug_report.md
+- request features: https://github.com/TJZine/Lineup/issues/new?template=feature_request.md
+- improve docs, onboarding, or troubleshooting guides
+- submit focused code fixes, tests, or refactors
 
----
-
-## Getting Started
-
-### Prerequisites
-
-| Tool | Version | Purpose |
-|------|---------|---------|
-| Node.js | `^20.19.0 \|\| >=22.12.0` | JavaScript runtime |
-| npm | 10+ | Package manager |
-| webOS TV SDK | Latest | TV emulator & deployment tools |
-| Git | 2.x | Version control |
-
-### Setup
+## Local Setup
 
 ```bash
-# 1. Fork the repository on GitHub
-
-# 2. Clone your fork
-git clone https://github.com/YOUR_USERNAME/Lineup.git
+git clone https://github.com/TJZine/Lineup.git
 cd Lineup
-
-# 3. Add upstream remote
-git remote add upstream https://github.com/TJZine/Lineup.git
-
-# 4. Install dependencies
-npm install
-
-# 5. Verify everything works
-npm run build
-npm test
-npm run lint
+nvm install
+npm ci
 ```
-
-> [!TIP]
-> See [dev-workflow.md](dev-workflow.md) for detailed setup instructions, including webOS SDK installation.
-
----
 
 ## Development Workflow
 
-### Branch Naming
+1. Create a focused branch.
+2. Make the smallest change that solves the task.
+3. Update docs if behavior, setup, or workflows changed.
+4. Run the right verification commands.
+5. Open a pull request with a clear summary and evidence.
 
-Use descriptive branch names with prefixes:
+Recommended branch prefixes:
 
-| Prefix | Use Case | Example |
-|--------|----------|---------|
-| `feat/` | New features | `feat/channel-import` |
-| `fix/` | Bug fixes | `fix/epg-scroll-crash` |
-| `docs/` | Documentation | `docs/installation-guide` |
-| `refactor/` | Code refactoring | `refactor/player-module` |
-| `test/` | Test additions | `test/scheduler-edge-cases` |
-| `chore/` | Maintenance | `chore/update-dependencies` |
+- `feat/`
+- `fix/`
+- `docs/`
+- `refactor/`
+- `test/`
+- `chore/`
 
-### Making Changes
+## Verification
 
-```bash
-# 1. Create a feature branch
-git checkout -b feat/my-feature
-
-# 2. Make your changes
-# ... edit files ...
-
-# 3. Run checks
-npm run build      # Vite production build
-npm run lint       # ESLint
-npm test           # Jest tests
-
-# 4. Commit with conventional commits
-git commit -m "feat: add channel import functionality"
-
-# 5. Push to your fork
-git push origin feat/my-feature
-
-# 6. Open a Pull Request
-```
-
-### Commit Message Format
-
-We use [Conventional Commits](https://www.conventionalcommits.org/):
-
-```text
-<type>(<scope>): <description>
-
-[optional body]
-
-[optional footer]
-```
-
-**Types**:
-
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation changes
-- `style`: Code style (formatting, semicolons, etc.)
-- `refactor`: Code refactoring
-- `test`: Adding or updating tests
-- `chore`: Maintenance tasks
-
-**Examples**:
-
-```text
-feat(epg): add 24-hour time format option
-fix(player): resolve audio desync after pause
-docs: update installation instructions for webOS 7
-refactor(scheduler): extract time calculation logic
-```
-
----
-
-## Code Style
-
-### TypeScript Guidelines
-
-- ✅ Use TypeScript strict mode
-- ✅ Prefer explicit types over `any`
-- ✅ Use interfaces for object shapes
-- ✅ Document public APIs with JSDoc comments
-- ❌ Avoid `@ts-ignore` unless absolutely necessary (document why)
-
-### ESLint
-
-We use ESLint 9 with a flat config. Run before committing:
+For app/code changes:
 
 ```bash
-# Check for issues
+npm run verify
+```
+
+For docs-only changes:
+
+```bash
+npm run verify:docs
+```
+
+Useful narrower commands:
+
+```bash
+npm run typecheck
 npm run lint
-
-# Auto-fix issues
-npm run lint:fix
+npm run lint:css
+npm run test:all
 ```
 
-### Testing
+## Pull Requests
 
-- Write tests for new functionality
-- Maintain or improve code coverage
-- Use descriptive test names
+Please include:
 
-```typescript
-// ✅ Good
-describe('ChannelScheduler', () => {
-  it('should calculate correct program position for mid-stream tune-in', () => {
-    // ...
-  });
-});
+- what changed
+- why it changed
+- how you verified it
+- any follow-up work or known limits
 
-// ❌ Avoid
-describe('ChannelScheduler', () => {
-  it('works', () => {
-    // ...
-  });
-});
-```
-
-### Project Structure
+Conventional Commits are preferred:
 
 ```text
-src/
-├── __tests__/         # Integration & policy tests
-├── config/            # App configuration
-├── core/              # Core infrastructure (EventEmitter, etc.)
-├── modules/           # Feature modules
-│   ├── debug/         # Debug tooling
-│   ├── lifecycle/     # App lifecycle management
-│   ├── navigation/    # D-pad and remote handling
-│   ├── player/        # Video playback & subtitles
-│   ├── plex/          # Plex API integration
-│   ├── scheduler/     # Channel scheduling
-│   └── ui/            # User interface components
-├── platform/          # Platform abstraction (webOS, browser)
-├── shared/            # Shared constants & helpers
-├── styles/            # Global CSS
-├── types/             # TypeScript type definitions
-├── utils/             # Shared utilities
-├── App.ts             # Application shell
-├── bootstrap.ts       # Application bootstrap & startup
-├── Orchestrator.ts    # Central state coordinator
-└── index.ts           # Entry point
-
-docs/                  # Documentation
+feat(scope): short description
+fix(scope): short description
+docs: short description
 ```
 
----
+## Documentation Expectations
 
-## Submitting Changes
+If your change affects setup, workflows, or user-visible behavior, update the matching docs in the same pass. Good entry points:
 
-### Pull Request Process
+- [README](README.md)
+- [Development Quick Reference](dev-workflow.md)
+- [Development Setup](docs/development/setup.md)
+- [Getting Started](docs/getting-started/README.md)
+- [User Guide](docs/user-guide/README.md)
 
-1. **Ensure all checks pass**
+## Review Bar
 
-   ```bash
-   npm run build && npm run lint && npm test
-   ```
+Before opening a PR, make sure:
 
-2. **Update documentation** if you changed any APIs or user-facing behavior
-
-3. **Fill out the PR template** completely
-
-4. **Request review** from maintainers
-
-5. **Address feedback** promptly
-
-### PR Checklist
-
-Before submitting, verify:
-
-- [ ] Code compiles without errors (`npm run build`)
-- [ ] All tests pass (`npm test`)
-- [ ] Linting passes (`npm run lint`)
-- [ ] New code has tests (where applicable)
-- [ ] Documentation updated (where applicable)
-- [ ] Commit messages follow conventional format
-- [ ] PR description explains the change
-
-### Review Process
-
-- PRs require at least one approving review
-- CI checks must pass
-- Maintainers may request changes
-- Once approved, maintainers will merge
-
-> [!IMPORTANT]
-> Please be patient during review. Maintainers are volunteers and may take a few days to respond.
-
----
-
-## Issue Guidelines
-
-### Bug Reports
-
-A good bug report includes:
-
-| Field | Description |
-|-------|-------------|
-| **Environment** | webOS version, TV model, app version |
-| **Steps to Reproduce** | Numbered list of actions |
-| **Expected Behavior** | What should happen |
-| **Actual Behavior** | What actually happens |
-| **Logs/Screenshots** | Console output, error messages |
-
-<details>
-<summary>Bug Report Template</summary>
-
-````markdown
-**Environment**
-- webOS Version: 6.x
-- TV Model: LG C1
-- App Version: 1.0.0
-
-**Steps to Reproduce**
-1. Open the EPG
-2. Navigate to channel 5
-3. Press OK to tune
-4. Wait 30 seconds
-
-**Expected Behavior**
-Playback should start within 3 seconds.
-
-**Actual Behavior**
-App freezes for 10 seconds, then shows black screen.
-
-**Console Logs**
-```text
-[Player] Error: MEDIA_NOT_SUPPORTED
-```
-````
-
-</details>
-
-### Feature Requests
-
-A good feature request includes:
-
-- **Problem**: What pain point are you addressing?
-- **Solution**: Your proposed solution
-- **Alternatives**: Other approaches you considered
-- **Context**: Any additional information or mockups
-
----
-
-## Code of Conduct
-
-Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
-
-**TL;DR**: Be respectful, be inclusive, focus on the project.
-
----
-
-## Questions?
-
-> [!TIP]
-> For general questions and discussions, **GitHub Discussions is the best place to start**. Save issues for confirmed bugs and well-defined feature requests.
-
-- 💬 [GitHub Discussions](../../discussions) for questions and ideas
-- 🐛 [Issue Tracker](../../issues) for bugs and features
-- 📧 For sensitive matters, contact maintainers directly
-
----
-
-Thank you for contributing to Lineup! 🙏
+- the change is scoped and understandable
+- verification commands are listed in the PR
+- docs and code do not contradict each other
+- no unrelated generated or local-only files are mixed into the diff

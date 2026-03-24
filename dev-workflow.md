@@ -1,63 +1,54 @@
-# Development Workflow
+# Development Quick Reference
 
-Quick reference for common development tasks. For the full multi-agent workflow, see [`docs/AGENTIC_DEV_WORKFLOW.md`](docs/AGENTIC_DEV_WORKFLOW.md).
+Use this page for day-to-day commands. For the full agent/control-plane workflow, see [docs/AGENTIC_DEV_WORKFLOW.md](docs/AGENTIC_DEV_WORKFLOW.md).
 
----
-
-## Quick Start
+## Environment
 
 ```bash
-# Install dependencies
-npm install
+nvm install
+npm ci
+```
 
-# Run development server (browser)
+The repo pins the recommended local Node version in `.nvmrc`. `package.json` requires Node `>=22.12.0`.
+
+## Core Commands
+
+```bash
 npm run dev
-
-# Run all verification checks
+npm run typecheck
+npm run lint
+npm run lint:css
+npm run test:all
 npm run verify
+npm run verify:docs
+```
 
-# Build for webOS
+## Packaging for webOS
+
+```bash
 npm run package:webos
 ```
 
-## Verification Commands
+That command builds the lean production bundle and packages `dist/` into an installable IPK.
 
-| Command | Purpose |
-|---------|---------|
-| `npm run typecheck` | TypeScript type checking |
-| `npm run lint` | ESLint code quality |
-| `npm test` | Jest unit tests |
-| `npm run build` | Production build |
-| `npm run verify` | All checks combined |
-
-> [!TIP]
-> See [Development Setup](docs/development/setup.md) for environment configuration and [Testing Guide](docs/development/testing.md) for testing strategies.
-
-## Deploying to TV
+## Install to a TV
 
 ```bash
-# 1. Build the application
-npm run build
-
-# 2. Package for webOS
-ares-package dist/
-
-# 3. Install to your TV
-# Replace <VERSION> with the filename emitted by the packaging step.
 ares-install --device my-tv com.lineup.app_<VERSION>_all.ipk
-
-# 4. Launch
 ares-launch --device my-tv com.lineup.app
 ```
 
-> [!NOTE]
-> Replace `my-tv` with your device name from `ares-setup-device`.
+Replace `my-tv` with the device name you configured in `ares-setup-device`. Replace `<VERSION>` with the actual package filename that `ares-package` emitted.
 
 ## Remote Debugging
 
 ```bash
-# Open Chrome DevTools for your TV
 ares-inspect --device my-tv --app com.lineup.app --open
 ```
 
-See [Debugging Guide](docs/development/debugging.md) for troubleshooting tips.
+## Useful References
+
+- [Development Setup](docs/development/setup.md)
+- [Testing Guide](docs/development/testing.md)
+- [Debugging Guide](docs/development/debugging.md)
+- [Getting Started](docs/getting-started/README.md)
