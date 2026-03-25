@@ -911,7 +911,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - simplify small adjacent helpers if the primary cleanup makes them redundant
   - prefer extracting channel-setup planning/build weight and other startup-resident scheduler/channel helpers out of the cold-start graph when it falls out naturally from the ownership cleanup, before reaching for another broad `Orchestrator.ts` split
 - Cleanup track:
-  - [ ] `P6-W1` remove review-history / issue-round comments and replace any remaining needed context with durable code comments or docs
+  - [x] `P6-W1` remove review-history / issue-round comments and replace any remaining needed context with durable code comments or docs (done 2026-03-25; removed Issue/Round comment markers in ChannelManager + ContentResolver)
   - [ ] `P6-W2` fix scheduler/channel contract mismatches and mutable read APIs in `ChannelManager` and `ChannelScheduler`, then extract or simplify any remaining responsibility clusters that still blur domain, retry, and persistence concerns
   - [ ] `P6-W3` reduce utility-layer catch-all drift where feature-specific helpers belong closer to their owners
   - [ ] `P6-W4` run a final scheduler-domain cleanup pass to remove transitional helpers, duplicate conventions, namespace-export drift, and stale abstraction residue
