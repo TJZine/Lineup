@@ -122,7 +122,7 @@ const buildScheduleConfig = (
     channelId: channel.id,
     anchorTime: referenceTimeMs,
     content: items,
-    playbackMode: channel.playbackMode,
+    playbackMode: channel.playbackMode === 'random' ? 'shuffle' : channel.playbackMode,
     shuffleSeed: channel.shuffleSeed ?? 0,
     loopSchedule: true,
 });

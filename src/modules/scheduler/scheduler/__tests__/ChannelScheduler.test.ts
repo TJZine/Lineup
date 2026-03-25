@@ -291,6 +291,57 @@ describe('ChannelScheduler', () => {
                 scheduler.getScheduleWindow(anchorTime + 1000, anchorTime)
             ).toThrow(SCHEDULER_ERROR_MESSAGES.INVALID_TIME_RANGE);
         });
+
+        it('returns a fresh programs array when output buffer is not provided', () => {
+            const anchorTime = 1000000;
+            const config: ScheduleConfig = {
+                channelId: 'c1',
+                anchorTime,
+                content,
+                playbackMode: 'sequential',
+                shuffleSeed: 1,
+                loopSchedule: true,
+            };
+            scheduler.loadChannel(config);
+
+            const first = scheduler.getScheduleWindow(anchorTime, anchorTime + TOTAL_DURATION);
+            const second = scheduler.getScheduleWindow(anchorTime, anchorTime + TOTAL_DURATION);
+
+            expect(first.programs).not.toBe(second.programs);
+            expect(first.programs.map((program) => program.item.ratingKey)).toEqual(['a', 'b']);
+            expect(second.programs.map((program) => program.item.ratingKey)).toEqual(['a', 'b']);
+        });
+
+        it('reuses provided output buffer by clearing and repopulating it', () => {
+            const anchorTime = 1000000;
+            const config: ScheduleConfig = {
+                channelId: 'c1',
+                anchorTime,
+                content,
+                playbackMode: 'sequential',
+                shuffleSeed: 1,
+                loopSchedule: true,
+            };
+            scheduler.loadChannel(config);
+
+            const output: ReturnType<typeof scheduler.getUpcoming> = [];
+            output.push({
+                item: content[0]!,
+                scheduledStartTime: anchorTime - 1000,
+                scheduledEndTime: anchorTime,
+                elapsedMs: 0,
+                remainingMs: 0,
+                scheduleIndex: 0,
+                loopNumber: 0,
+                streamDescriptor: null,
+                isCurrent: false,
+            });
+
+            const window = scheduler.getScheduleWindow(anchorTime, anchorTime + TOTAL_DURATION, output);
+            expect(window.programs).toBe(output);
+            expect(window.programs).toHaveLength(2);
+            expect(window.programs.map((program) => program.item.ratingKey)).toEqual(['a', 'b']);
+        });
     });
 
     describe('getUpcoming', () => {
