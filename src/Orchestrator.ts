@@ -1603,19 +1603,22 @@ export class AppOrchestrator implements IAppOrchestrator {
         const dayKey = this._getLocalDayKey(dayStart);
         const phaseOffsetMs = this._getPhaseOffsetMs(channel, items);
 
-        const baseSeed =
+        const defaultSeed =
             typeof channel.shuffleSeed === 'number' && Number.isFinite(channel.shuffleSeed)
                 ? channel.shuffleSeed
                 : Date.now();
-
-        const isShuffleLike = channel.playbackMode === 'shuffle' || channel.playbackMode === 'block';
+        const isRandomPlayback = channel.playbackMode === 'random';
+        const playbackMode: ScheduleConfig['playbackMode'] =
+            channel.playbackMode === 'random' ? 'shuffle' : channel.playbackMode;
+        const baseSeed = isRandomPlayback ? ((defaultSeed ^ dayStart) >>> 0) : defaultSeed;
+        const isShuffleLike = playbackMode === 'shuffle' || playbackMode === 'block';
         const effectiveSeed = isShuffleLike ? (baseSeed ^ dayKey) >>> 0 : baseSeed;
 
         const scheduleConfig: ScheduleConfig = {
             channelId: channel.id,
             anchorTime: dayStart - phaseOffsetMs,
             content: items,
-            playbackMode: channel.playbackMode,
+            playbackMode,
             shuffleSeed: effectiveSeed,
             loopSchedule: true,
         };

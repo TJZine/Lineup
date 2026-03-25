@@ -72,10 +72,6 @@ export class ChannelScheduler implements IChannelScheduler {
     private _nextProgram: ScheduledProgram | null = null;
     private _lastSyncTime = 0;
 
-    // Reusable buffers for array-returning methods (avoids allocation per query)
-    private readonly _windowBuffer: ScheduledProgram[] = [];
-    private readonly _upcomingBuffer: ScheduledProgram[] = [];
-
     private _syncTimerState: SyncTimerState = {
         expectedNextTick: 0,
         maxDriftMs: MAX_DRIFT_MS,
@@ -232,28 +228,31 @@ export class ChannelScheduler implements IChannelScheduler {
 
     /**
      * Get all programs within a time window.
-     * Uses internal buffer to avoid allocation per call.
+     * Uses caller-provided output buffer when supplied.
      * @param startTime - Window start (Unix ms)
      * @param endTime - Window end (Unix ms)
-     * @returns Schedule window (programs array is reused - copy if storing)
-     * @remarks The returned programs array is an internal buffer. Subsequent
-     * calls will mutate this array. Clone if you need to persist the data.
+     * @param output - Optional pre-allocated output array (cleared before use)
+     * @returns Schedule window with caller output or a fresh per-call array
      * @throws Error if no channel is loaded or invalid range
      */
-    public getScheduleWindow(startTime: number, endTime: number): ScheduleWindow {
+    public getScheduleWindow(
+        startTime: number,
+        endTime: number,
+        output?: ScheduledProgram[]
+    ): ScheduleWindow {
         this._ensureLoaded();
 
         if (startTime >= endTime) {
             throw new Error(SCHEDULER_ERROR_MESSAGES.INVALID_TIME_RANGE);
         }
 
-        // Reuse internal buffer to avoid per-call allocation
+        const programsOutput = output ?? [];
         const programs = generateScheduleWindow(
             startTime,
             endTime,
             this._index!,
             this._config!.anchorTime,
-            this._windowBuffer
+            programsOutput
         );
 
         return {
@@ -265,17 +264,15 @@ export class ChannelScheduler implements IChannelScheduler {
 
     /**
      * Get the next N upcoming programs.
-     * Uses internal buffer to avoid allocation per call.
      * @param count - Number of programs to return
      * @param output - Optional pre-allocated output array (will be cleared before use)
-     * @returns Array of upcoming programs (array may be reused internally)
+     * @returns Array of upcoming programs (caller output or fresh per-call array)
      * @throws Error if no channel is loaded
      */
     public getUpcoming(count: number, output?: ScheduledProgram[]): ScheduledProgram[] {
         this._ensureLoaded();
 
-        // Use provided output or internal buffer to avoid per-call allocation
-        const programs = output ?? this._upcomingBuffer;
+        const programs = output ?? [];
         programs.length = 0; // Clear existing contents
 
         if (count <= 0) {

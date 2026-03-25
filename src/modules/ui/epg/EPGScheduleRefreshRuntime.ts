@@ -210,12 +210,11 @@ export class EPGScheduleRefreshRuntime {
             };
         }
 
-        const resolveItemsForSchedule = (channelManager as Partial<IChannelManager>).resolveChannelItemsForSchedule;
         let orderedItems: ResolvedChannelContent['items'];
         try {
-            orderedItems = typeof resolveItemsForSchedule === 'function'
-                ? await resolveItemsForSchedule.call(channelManager, request.channelId, { signal: signal ?? null })
-                : (await channelManager.resolveChannelContent(request.channelId, { signal: signal ?? null })).items;
+            orderedItems = await channelManager.resolveChannelItemsForSchedule(request.channelId, {
+                signal: signal ?? null,
+            });
         } catch (error: unknown) {
             if (isAbortLikeError(error, signal ?? undefined)) {
                 return null;

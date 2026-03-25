@@ -135,7 +135,11 @@ export interface IChannelScheduler {
      * @returns Schedule window with programs
      * @throws Error if no channel is loaded or invalid range
      */
-    getScheduleWindow(startTime: number, endTime: number): ScheduleWindow;
+    getScheduleWindow(
+        startTime: number,
+        endTime: number,
+        output?: ScheduledProgram[]
+    ): ScheduleWindow;
 
     /**
      * Get the next N upcoming programs.
@@ -143,7 +147,7 @@ export interface IChannelScheduler {
      * @returns Array of upcoming programs
      * @throws Error if no channel is loaded
      */
-    getUpcoming(count: number): ScheduledProgram[];
+    getUpcoming(count: number, output?: ScheduledProgram[]): ScheduledProgram[];
 
     // ============================================
     // Playback Sync

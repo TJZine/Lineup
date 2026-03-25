@@ -11,7 +11,7 @@ import type {
     ScheduledProgram,
     ScheduleIndex,
     ResolvedContentItem,
-    PlaybackMode,
+    SchedulerPlaybackMode,
 } from './types';
 import { SCHEDULER_ERROR_MESSAGES } from './constants';
 import { applyBlockPlaybackMode } from '../shared/blockPlayback';
@@ -238,7 +238,7 @@ export function calculatePreviousProgram(
  */
 export function applyPlaybackMode(
     items: ResolvedContentItem[],
-    mode: PlaybackMode,
+    mode: SchedulerPlaybackMode,
     seed: number,
     shuffler: IShuffleGenerator,
     blockSize?: number
@@ -276,12 +276,6 @@ export function applyPlaybackMode(
                 scheduledIndex: index,
             }));
         }
-
-        case 'random':
-            // Fix #2: Random mode must be resolved upstream
-            // The scheduler is deterministic - upstream must generate a fresh seed
-            // and pass playbackMode: 'shuffle' instead
-            throw new Error(SCHEDULER_ERROR_MESSAGES.RANDOM_MODE_UNSUPPORTED);
 
         default:
             // Fallback to sequential
