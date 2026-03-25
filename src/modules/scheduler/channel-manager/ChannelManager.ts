@@ -626,13 +626,12 @@ export class ChannelManager implements IChannelManager {
         // Check cache
         const cached = this._state.resolvedContent.get(channelId);
         if (cached && !this._isStale(cached)) {
-            // Issue 2: Return cached content with cache status
-            return {
-                ...cached,
+            // Return cloned content so callers cannot mutate internal cache state.
+            return this._cloneResolvedContent(cached, {
                 fromCache: true,
                 isStale: false,
                 cacheReason: 'fresh',
-            };
+            });
         }
 
         return this._resolveContentInternal(channel, options);
@@ -679,10 +678,11 @@ export class ChannelManager implements IChannelManager {
 
         const cached = this._state.resolvedContent.get(channelId);
         if (cached && !this._isStale(cached)) {
-            return cached.items;
+            return this._cloneResolvedItems(cached.items);
         }
 
-        return this._resolveFilteredItems(channel, options);
+        const items = await this._resolveFilteredItems(channel, options);
+        return this._cloneResolvedItems(items);
     }
 
 
@@ -1138,6 +1138,50 @@ export class ChannelManager implements IChannelManager {
     // Private Methods
     // ============================================
 
+    private _cloneResolvedItem(item: ResolvedContentItem): ResolvedContentItem {
+        const cloned: ResolvedContentItem = { ...item };
+        if (item.genres) {
+            cloned.genres = [...item.genres];
+        }
+        if (item.directors) {
+            cloned.directors = [...item.directors];
+        }
+        if (item.mediaInfo) {
+            cloned.mediaInfo = { ...item.mediaInfo };
+        }
+        return {
+            ...cloned,
+        };
+    }
+
+    private _cloneResolvedItems(items: ResolvedContentItem[]): ResolvedContentItem[] {
+        return items.map((item) => this._cloneResolvedItem(item));
+    }
+
+    private _cloneResolvedContent(
+        content: ResolvedChannelContent,
+        overrides?: Partial<Pick<ResolvedChannelContent, 'fromCache' | 'isStale' | 'cacheReason'>>
+    ): ResolvedChannelContent {
+        const cloned: ResolvedChannelContent = {
+            ...content,
+            items: this._cloneResolvedItems(content.items),
+            orderedItems: this._cloneResolvedItems(content.orderedItems),
+        };
+        const fromCache = overrides?.fromCache ?? content.fromCache;
+        const isStale = overrides?.isStale ?? content.isStale;
+        const cacheReason = overrides?.cacheReason ?? content.cacheReason;
+        if (fromCache !== undefined) {
+            cloned.fromCache = fromCache;
+        }
+        if (isStale !== undefined) {
+            cloned.isStale = isStale;
+        }
+        if (cacheReason !== undefined) {
+            cloned.cacheReason = cacheReason;
+        }
+        return cloned;
+    }
+
     private async _resolveFilteredItems(
         channel: ChannelConfig,
         options?: { signal?: AbortSignal | null }
@@ -1239,7 +1283,7 @@ export class ChannelManager implements IChannelManager {
 
             this._queueSave();
 
-            return result;
+            return this._cloneResolvedContent(result);
         } catch (error) {
             // Cache fallback is allowed only for network errors and CONTENT_UNAVAILABLE (separate branch below).
             // SCHEDULER_EMPTY_CHANNEL and other non-network errors should propagate
@@ -1255,12 +1299,11 @@ export class ChannelManager implements IChannelManager {
                     summarizeErrorForLog(error)
                 );
                 this._queueRetry(channel.id);
-                return {
-                    ...cached,
+                return this._cloneResolvedContent(cached, {
                     fromCache: true,
                     isStale,
                     cacheReason: 'network_error',
-                };
+                });
             }
 
             // Per spec: library/collection deleted should return stale cache
@@ -1269,12 +1312,11 @@ export class ChannelManager implements IChannelManager {
                     `Content unavailable for channel ${channel.id}, using stale cache`,
                     summarizeErrorForLog(error)
                 );
-                return {
-                    ...cached,
+                return this._cloneResolvedContent(cached, {
                     fromCache: true,
                     isStale: true,
                     cacheReason: 'content_unavailable',
-                };
+                });
             }
 
             // Access denied (403): profile lacks library permission.
