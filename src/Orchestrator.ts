@@ -130,6 +130,7 @@ import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';
 import { SubtitlePreferencesStore } from './modules/settings/SubtitlePreferencesStore';
 import type { IDisposable } from './utils/interfaces';
 import { createMulberry32 } from './utils/prng';
+import { fnv1a32Uint } from './utils/hash';
 import {
     readStoredBoolean,
     safeLocalStorageGet,
@@ -1603,14 +1604,18 @@ export class AppOrchestrator implements IAppOrchestrator {
         const dayKey = this._getLocalDayKey(dayStart);
         const phaseOffsetMs = this._getPhaseOffsetMs(channel, items);
 
-        const defaultSeed =
-            typeof channel.shuffleSeed === 'number' && Number.isFinite(channel.shuffleSeed)
-                ? channel.shuffleSeed
-                : Date.now();
+        const hasNumericShuffleSeed =
+            typeof channel.shuffleSeed === 'number' && Number.isFinite(channel.shuffleSeed);
+        const configuredShuffleSeed = hasNumericShuffleSeed ? channel.shuffleSeed : null;
+        const defaultSeed = configuredShuffleSeed ?? Date.now();
         const isRandomPlayback = channel.playbackMode === 'random';
         const playbackMode: ScheduleConfig['playbackMode'] =
             channel.playbackMode === 'random' ? 'shuffle' : channel.playbackMode;
-        const baseSeed = isRandomPlayback ? ((defaultSeed ^ dayStart) >>> 0) : defaultSeed;
+        const randomDailyFallbackSeed = fnv1a32Uint(`${channel.id}:${dayStart}`);
+        const randomBaseSeed = configuredShuffleSeed !== null
+            ? ((defaultSeed ^ dayStart) >>> 0)
+            : randomDailyFallbackSeed;
+        const baseSeed = isRandomPlayback ? randomBaseSeed : defaultSeed;
         const isShuffleLike = playbackMode === 'shuffle' || playbackMode === 'block';
         const effectiveSeed = isShuffleLike ? (baseSeed ^ dayKey) >>> 0 : baseSeed;
 
