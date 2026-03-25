@@ -17,7 +17,7 @@ import type {
 } from '../types';
 import { PLEX_MEDIA_TYPES } from '../../../plex/library/constants';
 import type { PlexMediaFile, PlexStream } from '../../../plex/library';
-import { shuffleWithSeed } from '../../../../utils/prng';
+import { shuffleWithSeed } from '../../shared/prng';
 
 // ============================================
 // Mock Setup

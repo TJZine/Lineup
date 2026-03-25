@@ -6,7 +6,7 @@
  */
 
 import type { IShuffleGenerator } from './interfaces';
-import { createMulberry32 } from '../../../utils/prng';
+import { createMulberry32 } from '../shared/prng';
 
 // ============================================
 // ShuffleGenerator Class

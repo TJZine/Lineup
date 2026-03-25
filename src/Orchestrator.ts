@@ -129,7 +129,7 @@ import { NowPlayingDisplayStore } from './modules/settings/NowPlayingDisplayStor
 import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';
 import { SubtitlePreferencesStore } from './modules/settings/SubtitlePreferencesStore';
 import type { IDisposable } from './utils/interfaces';
-import { createMulberry32 } from './utils/prng';
+import { createMulberry32 } from './modules/scheduler/shared/prng';
 import { fnv1a32Uint } from './utils/hash';
 import {
     readStoredBoolean,

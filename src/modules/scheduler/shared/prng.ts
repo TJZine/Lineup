@@ -1,6 +1,6 @@
 /**
- * @fileoverview Shared PRNG utilities for deterministic operations.
- * @module utils/prng
+ * @fileoverview Scheduler-owned PRNG utilities for deterministic operations.
+ * @module modules/scheduler/shared/prng
  * @version 1.0.0
  */
 

@@ -20,7 +20,7 @@ import type {
     PlaybackMode,
     PlexMediaType,
 } from './types';
-import { shuffleWithSeed } from '../../../utils/prng';
+import { shuffleWithSeed } from '../shared/prng';
 import { applyBlockPlaybackMode } from '../shared/blockPlayback';
 import { PLEX_MEDIA_TYPES } from '../../plex/library/constants';
 import { detectHdrLabel } from '../../plex/stream/hdr';
