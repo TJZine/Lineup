@@ -986,7 +986,6 @@ export class ContentResolver {
                 } else if (filter.operator === 'eq') {
                     return genres.some((g) => g.toLowerCase() === String(filter.value).toLowerCase());
                 } else if (filter.operator === 'neq') {
-                    // Issue 3 (Round 2): neq means genre must NOT contain the value
                     return !genres.some((g) => g.toLowerCase() === String(filter.value).toLowerCase());
                 }
                 return true;

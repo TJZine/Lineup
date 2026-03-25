@@ -82,7 +82,6 @@ function getErrorCode(error: unknown): AppErrorCode | null {
 
 /**
  * Check if error is a network-related error that allows cache fallback.
- * Issue 1 (Round 3): Detect AppErrorCode on any error type, not just ChannelError.
  */
 function isNetworkError(error: unknown): boolean {
     const code = getErrorCode(error);
@@ -178,7 +177,7 @@ export class ChannelManager implements IChannelManager {
 
     private _state: ChannelManagerState;
     private readonly _reportedPersistenceFailures = new WeakSet<object>();
-    /** Issue 3 (Round 3): Pending retry queue for network errors */
+    /** Pending retry timers keyed by channel id. */
     private readonly _pendingRetries: Map<string, ReturnType<typeof setTimeout>> = new Map();
     private static readonly RETRY_DELAY_MS = 30000; // 30 seconds
 
@@ -1145,7 +1144,7 @@ export class ChannelManager implements IChannelManager {
     ): Promise<ResolvedContentItem[]> {
         const rawItems = await this._contentResolver.resolveSource(channel.contentSource, options);
 
-        // Issue 1 (Round 4): If source itself returns empty, it's CONTENT_UNAVAILABLE (library/collection deleted)
+        // If source itself returns empty, it's CONTENT_UNAVAILABLE (library/collection deleted)
         // This is different from filtering removing all items
         if (rawItems.length === 0) {
             throw new ChannelError(
@@ -1183,7 +1182,7 @@ export class ChannelManager implements IChannelManager {
             });
         }
 
-        // Issue 1 (Round 4): If content exists but filters removed all, it's SCHEDULER_EMPTY_CHANNEL
+        // If content exists but filters removed all, it's SCHEDULER_EMPTY_CHANNEL
         if (items.length === 0) {
             throw new ChannelError(
                 AppErrorCode.SCHEDULER_EMPTY_CHANNEL,
@@ -1242,21 +1241,19 @@ export class ChannelManager implements IChannelManager {
 
             return result;
         } catch (error) {
-            // Issue 2 (Round 2): Only fallback to cache for network errors
+            // Cache fallback is allowed only for network errors and CONTENT_UNAVAILABLE (separate branch below).
             // SCHEDULER_EMPTY_CHANNEL and other non-network errors should propagate
             if (error instanceof ChannelError && error.code === AppErrorCode.SCHEDULER_EMPTY_CHANNEL) {
                 // No fallback for empty content - throw directly
                 throw error;
             }
 
-            // Issue 2 (Round 2): Check if this is a network error
             if (isNetworkError(error) && cached) {
                 const isStale = this._isStale(cached);
                 this._logger.warn(
                     `Resolution failed for channel ${channel.id} due to network error, using cached content (stale: ${isStale})`,
                     summarizeErrorForLog(error)
                 );
-                // Issue 3 (Round 3): Queue retry for network errors
                 this._queueRetry(channel.id);
                 return {
                     ...cached,
@@ -1266,7 +1263,6 @@ export class ChannelManager implements IChannelManager {
                 };
             }
 
-            // Issue 2 (Round 3): Only allow cache fallback for CONTENT_UNAVAILABLE errors
             // Per spec: library/collection deleted should return stale cache
             if (isContentUnavailableError(error) && cached) {
                 this._logger.warn(
@@ -1372,7 +1368,7 @@ export class ChannelManager implements IChannelManager {
     }
 
     /**
-     * Issue 3 (Round 3): Queue a retry for network errors.
+     * Queue a retry for network errors.
      * Implements spec requirement to retry failed content resolution.
      */
     private _queueRetry(channelId: string): void {
