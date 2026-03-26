@@ -219,6 +219,10 @@ describe('bootstrap seam', () => {
             })
         );
         expect(document.querySelectorAll('#global-error-overlay')).toHaveLength(1);
+        document.getElementById('global-error-overlay')?.remove();
+        expect(document.querySelectorAll('#global-error-overlay')).toHaveLength(0);
+
+        const preventDefaultCallsBeforeRejection = preventDefault.mock.calls.length;
 
         if (typeof PromiseRejectionEvent !== 'undefined') {
             const rejectionEvent = new PromiseRejectionEvent('unhandledrejection', {
@@ -228,6 +232,7 @@ describe('bootstrap seam', () => {
             });
             const rejectionDispatch = window.dispatchEvent(rejectionEvent);
             expect(rejectionDispatch).toBe(false);
+            expect(preventDefault.mock.calls.length).toBeGreaterThan(preventDefaultCallsBeforeRejection);
         } else {
             const onUnhandledRejection = getWindowListener(addEventListenerSpy, 'unhandledrejection');
             expect(onUnhandledRejection).toBeTruthy();
@@ -235,6 +240,11 @@ describe('bootstrap seam', () => {
             onUnhandledRejection?.({ reason: 'token=abc123', preventDefault: manualPreventDefault } as unknown as Event);
             expect(manualPreventDefault).toHaveBeenCalledTimes(1);
         }
+
+        const overlaysAfterRejection = document.querySelectorAll('#global-error-overlay');
+        expect(overlaysAfterRejection).toHaveLength(1);
+        expect(overlaysAfterRejection[0]?.textContent ?? '').toContain('token=REDACTED');
+        expect(overlaysAfterRejection[0]?.textContent ?? '').not.toContain('abc123');
     });
 
     it('does not remove legacy debug logging key if migration write fails', async () => {
