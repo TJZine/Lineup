@@ -991,7 +991,12 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - remove redundant or overbuilt assertions that become obviously unnecessary during seam cleanup
   - normalize nearby test helper patterns where touched
 - Cleanup track:
-  - [ ] `P7-W1` add direct tests for high-impact shared error helpers and remove bootstrap/orchestrator dependence on internal seam exports where the imported review called it out
+  - [x] `P7-W1` add direct tests for high-impact shared error helpers and remove bootstrap/orchestrator dependence on internal seam exports where the imported review called it out (done 2026-03-26)
+    - Evidence note (2026-03-26):
+      - added `src/utils/__tests__/errors.test.ts` with contract coverage for `summarizeErrorForLog` redaction/code behavior and `isAbortLikeError` signal/DOMException/name checks.
+      - rewrote `src/__tests__/bootstrap.test.ts` to exercise global handlers through installed listeners/public seams (dispatch-first with callback capture fallback for `unhandledrejection` only when needed).
+      - removed `bootstrapInternals` export from `src/bootstrap.ts`; `rg -n "bootstrapInternals" src` now returns no matches.
+      - verification: `npm run typecheck`; `npm test -- src/utils/__tests__/errors.test.ts`; `npm test -- src/__tests__/bootstrap.test.ts`.
   - [ ] `P7-W2` reduce mock-heavy coverage gaps in top-level startup and orchestrator tests so those suites exercise more realistic collaborator seams
   - [ ] `P7-W3` tighten test utility patterns and timing assertions that currently encourage incidental mechanics over behavior-level checks
   - [ ] `P7-W4` run a follow-up cleanup pass on redundant, overbuilt, or brittle tests in the affected hotspot areas
