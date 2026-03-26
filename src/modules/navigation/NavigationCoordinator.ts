@@ -12,21 +12,13 @@ import { NOW_PLAYING_INFO_MODAL_ID } from '../ui/now-playing-info';
 import type { PlaybackOptionsSectionId } from '../ui/playback-options/types';
 import { DeveloperSettingsStore } from '../settings/DeveloperSettingsStore';
 import { ProfileSessionStore } from '../settings/ProfileSessionStore';
+import {
+    computeAcceleratedRepeatIntervalMs,
+    EPG_REPEAT_TIMING,
+    MINI_GUIDE_REPEAT_TIMING,
+} from './constants';
 import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
-
-const EPG_REPEAT_INITIAL_DELAY_MS = 250;
-const EPG_REPEAT_TIER_1_MS = 800;
-const EPG_REPEAT_TIER_2_MS = 1800;
-const EPG_REPEAT_INTERVAL_1_MS = 140;
-const EPG_REPEAT_INTERVAL_2_MS = 90;
-const EPG_REPEAT_INTERVAL_3_MS = 55;
-const MINI_GUIDE_REPEAT_INITIAL_DELAY_MS = 250;
-const MINI_GUIDE_REPEAT_TIER_1_MS = 800;
-const MINI_GUIDE_REPEAT_TIER_2_MS = 1800;
-const MINI_GUIDE_REPEAT_INTERVAL_1_MS = 140;
-const MINI_GUIDE_REPEAT_INTERVAL_2_MS = 90;
-const MINI_GUIDE_REPEAT_INTERVAL_3_MS = 55;
 
 export interface NavigationCoordinatorDeps {
     navigation: INavigationManager;
@@ -631,16 +623,6 @@ export class NavigationCoordinator {
         this._epgRepeatStartMs = 0;
     }
 
-    private _computeEpgRepeatInterval(heldMs: number): number {
-        if (heldMs < EPG_REPEAT_TIER_1_MS) {
-            return EPG_REPEAT_INTERVAL_1_MS;
-        }
-        if (heldMs < EPG_REPEAT_TIER_2_MS) {
-            return EPG_REPEAT_INTERVAL_2_MS;
-        }
-        return EPG_REPEAT_INTERVAL_3_MS;
-    }
-
     private _scheduleNextEpgRepeatTick(): void {
         const epg = this.deps.epg;
         const navigation = this.deps.navigation;
@@ -669,7 +651,7 @@ export class NavigationCoordinator {
         }
 
         const heldMs = Date.now() - this._epgRepeatStartMs;
-        const interval = this._computeEpgRepeatInterval(heldMs);
+        const interval = computeAcceleratedRepeatIntervalMs(heldMs, EPG_REPEAT_TIMING);
         this._epgRepeatTimer = setTimeout(
             () => this._scheduleNextEpgRepeatTick(),
             interval
@@ -682,7 +664,7 @@ export class NavigationCoordinator {
         this._epgRepeatStartMs = Date.now();
         this._epgRepeatTimer = setTimeout(
             () => this._scheduleNextEpgRepeatTick(),
-            EPG_REPEAT_INITIAL_DELAY_MS
+            EPG_REPEAT_TIMING.INITIAL_DELAY_MS
         );
     }
 
@@ -693,16 +675,6 @@ export class NavigationCoordinator {
         }
         this._miniGuideRepeatButton = null;
         this._miniGuideRepeatStartMs = 0;
-    }
-
-    private _computeMiniGuideRepeatInterval(heldMs: number): number {
-        if (heldMs < MINI_GUIDE_REPEAT_TIER_1_MS) {
-            return MINI_GUIDE_REPEAT_INTERVAL_1_MS;
-        }
-        if (heldMs < MINI_GUIDE_REPEAT_TIER_2_MS) {
-            return MINI_GUIDE_REPEAT_INTERVAL_2_MS;
-        }
-        return MINI_GUIDE_REPEAT_INTERVAL_3_MS;
     }
 
     private _scheduleNextMiniGuideRepeatTick(): void {
@@ -735,7 +707,7 @@ export class NavigationCoordinator {
         }
 
         const heldMs = Date.now() - this._miniGuideRepeatStartMs;
-        const interval = this._computeMiniGuideRepeatInterval(heldMs);
+        const interval = computeAcceleratedRepeatIntervalMs(heldMs, MINI_GUIDE_REPEAT_TIMING);
         this._miniGuideRepeatTimer = setTimeout(
             () => this._scheduleNextMiniGuideRepeatTick(),
             interval
@@ -748,7 +720,7 @@ export class NavigationCoordinator {
         this._miniGuideRepeatStartMs = Date.now();
         this._miniGuideRepeatTimer = setTimeout(
             () => this._scheduleNextMiniGuideRepeatTick(),
-            MINI_GUIDE_REPEAT_INITIAL_DELAY_MS
+            MINI_GUIDE_REPEAT_TIMING.INITIAL_DELAY_MS
         );
     }
 

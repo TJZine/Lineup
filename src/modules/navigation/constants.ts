@@ -54,6 +54,45 @@ export const CHANNEL_INPUT_CONFIG = {
     MAX_DIGITS: 3,
 } as const;
 
+export type AcceleratedRepeatTiming = Readonly<{
+    TIER_1_MS: number;
+    TIER_2_MS: number;
+    INTERVAL_1_MS: number;
+    INTERVAL_2_MS: number;
+    INTERVAL_3_MS: number;
+}>;
+
+export const EPG_REPEAT_TIMING = {
+    INITIAL_DELAY_MS: 250,
+    TIER_1_MS: 800,
+    TIER_2_MS: 1800,
+    INTERVAL_1_MS: 140,
+    INTERVAL_2_MS: 90,
+    INTERVAL_3_MS: 55,
+} as const;
+
+export const MINI_GUIDE_REPEAT_TIMING = {
+    INITIAL_DELAY_MS: 250,
+    TIER_1_MS: 800,
+    TIER_2_MS: 1800,
+    INTERVAL_1_MS: 140,
+    INTERVAL_2_MS: 90,
+    INTERVAL_3_MS: 55,
+} as const;
+
+export function computeAcceleratedRepeatIntervalMs(
+    heldMs: number,
+    timing: AcceleratedRepeatTiming
+): number {
+    if (heldMs < timing.TIER_1_MS) {
+        return timing.INTERVAL_1_MS;
+    }
+    if (heldMs < timing.TIER_2_MS) {
+        return timing.INTERVAL_2_MS;
+    }
+    return timing.INTERVAL_3_MS;
+}
+
 /**
  * Focus ring CSS class names.
  */
