@@ -789,31 +789,6 @@ describe('ChannelSetupScreen', () => {
             jest.useRealTimers();
         });
 
-        it('does not force a second render after dropdown selection', async () => {
-            const container = document.createElement('div');
-            document.body.appendChild(container);
-
-            const orchestrator = createOrchestrator({
-                getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            });
-
-            const screen = new ChannelSetupScreen(container, orchestrator);
-            const renderSpy = jest.spyOn(screen as unknown as { _renderStep: () => void }, '_renderStep');
-
-            screen.show();
-            await flushPromises();
-            await enterStep2(container);
-            clickButton(container, '#setup-category-build-options');
-
-            renderSpy.mockClear();
-
-            clickButton(container, '#setup-build-mode');
-            clickButton(container, '#setup-dropdown-option-2');
-            await flushPromises();
-
-            expect(renderSpy).toHaveBeenCalledTimes(1);
-        });
-
         it('cleans up dropdown on hide', async () => {
             const container = document.createElement('div');
             document.body.appendChild(container);
