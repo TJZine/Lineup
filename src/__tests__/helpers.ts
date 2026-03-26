@@ -7,6 +7,21 @@ export const flushPromises = async (rounds: number = 2): Promise<void> => {
     }
 };
 
+/**
+ * Use in real-timer integration tests when a condition may become observable
+ * only after both promise chains and one queued macrotask turn complete.
+ *
+ * Do not use this helper in fake-timer tests; prefer flushPromisesAndTimers()
+ * or advanceTimersUntil() there.
+ */
+export const flushPromisesAndMacrotask = async (promiseRounds: number = 2): Promise<void> => {
+    await flushPromises(promiseRounds);
+    await new Promise<void>((resolve) => {
+        globalThis.setTimeout(resolve, 0);
+    });
+    await flushPromises(promiseRounds);
+};
+
 export const flushPromisesAndTimers = async (
     promiseRounds: number = 2,
     timerPasses: number = 1

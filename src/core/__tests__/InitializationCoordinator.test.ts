@@ -201,6 +201,29 @@ describe('InitializationCoordinator (Plex Home)', () => {
         expect(navigation.goTo).not.toHaveBeenCalledWith('auth');
     });
 
+    it('does not redundantly reset lifecycle phases during phase-1 startup', async () => {
+        const lifecycle = {
+            initialize: jest.fn().mockResolvedValue(undefined),
+            setPhase: jest.fn(),
+        } as unknown as InitializationDependencies['lifecycle'];
+
+        const { coordinator, deps } = makeCoordinator({
+            lifecycle,
+        });
+
+        const plexAuth = deps.plexAuth as unknown as {
+            getStoredCredentials: jest.Mock;
+        };
+
+        plexAuth.getStoredCredentials.mockResolvedValue(null);
+
+        await coordinator.runStartup(1);
+
+        expect((lifecycle as unknown as { initialize: jest.Mock }).initialize).toHaveBeenCalledTimes(1);
+        expect((lifecycle as unknown as { setPhase: jest.Mock }).setPhase).not.toHaveBeenCalledWith('initializing');
+        expect((lifecycle as unknown as { setPhase: jest.Mock }).setPhase).not.toHaveBeenCalledWith('authenticating');
+    });
+
     it('configures discovery storage before resuming Phase 3 on profileChange', async () => {
         const { coordinator, deps, callbacks } = makeCoordinator();
 

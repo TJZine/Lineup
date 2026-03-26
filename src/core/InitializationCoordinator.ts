@@ -213,11 +213,6 @@ export class InitializationCoordinator implements IInitializationCoordinator {
                 const willRunPhase4 = phaseToRun <= 4;
                 this._callbacks.setReady(false);
 
-                // Force phase to initializing to ensure 'ready' event is emitted at the end
-                if (this._deps.lifecycle) {
-                    this._deps.lifecycle.setPhase('initializing');
-                }
-
                 if (phaseToRun <= 1) {
                     await this._initPhase1();
                 }
@@ -403,10 +398,6 @@ export class InitializationCoordinator implements IInitializationCoordinator {
         }
 
         await Promise.all(promises);
-
-        if (this._deps.lifecycle) {
-            this._deps.lifecycle.setPhase('authenticating');
-        }
     }
 
     /**

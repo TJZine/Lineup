@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { flushPromises } from './helpers';
+import { flushPromisesAndMacrotask } from './helpers';
 
 jest.mock('../modules/ui/splash', () => ({
     SplashScreen: class SplashScreen {
@@ -33,7 +33,7 @@ const setDevBuild = (value: boolean): void => {
 
 const waitForBoot = async (module: BootstrapModule): Promise<void> => {
     for (let i = 0; i < 50; i += 1) {
-        await flushPromises();
+        await flushPromisesAndMacrotask();
         if (module.app?.getOrchestrator()) {
             return;
         }
@@ -44,7 +44,7 @@ const waitForBoot = async (module: BootstrapModule): Promise<void> => {
 
 const waitForUnauthenticatedPhase2 = async (module: BootstrapModule): Promise<void> => {
     for (let i = 0; i < 50; i += 1) {
-        await flushPromises();
+        await flushPromisesAndMacrotask();
         const orchestrator = module.app?.getOrchestrator() ?? null;
         if (!orchestrator) continue;
 
@@ -69,6 +69,7 @@ const waitForUnauthenticatedPhase2 = async (module: BootstrapModule): Promise<vo
 
 describe('startup integration', () => {
     let bootstrapModule: BootstrapModule | null = null;
+    let consoleWarnSpy: jest.SpyInstance | null = null;
 
     beforeEach(() => {
         jest.resetModules();
@@ -76,6 +77,7 @@ describe('startup integration', () => {
         document.body.innerHTML = '<div id="app"></div>';
         setDevBuild(true);
         delete (window as LineupWindow).__LINEUP__;
+        consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     });
 
     afterEach(async () => {
@@ -92,10 +94,13 @@ describe('startup integration', () => {
                 value: 'complete',
                 configurable: true,
             });
+            consoleWarnSpy?.mockRestore();
+            consoleWarnSpy = null;
         }
     });
 
-    it('boots through installLineupBootstrap and routes unauthenticated startup to auth', async () => {
+    it('boots through installLineupBootstrap and routes unauthenticated startup to auth without invalid lifecycle transitions', async () =>
+    {
         Object.defineProperty(document, 'readyState', {
             value: 'loading',
             configurable: true,
@@ -120,6 +125,11 @@ describe('startup integration', () => {
         expect(moduleStatus?.get('plex-auth')?.status).toBe('pending');
 
         expect(orchestrator?.getCurrentScreen()).toBe('auth');
+
+        const invalidTransitionWarnings = (consoleWarnSpy?.mock.calls ?? []).filter(([message]) =>
+            typeof message === 'string' && message.includes('Invalid phase transition')
+        );
+        expect(invalidTransitionWarnings).toHaveLength(0);
 
         const debugApi = (window as LineupWindow).__LINEUP__;
         expect(debugApi).toBeDefined();
