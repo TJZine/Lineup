@@ -32,7 +32,7 @@ As of 2026-03-09, review against these sources and treat them as explicit benchm
    - project subagents should be checked into version control when they are part of the durable workflow
    - read-only reviewer-style subagents are a first-class best-practice pattern
 4. OpenAI, [`Harness engineering: leveraging Codex in an agent-first world`](https://openai.com/index/harness-engineering/) (February 11, 2026)
-   - `AGENTS.md` should act as a map, not an encyclopedia
+   - the repo's stable policy file should act as a map, not an encyclopedia
    - repository docs should be the system of record
    - plans should be first-class artifacts
    - knowledge surfaces should be mechanically validated
@@ -50,6 +50,8 @@ As of 2026-03-09, review against these sources and treat them as explicit benchm
    - use evals as a routine workflow-quality signal, not an afterthought
 
 Do not reward Lineup for matching these sources cosmetically. Evaluate whether the repo actually embodies the behaviors they recommend.
+
+Lineup stable policy file: `agents.md`
 
 ## Quick-Start (Light Review)
 

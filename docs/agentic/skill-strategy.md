@@ -15,7 +15,7 @@
 The skill layout and workflow in this repo are based on a small set of recurring patterns from current primary-source guidance:
 
 - OpenAI, [Harness Engineering](https://openai.com/index/harness-engineering/): agent performance depends heavily on repo legibility, explicit commands, readable docs, and active cleanup of stale context and dead files.
-- OpenAI, [Building an AI-Native Engineering Team](https://developers.openai.com/codex/guides/build-ai-native-engineering-team): agents are strongest on well-specified work with explicit plans, `AGENTS.md` rules, evaluation loops, and human ownership of architecture and review.
+- OpenAI, [Building an AI-Native Engineering Team](https://developers.openai.com/codex/guides/build-ai-native-engineering-team): agents are strongest on well-specified work with explicit plans, stable policy rules, evaluation loops, and human ownership of architecture and review.
 - OpenAI, [Agent Skills](https://developers.openai.com/codex/skills): keep skills narrow, searchable, and progressive-disclosure friendly; do not overload one skill with many unrelated responsibilities.
 - OpenAI Cookbook, [Long Horizon Tasks with Codex](https://github.com/openai/openai-cookbook/blob/main/examples/codex/long_horizon_tasks.md): durable project memory works best when spec, plan, execution instructions, and status live in files the agent can revisit.
 - Anthropic, [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents): prefer simple composed workflows, add orchestration only when a single loop stops being reliable, and use evaluator/optimizer patterns for quality control rather than more prompt text.
@@ -31,6 +31,7 @@ The skill layout and workflow in this repo are based on a small set of recurring
 - Repo-specific skills should stay local to this repo unless they become broadly reusable enough to justify promotion to a global skill home.
 - The broader document/control-plane structure is defined in [`docs/agentic/document-map.md`](./document-map.md).
 - Keep the repo-defined role set conservative: read-only evidence/review/docs/monitor roles plus a bounded `worker` role, with explicit fallback roles instead of assumed automatic failover.
+- Stable policy doc: `agents.md`
 
 ## Current Skill Inventory
 
