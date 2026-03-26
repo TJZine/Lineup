@@ -148,13 +148,17 @@ This document is directory-oriented and lists file-level owners where the canoni
 ### `src/modules/ui/settings/`
 
 - settings screen
-- `SettingsStore` and user settings persistence hooks
+- settings facade that delegates to typed persistence owners
 - `src/modules/ui/settings/SettingsStore.ts`
 
 ### `src/modules/settings/`
 
 - audio settings storage ownership
 - `src/modules/settings/AudioSettingsStore.ts`
+- developer settings storage ownership
+- `src/modules/settings/DeveloperSettingsStore.ts`
+- playback settings storage ownership
+- `src/modules/settings/PlaybackSettingsStore.ts`
 - EPG settings storage ownership
 - `src/modules/settings/EpgPreferencesStore.ts`
 - now-playing display settings storage ownership
@@ -170,6 +174,25 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - debug flags and override persistence
 - `src/modules/debug/DebugOverridesStore.ts`
+- issue diagnostics log persistence
+- `src/modules/debug/IssueDiagnosticsStore.ts`
+
+### `src/modules/ui/epg/`
+
+- bounded EPG debug log cache ownership
+- `src/modules/ui/epg/utils.ts`
+
+### `src/modules/plex/auth/`
+
+- auth credential persistence and client identifier resolution
+- `src/modules/plex/auth/PlexAuth.ts`
+- `src/modules/plex/auth/clientIdentifier.ts`
+
+### `src/core/channel-setup/`
+
+- channel setup record persistence
+- `src/core/channel-setup/ChannelSetupRecordStore.ts`
+- owns the `lineup_channel_setup_v2:${serverId}` family and prefix cleanup helpers
 
 ### `src/modules/plex/discovery/`
 
@@ -180,13 +203,15 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - channel persistence ownership and normalization for channel manager
 - `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`
-- `src/modules/scheduler/channel-manager/ChannelRepository.ts`
 - owns server/user-scoped channel key families (including selected/current channel state) configured by `src/core/orchestrator/OrchestratorStorageContext.ts`
+- `src/modules/scheduler/channel-manager/ChannelRepository.ts` is a thin consumer wrapper over `ChannelPersistenceStore`, not a separate storage owner
 
 ### Direct-storage Exception Wraps (`P3-W3`, completed 2026-03-11)
 
-- `src/modules/ui/epg/utils.ts` (`appendEpgDebugLog`) now routes EPG debug storage reads/writes through `src/utils/storage.ts` helpers
-- `src/core/channel-setup/ChannelSetupCoordinator.ts` (`cleanupStaleChannelBuildKeys`) now routes stale temp-key cleanup through `src/utils/storage.ts` prefix-based helper
+- `src/modules/ui/epg/utils.ts` (`appendEpgDebugLog`) owns the bounded `lineup_debug_epg_log` cache and continues to use `src/utils/storage.ts` helpers for safe reads/writes; `EPGComponent.ts` and `EPGCoordinatorPolicies.ts` still read the `lineup_debug_epg` flag directly, so that flag remains residual drift
+- `src/core/channel-setup/ChannelSetupRecordStore.ts` (`cleanupStaleBuildKeys`) now routes stale temp-key cleanup through `src/utils/storage.ts` prefix-based helper; `ChannelSetupCoordinator.ts` just delegates
+- `src/bootstrap.ts` still contains the one-off `lineup_debug_transcode` -> `lineup_debug_logging` migration helper
+- `src/modules/ui/audio-setup/AudioSetupScreen.ts` and `src/Orchestrator.ts` still hold direct-storage drift for `lineup_audio_setup_complete`; `src/Orchestrator.ts` also reads `lineup_subtitle_allow_burn_in` directly
 - broader repo drift cleanup is still tracked under `P3-W4`
 
 ## UI Modules

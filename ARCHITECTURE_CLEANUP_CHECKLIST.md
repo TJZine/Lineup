@@ -1090,7 +1090,15 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - consolidate minor control-plane wording drift if it is directly adjacent to the required edits
 - Cleanup track:
   - [x] `P8-W1` remove low-value template/docblock scaffolding in all high-noise hotspot areas confirmed by the imported review (`review::.::holistic::ai_generated_debt::comment_template_ceremony` resolved with attested note on merged branch; cleanup applied in `src/modules/plex/discovery/PlexServerDiscovery.ts`, `src/modules/player/types.ts`, `src/modules/lifecycle/interfaces.ts`)
-  - [ ] `P8-W2` clean up documented drift between the active backlog, `CURRENT_STATE`, and the real persistence-owner map
+  - [x] `P8-W2` clean up documented drift between the active backlog, `CURRENT_STATE`, and the real persistence-owner map
+    - Evidence note (2026-03-26):
+      - re-derived the owner map from deterministic production inventories:
+        - `rg -l "safeLocalStorage(Get|Set|Remove|SetWithResult)" src --glob '!**/__tests__/**' | sort`
+        - `rg -l "LINEUP_STORAGE_KEYS\\." src | sort`
+        - `rg -n --pcre2 "^(?!\\s*(//|/\\*|\\*)).*\\blocalStorage\\.(getItem|setItem|removeItem|clear|key)\\(" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`
+        - `rg -n "\\blineup_[a-z0-9_]+" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`
+        - `rg -n "\\bstorage(Get|Set|Remove)\\s*:" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`
+      - updated `docs/architecture/CURRENT_STATE.md`, `docs/architecture/modules.md`, and `.codex/skills/persistence-boundaries/SKILL.md` so they name canonical owners only and call out the residual direct-storage drift explicitly
   - [ ] `P8-W3` remove review-history breadcrumbs, migration residue comments, and stale cleanup scaffolding from production code across the affected priorities
   - [ ] `P8-W4` audit remaining control-plane wording drift so active docs stay live and archives stay historical
   - [ ] `P8-EXIT` run the priority-exit review before declaring the cleanup backlog complete

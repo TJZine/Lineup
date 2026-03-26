@@ -54,7 +54,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - `src/modules/lifecycle/`
 - owns lifecycle state, visibility, persistence coordination, and recovery concerns
-- `src/modules/lifecycle/StateManager.ts` owns the lifecycle storage key `lineup_app_state` only (versioned lifecycle payload: `plexAuth` null marker, `userPreferences`, `lastUpdated`)
+- `src/modules/lifecycle/StateManager.ts` owns the lifecycle storage key `lineup_app_state` only (versioned lifecycle payload: `plexAuth` null marker, `userPreferences`, `lastUpdated`) and the bounded cleanup-only keys in `STORAGE_CONFIG.CLEANUP_KEYS`
 
 ### Navigation
 
@@ -70,13 +70,14 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - `src/modules/plex/library/`
 - `src/modules/plex/stream/`
 - owns Plex-facing auth, discovery, library metadata, and stream/subtitle policy
+- `src/modules/plex/auth/PlexAuth.ts` owns the auth credential storage key `lineup_plex_auth`
 - `src/modules/plex/auth/clientIdentifier.ts` is the explicit owner for `lineup_client_id` resolution and persistence (`resolveClientIdentifier(preferred?: string): string`)
 
 ### Scheduler And Channel Management
 
 - `src/modules/scheduler/`
 - owns scheduling behavior, shuffle logic, and channel domain flows
-- channel-domain persistence ownership (including selected/current channel state) stays in `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts` and `src/modules/scheduler/channel-manager/ChannelRepository.ts`, with server/user-scoped keys configured through `src/core/orchestrator/OrchestratorStorageContext.ts`
+- channel-domain persistence ownership (including selected/current channel state) stays in `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`; `src/modules/scheduler/channel-manager/ChannelRepository.ts` is a thin consumer wrapper over that store, with server/user-scoped keys configured through `src/core/orchestrator/OrchestratorStorageContext.ts`
 
 ### Player
 
@@ -85,22 +86,29 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 ### Settings And Persistence Owners
 
-- `src/modules/ui/settings/SettingsStore.ts`
 - `src/modules/settings/AudioSettingsStore.ts`
+- `src/modules/settings/DeveloperSettingsStore.ts`
+- `src/modules/settings/PlaybackSettingsStore.ts`
 - `src/modules/settings/EpgPreferencesStore.ts`
 - `src/modules/settings/NowPlayingDisplayStore.ts`
 - `src/modules/settings/ProfileSessionStore.ts`
 - `src/modules/settings/SubtitlePreferencesStore.ts`
 - `src/modules/settings/ThemePreferencesStore.ts`
 - `src/modules/debug/DebugOverridesStore.ts`
+- `src/modules/debug/IssueDiagnosticsStore.ts`
 - `src/modules/plex/discovery/ServerSelectionStore.ts`
 - `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`
 - `src/core/channel-setup/ChannelSetupRecordStore.ts`
+- `src/modules/plex/auth/PlexAuth.ts`
 - `src/modules/plex/auth/clientIdentifier.ts`
+- `src/modules/ui/epg/utils.ts`
 - these are the current designated owners for storage-backed state
-- runtime consumers route mapped key families through typed stores (for example `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`, `ProfileSelectScreen` -> `ProfileSessionStore`, `ThemeManager` -> `ThemePreferencesStore`, `EPGInfoPanel` -> `NowPlayingDisplayStore`/`EpgPreferencesStore`)
-- `src/modules/ui/epg/utils.ts` and `src/core/channel-setup/ChannelSetupRecordStore.ts` route channel-setup/EPG storage exception cleanup paths through sanctioned helpers in `src/utils/storage.ts` (`P3-W3` + `P4-W2`)
-- repo-wide residual direct-storage drift audit/remediation remains in `P3-W4`
+- `src/modules/ui/settings/SettingsStore.ts` is a façade that routes through the typed stores above instead of owning persistence itself
+- runtime consumers route mapped key families through typed stores (for example `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`, `ProfileSelectScreen` -> `ProfileSessionStore`, `ThemeManager` -> `ThemePreferencesStore`, `EPGInfoPanel` -> `NowPlayingDisplayStore`/`EpgPreferencesStore`, `SettingsStore` -> the dedicated settings stores, `AudioSetupScreen` -> `AudioSettingsStore` for audio controls)
+- `src/modules/ui/epg/utils.ts` owns the bounded `lineup_debug_epg_log` cache; `EPGComponent.ts` and `EPGCoordinatorPolicies.ts` still read the `lineup_debug_epg` flag directly, which remains residual drift rather than a canonical owner
+- `src/core/channel-setup/ChannelSetupRecordStore.ts` owns the `lineup_channel_setup_v2:${serverId}` family and its prefix cleanup through `safeLocalStorageRemoveByPrefixes`
+- `src/bootstrap.ts` still carries the one-off `lineup_debug_transcode` -> `lineup_debug_logging` migration path
+- residual direct-storage drift remains limited to the startup/setup reads in `src/Orchestrator.ts` and `src/modules/ui/audio-setup/AudioSetupScreen.ts` (`lineup_audio_setup_complete`) plus the subtitle burn-in gate in `src/Orchestrator.ts` (`lineup_subtitle_allow_burn_in`); those are tracked but not changed in `P8-W2`
 
 ### UI
 
