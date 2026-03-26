@@ -6,6 +6,7 @@ import type { AppOrchestrator } from '../../../Orchestrator';
 import { ProfileSessionStore } from '../../../modules/settings/ProfileSessionStore';
 import { SettingsStore } from '../../../modules/ui/settings/SettingsStore';
 import { AppLazyScreenRegistry } from '../AppLazyScreenRegistry';
+import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../constants';
 
 type MockScreen = {
     show: jest.Mock;
@@ -328,13 +329,13 @@ describe('AppLazyScreenRegistry', () => {
         registry.scheduleSettingsPrefetch();
         registry.scheduleChannelSetupPrefetch();
 
-        jest.advanceTimersByTime(500);
+        jest.advanceTimersByTime(CHANNEL_SETUP_PREFETCH_DELAY_MS);
         await flushMicrotasks();
 
         expect(loadChannelSetupScreen).toHaveBeenCalledTimes(1);
         expect(loadSettingsScreen).toHaveBeenCalledTimes(0);
 
-        jest.advanceTimersByTime(700);
+        jest.advanceTimersByTime(SETTINGS_PREFETCH_DELAY_MS - CHANNEL_SETUP_PREFETCH_DELAY_MS);
         await flushMicrotasks();
 
         expect(loadSettingsScreen).toHaveBeenCalledTimes(1);

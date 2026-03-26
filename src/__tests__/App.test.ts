@@ -5,6 +5,7 @@
 import { App } from '../App';
 import { AppOrchestrator, type PlaybackInfoSnapshot } from '../Orchestrator';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
+import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../core/app-shell/constants';
 import { ThemeManager } from '../modules/ui/theme';
 import { STORAGE_KEYS } from '../types';
 
@@ -891,7 +892,7 @@ describe('App bootstrap smoke', () => {
         });
 
         screenChangeHandler?.('auth', 'player');
-        jest.advanceTimersByTime(1200);
+        jest.advanceTimersByTime(SETTINGS_PREFETCH_DELAY_MS);
         await flushPromises();
 
         expect(settingsScreenChunkLoaded).toHaveBeenCalledTimes(1);
@@ -913,7 +914,7 @@ describe('App bootstrap smoke', () => {
         currentScreen = 'server-select';
         screenChangeHandler?.('auth', 'server-select');
         await flushPromises();
-        jest.advanceTimersByTime(500);
+        jest.advanceTimersByTime(CHANNEL_SETUP_PREFETCH_DELAY_MS);
         await flushPromises();
 
         expect(channelSetupScreenChunkLoaded).toHaveBeenCalledTimes(1);
