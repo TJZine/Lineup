@@ -936,7 +936,7 @@ describe('NavigationCoordinator', () => {
 
             handlers.keyUp?.({ button: 'down' });
             const callsOnStop = (deps.handleMiniGuideNavigation as jest.Mock).mock.calls.length;
-            jest.advanceTimersByTime(2000);
+            expect(jest.getTimerCount()).toBe(0);
             expect(deps.handleMiniGuideNavigation).toHaveBeenCalledTimes(callsOnStop);
         });
 
@@ -958,7 +958,8 @@ describe('NavigationCoordinator', () => {
 
             isInputBlocked.mockReturnValue(true);
             const callsBeforeBlock = (deps.handleMiniGuideNavigation as jest.Mock).mock.calls.length;
-            jest.advanceTimersByTime(2000);
+            jest.advanceTimersByTime(MINI_GUIDE_REPEAT_TIMING.INTERVAL_1_MS + 1);
+            expect(jest.getTimerCount()).toBe(0);
             expect(deps.handleMiniGuideNavigation).toHaveBeenCalledTimes(callsBeforeBlock);
         });
 
@@ -981,7 +982,8 @@ describe('NavigationCoordinator', () => {
 
             getCurrentScreen.mockReturnValue('settings');
             const callsBeforeLeave = (deps.handleMiniGuideNavigation as jest.Mock).mock.calls.length;
-            jest.advanceTimersByTime(2000);
+            jest.advanceTimersByTime(MINI_GUIDE_REPEAT_TIMING.INTERVAL_1_MS + 1);
+            expect(jest.getTimerCount()).toBe(0);
             expect(deps.handleMiniGuideNavigation).toHaveBeenCalledTimes(callsBeforeLeave);
         });
     });
@@ -1015,7 +1017,7 @@ describe('NavigationCoordinator', () => {
 
             handlers.keyUp?.({ button: 'down' });
             const callsOnStop = (epg.handleNavigation as jest.Mock).mock.calls.length;
-            jest.advanceTimersByTime(2000);
+            expect(jest.getTimerCount()).toBe(0);
             expect(epg.handleNavigation).toHaveBeenCalledTimes(callsOnStop);
         });
 
@@ -1036,7 +1038,7 @@ describe('NavigationCoordinator', () => {
 
             handlers.modalOpen?.({ modalId: 'any' });
             const callsBeforeModal = (epg.handleNavigation as jest.Mock).mock.calls.length;
-            jest.advanceTimersByTime(2000);
+            expect(jest.getTimerCount()).toBe(0);
             expect(epg.handleNavigation).toHaveBeenCalledTimes(callsBeforeModal);
         });
 
@@ -1057,7 +1059,7 @@ describe('NavigationCoordinator', () => {
 
             handlers.screenChange?.({ from: 'guide', to: 'player' });
             const callsBeforeLeave = (epg.handleNavigation as jest.Mock).mock.calls.length;
-            jest.advanceTimersByTime(2000);
+            expect(jest.getTimerCount()).toBe(0);
             expect(epg.handleNavigation).toHaveBeenCalledTimes(callsBeforeLeave);
         });
 
@@ -1079,7 +1081,8 @@ describe('NavigationCoordinator', () => {
 
             isInputBlocked.mockReturnValue(true);
             const callsBeforeBlock = (epg.handleNavigation as jest.Mock).mock.calls.length;
-            jest.advanceTimersByTime(2000);
+            jest.advanceTimersByTime(EPG_REPEAT_TIMING.INTERVAL_1_MS + 1);
+            expect(jest.getTimerCount()).toBe(0);
             expect(epg.handleNavigation).toHaveBeenCalledTimes(callsBeforeBlock);
         });
 
@@ -1101,7 +1104,7 @@ describe('NavigationCoordinator', () => {
 
             handlers.keyPress?.(makeKeyEvent('back'));
             const callsBeforeBack = (epg.handleNavigation as jest.Mock).mock.calls.length;
-            jest.advanceTimersByTime(2000);
+            expect(jest.getTimerCount()).toBe(0);
             expect(epg.handleNavigation).toHaveBeenCalledTimes(callsBeforeBack);
         });
     });
