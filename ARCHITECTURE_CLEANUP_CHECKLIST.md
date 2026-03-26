@@ -922,8 +922,50 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - verification run on current code: `npm run typecheck`; `npm test -- src/modules/scheduler/scheduler/__tests__/ScheduleCalculator.test.ts`; `npm test -- src/__tests__/Orchestrator.test.ts`; `npm run verify`.
     - imported issue disposition:
       - `convention_outlier::scheduler_namespace_export_outlier` -> `resolved` by `P6-W4`
-  - [ ] `P6-EXIT` run the priority-exit review before moving to `P7`
+  - [x] `P6-EXIT` run the priority-exit review before moving to `P7` (done 2026-03-25, integration branch `feature/initial-build`)
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 6
+    - Priority-exit review evidence refresh (authoritative integration-branch run):
+      - freshness/routing checks:
+        - `git worktree list`
+        - `git branch --show-current` -> `feature/initial-build`
+        - `git status -sb`
+        - `rg -n "P6-W1|P6-W2|P6-W3|P6-W4|P6-EXIT|P7-W1" ARCHITECTURE_CLEANUP_CHECKLIST.md` -> `P6-W1..P6-W4` closed and `P6-EXIT` open before exit closeout
+      - detector/state refresh:
+        - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"` (required because `desloppify scan` mid-cycle guard blocked a normal scan)
+        - `desloppify status` -> `strict 70.1`, `Last scan: 2026-03-26T02:16:41+00:00`
+        - `desloppify show review --status open --no-budget` -> `No open issues matching: review`
+        - `desloppify show security --status open --no-budget --top 50` -> `No open issues for Security`
+        - exact mapped-id rechecks after resolution (all returned `No open issues matching ...`):
+          - `desloppify show "review::.::holistic::contract_coherence::channel_manager_boundary_contract_mismatch" --status open --no-budget`
+          - `desloppify show "review::.::holistic::contract_coherence::channel_scheduler_mutable_buffer_api" --status open --no-budget`
+          - `desloppify show "review::.::holistic::contract_coherence::resolve_channel_items_leaks_cached_reference" --status open --no-budget`
+          - `desloppify show "review::.::holistic::convention_outlier::scheduler_namespace_export_outlier" --status open --no-budget`
+    - Current-code proof matrix verification (before resolve):
+      - `channel_manager_boundary_contract_mismatch`: `interfaces.ts` docs said boundary `null` while `ChannelManager` implementation/tests show circular wrap-around; aligned `IChannelManager` docstrings to circular behavior (no runtime behavior change).
+      - `channel_scheduler_mutable_buffer_api`: no `_windowBuffer` / `_upcomingBuffer` fields in `ChannelScheduler`; scheduler API behavior validated by test suite.
+      - `resolve_channel_items_leaks_cached_reference`: `resolveChannelItemsForSchedule()` cache-hit and fresh-resolution paths both return clones (`_cloneResolvedItems`).
+      - `scheduler_namespace_export_outlier`: scheduler namespace export already removed; known EPG/MiniGuide consumers no longer call `ScheduleCalculator.*`.
+    - Mapped imported issue dispositions (exact ids):
+      - exact-id freeze note: no `::<hash>` variants existed for these four mapped issues during the pre-resolve freeze; only the base ids below were open and then resolved
+      - `review::.::holistic::contract_coherence::channel_manager_boundary_contract_mismatch` -> `resolved`
+      - `review::.::holistic::contract_coherence::channel_scheduler_mutable_buffer_api` -> `resolved`
+      - `review::.::holistic::contract_coherence::resolve_channel_items_leaks_cached_reference` -> `resolved`
+      - `review::.::holistic::convention_outlier::scheduler_namespace_export_outlier` -> `resolved`
+    - Follow-up ownership:
+      - none; no deferred or split follow-up items for Priority 6
+    - Security triage:
+      - exact `P0` gate disposition: `no open P0 security findings`
+      - evidence: `desloppify show security --status open --no-budget --top 50`
+    - Verification reruns on current code:
+      - `npm run typecheck`
+      - `npm test -- src/modules/scheduler/scheduler/__tests__/ChannelScheduler.test.ts`
+      - `npm test -- src/__tests__/Orchestrator.test.ts`
+      - `npm test -- src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts`
+      - `npm run verify`
+      - `npm run verify:docs`
+    - Gate decision:
+      - `Priority 6 exit gates pass.`
+      - `Priority 6 may proceed to P7.`
 
 ## Priority 7: Improve Test Strategy And Public Seam Realism
 
