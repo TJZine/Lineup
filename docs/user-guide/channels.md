@@ -31,7 +31,7 @@ Determines the order of content:
 
 - **Shuffle**: Best for movie channels. Deterministic shuffle means the schedule is consistent for the day.
 - **Sequential**: Plays items in order (A-Z for movies, S01E01... for shows). Best for "binge" channels.
-- **Random**: True random shuffle. The schedule changes every time you look.
+- **Random**: Daily shuffle. The schedule is deterministic for the current local day and changes the next day.
 
 ## Channel Setup Builder (Step 2)
 

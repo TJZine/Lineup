@@ -1,4 +1,8 @@
-import { ShuffleGenerator, ScheduleCalculator } from '../../scheduler/scheduler';
+import {
+    ShuffleGenerator,
+    buildScheduleIndex,
+    generateScheduleWindow,
+} from '../../scheduler/scheduler';
 import type {
     ChannelConfig,
     IChannelManager,
@@ -210,12 +214,11 @@ export class EPGScheduleRefreshRuntime {
             };
         }
 
-        const resolveItemsForSchedule = (channelManager as Partial<IChannelManager>).resolveChannelItemsForSchedule;
         let orderedItems: ResolvedChannelContent['items'];
         try {
-            orderedItems = typeof resolveItemsForSchedule === 'function'
-                ? await resolveItemsForSchedule.call(channelManager, request.channelId, { signal: signal ?? null })
-                : (await channelManager.resolveChannelContent(request.channelId, { signal: signal ?? null })).items;
+            orderedItems = await channelManager.resolveChannelItemsForSchedule(request.channelId, {
+                signal: signal ?? null,
+            });
         } catch (error: unknown) {
             if (isAbortLikeError(error, signal ?? undefined)) {
                 return null;
@@ -553,8 +556,8 @@ export class EPGScheduleRefreshRuntime {
                 }
 
                 const scheduleConfig = this._deps.buildDailyScheduleConfig(channel, items, startTime);
-                const index = ScheduleCalculator.buildScheduleIndex(scheduleConfig, shuffler);
-                const programs = ScheduleCalculator.generateScheduleWindow(
+                const index = buildScheduleIndex(scheduleConfig, shuffler);
+                const programs = generateScheduleWindow(
                     startTime,
                     endTime,
                     index,

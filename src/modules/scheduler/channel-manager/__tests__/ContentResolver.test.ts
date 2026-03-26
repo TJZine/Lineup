@@ -17,7 +17,7 @@ import type {
 } from '../types';
 import { PLEX_MEDIA_TYPES } from '../../../plex/library/constants';
 import type { PlexMediaFile, PlexStream } from '../../../plex/library';
-import { shuffleWithSeed } from '../../../../utils/prng';
+import { shuffleWithSeed } from '../../shared/prng';
 
 // ============================================
 // Mock Setup
@@ -1270,6 +1270,27 @@ describe('ContentResolver', () => {
             expect(result[0]!.scheduledIndex).toBe(0);
             expect(result[1]!.scheduledIndex).toBe(1);
             expect(result[2]!.scheduledIndex).toBe(2);
+        });
+
+        it('throws for unknown runtime playback modes instead of returning items unchanged', () => {
+            const items: ResolvedContentItem[] = [
+                {
+                    ratingKey: 'item-1',
+                    type: 'movie',
+                    title: 'One',
+                    fullTitle: 'One',
+                    durationMs: 30_000,
+                    thumb: null,
+                    year: 2024,
+                    scheduledIndex: 0,
+                },
+            ];
+
+            expect(() => resolver.applyPlaybackMode(
+                items,
+                'invalid-mode' as unknown as import('../types').PlaybackMode,
+                12345
+            )).toThrow('Unknown content playback mode: invalid-mode');
         });
 
         it('should group by show in blocks', () => {

@@ -122,13 +122,15 @@ export interface IChannelManager {
 
     /**
      * Get the next channel in order.
-     * @returns Next channel or null if at end
+     * Uses circular navigation when channels exist.
+     * @returns Next channel in order, or null when no current channel is selected or channel order is empty
      */
     getNextChannel(): ChannelConfig | null;
 
     /**
      * Get the previous channel in order.
-     * @returns Previous channel or null if at start
+     * Uses circular navigation when channels exist.
+     * @returns Previous channel in order, or null when no current channel is selected or channel order is empty
      */
     getPreviousChannel(): ChannelConfig | null;
 

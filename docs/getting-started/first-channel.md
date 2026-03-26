@@ -30,7 +30,7 @@ Choose how the content plays:
 
 - **Shuffle** (Recommended): Plays movies in random order. The order is determined daily, so everyone sees the same "random" schedule.
 - **Sequential**: Plays movies alphabetically (A-Z).
-- **Random**: True random shuffle (change every time).
+- **Random**: Daily shuffle (stable for the current local day, changes the next day).
 
 ## 5. Save and Tune
 

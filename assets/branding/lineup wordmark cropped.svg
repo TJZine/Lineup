@@ -1,0 +1,11 @@
+<svg version="1.2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 200" width="1000" height="200">
+	<style>
+		tspan { white-space:pre } 
+		.t0 { font-size: 150px;fill: #f6f0e5;font-weight: 400;font-family: "BodoniModaSC-Regular", "Bodoni Moda SC" } 
+		.t1 { font-size: 150px;fill: #d6b07a;font-weight: 400;font-family: "BodoniModaSC-Regular", "Bodoni Moda SC" } 
+	</style>
+	<text id="lineup" style="transform: matrix(2.163,0,0,2.163,-13.407,180.317)">
+		<tspan x="0" y="0" class="t0">l</tspan><tspan  y="0" class="t0">i</tspan><tspan  y="0" class="t0">n</tspan><tspan  y="0" class="t0">e</tspan><tspan  y="0" class="t1">u</tspan><tspan  y="0" class="t1">p
+</tspan>
+	</text>
+</svg>

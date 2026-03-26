@@ -82,7 +82,6 @@ function getErrorCode(error: unknown): AppErrorCode | null {
 
 /**
  * Check if error is a network-related error that allows cache fallback.
- * Issue 1 (Round 3): Detect AppErrorCode on any error type, not just ChannelError.
  */
 function isNetworkError(error: unknown): boolean {
     const code = getErrorCode(error);
@@ -178,7 +177,7 @@ export class ChannelManager implements IChannelManager {
 
     private _state: ChannelManagerState;
     private readonly _reportedPersistenceFailures = new WeakSet<object>();
-    /** Issue 3 (Round 3): Pending retry queue for network errors */
+    /** Pending retry timers keyed by channel id. */
     private readonly _pendingRetries: Map<string, ReturnType<typeof setTimeout>> = new Map();
     private static readonly RETRY_DELAY_MS = 30000; // 30 seconds
 
@@ -627,13 +626,12 @@ export class ChannelManager implements IChannelManager {
         // Check cache
         const cached = this._state.resolvedContent.get(channelId);
         if (cached && !this._isStale(cached)) {
-            // Issue 2: Return cached content with cache status
-            return {
-                ...cached,
+            // Return cloned content so callers cannot mutate internal cache state.
+            return this._cloneResolvedContent(cached, {
                 fromCache: true,
                 isStale: false,
                 cacheReason: 'fresh',
-            };
+            });
         }
 
         return this._resolveContentInternal(channel, options);
@@ -680,10 +678,11 @@ export class ChannelManager implements IChannelManager {
 
         const cached = this._state.resolvedContent.get(channelId);
         if (cached && !this._isStale(cached)) {
-            return cached.items;
+            return this._cloneResolvedItems(cached.items);
         }
 
-        return this._resolveFilteredItems(channel, options);
+        const items = await this._resolveFilteredItems(channel, options);
+        return this._cloneResolvedItems(items);
     }
 
 
@@ -1139,13 +1138,55 @@ export class ChannelManager implements IChannelManager {
     // Private Methods
     // ============================================
 
+    private _cloneResolvedItem(item: ResolvedContentItem): ResolvedContentItem {
+        const cloned: ResolvedContentItem = { ...item };
+        if (item.genres) {
+            cloned.genres = [...item.genres];
+        }
+        if (item.directors) {
+            cloned.directors = [...item.directors];
+        }
+        if (item.mediaInfo) {
+            cloned.mediaInfo = { ...item.mediaInfo };
+        }
+        return cloned;
+    }
+
+    private _cloneResolvedItems(items: ResolvedContentItem[]): ResolvedContentItem[] {
+        return items.map((item) => this._cloneResolvedItem(item));
+    }
+
+    private _cloneResolvedContent(
+        content: ResolvedChannelContent,
+        overrides?: Partial<Pick<ResolvedChannelContent, 'fromCache' | 'isStale' | 'cacheReason'>>
+    ): ResolvedChannelContent {
+        const cloned: ResolvedChannelContent = {
+            ...content,
+            items: this._cloneResolvedItems(content.items),
+            orderedItems: this._cloneResolvedItems(content.orderedItems),
+        };
+        const fromCache = overrides?.fromCache ?? content.fromCache;
+        const isStale = overrides?.isStale ?? content.isStale;
+        const cacheReason = overrides?.cacheReason ?? content.cacheReason;
+        if (fromCache !== undefined) {
+            cloned.fromCache = fromCache;
+        }
+        if (isStale !== undefined) {
+            cloned.isStale = isStale;
+        }
+        if (cacheReason !== undefined) {
+            cloned.cacheReason = cacheReason;
+        }
+        return cloned;
+    }
+
     private async _resolveFilteredItems(
         channel: ChannelConfig,
         options?: { signal?: AbortSignal | null }
     ): Promise<ResolvedContentItem[]> {
         const rawItems = await this._contentResolver.resolveSource(channel.contentSource, options);
 
-        // Issue 1 (Round 4): If source itself returns empty, it's CONTENT_UNAVAILABLE (library/collection deleted)
+        // If source itself returns empty, it's CONTENT_UNAVAILABLE (library/collection deleted)
         // This is different from filtering removing all items
         if (rawItems.length === 0) {
             throw new ChannelError(
@@ -1183,7 +1224,7 @@ export class ChannelManager implements IChannelManager {
             });
         }
 
-        // Issue 1 (Round 4): If content exists but filters removed all, it's SCHEDULER_EMPTY_CHANNEL
+        // If content exists but filters removed all, it's SCHEDULER_EMPTY_CHANNEL
         if (items.length === 0) {
             throw new ChannelError(
                 AppErrorCode.SCHEDULER_EMPTY_CHANNEL,
@@ -1240,45 +1281,40 @@ export class ChannelManager implements IChannelManager {
 
             this._queueSave();
 
-            return result;
+            return this._cloneResolvedContent(result);
         } catch (error) {
-            // Issue 2 (Round 2): Only fallback to cache for network errors
+            // Cache fallback is allowed only for network errors and CONTENT_UNAVAILABLE (separate branch below).
             // SCHEDULER_EMPTY_CHANNEL and other non-network errors should propagate
             if (error instanceof ChannelError && error.code === AppErrorCode.SCHEDULER_EMPTY_CHANNEL) {
                 // No fallback for empty content - throw directly
                 throw error;
             }
 
-            // Issue 2 (Round 2): Check if this is a network error
             if (isNetworkError(error) && cached) {
                 const isStale = this._isStale(cached);
                 this._logger.warn(
                     `Resolution failed for channel ${channel.id} due to network error, using cached content (stale: ${isStale})`,
                     summarizeErrorForLog(error)
                 );
-                // Issue 3 (Round 3): Queue retry for network errors
                 this._queueRetry(channel.id);
-                return {
-                    ...cached,
+                return this._cloneResolvedContent(cached, {
                     fromCache: true,
                     isStale,
                     cacheReason: 'network_error',
-                };
+                });
             }
 
-            // Issue 2 (Round 3): Only allow cache fallback for CONTENT_UNAVAILABLE errors
             // Per spec: library/collection deleted should return stale cache
             if (isContentUnavailableError(error) && cached) {
                 this._logger.warn(
                     `Content unavailable for channel ${channel.id}, using stale cache`,
                     summarizeErrorForLog(error)
                 );
-                return {
-                    ...cached,
+                return this._cloneResolvedContent(cached, {
                     fromCache: true,
                     isStale: true,
                     cacheReason: 'content_unavailable',
-                };
+                });
             }
 
             // Access denied (403): profile lacks library permission.
@@ -1372,7 +1408,7 @@ export class ChannelManager implements IChannelManager {
     }
 
     /**
-     * Issue 3 (Round 3): Queue a retry for network errors.
+     * Queue a retry for network errors.
      * Implements spec requirement to retry failed content resolution.
      */
     private _queueRetry(channelId: string): void {

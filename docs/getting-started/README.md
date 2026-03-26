@@ -2,12 +2,17 @@
 
 Start here if you are installing Lineup for the first time on an LG webOS TV.
 
+> [!TIP]
+> If you already have Lineup installed and only want the fastest path to a working setup, jump straight to [Quick Start](quick-start.md).
+
 ## Recommended Order
 
-1. [Installation](installation.md)
-2. [Quick Start](quick-start.md)
-3. [Your First Channel](first-channel.md)
-4. [Troubleshooting](../user-guide/troubleshooting.md) if setup does not go smoothly
+| Step | Guide | Use It For |
+| --- | --- | --- |
+| 1 | [Installation](installation.md) | Sideloading and device setup |
+| 2 | [Quick Start](quick-start.md) | First launch through first working lineup |
+| 3 | [Your First Channel](first-channel.md) | Building channels with more intent |
+| 4 | [Troubleshooting](../user-guide/troubleshooting.md) | Recovery if setup does not go smoothly |
 
 ## Prerequisites
 

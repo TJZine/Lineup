@@ -13,7 +13,7 @@ import {
     generateScheduleWindow,
 } from '../ScheduleCalculator';
 import { ShuffleGenerator } from '../ShuffleGenerator';
-import type { ScheduleConfig, ResolvedContentItem } from '../types';
+import type { ScheduleConfig, ResolvedContentItem, SchedulerPlaybackMode } from '../types';
 import type { IShuffleGenerator } from '../interfaces';
 import { SCHEDULER_ERROR_MESSAGES } from '../constants';
 
@@ -356,6 +356,15 @@ describe('ScheduleCalculator', () => {
             expect(result[0]!.scheduledIndex).toBe(0);
             expect(result[1]!.scheduledIndex).toBe(1);
             expect(result[2]!.scheduledIndex).toBe(2);
+        });
+
+        it('throws for unknown runtime playback modes instead of silently falling back', () => {
+            expect(() => applyPlaybackMode(
+                testContent,
+                'invalid-mode' as unknown as SchedulerPlaybackMode,
+                12345,
+                shuffler
+            )).toThrow('Unknown scheduler playback mode: invalid-mode');
         });
 
         it('should group by show in blocks', () => {

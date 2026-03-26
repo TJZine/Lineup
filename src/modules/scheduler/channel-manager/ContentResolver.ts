@@ -20,7 +20,7 @@ import type {
     PlaybackMode,
     PlexMediaType,
 } from './types';
-import { shuffleWithSeed } from '../../../utils/prng';
+import { shuffleWithSeed } from '../shared/prng';
 import { applyBlockPlaybackMode } from '../shared/blockPlayback';
 import { PLEX_MEDIA_TYPES } from '../../plex/library/constants';
 import { detectHdrLabel } from '../../plex/stream/hdr';
@@ -426,7 +426,7 @@ export class ContentResolver {
                     scheduledIndex: index,
                 }));
             default:
-                return items;
+                throw new Error(`Unknown content playback mode: ${String(mode)}`);
         }
     }
 
@@ -986,7 +986,6 @@ export class ContentResolver {
                 } else if (filter.operator === 'eq') {
                     return genres.some((g) => g.toLowerCase() === String(filter.value).toLowerCase());
                 } else if (filter.operator === 'neq') {
-                    // Issue 3 (Round 2): neq means genre must NOT contain the value
                     return !genres.some((g) => g.toLowerCase() === String(filter.value).toLowerCase());
                 }
                 return true;

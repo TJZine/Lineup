@@ -139,7 +139,7 @@ const createRuntime = (
                 channelId: selectedChannel.id,
                 anchorTime: 0,
                 content: items,
-                playbackMode: 'loop' as PlaybackMode,
+                playbackMode: 'sequential',
                 shuffleSeed: 1,
                 loopSchedule: true,
             } satisfies ScheduleConfig),

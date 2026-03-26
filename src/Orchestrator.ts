@@ -129,7 +129,8 @@ import { NowPlayingDisplayStore } from './modules/settings/NowPlayingDisplayStor
 import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';
 import { SubtitlePreferencesStore } from './modules/settings/SubtitlePreferencesStore';
 import type { IDisposable } from './utils/interfaces';
-import { createMulberry32 } from './utils/prng';
+import { createMulberry32 } from './modules/scheduler/shared/prng';
+import { fnv1a32Uint } from './utils/hash';
 import {
     readStoredBoolean,
     safeLocalStorageGet,
@@ -1603,19 +1604,18 @@ export class AppOrchestrator implements IAppOrchestrator {
         const dayKey = this._getLocalDayKey(dayStart);
         const phaseOffsetMs = this._getPhaseOffsetMs(channel, items);
 
-        const baseSeed =
-            typeof channel.shuffleSeed === 'number' && Number.isFinite(channel.shuffleSeed)
-                ? channel.shuffleSeed
-                : Date.now();
-
-        const isShuffleLike = channel.playbackMode === 'shuffle' || channel.playbackMode === 'block';
+        const isRandomPlayback = channel.playbackMode === 'random';
+        const playbackMode: ScheduleConfig['playbackMode'] =
+            isRandomPlayback ? 'shuffle' : (channel.playbackMode as ScheduleConfig['playbackMode']);
+        const baseSeed = this._computeSchedulerBaseSeed(channel, dayStart);
+        const isShuffleLike = playbackMode === 'shuffle' || playbackMode === 'block';
         const effectiveSeed = isShuffleLike ? (baseSeed ^ dayKey) >>> 0 : baseSeed;
 
         const scheduleConfig: ScheduleConfig = {
             channelId: channel.id,
             anchorTime: dayStart - phaseOffsetMs,
             content: items,
-            playbackMode: channel.playbackMode,
+            playbackMode,
             shuffleSeed: effectiveSeed,
             loopSchedule: true,
         };
@@ -1625,6 +1625,19 @@ export class AppOrchestrator implements IAppOrchestrator {
         }
 
         return scheduleConfig;
+    }
+
+    private _computeSchedulerBaseSeed(channel: ChannelConfig, dayStart: number): number {
+        const configuredShuffleSeed =
+            typeof channel.shuffleSeed === 'number' && Number.isFinite(channel.shuffleSeed)
+                ? channel.shuffleSeed
+                : fnv1a32Uint(`${channel.id}:shuffle`);
+
+        if (channel.playbackMode === 'random') {
+            return (configuredShuffleSeed ^ dayStart) >>> 0;
+        }
+
+        return configuredShuffleSeed;
     }
 
     private async _handleScheduleDayRollover(): Promise<void> {

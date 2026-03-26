@@ -436,10 +436,8 @@ jest.mock('../modules/scheduler/scheduler', () => {
     return {
         ChannelScheduler: jest.fn(() => mockScheduler),
         ShuffleGenerator: MockShuffleGenerator,
-        ScheduleCalculator: {
-            buildScheduleIndex: jest.fn(() => ({})),
-            generateScheduleWindow: jest.fn(() => []),
-        },
+        buildScheduleIndex: jest.fn(() => ({})),
+        generateScheduleWindow: jest.fn(() => []),
     };
 });
 

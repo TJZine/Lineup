@@ -11,6 +11,11 @@ export type {
     ResolvedChannelContent,
 } from '../channel-manager/types';
 
+export type SchedulerPlaybackMode = Exclude<
+    import('../channel-manager/types').PlaybackMode,
+    'random'
+>;
+
 // Import StreamDescriptor from player module
 import type { StreamDescriptor } from '../../player/types';
 export type { StreamDescriptor };
@@ -27,10 +32,10 @@ export interface ScheduleConfig {
     channelId: string;
     /** Schedule anchor timestamp (ms) */
     anchorTime: number;
-    /** Ordered content items */
+    /** Resolved content items (scheduler applies playback ordering internally) */
     content: import('../channel-manager/types').ResolvedContentItem[];
     /** Playback mode */
-    playbackMode: import('../channel-manager/types').PlaybackMode;
+    playbackMode: SchedulerPlaybackMode;
     /** Shuffle seed for deterministic ordering */
     shuffleSeed: number;
     /** Optional block size (used when playbackMode === 'block') */

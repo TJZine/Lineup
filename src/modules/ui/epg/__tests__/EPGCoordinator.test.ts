@@ -172,6 +172,10 @@ const makeDeps = (
             const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
             return { items } as ResolvedChannelContent;
         }),
+        resolveChannelItemsForSchedule: jest.fn().mockImplementation(async (id: string) => {
+            const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
+            return items;
+        }),
     } as unknown as IChannelManager;
 
     const scheduler: IChannelScheduler = {
@@ -200,7 +204,7 @@ const makeDeps = (
             channelId: channel.id,
             anchorTime: 0,
             content: items,
-            playbackMode: 'loop' as PlaybackMode,
+            playbackMode: 'sequential',
             shuffleSeed: 1,
             loopSchedule: true,
         } satisfies ScheduleConfig),

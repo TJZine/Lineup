@@ -6,7 +6,7 @@
 import { ChannelManager } from '../ChannelManager';
 import { ChannelRepository } from '../ChannelRepository';
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
-import type { ChannelConfig, LibraryContentSource } from '../types';
+import type { ChannelConfig, LibraryContentSource, ResolvedChannelContent } from '../types';
 import { AppErrorCode } from '../../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../../lifecycle/constants';
 import {
@@ -450,6 +450,78 @@ describe('ChannelManager', () => {
             await manager.refreshChannelContent(channel.id);
 
             expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(1);
+        });
+
+        it('resolveChannelItemsForSchedule returns deep-cloned cached items', async () => {
+            const channel = await manager.createChannel({
+                contentSource: createMockContentSource(),
+            });
+            const cacheSeed: ResolvedChannelContent = {
+                channelId: channel.id,
+                resolvedAt: Date.now(),
+                totalDurationMs: 12_000,
+                items: [
+                    {
+                        ratingKey: 'nested-1',
+                        type: 'movie',
+                        title: 'Nested One',
+                        fullTitle: 'Nested One',
+                        durationMs: 6000,
+                        thumb: null,
+                        year: 2024,
+                        scheduledIndex: 0,
+                        genres: ['Drama'],
+                        directors: ['Director A'],
+                        mediaInfo: {
+                            resolution: '4k',
+                            audioCodec: 'aac',
+                            audioChannels: 6,
+                        },
+                    },
+                    {
+                        ratingKey: 'nested-2',
+                        type: 'movie',
+                        title: 'Nested Two',
+                        fullTitle: 'Nested Two',
+                        durationMs: 6000,
+                        thumb: null,
+                        year: 2025,
+                        scheduledIndex: 1,
+                        genres: ['Comedy'],
+                        directors: ['Director B'],
+                        mediaInfo: {
+                            resolution: '1080p',
+                            audioCodec: 'ac3',
+                            audioChannels: 2,
+                        },
+                    },
+                ],
+                orderedItems: [],
+            };
+            cacheSeed.orderedItems = cacheSeed.items.map((item) => ({ ...item }));
+            (manager as unknown as { _state: { resolvedContent: Map<string, ResolvedChannelContent> } })
+                ._state.resolvedContent.set(channel.id, cacheSeed);
+
+            const first = await manager.resolveChannelItemsForSchedule(channel.id);
+            first[0]!.title = 'Mutated Title';
+            first[0]!.genres?.push('Mutated Genre');
+            first[0]!.directors?.push('Mutated Director');
+            if (first[0]!.mediaInfo) {
+                first[0]!.mediaInfo.resolution = '240p';
+            }
+
+            const second = await manager.resolveChannelItemsForSchedule(channel.id);
+
+            expect(second).not.toBe(first);
+            expect(second[0]).not.toBe(first[0]);
+            expect(second[0]!.title).toBe('Nested One');
+            expect(second[0]!.genres).toEqual(['Drama']);
+            expect(second[0]!.directors).toEqual(['Director A']);
+            expect(second[0]!.mediaInfo).toEqual({
+                resolution: '4k',
+                audioCodec: 'aac',
+                audioChannels: 6,
+            });
         });
 
         it('does not clear all resolver caches when refreshing a single channel', async () => {

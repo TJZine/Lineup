@@ -2,14 +2,16 @@
 
 This folder has a stable split between current truth, active reference, and backlog direction.
 
+> [!NOTE]
+> If you only need the current architecture truth, start with [`CURRENT_STATE.md`](./CURRENT_STATE.md). The rest of this folder provides supporting reference and cleanup context.
+
 ## Read In This Order
 
-1. [`CURRENT_STATE.md`](./CURRENT_STATE.md)
-   - canonical and current architecture truth
-2. [`modules.md`](./modules.md)
-   - current module inventory and ownership reference
-3. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
-   - active backlog, priority queue, and cleanup direction
+| Order | Document | Purpose |
+| --- | --- | --- |
+| 1 | [`CURRENT_STATE.md`](./CURRENT_STATE.md) | Canonical and current architecture truth |
+| 2 | [`modules.md`](./modules.md) | Current module inventory and ownership reference |
+| 3 | [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md) | Active backlog, priority queue, and cleanup direction |
 
 ## Notes
 

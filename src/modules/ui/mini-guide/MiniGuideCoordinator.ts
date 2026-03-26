@@ -6,7 +6,12 @@
 
 import type { IChannelManager, ChannelConfig, ResolvedChannelContent } from '../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig } from '../../scheduler/scheduler';
-import { ScheduleCalculator, ShuffleGenerator } from '../../scheduler/scheduler';
+import {
+    ShuffleGenerator,
+    buildScheduleIndex,
+    calculateProgramAtTime,
+    calculateNextProgram,
+} from '../../scheduler/scheduler';
 import type { IMiniGuideOverlay } from './interfaces';
 import type { MiniGuideChannelViewModel, MiniGuideViewModel } from './types';
 import { getChannelNameForDisplay } from '../channelDisplay';
@@ -339,9 +344,9 @@ export class MiniGuideCoordinator {
     ): MiniGuideChannelViewModel {
         try {
             const cfg = this.deps.buildDailyScheduleConfig(channel, resolved.items, nowMs);
-            const index = ScheduleCalculator.buildScheduleIndex(cfg, this._shuffler);
-            const now = ScheduleCalculator.calculateProgramAtTime(nowMs, index, cfg.anchorTime);
-            const next = ScheduleCalculator.calculateNextProgram(now, index, cfg.anchorTime);
+            const index = buildScheduleIndex(cfg, this._shuffler);
+            const now = calculateProgramAtTime(nowMs, index, cfg.anchorTime);
+            const next = calculateNextProgram(now, index, cfg.anchorTime);
             return this._buildRowFromPrograms(channel, now, next);
         } catch {
             return this._buildUnavailableRow(channel);
