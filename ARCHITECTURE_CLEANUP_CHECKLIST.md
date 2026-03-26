@@ -1089,7 +1089,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - prune small doc/comment noise that is clearly redundant after the main cleanup
   - consolidate minor control-plane wording drift if it is directly adjacent to the required edits
 - Cleanup track:
-  - [ ] `P8-W1` remove low-value template/docblock scaffolding in all high-noise hotspot areas confirmed by the imported review
+  - [ ] `P8-W1` remove low-value template/docblock scaffolding in all high-noise hotspot areas confirmed by the imported review (`review::.::holistic::ai_generated_debt::comment_template_ceremony`; cleanup applied in `src/modules/plex/discovery/PlexServerDiscovery.ts`, `src/modules/player/types.ts`, `src/modules/lifecycle/interfaces.ts`; keep open until mapped issue has auditable resolved/deferred/split disposition from valid `.desloppify` scan state)
   - [ ] `P8-W2` clean up documented drift between the active backlog, `CURRENT_STATE`, and the real persistence-owner map
   - [ ] `P8-W3` remove review-history breadcrumbs, migration residue comments, and stale cleanup scaffolding from production code across the affected priorities
   - [ ] `P8-W4` audit remaining control-plane wording drift so active docs stay live and archives stay historical
