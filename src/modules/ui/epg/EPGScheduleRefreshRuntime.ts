@@ -1,4 +1,8 @@
-import { ShuffleGenerator, ScheduleCalculator } from '../../scheduler/scheduler';
+import {
+    ShuffleGenerator,
+    buildScheduleIndex,
+    generateScheduleWindow,
+} from '../../scheduler/scheduler';
 import type {
     ChannelConfig,
     IChannelManager,
@@ -552,8 +556,8 @@ export class EPGScheduleRefreshRuntime {
                 }
 
                 const scheduleConfig = this._deps.buildDailyScheduleConfig(channel, items, startTime);
-                const index = ScheduleCalculator.buildScheduleIndex(scheduleConfig, shuffler);
-                const programs = ScheduleCalculator.generateScheduleWindow(
+                const index = buildScheduleIndex(scheduleConfig, shuffler);
+                const programs = generateScheduleWindow(
                     startTime,
                     endTime,
                     index,

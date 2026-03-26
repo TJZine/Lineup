@@ -10,7 +10,15 @@
 
 export { ChannelScheduler } from './ChannelScheduler';
 export { ShuffleGenerator } from './ShuffleGenerator';
-export * as ScheduleCalculator from './ScheduleCalculator';
+export {
+    buildScheduleIndex,
+    binarySearchForItem,
+    calculateProgramAtTime,
+    calculateNextProgram,
+    calculatePreviousProgram,
+    applyPlaybackMode,
+    generateScheduleWindow,
+} from './ScheduleCalculator';
 
 // ============================================
 // Interface Exports
