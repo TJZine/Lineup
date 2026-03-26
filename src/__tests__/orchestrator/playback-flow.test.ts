@@ -8,7 +8,7 @@ describe('AppOrchestrator playback flow suite', () => {
         await expect(orchestrator.switchToChannelByNumber(101)).resolves.toBeUndefined();
     });
 
-    it('builds deterministic random-mode daily shuffle seed when shuffleSeed is missing', () => {
+    it('builds deterministic daily random-mode schedule seeds without reading Date.now when shuffleSeed is missing', () => {
         const orchestrator = new AppOrchestrator() as unknown as {
             _buildDailyScheduleConfig: (
                 channel: ChannelConfig,
@@ -43,9 +43,9 @@ describe('AppOrchestrator playback flow suite', () => {
             scheduledIndex: 0,
         }];
 
-        const nowSpy = jest.spyOn(Date, 'now')
-            .mockReturnValueOnce(111_111_111)
-            .mockReturnValueOnce(222_222_222);
+        const nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => {
+            throw new Error('Date.now should not be used by _buildDailyScheduleConfig');
+        });
         try {
             const sameDayReferenceTime = new Date('2026-03-25T10:30:00-04:00').getTime();
             const configA = orchestrator._buildDailyScheduleConfig(channel, items, sameDayReferenceTime);
@@ -57,6 +57,7 @@ describe('AppOrchestrator playback flow suite', () => {
             const nextDayReferenceTime = new Date('2026-03-26T10:30:00-04:00').getTime();
             const nextDayConfig = orchestrator._buildDailyScheduleConfig(channel, items, nextDayReferenceTime);
             expect(nextDayConfig.shuffleSeed).not.toBe(configA.shuffleSeed);
+            expect(nowSpy).not.toHaveBeenCalled();
         } finally {
             nowSpy.mockRestore();
         }

@@ -1604,18 +1604,10 @@ export class AppOrchestrator implements IAppOrchestrator {
         const dayKey = this._getLocalDayKey(dayStart);
         const phaseOffsetMs = this._getPhaseOffsetMs(channel, items);
 
-        const hasNumericShuffleSeed =
-            typeof channel.shuffleSeed === 'number' && Number.isFinite(channel.shuffleSeed);
-        const configuredShuffleSeed = hasNumericShuffleSeed ? channel.shuffleSeed : null;
-        const defaultSeed = configuredShuffleSeed ?? Date.now();
         const isRandomPlayback = channel.playbackMode === 'random';
         const playbackMode: ScheduleConfig['playbackMode'] =
-            channel.playbackMode === 'random' ? 'shuffle' : channel.playbackMode;
-        const randomDailyFallbackSeed = fnv1a32Uint(`${channel.id}:${dayStart}`);
-        const randomBaseSeed = configuredShuffleSeed !== null
-            ? ((defaultSeed ^ dayStart) >>> 0)
-            : randomDailyFallbackSeed;
-        const baseSeed = isRandomPlayback ? randomBaseSeed : defaultSeed;
+            isRandomPlayback ? 'shuffle' : (channel.playbackMode as ScheduleConfig['playbackMode']);
+        const baseSeed = this._computeSchedulerBaseSeed(channel, dayStart);
         const isShuffleLike = playbackMode === 'shuffle' || playbackMode === 'block';
         const effectiveSeed = isShuffleLike ? (baseSeed ^ dayKey) >>> 0 : baseSeed;
 
@@ -1633,6 +1625,19 @@ export class AppOrchestrator implements IAppOrchestrator {
         }
 
         return scheduleConfig;
+    }
+
+    private _computeSchedulerBaseSeed(channel: ChannelConfig, dayStart: number): number {
+        const configuredShuffleSeed =
+            typeof channel.shuffleSeed === 'number' && Number.isFinite(channel.shuffleSeed)
+                ? channel.shuffleSeed
+                : fnv1a32Uint(`${channel.id}:shuffle`);
+
+        if (channel.playbackMode === 'random') {
+            return (configuredShuffleSeed ^ dayStart) >>> 0;
+        }
+
+        return configuredShuffleSeed;
     }
 
     private async _handleScheduleDayRollover(): Promise<void> {
