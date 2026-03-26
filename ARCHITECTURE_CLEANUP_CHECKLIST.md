@@ -1085,6 +1085,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - remove known cleanup residue and low-value ceremony from touched production areas
   - keep active docs current and archive historical material instead of leaving it mixed into live surfaces
   - keep imported-review evidence, current-state docs, and the active checklist in sync as the cleanup backlog evolves
+  - fix any code-level persistence boundary drift uncovered by `P8-W2` before the final whole-repo `desloppify` rerun so the refreshed docs can describe actual current ownership instead of intended ownership
 - Nice-to-do while in the area:
   - prune small doc/comment noise that is clearly redundant after the main cleanup
   - consolidate minor control-plane wording drift if it is directly adjacent to the required edits
@@ -1098,9 +1099,12 @@ Do not close a listed work unit while its mapped imported issue still remains un
         - `rg -n --pcre2 "^(?!\\s*(//|/\\*|\\*)).*\\blocalStorage\\.(getItem|setItem|removeItem|clear|key)\\(" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`
         - `rg -n "\\blineup_[a-z0-9_]+" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`
         - `rg -n "\\bstorage(Get|Set|Remove)\\s*:" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`
-      - updated `docs/architecture/CURRENT_STATE.md`, `docs/architecture/modules.md`, and `.codex/skills/persistence-boundaries/SKILL.md` so they name canonical owners only and call out the residual direct-storage drift explicitly
+      - updated `docs/architecture/CURRENT_STATE.md`, `docs/architecture/modules.md`, and `.codex/skills/persistence-boundaries/SKILL.md` so they reflect the current mixed-owner state, the helper-only cleanup keys, and the residual direct-storage drift explicitly instead of overclaiming a canonical single-owner map
   - [ ] `P8-W3` remove review-history breadcrumbs, migration residue comments, and stale cleanup scaffolding from production code across the affected priorities
   - [ ] `P8-W4` audit remaining control-plane wording drift so active docs stay live and archives stay historical
+  - [ ] `P8-W5` enforce the remaining persistence-owner boundaries exposed by `P8-W2`, then refresh the persistence-owner docs/skill to match the corrected code before `P8-EXIT`
+    - scope: code-first cleanup for the still-split persistence seams (`SettingsStore` debug flags vs `DeveloperSettingsStore`, direct `lineup_audio_setup_complete` reads/writes in startup/setup flow, direct `lineup_subtitle_allow_burn_in` read in `Orchestrator`, and any same-slice persistence-owner/doc truth fallout)
+    - acceptance: the corrected code establishes one canonical owner per touched key family, removes the known direct-storage bypasses in those seams without adding fallback paths, and refreshes `CURRENT_STATE.md`, `modules.md`, `.codex/skills/persistence-boundaries/SKILL.md`, and the checklist evidence note in the same delivery pass
   - [ ] `P8-EXIT` run the priority-exit review before declaring the cleanup backlog complete
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 8
 

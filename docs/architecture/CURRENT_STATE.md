@@ -54,7 +54,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - `src/modules/lifecycle/`
 - owns lifecycle state, visibility, persistence coordination, and recovery concerns
-- `src/modules/lifecycle/StateManager.ts` owns the lifecycle storage key `lineup_app_state` only (versioned lifecycle payload: `plexAuth` null marker, `userPreferences`, `lastUpdated`) and the bounded cleanup-only keys in `STORAGE_CONFIG.CLEANUP_KEYS`
+- `src/modules/lifecycle/StateManager.ts` owns the lifecycle storage key `lineup_app_state` only (versioned lifecycle payload: `plexAuth` null marker, `userPreferences`, `lastUpdated`) and deletes the bounded cleanup-only keys in `STORAGE_CONFIG.CLEANUP_KEYS` as a helper; it does not own their schema or migrations
 
 ### Navigation
 
@@ -86,6 +86,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 ### Settings And Persistence Owners
 
+- `src/modules/ui/settings/SettingsStore.ts`
 - `src/modules/settings/AudioSettingsStore.ts`
 - `src/modules/settings/DeveloperSettingsStore.ts`
 - `src/modules/settings/PlaybackSettingsStore.ts`
@@ -103,8 +104,8 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - `src/modules/plex/auth/clientIdentifier.ts`
 - `src/modules/ui/epg/utils.ts`
 - these are the current designated owners for storage-backed state
-- `src/modules/ui/settings/SettingsStore.ts` is a façade that routes through the typed stores above instead of owning persistence itself
-- runtime consumers route mapped key families through typed stores (for example `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`, `ProfileSelectScreen` -> `ProfileSessionStore`, `ThemeManager` -> `ThemePreferencesStore`, `EPGInfoPanel` -> `NowPlayingDisplayStore`/`EpgPreferencesStore`, `SettingsStore` -> the dedicated settings stores, `AudioSetupScreen` -> `AudioSettingsStore` for audio controls)
+- `src/modules/ui/settings/SettingsStore.ts` still directly owns `debugLogging` and `subtitleDebugLogging` persistence today; the rest of the settings surface routes through the typed stores above, so the `SettingsStore`/`DeveloperSettingsStore` overlap remains residual drift
+- runtime consumers route mapped key families through typed stores (for example `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`, `ProfileSelectScreen` -> `ProfileSessionStore`, `ThemeManager` -> `ThemePreferencesStore`, `EPGInfoPanel` -> `NowPlayingDisplayStore`/`EpgPreferencesStore`, `SettingsStore` -> the dedicated settings stores for non-debug toggles, `AudioSetupScreen` -> `AudioSettingsStore` for audio controls)
 - `src/modules/ui/epg/utils.ts` owns the bounded `lineup_debug_epg_log` cache; `EPGComponent.ts` and `EPGCoordinatorPolicies.ts` still read the `lineup_debug_epg` flag directly, which remains residual drift rather than a canonical owner
 - `src/core/channel-setup/ChannelSetupRecordStore.ts` owns the `lineup_channel_setup_v2:${serverId}` family and its prefix cleanup through `safeLocalStorageRemoveByPrefixes`
 - `src/bootstrap.ts` still carries the one-off `lineup_debug_transcode` -> `lineup_debug_logging` migration path

@@ -14,6 +14,7 @@ Lineup's rule is simple: one storage namespace, one owner.
 ## Current Storage Owners
 
 - [`src/modules/lifecycle/StateManager.ts`](../../../src/modules/lifecycle/StateManager.ts)
+- [`src/modules/ui/settings/SettingsStore.ts`](../../../src/modules/ui/settings/SettingsStore.ts) - partial facade that still directly owns `debugLogging` and `subtitleDebugLogging`
 - [`src/modules/settings/AudioSettingsStore.ts`](../../../src/modules/settings/AudioSettingsStore.ts)
 - [`src/modules/settings/DeveloperSettingsStore.ts`](../../../src/modules/settings/DeveloperSettingsStore.ts)
 - [`src/modules/settings/PlaybackSettingsStore.ts`](../../../src/modules/settings/PlaybackSettingsStore.ts)

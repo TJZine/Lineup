@@ -148,7 +148,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 ### `src/modules/ui/settings/`
 
 - settings screen
-- settings facade that delegates to typed persistence owners
+- settings facade for most toggles; `SettingsStore.ts` still directly owns `debugLogging` and `subtitleDebugLogging`
 - `src/modules/ui/settings/SettingsStore.ts`
 
 ### `src/modules/settings/`
@@ -157,6 +157,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/modules/settings/AudioSettingsStore.ts`
 - developer settings storage ownership
 - `src/modules/settings/DeveloperSettingsStore.ts`
+- overlaps with `SettingsStore.ts` on the debug-logging flags until that drift is removed
 - playback settings storage ownership
 - `src/modules/settings/PlaybackSettingsStore.ts`
 - EPG settings storage ownership
