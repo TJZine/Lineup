@@ -1149,9 +1149,7 @@ export class ChannelManager implements IChannelManager {
         if (item.mediaInfo) {
             cloned.mediaInfo = { ...item.mediaInfo };
         }
-        return {
-            ...cloned,
-        };
+        return cloned;
     }
 
     private _cloneResolvedItems(items: ResolvedContentItem[]): ResolvedContentItem[] {
