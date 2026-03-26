@@ -997,7 +997,11 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - rewrote `src/__tests__/bootstrap.test.ts` to exercise global handlers through installed listeners/public seams (dispatch-first with callback capture fallback for `unhandledrejection` only when needed).
       - removed `bootstrapInternals` export from `src/bootstrap.ts`; `rg -n "bootstrapInternals" src` now returns no matches.
       - verification: `npm run typecheck`; `npm test -- src/utils/__tests__/errors.test.ts`; `npm test -- src/__tests__/bootstrap.test.ts`.
-  - [ ] `P7-W2` reduce mock-heavy coverage gaps in top-level startup and orchestrator tests so those suites exercise more realistic collaborator seams
+  - [x] `P7-W2` reduce mock-heavy coverage gaps in top-level startup and orchestrator tests so those suites exercise more realistic collaborator seams (done 2026-03-26)
+    - Evidence note (2026-03-26):
+      - added `src/__tests__/startup-integration.test.ts` as a real startup integration slice that forces `document.readyState = 'loading'`, calls `installLineupBootstrap()`, dispatches a single `DOMContentLoaded`, and polls via bounded `flushPromises()` until `app.getOrchestrator()` becomes available.
+      - asserts unauthenticated Phase 2 outcomes on the real startup path: `app-lifecycle` and `navigation` ready, `plex-auth` pending, current screen `auth`, debug surface present (`window.__LINEUP__.orchestratorStatus()` non-null), and post-cleanup teardown (`app === null`, debug surface removed).
+      - verification: `npm run typecheck`; `npm test -- src/__tests__/startup-integration.test.ts`; `npm test -- src/__tests__/bootstrap.test.ts`; `npm test -- src/__tests__/App.test.ts`; `npm test -- src/__tests__/Orchestrator.test.ts`; `npm run verify`.
   - [ ] `P7-W3` tighten test utility patterns and timing assertions that currently encourage incidental mechanics over behavior-level checks
   - [ ] `P7-W4` run a follow-up cleanup pass on redundant, overbuilt, or brittle tests in the affected hotspot areas
   - [ ] `P7-EXIT` run the priority-exit review before moving to `P8`
