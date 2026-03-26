@@ -914,7 +914,14 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - [x] `P6-W1` remove review-history / issue-round comments and replace any remaining needed context with durable code comments or docs (done 2026-03-25; removed Issue/Round comment markers in ChannelManager + ContentResolver)
   - [x] `P6-W2` fix scheduler/channel contract mismatches and mutable read APIs in `ChannelManager` and `ChannelScheduler`, then extract or simplify any remaining responsibility clusters that still blur domain, retry, and persistence concerns (done 2026-03-25; scheduler now rejects `'random'` at type boundary with Orchestrator mapping random to deterministic daily shuffle, `getScheduleWindow`/`getUpcoming` default to fresh arrays unless caller provides output buffers, and ChannelManager schedule/content reads return deep-cloned items so cached `genres`/`directors`/`mediaInfo` cannot be mutated by callers; verification: `npm run typecheck`, `npm test -- src/modules/scheduler/scheduler/__tests__/ChannelScheduler.test.ts`, `npm run verify`)
   - [x] `P6-W3` reduce utility-layer catch-all drift where feature-specific helpers belong closer to their owners (done 2026-03-25; moved `createMulberry32`/`shuffleWithSeed` from `src/utils/prng.ts` into `src/modules/scheduler/shared/prng.ts`, rewired scheduler + `Orchestrator` imports/tests, and removed `src/utils/prng.ts`; verification: `npm run typecheck`, `npm test -- src/modules/scheduler/channel-manager/__tests__/ContentResolver.test.ts`, `npm test -- src/modules/scheduler/scheduler/__tests__/ShuffleGenerator.test.ts`, `npm run verify`)
-  - [ ] `P6-W4` run a final scheduler-domain cleanup pass to remove transitional helpers, duplicate conventions, namespace-export drift, and stale abstraction residue
+  - [x] `P6-W4` run a final scheduler-domain cleanup pass to remove transitional helpers, duplicate conventions, namespace-export drift, and stale abstraction residue (done 2026-03-25)
+    - Evidence note (2026-03-25):
+      - removed `export * as ScheduleCalculator` from `src/modules/scheduler/scheduler/index.ts` and switched the two live consumers (`EPGScheduleRefreshRuntime`, `MiniGuideCoordinator`) to named imports.
+      - updated `src/__tests__/Orchestrator.test.ts` scheduler mock to match the new top-level export shape.
+      - pruned unused `AppErrorCode` re-export from `src/modules/scheduler/channel-manager/index.ts` after confirming no `scheduler/channel-manager` import sites consume `AppErrorCode`.
+      - verification run on current code: `npm run typecheck`; `npm test -- src/modules/scheduler/scheduler/__tests__/ScheduleCalculator.test.ts`; `npm test -- src/__tests__/Orchestrator.test.ts`; `npm run verify`.
+    - imported issue disposition:
+      - `convention_outlier::scheduler_namespace_export_outlier` -> `resolved` by `P6-W4`
   - [ ] `P6-EXIT` run the priority-exit review before moving to `P7`
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 6
 
