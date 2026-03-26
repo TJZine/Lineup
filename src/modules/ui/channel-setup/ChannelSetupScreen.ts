@@ -1,8 +1,4 @@
-/**
- * @fileoverview Channel setup wizard screen.
- * @module modules/ui/channel-setup/ChannelSetupScreen
- * @version 1.0.0
- */
+/** Channel setup wizard screen. */
 
 import {
     type ChannelBuildProgress,

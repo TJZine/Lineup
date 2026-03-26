@@ -1,8 +1,4 @@
-/**
- * @fileoverview EPG Component - Main orchestrator for Electronic Program Guide
- * @module modules/ui/epg/EPGComponent
- * @version 1.0.0
- */
+/** EPG component that orchestrates the Electronic Program Guide. */
 
 import { EventEmitter } from '../../../utils/EventEmitter';
 import { EPG_CONSTANTS, EPG_CLASSES, EPG_ERRORS, DEFAULT_EPG_CONFIG } from './constants';

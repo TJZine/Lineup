@@ -1,8 +1,5 @@
 /**
- * @fileoverview Plex Stream Resolver implementation.
  * Resolves playback URLs, handles direct play detection, and manages sessions.
- * @module modules/plex/stream/PlexStreamResolver
- * @version 1.0.0
  */
 
 import { EventEmitter } from '../../../utils/EventEmitter';

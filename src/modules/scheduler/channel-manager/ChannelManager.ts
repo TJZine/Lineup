@@ -1,8 +1,5 @@
 /**
- * @fileoverview Channel Manager implementation.
  * Manages virtual TV channel CRUD, content resolution, and persistence.
- * @module modules/scheduler/channel-manager/ChannelManager
- * @version 1.0.0
  */
 
 import { EventEmitter } from '../../../utils/EventEmitter';

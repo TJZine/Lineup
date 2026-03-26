@@ -1,8 +1,4 @@
-/**
- * @fileoverview Application shell - creates root containers and initializes orchestrator.
- * @module App
- * @version 1.0.0
- */
+/** Application shell that creates root containers and initializes the orchestrator. */
 
 import {
     AppOrchestrator,

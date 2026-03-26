@@ -1,9 +1,5 @@
 /**
- * @fileoverview Application Orchestrator - Central coordinator for all modules.
- * @module Orchestrator
- * @version 1.0.0
- *
- * Responsibilities:
+ * Application Orchestrator responsibilities:
  * - Module initialization in dependency order
  * - Cross-module event wiring
  * - State restoration on startup

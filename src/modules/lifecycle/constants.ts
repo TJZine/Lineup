@@ -88,10 +88,4 @@ export const VALID_PHASE_TRANSITIONS: Record<string, readonly string[]> = {
  * Each migration function upgrades state from version N to N+1.
  */
 export const MIGRATIONS: Record<number, (state: Record<string, unknown>) => Record<string, unknown>> = {
-    // v1 -> v2: Example future migration
-    // 1: (state) => ({
-    //     ...state,
-    //     version: 2,
-    //     newField: 'default'
-    // }),
 };

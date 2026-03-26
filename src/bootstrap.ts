@@ -1,8 +1,4 @@
-/**
- * @fileoverview Application bootstrap wiring.
- * @module bootstrap
- * @version 1.0.0
- */
+/** Application bootstrap wiring. */
 
 import { App } from './App';
 import { LINEUP_EVENT_NAMES } from './config/events';
