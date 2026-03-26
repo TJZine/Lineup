@@ -1015,8 +1015,54 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - removed the channel-setup dropdown private-probe test (`_renderStep` spy) from `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts` with no replacement harness added because adjacent public-seam behavior coverage already exists.
       - tightened repeat-stop assertions in `src/modules/navigation/__tests__/NavigationCoordinator.test.ts` by replacing long `advanceTimersByTime(2000)` blocks with timer-clear assertions, plus bounded repeat-interval advances where needed for stable stop-condition coverage.
       - verification: `npm run typecheck`; `npm test -- src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts`; `npm test -- src/__tests__/App.test.ts`; `npm test -- src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`; `npm run test:contracts -- src/__tests__/policy/AntiPatterns.policy.test.ts`; `npm test -- src/modules/navigation/__tests__/NavigationCoordinator.test.ts`; `npm run verify`.
-  - [ ] `P7-EXIT` run the priority-exit review before moving to `P8`
+  - [x] `P7-EXIT` run the priority-exit review before moving to `P8` (done 2026-03-26, integration branch `feature/initial-build`)
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 7
+    - Priority-exit review evidence refresh (authoritative integration-branch run):
+      - freshness/routing checks:
+        - `git branch --show-current` -> `feature/initial-build`
+        - `git status -sb`
+        - `rg -n "## Priority 7|P7-W[1-4]|P7-EXIT" ARCHITECTURE_CLEANUP_CHECKLIST.md` -> `P7-W1..P7-W4` closed and `P7-EXIT` open before exit closeout
+      - detector/state refresh:
+        - `desloppify status`
+        - `desloppify show security --status open --no-budget --top 50` -> `No open issues for Security`
+        - anchored pre-resolution exact-id proof:
+          - `desloppify show review --status all --no-budget --top 500 | rg -n "review::\\.::holistic::test_strategy::(untested_core_error_helpers|bootstrap_internal_seam_coupling|mock_heavy_top_level_gaps|timer_and_eventloop_brittleness)$"`
+          - output:
+            - `review::.::holistic::test_strategy::untested_core_error_helpers`
+            - `review::.::holistic::test_strategy::bootstrap_internal_seam_coupling`
+            - `review::.::holistic::test_strategy::mock_heavy_top_level_gaps`
+            - `review::.::holistic::test_strategy::timer_and_eventloop_brittleness`
+      - source audit verification:
+        - `rg -n "bootstrapInternals" src` -> no matches
+        - `npm test -- src/utils/__tests__/errors.test.ts`
+        - `npm test -- src/__tests__/bootstrap.test.ts`
+        - `npm test -- src/__tests__/startup-integration.test.ts`
+    - Mapped imported issue dispositions (exact ids):
+      - `review::.::holistic::test_strategy::untested_core_error_helpers` -> `resolved`
+      - `review::.::holistic::test_strategy::bootstrap_internal_seam_coupling` -> `resolved`
+      - `review::.::holistic::test_strategy::mock_heavy_top_level_gaps` -> `resolved`
+      - `review::.::holistic::test_strategy::timer_and_eventloop_brittleness` -> `resolved`
+    - Follow-up ownership:
+      - none; no deferred or split follow-up items for Priority 7
+    - Security triage:
+      - exact `P0` gate disposition: `no open P0 security findings`
+      - evidence: `desloppify show security --status open --no-budget --top 50`
+    - Force-resolve note:
+      - `desloppify plan resolve ...` initially refused normal queue-order resolution; exit closeout used `--force-resolve` for the four mapped `review::.::holistic::test_strategy::*` ids, as required by the approved `P7-EXIT` plan.
+    - Post-resolution exact-id proof (required):
+      - `node -e 'const fs=require("fs"); const s=JSON.parse(fs.readFileSync(".desloppify/state-typescript.json","utf8")); const ids=["review::.::holistic::test_strategy::untested_core_error_helpers","review::.::holistic::test_strategy::bootstrap_internal_seam_coupling","review::.::holistic::test_strategy::mock_heavy_top_level_gaps","review::.::holistic::test_strategy::timer_and_eventloop_brittleness"]; let ok=true; for(const id of ids){ const issue=s.work_items?.[id]; const status=issue?.status; console.log(`${id} status=${status}`); if(!issue||status==="open"){ ok=false; } } process.exit(ok?0:1);'`
+      - output:
+        - `review::.::holistic::test_strategy::untested_core_error_helpers status=fixed`
+        - `review::.::holistic::test_strategy::bootstrap_internal_seam_coupling status=fixed`
+        - `review::.::holistic::test_strategy::mock_heavy_top_level_gaps status=fixed`
+        - `review::.::holistic::test_strategy::timer_and_eventloop_brittleness status=fixed`
+    - Verification reruns on current code:
+      - `desloppify status` (post-resolution `test_strategy` open issues: `0`)
+      - `npm run verify`
+      - `npm run verify:docs`
+    - Gate decision:
+      - `Priority 7 exit gates pass.`
+      - `Priority 7 may proceed to P8.`
 
 ## Priority 8: Remove Cleanup Residue, AI-Slop Ceremony, And Control-Plane Drift
 
