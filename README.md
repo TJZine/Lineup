@@ -1,3 +1,5 @@
+# Lineup
+
 <p align="center">
   <img src="./public/lineup-logo-mark.png" alt="Lineup logo mark" width="150">
 </p>
