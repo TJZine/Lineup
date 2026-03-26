@@ -16,6 +16,10 @@ import type {
 import { SCHEDULER_ERROR_MESSAGES } from './constants';
 import { applyBlockPlaybackMode } from '../shared/blockPlayback';
 
+function assertNeverPlaybackMode(mode: never): never {
+    throw new Error(`Unknown scheduler playback mode: ${String(mode)}`);
+}
+
 // ============================================
 // Schedule Index Building
 // ============================================
@@ -232,9 +236,7 @@ export function calculatePreviousProgram(
  * @returns Ordered items based on mode
  *
  * @remarks
- * The 'random' mode is deprecated in the scheduler. True random ordering
- * should be resolved upstream by ContentResolver using Date.now() as seed.
- * The scheduler treats 'random' identically to 'shuffle' for determinism.
+ * Scheduler playback is deterministic-only. Invalid runtime modes are rejected.
  */
 export function applyPlaybackMode(
     items: ResolvedContentItem[],
@@ -278,11 +280,7 @@ export function applyPlaybackMode(
         }
 
         default:
-            // Fallback to sequential
-            return items.map((item, index) => ({
-                ...item,
-                scheduledIndex: index,
-            }));
+            return assertNeverPlaybackMode(mode);
     }
 }
 

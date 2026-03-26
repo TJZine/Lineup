@@ -426,7 +426,7 @@ export class ContentResolver {
                     scheduledIndex: index,
                 }));
             default:
-                return items;
+                throw new Error(`Unknown content playback mode: ${String(mode)}`);
         }
     }
 

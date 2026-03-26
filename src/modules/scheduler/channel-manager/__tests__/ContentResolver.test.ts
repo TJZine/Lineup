@@ -1272,6 +1272,27 @@ describe('ContentResolver', () => {
             expect(result[2]!.scheduledIndex).toBe(2);
         });
 
+        it('throws for unknown runtime playback modes instead of returning items unchanged', () => {
+            const items: ResolvedContentItem[] = [
+                {
+                    ratingKey: 'item-1',
+                    type: 'movie',
+                    title: 'One',
+                    fullTitle: 'One',
+                    durationMs: 30_000,
+                    thumb: null,
+                    year: 2024,
+                    scheduledIndex: 0,
+                },
+            ];
+
+            expect(() => resolver.applyPlaybackMode(
+                items,
+                'invalid-mode' as unknown as import('../types').PlaybackMode,
+                12345
+            )).toThrow('Unknown content playback mode: invalid-mode');
+        });
+
         it('should group by show in blocks', () => {
             const episodes: ResolvedContentItem[] = [
                 { ratingKey: 'a1', type: 'episode', title: 'A1', fullTitle: 'A1', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 0, showTitle: 'Show A', seasonNumber: 1, episodeNumber: 1 },
