@@ -3,6 +3,12 @@ import type { INavigationManager, KeyEvent, NavigationEventMap, Screen } from '.
 import type { IEPGComponent } from '../../ui/epg';
 import type { IVideoPlayer } from '../../player';
 import type { IPlexAuth } from '../../plex/auth';
+import {
+    computeAcceleratedRepeatIntervalMs,
+    EPG_REPEAT_TIMING,
+    MINI_GUIDE_REPEAT_TIMING,
+} from '../constants';
+import { advanceTimersUntil } from '../../../__tests__/helpers';
 import { NOW_PLAYING_INFO_MODAL_ID } from '../../ui/now-playing-info';
 import { PLAYBACK_OPTIONS_MODAL_ID } from '../../ui/playback-options/constants';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
@@ -137,6 +143,24 @@ const setup = (overrides: Partial<NavigationCoordinatorDeps> = {}): {
 
     return { coordinator, deps, handlers, navigation, epg, videoPlayer, plexAuth };
 };
+
+describe('computeAcceleratedRepeatIntervalMs', () => {
+    it('maps hold-duration boundaries to the expected repeat interval tiers', () => {
+        expect(computeAcceleratedRepeatIntervalMs(0, EPG_REPEAT_TIMING)).toBe(EPG_REPEAT_TIMING.INTERVAL_1_MS);
+        expect(
+            computeAcceleratedRepeatIntervalMs(EPG_REPEAT_TIMING.TIER_1_MS - 1, EPG_REPEAT_TIMING)
+        ).toBe(EPG_REPEAT_TIMING.INTERVAL_1_MS);
+        expect(
+            computeAcceleratedRepeatIntervalMs(EPG_REPEAT_TIMING.TIER_1_MS, EPG_REPEAT_TIMING)
+        ).toBe(EPG_REPEAT_TIMING.INTERVAL_2_MS);
+        expect(
+            computeAcceleratedRepeatIntervalMs(EPG_REPEAT_TIMING.TIER_2_MS - 1, EPG_REPEAT_TIMING)
+        ).toBe(EPG_REPEAT_TIMING.INTERVAL_2_MS);
+        expect(
+            computeAcceleratedRepeatIntervalMs(EPG_REPEAT_TIMING.TIER_2_MS, EPG_REPEAT_TIMING)
+        ).toBe(EPG_REPEAT_TIMING.INTERVAL_3_MS);
+    });
+});
 
 describe('NavigationCoordinator', () => {
     beforeEach(() => {
@@ -892,7 +916,7 @@ describe('NavigationCoordinator', () => {
             jest.useRealTimers();
         });
 
-        it('accelerated repeat ticks and stops on keyUp', () => {
+        it('starts repeating after initial delay and stops on keyUp', async () => {
             const { handlers, deps, navigation } = setup({
                 isMiniGuideVisible: jest.fn().mockReturnValue(true),
                 handleMiniGuideNavigation: jest.fn().mockReturnValue(true),
@@ -900,22 +924,23 @@ describe('NavigationCoordinator', () => {
             (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
             (navigation.isInputBlocked as jest.Mock).mockReturnValue(false);
 
-            const event = makeKeyEvent('down');
-            handlers.keyPress?.(event);
+            handlers.keyPress?.(makeKeyEvent('down'));
             expect(deps.handleMiniGuideNavigation).toHaveBeenCalledTimes(1);
 
-            jest.advanceTimersByTime(250);
-            expect(deps.handleMiniGuideNavigation).toHaveBeenCalledTimes(2);
-
-            jest.advanceTimersByTime(140);
-            expect(deps.handleMiniGuideNavigation).toHaveBeenCalledTimes(3);
+            await advanceTimersUntil(() => {
+                expect(deps.handleMiniGuideNavigation).toHaveBeenCalledTimes(2);
+            }, {
+                stepMs: 25,
+                timeoutMs: MINI_GUIDE_REPEAT_TIMING.INITIAL_DELAY_MS + 200,
+            });
 
             handlers.keyUp?.({ button: 'down' });
-            jest.advanceTimersByTime(1000);
-            expect(deps.handleMiniGuideNavigation).toHaveBeenCalledTimes(3);
+            const callsOnStop = (deps.handleMiniGuideNavigation as jest.Mock).mock.calls.length;
+            expect(jest.getTimerCount()).toBe(0);
+            expect(deps.handleMiniGuideNavigation).toHaveBeenCalledTimes(callsOnStop);
         });
 
-        it('repeat stops when input is blocked', () => {
+        it('repeat stops when input is blocked', async () => {
             const { handlers, deps, navigation } = setup({
                 isMiniGuideVisible: jest.fn().mockReturnValue(true),
                 handleMiniGuideNavigation: jest.fn().mockReturnValue(true),
@@ -924,17 +949,21 @@ describe('NavigationCoordinator', () => {
             isInputBlocked.mockReturnValue(false);
 
             handlers.keyPress?.(makeKeyEvent('down'));
-            expect(deps.handleMiniGuideNavigation).toHaveBeenCalledTimes(1);
-
-            jest.advanceTimersByTime(250);
-            expect(deps.handleMiniGuideNavigation).toHaveBeenCalledTimes(2);
+            await advanceTimersUntil(() => {
+                expect(deps.handleMiniGuideNavigation).toHaveBeenCalledTimes(2);
+            }, {
+                stepMs: 25,
+                timeoutMs: MINI_GUIDE_REPEAT_TIMING.INITIAL_DELAY_MS + 200,
+            });
 
             isInputBlocked.mockReturnValue(true);
-            jest.advanceTimersByTime(1000);
-            expect(deps.handleMiniGuideNavigation).toHaveBeenCalledTimes(2);
+            const callsBeforeBlock = (deps.handleMiniGuideNavigation as jest.Mock).mock.calls.length;
+            jest.advanceTimersByTime(MINI_GUIDE_REPEAT_TIMING.INTERVAL_1_MS + 1);
+            expect(jest.getTimerCount()).toBe(0);
+            expect(deps.handleMiniGuideNavigation).toHaveBeenCalledTimes(callsBeforeBlock);
         });
 
-        it('repeat stops when leaving player screen', () => {
+        it('repeat stops when leaving player screen', async () => {
             const { handlers, deps, navigation } = setup({
                 isMiniGuideVisible: jest.fn().mockReturnValue(true),
                 handleMiniGuideNavigation: jest.fn().mockReturnValue(true),
@@ -944,14 +973,18 @@ describe('NavigationCoordinator', () => {
             getCurrentScreen.mockReturnValue('player');
 
             handlers.keyPress?.(makeKeyEvent('down'));
-            expect(deps.handleMiniGuideNavigation).toHaveBeenCalledTimes(1);
-
-            jest.advanceTimersByTime(250);
-            expect(deps.handleMiniGuideNavigation).toHaveBeenCalledTimes(2);
+            await advanceTimersUntil(() => {
+                expect(deps.handleMiniGuideNavigation).toHaveBeenCalledTimes(2);
+            }, {
+                stepMs: 25,
+                timeoutMs: MINI_GUIDE_REPEAT_TIMING.INITIAL_DELAY_MS + 200,
+            });
 
             getCurrentScreen.mockReturnValue('settings');
-            jest.advanceTimersByTime(1000);
-            expect(deps.handleMiniGuideNavigation).toHaveBeenCalledTimes(2);
+            const callsBeforeLeave = (deps.handleMiniGuideNavigation as jest.Mock).mock.calls.length;
+            jest.advanceTimersByTime(MINI_GUIDE_REPEAT_TIMING.INTERVAL_1_MS + 1);
+            expect(jest.getTimerCount()).toBe(0);
+            expect(deps.handleMiniGuideNavigation).toHaveBeenCalledTimes(callsBeforeLeave);
         });
     });
 
@@ -965,78 +998,72 @@ describe('NavigationCoordinator', () => {
             jest.useRealTimers();
         });
 
-        it('accelerated repeat ticks and stops on keyUp', () => {
+        it('starts repeating after initial delay and stops on keyUp', async () => {
             const { handlers, epg, navigation } = setup();
             (epg.isVisible as jest.Mock).mockReturnValue(true);
             (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
+            (navigation.isInputBlocked as jest.Mock).mockReturnValue(false);
             (epg.handleNavigation as jest.Mock).mockReturnValue(true);
 
-            const event = makeKeyEvent('down');
-            handlers.keyPress?.(event);
+            handlers.keyPress?.(makeKeyEvent('down'));
             expect(epg.handleNavigation).toHaveBeenCalledTimes(1);
 
-            jest.advanceTimersByTime(250);
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(2);
-
-            jest.advanceTimersByTime(140);
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(3);
-
-            jest.advanceTimersByTime(140);
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(4);
-
-            jest.advanceTimersByTime(140);
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(5);
-
-            jest.advanceTimersByTime(140);
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(6);
-
-            jest.advanceTimersByTime(89);
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(6);
-
-            jest.advanceTimersByTime(1);
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(7);
+            await advanceTimersUntil(() => {
+                expect(epg.handleNavigation).toHaveBeenCalledTimes(2);
+            }, {
+                stepMs: 25,
+                timeoutMs: EPG_REPEAT_TIMING.INITIAL_DELAY_MS + 200,
+            });
 
             handlers.keyUp?.({ button: 'down' });
-            jest.advanceTimersByTime(1000);
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(7);
+            const callsOnStop = (epg.handleNavigation as jest.Mock).mock.calls.length;
+            expect(jest.getTimerCount()).toBe(0);
+            expect(epg.handleNavigation).toHaveBeenCalledTimes(callsOnStop);
         });
 
-        it('repeat stops on modal open', () => {
+        it('repeat stops on modal open', async () => {
             const { handlers, epg, navigation } = setup();
             (epg.isVisible as jest.Mock).mockReturnValue(true);
             (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
+            (navigation.isInputBlocked as jest.Mock).mockReturnValue(false);
             (epg.handleNavigation as jest.Mock).mockReturnValue(true);
 
-            const event = makeKeyEvent('right');
-            handlers.keyPress?.(event);
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(1);
-
-            jest.advanceTimersByTime(250);
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(2);
+            handlers.keyPress?.(makeKeyEvent('right'));
+            await advanceTimersUntil(() => {
+                expect(epg.handleNavigation).toHaveBeenCalledTimes(2);
+            }, {
+                stepMs: 25,
+                timeoutMs: EPG_REPEAT_TIMING.INITIAL_DELAY_MS + 200,
+            });
 
             handlers.modalOpen?.({ modalId: 'any' });
-            jest.advanceTimersByTime(1000);
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(2);
+            const callsBeforeModal = (epg.handleNavigation as jest.Mock).mock.calls.length;
+            expect(jest.getTimerCount()).toBe(0);
+            expect(epg.handleNavigation).toHaveBeenCalledTimes(callsBeforeModal);
         });
 
-        it('repeat stops on screen change away from guide', () => {
+        it('repeat stops on screen change away from guide', async () => {
             const { handlers, epg, navigation } = setup();
             (epg.isVisible as jest.Mock).mockReturnValue(true);
             (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
+            (navigation.isInputBlocked as jest.Mock).mockReturnValue(false);
             (epg.handleNavigation as jest.Mock).mockReturnValue(true);
 
             handlers.keyPress?.(makeKeyEvent('left'));
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(1);
-
-            jest.advanceTimersByTime(250);
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(2);
+            await advanceTimersUntil(() => {
+                expect(epg.handleNavigation).toHaveBeenCalledTimes(2);
+            }, {
+                stepMs: 25,
+                timeoutMs: EPG_REPEAT_TIMING.INITIAL_DELAY_MS + 200,
+            });
 
             handlers.screenChange?.({ from: 'guide', to: 'player' });
-            jest.advanceTimersByTime(1000);
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(2);
+            const callsBeforeLeave = (epg.handleNavigation as jest.Mock).mock.calls.length;
+            expect(jest.getTimerCount()).toBe(0);
+            expect(epg.handleNavigation).toHaveBeenCalledTimes(callsBeforeLeave);
         });
 
-        it('repeat stops when input is blocked', () => {
+        it('repeat stops when input is blocked', async () => {
             const { handlers, epg, navigation } = setup();
             const isInputBlocked = navigation.isInputBlocked as jest.Mock;
             (epg.isVisible as jest.Mock).mockReturnValue(true);
@@ -1045,32 +1072,40 @@ describe('NavigationCoordinator', () => {
             (epg.handleNavigation as jest.Mock).mockReturnValue(true);
 
             handlers.keyPress?.(makeKeyEvent('down'));
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(1);
-
-            jest.advanceTimersByTime(250);
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(2);
+            await advanceTimersUntil(() => {
+                expect(epg.handleNavigation).toHaveBeenCalledTimes(2);
+            }, {
+                stepMs: 25,
+                timeoutMs: EPG_REPEAT_TIMING.INITIAL_DELAY_MS + 200,
+            });
 
             isInputBlocked.mockReturnValue(true);
-            jest.advanceTimersByTime(1000);
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(2);
+            const callsBeforeBlock = (epg.handleNavigation as jest.Mock).mock.calls.length;
+            jest.advanceTimersByTime(EPG_REPEAT_TIMING.INTERVAL_1_MS + 1);
+            expect(jest.getTimerCount()).toBe(0);
+            expect(epg.handleNavigation).toHaveBeenCalledTimes(callsBeforeBlock);
         });
 
-        it('repeat stops immediately on back', () => {
+        it('repeat stops immediately on back', async () => {
             const { handlers, epg, navigation } = setup();
             (epg.isVisible as jest.Mock).mockReturnValue(true);
             (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
+            (navigation.isInputBlocked as jest.Mock).mockReturnValue(false);
             (epg.handleNavigation as jest.Mock).mockReturnValue(true);
             (epg.handleBack as jest.Mock).mockReturnValue(true);
 
             handlers.keyPress?.(makeKeyEvent('right'));
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(1);
-
-            jest.advanceTimersByTime(250);
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(2);
+            await advanceTimersUntil(() => {
+                expect(epg.handleNavigation).toHaveBeenCalledTimes(2);
+            }, {
+                stepMs: 25,
+                timeoutMs: EPG_REPEAT_TIMING.INITIAL_DELAY_MS + 200,
+            });
 
             handlers.keyPress?.(makeKeyEvent('back'));
-            jest.advanceTimersByTime(1000);
-            expect(epg.handleNavigation).toHaveBeenCalledTimes(2);
+            const callsBeforeBack = (epg.handleNavigation as jest.Mock).mock.calls.length;
+            expect(jest.getTimerCount()).toBe(0);
+            expect(epg.handleNavigation).toHaveBeenCalledTimes(callsBeforeBack);
         });
     });
 });

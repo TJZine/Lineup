@@ -7,6 +7,21 @@ export const flushPromises = async (rounds: number = 2): Promise<void> => {
     }
 };
 
+/**
+ * Use in real-timer integration tests when a condition may become observable
+ * only after both promise chains and one queued macrotask turn complete.
+ *
+ * Do not use this helper in fake-timer tests; prefer flushPromisesAndTimers()
+ * or advanceTimersUntil() there.
+ */
+export const flushPromisesAndMacrotask = async (promiseRounds: number = 2): Promise<void> => {
+    await flushPromises(promiseRounds);
+    await new Promise<void>((resolve) => {
+        globalThis.setTimeout(resolve, 0);
+    });
+    await flushPromises(promiseRounds);
+};
+
 export const flushPromisesAndTimers = async (
     promiseRounds: number = 2,
     timerPasses: number = 1
@@ -16,6 +31,36 @@ export const flushPromisesAndTimers = async (
         await jest.advanceTimersByTimeAsync(0);
     }
     await flushPromises(promiseRounds);
+};
+
+export const advanceTimersUntil = async (
+    assertNow: () => void,
+    options: { stepMs?: number; timeoutMs?: number } = {}
+): Promise<void> => {
+    const stepMs = options.stepMs ?? 25;
+    const timeoutMs = options.timeoutMs ?? 5000;
+    if (stepMs <= 0) {
+        throw new Error(`advanceTimersUntil requires stepMs > 0 (received ${stepMs}).`);
+    }
+    if (timeoutMs <= 0) {
+        throw new Error(`advanceTimersUntil requires timeoutMs > 0 (received ${timeoutMs}).`);
+    }
+
+    const maxPasses = Math.ceil(timeoutMs / stepMs);
+    let lastError: unknown = null;
+    for (let pass = 0; pass <= maxPasses; pass++) {
+        try {
+            assertNow();
+            return;
+        } catch (error: unknown) {
+            lastError = error;
+        }
+        await jest.advanceTimersByTimeAsync(stepMs);
+        await flushPromises();
+    }
+
+    const reason = lastError instanceof Error ? ` Last assertion: ${lastError.message}` : '';
+    throw new Error(`advanceTimersUntil timed out after ${timeoutMs}ms.${reason}`);
 };
 
 export type Deferred<T> = {

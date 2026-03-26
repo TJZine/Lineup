@@ -381,20 +381,4 @@ export async function cleanupAndUninstallLineupBootstrap(): Promise<void> {
     }
 }
 
-// Exported as a live binding for integration/debug harnesses.
-// @internal Test/debug harness surface only; not a stable API for production consumers.
-// Prefer App APIs over importing this singleton from app code.
-export const bootstrapInternals = {
-    configureLoggingPolicy,
-    isDebugSurfaceEnabled,
-    toSafeErrorMessage,
-    syncWindowDebugApi,
-    handleGlobalError,
-    handleUnhandledRejection,
-    showGlobalErrorOverlay,
-    describeElement,
-    uninstallLineupBootstrap,
-    cleanupAndUninstallLineupBootstrap,
-};
-
 export { app, bootstrap, cleanup };

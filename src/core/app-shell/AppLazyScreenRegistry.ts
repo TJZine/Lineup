@@ -6,6 +6,7 @@ import type { ProfileSelectScreen } from '../../modules/ui/profile-select/Profil
 import type { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
 import type { ServerSelectScreen } from '../../modules/ui/server-select/ServerSelectScreen';
 import type { SettingsScreen } from '../../modules/ui/settings/SettingsScreen';
+import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from './constants';
 
 export interface AppLazyScreenRegistryContainers {
     authContainer?: HTMLElement | null;
@@ -131,7 +132,7 @@ export class AppLazyScreenRegistry {
             ]).catch(() => {
                 // Best-effort prefetch only.
             });
-        }, 1200);
+        }, SETTINGS_PREFETCH_DELAY_MS);
     }
 
     scheduleChannelSetupPrefetch(): void {
@@ -146,7 +147,7 @@ export class AppLazyScreenRegistry {
             void this._loaders.loadChannelSetupScreen().catch(() => {
                 // Best-effort prefetch only.
             });
-        }, 500);
+        }, CHANNEL_SETUP_PREFETCH_DELAY_MS);
     }
 
     async ensureAuthScreen(): Promise<AuthScreen | null> {

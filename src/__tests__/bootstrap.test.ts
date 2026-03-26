@@ -16,7 +16,34 @@ const setDevBuild = (value: boolean): void => {
 };
 
 type BootstrapModule = typeof import('../bootstrap');
+
+type DebugApi = {
+    openEPG: () => void;
+    closeEPG: () => void;
+    toggleEPG: () => void;
+    domSnapshot: () => unknown;
+    hideVideo: () => void;
+    showVideo: () => void;
+    orchestratorStatus: () => unknown;
+};
+
+type LineupWindow = Window & { __LINEUP__?: DebugApi };
+
 let installedModule: BootstrapModule | null = null;
+
+const getWindowListener = (
+    spy: jest.SpyInstance,
+    eventName: string
+): ((event: Event) => void) | null => {
+    const calls = spy.mock.calls as unknown[][];
+    for (let index = calls.length - 1; index >= 0; index -= 1) {
+        const [name, handler] = calls[index] ?? [];
+        if (name === eventName && typeof handler === 'function') {
+            return handler as (event: Event) => void;
+        }
+    }
+    return null;
+};
 
 const importBootstrapModule = async (options?: {
     start?: jest.Mock;
@@ -56,9 +83,9 @@ describe('bootstrap seam', () => {
     beforeEach(() => {
         jest.resetModules();
         localStorage.clear();
-        document.body.innerHTML = '<div id="app"></div>';
+        document.body.innerHTML = '<div id="app"></div><div id="video-container"></div>';
         setDevBuild(true);
-        delete (window as { __LINEUP__?: unknown }).__LINEUP__;
+        delete (window as LineupWindow).__LINEUP__;
     });
 
     afterEach(async () => {
@@ -100,7 +127,7 @@ describe('bootstrap seam', () => {
 
         await expect(module.cleanup()).rejects.toThrow('shutdown failed');
         expect(module.app).toBeNull();
-        expect((window as { __LINEUP__?: unknown }).__LINEUP__).toBeUndefined();
+        expect((window as LineupWindow).__LINEUP__).toBeUndefined();
     });
 
     it('exposes debug surface and supports video visibility toggles', async () => {
@@ -113,24 +140,14 @@ describe('bootstrap seam', () => {
         };
         const getOrchestrator = jest.fn(() => orchestrator);
 
-        const { module } = await importBootstrapModule({ getOrchestrator });
+        await importBootstrapModule({ getOrchestrator });
 
-        module.bootstrapInternals.syncWindowDebugApi({
-            getOrchestrator: () => orchestrator,
-        } as never);
-        const debugApi = (window as { __LINEUP__?: {
-            openEPG: () => void;
-            closeEPG: () => void;
-            toggleEPG: () => void;
-            domSnapshot: () => unknown;
-            hideVideo: () => void;
-            showVideo: () => void;
-            orchestratorStatus: () => unknown;
-        } }).__LINEUP__;
+        const debugApi = (window as LineupWindow).__LINEUP__;
         expect(debugApi).toBeDefined();
 
         const video = document.createElement('video');
         document.body.appendChild(video);
+
         debugApi?.openEPG();
         debugApi?.closeEPG();
         debugApi?.toggleEPG();
@@ -138,63 +155,96 @@ describe('bootstrap seam', () => {
         expect(video.style.display).toBe('none');
         debugApi?.showVideo();
         expect(video.style.display).toBe('');
-        expect(debugApi?.domSnapshot()).toBeTruthy();
         expect(debugApi?.orchestratorStatus()).toEqual({
             isReady: true,
             status: [],
         });
+
         expect(orchestrator.openEPG).toHaveBeenCalledTimes(1);
         expect(orchestrator.closeEPG).toHaveBeenCalledTimes(1);
         expect(orchestrator.toggleEPG).toHaveBeenCalledTimes(1);
     });
 
-    it('clears debug surface when syncWindowDebugApi is called with null', async () => {
+    it('clears debug surface after cleanup', async () => {
         const { module } = await importBootstrapModule();
-        module.bootstrapInternals.syncWindowDebugApi(null);
-        expect((window as { __LINEUP__?: unknown }).__LINEUP__).toBeUndefined();
+        expect((window as LineupWindow).__LINEUP__).toBeDefined();
+
+        await module.cleanup();
+
+        expect((window as LineupWindow).__LINEUP__).toBeUndefined();
     });
 
     it('returns null orchestratorStatus when orchestrator is absent', async () => {
-        const { module } = await importBootstrapModule();
-        module.bootstrapInternals.syncWindowDebugApi({
-            getOrchestrator: () => null,
-        } as never);
-        const nullStatus = (window as { __LINEUP__?: { orchestratorStatus: () => unknown } }).__LINEUP__
-            ?.orchestratorStatus();
+        await importBootstrapModule();
+
+        const nullStatus = (window as LineupWindow).__LINEUP__?.orchestratorStatus();
+
         expect(nullStatus).toBeNull();
     });
 
     it('suppresses debug surface when not in dev build and debug logging is off', async () => {
-        const orchestrator = {
-            openEPG: jest.fn(),
-            closeEPG: jest.fn(),
-            toggleEPG: jest.fn(),
-            getModuleStatus: jest.fn(() => new Map()),
-            isReady: jest.fn(() => true),
-        };
-        const { module } = await importBootstrapModule();
-
         setDevBuild(false);
         localStorage.removeItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING);
-        module.bootstrapInternals.syncWindowDebugApi({
-            getOrchestrator: () => orchestrator,
-        } as never);
-        expect((window as { __LINEUP__?: unknown }).__LINEUP__).toBeUndefined();
+
+        await importBootstrapModule();
+
+        expect((window as LineupWindow).__LINEUP__).toBeUndefined();
     });
 
-    it('normalizes safe error messages and deduplicates overlay creation', async () => {
-        const { module } = await importBootstrapModule();
+    it('drives error and unhandledrejection handlers through installed listeners', async () => {
+        const addEventListenerSpy = jest.spyOn(window, 'addEventListener');
+        const preventDefault = jest.spyOn(Event.prototype, 'preventDefault');
 
-        expect(module.bootstrapInternals.toSafeErrorMessage(new Error('token=abc'))).not.toContain('abc');
-        expect(module.bootstrapInternals.toSafeErrorMessage('token=abc')).not.toContain('abc');
-        expect(module.bootstrapInternals.toSafeErrorMessage({})).toBe('An unexpected error occurred.');
+        await importBootstrapModule();
 
-        module.bootstrapInternals.showGlobalErrorOverlay('First message');
-        module.bootstrapInternals.showGlobalErrorOverlay('Second message');
+        const errorEvent = new ErrorEvent('error', {
+            message: 'X-Plex-Token=abc123',
+            error: new Error('X-Plex-Token=abc123'),
+            cancelable: true,
+        });
+        const errorDispatch = window.dispatchEvent(errorEvent);
 
-        const overlays = document.querySelectorAll('#global-error-overlay');
-        expect(overlays).toHaveLength(1);
-        expect(overlays[0]?.textContent ?? '').toContain('First message');
+        const overlaysAfterError = document.querySelectorAll('#global-error-overlay');
+        expect(errorDispatch).toBe(false);
+        expect(preventDefault).toHaveBeenCalled();
+        expect(overlaysAfterError).toHaveLength(1);
+        expect(overlaysAfterError[0]?.textContent ?? '').toContain('X-Plex-Token=REDACTED');
+        expect(overlaysAfterError[0]?.textContent ?? '').not.toContain('abc123');
+
+        window.dispatchEvent(
+            new ErrorEvent('error', {
+                message: 'second error',
+                error: new Error('second error'),
+                cancelable: true,
+            })
+        );
+        expect(document.querySelectorAll('#global-error-overlay')).toHaveLength(1);
+        document.getElementById('global-error-overlay')?.remove();
+        expect(document.querySelectorAll('#global-error-overlay')).toHaveLength(0);
+
+        const preventDefaultCallsBeforeRejection = preventDefault.mock.calls.length;
+
+        if (typeof PromiseRejectionEvent !== 'undefined') {
+            const rejectionEvent = new PromiseRejectionEvent('unhandledrejection', {
+                promise: Promise.resolve(undefined),
+                reason: 'token=abc123',
+                cancelable: true,
+            });
+            const rejectionDispatch = window.dispatchEvent(rejectionEvent);
+            expect(rejectionDispatch).toBe(false);
+            expect(preventDefault.mock.calls.length).toBeGreaterThan(preventDefaultCallsBeforeRejection);
+        } else {
+            const onUnhandledRejection = getWindowListener(addEventListenerSpy, 'unhandledrejection');
+            expect(onUnhandledRejection).toBeTruthy();
+            const manualPreventDefault = jest.fn();
+            onUnhandledRejection?.({ reason: 'token=abc123', preventDefault: manualPreventDefault } as unknown as Event);
+            expect(manualPreventDefault).toHaveBeenCalledTimes(1);
+        }
+
+        const overlaysAfterRejection = document.querySelectorAll('#global-error-overlay');
+        expect(overlaysAfterRejection).toHaveLength(1);
+        expect(overlaysAfterRejection[0]?.textContent ?? '').toContain('token=REDACTED');
+        expect(overlaysAfterRejection[0]?.textContent ?? '').not.toContain('abc123');
     });
 
     it('does not remove legacy debug logging key if migration write fails', async () => {
@@ -218,10 +268,10 @@ describe('bootstrap seam', () => {
             expect(localStorage.getItem(primaryKey)).toBeNull();
             expect(localStorage.getItem(legacyKey)).toBe('1');
 
-            const storage = await import('../utils/storage') as unknown as {
+            const storage = await (import('../utils/storage') as unknown as Promise<{
                 safeLocalStorageSet: jest.Mock;
                 safeLocalStorageRemove: jest.Mock;
-            };
+            }>);
             expect(storage.safeLocalStorageSet).toHaveBeenCalledWith(primaryKey, '1');
             expect(storage.safeLocalStorageRemove).not.toHaveBeenCalled();
         } finally {
@@ -230,61 +280,34 @@ describe('bootstrap seam', () => {
         }
     });
 
-    it('handles error and rejection events via overlay path', async () => {
-        const { module } = await importBootstrapModule();
-        const preventDefault = jest.fn();
+    it('includes element identity and computed metadata in debug dom snapshots', async () => {
+        await importBootstrapModule();
 
-        module.bootstrapInternals.handleGlobalError({
-            error: new Error('boom'),
-            message: 'boom',
-            preventDefault,
-        } as never);
-        expect(preventDefault).toHaveBeenCalledTimes(1);
-        expect(document.getElementById('global-error-overlay')).not.toBeNull();
+        const target = document.createElement('div');
+        target.id = 'target';
+        target.className = 'box';
+        document.body.appendChild(target);
 
-        module.bootstrapInternals.handleGlobalError({
-            message: 'plain boom',
-            preventDefault,
-        } as never);
-        expect(preventDefault).toHaveBeenCalledTimes(2);
-
-        module.bootstrapInternals.handleUnhandledRejection({
-            reason: 'oops',
-            preventDefault,
-        } as never);
-        expect(preventDefault).toHaveBeenCalledTimes(3);
-    });
-
-    it('describes DOM elements for debug snapshots', async () => {
-        const { module } = await importBootstrapModule();
-        const el = document.createElement('div');
-        el.id = 'target';
-        el.className = 'box';
-        document.body.appendChild(el);
-
-        const snapshot = module.bootstrapInternals.describeElement(el) as {
-            id: string | null;
-            className: string | null;
-            computed: { display: string } | null;
+        const debugApi = (window as LineupWindow).__LINEUP__;
+        const snapshot = debugApi?.domSnapshot() as {
+            app: { id: string | null; computed: { display: string } | null } | null;
+            video: { id: string | null; className: string | null; computed: { display: string } | null } | null;
         };
-        const missing = module.bootstrapInternals.describeElement(null);
 
-        expect(snapshot.id).toBe('target');
-        expect(snapshot.className).toBe('box');
-        expect(snapshot.computed).not.toBeNull();
-        expect(missing).toBeNull();
+        expect(snapshot.app?.id).toBe('app');
+        expect(snapshot.app?.computed).not.toBeNull();
+        expect(snapshot.video).toBeNull();
     });
 
-    it('suppresses console noise when debug logging is off in lean mode', async () => {
+    it('re-evaluates console noise suppression when debug logging setting changes', async () => {
         setDevBuild(false);
         localStorage.removeItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING);
 
-        const { module } = await importBootstrapModule();
-        module.bootstrapInternals.configureLoggingPolicy();
+        await importBootstrapModule();
         const suppressedLog = (globalThis as { console: { log: (...args: unknown[]) => void } }).console.log;
 
         localStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, 'true');
-        module.bootstrapInternals.configureLoggingPolicy();
+        window.dispatchEvent(new Event(LINEUP_EVENT_NAMES.DEBUG_LOGGING_CHANGED));
         const restoredLog = (globalThis as { console: { log: (...args: unknown[]) => void } }).console.log;
 
         expect(suppressedLog).not.toBe(restoredLog);

@@ -991,12 +991,78 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - remove redundant or overbuilt assertions that become obviously unnecessary during seam cleanup
   - normalize nearby test helper patterns where touched
 - Cleanup track:
-  - [ ] `P7-W1` add direct tests for high-impact shared error helpers and remove bootstrap/orchestrator dependence on internal seam exports where the imported review called it out
-  - [ ] `P7-W2` reduce mock-heavy coverage gaps in top-level startup and orchestrator tests so those suites exercise more realistic collaborator seams
-  - [ ] `P7-W3` tighten test utility patterns and timing assertions that currently encourage incidental mechanics over behavior-level checks
-  - [ ] `P7-W4` run a follow-up cleanup pass on redundant, overbuilt, or brittle tests in the affected hotspot areas
-  - [ ] `P7-EXIT` run the priority-exit review before moving to `P8`
+  - [x] `P7-W1` add direct tests for high-impact shared error helpers and remove bootstrap/orchestrator dependence on internal seam exports where the imported review called it out (done 2026-03-26)
+    - Evidence note (2026-03-26):
+      - added `src/utils/__tests__/errors.test.ts` with contract coverage for `summarizeErrorForLog` redaction/code behavior and `isAbortLikeError` signal/DOMException/name checks.
+      - rewrote `src/__tests__/bootstrap.test.ts` to exercise global handlers through installed listeners/public seams (dispatch-first with callback capture fallback for `unhandledrejection` only when needed).
+      - removed `bootstrapInternals` export from `src/bootstrap.ts`; `rg -n "bootstrapInternals" src` now returns no matches.
+      - verification: `npm run typecheck`; `npm test -- src/utils/__tests__/errors.test.ts`; `npm test -- src/__tests__/bootstrap.test.ts`.
+  - [x] `P7-W2` reduce mock-heavy coverage gaps in top-level startup and orchestrator tests so those suites exercise more realistic collaborator seams (done 2026-03-26)
+    - Evidence note (2026-03-26):
+      - added `src/__tests__/startup-integration.test.ts` as a real startup integration slice that forces `document.readyState = 'loading'`, calls `installLineupBootstrap()`, dispatches a single `DOMContentLoaded`, and polls via bounded `flushPromises()` until `app.getOrchestrator()` becomes available.
+      - asserts unauthenticated Phase 2 outcomes on the real startup path: `app-lifecycle` and `navigation` ready, `plex-auth` pending, current screen `auth`, debug surface present (`window.__LINEUP__.orchestratorStatus()` non-null), and post-cleanup teardown (`app === null`, debug surface removed).
+      - verification: `npm run typecheck`; `npm test -- src/__tests__/startup-integration.test.ts`; `npm test -- src/__tests__/bootstrap.test.ts`; `npm test -- src/__tests__/App.test.ts`; `npm test -- src/__tests__/Orchestrator.test.ts`; `npm run verify`.
+  - [x] `P7-W3` tighten test utility patterns and timing assertions that currently encourage incidental mechanics over behavior-level checks (done 2026-03-26)
+    - Evidence note (2026-03-26):
+      - introduced `CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS` in `src/modules/ui/channel-setup/constants.ts`, routed `ChannelSetupSessionController.schedulePreview()` to the constant, and replaced channel-setup test debounce waits (`450`) with `CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1` while preserving explicit boundary behavior in the controller suite.
+      - moved navigation repeat timing to exported contracts in `src/modules/navigation/constants.ts` (`EPG_REPEAT_TIMING`, `MINI_GUIDE_REPEAT_TIMING`) and extracted pure `computeAcceleratedRepeatIntervalMs(...)`, then updated `NavigationCoordinator` to consume those exports.
+      - rewrote navigation repeat coverage to a contract-level tier-mapping helper test plus behavior-level start/stop assertions, removing tick-by-tick choreography from repeat tests; added bounded `advanceTimersUntil(...)` in `src/__tests__/helpers.ts` and used it in the targeted navigation repeat suite.
+      - verification: `npm run typecheck`; `npm test -- src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts`; `npm test -- src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`; `npm test -- src/modules/navigation/__tests__/NavigationCoordinator.test.ts`; `npm run verify`.
+  - [x] `P7-W4` run a follow-up cleanup pass on redundant, overbuilt, or brittle tests in the affected hotspot areas (done 2026-03-26)
+    - Evidence note (2026-03-26):
+      - named existing app-shell prefetch delays as exported constants in `src/core/app-shell/constants.ts` (`SETTINGS_PREFETCH_DELAY_MS`, `CHANNEL_SETUP_PREFETCH_DELAY_MS`) and routed `AppLazyScreenRegistry` to those constants without behavior changes.
+      - updated hotspot app-shell timing tests to consume those constants in `src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts` and `src/__tests__/App.test.ts`, removing literal-based prefetch waits.
+      - removed the channel-setup dropdown private-probe test (`_renderStep` spy) from `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts` with no replacement harness added because adjacent public-seam behavior coverage already exists.
+      - tightened repeat-stop assertions in `src/modules/navigation/__tests__/NavigationCoordinator.test.ts` by replacing long `advanceTimersByTime(2000)` blocks with timer-clear assertions, plus bounded repeat-interval advances where needed for stable stop-condition coverage.
+      - verification: `npm run typecheck`; `npm test -- src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts`; `npm test -- src/__tests__/App.test.ts`; `npm test -- src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`; `npm run test:contracts -- src/__tests__/policy/AntiPatterns.policy.test.ts`; `npm test -- src/modules/navigation/__tests__/NavigationCoordinator.test.ts`; `npm run verify`.
+  - [x] `P7-EXIT` run the priority-exit review before moving to `P8` (done 2026-03-26, integration branch `feature/initial-build`)
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 7
+    - Priority-exit review evidence refresh (authoritative integration-branch run):
+      - freshness/routing checks:
+        - `git branch --show-current` -> `feature/initial-build`
+        - `git status -sb`
+        - `rg -n "## Priority 7|P7-W[1-4]|P7-EXIT" ARCHITECTURE_CLEANUP_CHECKLIST.md` -> `P7-W1..P7-W4` closed and `P7-EXIT` open before exit closeout
+      - detector/state refresh:
+        - `desloppify status`
+        - `desloppify show security --status open --no-budget --top 50` -> `No open issues for Security`
+        - anchored pre-resolution exact-id proof:
+          - `desloppify show review --status all --no-budget --top 500 | rg -n "review::\\.::holistic::test_strategy::(untested_core_error_helpers|bootstrap_internal_seam_coupling|mock_heavy_top_level_gaps|timer_and_eventloop_brittleness)$"`
+          - output:
+            - `review::.::holistic::test_strategy::untested_core_error_helpers`
+            - `review::.::holistic::test_strategy::bootstrap_internal_seam_coupling`
+            - `review::.::holistic::test_strategy::mock_heavy_top_level_gaps`
+            - `review::.::holistic::test_strategy::timer_and_eventloop_brittleness`
+      - source audit verification:
+        - `rg -n "bootstrapInternals" src` -> no matches
+        - `npm test -- src/utils/__tests__/errors.test.ts`
+        - `npm test -- src/__tests__/bootstrap.test.ts`
+        - `npm test -- src/__tests__/startup-integration.test.ts`
+    - Mapped imported issue dispositions (exact ids):
+      - `review::.::holistic::test_strategy::untested_core_error_helpers` -> `resolved`
+      - `review::.::holistic::test_strategy::bootstrap_internal_seam_coupling` -> `resolved`
+      - `review::.::holistic::test_strategy::mock_heavy_top_level_gaps` -> `resolved`
+      - `review::.::holistic::test_strategy::timer_and_eventloop_brittleness` -> `resolved`
+    - Follow-up ownership:
+      - none; no deferred or split follow-up items for Priority 7
+    - Security triage:
+      - exact `P0` gate disposition: `no open P0 security findings`
+      - evidence: `desloppify show security --status open --no-budget --top 50`
+    - Force-resolve note:
+      - `desloppify plan resolve ...` initially refused normal queue-order resolution; exit closeout used `--force-resolve` for the four mapped `review::.::holistic::test_strategy::*` ids, as required by the approved `P7-EXIT` plan.
+    - Post-resolution exact-id proof (required):
+      - `node -e 'const fs=require("fs"); const s=JSON.parse(fs.readFileSync(".desloppify/state-typescript.json","utf8")); const ids=["review::.::holistic::test_strategy::untested_core_error_helpers","review::.::holistic::test_strategy::bootstrap_internal_seam_coupling","review::.::holistic::test_strategy::mock_heavy_top_level_gaps","review::.::holistic::test_strategy::timer_and_eventloop_brittleness"]; let ok=true; for(const id of ids){ const issue=s.work_items?.[id]; const status=issue?.status; console.log(`${id} status=${status}`); if(!issue||status==="open"){ ok=false; } } process.exit(ok?0:1);'`
+      - output:
+        - `review::.::holistic::test_strategy::untested_core_error_helpers status=fixed`
+        - `review::.::holistic::test_strategy::bootstrap_internal_seam_coupling status=fixed`
+        - `review::.::holistic::test_strategy::mock_heavy_top_level_gaps status=fixed`
+        - `review::.::holistic::test_strategy::timer_and_eventloop_brittleness status=fixed`
+    - Verification reruns on current code:
+      - `desloppify status` (post-resolution `test_strategy` open issues: `0`)
+      - `npm run verify`
+      - `npm run verify:docs`
+    - Gate decision:
+      - `Priority 7 exit gates pass.`
+      - `Priority 7 may proceed to P8.`
 
 ## Priority 8: Remove Cleanup Residue, AI-Slop Ceremony, And Control-Plane Drift
 

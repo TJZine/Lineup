@@ -7,6 +7,7 @@ import {
     ChannelSetupSessionController,
     type ChannelSetupBuildOutcome,
 } from '../ChannelSetupSessionController';
+import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
 import { DEFAULT_BUILD_RESULT, DEFAULT_PREVIEW, DEFAULT_REVIEW, makeLibrary } from './channel-setup-test-helpers';
 
 const flushPromises = async (): Promise<void> => {
@@ -482,7 +483,7 @@ describe('ChannelSetupSessionController', () => {
         controller.schedulePreview(onStateChange);
         controller.schedulePreview(onStateChange);
 
-        jest.advanceTimersByTime(399);
+        jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS - 1);
         expect(getSetupPreview).toHaveBeenCalledTimes(0);
 
         jest.advanceTimersByTime(1);
@@ -490,7 +491,7 @@ describe('ChannelSetupSessionController', () => {
         expect(getSetupPreview).toHaveBeenCalledTimes(1);
 
         controller.schedulePreview(onStateChange);
-        jest.advanceTimersByTime(450);
+        jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
         await flushPromises();
         expect(getSetupPreview).toHaveBeenCalledTimes(1);
     });
@@ -516,7 +517,7 @@ describe('ChannelSetupSessionController', () => {
         controller.setStep(2);
 
         controller.schedulePreview(jest.fn());
-        jest.advanceTimersByTime(450);
+        jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
         await flushPromises();
         controller.beginSession();
 
@@ -555,14 +556,14 @@ describe('ChannelSetupSessionController', () => {
         controller.setStep(2);
 
         controller.schedulePreview(jest.fn());
-        jest.advanceTimersByTime(450);
+        jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
         await flushPromises();
 
         controller.updateStrategyState((draft) => {
             draft.maxChannels = 300;
         });
         controller.schedulePreview(jest.fn());
-        jest.advanceTimersByTime(450);
+        jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
         await flushPromises();
 
         expect(controller.getSnapshot().previewDeltas.total).toBe(10);
@@ -593,7 +594,7 @@ describe('ChannelSetupSessionController', () => {
         controller.setStep(2);
 
         controller.schedulePreview(jest.fn());
-        jest.advanceTimersByTime(450);
+        jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
         await flushPromises();
         expect(controller.getSnapshot().isPreviewLoading).toBe(true);
 
@@ -601,7 +602,7 @@ describe('ChannelSetupSessionController', () => {
             draft.maxChannels = 300;
         });
         controller.schedulePreview(jest.fn());
-        jest.advanceTimersByTime(450);
+        jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
         await flushPromises();
         expect(getSetupPreview).toHaveBeenCalledTimes(2);
         expect(controller.getSnapshot().isPreviewLoading).toBe(true);
