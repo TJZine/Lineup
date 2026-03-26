@@ -1,19 +1,4 @@
-/**
- * @fileoverview Type definitions for Video Player module.
- * @module modules/player/types
- * @version 1.0.0
- */
-
 import { AppErrorCode } from '../../types/app-errors';
-
-// ============================================
-// Shared Types (repo-local)
-// These types are maintained in-repo for runtime use.
-// ============================================
-
-/**
- * Unified error codes for consistent error handling.
- */
 export enum PlayerErrorCode {
     // Playback Errors
     NETWORK_TIMEOUT = 'NETWORK_TIMEOUT',
@@ -26,9 +11,6 @@ export enum PlayerErrorCode {
     UNKNOWN = 'UNKNOWN',
 }
 
-/**
- * Base application error structure.
- */
 interface PlayerError {
     /** Player-module error code (maps to AppErrorCode via mapPlayerErrorCodeToAppErrorCode) */
     code: PlayerErrorCode;
@@ -63,13 +45,6 @@ export function mapPlayerErrorCodeToAppErrorCode(code: PlayerErrorCode): AppErro
     }
 }
 
-// ============================================
-// Player Configuration
-// ============================================
-
-/**
- * Configuration for video player instance.
- */
 export interface VideoPlayerConfig {
     /** Container element ID to append video element */
     containerId: string;
@@ -87,13 +62,6 @@ export interface VideoPlayerConfig {
     retryDelayMs: number;
 }
 
-// ============================================
-// Media Metadata
-// ============================================
-
-/**
- * Metadata about the currently playing media.
- */
 export interface MediaMetadata {
     /** Media title */
     title: string;
@@ -109,9 +77,6 @@ export interface MediaMetadata {
     contentRating?: string;
 }
 
-/**
- * Represents a buffered time range.
- */
 export interface TimeRange {
     /** Start time in milliseconds */
     startMs: number;
@@ -119,13 +84,6 @@ export interface TimeRange {
     endMs: number;
 }
 
-// ============================================
-// Track Types
-// ============================================
-
-/**
- * Subtitle track information.
- */
 export interface SubtitleTrack {
     /** Unique track identifier */
     id: string;
@@ -151,9 +109,6 @@ export interface SubtitleTrack {
     fetchableViaKey: boolean;
 }
 
-/**
- * Audio track information.
- */
 export interface AudioTrack {
     /** Unique track identifier */
     id: string;
@@ -173,13 +128,6 @@ export interface AudioTrack {
     default?: boolean;
 }
 
-// ============================================
-// Stream Descriptor
-// ============================================
-
-/**
- * Describes a media stream to load.
- */
 export interface StreamDescriptor {
     /** Playback URL */
     url: string;
@@ -230,13 +178,6 @@ export interface StreamDescriptor {
     isLive: boolean;
 }
 
-// ============================================
-// Player State
-// ============================================
-
-/**
- * Player status states.
- */
 export type PlayerStatus =
     | 'idle'
     | 'loading'
@@ -247,9 +188,6 @@ export type PlayerStatus =
     | 'ended'
     | 'error';
 
-/**
- * Current playback state.
- */
 export interface PlaybackState {
     /** Current player status */
     status: PlayerStatus;
@@ -273,9 +211,6 @@ export interface PlaybackState {
     errorInfo: PlaybackError | null;
 }
 
-/**
- * Playback error with retry information.
- */
 export interface PlaybackError extends PlayerError {
     /** Number of retry attempts made */
     retryCount: number;
@@ -283,10 +218,7 @@ export interface PlaybackError extends PlayerError {
     retryAfterMs?: number;
 }
 
-/**
- * Typed event map for player events.
- * Index signature required for EventEmitter<TEventMap extends Record<string, unknown>> constraint.
- */
+/** Index signature required for EventEmitter<TEventMap extends Record<string, unknown>> constraint. */
 export interface PlayerEventMap {
     /** Emitted on any state change */
     stateChange: PlaybackState;
@@ -306,13 +238,6 @@ export interface PlayerEventMap {
     [key: string]: unknown;
 }
 
-// ============================================
-// Internal State (exported for related player modules only)
-// ============================================
-
-/**
- * Internal state for VideoPlayer class.
- */
 export interface VideoPlayerInternalState {
     /** Current player status */
     status: PlayerStatus;

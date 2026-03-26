@@ -1,10 +1,3 @@
-/**
- * @fileoverview Plex Server Discovery implementation.
- * Handles server discovery, connection testing, and selection.
- * @module modules/plex/discovery/PlexServerDiscovery
- * @version 1.0.0
- */
-
 import { EventEmitter } from '../../../utils/EventEmitter';
 import { PLEX_DISCOVERY_CONSTANTS, DEFAULT_MIXED_CONTENT_CONFIG } from './constants';
 import {
@@ -32,11 +25,6 @@ import {
 // Re-export for consumers
 export { AppErrorCode, PlexApiError };
 
-/**
- * Plex Server Discovery implementation.
- * Discovers and manages Plex Media Servers accessible to the authenticated user.
- * @implements {IPlexServerDiscovery}
- */
 export class PlexServerDiscovery implements IPlexServerDiscovery {
     private _state: PlexServerDiscoveryState;
     private _emitter: EventEmitter<PlexServerDiscoveryEvents>;
@@ -48,10 +36,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     private _selectedServerStorageKey: string;
     private _serverHealthStorageKey: string;
 
-    /**
-     * Create a new PlexServerDiscovery instance.
-     * @param config - Configuration with auth header getter
-     */
     constructor(config: PlexServerDiscoveryConfig) {
         this._getAuthHeaders = config.getAuthHeaders;
         this._emitter = new EventEmitter<PlexServerDiscoveryEvents>();
@@ -71,16 +55,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         };
 
     }
-
-    // ============================================
-    // Discovery Methods
-    // ============================================
-
-    /**
-     * Discover available Plex servers for the authenticated user.
-     * @returns Promise resolving to list of servers
-     * @throws PlexApiError on connection failure
-     */
     public discoverServers(): Promise<PlexServer[]> {
         // Return cached servers if still fresh (avoid unnecessary plex.tv calls)
         if (
@@ -107,11 +81,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return discoveryPromise;
     }
 
-    /**
-     * Internal discovery implementation.
-     * @returns Promise resolving to list of servers
-     * @throws PlexApiError on connection failure
-     */
     private async _doDiscoverServers(contextVersion: number): Promise<PlexServer[]> {
         this._state.isDiscovering = true;
         let lastUrl = '';
@@ -133,10 +102,12 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             ];
             if (token) {
                 const urlWithToken = new URL(baseUrlString);
+                // Only attach X-Plex-Token to URLs on the trusted Plex cloud origin allowlist.
                 applyXPlexTokenQueryParamIfTrusted(urlWithToken, token, PLEX_CLOUD_TRUSTED_ORIGINS);
                 variants.push({ url: urlWithToken.toString(), headers });
 
                 const clientsUrlWithToken = new URL(clientsBaseUrl.toString());
+                // The same trusted-origin rule applies to clients.plex.tv fallback variants.
                 applyXPlexTokenQueryParamIfTrusted(clientsUrlWithToken, token, PLEX_CLOUD_TRUSTED_ORIGINS);
                 variants.push({ url: clientsUrlWithToken.toString(), headers });
             }
@@ -258,25 +229,10 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         }
     }
 
-    /**
-     * Refresh the server list from plex.tv.
-     * @returns Promise resolving to list of servers
-     */
     public async refreshServers(): Promise<PlexServer[]> {
         this._state.lastRefreshAt = null;
         return this.discoverServers();
     }
-
-    // ============================================
-    // Connection Testing
-    // ============================================
-
-    /**
-     * Test a specific connection to a server.
-     * @param _server - Server to test (unused but kept for interface compatibility)
-     * @param connection - Connection endpoint to test
-     * @returns Promise resolving to latency in ms, auth state, or null if failed
-     */
     public async testConnection(
         _server: PlexServer,
         connection: PlexConnection
@@ -317,13 +273,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         }
     }
 
-    /**
-     * Find the fastest working connection for a server.
-     * Tests connections in priority order: local HTTPS > remote HTTPS > relay > local HTTP.
-     * Implements mixed-content handling per MixedContentConfig.
-     * @param server - Server to test connections for
-     * @returns Promise resolving to best connection, or null if all fail
-     */
     public async findFastestConnection(
         server: PlexServer
     ): Promise<{
@@ -467,12 +416,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return { connection: null, authRequired, authState };
     }
 
-    /**
-     * Create a connection object with latency.
-     * @param conn - Original connection
-     * @param latency - Measured latency in ms
-     * @returns Connection with latencyMs set
-     */
     private _createConnectionWithLatency(conn: PlexConnection, latency: number): PlexConnection {
         return {
             uri: conn.uri,
@@ -485,16 +428,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         };
     }
 
-    // ============================================
-    // Server Selection
-    // ============================================
-
-    /**
-     * Select a server and find its best connection.
-     * Persists selection to localStorage.
-     * @param serverId - Machine identifier of server to select
-     * @returns Promise resolving to true if selection succeeded
-     */
     public async selectServer(serverId: string): Promise<boolean> {
         const server = this._findServerById(serverId);
 
@@ -532,41 +465,20 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return true;
     }
 
-    /**
-     * Get the currently selected server.
-     * @returns Selected server or null
-     */
     public getSelectedServer(): PlexServer | null {
         return this._state.selectedServer;
     }
 
-    /**
-     * Get the connection for the selected server.
-     * @returns Selected connection or null
-     */
     public getSelectedConnection(): PlexConnection | null {
         return this._state.selectedConnection;
     }
 
-    /**
-     * Get the URI for the selected server connection.
-     * @returns Server URI or null
-     */
     public getServerUri(): string | null {
         if (this._state.selectedConnection) {
             return this._state.selectedConnection.uri;
         }
         return null;
     }
-
-    // ============================================
-    // Mixed Content Fallback
-    // ============================================
-
-    /**
-     * Get an HTTPS connection for the selected server, if available.
-     * @returns HTTPS connection or null
-     */
     public getHttpsConnection(): PlexConnection | null {
         const server = this._state.selectedServer;
         if (!server) {
@@ -581,10 +493,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return null;
     }
 
-    /**
-     * Get a relay connection for the selected server, if available.
-     * @returns Relay connection or null
-     */
     public getRelayConnection(): PlexConnection | null {
         const server = this._state.selectedServer;
         if (!server) {
@@ -599,17 +507,10 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return null;
     }
 
-    /**
-     * Get the active connection URI (alias for getServerUri).
-     * @returns Active connection URI or null
-     */
     public getActiveConnectionUri(): string | null {
         return this.getServerUri();
     }
 
-    /**
-     * Clear the current server selection and persisted ID.
-     */
     public clearSelection(): void {
         this._state.selectedServer = null;
         this._state.selectedConnection = null;
@@ -618,37 +519,14 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         this._emitter.emit('connectionChange', null);
     }
 
-    // ============================================
-    // State Methods
-    // ============================================
-
-    /**
-     * Get all cached servers.
-     * @returns List of discovered servers
-     */
     public getServers(): PlexServer[] {
         return this._state.servers;
     }
 
-    /**
-     * Check if connected to a server.
-     * @returns true if a server is selected with a working connection
-     */
     public isConnected(): boolean {
         return this._state.selectedServer !== null &&
             this._state.selectedConnection !== null;
     }
-
-    // ============================================
-    // Event Handling
-    // ============================================
-
-    /**
-     * Register handler for server or connection change events.
-     * @param event - Event name
-     * @param handler - Handler function
-     * @returns Disposable to remove the handler
-     */
     public on(
         event: 'serverChange',
         handler: (server: PlexServer | null) => void
@@ -664,15 +542,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return this._emitter.on(event, handler as (payload: unknown) => void);
     }
 
-    // ============================================
-    // Initialization
-    // ============================================
-
-    /**
-     * Initialize the discovery module.
-     * Discovers servers and restores saved selection.
-     * @returns Promise resolving when initialization is complete
-     */
     public async initialize(): Promise<void> {
         const previousRefreshAt = this._state.lastRefreshAt;
         await this.discoverServers();
@@ -701,14 +570,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         this._state.servers = [];
     }
 
-    // ============================================
-    // Private Helpers
-    // ============================================
-
-    /**
-     * Parse API resources into PlexServer objects.
-     * Filters for server resources only.
-     */
     private _parseResources(resources: PlexApiResource[]): PlexServer[] {
         const servers: PlexServer[] = [];
 
@@ -822,9 +683,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return value === '1';
     }
 
-    /**
-     * Parse API connections into PlexConnection objects.
-     */
     private _parseConnections(apiConnections: PlexApiConnection[]): PlexConnection[] {
         const connections: PlexConnection[] = [];
 
@@ -871,9 +729,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         }
     }
 
-    /**
-     * Find a server by ID in the cached list.
-     */
     private _findServerById(serverId: string): PlexServer | undefined {
         for (const server of this._state.servers) {
             if (server.id === serverId) {
@@ -883,9 +738,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return undefined;
     }
 
-    /**
-     * Handle HTTP response errors.
-     */
     private _handleResponseError(response: Response): never {
         if (response.status === 401) {
             throw new PlexApiError(
