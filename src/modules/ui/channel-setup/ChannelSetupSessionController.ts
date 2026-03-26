@@ -24,6 +24,7 @@ import {
     type SetupStrategyKey,
     type StrategyCategoryKey,
 } from './steps/constants';
+import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from './constants';
 
 const SERIES_BLOCK_PRESET_MIN = SERIES_BLOCK_PRESETS.length > 0
     ? Math.min(...SERIES_BLOCK_PRESETS)
@@ -502,7 +503,7 @@ export class ChannelSetupSessionController {
         }
         this._previewTimeoutId = setTimeout(() => {
             void this._refreshPreview(onStateChange);
-        }, 400);
+        }, CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS);
     }
 
     async ensureReviewLoaded(onStateChange: () => void): Promise<void> {

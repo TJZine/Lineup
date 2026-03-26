@@ -9,6 +9,7 @@ import { MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
 import { DEFAULT_MIN_ITEMS_PER_CHANNEL, SETUP_STRATEGY_KEYS } from '../../../../core/channel-setup/constants';
 
 import { flushPromises } from '../../../../__tests__/helpers';
+import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
 import {
     clickButton,
     createNavigationMock,
@@ -728,7 +729,7 @@ describe('ChannelSetupScreen', () => {
             await flushPromises();
             await enterStep2(container);
 
-            jest.advanceTimersByTime(450);
+            jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
             await flushPromises();
             getSetupPreview.mockClear();
 
@@ -738,7 +739,7 @@ describe('ChannelSetupScreen', () => {
             clickButton(container, '#setup-dropdown-option-2');
             await flushPromises();
 
-            jest.advanceTimersByTime(450);
+            jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
             await flushPromises();
             expect(getSetupPreview).toHaveBeenCalled();
 
@@ -778,7 +779,7 @@ describe('ChannelSetupScreen', () => {
             clickButton(container, '#setup-min-items');
             expect(container.querySelector('#setup-dropdown')).not.toBeNull();
 
-            jest.advanceTimersByTime(450);
+            jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
             await flushPromises();
 
             expect(container.querySelector('#setup-dropdown')).not.toBeNull();
@@ -971,7 +972,7 @@ describe('ChannelSetupScreen', () => {
         await flushPromises();
         await enterStep2(container);
 
-        jest.advanceTimersByTime(450);
+        jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
         await flushPromises();
 
         const initialWarnings = Array.from(container.querySelectorAll('.setup-preview-warning'));
@@ -983,7 +984,7 @@ describe('ChannelSetupScreen', () => {
 
         clickButton(container, '#setup-strategy-playlists');
         await flushPromises();
-        jest.advanceTimersByTime(450);
+        jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
         await flushPromises();
 
         expect(container.textContent).toContain('And 1 more warning…');
@@ -1365,7 +1366,7 @@ describe('ChannelSetupScreen', () => {
         await flushPromises();
         await enterStep2(container);
 
-        jest.advanceTimersByTime(450);
+        jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
         await flushPromises();
         expect(getSetupPreview).toHaveBeenCalledTimes(1);
 
@@ -1519,7 +1520,7 @@ describe('ChannelSetupScreen', () => {
         clickButton(container, '#setup-priority-row-playlists');
         nav.setMockFocus('setup-category-priority-order');
 
-        jest.advanceTimersByTime(450);
+        jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
         await flushPromises();
 
         expect(getSetupPreview).toHaveBeenCalled();
