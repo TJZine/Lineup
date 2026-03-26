@@ -18,6 +18,36 @@ export const flushPromisesAndTimers = async (
     await flushPromises(promiseRounds);
 };
 
+export const advanceTimersUntil = async (
+    assertNow: () => void,
+    options: { stepMs?: number; timeoutMs?: number } = {}
+): Promise<void> => {
+    const stepMs = options.stepMs ?? 25;
+    const timeoutMs = options.timeoutMs ?? 5000;
+    if (stepMs <= 0) {
+        throw new Error(`advanceTimersUntil requires stepMs > 0 (received ${stepMs}).`);
+    }
+    if (timeoutMs <= 0) {
+        throw new Error(`advanceTimersUntil requires timeoutMs > 0 (received ${timeoutMs}).`);
+    }
+
+    const maxPasses = Math.ceil(timeoutMs / stepMs);
+    let lastError: unknown = null;
+    for (let pass = 0; pass <= maxPasses; pass++) {
+        try {
+            assertNow();
+            return;
+        } catch (error: unknown) {
+            lastError = error;
+        }
+        await jest.advanceTimersByTimeAsync(stepMs);
+        await flushPromises();
+    }
+
+    const reason = lastError instanceof Error ? ` Last assertion: ${lastError.message}` : '';
+    throw new Error(`advanceTimersUntil timed out after ${timeoutMs}ms.${reason}`);
+};
+
 export type Deferred<T> = {
     promise: Promise<T>;
     resolve: (value: T | PromiseLike<T>) => void;
