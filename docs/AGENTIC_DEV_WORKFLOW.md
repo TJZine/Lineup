@@ -81,6 +81,7 @@ This is the operating runbook for agent-driven development in Lineup.
    - `npm run verify:docs` warns for checklist plan paths that are untracked (including when the path is missing from the workspace and not tracked), and still fails for missing tracked plan references or other docs regressions
    - `npm run verify:docs:workspace` downgrades missing tracked plan references to warnings during active local plan churn, but it does not replace the normal `npm run verify:docs` gate before closeout
    - if prompt inventories or their README indexes changed, run `npm run docs:sync` before the docs verifier so the managed sections stay aligned with the tracked manifest
+   - when tracked workflow/control-plane, launcher, repo-local skill, or multi-agent role guidance changes materially, run the trigger-based manual evals listed in [`docs/agentic/evals/README.md`](./agentic/evals/README.md) before claiming the workflow change is production-ready
    - otherwise at least `npm run typecheck` and `npm test` for logic-only TypeScript changes
 9. Review before closeout.
    - AI review is the baseline pass
@@ -105,6 +106,12 @@ This is the operating runbook for agent-driven development in Lineup.
    - when archiving a completed section summary (`*section-summary.md`), add the required `Harness Ingestion Triage` block and run `npm run harness:ingestion`
    - when a local `docs/runs/<date>-<topic>/` bundle or eval baseline changes the workflow conclusion, write the durable lesson into a tracked workflow doc or tracked eval summary in the same pass
    - do not leave stale current-state claims behind
+11. Close workflow/control-plane changes deliberately.
+   - when launcher invocation behavior changes, update the matching tracked launcher docs and keep cleanup vs feature ergonomics aligned unless a documented difference is intentional
+   - when repo-local skills change, sync the `.agent/skills/` mirror with `scripts/sync_agent_skills.sh`
+   - when prompt inventories or managed README sections change, run `npm run docs:sync` before `npm run verify:docs`
+   - when workflow, launcher, skill, or role changes trip an eval trigger, run the required manual eval prompt set named in [`docs/agentic/evals/README.md`](./agentic/evals/README.md) and record the tracked baseline summary in the same pass
+   - do not claim a workflow-quality improvement from prose alone; pair the doc update with the matching verification and eval evidence
 
 ## Multi-Agent Usage (Optional)
 
@@ -212,6 +219,7 @@ Rules:
 
 - Plan, code, verify, review.
 - Use the small eval set in [`docs/agentic/evals-roadmap.md`](./agentic/evals-roadmap.md) to check whether the workflow is resisting the failure modes that matter.
+- Use [`docs/agentic/evals/README.md`](./agentic/evals/README.md) as the trigger table for which manual eval prompts must rerun after workflow/control-plane, launcher, skill, or role-surface changes.
 - Write a tracked baseline summary after each manual eval baseline run; keep the raw run artifacts local-only.
 - Feed strong completed sections and standout archived plans back into [`docs/agentic/historical-plan-corpus-review.md`](./agentic/historical-plan-corpus-review.md) so the plan standard and eval seeds keep improving.
 - Use `npm run harness:ingestion` as the lightweight report for archived section summaries that are still `pending` or `deferred` for harness follow-up.

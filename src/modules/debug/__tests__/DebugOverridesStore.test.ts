@@ -100,18 +100,20 @@ describe('DebugOverridesStore', () => {
             throw new DOMException('Blocked', 'SecurityError');
         });
 
-        expect(() => store.readNowPlayingStreamDebugEnabled()).not.toThrow();
-        expect(() => store.readNowPlayingStreamDebugAutoShowEnabled()).not.toThrow();
-        expect(() => store.readEpgDebugEnabled()).not.toThrow();
-        expect(() => store.readTranscodeProfileName()).not.toThrow();
-        expect(() => store.writeNowPlayingStreamDebugEnabled(true)).not.toThrow();
-        expect(() => store.writeNowPlayingStreamDebugAutoShowEnabled(true)).not.toThrow();
-        expect(() => store.writeEpgDebugEnabled(true)).not.toThrow();
-        expect(() => store.writeTranscodeProfileName('HTML TV App')).not.toThrow();
-        expect(() => store.clearDebugOverrides()).not.toThrow();
-
-        getSpy.mockRestore();
-        setSpy.mockRestore();
-        removeSpy.mockRestore();
+        try {
+            expect(() => store.readNowPlayingStreamDebugEnabled()).not.toThrow();
+            expect(() => store.readNowPlayingStreamDebugAutoShowEnabled()).not.toThrow();
+            expect(() => store.readEpgDebugEnabled()).not.toThrow();
+            expect(() => store.readTranscodeProfileName()).not.toThrow();
+            expect(() => store.writeNowPlayingStreamDebugEnabled(true)).not.toThrow();
+            expect(() => store.writeNowPlayingStreamDebugAutoShowEnabled(true)).not.toThrow();
+            expect(() => store.writeEpgDebugEnabled(true)).not.toThrow();
+            expect(() => store.writeTranscodeProfileName('HTML TV App')).not.toThrow();
+            expect(() => store.clearDebugOverrides()).not.toThrow();
+        } finally {
+            getSpy.mockRestore();
+            setSpy.mockRestore();
+            removeSpy.mockRestore();
+        }
     });
 });

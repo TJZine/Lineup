@@ -9,6 +9,7 @@
 
 - stale workflow duplication is removed or archived
 - current workflow docs still match actual practice
+- cleanup and feature launcher invocation ergonomics are still aligned where the tracked docs intend parity
 - broken links are fixed
 - required maintained docs still exist
 
@@ -37,6 +38,7 @@
 ## Eval Review Checks
 
 - prompt definitions still reflect current repo risks
+- trigger-based eval requirements in `docs/agentic/evals/README.md` still match the current workflow, launcher, skill, and role surfaces
 - rubric and scorecard still match the workflow the repo expects
 - local-only baseline outputs are not creeping into tracked docs
 - tracked baseline summaries exist for completed baseline runs

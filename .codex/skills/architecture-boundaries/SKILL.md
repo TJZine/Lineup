@@ -7,7 +7,7 @@ description: Use when changing module ownership, composition roots, hotspot clas
 
 ## Overview
 
-Use this skill to keep Lineup's cleanup work moving toward smaller owners, thinner composition roots, and lower cross-module coupling.
+Use this skill to keep Lineup moving toward smaller owners, thinner composition roots, lower cross-module coupling, and explicit runtime ownership.
 
 The default move is extraction, not accretion.
 
@@ -17,6 +17,7 @@ The default move is extraction, not accretion.
 - Work in current hotspots like [`src/modules/ui/settings/SettingsScreen.ts`](../../../src/modules/ui/settings/SettingsScreen.ts), [`src/modules/ui/epg/EPGComponent.ts`](../../../src/modules/ui/epg/EPGComponent.ts), [`src/modules/ui/channel-setup/ChannelSetupScreen.ts`](../../../src/modules/ui/channel-setup/ChannelSetupScreen.ts), [`src/modules/plex/stream/PlexStreamResolver.ts`](../../../src/modules/plex/stream/PlexStreamResolver.ts), or [`src/modules/scheduler/channel-manager/ChannelManager.ts`](../../../src/modules/scheduler/channel-manager/ChannelManager.ts)
 - New collaborators, controllers, binders, repositories, or stores
 - Any change that moves logic between UI, Plex, scheduler, navigation, persistence, or lifecycle modules
+- Refactors that change ownership, public seams, startup wiring, or lifecycle cleanup behavior
 
 ## Core Rules
 
@@ -24,27 +25,74 @@ The default move is extraction, not accretion.
 - Do not add feature logic, storage parsing, DOM assembly, or long async workflow policy back into the composition roots.
 - One workflow, one owner. If a method coordinates a distinct flow, prefer a focused collaborator with an explicit API.
 - Keep cross-module knowledge narrow. UI should not know Plex transport details. Plex code should not know DOM or focus behavior. Persistence code should not live inside screens or controllers.
+- Keep dependency direction honest. Shared owners may serve callers across modules, but do not make lower-level owners depend back on UI/runtime callers just to avoid moving code.
 - Favor public seams over private probing. If tests need internals, extract a real collaborator instead of adding test-only access.
+- Prefer typed stores, coordinators, binders, and policy owners over utility dumping grounds.
+- Preserve runtime invariants while refactoring: startup order, listener/timer cleanup, focus behavior, append order, storage ownership, and playback/navigation lifecycle contracts must remain explicit.
+- Keep adjacent contracts explicit. If a refactor needs another file's public contract to change, either bring that file into scope or freeze the seam and pick a smaller extraction.
 - Hold the line on DRY and YAGNI. Reuse existing module owners and primitives before creating another near-duplicate helper.
 - Do not add fallback or compatibility branches unless explicitly required by the maintainer. Pre-MVP policy is single-path by default.
+- Do not hide an unresolved boundary decision inside "mechanical wiring." If ownership is unclear, resolve the seam before coding.
 
-## Working Pattern
+## Required Reading
 
-1. Run an evidence sweep before editing shared code.
-2. Identify the narrowest responsibility that can move out.
-3. Add or tighten behavior tests around that responsibility.
-4. Extract one durable collaborator with clear ownership.
-5. Verify the hotspot did not gain new long-term responsibility.
+1. [`docs/architecture/CURRENT_STATE.md`](../../../docs/architecture/CURRENT_STATE.md) for current ownership truth
+2. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md) when the task is architecture-affecting
+3. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../docs/AGENTIC_DEV_WORKFLOW.md) for tiering, verification, and handoff rules
+4. the relevant architecture/module reference doc when changing public ownership
+
+## Boundary Routing
+
+- If the change touches storage-backed state, also load `persistence-boundaries`.
+- If the change touches Plex auth/discovery/library/stream policy, also load `plex-integration-boundaries`.
+- If the change touches screens, overlays, focus, motion, or TV-visible composition, also load `ui-composition-patterns`.
+- If more than one repo-local boundary skill applies, treat the task as higher risk and make the ownership split explicit before coding.
+
+## Discovery Pattern
+
+1. Run a Codanna-first evidence sweep before editing shared code.
+   - start with `semantic_search_with_context`
+   - use `search_documents` when repo-doc context matters
+   - run `analyze_impact` before touching shared/public symbols
+   - fall back to `rg` only when Codanna is insufficient, and note the fallback
+2. Identify the narrowest responsibility that can move out without inventing new coupling.
+3. Define the target owner before editing.
+   - who owns the workflow
+   - which module it belongs to
+   - what its public API is
+   - what lifecycle or persistence contract it preserves
+4. Add or tighten behavior tests around that responsibility.
+5. Extract one durable collaborator with clear ownership.
+6. Cross-check the diff against the intended owner map before moving on.
+
+## Extraction Heuristics
+
+- Extract policy from wiring.
+- Extract persistence from screens/controllers into typed stores or repositories.
+- Extract async workflow coordination into a focused coordinator/controller instead of leaving it inline in hotspots.
+- Extract cross-module translation at the boundary owner instead of leaking raw payloads through the call chain.
+- Prefer one durable collaborator over multiple tiny helpers with no ownership story.
+- A new file should answer: why does this owner exist, what contract does it own, and why is this module the right home?
 
 ## Required Checks
 
+- Re-read [`docs/architecture/CURRENT_STATE.md`](../../../docs/architecture/CURRENT_STATE.md) and confirm the target ownership still matches present-day truth.
 - Re-read [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md) before architecture-affecting work.
 - If a `P#-W#` item is completed, update the checklist in the same delivery pass.
 - Refresh [`docs/architecture/README.md`](../../../docs/architecture/README.md) or [`docs/architecture/modules.md`](../../../docs/architecture/modules.md) when public ownership changes.
+- For risky/shared-symbol edits, carry the Codanna impact snapshot into the plan or task notes.
+- Run the repo-appropriate verification depth:
+  - `npm run verify` for UI, navigation, Orchestrator, or Plex work
+  - at least `npm run typecheck` plus `npm test` for logic-only TypeScript refactors unless broader coverage is required
+- Before concluding, confirm the hotspot did not gain new long-term responsibility and the actual diff matches the intended owner boundaries.
 
 ## Common Mistakes
 
 - Adding "just one more helper" to a hotspot file instead of extracting a real owner
 - Letting UI modules parse raw storage or Plex payloads
+- Letting composition roots regrow feature workflow logic because extraction feels slower
+- Creating a new owner with no clear lifecycle or module boundary
+- Moving code across a seam without updating docs or checklist ownership
+- Solving a boundary problem with a temporary adapter that becomes permanent coupling
 - Moving logic without first tightening tests around the behavior
-- Creating temporary adapters that the next cleanup step must immediately replace
+- Treating detector silence or passing tests alone as proof that the architecture improved

@@ -13,6 +13,15 @@ Use this prompt for Tier 2 or Tier 3 work when you need a serious implementation
 7. [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md)
 8. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 
+## Invocation Inputs
+
+Accept either of these as the task-specific input after the launcher:
+
+- a pasted `NEXT_SESSION_HANDOFF` block; when present, treat `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE` as required additional reading after the standard read order
+- one short follow-up message naming the exact cleanup scope, for example `We are working on ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1.`
+
+If the short follow-up form is used, treat the named checklist item or cleanup task as the active scope selector for the session and derive the remaining context from the checklist, current docs, and current code.
+
 ## Required Skill Order
 
 1. load `using-superpowers`
@@ -23,6 +32,7 @@ Use this prompt for Tier 2 or Tier 3 work when you need a serious implementation
 ## What This Session Must Do
 
 - identify the exact cleanup item or task scope
+  - when the user uses the short follow-up form, the named checklist item or task is the scope selector
 - classify the cleanup subtype before choosing a tier:
   - `checklist-linked` for tracked checklist or priority-exit work
   - `standalone remediation` for QA/debugging/bug-fix work with no existing checklist owner

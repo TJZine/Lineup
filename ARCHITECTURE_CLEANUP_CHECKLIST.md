@@ -1,16 +1,16 @@
 # Architecture Cleanup Checklist
 
-> V2 established 2026-03-09 and finalized against the full subjective review import on 2026-03-10. This replaces the completed wave-1 backlog archived at [`docs/archive/checklists/2026-03-09-architecture-cleanup-checklist-wave-1.md`](./docs/archive/checklists/2026-03-09-architecture-cleanup-checklist-wave-1.md).
+> V3 established 2026-03-26 from the refreshed holistic review imported from `.desloppify/subagents/runs/20260327_025138`.
 
-This document is the active cleanup queue for getting Lineup to production-grade code quality, lower technical debt, lower AI-slop residue, and stronger architecture boundaries.
+This document is the active cleanup queue for closing the refreshed holistic `desloppify` review without reopening wave-2 control-plane ambiguity.
 
-The goal is not a rewrite. The goal is to make the highest-ROI structural improvements first, keep ownership explicit, remove transitional residue aggressively, and make the remaining debt easy to audit.
+The goal is not a rewrite. The goal is to retire the current 44 open review issues in priority order, keep one explicit owner per issue, require `P#-EXIT` evidence before any lower priority begins, and leave no implicit carry-forward debt.
 
 Completion rule: every implementation plan that finishes a `P#-W#` work unit must update this checklist in the same delivery pass before the work is considered complete.
 
 ## How To Use This
 
-- Treat this as the active cleanup queue for architecture and codebase-quality work.
+- Treat this as the active cleanup queue for the refreshed 44-issue holistic review backlog.
 - Before normal priority flow, triage the current `desloppify` security queue; any open security issue reported by `desloppify status` is a `P0` gate and must be resolved or explicitly deferred before routine cleanup work continues.
 - Work from top to bottom unless a production issue forces a different order.
 - Keep scope narrow and verification strong.
@@ -21,95 +21,183 @@ Completion rule: every implementation plan that finishes a `P#-W#` work unit mus
 
 ## Evidence Snapshot
 
-- Imported subjective run:
-  - run directory: `.desloppify/subagents/runs/20260309_211514`
-  - validated result files: `20 / 20`
-  - import replay: `desloppify review --import-run .desloppify/subagents/runs/20260309_211514 --scan-after-import`
-  - import outcome: `20` trusted dimension updates and `62` new review issues
+- Refreshed holistic import:
+  - run directory: `.desloppify/subagents/runs/20260327_025138`
+  - run summary: `20 / 20` successful batches, `0` failed batches
+  - import replay used for the refreshed state: `desloppify review --import-run .desloppify/subagents/runs/20260327_025138 --scan-after-import`
+  - import outcome on current state: `44` open review issues, `0` open security issues
 - Current post-import score state:
-  - evidence captured on `2026-03-10` from `desloppify status`, `desloppify show review --status open`, and `wc -l` on the listed hotspot files
-  - `desloppify status`: `strict 75.0 / mechanical 94.2 / subjective 62.1`
-  - strict score improved from the pre-import `37.7` baseline to `75.0`
-  - current queue shape: `62` open review issues and `488` total open items
-  - priority-exit refresh captured on `2026-03-11` in `.worktrees/p1-exit-closeout` from `desloppify status`, `desloppify show review --status open`, `desloppify show security --status open --no-budget --top 50`, and `npm run verify`
-  - `desloppify status`: `strict 75.0 / objective 94.4 / subjective 62.1`
-  - current queue shape at `P1-EXIT`: `62` open review issues, `16` open security issues, and `349` global open items in the refreshed worktree state
-- Priority 8 exit refresh:
-  - evidence captured on `2026-03-26` from `git branch --show-current`, `git status -sb`, `rg -n "## Priority 8|P8-W[1-5]|P8-EXIT" ARCHITECTURE_CLEANUP_CHECKLIST.md`, `desloppify status`, `desloppify show review --status open --no-budget --top 200`, `desloppify show security --status open --no-budget --top 50`, `desloppify show "review::.::holistic::ai_generated_debt::comment_template_ceremony" --status all`, and the exact-id `node -e` proof
-  - `git branch --show-current`: `feature/initial-build`
-  - `git status -sb`: `## feature/initial-build...origin/feature/initial-build [ahead 16]` plus the five pre-existing untracked `docs/plans/2026-03-26-p7-*` plan docs
-  - `desloppify status`: `overall 70.3/100 · objective 95.2/100 · strict 70.1/100 · verified 95.2/100`
-  - `desloppify show review --status open --no-budget --top 200`: `No open issues matching: review`
-  - `desloppify show security --status open --no-budget --top 50`: `No open issues for Security`
-  - exact-id proof: `review::.::holistic::ai_generated_debt::comment_template_ceremony status=fixed`
-- Raw imported subjective baseline:
-  - full-batch average across all `20` dimensions: `79.2`
-  - weakest raw batch dimensions: `cross_module_architecture 72.0`, `design_coherence 74.0`, `abstraction_fitness 74.0`, `error_consistency 74.6`, `ai_generated_debt 76.0`, `test_strategy 77.2`
-- Weakest post-import subjective measures:
-  - `cross-module architecture 48.0`
-  - `design coherence 50.0`
-  - `abstraction fit 53.2`
-  - `test strategy 53.2`
-  - `high elegance 54.9`
-  - `type safety 55.5`
-  - `AI generated debt 57.2`
-- Priority-order re-check after full import:
-  - keep the current priority order
-  - the imported review reinforced the existing emphasis on runtime concentration, startup boundaries, persistence ownership, UI/coordinator decomposition, and Plex trust-boundary cleanup rather than surfacing a stronger alternative order
-
-- Largest live source hotspots by size:
-  - `src/Orchestrator.ts` at `2,595` lines
-  - `src/modules/ui/epg/EPGComponent.ts` at `1,920` lines
-  - `src/modules/scheduler/channel-manager/ChannelManager.ts` at `1,420` lines
-  - `src/modules/plex/stream/PlexStreamResolver.ts` at `1,413` lines
-  - `src/modules/player/VideoPlayer.ts` at `1,248` lines
-  - `src/modules/ui/channel-setup/ChannelSetupScreen.ts` at `1,052` lines
-  - `src/core/InitializationCoordinator.ts` at `998` lines
-  - `src/modules/ui/settings/SettingsScreen.ts` at `735` lines
-  - `src/App.ts` at `611` lines
-- Strongest repeated findings from the imported run:
-  - `AppOrchestrator` is still the central runtime hub, pass-through facade, and major blast-radius owner
-  - startup wiring still contains an `Orchestrator` / `core` import cycle
-  - persistence ownership still leaks through raw storage bypasses and constructor-time state restoration in auth and discovery flows
-  - EPG, channel setup, and navigation still have coarse coordinator boundaries that blur render, orchestration, persistence, and queue/timing policy
-  - Plex-facing auth, discovery, and stream helpers still show contract drift and inconsistent trust-boundary/error protocols
-  - test realism remains weaker around startup, shared error helpers, and timing-sensitive flows than the zero-private-probe baseline alone suggests
-  - migration residue still exists in auth, lifecycle, subtitle, player, and scheduler-adjacent surfaces
+  - evidence captured from `desloppify status`, `desloppify show review --status open --no-budget --top 100`, `desloppify show security --status open --no-budget --top 50`, and `jq` reads of `.desloppify/state-typescript.json`
+  - last scan: `2026-03-27T03:30:22+00:00`
+  - `desloppify status`: `overall 82.1 / objective 95.2 / strict 76.0 / verified 95.2`
+  - stale subjective dimensions: none
+  - weakest refreshed subjective dimensions:
+    - `abstraction_fitness 71.0`
+    - `cross_module_architecture 72.0`
+    - `high_level_elegance 72.0`
+    - `design_coherence 74.0`
+    - `error_consistency 74.0`
+    - `low_level_elegance 74.2`
+    - `mid_level_elegance 76.0`
+- Current hotspot anchors:
+  - `src/Orchestrator.ts` at `2,041` lines
+  - `src/modules/ui/epg/EPGVirtualizer.ts` at `1,601` lines
+  - `src/modules/plex/stream/PlexStreamResolver.ts` at `1,411` lines
+  - `src/modules/plex/library/PlexLibrary.ts` at `1,111` lines
+  - `src/modules/player/SubtitleManager.ts` at `1,034` lines
+  - `src/modules/player/PlaybackRecoveryManager.ts` at `849` lines
+  - `src/modules/plex/auth/PlexAuth.ts` at `816` lines
+  - `src/modules/ui/epg/EPGCoordinator.ts` at `784` lines
+  - `src/core/orchestrator/OrchestratorCoordinatorFactory.ts` at `556` lines
+  - `src/App.ts` at `453` lines
+- Priority-order rationale from the refreshed queue:
+  - runtime composition-root drift remains the highest-ROI architecture drag
+  - EPG still carries the densest ownership/elegance cluster after wave 2
+  - channel setup still has unresolved owner placement and duplicated flow logic
+  - persistence/lifecycle/diagnostics ownership drift remains explicitly open
+  - Plex/player contracts and pipelines still carry null-contract and overpacked-method debt
+  - shared UI owner moves should land before the final naming/test/ceremony passes
 
 ## Imported Review Issue Map
 
-This is a high-signal seed map for the imported review queue, not an exhaustive list of all `62` imported review issues.
+This map is exhaustive for the `44` open review issue ids from the refreshed holistic import.
 
-Use it to keep the highest-risk imported findings tied to concrete work units. For imported issues not listed here, the implementation plan for the touched priority must assign them to a `P#-W#` before the work starts or explicitly record why they are being deferred.
+Do not mark a `P#-W#` item complete until each mapped issue id either:
 
-Do not close a listed work unit while its mapped imported issue still remains unresolved without recording the reason.
+- returns `No open issues matching` under its exact `desloppify show` command, or
+- is explicitly dispositioned as `deferred` or `split follow-up` with the exact owner, reason, and revisit trigger required by the execution-hygiene rules below.
 
-- `abstraction_fitness::orchestrator_passthrough_facade` -> `P1-W2`, `P1-W4`, `P4-W2`
-- `cross_module_architecture::orchestrator_initialization_cycle` -> `P1-W1`
-- `cross_module_architecture::storage_owner_boundary_drift` -> `P3-W2`, `P3-W3`, `P3-W4`
-- `api_surface_coherence::fetch_with_timeout_signature_drift` -> `P5-W1`
-- `api_surface_coherence::validate_token_error_contract_gap` -> `P5-W1`
-- `authorization_consistency::profile_select_magic_auth_codes` -> `P5-W1`
-- `authorization_consistency::token_query_origin_policy_drift` -> `P5-W3`
-- `contract_coherence::channel_manager_boundary_contract_mismatch` -> `P6-W2`
-- `contract_coherence::channel_scheduler_mutable_buffer_api` -> `P6-W2`
-- `contract_coherence::resolve_channel_items_leaks_cached_reference` -> `P6-W2`
-- `convention_outlier::container_id_convention_split` -> `P2-W4`, `P4-W5`
-- `convention_outlier::scheduler_namespace_export_outlier` -> `P6-W4`
-- `test_strategy::untested_core_error_helpers` -> `P7-W1`
-- `test_strategy::bootstrap_internal_seam_coupling` -> `P7-W1`
-- `test_strategy::mock_heavy_top_level_gaps` -> `P7-W2`
-- `test_strategy::timer_and_eventloop_brittleness` -> `P7-W3`
-- `ai_generated_debt::comment_template_ceremony` -> `P8-W1`
+### `P1-W1`
+
+- `review::.::holistic::cross_module_architecture::orchestrator_runtime_hub`
+- `review::.::holistic::abstraction_fitness::orchestrator_facade_sprawl`
+
+### `P1-W2`
+
+- `review::.::holistic::abstraction_fitness::oversized_runtime_dependency_bags`
+- `review::.::holistic::abstraction_fitness::single_impl_interface_ceremony`
+- `review::.::holistic::design_coherence::app_orchestrator_remains_multi_hub`
+
+### `P1-W3`
+
+- `review::.::holistic::error_consistency::app_startup_contract_swallowed_failure`
+- `review::.::holistic::error_consistency::orchestrator_precondition_strategy_drift`
+
+### `P1-W4`
+
+- `review::.::holistic::high_level_elegance::composition_root_role_drift`
+- `review::.::holistic::error_consistency::recovery_warning_paths_drop_error_context`
+- `review::.::holistic::test_strategy::orchestrator_module_factory_wiring_gap`
+
+### `P2-W1`
+
+- `review::.::holistic::high_level_elegance::epg_top_level_owner_blur`
+- `review::.::holistic::api_surface_coherence::epg_readiness_split_contract`
+
+### `P2-W2`
+
+- `review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam`
+- `review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams`
+
+### `P2-W3`
+
+- `review::.::holistic::initialization_coupling::epg_debug_module_global_runtime`
+- `review::.::holistic::type_safety::epg_channel_boundary_widens_known_types`
+
+### `P2-W4`
+
+- `review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion`
+- `review::.::holistic::package_organization::epg_flat_directory_overload`
+
+### `P3-W1`
+
+- `review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur`
+
+### `P3-W2`
+
+- `review::.::holistic::design_coherence::channel_setup_build_execution_is_overloaded`
+- `review::.::holistic::design_coherence::channel_setup_error_summary_logic_is_duplicated`
+
+### `P3-W3`
+
+- `review::.::holistic::naming_quality::playback_variant_flag_name_drift`
+- `review::.::holistic::naming_quality::scroll_to_nearest_fallback_mismatch`
+- `review::.::holistic::type_safety::channel_setup_ui_redefines_core_unions`
+
+### `P4-W1`
+
+- `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift`
+- `review::.::holistic::incomplete_migration::deprecated_lifecycle_plexauth_slot`
+
+### `P4-W2`
+
+- `review::.::holistic::initialization_coupling::diagnostics_store_scattered_singletons`
+- `review::.::holistic::logic_clarity::startup_ui_async_wrapper_drift`
+
+### `P4-W3`
+
+- `review::.::holistic::contract_coherence::plex_auth_stored_credentials_null_hides_corruption`
+
+### `P5-W1`
+
+- `review::.::holistic::api_surface_coherence::server_selection_boolean_semantics_drift`
+- `review::.::holistic::contract_coherence::plex_library_null_conflates_not_found_and_invalid_response`
+
+### `P5-W2`
+
+- `review::.::holistic::dependency_health::qrcode_cli_transitives_for_browser_render`
+- `review::.::holistic::ai_generated_debt::playback_recovery_diagnostic_narration`
+
+### `P5-W3`
+
+- `review::.::holistic::low_level_elegance::stream_resolution_pipeline_overpacked`
+- `review::.::holistic::low_level_elegance::subtitle_fallback_fetch_monolith`
+- `review::.::holistic::type_safety::parallel_error_code_enums_duplicate_app_taxonomy`
+
+### `P6-W1`
+
+- `review::.::holistic::convention_outlier::container_id_convention_split`
+- `review::.::holistic::naming_quality::get_or_create_div_hidden_cleanup`
+
+### `P6-W2`
+
+- `review::.::holistic::package_organization::theme_definitions_live_under_settings`
+- `review::.::holistic::package_organization::ui_root_channel_display_straggler`
+- `review::.::holistic::design_coherence::player_timecode_formatting_is_copied_between_overlays`
+
+### `P7-W1`
+
+- `review::.::holistic::convention_outlier::ui_private_member_style_islands`
+
+### `P7-W2`
+
+- `review::.::holistic::test_strategy::keepalive_path_untested`
+
+### `P8-W1`
+
+- `review::.::holistic::ai_generated_debt::systemic_restating_jsdoc`
+
+## Priority Skill Routing
+
+These are the required repo-local boundary skills for the new wave. Load them before writing code for the named priority.
+
+- `P1`: `architecture-boundaries`
+- `P2`: `architecture-boundaries`, `ui-composition-patterns`, `persistence-boundaries`
+- `P3`: `architecture-boundaries`, `ui-composition-patterns`, `persistence-boundaries`
+- `P4`: `architecture-boundaries`, `persistence-boundaries`, `plex-integration-boundaries`
+- `P5`: `architecture-boundaries`, `plex-integration-boundaries`
+- `P6`: `ui-composition-patterns`; add `architecture-boundaries` when moving shared owners such as theme definitions or app-shell container ids
+- `P7`: `ui-composition-patterns`; add `architecture-boundaries` when the keep-alive coverage slice needs a real public seam extraction
+- `P8`: load the boundary skill that matches the file family touched by the final ceremony cleanup; default to `ui-composition-patterns`
 
 ## Execution Hygiene
 
 - Disposition vocabulary:
-  - `resolved`: the exact imported or security issue is retired by the current slice or priority exit, and the closing evidence has been refreshed on current code
+  - `resolved`: the exact imported issue is retired by the current slice or priority exit, and the closing evidence has been refreshed on current code
   - `deferred`: the issue stays open, but the record names the exact issue id, current owner, reason, and revisit trigger; nothing deferred is implicitly accepted
   - `split follow-up`: the current slice is not the final owner; the remaining gap is handed to one exact successor owner
   - `owned follow-up`: the exact successor owner named by a `split follow-up` record; each split issue must have one single final owner, not shared implicit ownership across multiple `P#-W#` items
-  - `security triage`: a fresh `desloppify status` result for the current slice or exit that either says `no open P0 security findings` or lists the exact open/deferred P0 security issue ids plus reasons and revisit triggers
+  - `security triage`: a fresh `desloppify status` result for the current slice or exit that either says `no open P0 security findings` or lists the exact open/deferred `P0` security issue ids plus reasons and revisit triggers
   - `priority-exit review`: the blocking review run after the last planned `P#-W#` item in a priority and before any `P(n+1)` work, plan, or checklist progress begins
 - Security deferral record format:
   - `issue`: exact `desloppify` issue id or security finding reference
@@ -119,1053 +207,231 @@ Do not close a listed work unit while its mapped imported issue still remains un
 - Priority exit record format:
   - `mapped imported issues`: every imported issue mapped to the priority, each with its exact issue id and one disposition: `resolved`, `deferred`, or `split follow-up`
   - `follow-up ownership`: for every `deferred` or `split follow-up` item, the exact current owner, reason, and revisit trigger; if an imported issue was mapped across multiple `P#-W#` items, nominate one single final owner here
-  - `security triage`: `no open P0 security findings`, or the exact deferred/resolved P0 security findings blocking next-priority work, with exact issue ids and revisit triggers for anything still open
+  - `security triage`: `no open P0 security findings`, or the exact deferred/resolved `P0` security findings blocking next-priority work, with exact issue ids and revisit triggers for anything still open
   - `residuals`: any meaningful debt intentionally left in the priority area, plus its new owner
   - `verification`: exact commands used for the priority-exit review, including `desloppify` evidence refresh and task-specific gates
 - Cleanup slice execution template:
   - `priority/work units`: exact `P#-W#` items in scope for this slice
-  - `imported review issues`: exact mapped or newly assigned imported review issue ids being retired
+  - `imported review issues`: exact mapped issue ids being retired
   - `security triage`: `no open P0 security findings`, or the deferred/resolved `P0` security findings for this slice with exact issue ids, reasons, and revisit triggers
   - `verification`: exact commands that prove the slice is complete
   - `deferred items`: anything intentionally left open with its exact issue id, owner, reason, and revisit trigger
 - Priority exit command checklist:
-  - do not run authoritative `desloppify` evidence commands in worktrees; run them on the target integration branch that will carry the checklist state forward (normally the active working branch)
-  - if a worktree run is unavoidable, first synchronize the full `.desloppify` state from the integration branch, mark the output provisional, and rerun the same commands on the integration branch before recording any disposition
-  - when a cleanup slice was implemented in a worktree, switch to the integration branch before running authoritative `desloppify` evidence; avoid duplicate full evidence passes across both branches
+  - do not run authoritative `desloppify` evidence commands in worktrees; run them on the target integration branch that will carry the checklist state forward
   - rerun `desloppify status`
-  - rerun `desloppify show review --status open`
-  - rerun any task-specific `desloppify show <issue-or-area>` commands needed to verify mapped imported issues
+  - rerun `desloppify show review --status open --no-budget --top 100`
+  - rerun `desloppify show security --status open --no-budget --top 50`
+  - rerun every exact mapped `desloppify show "<issue-id>" --status open --no-budget` command for the closing priority
   - rerun the strongest task-specific verification used by the closing work units
   - confirm every mapped imported issue for the priority is either retired here or explicitly deferred/split with an exact owner, reason, and revisit trigger
   - confirm every issue mapped across multiple `P#-W#` items has one single final owner at exit
   - confirm the `P0` security gate is either cleared or explicitly deferred before the next priority begins
   - confirm no `P(n+1)` work, plan, or checklist progress has been opened before this exit record is complete
 - Evidence refresh checklist:
-  - refresh authoritative `desloppify` evidence on the same integration branch where checklist updates are committed; treat worktree-only output as non-authoritative for checklist/plan dispositions
-  - do not cite worktree-only `desloppify` output as final evidence unless the same commands were rerun on the integration branch
+  - refresh authoritative `desloppify` evidence on the same integration branch where checklist updates are committed; treat worktree-only output as non-authoritative for checklist and plan dispositions
   - rerun `desloppify status`
-  - rerun `desloppify show review --status open`
-  - refresh hotspot counts with `wc -l` for the files listed in the evidence snapshot
+  - rerun `desloppify show review --status open --no-budget --top 100`
+  - rerun `desloppify show security --status open --no-budget --top 50`
+  - refresh hotspot counts with `wc -l` for the files listed in the evidence snapshot when a priority closes or the queue meaningfully shifts
   - update this checklist in the same pass when a priority closes, strict score shifts materially, or the imported review ownership map changes
-- Cleanup slice command checklist:
-  - run any `desloppify` command outputs that will be cited as final checklist evidence on the integration branch (not a worktree-only branch)
-  - start of slice:
-    - `desloppify status`
-    - `desloppify show review --status open`
-    - any task-specific `desloppify show <pattern>` calls needed to scope the touched findings
-  - end of slice:
-    - rerun the same `desloppify` evidence commands used at slice start
-    - run the verification commands named in the active plan
-    - update this checklist if the slice completed a `P#-W#` item or changed the evidence snapshot
 - Reassignment carry-forward checklist:
   - when any `P#-EXIT` record marks an issue as `deferred` or `split follow-up` with owner `Pn-Wm`, update the destination `Pn-Wm` checklist item in the same pass with an `Inherited follow-ups` block
   - each `Inherited follow-ups` block must include: source exit (`P#-EXIT`), exact issue id(s), disposition (`deferred` or `split follow-up`), and the exact verification command(s) required before closing `Pn-Wm`
   - do not rely on the source exit record alone; the destination work item must be self-sufficient for a fresh session
-  - when drafting the destination tracked plan, copy every inherited issue id into the plan evidence/verification section and re-check each id before marking the destination item complete
+  - when drafting the destination tracked plan, copy every inherited issue id into the plan evidence and verification section and re-check each id before marking the destination item complete
   - if an inherited issue is re-deferred at destination closeout, record the new single final owner and revisit trigger in that destination exit record
 
-## Priority 1: Complete Runtime Composition Cleanup In `AppOrchestrator`
+## Priority 1: Narrow Runtime Composition Roots And Screen-Facing Ports
 
 - ROI: Highest
-- Why it matters: the full subjective import kept runtime concentration as the strongest repeated root-cause cluster: `AppOrchestrator` remains a broad runtime hub/pass-through facade, and the `Orchestrator` / `core` import cycle is still an explicit open finding.
-- Primary files:
-  - `src/Orchestrator.ts`
-  - `src/core/InitializationCoordinator.ts`
-  - `src/core/index.ts`
-  - `src/core/orchestrator/**`
-- Target outcomes:
-  - reduce runtime blast radius in `AppOrchestrator`
-  - remove the `Orchestrator` / `core` import cycle
-  - keep runtime wiring explicit without keeping all policy in one facade
-- Completion criteria:
-  - `AppOrchestrator` no longer acts as the default owner for new runtime policy or startup logic
-  - the `Orchestrator` / `core` import cycle is gone
-  - remaining runtime responsibilities are grouped into explicit collaborators with auditable ownership
-  - `InitializationCoordinator` is reduced to a crisp startup boundary instead of a second hotspot facade
-- Must-finish to close this priority:
-  - remove the `Orchestrator` / `core` import cycle
-  - reduce `AppOrchestrator` and `InitializationCoordinator` to their intended steady-state ownership boundaries
-  - remove transitional seams created during the round-2 runtime cleanup
-- Nice-to-do while in the area:
-  - tighten adjacent runtime naming or helper placement if the change is directly touched anyway
-  - collapse trivial pass-through helpers that become obviously redundant during the extraction
-- Cleanup track:
-  - [x] `P1-W1` break the `Orchestrator` / `core` startup import cycle without adding another compatibility seam
-    - Completed by moving `OrchestratorConfig` and `ModuleStatus` ownership to `src/core/orchestrator/OrchestratorTypes.ts` and preserving `src/Orchestrator.ts` as the public re-export surface.
-  - [x] `P1-W2` extract coordinator construction and dependency assembly paths that still make `AppOrchestrator` the central runtime factory (done 2026-03-10)
-  - [x] `P1-W3` split remaining coarse-grained startup policy out of `InitializationCoordinator` (done 2026-03-10)
-  - [x] `P1-W4` remove leftover pass-through runtime helpers, duplicate lifecycle handoffs, and any transitional seams created by the round-2 extraction (done 2026-03-10)
-  - [x] `P1-W5` run a full cleanup pass for this priority so the remaining `AppOrchestrator` surface matches the intended steady-state boundary rather than a partially reduced hotspot (done 2026-03-10)
-  - [x] `P1-EXIT` run the priority-exit review before moving to `P2` (done `2026-03-11` in `.worktrees/p1-exit-closeout`)
-    - historical section summary: `docs/archive/plans/2026-03-11-priority-1-runtime-composition-section-summary.md`
-    - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 1
-    - required: retire or explicitly defer `abstraction_fitness::orchestrator_passthrough_facade`
-    - mapped imported issues:
-      - `review::.::holistic::cross_module_architecture::orchestrator_initialization_cycle::1c9b9603` -> `resolved`
-        reason: `P1-W1` removed the `src/Orchestrator.ts` / `src/core/index.ts` cycle by moving shared orchestrator types into `src/core/orchestrator/OrchestratorTypes.ts`; the issue no longer appears in `desloppify show review --status open`.
-      - `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` -> `split follow-up`
-        owner: `P4-W2`
-        reason: the remaining pass-through debt is now the channel-setup consumer seam between `src/Orchestrator.ts`, `src/modules/ui/channel-setup/ChannelSetupSessionController.ts`, and `src/core/channel-setup/ChannelSetupCoordinator.ts`; retiring it during `P1-EXIT` would reopen Priority 4 coordinator-boundary work instead of finishing runtime-composition cleanup.
-        revisit trigger: start of `P4-W2`, or `P4-EXIT` if this issue is still open when Priority 4 closeout is prepared.
-    - follow-up ownership:
-      - `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b`
-        owner: `P4-W2`
-        reason: `ChannelSetupCoordinator` still exposes an `AppOrchestrator`-shaped consumer facade through `ChannelSetupSessionController` and `ChannelSetupScreen`; the final owner must be the Channel Setup boundary cleanup, not another P1 runtime pass.
-        revisit trigger: require a direct re-check of `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` before marking `P4-W2` complete.
-    - security triage:
-      - exact `P0` gate disposition: `no open P0 security findings`
-        reason: the refreshed `desloppify show security --status open --no-budget --top 50` evidence lists `16` open issues, all tagged `T2 [medium]`; no `P0` security issue remains open at `P1-EXIT`.
-      - `resolved`
-        - `security::src/App.ts::security::innerHTML_assignment::src/App.ts::586`
-        - `security::src/core/app-shell/AppDiagnosticsSurface.ts::security::innerHTML_assignment::src/core/app-shell/AppDiagnosticsSurface.ts::127`
-        reason: `P1-EXIT` replaced the fatal-error root clear path with `replaceChildren()` and rebuilt the diagnostics surface menu with DOM APIs instead of `innerHTML`.
-      - `deferred`
-        - `security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::366`
-        - `security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::407`
-        - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::224`
-        - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::729`
-        owner: `P4-W4`
-        reason: these are screen-level DOM rendering rewrites inside the Priority 4 Settings / Channel Setup cleanup slice, not runtime-composition work.
-        revisit trigger: start of `P4-W4`, or `P4-EXIT` if any of these ids are still open.
-      - `deferred`
-        - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::32`
-        - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::40`
-        - `security::src/modules/ui/epg/EPGComponent.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGComponent.ts::244`
-        - `security::src/modules/ui/epg/EPGInfoPanel.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGInfoPanel.ts::101`
-        - `security::src/modules/ui/epg/EPGTimeHeader.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGTimeHeader.ts::91`
-        - `security::src/modules/ui/epg/EPGVirtualizer.ts::security::insecure_random::src/modules/ui/epg/EPGVirtualizer.ts::652`
-        - `security::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::security::innerHTML_assignment::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::136`
-        - `security::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::security::log_sensitive::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::503`
-        owner: `P4-W5`
-        reason: these are residual UI/overlay cleanup items that should be cleared in the Priority 4 cleanup pass once the main coordinator splits are frozen.
-        revisit trigger: start of `P4-W5`, or `P4-EXIT` if any of these ids are still open.
-      - `deferred`
-        - `security::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::security::innerHTML_assignment::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::49`
-        - `security::src/modules/ui/audio-setup/AudioSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/audio-setup/AudioSetupScreen.ts::420`
-        - `security::src/modules/ui/splash/SplashScreen.ts::security::innerHTML_assignment::src/modules/ui/splash/SplashScreen.ts::19`
-        owner: `P2-W4`
-        reason: these remaining shell/startup DOM rewrites belong to the app-shell cleanup pass, not the P1 runtime-composition exit.
-        revisit trigger: start of `P2-W4`, or `P2-EXIT` if any of these ids are still open.
-      - `deferred`
-        - `security::src/core/initialization/InitializationStartupPolicy.ts::security::log_sensitive::src/core/initialization/InitializationStartupPolicy.ts::211`
-        owner: `P2-W3`
-        reason: startup-policy log redaction belongs to the app/startup boundary cleanup where the remaining startup policy is being narrowed.
-        revisit trigger: start of `P2-W3`, or `P2-EXIT` if this id is still open.
-    - residuals:
-      - `AppOrchestrator` still exposes channel-setup-facing pass-through methods that should disappear behind a narrower channel-setup owner; final owner is `P4-W2`.
-      - No additional `P1` runtime-composition extraction is intentionally left open after this exit record.
-    - verification:
-      - `.worktrees/p1-exit-closeout`: `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`
-      - `.worktrees/p1-exit-closeout`: `desloppify status`
-      - `.worktrees/p1-exit-closeout`: `desloppify show review --status open`
-      - `.worktrees/p1-exit-closeout`: `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b`
-      - `.worktrees/p1-exit-closeout`: `desloppify show security --status open --no-budget --top 50`
-      - `.worktrees/p1-exit-closeout`: `npm run verify`
+- Why it matters: the refreshed queue still flags `AppOrchestrator` as runtime hub, facade sprawl, and multi-hub design drift; the composition root is still leaking feature-specific seams into screens and wide coordinator bags.
+- Required skills: `architecture-boundaries`
 
-## Priority 2: Finish App-Shell And Startup Boundary Cleanup
+### Work Units
+
+- [ ] `P1-W1` replace direct screen dependencies on `AppOrchestrator` with feature-scoped ports wired from app-shell assembly
+  - Imported review issues: `review::.::holistic::cross_module_architecture::orchestrator_runtime_hub`, `review::.::holistic::abstraction_fitness::orchestrator_facade_sprawl`
+  - Primary files: `src/Orchestrator.ts`, `src/core/app-shell/AppLazyScreenRegistry.ts`, `src/modules/ui/auth/AuthScreen.ts`, `src/modules/ui/profile-select/ProfileSelectScreen.ts`, `src/modules/ui/server-select/ServerSelectScreen.ts`
+  - Minimum verification: `npm run verify`; `desloppify show "review::.::holistic::cross_module_architecture::orchestrator_runtime_hub" --status open --no-budget`; `desloppify show "review::.::holistic::abstraction_fitness::orchestrator_facade_sprawl" --status open --no-budget`
+- [ ] `P1-W2` split runtime dependency bags and remove interface ceremony that no longer carries real substitution value
+  - Imported review issues: `review::.::holistic::abstraction_fitness::oversized_runtime_dependency_bags`, `review::.::holistic::abstraction_fitness::single_impl_interface_ceremony`, `review::.::holistic::design_coherence::app_orchestrator_remains_multi_hub`
+  - Primary files: `src/core/orchestrator/OrchestratorCoordinatorFactory.ts`, `src/core/InitializationCoordinator.ts`, `src/modules/navigation/NavigationCoordinator.ts`, `src/Orchestrator.ts`, `src/modules/ui/channel-number-overlay/interfaces.ts`, `src/modules/ui/channel-badge/interfaces.ts`
+  - Minimum verification: `npm run verify`; exact `desloppify show` commands for the three mapped ids
+- [ ] `P1-W3` normalize startup and precondition failure contracts so bootstrap and public orchestrator APIs follow one observable strategy
+  - Imported review issues: `review::.::holistic::error_consistency::app_startup_contract_swallowed_failure`, `review::.::holistic::error_consistency::orchestrator_precondition_strategy_drift`
+  - Primary files: `src/App.ts`, `src/bootstrap.ts`, `src/Orchestrator.ts`
+  - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
+- [ ] `P1-W4` close runtime composition-root drift with wiring-focused coverage and explicit error-context preservation
+  - Imported review issues: `review::.::holistic::high_level_elegance::composition_root_role_drift`, `review::.::holistic::error_consistency::recovery_warning_paths_drop_error_context`, `review::.::holistic::test_strategy::orchestrator_module_factory_wiring_gap`
+  - Primary files: `src/Orchestrator.ts`, `src/core/orchestrator/OrchestratorModuleFactory.ts`, `src/__tests__/startup-integration.test.ts`
+  - Minimum verification: `npm run verify`; exact `desloppify show` commands for the three mapped ids
+- [ ] `P1-EXIT` run the priority-exit review before moving to `P2`
+  - required: record every mapped imported issue with an exact disposition
+  - Gate: no `P2` plan, code, or checklist progress starts until every `P1` mapped id has an explicit disposition record
+  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all nine exact `P1` issue-id checks; `npm run verify`
+
+## Priority 2: Consolidate EPG Ownership, Runtime State, And Readiness Contracts
+
+- ROI: Highest after `P1`
+- Why it matters: the refreshed queue still clusters EPG debt around overlapping owners, split readiness, refresh-seam blur, module-global runtime state, widened types, and a still-flat package shape.
+- Required skills: `architecture-boundaries`, `ui-composition-patterns`, `persistence-boundaries`
+
+### Work Units
+
+- [ ] `P2-W1` choose one top-level EPG owner surface and one readiness contract
+  - Imported review issues: `review::.::holistic::high_level_elegance::epg_top_level_owner_blur`, `review::.::holistic::api_surface_coherence::epg_readiness_split_contract`
+  - Primary files: `src/modules/ui/epg/EPGCoordinator.ts`, `src/modules/ui/epg/interfaces.ts`, `src/modules/ui/epg/DeferredEpgComponent.ts`, `src/core/orchestrator/OrchestratorCoordinatorFactory.ts`
+  - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
+- [ ] `P2-W2` move refresh orchestration and library-filter normalization behind one explicit EPG runtime seam
+  - Imported review issues: `review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam`, `review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams`
+  - Primary files: `src/modules/ui/epg/EPGCoordinator.ts`, `src/modules/ui/epg/EPGScheduleRefreshRuntime.ts`, `src/modules/ui/epg/EPGCoordinatorPolicies.ts`
+  - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
+- [ ] `P2-W3` replace hidden EPG runtime globals with explicit owner state and restore narrow shared types at the boundary
+  - Imported review issues: `review::.::holistic::initialization_coupling::epg_debug_module_global_runtime`, `review::.::holistic::type_safety::epg_channel_boundary_widens_known_types`
+  - Primary files: `src/modules/ui/epg/utils.ts`, `src/modules/ui/epg/EPGCoordinator.ts`, `src/modules/ui/epg/domainTypes.ts`, `src/modules/ui/epg/adapters.ts`, `src/modules/scheduler/channel-manager/types.ts`
+  - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
+- [ ] `P2-W4` split the EPG render/data package surface so view, runtime, and model owners stop accreting together
+  - Imported review issues: `review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion`, `review::.::holistic::package_organization::epg_flat_directory_overload`
+  - Primary files: `src/modules/ui/epg/EPGVirtualizer.ts`, `src/modules/ui/epg/`
+  - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
+- [ ] `P2-EXIT` run the priority-exit review before moving to `P3`
+  - required: record every mapped imported issue with an exact disposition
+  - Gate: no `P3` plan, code, or checklist progress starts until every `P2` mapped id has an explicit disposition record
+  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all eight exact `P2` issue-id checks; `npm run verify`
+
+## Priority 3: Realign Channel-Setup Ownership And Remove Duplicated Flow Contracts
 
 - ROI: High
-- Why it matters: `App.ts` is no longer the top hotspot, but it still owns client-ID persistence, screen visibility policy, and shell/runtime handoffs that should be thinner and more explicit.
-- Sequencing rule: this priority consumes the startup and runtime seams defined by Priority 1; it should not re-open or redesign orchestrator-facing public seams that P1 is responsible for freezing.
-- Primary files:
-  - `src/App.ts`
-  - `src/core/app-shell/**`
-  - `src/modules/plex/auth/helpers.ts`
-- Target outcomes:
-  - remove duplicated client-ID ownership
-  - keep `App` focused on shell composition, not durable policy
-  - make screen and startup handoffs easier to audit
-- Completion criteria:
-  - `App` owns shell composition and shell-only coordination, not duplicated persistence or feature policy
-  - startup handoffs between `App`, the shell helpers, and orchestrator-facing code are explicit and minimal
-  - screen visibility rules live behind stable shell boundaries instead of accumulating ad hoc in `App`
-- Must-finish to close this priority:
-  - remove duplicated client-ID ownership from the app shell path
-  - leave `App` as a shell composition surface instead of a second policy owner
-  - clean up shell glue left behind by the boundary tightening
-- Nice-to-do while in the area:
-  - normalize shell-level naming or helper placement where touched
-  - reduce obvious boilerplate in shell-only presenters if it falls out naturally from the main cleanup
-- Cleanup track:
-  - [x] `P2-W1` move client-identifier ownership behind one explicit owner used by both `App` and Plex auth (completed 2026-03-11; this item fully absorbed the client-ID unification seam previously duplicated under `P3-W1`)
-  - [x] `P2-W2` narrow the `App` screen-visibility seam so it coordinates shell surfaces rather than feature details (done 2026-03-11; verification: `npm test -- src/core/app-shell/__tests__/AppScreenVisibilityCoordinator.test.ts`, `npm test -- src/__tests__/App.test.ts`, `npm test -- src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts`, `npm run typecheck`, `npm run verify`)
-  - [x] `P2-W3` remove any remaining feature-specific persistence or trust-boundary policy from `App` (done 2026-03-11; verification: `npm run typecheck`, `npm test -- src/modules/plex/auth/__tests__/config.test.ts`, `npm test -- src/__tests__/App.test.ts`, `npm test -- src/core/__tests__/InitializationCoordinator.test.ts`, `npm run verify`, `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`, `desloppify show security::src/core/initialization/InitializationStartupPolicy.ts::security::log_sensitive::src/core/initialization/InitializationStartupPolicy.ts::211`)
-    - mapped security issue disposition: `security::src/core/initialization/InitializationStartupPolicy.ts::security::log_sensitive::src/core/initialization/InitializationStartupPolicy.ts::211` -> `resolved` (targeted query now returns `No open issues matching ...`; no replacement security id for `InitializationStartupPolicy.ts`)
-  - [x] `P2-W4` clean up shell-level glue, duplicate container knowledge, and any app-shell transitional seams left after the boundary cleanup (done 2026-03-11; plan: `docs/plans/2026-03-11-p2-w4-app-shell-transitional-cleanup.md`; final imported-issue disposition recorded under `P2-EXIT`)
-    - implementation evidence:
-      - rewired `src/App.ts` and `src/core/app-shell/AppContainerFactory.ts` to consume module-owned container id constants exported by `src/modules/ui/now-playing-info/constants.ts` and `src/modules/ui/playback-options/constants.ts`
-      - rewired `src/__tests__/fixtures/appShellContainerIds.ts` to consume the same module-owned ids
-      - replaced shell/startup clear-path `.innerHTML = ''` usage with `replaceChildren()` in:
-        - `src/core/app-shell/AppBlockingErrorOverlayPresenter.ts`
-        - `src/modules/ui/audio-setup/AudioSetupScreen.ts`
-        - `src/modules/ui/splash/SplashScreen.ts`
-    - verification evidence:
-      - `npm test -- src/core/app-shell/__tests__/AppContainerFactory.test.ts` -> pass
-      - `npm test -- src/core/app-shell/__tests__/AppBlockingErrorOverlayPresenter.test.ts` -> pass
-      - `npm test -- src/modules/ui/splash/__tests__/SplashScreen.test.ts` -> pass
-      - `npm test -- src/modules/ui/audio-setup/__tests__/AudioSetupScreen.test.ts` -> pass
-      - `npm test -- src/__tests__/App.test.ts` -> pass
-      - `npm run typecheck` -> pass
-      - `npm run verify` -> pass
-      - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"` -> pass
-      - `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> still reports `1 open issue`
-      - `desloppify show security::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::security::innerHTML_assignment::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::49` -> `No open issues matching ...`
-      - `desloppify show security::src/modules/ui/audio-setup/AudioSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/audio-setup/AudioSetupScreen.ts::420` -> `No open issues matching ...`
-      - `desloppify show security::src/modules/ui/splash/SplashScreen.ts::security::innerHTML_assignment::src/modules/ui/splash/SplashScreen.ts::19` -> `No open issues matching ...`
-    - final disposition:
-      - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `split follow-up` recorded under `P2-EXIT` with final owner `P4-W5`
-      - `security::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::security::innerHTML_assignment::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::49` -> `resolved`
-      - `security::src/modules/ui/audio-setup/AudioSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/audio-setup/AudioSetupScreen.ts::420` -> `resolved`
-      - `security::src/modules/ui/splash/SplashScreen.ts::security::innerHTML_assignment::src/modules/ui/splash/SplashScreen.ts::19` -> `resolved`
-  - [x] `P2-EXIT` run the priority-exit review before moving to `P3` (completed 2026-03-11; no `P3` plan/work opened before this record was written)
-    - required: record every mapped imported issue with an exact disposition
-    - imported issue dispositions:
-      - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `split follow-up`
-      - final owner: `P4-W5`
-      - reason: `P2-W4` rewired the known feature-surface literals to module-owned constants, but the refreshed targeted `desloppify` query still reports residual convention drift across `src/App.ts`, `src/core/app-shell/AppContainerFactory.ts`, `src/modules/ui/now-playing-info/constants.ts`, and `src/modules/ui/playback-options/constants.ts`
-      - revisit trigger: start of `P4-W5`, or `P4-EXIT` if the issue remains open then
-    - security triage:
-      - `desloppify show security --status open --no-budget --top 200` -> 12 open `T2` issues; no open `P0` security findings
-      - `desloppify show security::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::security::innerHTML_assignment::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::49` -> `No open issues matching ...`
-      - `desloppify show security::src/modules/ui/audio-setup/AudioSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/audio-setup/AudioSetupScreen.ts::420` -> `No open issues matching ...`
-      - `desloppify show security::src/modules/ui/splash/SplashScreen.ts::security::innerHTML_assignment::src/modules/ui/splash/SplashScreen.ts::19` -> `No open issues matching ...`
-    - refreshed verification evidence:
-      - `npm run verify` -> pass
-      - `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> still reports `1 open issue`
-      - `desloppify show security::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::security::innerHTML_assignment::src/core/app-shell/AppBlockingErrorOverlayPresenter.ts::49` -> `No open issues matching ...`
-      - `desloppify show security::src/modules/ui/audio-setup/AudioSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/audio-setup/AudioSetupScreen.ts::420` -> `No open issues matching ...`
-      - `desloppify show security::src/modules/ui/splash/SplashScreen.ts::security::innerHTML_assignment::src/modules/ui/splash/SplashScreen.ts::19` -> `No open issues matching ...`
-      - `desloppify show security --status open --no-budget --top 200` -> open security list is limited to `T2` issues; no open `P0` security findings shown
+- Why it matters: channel setup is still split between `core` assembly and feature-heavy workflow ownership, and the refreshed queue still calls out duplicated flow logic, naming drift, and re-declared UI unions.
+- Required skills: `architecture-boundaries`, `ui-composition-patterns`, `persistence-boundaries`
 
-## Priority 3: Consolidate Persistence Ownership And Storage Policy
+### Work Units
+
+- [ ] `P3-W1` choose one owner for channel-setup workflow and reduce the gateway seam to thin assembly
+  - Imported review issues: `review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur`
+  - Primary files: `src/core/channel-setup/ChannelSetupCoordinator.ts`, `src/core/channel-setup/ChannelSetupSessionGateway.ts`, `src/core/channel-setup/createChannelSetupSessionGateway.ts`, `src/modules/ui/channel-setup/ChannelSetupSessionController.ts`
+  - Minimum verification: `npm run verify`; exact `desloppify show` command for the mapped id
+- [ ] `P3-W2` split overloaded build execution and deduplicate error-summary policy inside channel setup
+  - Imported review issues: `review::.::holistic::design_coherence::channel_setup_build_execution_is_overloaded`, `review::.::holistic::design_coherence::channel_setup_error_summary_logic_is_duplicated`
+  - Primary files: `src/core/channel-setup/ChannelSetupBuildExecutor.ts`, `src/core/channel-setup/ChannelSetupPlanningService.ts`, `src/modules/ui/channel-setup/`
+  - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
+- [ ] `P3-W3` align channel-setup names and UI state types to the domain contracts they already mirror
+  - Imported review issues: `review::.::holistic::naming_quality::playback_variant_flag_name_drift`, `review::.::holistic::naming_quality::scroll_to_nearest_fallback_mismatch`, `review::.::holistic::type_safety::channel_setup_ui_redefines_core_unions`
+  - Primary files: `src/core/channel-setup/ChannelSetupPlanner.ts`, `src/core/channel-setup/types.ts`, `src/modules/ui/channel-setup/ChannelSetupSessionController.ts`, `src/modules/ui/channel-setup/steps/types.ts`, `src/modules/ui/channel-setup/focus/scrollToNearest.ts`, `src/modules/scheduler/channel-manager/types.ts`
+  - Minimum verification: `npm run verify`; exact `desloppify show` commands for the three mapped ids
+- [ ] `P3-EXIT` run the priority-exit review before moving to `P4`
+  - required: record every mapped imported issue with an exact disposition
+  - Gate: no `P4` plan, code, or checklist progress starts until every `P3` mapped id has an explicit disposition record
+  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all six exact `P3` issue-id checks; `npm run verify`
+
+## Priority 4: Tighten Persistence, Lifecycle, And Diagnostics Ownership
 
 - ROI: High
-- Why it matters: the full import confirmed that persistence ownership is improved but still incomplete, with raw `localStorage` bypasses, overlapping lifecycle/channel persistence responsibility, and constructor-time state restoration still showing up as active review debt.
-- Primary files:
-  - `src/modules/plex/auth/PlexAuth.ts`
-  - `src/modules/plex/auth/helpers.ts`
-  - `src/modules/lifecycle/StateManager.ts`
-  - `src/modules/ui/epg/EPGComponent.ts`
-  - `src/modules/ui/epg/utils.ts`
-  - `src/core/channel-setup/ChannelSetupCoordinator.ts`
-  - `docs/architecture/CURRENT_STATE.md`
-- Target outcomes:
-  - every persistent key has one explicit owner
-  - direct `localStorage` access outside sanctioned owners becomes rare and deliberate
-  - current-state docs reflect the real owner list
-- Completion criteria:
-  - every durable storage key is owned by one named runtime/store/repository boundary
-  - any remaining direct `localStorage` access is explicitly justified, documented, and limited to boundary code
-  - current-state docs and real code agree on the persistence-owner map
-- Must-finish to close this priority:
-  - assign one explicit owner to each remaining persistent key family
-  - either remove or explicitly justify every remaining direct-storage bypass
-  - update architecture/current-state docs so the persistence-owner map matches the code
-- Nice-to-do while in the area:
-  - normalize storage helper naming where ownership cleanup exposes awkward seams
-  - consolidate tiny adjacent persistence helpers if they are clearly duplicate after the owner map is cleaned up
-- Cleanup track:
-  - [x] `P3-W1` (post-`P2-W1`) audit client-identifier usage for residual non-owner direct-storage bypasses only; keep `resolveClientIdentifier(preferred?: string): string` as the single sanctioned owner API while Priority 3 completes the broader persistence-owner map (completed 2026-03-11; no production bypass drift found; deterministic audit commands: `rg -n "localStorage\\.(getItem|setItem|removeItem)\\(PLEX_AUTH_CONSTANTS\\.CLIENT_ID_KEY" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`, `rg -n "STORAGE_KEYS\\.CLIENT_ID|LINEUP_STORAGE_KEYS\\.CLIENT_ID|CLIENT_ID_KEY|lineup_client_id" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`, `rg -n "localStorage\\.(getItem|setItem|removeItem)\\([^)]*(CLIENT_ID|lineup_client_id)" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`, `rg -n "resolveClientIdentifier\\s*\\(" src/modules/plex/auth src/App.ts`)
-  - [x] `P3-W2` decide and document the intended owner for lifecycle persistence versus channel-specific persistence edges (done 2026-03-11)
-    - locked owner split: lifecycle persistence remains lifecycle-only (`lineup_app_state` via `StateManager`), while channel persistence keys (including selected/current channel state) remain scheduler-owned through `ChannelPersistenceStore`/`ChannelRepository`; `OrchestratorStorageContext` only derives and supplies those storage-key strings upstream, and the runtime stores consume plain key strings plus safe storage helpers directly.
-    - explicit `P3-W3` exception deferrals retained: `src/modules/ui/epg/utils.ts` (`appendEpgDebugLog`) and `src/core/channel-setup/ChannelSetupCoordinator.ts` (`cleanupStaleChannelBuildKeys`).
-    - verification sequence for this slice: `npm test -- src/modules/lifecycle/__tests__/StateManager.test.ts src/modules/lifecycle/__tests__/AppLifecycle.test.ts`, `npm run typecheck`, `npm run verify:docs`, `npm test`.
-  - [x] `P3-W3` isolate, wrap, or explicitly document the remaining direct-storage exceptions for EPG debug logging and channel-setup stale-key cleanup (completed 2026-03-11; plan: `docs/plans/2026-03-11-p3-w3-direct-storage-exception-wrap.md`)
-    - wrapped `src/core/channel-setup/ChannelSetupCoordinator.ts` (`cleanupStaleChannelBuildKeys`) behind `safeLocalStorageRemoveByPrefixes` in `src/utils/storage.ts`.
-    - wrapped `src/modules/ui/epg/utils.ts` (`appendEpgDebugLog`/debug flag and log payload access) behind sanctioned `safeLocalStorageGet`/`safeLocalStorageSet` helpers.
-    - added targeted behavior coverage in `src/utils/__tests__/storage.test.ts`, `src/core/channel-setup/__tests__/ChannelSetupCoordinator.test.ts`, and `src/modules/ui/epg/__tests__/utils.test.ts`.
-    - verification sequence for this slice: `npm test -- src/utils/__tests__/storage.test.ts`, `npm test -- src/core/channel-setup/__tests__/ChannelSetupCoordinator.test.ts`, `npm test -- src/modules/ui/epg/__tests__/utils.test.ts src/modules/ui/epg/__tests__/EPGCoordinator.test.ts src/modules/ui/epg/__tests__/EPGTimeHeader.test.ts`, `npm run typecheck`, `npm run verify:docs`, `npm run verify`.
-  - [x] `P3-W4` audit the rest of the repo for storage-owner drift and remove any newly discovered raw-storage bypasses before closing the priority (completed 2026-03-11; plan: `docs/plans/2026-03-11-p3-w4-storage-owner-drift-audit.md`)
-    - deterministic production audit commands (comment-safe, non-test files):
-      - `rg -n --pcre2 "^(?!\\s*(//|/\\*|\\*)).*\\blocalStorage\\.(getItem|setItem|removeItem|clear|key)\\(" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`
-      - `rg -n --pcre2 "^(?!\\s*(//|/\\*|\\*)).*\\blocalStorage\\.(getItem|setItem|removeItem|clear|key)\\(" src --glob '!**/__tests__/**' --glob '!**/*.test.ts' | rg -v "src/modules/lifecycle/StateManager.ts|src/utils/storage.ts"`
-    - remediated non-owner raw-storage call site: `src/modules/ui/epg/EPGComponent.ts` now routes `LINEUP_STORAGE_KEYS.EPG_DEBUG` reads through `safeLocalStorageGet` while preserving `debugStorageRefreshIntervalMs` polling cadence.
-    - targeted coverage added: `src/modules/ui/epg/__tests__/EPGComponent.test.ts` (`respects configurable debug refresh interval for same-tab storage toggles`).
-    - verification sequence for this slice:
-      - `npm test -- src/modules/ui/epg/__tests__/EPGComponent.test.ts -t "configurable debug refresh interval"`
-      - `npm test -- src/modules/ui/epg/__tests__/EPGComponent.test.ts src/modules/ui/epg/__tests__/utils.test.ts`
-      - `npm run verify:docs`
-      - `npm run typecheck`
-      - `npm run verify`
-      - `desloppify status`
-      - `desloppify show review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe --no-budget`
-      - `rg -n --pcre2 "^(?!\\s*(//|/\\*|\\*)).*\\blocalStorage\\.(getItem|setItem|removeItem|clear|key)\\(" src --glob '!**/__tests__/**' --glob '!**/*.test.ts' | rg -v "src/modules/lifecycle/StateManager.ts|src/utils/storage.ts"`
-    - imported issue disposition checkpoint: `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe` remains open after this slice; exact successor owner for final disposition is `P3-EXIT`.
-  - [x] `P3-W5` refresh `CURRENT_STATE` and adjacent docs so the persistence-owner list is accurate and complete (completed 2026-03-11)
-    - refreshed owner-map docs:
-      - `docs/architecture/CURRENT_STATE.md`
-      - `docs/architecture/modules.md`
-    - verification:
-      - `npm run verify:docs` -> pass
-  - [x] `P3-W6` runtime storage-owner drift residual cleanup for `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe` (completed 2026-03-11)
-    - final runtime residuals retired with typed owner routing:
-      - `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`
-      - `ProfileSelectScreen` -> injected `ProfileSessionStore` seam (wired in `App` and tests only)
-      - `ThemeManager` -> `ThemePreferencesStore` (new)
-      - `EPGInfoPanel` -> `NowPlayingDisplayStore` + `EpgPreferencesStore`
-    - closure evidence rerun (`2026-03-12`):
-      - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"` -> completed
-      - `desloppify status` -> completed
-      - `desloppify show review --status open --no-budget --top 200` -> completed
-      - `desloppify show review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe --no-budget` -> `No open issues matching ...`
-      - `desloppify show security --status open --no-budget --top 200` -> 12 open `T2 [medium]` issues, no `P0`
-      - filtered raw-storage query (`... | rg -v "src/modules/lifecycle/StateManager.ts|src/utils/storage.ts"`) -> no matches
-      - related-files guard query (`LINEUP_STORAGE_KEYS|safeLocalStorage|readStoredBoolean` over mapped related files) -> no matches
-      - `npm run verify:docs` -> pass
-      - `npm run verify` -> pass
-  - [x] `P3-EXIT` run the priority-exit review before moving to `P4` (completed 2026-03-12; priority-exit review required before opening `P4` work)
-    - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 3
-    - mapped imported issues:
-      - `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe` -> `resolved`
-        reason: the final four runtime residual bypasses were retired and the mapped review issue no longer appears as open on refreshed evidence.
-    - follow-up ownership:
-      - none; no `deferred` or `split follow-up` items remain for `P3`.
-    - security triage:
-      - exact `P0` gate disposition: `no open P0 security findings` (`desloppify show security --status open --no-budget --top 200` reports 12 open `T2 [medium]` items only).
-    - residuals:
-      - no additional Priority 3 storage-owner residual is intentionally left open.
-    - verification:
-      - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`
-      - `desloppify status`
-      - `desloppify show review --status open --no-budget --top 200`
-      - `desloppify show review::.::holistic::cross_module_architecture::storage_owner_boundary_drift::6d1ce3fe --no-budget`
-      - `desloppify show security --status open --no-budget --top 200`
-      - `rg -n --pcre2 "^(?!\\s*(//|/\\*|\\*)).*\\blocalStorage\\.(getItem|setItem|removeItem|clear|key)\\(" src --glob '!**/__tests__/**' --glob '!**/*.test.ts' | rg -v "src/modules/lifecycle/StateManager.ts|src/utils/storage.ts"`
-      - `rg -n "LINEUP_STORAGE_KEYS|safeLocalStorage|readStoredBoolean" src/core/InitializationCoordinator.ts src/modules/navigation/NavigationCoordinator.ts src/modules/player/PlaybackRecoveryManager.ts src/modules/ui/epg/EPGCoordinator.ts src/modules/ui/now-playing-info/NowPlayingInfoCoordinator.ts src/shared/subtitle-mode.ts`
-      - `rg -n "PlayerOsdCoordinator|ProfileSelectScreen|ThemeManager|EPGInfoPanel" src/modules/ui/player-osd/PlayerOsdCoordinator.ts src/modules/ui/profile-select/ProfileSelectScreen.ts src/modules/ui/theme/ThemeManager.ts src/modules/ui/epg/EPGInfoPanel.ts`
-      - `npm run verify:docs`
-      - `npm run verify`
+- Why it matters: storage-owner drift is still open after wave 2, lifecycle still keeps a deprecated Plex-auth slot visible, diagnostics lifetimes are still hidden behind module-scope instances, and startup ownership still carries misleading async wrappers.
+- Required skills: `architecture-boundaries`, `persistence-boundaries`, `plex-integration-boundaries`
 
-## Priority 4: Complete UI And Coordinator Round-2 Decomposition
+### Work Units
+
+- [ ] `P4-W1` retire remaining raw storage-owner drift and remove deprecated lifecycle/auth schema carry-forward
+  - Imported review issues: `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift`, `review::.::holistic::incomplete_migration::deprecated_lifecycle_plexauth_slot`
+  - Primary files: `src/modules/ui/epg/EPGCoordinatorPolicies.ts`, `src/core/orchestrator/OrchestratorCoordinatorFactory.ts`, `src/modules/player/AudioTrackManager.ts`, `src/modules/lifecycle/StateManager.ts`, `docs/architecture/CURRENT_STATE.md`
+  - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
+- [ ] `P4-W2` centralize diagnostics ownership and remove misleading startup async wrappers
+  - Imported review issues: `review::.::holistic::initialization_coupling::diagnostics_store_scattered_singletons`, `review::.::holistic::logic_clarity::startup_ui_async_wrapper_drift`
+  - Primary files: `src/Orchestrator.ts`, `src/modules/player/PlaybackRecoveryManager.ts`, `src/core/channel-tuning/ChannelTuningCoordinator.ts`, `src/modules/ui/epg/EPGCoordinator.ts`, `src/modules/ui/epg/EPGScheduleRefreshRuntime.ts`, `src/core/InitializationCoordinator.ts`
+  - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
+- [ ] `P4-W3` make corrupted stored Plex auth observable instead of silently folding it into clean absence
+  - Imported review issues: `review::.::holistic::contract_coherence::plex_auth_stored_credentials_null_hides_corruption`
+  - Primary files: `src/modules/plex/auth/PlexAuth.ts`, `src/modules/plex/auth/interfaces.ts`
+  - Minimum verification: `npm run verify`; exact `desloppify show` command for the mapped id
+- [ ] `P4-EXIT` run the priority-exit review before moving to `P5`
+  - required: record every mapped imported issue with an exact disposition
+  - Gate: no `P5` plan, code, or checklist progress starts until every `P4` mapped id has an explicit disposition record
+  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all five exact `P4` issue-id checks; `npm run verify`
+
+## Priority 5: Normalize Plex And Player Contracts, Dependencies, And Pipelines
 
 - ROI: High
-- Why it matters: the imported review strengthened the case that `EPGComponent`, `EPGCoordinator`, `ChannelSetupCoordinator`, and `NavigationManager` still blur render, orchestration, persistence, cache, and timing ownership in ways that keep these seams hard to reason about.
-- Primary files:
-  - `src/modules/ui/epg/**`
-  - `src/core/channel-setup/**`
-  - `src/modules/navigation/NavigationManager.ts`
-  - `src/modules/ui/settings/SettingsScreen.ts`
-  - `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
-- Target outcomes:
-  - Separate state, rendering, navigation, and async coordination.
-  - Reduce multi-purpose `show()` and `hide()` behavior.
-  - Improve testability without private probing.
-- Candidate extractions:
-  - view/state objects
-  - focus/navigation controllers
-  - rendering helpers / subviews
-  - async coordinators for load/save flows
-- Guardrails:
-  - Preserve TV remote behavior, focus order, and bounded DOM usage.
-  - No network waits in `show()`.
-  - Hidden UI should not keep timers or listeners alive.
-- Verification:
-  - `npm run verify`
-- Checklist:
-  - [ ] Pick one UI class and map its state/render/input responsibilities
-  - [ ] Extract one concern at a time
-  - [ ] Keep focus cleanup ownership explicit
-  - [ ] Re-test the affected navigation flow after each extraction
-- Primary work units:
-  - [x] P4-W1 - Split `SettingsScreen` into storage/state ownership vs view/focus ownership (done 2026-03-05; plan: docs/archive/plans/2026-03-05-p4-w1-settings-screen-state-view-focus-split-implementation.md)
-  - [x] P4-W2 - Split one bounded concern out of `EPGComponent` (recommended: navigation or info-panel orchestration) (done 2026-03-06; plan: docs/plans/2026-03-06-p4-w2-epg-info-panel-orchestration-split-implementation.md)
-  - [x] P4-W3 - Split one bounded concern out of `ChannelSetupScreen` (recommended: step orchestration vs view rendering) (done 2026-03-06; plan: docs/plans/2026-03-06-p4-w3-channel-setup-session-flow-split-implementation.md)
-  - [x] P4-W4 - Consolidate repeated focus/render helpers into reusable UI primitives only after the first three extractions are stable (done 2026-03-06; plan: docs/plans/2026-03-06-p4-w4-ui-focus-render-primitives-consolidation-implementation.md)
-  - [x] P4-W5 - Cleanup pass for Priority 4: remove placeholder view glue, dead DOM refs, temporary focus bridges, and transitional UI conditionals introduced during the screen splits (done 2026-03-12; tracked plan retired after move to local run-bundle review for possible harness ingestion)
-    - Mapped imported review issues disposition (refreshed 2026-03-12 after `desloppify scan --force-rescan ...`, `desloppify status`, and `desloppify show review --status open`):
-      - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `deferred` (still open on 2026-03-12; final owner `P4-EXIT`)
-        - reason: container-id conventions remain partially split across App/app-shell wiring despite the constant-wiring cleanup in this slice.
-        - revisit trigger: resolve before marking `P4-EXIT` complete; rerun `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23 --no-budget`.
-      - `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d` -> `deferred` (still open on 2026-03-12; final owner `P4-EXIT`)
-        - reason: `EPGCoordinator` remains a broad integration seam after this cleanup pass.
-        - revisit trigger: resolve before marking `P4-EXIT` complete; rerun `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --no-budget`.
-      - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216` -> `deferred` (still open on 2026-03-12; final owner `P4-EXIT`)
-        - reason: top-level EPG ownership remains shared across large classes and orchestrator wiring.
-        - revisit trigger: resolve before marking `P4-EXIT` complete; rerun `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget`.
-      - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> `deferred` (rechecked on `feature/initial-build` on 2026-03-12; command reports `1 open issues matching ...`; final owner `P4-EXIT`)
-        - reason: cross-module EPG subsystem coupling remains above desired cleanup threshold on current-branch evidence.
-        - revisit trigger: resolve before marking `P4-EXIT` complete; rerun `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --no-budget`.
-    - Mapped inherited security issue disposition (refreshed 2026-03-12 via `desloppify show security --status open --no-budget --top 200` after force-rescan):
-      - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::32` -> `resolved` (`No open issues matching`)
-      - `security::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::security::innerHTML_assignment::src/modules/ui/channel-transition/ChannelTransitionOverlay.ts::40` -> `resolved` (`No open issues matching`)
-      - `security::src/modules/ui/epg/EPGComponent.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGComponent.ts::244` -> `resolved` (`No open issues matching`)
-      - `security::src/modules/ui/epg/EPGInfoPanel.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGInfoPanel.ts::101` -> `resolved` (`No open issues matching`)
-      - `security::src/modules/ui/epg/EPGTimeHeader.ts::security::innerHTML_assignment::src/modules/ui/epg/EPGTimeHeader.ts::91` -> `resolved` (`No open issues matching`)
-      - `security::src/modules/ui/epg/EPGVirtualizer.ts::security::insecure_random::src/modules/ui/epg/EPGVirtualizer.ts::652` -> `resolved` (`No open issues matching`)
-      - `security::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::security::innerHTML_assignment::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts::136` -> `resolved` (`No open issues matching`)
-      - `security::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::security::log_sensitive::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::503` -> `resolved` (`No open issues matching`)
-    - Gate: `P4-EXIT` remains required before any `P5` item can be marked ready or started.
-  - [x] `P4-W6` retire remaining EPG/coordinator ownership seams inherited from `P4-EXIT` (implementation complete 2026-03-13; remaining mapped ids split into `P4-W8` and `P4-W9`)
-    - Inherited follow-ups:
-      - source: `P4-EXIT`
-      - issue id(s): `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b`, `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d`, `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216`, `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d`
-      - disposition: `split follow-up`
-      - implementation evidence (2026-03-13 on `feature/initial-build`):
-        - completed commits:
-          - `b51e504` `cleanup(p4-w6): retire remaining channel-setup orchestrator passthrough residue`
-          - `d78a6eb` `cleanup(p4-w6): split epg schedule refresh runtime ownership`
-          - `93e175c` `cleanup(p4-w6): delegate epg runtime policy ownership from orchestrator`
-          - `44f6693` `cleanup(p4-w6): introduce epg-owned domain types and adapters`
-          - `0299fe1` `cleanup(p4-w6): tighten channel-setup session gateway seam`
-          - `7d95bdc` `cleanup(p4-w6): trim epg adapter surface and restore verify`
-        - task verification:
-          - `npm test -- src/__tests__/Orchestrator.test.ts -t "guide|epg|server-swap"` -> `PASS`
-          - `npm test -- src/modules/ui/epg/__tests__/EPGCoordinator.test.ts` -> `PASS`
-          - `npm test -- src/modules/ui/epg/__tests__/EPGComponent.test.ts` -> `PASS`
-          - `npm test -- src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts` -> `PASS`
-          - `npm test -- src/core/__tests__/InitializationCoordinator.test.ts -t "EPG"` -> `PASS`
-          - `npm run typecheck` -> `PASS`
-          - `npm test -- src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/modules/ui/epg/__tests__/EPGBackgroundWarmQueue.test.ts src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts src/modules/ui/epg/__tests__/EPGCoordinator.test.ts src/modules/ui/epg/__tests__/EPGComponent.test.ts src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts src/core/__tests__/InitializationCoordinator.test.ts src/__tests__/Orchestrator.test.ts` -> `PASS`
-          - `npm run verify` -> `PASS`
-      - mapped issue evidence refresh (2026-03-13, rerun after follow-up cleanup commits):
-        - `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b --no-budget` -> `1 open issues matching ...`
-        - `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --no-budget` -> `1 open issues matching ...`
-        - `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget` -> `1 open issues matching ...`
-        - `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --no-budget` -> `1 open issues matching ...`
-      - disposition after refresh:
-        - `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` -> `split follow-up`, owner `P4-W8`
-        - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216` -> `split follow-up`, owner `P4-W8`
-        - `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d` -> `split follow-up`, owner `P4-W9`
-        - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> `split follow-up`, owner `P4-W9`
-      - reason: `P4-W6` narrowed the seams and restored the verification gate, but the authoritative mapped `desloppify` review queries still report all four ids open. The remaining work is now split by owner shape so closeout can require detector retirement instead of subjective improvement.
-      - revisit trigger: retire the mapped ids only through `P4-W8` / `P4-W9` and rerun their exact `desloppify show review::<id> --no-budget` commands plus `npm run verify` before marking either successor item complete.
-      - required verification command(s):
-        - `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b --no-budget`
-        - `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --no-budget`
-        - `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget`
-        - `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --no-budget`
-        - `npm run verify`
-      - verification gate status (2026-03-13):
-        - `npm run verify:docs` -> `PASS` (warnings for pre-existing untracked checklist plan-path references)
-        - `npm run verify` -> `PASS`
-  - [x] `P4-W7` retire remaining navigation/container-id drift inherited from `P4-EXIT` (done 2026-03-13; plan: `docs/plans/2026-03-13-p4-w7-navigation-container-id-closeout.md`)
-    - Inherited follow-ups:
-      - source: `P4-EXIT`
-      - issue id(s): `review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f`, `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23`
-      - disposition: `split follow-up`
-      - closure standard: do not mark `P4-W7` complete because the navigation/container-id area is merely cleaner. Mark it complete only when both mapped `desloppify show review::<id> --no-budget` commands return `No open issues matching` on current code.
-      - sequencing note: complete `P4-W7` before opening `P4-W8` or `P4-W9` implementation so navigation/container-id cleanup does not get mixed into the remaining EPG/orchestrator ownership work.
-      - required verification command(s):
-        - `desloppify show review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f --no-budget`
-        - `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23 --no-budget`
-        - `npm run verify`
-    - implementation evidence:
-      - extracted key-routing ownership from `NavigationManager` into `src/modules/navigation/NavigationRemoteInputRouter.ts`
-      - split timing ownership into `src/modules/navigation/NavigationDirectionalRepeatController.ts` and `src/modules/navigation/NavigationChannelNumberInputController.ts`
-      - wired `NavigationManager` directly to `NavigationRemoteInputRouter`, `NavigationDirectionalRepeatController`, and `NavigationChannelNumberInputController` (no extra low-level facade owner)
-      - deleted `src/modules/navigation/NavigationInputTimingController.ts` and `src/modules/navigation/__tests__/NavigationInputTimingController.test.ts`
-      - added focused navigation tests:
-        - `src/modules/navigation/__tests__/NavigationRemoteInputRouter.test.ts`
-        - `src/modules/navigation/__tests__/NavigationDirectionalRepeatController.test.ts`
-        - `src/modules/navigation/__tests__/NavigationChannelNumberInputController.test.ts`
-      - added `NavigationManager` regression coverage for yellow-button settings emission at the navigation layer
-      - centralized app-shell container-id ownership to `src/modules/ui/common/appShellContainerIds.ts` and rewired:
-        - `src/core/app-shell/AppContainerFactory.ts`
-        - `src/App.ts`
-        - `src/modules/ui/now-playing-info/constants.ts`
-        - `src/modules/ui/playback-options/constants.ts`
-        - `src/__tests__/fixtures/appShellContainerIds.ts`
-    - verification evidence (2026-03-13):
-      - `npm run typecheck` -> `PASS`
-      - `npm test -- src/modules/navigation/__tests__/NavigationRemoteInputRouter.test.ts src/modules/navigation/__tests__/NavigationDirectionalRepeatController.test.ts src/modules/navigation/__tests__/NavigationChannelNumberInputController.test.ts src/modules/navigation/__tests__/NavigationManager.test.ts src/modules/navigation/__tests__/NavigationCoordinator.test.ts src/core/app-shell/__tests__/AppContainerFactory.test.ts src/__tests__/App.test.ts` -> `PASS`
-      - `npm run verify` -> `PASS` (includes `typecheck`, `lint`, `lint:css`, `test:all`, `verify:docs`, `build`)
-      - `desloppify plan reopen review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `Reopened 2 issue(s).`
-      - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"` -> `PASS`
-      - `desloppify show review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f --no-budget` -> `1 open issues matching ...` (post-reopen baseline)
-      - `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23 --no-budget` -> `1 open issues matching ...` (post-reopen baseline)
-      - `desloppify review --run-batches --runner codex --parallel --dimensions design_coherence,convention_outlier --force-review-rerun --scan-after-import` -> `completed batches; import blocked for partial-dimension coverage`
-      - `desloppify review --import-run .desloppify/subagents/runs/20260313_093821 --allow-partial --scan-after-import` -> `imported 2 dimensions; +7 new issues, 62 resolved`
-      - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"` -> `PASS` (post-review refresh)
-      - `desloppify show review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f --no-budget` -> `No open issues matching ...`
-      - `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23 --no-budget` -> `No open issues matching ...`
-    - final disposition:
-      - `review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f` -> `resolved`
-      - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `resolved`
-  - [x] `P4-W8` retire remaining top-level orchestrator/EPG ownership blur inherited from `P4-W6` (done 2026-03-13; plan: `docs/plans/2026-03-13-p4-w8-orchestrator-epg-ownership-reconciliation.md`)
-    - Inherited follow-ups:
-      - source: `P4-W6`
-      - issue id(s): `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b`, `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216`
-      - disposition: `resolved`
-      - closure standard: do not mark `P4-W8` complete because the code is "better." Mark it complete only when both mapped `desloppify show review::<id> --no-budget` commands return `No open issues matching` on current code.
-      - required outcomes:
-        - `src/Orchestrator.ts` is reduced to composition-root wiring/delegation for channel-setup and EPG flows; it must not remain the public owner of residual UI-facing storage/session/guide policy pass-throughs just under renamed seams.
-        - one exact top-level owner is responsible for EPG runtime policy entrypoints and orchestration semantics; `Orchestrator` may wire that owner, but it must not co-own the same policy branches.
-        - any API or ownership change needed to clear these ids is mirrored into the relevant current-state architecture docs in the same pass.
-      - expected focus files:
-        - `src/Orchestrator.ts`
-        - `src/core/orchestrator/**`
-        - `src/core/channel-setup/**`
-        - `src/modules/ui/epg/EPGCoordinator.ts`
-        - `src/modules/ui/epg/EPGComponent.ts`
-        - `src/__tests__/Orchestrator.test.ts`
-        - `src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`
-        - `src/modules/ui/epg/__tests__/EPGComponent.test.ts`
-        - `docs/architecture/CURRENT_STATE.md` (if ownership wording changes)
-      - implementation evidence:
-        - Task 1 seam audit + detector reconciliation completed with no `src/**` edits required.
-        - `src/Orchestrator.ts` still exposes delegation entrypoints (`openEPG`, `closeEPG`, `toggleEPG`, `onGuideSettingChange`, `getChannelSetupSessionGateway`) and delegates EPG policy handling to `EPGCoordinator`.
-        - `src/core/channel-setup/createChannelSetupSessionGateway.ts` still preserves the channel-setup gateway boundary (`openEPG` and channel-setup flow access stay session-gateway routed).
-        - `src/modules/ui/epg/EPGCoordinator.ts` remains the top-level owner for EPG runtime policy (`openEPG`, `closeEPG`, `toggleEPG`, `handleGuideSettingChange`).
-      - verification evidence (2026-03-13):
-        - `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b --no-budget` -> `No open issues matching ...`
-        - `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget` -> `No open issues matching ...`
-        - `desloppify show review --status open --no-budget --top 500` -> `7 open issues matching 'review'`; none are the mapped `P4-W8` ids and no open issue names this exact orchestrator/EPG top-level ownership blur seam.
-        - `rg -n "openEPG|closeEPG|toggleEPG|onGuideSettingChange|getChannelSetupSessionGateway" src/Orchestrator.ts src/core/orchestrator/OrchestratorCoordinatorFactory.ts src/modules/ui/epg/EPGCoordinator.ts src/core/channel-setup/ChannelSetupSessionGateway.ts src/core/channel-setup/createChannelSetupSessionGateway.ts` -> delegation + owner-shape checks pass.
-        - `desloppify show src/Orchestrator.ts --no-budget` -> `4 open issues` (logs/structural/smells) classified out-of-scope for `P4-W8` closeout.
-        - `desloppify show src/core/orchestrator/OrchestratorCoordinatorFactory.ts --no-budget` -> `5 open issues` (logs/structural/smells) classified out-of-scope for `P4-W8` closeout.
-        - `desloppify show src/modules/ui/epg/EPGCoordinator.ts --no-budget` -> `2 open issues` (structural/smells) classified out-of-scope for `P4-W8` closeout.
-        - `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b --status all --no-budget` -> issue present historically but `note: not reported in latest holistic re-import`.
-        - `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --status all --no-budget` -> issue present historically but `note: not reported in latest holistic re-import`.
-      - final disposition:
-        - `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` -> `resolved`
-        - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216` -> `resolved`
-  - [x] `P4-W9` retire remaining EPG subsystem overload/coupling inherited from `P4-W6` (done 2026-03-13; no-refactor closeout path)
-    - Inherited follow-ups:
-      - source: `P4-W6`
-      - issue id(s): `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d`, `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d`
-      - disposition: `resolved`
-      - closure standard: satisfied; both mapped `desloppify show review::<id> --no-budget` commands now return `No open issues matching` on current code.
-    - unified gate decision (2026-03-13):
-      - mapped detector retirement gate: pass (`4def954d` and `b900285d` both return `No open issues matching` for open-status checks)
-      - successor-seam gate: pass (`desloppify show review --status open --no-budget --top 200` reports 7 open review issues; none reopen the mapped P4-W9 seam)
-      - outcome-proof matrix gate: pass (all three required outcomes satisfied on source audit)
-      - execution path: no-refactor closeout (Task 2 not required)
-    - `P4-W9` outcome proof matrix (2026-03-13, branch `feature/initial-build`):
-      - Outcome 1 (`EPGCoordinator` is no longer the single integration owner): pass
-        - `src/modules/ui/epg/EPGCoordinator.ts` delegates schedule execution ownership to `EPGScheduleRefreshRuntime` (`_scheduleRefreshRuntime`, `clearScheduleCaches`, `attachVisibleRangeRefreshPolicy`, `refreshEpgSchedulesForRange` wiring).
-        - `src/modules/ui/epg/EPGScheduleRefreshRuntime.ts` owns schedule refresh execution plus warm-queue/cache orchestration (`_cacheStore`, `_warmQueue`, `refreshForRange`, `clearScheduleCaches`).
-        - durable collaborator classes remain explicit: `EPGVisibleRangeRefreshQueue`, `EPGScheduleCacheStore`, `EPGBackgroundWarmQueue`.
-      - Outcome 2 (cross-boundary scheduler/Plex coupling constrained to explicit EPG boundary points): pass
-        - `rg -n "from '../../scheduler|from '../../plex'" src/modules/ui/epg/*.ts` shows boundary imports limited to EPG internals (`adapters.ts`, `EPGScheduleRefreshRuntime.ts`, `EPGCoordinator.ts`, plus typed helper internals), with adapters explicitly documenting boundary role.
-        - UI-facing type contracts remain EPG-owned (`src/modules/ui/epg/types.ts`, `src/modules/ui/epg/interfaces.ts`, `src/modules/ui/epg/domainTypes.ts`) and do not expose scheduler/Plex imports.
-      - Outcome 3 (`EPGComponent` responsibility reduction remains in effect): pass
-        - `rg -n "ScheduleCalculator|ShuffleGenerator|resolveChannelContent|resolveChannelItemsForSchedule|IChannelManager|IChannelScheduler" src/modules/ui/epg/EPGComponent.ts` returns no matches.
-        - `EPGComponent` remains UI-focused (render/focus/state orchestration) while schedule execution primitives remain outside the class.
-    - verification evidence (2026-03-13, `feature/initial-build`):
-      - `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --no-budget` -> `No open issues matching ...`
-      - `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --no-budget` -> `No open issues matching ...`
-      - `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --status all --no-budget` -> historical record only; `note: not reported in latest holistic re-import`
-      - `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --status all --no-budget` -> historical record only; `note: not reported in latest holistic re-import`
-      - `desloppify show review --status open --no-budget --top 200` -> `7 open issues matching 'review'`; none are the mapped `P4-W9` ids.
-      - `rg -n "EPGScheduleRefreshRuntime|refreshEpgSchedulesForRange|attachVisibleRangeRefreshPolicy|handleGuideSettingChange|clearScheduleCaches" src/modules/ui/epg/EPGCoordinator.ts src/modules/ui/epg/EPGScheduleRefreshRuntime.ts`
-      - `rg -n "class EPGVisibleRangeRefreshQueue|class EPGScheduleCacheStore|class EPGBackgroundWarmQueue" src/modules/ui/epg/EPGVisibleRangeRefreshQueue.ts src/modules/ui/epg/EPGScheduleCacheStore.ts src/modules/ui/epg/EPGBackgroundWarmQueue.ts`
-      - `rg -n "from '../../scheduler|from '../../plex'" src/modules/ui/epg/*.ts`
-      - `rg -n "ScheduleCalculator|ShuffleGenerator|resolveChannelContent|resolveChannelItemsForSchedule|IChannelManager|IChannelScheduler" src/modules/ui/epg/EPGComponent.ts` -> no matches.
-      - `npm run verify`
-  - [x] `P4-EXIT` run the priority-exit review before moving to `P5` (completed 2026-03-13)
-    - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 4
-    - mapped imported issues (refreshed 2026-03-13 on `feature/initial-build`):
-      - `review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b` -> `resolved`
-        - reason: targeted detector check still returns `No open issues matching ...`; `P4-W8` delegation/owner audit remains valid.
-      - `review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f` -> `resolved`
-        - reason: targeted detector check still returns `No open issues matching ...`; `P4-W7` focused ownership split remains in place.
-      - `review::.::holistic::convention_outlier::container_id_convention_split::89da5d23` -> `resolved`
-        - reason: targeted detector check still returns `No open issues matching ...`; centralized container-id ownership remains intact.
-      - `review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d` -> `resolved`
-        - reason: `P4-W9` refresh now returns `No open issues matching ...`; source-audit matrix confirms durable EPG collaborator ownership split remains intact.
-      - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216` -> `resolved`
-        - reason: targeted detector check still returns `No open issues matching ...`; orchestrator/EPG top-level ownership boundary remains stable.
-      - `review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d` -> `resolved`
-        - reason: `P4-W9` refresh now returns `No open issues matching ...`; EPG boundary adapters + EPG-owned UI contracts satisfy coupling constraints.
-    - follow-up ownership:
-      - none; all mapped Priority 4 imported review IDs are now resolved.
-    - security triage:
-      - exact `P0` gate disposition: `no open P0 security findings` (`desloppify show security --status open --no-budget --top 200` reports `No open issues for Security`)
-      - deferred `P1-EXIT` security follow-ups reconciled at `P4-EXIT`:
-        - `security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::366` -> `resolved` (`No open issues matching ...`)
-        - `security::src/modules/ui/channel-setup/ChannelSetupScreen.ts::security::innerHTML_assignment::src/modules/ui/channel-setup/ChannelSetupScreen.ts::407` -> `resolved` (`No open issues matching ...`)
-        - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::224` -> `resolved` (`No open issues matching ...`)
-        - `security::src/modules/ui/settings/SettingsScreen.ts::security::innerHTML_assignment::src/modules/ui/settings/SettingsScreen.ts::729` -> `resolved` (`No open issues matching ...`)
-    - residuals:
-      - Priority 4 is closed; `P5` is unblocked after this same-pass evidence refresh and checklist closeout.
-    - verification (2026-03-13, `feature/initial-build`):
-      - `desloppify status`
-      - `desloppify show review --status open --no-budget --top 200`
-      - `desloppify show security --status open --no-budget --top 200`
-      - `desloppify show review::.::holistic::abstraction_fitness::orchestrator_passthrough_facade::8832435b --no-budget`
-      - `desloppify show review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f --no-budget`
-      - `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23 --no-budget`
-      - `desloppify show review::.::holistic::mid_level_elegance::epg_coordinator_seam_overload::4def954d --no-budget`
-      - `desloppify show review::.::holistic::high_level_elegance::epg_top_level_owner_blur::d400d216 --no-budget`
-      - `desloppify show review::.::holistic::cross_module_architecture::epg_subsystem_coupling_hotspot::b900285d --no-budget`
-      - `npm run verify`
-      - `npm run verify:docs`
-    - gate decision:
-      - Priority 4 exit gates pass on current branch evidence.
-      - `P5` may proceed; no Priority 4 mapped imported review issue remains open or unowned.
+- Why it matters: the refreshed queue still calls out null-contract ambiguity, server-selection semantics drift, browser-inappropriate auth dependencies, recovery-noise narration, and overpacked stream/subtitle pipelines.
+- Required skills: `architecture-boundaries`, `plex-integration-boundaries`
 
-## Priority 5: Tighten Plex/Auth/Discovery Trust Boundaries
+### Work Units
 
-- ROI: High
-- Why it matters: the full import added sharper evidence of Plex trust-boundary drift, including `fetchWithTimeout` signature divergence, `validateToken()` contract mismatch, raw-string auth-code handling, inconsistent token origin checks, and still-active migration/fallback branches.
-- Primary files:
-  - `src/modules/plex/auth/**`
-  - `src/modules/plex/discovery/**`
-  - `src/modules/plex/library/**`
-  - `src/modules/plex/stream/**`
-  - `src/modules/player/SubtitleManager.ts`
-- Target outcomes:
-  - make auth and trust-boundary behavior consistent across sibling Plex modules
-  - remove stale fallback or dual-path migration logic that no longer has active value
-  - keep token/query-param behavior auditable and origin-safe
-- Completion criteria:
-  - auth, authorization, token transport, and trust-boundary rules are consistent across Plex-facing modules
-  - obsolete migration or fallback branches have been removed rather than merely documented
-  - token/query-param behavior is centralized enough to audit without chasing sibling drift
-- Must-finish to close this priority:
-  - remove the known trust-boundary drift across auth/discovery/library/player-facing paths
-  - make auth-facing contracts honest and aligned, including `validateToken()` behavior, parser failure semantics, and shared auth-error signaling
-  - retire obsolete migration and compatibility branches that still have active production cost
-  - leave token/query-param policy auditable from one clear surface or a very small aligned set of surfaces
-- Nice-to-do while in the area:
-  - clean up low-value defensive duplication in Plex parsing or request helpers when directly touched
-  - standardize nearby auth/trust naming if it reduces future drift without creating extra scope
-  - keep an eye on startup-entry bundle shape while touching `PlexServerDiscovery`, `PlexStreamResolver`, and `SubtitleManager`; bundle wins are welcome, but not at the cost of signed-in startup correctness, instant guide open, or first-play reliability
-- Cleanup track:
-  - [x] `P5-W1` normalize auth/trust-boundary error handling and contracts across auth, discovery, library, player, and playback-options surfaces, including `fetchWithTimeout`, `validateToken()`, parser failure semantics, and shared auth-error codes (done 2026-03-21)
-    - Evidence note (2026-03-21):
-      - canonical `fetchWithTimeout` now lives in `src/modules/plex/shared/fetchWithTimeout.ts` with locked dual-signal OR semantics; stream-local helper removed.
-      - shared helper usage is normalized across auth (`PlexAuth` home-user + switch + validate paths), stream (`PlexStreamResolver`), playback-options subtitle probe (`PlaybackOptionsCoordinator`), and player subtitle fetch path (`SubtitleManager`) while preserving the existing XHR fallback.
-      - `PlexLibrary` timeout/upstream-abort behavior now routes through `fetchWithTimeoutCore` while preserving existing retry/backoff and response-shape contracts; focused regression coverage added for timeout exhaustion and upstream-abort rethrow behavior.
-      - `validateToken()` preserves timeout=`false` behavior, now throws canonical `PARSE_ERROR` for malformed payloads, and continues to throw `SERVER_UNREACHABLE` on network failures.
-      - follow-up review remediation (2026-03-21): `validateToken()` now rejects structurally invalid `200` JSON payloads (for example `{}` missing `id`/`username`/`email`) with `PARSE_ERROR` before state mutation, preventing `"undefined"` identity persistence.
-      - follow-up review remediation (2026-03-21): playback-options coverage now includes a focused HEAD `501` -> GET fallback regression proving probe fallback stays bounded by `SUBTITLE_PROBE_TOTAL_TIMEOUT_MS` instead of expanding to an additional full timeout window.
-      - profile-select no longer uses magic auth-code strings; comparisons now use `AppErrorCode.AUTH_FAILED|AUTH_REQUIRED|AUTH_INVALID`.
-      - discovery malformed-payload parsing now throws `AppErrorCode.PARSE_ERROR`, with regression asserting single-attempt (no pre-parse retry loop) behavior.
-      - verification run on current code: `npm run typecheck`; `npm test -- src/modules/plex/stream/__tests__/fetchWithTimeout.test.ts`; `npm test -- src/modules/plex/auth/__tests__/PlexAuth.test.ts`; `npm test -- src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts`; `npm test -- src/modules/plex/library/__tests__/PlexLibrary.test.ts`; `npm test -- src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts`; `npm test -- src/modules/player/__tests__/SubtitleManager.test.ts`; `npm run verify`.
-      - verification run for the follow-up remediations: `npm test -- --runInBand src/modules/plex/auth/__tests__/PlexAuth.test.ts src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts`; `npm run verify`.
-  - [x] `P5-W2` remove inactive migration or compatibility branches from auth, subtitle, player, and related Plex surfaces after tests prove they are obsolete (done 2026-03-21)
-    - Evidence note (2026-03-21):
-      - removed lowercase token-header consumer fallbacks from `SubtitleManager`, `PlaybackOptionsCoordinator`, and `PlexStreamResolver`; removed dead `X-Plex-token` query-param deletion in subtitle header-retry URL construction.
-      - preserved active behavior: subtitle fetch retry ladder (`query`/`header`/`query_download`/`header_download`), XHR subtitle fetch fallback, LAN-http subtitle URL derivation, and transcode compat mode behavior.
-      - added canonical-header proof in `PlexAuth` coverage: authenticated `getAuthHeaders()` now explicitly asserts lowercase `x-plex-token` is absent.
-      - freshness/evidence sweeps recorded in this implementer artifact command log: `rg -n "\\?\\?\\s*headers\\['x-plex-token'\\]" src -S`; `rg -n -F "x-plex-token" src -S`; `rg -n "x-plex-token\\s*:" src -S`; `rg -n "\\[['\"]x-plex-token['\"]\\]\\s*=" src -S`; `rg -n "(setRequestHeader|searchParams\\.(set|append)|params\\.(set|append))\\(\\s*['\"]x-plex-token['\"]" src -S`; `rg -n -F "X-Plex-token" src -S`; strict-case producer audit confirmation: `rg -n -s -F "x-plex-token" src`; `rg -n -s "x-plex-token\\s*:" src`; `rg -n -s "\\[['\"]x-plex-token['\"]\\]\\s*=" src`; `rg -n -s "(setRequestHeader|searchParams\\.(set|append)|params\\.(set|append))\\(\\s*['\"]x-plex-token['\"]" src`.
-      - verification run on current code: `npm test -- --runInBand src/modules/plex/auth/__tests__/PlexAuth.test.ts`; `npm test -- --runInBand src/modules/player/__tests__/SubtitleManager.test.ts`; `npm test -- --runInBand src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts`; `npm test -- --runInBand src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts`; `npm run verify`.
-  - [x] `P5-W3` consolidate token-in-URL usage and origin-trust checks behind one clear policy surface or a very small set of aligned surfaces (done 2026-03-21)
-    - Evidence note (2026-03-21):
-      - shared Plex URL policy now classifies origin explicitly before rebasing: same-origin/server-relative Plex keys normalize, while foreign absolute URLs stay token-free and are not rebased just because their pathname starts with `/library/` or `/video/`.
-      - `PlexLibrary.getImageUrl()` preserves resized-image behavior for foreign absolute URLs by routing them through Plex transcode/proxy with the original external URL in the `url=` parameter.
-      - freshness/evidence sweeps recorded before editing: `rg -n "searchParams\\.set\\('X-Plex-Token'" src -S`; `rg -n "applyXPlexQueryParamsFromHeaders\\(" src -S`; `rg -n "buildPlexUrlFromKey\\(" src -S`.
-      - verification run on current code: `npm test -- --runInBand src/modules/plex/shared/__tests__/plexUrl.test.ts src/modules/plex/library/__tests__/PlexLibrary.test.ts src/modules/player/__tests__/SubtitleManager.test.ts src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts src/__tests__/Orchestrator.test.ts`; `npm run verify`; `npm run verify:docs`.
-      - `npm run verify` and `npm run verify:docs` both passed; `verify:docs` reported the same pre-existing untracked plan-path warnings already present on this branch.
-  - [x] `P5-W4` remove any remaining sibling policy drift that the imported subjective findings flag inside Plex-facing modules (done 2026-03-22)
-    - Evidence note (2026-03-22):
-      - live-state freeze and exact-id proof commands run before edits:
-        - `git status --short`
-        - `desloppify status`
-        - `desloppify show review --status open --no-budget --top 200`
-        - `desloppify show review --status open --no-budget --output /tmp/desloppify-review-open.json`
-        - `jq -r '.by_file["."][] | select((.detail.related_files|join("\n"))|test("src/modules/plex|src/modules/player/SubtitleManager\\.ts|src/modules/ui/playback-options/PlaybackOptionsCoordinator\\.ts")) | "\(.id)\t\(.summary)"' /tmp/desloppify-review-open.json`
-      - code-fix outcomes delivered in this slice:
-        - documented `validateToken()` throw contract in `src/modules/plex/auth/interfaces.ts`
-        - made malformed Plex Home user payloads fail loud with `PARSE_ERROR` (`src/modules/plex/auth/helpers.ts`, `src/modules/plex/auth/PlexAuth.ts`) with regression test coverage
-        - removed subtitle transcode dual-path branch and TODO (`src/modules/player/SubtitleManager.ts`) with regression proof in subtitle tests
-        - centralized Orchestrator Plex resource URL/token policy via shared helper (`src/modules/plex/shared/plexUrl.ts` + `src/Orchestrator.ts`) with origin-trust helper tests
-        - fixed non-optional discovery auth-state collapse by distinguishing `401 -> auth_required` and `403 -> auth_invalid` plus persisted severity (`src/modules/plex/discovery/interfaces.ts`, `src/modules/plex/discovery/PlexServerDiscovery.ts`, `src/modules/plex/discovery/ServerSelectionStore.ts`) with regression tests
-        - follow-up review remediation (2026-03-22): server-select UI now renders persisted `auth_invalid` as explicit `Auth Invalid` pill state with focused `ServerSelectScreen` coverage.
-        - follow-up review remediation (2026-03-22): refreshed `docs/api/plex-integration.md` contract snippets for `validateToken()` throw semantics and discovery auth-state return shapes.
-        - replaced unresolved Plex Home endpoint TODO framing with explicit rationale + revisit trigger comment in `src/modules/plex/auth/PlexAuth.ts`
-      - resolution-only outcomes validated against current source and retired:
-        - `review::.::holistic::type_safety::profile_select_error_code_literals::231c7047`
-        - `review::.::holistic::api_surface_coherence::fetch_with_timeout_signature_drift::ba619efd`
-      - exact review IDs resolved in this slice:
-        - `review::.::holistic::type_safety::profile_select_error_code_literals::231c7047`
-        - `review::.::holistic::api_surface_coherence::fetch_with_timeout_signature_drift::ba619efd`
-        - `review::.::holistic::api_surface_coherence::validate_token_error_contract_gap::00c7d53a`
-        - `review::.::holistic::api_surface_coherence::parser_failure_semantics_mismatch::92d692a9`
-        - `review::.::holistic::authorization_consistency::token_query_origin_policy_drift::93e82797`
-        - `review::.::holistic::authorization_consistency::discovery_auth_state_collapse::962c7585`
-        - `review::.::holistic::incomplete_migration::plex_home_endpoint_dual_path_todo::861fbe1f`
-        - `review::.::holistic::incomplete_migration::subtitle_transcode_path_dual_branch::23e3c07c`
-      - post-resolution exact-id recheck confirms each id above now returns `No open issues matching ...` via:
-        - `desloppify show review::.::holistic::type_safety::profile_select_error_code_literals::231c7047 --status open --no-budget`
-        - `desloppify show review::.::holistic::api_surface_coherence::fetch_with_timeout_signature_drift::ba619efd --status open --no-budget`
-        - `desloppify show review::.::holistic::api_surface_coherence::validate_token_error_contract_gap::00c7d53a --status open --no-budget`
-        - `desloppify show review::.::holistic::api_surface_coherence::parser_failure_semantics_mismatch::92d692a9 --status open --no-budget`
-        - `desloppify show review::.::holistic::authorization_consistency::token_query_origin_policy_drift::93e82797 --status open --no-budget`
-        - `desloppify show review::.::holistic::authorization_consistency::discovery_auth_state_collapse::962c7585 --status open --no-budget`
-        - `desloppify show review::.::holistic::incomplete_migration::plex_home_endpoint_dual_path_todo::861fbe1f --status open --no-budget`
-        - `desloppify show review::.::holistic::incomplete_migration::subtitle_transcode_path_dual_branch::23e3c07c --status open --no-budget`
-      - verification run on current code:
-        - `npm test -- --runInBand src/modules/plex/shared/__tests__/plexUrl.test.ts`
-        - `npm test -- --runInBand src/modules/player/__tests__/SubtitleManager.test.ts`
-        - `npm test -- --runInBand src/modules/plex/auth/__tests__/PlexAuth.test.ts`
-        - `npm test -- --runInBand src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts`
-        - `npm run verify`
-        - `npm run verify:docs`
-      - `npm run verify:docs` passed with pre-existing warnings for older untracked plan references already present in the checklist.
-      - deferrals: none (non-optional discovery `401/403` fix landed in this slice).
-    - P5 issue disposition matrix (exact ids from live-state freeze):
+- [ ] `P5-W1` normalize library and server-selection contracts so boolean and null results mean one thing at each boundary
+  - Imported review issues: `review::.::holistic::api_surface_coherence::server_selection_boolean_semantics_drift`, `review::.::holistic::contract_coherence::plex_library_null_conflates_not_found_and_invalid_response`
+  - Primary files: `src/modules/plex/discovery/PlexServerDiscovery.ts`, `src/Orchestrator.ts`, `src/modules/ui/server-select/ServerSelectScreen.ts`, `src/modules/plex/library/PlexLibrary.ts`, `src/modules/plex/library/interfaces.ts`
+  - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
+- [ ] `P5-W2` slim auth-path dependencies and reduce recovery narration to intentional diagnostics only
+  - Imported review issues: `review::.::holistic::dependency_health::qrcode_cli_transitives_for_browser_render`, `review::.::holistic::ai_generated_debt::playback_recovery_diagnostic_narration`
+  - Primary files: `package.json`, `package-lock.json`, `src/modules/ui/auth/AuthScreen.ts`, `src/modules/player/PlaybackRecoveryManager.ts`
+  - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
+- [ ] `P5-W3` split overpacked stream and subtitle fallback pipelines and stop duplicating shared app-error taxonomies
+  - Imported review issues: `review::.::holistic::low_level_elegance::stream_resolution_pipeline_overpacked`, `review::.::holistic::low_level_elegance::subtitle_fallback_fetch_monolith`, `review::.::holistic::type_safety::parallel_error_code_enums_duplicate_app_taxonomy`
+  - Primary files: `src/modules/plex/stream/PlexStreamResolver.ts`, `src/modules/player/SubtitleManager.ts`, `src/types/app-errors.ts`, `src/modules/player/types.ts`, `src/modules/plex/library/types.ts`, `src/modules/plex/stream/types.ts`
+  - Minimum verification: `npm run verify`; exact `desloppify show` commands for the three mapped ids
+- [ ] `P5-EXIT` run the priority-exit review before moving to `P6`
+  - required: record every mapped imported issue with an exact disposition
+  - Gate: no `P6` plan, code, or checklist progress starts until every `P5` mapped id has an explicit disposition record
+  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all eight exact `P5` issue-id checks; `npm run verify`
 
-      | Review issue id | Current status (after refresh) | Disposition (resolve-only / code-fix / defer-to-P5-EXIT) | Proof command(s) | Proof summary | Owner (if deferred) | Revisit trigger (if deferred) |
-      | --- | --- | --- | --- | --- | --- | --- |
-      | `review::.::holistic::type_safety::profile_select_error_code_literals::231c7047` | `closed` | `resolve-only` | <code>desloppify show review::.::holistic::type_safety::profile_select_error_code_literals::231c7047 --status open --no-budget --code</code> | Current source already used `AppErrorCode` constants in `ProfileSelectScreen`; resolved in living plan and no longer open. | n/a | n/a |
-      | `review::.::holistic::api_surface_coherence::validate_token_error_contract_gap::00c7d53a` | `closed` | `code-fix` | <code>desloppify show review::.::holistic::api_surface_coherence::validate_token_error_contract_gap::00c7d53a --status open --no-budget --code</code> | Added explicit throw contract for `validateToken()` in auth interface docs; focused auth tests and full verify passed. | n/a | n/a |
-      | `review::.::holistic::api_surface_coherence::parser_failure_semantics_mismatch::92d692a9` | `closed` | `code-fix` | <code>desloppify show review::.::holistic::api_surface_coherence::parser_failure_semantics_mismatch::92d692a9 --status open --no-budget --code</code> | Malformed Plex Home payloads now throw `PARSE_ERROR` consistently; regression coverage added in `PlexAuth.test.ts`. | n/a | n/a |
-      | `review::.::holistic::authorization_consistency::token_query_origin_policy_drift::93e82797` | `closed` | `code-fix` | <code>desloppify show review::.::holistic::authorization_consistency::token_query_origin_policy_drift::93e82797 --status open --no-budget --code</code> | `Orchestrator` now delegates to shared `plexUrl` helper for origin-safe tokenized resource URL behavior. | n/a | n/a |
-      | `review::.::holistic::authorization_consistency::discovery_auth_state_collapse::962c7585` | `closed` | `code-fix` | <code>desloppify show review::.::holistic::authorization_consistency::discovery_auth_state_collapse::962c7585 --status open --no-budget --code</code> | Discovery now distinguishes 401/403 and persists `auth_invalid` severity; regression tests cover mapping + persistence, and server-select now surfaces `auth_invalid` explicitly. | n/a | n/a |
-      | `review::.::holistic::api_surface_coherence::fetch_with_timeout_signature_drift::ba619efd` | `closed` | `resolve-only` | <code>desloppify show review::.::holistic::api_surface_coherence::fetch_with_timeout_signature_drift::ba619efd --status open --no-budget --code</code> | Shared helper was already unified; stream-local helper evidence path no longer existed in current source. | n/a | n/a |
-      | `review::.::holistic::incomplete_migration::plex_home_endpoint_dual_path_todo::861fbe1f` | `closed` | `code-fix` | <code>desloppify show review::.::holistic::incomplete_migration::plex_home_endpoint_dual_path_todo::861fbe1f --status open --no-budget --code</code> | Replaced unresolved TODO wording with explicit rationale + revisit trigger while preserving tested v2->v1 fallback behavior. | n/a | n/a |
-      | `review::.::holistic::incomplete_migration::subtitle_transcode_path_dual_branch::23e3c07c` | `closed` | `code-fix` | <code>desloppify show review::.::holistic::incomplete_migration::subtitle_transcode_path_dual_branch::23e3c07c --status open --no-budget --code</code> | Removed part-key transcode branch; canonical path is now metadata key only, with regression assertion in subtitle tests. | n/a | n/a |
+## Priority 6: Finish Shared UI Owner Placement And Package Cleanup
 
-  - [x] `P5-EXIT` run the priority-exit review before moving to `P6` (done 2026-03-23)
-    - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 5
-    - Priority-exit review evidence refresh (2026-03-23, integration branch `feature/initial-build`):
-      - freshness/routing checks:
-        - `git branch --show-current` -> `feature/initial-build`
-        - `rg -n "P5-W[1-4]|P5-EXIT|P6-W1|P6-EXIT" ARCHITECTURE_CLEANUP_CHECKLIST.md` -> `P5-W1..P5-W4` closed, `P5-EXIT` open, `P6-W1`/`P6-EXIT` still open and untouched
-        - `npm run plans:check` -> fails on pre-existing serious-plan conformance gaps in older untracked `docs/plans/*` files already present on this branch
-      - authoritative detector/state refresh:
-        - `git status --short`
-        - `desloppify status`
-        - `desloppify show review --status open --no-budget --top 200` -> `54 open issues matching 'review'`; refreshed exact-id checks below confirm no mapped Priority 5 review id reopened
-        - `desloppify show security --status open --no-budget --top 200` -> `No open issues for Security` (exact `P0` gate disposition: `no open P0 security findings`)
-      - stale-state reconciliation outcome:
-        - `.desloppify/plan.json` now reports no `uncommitted_issues` for the mapped P5 resolutions
-        - `.desloppify/state-typescript.json` no longer reports `needs_review_refresh=true` for `type_safety`, `api_surface_coherence`, `authorization_consistency`, or `incomplete_migration`
-        - remaining stale dimensions (`abstraction_fitness`, `dependency_health`, `design_coherence`, `error_consistency`, `logic_clarity`, `package_organization`) are outside the Priority 5 exit gate
-    - Current-code ownership-proof matrix (exact-id rechecks + source audits):
+- ROI: Last architecture-heavy owner move
+- Why it matters: the refreshed queue still retains container-id drift, hidden-cleanup helper naming, and shared UI owner/package stragglers that should settle before the final naming/test/ceremony passes.
+- Required skills: `ui-composition-patterns`; add `architecture-boundaries` when moving shared owners
 
-      | Review issue id | Exact-id recheck | Source-audit command(s) | Source-audit outcome | Disposition |
-      | --- | --- | --- | --- | --- |
-      | `review::.::holistic::type_safety::profile_select_error_code_literals::231c7047` | `No open issues matching ...` | `Proof block A` | `ProfileSelectScreen` still uses `AppErrorCode.AUTH_FAILED|AUTH_REQUIRED|AUTH_INVALID`. | `resolved` |
-      | `review::.::holistic::api_surface_coherence::validate_token_error_contract_gap::00c7d53a` | `No open issues matching ...` | `Proof block B` | `validateToken()` throw contract remains explicit in interface docs. | `resolved` |
-      | `review::.::holistic::api_surface_coherence::parser_failure_semantics_mismatch::92d692a9` | `No open issues matching ...` | `Proof block C` | Parse-error and fallback ownership remains explicit (`PARSE_ERROR`, v2->v1 rationale). | `resolved` |
-      | `review::.::holistic::authorization_consistency::token_query_origin_policy_drift::93e82797` | `No open issues matching ...` | `Proof block D` | Token-query and origin classification remain centralized through shared Plex URL helpers. | `resolved` |
-      | `review::.::holistic::authorization_consistency::discovery_auth_state_collapse::962c7585` | `No open issues matching ...` | `Proof block E` | Discovery contract still distinguishes `401 -> auth_required` and `403 -> auth_invalid`. | `resolved` |
-      | `review::.::holistic::api_surface_coherence::fetch_with_timeout_signature_drift::ba619efd` | `No open issues matching ...` | `Proof block F` | Planned path `src/modules/plex/stream/fetchWithTimeout.ts` is absent on current code; stream usage points to shared helper path (`../shared/fetchWithTimeout`). | `resolved` |
-      | `review::.::holistic::incomplete_migration::plex_home_endpoint_dual_path_todo::861fbe1f` | `No open issues matching ...` | `Proof block G` | TODO framing remains retired; rationale + revisit trigger comment is present. | `resolved` |
-      | `review::.::holistic::incomplete_migration::subtitle_transcode_path_dual_branch::23e3c07c` | `No open issues matching ...` | `Proof block H` | `_getSubtitleTranscodePaths()` still returns only `/library/metadata/${itemKey}`. | `resolved` |
+### Work Units
 
-      - Exact source-audit proof commands:
+- [ ] `P6-W1` centralize app-shell container ids and make destructive DOM normalization helpers explicit
+  - Imported review issues: `review::.::holistic::convention_outlier::container_id_convention_split`, `review::.::holistic::naming_quality::get_or_create_div_hidden_cleanup`
+  - Primary files: `src/core/app-shell/AppContainerFactory.ts`, `src/App.ts`, `src/modules/ui/common/appShellContainerIds.ts`
+  - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
+- [ ] `P6-W2` move shared UI metadata and helper code under the packages that actually own them
+  - Imported review issues: `review::.::holistic::package_organization::theme_definitions_live_under_settings`, `review::.::holistic::package_organization::ui_root_channel_display_straggler`, `review::.::holistic::design_coherence::player_timecode_formatting_is_copied_between_overlays`
+  - Primary files: `src/modules/ui/settings/theme.ts`, `src/modules/ui/theme/ThemeManager.ts`, `src/modules/ui/channelDisplay.ts`, `src/modules/ui/common/`, player overlay surfaces
+  - Minimum verification: `npm run verify`; exact `desloppify show` commands for the three mapped ids
+- [ ] `P6-EXIT` run the priority-exit review before moving to `P7`
+  - required: record every mapped imported issue with an exact disposition
+  - Gate: no `P7` plan, code, or checklist progress starts until every `P6` mapped id has an explicit disposition record
+  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all five exact `P6` issue-id checks; `npm run verify`
 
-        Proof block A:
-        ```bash
-        rg -n "AUTH_FAILED|AUTH_REQUIRED|AUTH_INVALID" src/modules/ui/profile-select/ProfileSelectScreen.ts
-        ```
+## Priority 7: Finish Remaining UI Naming Drift And Player Safeguard Coverage
 
-        Proof block B:
-        ```bash
-        rg -n "validateToken\(|throws|PlexApiError" src/modules/plex/auth/interfaces.ts
-        ```
+- ROI: Low
+- Why it matters: the remaining open issues here are bounded but still worth closing before the final ceremony pass so naming/style cleanup and keep-alive coverage do not get mixed into owner-moving work.
+- Required skills: `ui-composition-patterns`; add `architecture-boundaries` if the keep-alive coverage slice needs a real public seam extraction
 
-        Proof block C:
-        ```bash
-        rg -n "parseHomeUsers|PARSE_ERROR|getHomeUsers|TODO\(plex-home-endpoints\)|v1 fallback|v2" src/modules/plex/auth/helpers.ts src/modules/plex/auth/PlexAuth.ts
-        ```
+### Work Units
 
-        Proof block D:
-        ```bash
-        rg -n "X-Plex-Token|buildPlexResourceUrl|buildPlexUrlFromKey|applyXPlexQueryParamsFromHeaders|getImageUrl|foreign-origin|origin|searchParams\.set\('X-Plex-Token'" src/Orchestrator.ts src/modules/plex/library/PlexLibrary.ts src/modules/player/SubtitleManager.ts src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts src/modules/plex/shared/plexUrl.ts
-        ```
+- [ ] `P7-W1` normalize remaining UI private-member style islands once the shared-owner moves are stable
+  - Imported review issues: `review::.::holistic::convention_outlier::ui_private_member_style_islands`
+  - Primary files: `src/modules/ui/epg/EPGLibraryTabs.ts`, `src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts`, `src/modules/ui/channel-number-overlay/ChannelNumberOverlay.ts`, `src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts`
+  - Minimum verification: `npm run verify`; exact `desloppify show` command for the mapped id
+- [ ] `P7-W2` add durable coverage for player keep-alive behavior
+  - Imported review issues: `review::.::holistic::test_strategy::keepalive_path_untested`
+  - Primary files: `src/modules/player/KeepAliveManager.ts`, `src/modules/player/VideoPlayer.ts`
+  - Minimum verification: `npm run verify`; exact `desloppify show` command for the mapped id
+- [ ] `P7-EXIT` run the priority-exit review before moving to `P8`
+  - required: record every mapped imported issue with an exact disposition
+  - Gate: no `P8` plan, code, or checklist progress starts until every `P7` mapped id has an explicit disposition record
+  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all two exact `P7` issue-id checks; `npm run verify`
 
-        Proof block E:
-        ```bash
-        rg -n "auth_required|auth_invalid|401|403" src/modules/plex/discovery/interfaces.ts src/modules/plex/discovery/PlexServerDiscovery.ts src/modules/plex/discovery/ServerSelectionStore.ts
-        ```
+## Priority 8: Remove Remaining Ceremony Residue And Close The Wave
 
-        Proof block F:
-        ```bash
-        rg -n "fetchWithTimeout|fetchWithTimeoutCore|from '../shared/fetchWithTimeoutCore'|from './fetchWithTimeout'|from '../stream/fetchWithTimeout'" src/modules/plex/auth/helpers.ts src/modules/plex/stream/fetchWithTimeout.ts src/modules/plex/shared/fetchWithTimeoutCore.ts
-        rg --files src/modules/plex/stream
-        rg -n "fetchWithTimeout|fetchWithTimeoutCore" src/modules/plex/auth/helpers.ts src/modules/plex/stream src/modules/plex/shared/fetchWithTimeoutCore.ts
-        ```
+- ROI: Final polish
+- Why it matters: systemic restating JSDoc is intentionally last so comment cleanup happens against the settled owner map instead of being invalidated by later refactors.
+- Required skills: match the touched file family; default to `ui-composition-patterns` for UI-heavy cleanup
 
-        Proof block G:
-        ```bash
-        rg -n "parseHomeUsers|PARSE_ERROR|getHomeUsers|TODO\(plex-home-endpoints\)|v1 fallback|v2" src/modules/plex/auth/helpers.ts src/modules/plex/auth/PlexAuth.ts
-        ```
+### Work Units
 
-        Proof block H:
-        ```bash
-        rg -n "_getSubtitleTranscodePaths|/library/metadata/|partKey" src/modules/player/SubtitleManager.ts
-        ```
-
-    - Imported-map reconciliation note:
-      - `desloppify show review::.::holistic::authorization_consistency::profile_select_magic_auth_codes::fcb924cb --status open --no-budget` now returns `No open issues matching ...`
-      - the broader family query `desloppify show review::.::holistic::authorization_consistency::profile_select_magic_auth_codes --status open --no-budget` still advertises a legacy family-level review item, but current source audit plus the exact-id closeout set above show no remaining Priority 5 production contradiction
-    - Follow-up ownership:
-      - none; all mapped Priority 5 exact ids remain resolved on refreshed evidence, and the imported-map/profile-select contradiction was reconciled to exact-id proof without reopening production work
-    - Refreshed verification evidence:
-      - `npm run verify`
-      - `npm run verify:docs`
-    - Gate decision:
-      - `Priority 5 exit gates pass.`
-      - `Priority 5 may proceed to P6.`
-
-## Priority 6: Complete Scheduler And Channel Domain Cleanup
-
-- ROI: Medium-high
-- Why it matters: the imported review kept scheduler/channel cleanup in the active stack through contract mismatches, mutable read APIs, namespace-export drift, and utility-layer spillover even after the earlier persistence extractions.
-- Primary files:
-  - `src/modules/scheduler/channel-manager/**`
-  - `src/modules/scheduler/scheduler/**`
-  - `src/utils/**`
-- Target outcomes:
-  - remove leftover migration/review scaffolding from scheduler-domain code
-  - keep channel persistence, content resolution, and retry behavior easier to audit
-  - reduce catch-all utility spillover
-- Completion criteria:
-  - `ChannelManager` and adjacent scheduler code read like steady-state production code, not like a partially cleaned migration surface
-  - scheduler-domain responsibilities are explicit enough that further edits do not require spelunking review-history residue
-  - utility spillover from scheduler/channel work is brought back under clear ownership
-- Must-finish to close this priority:
-  - remove scheduler-domain review-history residue and transitional cleanup scaffolding
-  - finish the known responsibility cleanup in `ChannelManager` and adjacent scheduler owners
-  - fix imported scheduler/channel contract debt before calling this boundary stable, especially null-versus-wraparound behavior and mutable read/snapshot leaks
-  - move scheduler-specific helpers out of catch-all utility surfaces where ownership is currently wrong
-- Nice-to-do while in the area:
-  - standardize scheduler naming/protocol drift that becomes obvious during the main cleanup
-  - simplify small adjacent helpers if the primary cleanup makes them redundant
-  - prefer extracting channel-setup planning/build weight and other startup-resident scheduler/channel helpers out of the cold-start graph when it falls out naturally from the ownership cleanup, before reaching for another broad `Orchestrator.ts` split
-- Cleanup track:
-  - [x] `P6-W1` remove review-history / issue-round comments and replace any remaining needed context with durable code comments or docs (done 2026-03-25; removed Issue/Round comment markers in ChannelManager + ContentResolver)
-  - [x] `P6-W2` fix scheduler/channel contract mismatches and mutable read APIs in `ChannelManager` and `ChannelScheduler`, then extract or simplify any remaining responsibility clusters that still blur domain, retry, and persistence concerns (done 2026-03-25; scheduler now rejects `'random'` at type boundary with Orchestrator mapping random to deterministic daily shuffle, `getScheduleWindow`/`getUpcoming` default to fresh arrays unless caller provides output buffers, and ChannelManager schedule/content reads return deep-cloned items so cached `genres`/`directors`/`mediaInfo` cannot be mutated by callers; verification: `npm run typecheck`, `npm test -- src/modules/scheduler/scheduler/__tests__/ChannelScheduler.test.ts`, `npm run verify`)
-  - [x] `P6-W3` reduce utility-layer catch-all drift where feature-specific helpers belong closer to their owners (done 2026-03-25; moved `createMulberry32`/`shuffleWithSeed` from `src/utils/prng.ts` into `src/modules/scheduler/shared/prng.ts`, rewired scheduler + `Orchestrator` imports/tests, and removed `src/utils/prng.ts`; verification: `npm run typecheck`, `npm test -- src/modules/scheduler/channel-manager/__tests__/ContentResolver.test.ts`, `npm test -- src/modules/scheduler/scheduler/__tests__/ShuffleGenerator.test.ts`, `npm run verify`)
-  - [x] `P6-W4` run a final scheduler-domain cleanup pass to remove transitional helpers, duplicate conventions, namespace-export drift, and stale abstraction residue (done 2026-03-25)
-    - Evidence note (2026-03-25):
-      - removed `export * as ScheduleCalculator` from `src/modules/scheduler/scheduler/index.ts` and switched the two live consumers (`EPGScheduleRefreshRuntime`, `MiniGuideCoordinator`) to named imports.
-      - updated `src/__tests__/Orchestrator.test.ts` scheduler mock to match the new top-level export shape.
-      - pruned unused `AppErrorCode` re-export from `src/modules/scheduler/channel-manager/index.ts` after confirming no `scheduler/channel-manager` import sites consume `AppErrorCode`.
-      - verification run on current code: `npm run typecheck`; `npm test -- src/modules/scheduler/scheduler/__tests__/ScheduleCalculator.test.ts`; `npm test -- src/__tests__/Orchestrator.test.ts`; `npm run verify`.
-    - imported issue disposition:
-      - `convention_outlier::scheduler_namespace_export_outlier` -> `resolved` by `P6-W4`
-  - [x] `P6-EXIT` run the priority-exit review before moving to `P7` (done 2026-03-25, integration branch `feature/initial-build`)
-    - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 6
-    - Priority-exit review evidence refresh (authoritative integration-branch run):
-      - freshness/routing checks:
-        - `git worktree list`
-        - `git branch --show-current` -> `feature/initial-build`
-        - `git status -sb`
-        - `rg -n "P6-W1|P6-W2|P6-W3|P6-W4|P6-EXIT|P7-W1" ARCHITECTURE_CLEANUP_CHECKLIST.md` -> `P6-W1..P6-W4` closed and `P6-EXIT` open before exit closeout
-      - detector/state refresh:
-        - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"` (required because `desloppify scan` mid-cycle guard blocked a normal scan)
-        - `desloppify status` -> `strict 70.1`, `Last scan: 2026-03-26T02:16:41+00:00`
-        - `desloppify show review --status open --no-budget` -> `No open issues matching: review`
-        - `desloppify show security --status open --no-budget --top 50` -> `No open issues for Security`
-        - exact mapped-id rechecks after resolution (all returned `No open issues matching ...`):
-          - `desloppify show "review::.::holistic::contract_coherence::channel_manager_boundary_contract_mismatch" --status open --no-budget`
-          - `desloppify show "review::.::holistic::contract_coherence::channel_scheduler_mutable_buffer_api" --status open --no-budget`
-          - `desloppify show "review::.::holistic::contract_coherence::resolve_channel_items_leaks_cached_reference" --status open --no-budget`
-          - `desloppify show "review::.::holistic::convention_outlier::scheduler_namespace_export_outlier" --status open --no-budget`
-    - Current-code proof matrix verification (before resolve):
-      - `channel_manager_boundary_contract_mismatch`: `interfaces.ts` docs said boundary `null` while `ChannelManager` implementation/tests show circular wrap-around; aligned `IChannelManager` docstrings to circular behavior (no runtime behavior change).
-      - `channel_scheduler_mutable_buffer_api`: no `_windowBuffer` / `_upcomingBuffer` fields in `ChannelScheduler`; scheduler API behavior validated by test suite.
-      - `resolve_channel_items_leaks_cached_reference`: `resolveChannelItemsForSchedule()` cache-hit and fresh-resolution paths both return clones (`_cloneResolvedItems`).
-      - `scheduler_namespace_export_outlier`: scheduler namespace export already removed; known EPG/MiniGuide consumers no longer call `ScheduleCalculator.*`.
-    - Mapped imported issue dispositions (exact ids):
-      - exact-id freeze note: no `::<hash>` variants existed for these four mapped issues during the pre-resolve freeze; only the base ids below were open and then resolved
-      - `review::.::holistic::contract_coherence::channel_manager_boundary_contract_mismatch` -> `resolved`
-      - `review::.::holistic::contract_coherence::channel_scheduler_mutable_buffer_api` -> `resolved`
-      - `review::.::holistic::contract_coherence::resolve_channel_items_leaks_cached_reference` -> `resolved`
-      - `review::.::holistic::convention_outlier::scheduler_namespace_export_outlier` -> `resolved`
-    - Follow-up ownership:
-      - none; no deferred or split follow-up items for Priority 6
-    - Security triage:
-      - exact `P0` gate disposition: `no open P0 security findings`
-      - evidence: `desloppify show security --status open --no-budget --top 50`
-    - Verification reruns on current code:
-      - `npm run typecheck`
-      - `npm test -- src/modules/scheduler/scheduler/__tests__/ChannelScheduler.test.ts`
-      - `npm test -- src/__tests__/Orchestrator.test.ts`
-      - `npm test -- src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts`
-      - `npm run verify`
-      - `npm run verify:docs`
-    - Gate decision:
-      - `Priority 6 exit gates pass.`
-      - `Priority 6 may proceed to P7.`
-
-## Priority 7: Improve Test Strategy And Public Seam Realism
-
-- ROI: Medium-high
-- Why it matters: the imported review scored `test_strategy` at `53.2` post-import and specifically called out missing direct coverage for shared error helpers, bootstrap tests tied to internal seam exports, mock-heavy startup/orchestrator coverage, and brittle timing-internal assertions.
-- Primary files:
-  - `src/__tests__/**`
-  - `src/modules/**/__tests__/**`
-  - `src/__tests__/policy/AntiPatterns.policy.test.ts`
-- Target outcomes:
-  - reduce brittle implementation-coupled tests outside the frozen suite policy surface
-  - keep behavior-level coverage strong on hotspot modules
-  - avoid regressing into private-probe-heavy tests while still deleting redundant test ceremony
-- Completion criteria:
-  - the remaining hotspot suites prefer public behavior and real collaborators over internals and incidental mechanics
-  - test utilities encourage realistic seams rather than state injection and private patching
-  - the frozen baseline staying at zero is backed by better test realism, not just narrower policy scope
-- Must-finish to close this priority:
-  - act on the imported `test_strategy` findings, not just the frozen private-probe policy surface
-  - reduce known startup/bootstrap/orchestrator reliance on internal seam exports, heavy mocks, and incidental timing assertions
-  - leave the affected test utilities pushing authors toward public seams and realistic collaborators instead of private patching
-- Nice-to-do while in the area:
-  - remove redundant or overbuilt assertions that become obviously unnecessary during seam cleanup
-  - normalize nearby test helper patterns where touched
-- Cleanup track:
-  - [x] `P7-W1` add direct tests for high-impact shared error helpers and remove bootstrap/orchestrator dependence on internal seam exports where the imported review called it out (done 2026-03-26)
-    - Evidence note (2026-03-26):
-      - added `src/utils/__tests__/errors.test.ts` with contract coverage for `summarizeErrorForLog` redaction/code behavior and `isAbortLikeError` signal/DOMException/name checks.
-      - rewrote `src/__tests__/bootstrap.test.ts` to exercise global handlers through installed listeners/public seams (dispatch-first with callback capture fallback for `unhandledrejection` only when needed).
-      - removed `bootstrapInternals` export from `src/bootstrap.ts`; `rg -n "bootstrapInternals" src` now returns no matches.
-      - verification: `npm run typecheck`; `npm test -- src/utils/__tests__/errors.test.ts`; `npm test -- src/__tests__/bootstrap.test.ts`.
-  - [x] `P7-W2` reduce mock-heavy coverage gaps in top-level startup and orchestrator tests so those suites exercise more realistic collaborator seams (done 2026-03-26)
-    - Evidence note (2026-03-26):
-      - added `src/__tests__/startup-integration.test.ts` as a real startup integration slice that forces `document.readyState = 'loading'`, calls `installLineupBootstrap()`, dispatches a single `DOMContentLoaded`, and polls via bounded `flushPromises()` until `app.getOrchestrator()` becomes available.
-      - asserts unauthenticated Phase 2 outcomes on the real startup path: `app-lifecycle` and `navigation` ready, `plex-auth` pending, current screen `auth`, debug surface present (`window.__LINEUP__.orchestratorStatus()` non-null), and post-cleanup teardown (`app === null`, debug surface removed).
-      - verification: `npm run typecheck`; `npm test -- src/__tests__/startup-integration.test.ts`; `npm test -- src/__tests__/bootstrap.test.ts`; `npm test -- src/__tests__/App.test.ts`; `npm test -- src/__tests__/Orchestrator.test.ts`; `npm run verify`.
-  - [x] `P7-W3` tighten test utility patterns and timing assertions that currently encourage incidental mechanics over behavior-level checks (done 2026-03-26)
-    - Evidence note (2026-03-26):
-      - introduced `CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS` in `src/modules/ui/channel-setup/constants.ts`, routed `ChannelSetupSessionController.schedulePreview()` to the constant, and replaced channel-setup test debounce waits (`450`) with `CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1` while preserving explicit boundary behavior in the controller suite.
-      - moved navigation repeat timing to exported contracts in `src/modules/navigation/constants.ts` (`EPG_REPEAT_TIMING`, `MINI_GUIDE_REPEAT_TIMING`) and extracted pure `computeAcceleratedRepeatIntervalMs(...)`, then updated `NavigationCoordinator` to consume those exports.
-      - rewrote navigation repeat coverage to a contract-level tier-mapping helper test plus behavior-level start/stop assertions, removing tick-by-tick choreography from repeat tests; added bounded `advanceTimersUntil(...)` in `src/__tests__/helpers.ts` and used it in the targeted navigation repeat suite.
-      - verification: `npm run typecheck`; `npm test -- src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts`; `npm test -- src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`; `npm test -- src/modules/navigation/__tests__/NavigationCoordinator.test.ts`; `npm run verify`.
-  - [x] `P7-W4` run a follow-up cleanup pass on redundant, overbuilt, or brittle tests in the affected hotspot areas (done 2026-03-26)
-    - Evidence note (2026-03-26):
-      - named existing app-shell prefetch delays as exported constants in `src/core/app-shell/constants.ts` (`SETTINGS_PREFETCH_DELAY_MS`, `CHANNEL_SETUP_PREFETCH_DELAY_MS`) and routed `AppLazyScreenRegistry` to those constants without behavior changes.
-      - updated hotspot app-shell timing tests to consume those constants in `src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts` and `src/__tests__/App.test.ts`, removing literal-based prefetch waits.
-      - removed the channel-setup dropdown private-probe test (`_renderStep` spy) from `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts` with no replacement harness added because adjacent public-seam behavior coverage already exists.
-      - tightened repeat-stop assertions in `src/modules/navigation/__tests__/NavigationCoordinator.test.ts` by replacing long `advanceTimersByTime(2000)` blocks with timer-clear assertions, plus bounded repeat-interval advances where needed for stable stop-condition coverage.
-      - verification: `npm run typecheck`; `npm test -- src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts`; `npm test -- src/__tests__/App.test.ts`; `npm test -- src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`; `npm run test:contracts -- src/__tests__/policy/AntiPatterns.policy.test.ts`; `npm test -- src/modules/navigation/__tests__/NavigationCoordinator.test.ts`; `npm run verify`.
-  - [x] `P7-EXIT` run the priority-exit review before moving to `P8` (done 2026-03-26, integration branch `feature/initial-build`)
-    - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 7
-    - Priority-exit review evidence refresh (authoritative integration-branch run):
-      - freshness/routing checks:
-        - `git branch --show-current` -> `feature/initial-build`
-        - `git status -sb`
-        - `rg -n "## Priority 7|P7-W[1-4]|P7-EXIT" ARCHITECTURE_CLEANUP_CHECKLIST.md` -> `P7-W1..P7-W4` closed and `P7-EXIT` open before exit closeout
-      - detector/state refresh:
-        - `desloppify status`
-        - `desloppify show security --status open --no-budget --top 50` -> `No open issues for Security`
-        - anchored pre-resolution exact-id proof:
-          - `desloppify show review --status all --no-budget --top 500 | rg -n "review::\\.::holistic::test_strategy::(untested_core_error_helpers|bootstrap_internal_seam_coupling|mock_heavy_top_level_gaps|timer_and_eventloop_brittleness)$"`
-          - output:
-            - `review::.::holistic::test_strategy::untested_core_error_helpers`
-            - `review::.::holistic::test_strategy::bootstrap_internal_seam_coupling`
-            - `review::.::holistic::test_strategy::mock_heavy_top_level_gaps`
-            - `review::.::holistic::test_strategy::timer_and_eventloop_brittleness`
-      - source audit verification:
-        - `rg -n "bootstrapInternals" src` -> no matches
-        - `npm test -- src/utils/__tests__/errors.test.ts`
-        - `npm test -- src/__tests__/bootstrap.test.ts`
-        - `npm test -- src/__tests__/startup-integration.test.ts`
-    - Mapped imported issue dispositions (exact ids):
-      - `review::.::holistic::test_strategy::untested_core_error_helpers` -> `resolved`
-      - `review::.::holistic::test_strategy::bootstrap_internal_seam_coupling` -> `resolved`
-      - `review::.::holistic::test_strategy::mock_heavy_top_level_gaps` -> `resolved`
-      - `review::.::holistic::test_strategy::timer_and_eventloop_brittleness` -> `resolved`
-    - Follow-up ownership:
-      - none; no deferred or split follow-up items for Priority 7
-    - Security triage:
-      - exact `P0` gate disposition: `no open P0 security findings`
-      - evidence: `desloppify show security --status open --no-budget --top 50`
-    - Force-resolve note:
-      - `desloppify plan resolve ...` initially refused normal queue-order resolution; exit closeout used `--force-resolve` for the four mapped `review::.::holistic::test_strategy::*` ids, as required by the approved `P7-EXIT` plan.
-    - Post-resolution exact-id proof (required):
-      - `node -e 'const fs=require("fs"); const s=JSON.parse(fs.readFileSync(".desloppify/state-typescript.json","utf8")); const ids=["review::.::holistic::test_strategy::untested_core_error_helpers","review::.::holistic::test_strategy::bootstrap_internal_seam_coupling","review::.::holistic::test_strategy::mock_heavy_top_level_gaps","review::.::holistic::test_strategy::timer_and_eventloop_brittleness"]; let ok=true; for(const id of ids){ const issue=s.work_items?.[id]; const status=issue?.status; console.log(`${id} status=${status}`); if(!issue||status==="open"){ ok=false; } } process.exit(ok?0:1);'`
-      - output:
-        - `review::.::holistic::test_strategy::untested_core_error_helpers status=fixed`
-        - `review::.::holistic::test_strategy::bootstrap_internal_seam_coupling status=fixed`
-        - `review::.::holistic::test_strategy::mock_heavy_top_level_gaps status=fixed`
-        - `review::.::holistic::test_strategy::timer_and_eventloop_brittleness status=fixed`
-    - Verification reruns on current code:
-      - `desloppify status` (post-resolution `test_strategy` open issues: `0`)
-      - `npm run verify`
-      - `npm run verify:docs`
-    - Gate decision:
-      - `Priority 7 exit gates pass.`
-      - `Priority 7 may proceed to P8.`
-
-## Priority 8: Remove Cleanup Residue, AI-Slop Ceremony, And Control-Plane Drift
-
-- ROI: Medium
-- Why it matters: the imported review kept `AI generated debt` weak at `57.2` and reinforced that template headers, repetitive docblocks, review-history comments, and control-plane wording drift still add noise after the wave-1 reset.
-- Primary files:
-  - `src/**`
-  - `docs/architecture/**`
-  - `docs/agentic/**`
-  - `docs/archive/checklists/2026-03-09-architecture-cleanup-checklist-wave-1.md`
-- Target outcomes:
-  - remove low-value structural ceremony and cleanup residue
-  - keep active docs current and archived docs historical
-  - keep temporary migration notes or issue-history breadcrumbs out of production code
-- Completion criteria:
-  - production code no longer carries obvious review-history residue, low-value boilerplate docblocks, or cargo-cult cleanup scaffolding
-  - active control-plane docs are current, and historical material is archived instead of mixed into live surfaces
-  - active checklist/current-state wording stays aligned with the imported evidence instead of drifting back toward provisional language
-- Must-finish to close this priority:
-  - remove known cleanup residue and low-value ceremony from touched production areas
-  - keep active docs current and archive historical material instead of leaving it mixed into live surfaces
-  - keep imported-review evidence, current-state docs, and the active checklist in sync as the cleanup backlog evolves
-  - fix any code-level persistence boundary drift uncovered by `P8-W2` before the final whole-repo `desloppify` rerun so the refreshed docs can describe actual current ownership instead of intended ownership
-- Nice-to-do while in the area:
-  - prune small doc/comment noise that is clearly redundant after the main cleanup
-  - consolidate minor control-plane wording drift if it is directly adjacent to the required edits
-- Cleanup track:
-  - [x] `P8-W1` remove low-value template/docblock scaffolding in all high-noise hotspot areas confirmed by the imported review (`review::.::holistic::ai_generated_debt::comment_template_ceremony` resolved with attested note on merged branch; cleanup applied in `src/modules/plex/discovery/PlexServerDiscovery.ts`, `src/modules/player/types.ts`, `src/modules/lifecycle/interfaces.ts`)
-  - [x] `P8-W2` clean up documented drift between the active backlog, `CURRENT_STATE`, and the real persistence-owner map
-    - Evidence note (2026-03-26):
-      - re-derived the owner map from deterministic production inventories:
-        - `rg -l "safeLocalStorage(Get|Set|Remove|SetWithResult)" src --glob '!**/__tests__/**' | sort`
-        - `rg -l "LINEUP_STORAGE_KEYS\\." src | sort`
-        - `rg -n --pcre2 "^(?!\\s*(//|/\\*|\\*)).*\\blocalStorage\\.(getItem|setItem|removeItem|clear|key)\\(" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`
-        - `rg -n "\\blineup_[a-z0-9_]+" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`
-        - `rg -n "\\bstorage(Get|Set|Remove)\\s*:" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`
-      - updated `docs/architecture/CURRENT_STATE.md`, `docs/architecture/modules.md`, and `.codex/skills/persistence-boundaries/SKILL.md` so they reflect the current mixed-owner state, the helper-only cleanup keys, and the residual direct-storage drift explicitly instead of overclaiming a canonical single-owner map
-      - follow-up status (2026-03-26): `P8-W5` closed the remaining drift seams (`lineup_audio_setup_complete`, `lineup_subtitle_allow_burn_in`, and `lineup_debug_epg`) and removed the stale `EPGCoordinatorPolicies.ts` wording from active docs
-      - review-suggestion cleanup (2026-03-26):
-        - reclassified `src/modules/ui/epg/utils.ts` as a bounded persistence exception in the repo skill and architecture docs so the dedicated owner/store/repository rule stays normative
-        - made `SettingsStore` toggle dispatch exhaustive with `assertNever`
-        - narrowed playback override clearing so it no longer disables `lineup_debug_epg`
-        - replaced the orchestrator audio-setup spy test with a startup-routing behavior assertion
-        - hardened the developer-settings blocked-storage test with `try/finally` spy cleanup
-  - [x] `P8-W3` remove review-history breadcrumbs, migration residue comments, and stale cleanup scaffolding from production code across the affected priorities
-    - Evidence note (2026-03-26): implemented via `docs/plans/2026-03-26-p8-w3-cleanup-residue-and-migration-scaffolding.md`; cleaned comment scaffolding in `src/modules/lifecycle/constants.ts`, `src/bootstrap.ts`, `src/App.ts`, `src/Orchestrator.ts`, `src/modules/ui/epg/EPGComponent.ts`, `src/modules/ui/settings/SettingsScreen.ts`, `src/modules/ui/channel-setup/ChannelSetupScreen.ts`, `src/modules/plex/stream/PlexStreamResolver.ts`, and `src/modules/scheduler/channel-manager/ChannelManager.ts`.
-  - [x] `P8-W4` audit remaining control-plane wording drift so active docs stay live and archives stay historical
-    - Evidence note (2026-03-26): implemented via `docs/plans/2026-03-26-p8-w4-control-plane-wording-drift-audit.md`; updated `docs/agentic/session-prompts/workflow-harness-review.md`, `docs/agentic/skill-strategy.md`, and this checklist; verified with `npm run verify:docs` and the scoped drift-inventory `rg` checks.
-  - [x] `P8-W5` enforce the remaining persistence-owner boundaries exposed by `P8-W2`, then refresh the persistence-owner docs/skill to match the corrected code before `P8-EXIT`
-    - scope: code-first cleanup for the still-split persistence seams (`SettingsStore` debug flags vs `DeveloperSettingsStore`, direct `lineup_audio_setup_complete` reads/writes in startup/setup flow, direct `lineup_subtitle_allow_burn_in` read in `Orchestrator`, and any same-slice persistence-owner/doc truth fallout)
-    - acceptance: the corrected code establishes one canonical owner per touched key family, removes the known direct-storage bypasses in those seams without adding fallback paths, and refreshes `CURRENT_STATE.md`, `modules.md`, `.codex/skills/persistence-boundaries/SKILL.md`, and the checklist evidence note in the same delivery pass
-    - Evidence note (2026-03-26):
-      - ownership seams landed:
-        - `SettingsStore` now delegates `debugLogging`/`subtitleDebugLogging` to `DeveloperSettingsStore`
-        - `AudioSetupScreen` and `Orchestrator` now use `AudioSettingsStore` for `lineup_audio_setup_complete`
-        - `Orchestrator` now uses `SubtitlePreferencesStore.readSubtitleMode()` + `subtitleModeAllowsBurnIn()` and the legacy `SUBTITLE_ALLOW_BURN_IN` key was removed from `src/config/storageKeys.ts`
-        - `DebugOverridesStore` now owns `lineup_debug_epg`; `src/modules/ui/epg/utils.ts` remains the bounded `lineup_debug_epg_log` helper/log boundary
-      - verification commands:
-        - `npm test -- src/modules/settings/__tests__/DeveloperSettingsStore.test.ts src/modules/ui/settings/__tests__/SettingsStore.test.ts`
-        - `npm test -- src/modules/settings/__tests__/AudioSettingsStore.test.ts src/modules/ui/audio-setup/__tests__/AudioSetupScreen.test.ts src/__tests__/Orchestrator.test.ts`
-        - `npm test -- src/modules/settings/__tests__/SubtitlePreferencesStore.test.ts src/__tests__/Orchestrator.test.ts`
-        - `npm test -- src/modules/debug/__tests__/DebugOverridesStore.test.ts src/modules/ui/epg/__tests__/utils.test.ts src/modules/ui/epg/__tests__/EPGComponent.test.ts`
-        - `npm test -- src/modules/ui/epg/__tests__/EPGCoordinator.test.ts src/modules/ui/epg/__tests__/EPGTimeHeader.test.ts src/modules/ui/epg/__tests__/EPGChannelList.test.ts src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts`
-        - `npm run verify`
-        - `npm run verify:docs`
-        - `npm run plans:check`
-  - [x] `P8-EXIT` run the priority-exit review before declaring the cleanup backlog complete (done 2026-03-26, integration branch `feature/initial-build`)
-    - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 8
-    - Priority-exit review evidence refresh (authoritative integration-branch run):
-      - freshness/routing checks:
-        - `git branch --show-current` -> `feature/initial-build`
-        - `git status -sb` -> `## feature/initial-build...origin/feature/initial-build [ahead 16]` plus the five pre-existing untracked `docs/plans/2026-03-26-p7-*` plan docs
-        - `rg -n "## Priority 8|P8-W[1-5]|P8-EXIT" ARCHITECTURE_CLEANUP_CHECKLIST.md` -> `P8-W1..P8-W5` closed and `P8-EXIT` open before exit closeout
-      - detector/state refresh:
-        - `desloppify status` -> `overall 70.3/100 · objective 95.2/100 · strict 70.1/100 · verified 95.2/100`
-        - `desloppify show review --status open --no-budget --top 200` -> `No open issues matching: review`
-        - `desloppify show security --status open --no-budget --top 50` -> `No open issues for Security`
-        - `desloppify show "review::.::holistic::ai_generated_debt::comment_template_ceremony" --status all` -> the unsuffixed issue is already `fixed`; the live `○` row is the historical `::summary_hash` record
-      - mapped imported issue dispositions (exact ids):
-        - `review::.::holistic::ai_generated_debt::comment_template_ceremony` -> `resolved`
-      - follow-up ownership:
-        - none
-      - security triage:
-        - `no open P0 security findings`
-      - residuals:
-        - none
-      - post-resolution exact-id proof:
-        - `node -e 'const fs=require("fs"); const s=JSON.parse(fs.readFileSync(".desloppify/state-typescript.json","utf8")); const ids=["review::.::holistic::ai_generated_debt::comment_template_ceremony"]; let ok=true; for(const id of ids){ const issue=s.work_items?.[id]; const status=issue?.status; console.log(`${id} status=${status}`); if(!issue||status==="open"){ ok=false; } } process.exit(ok?0:1);'` -> `review::.::holistic::ai_generated_debt::comment_template_ceremony status=fixed`
-      - verification reruns:
-        - `npm run verify`
-        - `npm run verify:docs`
-        - `npm run plans:check`
-      - gate decision:
-        - `Priority 8 exit gates pass.`
-        - `Priority 8 cleanup backlog complete.`
+- [ ] `P8-W1` remove systemic restating JSDoc and template residue without deleting comments that carry real boundary rules
+  - Imported review issues: `review::.::holistic::ai_generated_debt::systemic_restating_jsdoc`
+  - Primary files: high-noise production files touched by the current wave, including `src/config/storageKeys.ts`, `src/modules/ui/epg/EPGTimeHeader.ts`, `src/modules/ui/settings/SettingsToggle.ts`, `src/modules/ui/epg/utils.ts`
+  - Minimum verification: `npm run verify`; exact `desloppify show` command for the mapped id
+- [ ] `P8-EXIT` run the final priority-exit review before declaring this wave complete
+  - required: record every mapped imported issue with an exact disposition
+  - Gate: this checklist is not complete until every one of the `44` imported review issue ids listed above has a final disposition record
+  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; the exact `P8-W1` issue-id check; `npm run verify`; `npm run verify:docs`; `npm run plans:check`
 
 ## Closeout Rules For This Checklist
 
@@ -1178,8 +444,10 @@ Do not close a listed work unit while its mapped imported issue still remains un
 - Do not mark `P#-EXIT` complete until every imported review issue mapped to that priority is either retired, explicitly deferred, or intentionally split into a new owned follow-up work unit.
 - Do not mark `P#-EXIT` complete until the `P0` security gate has either been cleared or explicitly deferred for the next slice with exact issue ids and revisit triggers.
 - Do not leave a multiply-mapped imported review issue with shared implicit ownership at priority exit; the exit record must nominate one single final owner.
-- Do not leave imported review issues unowned: every open imported review issue must either be pre-mapped in this file, assigned in the active implementation plan for the touched priority, or explicitly deferred with a reason.
-- The priority order was re-checked against the full subjective import on `2026-03-10`; keep this order unless newer evidence materially changes ROI.
+- Do not leave imported review issues unowned: every one of the `44` imported review issue ids listed in this file must remain mapped to one explicit `P#-W#` item or one explicit `P#-EXIT` follow-up record.
+- Intermediate priority exits may use `deferred` or `split follow-up`, but only with one named later owner and mirrored destination-item verification commands.
+- Final wave completion at `P8-EXIT` is blocked unless every one of the `44` imported review ids either returns `No open issues matching` under its exact `desloppify show` command or is given an explicit final disposition that mints a new tracked successor surface in the same pass.
+- The expected end state of this wave is zero remaining open issues from the imported 44-id set; final non-resolved dispositions are exceptional and must not be left implicit.
 - After any cleanup slice materially changes the evidence, refresh:
   - the evidence snapshot when the backlog meaningfully shifts, after any completed priority, or when strict score changes materially
   - the priority wording or cleanup-track bullets that were affected

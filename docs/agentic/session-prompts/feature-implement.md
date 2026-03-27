@@ -12,11 +12,26 @@ Tier 2 uses this as the default implementer launcher. Tier 3 feature or mixed wo
 1. [`agents.md`](../../../agents.md)
 2. [`docs/agentic/document-map.md`](../document-map.md)
 3. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
-4. the `NEXT_SESSION_HANDOFF` block that routed work here (from [`feature-review.md`](./feature-review.md))
-5. the assigned tracked plan in [`docs/plans/`](../../plans/README.md) or active run bundle in [`docs/runs/`](../../runs/README.md), plus the referenced `ARTIFACT`
-6. [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) when UI creation or redesign is in scope
-7. [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md) plus any domain docs named by the plan
-8. any repo-local boundary skills named by the plan
+4. task-specific context from exactly one input mode:
+   - handoff mode: the `NEXT_SESSION_HANDOFF` block that routed work here (from [`feature-review.md`](./feature-review.md)); then read its `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE`
+   - short-follow-up mode: one short follow-up message naming the approved plan path or active run bundle plus target feature scope; then read the named plan or run bundle as the execution surface and do not wait for a handoff block
+5. [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) when UI creation or redesign is in scope
+6. [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md) plus any domain docs named by the plan or run bundle
+7. any repo-local boundary skills named by the plan or run bundle
+
+## Invocation Inputs
+
+Accept either of these as the task-specific input after the launcher:
+
+- a pasted `NEXT_SESSION_HANDOFF` block; when present, treat `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE` as required additional reading after the standard read order
+- one short follow-up message naming the approved plan path or active run bundle plus the target feature scope, for example `Implement docs/plans/2026-03-27-settings-diagnostics-redesign.md.`
+
+These are two mutually exclusive input modes for the launcher.
+
+- If `NEXT_SESSION_HANDOFF` is present, use handoff mode and require its `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE`.
+- Otherwise, use short-follow-up mode, treat the one short follow-up as first-class and unambiguous, and do not wait for a formal handoff block.
+
+In short-follow-up mode, use the named approved plan or run-bundle context as the execution surface.
 
 ## What This Session Must Do
 
@@ -66,5 +81,5 @@ Return:
    - `PLAN`
    - `ARTIFACT` (the patched implementation artifact, diff target, or reviewed commit containing the actual changes; do not point back to the incoming findings artifact)
    - `FILES`
-   - a pasteable implementation-review request unless the task is fully blocked before code changes
+   - a pasteable implementation-review request unless the task is fully blocked before code changes; keep it concrete enough that a fresh-session reviewer does not have to reconstruct the intended scope
    - if the user explicitly asked for model guidance, or if the handoff is Tier 3 or architecture-risk score `>= 2`, include a `MODEL_SUGGESTION` block immediately before `NEXT_SESSION_HANDOFF` using repo-local `model-selection`
