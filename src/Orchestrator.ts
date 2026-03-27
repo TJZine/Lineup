@@ -217,59 +217,6 @@ export interface PlaybackInfoSnapshot {
 
 export type { ErrorRecoveryAction } from './core/error-recovery/types';
 
-/**
- * Application Orchestrator Interface
- */
-export interface IAppOrchestrator {
-    initialize(config: OrchestratorConfig): Promise<void>;
-    start(): Promise<void>;
-    shutdown(): Promise<void>;
-    getModuleStatus(): Map<string, ModuleStatus>;
-    isReady(): boolean;
-    getCurrentScreen(): Screen | null;
-    onScreenChange(handler: (from: string, to: string) => void): IDisposable;
-    getPlaybackInfoSnapshot(): PlaybackInfoSnapshot;
-    refreshPlaybackInfoSnapshot(): Promise<PlaybackInfoSnapshot>;
-    setSubtitleTrack(trackId: string | null): Promise<void>;
-    switchToChannel(
-        channelId: string,
-        options?: {
-            signal?: AbortSignal;
-            guideSelectionSnapshot?: import('./core/channel-tuning').GuideSelectionSnapshot;
-        }
-    ): Promise<void>;
-    switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void>;
-    openEPG(): void;
-    closeEPG(): void;
-    toggleEPG(): void;
-    onGuideSettingChange(change: GuideSettingChange): void;
-    requestAuthPin(): Promise<PlexPinRequest>;
-    pollForPin(pinId: number): Promise<PlexPinRequest>;
-    cancelPin(pinId: number): Promise<void>;
-    getHomeUsers(): Promise<PlexHomeUser[]>;
-    getActiveUsername(): string | null;
-    switchHomeUser(userId: string, pin?: string): Promise<void>;
-    useMainAccountProfile(): Promise<void>;
-    signOutPlex(): Promise<void>;
-    discoverServers(forceRefresh?: boolean): Promise<PlexServer[]>;
-    selectServer(serverId: string): Promise<boolean>;
-    clearSelectedServer(): void;
-    getSelectedServerId(): string | null;
-    getSelectedServerStorageKey(): string;
-    getServerHealthStorageKey(): string;
-    getChannelSetupSessionGateway(): ChannelSetupSessionGateway;
-    handleGlobalError(error: AppError, context: string): void;
-    registerErrorHandler(moduleId: string, handler: (error: AppError) => boolean): void;
-    getRecoveryActions(errorCode: AppErrorCode): ErrorRecoveryAction[];
-    toLifecycleAppError(error: AppError): LifecycleAppError;
-    onLifecycleEvent<K extends keyof LifecycleEventMap>(
-        event: K,
-        handler: (payload: LifecycleEventMap[K]) => void
-    ): IDisposable;
-    getNavigation(): INavigationManager | null;
-    setNowPlayingHandler(handler: ((toast: ToastInput) => void) | null): void;
-}
-
 // Re-export AppErrorCode for consumers
 export { AppErrorCode };
 
@@ -287,7 +234,7 @@ export { AppErrorCode };
  * - Error handling with recovery actions
  * - Channel switching and EPG management
  */
-export class AppOrchestrator implements IAppOrchestrator {
+export class AppOrchestrator {
     private _lifecycle: IAppLifecycle | null = null;
     private _navigation: INavigationManager | null = null;
     private _plexAuth: IPlexAuth | null = null;

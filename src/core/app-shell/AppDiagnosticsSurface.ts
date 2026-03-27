@@ -1,4 +1,4 @@
-import type { IAppOrchestrator } from '../../Orchestrator';
+import type { AppOrchestrator } from '../../Orchestrator';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import { AudioSettingsStore } from '../../modules/settings/AudioSettingsStore';
 import { DeveloperSettingsStore } from '../../modules/settings/DeveloperSettingsStore';
@@ -15,7 +15,7 @@ type DiagnosticsWindow = Window & {
 };
 
 export type DiagnosticsOrchestrator = Pick<
-    IAppOrchestrator,
+    AppOrchestrator,
     'refreshPlaybackInfoSnapshot'
 > & {
     toggleServerSelect: () => void;
