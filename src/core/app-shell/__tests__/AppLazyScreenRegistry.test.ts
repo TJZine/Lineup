@@ -166,7 +166,13 @@ describe('AppLazyScreenRegistry', () => {
         expect(ProfileSelectScreen).toHaveBeenCalledTimes(1);
         expect(ProfileSelectScreen).toHaveBeenCalledWith(
             expect.any(HTMLElement),
-            expect.anything(),
+            expect.objectContaining({
+                getHomeUsers: expect.any(Function),
+                switchHomeUser: expect.any(Function),
+                useMainAccountProfile: expect.any(Function),
+                signOutPlex: expect.any(Function),
+                getNavigation: expect.any(Function),
+            }),
             profileSessionStore
         );
         expect(firstProfile).toBe(profileSelectScreen as never);

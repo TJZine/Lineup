@@ -2,7 +2,7 @@ import type { AppOrchestrator } from '../../Orchestrator';
 import type { AuthScreen, AuthScreenPorts } from '../../modules/ui/auth/AuthScreen';
 import type { AudioSetupScreen } from '../../modules/ui/audio-setup/AudioSetupScreen';
 import type { ChannelSetupScreen } from '../../modules/ui/channel-setup/ChannelSetupScreen';
-import type { ProfileSelectScreen } from '../../modules/ui/profile-select/ProfileSelectScreen';
+import type { ProfileSelectScreen, ProfileSelectScreenPorts } from '../../modules/ui/profile-select/ProfileSelectScreen';
 import type { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
 import type { ServerSelectScreen } from '../../modules/ui/server-select/ServerSelectScreen';
 import type { SettingsScreen } from '../../modules/ui/settings/SettingsScreen';
@@ -207,9 +207,17 @@ export class AppLazyScreenRegistry {
                     const latestOrchestrator = this._getOrchestrator();
                     if (!latestOrchestrator) return null;
 
+                    const ports: ProfileSelectScreenPorts = {
+                        getHomeUsers: () => latestOrchestrator.getHomeUsers(),
+                        switchHomeUser: (userId: string, pin?: string) => latestOrchestrator.switchHomeUser(userId, pin),
+                        useMainAccountProfile: () => latestOrchestrator.useMainAccountProfile(),
+                        signOutPlex: () => latestOrchestrator.signOutPlex(),
+                        getNavigation: () => this._getOrchestrator()?.getNavigation() ?? null,
+                    };
+
                     const screen = new ProfileSelectScreen(
                         container,
-                        latestOrchestrator,
+                        ports,
                         this._profileSessionStore
                     );
 

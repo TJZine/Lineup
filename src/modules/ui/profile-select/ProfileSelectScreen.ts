@@ -4,9 +4,8 @@
  * @version 1.0.0
  */
 
-import { AppOrchestrator } from '../../../Orchestrator';
 import type { PlexHomeUser } from '../../plex/auth';
-import type { FocusableElement, KeyEvent } from '../../navigation';
+import type { FocusableElement, INavigationManager, KeyEvent } from '../../navigation';
 import { PlexApiError } from '../../plex/auth';
 import { AppErrorCode } from '../../lifecycle/types';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
@@ -16,6 +15,14 @@ import type { ProfileSessionStore } from '../../settings/ProfileSessionStore';
 
 const PIN_LENGTH = 4;
 const PIN_MODAL_ID = 'profile-pin';
+
+export interface ProfileSelectScreenPorts {
+    getHomeUsers(): Promise<PlexHomeUser[]>;
+    switchHomeUser(userId: string, pin?: string): Promise<void>;
+    useMainAccountProfile(): Promise<void>;
+    signOutPlex(): Promise<void>;
+    getNavigation(): INavigationManager | null;
+}
 
 export class ProfileSelectScreen {
     private static readonly PIN_MODAL_FOCUSABLE_IDS = [
@@ -34,7 +41,7 @@ export class ProfileSelectScreen {
     ] as const;
 
     private _container: HTMLElement;
-    private _orchestrator: AppOrchestrator;
+    private _ports: ProfileSelectScreenPorts;
     private _destroyScreenShell: (() => void) | null = null;
     private _shellSetStatus: ((status: ScreenStatus | null) => void) | null = null;
     private _statusEl: HTMLElement;
@@ -63,11 +70,11 @@ export class ProfileSelectScreen {
 
     constructor(
         container: HTMLElement,
-        orchestrator: AppOrchestrator,
+        ports: ProfileSelectScreenPorts,
         private readonly profileSessionStore: ProfileSessionStore
     ) {
         this._container = container;
-        this._orchestrator = orchestrator;
+        this._ports = ports;
         this._container.classList.add('screen', 'profile-select');
         this._container.style.position = 'absolute';
         this._container.style.inset = '0';
@@ -267,7 +274,7 @@ export class ProfileSelectScreen {
         this._setTip('Tip: Set a PIN on the admin profile to prevent unwanted access.');
 
         try {
-            const users = await this._orchestrator.getHomeUsers();
+            const users = await this._ports.getHomeUsers();
             this._showMain = users.length <= 1;
             this._mainButton.style.display = this._showMain ? '' : 'none';
             if (users.length <= 1) {
@@ -290,7 +297,7 @@ export class ProfileSelectScreen {
             this._setTip('Select "Sign out" to switch accounts, then try again.');
 	        } finally {
 	            this._isLoading = false;
-	            const nav = this._orchestrator.getNavigation();
+	            const nav = this._ports.getNavigation();
 	            if (nav?.getCurrentScreen() === 'profile-select') {
 	                this._registerFocusables();
 	            }
@@ -389,7 +396,7 @@ export class ProfileSelectScreen {
         this._setStatus('Starting Lineup...', { tone: 'loading' });
         this._isSwitching = true;
         try {
-            await this._orchestrator.useMainAccountProfile();
+            await this._ports.useMainAccountProfile();
             // Clear last-used hint — main account bypasses profile cards.
             this.profileSessionStore.writeLastProfileId(null);
         } catch (error) {
@@ -403,7 +410,7 @@ export class ProfileSelectScreen {
         if (this._isSwitching) return;
         this._isSwitching = true;
         try {
-            await this._orchestrator.signOutPlex();
+            await this._ports.signOutPlex();
         } catch (error) {
             this._handleError(error, 'Unable to sign out.');
         } finally {
@@ -415,7 +422,7 @@ export class ProfileSelectScreen {
         this._setStatus('Starting Lineup...', { tone: 'loading' });
         this._isSwitching = true;
         try {
-            await this._orchestrator.switchHomeUser(userId, pin);
+            await this._ports.switchHomeUser(userId, pin);
             this.profileSessionStore.writeLastProfileId(userId);
             return true;
         } catch (error) {
@@ -429,7 +436,7 @@ export class ProfileSelectScreen {
                     error.code === AppErrorCode.AUTH_INVALID
                 ) {
                     // Account token is no longer valid; force re-link.
-                    await this._orchestrator.signOutPlex();
+                    await this._ports.signOutPlex();
                     return false;
                 }
             }
@@ -441,7 +448,7 @@ export class ProfileSelectScreen {
     }
 
     private _openPinModal(user: PlexHomeUser): void {
-        const nav = this._orchestrator.getNavigation();
+        const nav = this._ports.getNavigation();
         if (!nav || this._isPinOpen) return;
 
         this._pinTargetUser = user;
@@ -461,7 +468,7 @@ export class ProfileSelectScreen {
 
     private _closePinModal(): void {
         if (!this._isPinOpen) return;
-        const nav = this._orchestrator.getNavigation();
+        const nav = this._ports.getNavigation();
         if (nav) {
             nav.closeModal(PIN_MODAL_ID);
             this._unregisterPinModalFocusables(nav);
@@ -540,11 +547,11 @@ export class ProfileSelectScreen {
             this._pinSlotsWrapEl.classList.remove('error');
             this._pinErrorTimeoutId = null;
         }, 350);
-        const nav = this._orchestrator.getNavigation();
+        const nav = this._ports.getNavigation();
         nav?.setFocus('btn-profile-pin-5');
     }
 
-    private _registerPinModalFocusables(nav: ReturnType<AppOrchestrator['getNavigation']>): string[] {
+    private _registerPinModalFocusables(nav: INavigationManager | null): string[] {
         if (!nav) {
             return [];
         }
@@ -615,7 +622,7 @@ export class ProfileSelectScreen {
         return focusableIds;
     }
 
-    private _unregisterPinModalFocusables(nav: ReturnType<AppOrchestrator['getNavigation']>): void {
+    private _unregisterPinModalFocusables(nav: INavigationManager | null): void {
         if (!nav) return;
         ProfileSelectScreen.PIN_MODAL_FOCUSABLE_IDS.forEach((id) => {
             nav.unregisterFocusable(id);
@@ -623,7 +630,7 @@ export class ProfileSelectScreen {
     }
 
 	    private _registerFocusables(): void {
-	        const nav = this._orchestrator.getNavigation();
+	        const nav = this._ports.getNavigation();
 	        if (!nav) return;
 
         const showMain = this._showMain;
@@ -696,7 +703,7 @@ export class ProfileSelectScreen {
 	    }
 
     private _unregisterFocusables(): void {
-        const nav = this._orchestrator.getNavigation();
+        const nav = this._ports.getNavigation();
         if (!nav) return;
 
         for (const id of this._focusableIds) {
@@ -706,7 +713,7 @@ export class ProfileSelectScreen {
     }
 
     private _registerKeyHandler(): void {
-        const nav = this._orchestrator.getNavigation();
+        const nav = this._ports.getNavigation();
         if (!nav || this._navKeyHandler) return;
 
         this._navKeyHandler = (event: KeyEvent): void => {
@@ -730,7 +737,7 @@ export class ProfileSelectScreen {
     }
 
     private _unregisterKeyHandler(): void {
-        const nav = this._orchestrator.getNavigation();
+        const nav = this._ports.getNavigation();
         if (nav && this._navKeyHandler) {
             nav.off('keyPress', this._navKeyHandler);
         }
