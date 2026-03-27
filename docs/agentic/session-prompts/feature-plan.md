@@ -14,6 +14,15 @@ Do not use this launcher for cleanup-only refactors; use [`cleanup-plan.md`](./c
 6. [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) when UI creation or redesign is in scope
 7. domain current-state docs that match the feature boundary
 
+## Invocation Inputs
+
+Accept either of these as the task-specific input after the launcher:
+
+- a pasted `NEXT_SESSION_HANDOFF` block; when present, treat `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE` as required additional reading after the standard read order
+- one short follow-up message naming the exact feature/design scope, plan seed, or run-bundle context, for example `We are planning the Settings diagnostics redesign as feature/design work.`
+
+If the short follow-up form is used, treat the named feature/design target as the active scope selector for the session and derive the remaining context from the tracked docs, current code, and any named artifact or plan seed.
+
 ## Required Skill Order
 
 1. load `using-superpowers`
@@ -27,6 +36,7 @@ Do not use this launcher for cleanup-only refactors; use [`cleanup-plan.md`](./c
 ## What This Session Must Do
 
 - confirm this is feature/design or mixed work before selecting a risk tier
+- when the user uses the short follow-up form, treat the named feature/design target as the scope selector
 - run Codanna-first discovery and record the fallback if Codanna is insufficient
 - clarify product/design intent, constraints, and explicit non-goals before locking steps
 - separate exploration decisions from implementation sequencing so the plan is executable in a fresh session
@@ -78,5 +88,5 @@ Return:
    - `PLAN`
    - `ARTIFACT`
    - `FILES`
-   - a pasteable review request for the finished plan
+   - a pasteable review request for the finished plan that is specific enough for a fresh-session reviewer to start without reconstructing scope from prose
    - if the user explicitly asked for model guidance, or if the handoff is Tier 3 or architecture-risk score `>= 2`, include a `MODEL_SUGGESTION` block immediately before `NEXT_SESSION_HANDOFF` using repo-local `model-selection`

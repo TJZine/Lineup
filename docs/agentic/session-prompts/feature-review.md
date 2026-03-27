@@ -19,6 +19,15 @@ This launcher supports review of either:
    - [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md) plus domain docs for architecture/boundary checks
    - [`docs/agentic/evals/rubric.md`](../evals/rubric.md) when workflow quality is in scope
 
+## Invocation Inputs
+
+Accept either of these as the task-specific input after the launcher:
+
+- a pasted `NEXT_SESSION_HANDOFF` block; when present, treat `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE` as required additional reading after the standard read order
+- one short follow-up message naming the exact feature/design artifact under review and any relevant scope linkage, for example `Review docs/plans/2026-03-27-settings-diagnostics-redesign.md.`
+
+If the short follow-up form is used, treat the named artifact as the review target and derive the remaining context from the tracked plan, current docs, and current code instead of waiting for a formal handoff block.
+
 ## Review Priorities
 
 Always look for:

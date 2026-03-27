@@ -124,6 +124,22 @@ Note: [`10-settings-screen-split`](./prompts/10-settings-screen-split.md) is an 
 Run it whenever a change touches settings ownership boundaries (even outside the Priority 4 batch).
 It may also be included again later as part of the Priority 4 manual baseline when you want broader UI-class decomposition validation; running it in both contexts is allowed when appropriate.
 
+## Trigger-Based Eval Runs
+
+Use this table as the operational trigger map for control-plane and boundary-skill maintenance work.
+
+| Change surface | Required prompt(s) | Notes |
+| --- | --- | --- |
+| tracked workflow/control-plane docs change materially | [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) | Baseline workflow gate for routing, tiering, and local-only absorption. |
+| launcher routing or feature-vs-cleanup guidance changes materially | [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) | Use the feature/design workflow meta-eval scenario below when feature launchers or routing guidance changed. |
+| tracked multi-agent role guidance or `.codex/config.toml` role declarations change materially | [`19-multi-agent-role-selection-and-delegation-discipline`](./prompts/19-multi-agent-role-selection-and-delegation-discipline.md) | Required before claiming role-surface improvements. |
+| `architecture-boundaries` changes materially | [`06-orchestrator-hotspot-extraction`](./prompts/06-orchestrator-hotspot-extraction.md) or [`12-architecture-doc-refresh`](./prompts/12-architecture-doc-refresh.md) | If the change hardens seam/planning discipline, also run [`18-detect-unresolved-seam-before-freezing-plan`](./prompts/18-detect-unresolved-seam-before-freezing-plan.md). |
+| `persistence-boundaries` changes materially | one or more of [`07-settings-storage-boundary`](./prompts/07-settings-storage-boundary.md), [`08-server-selection-storage-boundary`](./prompts/08-server-selection-storage-boundary.md), [`09-channel-persistence-boundary`](./prompts/09-channel-persistence-boundary.md) | If the change touches settings ownership guidance, also run [`10-settings-screen-split`](./prompts/10-settings-screen-split.md). |
+| `ui-composition-patterns` changes materially | one or more of [`03-overlay-toast-extraction-no-timer-leaks`](./prompts/03-overlay-toast-extraction-no-timer-leaks.md), [`14-epg-info-panel-orchestration-no-host-drift`](./prompts/14-epg-info-panel-orchestration-no-host-drift.md), [`16-shared-ui-primitives-no-policy-centralization`](./prompts/16-shared-ui-primitives-no-policy-centralization.md) | If the change touches global UI-skill routing guidance, also run [`20-skill-routing-interface-vs-frontend`](./prompts/20-skill-routing-interface-vs-frontend.md). |
+| `plex-integration-boundaries` changes materially | [`11-plex-subtitle-policy`](./prompts/11-plex-subtitle-policy.md) | Add a broader Plex-boundary eval when a tracked prompt exists for the exact policy seam changed. |
+
+The operator may run more prompts than the minimum trigger set. The minimum exists to make workflow-quality changes auditable, not to cap validation.
+
 ### Feature/Design Workflow Meta-Eval
 
 This is a reusable meta-eval template. Adapt the scenario and inputs to the specific workflow/control-plane change you are validating. Dated run records belong under `baseline-summaries/`.

@@ -18,6 +18,15 @@ Tier 2 uses this as the default implementer launcher. Tier 3 feature or mixed wo
 7. [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md) plus any domain docs named by the plan
 8. any repo-local boundary skills named by the plan
 
+## Invocation Inputs
+
+Accept either of these as the task-specific input after the launcher:
+
+- a pasted `NEXT_SESSION_HANDOFF` block; when present, treat `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE` as required additional reading after the standard read order
+- one short follow-up message naming the approved plan path or active run bundle plus the target feature scope, for example `Implement docs/plans/2026-03-27-settings-diagnostics-redesign.md.`
+
+If the short follow-up form is used, do not wait for a formal handoff block; use the named approved plan or run-bundle context as the execution surface.
+
 ## What This Session Must Do
 
 - if `ARTIFACT` is an approving review output: execute the approved feature/design plan in a repo-local worktree under `.worktrees/` when the task is more than a tiny edit
@@ -66,5 +75,5 @@ Return:
    - `PLAN`
    - `ARTIFACT` (the patched implementation artifact, diff target, or reviewed commit containing the actual changes; do not point back to the incoming findings artifact)
    - `FILES`
-   - a pasteable implementation-review request unless the task is fully blocked before code changes
+   - a pasteable implementation-review request unless the task is fully blocked before code changes; keep it concrete enough that a fresh-session reviewer does not have to reconstruct the intended scope
    - if the user explicitly asked for model guidance, or if the handoff is Tier 3 or architecture-risk score `>= 2`, include a `MODEL_SUGGESTION` block immediately before `NEXT_SESSION_HANDOFF` using repo-local `model-selection`

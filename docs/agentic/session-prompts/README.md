@@ -90,6 +90,9 @@ The reusable Lineup launchers are meant to support either of these invocation st
    - example planner follow-up: `We are working on ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1.`
    - example implementer follow-up: `Implement docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1.`
    - example reviewer follow-up: `Review docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1.`
+   - example feature planner follow-up: `We are planning the Settings diagnostics redesign as feature/design work.`
+   - example feature implementer follow-up: `Implement docs/plans/2026-03-27-settings-diagnostics-redesign.md.`
+   - example feature reviewer follow-up: `Review docs/plans/2026-03-27-settings-diagnostics-redesign.md.`
 
 When the short follow-up form is used, the launcher should derive the rest of the context from the checklist, the named plan or artifact, and the tracked workflow docs instead of waiting for a formal handoff block.
 
@@ -136,4 +139,5 @@ When a run bundle exists, the reusable launcher should use it as task-specific c
 - Do not create a new reusable prompt for every feature or checklist item.
 - Planner, reviewer, and implementer prompts should emit a pasteable `NEXT_SESSION_HANDOFF` block when another session is expected.
 - Emit `MODEL_SUGGESTION` only when the user explicitly asked for model advice or the handoff is high-risk under the workflow trigger; do not make model advice an always-on tax.
+- Keep cleanup and feature launcher invocation ergonomics aligned unless the difference is intentionally documented in the tracked launcher itself.
 - Update these templates when the repo workflow changes materially.
