@@ -186,6 +186,18 @@ describe('AppLazyScreenRegistry', () => {
         ]);
         const thirdServer = await registry.ensureServerSelectScreen();
         expect(ServerSelectScreen).toHaveBeenCalledTimes(1);
+        expect(ServerSelectScreen).toHaveBeenCalledWith(
+            expect.any(HTMLElement),
+            expect.objectContaining({
+                discoverServers: expect.any(Function),
+                selectServer: expect.any(Function),
+                clearSelectedServer: expect.any(Function),
+                getSelectedServerStorageKey: expect.any(Function),
+                getServerHealthStorageKey: expect.any(Function),
+                requestChannelSetupRerun: expect.any(Function),
+                getNavigation: expect.any(Function),
+            })
+        );
         expect(firstServer).toBe(serverSelectScreen as never);
         expect(secondServer).toBe(serverSelectScreen as never);
         expect(thirdServer).toBe(serverSelectScreen as never);

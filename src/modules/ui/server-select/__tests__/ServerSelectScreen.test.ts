@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { ServerSelectScreen } from '../ServerSelectScreen';
+import { ServerSelectScreen, type ServerSelectScreenPorts } from '../ServerSelectScreen';
 import { flushPromisesAndTimers } from '../../../../__tests__/helpers';
 
 type NavigationStub = {
@@ -27,7 +27,7 @@ type OrchestratorStub = {
     getNavigation: () => NavigationStub;
     discoverServers: jest.Mock;
     selectServer: jest.Mock;
-    getChannelSetupSessionGateway: () => { requestChannelSetupRerun: jest.Mock };
+    requestChannelSetupRerun: jest.Mock;
     clearSelectedServer: jest.Mock;
     getSelectedServerStorageKey: () => string;
     getServerHealthStorageKey: () => string;
@@ -40,7 +40,7 @@ const createOrchestratorStub = (): OrchestratorStub => {
         getNavigation: () => navigation,
         discoverServers: jest.fn(),
         selectServer: jest.fn().mockResolvedValue(false),
-        getChannelSetupSessionGateway: () => ({ requestChannelSetupRerun }),
+        requestChannelSetupRerun,
         clearSelectedServer: jest.fn(),
         getSelectedServerStorageKey: () => 'selected-server-id',
         getServerHealthStorageKey: () => 'server-health',
@@ -76,7 +76,7 @@ describe('ServerSelectScreen', () => {
             })
         );
 
-        const screen = new ServerSelectScreen(container, orchestrator as never);
+        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
         screen.show({ allowAutoConnect: false });
 
         await flushPromisesAndTimers();
@@ -102,7 +102,7 @@ describe('ServerSelectScreen', () => {
             })
         );
 
-        const screen = new ServerSelectScreen(container, orchestrator as never);
+        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
         screen.show({ allowAutoConnect: false });
 
         await flushPromisesAndTimers();
@@ -123,7 +123,7 @@ describe('ServerSelectScreen', () => {
 
         localStorage.setItem(orchestrator.getServerHealthStorageKey(), '{not-json');
 
-        const screen = new ServerSelectScreen(container, orchestrator as never);
+        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
         screen.show({ allowAutoConnect: false });
         await flushPromisesAndTimers();
 
@@ -148,7 +148,7 @@ describe('ServerSelectScreen', () => {
             })
         );
 
-        const screen = new ServerSelectScreen(container, orchestrator as never);
+        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
         screen.show({ allowAutoConnect: false });
         await flushPromisesAndTimers();
 
@@ -168,7 +168,7 @@ describe('ServerSelectScreen', () => {
         const selectedKey = orchestrator.getSelectedServerStorageKey();
         const healthKey = orchestrator.getServerHealthStorageKey();
 
-        const screen = new ServerSelectScreen(container, orchestrator as never);
+        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
         screen.show({ allowAutoConnect: false });
         await flushPromisesAndTimers();
         await screen.refresh();
@@ -200,7 +200,7 @@ describe('ServerSelectScreen', () => {
             })
         );
 
-        const screen = new ServerSelectScreen(container, orchestrator as never);
+        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
         screen.show({ allowAutoConnect: false });
 
         await flushPromisesAndTimers();
@@ -234,7 +234,7 @@ describe('ServerSelectScreen', () => {
             { id: 'srv_1', name: 'Server Two', owned: true },
         ]);
 
-        const screen = new ServerSelectScreen(container, orchestrator as never);
+        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
         screen.show({ allowAutoConnect: false });
         await flushPromisesAndTimers();
 
@@ -259,7 +259,7 @@ describe('ServerSelectScreen', () => {
 
         localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
 
-        const screen = new ServerSelectScreen(container, orchestrator as never);
+        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
         screen.show();
 
         await flushPromisesAndTimers();
@@ -283,7 +283,7 @@ describe('ServerSelectScreen', () => {
         orchestrator.selectServer.mockResolvedValue(false);
         localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
 
-        const screen = new ServerSelectScreen(container, orchestrator as never);
+        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
         screen.show({ allowAutoConnect: true });
 
         const hint = container.querySelector('.server-autoconnect-hint') as HTMLElement | null;
@@ -316,7 +316,7 @@ describe('ServerSelectScreen', () => {
             })
         );
 
-        const screen = new ServerSelectScreen(container, orchestrator as never);
+        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
         screen.show({ allowAutoConnect: true });
 
         await flushPromisesAndTimers();
@@ -339,7 +339,7 @@ describe('ServerSelectScreen', () => {
         ]);
         localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
 
-        const screen = new ServerSelectScreen(container, orchestrator as never);
+        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
         screen.show({ allowAutoConnect: true });
 
         await flushPromisesAndTimers();
@@ -357,7 +357,7 @@ describe('ServerSelectScreen', () => {
 
         orchestrator.discoverServers.mockResolvedValue([]);
 
-        const screen = new ServerSelectScreen(container, orchestrator as never);
+        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
         screen.show({ allowAutoConnect: false });
 
         await flushPromisesAndTimers();
@@ -390,7 +390,7 @@ describe('ServerSelectScreen', () => {
             { id: 'srv-2', name: 'Server Two', owned: true },
         ]);
 
-        const screen = new ServerSelectScreen(container, orchestrator as never);
+        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
         screen.show({ allowAutoConnect: false });
 
         await flushPromisesAndTimers();
@@ -417,7 +417,7 @@ describe('ServerSelectScreen', () => {
                 { id: 'srv-1', name: 'Server One', owned: true },
             ]);
 
-        const screen = new ServerSelectScreen(container, orchestrator as never);
+        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
         screen.show({ allowAutoConnect: false });
         await flushPromisesAndTimers();
 
@@ -439,7 +439,7 @@ describe('ServerSelectScreen', () => {
             { id: 'srv-1', name: 'Server One', owned: true },
         ]);
 
-        const screen = new ServerSelectScreen(container, orchestrator as never);
+        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
         screen.show({ allowAutoConnect: false });
         await flushPromisesAndTimers();
 
@@ -471,7 +471,7 @@ describe('ServerSelectScreen', () => {
             { id: 'srv-1', name: 'Server One', owned: true },
         ]);
 
-        const screen = new ServerSelectScreen(container, orchestrator as never);
+        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
         screen.show({ allowAutoConnect: false });
         await flushPromisesAndTimers();
 

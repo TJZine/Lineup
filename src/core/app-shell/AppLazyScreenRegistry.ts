@@ -4,7 +4,7 @@ import type { AudioSetupScreen } from '../../modules/ui/audio-setup/AudioSetupSc
 import type { ChannelSetupScreen } from '../../modules/ui/channel-setup/ChannelSetupScreen';
 import type { ProfileSelectScreen, ProfileSelectScreenPorts } from '../../modules/ui/profile-select/ProfileSelectScreen';
 import type { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
-import type { ServerSelectScreen } from '../../modules/ui/server-select/ServerSelectScreen';
+import type { ServerSelectScreen, ServerSelectScreenPorts } from '../../modules/ui/server-select/ServerSelectScreen';
 import type { SettingsScreen } from '../../modules/ui/settings/SettingsScreen';
 import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from './constants';
 
@@ -253,7 +253,17 @@ export class AppLazyScreenRegistry {
                     const latestOrchestrator = this._getOrchestrator();
                     if (!latestOrchestrator) return null;
 
-                    const screen = new ServerSelectScreen(container, latestOrchestrator);
+                    const ports: ServerSelectScreenPorts = {
+                        discoverServers: (forceRefresh?: boolean) => latestOrchestrator.discoverServers(forceRefresh),
+                        selectServer: (serverId: string) => latestOrchestrator.selectServer(serverId),
+                        clearSelectedServer: () => latestOrchestrator.clearSelectedServer(),
+                        getSelectedServerStorageKey: () => latestOrchestrator.getSelectedServerStorageKey(),
+                        getServerHealthStorageKey: () => latestOrchestrator.getServerHealthStorageKey(),
+                        requestChannelSetupRerun: () => latestOrchestrator.getChannelSetupSessionGateway().requestChannelSetupRerun(),
+                        getNavigation: () => this._getOrchestrator()?.getNavigation() ?? null,
+                    };
+
+                    const screen = new ServerSelectScreen(container, ports);
 
                     if (this._destroyed) {
                         screen.destroy();
