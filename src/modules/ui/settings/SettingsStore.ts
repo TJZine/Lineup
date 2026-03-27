@@ -1,17 +1,14 @@
 import { TRANSCODE_QUALITY_OPTIONS } from '../../../config/transcodeQuality';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from '../now-playing-info/constants';
 import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
+import { DeveloperSettingsStore } from '../../settings/DeveloperSettingsStore';
 import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
 import { NowPlayingDisplayStore } from '../../settings/NowPlayingDisplayStore';
 import { PlaybackSettingsStore } from '../../settings/PlaybackSettingsStore';
 import { ProfileSessionStore } from '../../settings/ProfileSessionStore';
 import { SubtitlePreferencesStore } from '../../settings/SubtitlePreferencesStore';
 import type { SubtitleMode } from '../../../shared/subtitle-mode';
-import {
-    readStoredBooleanAndClean,
-    safeLocalStorageSet,
-} from '../../../utils/storage';
-import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEYS } from './constants';
+import { DEFAULT_SETTINGS } from './constants';
 
 const EPG_PAST_ITEMS_STORAGE_VALUES = ['auto', '0', '15', '30'] as const;
 
@@ -36,28 +33,6 @@ export type ToggleSettingId =
     | 'smartHdr10Fallback'
     | 'forceHdr10Fallback';
 
-type DelegatedToggleSettingId =
-    | 'dtsPassthrough'
-    | 'directPlayAudioFallback'
-    | 'transcodeCompat'
-    | 'keepPlayingInSettings'
-    | 'smartHdr10Fallback'
-    | 'forceHdr10Fallback'
-    | 'subtitlePreferForced'
-    | 'guideCategoryColors'
-    | 'epgLibraryTabsEnabled'
-    | 'epgNowWatchingEnabled'
-    | 'epgAggressivePreloadEnabled'
-    | 'showProfilePickerOnStartup'
-    | 'cinematicNowPlaying'
-    | 'preferClearLogos';
-type DirectStorageToggleSettingId = Exclude<ToggleSettingId, DelegatedToggleSettingId>;
-
-const TOGGLE_STORAGE_KEY_BY_ID: Record<DirectStorageToggleSettingId, string> = {
-    debugLogging: SETTINGS_STORAGE_KEYS.DEBUG_LOGGING,
-    subtitleDebugLogging: SETTINGS_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING,
-};
-
 const TOGGLE_DEFAULT_BY_ID: Record<ToggleSettingId, boolean> = {
     dtsPassthrough: DEFAULT_SETTINGS.audio.dtsPassthrough,
     directPlayAudioFallback: DEFAULT_SETTINGS.audio.directPlayAudioFallback,
@@ -79,6 +54,7 @@ const TOGGLE_DEFAULT_BY_ID: Record<ToggleSettingId, boolean> = {
 
 export interface SettingsStoreOptions {
     audioSettingsStore?: AudioSettingsStore;
+    developerSettingsStore?: DeveloperSettingsStore;
     playbackSettingsStore?: PlaybackSettingsStore;
     subtitlePreferencesStore?: SubtitlePreferencesStore;
     epgPreferencesStore?: EpgPreferencesStore;
@@ -88,6 +64,7 @@ export interface SettingsStoreOptions {
 
 export class SettingsStore {
     private readonly _audioSettingsStore: AudioSettingsStore;
+    private readonly _developerSettingsStore: DeveloperSettingsStore;
     private readonly _playbackSettingsStore: PlaybackSettingsStore;
     private readonly _subtitlePreferencesStore: SubtitlePreferencesStore;
     private readonly _epgPreferencesStore: EpgPreferencesStore;
@@ -96,6 +73,7 @@ export class SettingsStore {
 
     constructor(options: SettingsStoreOptions = {}) {
         this._audioSettingsStore = options.audioSettingsStore ?? new AudioSettingsStore();
+        this._developerSettingsStore = options.developerSettingsStore ?? new DeveloperSettingsStore();
         this._playbackSettingsStore = options.playbackSettingsStore ?? new PlaybackSettingsStore();
         this._subtitlePreferencesStore = options.subtitlePreferencesStore ?? new SubtitlePreferencesStore();
         this._epgPreferencesStore = options.epgPreferencesStore ?? new EpgPreferencesStore();
@@ -115,6 +93,12 @@ export class SettingsStore {
         }
         if (id === 'keepPlayingInSettings') {
             return this._profileSessionStore.readKeepPlayingInSettings(TOGGLE_DEFAULT_BY_ID.keepPlayingInSettings);
+        }
+        if (id === 'debugLogging') {
+            return this._developerSettingsStore.readDebugLoggingEnabled(TOGGLE_DEFAULT_BY_ID.debugLogging);
+        }
+        if (id === 'subtitleDebugLogging') {
+            return this._developerSettingsStore.readSubtitleDebugLoggingEnabled(TOGGLE_DEFAULT_BY_ID.subtitleDebugLogging);
         }
         if (id === 'smartHdr10Fallback') {
             return this._playbackSettingsStore.readSmartHdr10FallbackEnabled(TOGGLE_DEFAULT_BY_ID.smartHdr10Fallback);
@@ -147,7 +131,7 @@ export class SettingsStore {
             return this._nowPlayingDisplayStore.readPreferClearLogosEnabled(TOGGLE_DEFAULT_BY_ID.preferClearLogos);
         }
 
-        return this._readBooleanKey(TOGGLE_STORAGE_KEY_BY_ID[id], TOGGLE_DEFAULT_BY_ID[id]);
+        return TOGGLE_DEFAULT_BY_ID[id];
     }
 
     writeToggleSetting(id: ToggleSettingId, value: boolean): void {
@@ -165,6 +149,14 @@ export class SettingsStore {
         }
         if (id === 'keepPlayingInSettings') {
             this._profileSessionStore.writeKeepPlayingInSettings(value);
+            return;
+        }
+        if (id === 'debugLogging') {
+            this._developerSettingsStore.writeDebugLoggingEnabled(value);
+            return;
+        }
+        if (id === 'subtitleDebugLogging') {
+            this._developerSettingsStore.writeSubtitleDebugLoggingEnabled(value);
             return;
         }
         if (id === 'smartHdr10Fallback') {
@@ -207,7 +199,7 @@ export class SettingsStore {
             this._nowPlayingDisplayStore.writePreferClearLogosEnabled(value);
             return;
         }
-        safeLocalStorageSet(TOGGLE_STORAGE_KEY_BY_ID[id], value ? '1' : '0');
+        return;
     }
 
     readHdr10FallbackModeValue(): 0 | 1 | 2 {
@@ -235,10 +227,6 @@ export class SettingsStore {
                 this.writeToggleSetting('smartHdr10Fallback', false);
                 this.writeToggleSetting('forceHdr10Fallback', false);
         }
-    }
-
-    private _readBooleanKey(key: string, fallback: boolean): boolean {
-        return readStoredBooleanAndClean(key, fallback);
     }
 
     readEpgLayoutModeValue(): 0 | 1 {
