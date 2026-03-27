@@ -1,6 +1,6 @@
 # Architecture Cleanup Checklist
 
-> V3 established 2026-03-26 from the refreshed holistic review imported from `.desloppify/subagents/runs/20260327_025138`. This replaces the completed wave-2 backlog archived at [`docs/archive/checklists/2026-03-26-architecture-cleanup-checklist-wave-2.md`](./docs/archive/checklists/2026-03-26-architecture-cleanup-checklist-wave-2.md).
+> V3 established 2026-03-26 from the refreshed holistic review imported from `.desloppify/subagents/runs/20260327_025138`.
 
 This document is the active cleanup queue for closing the refreshed holistic `desloppify` review without reopening wave-2 control-plane ambiguity.
 
