@@ -61,8 +61,8 @@ export class ScheduleDayRolloverController {
             currentProgram.scheduledEndTime > dayStart;
 
         if (spansMidnight) {
-            this._pendingDayRolloverDayKey = dayKey;
             this.cancelPendingDayRollover();
+            this._pendingDayRolloverDayKey = dayKey;
             const delayMs = Math.max(0, currentProgram.scheduledEndTime - now + 50);
             this._pendingDayRolloverTimer = globalThis.setTimeout(() => {
                 this._pendingDayRolloverTimer = null;
