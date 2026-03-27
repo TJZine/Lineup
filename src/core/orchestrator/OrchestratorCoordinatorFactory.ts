@@ -85,7 +85,7 @@ import { SleepTimerManager } from '../../modules/ui/sleep-timer';
 import { ChannelSetupCoordinator } from '../channel-setup';
 import { ChannelTuningCoordinator } from '../channel-tuning';
 import type { GuideSelectionSnapshot } from '../channel-tuning';
-import type { IInitializationCoordinator } from '../InitializationCoordinator';
+import type { InitializationCoordinator } from '../InitializationCoordinator';
 import type { ModuleStatus, OrchestratorConfig } from './OrchestratorTypes';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import { NowPlayingDebugManager } from '../../modules/debug/NowPlayingDebugManager';
@@ -102,7 +102,7 @@ export interface OrchestratorCoordinatorFactoryDeps {
     config: OrchestratorConfig | null;
     moduleStatus: Map<string, ModuleStatus>;
 
-    getInitCoordinator: () => IInitializationCoordinator | null;
+    getInitCoordinator: () => InitializationCoordinator | null;
 
     navigation: INavigationManager;
     plexAuth: IPlexAuth;

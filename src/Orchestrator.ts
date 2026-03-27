@@ -100,7 +100,6 @@ import {
     OverlayRuntimePolicyController,
     ProfileSwitchCleanupController,
     PlaybackRuntimeController,
-    type IInitializationCoordinator,
 } from './core';
 import type {
     ModuleStatus,
@@ -337,7 +336,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _errorHandlers: Map<string, (error: AppError) => boolean> = new Map();
     private _eventBinder: OrchestratorEventBinder | null = null;
     private _ready: boolean = false;
-    private _initCoordinator: IInitializationCoordinator | null = null;
+    private _initCoordinator: InitializationCoordinator | null = null;
     private _channelSetup: ChannelSetupCoordinator | null = null;
     private _playbackRuntimeController: PlaybackRuntimeController | null = null;
     private _overlayRuntimePolicyController: OverlayRuntimePolicyController | null = null;
@@ -554,7 +553,7 @@ export class AppOrchestrator implements IAppOrchestrator {
         const coordinators = createOrchestratorCoordinators({
             config: this._config,
             moduleStatus: this._moduleStatus,
-            getInitCoordinator: (): IInitializationCoordinator | null => this._initCoordinator,
+            getInitCoordinator: (): InitializationCoordinator | null => this._initCoordinator,
             navigation: this._navigation,
             plexAuth: this._plexAuth,
             plexDiscovery: this._plexDiscovery,

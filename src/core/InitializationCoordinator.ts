@@ -114,42 +114,6 @@ export interface InitializationCallbacks {
     seedSubtitleLanguageFromPlexUser?: () => void;
 }
 
-/**
- * Public interface for the InitializationCoordinator.
- */
-export interface IInitializationCoordinator {
-    /**
-     * Run the startup sequence starting from the specified phase.
-     * Phases 1-5 execute in order; earlier phases are skipped if startPhase > 1.
-     */
-    runStartup(startPhase: 1 | 2 | 3 | 4 | 5): Promise<void>;
-
-    /**
-     * Check if a startup sequence is currently in progress.
-     */
-    isStartupInProgress(): boolean;
-
-    /**
-     * Ensure EPG is initialized (for lazy initialization outside startup flow).
-     */
-    ensureEPGInitialized(): Promise<void>;
-
-    /**
-     * Clear auth resume listener (cleanup).
-     */
-    clearAuthResume(): void;
-
-    /**
-     * Clear server resume listener (cleanup).
-     */
-    clearServerResume(): void;
-
-    /**
-     * Clear profile resume listener (cleanup).
-     */
-    clearProfileResume(): void;
-}
-
 // ============================================
 // Implementation
 // ============================================
@@ -161,7 +125,7 @@ export interface IInitializationCoordinator {
  * The coordinator is instantiated by Orchestrator with injected dependencies
  * and callbacks, allowing bidirectional communication without tight coupling.
  */
-export class InitializationCoordinator implements IInitializationCoordinator {
+export class InitializationCoordinator {
     private static readonly EPG_WARMUP_DELAY_MS = 1500;
 
     // Startup state
