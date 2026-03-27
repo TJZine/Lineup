@@ -9,6 +9,7 @@ import {
 } from '../utils';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import * as storageHelpers from '../../../../utils/storage';
+import { DebugOverridesStore } from '../../../debug/DebugOverridesStore';
 
 describe('formatCellTimeLabel', () => {
     it('returns full range when forceFull is true', () => {
@@ -41,31 +42,24 @@ describe('appendEpgDebugLog', () => {
     });
 
     it('reuses a cached debug flag between rapid calls', () => {
-        const getItemSpy = jest.spyOn(Storage.prototype, 'getItem');
+        const readEpgDebugSpy = jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabled').mockReturnValue(false);
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_DEBUG, '0');
 
         appendEpgDebugLog('event:one', { ok: true });
         appendEpgDebugLog('event:two', { ok: true });
         appendEpgDebugLog('event:three', { ok: true });
 
-        const debugReads = getItemSpy.mock.calls
-            .map(([key]) => key)
-            .filter((key) => key === LINEUP_STORAGE_KEYS.EPG_DEBUG).length;
-        expect(debugReads).toBe(1);
+        expect(readEpgDebugSpy).toHaveBeenCalledTimes(1);
     });
 
     it('shares one cached debug-flag read across helper and append calls in same refresh window', () => {
-        const getItemSpy = jest.spyOn(Storage.prototype, 'getItem');
+        const readEpgDebugSpy = jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabled').mockReturnValue(true);
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_DEBUG, '1');
 
         expect(isEpgDebugLoggingEnabled()).toBe(true);
         appendEpgDebugLog('event:cached', { ok: true });
 
-        const debugReads = getItemSpy.mock.calls
-            .map(([key]) => key)
-            .filter((key) => key === LINEUP_STORAGE_KEYS.EPG_DEBUG).length;
-
-        expect(debugReads).toBe(1);
+        expect(readEpgDebugSpy).toHaveBeenCalledTimes(1);
     });
 
     it('normalizes non-array stored debug log payloads to an empty list before append', () => {

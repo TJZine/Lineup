@@ -1,17 +1,14 @@
 import { TRANSCODE_QUALITY_OPTIONS } from '../../../config/transcodeQuality';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from '../now-playing-info/constants';
 import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
+import { DeveloperSettingsStore } from '../../settings/DeveloperSettingsStore';
 import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
 import { NowPlayingDisplayStore } from '../../settings/NowPlayingDisplayStore';
 import { PlaybackSettingsStore } from '../../settings/PlaybackSettingsStore';
 import { ProfileSessionStore } from '../../settings/ProfileSessionStore';
 import { SubtitlePreferencesStore } from '../../settings/SubtitlePreferencesStore';
 import type { SubtitleMode } from '../../../shared/subtitle-mode';
-import {
-    readStoredBooleanAndClean,
-    safeLocalStorageSet,
-} from '../../../utils/storage';
-import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEYS } from './constants';
+import { DEFAULT_SETTINGS } from './constants';
 
 const EPG_PAST_ITEMS_STORAGE_VALUES = ['auto', '0', '15', '30'] as const;
 
@@ -36,28 +33,6 @@ export type ToggleSettingId =
     | 'smartHdr10Fallback'
     | 'forceHdr10Fallback';
 
-type DelegatedToggleSettingId =
-    | 'dtsPassthrough'
-    | 'directPlayAudioFallback'
-    | 'transcodeCompat'
-    | 'keepPlayingInSettings'
-    | 'smartHdr10Fallback'
-    | 'forceHdr10Fallback'
-    | 'subtitlePreferForced'
-    | 'guideCategoryColors'
-    | 'epgLibraryTabsEnabled'
-    | 'epgNowWatchingEnabled'
-    | 'epgAggressivePreloadEnabled'
-    | 'showProfilePickerOnStartup'
-    | 'cinematicNowPlaying'
-    | 'preferClearLogos';
-type DirectStorageToggleSettingId = Exclude<ToggleSettingId, DelegatedToggleSettingId>;
-
-const TOGGLE_STORAGE_KEY_BY_ID: Record<DirectStorageToggleSettingId, string> = {
-    debugLogging: SETTINGS_STORAGE_KEYS.DEBUG_LOGGING,
-    subtitleDebugLogging: SETTINGS_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING,
-};
-
 const TOGGLE_DEFAULT_BY_ID: Record<ToggleSettingId, boolean> = {
     dtsPassthrough: DEFAULT_SETTINGS.audio.dtsPassthrough,
     directPlayAudioFallback: DEFAULT_SETTINGS.audio.directPlayAudioFallback,
@@ -77,8 +52,13 @@ const TOGGLE_DEFAULT_BY_ID: Record<ToggleSettingId, boolean> = {
     forceHdr10Fallback: DEFAULT_SETTINGS.playback.forceHdr10Fallback,
 };
 
+function assertNeverToggleSettingId(id: never): never {
+    throw new Error(`Unhandled ToggleSettingId: ${String(id)}`);
+}
+
 export interface SettingsStoreOptions {
     audioSettingsStore?: AudioSettingsStore;
+    developerSettingsStore?: DeveloperSettingsStore;
     playbackSettingsStore?: PlaybackSettingsStore;
     subtitlePreferencesStore?: SubtitlePreferencesStore;
     epgPreferencesStore?: EpgPreferencesStore;
@@ -88,6 +68,7 @@ export interface SettingsStoreOptions {
 
 export class SettingsStore {
     private readonly _audioSettingsStore: AudioSettingsStore;
+    private readonly _developerSettingsStore: DeveloperSettingsStore;
     private readonly _playbackSettingsStore: PlaybackSettingsStore;
     private readonly _subtitlePreferencesStore: SubtitlePreferencesStore;
     private readonly _epgPreferencesStore: EpgPreferencesStore;
@@ -96,6 +77,7 @@ export class SettingsStore {
 
     constructor(options: SettingsStoreOptions = {}) {
         this._audioSettingsStore = options.audioSettingsStore ?? new AudioSettingsStore();
+        this._developerSettingsStore = options.developerSettingsStore ?? new DeveloperSettingsStore();
         this._playbackSettingsStore = options.playbackSettingsStore ?? new PlaybackSettingsStore();
         this._subtitlePreferencesStore = options.subtitlePreferencesStore ?? new SubtitlePreferencesStore();
         this._epgPreferencesStore = options.epgPreferencesStore ?? new EpgPreferencesStore();
@@ -104,110 +86,119 @@ export class SettingsStore {
     }
 
     readToggleSetting(id: ToggleSettingId): boolean {
-        if (id === 'dtsPassthrough') {
-            return this._audioSettingsStore.readDtsPassthroughEnabled(TOGGLE_DEFAULT_BY_ID.dtsPassthrough);
+        switch (id) {
+            case 'dtsPassthrough':
+                return this._audioSettingsStore.readDtsPassthroughEnabled(TOGGLE_DEFAULT_BY_ID.dtsPassthrough);
+            case 'directPlayAudioFallback':
+                return this._audioSettingsStore.readDirectPlayAudioFallbackEnabled(
+                    TOGGLE_DEFAULT_BY_ID.directPlayAudioFallback
+                );
+            case 'keepPlayingInSettings':
+                return this._profileSessionStore.readKeepPlayingInSettings(
+                    TOGGLE_DEFAULT_BY_ID.keepPlayingInSettings
+                );
+            case 'transcodeCompat':
+                return this._playbackSettingsStore.readTranscodeCompatEnabled(TOGGLE_DEFAULT_BY_ID.transcodeCompat);
+            case 'debugLogging':
+                return this._developerSettingsStore.readDebugLoggingEnabled(TOGGLE_DEFAULT_BY_ID.debugLogging);
+            case 'subtitleDebugLogging':
+                return this._developerSettingsStore.readSubtitleDebugLoggingEnabled(
+                    TOGGLE_DEFAULT_BY_ID.subtitleDebugLogging
+                );
+            case 'subtitlePreferForced':
+                return this._subtitlePreferencesStore.readSubtitlePreferForced(
+                    TOGGLE_DEFAULT_BY_ID.subtitlePreferForced
+                );
+            case 'guideCategoryColors':
+                return this._epgPreferencesStore.readGuideCategoryColorsEnabled(
+                    TOGGLE_DEFAULT_BY_ID.guideCategoryColors
+                );
+            case 'epgLibraryTabsEnabled':
+                return this._epgPreferencesStore.readLibraryTabsEnabled(TOGGLE_DEFAULT_BY_ID.epgLibraryTabsEnabled);
+            case 'epgNowWatchingEnabled':
+                return this._epgPreferencesStore.readNowWatchingEnabled(TOGGLE_DEFAULT_BY_ID.epgNowWatchingEnabled);
+            case 'epgAggressivePreloadEnabled':
+                return this._epgPreferencesStore.readAggressivePreloadEnabled(
+                    TOGGLE_DEFAULT_BY_ID.epgAggressivePreloadEnabled
+                );
+            case 'showProfilePickerOnStartup':
+                return this._profileSessionStore.readShowProfilePickerOnStartup(
+                    TOGGLE_DEFAULT_BY_ID.showProfilePickerOnStartup
+                );
+            case 'cinematicNowPlaying':
+                return this._nowPlayingDisplayStore.readCinematicNowPlayingEnabled(
+                    TOGGLE_DEFAULT_BY_ID.cinematicNowPlaying
+                );
+            case 'preferClearLogos':
+                return this._nowPlayingDisplayStore.readPreferClearLogosEnabled(
+                    TOGGLE_DEFAULT_BY_ID.preferClearLogos
+                );
+            case 'smartHdr10Fallback':
+                return this._playbackSettingsStore.readSmartHdr10FallbackEnabled(
+                    TOGGLE_DEFAULT_BY_ID.smartHdr10Fallback
+                );
+            case 'forceHdr10Fallback':
+                return this._playbackSettingsStore.readForceHdr10FallbackEnabled(
+                    TOGGLE_DEFAULT_BY_ID.forceHdr10Fallback
+                );
+            default:
+                return assertNeverToggleSettingId(id);
         }
-        if (id === 'directPlayAudioFallback') {
-            return this._audioSettingsStore.readDirectPlayAudioFallbackEnabled(TOGGLE_DEFAULT_BY_ID.directPlayAudioFallback);
-        }
-        if (id === 'transcodeCompat') {
-            return this._playbackSettingsStore.readTranscodeCompatEnabled(TOGGLE_DEFAULT_BY_ID.transcodeCompat);
-        }
-        if (id === 'keepPlayingInSettings') {
-            return this._profileSessionStore.readKeepPlayingInSettings(TOGGLE_DEFAULT_BY_ID.keepPlayingInSettings);
-        }
-        if (id === 'smartHdr10Fallback') {
-            return this._playbackSettingsStore.readSmartHdr10FallbackEnabled(TOGGLE_DEFAULT_BY_ID.smartHdr10Fallback);
-        }
-        if (id === 'forceHdr10Fallback') {
-            return this._playbackSettingsStore.readForceHdr10FallbackEnabled(TOGGLE_DEFAULT_BY_ID.forceHdr10Fallback);
-        }
-        if (id === 'subtitlePreferForced') {
-            return this._subtitlePreferencesStore.readSubtitlePreferForced(TOGGLE_DEFAULT_BY_ID.subtitlePreferForced);
-        }
-        if (id === 'guideCategoryColors') {
-            return this._epgPreferencesStore.readGuideCategoryColorsEnabled(TOGGLE_DEFAULT_BY_ID.guideCategoryColors);
-        }
-        if (id === 'epgLibraryTabsEnabled') {
-            return this._epgPreferencesStore.readLibraryTabsEnabled(TOGGLE_DEFAULT_BY_ID.epgLibraryTabsEnabled);
-        }
-        if (id === 'epgNowWatchingEnabled') {
-            return this._epgPreferencesStore.readNowWatchingEnabled(TOGGLE_DEFAULT_BY_ID.epgNowWatchingEnabled);
-        }
-        if (id === 'epgAggressivePreloadEnabled') {
-            return this._epgPreferencesStore.readAggressivePreloadEnabled(TOGGLE_DEFAULT_BY_ID.epgAggressivePreloadEnabled);
-        }
-        if (id === 'showProfilePickerOnStartup') {
-            return this._profileSessionStore.readShowProfilePickerOnStartup(TOGGLE_DEFAULT_BY_ID.showProfilePickerOnStartup);
-        }
-        if (id === 'cinematicNowPlaying') {
-            return this._nowPlayingDisplayStore.readCinematicNowPlayingEnabled(TOGGLE_DEFAULT_BY_ID.cinematicNowPlaying);
-        }
-        if (id === 'preferClearLogos') {
-            return this._nowPlayingDisplayStore.readPreferClearLogosEnabled(TOGGLE_DEFAULT_BY_ID.preferClearLogos);
-        }
-
-        return this._readBooleanKey(TOGGLE_STORAGE_KEY_BY_ID[id], TOGGLE_DEFAULT_BY_ID[id]);
     }
 
     writeToggleSetting(id: ToggleSettingId, value: boolean): void {
-        if (id === 'dtsPassthrough') {
-            this._audioSettingsStore.writeDtsPassthroughEnabled(value);
-            return;
+        switch (id) {
+            case 'dtsPassthrough':
+                this._audioSettingsStore.writeDtsPassthroughEnabled(value);
+                return;
+            case 'directPlayAudioFallback':
+                this._audioSettingsStore.writeDirectPlayAudioFallbackEnabled(value);
+                return;
+            case 'keepPlayingInSettings':
+                this._profileSessionStore.writeKeepPlayingInSettings(value);
+                return;
+            case 'transcodeCompat':
+                this._playbackSettingsStore.writeTranscodeCompatEnabled(value);
+                return;
+            case 'debugLogging':
+                this._developerSettingsStore.writeDebugLoggingEnabled(value);
+                return;
+            case 'subtitleDebugLogging':
+                this._developerSettingsStore.writeSubtitleDebugLoggingEnabled(value);
+                return;
+            case 'subtitlePreferForced':
+                this._subtitlePreferencesStore.writeSubtitlePreferForced(value);
+                return;
+            case 'guideCategoryColors':
+                this._epgPreferencesStore.writeGuideCategoryColorsEnabled(value);
+                return;
+            case 'epgLibraryTabsEnabled':
+                this._epgPreferencesStore.writeLibraryTabsEnabled(value);
+                return;
+            case 'epgNowWatchingEnabled':
+                this._epgPreferencesStore.writeNowWatchingEnabled(value);
+                return;
+            case 'epgAggressivePreloadEnabled':
+                this._epgPreferencesStore.writeAggressivePreloadEnabled(value);
+                return;
+            case 'showProfilePickerOnStartup':
+                this._profileSessionStore.writeShowProfilePickerOnStartup(value);
+                return;
+            case 'cinematicNowPlaying':
+                this._nowPlayingDisplayStore.writeCinematicNowPlayingEnabled(value);
+                return;
+            case 'preferClearLogos':
+                this._nowPlayingDisplayStore.writePreferClearLogosEnabled(value);
+                return;
+            case 'smartHdr10Fallback':
+                this._playbackSettingsStore.writeSmartHdr10FallbackEnabled(value);
+                return;
+            case 'forceHdr10Fallback':
+                this._playbackSettingsStore.writeForceHdr10FallbackEnabled(value);
+                return;
+            default:
+                return assertNeverToggleSettingId(id);
         }
-        if (id === 'directPlayAudioFallback') {
-            this._audioSettingsStore.writeDirectPlayAudioFallbackEnabled(value);
-            return;
-        }
-        if (id === 'transcodeCompat') {
-            this._playbackSettingsStore.writeTranscodeCompatEnabled(value);
-            return;
-        }
-        if (id === 'keepPlayingInSettings') {
-            this._profileSessionStore.writeKeepPlayingInSettings(value);
-            return;
-        }
-        if (id === 'smartHdr10Fallback') {
-            this._playbackSettingsStore.writeSmartHdr10FallbackEnabled(value);
-            return;
-        }
-        if (id === 'forceHdr10Fallback') {
-            this._playbackSettingsStore.writeForceHdr10FallbackEnabled(value);
-            return;
-        }
-        if (id === 'subtitlePreferForced') {
-            this._subtitlePreferencesStore.writeSubtitlePreferForced(value);
-            return;
-        }
-        if (id === 'guideCategoryColors') {
-            this._epgPreferencesStore.writeGuideCategoryColorsEnabled(value);
-            return;
-        }
-        if (id === 'epgLibraryTabsEnabled') {
-            this._epgPreferencesStore.writeLibraryTabsEnabled(value);
-            return;
-        }
-        if (id === 'epgNowWatchingEnabled') {
-            this._epgPreferencesStore.writeNowWatchingEnabled(value);
-            return;
-        }
-        if (id === 'epgAggressivePreloadEnabled') {
-            this._epgPreferencesStore.writeAggressivePreloadEnabled(value);
-            return;
-        }
-        if (id === 'showProfilePickerOnStartup') {
-            this._profileSessionStore.writeShowProfilePickerOnStartup(value);
-            return;
-        }
-        if (id === 'cinematicNowPlaying') {
-            this._nowPlayingDisplayStore.writeCinematicNowPlayingEnabled(value);
-            return;
-        }
-        if (id === 'preferClearLogos') {
-            this._nowPlayingDisplayStore.writePreferClearLogosEnabled(value);
-            return;
-        }
-        safeLocalStorageSet(TOGGLE_STORAGE_KEY_BY_ID[id], value ? '1' : '0');
     }
 
     readHdr10FallbackModeValue(): 0 | 1 | 2 {
@@ -235,10 +226,6 @@ export class SettingsStore {
                 this.writeToggleSetting('smartHdr10Fallback', false);
                 this.writeToggleSetting('forceHdr10Fallback', false);
         }
-    }
-
-    private _readBooleanKey(key: string, fallback: boolean): boolean {
-        return readStoredBooleanAndClean(key, fallback);
     }
 
     readEpgLayoutModeValue(): 0 | 1 {

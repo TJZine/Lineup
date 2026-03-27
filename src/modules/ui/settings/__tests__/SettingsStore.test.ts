@@ -3,7 +3,9 @@
  */
 
 import { SettingsStore } from '../SettingsStore';
+import type { SettingsStoreOptions } from '../SettingsStore';
 import { SETTINGS_STORAGE_KEYS, DEFAULT_SETTINGS } from '../constants';
+import type { DeveloperSettingsStore } from '../../../settings/DeveloperSettingsStore';
 
 const SUBTITLE_OPTIONS = [
     { code: null },
@@ -25,15 +27,67 @@ describe('SettingsStore', () => {
         store = new SettingsStore();
     });
 
-    it('reads/writes debugLogging toggle through semantic API', () => {
-        expect(store.readToggleSetting('debugLogging')).toBe(DEFAULT_SETTINGS.developer.debugLogging);
+    it('delegates debug logging toggle reads/writes to DeveloperSettingsStore', () => {
+        const developerSettingsStore = {
+            readDebugLoggingEnabled: jest.fn().mockReturnValue(true),
+            writeDebugLoggingEnabled: jest.fn(),
+            readSubtitleDebugLoggingEnabled: jest.fn().mockReturnValue(false),
+            writeSubtitleDebugLoggingEnabled: jest.fn(),
+        } as unknown as DeveloperSettingsStore;
+        const delegatedStore = new SettingsStore({ developerSettingsStore });
 
-        store.writeToggleSetting('debugLogging', true);
-        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING)).toBe('1');
-        expect(store.readToggleSetting('debugLogging')).toBe(true);
+        expect(delegatedStore.readToggleSetting('debugLogging')).toBe(true);
+        expect(developerSettingsStore.readDebugLoggingEnabled).toHaveBeenCalledWith(DEFAULT_SETTINGS.developer.debugLogging);
 
-        store.writeToggleSetting('debugLogging', false);
-        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING)).toBe('0');
+        delegatedStore.writeToggleSetting('debugLogging', true);
+        expect(developerSettingsStore.writeDebugLoggingEnabled).toHaveBeenCalledWith(true);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING)).toBeNull();
+    });
+
+    it('delegates subtitle debug logging toggle reads/writes to DeveloperSettingsStore', () => {
+        const developerSettingsStore = {
+            readDebugLoggingEnabled: jest.fn().mockReturnValue(false),
+            writeDebugLoggingEnabled: jest.fn(),
+            readSubtitleDebugLoggingEnabled: jest.fn().mockReturnValue(true),
+            writeSubtitleDebugLoggingEnabled: jest.fn(),
+        } as unknown as DeveloperSettingsStore;
+        const delegatedStore = new SettingsStore({ developerSettingsStore });
+
+        expect(delegatedStore.readToggleSetting('subtitleDebugLogging')).toBe(true);
+        expect(developerSettingsStore.readSubtitleDebugLoggingEnabled).toHaveBeenCalledWith(DEFAULT_SETTINGS.developer.subtitleDebugLogging);
+
+        delegatedStore.writeToggleSetting('subtitleDebugLogging', false);
+        expect(developerSettingsStore.writeSubtitleDebugLoggingEnabled).toHaveBeenCalledWith(false);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING)).toBeNull();
+    });
+
+    it('delegates smart/force HDR fallback toggle reads and writes explicitly', () => {
+        const playbackSettingsStore = {
+            readTranscodeCompatEnabled: jest.fn().mockReturnValue(false),
+            writeTranscodeCompatEnabled: jest.fn(),
+            readSmartHdr10FallbackEnabled: jest.fn().mockReturnValue(true),
+            writeSmartHdr10FallbackEnabled: jest.fn(),
+            readForceHdr10FallbackEnabled: jest.fn().mockReturnValue(false),
+            writeForceHdr10FallbackEnabled: jest.fn(),
+        } as unknown as NonNullable<SettingsStoreOptions['playbackSettingsStore']>;
+
+        const delegatedStore = new SettingsStore({ playbackSettingsStore });
+
+        expect(delegatedStore.readToggleSetting('smartHdr10Fallback')).toBe(true);
+        expect(playbackSettingsStore.readSmartHdr10FallbackEnabled).toHaveBeenCalledWith(
+            DEFAULT_SETTINGS.playback.smartHdr10Fallback
+        );
+
+        expect(delegatedStore.readToggleSetting('forceHdr10Fallback')).toBe(false);
+        expect(playbackSettingsStore.readForceHdr10FallbackEnabled).toHaveBeenCalledWith(
+            DEFAULT_SETTINGS.playback.forceHdr10Fallback
+        );
+
+        delegatedStore.writeToggleSetting('smartHdr10Fallback', false);
+        delegatedStore.writeToggleSetting('forceHdr10Fallback', true);
+
+        expect(playbackSettingsStore.writeSmartHdr10FallbackEnabled).toHaveBeenCalledWith(false);
+        expect(playbackSettingsStore.writeForceHdr10FallbackEnabled).toHaveBeenCalledWith(true);
     });
 
     it('defaults epgNowWatchingEnabled toggle to true when missing', () => {

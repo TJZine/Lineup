@@ -46,21 +46,29 @@ export const advanceTimersUntil = async (
         throw new Error(`advanceTimersUntil requires timeoutMs > 0 (received ${timeoutMs}).`);
     }
 
-    const maxPasses = Math.ceil(timeoutMs / stepMs);
+    let elapsedMs = 0;
     let lastError: unknown = null;
-    for (let pass = 0; pass <= maxPasses; pass++) {
+
+    while (true) {
         try {
             assertNow();
             return;
         } catch (error: unknown) {
             lastError = error;
         }
-        await jest.advanceTimersByTimeAsync(stepMs);
+
+        if (elapsedMs >= timeoutMs) {
+            break;
+        }
+
+        const advanceMs = Math.min(stepMs, timeoutMs - elapsedMs);
+        await jest.advanceTimersByTimeAsync(advanceMs);
+        elapsedMs += advanceMs;
         await flushPromises();
     }
 
     const reason = lastError instanceof Error ? ` Last assertion: ${lastError.message}` : '';
-    throw new Error(`advanceTimersUntil timed out after ${timeoutMs}ms.${reason}`);
+    throw new Error(`advanceTimersUntil timed out after ${elapsedMs}ms.${reason}`);
 };
 
 export type Deferred<T> = {

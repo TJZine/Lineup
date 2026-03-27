@@ -24,6 +24,14 @@ describe('DeveloperSettingsStore', () => {
         expect(store.readDebugLoggingEnabled(true)).toBe(false);
     });
 
+    it('writes debug logging true/false', () => {
+        const store = new DeveloperSettingsStore();
+        store.writeDebugLoggingEnabled(true);
+        expect(mockLocalStorage.getItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING)).toBe('1');
+        store.writeDebugLoggingEnabled(false);
+        expect(mockLocalStorage.getItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING)).toBe('0');
+    });
+
     it('normalizes invalid debug logging values', () => {
         const store = new DeveloperSettingsStore();
         mockLocalStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, 'true');
@@ -60,10 +68,38 @@ describe('DeveloperSettingsStore', () => {
         expect(store.readSubtitleDebugLoggingEnabled(true)).toBe(false);
     });
 
+    it('writes subtitle debug logging true/false', () => {
+        const store = new DeveloperSettingsStore();
+        store.writeSubtitleDebugLoggingEnabled(true);
+        expect(mockLocalStorage.getItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING)).toBe('1');
+        store.writeSubtitleDebugLoggingEnabled(false);
+        expect(mockLocalStorage.getItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING)).toBe('0');
+    });
+
     it('normalizes invalid subtitle debug logging values', () => {
         const store = new DeveloperSettingsStore();
         mockLocalStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING, 'yes');
         expect(store.readSubtitleDebugLoggingEnabled(false)).toBe(false);
         expect(mockLocalStorage.getItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING)).toBe(null);
+    });
+
+    it('keeps debug toggle reads/writes non-fatal when storage is blocked', () => {
+        const store = new DeveloperSettingsStore();
+        const getSpy = jest.spyOn(mockLocalStorage, 'getItem').mockImplementation(() => {
+            throw new DOMException('Blocked', 'SecurityError');
+        });
+        const setSpy = jest.spyOn(mockLocalStorage, 'setItem').mockImplementation(() => {
+            throw new DOMException('Blocked', 'SecurityError');
+        });
+
+        try {
+            expect(() => store.readDebugLoggingEnabled(false)).not.toThrow();
+            expect(() => store.readSubtitleDebugLoggingEnabled(false)).not.toThrow();
+            expect(() => store.writeDebugLoggingEnabled(true)).not.toThrow();
+            expect(() => store.writeSubtitleDebugLoggingEnabled(true)).not.toThrow();
+        } finally {
+            getSpy.mockRestore();
+            setSpy.mockRestore();
+        }
     });
 });

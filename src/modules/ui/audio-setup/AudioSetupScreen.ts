@@ -5,8 +5,7 @@
  */
 
 import type { INavigationManager, FocusableElement } from '../../navigation';
-import { SETTINGS_STORAGE_KEYS, DEFAULT_SETTINGS } from '../settings/constants';
-import { safeLocalStorageSet, readStoredBoolean } from '../../../utils/storage';
+import { DEFAULT_SETTINGS } from '../settings/constants';
 import { setTrustedInlineSvg } from '../../../utils/inlineSvg';
 import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
 
@@ -244,8 +243,7 @@ export class AudioSetupScreen {
         }
 
         // Mark audio setup as complete
-        // Store as '1'
-        safeLocalStorageSet(SETTINGS_STORAGE_KEYS.AUDIO_SETUP_COMPLETE, '1');
+        this._audioSettingsStore.writeAudioSetupComplete(true);
         this._audioSettingsStore.writeDirectPlayAudioFallbackEnabled(this._directPlayFallbackEnabled);
 
         this._onComplete();
@@ -255,7 +253,7 @@ export class AudioSetupScreen {
      * Check if audio setup is already complete.
      */
     public static isSetupComplete(): boolean {
-        return readStoredBoolean(SETTINGS_STORAGE_KEYS.AUDIO_SETUP_COMPLETE, false);
+        return new AudioSettingsStore().readAudioSetupComplete(false);
     }
 
     /**

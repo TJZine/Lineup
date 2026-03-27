@@ -14,12 +14,29 @@ Lineup's rule is simple: one storage namespace, one owner.
 ## Current Storage Owners
 
 - [`src/modules/lifecycle/StateManager.ts`](../../../src/modules/lifecycle/StateManager.ts)
-- [`src/modules/ui/settings/SettingsStore.ts`](../../../src/modules/ui/settings/SettingsStore.ts)
-- [`src/modules/settings/AudioSettingsStore.ts`](../../../src/modules/settings/AudioSettingsStore.ts)
-- [`src/modules/debug/DebugOverridesStore.ts`](../../../src/modules/debug/DebugOverridesStore.ts)
+- [`src/modules/settings/AudioSettingsStore.ts`](../../../src/modules/settings/AudioSettingsStore.ts) - owns audio toggles plus `lineup_audio_setup_complete`
+- [`src/modules/settings/DeveloperSettingsStore.ts`](../../../src/modules/settings/DeveloperSettingsStore.ts) - owns `debugLogging` and `subtitleDebugLogging`
+- [`src/modules/settings/PlaybackSettingsStore.ts`](../../../src/modules/settings/PlaybackSettingsStore.ts)
+- [`src/modules/settings/EpgPreferencesStore.ts`](../../../src/modules/settings/EpgPreferencesStore.ts)
+- [`src/modules/settings/NowPlayingDisplayStore.ts`](../../../src/modules/settings/NowPlayingDisplayStore.ts)
+- [`src/modules/settings/ProfileSessionStore.ts`](../../../src/modules/settings/ProfileSessionStore.ts)
+- [`src/modules/settings/SubtitlePreferencesStore.ts`](../../../src/modules/settings/SubtitlePreferencesStore.ts) - owns subtitle mode policy including burn-in allowance
+- [`src/modules/settings/ThemePreferencesStore.ts`](../../../src/modules/settings/ThemePreferencesStore.ts)
+- [`src/modules/debug/DebugOverridesStore.ts`](../../../src/modules/debug/DebugOverridesStore.ts) - owns debug overrides including `lineup_debug_epg`
+- [`src/modules/debug/IssueDiagnosticsStore.ts`](../../../src/modules/debug/IssueDiagnosticsStore.ts)
+- [`src/modules/plex/auth/PlexAuth.ts`](../../../src/modules/plex/auth/PlexAuth.ts)
+- [`src/modules/plex/auth/clientIdentifier.ts`](../../../src/modules/plex/auth/clientIdentifier.ts)
 - [`src/modules/plex/discovery/ServerSelectionStore.ts`](../../../src/modules/plex/discovery/ServerSelectionStore.ts)
 - [`src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`](../../../src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts)
+- [`src/core/channel-setup/ChannelSetupRecordStore.ts`](../../../src/core/channel-setup/ChannelSetupRecordStore.ts)
 - Shared storage helpers in [`src/utils/storage.ts`](../../../src/utils/storage.ts)
+
+## Bounded Exceptions
+
+- [`src/modules/ui/epg/utils.ts`](../../../src/modules/ui/epg/utils.ts)
+  - UI-layer helper exception for the bounded `lineup_debug_epg_log` cache only
+  - not precedent for adding new raw `localStorage` access in UI/helpers
+  - `lineup_debug_epg` flag ownership remains in [`src/modules/debug/DebugOverridesStore.ts`](../../../src/modules/debug/DebugOverridesStore.ts)
 
 ## Core Rules
 

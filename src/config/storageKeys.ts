@@ -42,10 +42,9 @@ export const LINEUP_STORAGE_KEYS = {
      * - direct: only show subtitles that can be fetched directly (best performance)
      * - standard: allow extraction for text subtitles while avoiding burn-in transcoding
      * - full: allow burn-in (image/styled) subtitles via transcoding (default)
-     */
+    */
     SUBTITLE_MODE: 'lineup_subtitle_mode',
     SUBTITLE_LANGUAGE: 'lineup_subtitle_language',
-    SUBTITLE_ALLOW_BURN_IN: 'lineup_subtitle_allow_burn_in',
     /** Prefer forced subtitles over full subtitles */
     SUBTITLE_PREFER_FORCED: 'lineup_subtitle_prefer_forced',
     // Guide / EPG

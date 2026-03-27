@@ -1,8 +1,4 @@
-/**
- * @fileoverview Settings screen component.
- * @module modules/ui/settings/SettingsScreen
- * @version 1.0.0
- */
+/** Settings screen component. */
 
 import type { INavigationManager, FocusableElement, KeyEvent } from '../../navigation';
 import { createSettingsToggle } from './SettingsToggle';

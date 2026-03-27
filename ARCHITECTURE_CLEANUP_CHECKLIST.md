@@ -34,6 +34,14 @@ Completion rule: every implementation plan that finishes a `P#-W#` work unit mus
   - priority-exit refresh captured on `2026-03-11` in `.worktrees/p1-exit-closeout` from `desloppify status`, `desloppify show review --status open`, `desloppify show security --status open --no-budget --top 50`, and `npm run verify`
   - `desloppify status`: `strict 75.0 / objective 94.4 / subjective 62.1`
   - current queue shape at `P1-EXIT`: `62` open review issues, `16` open security issues, and `349` global open items in the refreshed worktree state
+- Priority 8 exit refresh:
+  - evidence captured on `2026-03-26` from `git branch --show-current`, `git status -sb`, `rg -n "## Priority 8|P8-W[1-5]|P8-EXIT" ARCHITECTURE_CLEANUP_CHECKLIST.md`, `desloppify status`, `desloppify show review --status open --no-budget --top 200`, `desloppify show security --status open --no-budget --top 50`, `desloppify show "review::.::holistic::ai_generated_debt::comment_template_ceremony" --status all`, and the exact-id `node -e` proof
+  - `git branch --show-current`: `feature/initial-build`
+  - `git status -sb`: `## feature/initial-build...origin/feature/initial-build [ahead 16]` plus the five pre-existing untracked `docs/plans/2026-03-26-p7-*` plan docs
+  - `desloppify status`: `overall 70.3/100 · objective 95.2/100 · strict 70.1/100 · verified 95.2/100`
+  - `desloppify show review --status open --no-budget --top 200`: `No open issues matching: review`
+  - `desloppify show security --status open --no-budget --top 50`: `No open issues for Security`
+  - exact-id proof: `review::.::holistic::ai_generated_debt::comment_template_ceremony status=fixed`
 - Raw imported subjective baseline:
   - full-batch average across all `20` dimensions: `79.2`
   - weakest raw batch dimensions: `cross_module_architecture 72.0`, `design_coherence 74.0`, `abstraction_fitness 74.0`, `error_consistency 74.6`, `ai_generated_debt 76.0`, `test_strategy 77.2`
@@ -566,7 +574,7 @@ Do not close a listed work unit while its mapped imported issue still remains un
       - `desloppify show review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f --no-budget` -> `1 open issues matching ...` (post-reopen baseline)
       - `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23 --no-budget` -> `1 open issues matching ...` (post-reopen baseline)
       - `desloppify review --run-batches --runner codex --parallel --dimensions design_coherence,convention_outlier --force-review-rerun --scan-after-import` -> `completed batches; import blocked for partial-dimension coverage`
-      - `desloppify review --import-run /Users/tristan/Software/Lineup/.desloppify/subagents/runs/20260313_093821 --allow-partial --scan-after-import` -> `imported 2 dimensions; +7 new issues, 62 resolved`
+      - `desloppify review --import-run .desloppify/subagents/runs/20260313_093821 --allow-partial --scan-after-import` -> `imported 2 dimensions; +7 new issues, 62 resolved`
       - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"` -> `PASS` (post-review refresh)
       - `desloppify show review::.::holistic::design_coherence::navigation_manager_overloaded_input_stack::d3d8f55f --no-budget` -> `No open issues matching ...`
       - `desloppify show review::.::holistic::convention_outlier::container_id_convention_split::89da5d23 --no-budget` -> `No open issues matching ...`
@@ -1085,16 +1093,79 @@ Do not close a listed work unit while its mapped imported issue still remains un
   - remove known cleanup residue and low-value ceremony from touched production areas
   - keep active docs current and archive historical material instead of leaving it mixed into live surfaces
   - keep imported-review evidence, current-state docs, and the active checklist in sync as the cleanup backlog evolves
+  - fix any code-level persistence boundary drift uncovered by `P8-W2` before the final whole-repo `desloppify` rerun so the refreshed docs can describe actual current ownership instead of intended ownership
 - Nice-to-do while in the area:
   - prune small doc/comment noise that is clearly redundant after the main cleanup
   - consolidate minor control-plane wording drift if it is directly adjacent to the required edits
 - Cleanup track:
-  - [ ] `P8-W1` remove low-value template/docblock scaffolding in all high-noise hotspot areas confirmed by the imported review
-  - [ ] `P8-W2` clean up documented drift between the active backlog, `CURRENT_STATE`, and the real persistence-owner map
-  - [ ] `P8-W3` remove review-history breadcrumbs, migration residue comments, and stale cleanup scaffolding from production code across the affected priorities
-  - [ ] `P8-W4` audit remaining control-plane wording drift so active docs stay live and archives stay historical
-  - [ ] `P8-EXIT` run the priority-exit review before declaring the cleanup backlog complete
+  - [x] `P8-W1` remove low-value template/docblock scaffolding in all high-noise hotspot areas confirmed by the imported review (`review::.::holistic::ai_generated_debt::comment_template_ceremony` resolved with attested note on merged branch; cleanup applied in `src/modules/plex/discovery/PlexServerDiscovery.ts`, `src/modules/player/types.ts`, `src/modules/lifecycle/interfaces.ts`)
+  - [x] `P8-W2` clean up documented drift between the active backlog, `CURRENT_STATE`, and the real persistence-owner map
+    - Evidence note (2026-03-26):
+      - re-derived the owner map from deterministic production inventories:
+        - `rg -l "safeLocalStorage(Get|Set|Remove|SetWithResult)" src --glob '!**/__tests__/**' | sort`
+        - `rg -l "LINEUP_STORAGE_KEYS\\." src | sort`
+        - `rg -n --pcre2 "^(?!\\s*(//|/\\*|\\*)).*\\blocalStorage\\.(getItem|setItem|removeItem|clear|key)\\(" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`
+        - `rg -n "\\blineup_[a-z0-9_]+" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`
+        - `rg -n "\\bstorage(Get|Set|Remove)\\s*:" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`
+      - updated `docs/architecture/CURRENT_STATE.md`, `docs/architecture/modules.md`, and `.codex/skills/persistence-boundaries/SKILL.md` so they reflect the current mixed-owner state, the helper-only cleanup keys, and the residual direct-storage drift explicitly instead of overclaiming a canonical single-owner map
+      - follow-up status (2026-03-26): `P8-W5` closed the remaining drift seams (`lineup_audio_setup_complete`, `lineup_subtitle_allow_burn_in`, and `lineup_debug_epg`) and removed the stale `EPGCoordinatorPolicies.ts` wording from active docs
+      - review-suggestion cleanup (2026-03-26):
+        - reclassified `src/modules/ui/epg/utils.ts` as a bounded persistence exception in the repo skill and architecture docs so the dedicated owner/store/repository rule stays normative
+        - made `SettingsStore` toggle dispatch exhaustive with `assertNever`
+        - narrowed playback override clearing so it no longer disables `lineup_debug_epg`
+        - replaced the orchestrator audio-setup spy test with a startup-routing behavior assertion
+        - hardened the developer-settings blocked-storage test with `try/finally` spy cleanup
+  - [x] `P8-W3` remove review-history breadcrumbs, migration residue comments, and stale cleanup scaffolding from production code across the affected priorities
+    - Evidence note (2026-03-26): implemented via `docs/plans/2026-03-26-p8-w3-cleanup-residue-and-migration-scaffolding.md`; cleaned comment scaffolding in `src/modules/lifecycle/constants.ts`, `src/bootstrap.ts`, `src/App.ts`, `src/Orchestrator.ts`, `src/modules/ui/epg/EPGComponent.ts`, `src/modules/ui/settings/SettingsScreen.ts`, `src/modules/ui/channel-setup/ChannelSetupScreen.ts`, `src/modules/plex/stream/PlexStreamResolver.ts`, and `src/modules/scheduler/channel-manager/ChannelManager.ts`.
+  - [x] `P8-W4` audit remaining control-plane wording drift so active docs stay live and archives stay historical
+    - Evidence note (2026-03-26): implemented via `docs/plans/2026-03-26-p8-w4-control-plane-wording-drift-audit.md`; updated `docs/agentic/session-prompts/workflow-harness-review.md`, `docs/agentic/skill-strategy.md`, and this checklist; verified with `npm run verify:docs` and the scoped drift-inventory `rg` checks.
+  - [x] `P8-W5` enforce the remaining persistence-owner boundaries exposed by `P8-W2`, then refresh the persistence-owner docs/skill to match the corrected code before `P8-EXIT`
+    - scope: code-first cleanup for the still-split persistence seams (`SettingsStore` debug flags vs `DeveloperSettingsStore`, direct `lineup_audio_setup_complete` reads/writes in startup/setup flow, direct `lineup_subtitle_allow_burn_in` read in `Orchestrator`, and any same-slice persistence-owner/doc truth fallout)
+    - acceptance: the corrected code establishes one canonical owner per touched key family, removes the known direct-storage bypasses in those seams without adding fallback paths, and refreshes `CURRENT_STATE.md`, `modules.md`, `.codex/skills/persistence-boundaries/SKILL.md`, and the checklist evidence note in the same delivery pass
+    - Evidence note (2026-03-26):
+      - ownership seams landed:
+        - `SettingsStore` now delegates `debugLogging`/`subtitleDebugLogging` to `DeveloperSettingsStore`
+        - `AudioSetupScreen` and `Orchestrator` now use `AudioSettingsStore` for `lineup_audio_setup_complete`
+        - `Orchestrator` now uses `SubtitlePreferencesStore.readSubtitleMode()` + `subtitleModeAllowsBurnIn()` and the legacy `SUBTITLE_ALLOW_BURN_IN` key was removed from `src/config/storageKeys.ts`
+        - `DebugOverridesStore` now owns `lineup_debug_epg`; `src/modules/ui/epg/utils.ts` remains the bounded `lineup_debug_epg_log` helper/log boundary
+      - verification commands:
+        - `npm test -- src/modules/settings/__tests__/DeveloperSettingsStore.test.ts src/modules/ui/settings/__tests__/SettingsStore.test.ts`
+        - `npm test -- src/modules/settings/__tests__/AudioSettingsStore.test.ts src/modules/ui/audio-setup/__tests__/AudioSetupScreen.test.ts src/__tests__/Orchestrator.test.ts`
+        - `npm test -- src/modules/settings/__tests__/SubtitlePreferencesStore.test.ts src/__tests__/Orchestrator.test.ts`
+        - `npm test -- src/modules/debug/__tests__/DebugOverridesStore.test.ts src/modules/ui/epg/__tests__/utils.test.ts src/modules/ui/epg/__tests__/EPGComponent.test.ts`
+        - `npm test -- src/modules/ui/epg/__tests__/EPGCoordinator.test.ts src/modules/ui/epg/__tests__/EPGTimeHeader.test.ts src/modules/ui/epg/__tests__/EPGChannelList.test.ts src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts`
+        - `npm run verify`
+        - `npm run verify:docs`
+        - `npm run plans:check`
+  - [x] `P8-EXIT` run the priority-exit review before declaring the cleanup backlog complete (done 2026-03-26, integration branch `feature/initial-build`)
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 8
+    - Priority-exit review evidence refresh (authoritative integration-branch run):
+      - freshness/routing checks:
+        - `git branch --show-current` -> `feature/initial-build`
+        - `git status -sb` -> `## feature/initial-build...origin/feature/initial-build [ahead 16]` plus the five pre-existing untracked `docs/plans/2026-03-26-p7-*` plan docs
+        - `rg -n "## Priority 8|P8-W[1-5]|P8-EXIT" ARCHITECTURE_CLEANUP_CHECKLIST.md` -> `P8-W1..P8-W5` closed and `P8-EXIT` open before exit closeout
+      - detector/state refresh:
+        - `desloppify status` -> `overall 70.3/100 · objective 95.2/100 · strict 70.1/100 · verified 95.2/100`
+        - `desloppify show review --status open --no-budget --top 200` -> `No open issues matching: review`
+        - `desloppify show security --status open --no-budget --top 50` -> `No open issues for Security`
+        - `desloppify show "review::.::holistic::ai_generated_debt::comment_template_ceremony" --status all` -> the unsuffixed issue is already `fixed`; the live `○` row is the historical `::summary_hash` record
+      - mapped imported issue dispositions (exact ids):
+        - `review::.::holistic::ai_generated_debt::comment_template_ceremony` -> `resolved`
+      - follow-up ownership:
+        - none
+      - security triage:
+        - `no open P0 security findings`
+      - residuals:
+        - none
+      - post-resolution exact-id proof:
+        - `node -e 'const fs=require("fs"); const s=JSON.parse(fs.readFileSync(".desloppify/state-typescript.json","utf8")); const ids=["review::.::holistic::ai_generated_debt::comment_template_ceremony"]; let ok=true; for(const id of ids){ const issue=s.work_items?.[id]; const status=issue?.status; console.log(`${id} status=${status}`); if(!issue||status==="open"){ ok=false; } } process.exit(ok?0:1);'` -> `review::.::holistic::ai_generated_debt::comment_template_ceremony status=fixed`
+      - verification reruns:
+        - `npm run verify`
+        - `npm run verify:docs`
+        - `npm run plans:check`
+      - gate decision:
+        - `Priority 8 exit gates pass.`
+        - `Priority 8 cleanup backlog complete.`
 
 ## Closeout Rules For This Checklist
 
