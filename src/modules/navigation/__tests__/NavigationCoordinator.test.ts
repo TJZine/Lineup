@@ -63,9 +63,50 @@ const makeKeyEvent = (
     ...overrides,
 });
 
-const setup = (overrides: Partial<NavigationCoordinatorDeps> = {}): {
+type LegacyNavigationCoordinatorDeps = {
+    videoPlayer: IVideoPlayer | null;
+    plexAuth: IPlexAuth | null;
+    stopPlayback: jest.Mock;
+    pokePlayerOsd: jest.Mock;
+    togglePlayerOsd: jest.Mock;
+    getSeekIncrementMs: jest.Mock;
+    isPlayerOsdVisible: jest.Mock;
+    showMiniGuide: jest.Mock;
+    hideMiniGuide: jest.Mock;
+    isMiniGuideVisible: jest.Mock;
+    handleMiniGuideNavigation: jest.Mock;
+    handleMiniGuidePage: jest.Mock;
+    handleMiniGuideSelect: jest.Mock;
+    isNowPlayingModalOpen: jest.Mock;
+    toggleNowPlayingInfoOverlay: jest.Mock;
+    showNowPlayingInfoOverlay: jest.Mock;
+    hideNowPlayingInfoOverlay: jest.Mock;
+    playbackOptionsModalId: string;
+    preparePlaybackOptionsModal: jest.Mock;
+    showPlaybackOptionsModal: jest.Mock;
+    hidePlaybackOptionsModal: jest.Mock;
+    exitConfirmModalId: string;
+    prepareExitConfirmModal: jest.Mock;
+    showExitConfirmModal: jest.Mock;
+    hideExitConfirmModal: jest.Mock;
+    setLastChannelChangeSourceRemote: jest.Mock;
+    setLastChannelChangeSourceNumber: jest.Mock;
+    switchToNextChannel: jest.Mock;
+    switchToPreviousChannel: jest.Mock;
+    switchToChannelByNumber: jest.Mock;
+    focusEpgOnCurrentChannel: jest.Mock;
+    onChannelInputUpdate?: jest.Mock;
+    toggleEpg: jest.Mock;
+    shouldRunChannelSetup: jest.Mock;
+    hidePlayerOsd: jest.Mock;
+    hideChannelTransition: jest.Mock;
+};
+
+const setup = (
+    overrides: Partial<NavigationCoordinatorDeps> & Partial<LegacyNavigationCoordinatorDeps> = {}
+): {
     coordinator: NavigationCoordinator;
-    deps: NavigationCoordinatorDeps;
+    deps: NavigationCoordinatorDeps & LegacyNavigationCoordinatorDeps;
     handlers: HandlerMap;
     navigation: INavigationManager;
     epg: IEPGComponent;
@@ -92,9 +133,7 @@ const setup = (overrides: Partial<NavigationCoordinatorDeps> = {}): {
         isAuthenticated: jest.fn().mockReturnValue(true),
     } as unknown as IPlexAuth;
 
-    const deps: NavigationCoordinatorDeps = {
-        navigation,
-        epg,
+    const legacy: LegacyNavigationCoordinatorDeps = {
         videoPlayer,
         plexAuth,
         stopPlayback: jest.fn(),
@@ -108,7 +147,7 @@ const setup = (overrides: Partial<NavigationCoordinatorDeps> = {}): {
         handleMiniGuideNavigation: jest.fn().mockReturnValue(true),
         handleMiniGuidePage: jest.fn().mockReturnValue(true),
         handleMiniGuideSelect: jest.fn(),
-        isNowPlayingModalOpen: () => false,
+        isNowPlayingModalOpen: jest.fn().mockReturnValue(false),
         toggleNowPlayingInfoOverlay: jest.fn(),
         showNowPlayingInfoOverlay: jest.fn(),
         hideNowPlayingInfoOverlay: jest.fn(),
@@ -135,13 +174,79 @@ const setup = (overrides: Partial<NavigationCoordinatorDeps> = {}): {
         shouldRunChannelSetup: jest.fn().mockReturnValue(false),
         hidePlayerOsd: jest.fn(),
         hideChannelTransition: jest.fn(),
+    };
+    Object.assign(legacy, overrides);
+
+    const deps: NavigationCoordinatorDeps = {
+        navigation,
+        epg,
+        playback: {
+            videoPlayer: legacy.videoPlayer,
+            plexAuth: legacy.plexAuth,
+            stopPlayback: legacy.stopPlayback,
+            getSeekIncrementMs: legacy.getSeekIncrementMs,
+            playerOsd: {
+                overlay: { isVisible: legacy.isPlayerOsdVisible },
+                coordinator: {
+                    poke: legacy.pokePlayerOsd,
+                    toggle: legacy.togglePlayerOsd,
+                    hide: legacy.hidePlayerOsd,
+                },
+            },
+        },
+        miniGuide: {
+            overlay: { isVisible: legacy.isMiniGuideVisible },
+            coordinator: {
+                show: legacy.showMiniGuide,
+                hide: legacy.hideMiniGuide,
+                handleNavigation: legacy.handleMiniGuideNavigation,
+                handlePage: legacy.handleMiniGuidePage,
+                handleSelect: legacy.handleMiniGuideSelect,
+            },
+        },
+        nowPlayingInfo: {
+            isModalOpen: legacy.isNowPlayingModalOpen,
+            toggleOverlay: legacy.toggleNowPlayingInfoOverlay,
+            showOverlay: legacy.showNowPlayingInfoOverlay,
+            hideOverlay: legacy.hideNowPlayingInfoOverlay,
+        },
+        modals: {
+            playbackOptions: {
+                modalId: legacy.playbackOptionsModalId,
+                prepare: legacy.preparePlaybackOptionsModal,
+                show: legacy.showPlaybackOptionsModal,
+                hide: legacy.hidePlaybackOptionsModal,
+            },
+            exitConfirm: {
+                modalId: legacy.exitConfirmModalId,
+                prepare: legacy.prepareExitConfirmModal,
+                show: legacy.showExitConfirmModal,
+                hide: legacy.hideExitConfirmModal,
+            },
+        },
+        channelSwitching: {
+            setLastChannelChangeSourceRemote: legacy.setLastChannelChangeSourceRemote,
+            setLastChannelChangeSourceNumber: legacy.setLastChannelChangeSourceNumber,
+            switchToNextChannel: legacy.switchToNextChannel,
+            switchToPreviousChannel: legacy.switchToPreviousChannel,
+            switchToChannelByNumber: legacy.switchToChannelByNumber,
+            focusEpgOnCurrentChannel: legacy.focusEpgOnCurrentChannel,
+            toggleEpg: legacy.toggleEpg,
+            ...(legacy.onChannelInputUpdate
+                ? { onChannelInputUpdate: legacy.onChannelInputUpdate }
+                : {}),
+        },
+        uiGuards: {
+            shouldRunChannelSetup: legacy.shouldRunChannelSetup,
+            hideChannelTransition: legacy.hideChannelTransition,
+        },
         ...overrides,
     };
 
     const coordinator = new NavigationCoordinator(deps);
     coordinator.wireNavigationEvents();
 
-    return { coordinator, deps, handlers, navigation, epg, videoPlayer, plexAuth };
+    return { coordinator, deps: Object.assign(deps, legacy), handlers, navigation, epg, videoPlayer, plexAuth };
 };
 
 describe('computeAcceleratedRepeatIntervalMs', () => {
