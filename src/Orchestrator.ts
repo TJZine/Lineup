@@ -409,48 +409,71 @@ export class AppOrchestrator {
         this._initCoordinator = new InitializationCoordinator(
             config,
             {
-                lifecycle: this._lifecycle,
-                navigation: this._navigation,
-                plexAuth: this._plexAuth,
-                plexDiscovery: this._plexDiscovery,
-                plexLibrary: this._plexLibrary,
-                plexStreamResolver: this._plexStreamResolver,
-                channelManager: this._channelManager,
-                scheduler: this._scheduler,
-                videoPlayer: this._videoPlayer,
-                epg: this._epg,
-                nowPlayingInfo: this._nowPlayingInfo,
-                playerOsd: this._playerOsd,
-                channelNumberOverlay: this._channelNumberOverlay,
-                channelBadgeOverlay: this._channelBadgeOverlay,
-                miniGuide: this._miniGuide,
-                channelTransition: this._channelTransitionOverlay,
-                playbackOptions: this._playbackOptionsModal,
-                exitConfirm: this._exitConfirmModal,
-                epgPreferencesStore: this._epgPreferencesStore,
-                profileSessionStore: this._profileSessionStore,
+                modules: {
+                    lifecycle: this._lifecycle,
+                    navigation: this._navigation,
+                    plexAuth: this._plexAuth,
+                    plexDiscovery: this._plexDiscovery,
+                    plexLibrary: this._plexLibrary,
+                    plexStreamResolver: this._plexStreamResolver,
+                    channelManager: this._channelManager,
+                    scheduler: this._scheduler,
+                    videoPlayer: this._videoPlayer,
+                    epg: this._epg,
+                },
+                overlays: {
+                    nowPlayingInfo: this._nowPlayingInfo,
+                    playerOsd: this._playerOsd,
+                    channelNumberOverlay: this._channelNumberOverlay,
+                    channelBadgeOverlay: this._channelBadgeOverlay,
+                    miniGuide: this._miniGuide,
+                    channelTransition: this._channelTransitionOverlay,
+                    playbackOptions: this._playbackOptionsModal,
+                    exitConfirm: this._exitConfirmModal,
+                },
+                stores: {
+                    epgPreferencesStore: this._epgPreferencesStore,
+                    profileSessionStore: this._profileSessionStore,
+                },
             },
             {
-                updateModuleStatus: this._updateModuleStatus.bind(this),
-                getModuleStatus: (id: string): ModuleStatus['status'] | undefined => this._moduleStatus.get(id)?.status,
-                handleGlobalError: this.handleGlobalError.bind(this),
-                setReady: (ready: boolean): void => { this._ready = ready; },
-                setupEventWiring: (): void => {
-                    this._requireEventBinder().bind();
+                status: {
+                    updateModuleStatus: this._updateModuleStatus.bind(this),
+                    getModuleStatus: (id: string): ModuleStatus['status'] | undefined =>
+                        this._moduleStatus.get(id)?.status,
                 },
-                configureDiscoveryStorage: this._configureDiscoveryStorageKeysForActiveUser.bind(this),
-                configureChannelManagerStorage: this._configureChannelManagerStorageForSelectedServer.bind(this),
-                getSelectedServerId: this._getSelectedServerId.bind(this),
-                shouldRunAudioSetup: this._shouldRunAudioSetup.bind(this),
-                shouldRunChannelSetup: (): boolean => this._channelSetup?.shouldRunChannelSetup() ?? false,
-                switchToChannel: this.switchToChannel.bind(this),
-                openServerSelect: this.openServerSelect.bind(this),
-                buildPlexResourceUrl: (pathOrUrl: string | null): string | null => {
-                    if (!pathOrUrl) return null;
-                    return this._buildPlexResourceUrl(pathOrUrl);
+                errors: {
+                    handleGlobalError: this.handleGlobalError.bind(this),
                 },
-                seedSubtitleLanguageFromPlexUser: (): void => {
-                    this._seedSubtitleLanguageFromPlexUser();
+                state: {
+                    setReady: (ready: boolean): void => {
+                        this._ready = ready;
+                    },
+                    setupEventWiring: (): void => {
+                        this._requireEventBinder().bind();
+                    },
+                },
+                serverStorage: {
+                    configureDiscoveryStorage: this._configureDiscoveryStorageKeysForActiveUser.bind(this),
+                    configureChannelManagerStorage: this._configureChannelManagerStorageForSelectedServer.bind(this),
+                    getSelectedServerId: this._getSelectedServerId.bind(this),
+                },
+                routing: {
+                    shouldRunAudioSetup: this._shouldRunAudioSetup.bind(this),
+                    shouldRunChannelSetup: (): boolean => this._channelSetup?.shouldRunChannelSetup() ?? false,
+                    switchToChannel: this.switchToChannel.bind(this),
+                    openServerSelect: this.openServerSelect.bind(this),
+                },
+                resources: {
+                    buildPlexResourceUrl: (pathOrUrl: string | null): string | null => {
+                        if (!pathOrUrl) return null;
+                        return this._buildPlexResourceUrl(pathOrUrl);
+                    },
+                },
+                subtitle: {
+                    seedSubtitleLanguageFromPlexUser: (): void => {
+                        this._seedSubtitleLanguageFromPlexUser();
+                    },
                 },
             }
         );
