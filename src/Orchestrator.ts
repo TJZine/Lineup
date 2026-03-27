@@ -70,10 +70,10 @@ import {
 } from './modules/ui/player-osd';
 import { PlayerOsdCoordinator } from './modules/ui/player-osd/PlayerOsdCoordinator';
 import {
-    type IChannelNumberOverlay,
+    type ChannelNumberOverlay,
 } from './modules/ui/channel-number-overlay';
 import {
-    type IChannelBadgeOverlay,
+    type ChannelBadgeOverlay,
 } from './modules/ui/channel-badge';
 import { SleepTimerManager } from './modules/ui/sleep-timer';
 import {
@@ -303,8 +303,8 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _nowPlayingInfo: INowPlayingInfoOverlay | null = null;
     private _nowPlayingInfoCoordinator: NowPlayingInfoCoordinator | null = null;
     private _playerOsd: PlayerOsdOverlay | null = null;
-    private _channelNumberOverlay: IChannelNumberOverlay | null = null;
-    private _channelBadgeOverlay: IChannelBadgeOverlay | null = null;
+    private _channelNumberOverlay: ChannelNumberOverlay | null = null;
+    private _channelBadgeOverlay: ChannelBadgeOverlay | null = null;
     private _channelTransitionOverlay: ChannelTransitionOverlay | null = null;
     private _playerOsdCoordinator: PlayerOsdCoordinator | null = null;
     private _miniGuide: IMiniGuideOverlay | null = null;

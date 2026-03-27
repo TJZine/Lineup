@@ -1,8 +1,7 @@
 import { CHANNEL_BADGE_CLASSES } from './constants';
-import type { IChannelBadgeOverlay } from './interfaces';
 import type { ChannelBadgeConfig, ChannelBadgeViewModel } from './types';
 
-export class ChannelBadgeOverlay implements IChannelBadgeOverlay {
+export class ChannelBadgeOverlay {
     private containerElement: HTMLElement | null = null;
     private textElement: HTMLElement | null = null;
     private isVisibleFlag = false;

@@ -28,11 +28,9 @@ import {
 import { PlayerOsdOverlay } from '../../modules/ui/player-osd';
 import {
     ChannelNumberOverlay,
-    type IChannelNumberOverlay,
 } from '../../modules/ui/channel-number-overlay';
 import {
     ChannelBadgeOverlay,
-    type IChannelBadgeOverlay,
 } from '../../modules/ui/channel-badge';
 import {
     MiniGuideOverlay,
@@ -72,8 +70,8 @@ export interface OrchestratorModules {
     epg: IEPGComponent;
     nowPlayingInfo: INowPlayingInfoOverlay;
     playerOsd: PlayerOsdOverlay;
-    channelNumberOverlay: IChannelNumberOverlay;
-    channelBadgeOverlay: IChannelBadgeOverlay;
+    channelNumberOverlay: ChannelNumberOverlay;
+    channelBadgeOverlay: ChannelBadgeOverlay;
     miniGuide: IMiniGuideOverlay;
     channelTransitionOverlay: ChannelTransitionOverlay;
     playbackOptionsModal: IPlaybackOptionsModal;
