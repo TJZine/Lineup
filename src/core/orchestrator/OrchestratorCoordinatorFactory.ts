@@ -101,68 +101,79 @@ import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackS
 export interface OrchestratorCoordinatorFactoryDeps {
     config: OrchestratorConfig | null;
     moduleStatus: Map<string, ModuleStatus>;
-
-    getInitCoordinator: () => InitializationCoordinator | null;
-
-    navigation: INavigationManager;
-    plexAuth: IPlexAuth;
-    plexDiscovery: IPlexServerDiscovery;
-    plexLibrary: IPlexLibrary;
-    plexStreamResolver: IPlexStreamResolver;
-    channelManager: IChannelManager;
-    scheduler: IChannelScheduler;
-    videoPlayer: IVideoPlayer;
-    lifecycle: IAppLifecycle;
-    epg: IEPGComponent;
-    nowPlayingInfo: INowPlayingInfoOverlay;
-    playerOsd: IPlayerOsdOverlay;
-    channelNumberOverlay: ChannelNumberOverlay;
-    channelBadgeOverlay: ChannelBadgeOverlay;
-    miniGuide: IMiniGuideOverlay;
-    channelTransitionOverlay: IChannelTransitionOverlay;
-    playbackOptionsModal: IPlaybackOptionsModal;
-    exitConfirmModal: ExitConfirmModal;
-    sleepTimer: SleepTimerManager;
-
-    debugOverridesStore: DebugOverridesStore;
-    subtitlePreferencesStore: SubtitlePreferencesStore;
-    epgPreferencesStore: EpgPreferencesStore;
-    nowPlayingDisplayStore: NowPlayingDisplayStore;
-    profileSessionStore: ProfileSessionStore;
-
-    playbackState: OrchestratorPlaybackStateAccessors;
-    lastChannelChangeSource: () => 'remote' | 'number' | 'guide' | null;
-    setLastChannelChangeSource: (source: 'remote' | 'number' | 'guide' | null) => void;
-    setActiveScheduleDayKey: (dayKey: number) => void;
-
-    getSelectedServerId: () => string | null;
-    getLocalMidnightMs: (timeMs: number) => number;
-    getLocalDayKey: (timeMs: number) => number;
-    buildDailyScheduleConfig: (
-        channel: ChannelConfig,
-        items: ResolvedChannelContent['items'],
-        referenceTimeMs: number
-    ) => ScheduleConfig;
-    buildPlexResourceUrl: (pathOrUrl: string) => string | null;
-    getMimeType: (decision: StreamDecision) => string;
-    getPlaybackInfoSnapshot: () => PlaybackInfoSnapshotLike | null;
-    refreshPlaybackInfoSnapshot: () => Promise<PlaybackInfoSnapshotLike>;
-
-    switchToChannel: (
-        channelId: string,
-        options?: { guideSelectionSnapshot?: GuideSelectionSnapshot }
-    ) => Promise<void>;
-    stopPlayback: () => void;
-    stopActiveTranscodeSession: () => void;
-    switchToNextChannel: () => void;
-    switchToPreviousChannel: () => void;
-    switchToChannelByNumberWithOutcome: (n: number) => Promise<ChannelSwitchOutcome>;
-    toggleEPG: () => void;
-    handleGlobalError: (error: AppError, context: string) => void;
-    onOverlayVisibilityChange: (visible: boolean) => void;
-    toggleNowPlayingInfoOverlay: () => void;
-
-    nowPlayingHandler: () => ((toast: ToastInput) => void) | null;
+    init: {
+        getInitCoordinator: () => InitializationCoordinator | null;
+    };
+    modules: {
+        navigation: INavigationManager;
+        plexAuth: IPlexAuth;
+        plexDiscovery: IPlexServerDiscovery;
+        plexLibrary: IPlexLibrary;
+        plexStreamResolver: IPlexStreamResolver;
+        channelManager: IChannelManager;
+        scheduler: IChannelScheduler;
+        videoPlayer: IVideoPlayer;
+        lifecycle: IAppLifecycle;
+        epg: IEPGComponent;
+    };
+    overlays: {
+        nowPlayingInfo: INowPlayingInfoOverlay;
+        playerOsd: IPlayerOsdOverlay;
+        channelNumberOverlay: ChannelNumberOverlay;
+        channelBadgeOverlay: ChannelBadgeOverlay;
+        miniGuide: IMiniGuideOverlay;
+        channelTransitionOverlay: IChannelTransitionOverlay;
+        playbackOptionsModal: IPlaybackOptionsModal;
+        exitConfirmModal: ExitConfirmModal;
+        sleepTimer: SleepTimerManager;
+    };
+    stores: {
+        debugOverridesStore: DebugOverridesStore;
+        subtitlePreferencesStore: SubtitlePreferencesStore;
+        epgPreferencesStore: EpgPreferencesStore;
+        nowPlayingDisplayStore: NowPlayingDisplayStore;
+        profileSessionStore: ProfileSessionStore;
+    };
+    playback: {
+        state: OrchestratorPlaybackStateAccessors;
+        getPlaybackInfoSnapshot: () => PlaybackInfoSnapshotLike | null;
+        refreshPlaybackInfoSnapshot: () => Promise<PlaybackInfoSnapshotLike>;
+        stopPlayback: () => void;
+        stopActiveTranscodeSession: () => void;
+        getMimeType: (decision: StreamDecision) => string;
+        buildPlexResourceUrl: (pathOrUrl: string) => string | null;
+    };
+    schedule: {
+        lastChannelChangeSource: () => 'remote' | 'number' | 'guide' | null;
+        setLastChannelChangeSource: (source: 'remote' | 'number' | 'guide' | null) => void;
+        setActiveScheduleDayKey: (dayKey: number) => void;
+        getSelectedServerId: () => string | null;
+        getLocalMidnightMs: (timeMs: number) => number;
+        getLocalDayKey: (timeMs: number) => number;
+        buildDailyScheduleConfig: (
+            channel: ChannelConfig,
+            items: ResolvedChannelContent['items'],
+            referenceTimeMs: number
+        ) => ScheduleConfig;
+    };
+    actions: {
+        switchToChannel: (
+            channelId: string,
+            options?: { guideSelectionSnapshot?: GuideSelectionSnapshot }
+        ) => Promise<void>;
+        switchToNextChannel: () => void;
+        switchToPreviousChannel: () => void;
+        switchToChannelByNumberWithOutcome: (n: number) => Promise<ChannelSwitchOutcome>;
+        toggleEPG: () => void;
+        onOverlayVisibilityChange: (visible: boolean) => void;
+        toggleNowPlayingInfoOverlay: () => void;
+    };
+    errors: {
+        handleGlobalError: (error: AppError, context: string) => void;
+    };
+    nowPlaying: {
+        handler: () => ((toast: ToastInput) => void) | null;
+    };
 }
 
 export interface OrchestratorCoordinators {
@@ -181,8 +192,61 @@ export interface OrchestratorCoordinators {
 }
 
 export function createOrchestratorCoordinators(
-    deps: OrchestratorCoordinatorFactoryDeps
+    input: OrchestratorCoordinatorFactoryDeps
 ): OrchestratorCoordinators {
+    const deps = {
+        config: input.config,
+        moduleStatus: input.moduleStatus,
+        getInitCoordinator: input.init.getInitCoordinator,
+        navigation: input.modules.navigation,
+        plexAuth: input.modules.plexAuth,
+        plexDiscovery: input.modules.plexDiscovery,
+        plexLibrary: input.modules.plexLibrary,
+        plexStreamResolver: input.modules.plexStreamResolver,
+        channelManager: input.modules.channelManager,
+        scheduler: input.modules.scheduler,
+        videoPlayer: input.modules.videoPlayer,
+        lifecycle: input.modules.lifecycle,
+        epg: input.modules.epg,
+        nowPlayingInfo: input.overlays.nowPlayingInfo,
+        playerOsd: input.overlays.playerOsd,
+        channelNumberOverlay: input.overlays.channelNumberOverlay,
+        channelBadgeOverlay: input.overlays.channelBadgeOverlay,
+        miniGuide: input.overlays.miniGuide,
+        channelTransitionOverlay: input.overlays.channelTransitionOverlay,
+        playbackOptionsModal: input.overlays.playbackOptionsModal,
+        exitConfirmModal: input.overlays.exitConfirmModal,
+        sleepTimer: input.overlays.sleepTimer,
+        debugOverridesStore: input.stores.debugOverridesStore,
+        subtitlePreferencesStore: input.stores.subtitlePreferencesStore,
+        epgPreferencesStore: input.stores.epgPreferencesStore,
+        nowPlayingDisplayStore: input.stores.nowPlayingDisplayStore,
+        profileSessionStore: input.stores.profileSessionStore,
+        playbackState: input.playback.state,
+        lastChannelChangeSource: input.schedule.lastChannelChangeSource,
+        setLastChannelChangeSource: input.schedule.setLastChannelChangeSource,
+        setActiveScheduleDayKey: input.schedule.setActiveScheduleDayKey,
+        getSelectedServerId: input.schedule.getSelectedServerId,
+        getLocalMidnightMs: input.schedule.getLocalMidnightMs,
+        getLocalDayKey: input.schedule.getLocalDayKey,
+        buildDailyScheduleConfig: input.schedule.buildDailyScheduleConfig,
+        buildPlexResourceUrl: input.playback.buildPlexResourceUrl,
+        getMimeType: input.playback.getMimeType,
+        getPlaybackInfoSnapshot: input.playback.getPlaybackInfoSnapshot,
+        refreshPlaybackInfoSnapshot: input.playback.refreshPlaybackInfoSnapshot,
+        switchToChannel: input.actions.switchToChannel,
+        stopPlayback: input.playback.stopPlayback,
+        stopActiveTranscodeSession: input.playback.stopActiveTranscodeSession,
+        switchToNextChannel: input.actions.switchToNextChannel,
+        switchToPreviousChannel: input.actions.switchToPreviousChannel,
+        switchToChannelByNumberWithOutcome: input.actions.switchToChannelByNumberWithOutcome,
+        toggleEPG: input.actions.toggleEPG,
+        handleGlobalError: input.errors.handleGlobalError,
+        onOverlayVisibilityChange: input.actions.onOverlayVisibilityChange,
+        toggleNowPlayingInfoOverlay: input.actions.toggleNowPlayingInfoOverlay,
+        nowPlayingHandler: input.nowPlaying.handler,
+    } as const;
+
     const epgCoordinator = new EPGCoordinator({
         getEpg: (): IEPGComponent | null => deps.epg,
         getChannelManager: (): IChannelManager | null => deps.channelManager,

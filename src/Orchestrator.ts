@@ -523,70 +523,91 @@ export class AppOrchestrator {
         const coordinators = createOrchestratorCoordinators({
             config: this._config,
             moduleStatus: this._moduleStatus,
-            getInitCoordinator: (): InitializationCoordinator | null => this._initCoordinator,
-            navigation: this._navigation,
-            plexAuth: this._plexAuth,
-            plexDiscovery: this._plexDiscovery,
-            plexLibrary: this._plexLibrary,
-            plexStreamResolver: this._plexStreamResolver,
-            channelManager: this._channelManager,
-            scheduler: this._scheduler,
-            videoPlayer: this._videoPlayer,
-            lifecycle: this._lifecycle,
-            epg: this._epg,
-            nowPlayingInfo: this._nowPlayingInfo,
-            playerOsd: this._playerOsd,
-            channelNumberOverlay: this._channelNumberOverlay,
-            channelBadgeOverlay: this._channelBadgeOverlay,
-            miniGuide: this._miniGuide,
-            channelTransitionOverlay: this._channelTransitionOverlay,
-            playbackOptionsModal: this._playbackOptionsModal,
-            exitConfirmModal: this._exitConfirmModal,
-            sleepTimer: this._sleepTimer,
-            debugOverridesStore: this._debugOverridesStore,
-            subtitlePreferencesStore: this._subtitlePreferencesStore,
-            epgPreferencesStore: this._epgPreferencesStore,
-            nowPlayingDisplayStore: this._nowPlayingDisplayStore,
-            profileSessionStore: this._profileSessionStore,
-            playbackState: this._playbackStateAccessors,
-            lastChannelChangeSource: (): 'remote' | 'number' | 'guide' | null => this._lastChannelChangeSource,
-            setLastChannelChangeSource: (source: 'remote' | 'number' | 'guide' | null): void => {
-                this._lastChannelChangeSource = source;
+            init: {
+                getInitCoordinator: (): InitializationCoordinator | null => this._initCoordinator,
             },
-            setActiveScheduleDayKey: (dayKey: number): void => {
-                this._activeScheduleDayKey = dayKey;
+            modules: {
+                navigation: this._navigation,
+                plexAuth: this._plexAuth,
+                plexDiscovery: this._plexDiscovery,
+                plexLibrary: this._plexLibrary,
+                plexStreamResolver: this._plexStreamResolver,
+                channelManager: this._channelManager,
+                scheduler: this._scheduler,
+                videoPlayer: this._videoPlayer,
+                lifecycle: this._lifecycle,
+                epg: this._epg,
             },
-            getSelectedServerId: (): string | null => this._getSelectedServerId(),
-            getLocalMidnightMs: (timeMs: number): number => this._getLocalMidnightMs(timeMs),
-            getLocalDayKey: (timeMs: number): number => this._getLocalDayKey(timeMs),
-            buildDailyScheduleConfig: (
-                channel: ChannelConfig,
-                items: ResolvedChannelContent['items'],
-                referenceTimeMs: number
-            ): ScheduleConfig => this._buildDailyScheduleConfig(channel, items, referenceTimeMs),
-            buildPlexResourceUrl: (pathOrUrl: string): string | null => this._buildPlexResourceUrl(pathOrUrl),
-            getMimeType: (decision: StreamDecision): string => this._getMimeType(decision),
-            getPlaybackInfoSnapshot: (): PlaybackInfoSnapshot | null => this.getPlaybackInfoSnapshot(),
-            refreshPlaybackInfoSnapshot: (): Promise<PlaybackInfoSnapshot> => this.refreshPlaybackInfoSnapshot(),
-            switchToChannel: (
-                channelId: string,
-                options?: { guideSelectionSnapshot?: import('./core/channel-tuning').GuideSelectionSnapshot }
-            ): Promise<void> => this.switchToChannel(channelId, options),
-            stopPlayback: (): void => this._stopPlayback(),
-            stopActiveTranscodeSession: (): void => this._requirePlaybackRuntimeController().stopActiveTranscodeSession(),
-            switchToNextChannel: (): void => this._switchToNextChannel(),
-            switchToPreviousChannel: (): void => this._switchToPreviousChannel(),
-            switchToChannelByNumberWithOutcome: (n: number): Promise<ChannelSwitchOutcome> =>
-                this._switchToChannelByNumberWithOutcome(n),
-            toggleEPG: (): void => this.toggleEPG(),
-            handleGlobalError: (error: AppError, context: string): void => this.handleGlobalError(error, context),
-            onOverlayVisibilityChange: (visible: boolean): void => {
-                this._requireOverlayRuntimePolicyController().handleOverlayVisibilityChange(visible);
+            overlays: {
+                nowPlayingInfo: this._nowPlayingInfo,
+                playerOsd: this._playerOsd,
+                channelNumberOverlay: this._channelNumberOverlay,
+                channelBadgeOverlay: this._channelBadgeOverlay,
+                miniGuide: this._miniGuide,
+                channelTransitionOverlay: this._channelTransitionOverlay,
+                playbackOptionsModal: this._playbackOptionsModal,
+                exitConfirmModal: this._exitConfirmModal,
+                sleepTimer: this._sleepTimer,
             },
-            toggleNowPlayingInfoOverlay: (): void => {
-                this._requireOverlayRuntimePolicyController().toggleNowPlayingInfoOverlay();
+            stores: {
+                debugOverridesStore: this._debugOverridesStore,
+                subtitlePreferencesStore: this._subtitlePreferencesStore,
+                epgPreferencesStore: this._epgPreferencesStore,
+                nowPlayingDisplayStore: this._nowPlayingDisplayStore,
+                profileSessionStore: this._profileSessionStore,
             },
-            nowPlayingHandler: (): ((toast: ToastInput) => void) | null => this._nowPlayingHandler,
+            playback: {
+                state: this._playbackStateAccessors,
+                getPlaybackInfoSnapshot: (): PlaybackInfoSnapshot | null => this.getPlaybackInfoSnapshot(),
+                refreshPlaybackInfoSnapshot: (): Promise<PlaybackInfoSnapshot> =>
+                    this.refreshPlaybackInfoSnapshot(),
+                stopPlayback: (): void => this._stopPlayback(),
+                stopActiveTranscodeSession: (): void =>
+                    this._requirePlaybackRuntimeController().stopActiveTranscodeSession(),
+                getMimeType: (decision: StreamDecision): string => this._getMimeType(decision),
+                buildPlexResourceUrl: (pathOrUrl: string): string | null => this._buildPlexResourceUrl(pathOrUrl),
+            },
+            schedule: {
+                lastChannelChangeSource: (): 'remote' | 'number' | 'guide' | null => this._lastChannelChangeSource,
+                setLastChannelChangeSource: (source: 'remote' | 'number' | 'guide' | null): void => {
+                    this._lastChannelChangeSource = source;
+                },
+                setActiveScheduleDayKey: (dayKey: number): void => {
+                    this._activeScheduleDayKey = dayKey;
+                },
+                getSelectedServerId: (): string | null => this._getSelectedServerId(),
+                getLocalMidnightMs: (timeMs: number): number => this._getLocalMidnightMs(timeMs),
+                getLocalDayKey: (timeMs: number): number => this._getLocalDayKey(timeMs),
+                buildDailyScheduleConfig: (
+                    channel: ChannelConfig,
+                    items: ResolvedChannelContent['items'],
+                    referenceTimeMs: number
+                ): ScheduleConfig => this._buildDailyScheduleConfig(channel, items, referenceTimeMs),
+            },
+            actions: {
+                switchToChannel: (
+                    channelId: string,
+                    options?: { guideSelectionSnapshot?: import('./core/channel-tuning').GuideSelectionSnapshot }
+                ): Promise<void> => this.switchToChannel(channelId, options),
+                switchToNextChannel: (): void => this._switchToNextChannel(),
+                switchToPreviousChannel: (): void => this._switchToPreviousChannel(),
+                switchToChannelByNumberWithOutcome: (n: number): Promise<ChannelSwitchOutcome> =>
+                    this._switchToChannelByNumberWithOutcome(n),
+                toggleEPG: (): void => this.toggleEPG(),
+                onOverlayVisibilityChange: (visible: boolean): void => {
+                    this._requireOverlayRuntimePolicyController().handleOverlayVisibilityChange(visible);
+                },
+                toggleNowPlayingInfoOverlay: (): void => {
+                    this._requireOverlayRuntimePolicyController().toggleNowPlayingInfoOverlay();
+                },
+            },
+            errors: {
+                handleGlobalError: (error: AppError, context: string): void =>
+                    this.handleGlobalError(error, context),
+            },
+            nowPlaying: {
+                handler: (): ((toast: ToastInput) => void) | null => this._nowPlayingHandler,
+            },
         });
 
         this._epgCoordinator = coordinators.epgCoordinator;
