@@ -95,81 +95,99 @@ const makeDeps = (
     return {
         config: null,
         moduleStatus: moduleStatus as OrchestratorCoordinatorFactoryDeps['moduleStatus'],
-        getInitCoordinator: (): null => null,
-        navigation: {
-            isModalOpen: jest.fn().mockReturnValue(false),
-            getCurrentScreen: jest.fn().mockReturnValue('player'),
-        } as unknown as OrchestratorCoordinatorFactoryDeps['navigation'],
-        plexAuth: {
-            getAuthHeaders: jest.fn().mockReturnValue({}),
-            getCurrentUser: jest.fn().mockReturnValue(null),
-        } as unknown as OrchestratorCoordinatorFactoryDeps['plexAuth'],
-        plexDiscovery: {
-            getServerUri: jest.fn().mockReturnValue('https://example.invalid'),
-        } as unknown as OrchestratorCoordinatorFactoryDeps['plexDiscovery'],
-        plexLibrary: {} as OrchestratorCoordinatorFactoryDeps['plexLibrary'],
-        plexStreamResolver: {} as OrchestratorCoordinatorFactoryDeps['plexStreamResolver'],
-        channelManager: {
-            getCurrentChannel: jest.fn().mockReturnValue(null),
-        } as unknown as OrchestratorCoordinatorFactoryDeps['channelManager'],
-        scheduler: {
-            getCurrentProgram: jest.fn().mockReturnValue(null),
-            getNextProgram: jest.fn().mockReturnValue(null),
-        } as unknown as OrchestratorCoordinatorFactoryDeps['scheduler'],
-        videoPlayer: {} as OrchestratorCoordinatorFactoryDeps['videoPlayer'],
-        lifecycle: {
-            saveState: jest.fn().mockResolvedValue(undefined),
-        } as unknown as OrchestratorCoordinatorFactoryDeps['lifecycle'],
-        epg: {} as OrchestratorCoordinatorFactoryDeps['epg'],
-        nowPlayingInfo: {
-            resetAutoHideTimer: jest.fn(),
-        } as unknown as OrchestratorCoordinatorFactoryDeps['nowPlayingInfo'],
-        playerOsd: {
-            isVisible: jest.fn().mockReturnValue(false),
-        } as unknown as OrchestratorCoordinatorFactoryDeps['playerOsd'],
-        channelNumberOverlay: {} as OrchestratorCoordinatorFactoryDeps['channelNumberOverlay'],
-        channelBadgeOverlay: {
-            hide: jest.fn(),
-            isVisible: jest.fn().mockReturnValue(false),
-        } as unknown as OrchestratorCoordinatorFactoryDeps['channelBadgeOverlay'],
-        miniGuide: {
-            isVisible: jest.fn().mockReturnValue(false),
-        } as unknown as OrchestratorCoordinatorFactoryDeps['miniGuide'],
-        channelTransitionOverlay: {} as OrchestratorCoordinatorFactoryDeps['channelTransitionOverlay'],
-        playbackOptionsModal: {} as OrchestratorCoordinatorFactoryDeps['playbackOptionsModal'],
-        exitConfirmModal: {} as OrchestratorCoordinatorFactoryDeps['exitConfirmModal'],
-        sleepTimer: {
-            cyclePreset: jest.fn().mockReturnValue(15),
-            getRemainingMs: jest.fn().mockReturnValue(0),
-        } as unknown as OrchestratorCoordinatorFactoryDeps['sleepTimer'],
-        debugOverridesStore,
-        subtitlePreferencesStore,
-        epgPreferencesStore,
-        nowPlayingDisplayStore,
-        profileSessionStore,
-        playbackState,
-        lastChannelChangeSource: jest.fn().mockReturnValue(null),
-        setLastChannelChangeSource: jest.fn(),
-        setActiveScheduleDayKey: jest.fn(),
-        getSelectedServerId: jest.fn().mockReturnValue('server-1'),
-        getLocalMidnightMs: jest.fn().mockReturnValue(0),
-        getLocalDayKey: jest.fn().mockReturnValue(0),
-        buildDailyScheduleConfig: jest.fn().mockReturnValue({} as never),
-        buildPlexResourceUrl: jest.fn().mockReturnValue('https://example.invalid/resource'),
-        getMimeType: jest.fn().mockReturnValue('video/mp4'),
-        getPlaybackInfoSnapshot: jest.fn().mockReturnValue(null),
-        refreshPlaybackInfoSnapshot: jest.fn().mockResolvedValue(null),
-        switchToChannel: jest.fn().mockResolvedValue(undefined),
-        stopPlayback: jest.fn(),
-        stopActiveTranscodeSession: jest.fn(),
-        switchToNextChannel: jest.fn(),
-        switchToPreviousChannel: jest.fn(),
-        switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue('failed'),
-        toggleEPG: jest.fn(),
-        handleGlobalError: jest.fn(),
-        onOverlayVisibilityChange: jest.fn(),
-        toggleNowPlayingInfoOverlay: jest.fn(),
-        nowPlayingHandler: jest.fn().mockReturnValue(null),
+        init: {
+            getInitCoordinator: (): null => null,
+        },
+        modules: {
+            navigation: {
+                isModalOpen: jest.fn().mockReturnValue(false),
+                getCurrentScreen: jest.fn().mockReturnValue('player'),
+            } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['navigation'],
+            plexAuth: {
+                getAuthHeaders: jest.fn().mockReturnValue({}),
+                getCurrentUser: jest.fn().mockReturnValue(null),
+            } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['plexAuth'],
+            plexDiscovery: {
+                getServerUri: jest.fn().mockReturnValue('https://example.invalid'),
+            } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['plexDiscovery'],
+            plexLibrary: {} as OrchestratorCoordinatorFactoryDeps['modules']['plexLibrary'],
+            plexStreamResolver: {} as OrchestratorCoordinatorFactoryDeps['modules']['plexStreamResolver'],
+            channelManager: {
+                getCurrentChannel: jest.fn().mockReturnValue(null),
+            } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['channelManager'],
+            scheduler: {
+                getCurrentProgram: jest.fn().mockReturnValue(null),
+                getNextProgram: jest.fn().mockReturnValue(null),
+            } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['scheduler'],
+            videoPlayer: {} as OrchestratorCoordinatorFactoryDeps['modules']['videoPlayer'],
+            lifecycle: {
+                saveState: jest.fn().mockResolvedValue(undefined),
+            } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['lifecycle'],
+            epg: {} as OrchestratorCoordinatorFactoryDeps['modules']['epg'],
+        },
+        overlays: {
+            nowPlayingInfo: {
+                resetAutoHideTimer: jest.fn(),
+            } as unknown as OrchestratorCoordinatorFactoryDeps['overlays']['nowPlayingInfo'],
+            playerOsd: {
+                isVisible: jest.fn().mockReturnValue(false),
+            } as unknown as OrchestratorCoordinatorFactoryDeps['overlays']['playerOsd'],
+            channelNumberOverlay: {} as OrchestratorCoordinatorFactoryDeps['overlays']['channelNumberOverlay'],
+            channelBadgeOverlay: {
+                hide: jest.fn(),
+                isVisible: jest.fn().mockReturnValue(false),
+            } as unknown as OrchestratorCoordinatorFactoryDeps['overlays']['channelBadgeOverlay'],
+            miniGuide: {
+                isVisible: jest.fn().mockReturnValue(false),
+            } as unknown as OrchestratorCoordinatorFactoryDeps['overlays']['miniGuide'],
+            channelTransitionOverlay: {} as OrchestratorCoordinatorFactoryDeps['overlays']['channelTransitionOverlay'],
+            playbackOptionsModal: {} as OrchestratorCoordinatorFactoryDeps['overlays']['playbackOptionsModal'],
+            exitConfirmModal: {} as OrchestratorCoordinatorFactoryDeps['overlays']['exitConfirmModal'],
+            sleepTimer: {
+                cyclePreset: jest.fn().mockReturnValue(15),
+                getRemainingMs: jest.fn().mockReturnValue(0),
+            } as unknown as OrchestratorCoordinatorFactoryDeps['overlays']['sleepTimer'],
+        },
+        stores: {
+            debugOverridesStore,
+            subtitlePreferencesStore,
+            epgPreferencesStore,
+            nowPlayingDisplayStore,
+            profileSessionStore,
+        },
+        playback: {
+            state: playbackState,
+            getPlaybackInfoSnapshot: jest.fn().mockReturnValue(null),
+            refreshPlaybackInfoSnapshot: jest.fn().mockResolvedValue(null),
+            stopPlayback: jest.fn(),
+            stopActiveTranscodeSession: jest.fn(),
+            getMimeType: jest.fn().mockReturnValue('video/mp4'),
+            buildPlexResourceUrl: jest.fn().mockReturnValue('https://example.invalid/resource'),
+        },
+        schedule: {
+            lastChannelChangeSource: jest.fn().mockReturnValue(null),
+            setLastChannelChangeSource: jest.fn(),
+            setActiveScheduleDayKey: jest.fn(),
+            getSelectedServerId: jest.fn().mockReturnValue('server-1'),
+            getLocalMidnightMs: jest.fn().mockReturnValue(0),
+            getLocalDayKey: jest.fn().mockReturnValue(0),
+            buildDailyScheduleConfig: jest.fn().mockReturnValue({} as never),
+        },
+        actions: {
+            switchToChannel: jest.fn().mockResolvedValue(undefined),
+            switchToNextChannel: jest.fn(),
+            switchToPreviousChannel: jest.fn(),
+            switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue('failed'),
+            toggleEPG: jest.fn(),
+            onOverlayVisibilityChange: jest.fn(),
+            toggleNowPlayingInfoOverlay: jest.fn(),
+        },
+        errors: {
+            handleGlobalError: jest.fn(),
+        },
+        nowPlaying: {
+            handler: jest.fn().mockReturnValue(null),
+        },
     };
 };
 

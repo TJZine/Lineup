@@ -45,26 +45,66 @@ describe('InitializationCoordinator (Plex Home)', () => {
         jest.clearAllMocks();
     });
 
-	    type CoordinatorHarness = {
-	        coordinator: InitializationCoordinator;
-	        deps: InitializationDependencies;
-	        callbacks: InitializationCallbacks;
-	    };
+    type LegacyInitializationDependencies = {
+        lifecycle: InitializationDependencies['modules']['lifecycle'];
+        navigation: InitializationDependencies['modules']['navigation'];
+        plexAuth: InitializationDependencies['modules']['plexAuth'];
+        plexDiscovery: InitializationDependencies['modules']['plexDiscovery'];
+        plexLibrary: InitializationDependencies['modules']['plexLibrary'];
+        plexStreamResolver: InitializationDependencies['modules']['plexStreamResolver'];
+        channelManager: InitializationDependencies['modules']['channelManager'];
+        scheduler: InitializationDependencies['modules']['scheduler'];
+        videoPlayer: InitializationDependencies['modules']['videoPlayer'];
+        epg: InitializationDependencies['modules']['epg'];
+        nowPlayingInfo: InitializationDependencies['overlays']['nowPlayingInfo'];
+        playerOsd: InitializationDependencies['overlays']['playerOsd'];
+        channelNumberOverlay: InitializationDependencies['overlays']['channelNumberOverlay'];
+        channelBadgeOverlay: InitializationDependencies['overlays']['channelBadgeOverlay'];
+        miniGuide: InitializationDependencies['overlays']['miniGuide'];
+        channelTransition: InitializationDependencies['overlays']['channelTransition'];
+        playbackOptions: InitializationDependencies['overlays']['playbackOptions'];
+        exitConfirm: InitializationDependencies['overlays']['exitConfirm'];
+        epgPreferencesStore: InitializationDependencies['stores']['epgPreferencesStore'];
+        profileSessionStore: InitializationDependencies['stores']['profileSessionStore'];
+    };
 
-	    const makeCoordinator = (
-	        depsOverrides: Partial<InitializationDependencies> = {},
-	        configOverrides: Partial<{
-	            epgConfig: unknown;
-	        }> = {}
-	    ): CoordinatorHarness => {
+    type LegacyInitializationCallbacks = {
+        updateModuleStatus: InitializationCallbacks['status']['updateModuleStatus'];
+        getModuleStatus: InitializationCallbacks['status']['getModuleStatus'];
+        handleGlobalError: InitializationCallbacks['errors']['handleGlobalError'];
+        setReady: InitializationCallbacks['state']['setReady'];
+        setupEventWiring: InitializationCallbacks['state']['setupEventWiring'];
+        configureDiscoveryStorage: InitializationCallbacks['serverStorage']['configureDiscoveryStorage'];
+        configureChannelManagerStorage: InitializationCallbacks['serverStorage']['configureChannelManagerStorage'];
+        getSelectedServerId: InitializationCallbacks['serverStorage']['getSelectedServerId'];
+        shouldRunAudioSetup: InitializationCallbacks['routing']['shouldRunAudioSetup'];
+        shouldRunChannelSetup: InitializationCallbacks['routing']['shouldRunChannelSetup'];
+        switchToChannel: InitializationCallbacks['routing']['switchToChannel'];
+        openServerSelect: InitializationCallbacks['routing']['openServerSelect'];
+        buildPlexResourceUrl: InitializationCallbacks['resources']['buildPlexResourceUrl'];
+        seedSubtitleLanguageFromPlexUser?: InitializationCallbacks['subtitle']['seedSubtitleLanguageFromPlexUser'];
+    };
+
+    type CoordinatorHarness = {
+        coordinator: InitializationCoordinator;
+        deps: InitializationDependencies & LegacyInitializationDependencies;
+        callbacks: InitializationCallbacks & LegacyInitializationCallbacks;
+    };
+
+    const makeCoordinator = (
+        depsOverrides: Partial<InitializationDependencies> & Partial<LegacyInitializationDependencies> = {},
+        configOverrides: Partial<{
+            epgConfig: unknown;
+        }> = {}
+    ): CoordinatorHarness => {
         const navigation = {
             initialize: jest.fn(),
-	            getCurrentScreen: jest.fn().mockReturnValue('splash'),
-	            goTo: jest.fn(),
-	            replaceScreen: jest.fn(),
+            getCurrentScreen: jest.fn().mockReturnValue('splash'),
+            goTo: jest.fn(),
+            replaceScreen: jest.fn(),
             getScreenParams: jest.fn().mockReturnValue({}),
             getState: jest.fn().mockReturnValue({ screenStack: [] }),
-        } as unknown as InitializationDependencies['navigation'];
+        } as unknown as LegacyInitializationDependencies['navigation'];
 
         const plexAuth = {
             getStoredCredentials: jest.fn().mockResolvedValue(null),
@@ -73,15 +113,15 @@ describe('InitializationCoordinator (Plex Home)', () => {
             storeCredentials: jest.fn().mockResolvedValue(undefined),
             getHomeUsers: jest.fn().mockResolvedValue([]),
             on: jest.fn(() => ({ dispose: jest.fn() })),
-        } as unknown as InitializationDependencies['plexAuth'];
+        } as unknown as LegacyInitializationDependencies['plexAuth'];
 
         const plexDiscovery = {
             initialize: jest.fn().mockResolvedValue(undefined),
             isConnected: jest.fn().mockReturnValue(false),
             on: jest.fn(() => ({ dispose: jest.fn() })),
-        } as unknown as InitializationDependencies['plexDiscovery'];
+        } as unknown as LegacyInitializationDependencies['plexDiscovery'];
 
-        const deps: InitializationDependencies = {
+        const legacyDeps: LegacyInitializationDependencies = {
             lifecycle: null,
             navigation,
             plexAuth,
@@ -102,10 +142,39 @@ describe('InitializationCoordinator (Plex Home)', () => {
             exitConfirm: null,
             epgPreferencesStore: new EpgPreferencesStore(),
             profileSessionStore: new ProfileSessionStore(),
-            ...depsOverrides,
+        };
+        Object.assign(legacyDeps, depsOverrides);
+
+        const deps: InitializationDependencies = {
+            modules: {
+                lifecycle: legacyDeps.lifecycle,
+                navigation: legacyDeps.navigation,
+                plexAuth: legacyDeps.plexAuth,
+                plexDiscovery: legacyDeps.plexDiscovery,
+                plexLibrary: legacyDeps.plexLibrary,
+                plexStreamResolver: legacyDeps.plexStreamResolver,
+                channelManager: legacyDeps.channelManager,
+                scheduler: legacyDeps.scheduler,
+                videoPlayer: legacyDeps.videoPlayer,
+                epg: legacyDeps.epg,
+            },
+            overlays: {
+                nowPlayingInfo: legacyDeps.nowPlayingInfo,
+                playerOsd: legacyDeps.playerOsd,
+                channelNumberOverlay: legacyDeps.channelNumberOverlay,
+                channelBadgeOverlay: legacyDeps.channelBadgeOverlay,
+                miniGuide: legacyDeps.miniGuide,
+                channelTransition: legacyDeps.channelTransition,
+                playbackOptions: legacyDeps.playbackOptions,
+                exitConfirm: legacyDeps.exitConfirm,
+            },
+            stores: {
+                epgPreferencesStore: legacyDeps.epgPreferencesStore,
+                profileSessionStore: legacyDeps.profileSessionStore,
+            },
         };
 
-        const callbacks: InitializationCallbacks = {
+        const legacyCallbacks: LegacyInitializationCallbacks = {
             updateModuleStatus: jest.fn(),
             getModuleStatus: jest.fn(),
             handleGlobalError: jest.fn(),
@@ -120,18 +189,50 @@ describe('InitializationCoordinator (Plex Home)', () => {
             openServerSelect: jest.fn(),
             buildPlexResourceUrl: jest.fn(),
         };
+        const callbacks: InitializationCallbacks = {
+            status: {
+                updateModuleStatus: legacyCallbacks.updateModuleStatus,
+                getModuleStatus: legacyCallbacks.getModuleStatus,
+            },
+            errors: {
+                handleGlobalError: legacyCallbacks.handleGlobalError,
+            },
+            state: {
+                setReady: legacyCallbacks.setReady,
+                setupEventWiring: legacyCallbacks.setupEventWiring,
+            },
+            serverStorage: {
+                configureDiscoveryStorage: legacyCallbacks.configureDiscoveryStorage,
+                configureChannelManagerStorage: legacyCallbacks.configureChannelManagerStorage,
+                getSelectedServerId: legacyCallbacks.getSelectedServerId,
+            },
+            routing: {
+                shouldRunAudioSetup: legacyCallbacks.shouldRunAudioSetup,
+                shouldRunChannelSetup: legacyCallbacks.shouldRunChannelSetup,
+                switchToChannel: legacyCallbacks.switchToChannel,
+                openServerSelect: legacyCallbacks.openServerSelect,
+            },
+            resources: {
+                buildPlexResourceUrl: legacyCallbacks.buildPlexResourceUrl,
+            },
+            subtitle: {
+                ...(legacyCallbacks.seedSubtitleLanguageFromPlexUser
+                    ? { seedSubtitleLanguageFromPlexUser: legacyCallbacks.seedSubtitleLanguageFromPlexUser }
+                    : {}),
+            },
+        };
 
         const coordinator = new InitializationCoordinator(
-	            {
-	                plexConfig: {} as never,
-	                navConfig: {} as never,
-	                playerConfig: {} as never,
-	                epgConfig: (configOverrides.epgConfig ?? ({} as never)) as never,
-	                nowPlayingInfoConfig: {} as never,
-	                playerOsdConfig: {} as never,
-	                channelNumberOverlayConfig: {} as never,
-	                channelBadgeConfig: { containerId: CHANNEL_BADGE_CONTAINER_ID } as never,
-	                miniGuideConfig: {} as never,
+            {
+                plexConfig: {} as never,
+                navConfig: {} as never,
+                playerConfig: {} as never,
+                epgConfig: (configOverrides.epgConfig ?? ({} as never)) as never,
+                nowPlayingInfoConfig: {} as never,
+                playerOsdConfig: {} as never,
+                channelNumberOverlayConfig: {} as never,
+                channelBadgeConfig: { containerId: CHANNEL_BADGE_CONTAINER_ID } as never,
+                miniGuideConfig: {} as never,
                 channelTransitionConfig: {} as never,
                 playbackOptionsConfig: {} as never,
             },
@@ -139,7 +240,11 @@ describe('InitializationCoordinator (Plex Home)', () => {
             callbacks
         );
 
-        return { coordinator, deps, callbacks };
+        return {
+            coordinator,
+            deps: Object.assign(deps, legacyDeps),
+            callbacks: Object.assign(callbacks, legacyCallbacks),
+        };
     };
 
     it('routes to server-select when active token is valid and picker is disabled', async () => {
@@ -205,7 +310,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         const lifecycle = {
             initialize: jest.fn().mockResolvedValue(undefined),
             setPhase: jest.fn(),
-        } as unknown as InitializationDependencies['lifecycle'];
+        } as unknown as LegacyInitializationDependencies['lifecycle'];
 
         const { coordinator, deps } = makeCoordinator({
             lifecycle,
@@ -359,17 +464,17 @@ describe('InitializationCoordinator (Plex Home)', () => {
             initialize: jest.fn(() => {
                 callOrder.push('now-playing-info');
             }),
-        } as unknown as InitializationDependencies['nowPlayingInfo'];
+        } as unknown as LegacyInitializationDependencies['nowPlayingInfo'];
         const playbackOptions = {
             initialize: jest.fn(() => {
                 callOrder.push('playback-options');
             }),
-        } as unknown as InitializationDependencies['playbackOptions'];
+        } as unknown as LegacyInitializationDependencies['playbackOptions'];
         const exitConfirm = {
             initialize: jest.fn(() => {
                 callOrder.push('exit-confirm');
             }),
-        } as unknown as InitializationDependencies['exitConfirm'];
+        } as unknown as LegacyInitializationDependencies['exitConfirm'];
         const { coordinator, callbacks } = makeCoordinator({
             nowPlayingInfo,
             playbackOptions,
@@ -401,7 +506,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             ensureReady: jest.fn(async () => {
                 callOrder.push('epg-ready');
             }),
-        } as unknown as InitializationDependencies['epg'];
+        } as unknown as LegacyInitializationDependencies['epg'];
         const { coordinator, deps, callbacks } = makeCoordinator({
             epg,
         });
@@ -432,7 +537,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         const epg = {
             initialize: jest.fn(),
             ensureReady: jest.fn(async () => undefined),
-        } as unknown as InitializationDependencies['epg'];
+        } as unknown as LegacyInitializationDependencies['epg'];
         const { coordinator, deps } = makeCoordinator({
             epg,
         });
@@ -510,7 +615,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	                channelManager: {
                     getCurrentChannel: jest.fn().mockReturnValue(currentChannel),
                     getAllChannels: jest.fn().mockReturnValue([]),
-                } as unknown as InitializationDependencies['channelManager'],
+                } as unknown as LegacyInitializationDependencies['channelManager'],
             });
             const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
 
@@ -527,7 +632,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
                 channelManager: {
                     getCurrentChannel: jest.fn().mockReturnValue(null),
                     getAllChannels: jest.fn().mockReturnValue([firstChannel]),
-                } as unknown as InitializationDependencies['channelManager'],
+                } as unknown as LegacyInitializationDependencies['channelManager'],
             });
             const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
 
@@ -543,7 +648,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
                 channelManager: {
                     getCurrentChannel: jest.fn().mockReturnValue(null),
                     getAllChannels: jest.fn().mockReturnValue([]),
-                } as unknown as InitializationDependencies['channelManager'],
+                } as unknown as LegacyInitializationDependencies['channelManager'],
             });
             const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
 
@@ -559,7 +664,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	        it('defaults to classic when storage is unset', async () => {
 	            localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
 
-            const epg = { initialize: jest.fn() } as unknown as InitializationDependencies['epg'];
+            const epg = { initialize: jest.fn() } as unknown as LegacyInitializationDependencies['epg'];
             const { coordinator } = makeCoordinator({ epg, plexLibrary: null });
 
             await coordinator.ensureEPGInitialized();
@@ -572,7 +677,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         it('uses overlay only when storage is exactly overlay', async () => {
             localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
 
-            const epg = { initialize: jest.fn() } as unknown as InitializationDependencies['epg'];
+            const epg = { initialize: jest.fn() } as unknown as LegacyInitializationDependencies['epg'];
             const { coordinator } = makeCoordinator({ epg, plexLibrary: null });
 
             await coordinator.ensureEPGInitialized();
@@ -585,7 +690,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	        it('treats invalid stored values as classic', async () => {
 	            localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, 'weird');
 
-            const epg = { initialize: jest.fn() } as unknown as InitializationDependencies['epg'];
+            const epg = { initialize: jest.fn() } as unknown as LegacyInitializationDependencies['epg'];
             const { coordinator } = makeCoordinator({ epg, plexLibrary: null });
 
             await coordinator.ensureEPGInitialized();
@@ -597,7 +702,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
 	        it('preserves supplied onLayoutModeChange when shaping EPG config', async () => {
 	            const onLayoutModeChange = jest.fn();
-	            const epg = { initialize: jest.fn() } as unknown as InitializationDependencies['epg'];
+	            const epg = { initialize: jest.fn() } as unknown as LegacyInitializationDependencies['epg'];
 	            const { coordinator } = makeCoordinator(
 	                { epg, plexLibrary: null },
 	                { epgConfig: { onLayoutModeChange } as never }

@@ -640,7 +640,8 @@ export class AppOrchestrator {
         this._subtitleTrackRecoveryController = new SubtitleTrackRecoveryController({
             getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
             getPlaybackRecovery: (): PlaybackRecoveryManager | null => this._playbackRecovery,
-            readSubtitleMode: () => this._subtitlePreferencesStore.readSubtitleMode('full'),
+            readSubtitleMode: (): import('./shared/subtitle-mode').SubtitleMode =>
+                this._subtitlePreferencesStore.readSubtitleMode('full'),
             setSubtitleTrack: (trackId: string | null): Promise<void> => this.setSubtitleTrack(trackId),
             nowPlayingWarn: (message: string): void => {
                 this._nowPlayingHandler?.({ message, type: 'warning' });
