@@ -34,6 +34,14 @@ Completion rule: every implementation plan that finishes a `P#-W#` work unit mus
   - priority-exit refresh captured on `2026-03-11` in `.worktrees/p1-exit-closeout` from `desloppify status`, `desloppify show review --status open`, `desloppify show security --status open --no-budget --top 50`, and `npm run verify`
   - `desloppify status`: `strict 75.0 / objective 94.4 / subjective 62.1`
   - current queue shape at `P1-EXIT`: `62` open review issues, `16` open security issues, and `349` global open items in the refreshed worktree state
+- Priority 8 exit refresh:
+  - evidence captured on `2026-03-26` from `git branch --show-current`, `git status -sb`, `rg -n "## Priority 8|P8-W[1-5]|P8-EXIT" ARCHITECTURE_CLEANUP_CHECKLIST.md`, `desloppify status`, `desloppify show review --status open --no-budget --top 200`, `desloppify show security --status open --no-budget --top 50`, `desloppify show "review::.::holistic::ai_generated_debt::comment_template_ceremony" --status all`, and the exact-id `node -e` proof
+  - `git branch --show-current`: `feature/initial-build`
+  - `git status -sb`: `## feature/initial-build...origin/feature/initial-build [ahead 16]` plus the five pre-existing untracked `docs/plans/2026-03-26-p7-*` plan docs
+  - `desloppify status`: `overall 70.3/100 · objective 95.2/100 · strict 70.1/100 · verified 95.2/100`
+  - `desloppify show review --status open --no-budget --top 200`: `No open issues matching: review`
+  - `desloppify show security --status open --no-budget --top 50`: `No open issues for Security`
+  - exact-id proof: `review::.::holistic::ai_generated_debt::comment_template_ceremony status=fixed`
 - Raw imported subjective baseline:
   - full-batch average across all `20` dimensions: `79.2`
   - weakest raw batch dimensions: `cross_module_architecture 72.0`, `design_coherence 74.0`, `abstraction_fitness 74.0`, `error_consistency 74.6`, `ai_generated_debt 76.0`, `test_strategy 77.2`
@@ -1123,8 +1131,35 @@ Do not close a listed work unit while its mapped imported issue still remains un
         - `npm run verify`
         - `npm run verify:docs`
         - `npm run plans:check`
-  - [ ] `P8-EXIT` run the priority-exit review before declaring the cleanup backlog complete
+  - [x] `P8-EXIT` run the priority-exit review before declaring the cleanup backlog complete (done 2026-03-26, integration branch `feature/initial-build`)
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 8
+    - Priority-exit review evidence refresh (authoritative integration-branch run):
+      - freshness/routing checks:
+        - `git branch --show-current` -> `feature/initial-build`
+        - `git status -sb` -> `## feature/initial-build...origin/feature/initial-build [ahead 16]` plus the five pre-existing untracked `docs/plans/2026-03-26-p7-*` plan docs
+        - `rg -n "## Priority 8|P8-W[1-5]|P8-EXIT" ARCHITECTURE_CLEANUP_CHECKLIST.md` -> `P8-W1..P8-W5` closed and `P8-EXIT` open before exit closeout
+      - detector/state refresh:
+        - `desloppify status` -> `overall 70.3/100 · objective 95.2/100 · strict 70.1/100 · verified 95.2/100`
+        - `desloppify show review --status open --no-budget --top 200` -> `No open issues matching: review`
+        - `desloppify show security --status open --no-budget --top 50` -> `No open issues for Security`
+        - `desloppify show "review::.::holistic::ai_generated_debt::comment_template_ceremony" --status all` -> the unsuffixed issue is already `fixed`; the live `○` row is the historical `::summary_hash` record
+      - mapped imported issue dispositions (exact ids):
+        - `review::.::holistic::ai_generated_debt::comment_template_ceremony` -> `resolved`
+      - follow-up ownership:
+        - none
+      - security triage:
+        - `no open P0 security findings`
+      - residuals:
+        - none
+      - post-resolution exact-id proof:
+        - `node -e 'const fs=require("fs"); const s=JSON.parse(fs.readFileSync(".desloppify/state-typescript.json","utf8")); const ids=["review::.::holistic::ai_generated_debt::comment_template_ceremony"]; let ok=true; for(const id of ids){ const issue=s.work_items?.[id]; const status=issue?.status; console.log(`${id} status=${status}`); if(!issue||status==="open"){ ok=false; } } process.exit(ok?0:1);'` -> `review::.::holistic::ai_generated_debt::comment_template_ceremony status=fixed`
+      - verification reruns:
+        - `npm run verify`
+        - `npm run verify:docs`
+        - `npm run plans:check`
+      - gate decision:
+        - `Priority 8 exit gates pass.`
+        - `Priority 8 cleanup backlog complete.`
 
 ## Closeout Rules For This Checklist
 
