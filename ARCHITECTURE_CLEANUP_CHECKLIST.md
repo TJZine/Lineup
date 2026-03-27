@@ -1100,13 +1100,29 @@ Do not close a listed work unit while its mapped imported issue still remains un
         - `rg -n "\\blineup_[a-z0-9_]+" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`
         - `rg -n "\\bstorage(Get|Set|Remove)\\s*:" src --glob '!**/__tests__/**' --glob '!**/*.test.ts'`
       - updated `docs/architecture/CURRENT_STATE.md`, `docs/architecture/modules.md`, and `.codex/skills/persistence-boundaries/SKILL.md` so they reflect the current mixed-owner state, the helper-only cleanup keys, and the residual direct-storage drift explicitly instead of overclaiming a canonical single-owner map
+      - follow-up status (2026-03-26): `P8-W5` closed the remaining drift seams (`lineup_audio_setup_complete`, `lineup_subtitle_allow_burn_in`, and `lineup_debug_epg`) and removed the stale `EPGCoordinatorPolicies.ts` wording from active docs
   - [x] `P8-W3` remove review-history breadcrumbs, migration residue comments, and stale cleanup scaffolding from production code across the affected priorities
     - Evidence note (2026-03-26): implemented via `docs/plans/2026-03-26-p8-w3-cleanup-residue-and-migration-scaffolding.md`; cleaned comment scaffolding in `src/modules/lifecycle/constants.ts`, `src/bootstrap.ts`, `src/App.ts`, `src/Orchestrator.ts`, `src/modules/ui/epg/EPGComponent.ts`, `src/modules/ui/settings/SettingsScreen.ts`, `src/modules/ui/channel-setup/ChannelSetupScreen.ts`, `src/modules/plex/stream/PlexStreamResolver.ts`, and `src/modules/scheduler/channel-manager/ChannelManager.ts`.
   - [x] `P8-W4` audit remaining control-plane wording drift so active docs stay live and archives stay historical
     - Evidence note (2026-03-26): implemented via `docs/plans/2026-03-26-p8-w4-control-plane-wording-drift-audit.md`; updated `docs/agentic/session-prompts/workflow-harness-review.md`, `docs/agentic/skill-strategy.md`, and this checklist; verified with `npm run verify:docs` and the scoped drift-inventory `rg` checks.
-  - [ ] `P8-W5` enforce the remaining persistence-owner boundaries exposed by `P8-W2`, then refresh the persistence-owner docs/skill to match the corrected code before `P8-EXIT`
+  - [x] `P8-W5` enforce the remaining persistence-owner boundaries exposed by `P8-W2`, then refresh the persistence-owner docs/skill to match the corrected code before `P8-EXIT`
     - scope: code-first cleanup for the still-split persistence seams (`SettingsStore` debug flags vs `DeveloperSettingsStore`, direct `lineup_audio_setup_complete` reads/writes in startup/setup flow, direct `lineup_subtitle_allow_burn_in` read in `Orchestrator`, and any same-slice persistence-owner/doc truth fallout)
     - acceptance: the corrected code establishes one canonical owner per touched key family, removes the known direct-storage bypasses in those seams without adding fallback paths, and refreshes `CURRENT_STATE.md`, `modules.md`, `.codex/skills/persistence-boundaries/SKILL.md`, and the checklist evidence note in the same delivery pass
+    - Evidence note (2026-03-26):
+      - ownership seams landed:
+        - `SettingsStore` now delegates `debugLogging`/`subtitleDebugLogging` to `DeveloperSettingsStore`
+        - `AudioSetupScreen` and `Orchestrator` now use `AudioSettingsStore` for `lineup_audio_setup_complete`
+        - `Orchestrator` now uses `SubtitlePreferencesStore.readSubtitleMode()` + `subtitleModeAllowsBurnIn()` and the legacy `SUBTITLE_ALLOW_BURN_IN` key was removed from `src/config/storageKeys.ts`
+        - `DebugOverridesStore` now owns `lineup_debug_epg`; `src/modules/ui/epg/utils.ts` remains the bounded `lineup_debug_epg_log` helper/log boundary
+      - verification commands:
+        - `npm test -- src/modules/settings/__tests__/DeveloperSettingsStore.test.ts src/modules/ui/settings/__tests__/SettingsStore.test.ts`
+        - `npm test -- src/modules/settings/__tests__/AudioSettingsStore.test.ts src/modules/ui/audio-setup/__tests__/AudioSetupScreen.test.ts src/__tests__/Orchestrator.test.ts`
+        - `npm test -- src/modules/settings/__tests__/SubtitlePreferencesStore.test.ts src/__tests__/Orchestrator.test.ts`
+        - `npm test -- src/modules/debug/__tests__/DebugOverridesStore.test.ts src/modules/ui/epg/__tests__/utils.test.ts src/modules/ui/epg/__tests__/EPGComponent.test.ts`
+        - `npm test -- src/modules/ui/epg/__tests__/EPGCoordinator.test.ts src/modules/ui/epg/__tests__/EPGTimeHeader.test.ts src/modules/ui/epg/__tests__/EPGChannelList.test.ts src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts`
+        - `npm run verify`
+        - `npm run verify:docs`
+        - `npm run plans:check`
   - [ ] `P8-EXIT` run the priority-exit review before declaring the cleanup backlog complete
     - required: record every mapped imported issue with an exact disposition, assign a single final owner for any deferred or split follow-up item, record exact `P0` security triage, and refresh the `desloppify` evidence used to justify closing Priority 8
 

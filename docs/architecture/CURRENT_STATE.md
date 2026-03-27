@@ -104,12 +104,12 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - `src/modules/plex/auth/clientIdentifier.ts`
 - `src/modules/ui/epg/utils.ts`
 - these are the current designated owners for storage-backed state
-- `src/modules/ui/settings/SettingsStore.ts` still directly owns `debugLogging` and `subtitleDebugLogging` persistence today; the rest of the settings surface routes through the typed stores above, so the `SettingsStore`/`DeveloperSettingsStore` overlap remains residual drift
-- runtime consumers route mapped key families through typed stores (for example `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`, `ProfileSelectScreen` -> `ProfileSessionStore`, `ThemeManager` -> `ThemePreferencesStore`, `EPGInfoPanel` -> `NowPlayingDisplayStore`/`EpgPreferencesStore`, `SettingsStore` -> the dedicated settings stores for non-debug toggles, `AudioSetupScreen` -> `AudioSettingsStore` for audio controls)
-- `src/modules/ui/epg/utils.ts` owns the bounded `lineup_debug_epg_log` cache; `EPGComponent.ts` and `EPGCoordinatorPolicies.ts` still read the `lineup_debug_epg` flag directly, which remains residual drift rather than a canonical owner
+- `src/modules/ui/settings/SettingsStore.ts` is a UI-facing facade; `debugLogging` and `subtitleDebugLogging` persistence now routes through `src/modules/settings/DeveloperSettingsStore.ts`
+- runtime consumers route mapped key families through typed stores (for example `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`, `ProfileSelectScreen` -> `ProfileSessionStore`, `ThemeManager` -> `ThemePreferencesStore`, `EPGInfoPanel` -> `NowPlayingDisplayStore`/`EpgPreferencesStore`, `SettingsStore` -> dedicated settings stores, `AudioSetupScreen`/`Orchestrator` -> `AudioSettingsStore` for `lineup_audio_setup_complete`, `Orchestrator` -> `SubtitlePreferencesStore` subtitle mode policy for burn-in decisions)
+- `src/modules/debug/DebugOverridesStore.ts` is the canonical owner for the `lineup_debug_epg` flag; `src/modules/ui/epg/utils.ts` remains the bounded `lineup_debug_epg_log` cache + helper fan-out layer used by EPG consumers
 - `src/core/channel-setup/ChannelSetupRecordStore.ts` owns the `lineup_channel_setup_v2:${serverId}` family and its prefix cleanup through `safeLocalStorageRemoveByPrefixes`
 - `src/bootstrap.ts` still carries the one-off `lineup_debug_transcode` -> `lineup_debug_logging` migration path
-- residual direct-storage drift remains limited to the startup/setup reads in `src/Orchestrator.ts` and `src/modules/ui/audio-setup/AudioSetupScreen.ts` (`lineup_audio_setup_complete`) plus the subtitle burn-in gate in `src/Orchestrator.ts` (`lineup_subtitle_allow_burn_in`); those are tracked but not changed in `P8-W2`
+- `P8-W5` removed the known direct-storage bypasses for `lineup_audio_setup_complete`, `lineup_subtitle_allow_burn_in`, and `lineup_debug_epg`
 
 ### UI
 
