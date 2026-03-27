@@ -92,12 +92,14 @@ describe('DeveloperSettingsStore', () => {
             throw new DOMException('Blocked', 'SecurityError');
         });
 
-        expect(() => store.readDebugLoggingEnabled(false)).not.toThrow();
-        expect(() => store.readSubtitleDebugLoggingEnabled(false)).not.toThrow();
-        expect(() => store.writeDebugLoggingEnabled(true)).not.toThrow();
-        expect(() => store.writeSubtitleDebugLoggingEnabled(true)).not.toThrow();
-
-        getSpy.mockRestore();
-        setSpy.mockRestore();
+        try {
+            expect(() => store.readDebugLoggingEnabled(false)).not.toThrow();
+            expect(() => store.readSubtitleDebugLoggingEnabled(false)).not.toThrow();
+            expect(() => store.writeDebugLoggingEnabled(true)).not.toThrow();
+            expect(() => store.writeSubtitleDebugLoggingEnabled(true)).not.toThrow();
+        } finally {
+            getSpy.mockRestore();
+            setSpy.mockRestore();
+        }
     });
 });
