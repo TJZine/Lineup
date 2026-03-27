@@ -14,6 +14,15 @@ Use this prompt for adversarial review of a cleanup artifact from any orchestrat
    - [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md) and any relevant domain doc for implementation review
    - [`docs/agentic/evals/rubric.md`](../evals/rubric.md) when the review touches workflow-quality expectations
 
+## Invocation Inputs
+
+Accept either of these as the task-specific input after the launcher:
+
+- a pasted `NEXT_SESSION_HANDOFF` block; when present, treat `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE` as required additional reading after the standard read order
+- one short follow-up message naming the exact artifact under review and its checklist linkage when applicable, for example `Review docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1.`
+
+If the short follow-up form is used, treat the named artifact as the review target and derive the rest of the context from the checklist, plan, and tracked workflow docs instead of waiting for a formal handoff block.
+
 ## Review Mode
 
 Use this disposition vocabulary literally:

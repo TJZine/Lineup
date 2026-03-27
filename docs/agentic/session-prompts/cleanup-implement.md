@@ -11,6 +11,15 @@ Use this prompt for Tier 2 or Tier 3 work when an approved cleanup plan already 
 5. [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md)
 6. any referenced domain docs and repo-local boundary skills named by the plan
 
+## Invocation Inputs
+
+Accept either of these as the task-specific input after the launcher:
+
+- a pasted `NEXT_SESSION_HANDOFF` block; when present, treat `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE` as required additional reading after the standard read order
+- one short follow-up message naming the approved plan path and exact checklist item, for example `Implement docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1.`
+
+If the short follow-up form is used, do not wait for a formal handoff block; use the named approved plan plus checklist item as the execution surface.
+
 ## What This Session Must Do
 
 - execute the approved plan in a repo-local worktree under `.worktrees/` when the task is more than a tiny edit

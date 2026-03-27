@@ -73,8 +73,25 @@ Each launcher should:
 1. confirm the current repo is Lineup
 2. load [`agents.md`](../../../agents.md), [`docs/agentic/document-map.md`](../document-map.md), and [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
 3. load the matching file in this directory
-4. follow the workflow in that file without duplicating repo policy text inline
-5. load repo-local `model-selection` only when the user explicitly asks for model guidance or the outgoing handoff meets the auto-trigger conditions in [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md#session-handoffs)
+4. if the user message includes a `NEXT_SESSION_HANDOFF` block, treat its `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE` fields as required task-specific context after the launcher read order
+5. if no `NEXT_SESSION_HANDOFF` block is supplied, accept one short follow-up message that names the exact checklist item, plan path, or artifact under review and treat that message as the active scope selector for the session
+6. follow the workflow in that file without duplicating repo policy text inline
+7. load repo-local `model-selection` only when the user explicitly asks for model guidance or the outgoing handoff meets the auto-trigger conditions in [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md#session-handoffs)
+
+### Two-Message Invocation Contract
+
+The reusable Lineup launchers are meant to support either of these invocation styles:
+
+1. launcher + `NEXT_SESSION_HANDOFF`
+   - invoke the launcher, then paste the full handoff block
+   - the session should obey the handoff's `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE`
+2. launcher + one short scope message
+   - invoke the launcher, then send one short follow-up naming the exact checklist item, plan, or artifact
+   - example planner follow-up: `We are working on ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1.`
+   - example implementer follow-up: `Implement docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1.`
+   - example reviewer follow-up: `Review docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1.`
+
+When the short follow-up form is used, the launcher should derive the rest of the context from the checklist, the named plan or artifact, and the tracked workflow docs instead of waiting for a formal handoff block.
 
 ## When To Stay Reusable
 
