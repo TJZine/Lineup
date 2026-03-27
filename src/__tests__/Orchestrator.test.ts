@@ -1525,15 +1525,17 @@ describe('AppOrchestrator', () => {
             const burnInSpy = jest
                 .spyOn(PlaybackRecoveryManager.prototype, 'attemptBurnInSubtitleForCurrentProgram')
                 .mockResolvedValue(true);
-            mockVideoPlayer.getAvailableSubtitles.mockReturnValue([{ id: 'sub-1', format: 'ass' }]);
+            try {
+                mockVideoPlayer.getAvailableSubtitles.mockReturnValue([{ id: 'sub-1', format: 'ass' }]);
 
-            playerHandlers.trackChange?.({ type: 'subtitle', trackId: 'sub-1' });
+                playerHandlers.trackChange?.({ type: 'subtitle', trackId: 'sub-1' });
 
-            expect(setSubtitleTrackSpy).toHaveBeenCalledWith(null);
-            expect(burnInSpy).not.toHaveBeenCalled();
-
-            setSubtitleTrackSpy.mockRestore();
-            burnInSpy.mockRestore();
+                expect(setSubtitleTrackSpy).toHaveBeenCalledWith(null);
+                expect(burnInSpy).not.toHaveBeenCalled();
+            } finally {
+                setSubtitleTrackSpy.mockRestore();
+                burnInSpy.mockRestore();
+            }
         });
 
         it('uses subtitle mode policy to allow burn-in subtitle tracks when mode permits burn-in', async () => {
@@ -1553,15 +1555,17 @@ describe('AppOrchestrator', () => {
             const burnInSpy = jest
                 .spyOn(PlaybackRecoveryManager.prototype, 'attemptBurnInSubtitleForCurrentProgram')
                 .mockResolvedValue(true);
-            mockVideoPlayer.getAvailableSubtitles.mockReturnValue([{ id: 'sub-1', format: 'ass' }]);
+            try {
+                mockVideoPlayer.getAvailableSubtitles.mockReturnValue([{ id: 'sub-1', format: 'ass' }]);
 
-            playerHandlers.trackChange?.({ type: 'subtitle', trackId: 'sub-1' });
+                playerHandlers.trackChange?.({ type: 'subtitle', trackId: 'sub-1' });
 
-            expect(burnInSpy).toHaveBeenCalledWith('sub-1', 'subtitle_track_change');
-            expect(setSubtitleTrackSpy).not.toHaveBeenCalled();
-
-            setSubtitleTrackSpy.mockRestore();
-            burnInSpy.mockRestore();
+                expect(burnInSpy).toHaveBeenCalledWith('sub-1', 'subtitle_track_change');
+                expect(setSubtitleTrackSpy).not.toHaveBeenCalled();
+            } finally {
+                setSubtitleTrackSpy.mockRestore();
+                burnInSpy.mockRestore();
+            }
         });
 
         it('reloads stream when audio track changes during direct play', async () => {
