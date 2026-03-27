@@ -97,6 +97,9 @@ This is the operating runbook for agent-driven development in Lineup.
      - no `P(n+1)` checklist item, plan, or implementation work has been opened while `P#-EXIT` is still unresolved
 10. Update the right memory surface in the same pass.
    - update [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md) when a `checklist-linked` cleanup work unit is completed
+   - when a `P#-W#` slice implementation is done, rerun the slice verification and then check that work-unit box in the same pass once every mapped issue is either retired on current evidence or explicitly recorded there as `deferred`/`split follow-up` with one exact owner, reason, and revisit trigger
+   - do not leave a finished `P#-W#` unchecked merely because its remaining mapped debt now belongs to `P#-EXIT`; the unchecked state is for unfinished slice work or missing disposition data, not for already-reassigned debt
+   - a checked `P#-W#` means the slice is complete; it does not authorize `P(n+1)` work while `P#-EXIT` is still open
    - for `standalone remediation`, do not create or update checklist linkage unless the task is intentionally promoted into tracked cleanup backlog
    - complete the matching `P#-EXIT` item and its auditable exit record before opening `P(n+1)` in the checklist or minting new tracked plans for `P(n+1)`
    - update current-state or reference docs when ownership changes

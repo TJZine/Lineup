@@ -249,7 +249,7 @@ These are the required repo-local boundary skills for the new wave. Load them be
 
 ### Work Units
 
-- [ ] `P1-W1` replace direct screen dependencies on `AppOrchestrator` with feature-scoped ports wired from app-shell assembly
+- [x] `P1-W1` replace direct screen dependencies on `AppOrchestrator` with feature-scoped ports wired from app-shell assembly
   - Imported review issues: `review::.::holistic::cross_module_architecture::orchestrator_runtime_hub`, `review::.::holistic::abstraction_fitness::orchestrator_facade_sprawl`
   - Primary files: `src/Orchestrator.ts`, `src/core/app-shell/AppLazyScreenRegistry.ts`, `src/modules/ui/auth/AuthScreen.ts`, `src/modules/ui/profile-select/ProfileSelectScreen.ts`, `src/modules/ui/server-select/ServerSelectScreen.ts`
   - Minimum verification: `npm run verify`; `desloppify show "review::.::holistic::cross_module_architecture::orchestrator_runtime_hub" --status open --no-budget`; `desloppify show "review::.::holistic::abstraction_fitness::orchestrator_facade_sprawl" --status open --no-budget`
@@ -447,6 +447,8 @@ These are the required repo-local boundary skills for the new wave. Load them be
 - Do not mint new multi-session work plans from lower priorities until a higher-priority blocker is resolved, explicitly deprioritized, or accepted as deferred.
 - Do not bypass the `P0` security triage gate just because a lower-numbered cleanup priority is next in sequence.
 - Do not mark a mapped `P#-W#` item complete while its linked imported review issue still remains open unless the remaining gap is explicitly documented as deferred or intentionally split into a follow-up work unit.
+- Mark a mapped `P#-W#` item complete in the same pass once the implementation for that slice has landed, the slice verification has been rerun, and every linked imported review issue is now either retired on current evidence or explicitly recorded there as `deferred`/`split follow-up` with one exact owner, reason, and revisit trigger.
+- Treat a checked `P#-W#` item as “this work unit is done and any remaining mapped debt is intentionally handed off,” not as proof that the whole priority is cleared; only `P#-EXIT` can clear the priority for `P(n+1)` work.
 - Do not mark `P#-EXIT` complete until every imported review issue mapped to that priority is either retired, explicitly deferred, or intentionally split into a new owned follow-up work unit.
 - Do not mark `P#-EXIT` complete until the `P0` security gate has either been cleared or explicitly deferred for the next slice with exact issue ids and revisit triggers.
 - Do not leave a multiply-mapped imported review issue with shared implicit ownership at priority exit; the exit record must nominate one single final owner.
