@@ -55,7 +55,6 @@ import {
     type IVideoPlayer,
     type StreamDescriptor,
 } from './modules/player';
-import { BURN_IN_SUBTITLE_FORMATS } from './modules/player/constants';
 import { PlaybackRecoveryManager } from './modules/player/PlaybackRecoveryManager';
 import {
     type IEPGComponent,
@@ -127,7 +126,6 @@ import { AudioSettingsStore } from './modules/settings/AudioSettingsStore';
 import type { IDisposable } from './utils/interfaces';
 import { createMulberry32 } from './modules/scheduler/shared/prng';
 import { fnv1a32Uint } from './utils/hash';
-import { subtitleModeAllowsBurnIn } from './shared/subtitle-mode';
 import { getRecoveryActions as getRecoveryActionsHelper } from './core/error-recovery/RecoveryActions';
 import { toLifecycleAppError as toLifecycleAppErrorHelper } from './core/error-recovery/LifecycleErrorAdapter';
 import type { ErrorRecoveryAction } from './core/error-recovery/types';
@@ -138,6 +136,8 @@ import type { ToastInput } from './modules/ui/toast/types';
 import type { PlatformServices } from './platform';
 import { webosPlatformServices } from './platform';
 import { isAbortLikeError, summarizeErrorForLog } from './utils/errors';
+import { ScheduleDayRolloverController } from './core/orchestrator/ScheduleDayRolloverController';
+import { SubtitleTrackRecoveryController } from './core/orchestrator/SubtitleTrackRecoveryController';
 
 // ============================================
 // Types
@@ -274,9 +274,8 @@ export class AppOrchestrator {
     private _pendingNowPlayingChannelId: string | null = null;
     private _shouldAutoShowInfoBannerOnNextPlay = false;
     private _lastChannelChangeSource: 'remote' | 'number' | 'guide' | null = null;
-    private _activeScheduleDayKey: number | null = null;
-    private _pendingDayRolloverDayKey: number | null = null;
-    private _pendingDayRolloverTimer: ReturnType<typeof setTimeout> | null = null;
+    private _scheduleDayRolloverController: ScheduleDayRolloverController | null = null;
+    private _subtitleTrackRecoveryController: SubtitleTrackRecoveryController | null = null;
 
     private _config: OrchestratorConfig | null = null;
     private _moduleStatus: Map<string, ModuleStatus> = new Map();
@@ -573,7 +572,7 @@ export class AppOrchestrator {
                     this._lastChannelChangeSource = source;
                 },
                 setActiveScheduleDayKey: (dayKey: number): void => {
-                    this._activeScheduleDayKey = dayKey;
+                    this._scheduleDayRolloverController?.setActiveScheduleDayKey(dayKey);
                 },
                 getSelectedServerId: (): string | null => this._getSelectedServerId(),
                 getLocalMidnightMs: (timeMs: number): number => this._getLocalMidnightMs(timeMs),
@@ -622,6 +621,36 @@ export class AppOrchestrator {
         this._playbackRecovery = coordinators.playbackRecovery;
         this._channelTuning = coordinators.channelTuning;
         this._navigationCoordinator = coordinators.navigationCoordinator;
+        this._scheduleDayRolloverController = new ScheduleDayRolloverController({
+            now: (): number => Date.now(),
+            getChannelManager: (): IChannelManager | null => this._channelManager,
+            getScheduler: (): IChannelScheduler | null => this._scheduler,
+            getEpgCoordinator: (): EPGCoordinator | null => this._epgCoordinator,
+            getLocalMidnightMs: (timeMs: number): number => this._getLocalMidnightMs(timeMs),
+            getLocalDayKey: (timeMs: number): number => this._getLocalDayKey(timeMs),
+            buildDailyScheduleConfig: (
+                channel: ChannelConfig,
+                items: ResolvedChannelContent['items'],
+                referenceTimeMs: number
+            ): ScheduleConfig => this._buildDailyScheduleConfig(channel, items, referenceTimeMs),
+            reportError: (message: string, error: unknown): void => {
+                console.error(message, summarizeErrorForLog(error));
+            },
+        });
+        this._subtitleTrackRecoveryController = new SubtitleTrackRecoveryController({
+            getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
+            getPlaybackRecovery: (): PlaybackRecoveryManager | null => this._playbackRecovery,
+            readSubtitleMode: () => this._subtitlePreferencesStore.readSubtitleMode('full'),
+            setSubtitleTrack: (trackId: string | null): Promise<void> => this.setSubtitleTrack(trackId),
+            nowPlayingWarn: (message: string): void => {
+                this._nowPlayingHandler?.({ message, type: 'warning' });
+            },
+            getCurrentStreamDecision: (): StreamDecision | null => this._currentStreamDecision,
+            getCurrentStreamDescriptor: (): StreamDescriptor | null => this._currentStreamDescriptor,
+            appendIssueDiagnostic: ({ key, data }): void => {
+                issueDiagnosticsStore.append(QA_003B_ISSUE_ID, key, data);
+            },
+        });
     }
 
     /**
@@ -658,11 +687,7 @@ export class AppOrchestrator {
             this._initCoordinator.clearProfileResume();
         }
 
-        if (this._pendingDayRolloverTimer !== null) {
-            globalThis.clearTimeout(this._pendingDayRolloverTimer);
-            this._pendingDayRolloverTimer = null;
-        }
-        this._pendingDayRolloverDayKey = null;
+        this._scheduleDayRolloverController?.dispose();
 
         this._eventBinder?.dispose((error: unknown): void => {
             recordTeardownFailure('events.unsubscribe', error);
@@ -847,6 +872,8 @@ export class AppOrchestrator {
             console.warn('[Orchestrator] Shutdown teardown failures:', teardownFailures);
         }
 
+        this._scheduleDayRolloverController = null;
+        this._subtitleTrackRecoveryController = null;
         this._ready = false;
     }
 
@@ -1622,170 +1649,6 @@ export class AppOrchestrator {
         return configuredShuffleSeed;
     }
 
-    private async _handleScheduleDayRollover(): Promise<void> {
-        if (!this._channelManager || !this._scheduler) {
-            return;
-        }
-        const now = Date.now();
-        const dayKey = this._getLocalDayKey(now);
-        if (this._activeScheduleDayKey === null) {
-            this._activeScheduleDayKey = dayKey;
-            return;
-        }
-        if (dayKey === this._activeScheduleDayKey) {
-            return;
-        }
-
-        // If we're already waiting to apply the same day rollover, no-op.
-        if (this._pendingDayRolloverDayKey === dayKey) {
-            return;
-        }
-
-        const dayStart = this._getLocalMidnightMs(now);
-        const currentProgram = this._scheduler.getCurrentProgram();
-        const spansMidnight =
-            currentProgram !== null &&
-            currentProgram.scheduledStartTime < dayStart &&
-            currentProgram.scheduledEndTime > dayStart;
-
-        // Avoid interrupting a program that started before midnight and is still playing.
-        if (spansMidnight) {
-            this._pendingDayRolloverDayKey = dayKey;
-            if (this._pendingDayRolloverTimer !== null) {
-                globalThis.clearTimeout(this._pendingDayRolloverTimer);
-                this._pendingDayRolloverTimer = null;
-            }
-            const delayMs = Math.max(0, currentProgram.scheduledEndTime - now + 50);
-            this._pendingDayRolloverTimer = globalThis.setTimeout(() => {
-                this._pendingDayRolloverTimer = null;
-                this._applyScheduleDayRollover().catch((error) => {
-                    console.error('[Orchestrator] Failed to apply day rollover:', summarizeErrorForLog(error));
-                });
-            }, delayMs);
-            return;
-        }
-
-        this._pendingDayRolloverDayKey = dayKey;
-        await this._applyScheduleDayRollover();
-    }
-
-    private async _applyScheduleDayRollover(): Promise<void> {
-        if (!this._channelManager || !this._scheduler) {
-            return;
-        }
-        const now = Date.now();
-        const dayKey = this._getLocalDayKey(now);
-        if (this._activeScheduleDayKey === dayKey) {
-            this._pendingDayRolloverDayKey = null;
-            return;
-        }
-
-        const current = this._channelManager.getCurrentChannel();
-        if (!current) {
-            this._activeScheduleDayKey = dayKey;
-            this._pendingDayRolloverDayKey = null;
-            return;
-        }
-
-        const content = await this._channelManager.resolveChannelContent(current.id);
-        this._scheduler.loadChannel(this._buildDailyScheduleConfig(current, content.items, now));
-        this._scheduler.syncToCurrentTime();
-
-        this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
-        await this._epgCoordinator?.refreshEpgSchedules();
-        this._activeScheduleDayKey = dayKey;
-        this._pendingDayRolloverDayKey = null;
-    }
-
-    private _handlePlayerTrackChange(event: { type: 'audio' | 'subtitle'; trackId: string | null }): void {
-        this._playbackOptionsCoordinator?.refreshIfOpen();
-
-        if (event.type === 'audio') {
-            if (event.trackId && this._currentStreamDescriptor?.protocol === 'direct') {
-                const warnAudioReloadFailed = (): void => {
-                    if (!this._nowPlayingHandler) return;
-                    this._nowPlayingHandler({ message: 'Failed to apply audio track change', type: 'warning' });
-                };
-                const reloadPromise =
-                    this._playbackRecovery?.attemptAudioTrackReloadForCurrentProgram(
-                        event.trackId,
-                        'audio_track_change'
-                    ) ?? null;
-                if (reloadPromise) {
-                    void reloadPromise.then((ok) => {
-                        if (!ok) {
-                            warnAudioReloadFailed();
-                        }
-                    })
-                    .catch(() => warnAudioReloadFailed());
-                }
-            }
-            return;
-        }
-
-        if (!this._videoPlayer) {
-            return;
-        }
-
-        issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'orchestrator.subtitleTrackChange', {
-            trackId: event.trackId,
-            currentSubtitleDelivery: this._currentStreamDecision?.subtitleDelivery ?? null,
-            currentSubtitleMode: this._currentStreamDecision?.transcodeRequest?.subtitleMode ?? null,
-        });
-
-        if (!event.trackId) {
-            const decision = this._currentStreamDecision ?? null;
-            if (decision?.transcodeRequest?.subtitleMode === 'burn') {
-                issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'orchestrator.subtitleTrackOff.disableBurnInAttempt', {
-                    trackId: null,
-                    subtitleMode: decision.transcodeRequest.subtitleMode,
-                });
-                const warnDisableFailed = (): void => {
-                    if (!this._nowPlayingHandler) return;
-                    this._nowPlayingHandler({ message: 'Failed to disable burn-in subtitles', type: 'warning' });
-                };
-                void this._playbackRecovery?.attemptDisableBurnInSubtitlesForCurrentProgram('subtitle_track_off')
-                    .then((result) => {
-                        if (result.outcome !== 'failed') return;
-                        warnDisableFailed();
-                    })
-                    .catch(() => warnDisableFailed());
-            }
-            return;
-        }
-
-        const selected = this._videoPlayer.getAvailableSubtitles()
-            .find((track) => track.id === event.trackId) ?? null;
-        if (!selected) {
-            return;
-        }
-
-        const format = (selected.format || selected.codec || '').toLowerCase();
-        const isBurnIn = BURN_IN_SUBTITLE_FORMATS.includes(format);
-        if (!isBurnIn) {
-            return;
-        }
-
-        const subtitleMode = this._subtitlePreferencesStore.readSubtitleMode('full');
-        const allowBurnIn = subtitleModeAllowsBurnIn(subtitleMode);
-        if (!allowBurnIn) {
-            if (this._nowPlayingHandler) {
-                this._nowPlayingHandler({ message: 'Burn-in subtitles are disabled in Settings', type: 'warning' });
-            }
-            void this.setSubtitleTrack(null);
-            return;
-        }
-
-        void this._playbackRecovery?.attemptBurnInSubtitleForCurrentProgram(
-            event.trackId,
-            'subtitle_track_change'
-        );
-        issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'orchestrator.subtitleTrackChange.burnInAttempt', {
-            trackId: event.trackId,
-            format,
-        });
-    }
-
     private _handlePlexLibraryAuthExpired(): void {
         this.handleGlobalError(
             {
@@ -1851,12 +1714,8 @@ export class AppOrchestrator {
                 plexLibrary: this._plexLibrary,
                 plexStreamResolver: this._plexStreamResolver,
                 playbackState: this._playbackStateAccessors,
-                pendingDayRolloverTimer: (): ReturnType<typeof setTimeout> | null => this._pendingDayRolloverTimer,
-                setPendingDayRolloverTimer: (timer: ReturnType<typeof setTimeout> | null): void => {
-                    this._pendingDayRolloverTimer = timer;
-                },
-                setPendingDayRolloverDayKey: (dayKey: number | null): void => {
-                    this._pendingDayRolloverDayKey = dayKey;
+                cancelPendingDayRollover: (): void => {
+                    this._scheduleDayRolloverController?.cancelPendingDayRollover();
                 },
                 stopPlayback: (): void => this._stopPlayback(),
                 unloadCurrentChannel: (): void => {
@@ -1913,8 +1772,12 @@ export class AppOrchestrator {
                     this._navigationCoordinator?.wireNavigationEvents() ?? [],
                 wireEpgCoordinatorEvents: (): Array<() => void> =>
                     this._epgCoordinator?.wireEpgEvents() ?? [],
-                handleScheduleDayRollover: (): Promise<void> => this._handleScheduleDayRollover(),
-                handlePlayerTrackChange: (event): void => this._handlePlayerTrackChange(event),
+                handleScheduleDayRollover: (): Promise<void> =>
+                    this._scheduleDayRolloverController?.handleScheduleDayRollover() ?? Promise.resolve(),
+                handlePlayerTrackChange: (event): void => {
+                    this._playbackOptionsCoordinator?.refreshIfOpen();
+                    this._subtitleTrackRecoveryController?.handleTrackChange(event);
+                },
                 handlePlexLibraryAuthExpired: (): void => this._handlePlexLibraryAuthExpired(),
                 handlePlexStreamError: (error): void => this._handlePlexStreamError(error),
                 handleScreenChange: (payload): void => this._handleScreenChange(payload),

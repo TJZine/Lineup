@@ -50,9 +50,7 @@ export interface OrchestratorPriorityOneControllerFactoryDeps {
     navigation: INavigationManager | null;
 
     playbackState: OrchestratorPlaybackStateAccessors;
-    pendingDayRolloverTimer: () => ReturnType<typeof setTimeout> | null;
-    setPendingDayRolloverTimer: (timer: ReturnType<typeof setTimeout> | null) => void;
-    setPendingDayRolloverDayKey: (dayKey: number | null) => void;
+    cancelPendingDayRollover: () => void;
 
     stopPlayback: () => void;
     unloadCurrentChannel: () => void;
@@ -238,16 +236,8 @@ export function createPriorityOneControllersAndBinder(
     });
 
     const profileSwitchCleanupController = new ProfileSwitchCleanupController({
-        getPendingDayRolloverTimer: (): ReturnType<typeof setTimeout> | null =>
-            deps.pendingDayRolloverTimer(),
-        clearPendingDayRolloverTimer: (timer): void => {
-            globalThis.clearTimeout(timer);
-        },
-        setPendingDayRolloverTimer: (timer): void => {
-            deps.setPendingDayRolloverTimer(timer);
-        },
-        setPendingDayRolloverDayKey: (dayKey): void => {
-            deps.setPendingDayRolloverDayKey(dayKey);
+        cancelPendingDayRollover: (): void => {
+            deps.cancelPendingDayRollover();
         },
         stopPlayback: (): void => {
             deps.stopPlayback();
