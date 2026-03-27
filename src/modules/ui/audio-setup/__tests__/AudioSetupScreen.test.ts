@@ -4,6 +4,7 @@
 
 import { AudioSetupScreen } from '../AudioSetupScreen';
 import { SETTINGS_STORAGE_KEYS } from '../../settings/constants';
+import { AudioSettingsStore } from '../../../settings/AudioSettingsStore';
 
 type StubFocusable = {
     id: string;
@@ -193,5 +194,32 @@ describe('AudioSetupScreen', () => {
         const externalButton = container.querySelector('#audio-choice-external') as HTMLButtonElement | null;
         externalButton?.click();
         expect(continueBtn?.textContent).toBe('Continue');
+    });
+
+    it('delegates setup-complete reads through AudioSettingsStore', () => {
+        const readSpy = jest.spyOn(AudioSettingsStore.prototype, 'readAudioSetupComplete').mockReturnValue(true);
+        expect(AudioSetupScreen.isSetupComplete()).toBe(true);
+        expect(readSpy).toHaveBeenCalledWith(false);
+        readSpy.mockRestore();
+    });
+
+    it('delegates setup-complete writes through AudioSettingsStore when continue is pressed', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const nav = createNavigationStub();
+        const onComplete = jest.fn();
+        const writeSetupCompleteSpy = jest.spyOn(AudioSettingsStore.prototype, 'writeAudioSetupComplete');
+
+        const screen = new AudioSetupScreen(container, () => nav as unknown as never, onComplete);
+        screen.show();
+
+        const externalButton = container.querySelector('#audio-choice-external') as HTMLButtonElement | null;
+        const continueButton = container.querySelector('#audio-setup-continue') as HTMLButtonElement | null;
+        externalButton?.click();
+        continueButton?.click();
+
+        expect(writeSetupCompleteSpy).toHaveBeenCalledWith(true);
+        expect(onComplete).toHaveBeenCalled();
+        writeSetupCompleteSpy.mockRestore();
     });
 });

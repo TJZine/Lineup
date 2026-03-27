@@ -24,6 +24,7 @@ import { ChannelTuningCoordinator } from '../core/channel-tuning';
 import type { PlatformServices } from '../platform';
 import { webosPlatformServices } from '../platform';
 import type { StreamDecision } from '../modules/plex/stream';
+import { AudioSettingsStore } from '../modules/settings/AudioSettingsStore';
 
 // Mock localStorage
 const mockLocalStorage = {
@@ -1268,6 +1269,15 @@ describe('AppOrchestrator', () => {
 
             expect(mockPlexAuth.validateToken).toHaveBeenCalledWith('valid-token');
             expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('player');
+        });
+
+        it('uses AudioSettingsStore for audio-setup completion gating', () => {
+            const readSpy = jest.spyOn(AudioSettingsStore.prototype, 'readAudioSetupComplete').mockReturnValue(true);
+
+            expect((orchestrator as unknown as { _shouldRunAudioSetup: () => boolean })._shouldRunAudioSetup()).toBe(false);
+            expect(readSpy).toHaveBeenCalledWith(false);
+
+            readSpy.mockRestore();
         });
 
         it('should navigate to auth if token invalid', async () => {

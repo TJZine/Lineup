@@ -124,12 +124,12 @@ import { EpgPreferencesStore } from './modules/settings/EpgPreferencesStore';
 import { NowPlayingDisplayStore } from './modules/settings/NowPlayingDisplayStore';
 import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';
 import { SubtitlePreferencesStore } from './modules/settings/SubtitlePreferencesStore';
+import { AudioSettingsStore } from './modules/settings/AudioSettingsStore';
 import type { IDisposable } from './utils/interfaces';
 import { createMulberry32 } from './modules/scheduler/shared/prng';
 import { fnv1a32Uint } from './utils/hash';
 import {
     readStoredBoolean,
-    safeLocalStorageGet,
 } from './utils/storage';
 import { LINEUP_STORAGE_KEYS } from './config/storageKeys';
 import { getRecoveryActions as getRecoveryActionsHelper } from './core/error-recovery/RecoveryActions';
@@ -318,6 +318,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     private _exitConfirmModal: ExitConfirmModal | null = null;
     private _exitConfirmCoordinator: ExitConfirmCoordinator | null = null;
     private _sleepTimer: SleepTimerManager | null = null;
+    private readonly _audioSettingsStore = new AudioSettingsStore();
     private readonly _subtitlePreferencesStore = new SubtitlePreferencesStore();
     private readonly _epgPreferencesStore = new EpgPreferencesStore();
     private readonly _nowPlayingDisplayStore = new NowPlayingDisplayStore();
@@ -1551,9 +1552,7 @@ export class AppOrchestrator implements IAppOrchestrator {
     }
 
     private _shouldRunAudioSetup(): boolean {
-        // Check if audio setup has been completed
-        const completed = safeLocalStorageGet(LINEUP_STORAGE_KEYS.AUDIO_SETUP_COMPLETE);
-        return completed !== '1';
+        return !this._audioSettingsStore.readAudioSetupComplete(false);
     }
 
     private _getLocalMidnightMs(timeMs: number): number {
