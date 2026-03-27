@@ -1272,16 +1272,28 @@ describe('AppOrchestrator', () => {
             expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('player');
         });
 
-        it('uses AudioSettingsStore for audio-setup completion gating', async () => {
-            const readSpy = jest.spyOn(AudioSettingsStore.prototype, 'readAudioSetupComplete').mockReturnValue(true);
+        it('routes to audio-setup before channel-setup when audio setup is incomplete', async () => {
+            const readSpy = jest.spyOn(AudioSettingsStore.prototype, 'readAudioSetupComplete').mockReturnValue(false);
             mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
+            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
+            mockChannelManager.getAllChannels.mockReturnValue([]);
+            mockLocalStorage.getItem.mockImplementation((key: string) => {
+                if (key === 'lineup_channel_setup_v2:server-1') return null;
+                if (key === 'lineup_channels_server_v1:server-1:user-1') return null;
+                return null;
+            });
 
-            await orchestrator.start();
-            expect(readSpy).toHaveBeenCalledWith(false);
+            try {
+                await orchestrator.start();
 
-            readSpy.mockRestore();
+                expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('audio-setup');
+                expect(mockNavigation.replaceScreen).not.toHaveBeenCalledWith('channel-setup');
+                expect(mockNavigation.replaceScreen).not.toHaveBeenCalledWith('player');
+            } finally {
+                readSpy.mockRestore();
+            }
         });
 
         it('should navigate to auth if token invalid', async () => {
