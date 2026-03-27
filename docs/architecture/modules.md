@@ -179,8 +179,8 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 ### `src/modules/ui/epg/`
 
-- bounded EPG debug log cache ownership
-- `src/modules/ui/epg/utils.ts`
+- bounded exception for the EPG debug-log cache helper
+- `src/modules/ui/epg/utils.ts` owns only the bounded `lineup_debug_epg_log` cache/helper fan-out and is not precedent for new UI-layer storage owners
 
 ### `src/modules/plex/auth/`
 

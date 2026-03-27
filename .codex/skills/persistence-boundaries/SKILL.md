@@ -29,8 +29,14 @@ Lineup's rule is simple: one storage namespace, one owner.
 - [`src/modules/plex/discovery/ServerSelectionStore.ts`](../../../src/modules/plex/discovery/ServerSelectionStore.ts)
 - [`src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`](../../../src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts)
 - [`src/core/channel-setup/ChannelSetupRecordStore.ts`](../../../src/core/channel-setup/ChannelSetupRecordStore.ts)
-- [`src/modules/ui/epg/utils.ts`](../../../src/modules/ui/epg/utils.ts) - bounded owner for the `lineup_debug_epg_log` cache
 - Shared storage helpers in [`src/utils/storage.ts`](../../../src/utils/storage.ts)
+
+## Bounded Exceptions
+
+- [`src/modules/ui/epg/utils.ts`](../../../src/modules/ui/epg/utils.ts)
+  - UI-layer helper exception for the bounded `lineup_debug_epg_log` cache only
+  - not precedent for adding new raw `localStorage` access in UI/helpers
+  - `lineup_debug_epg` flag ownership remains in [`src/modules/debug/DebugOverridesStore.ts`](../../../src/modules/debug/DebugOverridesStore.ts)
 
 ## Core Rules
 
