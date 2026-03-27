@@ -22,6 +22,11 @@ describe('SubtitlePreferencesStore', () => {
         expect(store.readSubtitleMode()).toBe('direct');
     });
 
+    it('persists subtitle mode off for burn-in policy checks', () => {
+        store.writeSubtitleMode('off');
+        expect(store.readSubtitleMode('full')).toBe('off');
+    });
+
     it('normalizes invalid subtitle mode values by removing them', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'weird');
 

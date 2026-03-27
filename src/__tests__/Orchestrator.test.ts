@@ -25,6 +25,7 @@ import type { PlatformServices } from '../platform';
 import { webosPlatformServices } from '../platform';
 import type { StreamDecision } from '../modules/plex/stream';
 import { AudioSettingsStore } from '../modules/settings/AudioSettingsStore';
+import { SubtitlePreferencesStore } from '../modules/settings/SubtitlePreferencesStore';
 
 // Mock localStorage
 const mockLocalStorage = {
@@ -1490,6 +1491,64 @@ describe('AppOrchestrator', () => {
             } finally {
                 warnSpy.mockRestore();
             }
+        });
+
+        it('uses subtitle mode policy to block burn-in subtitle tracks when mode disallows burn-in', () => {
+            const subtitleModeSpy = jest.spyOn(SubtitlePreferencesStore.prototype, 'readSubtitleMode').mockReturnValue('off');
+            const setSubtitleTrackSpy = jest.spyOn(orchestrator, 'setSubtitleTrack').mockResolvedValue(undefined);
+            const burnInAttemptSpy = jest.fn().mockResolvedValue(true);
+
+            const orchestratorInternals = orchestrator as unknown as {
+                _videoPlayer: { getAvailableSubtitles: () => Array<{ id: string; format?: string; codec?: string }> };
+                _playbackRecovery: { attemptBurnInSubtitleForCurrentProgram: (trackId: string, reason: string) => Promise<boolean> };
+                _nowPlayingHandler: ((toast: { message: string; type: string }) => void) | null;
+                _handlePlayerTrackChange: (event: { type: 'audio' | 'subtitle'; trackId: string | null }) => void;
+            };
+
+            orchestratorInternals._videoPlayer = {
+                getAvailableSubtitles: () => [{ id: 'sub-1', format: 'ass' }],
+            };
+            orchestratorInternals._playbackRecovery = {
+                attemptBurnInSubtitleForCurrentProgram: burnInAttemptSpy,
+            };
+            orchestratorInternals._nowPlayingHandler = jest.fn();
+
+            orchestratorInternals._handlePlayerTrackChange({ type: 'subtitle', trackId: 'sub-1' });
+
+            expect(subtitleModeSpy).toHaveBeenCalledWith('full');
+            expect(setSubtitleTrackSpy).toHaveBeenCalledWith(null);
+            expect(burnInAttemptSpy).not.toHaveBeenCalled();
+
+            subtitleModeSpy.mockRestore();
+            setSubtitleTrackSpy.mockRestore();
+        });
+
+        it('uses subtitle mode policy to allow burn-in subtitle tracks when mode permits burn-in', () => {
+            const subtitleModeSpy = jest.spyOn(SubtitlePreferencesStore.prototype, 'readSubtitleMode').mockReturnValue('full');
+            const setSubtitleTrackSpy = jest.spyOn(orchestrator, 'setSubtitleTrack').mockResolvedValue(undefined);
+            const burnInAttemptSpy = jest.fn().mockResolvedValue(true);
+
+            const orchestratorInternals = orchestrator as unknown as {
+                _videoPlayer: { getAvailableSubtitles: () => Array<{ id: string; format?: string; codec?: string }> };
+                _playbackRecovery: { attemptBurnInSubtitleForCurrentProgram: (trackId: string, reason: string) => Promise<boolean> };
+                _handlePlayerTrackChange: (event: { type: 'audio' | 'subtitle'; trackId: string | null }) => void;
+            };
+
+            orchestratorInternals._videoPlayer = {
+                getAvailableSubtitles: () => [{ id: 'sub-1', format: 'ass' }],
+            };
+            orchestratorInternals._playbackRecovery = {
+                attemptBurnInSubtitleForCurrentProgram: burnInAttemptSpy,
+            };
+
+            orchestratorInternals._handlePlayerTrackChange({ type: 'subtitle', trackId: 'sub-1' });
+
+            expect(subtitleModeSpy).toHaveBeenCalledWith('full');
+            expect(burnInAttemptSpy).toHaveBeenCalledWith('sub-1', 'subtitle_track_change');
+            expect(setSubtitleTrackSpy).not.toHaveBeenCalled();
+
+            subtitleModeSpy.mockRestore();
+            setSubtitleTrackSpy.mockRestore();
         });
 
         it('reloads stream when audio track changes during direct play', async () => {
