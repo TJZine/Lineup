@@ -68,7 +68,6 @@ export class DebugOverridesStore {
     clearDebugOverrides(): void {
         safeLocalStorageRemove(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG);
         safeLocalStorageRemove(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW);
-        safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_DEBUG);
         safeLocalStorageRemove(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
     }
 

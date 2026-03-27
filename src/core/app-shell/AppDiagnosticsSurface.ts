@@ -382,7 +382,7 @@ export class AppDiagnosticsSurface {
         });
 
         clearOverridesButton.addEventListener('click', () => {
-            const ok = window.confirm('Clear transcode overrides?');
+            const ok = window.confirm('Clear playback overrides?');
             if (!ok) return;
             this._audioSettingsStore.clearDirectPlayAudioFallbackEnabled();
             this._debugOverridesStore.clearDebugOverrides();

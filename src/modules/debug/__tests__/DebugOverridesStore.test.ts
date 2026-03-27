@@ -75,7 +75,7 @@ describe('DebugOverridesStore', () => {
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME)).toBeNull();
     });
 
-    it('clears debug override keys together', () => {
+    it('clears playback override keys without disabling EPG debug', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG, '1');
         localStorage.setItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW, '1');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_DEBUG, '1');
@@ -85,8 +85,8 @@ describe('DebugOverridesStore', () => {
 
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG)).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW)).toBeNull();
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG)).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME)).toBeNull();
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG)).toBe('1');
     });
 
     it('treats blocked storage as non-fatal', () => {
