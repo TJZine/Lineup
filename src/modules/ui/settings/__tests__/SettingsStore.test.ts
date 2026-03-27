@@ -3,6 +3,7 @@
  */
 
 import { SettingsStore } from '../SettingsStore';
+import type { SettingsStoreOptions } from '../SettingsStore';
 import { SETTINGS_STORAGE_KEYS, DEFAULT_SETTINGS } from '../constants';
 import type { DeveloperSettingsStore } from '../../../settings/DeveloperSettingsStore';
 
@@ -58,6 +59,35 @@ describe('SettingsStore', () => {
         delegatedStore.writeToggleSetting('subtitleDebugLogging', false);
         expect(developerSettingsStore.writeSubtitleDebugLoggingEnabled).toHaveBeenCalledWith(false);
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING)).toBeNull();
+    });
+
+    it('delegates smart/force HDR fallback toggle reads and writes explicitly', () => {
+        const playbackSettingsStore = {
+            readTranscodeCompatEnabled: jest.fn().mockReturnValue(false),
+            writeTranscodeCompatEnabled: jest.fn(),
+            readSmartHdr10FallbackEnabled: jest.fn().mockReturnValue(true),
+            writeSmartHdr10FallbackEnabled: jest.fn(),
+            readForceHdr10FallbackEnabled: jest.fn().mockReturnValue(false),
+            writeForceHdr10FallbackEnabled: jest.fn(),
+        } as unknown as NonNullable<SettingsStoreOptions['playbackSettingsStore']>;
+
+        const delegatedStore = new SettingsStore({ playbackSettingsStore });
+
+        expect(delegatedStore.readToggleSetting('smartHdr10Fallback')).toBe(true);
+        expect(playbackSettingsStore.readSmartHdr10FallbackEnabled).toHaveBeenCalledWith(
+            DEFAULT_SETTINGS.playback.smartHdr10Fallback
+        );
+
+        expect(delegatedStore.readToggleSetting('forceHdr10Fallback')).toBe(false);
+        expect(playbackSettingsStore.readForceHdr10FallbackEnabled).toHaveBeenCalledWith(
+            DEFAULT_SETTINGS.playback.forceHdr10Fallback
+        );
+
+        delegatedStore.writeToggleSetting('smartHdr10Fallback', false);
+        delegatedStore.writeToggleSetting('forceHdr10Fallback', true);
+
+        expect(playbackSettingsStore.writeSmartHdr10FallbackEnabled).toHaveBeenCalledWith(false);
+        expect(playbackSettingsStore.writeForceHdr10FallbackEnabled).toHaveBeenCalledWith(true);
     });
 
     it('defaults epgNowWatchingEnabled toggle to true when missing', () => {
