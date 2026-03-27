@@ -12,7 +12,7 @@ import { EPGLibraryTabs } from './EPGLibraryTabs';
 import { EPGVisibleRangeEmitter } from './EPGVisibleRangeEmitter';
 import { rafThrottle, appendEpgDebugLog } from './utils';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
-import { safeLocalStorageGet } from '../../../utils/storage';
+import { DebugOverridesStore } from '../../debug/DebugOverridesStore';
 import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
 import type { IEPGComponent } from './interfaces';
 import type {
@@ -84,6 +84,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private _lastNowWatchingTuple: [string, string, string] | null = null;
     private _appliedLayoutMode: EpgLayoutMode | null = null;
     private _appliedPipMode: EpgLayoutMode | null = null;
+    private readonly _debugOverridesStore = new DebugOverridesStore();
     private _debugEnabled: boolean = false;
     private _lastDebugEnabledStorageReadMs: number = 0;
     private _lastRenderGridDebugLogMs: number = 0;
@@ -191,7 +192,11 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     }
 
     private _readDebugEnabledFromStorage(): boolean {
-        return safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_DEBUG) === '1';
+        try {
+            return this._debugOverridesStore.readEpgDebugEnabled(false);
+        } catch {
+            return false;
+        }
     }
 
     private isDebugEnabled(): boolean {

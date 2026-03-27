@@ -26,6 +26,14 @@ export class DebugOverridesStore {
         safeLocalStorageSet(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW, enabled ? '1' : '0');
     }
 
+    readEpgDebugEnabled(fallback: boolean = false): boolean {
+        return this._readBooleanKey(LINEUP_STORAGE_KEYS.EPG_DEBUG, fallback);
+    }
+
+    writeEpgDebugEnabled(enabled: boolean): void {
+        safeLocalStorageSet(LINEUP_STORAGE_KEYS.EPG_DEBUG, enabled ? '1' : '0');
+    }
+
     readTranscodeProfileName(): string | null {
         const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
         if (raw === null) return null;
@@ -60,6 +68,7 @@ export class DebugOverridesStore {
     clearDebugOverrides(): void {
         safeLocalStorageRemove(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG);
         safeLocalStorageRemove(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW);
+        safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_DEBUG);
         safeLocalStorageRemove(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
     }
 

@@ -4,6 +4,7 @@
  */
 
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import { DebugOverridesStore } from '../../debug/DebugOverridesStore';
 import { safeLocalStorageGet, safeLocalStorageSet } from '../../../utils/storage';
 
 /**
@@ -126,6 +127,7 @@ const EPG_DEBUG_LOG_STORAGE_KEY = LINEUP_STORAGE_KEYS.EPG_DEBUG_LOG;
 const EPG_DEBUG_LOG_MAX_ENTRIES = 200;
 const EPG_DEBUG_LOG_FLUSH_DELAY_MS = 250;
 const EPG_DEBUG_FLAG_REFRESH_MS = 500;
+const debugOverridesStore = new DebugOverridesStore();
 
 let epgDebugEntries: EpgDebugEntry[] | null = null;
 let epgDebugFlushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -141,7 +143,11 @@ export function isEpgDebugLoggingEnabled(): boolean {
         return epgDebugEnabledCache;
     }
     epgDebugEnabledCacheReadMs = now;
-    epgDebugEnabledCache = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_DEBUG) === '1';
+    try {
+        epgDebugEnabledCache = debugOverridesStore.readEpgDebugEnabled(false);
+    } catch {
+        epgDebugEnabledCache = false;
+    }
     return epgDebugEnabledCache;
 }
 
