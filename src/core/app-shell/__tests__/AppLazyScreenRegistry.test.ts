@@ -144,6 +144,15 @@ describe('AppLazyScreenRegistry', () => {
         ]);
         const thirdAuth = await registry.ensureAuthScreen();
         expect(AuthScreen).toHaveBeenCalledTimes(1);
+        expect(AuthScreen).toHaveBeenCalledWith(
+            expect.any(HTMLElement),
+            expect.objectContaining({
+                requestAuthPin: expect.any(Function),
+                pollForPin: expect.any(Function),
+                cancelPin: expect.any(Function),
+                getNavigation: expect.any(Function),
+            })
+        );
         expect(firstAuth).toBe(authScreen as never);
         expect(secondAuth).toBe(authScreen as never);
         expect(thirdAuth).toBe(authScreen as never);

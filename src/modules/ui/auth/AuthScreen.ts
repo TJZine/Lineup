@@ -4,8 +4,8 @@
  * @version 1.0.0
  */
 
-import { AppOrchestrator } from '../../../Orchestrator';
 import { AppErrorCode, PlexApiError, type PlexPinRequest } from '../../plex/auth';
+import type { INavigationManager } from '../../navigation';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { createScreenShell } from '../common/ScreenShell';
 import type { ScreenError, ScreenStatus, ScreenTone } from '../types/screen-shell';
@@ -18,9 +18,16 @@ type QrCodeModule = {
     ) => Promise<void>;
 };
 
+export interface AuthScreenPorts {
+    requestAuthPin(): Promise<PlexPinRequest>;
+    pollForPin(pinId: number): Promise<PlexPinRequest>;
+    cancelPin(pinId: number): Promise<void>;
+    getNavigation(): INavigationManager | null;
+}
+
 export class AuthScreen {
     private _container: HTMLElement;
-    private _orchestrator: AppOrchestrator;
+    private _ports: AuthScreenPorts;
     private _shellSetStatus: ((status: ScreenStatus | null) => void) | null = null;
     private _shellSetError: ((error: ScreenError | null) => void) | null = null;
     private _pinLiveEl: HTMLElement;
@@ -44,9 +51,9 @@ export class AuthScreen {
     private readonly _handleCancelClick: () => void;
     private readonly _handleRetryClick: () => void;
 
-    constructor(container: HTMLElement, orchestrator: AppOrchestrator) {
+    constructor(container: HTMLElement, ports: AuthScreenPorts) {
         this._container = container;
-        this._orchestrator = orchestrator;
+        this._ports = ports;
         this._container.classList.add('screen');
         this._container.style.position = 'absolute';
         this._container.style.inset = '0';
@@ -179,7 +186,7 @@ export class AuthScreen {
         this._activeCode = null;
         this._expiresAt = null;
         if (activePinId !== null) {
-            void Promise.resolve(this._orchestrator.cancelPin(activePinId)).catch(() => {
+            void Promise.resolve(this._ports.cancelPin(activePinId)).catch(() => {
                 // Best-effort cancellation while hiding screen.
             });
         }
@@ -202,7 +209,7 @@ export class AuthScreen {
             this._pollToken += 1;
             this._stopExpiryTimer();
             try {
-                await this._orchestrator.cancelPin(this._activePinId);
+                await this._ports.cancelPin(this._activePinId);
             } catch {
                 // Best-effort cancel; ignore errors.
             }
@@ -212,7 +219,7 @@ export class AuthScreen {
         this._expiresAt = null;
 
         try {
-            const pin = await this._orchestrator.requestAuthPin();
+            const pin = await this._ports.requestAuthPin();
             this._activePinId = pin.id;
             this._activeCode = pin.code;
             this._expiresAt = pin.expiresAt;
@@ -232,7 +239,7 @@ export class AuthScreen {
         this._setStatus('Waiting for sign-in…', '', { tone: 'loading' });
 
         try {
-            const result = await this._orchestrator.pollForPin(pin.id);
+            const result = await this._ports.pollForPin(pin.id);
             if (token !== this._pollToken) {
                 return;
             }
@@ -257,7 +264,7 @@ export class AuthScreen {
         this._stopExpiryTimer();
         if (this._activePinId !== null) {
             try {
-                await this._orchestrator.cancelPin(this._activePinId);
+                await this._ports.cancelPin(this._activePinId);
             } catch {
                 // Best-effort cancellation: user intent is to stop polling UI regardless of network state.
             }
@@ -298,7 +305,7 @@ export class AuthScreen {
         this._cancelButton.disabled = !state.cancel;
         this._retryButton.style.display = state.retry ? 'inline-flex' : 'none';
 
-        const nav = this._orchestrator.getNavigation();
+        const nav = this._ports.getNavigation();
         if (!nav) {
             return;
         }
@@ -445,7 +452,7 @@ export class AuthScreen {
 
         if (this._activePinId !== null) {
             try {
-                await this._orchestrator.cancelPin(this._activePinId);
+                await this._ports.cancelPin(this._activePinId);
             } catch {
                 // best effort
             }
@@ -492,7 +499,7 @@ export class AuthScreen {
     }
 
     private _registerFocusables(): void {
-        const nav = this._orchestrator.getNavigation();
+        const nav = this._ports.getNavigation();
         if (!nav) return;
 
         nav.registerFocusable({
@@ -537,7 +544,7 @@ export class AuthScreen {
     }
 
     private _unregisterFocusables(): void {
-        const nav = this._orchestrator.getNavigation();
+        const nav = this._ports.getNavigation();
         if (!nav) return;
 
         nav.unregisterFocusable('btn-auth-request');

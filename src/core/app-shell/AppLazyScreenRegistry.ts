@@ -1,5 +1,5 @@
 import type { AppOrchestrator } from '../../Orchestrator';
-import type { AuthScreen } from '../../modules/ui/auth/AuthScreen';
+import type { AuthScreen, AuthScreenPorts } from '../../modules/ui/auth/AuthScreen';
 import type { AudioSetupScreen } from '../../modules/ui/audio-setup/AudioSetupScreen';
 import type { ChannelSetupScreen } from '../../modules/ui/channel-setup/ChannelSetupScreen';
 import type { ProfileSelectScreen } from '../../modules/ui/profile-select/ProfileSelectScreen';
@@ -166,7 +166,14 @@ export class AppLazyScreenRegistry {
                     const latestOrchestrator = this._getOrchestrator();
                     if (!latestOrchestrator) return null;
 
-                    const screen = new AuthScreen(container, latestOrchestrator);
+                    const ports: AuthScreenPorts = {
+                        requestAuthPin: () => latestOrchestrator.requestAuthPin(),
+                        pollForPin: (pinId: number) => latestOrchestrator.pollForPin(pinId),
+                        cancelPin: (pinId: number) => latestOrchestrator.cancelPin(pinId),
+                        getNavigation: () => this._getOrchestrator()?.getNavigation() ?? null,
+                    };
+
+                    const screen = new AuthScreen(container, ports);
 
                     if (this._destroyed) {
                         screen.destroy();
