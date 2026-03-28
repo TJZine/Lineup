@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 50" fill="none">
+  <!-- Source of truth: src/modules/ui/common/brandGlyphSource.ts -->
+  <!-- Lineup glyph — MONOCHROME, production-grade -->
+  <!-- Uses currentColor — inherits text color from CSS -->
+
+  <defs>
+    <filter id="sh-back" x="-25%" y="-15%" width="160%" height="150%">
+      <feDropShadow dx="3" dy="2.5" stdDeviation="3" flood-color="black" flood-opacity="0.8"/>
+    </filter>
+    <filter id="sh-mid" x="-25%" y="-15%" width="160%" height="150%">
+      <feDropShadow dx="3.5" dy="2.5" stdDeviation="3.5" flood-color="black" flood-opacity="0.75"/>
+    </filter>
+    <filter id="sh-front" x="-30%" y="-20%" width="170%" height="160%">
+      <feDropShadow dx="4" dy="3" stdDeviation="4" flood-color="black" flood-opacity="0.75"/>
+    </filter>
+  </defs>
+
+  <g transform="skewY(-6)">
+    <!-- Back card — deepest, peeks above and left -->
+    <rect x="3" y="6" width="22" height="33" rx="5.5" fill="currentColor" opacity="0.3" filter="url(#sh-back)"/>
+    <rect x="3" y="6" width="22" height="33" rx="5.5" fill="none"
+          stroke="currentColor" stroke-width="0.8" stroke-opacity="0.2"/>
+
+    <!-- Middle card — medium depth -->
+    <rect x="11" y="7" width="23" height="34" rx="6" fill="currentColor" opacity="0.55" filter="url(#sh-mid)"/>
+    <rect x="11" y="7" width="23" height="34" rx="6" fill="none"
+          stroke="currentColor" stroke-width="0.8" stroke-opacity="0.25"/>
+
+    <!-- Front card — full opacity -->
+    <rect x="19" y="9" width="25" height="36" rx="6.5" fill="currentColor" opacity="1" filter="url(#sh-front)"/>
+
+    <!-- Front card edge highlight -->
+    <rect x="19" y="9" width="25" height="36" rx="6.5" fill="none"
+          stroke="currentColor" stroke-width="1.2" stroke-opacity="0.4"/>
+  </g>
+</svg>

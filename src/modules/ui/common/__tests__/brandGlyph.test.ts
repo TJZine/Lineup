@@ -2,7 +2,10 @@
  * @jest-environment jsdom
  */
 
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { createLineupBrandGlyph } from '../brandGlyph';
+import { LINEUP_GLYPH_SOURCE_BY_VARIANT } from '../brandGlyphSource';
 
 describe('createLineupBrandGlyph', () => {
     it('creates a monochrome inline glyph host with trusted SVG semantics', () => {
@@ -25,4 +28,46 @@ describe('createLineupBrandGlyph', () => {
         expect(svg).not.toBeNull();
         expect(svg?.outerHTML).toContain('gold-face');
     });
+
+    it('scopes internal SVG ids per instance to avoid collisions', () => {
+        const a = createLineupBrandGlyph({ variant: 'color', className: 'probe-glyph-a' });
+        const b = createLineupBrandGlyph({ variant: 'color', className: 'probe-glyph-b' });
+
+        const idsA = new Set(
+            Array.from(a.querySelectorAll('[id]'))
+                .map((el) => el.getAttribute('id'))
+                .filter((id): id is string => typeof id === 'string')
+        );
+        const idsB = new Set(
+            Array.from(b.querySelectorAll('[id]'))
+                .map((el) => el.getAttribute('id'))
+                .filter((id): id is string => typeof id === 'string')
+        );
+
+        expect(idsA.size).toBeGreaterThan(0);
+        expect(idsB.size).toBe(idsA.size);
+        for (const id of idsA) {
+            expect(idsB.has(id)).toBe(false);
+        }
+
+        const refsA = Array.from(a.querySelectorAll('[fill],[filter],[stroke]'))
+            .map((el) => [el.getAttribute('fill'), el.getAttribute('filter'), el.getAttribute('stroke')].join(' '));
+        expect(refsA.some((value) => /url\(#lineup-glyph-\d+-gold-face\)/.test(value))).toBe(true);
+    });
+
+    it('keeps branding asset files synchronized to the canonical source module', () => {
+        const repoRoot = path.resolve(__dirname, '../../../../..');
+        const monoAssetPath = path.join(repoRoot, 'assets/branding/lineup-glyph.svg');
+        const colorAssetPath = path.join(repoRoot, 'assets/branding/lineup-glyph-color.svg');
+
+        const monoAsset = readFileSync(monoAssetPath, 'utf8');
+        const colorAsset = readFileSync(colorAssetPath, 'utf8');
+
+        expect(normalizeSvg(monoAsset)).toBe(normalizeSvg(LINEUP_GLYPH_SOURCE_BY_VARIANT.monochrome));
+        expect(normalizeSvg(colorAsset)).toBe(normalizeSvg(LINEUP_GLYPH_SOURCE_BY_VARIANT.color));
+    });
 });
+
+function normalizeSvg(svg: string): string {
+    return svg.trim().replace(/\r\n/g, '\n');
+}

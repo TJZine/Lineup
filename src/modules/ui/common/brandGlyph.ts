@@ -1,117 +1,7 @@
 import { setTrustedInlineSvg } from '../../../utils/inlineSvg';
+import { LINEUP_GLYPH_SOURCE_BY_VARIANT, type BrandGlyphVariant } from './brandGlyphSource';
 
-type BrandGlyphVariant = 'monochrome' | 'color';
-
-const LINEUP_GLYPH_MONO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 50" fill="none">
-  <!-- Lineup glyph — MONOCHROME, production-grade -->
-  <!-- Uses currentColor — inherits text color from CSS -->
-
-  <defs>
-    <filter id="sh-back" x="-25%" y="-15%" width="160%" height="150%">
-      <feDropShadow dx="3" dy="2.5" stdDeviation="3" flood-color="black" flood-opacity="0.8"/>
-    </filter>
-    <filter id="sh-mid" x="-25%" y="-15%" width="160%" height="150%">
-      <feDropShadow dx="3.5" dy="2.5" stdDeviation="3.5" flood-color="black" flood-opacity="0.75"/>
-    </filter>
-    <filter id="sh-front" x="-30%" y="-20%" width="170%" height="160%">
-      <feDropShadow dx="4" dy="3" stdDeviation="4" flood-color="black" flood-opacity="0.75"/>
-    </filter>
-  </defs>
-
-  <g transform="skewY(-6)">
-    <!-- Back card — deepest, peeks above and left -->
-    <rect x="3" y="6" width="22" height="33" rx="5.5" fill="currentColor" opacity="0.3" filter="url(#sh-back)"/>
-    <rect x="3" y="6" width="22" height="33" rx="5.5" fill="none"
-          stroke="currentColor" stroke-width="0.8" stroke-opacity="0.2"/>
-
-    <!-- Middle card — medium depth -->
-    <rect x="11" y="7" width="23" height="34" rx="6" fill="currentColor" opacity="0.55" filter="url(#sh-mid)"/>
-    <rect x="11" y="7" width="23" height="34" rx="6" fill="none"
-          stroke="currentColor" stroke-width="0.8" stroke-opacity="0.25"/>
-
-    <!-- Front card — full opacity -->
-    <rect x="19" y="9" width="25" height="36" rx="6.5" fill="currentColor" opacity="1" filter="url(#sh-front)"/>
-
-    <!-- Front card edge highlight -->
-    <rect x="19" y="9" width="25" height="36" rx="6.5" fill="none"
-          stroke="currentColor" stroke-width="1.2" stroke-opacity="0.4"/>
-  </g>
-</svg>`;
-
-const LINEUP_GLYPH_COLOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 50" fill="none">
-  <!-- Lineup glyph — FULL COLOR, production-grade -->
-
-  <defs>
-    <!-- Harsh shadows with right+down cast -->
-    <filter id="sh-back" x="-25%" y="-15%" width="160%" height="150%">
-      <feDropShadow dx="3" dy="2.5" stdDeviation="3" flood-color="#000" flood-opacity="0.8"/>
-    </filter>
-    <filter id="sh-mid" x="-25%" y="-15%" width="160%" height="150%">
-      <feDropShadow dx="3.5" dy="2.5" stdDeviation="3.5" flood-color="#000" flood-opacity="0.75"/>
-    </filter>
-    <filter id="sh-front" x="-30%" y="-20%" width="170%" height="160%">
-      <feDropShadow dx="4" dy="3" stdDeviation="4" flood-color="#000" flood-opacity="0.75"/>
-    </filter>
-
-    <!-- Gold gradient with brighter specular highlight top-left -->
-    <linearGradient id="gold-face" x1="0" y1="0" x2="0.6" y2="1">
-      <stop offset="0%" stop-color="#f0d070"/>
-      <stop offset="30%" stop-color="#e0b850"/>
-      <stop offset="60%" stop-color="#c8993c"/>
-      <stop offset="100%" stop-color="#a07830"/>
-    </linearGradient>
-
-    <!-- Amber edge glow for front card -->
-    <linearGradient id="amber-glow" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#f0c040"/>
-      <stop offset="50%" stop-color="#e89830"/>
-      <stop offset="100%" stop-color="#c07020"/>
-    </linearGradient>
-
-    <!-- Mid steel edge highlight -->
-    <linearGradient id="steel-edge" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#888"/>
-      <stop offset="100%" stop-color="#555"/>
-    </linearGradient>
-
-    <!-- Dark steel edge highlight -->
-    <linearGradient id="dark-edge" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#666"/>
-      <stop offset="100%" stop-color="#444"/>
-    </linearGradient>
-
-    <!-- Mid steel face — darker -->
-    <linearGradient id="steel-mid" x1="0" y1="0" x2="0.2" y2="1">
-      <stop offset="0%" stop-color="#585858"/>
-      <stop offset="100%" stop-color="#3a3a3a"/>
-    </linearGradient>
-
-    <!-- Back card face — near charcoal -->
-    <linearGradient id="steel-back" x1="0" y1="0" x2="0.2" y2="1">
-      <stop offset="0%" stop-color="#383838"/>
-      <stop offset="100%" stop-color="#222"/>
-    </linearGradient>
-  </defs>
-
-  <g transform="skewY(-6)">
-    <!-- Back card — charcoal, peeks above and left -->
-    <rect x="3" y="6" width="22" height="33" rx="5.5" fill="url(#steel-back)" filter="url(#sh-back)"/>
-    <rect x="3" y="6" width="22" height="33" rx="5.5" fill="none"
-          stroke="url(#dark-edge)" stroke-width="0.8" stroke-opacity="0.5"/>
-
-    <!-- Middle card — dark steel, peeks above -->
-    <rect x="11" y="7" width="23" height="34" rx="6" fill="url(#steel-mid)" filter="url(#sh-mid)"/>
-    <rect x="11" y="7" width="23" height="34" rx="6" fill="none"
-          stroke="url(#steel-edge)" stroke-width="0.8" stroke-opacity="0.5"/>
-
-    <!-- Front card — brushed gold with specular highlight -->
-    <rect x="19" y="9" width="25" height="36" rx="6.5" fill="url(#gold-face)" filter="url(#sh-front)"/>
-
-    <!-- Front card amber edge glow — slightly thicker -->
-    <rect x="19" y="9" width="25" height="36" rx="6.5" fill="none"
-          stroke="url(#amber-glow)" stroke-width="1.4" stroke-opacity="0.75"/>
-  </g>
-</svg>`;
+let glyphInstanceCounter = 0;
 
 export function createLineupBrandGlyph(
     options: { variant: BrandGlyphVariant; className: string }
@@ -121,10 +11,8 @@ export function createLineupBrandGlyph(
     host.setAttribute('aria-hidden', 'true');
     host.setAttribute('role', 'presentation');
 
-    setTrustedInlineSvg(
-        host,
-        options.variant === 'monochrome' ? LINEUP_GLYPH_MONO_SVG : LINEUP_GLYPH_COLOR_SVG
-    );
+    const svgMarkup = LINEUP_GLYPH_SOURCE_BY_VARIANT[options.variant];
+    setTrustedInlineSvg(host, scopeSvgIdsForInstance(svgMarkup));
 
     const svg = host.querySelector('svg');
     if (svg instanceof SVGElement) {
@@ -136,4 +24,60 @@ export function createLineupBrandGlyph(
     }
 
     return host;
+}
+
+function scopeSvgIdsForInstance(svgMarkup: string): string {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgMarkup.trim(), 'image/svg+xml');
+    const svgRoot = doc.documentElement;
+
+    if (!svgRoot || svgRoot.nodeName.toLowerCase() !== 'svg') {
+        return svgMarkup;
+    }
+
+    const idElements = Array.from(svgRoot.querySelectorAll('[id]'));
+    if (idElements.length === 0) {
+        return svgMarkup;
+    }
+
+    const instancePrefix = `lineup-glyph-${++glyphInstanceCounter}`;
+    const idMap = new Map<string, string>();
+    for (const element of idElements) {
+        const originalId = element.getAttribute('id');
+        if (!originalId || idMap.has(originalId)) {
+            continue;
+        }
+        const nextId = `${instancePrefix}-${originalId}`;
+        idMap.set(originalId, nextId);
+        element.setAttribute('id', nextId);
+    }
+
+    const allElements = [svgRoot, ...Array.from(svgRoot.querySelectorAll('*'))];
+    for (const element of allElements) {
+        for (const attr of Array.from(element.attributes)) {
+            let value = attr.value;
+            let changed = false;
+            for (const [originalId, nextId] of idMap) {
+                const urlPattern = new RegExp(`url\\(#${escapeRegExp(originalId)}\\)`, 'g');
+                const replaced = value.replace(urlPattern, `url(#${nextId})`);
+                if (replaced !== value) {
+                    value = replaced;
+                    changed = true;
+                }
+                if (value === `#${originalId}`) {
+                    value = `#${nextId}`;
+                    changed = true;
+                }
+            }
+            if (changed) {
+                element.setAttribute(attr.name, value);
+            }
+        }
+    }
+
+    return new XMLSerializer().serializeToString(svgRoot);
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
