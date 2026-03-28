@@ -60,6 +60,23 @@ describe('ServerSelectScreen', () => {
         jest.restoreAllMocks();
     });
 
+    it('renders the branded hero glyph above the title', () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
+
+        const hero = container.querySelector('.server-select-glyph');
+        const panel = container.querySelector('.screen-panel') as HTMLElement;
+        const orderedClassNames = Array.from(panel.children).map((child) => child.className);
+
+        expect(hero).not.toBeNull();
+        expect(hero?.querySelector('svg')).not.toBeNull();
+        expect(orderedClassNames[0]).toBe('screen-hero');
+        expect(orderedClassNames[1]).toBe('screen-title');
+    });
+
     it('appends latency and applies slow class for ok status', async () => {
         const orchestrator = createOrchestratorStub();
         const container = document.createElement('div');

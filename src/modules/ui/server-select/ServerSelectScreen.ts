@@ -11,6 +11,7 @@ import { ServerSelectionStore, type ServerHealthMap } from '../../plex/discovery
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
+import { createLineupBrandGlyph } from '../common/brandGlyph';
 import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
 
 const FOCUS_RESTORE_DELAY_MS = 50;
@@ -59,9 +60,15 @@ export class ServerSelectScreen {
         this._container.style.alignItems = 'center';
         this._container.style.justifyContent = 'center';
 
+        const heroGlyph = createLineupBrandGlyph({
+            variant: 'color',
+            className: 'server-select-glyph',
+        });
+
         const shell = createScreenShell(this._container, {
             title: 'Select Plex Server',
             subtitle: 'Choose a server to continue startup.',
+            heroSlot: heroGlyph,
             status: {
                 title: 'Ready to discover servers.',
                 tone: 'neutral',
