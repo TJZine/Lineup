@@ -97,6 +97,8 @@ When a tracked plan is mainly reconciling detector output with checklist/doc clo
 - detector silence is necessary but not sufficient for closure
 - add a current-code source audit, ownership proof matrix, or equivalent explicit justification showing why the checklist outcome is true on the code as it exists now
 - if detector output and source audit disagree, stop and resolve that contradiction before claiming closeout
+- distinguish three things explicitly: the slice-owned rationale that this plan retires, any still-live residual debt, and any stale detector wording that has not yet caught up
+- if the slice-owned rationale is gone on current code, do not plan an automatic `split follow-up` just because the same imported issue id may remain open with broader stale evidence; name the one intended final owner for any real residual instead
 
 The goal is not to maximize tool usage for its own sake. The goal is to leave a clear evidence trail that explains why the chosen plan shape is the repo-best-practice choice for this task.
 
@@ -142,6 +144,7 @@ The priority-exit readiness section must explicitly record:
 
 - every imported review issue mapped to the priority, with its exact issue id, and whether this plan retires it, defers it, or splits it into a follow-up owner
 - for every deferred or split item, the exact current or follow-up owner, the reason it remains open, and the revisit trigger; if one issue spans multiple `P#-W#` items, nominate one single final owner
+- for any issue that this plan resolves on current-code proof while the detector id still carries stale or broader wording, say so directly and keep the same final owner for any truly remaining residual instead of inventing a new owner transfer
 - the expected `P0` security-gate disposition before the next priority begins, including exact issue ids and revisit triggers for anything not cleared
 - any residual debt in the priority area that is intentionally left behind, with its new owner
 
@@ -160,3 +163,4 @@ The priority-exit readiness section must explicitly record:
 - plans that claim priority closeout while leaving the final owner of a mapped imported issue implicit
 - plans that cite local run-bundle artifacts under `docs/plans/...` instead of their real `docs/runs/...` path
 - plans that treat `No open issues matching` as sufficient closeout proof for ownership/coupling findings without a current-code source audit
+- plans that map a broad imported issue to a narrow slice without naming the intended final owner and then rely on repeated `P#-EXIT` re-splitting to sort out stale residue later

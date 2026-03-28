@@ -193,12 +193,20 @@ These are the required repo-local boundary skills for the new wave. Load them be
 ## Execution Hygiene
 
 - Disposition vocabulary:
-  - `resolved`: the exact imported issue is retired by the current slice or priority exit, and the closing evidence has been refreshed on current code
+  - `resolved`: the exact imported issue, or the slice-owned rationale mapped to it, is retired by the current slice or priority exit, and the closing evidence has been refreshed on current code
   - `deferred`: the issue stays open, but the record names the exact issue id, current owner, reason, and revisit trigger; nothing deferred is implicitly accepted
   - `split follow-up`: the current slice is not the final owner; the remaining gap is handed to one exact successor owner
   - `owned follow-up`: the exact successor owner named by a `split follow-up` record; each split issue must have one single final owner, not shared implicit ownership across multiple `P#-W#` items
   - `security triage`: a fresh `desloppify status` result for the current slice or exit that either says `no open P0 security findings` or lists the exact open/deferred `P0` security issue ids plus reasons and revisit triggers
   - `priority-exit review`: the blocking review run after the last planned `P#-W#` item in a priority and before any `P(n+1)` work, plan, or checklist progress begins
+- Issue-envelope ownership rule:
+  - for broad imported issues, choose one intended final owner for the remaining live debt when the issue first enters the priority
+  - intermediate `P#-W#` slices may retire one mapped sub-claim and add proof, but they should not reassign the same issue envelope again unless the current source audit shows a genuinely different remaining owner or the earlier owner mapping was wrong
+  - detector lag alone is not a reason to create a new successor owner
+- Source-audit precedence rule:
+  - when current-code proof shows that the slice-owned rationale is gone, prefer `resolved` plus a note about stale detector residue over a new `split follow-up`
+  - use `split follow-up` only when current-code proof shows a real remaining live gap outside the completed slice
+  - if stale detector wording and live residual debt both exist, record them separately so the checklist does not keep re-splitting the entire issue envelope
 - Security deferral record format:
   - `issue`: exact `desloppify` issue id or security finding reference
   - `owner`: exact current owner responsible for clearing or revisiting the deferred item
@@ -216,6 +224,7 @@ These are the required repo-local boundary skills for the new wave. Load them be
   - `security triage`: `no open P0 security findings`, or the deferred/resolved `P0` security findings for this slice with exact issue ids, reasons, and revisit triggers
   - `verification`: exact commands that prove the slice is complete
   - `deferred items`: anything intentionally left open with its exact issue id, owner, reason, and revisit trigger
+  - `proof matrix`: for each mapped imported issue, record the exact issue id, whether the slice-owned rationale is retired on current source, whether any live residual debt remains, whether any detector wording is stale, the final owner, and the revisit trigger if anything remains open
 - Priority exit command checklist:
   - do not run authoritative `desloppify` evidence commands in worktrees; run them on the target integration branch that will carry the checklist state forward
   - rerun `desloppify status`
@@ -240,6 +249,7 @@ These are the required repo-local boundary skills for the new wave. Load them be
   - do not rely on the source exit record alone; the destination work item must be self-sufficient for a fresh session
   - when drafting the destination tracked plan, copy every inherited issue id into the plan evidence and verification section and re-check each id before marking the destination item complete
   - if an inherited issue is re-deferred at destination closeout, record the new single final owner and revisit trigger in that destination exit record
+  - if the exact same imported issue would be split forward a second time, stop and resolve whether the earlier owner mapping was wrong or the detector output is simply stale; do not keep chaining routine successor work items for the same issue envelope
 
 ## Priority 1: Narrow Runtime Composition Roots And Screen-Facing Ports
 
@@ -505,12 +515,15 @@ These are the required repo-local boundary skills for the new wave. Load them be
 - Do not bypass the `P0` security triage gate just because a lower-numbered cleanup priority is next in sequence.
 - Do not mark a mapped `P#-W#` item complete while its linked imported review issue still remains open unless the remaining gap is explicitly documented as deferred or intentionally split into a follow-up work unit.
 - Mark a mapped `P#-W#` item complete in the same pass once the implementation for that slice has landed, the slice verification has been rerun, and every linked imported review issue is now either retired on current evidence or explicitly recorded there as `deferred`/`split follow-up` with one exact owner, reason, and revisit trigger.
+- A mapped `P#-W#` item may mark an imported issue `resolved` when current-code proof shows that the slice-owned rationale is gone, even if the exact detector id still prints stale or broader wording; in that case record the stale detector residue and the established final owner for any still-live residual instead of creating a fresh follow-up by default.
 - Treat a checked `P#-W#` item as “this work unit is done and any remaining mapped debt is intentionally handed off,” not as proof that the whole priority is cleared; only `P#-EXIT` can clear the priority for `P(n+1)` work.
 - Do not mark `P#-EXIT` complete until every imported review issue mapped to that priority is either retired, explicitly deferred, or intentionally split into a new owned follow-up work unit.
 - Do not mark `P#-EXIT` complete until the `P0` security gate has either been cleared or explicitly deferred for the next slice with exact issue ids and revisit triggers.
 - Do not leave a multiply-mapped imported review issue with shared implicit ownership at priority exit; the exit record must nominate one single final owner.
 - Do not leave imported review issues unowned: every one of the `44` imported review issue ids listed in this file must remain mapped to one explicit `P#-W#` item or one explicit `P#-EXIT` follow-up record.
 - Intermediate priority exits may use `deferred` or `split follow-up`, but only with one named later owner and mirrored destination-item verification commands.
+- Treat `P#-EXIT` as a reconciliation gate for stale detector residue, proof-matrix disagreements, and true residual ownership, not as a routine follow-up factory for already-established issue envelopes.
+- Do not create a new `split follow-up` from `P#-EXIT` unless the exit audit finds a genuinely different remaining live owner or proves the earlier owner assignment was wrong.
 - Final wave completion at `P8-EXIT` is blocked unless every one of the `44` imported review ids either returns `No open issues matching` under its exact `desloppify show` command or is given an explicit final disposition that mints a new tracked successor surface in the same pass.
 - The expected end state of this wave is zero remaining open issues from the imported 44-id set; final non-resolved dispositions are exceptional and must not be left implicit.
 - After any cleanup slice materially changes the evidence, refresh:

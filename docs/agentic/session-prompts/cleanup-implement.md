@@ -47,6 +47,8 @@ If the short follow-up form is used, do not wait for a formal handoff block; use
 - keep `update_plan` aligned with actual progress
 - if the approved plan is `standalone remediation`, do not create or update checklist linkage unless the plan explicitly says the result should be promoted into tracked cleanup backlog
 - if the approved plan closes the last planned `P#-W#` item in a priority, prepare the `P#-EXIT` evidence and checklist update in the same pass or report exactly why exit is still blocked; do not start `P(n+1)` work in the same session while that exit remains unresolved
+- when a mapped imported issue still reports open after implementation, separate stale detector wording from live residual debt using current-code proof; do not mint a new `split follow-up` unless the source audit shows a genuinely different remaining owner
+- if the slice-owned rationale is retired and the plan already names the final owner for any broader residual debt, record that as `resolved` plus proof instead of automatically handing the same issue envelope forward again
 
 ## Verification Requirements
 
@@ -65,6 +67,7 @@ Return:
 4. whether the checklist item or plan status should be updated
    - for `standalone remediation`, say explicitly when no checklist update applies
    - if this closes the last planned `P#-W#` item in a priority, include the exact priority-exit evidence, any deferred/split items with their exact issue id, single final owner, and reason and revisit trigger, and whether the outgoing review should be treated as a priority-exit review
+   - if any detector id stayed open because of stale wording rather than live slice-owned debt, say that explicitly and name the already-established final owner for any residual live debt
 5. a `NEXT_SESSION_HANDOFF` block that routes to `lineup-cleanup-review` and includes:
    - `TASK`
    - `PLAN`

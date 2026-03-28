@@ -69,9 +69,12 @@ If reviewing an implementation, focus on:
 - missing or weak verification
 - accidental local-only artifact changes
 - new slop, fallback paths, or cross-boundary shortcuts
+- stale detector residue being mistaken for live slice-owned debt
+- repeated `split follow-up` churn for the same imported issue envelope when no new owner was proven on current code
 - if the artifact claims to close the last `P#-W#` item in a priority, treat it as a priority-exit review too:
   - verify every imported review issue mapped to that priority is retired, explicitly deferred, or split into a new owned follow-up
   - verify every deferred or split item names one single final owner plus a reason and revisit trigger, especially when one imported issue was mapped to multiple `P#-W#` items
+  - push back if the same imported issue is being split forward again without a fresh source audit proving a different remaining owner or proving the earlier mapping was wrong
   - verify the `P0` security gate has been cleared or explicitly deferred with exact issue ids
   - rerun strongest verification/evidence commands on current code before approving `P(n+1)`
   - verify the checklist is not advancing to `P(n+1)` while known priority-local debt is still open without a recorded reason
@@ -98,3 +101,4 @@ If reviewing an implementation, focus on:
   - the matching `P#-EXIT` gate is satisfied
   - mapped imported issues and security triage have an auditable disposition with exact issue ids, owners, reasons, and revisit triggers
   - the remaining debt in that priority area is either intentionally owned elsewhere or explicitly deferred
+  - stale detector wording has been separated from true residual debt so `P#-EXIT` is reconciling evidence rather than creating routine new follow-up work
