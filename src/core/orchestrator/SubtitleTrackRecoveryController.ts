@@ -48,8 +48,7 @@ export class SubtitleTrackRecoveryController {
             if (!ok) {
                 warnAudioReloadFailed();
             }
-        })
-        .catch(() => warnAudioReloadFailed());
+        });
     }
 
     private _handleSubtitleTrackChange(trackId: string | null): void {
@@ -86,8 +85,7 @@ export class SubtitleTrackRecoveryController {
                     .then((result) => {
                         if (result.outcome !== 'failed') return;
                         warnDisableFailed();
-                    })
-                    .catch(() => warnDisableFailed());
+                    });
             }
             return;
         }
