@@ -1,4 +1,5 @@
 import { CHANNEL_BADGE_CLASSES } from './constants';
+import { createLineupBrandGlyph } from '../common/brandGlyph';
 import type { ChannelBadgeConfig, ChannelBadgeViewModel } from './types';
 
 export class ChannelBadgeOverlay {
@@ -22,9 +23,19 @@ export class ChannelBadgeOverlay {
         this.containerElement.classList.remove(CHANNEL_BADGE_CLASSES.VISIBLE);
         this.containerElement.replaceChildren();
 
+        const content = document.createElement('span');
+        content.className = CHANNEL_BADGE_CLASSES.CONTENT;
+
+        const icon = createLineupBrandGlyph({
+            variant: 'monochrome',
+            className: CHANNEL_BADGE_CLASSES.ICON,
+        });
+
         const text = document.createElement('span');
         text.className = CHANNEL_BADGE_CLASSES.TEXT;
-        this.containerElement.appendChild(text);
+
+        content.append(icon, text);
+        this.containerElement.appendChild(content);
         this.textElement = text;
         this.isVisibleFlag = false;
     }
