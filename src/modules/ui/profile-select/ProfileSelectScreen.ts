@@ -10,6 +10,7 @@ import { PlexApiError } from '../../plex/auth';
 import { AppErrorCode } from '../../lifecycle/types';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
+import { createLineupBrandGlyph } from '../common/brandGlyph';
 import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
 import type { ProfileSessionStore } from '../../settings/ProfileSessionStore';
 
@@ -82,9 +83,15 @@ export class ProfileSelectScreen {
         this._container.style.alignItems = 'center';
         this._container.style.justifyContent = 'center';
 
+        const heroGlyph = createLineupBrandGlyph({
+            variant: 'color',
+            className: 'profile-select-glyph',
+        });
+
         const shell = createScreenShell(this._container, {
             title: "Who's watching?",
             subtitle: 'Choose a Plex Home profile to continue.',
+            heroSlot: heroGlyph,
             status: {
                 title: 'Loading profiles...',
                 tone: 'loading',

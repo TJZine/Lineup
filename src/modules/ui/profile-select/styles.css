@@ -1,3 +1,11 @@
+.profile-select-glyph {
+    display: block;
+    width: 32px;
+    height: 32px;
+    margin-bottom: 12px;
+    filter: drop-shadow(0 2px 6px rgb(0 0 0 / 30%));
+}
+
 .profile-panel {
     display: flex;
     flex-direction: column;
