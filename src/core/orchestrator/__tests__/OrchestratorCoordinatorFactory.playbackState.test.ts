@@ -96,7 +96,7 @@ const makeDeps = (
         config: null,
         moduleStatus: moduleStatus as OrchestratorCoordinatorFactoryDeps['moduleStatus'],
         init: {
-            getInitCoordinator: (): null => null,
+            ensureEpgInitialized: (): Promise<void> => Promise.resolve(),
         },
         modules: {
             navigation: {
@@ -262,5 +262,56 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
         expect(deps.config?.epgConfig).not.toBe(originalEpgConfig);
         expect(originalEpgConfig.onVisibleRangeChange).toBe(previousOnVisibleRangeChange);
         expect(deps.config?.epgConfig.onVisibleRangeChange).not.toBe(previousOnVisibleRangeChange);
+    });
+
+    it('calls ensureEpgInitialized when openEPG runs before epg-ui status is ready', async () => {
+        const playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors> = {
+            getCurrentProgramForPlayback: jest.fn().mockReturnValue(null),
+            setCurrentProgramForPlayback: jest.fn(),
+            getCurrentStreamDescriptor: jest.fn().mockReturnValue(null),
+            setCurrentStreamDescriptor: jest.fn(),
+            getCurrentStreamDecision: jest.fn().mockReturnValue(null),
+            setCurrentStreamDecision: jest.fn(),
+            getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
+            setPendingNowPlayingChannelId: jest.fn(),
+            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
+            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
+        };
+        const ensureEpgInitialized = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
+        const show = jest.fn();
+        const focusNow = jest.fn();
+        const deps = makeDeps(playbackState);
+        deps.moduleStatus.set('epg-ui', { status: 'initializing' } as never);
+        deps.init.ensureEpgInitialized = ensureEpgInitialized;
+        deps.modules.epg = {
+            show,
+            focusNow,
+            isVisible: jest.fn().mockReturnValue(false),
+            ensureReady: jest.fn().mockResolvedValue(undefined),
+            getState: jest.fn().mockReturnValue({
+                viewWindow: {
+                    startChannelIndex: 0,
+                    endChannelIndex: 0,
+                    startTime: 0,
+                    endTime: 60_000,
+                },
+            }),
+            loadChannels: jest.fn(),
+            loadPrograms: jest.fn(),
+            clearProgramsForChannel: jest.fn(),
+            setCategoryColorsEnabled: jest.fn(),
+            setLibraryTabs: jest.fn(),
+            setLayoutMode: jest.fn(),
+            setNowWatchingBannerEnabled: jest.fn(),
+            setVisibleHours: jest.fn(),
+        } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['epg'];
+
+        const coordinators = createOrchestratorCoordinators(deps);
+        coordinators.epgCoordinator.openEPG();
+        await Promise.resolve();
+
+        expect(ensureEpgInitialized).toHaveBeenCalledTimes(1);
+        expect(show).toHaveBeenCalled();
+        expect(focusNow).toHaveBeenCalled();
     });
 });

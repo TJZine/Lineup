@@ -534,7 +534,8 @@ export class AppOrchestrator {
             config: this._config,
             moduleStatus: this._moduleStatus,
             init: {
-                getInitCoordinator: (): InitializationCoordinator | null => this._initCoordinator,
+                ensureEpgInitialized: (): Promise<void> =>
+                    this._initCoordinator?.ensureEPGInitialized() ?? Promise.resolve(),
             },
             modules: {
                 navigation: this._navigation,

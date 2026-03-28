@@ -85,7 +85,6 @@ import { SleepTimerManager } from '../../modules/ui/sleep-timer';
 import { ChannelSetupCoordinator } from '../channel-setup';
 import { ChannelTuningCoordinator } from '../channel-tuning';
 import type { GuideSelectionSnapshot } from '../channel-tuning';
-import type { InitializationCoordinator } from '../InitializationCoordinator';
 import type { ModuleStatus, OrchestratorConfig } from './OrchestratorTypes';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import { NowPlayingDebugManager } from '../../modules/debug/NowPlayingDebugManager';
@@ -102,7 +101,7 @@ export interface OrchestratorCoordinatorFactoryDeps {
     config: OrchestratorConfig | null;
     moduleStatus: Map<string, ModuleStatus>;
     init: {
-        getInitCoordinator: () => InitializationCoordinator | null;
+        ensureEpgInitialized: () => Promise<void>;
     };
     modules: {
         navigation: INavigationManager;
@@ -197,7 +196,7 @@ export function createOrchestratorCoordinators(
     const deps = {
         config: input.config,
         moduleStatus: input.moduleStatus,
-        getInitCoordinator: input.init.getInitCoordinator,
+        ensureEpgInitialized: input.init.ensureEpgInitialized,
         navigation: input.modules.navigation,
         plexAuth: input.modules.plexAuth,
         plexDiscovery: input.modules.plexDiscovery,
@@ -252,8 +251,7 @@ export function createOrchestratorCoordinators(
         getChannelManager: (): IChannelManager | null => deps.channelManager,
         getScheduler: (): IChannelScheduler | null => deps.scheduler,
         getEpgUiStatus: (): EpgUiStatus => deps.moduleStatus.get('epg-ui')?.status,
-        ensureEpgInitialized: (): Promise<void> =>
-            deps.getInitCoordinator()?.ensureEPGInitialized() ?? Promise.resolve(),
+        ensureEpgInitialized: (): Promise<void> => deps.ensureEpgInitialized(),
         getEpgConfig: (): EPGConfig | null => deps.config?.epgConfig ?? null,
         getLocalMidnightMs: (t: number): number => deps.getLocalMidnightMs(t),
         getEpgScheduleRangeSnapshot: (): ReturnType<typeof readEpgStorageSnapshotForScheduleRange> =>
@@ -301,8 +299,7 @@ export function createOrchestratorCoordinators(
             safeLocalStorageRemove(key);
         },
         handleGlobalError: (error: AppError, context: string): void => deps.handleGlobalError(error, context),
-        ensureEpgInitialized: (): Promise<void> =>
-            deps.getInitCoordinator()?.ensureEPGInitialized() ?? Promise.resolve(),
+        ensureEpgInitialized: (): Promise<void> => deps.ensureEpgInitialized(),
         clearSelectedChannelScheduleSnapshot: (): void => epgCoordinator.clearSelectedChannelScheduleSnapshot(),
         primeEpgChannels: (): void => epgCoordinator.primeEpgChannels(),
         refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }): Promise<void> =>

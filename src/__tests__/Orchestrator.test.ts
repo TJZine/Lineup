@@ -1972,6 +1972,19 @@ describe('AppOrchestrator', () => {
             }
         });
 
+        it('keeps openEPG safe when init coordinator is unavailable before deferred init', async () => {
+            (orchestrator as unknown as { _moduleStatus: Map<string, { status: string }> })
+                ._moduleStatus.set('epg-ui', { status: 'initializing' });
+            (orchestrator as unknown as { _initCoordinator: InitializationCoordinator | null })
+                ._initCoordinator = null;
+
+            expect(() => orchestrator.openEPG()).not.toThrow();
+            await Promise.resolve();
+
+            expect(mockLifecycle.reportError).not.toHaveBeenCalled();
+            expect(mockEpg.show).toHaveBeenCalled();
+        });
+
         it('should forward layout mode changes when EPG is visible', () => {
             mockEpg.isVisible.mockReturnValue(true);
 
