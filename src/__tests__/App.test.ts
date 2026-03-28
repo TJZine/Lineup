@@ -723,12 +723,14 @@ describe('App bootstrap smoke', () => {
         await flushPromises();
     });
 
-    it('renders a fatal error when startup fails', async () => {
+    it('rethrows startup failures after best-effort shutdown', async () => {
         const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
-        await bootstrapApp(() => {
+        const shutdownSpy = jest.spyOn(AppOrchestrator.prototype, 'shutdown').mockResolvedValue(undefined);
+
+        await expect(bootstrapApp(() => {
             initializeSpy.mockReset();
             initializeSpy.mockRejectedValueOnce(new Error('init failed'));
-        });
+        })).rejects.toThrow('init failed');
 
         expect(errorSpy).toHaveBeenCalledTimes(1);
         expect(errorSpy).toHaveBeenCalledWith(
@@ -738,10 +740,7 @@ describe('App bootstrap smoke', () => {
                 message: expect.stringContaining('init failed'),
             })
         );
-
-        const root = document.getElementById('app') as HTMLElement | null;
-        expect(root?.textContent ?? '').toContain('Application Error');
-        expect(root?.textContent ?? '').toContain('init failed');
+        expect(shutdownSpy).toHaveBeenCalledTimes(1);
     });
 
     it('does not expose debug helpers when debug surface is disabled', async () => {

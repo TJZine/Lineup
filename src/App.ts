@@ -175,7 +175,7 @@ export class App {
             } catch (shutdownError) {
                 console.error('App shutdown after startup failure failed:', summarizeErrorForLog(shutdownError));
             }
-            this._showFatalError(error);
+            throw error;
         }
     }
 
