@@ -26,6 +26,7 @@ import { webosPlatformServices } from '../platform';
 import type { StreamDecision } from '../modules/plex/stream';
 import { AudioSettingsStore } from '../modules/settings/AudioSettingsStore';
 import { PlaybackRecoveryManager } from '../modules/player/PlaybackRecoveryManager';
+import * as orchestratorCoordinatorFactory from '../core/orchestrator/OrchestratorCoordinatorFactory';
 
 // Mock localStorage
 const mockLocalStorage = {
@@ -1972,17 +1973,26 @@ describe('AppOrchestrator', () => {
             }
         });
 
-        it('keeps openEPG safe when init coordinator is unavailable before deferred init', async () => {
-            (orchestrator as unknown as { _moduleStatus: Map<string, { status: string }> })
-                ._moduleStatus.set('epg-ui', { status: 'initializing' });
-            (orchestrator as unknown as { _initCoordinator: InitializationCoordinator | null })
-                ._initCoordinator = null;
+        it('wires ensureEpgInitialized as a safe no-op before init coordinator construction', async () => {
+            const originalFactory = orchestratorCoordinatorFactory.createOrchestratorCoordinators;
+            const earlyEnsureCalls: Array<Promise<void>> = [];
+            const factorySpy = jest
+                .spyOn(orchestratorCoordinatorFactory, 'createOrchestratorCoordinators')
+                .mockImplementation((deps) => {
+                    earlyEnsureCalls.push(deps.init.ensureEpgInitialized());
+                    return originalFactory(deps);
+                });
 
-            expect(() => orchestrator.openEPG()).not.toThrow();
-            await Promise.resolve();
-
-            expect(mockLifecycle.reportError).not.toHaveBeenCalled();
-            expect(mockEpg.show).toHaveBeenCalled();
+            try {
+                await orchestrator.initialize(mockConfig);
+                expect(earlyEnsureCalls.length).toBeGreaterThan(0);
+                await expect(Promise.all(earlyEnsureCalls)).resolves.toEqual(
+                    expect.arrayContaining([undefined])
+                );
+                expect(mockLifecycle.reportError).not.toHaveBeenCalled();
+            } finally {
+                factorySpy.mockRestore();
+            }
         });
 
         it('should forward layout mode changes when EPG is visible', () => {
