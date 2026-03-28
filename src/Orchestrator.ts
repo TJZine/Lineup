@@ -138,6 +138,7 @@ import { webosPlatformServices } from './platform';
 import { isAbortLikeError, summarizeErrorForLog } from './utils/errors';
 import { ScheduleDayRolloverController } from './core/orchestrator/ScheduleDayRolloverController';
 import { SubtitleTrackRecoveryController } from './core/orchestrator/SubtitleTrackRecoveryController';
+import { InitializationUiInitializer } from './core/initialization/InitializationUiInitializer';
 
 // ============================================
 // Types
@@ -415,6 +416,20 @@ export class AppOrchestrator {
         this._channelSetup?.cleanupStaleChannelBuildKeys();
         this._initializePriorityOneControllers();
 
+        const initializationUiInitializer = new InitializationUiInitializer(
+            config,
+            {
+                nowPlayingInfo: this._nowPlayingInfo,
+                playbackOptions: this._playbackOptionsModal,
+                exitConfirm: this._exitConfirmModal,
+            },
+            {
+                updateModuleStatus: this._updateModuleStatus.bind(this),
+                getModuleStatus: (id: string): ModuleStatus['status'] | undefined =>
+                    this._moduleStatus.get(id)?.status,
+            }
+        );
+
         // Create InitializationCoordinator with dependencies and callbacks
         this._initCoordinator = new InitializationCoordinator(
             config,
@@ -432,15 +447,13 @@ export class AppOrchestrator {
                     epg: this._epg,
                 },
                 overlays: {
-                    nowPlayingInfo: this._nowPlayingInfo,
                     playerOsd: this._playerOsd,
                     channelNumberOverlay: this._channelNumberOverlay,
                     channelBadgeOverlay: this._channelBadgeOverlay,
                     miniGuide: this._miniGuide,
                     channelTransition: this._channelTransitionOverlay,
-                    playbackOptions: this._playbackOptionsModal,
-                    exitConfirm: this._exitConfirmModal,
                 },
+                uiInitializer: initializationUiInitializer,
                 stores: {
                     epgPreferencesStore: this._epgPreferencesStore,
                     profileSessionStore: this._profileSessionStore,

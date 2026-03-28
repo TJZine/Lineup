@@ -56,14 +56,12 @@ describe('InitializationCoordinator (Plex Home)', () => {
         scheduler: InitializationDependencies['modules']['scheduler'];
         videoPlayer: InitializationDependencies['modules']['videoPlayer'];
         epg: InitializationDependencies['modules']['epg'];
-        nowPlayingInfo: InitializationDependencies['overlays']['nowPlayingInfo'];
         playerOsd: InitializationDependencies['overlays']['playerOsd'];
         channelNumberOverlay: InitializationDependencies['overlays']['channelNumberOverlay'];
         channelBadgeOverlay: InitializationDependencies['overlays']['channelBadgeOverlay'];
         miniGuide: InitializationDependencies['overlays']['miniGuide'];
         channelTransition: InitializationDependencies['overlays']['channelTransition'];
-        playbackOptions: InitializationDependencies['overlays']['playbackOptions'];
-        exitConfirm: InitializationDependencies['overlays']['exitConfirm'];
+        uiInitializer: InitializationDependencies['uiInitializer'];
         epgPreferencesStore: InitializationDependencies['stores']['epgPreferencesStore'];
         profileSessionStore: InitializationDependencies['stores']['profileSessionStore'];
     };
@@ -132,14 +130,14 @@ describe('InitializationCoordinator (Plex Home)', () => {
             scheduler: null,
             videoPlayer: null,
             epg: null,
-            nowPlayingInfo: null,
             playerOsd: null,
             channelNumberOverlay: null,
             channelBadgeOverlay: null,
             miniGuide: null,
             channelTransition: null,
-            playbackOptions: null,
-            exitConfirm: null,
+            uiInitializer: {
+                ensureCorePlayerUiInitialized: jest.fn().mockResolvedValue(undefined),
+            } as unknown as LegacyInitializationDependencies['uiInitializer'],
             epgPreferencesStore: new EpgPreferencesStore(),
             profileSessionStore: new ProfileSessionStore(),
         };
@@ -159,15 +157,13 @@ describe('InitializationCoordinator (Plex Home)', () => {
                 epg: legacyDeps.epg,
             },
             overlays: {
-                nowPlayingInfo: legacyDeps.nowPlayingInfo,
                 playerOsd: legacyDeps.playerOsd,
                 channelNumberOverlay: legacyDeps.channelNumberOverlay,
                 channelBadgeOverlay: legacyDeps.channelBadgeOverlay,
                 miniGuide: legacyDeps.miniGuide,
                 channelTransition: legacyDeps.channelTransition,
-                playbackOptions: legacyDeps.playbackOptions,
-                exitConfirm: legacyDeps.exitConfirm,
             },
+            uiInitializer: legacyDeps.uiInitializer,
             stores: {
                 epgPreferencesStore: legacyDeps.epgPreferencesStore,
                 profileSessionStore: legacyDeps.profileSessionStore,
@@ -460,25 +456,13 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
     it('initializes core player UI before marking startup ready after phase 4', async () => {
         const callOrder: string[] = [];
-        const nowPlayingInfo = {
-            initialize: jest.fn(() => {
-                callOrder.push('now-playing-info');
+        const uiInitializer = {
+            ensureCorePlayerUiInitialized: jest.fn().mockImplementation(async () => {
+                callOrder.push('core-player-ui');
             }),
-        } as unknown as LegacyInitializationDependencies['nowPlayingInfo'];
-        const playbackOptions = {
-            initialize: jest.fn(() => {
-                callOrder.push('playback-options');
-            }),
-        } as unknown as LegacyInitializationDependencies['playbackOptions'];
-        const exitConfirm = {
-            initialize: jest.fn(() => {
-                callOrder.push('exit-confirm');
-            }),
-        } as unknown as LegacyInitializationDependencies['exitConfirm'];
+        } as unknown as LegacyInitializationDependencies['uiInitializer'];
         const { coordinator, callbacks } = makeCoordinator({
-            nowPlayingInfo,
-            playbackOptions,
-            exitConfirm,
+            uiInitializer,
         });
 
         (callbacks.setReady as jest.Mock).mockImplementation((ready: boolean) => {
@@ -490,9 +474,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         await coordinator.runStartup(4);
 
         expect(callOrder).toEqual([
-            'now-playing-info',
-            'playback-options',
-            'exit-confirm',
+            'core-player-ui',
             'ready-true',
         ]);
     });

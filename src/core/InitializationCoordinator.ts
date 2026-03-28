@@ -22,19 +22,17 @@ import type { IChannelManager } from '../modules/scheduler/channel-manager';
 import type { IChannelScheduler } from '../modules/scheduler/scheduler';
 import type { IVideoPlayer } from '../modules/player';
 import type { IEPGComponent } from '../modules/ui/epg';
-import type { INowPlayingInfoOverlay } from '../modules/ui/now-playing-info';
 import type { IPlayerOsdOverlay } from '../modules/ui/player-osd';
 import type { ChannelNumberOverlay } from '../modules/ui/channel-number-overlay';
 import type { ChannelBadgeOverlay } from '../modules/ui/channel-badge';
 import type { IMiniGuideOverlay } from '../modules/ui/mini-guide';
 import type { IChannelTransitionOverlay } from '../modules/ui/channel-transition';
-import type { IPlaybackOptionsModal } from '../modules/ui/playback-options';
-import { ExitConfirmModal, EXIT_CONFIRM_CONTAINER_ID } from '../modules/ui/exit-confirm';
 import type { IDisposable } from '../utils/interfaces';
 import type { OrchestratorConfig, ModuleStatus } from './orchestrator/OrchestratorTypes';
 import { EpgPreferencesStore, type EpgLayoutMode } from '../modules/settings/EpgPreferencesStore';
 import { ProfileSessionStore } from '../modules/settings/ProfileSessionStore';
 import { summarizeErrorForLog } from '../utils/errors';
+import { InitializationUiInitializer } from './initialization/InitializationUiInitializer';
 import {
     applyPhase2AuthGatePolicy,
     applyPhase3ServerGatePolicy,
@@ -64,15 +62,13 @@ export interface InitializationDependencies {
         epg: IEPGComponent | null;
     };
     overlays: {
-        nowPlayingInfo: INowPlayingInfoOverlay | null;
         playerOsd: IPlayerOsdOverlay | null;
         channelNumberOverlay: ChannelNumberOverlay | null;
         channelBadgeOverlay: ChannelBadgeOverlay | null;
         miniGuide: IMiniGuideOverlay | null;
         channelTransition: IChannelTransitionOverlay | null;
-        playbackOptions: IPlaybackOptionsModal | null;
-        exitConfirm: ExitConfirmModal | null;
     };
+    uiInitializer: InitializationUiInitializer;
     stores: {
         epgPreferencesStore: EpgPreferencesStore;
         profileSessionStore: ProfileSessionStore;
@@ -145,9 +141,6 @@ export class InitializationCoordinator {
 
     // EPG init promise (prevents duplicate initialization)
     private _epgInitPromise: Promise<void> | null = null;
-    private _nowPlayingInfoInitPromise: Promise<void> | null = null;
-    private _playbackOptionsInitPromise: Promise<void> | null = null;
-    private _exitConfirmInitPromise: Promise<void> | null = null;
     private _epgWarmupTimerId: ReturnType<typeof setTimeout> | null = null;
 
     constructor(
@@ -607,114 +600,7 @@ export class InitializationCoordinator {
     }
 
     private async _ensureCorePlayerUiInitialized(): Promise<void> {
-        await this._initNowPlayingInfoUI();
-        await this._initPlaybackOptionsUI();
-        await this._initExitConfirmUI();
-    }
-
-    private async _initNowPlayingInfoUI(): Promise<void> {
-        if (this._callbacks.status.getModuleStatus('now-playing-info-ui') === 'ready') {
-            return;
-        }
-        if (this._nowPlayingInfoInitPromise) {
-            await this._nowPlayingInfoInitPromise;
-            return;
-        }
-        if (!this._deps.overlays.nowPlayingInfo || !this._config) {
-            return;
-        }
-
-        const startTime = Date.now();
-        this._callbacks.status.updateModuleStatus('now-playing-info-ui', 'initializing');
-        const init = async (): Promise<void> => {
-            this._deps.overlays.nowPlayingInfo!.initialize(this._config.nowPlayingInfoConfig);
-            this._callbacks.status.updateModuleStatus(
-                'now-playing-info-ui',
-                'ready',
-                undefined,
-                Date.now() - startTime
-            );
-        };
-        this._nowPlayingInfoInitPromise = init()
-            .catch((e) => {
-                this._callbacks.status.updateModuleStatus('now-playing-info-ui', 'error');
-                throw e;
-            })
-            .finally(() => {
-                this._nowPlayingInfoInitPromise = null;
-            });
-
-        await this._nowPlayingInfoInitPromise;
-    }
-
-    private async _initPlaybackOptionsUI(): Promise<void> {
-        if (this._callbacks.status.getModuleStatus('playback-options-ui') === 'ready') {
-            return;
-        }
-        if (this._playbackOptionsInitPromise) {
-            await this._playbackOptionsInitPromise;
-            return;
-        }
-        if (!this._deps.overlays.playbackOptions || !this._config) {
-            return;
-        }
-
-        const startTime = Date.now();
-        this._callbacks.status.updateModuleStatus('playback-options-ui', 'initializing');
-        const init = async (): Promise<void> => {
-            this._deps.overlays.playbackOptions!.initialize(this._config.playbackOptionsConfig);
-            this._callbacks.status.updateModuleStatus(
-                'playback-options-ui',
-                'ready',
-                undefined,
-                Date.now() - startTime
-            );
-        };
-        this._playbackOptionsInitPromise = init()
-            .catch((e) => {
-                this._callbacks.status.updateModuleStatus('playback-options-ui', 'error');
-                throw e;
-            })
-            .finally(() => {
-                this._playbackOptionsInitPromise = null;
-            });
-
-        await this._playbackOptionsInitPromise;
-    }
-
-    private async _initExitConfirmUI(): Promise<void> {
-        if (this._callbacks.status.getModuleStatus('exit-confirm-ui') === 'ready') {
-            return;
-        }
-        if (this._exitConfirmInitPromise) {
-            await this._exitConfirmInitPromise;
-            return;
-        }
-        if (!this._deps.overlays.exitConfirm) {
-            return;
-        }
-
-        const startTime = Date.now();
-        this._callbacks.status.updateModuleStatus('exit-confirm-ui', 'initializing');
-        const init = async (): Promise<void> => {
-            this._deps.overlays.exitConfirm!.initialize({ containerId: EXIT_CONFIRM_CONTAINER_ID });
-            this._callbacks.status.updateModuleStatus(
-                'exit-confirm-ui',
-                'ready',
-                undefined,
-                Date.now() - startTime
-            );
-        };
-        this._exitConfirmInitPromise = init()
-            .catch((e) => {
-                this._callbacks.status.updateModuleStatus('exit-confirm-ui', 'error');
-                throw e;
-            })
-            .finally(() => {
-                this._exitConfirmInitPromise = null;
-            });
-
-        await this._exitConfirmInitPromise;
+        await this._deps.uiInitializer.ensureCorePlayerUiInitialized();
     }
 
     private _cancelEpgWarmup(): void {
