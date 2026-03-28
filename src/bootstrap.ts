@@ -79,7 +79,7 @@ function handleDebugLoggingChanged(): void {
 
 function handleDomContentLoaded(): void {
     bootstrap().catch((error: unknown) => {
-        console.error('[Lineup] bootstrap failed:', summarizeErrorForLog(error));
+        handleBootstrapFailure('[Lineup] bootstrap failed:', error);
     });
 }
 
@@ -94,8 +94,15 @@ function handlePageShow(event: PageTransitionEvent): void {
     if (!event.persisted) return;
     if (app) return;
     bootstrap().catch((error: unknown) => {
-        console.error('[Lineup] bootstrap (pageshow) failed:', summarizeErrorForLog(error));
+        handleBootstrapFailure('[Lineup] bootstrap (pageshow) failed:', error);
     });
+}
+
+function handleBootstrapFailure(prefix: string, error: unknown): void {
+    console.error(prefix, summarizeErrorForLog(error));
+    showGlobalErrorOverlay(toSafeErrorMessage(error));
+    app = null;
+    syncWindowDebugApi(null);
 }
 
 function isDebugSurfaceEnabled(): boolean {
@@ -279,18 +286,10 @@ function describeElement(el: Element | null): unknown {
  */
 async function bootstrap(): Promise<void> {
     logLifecycle('[Lineup] Starting...');
-
-    try {
-        app = new App();
-        syncWindowDebugApi(app);
-        await app.start();
-        logLifecycle('[Lineup] Started successfully');
-    } catch (error) {
-        console.error('Failed to start Lineup:', summarizeErrorForLog(error));
-        showGlobalErrorOverlay(toSafeErrorMessage(error));
-        app = null;
-        syncWindowDebugApi(null);
-    }
+    app = new App();
+    syncWindowDebugApi(app);
+    await app.start();
+    logLifecycle('[Lineup] Started successfully');
 }
 
 /**
@@ -332,7 +331,7 @@ export function installLineupBootstrap(): void {
         document.addEventListener('DOMContentLoaded', handleDomContentLoaded, { once: true });
     } else {
         bootstrap().catch((error: unknown) => {
-            console.error('[Lineup] bootstrap failed:', summarizeErrorForLog(error));
+            handleBootstrapFailure('[Lineup] bootstrap failed:', error);
         });
     }
 

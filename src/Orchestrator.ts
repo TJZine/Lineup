@@ -298,6 +298,17 @@ export class AppOrchestrator {
     private readonly _playbackStateAccessors: OrchestratorPlaybackStateAccessors;
     private readonly _channelSetupSessionGateway: ChannelSetupSessionGateway;
 
+    private _throwModuleInitPreconditionError(
+        message: string,
+        context: Record<string, unknown>
+    ): never {
+        throw Object.assign(new Error(message), {
+            code: AppErrorCode.MODULE_INIT_FAILED,
+            recoverable: true,
+            context,
+        } satisfies Pick<AppError, 'code' | 'recoverable' | 'context'>);
+    }
+
     constructor(platformServices?: PlatformServices) {
         this._platformServices = platformServices ?? webosPlatformServices;
         this._storageContext = new OrchestratorStorageContext({
@@ -661,7 +672,10 @@ export class AppOrchestrator {
     async start(): Promise<void> {
         this._playbackRecovery?.resetPlaybackFailureGuard();
         if (!this._initCoordinator) {
-            throw new Error('Orchestrator must be initialized before starting');
+            this._throwModuleInitPreconditionError('Orchestrator must be initialized before starting', {
+                method: 'start',
+                dependency: 'InitializationCoordinator',
+            });
         }
         await this._initCoordinator.runStartup(1);
     }
@@ -1063,7 +1077,10 @@ export class AppOrchestrator {
      */
     async requestAuthPin(): Promise<PlexPinRequest> {
         if (!this._plexAuth) {
-            throw new Error('PlexAuth not initialized');
+            this._throwModuleInitPreconditionError('PlexAuth not initialized', {
+                method: 'requestAuthPin',
+                dependency: 'PlexAuth',
+            });
         }
         return this._plexAuth.requestPin();
     }
@@ -1073,7 +1090,10 @@ export class AppOrchestrator {
      */
     async pollForPin(pinId: number): Promise<PlexPinRequest> {
         if (!this._plexAuth) {
-            throw new Error('PlexAuth not initialized');
+            this._throwModuleInitPreconditionError('PlexAuth not initialized', {
+                method: 'pollForPin',
+                dependency: 'PlexAuth',
+            });
         }
         return this._plexAuth.pollForPin(pinId);
     }
@@ -1083,14 +1103,20 @@ export class AppOrchestrator {
      */
     async cancelPin(pinId: number): Promise<void> {
         if (!this._plexAuth) {
-            throw new Error('PlexAuth not initialized');
+            this._throwModuleInitPreconditionError('PlexAuth not initialized', {
+                method: 'cancelPin',
+                dependency: 'PlexAuth',
+            });
         }
         await this._plexAuth.cancelPin(pinId);
     }
 
     async getHomeUsers(): Promise<PlexHomeUser[]> {
         if (!this._plexAuth) {
-            throw new Error('PlexAuth not initialized');
+            this._throwModuleInitPreconditionError('PlexAuth not initialized', {
+                method: 'getHomeUsers',
+                dependency: 'PlexAuth',
+            });
         }
         return this._plexAuth.getHomeUsers();
     }
@@ -1101,7 +1127,10 @@ export class AppOrchestrator {
 
     async switchHomeUser(userId: string, pin?: string): Promise<void> {
         if (!this._plexAuth || !this._plexDiscovery) {
-            throw new Error('PlexAuth not initialized');
+            this._throwModuleInitPreconditionError('PlexAuth not initialized', {
+                method: 'switchHomeUser',
+                dependency: !this._plexAuth ? 'PlexAuth' : 'PlexServerDiscovery',
+            });
         }
 
         const cleanupController = this._requireProfileSwitchCleanupController();
@@ -1117,7 +1146,10 @@ export class AppOrchestrator {
 
     async useMainAccountProfile(): Promise<void> {
         if (!this._plexAuth || !this._plexDiscovery) {
-            throw new Error('PlexAuth not initialized');
+            this._throwModuleInitPreconditionError('PlexAuth not initialized', {
+                method: 'useMainAccountProfile',
+                dependency: !this._plexAuth ? 'PlexAuth' : 'PlexServerDiscovery',
+            });
         }
 
         const cleanupController = this._requireProfileSwitchCleanupController();
@@ -1133,7 +1165,10 @@ export class AppOrchestrator {
 
     async signOutPlex(): Promise<void> {
         if (!this._plexAuth) {
-            throw new Error('PlexAuth not initialized');
+            this._throwModuleInitPreconditionError('PlexAuth not initialized', {
+                method: 'signOutPlex',
+                dependency: 'PlexAuth',
+            });
         }
         await this._plexAuth.clearCredentials();
         this._plexDiscovery?.clearSelection();
@@ -1149,7 +1184,10 @@ export class AppOrchestrator {
      */
     async discoverServers(forceRefresh: boolean = false): Promise<PlexServer[]> {
         if (!this._plexDiscovery) {
-            throw new Error('PlexServerDiscovery not initialized');
+            this._throwModuleInitPreconditionError('PlexServerDiscovery not initialized', {
+                method: 'discoverServers',
+                dependency: 'PlexServerDiscovery',
+            });
         }
         if (forceRefresh) {
             return this._plexDiscovery.refreshServers();
@@ -1162,7 +1200,10 @@ export class AppOrchestrator {
      */
     async selectServer(serverId: string): Promise<boolean> {
         if (!this._plexDiscovery) {
-            throw new Error('PlexServerDiscovery not initialized');
+            this._throwModuleInitPreconditionError('PlexServerDiscovery not initialized', {
+                method: 'selectServer',
+                dependency: 'PlexServerDiscovery',
+            });
         }
         const ok = await this._plexDiscovery.selectServer(serverId);
         if (ok) {
@@ -1192,7 +1233,10 @@ export class AppOrchestrator {
      */
     clearSelectedServer(): void {
         if (!this._plexDiscovery) {
-            throw new Error('PlexServerDiscovery not initialized');
+            this._throwModuleInitPreconditionError('PlexServerDiscovery not initialized', {
+                method: 'clearSelectedServer',
+                dependency: 'PlexServerDiscovery',
+            });
         }
         this._plexDiscovery.clearSelection();
         void this._persistSelectedServerForActiveUser(null, null);
