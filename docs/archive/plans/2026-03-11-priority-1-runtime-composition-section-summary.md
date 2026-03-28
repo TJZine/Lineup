@@ -2,11 +2,13 @@
 
 ## Purpose
 
-This file preserves the durable historical memory from the completed Priority 1 cleanup section without keeping five long step-by-step implementation plans tracked in the repo.
+This file preserves historical memory from the March 2026 Priority 1 runtime-composition section without keeping five long step-by-step implementation plans tracked in the repo.
+
+Status note (2026-03-28): this archive is historical only. Active Priority 1 ownership and exit status now live in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md), where `P1-EXIT` remains open with successor owners `P1-W5` and `P1-W6`.
 
 Use this summary when you need:
 
-- the completed shape of the Priority 1 section
+- the historical shape of the early Priority 1 section work
 - the stable owner split reached by each work unit
 - the runtime-boundary and priority-exit lessons that matter for future hotspot work
 - the harness-ingestion decision for the completed section
@@ -20,7 +22,7 @@ For reusable planning patterns and anti-patterns derived from this section, use:
 
 ## Section Scope
 
-Priority 1 focused on shrinking runtime-composition ownership in `src/Orchestrator.ts` and `src/core/InitializationCoordinator.ts` without changing startup or playback behavior.
+This archived section captured early Priority 1 work that focused on shrinking runtime-composition ownership in `src/Orchestrator.ts` and `src/core/InitializationCoordinator.ts` without changing startup or playback behavior.
 
 Completed work units:
 
@@ -29,7 +31,7 @@ Completed work units:
 - `P1-W3` moved coarse-grained startup routing and EPG-config shaping into `src/core/initialization/InitializationStartupPolicy.ts` while keeping sequencing in `InitializationCoordinator`
 - `P1-W4` removed leftover runtime pass-through seams and duplicate lifecycle-save handoffs introduced by the earlier extraction pass
 - `P1-W5` ran the priority cleanup pass so duplicated playback-state accessors and accidental internal-only public surface area were removed after the extracted owners were stable
-- `P1-EXIT` closed the priority with refreshed imported-issue/security dispositions and one exact successor owner for the remaining non-P1 pass-through debt
+- `P1-EXIT` was recorded as closed at that time; this claim was later superseded by the reopened Priority 1 exit review tracked in the active checklist
 
 ## End-State Snapshot
 
@@ -106,13 +108,14 @@ Completed work units:
 ### `P1-EXIT` priority closeout
 
 - Result:
-  - Priority 1 closed on March 11, 2026 with refreshed `desloppify` evidence, no open `P0` security findings, and one explicit successor owner for the remaining pass-through-facade debt
+  - On March 11, 2026, this archive recorded Priority 1 as closed with refreshed `desloppify` evidence and no open `P0` security findings.
+  - That closeout claim is now historical only and is superseded by the active `P1-EXIT` record in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md), which keeps Priority 1 open pending `P1-W5` and `P1-W6`.
 - Stable boundaries:
-  - runtime-composition cleanup stops at the orchestrator/startup seam
-  - the remaining channel-setup consumer-facade debt belongs to `P4-W2`, not to another P1 runtime pass
+  - runtime-composition cleanup still centers on orchestrator/startup seams
+  - active successor ownership is now tracked under `P1-W5` (runtime-root/facade narrowing) and `P1-W6` (initialization/composition-bag narrowing), not under Priority 4
 - Preservation contracts:
-  - do not reopen Priority 1 for UI/coordinator debt that the exit record already handed to Priority 4
-  - require a direct re-check of the successor issue before `P4-W2` closes
+  - treat this archive as historical evidence only; do not use it as current execution status
+  - use the active checklist for final owner/disposition decisions
 - Durable lesson:
   - priority-exit reviews should name one final owner for residual debt instead of leaving shared implicit ownership across future work units
 
@@ -122,7 +125,7 @@ The original execution-grade P1 plans were useful during implementation and arch
 
 - this section summary
 - [`docs/agentic/historical-plan-corpus-review.md`](../../agentic/historical-plan-corpus-review.md)
-- the completed Priority 1 checklist/exit record in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
+- the active Priority 1 checklist/exit record in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 
 That keeps the reusable lessons and closeout evidence in tracked docs without adding another multi-thousand-line archived plan set to the repo history.
 
@@ -141,6 +144,6 @@ Use this summary as the historical reference surface for:
 
 - checklist completion references for Priority 1
 - future runtime-hotspot planning and review work
-- section-level review of how the orchestrator/runtime cleanup was closed without reopening adjacent UI debt
+- section-level review of how the early orchestrator/runtime cleanup was shaped before the later Priority 1 exit reopen
 
 If a future task needs line-by-line implementation recovery, reconstruct it from git history rather than restoring the full execution plans to tracked docs.
