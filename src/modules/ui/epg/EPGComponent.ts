@@ -13,6 +13,7 @@ import { EPGVisibleRangeEmitter } from './EPGVisibleRangeEmitter';
 import { rafThrottle, appendEpgDebugLog } from './utils';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { DebugOverridesStore } from '../../debug/DebugOverridesStore';
+import { createLineupBrandGlyph } from '../common/brandGlyph';
 import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
 import type { IEPGComponent } from './interfaces';
 import type {
@@ -330,6 +331,12 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         classicHeaderBrand.className = 'epg-classic-header-brand';
         classicHeader.appendChild(classicHeaderBrand);
 
+        const classicHeaderGlyph = createLineupBrandGlyph({
+            variant: 'monochrome',
+            className: 'epg-classic-header-glyph',
+        });
+        classicHeaderBrand.appendChild(classicHeaderGlyph);
+
         const classicHeaderTitle = document.createElement('div');
         classicHeaderTitle.className = 'epg-classic-header-title';
         classicHeaderTitle.textContent = 'LINEUP';
@@ -415,6 +422,12 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             grid,
             dashboardBottom
         );
+
+        const watermark = createLineupBrandGlyph({
+            variant: 'monochrome',
+            className: 'epg-watermark',
+        });
+        this.containerElement.appendChild(watermark);
 
         this.gridElement = grid;
         this.programAreaElement = programArea;
