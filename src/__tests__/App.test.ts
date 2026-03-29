@@ -743,6 +743,43 @@ describe('App bootstrap smoke', () => {
         expect(shutdownSpy).toHaveBeenCalledTimes(1);
     });
 
+    it('shuts down partial startup state before rethrowing a screen initialization failure', async () => {
+        const appUnderTest = new App();
+        const themeSpy = jest.spyOn(ThemeManager, 'getInstance').mockReturnValue({
+            getTheme: jest.fn().mockReturnValue('ember-steel'),
+            setTheme: jest.fn(),
+        } as never);
+        const orchestratorInitializeSpy = jest
+            .spyOn(AppOrchestrator.prototype, 'initialize')
+            .mockResolvedValue(undefined);
+        const shutdownSpy = jest.spyOn(appUnderTest, 'shutdown').mockResolvedValue(undefined);
+        const createContainersSpy = jest.spyOn(appUnderTest as never, '_createContainers').mockReturnValue({
+            splashContainer: document.createElement('div'),
+            authContainer: document.createElement('div'),
+            profileSelectContainer: document.createElement('div'),
+            serverSelectContainer: document.createElement('div'),
+            channelSetupContainer: document.createElement('div'),
+            audioSetupContainer: document.createElement('div'),
+            settingsContainer: document.createElement('div'),
+            errorOverlay: document.createElement('div'),
+            devMenuContainer: document.createElement('div'),
+            toastContainer: document.createElement('div'),
+        } as never);
+        const buildConfigSpy = jest.spyOn(appUnderTest as never, '_buildConfig').mockReturnValue({} as never);
+        const initializeScreensSpy = jest.spyOn(appUnderTest as never, '_initializeScreens').mockImplementation(() => {
+            throw new Error('screen init failed');
+        });
+
+        await expect(appUnderTest.start()).rejects.toThrow('screen init failed');
+
+        expect(themeSpy).toHaveBeenCalledTimes(1);
+        expect(createContainersSpy).toHaveBeenCalledTimes(1);
+        expect(buildConfigSpy).toHaveBeenCalledTimes(1);
+        expect(orchestratorInitializeSpy).toHaveBeenCalledTimes(1);
+        expect(initializeScreensSpy).toHaveBeenCalledTimes(1);
+        expect(shutdownSpy).toHaveBeenCalledTimes(1);
+    });
+
     it('does not expose debug helpers when debug surface is disabled', async () => {
         Object.defineProperty(globalThis, '__LINEUP_DEV_BUILD__', {
             value: false,
