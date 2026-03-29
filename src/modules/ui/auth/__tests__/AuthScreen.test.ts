@@ -17,13 +17,6 @@ type NavigationMock = {
     getFocusedElement: jest.Mock;
 };
 
-type AuthOrchestratorStub = {
-    requestAuthPin: jest.Mock;
-    pollForPin: jest.Mock;
-    cancelPin: jest.Mock;
-    getNavigation: jest.Mock;
-};
-
 const createNavigationMock = (): NavigationMock => {
     let focusedId: string | null = null;
     return {
@@ -41,7 +34,7 @@ const createNavigationMock = (): NavigationMock => {
 };
 
 const createPorts = (
-    overrides: Partial<AuthOrchestratorStub> = {}
+    overrides: Partial<AuthScreenPorts> = {}
 ): AuthScreenPorts => ({
     requestAuthPin: jest.fn(),
     pollForPin: jest.fn(),
@@ -113,7 +106,7 @@ describe('AuthScreen', () => {
                 // Never resolves - simulates ongoing poll.
                 () => new Promise(() => undefined)
             ),
-            getNavigation: jest.fn(() => nav),
+            getNavigation: jest.fn(() => nav as unknown as ReturnType<AuthScreenPorts['getNavigation']>),
         });
 
         const screen = new AuthScreen(container, ports);

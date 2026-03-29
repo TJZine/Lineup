@@ -3,6 +3,7 @@
  */
 
 import { ServerSelectScreen, type ServerSelectScreenPorts } from '../ServerSelectScreen';
+import type { PlexServer } from '../../../plex/discovery/types';
 import { flushPromisesAndTimers } from '../../../../__tests__/helpers';
 
 type NavigationStub = {
@@ -23,28 +24,29 @@ const createNavigationStub = (): NavigationStub => ({
     replaceScreen: jest.fn(),
 });
 
-type OrchestratorStub = {
-    getNavigation: () => NavigationStub;
-    discoverServers: jest.Mock;
-    selectServer: jest.Mock;
-    requestChannelSetupRerun: jest.Mock;
-    clearSelectedServer: jest.Mock;
-    getSelectedServerStorageKey: () => string;
-    getServerHealthStorageKey: () => string;
-};
+const makeServer = (id: string, name: string, owned = true): PlexServer => ({
+    id,
+    name,
+    sourceTitle: 'Plex',
+    ownerId: 'owner-id',
+    owned,
+    connections: [],
+    capabilities: [],
+    preferredConnection: null,
+});
 
-const createOrchestratorStub = (): OrchestratorStub => {
+const createOrchestratorStub = (): jest.Mocked<ServerSelectScreenPorts> => {
     const navigation = createNavigationStub();
     const requestChannelSetupRerun = jest.fn();
     return {
-        getNavigation: () => navigation,
+        getNavigation: jest.fn(() => navigation as unknown as ReturnType<ServerSelectScreenPorts['getNavigation']>),
         discoverServers: jest.fn(),
         selectServer: jest.fn().mockResolvedValue(false),
         requestChannelSetupRerun,
         clearSelectedServer: jest.fn(),
-        getSelectedServerStorageKey: () => 'selected-server-id',
-        getServerHealthStorageKey: () => 'server-health',
-    };
+        getSelectedServerStorageKey: jest.fn(() => 'selected-server-id'),
+        getServerHealthStorageKey: jest.fn(() => 'server-health'),
+    } as jest.Mocked<ServerSelectScreenPorts>;
 };
 
 describe('ServerSelectScreen', () => {
@@ -65,7 +67,7 @@ describe('ServerSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
+        new ServerSelectScreen(container, orchestrator);
 
         const hero = container.querySelector('.server-select-glyph');
         const panel = container.querySelector('.screen-panel') as HTMLElement;
@@ -82,9 +84,7 @@ describe('ServerSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        orchestrator.discoverServers.mockResolvedValue([
-            { id: 'srv-1', name: 'Server One', owned: true },
-        ]);
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
         localStorage.setItem(
             orchestrator.getServerHealthStorageKey(),
@@ -93,7 +93,7 @@ describe('ServerSelectScreen', () => {
             })
         );
 
-        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
+        const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
 
         await flushPromisesAndTimers();
@@ -108,9 +108,7 @@ describe('ServerSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        orchestrator.discoverServers.mockResolvedValue([
-            { id: 'srv-1', name: 'Server One', owned: true },
-        ]);
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
         localStorage.setItem(
             orchestrator.getServerHealthStorageKey(),
@@ -119,7 +117,7 @@ describe('ServerSelectScreen', () => {
             })
         );
 
-        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
+        const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
 
         await flushPromisesAndTimers();
@@ -134,13 +132,11 @@ describe('ServerSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        orchestrator.discoverServers.mockResolvedValue([
-            { id: 'srv-1', name: 'Server One', owned: true },
-        ]);
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
         localStorage.setItem(orchestrator.getServerHealthStorageKey(), '{not-json');
 
-        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
+        const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
         await flushPromisesAndTimers();
 
@@ -154,9 +150,7 @@ describe('ServerSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        orchestrator.discoverServers.mockResolvedValue([
-            { id: 'srv-1', name: 'Server One', owned: true },
-        ]);
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
         localStorage.setItem(
             orchestrator.getServerHealthStorageKey(),
@@ -165,7 +159,7 @@ describe('ServerSelectScreen', () => {
             })
         );
 
-        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
+        const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
         await flushPromisesAndTimers();
 
@@ -178,14 +172,14 @@ describe('ServerSelectScreen', () => {
         const orchestrator = createOrchestratorStub();
         const container = document.createElement('div');
         document.body.appendChild(container);
-        orchestrator.discoverServers.mockResolvedValue([{ id: 'srv-1', name: 'Server One', owned: true }]);
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
         const setSpy = jest.spyOn(Storage.prototype, 'setItem');
         const removeSpy = jest.spyOn(Storage.prototype, 'removeItem');
         const selectedKey = orchestrator.getSelectedServerStorageKey();
         const healthKey = orchestrator.getServerHealthStorageKey();
 
-        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
+        const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
         await flushPromisesAndTimers();
         await screen.refresh();
@@ -205,9 +199,7 @@ describe('ServerSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        orchestrator.discoverServers.mockResolvedValue([
-            { id: 'srv-1', name: 'Server One', owned: true },
-        ]);
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
         localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
         localStorage.setItem(
@@ -217,7 +209,7 @@ describe('ServerSelectScreen', () => {
             })
         );
 
-        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
+        const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
 
         await flushPromisesAndTimers();
@@ -228,30 +220,34 @@ describe('ServerSelectScreen', () => {
         expect(button.textContent).toBe('Connected');
         expect(button.disabled).toBe(false);
 
-        const registeredIds = orchestrator.getNavigation().registerFocusable.mock.calls
-            .map((call) => (call[0] as { id?: string })?.id)
+        const nav = orchestrator.getNavigation() as unknown as NavigationStub;
+        const focusableCalls = nav.registerFocusable.mock.calls as Array<[
+            { id?: string; neighbors?: { down?: string } }
+        ]>;
+        const registeredIds = focusableCalls
+            .map((call) => call[0]?.id)
             .filter((id): id is string => typeof id === 'string');
         expect(registeredIds).toContain('btn-server-select-srv-1');
 
         const findLastNeighbors = (id: string): { down?: string } | undefined => {
-            const calls = orchestrator.getNavigation().registerFocusable.mock.calls.filter((call) => call[0]?.id === id);
-            return calls.length ? (calls[calls.length - 1][0].neighbors as { down?: string }) : undefined;
+            const calls = focusableCalls.filter((call) => call[0]?.id === id);
+            return calls.length ? (calls[calls.length - 1]![0].neighbors as { down?: string }) : undefined;
         };
         expect(findLastNeighbors('btn-server-refresh')?.down).toBe('btn-server-select-srv-1');
     });
 
     it('disambiguates colliding sanitized server ids with deterministic suffixes', async () => {
         const orchestrator = createOrchestratorStub();
-        const nav = orchestrator.getNavigation();
+        const nav = orchestrator.getNavigation() as unknown as NavigationStub;
         const container = document.createElement('div');
         document.body.appendChild(container);
 
         orchestrator.discoverServers.mockResolvedValue([
-            { id: 'srv/1', name: 'Server One', owned: true },
-            { id: 'srv_1', name: 'Server Two', owned: true },
+            makeServer('srv/1', 'Server One'),
+            makeServer('srv_1', 'Server Two'),
         ]);
 
-        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
+        const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
         await flushPromisesAndTimers();
 
@@ -269,14 +265,12 @@ describe('ServerSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        orchestrator.discoverServers.mockResolvedValue([
-            { id: 'srv-1', name: 'Server One', owned: true },
-        ]);
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
         orchestrator.selectServer.mockResolvedValue(true);
 
         localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
 
-        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
+        const screen = new ServerSelectScreen(container, orchestrator);
         screen.show();
 
         await flushPromisesAndTimers();
@@ -291,16 +285,16 @@ describe('ServerSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        let resolveDiscovery: (servers: Array<{ id: string; name: string; owned: boolean }>) => void = () => {};
+        let resolveDiscovery: (servers: PlexServer[]) => void = () => {};
         orchestrator.discoverServers.mockImplementation(
-            () => new Promise<Array<{ id: string; name: string; owned: boolean }>>((resolve) => {
+            () => new Promise<PlexServer[]>((resolve) => {
                 resolveDiscovery = resolve;
             })
         );
         orchestrator.selectServer.mockResolvedValue(false);
         localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
 
-        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
+        const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: true });
 
         const hint = container.querySelector('.server-autoconnect-hint') as HTMLElement | null;
@@ -309,7 +303,7 @@ describe('ServerSelectScreen', () => {
         expect(hint?.classList.contains('visible')).toBe(true);
         expect(status?.textContent).toContain('Reconnecting to saved server');
 
-        resolveDiscovery([{ id: 'srv-1', name: 'Server One', owned: true }]);
+        resolveDiscovery([makeServer('srv-1', 'Server One')]);
         await flushPromisesAndTimers();
 
         expect(hint?.classList.contains('visible')).toBe(false);
@@ -320,9 +314,7 @@ describe('ServerSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        orchestrator.discoverServers.mockResolvedValue([
-            { id: 'srv-1', name: 'Server One', owned: true },
-        ]);
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
         orchestrator.selectServer.mockResolvedValue(false);
 
         localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
@@ -333,7 +325,7 @@ describe('ServerSelectScreen', () => {
             })
         );
 
-        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
+        const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: true });
 
         await flushPromisesAndTimers();
@@ -351,12 +343,10 @@ describe('ServerSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        orchestrator.discoverServers.mockResolvedValue([
-            { id: 'srv-2', name: 'Server Two', owned: true },
-        ]);
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-2', 'Server Two')]);
         localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
 
-        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
+        const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: true });
 
         await flushPromisesAndTimers();
@@ -368,13 +358,13 @@ describe('ServerSelectScreen', () => {
 
     it('renders empty state and removes down neighbors when list is empty', async () => {
         const orchestrator = createOrchestratorStub();
-        const nav = orchestrator.getNavigation();
+        const nav = orchestrator.getNavigation() as unknown as NavigationStub;
         const container = document.createElement('div');
         document.body.appendChild(container);
 
         orchestrator.discoverServers.mockResolvedValue([]);
 
-        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
+        const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
 
         await flushPromisesAndTimers();
@@ -398,16 +388,16 @@ describe('ServerSelectScreen', () => {
 
     it('does not unregister static focusables when updating static neighbors', async () => {
         const orchestrator = createOrchestratorStub();
-        const nav = orchestrator.getNavigation();
+        const nav = orchestrator.getNavigation() as unknown as NavigationStub;
         const container = document.createElement('div');
         document.body.appendChild(container);
 
         orchestrator.discoverServers.mockResolvedValue([
-            { id: 'srv-1', name: 'Server One', owned: true },
-            { id: 'srv-2', name: 'Server Two', owned: true },
+            makeServer('srv-1', 'Server One'),
+            makeServer('srv-2', 'Server Two'),
         ]);
 
-        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
+        const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
 
         await flushPromisesAndTimers();
@@ -421,20 +411,20 @@ describe('ServerSelectScreen', () => {
 
     it('unregisters stale server focusables before rendering refreshed server list', async () => {
         const orchestrator = createOrchestratorStub();
-        const nav = orchestrator.getNavigation();
+        const nav = orchestrator.getNavigation() as unknown as NavigationStub;
         const container = document.createElement('div');
         document.body.appendChild(container);
 
         orchestrator.discoverServers
             .mockResolvedValueOnce([
-                { id: 'srv-1', name: 'Server One', owned: true },
-                { id: 'srv-2', name: 'Server Two', owned: true },
+                makeServer('srv-1', 'Server One'),
+                makeServer('srv-2', 'Server Two'),
             ])
             .mockResolvedValueOnce([
-                { id: 'srv-1', name: 'Server One', owned: true },
+                makeServer('srv-1', 'Server One'),
             ]);
 
-        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
+        const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
         await flushPromisesAndTimers();
 
@@ -448,15 +438,13 @@ describe('ServerSelectScreen', () => {
 
     it('restores focus to refresh after clearing saved server', async () => {
         const orchestrator = createOrchestratorStub();
-        const nav = orchestrator.getNavigation();
+        const nav = orchestrator.getNavigation() as unknown as NavigationStub;
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        orchestrator.discoverServers.mockResolvedValue([
-            { id: 'srv-1', name: 'Server One', owned: true },
-        ]);
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
-        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
+        const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
         await flushPromisesAndTimers();
 
@@ -479,16 +467,14 @@ describe('ServerSelectScreen', () => {
 
     it('uses navigation restore entrypoint before refresh-button fallback', async () => {
         const orchestrator = createOrchestratorStub();
-        const nav = orchestrator.getNavigation();
+        const nav = orchestrator.getNavigation() as unknown as NavigationStub;
         nav.restoreFocusForCurrentScreen.mockReturnValue(true);
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        orchestrator.discoverServers.mockResolvedValue([
-            { id: 'srv-1', name: 'Server One', owned: true },
-        ]);
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
-        const screen = new ServerSelectScreen(container, orchestrator as unknown as ServerSelectScreenPorts);
+        const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
         await flushPromisesAndTimers();
 

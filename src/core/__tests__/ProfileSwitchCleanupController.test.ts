@@ -70,22 +70,4 @@ describe('ProfileSwitchCleanupController', () => {
             'setDecision:null',
         ]);
     });
-
-    it('resets profile-switch state in order after cancelling pending day rollover', () => {
-        const { controller, deps, callOrder } = makeCleanupHarness();
-
-        controller.prepareForProfileSwitch();
-
-        expect(deps.cancelPendingDayRollover).toHaveBeenCalledTimes(1);
-        expect(callOrder).toEqual([
-            'cancelPendingDayRollover',
-            'stopPlayback',
-            'unloadChannel',
-            'setPendingNowPlayingChannelId:null',
-            'setAutoShow:false',
-            'setProgram:null',
-            'setDescriptor:null',
-            'setDecision:null',
-        ]);
-    });
 });
