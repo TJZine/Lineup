@@ -39,6 +39,28 @@ describe('SubtitleTrackRecoveryController warn contract', () => {
         expect(nowPlayingWarn).toHaveBeenCalledWith('Failed to apply audio track change');
     });
 
+    it('warns when audio reload rejects', async () => {
+        const nowPlayingWarn = jest.fn();
+        const playbackRecovery = {
+            attemptAudioTrackReloadForCurrentProgram: jest.fn(async () => {
+                throw new Error('resolver down');
+            }),
+        } as unknown as PlaybackRecoveryManager;
+
+        const controller = new SubtitleTrackRecoveryController(
+            createDeps({
+                nowPlayingWarn,
+                getCurrentStreamDescriptor: () => ({ protocol: 'direct' } as StreamDescriptor),
+                getPlaybackRecovery: () => playbackRecovery,
+            })
+        );
+
+        controller.handleTrackChange({ type: 'audio', trackId: '1' });
+        await flushPromises();
+
+        expect(nowPlayingWarn).toHaveBeenCalledWith('Failed to apply audio track change');
+    });
+
     it('warns when burn-in disable resolves to failed outcome', async () => {
         const nowPlayingWarn = jest.fn();
         const playbackRecovery = {
@@ -59,5 +81,47 @@ describe('SubtitleTrackRecoveryController warn contract', () => {
         await flushPromises();
 
         expect(nowPlayingWarn).toHaveBeenCalledWith('Failed to disable burn-in subtitles');
+    });
+
+    it('warns when burn-in disable rejects', async () => {
+        const nowPlayingWarn = jest.fn();
+        const playbackRecovery = {
+            attemptDisableBurnInSubtitlesForCurrentProgram: jest.fn(async () => {
+                throw new Error('network down');
+            }),
+        } as unknown as PlaybackRecoveryManager;
+
+        const controller = new SubtitleTrackRecoveryController(
+            createDeps({
+                nowPlayingWarn,
+                getVideoPlayer: () => ({} as IVideoPlayer),
+                getCurrentStreamDecision: () =>
+                    ({ transcodeRequest: { subtitleMode: 'burn' } } as StreamDecision),
+                getPlaybackRecovery: () => playbackRecovery,
+            })
+        );
+
+        controller.handleTrackChange({ type: 'subtitle', trackId: null });
+        await flushPromises();
+
+        expect(nowPlayingWarn).toHaveBeenCalledWith('Failed to disable burn-in subtitles');
+    });
+
+    it('does nothing on subtitle-off when playback recovery is unavailable', () => {
+        const nowPlayingWarn = jest.fn();
+        const controller = new SubtitleTrackRecoveryController(
+            createDeps({
+                nowPlayingWarn,
+                getVideoPlayer: () => ({} as IVideoPlayer),
+                getCurrentStreamDecision: () =>
+                    ({ transcodeRequest: { subtitleMode: 'burn' } } as StreamDecision),
+                getPlaybackRecovery: () => null,
+            })
+        );
+
+        expect(() => {
+            controller.handleTrackChange({ type: 'subtitle', trackId: null });
+        }).not.toThrow();
+        expect(nowPlayingWarn).not.toHaveBeenCalled();
     });
 });

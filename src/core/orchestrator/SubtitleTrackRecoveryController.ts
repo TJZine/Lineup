@@ -44,11 +44,15 @@ export class SubtitleTrackRecoveryController {
             return;
         }
 
-        void reloadPromise.then((ok) => {
-            if (!ok) {
+        void reloadPromise
+            .then((ok) => {
+                if (!ok) {
+                    warnAudioReloadFailed();
+                }
+            })
+            .catch(() => {
                 warnAudioReloadFailed();
-            }
-        });
+            });
     }
 
     private _handleSubtitleTrackChange(trackId: string | null): void {
@@ -79,11 +83,21 @@ export class SubtitleTrackRecoveryController {
                 const warnDisableFailed = (): void => {
                     this._deps.nowPlayingWarn('Failed to disable burn-in subtitles');
                 };
-                void this._deps.getPlaybackRecovery()?.attemptDisableBurnInSubtitlesForCurrentProgram(
-                    'subtitle_track_off'
-                )
+                const disablePromise =
+                    this._deps.getPlaybackRecovery()?.attemptDisableBurnInSubtitlesForCurrentProgram(
+                        'subtitle_track_off'
+                    ) ?? null;
+                if (!disablePromise) {
+                    return;
+                }
+
+                void disablePromise
                     .then((result) => {
-                        if (result.outcome !== 'failed') return;
+                        if (result.outcome === 'failed') {
+                            warnDisableFailed();
+                        }
+                    })
+                    .catch(() => {
                         warnDisableFailed();
                     });
             }
