@@ -345,6 +345,12 @@ describe('InitializationCoordinator (Plex Home)', () => {
             initialize: jest.Mock;
             isConnected: jest.Mock;
         };
+        const channelManager = {
+            getCurrentChannel: jest.fn().mockReturnValue({ id: 'current-channel-id' }),
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as LegacyInitializationDependencies['channelManager'];
+        deps.channelManager = channelManager;
+        deps.modules.channelManager = channelManager;
 
         let profileChangeHandler: (() => void) | null = null;
         plexAuth.on.mockImplementation((event: string, handler: () => void) => {
@@ -588,6 +594,56 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
         expect(callbacks.setupEventWiring).toHaveBeenCalledTimes(1);
         expect(callbacks.setReady).toHaveBeenCalledWith(true);
+    });
+
+    it('does not resolve queued startup callers until final ready work completes', async () => {
+        const { coordinator, callbacks, deps } = makeCoordinator();
+        const plexAuth = deps.plexAuth as unknown as {
+            getStoredCredentials: jest.Mock;
+            validateToken: jest.Mock;
+        };
+        const plexDiscovery = deps.plexDiscovery as unknown as {
+            initialize: jest.Mock;
+            isConnected: jest.Mock;
+        };
+
+        plexAuth.getStoredCredentials.mockResolvedValue(
+            createStoredCredentials('active-token', 'account-token')
+        );
+        plexAuth.validateToken.mockResolvedValue(true);
+
+        let releaseDiscoveryInitialize: (() => void) | null = null;
+        plexDiscovery.initialize.mockImplementation(
+            () =>
+                new Promise<void>((resolve) => {
+                    releaseDiscoveryInitialize = resolve;
+                })
+        );
+        plexDiscovery.isConnected.mockReturnValue(true);
+
+        let setupEventWiringCompleted = false;
+        let setupEventWiringWasCompleteWhenQueuedResolved: boolean | null = null;
+        (callbacks.setupEventWiring as jest.Mock).mockImplementation(() => {
+            setupEventWiringCompleted = true;
+        });
+
+        const firstRunPromise = coordinator.runStartup(3);
+        const queuedRunPromise = coordinator.runStartup(5);
+        void queuedRunPromise.then(() => {
+            setupEventWiringWasCompleteWhenQueuedResolved = setupEventWiringCompleted;
+        });
+
+        expect(releaseDiscoveryInitialize).toBeTruthy();
+        if (!releaseDiscoveryInitialize) {
+            throw new Error('Expected discovery initialize gate to be registered');
+        }
+        const resolveDiscoveryInitialize: () => void = releaseDiscoveryInitialize;
+        resolveDiscoveryInitialize();
+        await firstRunPromise;
+        await queuedRunPromise;
+
+        expect(setupEventWiringCompleted).toBe(true);
+        expect(setupEventWiringWasCompleteWhenQueuedResolved).toBe(true);
     });
 
     it('cancels a pending warmup timer when a rerun eagerly initializes EPG', async () => {

@@ -233,6 +233,29 @@ export class InitializationCoordinator {
                 phaseToRun = this._startupQueuedPhase;
                 this._startupQueuedPhase = null;
             }
+
+            if (shouldRunFinalReadyWork) {
+                this._callbacks.state.setupEventWiring();
+                this._callbacks.state.setReady(true);
+                if (this._deps.modules.lifecycle) {
+                    this._deps.modules.lifecycle.setPhase('ready');
+                }
+
+                if (this._deps.modules.navigation) {
+                    await applyPostReadyRoutingPolicy({
+                        navigation: this._deps.modules.navigation,
+                        channelManager: this._deps.modules.channelManager,
+                        shouldRunAudioSetup: this._callbacks.routing.shouldRunAudioSetup,
+                        shouldRunChannelSetup: this._callbacks.routing.shouldRunChannelSetup,
+                        switchToChannel: this._callbacks.routing.switchToChannel,
+                        openServerSelect: this._callbacks.routing.openServerSelect,
+                    });
+                }
+
+                this.clearAuthResume();
+                this.clearServerResume();
+                this.clearProfileResume();
+            }
         } catch (error: unknown) {
             caughtError = error;
             this._cancelEpgWarmup();
@@ -265,29 +288,6 @@ export class InitializationCoordinator {
                     // Ignore waiter failures
                 }
             }
-        }
-
-        if (shouldRunFinalReadyWork) {
-            this._callbacks.state.setupEventWiring();
-            this._callbacks.state.setReady(true);
-            if (this._deps.modules.lifecycle) {
-                this._deps.modules.lifecycle.setPhase('ready');
-            }
-
-            if (this._deps.modules.navigation) {
-                await applyPostReadyRoutingPolicy({
-                    navigation: this._deps.modules.navigation,
-                    channelManager: this._deps.modules.channelManager,
-                    shouldRunAudioSetup: this._callbacks.routing.shouldRunAudioSetup,
-                    shouldRunChannelSetup: this._callbacks.routing.shouldRunChannelSetup,
-                    switchToChannel: this._callbacks.routing.switchToChannel,
-                    openServerSelect: this._callbacks.routing.openServerSelect,
-                });
-            }
-
-            this.clearAuthResume();
-            this.clearServerResume();
-            this.clearProfileResume();
         }
 
         if (shouldScheduleEpgWarmup) {
