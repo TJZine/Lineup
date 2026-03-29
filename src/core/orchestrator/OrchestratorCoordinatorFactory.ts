@@ -97,6 +97,16 @@ import { summarizeErrorForLog } from '../../utils/errors';
 import type { ToastInput } from '../../modules/ui/toast/types';
 import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
 
+type ChannelNumberOverlayPort = Pick<
+    ChannelNumberOverlay,
+    'showDigits' | 'showError' | 'scheduleHide' | 'hide' | 'isVisible'
+>;
+
+type ChannelBadgeOverlayPort = Pick<
+    ChannelBadgeOverlay,
+    'show' | 'hide' | 'isVisible'
+>;
+
 export interface OrchestratorCoordinatorFactoryDeps {
     config: OrchestratorConfig | null;
     moduleStatus: Map<string, ModuleStatus>;
@@ -118,8 +128,8 @@ export interface OrchestratorCoordinatorFactoryDeps {
     overlays: {
         nowPlayingInfo: INowPlayingInfoOverlay;
         playerOsd: IPlayerOsdOverlay;
-        channelNumberOverlay: ChannelNumberOverlay;
-        channelBadgeOverlay: ChannelBadgeOverlay;
+        channelNumberOverlay: ChannelNumberOverlayPort;
+        channelBadgeOverlay: ChannelBadgeOverlayPort;
         miniGuide: IMiniGuideOverlay;
         channelTransitionOverlay: IChannelTransitionOverlay;
         playbackOptionsModal: IPlaybackOptionsModal;

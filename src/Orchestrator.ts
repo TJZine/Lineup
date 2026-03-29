@@ -115,6 +115,16 @@ import {
 } from './core/channel-setup';
 import { NowPlayingDebugManager } from './modules/debug/NowPlayingDebugManager';
 import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
+
+type ChannelNumberOverlayPort = Pick<
+    ChannelNumberOverlay,
+    'initialize' | 'showDigits' | 'showError' | 'scheduleHide' | 'hide' | 'isVisible'
+>;
+
+type ChannelBadgeOverlayPort = Pick<
+    ChannelBadgeOverlay,
+    'initialize' | 'show' | 'hide' | 'isVisible'
+>;
 import { IssueDiagnosticsStore } from './modules/debug/IssueDiagnosticsStore';
 import { NowPlayingInfoCoordinator } from './modules/ui/now-playing-info/NowPlayingInfoCoordinator';
 import { PlaybackOptionsCoordinator } from './modules/ui/playback-options';
@@ -250,8 +260,8 @@ export class AppOrchestrator {
     private _nowPlayingInfo: INowPlayingInfoOverlay | null = null;
     private _nowPlayingInfoCoordinator: NowPlayingInfoCoordinator | null = null;
     private _playerOsd: PlayerOsdOverlay | null = null;
-    private _channelNumberOverlay: ChannelNumberOverlay | null = null;
-    private _channelBadgeOverlay: ChannelBadgeOverlay | null = null;
+    private _channelNumberOverlay: ChannelNumberOverlayPort | null = null;
+    private _channelBadgeOverlay: ChannelBadgeOverlayPort | null = null;
     private _channelTransitionOverlay: ChannelTransitionOverlay | null = null;
     private _playerOsdCoordinator: PlayerOsdCoordinator | null = null;
     private _miniGuide: IMiniGuideOverlay | null = null;
@@ -804,7 +814,7 @@ export class AppOrchestrator {
         }
         if (this._channelNumberOverlay) {
             try {
-                this._channelNumberOverlay.destroy();
+                (this._channelNumberOverlay as ChannelNumberOverlay & { destroy: () => void }).destroy();
             } catch (error) {
                 recordTeardownFailure('channelNumberOverlay.destroy', error);
             }
@@ -812,7 +822,7 @@ export class AppOrchestrator {
         }
         if (this._channelBadgeOverlay) {
             try {
-                this._channelBadgeOverlay.destroy();
+                (this._channelBadgeOverlay as ChannelBadgeOverlay & { destroy: () => void }).destroy();
             } catch (error) {
                 recordTeardownFailure('channelBadgeOverlay.destroy', error);
             }

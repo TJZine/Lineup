@@ -40,6 +40,16 @@ import {
     buildEpgConfigWithStartupPolicy,
 } from './initialization/InitializationStartupPolicy';
 
+type ChannelNumberOverlayPort = Pick<
+    ChannelNumberOverlay,
+    'initialize' | 'showDigits' | 'showError' | 'scheduleHide' | 'hide' | 'isVisible'
+>;
+
+type ChannelBadgeOverlayPort = Pick<
+    ChannelBadgeOverlay,
+    'initialize' | 'show' | 'hide' | 'isVisible'
+>;
+
 // ============================================
 // Types
 // ============================================
@@ -63,8 +73,8 @@ export interface InitializationDependencies {
     };
     overlays: {
         playerOsd: IPlayerOsdOverlay | null;
-        channelNumberOverlay: ChannelNumberOverlay | null;
-        channelBadgeOverlay: ChannelBadgeOverlay | null;
+        channelNumberOverlay: ChannelNumberOverlayPort | null;
+        channelBadgeOverlay: ChannelBadgeOverlayPort | null;
         miniGuide: IMiniGuideOverlay | null;
         channelTransition: IChannelTransitionOverlay | null;
     };

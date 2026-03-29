@@ -52,12 +52,12 @@ import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 
 type ChannelNumberOverlayPort = Pick<
     ChannelNumberOverlay,
-    'showDigits' | 'showError' | 'scheduleHide' | 'hide' | 'isVisible'
+    'initialize' | 'showDigits' | 'showError' | 'scheduleHide' | 'hide' | 'isVisible'
 >;
 
 type ChannelBadgeOverlayPort = Pick<
     ChannelBadgeOverlay,
-    'show' | 'hide' | 'isVisible'
+    'initialize' | 'show' | 'hide' | 'isVisible'
 >;
 
 export interface OrchestratorModuleFactoryDeps {
