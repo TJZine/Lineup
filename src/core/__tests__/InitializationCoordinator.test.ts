@@ -90,7 +90,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
     };
 
     const makeCoordinator = (
-        depsOverrides: Partial<InitializationDependencies> & Partial<LegacyInitializationDependencies> = {},
+        depsOverrides: Partial<LegacyInitializationDependencies> = {},
         configOverrides: Partial<{
             epgConfig: unknown;
         }> = {}
@@ -512,6 +512,82 @@ describe('InitializationCoordinator (Plex Home)', () => {
             'epg-ready',
             'ready-true',
         ]);
+    });
+
+    it('does not publish ready or run post-ready routing before a queued rerun becomes the final pass', async () => {
+        const { coordinator, callbacks, deps } = makeCoordinator();
+        const navigation = deps.navigation as unknown as {
+            replaceScreen: jest.Mock;
+            goTo: jest.Mock;
+            getCurrentScreen: jest.Mock;
+        };
+        const plexAuth = deps.plexAuth as unknown as {
+            getStoredCredentials: jest.Mock;
+            validateToken: jest.Mock;
+            getHomeUsers: jest.Mock;
+            on: jest.Mock;
+        };
+        const plexDiscovery = deps.plexDiscovery as unknown as {
+            initialize: jest.Mock;
+            isConnected: jest.Mock;
+            on: jest.Mock;
+        };
+
+        let profileChangeHandler: (() => void) | null = null;
+        plexAuth.on.mockImplementation((event: string, handler: () => void) => {
+            if (event === 'profileChange') {
+                profileChangeHandler = handler;
+            }
+            return { dispose: jest.fn() };
+        });
+
+        plexAuth.getStoredCredentials.mockResolvedValue(
+            createStoredCredentials('active-token', 'account-token')
+        );
+        plexAuth.validateToken.mockResolvedValue(true);
+        plexAuth.getHomeUsers.mockResolvedValue([
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: false },
+        ]);
+        plexDiscovery.initialize.mockResolvedValue(undefined);
+        plexDiscovery.isConnected.mockReturnValue(true);
+        navigation.getCurrentScreen.mockReturnValue('auth');
+
+        await coordinator.runStartup(2);
+
+        expect(callbacks.setupEventWiring).not.toHaveBeenCalled();
+        expect(callbacks.setReady).not.toHaveBeenCalledWith(true);
+        expect(profileChangeHandler).toBeTruthy();
+
+        let releaseDiscoveryInitialize: (() => void) | null = null;
+        let initializeCallCount = 0;
+        plexDiscovery.initialize.mockImplementation(() => {
+            initializeCallCount += 1;
+            if (initializeCallCount === 1) {
+                return new Promise<void>((resolve) => {
+                    releaseDiscoveryInitialize = resolve;
+                });
+            }
+            return Promise.resolve();
+        });
+
+        const runPromise = coordinator.runStartup(3);
+        await Promise.resolve();
+
+        expect(callbacks.setupEventWiring).not.toHaveBeenCalled();
+        expect(callbacks.setReady).not.toHaveBeenCalledWith(true);
+
+        if (!profileChangeHandler) {
+            throw new Error('Expected profileChange handler to be registered');
+        }
+        (profileChangeHandler as unknown as () => void)();
+        if (releaseDiscoveryInitialize) {
+            (releaseDiscoveryInitialize as unknown as () => void)();
+        }
+        await runPromise;
+
+        expect(callbacks.setupEventWiring).toHaveBeenCalledTimes(1);
+        expect(callbacks.setReady).toHaveBeenCalledWith(true);
     });
 
     it('cancels a pending warmup timer when a rerun eagerly initializes EPG', async () => {

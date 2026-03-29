@@ -168,11 +168,12 @@ export class InitializationCoordinator {
         let phaseToRun: 1 | 2 | 3 | 4 | 5 = startPhase;
         let caughtError: unknown = null;
         let shouldScheduleEpgWarmup = false;
+        let shouldRunFinalReadyWork = false;
 
         try {
             while (true) {
-                const shouldEagerlyInitEpgForPass = phaseToRun > 1;
                 const willRunPhase4 = phaseToRun <= 4;
+                const shouldEagerlyInitEpgForPass = phaseToRun > 1;
                 this._callbacks.state.setReady(false);
 
                 if (phaseToRun <= 1) {
@@ -214,29 +215,9 @@ export class InitializationCoordinator {
                     });
                 }
 
-                this._callbacks.state.setupEventWiring();
-                this._callbacks.state.setReady(true);
-                if (this._deps.modules.lifecycle) {
-                    this._deps.modules.lifecycle.setPhase('ready');
-                }
-
-                if (this._deps.modules.navigation) {
-                    await applyPostReadyRoutingPolicy({
-                        navigation: this._deps.modules.navigation,
-                        channelManager: this._deps.modules.channelManager,
-                        shouldRunAudioSetup: this._callbacks.routing.shouldRunAudioSetup,
-                        shouldRunChannelSetup: this._callbacks.routing.shouldRunChannelSetup,
-                        switchToChannel: this._callbacks.routing.switchToChannel,
-                        openServerSelect: this._callbacks.routing.openServerSelect,
-                    });
-                }
-
-                this.clearAuthResume();
-                this.clearServerResume();
-                this.clearProfileResume();
-
                 if (this._startupQueuedPhase === null) {
                     shouldScheduleEpgWarmup = !shouldEagerlyInitEpgForPass;
+                    shouldRunFinalReadyWork = true;
                     break;
                 }
                 phaseToRun = this._startupQueuedPhase;
@@ -274,6 +255,29 @@ export class InitializationCoordinator {
                     // Ignore waiter failures
                 }
             }
+        }
+
+        if (shouldRunFinalReadyWork) {
+            this._callbacks.state.setupEventWiring();
+            this._callbacks.state.setReady(true);
+            if (this._deps.modules.lifecycle) {
+                this._deps.modules.lifecycle.setPhase('ready');
+            }
+
+            if (this._deps.modules.navigation) {
+                await applyPostReadyRoutingPolicy({
+                    navigation: this._deps.modules.navigation,
+                    channelManager: this._deps.modules.channelManager,
+                    shouldRunAudioSetup: this._callbacks.routing.shouldRunAudioSetup,
+                    shouldRunChannelSetup: this._callbacks.routing.shouldRunChannelSetup,
+                    switchToChannel: this._callbacks.routing.switchToChannel,
+                    openServerSelect: this._callbacks.routing.openServerSelect,
+                });
+            }
+
+            this.clearAuthResume();
+            this.clearServerResume();
+            this.clearProfileResume();
         }
 
         if (shouldScheduleEpgWarmup) {
