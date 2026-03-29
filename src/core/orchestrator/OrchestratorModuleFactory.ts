@@ -50,6 +50,16 @@ import type { OrchestratorConfig } from './OrchestratorTypes';
 import type { PlatformServices } from '../../platform';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 
+type ChannelNumberOverlayPort = Pick<
+    ChannelNumberOverlay,
+    'showDigits' | 'showError' | 'scheduleHide' | 'hide' | 'isVisible'
+>;
+
+type ChannelBadgeOverlayPort = Pick<
+    ChannelBadgeOverlay,
+    'show' | 'hide' | 'isVisible'
+>;
+
 export interface OrchestratorModuleFactoryDeps {
     config: OrchestratorConfig;
     platformServices: PlatformServices;
@@ -70,8 +80,8 @@ export interface OrchestratorModules {
     epg: IEPGComponent;
     nowPlayingInfo: INowPlayingInfoOverlay;
     playerOsd: PlayerOsdOverlay;
-    channelNumberOverlay: ChannelNumberOverlay;
-    channelBadgeOverlay: ChannelBadgeOverlay;
+    channelNumberOverlay: ChannelNumberOverlayPort;
+    channelBadgeOverlay: ChannelBadgeOverlayPort;
     miniGuide: IMiniGuideOverlay;
     channelTransitionOverlay: ChannelTransitionOverlay;
     playbackOptionsModal: IPlaybackOptionsModal;
