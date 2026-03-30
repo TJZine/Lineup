@@ -124,10 +124,36 @@ export class SubtitleTrackRecoveryController {
             return;
         }
 
-        void this._deps.getPlaybackRecovery()?.attemptBurnInSubtitleForCurrentProgram(
-            trackId,
-            'subtitle_track_change'
-        );
+        const burnInAttempt =
+            this._deps.getPlaybackRecovery()?.attemptBurnInSubtitleForCurrentProgram(
+                trackId,
+                'subtitle_track_change'
+            ) ?? null;
+
+        if (burnInAttempt) {
+            void burnInAttempt
+                .then((ok) => {
+                    if (!ok) {
+                        this._deps.appendIssueDiagnostic({
+                            key: 'orchestrator.subtitleTrackChange.burnInFailure',
+                            data: {
+                                trackId,
+                                format,
+                            },
+                        });
+                    }
+                })
+                .catch((error) => {
+                    this._deps.appendIssueDiagnostic({
+                        key: 'orchestrator.subtitleTrackChange.burnInFailure',
+                        data: {
+                            trackId,
+                            format,
+                            error: String(error),
+                        },
+                    });
+                });
+        }
         this._deps.appendIssueDiagnostic({
             key: 'orchestrator.subtitleTrackChange.burnInAttempt',
             data: {

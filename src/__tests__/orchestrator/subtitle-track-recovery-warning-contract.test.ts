@@ -124,4 +124,69 @@ describe('SubtitleTrackRecoveryController warn contract', () => {
         }).not.toThrow();
         expect(nowPlayingWarn).not.toHaveBeenCalled();
     });
+
+    it('records a diagnostic when burn-in reload resolves to false', async () => {
+        const appendIssueDiagnostic = jest.fn();
+        const playbackRecovery = {
+            attemptBurnInSubtitleForCurrentProgram: jest.fn(async () => false),
+        } as unknown as PlaybackRecoveryManager;
+
+        const controller = new SubtitleTrackRecoveryController(
+            createDeps({
+                appendIssueDiagnostic,
+                getVideoPlayer: () =>
+                    ({
+                        getAvailableSubtitles: () => [{ id: 'sub-1', format: 'ass' }],
+                    } as unknown as IVideoPlayer),
+                readSubtitleMode: () => 'full',
+                getPlaybackRecovery: () => playbackRecovery,
+                getCurrentStreamDecision: () => null,
+            })
+        );
+
+        controller.handleTrackChange({ type: 'subtitle', trackId: 'sub-1' });
+        await flushPromises();
+
+        expect(appendIssueDiagnostic).toHaveBeenCalledWith({
+            key: 'orchestrator.subtitleTrackChange.burnInFailure',
+            data: {
+                trackId: 'sub-1',
+                format: 'ass',
+            },
+        });
+    });
+
+    it('records a diagnostic when burn-in reload rejects', async () => {
+        const appendIssueDiagnostic = jest.fn();
+        const playbackRecovery = {
+            attemptBurnInSubtitleForCurrentProgram: jest.fn(async () => {
+                throw new Error('resolver down');
+            }),
+        } as unknown as PlaybackRecoveryManager;
+
+        const controller = new SubtitleTrackRecoveryController(
+            createDeps({
+                appendIssueDiagnostic,
+                getVideoPlayer: () =>
+                    ({
+                        getAvailableSubtitles: () => [{ id: 'sub-1', format: 'ass' }],
+                    } as unknown as IVideoPlayer),
+                readSubtitleMode: () => 'full',
+                getPlaybackRecovery: () => playbackRecovery,
+                getCurrentStreamDecision: () => null,
+            })
+        );
+
+        controller.handleTrackChange({ type: 'subtitle', trackId: 'sub-1' });
+        await flushPromises();
+
+        expect(appendIssueDiagnostic).toHaveBeenCalledWith({
+            key: 'orchestrator.subtitleTrackChange.burnInFailure',
+            data: {
+                trackId: 'sub-1',
+                format: 'ass',
+                error: 'Error: resolver down',
+            },
+        });
+    });
 });
