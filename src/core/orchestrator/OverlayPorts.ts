@@ -15,8 +15,3 @@ export type ChannelBadgeOverlayInitPort = Pick<
     ChannelBadgeOverlay,
     'initialize' | 'show' | 'hide' | 'isVisible'
 >;
-
-export type ChannelBadgeOverlayRuntimePort = Pick<
-    ChannelBadgeOverlay,
-    'show' | 'hide' | 'isVisible'
->;
