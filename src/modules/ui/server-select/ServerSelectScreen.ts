@@ -6,7 +6,10 @@
 
 import type { PlexServer } from '../../plex/discovery/types';
 import { PlexApiError } from '../../plex/auth';
-import type { FocusableElement, INavigationManager } from '../../navigation';
+import type {
+    FocusableElement,
+    ServerSelectScreenNavigationPort,
+} from '../../navigation';
 import { ServerSelectionStore, type ServerHealthMap } from '../../plex/discovery/ServerSelectionStore';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
@@ -23,7 +26,7 @@ export interface ServerSelectScreenPorts {
     getSelectedServerStorageKey(): string;
     getServerHealthStorageKey(): string;
     requestChannelSetupRerun(): void;
-    getNavigation(): INavigationManager | null;
+    getNavigation(): ServerSelectScreenNavigationPort | null;
 }
 
 export class ServerSelectScreen {

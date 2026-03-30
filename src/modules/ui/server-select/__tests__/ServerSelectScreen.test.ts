@@ -3,16 +3,21 @@
  */
 
 import { ServerSelectScreen, type ServerSelectScreenPorts } from '../ServerSelectScreen';
+import type { ServerSelectScreenNavigationPort } from '../../../navigation';
 import type { PlexServer } from '../../../plex/discovery/types';
 import { flushPromisesAndTimers } from '../../../../__tests__/helpers';
 
-type NavigationStub = {
+type NavigationStub = ServerSelectScreenNavigationPort & {
     registerFocusable: jest.Mock;
     unregisterFocusable: jest.Mock;
     setFocus: jest.Mock;
     restoreFocusForCurrentScreen: jest.Mock;
     getCurrentScreen: jest.Mock;
     replaceScreen: jest.Mock;
+};
+
+type ServerSelectScreenHarness = jest.Mocked<ServerSelectScreenPorts> & {
+    navigation: NavigationStub;
 };
 
 const createNavigationStub = (): NavigationStub => ({
@@ -35,18 +40,19 @@ const makeServer = (id: string, name: string, owned = true): PlexServer => ({
     preferredConnection: null,
 });
 
-const createOrchestratorStub = (): jest.Mocked<ServerSelectScreenPorts> => {
+const createOrchestratorStub = (): ServerSelectScreenHarness => {
     const navigation = createNavigationStub();
     const requestChannelSetupRerun = jest.fn();
     return {
-        getNavigation: jest.fn(() => navigation as unknown as ReturnType<ServerSelectScreenPorts['getNavigation']>),
+        navigation,
+        getNavigation: jest.fn(() => navigation),
         discoverServers: jest.fn(),
         selectServer: jest.fn().mockResolvedValue(false),
         requestChannelSetupRerun,
         clearSelectedServer: jest.fn(),
         getSelectedServerStorageKey: jest.fn(() => 'selected-server-id'),
         getServerHealthStorageKey: jest.fn(() => 'server-health'),
-    } as jest.Mocked<ServerSelectScreenPorts>;
+    } as ServerSelectScreenHarness;
 };
 
 describe('ServerSelectScreen', () => {
@@ -220,7 +226,7 @@ describe('ServerSelectScreen', () => {
         expect(button.textContent).toBe('Connected');
         expect(button.disabled).toBe(false);
 
-        const nav = orchestrator.getNavigation() as unknown as NavigationStub;
+        const nav = orchestrator.navigation;
         const focusableCalls = nav.registerFocusable.mock.calls as Array<[
             { id?: string; neighbors?: { down?: string } }
         ]>;
@@ -238,7 +244,7 @@ describe('ServerSelectScreen', () => {
 
     it('disambiguates colliding sanitized server ids with deterministic suffixes', async () => {
         const orchestrator = createOrchestratorStub();
-        const nav = orchestrator.getNavigation() as unknown as NavigationStub;
+        const nav = orchestrator.navigation;
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -358,7 +364,7 @@ describe('ServerSelectScreen', () => {
 
     it('renders empty state and removes down neighbors when list is empty', async () => {
         const orchestrator = createOrchestratorStub();
-        const nav = orchestrator.getNavigation() as unknown as NavigationStub;
+        const nav = orchestrator.navigation;
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -388,7 +394,7 @@ describe('ServerSelectScreen', () => {
 
     it('does not unregister static focusables when updating static neighbors', async () => {
         const orchestrator = createOrchestratorStub();
-        const nav = orchestrator.getNavigation() as unknown as NavigationStub;
+        const nav = orchestrator.navigation;
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -411,7 +417,7 @@ describe('ServerSelectScreen', () => {
 
     it('unregisters stale server focusables before rendering refreshed server list', async () => {
         const orchestrator = createOrchestratorStub();
-        const nav = orchestrator.getNavigation() as unknown as NavigationStub;
+        const nav = orchestrator.navigation;
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -438,7 +444,7 @@ describe('ServerSelectScreen', () => {
 
     it('restores focus to refresh after clearing saved server', async () => {
         const orchestrator = createOrchestratorStub();
-        const nav = orchestrator.getNavigation() as unknown as NavigationStub;
+        const nav = orchestrator.navigation;
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -467,7 +473,7 @@ describe('ServerSelectScreen', () => {
 
     it('uses navigation restore entrypoint before refresh-button fallback', async () => {
         const orchestrator = createOrchestratorStub();
-        const nav = orchestrator.getNavigation() as unknown as NavigationStub;
+        const nav = orchestrator.navigation;
         nav.restoreFocusForCurrentScreen.mockReturnValue(true);
         const container = document.createElement('div');
         document.body.appendChild(container);

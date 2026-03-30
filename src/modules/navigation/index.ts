@@ -22,6 +22,10 @@ export type {
     KeyEvent,
     Screen,
 } from './interfaces';
+export type {
+    AuthScreenNavigationPort,
+    ServerSelectScreenNavigationPort,
+} from './ScreenNavigationPorts';
 
 // Constants
 export {

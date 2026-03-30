@@ -3,6 +3,7 @@
  */
 
 import { AuthScreen, type AuthScreenPorts } from '../AuthScreen';
+import type { AuthScreenNavigationPort } from '../../../navigation';
 
 import { flushPromises } from '../../../../__tests__/helpers';
 
@@ -10,7 +11,7 @@ jest.mock('qrcode', () => ({
     toCanvas: jest.fn().mockResolvedValue(undefined),
 }));
 
-type NavigationMock = {
+type NavigationMock = AuthScreenNavigationPort & {
     registerFocusable: jest.Mock;
     unregisterFocusable: jest.Mock;
     setFocus: jest.Mock;
@@ -29,7 +30,15 @@ const createNavigationMock = (): NavigationMock => {
         setFocus: jest.fn((id: string) => {
             focusedId = id;
         }),
-        getFocusedElement: jest.fn(() => (focusedId ? { id: focusedId } : null)),
+        getFocusedElement: jest.fn(() =>
+            focusedId
+                ? {
+                    id: focusedId,
+                    element: document.createElement('div'),
+                    neighbors: {},
+                }
+                : null
+        ),
     };
 };
 
@@ -106,7 +115,7 @@ describe('AuthScreen', () => {
                 // Never resolves - simulates ongoing poll.
                 () => new Promise(() => undefined)
             ),
-            getNavigation: jest.fn(() => nav as unknown as ReturnType<AuthScreenPorts['getNavigation']>),
+            getNavigation: jest.fn(() => nav),
         });
 
         const screen = new AuthScreen(container, ports);

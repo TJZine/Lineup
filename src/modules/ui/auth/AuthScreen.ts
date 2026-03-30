@@ -5,7 +5,7 @@
  */
 
 import { AppErrorCode, PlexApiError, type PlexPinRequest } from '../../plex/auth';
-import type { INavigationManager } from '../../navigation';
+import type { AuthScreenNavigationPort } from '../../navigation';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { createScreenShell } from '../common/ScreenShell';
 import type { ScreenError, ScreenStatus, ScreenTone } from '../types/screen-shell';
@@ -22,7 +22,7 @@ export interface AuthScreenPorts {
     requestAuthPin(): Promise<PlexPinRequest>;
     pollForPin(pinId: number): Promise<PlexPinRequest>;
     cancelPin(pinId: number): Promise<void>;
-    getNavigation(): INavigationManager | null;
+    getNavigation(): AuthScreenNavigationPort | null;
 }
 
 export class AuthScreen {
