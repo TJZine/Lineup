@@ -757,9 +757,9 @@ describe('InitializationCoordinator (Plex Home)', () => {
             expect(callbacks.openServerSelect).not.toHaveBeenCalled();
         });
 
-        it('routes to player and opens server select when no channels exist', async () => {
-            const { coordinator, deps, callbacks } = makeCoordinator({
-                channelManager: {
+	        it('routes to player and opens server select when no channels exist', async () => {
+	            const { coordinator, deps, callbacks } = makeCoordinator({
+	                channelManager: {
                     getCurrentChannel: jest.fn().mockReturnValue(null),
                     getAllChannels: jest.fn().mockReturnValue([]),
                 } as unknown as LegacyInitializationDependencies['channelManager'],
@@ -771,7 +771,35 @@ describe('InitializationCoordinator (Plex Home)', () => {
             expect(navigation.replaceScreen).toHaveBeenCalledWith('player');
             expect(callbacks.switchToChannel).not.toHaveBeenCalled();
             expect(callbacks.openServerSelect).toHaveBeenCalled();
-        });
+	        });
+
+	        it('does not publish ready or ready lifecycle phase when post-ready routing throws', async () => {
+	            const lifecycle = {
+	                setPhase: jest.fn(),
+	            } as unknown as LegacyInitializationDependencies['lifecycle'];
+	            const { coordinator, deps, callbacks } = makeCoordinator({
+	                lifecycle,
+	                channelManager: {
+	                    getCurrentChannel: jest.fn().mockReturnValue({ id: 'current-channel-id' }),
+	                    getAllChannels: jest.fn().mockReturnValue([]),
+	                } as unknown as LegacyInitializationDependencies['channelManager'],
+	            });
+
+	            (callbacks.switchToChannel as jest.Mock).mockRejectedValueOnce(new Error('route failed'));
+
+	            await expect(coordinator.runStartup(5)).rejects.toThrow('route failed');
+
+	            expect(callbacks.setReady).not.toHaveBeenCalledWith(true);
+	            expect((deps.lifecycle as unknown as { setPhase: jest.Mock }).setPhase).not.toHaveBeenCalledWith('ready');
+	            expect(callbacks.handleGlobalError).toHaveBeenCalledWith(
+	                expect.objectContaining({
+	                    code: 'INITIALIZATION_FAILED',
+	                    message: 'route failed',
+	                    recoverable: true,
+	                }),
+	                'start'
+	            );
+	        });
     });
 
 	    describe('EPG layoutMode fallback injection', () => {

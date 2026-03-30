@@ -228,10 +228,6 @@ export class InitializationCoordinator {
 
             if (shouldRunFinalReadyWork) {
                 this._callbacks.state.setupEventWiring();
-                this._callbacks.state.setReady(true);
-                if (this._deps.modules.lifecycle) {
-                    this._deps.modules.lifecycle.setPhase('ready');
-                }
 
                 if (this._deps.modules.navigation) {
                     await applyPostReadyRoutingPolicy({
@@ -242,6 +238,11 @@ export class InitializationCoordinator {
                         switchToChannel: this._callbacks.routing.switchToChannel,
                         openServerSelect: this._callbacks.routing.openServerSelect,
                     });
+                }
+
+                this._callbacks.state.setReady(true);
+                if (this._deps.modules.lifecycle) {
+                    this._deps.modules.lifecycle.setPhase('ready');
                 }
 
                 this.clearAuthResume();
