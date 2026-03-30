@@ -1144,9 +1144,10 @@ export class AppOrchestrator {
 
     async switchHomeUser(userId: string, pin?: string): Promise<void> {
         if (!this._plexAuth || !this._plexDiscovery) {
-            this._throwModuleInitPreconditionError('PlexAuth not initialized', {
+            const missingDependency = !this._plexAuth ? 'PlexAuth' : 'PlexServerDiscovery';
+            this._throwModuleInitPreconditionError(`${missingDependency} not initialized`, {
                 method: 'switchHomeUser',
-                dependency: !this._plexAuth ? 'PlexAuth' : 'PlexServerDiscovery',
+                dependency: missingDependency,
             });
         }
 
@@ -1163,9 +1164,10 @@ export class AppOrchestrator {
 
     async useMainAccountProfile(): Promise<void> {
         if (!this._plexAuth || !this._plexDiscovery) {
-            this._throwModuleInitPreconditionError('PlexAuth not initialized', {
+            const missingDependency = !this._plexAuth ? 'PlexAuth' : 'PlexServerDiscovery';
+            this._throwModuleInitPreconditionError(`${missingDependency} not initialized`, {
                 method: 'useMainAccountProfile',
-                dependency: !this._plexAuth ? 'PlexAuth' : 'PlexServerDiscovery',
+                dependency: missingDependency,
             });
         }
 

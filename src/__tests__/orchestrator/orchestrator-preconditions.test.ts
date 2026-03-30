@@ -39,4 +39,28 @@ describe('AppOrchestrator precondition errors', () => {
             message: expect.stringContaining('PlexServerDiscovery not initialized'),
         });
     });
+
+    it('reports PlexAuth as the missing dependency for profile switching when auth is absent', async () => {
+        const orchestrator = new AppOrchestrator();
+
+        await expect(orchestrator.switchHomeUser('user-1')).rejects.toMatchObject({
+            code: AppErrorCode.MODULE_INIT_FAILED,
+            recoverable: true,
+            message: expect.stringContaining('PlexAuth not initialized'),
+            context: expect.objectContaining({
+                method: 'switchHomeUser',
+                dependency: 'PlexAuth',
+            }),
+        });
+
+        await expect(orchestrator.useMainAccountProfile()).rejects.toMatchObject({
+            code: AppErrorCode.MODULE_INIT_FAILED,
+            recoverable: true,
+            message: expect.stringContaining('PlexAuth not initialized'),
+            context: expect.objectContaining({
+                method: 'useMainAccountProfile',
+                dependency: 'PlexAuth',
+            }),
+        });
+    });
 });

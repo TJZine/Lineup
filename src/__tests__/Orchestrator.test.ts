@@ -1088,6 +1088,32 @@ describe('AppOrchestrator', () => {
             }
         });
 
+        it('reports PlexServerDiscovery as the missing dependency when profile switching runs without discovery', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            Reflect.set(orchestrator as object, '_plexDiscovery', null);
+
+            await expect(orchestrator.switchHomeUser('user-2')).rejects.toMatchObject({
+                code: AppErrorCode.MODULE_INIT_FAILED,
+                recoverable: true,
+                message: expect.stringContaining('PlexServerDiscovery not initialized'),
+                context: expect.objectContaining({
+                    method: 'switchHomeUser',
+                    dependency: 'PlexServerDiscovery',
+                }),
+            });
+
+            await expect(orchestrator.useMainAccountProfile()).rejects.toMatchObject({
+                code: AppErrorCode.MODULE_INIT_FAILED,
+                recoverable: true,
+                message: expect.stringContaining('PlexServerDiscovery not initialized'),
+                context: expect.objectContaining({
+                    method: 'useMainAccountProfile',
+                    dependency: 'PlexServerDiscovery',
+                }),
+            });
+        });
+
         it('clears profile resume listener before explicit useMainAccountProfile startup', async () => {
             await orchestrator.initialize(mockConfig);
 
@@ -2405,6 +2431,30 @@ describe('AppOrchestrator', () => {
                     expect.objectContaining({ step: 'events.unsubscribe' }),
                 ])
             );
+        });
+
+        it('records schedule day rollover disposal failures and continues shutdown', async () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+            Reflect.set(orchestrator as object, '_scheduleDayRolloverController', {
+                dispose: jest.fn(() => {
+                    throw new Error('rollover dispose failed');
+                }),
+            });
+
+            try {
+                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+
+                expect(mockNavigation.destroy).toHaveBeenCalled();
+                expect(warnSpy).toHaveBeenCalledWith(
+                    '[Orchestrator] Shutdown teardown failures:',
+                    expect.arrayContaining([
+                        expect.objectContaining({ step: 'scheduleDayRolloverController.dispose' }),
+                    ])
+                );
+            } finally {
+                warnSpy.mockRestore();
+            }
         });
 
         it('should set ready to false after shutdown', async () => {
