@@ -719,7 +719,13 @@ export class AppOrchestrator {
             this._initCoordinator.clearProfileResume();
         }
 
-        this._scheduleDayRolloverController?.dispose();
+        if (this._scheduleDayRolloverController) {
+            try {
+                this._scheduleDayRolloverController.dispose();
+            } catch (error) {
+                recordTeardownFailure('scheduleDayRolloverController.dispose', error);
+            }
+        }
 
         this._eventBinder?.dispose((error: unknown): void => {
             recordTeardownFailure('events.unsubscribe', error);
