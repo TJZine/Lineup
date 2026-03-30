@@ -47,18 +47,12 @@ import { ExitConfirmModal } from '../../modules/ui/exit-confirm';
 import { SleepTimerManager } from '../../modules/ui/sleep-timer';
 import { STORAGE_KEYS } from '../../types';
 import type { OrchestratorConfig } from './OrchestratorTypes';
+import type {
+    ChannelBadgeOverlayInitPort,
+    ChannelNumberOverlayInitPort,
+} from './OverlayPorts';
 import type { PlatformServices } from '../../platform';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
-
-type ChannelNumberOverlayPort = Pick<
-    ChannelNumberOverlay,
-    'initialize' | 'showDigits' | 'showError' | 'scheduleHide' | 'hide' | 'isVisible'
->;
-
-type ChannelBadgeOverlayPort = Pick<
-    ChannelBadgeOverlay,
-    'initialize' | 'show' | 'hide' | 'isVisible'
->;
 
 export interface OrchestratorModuleFactoryDeps {
     config: OrchestratorConfig;
@@ -80,8 +74,8 @@ export interface OrchestratorModules {
     epg: IEPGComponent;
     nowPlayingInfo: INowPlayingInfoOverlay;
     playerOsd: PlayerOsdOverlay;
-    channelNumberOverlay: ChannelNumberOverlayPort;
-    channelBadgeOverlay: ChannelBadgeOverlayPort;
+    channelNumberOverlay: ChannelNumberOverlayInitPort;
+    channelBadgeOverlay: ChannelBadgeOverlayInitPort;
     miniGuide: IMiniGuideOverlay;
     channelTransitionOverlay: ChannelTransitionOverlay;
     playbackOptionsModal: IPlaybackOptionsModal;

@@ -133,10 +133,6 @@ const makeDeps = (
                 isVisible: jest.fn().mockReturnValue(false),
             } as unknown as OrchestratorCoordinatorFactoryDeps['overlays']['playerOsd'],
             channelNumberOverlay: {} as OrchestratorCoordinatorFactoryDeps['overlays']['channelNumberOverlay'],
-            channelBadgeOverlay: {
-                hide: jest.fn(),
-                isVisible: jest.fn().mockReturnValue(false),
-            } as unknown as OrchestratorCoordinatorFactoryDeps['overlays']['channelBadgeOverlay'],
             miniGuide: {
                 isVisible: jest.fn().mockReturnValue(false),
             } as unknown as OrchestratorCoordinatorFactoryDeps['overlays']['miniGuide'],

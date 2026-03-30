@@ -107,6 +107,10 @@ import type {
 import { createOrchestratorModules } from './core/orchestrator/OrchestratorModuleFactory';
 import { createOrchestratorCoordinators } from './core/orchestrator/OrchestratorCoordinatorFactory';
 import { createPriorityOneControllersAndBinder } from './core/orchestrator/OrchestratorPriorityOneControllerFactory';
+import type {
+    ChannelBadgeOverlayInitPort,
+    ChannelNumberOverlayInitPort,
+} from './core/orchestrator/OverlayPorts';
 import type { OrchestratorPlaybackStateAccessors } from './core/orchestrator/OrchestratorPlaybackStateAccessors';
 import {
     ChannelSetupCoordinator,
@@ -115,16 +119,6 @@ import {
 } from './core/channel-setup';
 import { NowPlayingDebugManager } from './modules/debug/NowPlayingDebugManager';
 import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
-
-type ChannelNumberOverlayPort = Pick<
-    ChannelNumberOverlay,
-    'initialize' | 'showDigits' | 'showError' | 'scheduleHide' | 'hide' | 'isVisible'
->;
-
-type ChannelBadgeOverlayPort = Pick<
-    ChannelBadgeOverlay,
-    'initialize' | 'show' | 'hide' | 'isVisible'
->;
 import { IssueDiagnosticsStore } from './modules/debug/IssueDiagnosticsStore';
 import { NowPlayingInfoCoordinator } from './modules/ui/now-playing-info/NowPlayingInfoCoordinator';
 import { PlaybackOptionsCoordinator } from './modules/ui/playback-options';
@@ -260,8 +254,8 @@ export class AppOrchestrator {
     private _nowPlayingInfo: INowPlayingInfoOverlay | null = null;
     private _nowPlayingInfoCoordinator: NowPlayingInfoCoordinator | null = null;
     private _playerOsd: PlayerOsdOverlay | null = null;
-    private _channelNumberOverlay: ChannelNumberOverlayPort | null = null;
-    private _channelBadgeOverlay: ChannelBadgeOverlayPort | null = null;
+    private _channelNumberOverlay: ChannelNumberOverlayInitPort | null = null;
+    private _channelBadgeOverlay: ChannelBadgeOverlayInitPort | null = null;
     private _channelTransitionOverlay: ChannelTransitionOverlay | null = null;
     private _playerOsdCoordinator: PlayerOsdCoordinator | null = null;
     private _miniGuide: IMiniGuideOverlay | null = null;
@@ -576,7 +570,6 @@ export class AppOrchestrator {
                 nowPlayingInfo: this._nowPlayingInfo,
                 playerOsd: this._playerOsd,
                 channelNumberOverlay: this._channelNumberOverlay,
-                channelBadgeOverlay: this._channelBadgeOverlay,
                 miniGuide: this._miniGuide,
                 channelTransitionOverlay: this._channelTransitionOverlay,
                 playbackOptionsModal: this._playbackOptionsModal,

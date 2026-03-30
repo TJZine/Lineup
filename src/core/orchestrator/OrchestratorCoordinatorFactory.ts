@@ -57,12 +57,6 @@ import type {
 } from '../../modules/ui/player-osd';
 import { PlayerOsdCoordinator } from '../../modules/ui/player-osd/PlayerOsdCoordinator';
 import type {
-    ChannelNumberOverlay,
-} from '../../modules/ui/channel-number-overlay';
-import type {
-    ChannelBadgeOverlay,
-} from '../../modules/ui/channel-badge';
-import type {
     IMiniGuideOverlay,
 } from '../../modules/ui/mini-guide';
 import { MiniGuideCoordinator } from '../../modules/ui/mini-guide/MiniGuideCoordinator';
@@ -96,16 +90,7 @@ import { safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from
 import { summarizeErrorForLog } from '../../utils/errors';
 import type { ToastInput } from '../../modules/ui/toast/types';
 import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
-
-type ChannelNumberOverlayPort = Pick<
-    ChannelNumberOverlay,
-    'showDigits' | 'showError' | 'scheduleHide' | 'hide' | 'isVisible'
->;
-
-type ChannelBadgeOverlayPort = Pick<
-    ChannelBadgeOverlay,
-    'show' | 'hide' | 'isVisible'
->;
+import type { ChannelNumberOverlayRuntimePort } from './OverlayPorts';
 
 export interface OrchestratorCoordinatorFactoryDeps {
     config: OrchestratorConfig | null;
@@ -128,8 +113,7 @@ export interface OrchestratorCoordinatorFactoryDeps {
     overlays: {
         nowPlayingInfo: INowPlayingInfoOverlay;
         playerOsd: IPlayerOsdOverlay;
-        channelNumberOverlay: ChannelNumberOverlayPort;
-        channelBadgeOverlay: ChannelBadgeOverlayPort;
+        channelNumberOverlay: ChannelNumberOverlayRuntimePort;
         miniGuide: IMiniGuideOverlay;
         channelTransitionOverlay: IChannelTransitionOverlay;
         playbackOptionsModal: IPlaybackOptionsModal;
@@ -220,7 +204,6 @@ export function createOrchestratorCoordinators(
         nowPlayingInfo: input.overlays.nowPlayingInfo,
         playerOsd: input.overlays.playerOsd,
         channelNumberOverlay: input.overlays.channelNumberOverlay,
-        channelBadgeOverlay: input.overlays.channelBadgeOverlay,
         miniGuide: input.overlays.miniGuide,
         channelTransitionOverlay: input.overlays.channelTransitionOverlay,
         playbackOptionsModal: input.overlays.playbackOptionsModal,

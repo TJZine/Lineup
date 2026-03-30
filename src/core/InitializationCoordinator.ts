@@ -23,12 +23,14 @@ import type { IChannelScheduler } from '../modules/scheduler/scheduler';
 import type { IVideoPlayer } from '../modules/player';
 import type { IEPGComponent } from '../modules/ui/epg';
 import type { IPlayerOsdOverlay } from '../modules/ui/player-osd';
-import type { ChannelNumberOverlay } from '../modules/ui/channel-number-overlay';
-import type { ChannelBadgeOverlay } from '../modules/ui/channel-badge';
 import type { IMiniGuideOverlay } from '../modules/ui/mini-guide';
 import type { IChannelTransitionOverlay } from '../modules/ui/channel-transition';
 import type { IDisposable } from '../utils/interfaces';
 import type { OrchestratorConfig, ModuleStatus } from './orchestrator/OrchestratorTypes';
+import type {
+    ChannelBadgeOverlayInitPort,
+    ChannelNumberOverlayInitPort,
+} from './orchestrator/OverlayPorts';
 import { EpgPreferencesStore, type EpgLayoutMode } from '../modules/settings/EpgPreferencesStore';
 import { ProfileSessionStore } from '../modules/settings/ProfileSessionStore';
 import { summarizeErrorForLog } from '../utils/errors';
@@ -39,16 +41,6 @@ import {
     applyPostReadyRoutingPolicy,
     buildEpgConfigWithStartupPolicy,
 } from './initialization/InitializationStartupPolicy';
-
-type ChannelNumberOverlayPort = Pick<
-    ChannelNumberOverlay,
-    'initialize' | 'showDigits' | 'showError' | 'scheduleHide' | 'hide' | 'isVisible'
->;
-
-type ChannelBadgeOverlayPort = Pick<
-    ChannelBadgeOverlay,
-    'initialize' | 'show' | 'hide' | 'isVisible'
->;
 
 // ============================================
 // Types
@@ -73,8 +65,8 @@ export interface InitializationDependencies {
     };
     overlays: {
         playerOsd: IPlayerOsdOverlay | null;
-        channelNumberOverlay: ChannelNumberOverlayPort | null;
-        channelBadgeOverlay: ChannelBadgeOverlayPort | null;
+        channelNumberOverlay: ChannelNumberOverlayInitPort | null;
+        channelBadgeOverlay: ChannelBadgeOverlayInitPort | null;
         miniGuide: IMiniGuideOverlay | null;
         channelTransition: IChannelTransitionOverlay | null;
     };
