@@ -473,7 +473,7 @@ These are the required repo-local boundary skills for the new wave. Load them be
 - [ ] `P6-EXIT` run the priority-exit review before moving to `P7`
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P7` plan, code, or checklist progress starts until every `P6` mapped id has an explicit disposition record
-  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all five exact `P6` issue-id checks; `npm run verify`
+  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all five exact inherited `P6-W3` issue-id checks listed above; `npm run verify`
 
 ## Priority 7: Finish Remaining UI Naming Drift And Player Safeguard Coverage
 
