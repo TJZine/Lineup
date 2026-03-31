@@ -1221,9 +1221,6 @@ export class EPGVirtualizer {
     }
 
     updateTemporalClasses(nowMs: number): void {
-        const focusedKey = this.focusedVisibleCellKey;
-        let shouldResyncFocusedTicker = false;
-
         for (const cellData of this.visibleCells.values()) {
             const element = cellData.cellElement;
             if (cellData.kind === 'program') {
@@ -1252,14 +1249,6 @@ export class EPGVirtualizer {
                     }
                     this.updateLiveBadge(element, isCurrent);
                     this.updateProgressPresentation(this.getCellChildren(element), cellData, nowMs);
-                    if (
-                        cellData.key === focusedKey &&
-                        cellData.isFocused &&
-                        element.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT) &&
-                        wasCurrent !== isCurrent
-                    ) {
-                        shouldResyncFocusedTicker = true;
-                    }
                 }
             } else if (element) {
                 cellData.isCurrent = false;
@@ -1268,10 +1257,6 @@ export class EPGVirtualizer {
                 this.updateLiveBadge(element, false);
                 this.updateProgressPresentation(this.getCellChildren(element), cellData, nowMs);
             }
-        }
-
-        if (shouldResyncFocusedTicker) {
-            this._syncFocusedTitleTickerForVisibleFocus();
         }
     }
 
