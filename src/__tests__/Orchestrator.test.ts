@@ -2527,18 +2527,26 @@ describe('AppOrchestrator', () => {
             expect(orchestrator.isReady()).toBe(false);
         });
 
-        it('fails fast when start is called after shutdown', async () => {
-            await orchestrator.shutdown();
+        it('fails fast when start is called after shutdown without resetting playback recovery', async () => {
+            const resetSpy = jest.spyOn(PlaybackRecoveryManager.prototype, 'resetPlaybackFailureGuard');
 
-            await expect(orchestrator.start()).rejects.toMatchObject({
-                code: AppErrorCode.MODULE_INIT_FAILED,
-                recoverable: true,
-                message: expect.stringContaining('Orchestrator must be initialized before starting'),
-                context: expect.objectContaining({
-                    method: 'start',
-                    dependency: 'InitializationCoordinator',
-                }),
-            });
+            try {
+                await orchestrator.shutdown();
+
+                await expect(orchestrator.start()).rejects.toMatchObject({
+                    code: AppErrorCode.MODULE_INIT_FAILED,
+                    recoverable: true,
+                    message: expect.stringContaining('Orchestrator must be initialized before starting'),
+                    context: expect.objectContaining({
+                        method: 'start',
+                        dependency: 'InitializationCoordinator',
+                    }),
+                });
+
+                expect(resetSpy).not.toHaveBeenCalled();
+            } finally {
+                resetSpy.mockRestore();
+            }
         });
     });
 

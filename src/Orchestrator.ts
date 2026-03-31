@@ -681,13 +681,14 @@ export class AppOrchestrator {
      * Follows 5-phase initialization order per spec.
      */
     async start(): Promise<void> {
-        this._playbackRecovery?.resetPlaybackFailureGuard();
         if (!this._initCoordinator) {
             this._throwModuleInitPreconditionError('Orchestrator must be initialized before starting', {
                 method: 'start',
                 dependency: 'InitializationCoordinator',
             });
         }
+
+        this._playbackRecovery?.resetPlaybackFailureGuard();
         await this._initCoordinator.runStartup(1);
     }
 
