@@ -3,7 +3,7 @@ import type { ChannelNumberOverlay } from '../../modules/ui/channel-number-overl
 
 export type ChannelNumberOverlayInitPort = Pick<
     ChannelNumberOverlay,
-    'initialize' | 'showDigits' | 'showError' | 'scheduleHide' | 'hide' | 'isVisible'
+    'initialize' | 'showDigits' | 'showError' | 'scheduleHide' | 'hide' | 'isVisible' | 'destroy'
 >;
 
 export type ChannelNumberOverlayRuntimePort = Pick<
@@ -13,5 +13,5 @@ export type ChannelNumberOverlayRuntimePort = Pick<
 
 export type ChannelBadgeOverlayInitPort = Pick<
     ChannelBadgeOverlay,
-    'initialize' | 'show' | 'hide' | 'isVisible'
+    'initialize' | 'show' | 'hide' | 'isVisible' | 'destroy'
 >;

@@ -97,6 +97,24 @@ const mockPlayerOsdConfig = {
     containerId: 'player-osd-container',
 };
 
+const mockChannelNumberOverlay = {
+    initialize: jest.fn(),
+    showDigits: jest.fn(),
+    showError: jest.fn(),
+    scheduleHide: jest.fn(),
+    hide: jest.fn(),
+    isVisible: jest.fn(() => false),
+    destroy: jest.fn(),
+};
+
+const mockChannelBadgeOverlay = {
+    initialize: jest.fn(),
+    show: jest.fn(),
+    hide: jest.fn(),
+    isVisible: jest.fn(() => false),
+    destroy: jest.fn(),
+};
+
 const mockChannelNumberOverlayConfig = {
     containerId: 'channel-number-overlay-container',
 };
@@ -236,6 +254,15 @@ jest.mock('../modules/ui/player-osd', () => ({
         destroy: jest.fn(),
         setViewModel: jest.fn(),
     })),
+}));
+
+jest.mock('../modules/ui/channel-number-overlay', () => ({
+    ChannelNumberOverlay: jest.fn(() => mockChannelNumberOverlay),
+}));
+
+jest.mock('../modules/ui/channel-badge', () => ({
+    ChannelBadgeOverlay: jest.fn(() => mockChannelBadgeOverlay),
+    CHANNEL_BADGE_CONTAINER_ID: 'channel-badge-overlay-container',
 }));
 
 jest.mock('../modules/ui/mini-guide', () => ({
@@ -2368,9 +2395,11 @@ describe('AppOrchestrator', () => {
         it('should destroy modules on shutdown', async () => {
             await orchestrator.shutdown();
 
-            expect(mockEpg.destroy).toHaveBeenCalled();
-            expect(mockVideoPlayer.destroy).toHaveBeenCalled();
-            expect(mockNavigation.destroy).toHaveBeenCalled();
+            expect(mockEpg.destroy).toHaveBeenCalledTimes(1);
+            expect(mockChannelNumberOverlay.destroy).toHaveBeenCalledTimes(1);
+            expect(mockChannelBadgeOverlay.destroy).toHaveBeenCalledTimes(1);
+            expect(mockVideoPlayer.destroy).toHaveBeenCalledTimes(1);
+            expect(mockNavigation.destroy).toHaveBeenCalledTimes(1);
         });
 
         it('continues teardown and logs aggregated warnings when shutdown steps fail', async () => {
@@ -2404,6 +2433,34 @@ describe('AppOrchestrator', () => {
                 (mockVideoPlayer.stop as jest.Mock).mockImplementation(() => undefined);
                 (mockScheduler.pauseSyncTimer as jest.Mock).mockImplementation(() => undefined);
                 (mockEpg.destroy as jest.Mock).mockImplementation(() => undefined);
+            }
+        });
+
+        it('records channel overlay teardown failures and continues shutdown', async () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+            (mockChannelNumberOverlay.destroy as jest.Mock).mockImplementationOnce(() => {
+                throw new Error('channel number destroy failed');
+            });
+            (mockChannelBadgeOverlay.destroy as jest.Mock).mockImplementationOnce(() => {
+                throw new Error('channel badge destroy failed');
+            });
+
+            try {
+                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+
+                expect(mockNavigation.destroy).toHaveBeenCalled();
+                expect(warnSpy).toHaveBeenCalledWith(
+                    '[Orchestrator] Shutdown teardown failures:',
+                    expect.arrayContaining([
+                        expect.objectContaining({ step: 'channelNumberOverlay.destroy' }),
+                        expect.objectContaining({ step: 'channelBadgeOverlay.destroy' }),
+                    ])
+                );
+            } finally {
+                (mockChannelNumberOverlay.destroy as jest.Mock).mockImplementation(() => undefined);
+                (mockChannelBadgeOverlay.destroy as jest.Mock).mockImplementation(() => undefined);
+                warnSpy.mockRestore();
             }
         });
 

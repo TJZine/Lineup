@@ -68,12 +68,6 @@ import {
     PlayerOsdOverlay,
 } from './modules/ui/player-osd';
 import { PlayerOsdCoordinator } from './modules/ui/player-osd/PlayerOsdCoordinator';
-import {
-    type ChannelNumberOverlay,
-} from './modules/ui/channel-number-overlay';
-import {
-    type ChannelBadgeOverlay,
-} from './modules/ui/channel-badge';
 import { SleepTimerManager } from './modules/ui/sleep-timer';
 import {
     type IMiniGuideOverlay,
@@ -813,7 +807,7 @@ export class AppOrchestrator {
         }
         if (this._channelNumberOverlay) {
             try {
-                (this._channelNumberOverlay as ChannelNumberOverlay & { destroy: () => void }).destroy();
+                this._channelNumberOverlay.destroy();
             } catch (error) {
                 recordTeardownFailure('channelNumberOverlay.destroy', error);
             }
@@ -821,7 +815,7 @@ export class AppOrchestrator {
         }
         if (this._channelBadgeOverlay) {
             try {
-                (this._channelBadgeOverlay as ChannelBadgeOverlay & { destroy: () => void }).destroy();
+                this._channelBadgeOverlay.destroy();
             } catch (error) {
                 recordTeardownFailure('channelBadgeOverlay.destroy', error);
             }
