@@ -2783,10 +2783,11 @@ describe('EPGVirtualizer', () => {
             expect(badge.textContent).toBe('');
         });
 
-        it('applies focused movie overlay only to movies', () => {
-            virtualizer.setChannelCount(2);
+        it('applies focused movie overlay only to movies and keeps split-lane episodes in focused compact mode', () => {
+            virtualizer.setChannelCount(3);
             const movieChannelId = 'ch-focused-movie-only';
             const clipChannelId = 'ch-focused-clip-no-movie-overlay';
+            const episodeChannelId = 'ch-focused-episode-compact';
             const start = gridAnchorTime + (10 * 60000);
             const end = start + (20 * 60000); // tiny tier at 4px/min => 80px
 
@@ -2843,10 +2844,39 @@ describe('EPGVirtualizer', () => {
                         },
                     ],
                 }],
+                [episodeChannelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + (24 * 60 * 60000),
+                    programs: [
+                        {
+                            item: {
+                                ratingKey: 'focused-episode-compact-1',
+                                type: 'episode',
+                                title: 'The Split Lane Episode',
+                                fullTitle: 'Prestige Show - S01E03 - The Split Lane Episode',
+                                showTitle: 'Prestige Show',
+                                seasonNumber: 1,
+                                episodeNumber: 3,
+                                durationMs: end - start,
+                                thumb: null,
+                                year: 2026,
+                                scheduledIndex: 0,
+                            },
+                            scheduledStartTime: start,
+                            scheduledEndTime: end,
+                            elapsedMs: 0,
+                            remainingMs: end - start,
+                            scheduleIndex: 0,
+                            loopNumber: 0,
+                            streamDescriptor: null,
+                            isCurrent: false,
+                        },
+                    ],
+                }],
             ]);
 
             const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
-            virtualizer.renderVisibleCells([movieChannelId, clipChannelId], schedules, range);
+            virtualizer.renderVisibleCells([movieChannelId, clipChannelId, episodeChannelId], schedules, range);
 
             virtualizer.setFocusedCell(movieChannelId, start);
             const movieCell = container.querySelector(`[data-key="${movieChannelId}-${start}"]`) as HTMLElement;
@@ -2857,6 +2887,13 @@ describe('EPGVirtualizer', () => {
             const clipCell = container.querySelector(`[data-key="${clipChannelId}-${start}"]`) as HTMLElement;
             expect(clipCell.classList.contains('epg-cell-focused-movie-overlay')).toBe(false);
             expect(clipCell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(false);
+
+            virtualizer.setFocusedCell(episodeChannelId, start);
+            const episodeCell = container.querySelector(`[data-key="${episodeChannelId}-${start}"]`) as HTMLElement;
+            const episodeTime = episodeCell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
+            expect(episodeCell.classList.contains('epg-cell-focused-movie-overlay')).toBe(false);
+            expect(episodeCell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
+            expect(episodeTime.style.display).toBe('none');
         });
     });
 

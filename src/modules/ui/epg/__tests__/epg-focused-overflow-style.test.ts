@@ -98,7 +98,7 @@ describe('focused EPG overflow style contract', () => {
         expect(railBlock).toContain('right: 10px');
     });
 
-    it('keeps focused non-live movie time self-aligned to the bottom-right rail corner', () => {
+    it('keeps focused movie rail anchoring stable across badge visibility in tiny and medium tiers', () => {
         const timeBlock = getBlock(
             '.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-time'
         );
@@ -106,22 +106,52 @@ describe('focused EPG overflow style contract', () => {
         expect(timeBlock).toContain('align-self: flex-end');
         expect(timeBlock).toContain('margin-top: auto');
 
-        const cell = document.createElement('div');
-        cell.className = 'epg-cell focused epg-cell-focused-movie-overlay epg-cell-tier-tiny';
-        const rail = document.createElement('div');
-        rail.className = 'epg-cell-rail';
-        const badge = document.createElement('span');
-        badge.className = 'epg-live-badge';
-        badge.hidden = true;
-        const time = document.createElement('div');
-        time.className = 'epg-cell-time';
-        rail.append(badge, time);
-        cell.appendChild(rail);
-        document.body.appendChild(cell);
+        const container = document.createElement('div');
+        container.className = 'epg-container';
+        document.body.appendChild(container);
 
-        const timeStyle = getComputedStyle(time);
-        expect(timeStyle.alignSelf).toBe('flex-end');
-        expect(timeStyle.marginTop).toBe('auto');
+        for (const tier of ['epg-cell-tier-tiny', 'epg-cell-tier-medium']) {
+            for (const badgeHidden of [true, false]) {
+                const cell = document.createElement('div');
+                cell.className = `epg-cell focused epg-cell-focused-movie-overlay ${tier}`;
+
+                const rail = document.createElement('div');
+                rail.className = 'epg-cell-rail';
+
+                const badge = document.createElement('span');
+                badge.className = 'epg-live-badge';
+                badge.hidden = badgeHidden;
+                if (!badgeHidden) {
+                    badge.classList.add('epg-live-badge-compact');
+                }
+
+                const time = document.createElement('div');
+                time.className = 'epg-cell-time';
+                time.textContent = '1:00 PM';
+
+                rail.append(badge, time);
+                cell.appendChild(rail);
+                container.appendChild(cell);
+
+                const railStyle = getComputedStyle(rail);
+                const timeStyle = getComputedStyle(time);
+
+                expect(railStyle.position).toBe('absolute');
+                expect(railStyle.top).toBe('8px');
+                expect(railStyle.right).toBe('10px');
+                expect(railStyle.bottom).toBe('8px');
+                expect(railStyle.alignItems).toBe('flex-end');
+                expect(railStyle.justifyContent).toBe('space-between');
+                expect(timeStyle.alignSelf).toBe('flex-end');
+                expect(timeStyle.marginTop).toBe('auto');
+                if (tier === 'epg-cell-tier-medium') {
+                    expect(timeStyle.display).toBe('block');
+                }
+                if (badgeHidden) {
+                    expect(getComputedStyle(badge).display).toBe('none');
+                }
+            }
+        }
     });
 
     it('keeps generic focused narrow/tiny selectors from matching focused movie overlays', () => {
