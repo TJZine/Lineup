@@ -1918,6 +1918,58 @@ describe('EPGVirtualizer', () => {
             expect(time.style.display).toBe('block');
         });
 
+        it('uses compact LIVE dot for focused current medium movie overlay cells', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-focused-movie-medium-live-dot';
+            const start = gridAnchorTime + (10 * 60000);
+            const end = start + (40 * 60000); // medium tier at 4px/min => 160px
+            const beforeCurrent = start - (5 * 60000);
+            jest.spyOn(Date, 'now').mockReturnValue(beforeCurrent);
+
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60000),
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'movie-medium-live-dot-1',
+                            type: 'movie',
+                            title: 'Focused Medium Live Dot',
+                            fullTitle: 'Focused Medium Live Dot',
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - beforeCurrent,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+            virtualizer.setFocusedCell(channelId, start, beforeCurrent);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const liveBadge = cell.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement;
+            expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_MEDIUM)).toBe(true);
+            expect(cell.classList.contains('epg-cell-focused-movie-overlay')).toBe(true);
+            expect(liveBadge.hidden).toBe(true);
+
+            virtualizer.updateTemporalClasses(start + (2 * 60000));
+
+            expect(liveBadge.hidden).toBe(false);
+            expect(liveBadge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
+            expect(liveBadge.textContent).toBe('');
+        });
+
         it('keeps the in-cell time on focused wide episode cells that can stay in the normal layout', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-episode-wide-time-visible';
