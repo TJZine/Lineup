@@ -2526,6 +2526,20 @@ describe('AppOrchestrator', () => {
             await orchestrator.shutdown();
             expect(orchestrator.isReady()).toBe(false);
         });
+
+        it('fails fast when start is called after shutdown', async () => {
+            await orchestrator.shutdown();
+
+            await expect(orchestrator.start()).rejects.toMatchObject({
+                code: AppErrorCode.MODULE_INIT_FAILED,
+                recoverable: true,
+                message: expect.stringContaining('Orchestrator must be initialized before starting'),
+                context: expect.objectContaining({
+                    method: 'start',
+                    dependency: 'InitializationCoordinator',
+                }),
+            });
+        });
     });
 
     describe('getModuleStatus', () => {

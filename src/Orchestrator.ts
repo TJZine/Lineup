@@ -904,6 +904,7 @@ export class AppOrchestrator {
             console.warn('[Orchestrator] Shutdown teardown failures:', teardownFailures);
         }
 
+        this._initCoordinator = null;
         this._scheduleDayRolloverController = null;
         this._subtitleTrackRecoveryController = null;
         this._ready = false;
