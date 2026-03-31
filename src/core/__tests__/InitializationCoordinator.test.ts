@@ -236,9 +236,22 @@ describe('InitializationCoordinator (Plex Home)', () => {
             callbacks
         );
 
+        const harnessDeps = Object.assign(deps, legacyDeps) as InitializationDependencies & LegacyInitializationDependencies;
+
+        // Keep the legacy flat accessors for existing tests, but proxy writes to the
+        // real nested dependency bag so setup cannot drift.
+        Object.defineProperty(harnessDeps, 'channelManager', {
+            configurable: true,
+            enumerable: true,
+            get: (): InitializationDependencies['modules']['channelManager'] => deps.modules.channelManager,
+            set: (value: InitializationDependencies['modules']['channelManager']) => {
+                deps.modules.channelManager = value;
+            },
+        });
+
         return {
             coordinator,
-            deps: Object.assign(deps, legacyDeps),
+            deps: harnessDeps,
             callbacks: Object.assign(callbacks, legacyCallbacks),
         };
     };
@@ -350,7 +363,6 @@ describe('InitializationCoordinator (Plex Home)', () => {
             getAllChannels: jest.fn().mockReturnValue([]),
         } as unknown as LegacyInitializationDependencies['channelManager'];
         deps.channelManager = channelManager;
-        deps.modules.channelManager = channelManager;
 
         let profileChangeHandler: (() => void) | null = null;
         plexAuth.on.mockImplementation((event: string, handler: () => void) => {
