@@ -53,18 +53,31 @@ describe('focused EPG overflow style contract', () => {
         expect(block).toContain('display: none');
     });
 
-    it('keeps focused normal narrow/tiny rail selectors', () => {
-        const layoutBlock = getBlock(
-            '.epg-cell.focused:not(.epg-cell-focused-compact).epg-cell-tier-narrow,\n' +
-            '.epg-cell.focused:not(.epg-cell-focused-compact).epg-cell-tier-tiny'
-        );
-        expect(layoutBlock).toContain('grid-template-columns: 1fr auto');
+    it('keeps focused compact selector contract for overlay rail semantics', () => {
+        const layoutBlock = getBlock('.epg-cell.focused.epg-cell-focused-compact');
+        expect(layoutBlock).toContain('grid-template-columns: 1fr');
 
         const railBlock = getBlock(
-            '.epg-cell.focused:not(.epg-cell-focused-compact).epg-cell-tier-narrow .epg-cell-rail,\n' +
-            '.epg-cell.focused:not(.epg-cell-focused-compact).epg-cell-tier-tiny .epg-cell-rail'
+            '.epg-cell.focused.epg-cell-focused-compact .epg-cell-rail'
         );
-        expect(railBlock).toContain('position: static');
+        expect(railBlock).toContain('position: absolute');
+        expect(railBlock).toContain('top: 8px');
+        expect(railBlock).toContain('right: 10px');
+    });
+
+    it('keeps focused movie overlay selector contract for non-compact narrow/tiny cells', () => {
+        const layoutBlock = getBlock(
+            '.epg-cell.focused.epg-cell-focused-movie-overlay.epg-cell-tier-narrow,\n' +
+            '.epg-cell.focused.epg-cell-focused-movie-overlay.epg-cell-tier-tiny'
+        );
+        expect(layoutBlock).toContain('grid-template-columns: 1fr');
+
+        const railBlock = getBlock(
+            '.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-rail'
+        );
+        expect(railBlock).toContain('position: absolute');
+        expect(railBlock).toContain('top: 8px');
+        expect(railBlock).toContain('right: 10px');
     });
 
     it('keeps reduced-motion ticker suppression selectors', () => {
