@@ -934,20 +934,44 @@
 }
 
 .epg-cell.focused.epg-cell-focused-compact {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 1fr;
   gap: 6px;
 }
 
 .epg-cell.focused.epg-cell-focused-compact .epg-cell-rail {
-  position: static;
-  top: auto;
-  right: auto;
-  align-self: stretch;
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  align-self: auto;
   pointer-events: none;
 }
 
 .epg-cell.focused.epg-cell-focused-compact .epg-cell-time {
   display: none;
+}
+
+.epg-cell.focused.epg-cell-focused-movie-overlay {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.epg-cell.focused.epg-cell-focused-movie-overlay.epg-cell-tier-narrow,
+.epg-cell.focused.epg-cell-focused-movie-overlay.epg-cell-tier-tiny {
+  grid-template-columns: 1fr;
+}
+
+.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-rail {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  bottom: 8px;
+  align-self: auto;
+  pointer-events: none;
+}
+
+.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-time {
+  display: block;
+  align-self: flex-end;
 }
 
 .epg-cell.text-shifted .epg-cell-content,

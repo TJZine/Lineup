@@ -2609,7 +2609,7 @@ describe('EPGVirtualizer', () => {
             expect(liveBadge.textContent).toBe('');
         });
 
-        it('recomputes focused compact ticker distance when current state changes the live rail width', () => {
+        it('keeps focused compact ticker distance fixed when current state changes live badge visibility', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-compact-current-ticker';
             const start = gridAnchorTime + (10 * 60000);
@@ -2673,7 +2673,62 @@ describe('EPGVirtualizer', () => {
             virtualizer.updateTemporalClasses(start + (2 * 60000));
 
             expect(liveBadge.hidden).toBe(false);
-            expect(title.style.getPropertyValue('--epg-title-ticker-distance-px')).toBe('68px');
+            expect(title.style.getPropertyValue('--epg-title-ticker-distance-px')).toBe('60px');
+        });
+
+        it('keeps focused tiny movie time bottom-right while live dot overlays top-right', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-focused-tiny-movie-overlay';
+            const start = gridAnchorTime + (10 * 60000);
+            const end = start + (20 * 60000); // tiny tier at 4px/min => 80px
+            const beforeCurrent = start - (5 * 60000);
+            jest.spyOn(Date, 'now').mockReturnValue(beforeCurrent);
+
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60000),
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'focused-tiny-movie-overlay-1',
+                            type: 'movie',
+                            title: 'Focused Tiny Movie Overlay',
+                            fullTitle: 'Focused Tiny Movie Overlay',
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - beforeCurrent,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+            virtualizer.setFocusedCell(channelId, start, beforeCurrent);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const timeLine = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
+            const badge = cell.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement;
+
+            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(false);
+            expect(cell.classList.contains('epg-cell-focused-movie-overlay')).toBe(true);
+            expect(timeLine.style.display).toBe('block');
+
+            virtualizer.updateTemporalClasses(start + (2 * 60000));
+
+            expect(timeLine.style.display).toBe('block');
+            expect(badge.hidden).toBe(false);
+            expect(badge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
+            expect(badge.textContent).toBe('');
         });
     });
 
