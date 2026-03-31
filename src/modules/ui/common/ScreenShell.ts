@@ -43,6 +43,15 @@ export function createScreenShell(container: HTMLElement, props: ScreenShellProp
     const titleEl = document.createElement('h1');
     titleEl.className = 'screen-title';
     titleEl.textContent = props.title;
+
+    const heroEl = document.createElement('div');
+    heroEl.className = 'screen-hero';
+    if (props.heroSlot) {
+        heroEl.appendChild(props.heroSlot);
+    }
+    heroEl.hidden = !props.heroSlot;
+
+    panelEl.appendChild(heroEl);
     panelEl.appendChild(titleEl);
 
     if (props.subtitle) {
@@ -51,13 +60,6 @@ export function createScreenShell(container: HTMLElement, props: ScreenShellProp
         subtitleEl.textContent = props.subtitle;
         panelEl.appendChild(subtitleEl);
     }
-
-    const heroEl = document.createElement('div');
-    heroEl.className = 'screen-hero';
-    if (props.heroSlot) {
-        heroEl.appendChild(props.heroSlot);
-    }
-    panelEl.appendChild(heroEl);
 
     const contentEl = document.createElement('div');
     contentEl.className = 'screen-content';

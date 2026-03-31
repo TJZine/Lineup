@@ -80,6 +80,14 @@
   min-width: 0;
 }
 
+.epg-container.layout-classic .epg-classic-header-glyph {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  color: var(--color-primary);
+  opacity: 0.85;
+}
+
 .epg-container.layout-classic .epg-classic-now-playing {
   display: inline-flex;
   align-items: baseline;
@@ -138,6 +146,23 @@
 }
 
 .epg-container.layout-classic .epg-dashboard-bottom {
+  display: none;
+}
+
+.epg-watermark {
+  position: absolute;
+  right: 16px;
+  bottom: 12px;
+  width: 28px;
+  height: 28px;
+  color: rgba(255, 255, 255, 0.55);
+  opacity: 0.18;
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+}
+
+.epg-container.layout-classic .epg-watermark {
   display: none;
 }
 

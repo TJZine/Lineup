@@ -1,10 +1,9 @@
 import { CHANNEL_NUMBER_CLASSES } from './constants';
-import type { IChannelNumberOverlay } from './interfaces';
 
 const DEFAULT_MAX_DIGITS = 3;
 const ERROR_AUTO_HIDE_MS = 2_000;
 
-export class ChannelNumberOverlay implements IChannelNumberOverlay {
+export class ChannelNumberOverlay {
     private containerElement: HTMLElement | null = null;
     private digitsElement: HTMLElement | null = null;
     private hideTimer: number | null = null;

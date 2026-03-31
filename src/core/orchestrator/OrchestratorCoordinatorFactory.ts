@@ -57,12 +57,6 @@ import type {
 } from '../../modules/ui/player-osd';
 import { PlayerOsdCoordinator } from '../../modules/ui/player-osd/PlayerOsdCoordinator';
 import type {
-    IChannelNumberOverlay,
-} from '../../modules/ui/channel-number-overlay';
-import type {
-    IChannelBadgeOverlay,
-} from '../../modules/ui/channel-badge';
-import type {
     IMiniGuideOverlay,
 } from '../../modules/ui/mini-guide';
 import { MiniGuideCoordinator } from '../../modules/ui/mini-guide/MiniGuideCoordinator';
@@ -85,7 +79,6 @@ import { SleepTimerManager } from '../../modules/ui/sleep-timer';
 import { ChannelSetupCoordinator } from '../channel-setup';
 import { ChannelTuningCoordinator } from '../channel-tuning';
 import type { GuideSelectionSnapshot } from '../channel-tuning';
-import type { IInitializationCoordinator } from '../InitializationCoordinator';
 import type { ModuleStatus, OrchestratorConfig } from './OrchestratorTypes';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import { NowPlayingDebugManager } from '../../modules/debug/NowPlayingDebugManager';
@@ -97,72 +90,83 @@ import { safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from
 import { summarizeErrorForLog } from '../../utils/errors';
 import type { ToastInput } from '../../modules/ui/toast/types';
 import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
+import type { ChannelNumberOverlayRuntimePort } from './OverlayPorts';
 
 export interface OrchestratorCoordinatorFactoryDeps {
     config: OrchestratorConfig | null;
     moduleStatus: Map<string, ModuleStatus>;
-
-    getInitCoordinator: () => IInitializationCoordinator | null;
-
-    navigation: INavigationManager;
-    plexAuth: IPlexAuth;
-    plexDiscovery: IPlexServerDiscovery;
-    plexLibrary: IPlexLibrary;
-    plexStreamResolver: IPlexStreamResolver;
-    channelManager: IChannelManager;
-    scheduler: IChannelScheduler;
-    videoPlayer: IVideoPlayer;
-    lifecycle: IAppLifecycle;
-    epg: IEPGComponent;
-    nowPlayingInfo: INowPlayingInfoOverlay;
-    playerOsd: IPlayerOsdOverlay;
-    channelNumberOverlay: IChannelNumberOverlay;
-    channelBadgeOverlay: IChannelBadgeOverlay;
-    miniGuide: IMiniGuideOverlay;
-    channelTransitionOverlay: IChannelTransitionOverlay;
-    playbackOptionsModal: IPlaybackOptionsModal;
-    exitConfirmModal: ExitConfirmModal;
-    sleepTimer: SleepTimerManager;
-
-    debugOverridesStore: DebugOverridesStore;
-    subtitlePreferencesStore: SubtitlePreferencesStore;
-    epgPreferencesStore: EpgPreferencesStore;
-    nowPlayingDisplayStore: NowPlayingDisplayStore;
-    profileSessionStore: ProfileSessionStore;
-
-    playbackState: OrchestratorPlaybackStateAccessors;
-    lastChannelChangeSource: () => 'remote' | 'number' | 'guide' | null;
-    setLastChannelChangeSource: (source: 'remote' | 'number' | 'guide' | null) => void;
-    setActiveScheduleDayKey: (dayKey: number) => void;
-
-    getSelectedServerId: () => string | null;
-    getLocalMidnightMs: (timeMs: number) => number;
-    getLocalDayKey: (timeMs: number) => number;
-    buildDailyScheduleConfig: (
-        channel: ChannelConfig,
-        items: ResolvedChannelContent['items'],
-        referenceTimeMs: number
-    ) => ScheduleConfig;
-    buildPlexResourceUrl: (pathOrUrl: string) => string | null;
-    getMimeType: (decision: StreamDecision) => string;
-    getPlaybackInfoSnapshot: () => PlaybackInfoSnapshotLike | null;
-    refreshPlaybackInfoSnapshot: () => Promise<PlaybackInfoSnapshotLike>;
-
-    switchToChannel: (
-        channelId: string,
-        options?: { guideSelectionSnapshot?: GuideSelectionSnapshot }
-    ) => Promise<void>;
-    stopPlayback: () => void;
-    stopActiveTranscodeSession: () => void;
-    switchToNextChannel: () => void;
-    switchToPreviousChannel: () => void;
-    switchToChannelByNumberWithOutcome: (n: number) => Promise<ChannelSwitchOutcome>;
-    toggleEPG: () => void;
-    handleGlobalError: (error: AppError, context: string) => void;
-    onOverlayVisibilityChange: (visible: boolean) => void;
-    toggleNowPlayingInfoOverlay: () => void;
-
-    nowPlayingHandler: () => ((toast: ToastInput) => void) | null;
+    init: {
+        ensureEpgInitialized: () => Promise<void>;
+    };
+    modules: {
+        navigation: INavigationManager;
+        plexAuth: IPlexAuth;
+        plexDiscovery: IPlexServerDiscovery;
+        plexLibrary: IPlexLibrary;
+        plexStreamResolver: IPlexStreamResolver;
+        channelManager: IChannelManager;
+        scheduler: IChannelScheduler;
+        videoPlayer: IVideoPlayer;
+        lifecycle: IAppLifecycle;
+        epg: IEPGComponent;
+    };
+    overlays: {
+        nowPlayingInfo: INowPlayingInfoOverlay;
+        playerOsd: IPlayerOsdOverlay;
+        channelNumberOverlay: ChannelNumberOverlayRuntimePort;
+        miniGuide: IMiniGuideOverlay;
+        channelTransitionOverlay: IChannelTransitionOverlay;
+        playbackOptionsModal: IPlaybackOptionsModal;
+        exitConfirmModal: ExitConfirmModal;
+        sleepTimer: SleepTimerManager;
+    };
+    stores: {
+        debugOverridesStore: DebugOverridesStore;
+        subtitlePreferencesStore: SubtitlePreferencesStore;
+        epgPreferencesStore: EpgPreferencesStore;
+        nowPlayingDisplayStore: NowPlayingDisplayStore;
+        profileSessionStore: ProfileSessionStore;
+    };
+    playback: {
+        state: OrchestratorPlaybackStateAccessors;
+        getPlaybackInfoSnapshot: () => PlaybackInfoSnapshotLike | null;
+        refreshPlaybackInfoSnapshot: () => Promise<PlaybackInfoSnapshotLike>;
+        stopPlayback: () => void;
+        stopActiveTranscodeSession: () => void;
+        getMimeType: (decision: StreamDecision) => string;
+        buildPlexResourceUrl: (pathOrUrl: string) => string | null;
+    };
+    schedule: {
+        lastChannelChangeSource: () => 'remote' | 'number' | 'guide' | null;
+        setLastChannelChangeSource: (source: 'remote' | 'number' | 'guide' | null) => void;
+        setActiveScheduleDayKey: (dayKey: number) => void;
+        getSelectedServerId: () => string | null;
+        getLocalMidnightMs: (timeMs: number) => number;
+        getLocalDayKey: (timeMs: number) => number;
+        buildDailyScheduleConfig: (
+            channel: ChannelConfig,
+            items: ResolvedChannelContent['items'],
+            referenceTimeMs: number
+        ) => ScheduleConfig;
+    };
+    actions: {
+        switchToChannel: (
+            channelId: string,
+            options?: { guideSelectionSnapshot?: GuideSelectionSnapshot }
+        ) => Promise<void>;
+        switchToNextChannel: () => void;
+        switchToPreviousChannel: () => void;
+        switchToChannelByNumberWithOutcome: (n: number) => Promise<ChannelSwitchOutcome>;
+        toggleEPG: () => void;
+        onOverlayVisibilityChange: (visible: boolean) => void;
+        toggleNowPlayingInfoOverlay: () => void;
+    };
+    errors: {
+        handleGlobalError: (error: AppError, context: string) => void;
+    };
+    nowPlaying: {
+        handler: () => ((toast: ToastInput) => void) | null;
+    };
 }
 
 export interface OrchestratorCoordinators {
@@ -181,15 +185,66 @@ export interface OrchestratorCoordinators {
 }
 
 export function createOrchestratorCoordinators(
-    deps: OrchestratorCoordinatorFactoryDeps
+    input: OrchestratorCoordinatorFactoryDeps
 ): OrchestratorCoordinators {
+    const deps = {
+        config: input.config,
+        moduleStatus: input.moduleStatus,
+        ensureEpgInitialized: input.init.ensureEpgInitialized,
+        navigation: input.modules.navigation,
+        plexAuth: input.modules.plexAuth,
+        plexDiscovery: input.modules.plexDiscovery,
+        plexLibrary: input.modules.plexLibrary,
+        plexStreamResolver: input.modules.plexStreamResolver,
+        channelManager: input.modules.channelManager,
+        scheduler: input.modules.scheduler,
+        videoPlayer: input.modules.videoPlayer,
+        lifecycle: input.modules.lifecycle,
+        epg: input.modules.epg,
+        nowPlayingInfo: input.overlays.nowPlayingInfo,
+        playerOsd: input.overlays.playerOsd,
+        channelNumberOverlay: input.overlays.channelNumberOverlay,
+        miniGuide: input.overlays.miniGuide,
+        channelTransitionOverlay: input.overlays.channelTransitionOverlay,
+        playbackOptionsModal: input.overlays.playbackOptionsModal,
+        exitConfirmModal: input.overlays.exitConfirmModal,
+        sleepTimer: input.overlays.sleepTimer,
+        debugOverridesStore: input.stores.debugOverridesStore,
+        subtitlePreferencesStore: input.stores.subtitlePreferencesStore,
+        epgPreferencesStore: input.stores.epgPreferencesStore,
+        nowPlayingDisplayStore: input.stores.nowPlayingDisplayStore,
+        profileSessionStore: input.stores.profileSessionStore,
+        playbackState: input.playback.state,
+        lastChannelChangeSource: input.schedule.lastChannelChangeSource,
+        setLastChannelChangeSource: input.schedule.setLastChannelChangeSource,
+        setActiveScheduleDayKey: input.schedule.setActiveScheduleDayKey,
+        getSelectedServerId: input.schedule.getSelectedServerId,
+        getLocalMidnightMs: input.schedule.getLocalMidnightMs,
+        getLocalDayKey: input.schedule.getLocalDayKey,
+        buildDailyScheduleConfig: input.schedule.buildDailyScheduleConfig,
+        buildPlexResourceUrl: input.playback.buildPlexResourceUrl,
+        getMimeType: input.playback.getMimeType,
+        getPlaybackInfoSnapshot: input.playback.getPlaybackInfoSnapshot,
+        refreshPlaybackInfoSnapshot: input.playback.refreshPlaybackInfoSnapshot,
+        switchToChannel: input.actions.switchToChannel,
+        stopPlayback: input.playback.stopPlayback,
+        stopActiveTranscodeSession: input.playback.stopActiveTranscodeSession,
+        switchToNextChannel: input.actions.switchToNextChannel,
+        switchToPreviousChannel: input.actions.switchToPreviousChannel,
+        switchToChannelByNumberWithOutcome: input.actions.switchToChannelByNumberWithOutcome,
+        toggleEPG: input.actions.toggleEPG,
+        handleGlobalError: input.errors.handleGlobalError,
+        onOverlayVisibilityChange: input.actions.onOverlayVisibilityChange,
+        toggleNowPlayingInfoOverlay: input.actions.toggleNowPlayingInfoOverlay,
+        nowPlayingHandler: input.nowPlaying.handler,
+    } as const;
+
     const epgCoordinator = new EPGCoordinator({
         getEpg: (): IEPGComponent | null => deps.epg,
         getChannelManager: (): IChannelManager | null => deps.channelManager,
         getScheduler: (): IChannelScheduler | null => deps.scheduler,
         getEpgUiStatus: (): EpgUiStatus => deps.moduleStatus.get('epg-ui')?.status,
-        ensureEpgInitialized: (): Promise<void> =>
-            deps.getInitCoordinator()?.ensureEPGInitialized() ?? Promise.resolve(),
+        ensureEpgInitialized: (): Promise<void> => deps.ensureEpgInitialized(),
         getEpgConfig: (): EPGConfig | null => deps.config?.epgConfig ?? null,
         getLocalMidnightMs: (t: number): number => deps.getLocalMidnightMs(t),
         getEpgScheduleRangeSnapshot: (): ReturnType<typeof readEpgStorageSnapshotForScheduleRange> =>
@@ -237,8 +292,7 @@ export function createOrchestratorCoordinators(
             safeLocalStorageRemove(key);
         },
         handleGlobalError: (error: AppError, context: string): void => deps.handleGlobalError(error, context),
-        ensureEpgInitialized: (): Promise<void> =>
-            deps.getInitCoordinator()?.ensureEPGInitialized() ?? Promise.resolve(),
+        ensureEpgInitialized: (): Promise<void> => deps.ensureEpgInitialized(),
         clearSelectedChannelScheduleSnapshot: (): void => epgCoordinator.clearSelectedChannelScheduleSnapshot(),
         primeEpgChannels: (): void => epgCoordinator.primeEpgChannels(),
         refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }): Promise<void> =>
@@ -439,98 +493,99 @@ export function createOrchestratorCoordinators(
     const navigationCoordinator = new NavigationCoordinator({
         navigation: deps.navigation,
         epg: deps.epg,
-        videoPlayer: deps.videoPlayer,
-        plexAuth: deps.plexAuth,
-        stopPlayback: (): void => deps.stopPlayback(),
-        pokePlayerOsd: (reason: 'play' | 'pause' | 'seek'): void => {
-            playerOsdCoordinator.poke(reason);
+        playback: {
+            videoPlayer: deps.videoPlayer,
+            plexAuth: deps.plexAuth,
+            stopPlayback: (): void => deps.stopPlayback(),
+            getSeekIncrementMs: (): number => (deps.config?.playerConfig.seekIncrementSec ?? 10) * 1000,
+            playerOsd: {
+                overlay: deps.playerOsd,
+                coordinator: playerOsdCoordinator,
+            },
         },
-        togglePlayerOsd: (): void => {
-            playerOsdCoordinator.toggle();
+        miniGuide: {
+            overlay: deps.miniGuide,
+            coordinator: {
+                show: (): void => miniGuideCoordinator.show(),
+                hide: (): void => miniGuideCoordinator.hide(),
+                handleNavigation: (direction: 'up' | 'down'): boolean =>
+                    miniGuideCoordinator.handleNavigation(direction),
+                handlePage: (direction: 'up' | 'down'): boolean =>
+                    miniGuideCoordinator.handlePage(direction),
+                handleSelect: (): void => {
+                    deps.setLastChannelChangeSource('remote');
+                    miniGuideCoordinator.handleSelect();
+                },
+            },
         },
-        isPlayerOsdVisible: (): boolean => deps.playerOsd.isVisible(),
-        showMiniGuide: (): void => {
-            miniGuideCoordinator.show();
+        nowPlayingInfo: {
+            isModalOpen: (): boolean => {
+                const isOpen = deps.navigation.isModalOpen(NOW_PLAYING_INFO_MODAL_ID);
+                if (isOpen) {
+                    deps.nowPlayingInfo.resetAutoHideTimer();
+                }
+                return isOpen;
+            },
+            toggleOverlay: (): void => deps.toggleNowPlayingInfoOverlay(),
+            showOverlay: (): void => nowPlayingInfoCoordinator.handleModalOpen(NOW_PLAYING_INFO_MODAL_ID),
+            hideOverlay: (): void => nowPlayingInfoCoordinator.handleModalClose(NOW_PLAYING_INFO_MODAL_ID),
         },
-        hideMiniGuide: (): void => {
-            miniGuideCoordinator.hide();
+        modals: {
+            playbackOptions: {
+                modalId: PLAYBACK_OPTIONS_MODAL_ID,
+                prepare: (
+                    preferredSection?: PlaybackOptionsSectionId
+                ): { focusableIds: string[]; preferredFocusId: string | null } =>
+                    playbackOptionsCoordinator.prepareModal(preferredSection) ??
+                    { focusableIds: [], preferredFocusId: null },
+                show: (): void => playbackOptionsCoordinator.handleModalOpen(PLAYBACK_OPTIONS_MODAL_ID),
+                hide: (): void => playbackOptionsCoordinator.handleModalClose(PLAYBACK_OPTIONS_MODAL_ID),
+            },
+            exitConfirm: {
+                modalId: EXIT_CONFIRM_MODAL_ID,
+                prepare: (): { focusableIds: string[] } => ({
+                    focusableIds: [...EXIT_CONFIRM_FOCUSABLE_IDS],
+                }),
+                show: (): void => exitConfirmCoordinator.handleModalOpen(EXIT_CONFIRM_MODAL_ID),
+                hide: (): void => exitConfirmCoordinator.handleModalClose(EXIT_CONFIRM_MODAL_ID),
+            },
         },
-        isMiniGuideVisible: (): boolean => deps.miniGuide.isVisible(),
-        handleMiniGuideNavigation: (direction: 'up' | 'down'): boolean =>
-            miniGuideCoordinator.handleNavigation(direction),
-        handleMiniGuidePage: (direction: 'up' | 'down'): boolean =>
-            miniGuideCoordinator.handlePage(direction),
-        handleMiniGuideSelect: (): void => {
-            deps.setLastChannelChangeSource('remote');
-            miniGuideCoordinator.handleSelect();
+        channelSwitching: {
+            setLastChannelChangeSourceRemote: (): void => {
+                deps.setLastChannelChangeSource('remote');
+            },
+            setLastChannelChangeSourceNumber: (): void => {
+                deps.setLastChannelChangeSource('number');
+            },
+            switchToNextChannel: (): void => deps.switchToNextChannel(),
+            switchToPreviousChannel: (): void => deps.switchToPreviousChannel(),
+            switchToChannelByNumber: (n: number): Promise<ChannelSwitchOutcome> =>
+                deps.switchToChannelByNumberWithOutcome(n),
+            focusEpgOnCurrentChannel: (): void => {
+                epgCoordinator.focusEpgOnCurrentChannel();
+            },
+            toggleEpg: (): void => deps.toggleEPG(),
+            onChannelInputUpdate: (payload: { digits: string; isComplete: boolean }): void => {
+                if (payload.digits) {
+                    deps.channelNumberOverlay.showDigits(payload.digits, CHANNEL_INPUT_CONFIG.MAX_DIGITS);
+                }
+                if (payload.isComplete) {
+                    const configuredDelay = deps.config?.channelNumberOverlayConfig?.completeHideDelayMs;
+                    const delayMs =
+                        typeof configuredDelay === 'number' &&
+                            Number.isFinite(configuredDelay) &&
+                            configuredDelay >= 0
+                            ? Math.floor(configuredDelay)
+                            : 650;
+                    deps.channelNumberOverlay.scheduleHide(delayMs);
+                }
+            },
         },
-        onChannelInputUpdate: (payload: { digits: string; isComplete: boolean }): void => {
-            if (payload.digits) {
-                deps.channelNumberOverlay.showDigits(payload.digits, CHANNEL_INPUT_CONFIG.MAX_DIGITS);
-            }
-            if (payload.isComplete) {
-                const configuredDelay = deps.config?.channelNumberOverlayConfig?.completeHideDelayMs;
-                const delayMs =
-                    typeof configuredDelay === 'number' &&
-                        Number.isFinite(configuredDelay) &&
-                        configuredDelay >= 0
-                        ? Math.floor(configuredDelay)
-                        : 650;
-                deps.channelNumberOverlay.scheduleHide(delayMs);
-            }
-        },
-        getSeekIncrementMs: (): number =>
-            (deps.config?.playerConfig.seekIncrementSec ?? 10) * 1000,
-        isNowPlayingModalOpen: (): boolean => {
-            const isOpen = deps.navigation.isModalOpen(NOW_PLAYING_INFO_MODAL_ID);
-            if (isOpen) {
-                deps.nowPlayingInfo.resetAutoHideTimer();
-            }
-            return isOpen;
-        },
-        toggleNowPlayingInfoOverlay: (): void => deps.toggleNowPlayingInfoOverlay(),
-        showNowPlayingInfoOverlay: (): void =>
-            nowPlayingInfoCoordinator.handleModalOpen(NOW_PLAYING_INFO_MODAL_ID),
-        hideNowPlayingInfoOverlay: (): void =>
-            nowPlayingInfoCoordinator.handleModalClose(NOW_PLAYING_INFO_MODAL_ID),
-        playbackOptionsModalId: PLAYBACK_OPTIONS_MODAL_ID,
-        preparePlaybackOptionsModal: (
-            preferredSection?: PlaybackOptionsSectionId
-        ): { focusableIds: string[]; preferredFocusId: string | null } =>
-            playbackOptionsCoordinator.prepareModal(preferredSection) ??
-            { focusableIds: [], preferredFocusId: null },
-        showPlaybackOptionsModal: (): void =>
-            playbackOptionsCoordinator.handleModalOpen(PLAYBACK_OPTIONS_MODAL_ID),
-        hidePlaybackOptionsModal: (): void =>
-            playbackOptionsCoordinator.handleModalClose(PLAYBACK_OPTIONS_MODAL_ID),
-        exitConfirmModalId: EXIT_CONFIRM_MODAL_ID,
-        prepareExitConfirmModal: (): { focusableIds: string[] } => ({
-            focusableIds: [...EXIT_CONFIRM_FOCUSABLE_IDS],
-        }),
-        showExitConfirmModal: (): void =>
-            exitConfirmCoordinator.handleModalOpen(EXIT_CONFIRM_MODAL_ID),
-        hideExitConfirmModal: (): void =>
-            exitConfirmCoordinator.handleModalClose(EXIT_CONFIRM_MODAL_ID),
-        setLastChannelChangeSourceRemote: (): void => {
-            deps.setLastChannelChangeSource('remote');
-        },
-        setLastChannelChangeSourceNumber: (): void => {
-            deps.setLastChannelChangeSource('number');
-        },
-        switchToNextChannel: (): void => deps.switchToNextChannel(),
-        switchToPreviousChannel: (): void => deps.switchToPreviousChannel(),
-        switchToChannelByNumber: (n: number): Promise<ChannelSwitchOutcome> =>
-            deps.switchToChannelByNumberWithOutcome(n),
-        focusEpgOnCurrentChannel: (): void => {
-            epgCoordinator.focusEpgOnCurrentChannel();
-        },
-        toggleEpg: (): void => deps.toggleEPG(),
-        shouldRunChannelSetup: (): boolean => channelSetup.shouldRunChannelSetup(),
-        hidePlayerOsd: (): void => {
-            playerOsdCoordinator.hide();
-        },
-        hideChannelTransition: (): void => {
-            channelTransitionCoordinator.hide();
+        uiGuards: {
+            shouldRunChannelSetup: (): boolean => channelSetup.shouldRunChannelSetup(),
+            hideChannelTransition: (): void => {
+                channelTransitionCoordinator.hide();
+            },
         },
         reportToast: (toast: { message: string; type: 'warning' | 'error' | 'info' | 'success' }): void => {
             deps.nowPlayingHandler()?.(toast);

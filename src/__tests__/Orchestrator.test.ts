@@ -26,6 +26,7 @@ import { webosPlatformServices } from '../platform';
 import type { StreamDecision } from '../modules/plex/stream';
 import { AudioSettingsStore } from '../modules/settings/AudioSettingsStore';
 import { PlaybackRecoveryManager } from '../modules/player/PlaybackRecoveryManager';
+import * as orchestratorCoordinatorFactory from '../core/orchestrator/OrchestratorCoordinatorFactory';
 
 // Mock localStorage
 const mockLocalStorage = {
@@ -94,6 +95,24 @@ const mockPlaybackOptionsConfig = {
 
 const mockPlayerOsdConfig = {
     containerId: 'player-osd-container',
+};
+
+const mockChannelNumberOverlay = {
+    initialize: jest.fn(),
+    showDigits: jest.fn(),
+    showError: jest.fn(),
+    scheduleHide: jest.fn(),
+    hide: jest.fn(),
+    isVisible: jest.fn(() => false),
+    destroy: jest.fn(),
+};
+
+const mockChannelBadgeOverlay = {
+    initialize: jest.fn(),
+    show: jest.fn(),
+    hide: jest.fn(),
+    isVisible: jest.fn(() => false),
+    destroy: jest.fn(),
 };
 
 const mockChannelNumberOverlayConfig = {
@@ -235,6 +254,15 @@ jest.mock('../modules/ui/player-osd', () => ({
         destroy: jest.fn(),
         setViewModel: jest.fn(),
     })),
+}));
+
+jest.mock('../modules/ui/channel-number-overlay', () => ({
+    ChannelNumberOverlay: jest.fn(() => mockChannelNumberOverlay),
+}));
+
+jest.mock('../modules/ui/channel-badge', () => ({
+    ChannelBadgeOverlay: jest.fn(() => mockChannelBadgeOverlay),
+    CHANNEL_BADGE_CONTAINER_ID: 'channel-badge-overlay-container',
 }));
 
 jest.mock('../modules/ui/mini-guide', () => ({
@@ -1085,6 +1113,32 @@ describe('AppOrchestrator', () => {
                 clearProfileResumeSpy.mockRestore();
                 runStartupSpy.mockRestore();
             }
+        });
+
+        it('reports PlexServerDiscovery as the missing dependency when profile switching runs without discovery', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            Reflect.set(orchestrator as object, '_plexDiscovery', null);
+
+            await expect(orchestrator.switchHomeUser('user-2')).rejects.toMatchObject({
+                code: AppErrorCode.MODULE_INIT_FAILED,
+                recoverable: true,
+                message: expect.stringContaining('PlexServerDiscovery not initialized'),
+                context: expect.objectContaining({
+                    method: 'switchHomeUser',
+                    dependency: 'PlexServerDiscovery',
+                }),
+            });
+
+            await expect(orchestrator.useMainAccountProfile()).rejects.toMatchObject({
+                code: AppErrorCode.MODULE_INIT_FAILED,
+                recoverable: true,
+                message: expect.stringContaining('PlexServerDiscovery not initialized'),
+                context: expect.objectContaining({
+                    method: 'useMainAccountProfile',
+                    dependency: 'PlexServerDiscovery',
+                }),
+            });
         });
 
         it('clears profile resume listener before explicit useMainAccountProfile startup', async () => {
@@ -1972,6 +2026,28 @@ describe('AppOrchestrator', () => {
             }
         });
 
+        it('wires ensureEpgInitialized as a safe no-op before init coordinator construction', async () => {
+            const originalFactory = orchestratorCoordinatorFactory.createOrchestratorCoordinators;
+            const earlyEnsureCalls: Array<Promise<void>> = [];
+            const factorySpy = jest
+                .spyOn(orchestratorCoordinatorFactory, 'createOrchestratorCoordinators')
+                .mockImplementation((deps) => {
+                    earlyEnsureCalls.push(deps.init.ensureEpgInitialized());
+                    return originalFactory(deps);
+                });
+
+            try {
+                await orchestrator.initialize(mockConfig);
+                expect(earlyEnsureCalls.length).toBeGreaterThan(0);
+                await expect(Promise.all(earlyEnsureCalls)).resolves.toEqual(
+                    expect.arrayContaining([undefined])
+                );
+                expect(mockLifecycle.reportError).not.toHaveBeenCalled();
+            } finally {
+                factorySpy.mockRestore();
+            }
+        });
+
         it('should forward layout mode changes when EPG is visible', () => {
             mockEpg.isVisible.mockReturnValue(true);
 
@@ -2319,9 +2395,11 @@ describe('AppOrchestrator', () => {
         it('should destroy modules on shutdown', async () => {
             await orchestrator.shutdown();
 
-            expect(mockEpg.destroy).toHaveBeenCalled();
-            expect(mockVideoPlayer.destroy).toHaveBeenCalled();
-            expect(mockNavigation.destroy).toHaveBeenCalled();
+            expect(mockEpg.destroy).toHaveBeenCalledTimes(1);
+            expect(mockChannelNumberOverlay.destroy).toHaveBeenCalledTimes(1);
+            expect(mockChannelBadgeOverlay.destroy).toHaveBeenCalledTimes(1);
+            expect(mockVideoPlayer.destroy).toHaveBeenCalledTimes(1);
+            expect(mockNavigation.destroy).toHaveBeenCalledTimes(1);
         });
 
         it('continues teardown and logs aggregated warnings when shutdown steps fail', async () => {
@@ -2358,6 +2436,34 @@ describe('AppOrchestrator', () => {
             }
         });
 
+        it('records channel overlay teardown failures and continues shutdown', async () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+            (mockChannelNumberOverlay.destroy as jest.Mock).mockImplementationOnce(() => {
+                throw new Error('channel number destroy failed');
+            });
+            (mockChannelBadgeOverlay.destroy as jest.Mock).mockImplementationOnce(() => {
+                throw new Error('channel badge destroy failed');
+            });
+
+            try {
+                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+
+                expect(mockNavigation.destroy).toHaveBeenCalled();
+                expect(warnSpy).toHaveBeenCalledWith(
+                    '[Orchestrator] Shutdown teardown failures:',
+                    expect.arrayContaining([
+                        expect.objectContaining({ step: 'channelNumberOverlay.destroy' }),
+                        expect.objectContaining({ step: 'channelBadgeOverlay.destroy' }),
+                    ])
+                );
+            } finally {
+                (mockChannelNumberOverlay.destroy as jest.Mock).mockImplementation(() => undefined);
+                (mockChannelBadgeOverlay.destroy as jest.Mock).mockImplementation(() => undefined);
+                warnSpy.mockRestore();
+            }
+        });
+
         it('records event cleanup failures under events.unsubscribe and continues shutdown', async () => {
             const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
             const pauseDispose = jest.fn(() => {
@@ -2384,6 +2490,30 @@ describe('AppOrchestrator', () => {
             );
         });
 
+        it('records schedule day rollover disposal failures and continues shutdown', async () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+            Reflect.set(orchestrator as object, '_scheduleDayRolloverController', {
+                dispose: jest.fn(() => {
+                    throw new Error('rollover dispose failed');
+                }),
+            });
+
+            try {
+                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+
+                expect(mockNavigation.destroy).toHaveBeenCalled();
+                expect(warnSpy).toHaveBeenCalledWith(
+                    '[Orchestrator] Shutdown teardown failures:',
+                    expect.arrayContaining([
+                        expect.objectContaining({ step: 'scheduleDayRolloverController.dispose' }),
+                    ])
+                );
+            } finally {
+                warnSpy.mockRestore();
+            }
+        });
+
         it('should set ready to false after shutdown', async () => {
             // First start to set ready
             mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('t'));
@@ -2395,6 +2525,28 @@ describe('AppOrchestrator', () => {
             // Then shutdown
             await orchestrator.shutdown();
             expect(orchestrator.isReady()).toBe(false);
+        });
+
+        it('fails fast when start is called after shutdown without resetting playback recovery', async () => {
+            const resetSpy = jest.spyOn(PlaybackRecoveryManager.prototype, 'resetPlaybackFailureGuard');
+
+            try {
+                await orchestrator.shutdown();
+
+                await expect(orchestrator.start()).rejects.toMatchObject({
+                    code: AppErrorCode.MODULE_INIT_FAILED,
+                    recoverable: true,
+                    message: expect.stringContaining('Orchestrator must be initialized before starting'),
+                    context: expect.objectContaining({
+                        method: 'start',
+                        dependency: 'InitializationCoordinator',
+                    }),
+                });
+
+                expect(resetSpy).not.toHaveBeenCalled();
+            } finally {
+                resetSpy.mockRestore();
+            }
         });
     });
 

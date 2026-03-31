@@ -22,19 +22,19 @@ import type { IChannelManager } from '../modules/scheduler/channel-manager';
 import type { IChannelScheduler } from '../modules/scheduler/scheduler';
 import type { IVideoPlayer } from '../modules/player';
 import type { IEPGComponent } from '../modules/ui/epg';
-import type { INowPlayingInfoOverlay } from '../modules/ui/now-playing-info';
 import type { IPlayerOsdOverlay } from '../modules/ui/player-osd';
-import type { IChannelNumberOverlay } from '../modules/ui/channel-number-overlay';
-import type { IChannelBadgeOverlay } from '../modules/ui/channel-badge';
 import type { IMiniGuideOverlay } from '../modules/ui/mini-guide';
 import type { IChannelTransitionOverlay } from '../modules/ui/channel-transition';
-import type { IPlaybackOptionsModal } from '../modules/ui/playback-options';
-import { ExitConfirmModal, EXIT_CONFIRM_CONTAINER_ID } from '../modules/ui/exit-confirm';
 import type { IDisposable } from '../utils/interfaces';
 import type { OrchestratorConfig, ModuleStatus } from './orchestrator/OrchestratorTypes';
+import type {
+    ChannelBadgeOverlayInitPort,
+    ChannelNumberOverlayInitPort,
+} from './orchestrator/OverlayPorts';
 import { EpgPreferencesStore, type EpgLayoutMode } from '../modules/settings/EpgPreferencesStore';
 import { ProfileSessionStore } from '../modules/settings/ProfileSessionStore';
 import { summarizeErrorForLog } from '../utils/errors';
+import { InitializationUiInitializer } from './initialization/InitializationUiInitializer';
 import {
     applyPhase2AuthGatePolicy,
     applyPhase3ServerGatePolicy,
@@ -51,26 +51,30 @@ import {
  * These are module references the coordinator needs.
  */
 export interface InitializationDependencies {
-    lifecycle: IAppLifecycle | null;
-    navigation: INavigationManager | null;
-    plexAuth: IPlexAuth | null;
-    plexDiscovery: IPlexServerDiscovery | null;
-    plexLibrary: IPlexLibrary | null;
-    plexStreamResolver: IPlexStreamResolver | null;
-    channelManager: IChannelManager | null;
-    scheduler: IChannelScheduler | null;
-    videoPlayer: IVideoPlayer | null;
-    epg: IEPGComponent | null;
-    nowPlayingInfo: INowPlayingInfoOverlay | null;
-    playerOsd: IPlayerOsdOverlay | null;
-    channelNumberOverlay: IChannelNumberOverlay | null;
-    channelBadgeOverlay: IChannelBadgeOverlay | null;
-    miniGuide: IMiniGuideOverlay | null;
-    channelTransition: IChannelTransitionOverlay | null;
-    playbackOptions: IPlaybackOptionsModal | null;
-    exitConfirm: ExitConfirmModal | null;
-    epgPreferencesStore: EpgPreferencesStore;
-    profileSessionStore: ProfileSessionStore;
+    modules: {
+        lifecycle: IAppLifecycle | null;
+        navigation: INavigationManager | null;
+        plexAuth: IPlexAuth | null;
+        plexDiscovery: IPlexServerDiscovery | null;
+        plexLibrary: IPlexLibrary | null;
+        plexStreamResolver: IPlexStreamResolver | null;
+        channelManager: IChannelManager | null;
+        scheduler: IChannelScheduler | null;
+        videoPlayer: IVideoPlayer | null;
+        epg: IEPGComponent | null;
+    };
+    overlays: {
+        playerOsd: IPlayerOsdOverlay | null;
+        channelNumberOverlay: ChannelNumberOverlayInitPort | null;
+        channelBadgeOverlay: ChannelBadgeOverlayInitPort | null;
+        miniGuide: IMiniGuideOverlay | null;
+        channelTransition: IChannelTransitionOverlay | null;
+    };
+    uiInitializer: InitializationUiInitializer;
+    stores: {
+        epgPreferencesStore: EpgPreferencesStore;
+        profileSessionStore: ProfileSessionStore;
+    };
 }
 
 /**
@@ -78,76 +82,39 @@ export interface InitializationDependencies {
  * These maintain separation of concerns while allowing state updates.
  */
 export interface InitializationCallbacks {
-    // Module status tracking
-    updateModuleStatus: (
-        id: string,
-        status: ModuleStatus['status'],
-        error?: AppError,
-        loadTimeMs?: number
-    ) => void;
-
-    // Module status check (for EPG idempotency guard)
-    getModuleStatus: (id: string) => ModuleStatus['status'] | undefined;
-
-    // Error handling
-    handleGlobalError: (error: AppError, context: string) => void;
-
-    // State management
-    setReady: (ready: boolean) => void;
-
-    // Event wiring (called after phases complete)
-    setupEventWiring: () => void;
-
-    // Server/storage operations (kept in Orchestrator)
-    configureDiscoveryStorage: () => void;
-    configureChannelManagerStorage: () => Promise<void>;
-    getSelectedServerId: () => string | null;
-    shouldRunAudioSetup: () => boolean;
-    shouldRunChannelSetup: () => boolean;
-    switchToChannel: (id: string) => Promise<void>;
-    openServerSelect: () => void;
-
-    // EPG thumb resolver (Orchestrator owns _buildPlexResourceUrl for security)
-    buildPlexResourceUrl: (pathOrUrl: string | null) => string | null;
-
-    // Optional: seed subtitle language from Plex profile when unset
-    seedSubtitleLanguageFromPlexUser?: () => void;
-}
-
-/**
- * Public interface for the InitializationCoordinator.
- */
-export interface IInitializationCoordinator {
-    /**
-     * Run the startup sequence starting from the specified phase.
-     * Phases 1-5 execute in order; earlier phases are skipped if startPhase > 1.
-     */
-    runStartup(startPhase: 1 | 2 | 3 | 4 | 5): Promise<void>;
-
-    /**
-     * Check if a startup sequence is currently in progress.
-     */
-    isStartupInProgress(): boolean;
-
-    /**
-     * Ensure EPG is initialized (for lazy initialization outside startup flow).
-     */
-    ensureEPGInitialized(): Promise<void>;
-
-    /**
-     * Clear auth resume listener (cleanup).
-     */
-    clearAuthResume(): void;
-
-    /**
-     * Clear server resume listener (cleanup).
-     */
-    clearServerResume(): void;
-
-    /**
-     * Clear profile resume listener (cleanup).
-     */
-    clearProfileResume(): void;
+    status: {
+        updateModuleStatus: (
+            id: string,
+            status: ModuleStatus['status'],
+            error?: AppError,
+            loadTimeMs?: number
+        ) => void;
+        getModuleStatus: (id: string) => ModuleStatus['status'] | undefined;
+    };
+    errors: {
+        handleGlobalError: (error: AppError, context: string) => void;
+    };
+    state: {
+        setReady: (ready: boolean) => void;
+        setupEventWiring: () => void;
+    };
+    serverStorage: {
+        configureDiscoveryStorage: () => void;
+        configureChannelManagerStorage: () => Promise<void>;
+        getSelectedServerId: () => string | null;
+    };
+    routing: {
+        shouldRunAudioSetup: () => boolean;
+        shouldRunChannelSetup: () => boolean;
+        switchToChannel: (id: string) => Promise<void>;
+        openServerSelect: () => void;
+    };
+    resources: {
+        buildPlexResourceUrl: (pathOrUrl: string | null) => string | null;
+    };
+    subtitle: {
+        seedSubtitleLanguageFromPlexUser?: () => void;
+    };
 }
 
 // ============================================
@@ -161,7 +128,7 @@ export interface IInitializationCoordinator {
  * The coordinator is instantiated by Orchestrator with injected dependencies
  * and callbacks, allowing bidirectional communication without tight coupling.
  */
-export class InitializationCoordinator implements IInitializationCoordinator {
+export class InitializationCoordinator {
     private static readonly EPG_WARMUP_DELAY_MS = 1500;
 
     // Startup state
@@ -176,9 +143,6 @@ export class InitializationCoordinator implements IInitializationCoordinator {
 
     // EPG init promise (prevents duplicate initialization)
     private _epgInitPromise: Promise<void> | null = null;
-    private _nowPlayingInfoInitPromise: Promise<void> | null = null;
-    private _playbackOptionsInitPromise: Promise<void> | null = null;
-    private _exitConfirmInitPromise: Promise<void> | null = null;
     private _epgWarmupTimerId: ReturnType<typeof setTimeout> | null = null;
 
     constructor(
@@ -206,12 +170,13 @@ export class InitializationCoordinator implements IInitializationCoordinator {
         let phaseToRun: 1 | 2 | 3 | 4 | 5 = startPhase;
         let caughtError: unknown = null;
         let shouldScheduleEpgWarmup = false;
+        let shouldRunFinalReadyWork = false;
 
         try {
             while (true) {
-                const shouldEagerlyInitEpgForPass = phaseToRun > 1;
                 const willRunPhase4 = phaseToRun <= 4;
-                this._callbacks.setReady(false);
+                const shouldEagerlyInitEpgForPass = phaseToRun > 1;
+                this._callbacks.state.setReady(false);
 
                 if (phaseToRun <= 1) {
                     await this._initPhase1();
@@ -252,33 +217,37 @@ export class InitializationCoordinator implements IInitializationCoordinator {
                     });
                 }
 
-                this._callbacks.setupEventWiring();
-                this._callbacks.setReady(true);
-                if (this._deps.lifecycle) {
-                    this._deps.lifecycle.setPhase('ready');
+                if (this._startupQueuedPhase === null) {
+                    shouldScheduleEpgWarmup = !shouldEagerlyInitEpgForPass;
+                    shouldRunFinalReadyWork = true;
+                    break;
+                }
+                phaseToRun = this._startupQueuedPhase;
+                this._startupQueuedPhase = null;
+            }
+
+            if (shouldRunFinalReadyWork) {
+                this._callbacks.state.setupEventWiring();
+
+                if (this._deps.modules.navigation) {
+                    await applyPostReadyRoutingPolicy({
+                        navigation: this._deps.modules.navigation,
+                        channelManager: this._deps.modules.channelManager,
+                        shouldRunAudioSetup: this._callbacks.routing.shouldRunAudioSetup,
+                        shouldRunChannelSetup: this._callbacks.routing.shouldRunChannelSetup,
+                        switchToChannel: this._callbacks.routing.switchToChannel,
+                        openServerSelect: this._callbacks.routing.openServerSelect,
+                    });
                 }
 
-                if (this._deps.navigation) {
-                    await applyPostReadyRoutingPolicy({
-                        navigation: this._deps.navigation,
-                        channelManager: this._deps.channelManager,
-                        shouldRunAudioSetup: this._callbacks.shouldRunAudioSetup,
-                        shouldRunChannelSetup: this._callbacks.shouldRunChannelSetup,
-                        switchToChannel: this._callbacks.switchToChannel,
-                        openServerSelect: this._callbacks.openServerSelect,
-                    });
+                this._callbacks.state.setReady(true);
+                if (this._deps.modules.lifecycle) {
+                    this._deps.modules.lifecycle.setPhase('ready');
                 }
 
                 this.clearAuthResume();
                 this.clearServerResume();
                 this.clearProfileResume();
-
-                if (this._startupQueuedPhase === null) {
-                    shouldScheduleEpgWarmup = !shouldEagerlyInitEpgForPass;
-                    break;
-                }
-                phaseToRun = this._startupQueuedPhase;
-                this._startupQueuedPhase = null;
             }
         } catch (error: unknown) {
             caughtError = error;
@@ -288,7 +257,7 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             this.clearAuthResume();
             this.clearServerResume();
             this.clearProfileResume();
-            this._callbacks.handleGlobalError(
+            this._callbacks.errors.handleGlobalError(
                 {
                     code: AppErrorCode.INITIALIZATION_FAILED,
                     message,
@@ -367,16 +336,16 @@ export class InitializationCoordinator implements IInitializationCoordinator {
         const startTime = Date.now();
 
         // EventEmitter is already ready (synchronous)
-        this._callbacks.updateModuleStatus('event-emitter', 'ready', undefined, 0);
+        this._callbacks.status.updateModuleStatus('event-emitter', 'ready', undefined, 0);
 
         // Initialize Lifecycle and Navigation in parallel
         const promises: Promise<void>[] = [];
 
-        if (this._deps.lifecycle) {
-            this._callbacks.updateModuleStatus('app-lifecycle', 'initializing');
+        if (this._deps.modules.lifecycle) {
+            this._callbacks.status.updateModuleStatus('app-lifecycle', 'initializing');
             promises.push(
-                this._deps.lifecycle.initialize().then(() => {
-                    this._callbacks.updateModuleStatus(
+                this._deps.modules.lifecycle.initialize().then(() => {
+                    this._callbacks.status.updateModuleStatus(
                         'app-lifecycle',
                         'ready',
                         undefined,
@@ -386,10 +355,10 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             );
         }
 
-        if (this._deps.navigation && this._config) {
-            this._callbacks.updateModuleStatus('navigation', 'initializing');
-            this._deps.navigation.initialize(this._config.navConfig);
-            this._callbacks.updateModuleStatus(
+        if (this._deps.modules.navigation && this._config) {
+            this._callbacks.status.updateModuleStatus('navigation', 'initializing');
+            this._deps.modules.navigation.initialize(this._config.navConfig);
+            this._callbacks.status.updateModuleStatus(
                 'navigation',
                 'ready',
                 undefined,
@@ -405,30 +374,30 @@ export class InitializationCoordinator implements IInitializationCoordinator {
      */
     private async _initPhase2(): Promise<boolean> {
         const startTime = Date.now();
-        this._callbacks.updateModuleStatus('plex-auth', 'initializing');
+        this._callbacks.status.updateModuleStatus('plex-auth', 'initializing');
 
-        if (!this._deps.plexAuth || !this._deps.navigation) {
-            this._callbacks.updateModuleStatus('plex-auth', 'error');
+        if (!this._deps.modules.plexAuth || !this._deps.modules.navigation) {
+            this._callbacks.status.updateModuleStatus('plex-auth', 'error');
             return false;
         }
 
         const phase2Inputs = {
             startTime,
-            plexAuth: this._deps.plexAuth,
-            navigation: this._deps.navigation,
-            lifecycle: this._deps.lifecycle,
-            updateModuleStatus: this._callbacks.updateModuleStatus,
-            configureDiscoveryStorage: this._callbacks.configureDiscoveryStorage,
+            plexAuth: this._deps.modules.plexAuth,
+            navigation: this._deps.modules.navigation,
+            lifecycle: this._deps.modules.lifecycle,
+            updateModuleStatus: this._callbacks.status.updateModuleStatus,
+            configureDiscoveryStorage: this._callbacks.serverStorage.configureDiscoveryStorage,
             readShowProfilePickerOnStartup: (): boolean =>
-                this._deps.profileSessionStore.readShowProfilePickerOnStartup(false),
+                this._deps.stores.profileSessionStore.readShowProfilePickerOnStartup(false),
             handlers: {
                 registerAuthResume: (): void => this._registerAuthResume(),
                 registerProfileResume: (): void => this._registerProfileResume(),
             },
-            ...(this._callbacks.seedSubtitleLanguageFromPlexUser
+            ...(this._callbacks.subtitle.seedSubtitleLanguageFromPlexUser
                 ? {
                     seedSubtitleLanguageFromPlexUser:
-                        this._callbacks.seedSubtitleLanguageFromPlexUser,
+                        this._callbacks.subtitle.seedSubtitleLanguageFromPlexUser,
                 }
                 : {}),
         };
@@ -443,21 +412,21 @@ export class InitializationCoordinator implements IInitializationCoordinator {
         const startTime = Date.now();
 
         if (
-            !this._deps.plexDiscovery ||
-            !this._deps.plexLibrary ||
-            !this._deps.plexStreamResolver ||
-            !this._deps.navigation
+            !this._deps.modules.plexDiscovery ||
+            !this._deps.modules.plexLibrary ||
+            !this._deps.modules.plexStreamResolver ||
+            !this._deps.modules.navigation
         ) {
             return false;
         }
 
         return applyPhase3ServerGatePolicy({
             startTime,
-            plexDiscovery: this._deps.plexDiscovery,
-            plexLibrary: this._deps.plexLibrary,
-            plexStreamResolver: this._deps.plexStreamResolver,
-            navigation: this._deps.navigation,
-            updateModuleStatus: this._callbacks.updateModuleStatus,
+            plexDiscovery: this._deps.modules.plexDiscovery,
+            plexLibrary: this._deps.modules.plexLibrary,
+            plexStreamResolver: this._deps.modules.plexStreamResolver,
+            navigation: this._deps.modules.navigation,
+            updateModuleStatus: this._callbacks.status.updateModuleStatus,
             handlers: {
                 registerServerResume: () => this._registerServerResume(),
             },
@@ -471,12 +440,12 @@ export class InitializationCoordinator implements IInitializationCoordinator {
         const startTime = Date.now();
 
         // Channel Manager
-        if (this._deps.channelManager) {
-            this._callbacks.updateModuleStatus('channel-manager', 'initializing');
-            await this._callbacks.configureChannelManagerStorage();
-            await this._deps.channelManager.loadChannels();
+        if (this._deps.modules.channelManager) {
+            this._callbacks.status.updateModuleStatus('channel-manager', 'initializing');
+            await this._callbacks.serverStorage.configureChannelManagerStorage();
+            await this._deps.modules.channelManager.loadChannels();
 
-            this._callbacks.updateModuleStatus(
+            this._callbacks.status.updateModuleStatus(
                 'channel-manager',
                 'ready',
                 undefined,
@@ -485,28 +454,28 @@ export class InitializationCoordinator implements IInitializationCoordinator {
         }
 
         // Channel Scheduler (no async init needed)
-        if (this._deps.scheduler) {
-            this._callbacks.updateModuleStatus(
+        if (this._deps.modules.scheduler) {
+            this._callbacks.status.updateModuleStatus(
                 'channel-scheduler',
                 'ready',
                 undefined,
                 Date.now() - startTime
             );
         } else {
-            this._callbacks.updateModuleStatus('channel-scheduler', 'disabled');
+            this._callbacks.status.updateModuleStatus('channel-scheduler', 'disabled');
         }
 
         // Video Player
-        if (this._deps.videoPlayer && this._config) {
-            this._callbacks.updateModuleStatus('video-player', 'initializing');
-            await this._deps.videoPlayer.initialize({
+        if (this._deps.modules.videoPlayer && this._config) {
+            this._callbacks.status.updateModuleStatus('video-player', 'initializing');
+            await this._deps.modules.videoPlayer.initialize({
                 ...this._config.playerConfig,
             });
 
             // Request Media Session integration (once per app lifetime)
-            this._deps.videoPlayer.requestMediaSession();
+            this._deps.modules.videoPlayer.requestMediaSession();
 
-            this._callbacks.updateModuleStatus(
+            this._callbacks.status.updateModuleStatus(
                 'video-player',
                 'ready',
                 undefined,
@@ -514,10 +483,10 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             );
         }
 
-        if (this._deps.playerOsd && this._config) {
-            this._callbacks.updateModuleStatus('player-osd-ui', 'initializing');
-            this._deps.playerOsd.initialize(this._config.playerOsdConfig);
-            this._callbacks.updateModuleStatus(
+        if (this._deps.overlays.playerOsd && this._config) {
+            this._callbacks.status.updateModuleStatus('player-osd-ui', 'initializing');
+            this._deps.overlays.playerOsd.initialize(this._config.playerOsdConfig);
+            this._callbacks.status.updateModuleStatus(
                 'player-osd-ui',
                 'ready',
                 undefined,
@@ -525,10 +494,10 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             );
         }
 
-        if (this._deps.channelNumberOverlay && this._config) {
-            this._callbacks.updateModuleStatus('channel-number-overlay-ui', 'initializing');
-            this._deps.channelNumberOverlay.initialize(this._config.channelNumberOverlayConfig.containerId);
-            this._callbacks.updateModuleStatus(
+        if (this._deps.overlays.channelNumberOverlay && this._config) {
+            this._callbacks.status.updateModuleStatus('channel-number-overlay-ui', 'initializing');
+            this._deps.overlays.channelNumberOverlay.initialize(this._config.channelNumberOverlayConfig.containerId);
+            this._callbacks.status.updateModuleStatus(
                 'channel-number-overlay-ui',
                 'ready',
                 undefined,
@@ -536,10 +505,10 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             );
         }
 
-        if (this._deps.channelBadgeOverlay && this._config) {
-            this._callbacks.updateModuleStatus('channel-badge-ui', 'initializing');
-            this._deps.channelBadgeOverlay.initialize(this._config.channelBadgeConfig);
-            this._callbacks.updateModuleStatus(
+        if (this._deps.overlays.channelBadgeOverlay && this._config) {
+            this._callbacks.status.updateModuleStatus('channel-badge-ui', 'initializing');
+            this._deps.overlays.channelBadgeOverlay.initialize(this._config.channelBadgeConfig);
+            this._callbacks.status.updateModuleStatus(
                 'channel-badge-ui',
                 'ready',
                 undefined,
@@ -547,10 +516,10 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             );
         }
 
-        if (this._deps.miniGuide && this._config) {
-            this._callbacks.updateModuleStatus('mini-guide-ui', 'initializing');
-            this._deps.miniGuide.initialize(this._config.miniGuideConfig);
-            this._callbacks.updateModuleStatus(
+        if (this._deps.overlays.miniGuide && this._config) {
+            this._callbacks.status.updateModuleStatus('mini-guide-ui', 'initializing');
+            this._deps.overlays.miniGuide.initialize(this._config.miniGuideConfig);
+            this._callbacks.status.updateModuleStatus(
                 'mini-guide-ui',
                 'ready',
                 undefined,
@@ -558,10 +527,10 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             );
         }
 
-        if (this._deps.channelTransition && this._config) {
-            this._callbacks.updateModuleStatus('channel-transition-ui', 'initializing');
-            this._deps.channelTransition.initialize(this._config.channelTransitionConfig);
-            this._callbacks.updateModuleStatus(
+        if (this._deps.overlays.channelTransition && this._config) {
+            this._callbacks.status.updateModuleStatus('channel-transition-ui', 'initializing');
+            this._deps.overlays.channelTransition.initialize(this._config.channelTransitionConfig);
+            this._callbacks.status.updateModuleStatus(
                 'channel-transition-ui',
                 'ready',
                 undefined,
@@ -576,7 +545,7 @@ export class InitializationCoordinator implements IInitializationCoordinator {
      */
     private async _initPhase5(options?: { ensureCorePlayerUi?: boolean }): Promise<void> {
         const ensureCorePlayerUi = options?.ensureCorePlayerUi ?? true;
-        if (this._callbacks.getModuleStatus('epg-ui') === 'ready') {
+        if (this._callbacks.status.getModuleStatus('epg-ui') === 'ready') {
             if (ensureCorePlayerUi) {
                 await this._ensureCorePlayerUiInitialized();
             }
@@ -589,7 +558,7 @@ export class InitializationCoordinator implements IInitializationCoordinator {
             }
             return;
         }
-        if (!this._deps.epg || !this._config) {
+        if (!this._deps.modules.epg || !this._config) {
             if (ensureCorePlayerUi) {
                 await this._ensureCorePlayerUiInitialized();
             }
@@ -597,25 +566,25 @@ export class InitializationCoordinator implements IInitializationCoordinator {
         }
 
         const startTime = Date.now();
-        this._callbacks.updateModuleStatus('epg-ui', 'initializing');
+        this._callbacks.status.updateModuleStatus('epg-ui', 'initializing');
         const init = async (): Promise<void> => {
             const epgConfigWithResolver = buildEpgConfigWithStartupPolicy({
                 epgConfig: this._config.epgConfig,
-                plexLibrary: this._deps.plexLibrary,
-                videoPlayer: this._deps.videoPlayer,
-                channelManager: this._deps.channelManager,
-                scheduler: this._deps.scheduler,
-                buildPlexResourceUrl: this._callbacks.buildPlexResourceUrl,
+                plexLibrary: this._deps.modules.plexLibrary,
+                videoPlayer: this._deps.modules.videoPlayer,
+                channelManager: this._deps.modules.channelManager,
+                scheduler: this._deps.modules.scheduler,
+                buildPlexResourceUrl: this._callbacks.resources.buildPlexResourceUrl,
                 readEpgLayoutMode: (): EpgLayoutMode =>
-                    this._deps.epgPreferencesStore.readLayoutMode('classic'),
+                    this._deps.stores.epgPreferencesStore.readLayoutMode('classic'),
                 readShowNowWatchingBanner: (): boolean =>
-                    this._deps.epgPreferencesStore.readNowWatchingEnabled(true),
+                    this._deps.stores.epgPreferencesStore.readNowWatchingEnabled(true),
             });
-            this._deps.epg!.initialize(epgConfigWithResolver);
-            if (this._deps.epg!.ensureReady) {
-                await this._deps.epg!.ensureReady();
+            this._deps.modules.epg!.initialize(epgConfigWithResolver);
+            if (this._deps.modules.epg!.ensureReady) {
+                await this._deps.modules.epg!.ensureReady();
             }
-            this._callbacks.updateModuleStatus(
+            this._callbacks.status.updateModuleStatus(
                 'epg-ui',
                 'ready',
                 undefined,
@@ -624,7 +593,7 @@ export class InitializationCoordinator implements IInitializationCoordinator {
         };
         this._epgInitPromise = init()
             .catch((e) => {
-                this._callbacks.updateModuleStatus('epg-ui', 'error');
+                this._callbacks.status.updateModuleStatus('epg-ui', 'error');
                 throw e;
             })
             .finally(() => {
@@ -638,114 +607,7 @@ export class InitializationCoordinator implements IInitializationCoordinator {
     }
 
     private async _ensureCorePlayerUiInitialized(): Promise<void> {
-        await this._initNowPlayingInfoUI();
-        await this._initPlaybackOptionsUI();
-        await this._initExitConfirmUI();
-    }
-
-    private async _initNowPlayingInfoUI(): Promise<void> {
-        if (this._callbacks.getModuleStatus('now-playing-info-ui') === 'ready') {
-            return;
-        }
-        if (this._nowPlayingInfoInitPromise) {
-            await this._nowPlayingInfoInitPromise;
-            return;
-        }
-        if (!this._deps.nowPlayingInfo || !this._config) {
-            return;
-        }
-
-        const startTime = Date.now();
-        this._callbacks.updateModuleStatus('now-playing-info-ui', 'initializing');
-        const init = async (): Promise<void> => {
-            this._deps.nowPlayingInfo!.initialize(this._config.nowPlayingInfoConfig);
-            this._callbacks.updateModuleStatus(
-                'now-playing-info-ui',
-                'ready',
-                undefined,
-                Date.now() - startTime
-            );
-        };
-        this._nowPlayingInfoInitPromise = init()
-            .catch((e) => {
-                this._callbacks.updateModuleStatus('now-playing-info-ui', 'error');
-                throw e;
-            })
-            .finally(() => {
-                this._nowPlayingInfoInitPromise = null;
-            });
-
-        await this._nowPlayingInfoInitPromise;
-    }
-
-    private async _initPlaybackOptionsUI(): Promise<void> {
-        if (this._callbacks.getModuleStatus('playback-options-ui') === 'ready') {
-            return;
-        }
-        if (this._playbackOptionsInitPromise) {
-            await this._playbackOptionsInitPromise;
-            return;
-        }
-        if (!this._deps.playbackOptions || !this._config) {
-            return;
-        }
-
-        const startTime = Date.now();
-        this._callbacks.updateModuleStatus('playback-options-ui', 'initializing');
-        const init = async (): Promise<void> => {
-            this._deps.playbackOptions!.initialize(this._config.playbackOptionsConfig);
-            this._callbacks.updateModuleStatus(
-                'playback-options-ui',
-                'ready',
-                undefined,
-                Date.now() - startTime
-            );
-        };
-        this._playbackOptionsInitPromise = init()
-            .catch((e) => {
-                this._callbacks.updateModuleStatus('playback-options-ui', 'error');
-                throw e;
-            })
-            .finally(() => {
-                this._playbackOptionsInitPromise = null;
-            });
-
-        await this._playbackOptionsInitPromise;
-    }
-
-    private async _initExitConfirmUI(): Promise<void> {
-        if (this._callbacks.getModuleStatus('exit-confirm-ui') === 'ready') {
-            return;
-        }
-        if (this._exitConfirmInitPromise) {
-            await this._exitConfirmInitPromise;
-            return;
-        }
-        if (!this._deps.exitConfirm) {
-            return;
-        }
-
-        const startTime = Date.now();
-        this._callbacks.updateModuleStatus('exit-confirm-ui', 'initializing');
-        const init = async (): Promise<void> => {
-            this._deps.exitConfirm!.initialize({ containerId: EXIT_CONFIRM_CONTAINER_ID });
-            this._callbacks.updateModuleStatus(
-                'exit-confirm-ui',
-                'ready',
-                undefined,
-                Date.now() - startTime
-            );
-        };
-        this._exitConfirmInitPromise = init()
-            .catch((e) => {
-                this._callbacks.updateModuleStatus('exit-confirm-ui', 'error');
-                throw e;
-            })
-            .finally(() => {
-                this._exitConfirmInitPromise = null;
-            });
-
-        await this._exitConfirmInitPromise;
+        await this._deps.uiInitializer.ensureCorePlayerUiInitialized();
     }
 
     private _cancelEpgWarmup(): void {
@@ -773,12 +635,12 @@ export class InitializationCoordinator implements IInitializationCoordinator {
      * Register listener for auth state changes to resume startup.
      */
     private _registerAuthResume(): void {
-        if (!this._deps.plexAuth) {
+        if (!this._deps.modules.plexAuth) {
             return;
         }
 
         this.clearAuthResume();
-        const disposable = this._deps.plexAuth.on('authChange', (isAuthenticated) => {
+        const disposable = this._deps.modules.plexAuth.on('authChange', (isAuthenticated) => {
             if (!isAuthenticated) {
                 return;
             }
@@ -794,12 +656,12 @@ export class InitializationCoordinator implements IInitializationCoordinator {
      * Register listener for server connection changes to resume startup.
      */
     private _registerServerResume(): void {
-        if (!this._deps.plexDiscovery) {
+        if (!this._deps.modules.plexDiscovery) {
             return;
         }
 
         this.clearServerResume();
-        const disposable = this._deps.plexDiscovery.on('connectionChange', (uri) => {
+        const disposable = this._deps.modules.plexDiscovery.on('connectionChange', (uri) => {
             if (!uri) {
                 return;
             }
@@ -815,16 +677,16 @@ export class InitializationCoordinator implements IInitializationCoordinator {
      * Register listener for profile change events to resume startup.
      */
     private _registerProfileResume(): void {
-        if (!this._deps.plexAuth) {
+        if (!this._deps.modules.plexAuth) {
             return;
         }
 
         this.clearProfileResume();
-        const disposable = this._deps.plexAuth.on('profileChange', () => {
+        const disposable = this._deps.modules.plexAuth.on('profileChange', () => {
             this.clearProfileResume();
             // Critical: ensure discovery storage keys are updated for the new activeUserId
             // before Phase 3 runs and restores server selection from localStorage.
-            this._callbacks.configureDiscoveryStorage();
+            this._callbacks.serverStorage.configureDiscoveryStorage();
             this.runStartup(3).catch((error) => {
                 console.error('[InitializationCoordinator] Profile resume failed:', summarizeErrorForLog(error));
             });

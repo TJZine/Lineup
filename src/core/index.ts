@@ -5,7 +5,6 @@
  */
 
 export { InitializationCoordinator } from './InitializationCoordinator';
-export type { IInitializationCoordinator } from './InitializationCoordinator';
 export { ChannelTuningCoordinator } from './channel-tuning';
 export type { ChannelTuningCoordinatorDeps } from './channel-tuning';
 export { ChannelSetupCoordinator } from './channel-setup';

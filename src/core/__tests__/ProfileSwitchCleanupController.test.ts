@@ -10,25 +10,16 @@ type CleanupHarness = {
     controller: ProfileSwitchCleanupController;
     deps: jest.Mocked<ProfileSwitchCleanupControllerDeps>;
     callOrder: string[];
-    timerHandle: ReturnType<typeof setTimeout>;
 };
 
 const makeCleanupHarness = (
     overrides: Partial<ProfileSwitchCleanupControllerDeps> = {}
 ): CleanupHarness => {
     const callOrder: string[] = [];
-    const timerHandle = ({ id: 'day-rollover-timer' } as unknown) as ReturnType<typeof setTimeout>;
 
     const deps = {
-        getPendingDayRolloverTimer: jest.fn<ReturnType<typeof setTimeout> | null, []>().mockReturnValue(timerHandle),
-        clearPendingDayRolloverTimer: jest.fn<void, [ReturnType<typeof setTimeout>]>((timer) => {
-            callOrder.push(`clearTimer:${String((timer as unknown as { id?: string }).id ?? 'unknown')}`);
-        }),
-        setPendingDayRolloverTimer: jest.fn<void, [ReturnType<typeof setTimeout> | null]>((timer) => {
-            callOrder.push(`setTimer:${timer === null ? 'null' : 'value'}`);
-        }),
-        setPendingDayRolloverDayKey: jest.fn<void, [number | null]>((dayKey) => {
-            callOrder.push(`setDayKey:${dayKey === null ? 'null' : String(dayKey)}`);
+        cancelPendingDayRollover: jest.fn<void, []>(() => {
+            callOrder.push('cancelPendingDayRollover');
         }),
         stopPlayback: jest.fn<void, []>(() => {
             callOrder.push('stopPlayback');
@@ -58,45 +49,18 @@ const makeCleanupHarness = (
         controller: new ProfileSwitchCleanupController(deps),
         deps,
         callOrder,
-        timerHandle,
     };
 };
 
 describe('ProfileSwitchCleanupController', () => {
     it('clears the pending day rollover timer before resetting the rest of the profile-switch state', () => {
-        const { controller, deps, callOrder, timerHandle } = makeCleanupHarness();
+        const { controller, deps, callOrder } = makeCleanupHarness();
 
         controller.prepareForProfileSwitch();
 
-        expect(deps.clearPendingDayRolloverTimer).toHaveBeenCalledTimes(1);
-        expect(deps.clearPendingDayRolloverTimer).toHaveBeenCalledWith(timerHandle);
-        expect(deps.setPendingDayRolloverTimer).toHaveBeenCalledTimes(1);
-        expect(deps.setPendingDayRolloverTimer).toHaveBeenCalledWith(null);
+        expect(deps.cancelPendingDayRollover).toHaveBeenCalledTimes(1);
         expect(callOrder).toEqual([
-            'clearTimer:day-rollover-timer',
-            'setTimer:null',
-            'setDayKey:null',
-            'stopPlayback',
-            'unloadChannel',
-            'setPendingNowPlayingChannelId:null',
-            'setAutoShow:false',
-            'setProgram:null',
-            'setDescriptor:null',
-            'setDecision:null',
-        ]);
-    });
-
-    it('skips timer clearing when there is no pending day rollover timer but still resets the remaining profile-switch state in order', () => {
-        const { controller, deps, callOrder } = makeCleanupHarness({
-            getPendingDayRolloverTimer: jest.fn().mockReturnValue(null),
-        });
-
-        controller.prepareForProfileSwitch();
-
-        expect(deps.clearPendingDayRolloverTimer).not.toHaveBeenCalled();
-        expect(deps.setPendingDayRolloverTimer).not.toHaveBeenCalled();
-        expect(callOrder).toEqual([
-            'setDayKey:null',
+            'cancelPendingDayRollover',
             'stopPlayback',
             'unloadChannel',
             'setPendingNowPlayingChannelId:null',

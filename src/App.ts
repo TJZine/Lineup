@@ -18,7 +18,10 @@ import { MINI_GUIDE_CONTAINER_ID, type MiniGuideConfig } from './modules/ui/mini
 import { CHANNEL_TRANSITION_CONTAINER_ID, type ChannelTransitionConfig } from './modules/ui/channel-transition';
 import type { PlaybackOptionsConfig } from './modules/ui/playback-options';
 import { createAppContainers, type AppContainerRefs } from './core/app-shell/AppContainerFactory';
-import { AppLazyScreenRegistry } from './core/app-shell/AppLazyScreenRegistry';
+import {
+    AppLazyScreenRegistry,
+    type AppLazyScreenRegistryRuntimeFacade,
+} from './core/app-shell/AppLazyScreenRegistry';
 import { AppScreenVisibilityCoordinator } from './core/app-shell/AppScreenVisibilityCoordinator';
 import {
     AppBlockingErrorOverlayPresenter,
@@ -175,7 +178,7 @@ export class App {
             } catch (shutdownError) {
                 console.error('App shutdown after startup failure failed:', summarizeErrorForLog(shutdownError));
             }
-            this._showFatalError(error);
+            throw error;
         }
     }
 
@@ -309,7 +312,7 @@ export class App {
         }
         this._splashScreen = new SplashScreen(containerRefs.splashContainer);
         this._lazyScreenRegistry = new AppLazyScreenRegistry({
-            getOrchestrator: (): AppOrchestrator | null => this._orchestrator,
+            getRuntimeFacade: (): AppLazyScreenRegistryRuntimeFacade | null => this._getLazyScreenRuntimeFacade(),
             profileSessionStore: this._profileSessionStore,
             containers: {
                 authContainer: containerRefs.authContainer,
@@ -320,7 +323,7 @@ export class App {
                 settingsContainer: containerRefs.settingsContainer,
             },
             onAudioSetupComplete: (): void => {
-                this._orchestrator?.getNavigation()?.replaceScreen('channel-setup');
+                this._getLazyScreenRuntimeFacade()?.getNavigation()?.replaceScreen('channel-setup');
             },
         });
         this._screenVisibilityCoordinator = new AppScreenVisibilityCoordinator({
@@ -357,6 +360,33 @@ export class App {
         if (current) {
             this._screenVisibilityCoordinator?.apply(current);
         }
+    }
+
+    private _getLazyScreenRuntimeFacade(): AppLazyScreenRegistryRuntimeFacade | null {
+        const orchestrator = this._orchestrator;
+        if (!orchestrator) {
+            return null;
+        }
+
+        return {
+            requestAuthPin: () => orchestrator.requestAuthPin(),
+            pollForPin: (pinId: number) => orchestrator.pollForPin(pinId),
+            cancelPin: (pinId: number) => orchestrator.cancelPin(pinId),
+            getHomeUsers: () => orchestrator.getHomeUsers(),
+            switchHomeUser: (userId: string, pin?: string) => orchestrator.switchHomeUser(userId, pin),
+            useMainAccountProfile: () => orchestrator.useMainAccountProfile(),
+            signOutPlex: () => orchestrator.signOutPlex(),
+            discoverServers: (forceRefresh?: boolean) => orchestrator.discoverServers(forceRefresh),
+            selectServer: (serverId: string) => orchestrator.selectServer(serverId),
+            clearSelectedServer: () => orchestrator.clearSelectedServer(),
+            getSelectedServerStorageKey: () => orchestrator.getSelectedServerStorageKey(),
+            getServerHealthStorageKey: () => orchestrator.getServerHealthStorageKey(),
+            getChannelSetupSessionGateway: () => orchestrator.getChannelSetupSessionGateway(),
+            setSubtitleTrack: (trackId: string | null) => orchestrator.setSubtitleTrack(trackId),
+            onGuideSettingChange: (change) => orchestrator.onGuideSettingChange(change),
+            getActiveUsername: () => orchestrator.getActiveUsername(),
+            getNavigation: () => orchestrator.getNavigation(),
+        };
     }
 
     /**

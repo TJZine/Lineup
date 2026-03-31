@@ -53,10 +53,13 @@ describe('EPGComponent', () => {
 
     it('renders classic header placeholder before the grid container', () => {
         const header = container.querySelector('.epg-classic-header');
+        const glyph = container.querySelector('.epg-classic-header-glyph');
         const title = container.querySelector('.epg-classic-header-title');
         const grid = container.querySelector(`.${EPG_CLASSES.GRID}`);
 
         expect(header).not.toBeNull();
+        expect(glyph).not.toBeNull();
+        expect(glyph?.querySelector('svg')).not.toBeNull();
         expect(title?.textContent).toBe('LINEUP');
         expect(grid).not.toBeNull();
     });
@@ -89,11 +92,14 @@ describe('EPGComponent', () => {
         try {
             const dashboard = localContainer.querySelector(`.${EPG_CLASSES.DASHBOARD_BOTTOM}`) as HTMLElement | null;
             const overlayShowcase = localContainer.querySelector(`.${EPG_CLASSES.OVERLAY_SHOWCASE}`) as HTMLElement | null;
+            const watermark = localContainer.querySelector('.epg-watermark');
             expect(dashboard).not.toBeNull();
             expect(overlayShowcase).not.toBeNull();
             expect(dashboard!.querySelector(`.${EPG_CLASSES.NOW_WATCHING_BANNER}`)).not.toBeNull();
             expect(overlayShowcase!.querySelector(`.${EPG_CLASSES.INFO_PANEL}`)).not.toBeNull();
             expect(dashboard!.querySelector(`.${EPG_CLASSES.INFO_PANEL}`)).toBeNull();
+            expect(watermark).not.toBeNull();
+            expect(watermark?.querySelector('svg')).not.toBeNull();
         } finally {
             localEpg.destroy();
             localContainer.remove();

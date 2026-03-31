@@ -1,11 +1,15 @@
-import type { AppOrchestrator } from '../../Orchestrator';
-import type { AuthScreen } from '../../modules/ui/auth/AuthScreen';
+import type { ChannelSetupSessionGateway } from '../channel-setup/ChannelSetupSessionGateway';
+import type { PlexHomeUser, PlexPinRequest } from '../../modules/plex/auth/interfaces';
+import type { PlexServer } from '../../modules/plex/discovery/types';
+import type { AuthScreen, AuthScreenPorts } from '../../modules/ui/auth/AuthScreen';
 import type { AudioSetupScreen } from '../../modules/ui/audio-setup/AudioSetupScreen';
 import type { ChannelSetupScreen } from '../../modules/ui/channel-setup/ChannelSetupScreen';
-import type { ProfileSelectScreen } from '../../modules/ui/profile-select/ProfileSelectScreen';
+import type { INavigationManager } from '../../modules/navigation';
+import type { ProfileSelectScreen, ProfileSelectScreenPorts } from '../../modules/ui/profile-select/ProfileSelectScreen';
 import type { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
-import type { ServerSelectScreen } from '../../modules/ui/server-select/ServerSelectScreen';
+import type { ServerSelectScreen, ServerSelectScreenPorts } from '../../modules/ui/server-select/ServerSelectScreen';
 import type { SettingsScreen } from '../../modules/ui/settings/SettingsScreen';
+import type { GuideSettingChange } from '../../modules/ui/settings/types';
 import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from './constants';
 
 export interface AppLazyScreenRegistryContainers {
@@ -27,8 +31,28 @@ export interface AppLazyScreenRegistryLoaders {
     loadSettingsStore: () => Promise<typeof import('../../modules/ui/settings/SettingsStore')>;
 }
 
+export interface AppLazyScreenRegistryRuntimeFacade {
+    requestAuthPin(): Promise<PlexPinRequest>;
+    pollForPin(pinId: number): Promise<PlexPinRequest>;
+    cancelPin(pinId: number): Promise<void>;
+    getHomeUsers(): Promise<PlexHomeUser[]>;
+    switchHomeUser(userId: string, pin?: string): Promise<void>;
+    useMainAccountProfile(): Promise<void>;
+    signOutPlex(): Promise<void>;
+    discoverServers(forceRefresh?: boolean): Promise<PlexServer[]>;
+    selectServer(serverId: string): Promise<boolean>;
+    clearSelectedServer(): void;
+    getSelectedServerStorageKey(): string;
+    getServerHealthStorageKey(): string;
+    getChannelSetupSessionGateway(): ChannelSetupSessionGateway;
+    setSubtitleTrack(trackId: string | null): Promise<void>;
+    onGuideSettingChange(change: GuideSettingChange): void;
+    getActiveUsername(): string | null;
+    getNavigation(): INavigationManager | null;
+}
+
 export interface AppLazyScreenRegistryOptions {
-    getOrchestrator: () => AppOrchestrator | null;
+    getRuntimeFacade: () => AppLazyScreenRegistryRuntimeFacade | null;
     profileSessionStore: ProfileSessionStore;
     containers: AppLazyScreenRegistryContainers;
     onAudioSetupComplete?: () => void;
@@ -46,7 +70,7 @@ const DEFAULT_LOADERS: AppLazyScreenRegistryLoaders = {
 };
 
 export class AppLazyScreenRegistry {
-    private readonly _getOrchestrator: () => AppOrchestrator | null;
+    private readonly _getRuntimeFacade: () => AppLazyScreenRegistryRuntimeFacade | null;
     private readonly _profileSessionStore: ProfileSessionStore;
     private readonly _containers: AppLazyScreenRegistryContainers;
     private readonly _onAudioSetupComplete: () => void;
@@ -69,7 +93,7 @@ export class AppLazyScreenRegistry {
     private _channelSetupPrefetchTimerId: number | null = null;
 
     constructor(options: AppLazyScreenRegistryOptions) {
-        this._getOrchestrator = options.getOrchestrator;
+        this._getRuntimeFacade = options.getRuntimeFacade;
         this._profileSessionStore = options.profileSessionStore;
         this._containers = options.containers;
         this._onAudioSetupComplete = options.onAudioSetupComplete ?? (() : void => {});
@@ -154,19 +178,26 @@ export class AppLazyScreenRegistry {
         if (this._destroyed) return null;
         if (this._authScreen) return this._authScreen;
 
-        const orchestrator = this._getOrchestrator();
+        const runtimeFacade = this._getRuntimeFacade();
         const container = this._containers.authContainer;
-        if (!orchestrator || !container) return null;
+        if (!runtimeFacade || !container) return null;
 
         if (!this._authScreenLoad) {
             this._authScreenLoad = this._loaders.loadAuthScreen()
                 .then(({ AuthScreen }) => {
                     if (this._destroyed) return null;
 
-                    const latestOrchestrator = this._getOrchestrator();
-                    if (!latestOrchestrator) return null;
+                    const latestRuntimeFacade = this._getRuntimeFacade();
+                    if (!latestRuntimeFacade) return null;
 
-                    const screen = new AuthScreen(container, latestOrchestrator);
+                    const ports: AuthScreenPorts = {
+                        requestAuthPin: () => latestRuntimeFacade.requestAuthPin(),
+                        pollForPin: (pinId: number) => latestRuntimeFacade.pollForPin(pinId),
+                        cancelPin: (pinId: number) => latestRuntimeFacade.cancelPin(pinId),
+                        getNavigation: () => this._getRuntimeFacade()?.getNavigation() ?? null,
+                    };
+
+                    const screen = new AuthScreen(container, ports);
 
                     if (this._destroyed) {
                         screen.destroy();
@@ -188,21 +219,29 @@ export class AppLazyScreenRegistry {
         if (this._destroyed) return null;
         if (this._profileSelectScreen) return this._profileSelectScreen;
 
-        const orchestrator = this._getOrchestrator();
+        const runtimeFacade = this._getRuntimeFacade();
         const container = this._containers.profileSelectContainer;
-        if (!orchestrator || !container) return null;
+        if (!runtimeFacade || !container) return null;
 
         if (!this._profileSelectScreenLoad) {
             this._profileSelectScreenLoad = this._loaders.loadProfileSelectScreen()
                 .then(({ ProfileSelectScreen }) => {
                     if (this._destroyed) return null;
 
-                    const latestOrchestrator = this._getOrchestrator();
-                    if (!latestOrchestrator) return null;
+                    const latestRuntimeFacade = this._getRuntimeFacade();
+                    if (!latestRuntimeFacade) return null;
+
+                    const ports: ProfileSelectScreenPorts = {
+                        getHomeUsers: () => latestRuntimeFacade.getHomeUsers(),
+                        switchHomeUser: (userId: string, pin?: string) => latestRuntimeFacade.switchHomeUser(userId, pin),
+                        useMainAccountProfile: () => latestRuntimeFacade.useMainAccountProfile(),
+                        signOutPlex: () => latestRuntimeFacade.signOutPlex(),
+                        getNavigation: () => this._getRuntimeFacade()?.getNavigation() ?? null,
+                    };
 
                     const screen = new ProfileSelectScreen(
                         container,
-                        latestOrchestrator,
+                        ports,
                         this._profileSessionStore
                     );
 
@@ -226,19 +265,29 @@ export class AppLazyScreenRegistry {
         if (this._destroyed) return null;
         if (this._serverSelectScreen) return this._serverSelectScreen;
 
-        const orchestrator = this._getOrchestrator();
+        const runtimeFacade = this._getRuntimeFacade();
         const container = this._containers.serverSelectContainer;
-        if (!orchestrator || !container) return null;
+        if (!runtimeFacade || !container) return null;
 
         if (!this._serverSelectScreenLoad) {
             this._serverSelectScreenLoad = this._loaders.loadServerSelectScreen()
                 .then(({ ServerSelectScreen }) => {
                     if (this._destroyed) return null;
 
-                    const latestOrchestrator = this._getOrchestrator();
-                    if (!latestOrchestrator) return null;
+                    const latestRuntimeFacade = this._getRuntimeFacade();
+                    if (!latestRuntimeFacade) return null;
 
-                    const screen = new ServerSelectScreen(container, latestOrchestrator);
+                    const ports: ServerSelectScreenPorts = {
+                        discoverServers: (forceRefresh?: boolean) => latestRuntimeFacade.discoverServers(forceRefresh),
+                        selectServer: (serverId: string) => latestRuntimeFacade.selectServer(serverId),
+                        clearSelectedServer: () => latestRuntimeFacade.clearSelectedServer(),
+                        getSelectedServerStorageKey: () => latestRuntimeFacade.getSelectedServerStorageKey(),
+                        getServerHealthStorageKey: () => latestRuntimeFacade.getServerHealthStorageKey(),
+                        requestChannelSetupRerun: () => latestRuntimeFacade.getChannelSetupSessionGateway().requestChannelSetupRerun(),
+                        getNavigation: () => this._getRuntimeFacade()?.getNavigation() ?? null,
+                    };
+
+                    const screen = new ServerSelectScreen(container, ports);
 
                     if (this._destroyed) {
                         screen.destroy();
@@ -260,9 +309,9 @@ export class AppLazyScreenRegistry {
         if (this._destroyed) return null;
         if (this._audioSetupScreen) return this._audioSetupScreen;
 
-        const orchestrator = this._getOrchestrator();
+        const runtimeFacade = this._getRuntimeFacade();
         const container = this._containers.audioSetupContainer;
-        if (!orchestrator || !container) return null;
+        if (!runtimeFacade || !container) return null;
 
         if (!this._audioSetupScreenLoad) {
             this._audioSetupScreenLoad = this._loaders.loadAudioSetupScreen()
@@ -271,7 +320,7 @@ export class AppLazyScreenRegistry {
 
                     const screen = new AudioSetupScreen(
                         container,
-                        () => this._getOrchestrator()?.getNavigation() ?? null,
+                        () => this._getRuntimeFacade()?.getNavigation() ?? null,
                         () => this._onAudioSetupComplete()
                     );
 
@@ -295,21 +344,21 @@ export class AppLazyScreenRegistry {
         if (this._destroyed) return null;
         if (this._channelSetupScreen) return this._channelSetupScreen;
 
-        const orchestrator = this._getOrchestrator();
+        const runtimeFacade = this._getRuntimeFacade();
         const container = this._containers.channelSetupContainer;
-        if (!orchestrator || !container) return null;
+        if (!runtimeFacade || !container) return null;
 
         if (!this._channelSetupScreenLoad) {
             this._channelSetupScreenLoad = this._loaders.loadChannelSetupScreen()
                 .then(({ ChannelSetupScreen }) => {
                     if (this._destroyed) return null;
 
-                    const latestOrchestrator = this._getOrchestrator();
-                    if (!latestOrchestrator) return null;
+                    const latestRuntimeFacade = this._getRuntimeFacade();
+                    if (!latestRuntimeFacade) return null;
 
                     const screen = new ChannelSetupScreen(
                         container,
-                        latestOrchestrator.getChannelSetupSessionGateway()
+                        latestRuntimeFacade.getChannelSetupSessionGateway()
                     );
 
                     if (this._destroyed) {
@@ -332,9 +381,9 @@ export class AppLazyScreenRegistry {
         if (this._destroyed) return null;
         if (this._settingsScreen) return this._settingsScreen;
 
-        const orchestrator = this._getOrchestrator();
+        const runtimeFacade = this._getRuntimeFacade();
         const container = this._containers.settingsContainer;
-        if (!orchestrator || !container) return null;
+        if (!runtimeFacade || !container) return null;
 
         if (!this._settingsScreenLoad) {
             this._settingsScreenLoad = Promise.all([
@@ -345,15 +394,15 @@ export class AppLazyScreenRegistry {
 
                 const screen = new SettingsScreen(
                     container,
-                    () => this._getOrchestrator()?.getNavigation() ?? null,
+                    () => this._getRuntimeFacade()?.getNavigation() ?? null,
                     (mode): void => {
                         if (mode !== 'off') return;
-                        void this._getOrchestrator()?.setSubtitleTrack(null);
+                        void this._getRuntimeFacade()?.setSubtitleTrack(null);
                     },
                     (change): void => {
-                        this._getOrchestrator()?.onGuideSettingChange(change);
+                        this._getRuntimeFacade()?.onGuideSettingChange(change);
                     },
-                    (): string | null => this._getOrchestrator()?.getActiveUsername() ?? null,
+                    (): string | null => this._getRuntimeFacade()?.getActiveUsername() ?? null,
                     new SettingsStore()
                 );
 

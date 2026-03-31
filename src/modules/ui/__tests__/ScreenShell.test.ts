@@ -98,4 +98,60 @@ describe('ScreenShell', () => {
         expect(onPrimary).toHaveBeenCalledTimes(1);
         expect(onSecondary).toHaveBeenCalledTimes(1);
     });
+
+    it('renders hero before title when heroSlot is provided', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const hero = document.createElement('span');
+        hero.className = 'hero-probe';
+
+        createScreenShell(container, {
+            title: 'Welcome',
+            subtitle: 'Choose an option',
+            heroSlot: hero,
+            status: null,
+            error: null,
+            actions: [],
+        });
+
+        const panel = container.querySelector('.screen-panel') as HTMLElement;
+        const orderedClassNames = Array.from(panel.children).map((child) => child.className);
+
+        expect(orderedClassNames.slice(0, 3)).toEqual([
+            'screen-hero',
+            'screen-title',
+            'screen-subtitle',
+        ]);
+    });
+
+    it('keeps hero container before title even when initially empty', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const shell = createScreenShell(container, {
+            title: 'Welcome',
+            subtitle: 'Choose an option',
+            status: null,
+            error: null,
+            actions: [],
+        });
+
+        const panel = container.querySelector('.screen-panel') as HTMLElement;
+        const orderedClassNames = Array.from(panel.children).map((child) => child.className);
+
+        expect(orderedClassNames.slice(0, 3)).toEqual([
+            'screen-hero',
+            'screen-title',
+            'screen-subtitle',
+        ]);
+
+        const probe = document.createElement('span');
+        probe.className = 'hero-probe';
+        shell.heroEl.hidden = false;
+        shell.heroEl.appendChild(probe);
+
+        expect(panel.children[0]?.className).toBe('screen-hero');
+        expect(shell.heroEl.querySelector('.hero-probe')).not.toBeNull();
+    });
 });

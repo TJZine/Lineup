@@ -28,11 +28,9 @@ import {
 import { PlayerOsdOverlay } from '../../modules/ui/player-osd';
 import {
     ChannelNumberOverlay,
-    type IChannelNumberOverlay,
 } from '../../modules/ui/channel-number-overlay';
 import {
     ChannelBadgeOverlay,
-    type IChannelBadgeOverlay,
 } from '../../modules/ui/channel-badge';
 import {
     MiniGuideOverlay,
@@ -49,6 +47,10 @@ import { ExitConfirmModal } from '../../modules/ui/exit-confirm';
 import { SleepTimerManager } from '../../modules/ui/sleep-timer';
 import { STORAGE_KEYS } from '../../types';
 import type { OrchestratorConfig } from './OrchestratorTypes';
+import type {
+    ChannelBadgeOverlayInitPort,
+    ChannelNumberOverlayInitPort,
+} from './OverlayPorts';
 import type { PlatformServices } from '../../platform';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 
@@ -72,8 +74,8 @@ export interface OrchestratorModules {
     epg: IEPGComponent;
     nowPlayingInfo: INowPlayingInfoOverlay;
     playerOsd: PlayerOsdOverlay;
-    channelNumberOverlay: IChannelNumberOverlay;
-    channelBadgeOverlay: IChannelBadgeOverlay;
+    channelNumberOverlay: ChannelNumberOverlayInitPort;
+    channelBadgeOverlay: ChannelBadgeOverlayInitPort;
     miniGuide: IMiniGuideOverlay;
     channelTransitionOverlay: ChannelTransitionOverlay;
     playbackOptionsModal: IPlaybackOptionsModal;

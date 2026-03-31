@@ -79,6 +79,12 @@ const importBootstrapModule = async (options?: {
     return { module, start, shutdown, getOrchestrator };
 };
 
+const expectBootstrapFailureState = (module: BootstrapModule): void => {
+    expect(document.querySelectorAll('#global-error-overlay')).toHaveLength(1);
+    expect(module.app).toBeNull();
+    expect((window as LineupWindow).__LINEUP__).toBeUndefined();
+};
+
 describe('bootstrap seam', () => {
     beforeEach(() => {
         jest.resetModules();
@@ -118,6 +124,57 @@ describe('bootstrap seam', () => {
 
         await module.cleanup();
         expect(shutdown).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects from bootstrap() when App.start fails', async () => {
+        const start = jest.fn().mockRejectedValue(new Error('start failed'));
+        const { module } = await importBootstrapModule({ start, autoDispatchDomReady: false });
+
+        await expect(module.bootstrap()).rejects.toThrow('start failed');
+    });
+
+    it('shows fatal overlay and clears app/debug state when DOMContentLoaded bootstrap fails', async () => {
+        Object.defineProperty(document, 'readyState', {
+            value: 'loading',
+            configurable: true,
+        });
+        const start = jest.fn().mockRejectedValue(new Error('start failed'));
+
+        try {
+            const { module } = await importBootstrapModule({ start, autoDispatchDomReady: false });
+            document.dispatchEvent(new Event('DOMContentLoaded'));
+            await flushPromises();
+
+            expectBootstrapFailureState(module);
+        } finally {
+            Object.defineProperty(document, 'readyState', {
+                value: 'complete',
+                configurable: true,
+            });
+        }
+    });
+
+    it('shows fatal overlay and clears app/debug state when immediate bootstrap fails', async () => {
+        const start = jest.fn().mockRejectedValue(new Error('start failed'));
+
+        const { module } = await importBootstrapModule({ start });
+
+        expectBootstrapFailureState(module);
+    });
+
+    it('shows fatal overlay and clears app/debug state when pageshow bootstrap fails after cleanup', async () => {
+        const start = jest
+            .fn()
+            .mockResolvedValueOnce(undefined)
+            .mockRejectedValueOnce(new Error('start failed'));
+
+        const { module } = await importBootstrapModule({ start });
+        await module.cleanup();
+
+        window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+        await flushPromises();
+
+        expectBootstrapFailureState(module);
     });
 
     it('clears app state and debug surface even when shutdown fails', async () => {

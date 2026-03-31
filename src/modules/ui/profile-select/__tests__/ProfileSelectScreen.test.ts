@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { ProfileSelectScreen } from '../ProfileSelectScreen';
+import { ProfileSelectScreen, type ProfileSelectScreenPorts } from '../ProfileSelectScreen';
 import { AppErrorCode, PlexApiError } from '../../../plex/auth';
 import { ProfileSessionStore } from '../../../settings/ProfileSessionStore';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
@@ -44,7 +44,14 @@ const createNavigationStub = (): NavigationStub => ({
 
 type OrchestratorStub = {
     getNavigation: () => NavigationStub;
-    getHomeUsers: () => Promise<unknown[]>;
+    getHomeUsers: () => Promise<Array<{
+        id: string;
+        title: string;
+        thumb: string | null;
+        admin: boolean;
+        protected: boolean;
+        restricted?: boolean;
+    }>>;
     switchHomeUser: jest.Mock;
     useMainAccountProfile: jest.Mock;
     signOutPlex: jest.Mock;
@@ -97,6 +104,30 @@ describe('ProfileSelectScreen', () => {
         jest.clearAllMocks();
     });
 
+    it('renders the branded hero glyph above the title', () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        new ProfileSelectScreen(
+            container,
+            orchestrator as unknown as ProfileSelectScreenPorts,
+            profileSessionStore
+        );
+
+        const hero = container.querySelector('.profile-select-glyph');
+        const panel = container.querySelector('.screen-panel') as HTMLElement;
+        const orderedClassNames = Array.from(panel.children).map((child) => child.className);
+
+        expect(hero).not.toBeNull();
+        expect(hero?.querySelector('svg')).not.toBeNull();
+        expect(orderedClassNames[0]).toBe('screen-hero');
+        expect(orderedClassNames[1]).toBe('screen-title');
+    });
+
     it('renders users', async () => {
         const users = [
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
@@ -106,7 +137,7 @@ describe('ProfileSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const screen = new ProfileSelectScreen(container, orchestrator as never, profileSessionStore as never);
+        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
         await flushPromisesAndTimers();
@@ -127,7 +158,7 @@ describe('ProfileSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const screen = new ProfileSelectScreen(container, orchestrator as never, profileSessionStore as never);
+        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
         await flushPromisesAndTimers();
 
@@ -151,7 +182,7 @@ describe('ProfileSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const screen = new ProfileSelectScreen(container, orchestrator as never, profileSessionStore as never);
+        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
         await flushPromisesAndTimers();
@@ -173,7 +204,7 @@ describe('ProfileSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const screen = new ProfileSelectScreen(container, orchestrator as never, profileSessionStore as never);
+        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
         await flushPromisesAndTimers();
 
@@ -197,7 +228,7 @@ describe('ProfileSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const screen = new ProfileSelectScreen(container, orchestrator as never, profileSessionStore as never);
+        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
         await flushPromisesAndTimers();
@@ -222,7 +253,7 @@ describe('ProfileSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const screen = new ProfileSelectScreen(container, orchestrator as never, profileSessionStore as never);
+        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
         await flushPromisesAndTimers();
 
@@ -245,7 +276,7 @@ describe('ProfileSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const screen = new ProfileSelectScreen(container, orchestrator as never, profileSessionStore as never);
+        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
         await flushPromisesAndTimers();
@@ -267,7 +298,7 @@ describe('ProfileSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const screen = new ProfileSelectScreen(container, orchestrator as never, profileSessionStore as never);
+        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
         await flushPromisesAndTimers();
@@ -288,7 +319,7 @@ describe('ProfileSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const screen = new ProfileSelectScreen(container, orchestrator as never, profileSessionStore as never);
+        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
         await flushPromisesAndTimers();
@@ -318,7 +349,7 @@ describe('ProfileSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const screen = new ProfileSelectScreen(container, orchestrator as never, profileSessionStore as never);
+        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
         await flushPromisesAndTimers();
@@ -339,7 +370,7 @@ describe('ProfileSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const screen = new ProfileSelectScreen(container, orchestrator as never, profileSessionStore as never);
+        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
         await flushPromisesAndTimers();
@@ -361,7 +392,7 @@ describe('ProfileSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const screen = new ProfileSelectScreen(container, orchestrator as never, profileSessionStore as never);
+        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
         await flushPromisesAndTimers();
@@ -389,7 +420,7 @@ describe('ProfileSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const screen = new ProfileSelectScreen(container, orchestrator as never, profileSessionStore as never);
+        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
         await flushPromisesAndTimers();
@@ -411,7 +442,7 @@ describe('ProfileSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const screen = new ProfileSelectScreen(container, orchestrator as never, profileSessionStore as never);
+        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
         await flushPromisesAndTimers();
@@ -438,7 +469,7 @@ describe('ProfileSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const screen = new ProfileSelectScreen(container, orchestrator as never, profileSessionStore as never);
+        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
         await flushPromisesAndTimers();
@@ -475,7 +506,7 @@ describe('ProfileSelectScreen', () => {
 
         const container = document.createElement('div');
         document.body.appendChild(container);
-        const screen = new ProfileSelectScreen(container, orchestrator as never, profileSessionStore as never);
+        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
         await flushPromisesAndTimers();
@@ -507,7 +538,7 @@ describe('ProfileSelectScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const screen = new ProfileSelectScreen(container, orchestrator as never, profileSessionStore as never);
+        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
         await flushPromisesAndTimers();
 
@@ -533,7 +564,7 @@ describe('ProfileSelectScreen', () => {
 	        const container = document.createElement('div');
 	        document.body.appendChild(container);
 
-	        const screen = new ProfileSelectScreen(container, orchestrator as never, profileSessionStore as never);
+	        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
 	        screen.show();
 	        await flushPromisesAndTimers();
 

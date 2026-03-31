@@ -4,21 +4,34 @@
  * @version 1.0.0
  */
 
-import { AppOrchestrator } from '../../../Orchestrator';
 import type { PlexServer } from '../../plex/discovery/types';
 import { PlexApiError } from '../../plex/auth';
-import type { FocusableElement } from '../../navigation';
+import type {
+    FocusableElement,
+    ServerSelectScreenNavigationPort,
+} from '../../navigation';
 import { ServerSelectionStore, type ServerHealthMap } from '../../plex/discovery/ServerSelectionStore';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
+import { createLineupBrandGlyph } from '../common/brandGlyph';
 import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
 
 const FOCUS_RESTORE_DELAY_MS = 50;
 
+export interface ServerSelectScreenPorts {
+    discoverServers(forceRefresh?: boolean): Promise<PlexServer[]>;
+    selectServer(serverId: string): Promise<boolean>;
+    clearSelectedServer(): void;
+    getSelectedServerStorageKey(): string;
+    getServerHealthStorageKey(): string;
+    requestChannelSetupRerun(): void;
+    getNavigation(): ServerSelectScreenNavigationPort | null;
+}
+
 export class ServerSelectScreen {
     private _container: HTMLElement;
-    private _orchestrator: AppOrchestrator;
+    private _ports: ServerSelectScreenPorts;
     private _destroyScreenShell: (() => void) | null = null;
     private _shellSetStatus: ((status: ScreenStatus | null) => void) | null = null;
     private _autoConnectHintEl: HTMLElement;
@@ -36,12 +49,12 @@ export class ServerSelectScreen {
     private _lastDiscoveredServers: PlexServer[] = [];
     private _serverSelectionStore: ServerSelectionStore;
 
-    constructor(container: HTMLElement, orchestrator: AppOrchestrator) {
+    constructor(container: HTMLElement, ports: ServerSelectScreenPorts) {
         this._container = container;
-        this._orchestrator = orchestrator;
+        this._ports = ports;
         this._serverSelectionStore = new ServerSelectionStore(() => ({
-            selectedServerKey: this._orchestrator.getSelectedServerStorageKey(),
-            serverHealthKey: this._orchestrator.getServerHealthStorageKey(),
+            selectedServerKey: this._ports.getSelectedServerStorageKey(),
+            serverHealthKey: this._ports.getServerHealthStorageKey(),
         }));
         this._container.classList.add('screen');
         this._container.style.position = 'absolute';
@@ -50,9 +63,15 @@ export class ServerSelectScreen {
         this._container.style.alignItems = 'center';
         this._container.style.justifyContent = 'center';
 
+        const heroGlyph = createLineupBrandGlyph({
+            variant: 'color',
+            className: 'server-select-glyph',
+        });
+
         const shell = createScreenShell(this._container, {
             title: 'Select Plex Server',
             subtitle: 'Choose a server to continue startup.',
+            heroSlot: heroGlyph,
             status: {
                 title: 'Ready to discover servers.',
                 tone: 'neutral',
@@ -75,7 +94,7 @@ export class ServerSelectScreen {
                     variant: 'secondary',
                     onSelect: (): void => {
                         this._clearError();
-                        this._orchestrator.getChannelSetupSessionGateway().requestChannelSetupRerun();
+                        this._ports.requestChannelSetupRerun();
                     },
                 },
                 {
@@ -83,7 +102,7 @@ export class ServerSelectScreen {
                     label: 'Switch Profile',
                     variant: 'secondary',
                     onSelect: (): void => {
-                        const nav = this._orchestrator.getNavigation();
+                        const nav = this._ports.getNavigation();
                         nav?.replaceScreen('profile-select');
                     },
                 },
@@ -192,7 +211,7 @@ export class ServerSelectScreen {
         this._clearButton.disabled = true;
 
         try {
-            const servers = await this._orchestrator.discoverServers(options.forceRefresh);
+            const servers = await this._ports.discoverServers(options.forceRefresh);
             this._lastDiscoveredServers = servers.slice();
             this._statusEl.classList.remove('panel-spinner');
             let autoSelectError: unknown | null = null;
@@ -201,7 +220,7 @@ export class ServerSelectScreen {
             if (options.autoSelect) {
                 if (savedId && servers.some(s => s.id === savedId)) {
                     try {
-                        const success = await this._orchestrator.selectServer(savedId);
+                        const success = await this._ports.selectServer(savedId);
                         if (success) {
                             this._setStatus('Connected…', 'Continuing startup…', 'success');
                             return;
@@ -248,7 +267,7 @@ export class ServerSelectScreen {
     }
 
     private _restoreFocus(): void {
-        const nav = this._orchestrator.getNavigation();
+        const nav = this._ports.getNavigation();
         if (nav) {
             if (this._restoreFocusTimeoutId !== null) {
                 clearTimeout(this._restoreFocusTimeoutId);
@@ -285,7 +304,7 @@ export class ServerSelectScreen {
 
     private _handleClearSelection(): void {
         this._clearError();
-        this._orchestrator.clearSelectedServer();
+        this._ports.clearSelectedServer();
         this._setAutoConnectHintVisible(false);
         this._setStatus('Selection cleared.', 'Pick a server to continue.');
         this._renderServers(this._lastDiscoveredServers, null, { emptyStateReason: 'no_servers' });
@@ -453,7 +472,7 @@ export class ServerSelectScreen {
             }
         }
 
-        const navForButtons = this._orchestrator.getNavigation();
+        const navForButtons = this._ports.getNavigation();
         if (navForButtons) {
             for (let i = 0; i < enabledServerButtons.length; i++) {
                 const button = enabledServerButtons[i];
@@ -494,7 +513,7 @@ export class ServerSelectScreen {
         if (this._registeredServerButtonIds.length === 0) {
             return;
         }
-        const nav = this._orchestrator.getNavigation();
+        const nav = this._ports.getNavigation();
         if (nav) {
             for (const id of this._registeredServerButtonIds) {
                 nav.unregisterFocusable(id);
@@ -509,7 +528,7 @@ export class ServerSelectScreen {
         this._detailEl.textContent = '';
 
         try {
-            const success = await this._orchestrator.selectServer(server.id);
+            const success = await this._ports.selectServer(server.id);
             if (success) {
                 this._setStatus(`Connected to ${server.name}.`, 'Continuing startup…', 'success');
                 return;
@@ -588,7 +607,7 @@ export class ServerSelectScreen {
     }
 
     private _registerFocusables(): void {
-        const nav = this._orchestrator.getNavigation();
+        const nav = this._ports.getNavigation();
         if (!nav) return;
 
         this._registerStaticButtons(null);
@@ -598,7 +617,7 @@ export class ServerSelectScreen {
     }
 
     private _unregisterFocusables(): void {
-        const nav = this._orchestrator.getNavigation();
+        const nav = this._ports.getNavigation();
         if (!nav) return;
 
         nav.unregisterFocusable('btn-server-refresh');
@@ -610,14 +629,14 @@ export class ServerSelectScreen {
     }
 
     private _updateStaticButtonNeighbors(firstListFocusableId: string | null): void {
-        const nav = this._orchestrator.getNavigation();
+        const nav = this._ports.getNavigation();
         if (!nav) return;
 
         this._registerStaticButtons(firstListFocusableId);
     }
 
     private _registerStaticButtons(firstListFocusableId: string | null): void {
-        const nav = this._orchestrator.getNavigation();
+        const nav = this._ports.getNavigation();
         if (!nav) return;
 
         const staticButtons: Array<{

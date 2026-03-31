@@ -14,8 +14,10 @@
   transform: translateY(0);
 }
 
-.channel-badge-text {
-  display: inline-block;
+.channel-badge-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 6px 14px;
   border-radius: 10px;
   background: linear-gradient(
@@ -23,6 +25,17 @@
     rgba(0, 0, 0, 0.30) 0%,
     rgba(0, 0, 0, 0.40) 100%
   );
+}
+
+.channel-badge-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: rgba(255, 255, 255, 0.88);
+  opacity: 0.9;
+}
+
+.channel-badge-text {
   color: rgba(255, 255, 255, 0.88);
   font-size: var(--text-md);
   font-weight: 600;

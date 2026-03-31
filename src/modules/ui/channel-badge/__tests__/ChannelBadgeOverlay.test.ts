@@ -50,4 +50,17 @@ describe('ChannelBadgeOverlay', () => {
         overlay.show({});
         expect(container.classList.contains(CHANNEL_BADGE_CLASSES.VISIBLE)).toBe(false);
     });
+
+    it('renders the glyph inside the same badge content chip', () => {
+        const content = container.querySelector(`.${CHANNEL_BADGE_CLASSES.CONTENT}`);
+        const icon = container.querySelector(`.${CHANNEL_BADGE_CLASSES.ICON}`);
+        const text = container.querySelector(`.${CHANNEL_BADGE_CLASSES.TEXT}`);
+
+        expect(content).not.toBeNull();
+        expect(icon).not.toBeNull();
+        expect(text).not.toBeNull();
+        expect(content?.contains(icon as Node)).toBe(true);
+        expect(content?.contains(text as Node)).toBe(true);
+        expect(icon?.querySelector('svg')).not.toBeNull();
+    });
 });

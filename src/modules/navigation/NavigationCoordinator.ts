@@ -23,49 +23,66 @@ import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 export interface NavigationCoordinatorDeps {
     navigation: INavigationManager;
     epg: IEPGComponent | null;
-    videoPlayer: IVideoPlayer | null;
-    plexAuth: IPlexAuth | null;
-    stopPlayback: () => void;
-    pokePlayerOsd: (reason: 'play' | 'pause' | 'seek') => void;
-    togglePlayerOsd: () => void;
-    getSeekIncrementMs: () => number;
-    isPlayerOsdVisible: () => boolean;
-    showMiniGuide: () => void;
-    hideMiniGuide: () => void;
-    isMiniGuideVisible: () => boolean;
-    handleMiniGuideNavigation: (direction: 'up' | 'down') => boolean;
-    handleMiniGuidePage: (direction: 'up' | 'down') => boolean;
-    handleMiniGuideSelect: () => void;
-
-    isNowPlayingModalOpen: () => boolean;
-    toggleNowPlayingInfoOverlay: () => void;
-    showNowPlayingInfoOverlay: () => void;
-    hideNowPlayingInfoOverlay: () => void;
-    playbackOptionsModalId: string;
-    preparePlaybackOptionsModal: (
-        preferredSection?: PlaybackOptionsSectionId
-    ) => { focusableIds: string[]; preferredFocusId: string | null };
-    showPlaybackOptionsModal: () => void;
-    hidePlaybackOptionsModal: () => void;
-
-    exitConfirmModalId: string;
-    prepareExitConfirmModal: () => { focusableIds: string[] };
-    showExitConfirmModal: () => void;
-    hideExitConfirmModal: () => void;
-
-    setLastChannelChangeSourceRemote: () => void;
-    setLastChannelChangeSourceNumber: () => void;
-
-    switchToNextChannel: () => void;
-    switchToPreviousChannel: () => void;
-    switchToChannelByNumber: (n: number) => Promise<ChannelSwitchOutcome>;
-    focusEpgOnCurrentChannel: () => void;
-    onChannelInputUpdate?: (payload: { digits: string; isComplete: boolean }) => void;
-
-    toggleEpg: () => void;
-    shouldRunChannelSetup: () => boolean;
-    hidePlayerOsd: () => void;
-    hideChannelTransition: () => void;
+    playback: {
+        videoPlayer: IVideoPlayer | null;
+        plexAuth: IPlexAuth | null;
+        stopPlayback: () => void;
+        getSeekIncrementMs: () => number;
+        playerOsd: {
+            overlay: { isVisible: () => boolean } | null;
+            coordinator: {
+                poke: (reason: 'play' | 'pause' | 'seek') => void;
+                toggle: () => void;
+                hide: () => void;
+            } | null;
+        };
+    };
+    miniGuide: {
+        overlay: { isVisible: () => boolean } | null;
+        coordinator: {
+            show: () => void;
+            hide: () => void;
+            handleNavigation: (direction: 'up' | 'down') => boolean;
+            handlePage: (direction: 'up' | 'down') => boolean;
+            handleSelect: () => void;
+        } | null;
+    };
+    nowPlayingInfo: {
+        isModalOpen: () => boolean;
+        toggleOverlay: () => void;
+        showOverlay: () => void;
+        hideOverlay: () => void;
+    };
+    modals: {
+        playbackOptions: {
+            modalId: string;
+            prepare: (
+                preferredSection?: PlaybackOptionsSectionId
+            ) => { focusableIds: string[]; preferredFocusId: string | null };
+            show: () => void;
+            hide: () => void;
+        };
+        exitConfirm: {
+            modalId: string;
+            prepare: () => { focusableIds: string[] };
+            show: () => void;
+            hide: () => void;
+        };
+    };
+    channelSwitching: {
+        setLastChannelChangeSourceRemote: () => void;
+        setLastChannelChangeSourceNumber: () => void;
+        switchToNextChannel: () => void;
+        switchToPreviousChannel: () => void;
+        switchToChannelByNumber: (n: number) => Promise<ChannelSwitchOutcome>;
+        focusEpgOnCurrentChannel: () => void;
+        toggleEpg: () => void;
+        onChannelInputUpdate?: (payload: { digits: string; isComplete: boolean }) => void;
+    };
+    uiGuards: {
+        shouldRunChannelSetup: () => boolean;
+        hideChannelTransition: () => void;
+    };
     reportToast?: (toast: { message: string; type: 'warning' | 'error' | 'info' | 'success' }) => void;
     readKeepPlayingInSettings?: () => boolean;
 }
@@ -144,14 +161,14 @@ export class NavigationCoordinator {
             if (!Number.isFinite(payload.channelNumber)) {
                 return;
             }
-            this.deps.setLastChannelChangeSourceNumber();
+            this.deps.channelSwitching.setLastChannelChangeSourceNumber();
             try {
-                const outcome = await this.deps.switchToChannelByNumber(payload.channelNumber);
+                const outcome = await this.deps.channelSwitching.switchToChannelByNumber(payload.channelNumber);
                 if (outcome !== 'switched') {
                     return;
                 }
                 if (this.deps.epg?.isVisible()) {
-                    this.deps.focusEpgOnCurrentChannel();
+                    this.deps.channelSwitching.focusEpgOnCurrentChannel();
                 }
             } catch (error: unknown) {
                 if (isAbortLikeError(error)) return;
@@ -164,7 +181,7 @@ export class NavigationCoordinator {
         });
 
         const inputUpdateHandler = (payload: { digits: string; isComplete: boolean }): void => {
-            this.deps.onChannelInputUpdate?.(payload);
+            this.deps.channelSwitching.onChannelInputUpdate?.(payload);
         };
         navigation.on('channelInputUpdate', inputUpdateHandler);
         unsubs.push(() => {
@@ -175,8 +192,8 @@ export class NavigationCoordinator {
             // EPG is an overlay, not a navigation screen; toggle based on EPG visibility.
             this._stopEpgRepeat('guide');
             this._stopMiniGuideRepeat('guide');
-            this.deps.hideMiniGuide();
-            this.deps.toggleEpg();
+            this.deps.miniGuide.coordinator?.hide();
+            this.deps.channelSwitching.toggleEpg();
         };
         navigation.on('guide', guideHandler);
         unsubs.push(() => {
@@ -205,26 +222,26 @@ export class NavigationCoordinator {
         const modalOpenHandler = (payload: { modalId: string }): void => {
             this._stopEpgRepeat('modalOpen');
             this._stopMiniGuideRepeat('modalOpen');
-            this.deps.hideMiniGuide();
+            this.deps.miniGuide.coordinator?.hide();
             if (payload.modalId === NOW_PLAYING_INFO_MODAL_ID) {
-                this.deps.showNowPlayingInfoOverlay();
+                this.deps.nowPlayingInfo.showOverlay();
             }
-            if (payload.modalId === this.deps.playbackOptionsModalId) {
-                this.deps.showPlaybackOptionsModal();
+            if (payload.modalId === this.deps.modals.playbackOptions.modalId) {
+                this.deps.modals.playbackOptions.show();
             }
-            if (payload.modalId === this.deps.exitConfirmModalId) {
-                this.deps.showExitConfirmModal();
+            if (payload.modalId === this.deps.modals.exitConfirm.modalId) {
+                this.deps.modals.exitConfirm.show();
             }
         };
         const modalCloseHandler = (payload: { modalId: string }): void => {
             if (payload.modalId === NOW_PLAYING_INFO_MODAL_ID) {
-                this.deps.hideNowPlayingInfoOverlay();
+                this.deps.nowPlayingInfo.hideOverlay();
             }
-            if (payload.modalId === this.deps.playbackOptionsModalId) {
-                this.deps.hidePlaybackOptionsModal();
+            if (payload.modalId === this.deps.modals.playbackOptions.modalId) {
+                this.deps.modals.playbackOptions.hide();
             }
-            if (payload.modalId === this.deps.exitConfirmModalId) {
-                this.deps.hideExitConfirmModal();
+            if (payload.modalId === this.deps.modals.exitConfirm.modalId) {
+                this.deps.modals.exitConfirm.hide();
             }
         };
         navigation.on('modalOpen', modalOpenHandler);
@@ -240,13 +257,13 @@ export class NavigationCoordinator {
     private _handleScreenChange(from: string, to: string): void {
         this._stopEpgRepeat('screenChange');
         this._stopMiniGuideRepeat('screenChange');
-        if (to === 'player' && this.deps.shouldRunChannelSetup()) {
+        if (to === 'player' && this.deps.uiGuards.shouldRunChannelSetup()) {
             this.deps.navigation.replaceScreen('channel-setup');
             return;
         }
 
         const epg = this.deps.epg;
-        const videoPlayer = this.deps.videoPlayer;
+        const videoPlayer = this.deps.playback.videoPlayer;
         const navigation = this.deps.navigation;
 
         // Hide EPG when leaving guide
@@ -259,15 +276,15 @@ export class NavigationCoordinator {
             if (navigation.isModalOpen(NOW_PLAYING_INFO_MODAL_ID)) {
                 navigation.closeModal(NOW_PLAYING_INFO_MODAL_ID);
             }
-            this.deps.hideMiniGuide();
-            this.deps.hidePlayerOsd();
-            this.deps.hideChannelTransition();
+            this.deps.miniGuide.coordinator?.hide();
+            this.deps.playback.playerOsd.coordinator?.hide();
+            this.deps.uiGuards.hideChannelTransition();
         }
 
         // Show EPG when entering guide
         if (to === 'guide') {
             if (epg && !epg.isVisible()) {
-                this.deps.toggleEpg();
+                this.deps.channelSwitching.toggleEpg();
             }
         }
 
@@ -316,17 +333,17 @@ export class NavigationCoordinator {
             this._stopMiniGuideRepeat('nonDirectional');
         }
 
-        const isNowPlayingModalOpen = this.deps.isNowPlayingModalOpen();
+        const isNowPlayingModalOpen = this.deps.nowPlayingInfo.isModalOpen();
         if (isNowPlayingModalOpen && event.button === 'back') {
             this._logInputNotHandled('modal_open', event);
             return;
         }
         if (isNowPlayingModalOpen && event.button === 'ok') {
             const navigation = this.deps.navigation;
-            if (!navigation.isModalOpen(this.deps.playbackOptionsModalId)) {
-                const prep = this.deps.preparePlaybackOptionsModal('subtitles');
+            if (!navigation.isModalOpen(this.deps.modals.playbackOptions.modalId)) {
+                const prep = this.deps.modals.playbackOptions.prepare('subtitles');
                 navigation.closeModal(NOW_PLAYING_INFO_MODAL_ID);
-                navigation.openModal(this.deps.playbackOptionsModalId, prep.focusableIds);
+                navigation.openModal(this.deps.modals.playbackOptions.modalId, prep.focusableIds);
                 if (prep.preferredFocusId) {
                     navigation.setFocus(prep.preferredFocusId);
                 }
@@ -340,7 +357,7 @@ export class NavigationCoordinator {
         const epg = this.deps.epg;
         const navigation = this.deps.navigation;
         const modalOpen = navigation.isModalOpen();
-        const miniGuideVisible = this.deps.isMiniGuideVisible();
+        const miniGuideVisible = this.deps.miniGuide.overlay?.isVisible() ?? false;
         const shouldRouteToEpg = !modalOpen && !!epg?.isVisible() && !miniGuideVisible;
 
         if (modalOpen && (event.button === 'up' || event.button === 'down' || event.button === 'left' || event.button === 'right')) {
@@ -421,7 +438,7 @@ export class NavigationCoordinator {
                         this._stopMiniGuideRepeat('directionChange');
                     }
                     if (!event.isRepeat || !this._miniGuideRepeatButton) {
-                        if (this.deps.handleMiniGuideNavigation(event.button)) {
+                        if (this.deps.miniGuide.coordinator?.handleNavigation(event.button)) {
                             this._startMiniGuideRepeat(event.button);
                         }
                     }
@@ -431,28 +448,28 @@ export class NavigationCoordinator {
                     event.handled = true;
                     event.originalEvent.preventDefault();
                     this._stopMiniGuideRepeat('page');
-                    this.deps.handleMiniGuidePage(event.button === 'channelUp' ? 'up' : 'down');
+                    this.deps.miniGuide.coordinator?.handlePage(event.button === 'channelUp' ? 'up' : 'down');
                     return;
                 case 'right':
                     event.handled = true;
                     event.originalEvent.preventDefault();
                     this._stopMiniGuideRepeat('right');
-                    this.deps.hideMiniGuide();
-                    this.deps.toggleEpg();
+                    this.deps.miniGuide.coordinator?.hide();
+                    this.deps.channelSwitching.toggleEpg();
                     return;
                 case 'ok':
                     event.handled = true;
                     event.originalEvent.preventDefault();
                     this._stopMiniGuideRepeat('ok');
                     if (!event.isRepeat) {
-                        this.deps.handleMiniGuideSelect();
+                        this.deps.miniGuide.coordinator?.handleSelect();
                     }
                     return;
                 case 'back':
                     event.handled = true;
                     event.originalEvent.preventDefault();
                     this._stopMiniGuideRepeat('back');
-                    this.deps.hideMiniGuide();
+                    this.deps.miniGuide.coordinator?.hide();
                     return;
                 default:
                     break;
@@ -464,13 +481,13 @@ export class NavigationCoordinator {
             && !miniGuideVisible
             && !modalOpen
             && !shouldRouteToEpg
-            && !this.deps.isPlayerOsdVisible()
+            && !(this.deps.playback.playerOsd.overlay?.isVisible() ?? false)
         ) {
             if (event.button === 'up') {
                 event.handled = true;
                 event.originalEvent.preventDefault();
                 if (!event.isRepeat) {
-                    this.deps.showMiniGuide();
+                    this.deps.miniGuide.coordinator?.show();
                 }
                 return;
             }
@@ -485,10 +502,10 @@ export class NavigationCoordinator {
                 currentScreen === 'player'
                 && !modalOpen
                 && !shouldRouteToEpg
-                && !this.deps.isPlayerOsdVisible()
+                && !(this.deps.playback.playerOsd.overlay?.isVisible() ?? false)
                 && !miniGuideVisible
             ) {
-                this.deps.togglePlayerOsd();
+                this.deps.playback.playerOsd.coordinator?.toggle();
                 event.handled = true;
                 event.originalEvent.preventDefault();
                 return;
@@ -499,10 +516,10 @@ export class NavigationCoordinator {
             if (
                 currentScreen === 'player'
                 && !modalOpen
-                && !this.deps.isPlayerOsdVisible()
+                && !(this.deps.playback.playerOsd.overlay?.isVisible() ?? false)
                 && !miniGuideVisible
             ) {
-                this.deps.togglePlayerOsd();
+                this.deps.playback.playerOsd.coordinator?.toggle();
                 event.handled = true;
                 event.originalEvent.preventDefault();
                 return;
@@ -512,15 +529,15 @@ export class NavigationCoordinator {
         if (event.button === 'back') {
             const currentScreen = navigation.getCurrentScreen();
             if (currentScreen === 'player' && !navigation.isModalOpen()) {
-                if (this.deps.isPlayerOsdVisible()) {
-                    this.deps.hidePlayerOsd();
+                if (this.deps.playback.playerOsd.overlay?.isVisible()) {
+                    this.deps.playback.playerOsd.coordinator?.hide();
                     event.handled = true;
                     event.originalEvent.preventDefault();
                     return;
                 }
                 // Player back should not traverse setup/server screen history.
-                const prep = this.deps.prepareExitConfirmModal();
-                navigation.openModal(this.deps.exitConfirmModalId, prep.focusableIds);
+                const prep = this.deps.modals.exitConfirm.prepare();
+                navigation.openModal(this.deps.modals.exitConfirm.modalId, prep.focusableIds);
                 event.handled = true;
                 event.originalEvent.preventDefault();
                 return;
@@ -532,26 +549,26 @@ export class NavigationCoordinator {
                 if (event.isRepeat) {
                     break;
                 }
-                this.deps.toggleNowPlayingInfoOverlay();
+                this.deps.nowPlayingInfo.toggleOverlay();
                 break;
             case 'channelUp':
                 if (currentScreen === 'player' && !modalOpen && !shouldRouteToEpg) {
-                    this.deps.setLastChannelChangeSourceRemote();
+                    this.deps.channelSwitching.setLastChannelChangeSourceRemote();
                     // Treat channel-up as decrement (reverse wrap) to match user expectation.
-                    this.deps.switchToPreviousChannel();
+                    this.deps.channelSwitching.switchToPreviousChannel();
                 }
                 break;
             case 'channelDown':
                 if (currentScreen === 'player' && !modalOpen && !shouldRouteToEpg) {
-                    this.deps.setLastChannelChangeSourceRemote();
+                    this.deps.channelSwitching.setLastChannelChangeSourceRemote();
                     // Treat channel-down as increment (forward wrap) to match user expectation.
-                    this.deps.switchToNextChannel();
+                    this.deps.channelSwitching.switchToNextChannel();
                 }
                 break;
             case 'info':
             case 'blue': {
                 const navigation = this.deps.navigation;
-                const plexAuth = this.deps.plexAuth;
+                const plexAuth = this.deps.playback.plexAuth;
                 if (plexAuth && !plexAuth.isAuthenticated()) {
                     navigation.goTo('auth');
                 } else {
@@ -561,7 +578,7 @@ export class NavigationCoordinator {
             }
             case 'play':
                 {
-                    const player = this.deps.videoPlayer;
+                    const player = this.deps.playback.videoPlayer;
                     if (!player) {
                         break;
                     }
@@ -573,42 +590,42 @@ export class NavigationCoordinator {
                     );
                     void playPromise.then(
                         () => {
-                            this.deps.pokePlayerOsd('play');
+                            this.deps.playback.playerOsd.coordinator?.poke('play');
                         },
                         () => undefined
                     );
                 }
                 break;
             case 'pause':
-                this.deps.videoPlayer?.pause();
-                this.deps.pokePlayerOsd('pause');
+                this.deps.playback.videoPlayer?.pause();
+                this.deps.playback.playerOsd.coordinator?.poke('pause');
                 break;
             case 'rewind': {
-                const player = this.deps.videoPlayer;
+                const player = this.deps.playback.videoPlayer;
                 if (!player) {
                     break;
                 }
-                const deltaMs = -this.deps.getSeekIncrementMs();
+                const deltaMs = -this.deps.playback.getSeekIncrementMs();
                 player.seekRelative(deltaMs).catch((error: unknown) => {
                     console.error('[Navigation] seek failed:', summarizeErrorForLog(error));
                 });
-                this.deps.pokePlayerOsd('seek');
+                this.deps.playback.playerOsd.coordinator?.poke('seek');
                 break;
             }
             case 'fastforward': {
-                const player = this.deps.videoPlayer;
+                const player = this.deps.playback.videoPlayer;
                 if (!player) {
                     break;
                 }
-                const deltaMs = this.deps.getSeekIncrementMs();
+                const deltaMs = this.deps.playback.getSeekIncrementMs();
                 player.seekRelative(deltaMs).catch((error: unknown) => {
                     console.error('[Navigation] seek failed:', summarizeErrorForLog(error));
                 });
-                this.deps.pokePlayerOsd('seek');
+                this.deps.playback.playerOsd.coordinator?.poke('seek');
                 break;
             }
             case 'stop':
-                this.deps.stopPlayback();
+                this.deps.playback.stopPlayback();
                 break;
             // Other keys handled by active screen
         }
@@ -691,7 +708,7 @@ export class NavigationCoordinator {
             this._stopMiniGuideRepeat('notPlayer');
             return;
         }
-        if (!this.deps.isMiniGuideVisible()) {
+        if (!(this.deps.miniGuide.overlay?.isVisible() ?? false)) {
             this._stopMiniGuideRepeat('notVisible');
             return;
         }
@@ -700,7 +717,7 @@ export class NavigationCoordinator {
             return;
         }
 
-        const moved = this.deps.handleMiniGuideNavigation(this._miniGuideRepeatButton);
+        const moved = this.deps.miniGuide.coordinator?.handleNavigation(this._miniGuideRepeatButton) ?? false;
         if (!moved) {
             this._stopMiniGuideRepeat('blocked');
             return;

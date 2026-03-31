@@ -2,8 +2,8 @@
  * @jest-environment jsdom
  */
 
-import { AuthScreen } from '../AuthScreen';
-import type { AppOrchestrator } from '../../../../Orchestrator';
+import { AuthScreen, type AuthScreenPorts } from '../AuthScreen';
+import type { AuthScreenNavigationPort } from '../../../navigation';
 
 import { flushPromises } from '../../../../__tests__/helpers';
 
@@ -11,18 +11,11 @@ jest.mock('qrcode', () => ({
     toCanvas: jest.fn().mockResolvedValue(undefined),
 }));
 
-type NavigationMock = {
+type NavigationMock = AuthScreenNavigationPort & {
     registerFocusable: jest.Mock;
     unregisterFocusable: jest.Mock;
     setFocus: jest.Mock;
     getFocusedElement: jest.Mock;
-};
-
-type AuthOrchestratorStub = {
-    requestAuthPin: jest.Mock;
-    pollForPin: jest.Mock;
-    cancelPin: jest.Mock;
-    getNavigation: jest.Mock;
 };
 
 const createNavigationMock = (): NavigationMock => {
@@ -37,19 +30,27 @@ const createNavigationMock = (): NavigationMock => {
         setFocus: jest.fn((id: string) => {
             focusedId = id;
         }),
-        getFocusedElement: jest.fn(() => (focusedId ? { id: focusedId } : null)),
+        getFocusedElement: jest.fn(() =>
+            focusedId
+                ? {
+                    id: focusedId,
+                    element: document.createElement('div'),
+                    neighbors: {},
+                }
+                : null
+        ),
     };
 };
 
-const createOrchestrator = (
-    overrides: Partial<AuthOrchestratorStub> = {}
-): AppOrchestrator => ({
+const createPorts = (
+    overrides: Partial<AuthScreenPorts> = {}
+): AuthScreenPorts => ({
     requestAuthPin: jest.fn(),
     pollForPin: jest.fn(),
     cancelPin: jest.fn().mockResolvedValue(undefined),
     getNavigation: jest.fn(() => null),
     ...overrides,
-}) as unknown as AppOrchestrator;
+});
 
 const click = (container: HTMLElement, selector: string): void => {
     const element = container.querySelector(selector);
@@ -70,7 +71,7 @@ describe('AuthScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const ports = createPorts({
             requestAuthPin: jest.fn().mockResolvedValue({
                 id: 88,
                 code: 'ABCD',
@@ -84,7 +85,7 @@ describe('AuthScreen', () => {
             ),
         });
 
-        const screen = new AuthScreen(container, orchestrator);
+        const screen = new AuthScreen(container, ports);
         screen.show();
 
         click(container, '#btn-auth-request');
@@ -92,7 +93,7 @@ describe('AuthScreen', () => {
 
         screen.hide();
 
-        expect(orchestrator.cancelPin).toHaveBeenCalledWith(88);
+        expect(ports.cancelPin).toHaveBeenCalledWith(88);
     });
 
     it('unregisters retry focusable and moves focus when retry disappears', async () => {
@@ -100,7 +101,7 @@ describe('AuthScreen', () => {
         document.body.appendChild(container);
 
         const nav = createNavigationMock();
-        const orchestrator = createOrchestrator({
+        const ports = createPorts({
             requestAuthPin: jest.fn()
                 .mockRejectedValueOnce(new Error('first request failed'))
                 .mockResolvedValueOnce({
@@ -117,7 +118,7 @@ describe('AuthScreen', () => {
             getNavigation: jest.fn(() => nav),
         });
 
-        const screen = new AuthScreen(container, orchestrator);
+        const screen = new AuthScreen(container, ports);
         screen.show();
 
         click(container, '#btn-auth-request');
@@ -138,7 +139,7 @@ describe('AuthScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const ports = createPorts({
             requestAuthPin: jest.fn().mockResolvedValue({
                 id: 1,
                 code: 'ABCD',
@@ -149,7 +150,7 @@ describe('AuthScreen', () => {
             pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
         });
 
-        const screen = new AuthScreen(container, orchestrator);
+        const screen = new AuthScreen(container, ports);
         screen.show();
 
         click(container, '#btn-auth-request');
@@ -165,7 +166,7 @@ describe('AuthScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const ports = createPorts({
             requestAuthPin: jest.fn().mockResolvedValue({
                 id: 42,
                 code: 'ABCD',
@@ -176,7 +177,7 @@ describe('AuthScreen', () => {
             pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
         });
 
-        const screen = new AuthScreen(container, orchestrator);
+        const screen = new AuthScreen(container, ports);
         screen.show();
 
         click(container, '#btn-auth-request');
@@ -191,7 +192,7 @@ describe('AuthScreen', () => {
         const qr = container.querySelector('.auth-qr') as HTMLElement;
         const status = container.querySelector('.screen-status');
 
-        expect(orchestrator.cancelPin).toHaveBeenCalledWith(42);
+        expect(ports.cancelPin).toHaveBeenCalledWith(42);
         expect(pin).toBe('----');
         expect(qr.style.display).toBe('none');
         expect(status?.textContent ?? '').toContain('Cancelled.');
@@ -204,7 +205,7 @@ describe('AuthScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const ports = createPorts({
             requestAuthPin: jest.fn().mockResolvedValue({
                 id: 77,
                 code: 'WXYZ',
@@ -215,7 +216,7 @@ describe('AuthScreen', () => {
             pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
         });
 
-        const screen = new AuthScreen(container, orchestrator);
+        const screen = new AuthScreen(container, ports);
         screen.show();
 
         click(container, '#btn-auth-request');
@@ -230,7 +231,7 @@ describe('AuthScreen', () => {
         const qr = container.querySelector('.auth-qr') as HTMLElement;
         const status = container.querySelector('.screen-status');
 
-        expect(orchestrator.cancelPin).toHaveBeenCalledWith(77);
+        expect(ports.cancelPin).toHaveBeenCalledWith(77);
         expect(pin).toBe('----');
         expect(qr.style.display).toBe('none');
         expect(status?.textContent ?? '').toContain('Code expired.');

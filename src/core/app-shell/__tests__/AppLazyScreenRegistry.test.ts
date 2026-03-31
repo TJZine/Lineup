@@ -2,10 +2,12 @@
  * @jest-environment jsdom
  */
 
-import type { AppOrchestrator } from '../../../Orchestrator';
 import { ProfileSessionStore } from '../../../modules/settings/ProfileSessionStore';
 import { SettingsStore } from '../../../modules/ui/settings/SettingsStore';
-import { AppLazyScreenRegistry } from '../AppLazyScreenRegistry';
+import {
+    AppLazyScreenRegistry,
+    type AppLazyScreenRegistryRuntimeFacade,
+} from '../AppLazyScreenRegistry';
 import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../constants';
 
 type MockScreen = {
@@ -20,7 +22,19 @@ const makeScreen = (): MockScreen => ({
     destroy: jest.fn(),
 });
 
-const makeOrchestrator = (): AppOrchestrator => ({
+const makeRuntimeFacade = (): AppLazyScreenRegistryRuntimeFacade => ({
+    requestAuthPin: jest.fn().mockResolvedValue({} as never),
+    pollForPin: jest.fn().mockResolvedValue({} as never),
+    cancelPin: jest.fn().mockResolvedValue(undefined),
+    getHomeUsers: jest.fn().mockResolvedValue([]),
+    switchHomeUser: jest.fn().mockResolvedValue(undefined),
+    useMainAccountProfile: jest.fn().mockResolvedValue(undefined),
+    signOutPlex: jest.fn().mockResolvedValue(undefined),
+    discoverServers: jest.fn().mockResolvedValue([]),
+    selectServer: jest.fn().mockResolvedValue(true),
+    clearSelectedServer: jest.fn(),
+    getSelectedServerStorageKey: jest.fn().mockReturnValue('selected-server-id'),
+    getServerHealthStorageKey: jest.fn().mockReturnValue('server-health'),
     getNavigation: jest.fn().mockReturnValue(null),
     getChannelSetupSessionGateway: jest.fn(() => ({
         getNavigation: jest.fn().mockReturnValue(null),
@@ -83,7 +97,7 @@ const makeOrchestrator = (): AppOrchestrator => ({
     setSubtitleTrack: jest.fn(),
     onGuideSettingChange: jest.fn(),
     getActiveUsername: jest.fn().mockReturnValue('UnitTestUser'),
-} as never);
+});
 
 const flushMicrotasks = async (): Promise<void> => {
     await Promise.resolve();
@@ -101,7 +115,7 @@ describe('AppLazyScreenRegistry', () => {
 
     it('returns null when required dependencies are missing', async () => {
         const registry = new AppLazyScreenRegistry({
-            getOrchestrator: (): null => null,
+            getRuntimeFacade: (): null => null,
             profileSessionStore: new ProfileSessionStore(),
             containers: {},
         });
@@ -124,7 +138,7 @@ describe('AppLazyScreenRegistry', () => {
         const profileSessionStore = new ProfileSessionStore();
 
         const registry = new AppLazyScreenRegistry({
-            getOrchestrator: makeOrchestrator,
+            getRuntimeFacade: makeRuntimeFacade,
             profileSessionStore,
             containers: {
                 authContainer: document.createElement('div'),
@@ -144,6 +158,15 @@ describe('AppLazyScreenRegistry', () => {
         ]);
         const thirdAuth = await registry.ensureAuthScreen();
         expect(AuthScreen).toHaveBeenCalledTimes(1);
+        expect(AuthScreen).toHaveBeenCalledWith(
+            expect.any(HTMLElement),
+            expect.objectContaining({
+                requestAuthPin: expect.any(Function),
+                pollForPin: expect.any(Function),
+                cancelPin: expect.any(Function),
+                getNavigation: expect.any(Function),
+            })
+        );
         expect(firstAuth).toBe(authScreen as never);
         expect(secondAuth).toBe(authScreen as never);
         expect(thirdAuth).toBe(authScreen as never);
@@ -157,7 +180,13 @@ describe('AppLazyScreenRegistry', () => {
         expect(ProfileSelectScreen).toHaveBeenCalledTimes(1);
         expect(ProfileSelectScreen).toHaveBeenCalledWith(
             expect.any(HTMLElement),
-            expect.anything(),
+            expect.objectContaining({
+                getHomeUsers: expect.any(Function),
+                switchHomeUser: expect.any(Function),
+                useMainAccountProfile: expect.any(Function),
+                signOutPlex: expect.any(Function),
+                getNavigation: expect.any(Function),
+            }),
             profileSessionStore
         );
         expect(firstProfile).toBe(profileSelectScreen as never);
@@ -171,6 +200,18 @@ describe('AppLazyScreenRegistry', () => {
         ]);
         const thirdServer = await registry.ensureServerSelectScreen();
         expect(ServerSelectScreen).toHaveBeenCalledTimes(1);
+        expect(ServerSelectScreen).toHaveBeenCalledWith(
+            expect.any(HTMLElement),
+            expect.objectContaining({
+                discoverServers: expect.any(Function),
+                selectServer: expect.any(Function),
+                clearSelectedServer: expect.any(Function),
+                getSelectedServerStorageKey: expect.any(Function),
+                getServerHealthStorageKey: expect.any(Function),
+                requestChannelSetupRerun: expect.any(Function),
+                getNavigation: expect.any(Function),
+            })
+        );
         expect(firstServer).toBe(serverSelectScreen as never);
         expect(secondServer).toBe(serverSelectScreen as never);
         expect(thirdServer).toBe(serverSelectScreen as never);
@@ -185,7 +226,7 @@ describe('AppLazyScreenRegistry', () => {
         });
 
         const registry = new AppLazyScreenRegistry({
-            getOrchestrator: makeOrchestrator,
+            getRuntimeFacade: makeRuntimeFacade,
             profileSessionStore: new ProfileSessionStore(),
             containers: {
                 settingsContainer: document.createElement('div'),
@@ -219,7 +260,7 @@ describe('AppLazyScreenRegistry', () => {
         });
 
         const registry = new AppLazyScreenRegistry({
-            getOrchestrator: makeOrchestrator,
+            getRuntimeFacade: makeRuntimeFacade,
             profileSessionStore: new ProfileSessionStore(),
             containers: {
                 channelSetupContainer: document.createElement('div'),
@@ -252,7 +293,7 @@ describe('AppLazyScreenRegistry', () => {
         const onAudioSetupComplete = jest.fn();
 
         const registry = new AppLazyScreenRegistry({
-            getOrchestrator: makeOrchestrator,
+            getRuntimeFacade: makeRuntimeFacade,
             profileSessionStore: new ProfileSessionStore(),
             containers: {
                 audioSetupContainer: document.createElement('div'),
@@ -283,7 +324,7 @@ describe('AppLazyScreenRegistry', () => {
         const loadChannelSetupScreen = jest.fn().mockResolvedValue({ ChannelSetupScreen: jest.fn() });
 
         const registry = new AppLazyScreenRegistry({
-            getOrchestrator: makeOrchestrator,
+            getRuntimeFacade: makeRuntimeFacade,
             profileSessionStore: new ProfileSessionStore(),
             containers: {
                 settingsContainer: document.createElement('div'),
@@ -314,7 +355,7 @@ describe('AppLazyScreenRegistry', () => {
         const loadChannelSetupScreen = jest.fn().mockResolvedValue({ ChannelSetupScreen: jest.fn() });
 
         const registry = new AppLazyScreenRegistry({
-            getOrchestrator: makeOrchestrator,
+            getRuntimeFacade: makeRuntimeFacade,
             profileSessionStore: new ProfileSessionStore(),
             containers: {
                 settingsContainer: document.createElement('div'),
@@ -354,7 +395,7 @@ describe('AppLazyScreenRegistry', () => {
         const loadSettingsScreen = jest.fn().mockReturnValue(loadPromise);
 
         const registry = new AppLazyScreenRegistry({
-            getOrchestrator: makeOrchestrator,
+            getRuntimeFacade: makeRuntimeFacade,
             profileSessionStore: new ProfileSessionStore(),
             containers: {
                 settingsContainer: document.createElement('div'),
@@ -385,7 +426,7 @@ describe('AppLazyScreenRegistry', () => {
         const settingsScreen = makeScreen();
 
         const registry = new AppLazyScreenRegistry({
-            getOrchestrator: makeOrchestrator,
+            getRuntimeFacade: makeRuntimeFacade,
             profileSessionStore: new ProfileSessionStore(),
             containers: {
                 authContainer: document.createElement('div'),

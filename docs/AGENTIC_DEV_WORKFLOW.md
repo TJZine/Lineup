@@ -62,9 +62,12 @@ This is the operating runbook for agent-driven development in Lineup.
    - for serious tracked plans, follow [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md)
    - before freezing a serious tracked plan, run the planner self-check from the plan standard so unresolved seams, wrong owners, contradictory scope, or missing evidence are surfaced before execution
    - if an architecture seam or adjacent contract change is still undecided, resolve that boundary before freezing a “decision-point-free” execution plan
+   - when a mapped imported issue is broader than the proposed slice, choose one intended final owner up front; do not approve a narrow slice that expects `P#-EXIT` to keep re-splitting the same issue envelope by default
+   - if a slice is only retiring one sub-claim of a broader detector issue, name that sub-claim explicitly in the plan and say whether the same work unit or one already-named final owner will carry any residual live debt
    - if a cleanup slice is the last planned `P#-W#` item for a priority, add an explicit priority-exit step before any `P(n+1)` work begins
    - a final `P#-W#` plan is incomplete unless its `Priority-exit readiness` section names every mapped imported issue with an exact disposition, assigns a single final owner to every deferred or split-follow-up item, records exact `P0` security issue ids plus revisit triggers for anything not cleared, and lists the evidence/commands that will close `P#-EXIT`
    - when a plan's main job is closeout or reconciliation of detector-backed ownership/coupling findings, do not treat detector silence alone as sufficient evidence; require a current-code source audit, ownership proof matrix, or equivalent explicit justification tied to the checklist outcome being claimed
+   - when detector-backed closeout work finds that a slice-owned rationale is gone but the same issue id still reports broader stale evidence, prefer recording the slice as resolved on current-code proof and keep one established final owner for any remaining live residual instead of minting another routine split follow-up
    - move completed or superseded tracked plans to `docs/archive/plans/` once they stop being the active handoff surface
    - use `docs/runs/` for local-only major-task execution bundles and run logs
    - keep path surfaces truthful across memory tiers: local run-bundle artifacts should continue to reference `docs/runs/...` until their durable lessons are promoted into tracked docs; do not relabel local artifacts as `docs/plans/...` in handoffs or required-reading sections
@@ -91,17 +94,25 @@ This is the operating runbook for agent-driven development in Lineup.
      - authoritative `desloppify` evidence requirements are satisfied; see Step 2 for the canonical integration-branch rule
      - every imported review issue mapped to that priority is retired, explicitly deferred, or split into a new owned follow-up
      - every deferred or split item has one named final owner plus a reason and revisit trigger, especially when one issue was mapped across multiple `P#-W#` items
+     - detector lag is not being mistaken for live residual debt: when current-code proof shows a slice-owned rationale is gone, the review should prefer “resolved on source audit” over creating another follow-up just because the exact issue id still prints stale wording
+     - the same imported issue is not being re-split for a second time unless the current source audit shows a genuinely different remaining owner or the earlier owner mapping was wrong
      - every deferred or split item is mirrored into its destination checklist work item (`Pn-Wm`) with exact issue id(s) and required verification command(s), not only in the source `P#-EXIT` record
      - the `P0` security gate has been cleared or explicitly deferred with exact issue ids
      - the strongest verification/evidence commands for that priority have been rerun on current code
      - no `P(n+1)` checklist item, plan, or implementation work has been opened while `P#-EXIT` is still unresolved
+     - `P#-EXIT` is acting as a reconciliation gate, not a routine follow-up factory; if no new live owner was discovered, the exit should confirm the established final owner rather than minting new work
 10. Update the right memory surface in the same pass.
    - update [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md) when a `checklist-linked` cleanup work unit is completed
+   - when a `P#-W#` slice implementation is done, rerun the slice verification and then check that work-unit box in the same pass once every mapped issue is either retired on current evidence or explicitly recorded there as `deferred`/`split follow-up` with one exact owner, reason, and revisit trigger
+   - when the slice-owned rationale is retired on current-code proof but the same detector id still reports broader stale evidence, mark the slice issue as resolved in that work unit and record the stale detector residue plus the already-established final owner for any still-live residual; do not create a new follow-up solely because the issue id stayed open
+   - do not leave a finished `P#-W#` unchecked merely because its remaining mapped debt now belongs to `P#-EXIT`; the unchecked state is for unfinished slice work or missing disposition data, not for already-reassigned debt
+   - a checked `P#-W#` means the slice is complete; it does not authorize `P(n+1)` work while `P#-EXIT` is still open
    - for `standalone remediation`, do not create or update checklist linkage unless the task is intentionally promoted into tracked cleanup backlog
    - complete the matching `P#-EXIT` item and its auditable exit record before opening `P(n+1)` in the checklist or minting new tracked plans for `P(n+1)`
    - update current-state or reference docs when ownership changes
    - update tracked plan references when a plan moves from `docs/plans/` to `docs/archive/plans/`
    - when a `P#-EXIT` record reassigns an issue to `Pn-Wm`, update the destination `Pn-Wm` checklist bullet in the same pass with an explicit inherited-follow-up note (source exit, exact issue id(s), and required verification command(s))
+   - do not reassign the same imported issue to a new destination work item purely because detector wording stayed stale after a verified slice; only reassign when current-code proof shows a different remaining live seam
    - when archiving a completed cleanup section or a standout implementation plan, review whether it adds new reusable patterns or anti-patterns and update `docs/agentic/historical-plan-corpus-review.md` in the same pass
    - when archiving a completed section summary (`*section-summary.md`), add the required `Harness Ingestion Triage` block and run `npm run harness:ingestion`
    - when a local `docs/runs/<date>-<topic>/` bundle or eval baseline changes the workflow conclusion, write the durable lesson into a tracked workflow doc or tracked eval summary in the same pass
