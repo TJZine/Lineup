@@ -2782,6 +2782,82 @@ describe('EPGVirtualizer', () => {
             expect(badge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
             expect(badge.textContent).toBe('');
         });
+
+        it('applies focused movie overlay only to movies', () => {
+            virtualizer.setChannelCount(2);
+            const movieChannelId = 'ch-focused-movie-only';
+            const clipChannelId = 'ch-focused-clip-no-movie-overlay';
+            const start = gridAnchorTime + (10 * 60000);
+            const end = start + (20 * 60000); // tiny tier at 4px/min => 80px
+
+            const schedules = new Map<string, ScheduleWindow>([
+                [movieChannelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + (24 * 60 * 60000),
+                    programs: [
+                        {
+                            item: {
+                                ratingKey: 'focused-movie-only-1',
+                                type: 'movie',
+                                title: 'Movie Overlay Owner',
+                                fullTitle: 'Movie Overlay Owner',
+                                durationMs: end - start,
+                                thumb: null,
+                                year: 2026,
+                                scheduledIndex: 0,
+                            },
+                            scheduledStartTime: start,
+                            scheduledEndTime: end,
+                            elapsedMs: 0,
+                            remainingMs: end - start,
+                            scheduleIndex: 0,
+                            loopNumber: 0,
+                            streamDescriptor: null,
+                            isCurrent: false,
+                        },
+                    ],
+                }],
+                [clipChannelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + (24 * 60 * 60000),
+                    programs: [
+                        {
+                            item: {
+                                ratingKey: 'focused-clip-no-movie-overlay-1',
+                                type: 'clip',
+                                title: 'Clip Should Stay Generic',
+                                fullTitle: 'Clip Should Stay Generic',
+                                durationMs: end - start,
+                                thumb: null,
+                                year: 2026,
+                                scheduledIndex: 0,
+                            },
+                            scheduledStartTime: start,
+                            scheduledEndTime: end,
+                            elapsedMs: 0,
+                            remainingMs: end - start,
+                            scheduleIndex: 0,
+                            loopNumber: 0,
+                            streamDescriptor: null,
+                            isCurrent: false,
+                        },
+                    ],
+                }],
+            ]);
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([movieChannelId, clipChannelId], schedules, range);
+
+            virtualizer.setFocusedCell(movieChannelId, start);
+            const movieCell = container.querySelector(`[data-key="${movieChannelId}-${start}"]`) as HTMLElement;
+            expect(movieCell.classList.contains('epg-cell-focused-movie-overlay')).toBe(true);
+            expect(movieCell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(false);
+
+            virtualizer.setFocusedCell(clipChannelId, start);
+            const clipCell = container.querySelector(`[data-key="${clipChannelId}-${start}"]`) as HTMLElement;
+            expect(clipCell.classList.contains('epg-cell-focused-movie-overlay')).toBe(false);
+            expect(clipCell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(false);
+        });
     });
 
     describe('element pool management', () => {

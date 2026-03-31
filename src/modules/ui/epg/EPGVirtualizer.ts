@@ -1035,7 +1035,7 @@ export class EPGVirtualizer {
         const usesFocusedMovieOverlay = isFocused &&
             !usesFocusedCompactLayout &&
             cellData.kind === 'program' &&
-            cellData.program.item.type !== 'episode';
+            cellData.program.item.type === 'movie';
         element.classList.toggle(EPG_CLASSES.CELL_FOCUSED_COMPACT, usesFocusedCompactLayout);
         element.classList.toggle(FOCUSED_MOVIE_OVERLAY_CLASS, usesFocusedMovieOverlay);
 

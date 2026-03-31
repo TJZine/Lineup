@@ -972,6 +972,7 @@
 .epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-time {
   display: block;
   align-self: flex-end;
+  margin-top: auto;
 }
 
 .epg-cell.text-shifted .epg-cell-content,

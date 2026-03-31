@@ -98,6 +98,32 @@ describe('focused EPG overflow style contract', () => {
         expect(railBlock).toContain('right: 10px');
     });
 
+    it('keeps focused non-live movie time self-aligned to the bottom-right rail corner', () => {
+        const timeBlock = getBlock(
+            '.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-time'
+        );
+        expect(timeBlock).toContain('display: block');
+        expect(timeBlock).toContain('align-self: flex-end');
+        expect(timeBlock).toContain('margin-top: auto');
+
+        const cell = document.createElement('div');
+        cell.className = 'epg-cell focused epg-cell-focused-movie-overlay epg-cell-tier-tiny';
+        const rail = document.createElement('div');
+        rail.className = 'epg-cell-rail';
+        const badge = document.createElement('span');
+        badge.className = 'epg-live-badge';
+        badge.hidden = true;
+        const time = document.createElement('div');
+        time.className = 'epg-cell-time';
+        rail.append(badge, time);
+        cell.appendChild(rail);
+        document.body.appendChild(cell);
+
+        const timeStyle = getComputedStyle(time);
+        expect(timeStyle.alignSelf).toBe('flex-end');
+        expect(timeStyle.marginTop).toBe('auto');
+    });
+
     it('keeps generic focused narrow/tiny selectors from matching focused movie overlays', () => {
         expect(css).toContain(
             '.epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-narrow,\n' +
