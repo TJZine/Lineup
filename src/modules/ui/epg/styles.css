@@ -950,6 +950,30 @@
   display: none;
 }
 
+.epg-cell.focused.epg-cell-focused-movie-overlay {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.epg-cell.focused.epg-cell-focused-movie-overlay.epg-cell-tier-narrow,
+.epg-cell.focused.epg-cell-focused-movie-overlay.epg-cell-tier-tiny {
+  grid-template-columns: 1fr;
+}
+
+.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-rail {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  bottom: 8px;
+  align-self: auto;
+  pointer-events: none;
+}
+
+.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-time {
+  display: block;
+  align-self: flex-end;
+}
+
 .epg-cell.text-shifted .epg-cell-content,
 .epg-cell.text-shifted .epg-cell-rail {
   transform: translateX(var(--epg-cell-text-shift-px));
