@@ -614,4 +614,90 @@ describe('ChannelSetupPlanningService', () => {
         expect(slowSignal).toBeDefined();
         expect(slowSignal?.aborted).toBe(true);
     });
+
+    it('fails fast when one facet fails immediately but another facet in the same library is still hanging', async () => {
+        const libraries = [
+            makeLibrary({ id: 'mixed', title: 'Mixed Library', type: 'show', contentCount: 1200 }),
+            makeLibrary({ id: 'slow', title: 'Slow Library', type: 'show', contentCount: 1200 }),
+        ];
+        let mixedActorsSignal: AbortSignal | undefined;
+        let slowGenresSignal: AbortSignal | undefined;
+        const plexLibrary = {
+            getPlaylists: jest.fn().mockResolvedValue([]),
+            getCollections: jest.fn().mockResolvedValue([]),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn().mockImplementation(
+                async (
+                    libraryId: string,
+                    options: {
+                        signal?: AbortSignal | null;
+                        onUnsupported?: (reason: PlexTagDirectoryUnsupportedReason) => void;
+                    }
+                ) => {
+                    if (libraryId === 'mixed') {
+                        options.onUnsupported?.('unavailable');
+                        return [];
+                    }
+                    slowGenresSignal = options.signal ?? undefined;
+                    return new Promise<PlexTagDirectoryItem[]>((_resolve, reject) => {
+                        options.signal?.addEventListener('abort', () => {
+                            reject(new DOMException('Aborted', 'AbortError'));
+                        }, { once: true });
+                    });
+                }
+            ),
+            getDirectors: jest.fn().mockResolvedValue([]),
+            getYears: jest.fn().mockResolvedValue([]),
+            getActors: jest.fn().mockImplementation(
+                async (
+                    libraryId: string,
+                    options: {
+                        signal?: AbortSignal | null;
+                    }
+                ) => {
+                    if (libraryId === 'mixed') {
+                        mixedActorsSignal = options.signal ?? undefined;
+                        return new Promise<PlexTagDirectoryItem[]>((_resolve, reject) => {
+                            options.signal?.addEventListener('abort', () => {
+                                reject(new DOMException('Aborted', 'AbortError'));
+                            }, { once: true });
+                        });
+                    }
+                    return [];
+                }
+            ),
+            getStudios: jest.fn().mockResolvedValue([]),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['mixed', 'slow'],
+            strategyConfig: {
+                genres: { enabled: true, priority: 1, scope: 'per-library' },
+                actors: { enabled: true, priority: 2, scope: 'per-library' },
+            },
+        }));
+
+        const resultPromise = service.buildSetupPlan(config, libraries, null);
+        const result = await Promise.race([
+            resultPromise,
+            new Promise<'pending'>((resolve) => {
+                setTimeout(() => resolve('pending'), 0);
+            }),
+        ]);
+
+        expect(result).not.toBe('pending');
+        expect(result).toEqual(expect.objectContaining({
+            plan: null,
+            canceled: false,
+            blockedMessage: expect.stringContaining('stop and re-plan'),
+            failureReason: 'unsupported',
+        }));
+        expect(mixedActorsSignal).toBeDefined();
+        expect(mixedActorsSignal?.aborted).toBe(true);
+        expect(slowGenresSignal).toBeDefined();
+        expect(slowGenresSignal?.aborted).toBe(true);
+    });
 });
