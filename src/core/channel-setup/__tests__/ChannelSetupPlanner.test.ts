@@ -195,6 +195,32 @@ describe('ChannelSetupPlanner', () => {
         expect(action?.contentFilters).toBeUndefined();
     });
 
+    it('does not drop native facet channels when Plex tag directories omit counts', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['s1'],
+                strategyConfig: createStrategyConfig({
+                    genres: { enabled: true },
+                    studios: { enabled: true },
+                }),
+                minItemsPerChannel: 5,
+            }),
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 25 }] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map([['s1', [{ key: 'action', title: 'Action', count: null as unknown as number }]]]),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map([['s1', [{ key: 'studio-a', title: 'Studio A', count: null as unknown as number }]]]),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(plan.pendingChannels.map((channel) => channel.name)).toContain('Shows - Action');
+        expect(plan.pendingChannels.map((channel) => channel.name)).toContain('Studio A - TV');
+    });
+
     it('marks a legacy per-library genre channel as replaced when libraryFilter becomes source-of-truth', () => {
         const plan = buildChannelSetupPlan({
             config: createConfig({
@@ -455,5 +481,32 @@ describe('ChannelSetupPlanner', () => {
 
         expect(plan.pendingChannels.map((channel) => channel.name)).toContain('Shows - 1980s');
         expect(plan.pendingChannels.map((channel) => channel.name)).not.toContain('Shows - 1990s');
+    });
+
+    it('does not drop decade channels when Plex year tags omit counts', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['s1'],
+                strategyConfig: createStrategyConfig({ decades: { enabled: true } }),
+                minItemsPerChannel: 5,
+            }),
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 1200 }] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map([
+                ['s1', [
+                    { key: '1981', title: '1981', count: null as unknown as number },
+                    { key: '1988', title: '1988', count: null as unknown as number },
+                ]],
+            ]),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(plan.pendingChannels.map((channel) => channel.name)).toContain('Shows - 1980s');
     });
 });

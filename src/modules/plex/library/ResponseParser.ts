@@ -205,10 +205,17 @@ export function mapMediaType(type: string): PlexMediaType {
  */
 export function parseDirectoryTags(directories: RawDirectoryTag[]): PlexTagDirectoryItem[] {
     return (directories || []).map((entry) => {
+        let count: number | null = null;
+        if (typeof entry.count === 'number' && Number.isFinite(entry.count)) {
+            count = entry.count;
+        } else if (typeof entry.count === 'string') {
+            const parsed = Number.parseInt(entry.count, 10);
+            count = Number.isFinite(parsed) ? parsed : null;
+        }
         const parsed: PlexTagDirectoryItem = {
             key: String(entry.key),
             title: entry.title,
-            count: typeof entry.count === 'number' && Number.isFinite(entry.count) ? entry.count : 0,
+            count,
         };
         if (entry.fastKey !== undefined) {
             parsed.fastKey = entry.fastKey;

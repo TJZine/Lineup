@@ -146,6 +146,65 @@ describe('ChannelSetupPlanningService', () => {
         expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - 1980s'))).toBe(true);
     });
 
+    it('still plans native channels when Plex tag directories omit counts', async () => {
+        const plexLibrary = {
+            getPlaylists: jest.fn(),
+            getCollections: jest.fn(),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn().mockResolvedValue([
+                makeTag({ title: 'Comedy', count: null }),
+            ]),
+            getDirectors: jest.fn().mockResolvedValue([
+                makeTag({ title: 'Jane Doe', count: null }),
+            ]),
+            getYears: jest.fn().mockResolvedValue([
+                makeTag({ title: '1981', count: null }),
+                makeTag({ title: '1988', count: null }),
+            ]),
+            getActors: jest.fn().mockResolvedValue([
+                makeTag({ key: 'actor-1', title: 'Alex Star', count: null }),
+            ]),
+            getStudios: jest.fn().mockResolvedValue([
+                makeTag({ key: 'studio-1', title: 'Studio A', count: null }),
+            ]),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['shows'],
+            minItemsPerChannel: 5,
+            strategyConfig: {
+                genres: { enabled: true, priority: 1, scope: 'per-library' },
+                directors: { enabled: true, priority: 2, scope: 'per-library' },
+                decades: { enabled: true, priority: 3, scope: 'per-library' },
+                studios: { enabled: true, priority: 4, scope: 'per-library' },
+                actors: { enabled: true, priority: 5, scope: 'per-library' },
+            },
+        }));
+
+        const libraries = [makeLibrary({
+            id: 'shows',
+            title: 'Shows',
+            type: 'show',
+            contentCount: 1200,
+        })];
+        const result = await service.buildSetupPlan(config, libraries, null, 'preview');
+
+        expect(result.canceled).toBe(false);
+        expect(result.plan).not.toBeNull();
+        expect(result.failureReason).toBeUndefined();
+        expect(result.blockedMessage).toBeUndefined();
+        expect(result.plan?.estimates.genres).toBeGreaterThan(0);
+        expect(result.plan?.estimates.directors).toBeGreaterThan(0);
+        expect(result.plan?.estimates.decades).toBeGreaterThan(0);
+        expect(result.plan?.estimates.studios).toBeGreaterThan(0);
+        expect(result.plan?.estimates.actors).toBeGreaterThan(0);
+    });
+
     it('stops planning when a required tag directory endpoint is unsupported', async () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),

@@ -191,10 +191,31 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
 
     const sortTags = (tags: PlexTagDirectoryItem[]): PlexTagDirectoryItem[] => {
         return [...tags].sort((a, b) => {
-            const countDiff = (b.count || 0) - (a.count || 0);
+            const countDiff = (b.count ?? 0) - (a.count ?? 0);
             if (countDiff !== 0) return countDiff;
             return a.title.localeCompare(b.title);
         });
+    };
+
+    const tagMeetsMinItems = (tag: PlexTagDirectoryItem): boolean => {
+        return tag.count === null || tag.count >= minItems;
+    };
+
+    const getTagItemCount = (tag: PlexTagDirectoryItem): number | undefined => {
+        return tag.count === null ? undefined : tag.count;
+    };
+
+    const withOptionalItemCount = (
+        candidate: Omit<CategoryCandidate, 'itemCount'>,
+        itemCount: number | undefined
+    ): CategoryCandidate => {
+        if (itemCount === undefined) {
+            return candidate;
+        }
+        return {
+            ...candidate,
+            itemCount,
+        };
     };
 
     const toDecade = (tag: PlexTagDirectoryItem): number | null => {
@@ -298,12 +319,11 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
             if (isStrategyEnabled('genres') && getStrategyScope('genres') === 'per-library') {
                 const candidates: CategoryCandidate[] = [];
                 for (const genre of genres) {
-                    if (genre.count < minItems) continue;
-                    candidates.push({
+                    if (!tagMeetsMinItems(genre)) continue;
+                    candidates.push(withOptionalItemCount({
                         strategy: 'genres',
                         categoryKey: `${library.id}:${genre.title.toLowerCase()}`,
                         categoryLabel: genre.title,
-                        itemCount: genre.count,
                         baseSource: {
                             type: 'library',
                             libraryId: library.id,
@@ -313,7 +333,7 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
                         },
                         sourceLibraryId: library.id,
                         sourceLibraryName: library.title,
-                    });
+                    }, getTagItemCount(genre)));
                 }
                 for (const candidate of sortCategoryCandidates(candidates)) {
                     addStrategyChannel('genres', {
@@ -331,12 +351,11 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
             if (isStrategyEnabled('directors') && getStrategyScope('directors') === 'per-library') {
                 const candidates: CategoryCandidate[] = [];
                 for (const director of directors) {
-                    if (director.count < minItems) continue;
-                    candidates.push({
+                    if (!tagMeetsMinItems(director)) continue;
+                    candidates.push(withOptionalItemCount({
                         strategy: 'directors',
                         categoryKey: `${library.id}:${director.title.toLowerCase()}`,
                         categoryLabel: director.title,
-                        itemCount: director.count,
                         baseSource: {
                             type: 'library',
                             libraryId: library.id,
@@ -345,7 +364,7 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
                         },
                         sourceLibraryId: library.id,
                         sourceLibraryName: library.title,
-                    });
+                    }, getTagItemCount(director)));
                 }
                 for (const candidate of sortCategoryCandidates(candidates)) {
                     addStrategyChannel('directors', {
@@ -363,17 +382,21 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
 
             if (isStrategyEnabled('decades')) {
                 const decadeCounts = new Map<number, number>();
+                const decadesWithUnknownCounts = new Set<number>();
                 for (const yearTag of years) {
                     const decade = toDecade(yearTag);
                     if (decade === null) {
                         continue;
                     }
-                    decadeCounts.set(decade, (decadeCounts.get(decade) || 0) + (yearTag.count || 0));
+                    if (yearTag.count === null) {
+                        decadesWithUnknownCounts.add(decade);
+                        continue;
+                    }
+                    decadeCounts.set(decade, (decadeCounts.get(decade) || 0) + yearTag.count);
                 }
-                const sortedDecades = Array.from(decadeCounts.entries())
-                    .filter((entry): entry is [number, number] => entry[1] >= minItems)
-                    .sort((a, b) => a[0] - b[0])
-                    .map(([decade]) => decade);
+                const sortedDecades = Array.from(new Set([...decadeCounts.keys(), ...decadesWithUnknownCounts.values()]))
+                    .sort((a, b) => a - b)
+                    .filter((decade) => decadesWithUnknownCounts.has(decade) || (decadeCounts.get(decade) ?? 0) >= minItems);
 
                 for (const decade of sortedDecades) {
                     addStrategyChannel('decades', {
@@ -400,15 +423,27 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
     }
 
     if (isStrategyEnabled('genres') && getStrategyScope('genres') === 'cross-library') {
-        const grouped = new Map<string, { label: string; totalCount: number; sources: ChannelConfig['contentSource'][] }>();
+        const grouped = new Map<
+            string,
+            { label: string; totalCount: number; hasUnknownCount: boolean; sources: ChannelConfig['contentSource'][] }
+        >();
         for (const library of selectedLibraries) {
             const tagItems = genresByLibraryId.get(library.id) ?? [];
             const genres = sortTags(tagItems);
             for (const genre of genres) {
                 const key = genre.title.trim().toLowerCase();
                 if (!key) continue;
-                const entry = grouped.get(key) ?? { label: genre.title, totalCount: 0, sources: [] as ChannelConfig['contentSource'][] };
-                entry.totalCount += genre.count;
+                const entry = grouped.get(key) ?? {
+                    label: genre.title,
+                    totalCount: 0,
+                    hasUnknownCount: false,
+                    sources: [] as ChannelConfig['contentSource'][],
+                };
+                if (genre.count === null) {
+                    entry.hasUnknownCount = true;
+                } else {
+                    entry.totalCount += genre.count;
+                }
                 entry.sources.push({
                     type: 'library',
                     libraryId: library.id,
@@ -421,17 +456,16 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
         }
         const candidates: CategoryCandidate[] = [];
         for (const [categoryKey, entry] of grouped.entries()) {
-            if (entry.totalCount < minItems) continue;
+            if (!entry.hasUnknownCount && entry.totalCount < minItems) continue;
             const baseSource: ChannelConfig['contentSource'] = entry.sources.length > 1
                 ? { type: 'mixed', mixMode: 'interleave', sources: entry.sources }
                 : entry.sources[0] ?? { type: 'manual', items: [] };
-            candidates.push({
+            candidates.push(withOptionalItemCount({
                 strategy: 'genres',
                 categoryKey,
                 categoryLabel: entry.label,
-                itemCount: entry.totalCount,
                 baseSource,
-            });
+            }, entry.hasUnknownCount ? undefined : entry.totalCount));
         }
         for (const candidate of sortCategoryCandidates(candidates)) {
             addStrategyChannel('genres', {
@@ -445,15 +479,27 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
     }
 
     if (isStrategyEnabled('directors') && getStrategyScope('directors') === 'cross-library') {
-        const grouped = new Map<string, { label: string; totalCount: number; sources: ChannelConfig['contentSource'][] }>();
+        const grouped = new Map<
+            string,
+            { label: string; totalCount: number; hasUnknownCount: boolean; sources: ChannelConfig['contentSource'][] }
+        >();
         for (const library of selectedLibraries) {
             const tagItems = directorsByLibraryId.get(library.id) ?? [];
             const directors = sortTags(tagItems);
             for (const director of directors) {
                 const key = director.title.trim().toLowerCase();
                 if (!key) continue;
-                const entry = grouped.get(key) ?? { label: director.title, totalCount: 0, sources: [] as ChannelConfig['contentSource'][] };
-                entry.totalCount += director.count;
+                const entry = grouped.get(key) ?? {
+                    label: director.title,
+                    totalCount: 0,
+                    hasUnknownCount: false,
+                    sources: [] as ChannelConfig['contentSource'][],
+                };
+                if (director.count === null) {
+                    entry.hasUnknownCount = true;
+                } else {
+                    entry.totalCount += director.count;
+                }
                 entry.sources.push({
                     type: 'library',
                     libraryId: library.id,
@@ -466,17 +512,16 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
         }
         const candidates: CategoryCandidate[] = [];
         for (const [categoryKey, entry] of grouped.entries()) {
-            if (entry.totalCount < minItems) continue;
+            if (!entry.hasUnknownCount && entry.totalCount < minItems) continue;
             const baseSource: ChannelConfig['contentSource'] = entry.sources.length > 1
                 ? { type: 'mixed', mixMode: 'interleave', sources: entry.sources }
                 : entry.sources[0] ?? { type: 'manual', items: [] };
-            candidates.push({
+            candidates.push(withOptionalItemCount({
                 strategy: 'directors',
                 categoryKey,
                 categoryLabel: entry.label,
-                itemCount: entry.totalCount,
                 baseSource,
-            });
+            }, entry.hasUnknownCount ? undefined : entry.totalCount));
         }
         for (const candidate of sortCategoryCandidates(candidates)) {
             addStrategyChannel('directors', {
@@ -494,7 +539,7 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
         if (actorStudioCombineMode === 'combined' || studioScope === 'cross-library') {
             const combined = combineTagSources(selectedLibraries, studiosByLibraryId, 'studio');
             for (const tag of combined) {
-                if (tag.totalCount < minItems) continue;
+                if (!tag.hasUnknownCount && tag.totalCount < minItems) continue;
                 addStrategyChannel('studios', {
                     name: tag.title,
                     contentSource: {
@@ -511,7 +556,7 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
             for (const library of selectedLibraries) {
                 const tags = sortTags(studiosByLibraryId.get(library.id) ?? []);
                 for (const tag of tags) {
-                    if (tag.count < minItems) continue;
+                    if (!tagMeetsMinItems(tag)) continue;
                     addStrategyChannel('studios', {
                         name: `${tag.title} - ${library.type === 'movie' ? 'Movies' : 'TV'}`,
                         contentSource: {
@@ -537,7 +582,7 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
         if (actorStudioCombineMode === 'combined' || actorScope === 'cross-library') {
             const combined = combineTagSources(selectedLibraries, actorsByLibraryId, 'actor');
             for (const tag of combined) {
-                if (tag.totalCount < minItems) continue;
+                if (!tag.hasUnknownCount && tag.totalCount < minItems) continue;
                 addStrategyChannel('actors', {
                     name: tag.title,
                     contentSource: {
@@ -554,7 +599,7 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
             for (const library of selectedLibraries) {
                 const tags = sortTags(actorsByLibraryId.get(library.id) ?? []);
                 for (const tag of tags) {
-                    if (tag.count < minItems) continue;
+                    if (!tagMeetsMinItems(tag)) continue;
                     addStrategyChannel('actors', {
                         name: `${tag.title} - ${library.type === 'movie' ? 'Movies' : 'TV'}`,
                         contentSource: {
@@ -876,16 +921,23 @@ function combineTagSources(
     libraries: PlexLibraryType[],
     tagsByLibraryId: Map<string, PlexTagDirectoryItem[]>,
     type: 'actor' | 'studio'
-): Array<{ key: string; title: string; totalCount: number; sources: ChannelConfig['contentSource'][] }> {
-    const grouped = new Map<string, { title: string; totalCount: number; sources: ChannelConfig['contentSource'][] }>();
+): Array<{ key: string; title: string; totalCount: number; hasUnknownCount: boolean; sources: ChannelConfig['contentSource'][] }> {
+    const grouped = new Map<
+        string,
+        { title: string; totalCount: number; hasUnknownCount: boolean; sources: ChannelConfig['contentSource'][] }
+    >();
 
     for (const library of libraries) {
         const tags = tagsByLibraryId.get(library.id) ?? [];
         for (const tag of tags) {
             const groupKey = tag.title.trim().toLowerCase();
             if (!groupKey) continue;
-            const entry = grouped.get(groupKey) ?? { title: tag.title, totalCount: 0, sources: [] };
-            entry.totalCount += tag.count || 0;
+            const entry = grouped.get(groupKey) ?? { title: tag.title, totalCount: 0, hasUnknownCount: false, sources: [] };
+            if (tag.count === null) {
+                entry.hasUnknownCount = true;
+            } else {
+                entry.totalCount += tag.count;
+            }
             entry.sources.push({
                 type: 'library',
                 libraryId: library.id,
@@ -898,7 +950,13 @@ function combineTagSources(
     }
 
     return Array.from(grouped.entries())
-        .map(([key, entry]) => ({ key, title: entry.title, totalCount: entry.totalCount, sources: entry.sources }))
+        .map(([key, entry]) => ({
+            key,
+            title: entry.title,
+            totalCount: entry.totalCount,
+            hasUnknownCount: entry.hasUnknownCount,
+            sources: entry.sources,
+        }))
         .sort((a, b) => {
             const countDiff = b.totalCount - a.totalCount;
             if (countDiff !== 0) return countDiff;
