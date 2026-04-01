@@ -122,6 +122,8 @@ type ChannelSetupFacetSnapshotWaiter = {
 };
 
 type ChannelSetupFacetSnapshotLoadToken = object;
+type ChannelSetupRequiredTagDirectoryLabel = 'Genres' | 'Directors' | 'Years' | 'Actors' | 'Studios';
+type ChannelSetupNativeFacetFamily = 'genres' | 'directors' | 'decades' | 'actors' | 'studios';
 
 const MAX_FACET_LIBRARY_CONCURRENCY = 2;
 
@@ -382,6 +384,13 @@ class ChannelSetupFacetSnapshotLoader {
         const yearsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
         const actorsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
         const studiosByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
+        const facetFamiliesWithEntries = new Set<ChannelSetupNativeFacetFamily>();
+        const deferredEmptyTagDirectoryFailures: Array<{
+            family: ChannelSetupNativeFacetFamily;
+            label: ChannelSetupRequiredTagDirectoryLabel;
+            libraryTitle: string;
+            type: number;
+        }> = [];
 
         const snapshotData = (hasTransientLoadFailure: boolean): ChannelSetupFacetSnapshotData => ({
             playlists,
@@ -449,7 +458,7 @@ class ChannelSetupFacetSnapshotLoader {
         };
 
         const buildRequiredTagDirectoryFailure = (
-            label: 'Genres' | 'Directors' | 'Years' | 'Actors' | 'Studios',
+            label: ChannelSetupRequiredTagDirectoryLabel,
             libraryTitle: string,
             type: number,
             reason: PlexTagDirectoryUnsupportedReason | 'error',
@@ -478,6 +487,38 @@ class ChannelSetupFacetSnapshotLoader {
                 `Required ${baseLabel} tag directory (type=${type}) ${detail} for ${libraryTitle}; stop and re-plan.`,
                 reason === 'empty' ? 'empty' : 'unsupported'
             );
+        };
+
+        const markFacetEntries = (
+            family: ChannelSetupNativeFacetFamily,
+            tags: PlexTagDirectoryItem[]
+        ): void => {
+            if (tags.length > 0) {
+                facetFamiliesWithEntries.add(family);
+            }
+        };
+
+        const deferEmptyTagDirectoryFailure = (
+            family: ChannelSetupNativeFacetFamily,
+            label: ChannelSetupRequiredTagDirectoryLabel,
+            libraryTitle: string,
+            type: number
+        ): void => {
+            deferredEmptyTagDirectoryFailures.push({ family, label, libraryTitle, type });
+        };
+
+        const resolveDeferredEmptyTagDirectoryFailure = (): ChannelSetupFacetSnapshot | null => {
+            for (const failure of deferredEmptyTagDirectoryFailures) {
+                if (!facetFamiliesWithEntries.has(failure.family)) {
+                    return buildRequiredTagDirectoryFailure(
+                        failure.label,
+                        failure.libraryTitle,
+                        failure.type,
+                        'empty'
+                    );
+                }
+            }
+            return null;
         };
 
         try {
@@ -598,9 +639,15 @@ class ChannelSetupFacetSnapshotLoader {
                                         },
                                     });
                                     libraryQueryMs += Date.now() - tagStart;
+                                    if (unsupportedReason === 'empty') {
+                                        genresByLibraryId.set(library.id, genres);
+                                        deferEmptyTagDirectoryFailure('genres', 'Genres', library.title, genreType);
+                                        return null;
+                                    }
                                     if (unsupportedReason) {
                                         return buildRequiredTagDirectoryFailure('Genres', library.title, genreType, unsupportedReason);
                                     }
+                                    markFacetEntries('genres', genres);
                                     genresByLibraryId.set(library.id, genres);
                                     return null;
                                 } catch (error) {
@@ -631,9 +678,15 @@ class ChannelSetupFacetSnapshotLoader {
                                         },
                                     });
                                     libraryQueryMs += Date.now() - tagStart;
+                                    if (unsupportedReason === 'empty') {
+                                        directorsByLibraryId.set(library.id, directors);
+                                        deferEmptyTagDirectoryFailure('directors', 'Directors', library.title, detailType);
+                                        return null;
+                                    }
                                     if (unsupportedReason) {
                                         return buildRequiredTagDirectoryFailure('Directors', library.title, detailType, unsupportedReason);
                                     }
+                                    markFacetEntries('directors', directors);
                                     directorsByLibraryId.set(library.id, directors);
                                     return null;
                                 } catch (error) {
@@ -664,9 +717,15 @@ class ChannelSetupFacetSnapshotLoader {
                                         },
                                     });
                                     libraryQueryMs += Date.now() - tagStart;
+                                    if (unsupportedReason === 'empty') {
+                                        yearsByLibraryId.set(library.id, years);
+                                        deferEmptyTagDirectoryFailure('decades', 'Years', library.title, detailType);
+                                        return null;
+                                    }
                                     if (unsupportedReason) {
                                         return buildRequiredTagDirectoryFailure('Years', library.title, detailType, unsupportedReason);
                                     }
+                                    markFacetEntries('decades', years);
                                     yearsByLibraryId.set(library.id, years);
                                     return null;
                                 } catch (error) {
@@ -697,9 +756,15 @@ class ChannelSetupFacetSnapshotLoader {
                                         },
                                     });
                                     libraryQueryMs += Date.now() - studiosStart;
+                                    if (unsupportedReason === 'empty') {
+                                        studiosByLibraryId.set(library.id, studios);
+                                        deferEmptyTagDirectoryFailure('studios', 'Studios', library.title, detailType);
+                                        return null;
+                                    }
                                     if (unsupportedReason) {
                                         return buildRequiredTagDirectoryFailure('Studios', library.title, detailType, unsupportedReason);
                                     }
+                                    markFacetEntries('studios', studios);
                                     studiosByLibraryId.set(library.id, studios);
                                     return null;
                                 } catch (error) {
@@ -730,9 +795,15 @@ class ChannelSetupFacetSnapshotLoader {
                                         },
                                     });
                                     libraryQueryMs += Date.now() - actorsStart;
+                                    if (unsupportedReason === 'empty') {
+                                        actorsByLibraryId.set(library.id, actors);
+                                        deferEmptyTagDirectoryFailure('actors', 'Actors', library.title, detailType);
+                                        return null;
+                                    }
                                     if (unsupportedReason) {
                                         return buildRequiredTagDirectoryFailure('Actors', library.title, detailType, unsupportedReason);
                                     }
+                                    markFacetEntries('actors', actors);
                                     actorsByLibraryId.set(library.id, actors);
                                     return null;
                                 } catch (error) {
@@ -793,6 +864,10 @@ class ChannelSetupFacetSnapshotLoader {
                 ?? workerResults.find((value): value is ChannelSetupFacetSnapshot => value !== null);
             if (libraryFailure) {
                 return libraryFailure;
+            }
+            const deferredEmptyFailure = resolveDeferredEmptyTagDirectoryFailure();
+            if (deferredEmptyFailure) {
+                return deferredEmptyFailure;
             }
 
             return {

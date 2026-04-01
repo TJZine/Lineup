@@ -243,6 +243,102 @@ describe('ChannelSetupPlanningService', () => {
         expect(plexLibrary.getLibraryItems).not.toHaveBeenCalled();
     });
 
+    it('does not stop planning when one selected library returns empty studios but another selected library has studio tags', async () => {
+        const plexLibrary = {
+            getPlaylists: jest.fn(),
+            getCollections: jest.fn(),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn(),
+            getDirectors: jest.fn(),
+            getYears: jest.fn(),
+            getActors: jest.fn(),
+            getStudios: jest.fn().mockImplementation(
+                async (
+                    libraryId: string,
+                    options: { onUnsupported?: (reason: PlexTagDirectoryUnsupportedReason) => void }
+                ) => {
+                    if (libraryId === 'anime') {
+                        options.onUnsupported?.('empty');
+                        return [];
+                    }
+                    return [makeTag({ key: 'studio-a', title: 'Studio A', count: 12 })];
+                }
+            ),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['anime', 'tv'],
+            strategyConfig: {
+                studios: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        }));
+
+        const libraries = [
+            makeLibrary({ id: 'anime', title: 'Anime Home', type: 'show', contentCount: 1200 }),
+            makeLibrary({ id: 'tv', title: 'TV Home', type: 'show', contentCount: 1200 }),
+        ];
+
+        const result = await service.buildSetupPlan(config, libraries, null, 'preview');
+
+        expect(result.canceled).toBe(false);
+        expect(result.plan).not.toBeNull();
+        expect(result.failureReason).toBeUndefined();
+        expect(result.previewStatus).toBeUndefined();
+        expect(result.blockedMessage).toBeUndefined();
+        expect(result.plan?.pendingChannels.some((c) => c.name.includes('Studio A'))).toBe(true);
+    });
+
+    it('stops planning when a requested facet family returns empty across all selected libraries', async () => {
+        const plexLibrary = {
+            getPlaylists: jest.fn(),
+            getCollections: jest.fn(),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn(),
+            getDirectors: jest.fn(),
+            getYears: jest.fn(),
+            getActors: jest.fn(),
+            getStudios: jest.fn().mockImplementation(
+                async (
+                    _libraryId: string,
+                    options: { onUnsupported?: (reason: PlexTagDirectoryUnsupportedReason) => void }
+                ) => {
+                    options.onUnsupported?.('empty');
+                    return [];
+                }
+            ),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['anime', 'tv'],
+            strategyConfig: {
+                studios: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        }));
+
+        const libraries = [
+            makeLibrary({ id: 'anime', title: 'Anime Home', type: 'show', contentCount: 1200 }),
+            makeLibrary({ id: 'tv', title: 'TV Home', type: 'show', contentCount: 1200 }),
+        ];
+
+        const result = await service.buildSetupPlan(config, libraries, null, 'preview');
+
+        expect(result.canceled).toBe(false);
+        expect(result.plan).toBeNull();
+        expect(result.failureReason).toBe('empty');
+        expect(result.previewStatus).toBe('blocked');
+        expect(result.blockedMessage).toContain('returned no entries');
+    });
+
     it('separates preview and build facet snapshots by intent', async () => {
         const libraries = [
             makeLibrary({
