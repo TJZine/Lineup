@@ -21,7 +21,7 @@ import type { IPlexStreamResolver } from '../modules/plex/stream';
 import type { IChannelManager } from '../modules/scheduler/channel-manager';
 import type { IChannelScheduler } from '../modules/scheduler/scheduler';
 import type { IVideoPlayer } from '../modules/player';
-import type { IEPGComponent } from '../modules/ui/epg';
+import type { IEPGComponent, IEpgReadinessPort } from '../modules/ui/epg';
 import type { IPlayerOsdOverlay } from '../modules/ui/player-osd';
 import type { IMiniGuideOverlay } from '../modules/ui/mini-guide';
 import type { IChannelTransitionOverlay } from '../modules/ui/channel-transition';
@@ -62,6 +62,9 @@ export interface InitializationDependencies {
         scheduler: IChannelScheduler | null;
         videoPlayer: IVideoPlayer | null;
         epg: IEPGComponent | null;
+    };
+    readiness: {
+        epg: IEpgReadinessPort | null;
     };
     overlays: {
         playerOsd: IPlayerOsdOverlay | null;
@@ -581,9 +584,7 @@ export class InitializationCoordinator {
                     this._deps.stores.epgPreferencesStore.readNowWatchingEnabled(true),
             });
             this._deps.modules.epg!.initialize(epgConfigWithResolver);
-            if (this._deps.modules.epg!.ensureReady) {
-                await this._deps.modules.epg!.ensureReady();
-            }
+            await this._deps.readiness.epg?.ensureReady();
             this._callbacks.status.updateModuleStatus(
                 'epg-ui',
                 'ready',

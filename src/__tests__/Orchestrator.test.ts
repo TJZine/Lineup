@@ -518,6 +518,7 @@ jest.mock('../modules/player', () => ({
 // Mock EPGComponent
 const mockEpg = {
     initialize: jest.fn(),
+    ensureReady: jest.fn().mockResolvedValue(undefined),
     show: jest.fn(),
     hide: jest.fn(),
     destroy: jest.fn(),

@@ -444,6 +444,9 @@ export class AppOrchestrator {
                     videoPlayer: this._videoPlayer,
                     epg: this._epg,
                 },
+                readiness: {
+                    epg: modules.epgReadinessPort,
+                },
                 overlays: {
                     playerOsd: this._playerOsd,
                     channelNumberOverlay: this._channelNumberOverlay,
