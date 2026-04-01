@@ -77,6 +77,7 @@ export interface StrategyStepStateSnapshot extends StrategyStepMutableState {
     previewPanelId: string;
     preview: ChannelSetupPreview | null;
     previewError: string | null;
+    previewStatus: 'idle' | 'loading' | 'ready' | 'blocked' | 'slow' | 'error';
     isPreviewLoading: boolean;
 }
 

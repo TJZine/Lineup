@@ -225,4 +225,60 @@ describe('ChannelSetupPlanningService', () => {
         expect(result.warnings.join('\n')).toContain('director endpoint failed');
         expect(plexLibrary.getLibraryItems).not.toHaveBeenCalled();
     });
+
+    it('reuses the same facet snapshot across preview, review, and build-equivalent planning paths', async () => {
+        const libraries = [
+            makeLibrary({
+                id: 'shows',
+                title: 'Shows',
+                type: 'show',
+                contentCount: 1200,
+            }),
+        ];
+        const plexLibrary = {
+            getLibraries: jest.fn().mockResolvedValue(libraries),
+            getPlaylists: jest.fn().mockResolvedValue([]),
+            getCollections: jest.fn().mockResolvedValue([]),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn().mockResolvedValue([
+                makeTag({ title: 'Comedy', count: 10 }),
+            ]),
+            getDirectors: jest.fn().mockResolvedValue([
+                makeTag({ title: 'Jane Doe', count: 12 }),
+            ]),
+            getYears: jest.fn().mockResolvedValue([
+                makeTag({ title: '1981', count: 3 }),
+                makeTag({ title: '1988', count: 2 }),
+                makeTag({ title: '1995', count: 4 }),
+            ]),
+            getActors: jest.fn().mockResolvedValue([]),
+            getStudios: jest.fn().mockResolvedValue([]),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['shows'],
+            minItemsPerChannel: 3,
+            strategyConfig: {
+                genres: { enabled: true, priority: 1, scope: 'per-library' },
+                decades: { enabled: true, priority: 2, scope: 'per-library' },
+                directors: { enabled: true, priority: 3, scope: 'per-library' },
+            },
+        }));
+
+        const preview = await service.getSetupPreview(config);
+        const review = await service.getSetupReview(config);
+        const planResult = await service.buildSetupPlan(config, libraries, null);
+
+        expect(preview.estimates.total).toBeGreaterThan(0);
+        expect(review.preview.estimates.total).toBe(planResult.plan?.estimates.total);
+        expect(planResult.plan).not.toBeNull();
+        expect(plexLibrary.getGenres).toHaveBeenCalledTimes(1);
+        expect(plexLibrary.getDirectors).toHaveBeenCalledTimes(1);
+        expect(plexLibrary.getYears).toHaveBeenCalledTimes(1);
+    });
 });

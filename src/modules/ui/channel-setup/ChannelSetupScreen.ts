@@ -566,6 +566,7 @@ export class ChannelSetupScreen {
                 previewPanelId: this._previewPanelId,
                 preview: session.preview,
                 previewError: session.previewError,
+                previewStatus: session.previewStatus,
                 isPreviewLoading: session.isPreviewLoading,
             },
             stepPreset: (options, current, dir, mode) => this._stepPreset(options, current, dir, mode),

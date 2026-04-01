@@ -1,5 +1,5 @@
 import { PlexLibrary, PlexLibraryError, PlexLibraryErrorCode } from '../PlexLibrary';
-import type { PlexLibraryConfig } from '../interfaces';
+import type { PlexLibraryConfig, PlexTagDirectoryQueryOptions } from '../interfaces';
 import { mockLocalStorage, installMockLocalStorage } from '../../../../__tests__/mocks/localStorage';
 import { PLEX_LIBRARY_CONSTANTS, PLEX_MEDIA_TYPES } from '../constants';
 
@@ -1075,6 +1075,51 @@ describe('PlexLibrary', () => {
 
                 await rejection;
                 expect(fetch).toHaveBeenCalledTimes(PLEX_LIBRARY_CONSTANTS.MAX_TIMEOUT_RETRIES + 1);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('should fail interactive tag-directory requests within 15 seconds instead of using the default timeout budget', async () => {
+            jest.useFakeTimers();
+            try {
+                const fetchMock = jest.fn().mockImplementation(
+                    (_url: string, options?: RequestInit) =>
+                        new Promise((_resolve, reject) => {
+                            const signal = options?.signal as AbortSignal | undefined;
+                            if (signal?.aborted) {
+                                reject(new DOMException('The operation was aborted', 'AbortError'));
+                                return;
+                            }
+                            signal?.addEventListener(
+                                'abort',
+                                () => reject(new DOMException('The operation was aborted', 'AbortError')),
+                                { once: true }
+                            );
+                        })
+                );
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+                const library = new PlexLibrary(mockConfig);
+                const request = library.getGenres('1', {
+                    type: PLEX_MEDIA_TYPES.SHOW,
+                    requireEntries: true,
+                    requestProfile: 'interactive',
+                } as PlexTagDirectoryQueryOptions);
+                const settled = jest.fn();
+                void request.then(
+                    () => settled('resolved'),
+                    (error) => settled(error)
+                );
+
+                await jest.advanceTimersByTimeAsync(15000);
+                await Promise.resolve();
+                await Promise.resolve();
+
+                expect(settled).toHaveBeenCalledWith(
+                    expect.objectContaining({ code: PlexLibraryErrorCode.NETWORK_TIMEOUT })
+                );
+                expect(fetchMock).toHaveBeenCalled();
             } finally {
                 jest.useRealTimers();
             }

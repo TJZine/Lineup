@@ -76,6 +76,8 @@ export type EstimateKey = keyof ChannelSetupPreview['estimates'];
 
 export type SetupStep = 1 | 2 | 3;
 
+export type ChannelSetupPreviewUiStatus = 'idle' | 'loading' | 'ready' | 'blocked' | 'slow' | 'error';
+
 export const strategySupportsMixedScope = (key: SetupStrategyKey): boolean =>
     MIXED_SCOPE_STRATEGY_KEYS.has(key);
 
@@ -131,6 +133,7 @@ export type ChannelSetupSessionSnapshot = {
     replaceConfirm: boolean;
     preview: ChannelSetupPreview | null;
     previewError: string | null;
+    previewStatus: ChannelSetupPreviewUiStatus;
     review: ChannelSetupReview | null;
     reviewError: string | null;
     previewDeltas: Partial<Record<EstimateKey, number>>;
@@ -167,6 +170,9 @@ const clonePreview = (preview: ChannelSetupPreview | null): ChannelSetupPreview 
         estimates: { ...preview.estimates },
         warnings: [...preview.warnings],
         reachedMaxChannels: preview.reachedMaxChannels,
+        ...(preview.status ? { status: preview.status } : {}),
+        ...(preview.message ? { message: preview.message } : {}),
+        ...(preview.failureReason ? { failureReason: preview.failureReason } : {}),
     };
 };
 
@@ -194,6 +200,8 @@ const cloneReview = (review: ChannelSetupReview | null): ChannelSetupReview | nu
 };
 
 export class ChannelSetupSessionController {
+    private static readonly PREVIEW_TIMEOUT_MS = 15000;
+
     private readonly _sessionGateway: ChannelSetupSessionGateway;
     private readonly _getSelectedServerId: () => string | null;
 
@@ -215,6 +223,7 @@ export class ChannelSetupSessionController {
     private _previewAbortController: AbortController | null = null;
     private _reviewAbortController: AbortController | null = null;
     private _previewTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    private _previewRequestTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
     private _isLoading = false;
     private _isBuilding = false;
@@ -224,6 +233,7 @@ export class ChannelSetupSessionController {
 
     private _preview: ChannelSetupPreview | null = null;
     private _previewError: string | null = null;
+    private _previewStatus: ChannelSetupPreviewUiStatus = 'idle';
     private _review: ChannelSetupReview | null = null;
     private _reviewError: string | null = null;
 
@@ -266,6 +276,7 @@ export class ChannelSetupSessionController {
             replaceConfirm: this._replaceConfirm,
             preview: clonePreview(this._preview),
             previewError: this._previewError,
+            previewStatus: this._previewStatus,
             review: cloneReview(this._review),
             reviewError: this._reviewError,
             previewDeltas: { ...this._previewDeltas },
@@ -278,6 +289,7 @@ export class ChannelSetupSessionController {
     beginSession(): void {
         this._sessionToken += 1;
         this._resetState();
+        this._sessionGateway.invalidateFacetSnapshot();
     }
 
     endSession(): void {
@@ -309,6 +321,7 @@ export class ChannelSetupSessionController {
             }
 
             this._libraries = libraries;
+            this._sessionGateway.invalidateFacetSnapshot();
             const serverId = this._getSelectedServerId();
             const record = serverId ? this._sessionGateway.getChannelSetupRecord(serverId) : null;
             if (record) {
@@ -373,11 +386,13 @@ export class ChannelSetupSessionController {
 
     selectAllLibraries(): void {
         this._selectedLibraryIds = new Set(this._libraries.map((library) => library.id));
+        this._sessionGateway.invalidateFacetSnapshot();
         this.clearReviewForEdits();
     }
 
     clearAllLibraries(): void {
         this._selectedLibraryIds = new Set();
+        this._sessionGateway.invalidateFacetSnapshot();
         this.clearReviewForEdits();
     }
 
@@ -388,6 +403,7 @@ export class ChannelSetupSessionController {
         } else {
             this._selectedLibraryIds.add(libraryId);
         }
+        this._sessionGateway.invalidateFacetSnapshot();
         this.clearReviewForEdits();
         return !wasSelected;
     }
@@ -486,6 +502,7 @@ export class ChannelSetupSessionController {
         const serverId = this._getSelectedServerId();
         if (!serverId) {
             this._previewError = 'No server selected.';
+            this._previewStatus = 'error';
             return;
         }
 
@@ -686,6 +703,25 @@ export class ChannelSetupSessionController {
         this._previewAbortController = previewAbortController;
         this._isPreviewLoading = true;
         this._previewError = null;
+        this._previewStatus = 'loading';
+        if (this._previewRequestTimeoutId !== null) {
+            clearTimeout(this._previewRequestTimeoutId);
+            this._previewRequestTimeoutId = null;
+        }
+        this._previewRequestTimeoutId = setTimeout(() => {
+            if (token !== this._sessionToken) return;
+            if (this._previewAbortController !== previewAbortController) return;
+            this._previewAbortController = null;
+            this._isPreviewLoading = false;
+            this._preview = null;
+            this._previewError = 'Estimating channels is taking too long. Try again in a moment or reduce the selected libraries.';
+            this._previewStatus = 'slow';
+            this._clearPreviewDeltas();
+            previewAbortController.abort();
+            if (this._step === 2) {
+                onStateChange();
+            }
+        }, ChannelSetupSessionController.PREVIEW_TIMEOUT_MS);
         onStateChange();
 
         try {
@@ -694,9 +730,22 @@ export class ChannelSetupSessionController {
             });
             if (token !== this._sessionToken) return;
             if (this._previewAbortController !== previewAbortController) return;
+            if (this._previewRequestTimeoutId !== null) {
+                clearTimeout(this._previewRequestTimeoutId);
+                this._previewRequestTimeoutId = null;
+            }
+            if (preview.status === 'blocked' || preview.status === 'slow') {
+                this._preview = null;
+                this._previewError = preview.message ?? 'Unable to estimate channels.';
+                this._previewStatus = preview.status;
+                this._lastPreviewKey = key;
+                this._clearPreviewDeltas();
+                return;
+            }
             const prevEstimates = this._preview?.estimates ?? null;
             this._preview = preview;
             this._lastPreviewKey = key;
+            this._previewStatus = 'ready';
             if (prevEstimates) {
                 this._setPreviewDeltas(prevEstimates, preview.estimates, onStateChange);
             } else {
@@ -708,11 +757,20 @@ export class ChannelSetupSessionController {
             if (isAbortLikeError(error, previewAbortController.signal)) {
                 return;
             }
+            if (this._previewRequestTimeoutId !== null) {
+                clearTimeout(this._previewRequestTimeoutId);
+                this._previewRequestTimeoutId = null;
+            }
             this._previewError = error instanceof Error ? error.message : 'Unable to estimate channels.';
             this._preview = null;
+            this._previewStatus = 'error';
             this._clearPreviewDeltas();
         } finally {
             if (token === this._sessionToken && this._previewAbortController === previewAbortController) {
+                if (this._previewRequestTimeoutId !== null) {
+                    clearTimeout(this._previewRequestTimeoutId);
+                    this._previewRequestTimeoutId = null;
+                }
                 this._isPreviewLoading = false;
                 if (this._step === 2) {
                     onStateChange();
@@ -733,6 +791,10 @@ export class ChannelSetupSessionController {
         if (this._previewTimeoutId !== null) {
             clearTimeout(this._previewTimeoutId);
             this._previewTimeoutId = null;
+        }
+        if (this._previewRequestTimeoutId !== null) {
+            clearTimeout(this._previewRequestTimeoutId);
+            this._previewRequestTimeoutId = null;
         }
 
         this._clearPreviewDeltas();
@@ -757,6 +819,7 @@ export class ChannelSetupSessionController {
 
         this._preview = null;
         this._previewError = null;
+        this._previewStatus = 'idle';
         this._review = null;
         this._reviewError = null;
         this._lastPreviewKey = null;
@@ -774,8 +837,13 @@ export class ChannelSetupSessionController {
             clearTimeout(this._previewTimeoutId);
             this._previewTimeoutId = null;
         }
+        if (this._previewRequestTimeoutId !== null) {
+            clearTimeout(this._previewRequestTimeoutId);
+            this._previewRequestTimeoutId = null;
+        }
         this._pendingPreviewKey = null;
         this._isPreviewLoading = false;
+        this._previewStatus = 'idle';
         this._isReviewLoading = false;
         this._clearPreviewDeltas();
     }

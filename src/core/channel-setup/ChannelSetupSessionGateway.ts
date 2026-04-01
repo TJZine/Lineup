@@ -19,6 +19,7 @@ export interface ChannelSetupSessionGateway {
     switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void>;
     openEPG(): void;
     requestChannelSetupRerun(): void;
+    invalidateFacetSnapshot(): void;
     getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibraryType[]>;
     getChannelSetupRecord(serverId: string): ChannelSetupRecord | null;
     getSetupContextForSelectedServer(): ChannelSetupContext;

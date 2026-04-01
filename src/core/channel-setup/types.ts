@@ -77,10 +77,17 @@ export interface ChannelSetupEstimates {
     actors: number;
 }
 
+export type ChannelSetupPreviewStatus = 'ready' | 'blocked' | 'slow';
+
+export type ChannelSetupPreviewFailureReason = 'unsupported' | 'empty' | 'timeout' | 'error';
+
 export interface ChannelSetupPreview {
     estimates: ChannelSetupEstimates;
     warnings: string[];
     reachedMaxChannels: boolean;
+    status?: ChannelSetupPreviewStatus;
+    message?: string;
+    failureReason?: ChannelSetupPreviewFailureReason;
 }
 
 interface ChannelSetupDiffSummary {
