@@ -348,14 +348,29 @@ These are the required repo-local boundary skills for the new wave. Load them be
 
 ### Work Units
 
-- [ ] `P2-W1` choose one top-level EPG owner surface and one readiness contract (pref Highest ROI)
+- [x] `P2-W1` choose one top-level EPG owner surface and one readiness contract (pref Highest ROI)
   - Imported review issues: `review::.::holistic::high_level_elegance::epg_top_level_owner_blur`, `review::.::holistic::api_surface_coherence::epg_readiness_split_contract`
   - Primary files: `src/modules/ui/epg/EPGCoordinator.ts`, `src/modules/ui/epg/interfaces.ts`, `src/modules/ui/epg/DeferredEpgComponent.ts`, `src/core/orchestrator/OrchestratorCoordinatorFactory.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
+  - Execution (2026-04-01): split deferred readiness into explicit `IEpgReadinessPort` wiring from `createOrchestratorModules(...)` to `InitializationCoordinator` via a dedicated readiness dependency bag, removed runtime-side `ensureReady` probing from `IEPGComponent` callers, and moved caller-owned visible-range callback composition into `src/modules/ui/epg/EPGConfigBindings.ts` so `EPGCoordinator` keeps runtime-policy ownership only.
+  - Verification (2026-04-01):
+    - `npm test -- --runInBand src/__tests__/orchestrator/orchestrator-module-factory-wiring.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGConfigBindings.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/DeferredEpgComponent.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`
+    - `npm test -- --runInBand src/core/__tests__/InitializationCoordinator.test.ts`
+    - `npm test -- --runInBand src/core/orchestrator/__tests__/OrchestratorCoordinatorFactory.playbackState.test.ts`
+    - `npm test -- --runInBand src/__tests__/Orchestrator.test.ts`
+    - `npm run verify`
+  - Issue dispositions (2026-04-01 source audit + detector refresh):
+    - `review::.::holistic::api_surface_coherence::epg_readiness_split_contract` -> `resolved` -> owner `P2-W1`; proof: `IEPGComponent` no longer advertises optional `ensureReady`, readiness now flows through `OrchestratorModules.epgReadinessPort` and `InitializationDependencies.readiness.epg`, and `EPGCoordinator.openEPG()` no longer probes `ensureReady`; command: `desloppify show "review::.::holistic::api_surface_coherence::epg_readiness_split_contract" --status open --no-budget` (current output still cites pre-change optional-interface/probe evidence, treated as stale detector residue).
+    - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur` -> `split follow-up` -> final owner `P2-W2`; reason: after the readiness/config-binding split, one broader live owner-envelope remains around top-level EPG surface clarity (`EPGComponent` vs coordinator/orchestrator delegation surface) that aligns with `P2-W2` runtime-seam follow-through; revisit trigger: rerun `desloppify show "review::.::holistic::high_level_elegance::epg_top_level_owner_blur" --status open --no-budget` plus `npm run verify` during `P2-W2` and retire there or reassign once if source audit finds a better final owner.
 - [ ] `P2-W2` move refresh orchestration and library-filter normalization behind one explicit EPG runtime seam
   - Imported review issues: `review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam`, `review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams`
   - Primary files: `src/modules/ui/epg/EPGCoordinator.ts`, `src/modules/ui/epg/EPGScheduleRefreshRuntime.ts`, `src/modules/ui/epg/EPGCoordinatorPolicies.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
+  - Inherited follow-ups:
+    - Source `P2-W1` disposition `split follow-up`: `review::.::holistic::high_level_elegance::epg_top_level_owner_blur`; required verification commands: `desloppify show "review::.::holistic::high_level_elegance::epg_top_level_owner_blur" --status open --no-budget`; `npm run verify`
 - [ ] `P2-W3` replace hidden EPG runtime globals with explicit owner state and restore narrow shared types at the boundary
   - Imported review issues: `review::.::holistic::initialization_coupling::epg_debug_module_global_runtime`, `review::.::holistic::type_safety::epg_channel_boundary_widens_known_types`
   - Primary files: `src/modules/ui/epg/utils.ts`, `src/modules/ui/epg/EPGCoordinator.ts`, `src/modules/ui/epg/domainTypes.ts`, `src/modules/ui/epg/adapters.ts`, `src/modules/scheduler/channel-manager/types.ts`
