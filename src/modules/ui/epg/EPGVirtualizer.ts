@@ -1282,7 +1282,10 @@ export class EPGVirtualizer {
         const isNarrowOrTiny =
             element.classList.contains(EPG_CLASSES.CELL_TIER_NARROW) ||
             element.classList.contains(EPG_CLASSES.CELL_TIER_TINY);
-        const shouldCompact = isNarrowOrTiny || element.classList.contains(FOCUSED_MOVIE_OVERLAY_CLASS);
+        const shouldCompact =
+            isNarrowOrTiny ||
+            element.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT) ||
+            element.classList.contains(FOCUSED_MOVIE_OVERLAY_CLASS);
 
         badge.classList.toggle(EPG_CLASSES.CELL_LIVE_COMPACT, shouldCompact);
         badge.textContent = shouldCompact ? '' : 'LIVE';
@@ -1454,6 +1457,7 @@ export class EPGVirtualizer {
         }
         this.updateEpisodePresentation(children, cellData, textLayout);
         this.applyWidthTierPresentation(element, children, tier, cellData, textLayout);
+        this.updateLiveBadge(element, cellData.isCurrent);
         this.updateProgressPresentation(children, cellData, nowMs);
     }
 

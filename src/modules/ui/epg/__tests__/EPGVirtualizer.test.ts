@@ -2783,6 +2783,117 @@ describe('EPGVirtualizer', () => {
             expect(badge.textContent).toBe('');
         });
 
+        it('uses compact LIVE dot for current medium episodes in focused compact mode', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-focused-episode-medium-live-dot';
+            const start = gridAnchorTime;
+            const end = start + (40 * 60000); // medium tier at 4px/min => 160px
+            const now = start + (5 * 60000);
+            jest.spyOn(Date, 'now').mockReturnValue(now);
+
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60000),
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'focused-episode-medium-live-dot-1',
+                            type: 'episode',
+                            title: 'The Compact Badge Episode',
+                            fullTitle: 'Prestige Show - S01E03 - The Compact Badge Episode',
+                            showTitle: 'Prestige Show',
+                            seasonNumber: 1,
+                            episodeNumber: 3,
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: now - start,
+                        remainingMs: end - now,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+            virtualizer.setFocusedCell(channelId, start);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const badge = cell.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement;
+            const time = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
+
+            expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_MEDIUM)).toBe(true);
+            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
+            expect(cell.classList.contains('epg-cell-focused-movie-overlay')).toBe(false);
+            expect(time.style.display).toBe('none');
+            expect(badge.hidden).toBe(false);
+            expect(badge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
+            expect(badge.textContent).toBe('');
+        });
+
+        it('recomputes LIVE badge immediately when focus switches a current medium movie into overlay mode', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-focused-movie-immediate-live-refresh';
+            const start = gridAnchorTime;
+            const end = start + (40 * 60000); // medium tier
+            const now = start + (5 * 60000);
+            jest.spyOn(Date, 'now').mockReturnValue(now);
+
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60000),
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'focused-movie-immediate-live-refresh-1',
+                            type: 'movie',
+                            title: 'Immediate Badge Refresh',
+                            fullTitle: 'Immediate Badge Refresh',
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: now - start,
+                        remainingMs: end - now,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const badge = cell.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement;
+
+            expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_MEDIUM)).toBe(true);
+            expect(cell.classList.contains('epg-cell-focused-movie-overlay')).toBe(false);
+            expect(badge.hidden).toBe(false);
+            expect(badge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(false);
+            expect(badge.textContent).toBe('LIVE');
+
+            virtualizer.setFocusedCell(channelId, start);
+
+            expect(cell.classList.contains('epg-cell-focused-movie-overlay')).toBe(true);
+            expect(badge.hidden).toBe(false);
+            expect(badge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
+            expect(badge.textContent).toBe('');
+        });
+
         it('applies focused movie overlay only to movies and keeps split-lane episodes in focused compact mode', () => {
             virtualizer.setChannelCount(3);
             const movieChannelId = 'ch-focused-movie-only';
