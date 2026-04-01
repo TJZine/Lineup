@@ -1,5 +1,5 @@
 import { PlexLibrary, PlexLibraryError, PlexLibraryErrorCode } from '../PlexLibrary';
-import type { PlexLibraryConfig } from '../interfaces';
+import type { PlexLibraryConfig, PlexTagDirectoryQueryOptions } from '../interfaces';
 import { mockLocalStorage, installMockLocalStorage } from '../../../../__tests__/mocks/localStorage';
 import { PLEX_LIBRARY_CONSTANTS, PLEX_MEDIA_TYPES } from '../constants';
 
@@ -270,6 +270,48 @@ describe('PlexLibrary', () => {
             expect(showLib?.episodeCount).toBeUndefined();
         });
 
+        it('preserves unknown contentCount when item-count fetch fails', async () => {
+            mockFetchJson(mockLibrarySectionsResponse);
+            const library = new PlexLibrary(mockConfig);
+
+            const spy = jest.spyOn(library, 'getLibraryItemCount');
+            spy.mockImplementation(async (_libraryId, options) => {
+                const typeFilter = options?.filter?.type;
+                if (typeFilter === 4) {
+                    return 999;
+                }
+                if (_libraryId === '2') {
+                    throw new Error('item count failed');
+                }
+                return 456;
+            });
+
+            const libs = await library.getLibraries({ includeItemCounts: true, itemCountConcurrency: 1 });
+
+            const showLib = libs.find((lib) => lib.id === '2');
+            expect(showLib?.contentCount).toBeNull();
+            expect(showLib?.episodeCount).toBeUndefined();
+        });
+
+        it('does not assign null episodeCount when episode count is unavailable', async () => {
+            mockFetchJson(mockLibrarySectionsResponse);
+            const library = new PlexLibrary(mockConfig);
+
+            const spy = jest.spyOn(library, 'getLibraryItemCount');
+            spy.mockImplementation(async (_libraryId, options) => {
+                if (options?.filter?.type === PLEX_MEDIA_TYPES.EPISODE) {
+                    return null;
+                }
+                return 456;
+            });
+
+            const libs = await library.getLibraries({ includeItemCounts: true, itemCountConcurrency: 1 });
+
+            const showLib = libs.find((lib) => lib.type === 'show');
+            expect(showLib?.contentCount).toBe(456);
+            expect(showLib?.episodeCount).toBeUndefined();
+        });
+
         it('should sanitize itemCountConcurrency when includeItemCounts is enabled', async () => {
             const oneLibraryResponse = {
                 MediaContainer: {
@@ -379,6 +421,15 @@ describe('PlexLibrary', () => {
             const lib = await library.getLibrary('999');
 
             expect(lib).toBeNull();
+        });
+    });
+
+    describe('getLibraryItemCount', () => {
+        it('returns null when getLibraryItemCount receives no response', async () => {
+            mockFetchJson({ error: 'Not found' }, 404);
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getLibraryItemCount('1')).resolves.toBeNull();
         });
     });
 
@@ -1075,6 +1126,51 @@ describe('PlexLibrary', () => {
 
                 await rejection;
                 expect(fetch).toHaveBeenCalledTimes(PLEX_LIBRARY_CONSTANTS.MAX_TIMEOUT_RETRIES + 1);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('should fail interactive tag-directory requests within 15 seconds instead of using the default timeout budget', async () => {
+            jest.useFakeTimers();
+            try {
+                const fetchMock = jest.fn().mockImplementation(
+                    (_url: string, options?: RequestInit) =>
+                        new Promise((_resolve, reject) => {
+                            const signal = options?.signal as AbortSignal | undefined;
+                            if (signal?.aborted) {
+                                reject(new DOMException('The operation was aborted', 'AbortError'));
+                                return;
+                            }
+                            signal?.addEventListener(
+                                'abort',
+                                () => reject(new DOMException('The operation was aborted', 'AbortError')),
+                                { once: true }
+                            );
+                        })
+                );
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+                const library = new PlexLibrary(mockConfig);
+                const request = library.getGenres('1', {
+                    type: PLEX_MEDIA_TYPES.SHOW,
+                    requireEntries: true,
+                    requestIntent: 'preview',
+                } as PlexTagDirectoryQueryOptions);
+                const settled = jest.fn();
+                void request.then(
+                    () => settled('resolved'),
+                    (error) => settled(error)
+                );
+
+                await jest.advanceTimersByTimeAsync(15000);
+                await Promise.resolve();
+                await Promise.resolve();
+
+                expect(settled).toHaveBeenCalledWith(
+                    expect.objectContaining({ code: PlexLibraryErrorCode.NETWORK_TIMEOUT })
+                );
+                expect(fetchMock).toHaveBeenCalled();
             } finally {
                 jest.useRealTimers();
             }

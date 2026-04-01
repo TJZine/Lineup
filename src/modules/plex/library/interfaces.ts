@@ -18,11 +18,14 @@ import type {
 
 export type PlexTagDirectoryUnsupportedReason = 'unavailable' | 'empty';
 
+export type PlexLibraryRequestIntent = 'preview' | 'background';
+
 export interface PlexTagDirectoryQueryOptions {
     type: number;
     signal?: AbortSignal | null;
     onUnsupported?: (reason: PlexTagDirectoryUnsupportedReason) => void;
     requireEntries?: boolean;
+    requestIntent?: PlexLibraryRequestIntent;
 }
 
 // ============================================
@@ -44,6 +47,7 @@ export interface IPlexLibrary {
         signal?: AbortSignal | null;
         /**
          * When true, fetch and populate `contentCount` for each library section.
+         * Leaves `contentCount` as `null` when the count request fails.
          * Uses a lightweight count query (X-Plex-Container-Size=0) per library.
          */
         includeItemCounts?: boolean;
@@ -76,9 +80,9 @@ export interface IPlexLibrary {
      * Get total item count for a library without fetching items.
      * @param libraryId - Library section ID
      * @param options - Optional query options (filter/signal)
-     * @returns Promise resolving to item count (0 if unavailable)
+     * @returns Promise resolving to item count, or `null` when unavailable
      */
-    getLibraryItemCount(libraryId: string, options?: LibraryQueryOptions): Promise<number>;
+    getLibraryItemCount(libraryId: string, options?: LibraryQueryOptions): Promise<number | null>;
 
     /**
      * Get a specific media item by rating key.
@@ -134,7 +138,10 @@ export interface IPlexLibrary {
      * @param libraryId - Library section ID
      * @returns Promise resolving to list of collections
      */
-    getCollections(libraryId: string, options?: { signal?: AbortSignal | null }): Promise<PlexCollection[]>;
+    getCollections(libraryId: string, options?: {
+        signal?: AbortSignal | null;
+        requestIntent?: PlexLibraryRequestIntent;
+    }): Promise<PlexCollection[]>;
 
     /**
      * Get items in a collection.
@@ -147,7 +154,10 @@ export interface IPlexLibrary {
      * Get user playlists.
      * @returns Promise resolving to list of playlists
      */
-    getPlaylists(options?: { signal?: AbortSignal | null }): Promise<PlexPlaylist[]>;
+    getPlaylists(options?: {
+        signal?: AbortSignal | null;
+        requestIntent?: PlexLibraryRequestIntent;
+    }): Promise<PlexPlaylist[]>;
 
     /**
      * Get items in a playlist.

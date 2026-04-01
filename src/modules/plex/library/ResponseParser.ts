@@ -56,7 +56,7 @@ function parseLibrarySection(data: RawLibrarySection): PlexLibrary {
         type: mapLibraryType(data.type),
         agent: data.agent,
         scanner: data.scanner,
-        contentCount: 0, // Will be populated when fetching items
+        contentCount: null, // Populated when count queries succeed
         lastScannedAt: data.scannedAt ? new Date(data.scannedAt * 1000) : new Date(0),
         art: data.art ?? null,
         thumb: data.thumb ?? null,

@@ -1404,7 +1404,8 @@ describe('ChannelSetupCoordinator', () => {
                 strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
             })),
             [],
-            null
+            null,
+            'build'
         );
 
         expect(result.canceled).toBe(false);

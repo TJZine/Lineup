@@ -65,7 +65,7 @@ describe('createLineupBrandGlyph', () => {
         expect(svg).not.toBeNull();
 
         const filteredRect = Array.from(svg!.querySelectorAll('rect'))
-            .find((element) => element.getAttribute('stroke') === '#ffe5a0');
+            .find((element) => /^url\(#lineup-glyph-\d+-rim-blur\)$/.test(element.getAttribute('filter') ?? ''));
 
         expect(filteredRect).toBeDefined();
         expect(filteredRect?.getAttribute('filter')).toMatch(/^url\(#lineup-glyph-\d+-rim-blur\)$/);

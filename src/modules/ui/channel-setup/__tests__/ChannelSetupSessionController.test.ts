@@ -47,6 +47,7 @@ const createOrchestrator = (overrides: OrchestratorOverrides = {}): jest.Mocked<
         switchToChannelByNumber: jest.fn((_number: number) => Promise.resolve()),
         openEPG: jest.fn(),
         requestChannelSetupRerun: jest.fn(),
+        invalidateFacetSnapshot: jest.fn(),
         createChannelsFromSetup: jest.fn((_config, _options) => Promise.resolve(DEFAULT_BUILD_RESULT)),
         markSetupComplete: jest.fn((_serverId: string, _setupConfig) => {}),
         getSetupPreview: jest.fn().mockResolvedValue(DEFAULT_PREVIEW),
@@ -616,6 +617,113 @@ describe('ChannelSetupSessionController', () => {
         await flushPromises();
         expect(controller.getSnapshot().preview).toEqual(DEFAULT_PREVIEW);
         expect(controller.getSnapshot().isPreviewLoading).toBe(false);
+    });
+
+    it('schedulePreview() exits loading within 15 seconds and surfaces a slow-preview error when preview hangs', async (): Promise<void> => {
+        const slowPreview = createDeferred<typeof DEFAULT_PREVIEW>();
+        let capturedSignal: AbortSignal | undefined;
+        const getSetupPreview = jest.fn().mockImplementation(
+            (_config: ChannelSetupConfig, options?: { signal?: AbortSignal }) => {
+                capturedSignal = options?.signal;
+                return slowPreview.promise;
+            }
+        );
+        const orchestrator = createOrchestrator({
+            getSetupPreview,
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+        const controller = new ChannelSetupSessionController({
+            orchestrator,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        try {
+            controller.beginSession();
+            await controller.loadLibraries();
+            controller.setStep(2);
+
+            controller.schedulePreview(jest.fn());
+            await jest.advanceTimersByTimeAsync(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
+            await flushPromises();
+            expect(controller.getSnapshot().isPreviewLoading).toBe(true);
+
+            await jest.advanceTimersByTimeAsync(15000);
+            await flushPromises();
+
+            const snapshot = controller.getSnapshot();
+            expect(snapshot.isPreviewLoading).toBe(false);
+            expect(snapshot.preview).toBeNull();
+            expect(snapshot.previewError).toMatch(/slow|timed out|taking too long/i);
+            expect(capturedSignal?.aborted).toBe(true);
+        } finally {
+            controller.endSession();
+            await flushPromises();
+        }
+    });
+
+    it('does not re-fetch preview for unchanged blocked key', async (): Promise<void> => {
+        const blockedPreview = {
+            ...DEFAULT_PREVIEW,
+            status: 'blocked' as const,
+            message: 'Unsupported facet',
+        };
+        const getSetupPreview = jest.fn().mockResolvedValue(blockedPreview);
+        const orchestrator = createOrchestrator({
+            getSetupPreview,
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+        const controller = new ChannelSetupSessionController({
+            orchestrator,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        await controller.loadLibraries();
+        controller.setStep(2);
+
+        controller.schedulePreview(jest.fn());
+        await jest.advanceTimersByTimeAsync(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
+        await flushPromises();
+
+        controller.schedulePreview(jest.fn());
+        await jest.advanceTimersByTimeAsync(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
+        await flushPromises();
+
+        expect(getSetupPreview).toHaveBeenCalledTimes(1);
+        expect(controller.getSnapshot().previewStatus).toBe('blocked');
+    });
+
+    it('does not re-fetch preview for unchanged slow key after timeout', async (): Promise<void> => {
+        const slowPreview = createDeferred<typeof DEFAULT_PREVIEW>();
+        const getSetupPreview = jest.fn().mockImplementation(() => slowPreview.promise);
+        const orchestrator = createOrchestrator({
+            getSetupPreview,
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+        const controller = new ChannelSetupSessionController({
+            orchestrator,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        await controller.loadLibraries();
+        controller.setStep(2);
+
+        controller.schedulePreview(jest.fn());
+        await jest.advanceTimersByTimeAsync(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
+        await flushPromises();
+        await jest.advanceTimersByTimeAsync(15000);
+        await flushPromises();
+
+        controller.schedulePreview(jest.fn());
+        await jest.advanceTimersByTimeAsync(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
+        await flushPromises();
+
+        expect(getSetupPreview).toHaveBeenCalledTimes(1);
+        expect(controller.getSnapshot().previewStatus).toBe('slow');
+
+        slowPreview.resolve(DEFAULT_PREVIEW);
+        await flushPromises();
     });
 
     it('ensureReviewLoaded() handles success, failure, and abort-like interruption', async (): Promise<void> => {

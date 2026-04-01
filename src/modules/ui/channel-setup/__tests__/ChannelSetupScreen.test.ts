@@ -789,6 +789,36 @@ describe('ChannelSetupScreen', () => {
             jest.useRealTimers();
         });
 
+        it('surfaces a slow preview state on Step 2 instead of leaving the estimate spinner active', async () => {
+            jest.useFakeTimers();
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            const orchestrator = createOrchestrator({
+                getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+                getSetupPreview: jest.fn().mockResolvedValue({
+                    ...DEFAULT_PREVIEW,
+                    status: 'slow',
+                    message: 'Estimating channels is taking too long. Try again in a moment or reduce the selected libraries.',
+                    failureReason: 'timeout',
+                }),
+                getSelectedServerId: jest.fn(() => 'server-1'),
+            });
+
+            const screen = new ChannelSetupScreen(container, orchestrator);
+            screen.show();
+            await flushPromises();
+            await enterStep2(container);
+
+            jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
+            await flushPromises();
+
+            expect(container.textContent ?? '').not.toContain('Estimating channels...');
+            expect(container.textContent ?? '').toContain('Preview timed out:');
+            expect(container.textContent ?? '').toContain('Estimating channels is taking too long.');
+            jest.useRealTimers();
+        });
+
         it('cleans up dropdown on hide', async () => {
             const container = document.createElement('div');
             document.body.appendChild(container);
@@ -1191,6 +1221,51 @@ describe('ChannelSetupScreen', () => {
         clickButton(container, '#setup-replace-confirm');
         const toggledConfirm = container.querySelector('#setup-confirm') as HTMLButtonElement | null;
         expect(toggledConfirm?.disabled).toBe(false);
+    });
+
+    it.each([
+        {
+            status: 'blocked',
+            message: 'Required genres tag directory (type=2) is unsupported for Shows; stop and re-plan.',
+            expectedPrefix: 'Action required:',
+        },
+        {
+            status: 'slow',
+            message: 'Required directors tag directory (type=4) timed out for Shows; try again after Plex responds.',
+            expectedPrefix: 'Review timed out:',
+        },
+    ] as const)('disables confirm when Step 3 review is %s', async ({ status, message, expectedPrefix }) => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const getSetupReview = jest.fn().mockResolvedValue({
+            ...DEFAULT_REVIEW,
+            preview: {
+                ...DEFAULT_REVIEW.preview,
+                status,
+                message,
+            },
+        });
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
+            getSetupReview,
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-next');
+        await flushPromises();
+        await flushPromises();
+
+        const confirm = container.querySelector('#setup-confirm') as HTMLButtonElement | null;
+        expect(confirm?.disabled).toBe(true);
+        expect(container.textContent ?? '').toContain(expectedPrefix);
+        expect(container.textContent ?? '').toContain(message);
     });
 
     it('shows review loading state before review payload resolves', async () => {

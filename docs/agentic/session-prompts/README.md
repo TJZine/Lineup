@@ -1,10 +1,10 @@
-# Session Prompt Launchers
+# Session Launcher Templates
 
-This directory contains the tracked Lineup-specific prompt templates for cleanup/refactor and feature/design workflow launches.
+This directory contains the tracked Lineup-specific launcher templates for cleanup/refactor and feature/design workflow launches.
 
-Use them to avoid copying large prompt blocks into fresh sessions. The tracked files here are the source of truth. Global prompts under `~/.codex/prompts/` should stay thin and point back to these files.
+Use them to avoid copying large prompt blocks into fresh sessions. The tracked files here are the source of truth. Optional local launcher skills may point back to these files, but those thin wrappers are convenience only and should not become a second tracked control plane.
 
-## Prompt Set
+## Launcher Template Set
 
 <!-- BEGIN MANAGED SESSION PROMPT SET -->
 - [`cleanup-plan.md`](./cleanup-plan.md)
@@ -57,7 +57,7 @@ Tier 3 rule for feature or mixed work:
 
 ## Invocation
 
-Recommended global launcher names:
+Recommended optional local launcher skill names:
 
 - `lineup-cleanup-plan`
 - `lineup-cleanup-implement`
@@ -78,15 +78,23 @@ Each launcher should:
 6. follow the workflow in that file without duplicating repo policy text inline
 7. load repo-local `model-selection` only when the user explicitly asks for model guidance or the outgoing handoff meets the auto-trigger conditions in [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md#session-handoffs)
 
+Recommended explicit invocation styles:
+
+- use `/skills` and choose the launcher skill from the picker if you keep local launcher skills installed
+- type `$` and mention the exact launcher skill name in the first message if you keep local launcher skills installed
+- start the session with a first message such as `Use the lineup-feature-implement skill for this task.`
+
+The removed `~/.codex/prompts` slash-command surface is not part of the supported workflow. Local launcher skills are optional convenience only.
+
 ### Two-Message Invocation Contract
 
 The reusable Lineup launchers are meant to support either of these invocation styles:
 
-1. launcher + `NEXT_SESSION_HANDOFF`
-   - invoke the launcher, then paste the full handoff block
+1. launcher skill + `NEXT_SESSION_HANDOFF`
+   - invoke the launcher skill, then paste the full handoff block
    - the session should obey the handoff's `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE`
-2. launcher + one short scope message
-   - invoke the launcher, then send one short follow-up naming the exact checklist item, plan, or artifact
+2. launcher skill + one short scope message
+   - invoke the launcher skill, then send one short follow-up naming the exact checklist item, plan, or artifact
    - example planner follow-up: `We are working on ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1.`
    - example implementer follow-up: `Implement docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1.`
    - example reviewer follow-up: `Review docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1.`
@@ -94,18 +102,18 @@ The reusable Lineup launchers are meant to support either of these invocation st
    - example feature implementer follow-up: `Implement docs/plans/2026-03-27-settings-diagnostics-redesign.md.`
    - example feature reviewer follow-up: `Review docs/plans/2026-03-27-settings-diagnostics-redesign.md.`
 
-When the short follow-up form is used, the launcher should derive the rest of the context from the checklist, the named plan or artifact, and the tracked workflow docs instead of waiting for a formal handoff block.
+When the short follow-up form is used, the launcher skill should derive the rest of the context from the checklist, the named plan or artifact, and the tracked workflow docs instead of waiting for a formal handoff block.
 
 ## When To Stay Reusable
 
-Use these reusable launchers for Tier 2 cleanup work:
+Use these reusable launcher skills for Tier 2 cleanup work:
 
 - routine `P#-W#` cleanup items
 - standalone QA/debugging/bug-fix remediation with no net-new feature intent
 - bounded refactors with one planner, one implementer, and one reviewer
 - plan refreshes for active tracked plans
 
-Use these reusable launchers for Tier 2 feature/design work:
+Use these reusable launcher skills for Tier 2 feature/design work:
 
 - serious feature/design plans that need adversarial review before coding
 - approved feature/design plans that should execute in a fresh implementer session
@@ -129,15 +137,15 @@ Create a local run bundle in [`docs/runs/`](../../runs/README.md) first when the
 - likely to need repeated handoff
 - high-risk across hotspots such as `src/App.ts`, `src/Orchestrator.ts`, major UI composition roots, or Plex policy surfaces
 
-When a run bundle exists, the reusable launcher should use it as task-specific context instead of inventing a new one-off prompt.
+When a run bundle exists, the reusable launcher skill should use it as task-specific context instead of inventing a new one-off prompt.
 
 ## Design Rules
 
-- Keep repo-specific workflow text tracked here, not in global prompt files.
-- Keep launcher prompts short enough to scan in one read.
+- Keep repo-specific workflow text tracked here, not in local launcher skills.
+- Keep launcher skills thin enough to scan in one read.
 - Prefer explicit read order, exact deliverables, and exact stop conditions.
-- Do not create a new reusable prompt for every feature or checklist item.
-- Planner, reviewer, and implementer prompts should emit a pasteable `NEXT_SESSION_HANDOFF` block when another session is expected.
+- Do not create a new reusable launcher skill for every feature or checklist item.
+- Planner, reviewer, and implementer launcher templates should emit a pasteable `NEXT_SESSION_HANDOFF` block when another session is expected.
 - Emit `MODEL_SUGGESTION` only when the user explicitly asked for model advice or the handoff is high-risk under the workflow trigger; do not make model advice an always-on tax.
 - Keep cleanup and feature launcher invocation ergonomics aligned unless the difference is intentionally documented in the tracked launcher itself.
 - Update these templates when the repo workflow changes materially.

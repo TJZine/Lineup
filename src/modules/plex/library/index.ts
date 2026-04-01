@@ -9,9 +9,22 @@ export { mapPlexLibraryErrorCodeToAppErrorCode } from './types';
 export type {
     IPlexLibrary,
     PlexLibraryConfig,
+    PlexLibraryRequestIntent,
     PlexTagDirectoryQueryOptions,
     PlexTagDirectoryUnsupportedReason,
 } from './interfaces';
+export {
+    getPlexRequestIntentForChannelSetup,
+} from './requestIntent';
+export type {
+    ChannelSetupPlexRequestUseCase,
+} from './requestIntent';
+export {
+    getTagDirectoryMediaTypesForLibraryType,
+} from './tagDirectoryPolicy';
+export type {
+    PlexTagDirectoryMediaTypes,
+} from './tagDirectoryPolicy';
 export type {
     PlexLibrary as PlexLibraryType,
     PlexLibraryType as PlexLibraryTypeEnum,

@@ -13,6 +13,8 @@ export class BuildReviewStepController {
 
         const reviewContainer = document.createElement('div');
         reviewContainer.className = 'setup-review';
+        const reviewStatus = state.review?.preview.status;
+        const reviewStatusMessage = state.review?.preview.message ?? null;
 
         let showLoadingState = false;
         if (!state.recordApplied) {
@@ -30,6 +32,19 @@ export class BuildReviewStepController {
             loading.textContent = 'Preparing your review...';
             reviewContainer.appendChild(loading);
         } else if (state.review) {
+            if (reviewStatusMessage) {
+                const reviewStatusError = document.createElement('div');
+                reviewStatusError.className = 'setup-preview-error';
+                if (reviewStatus === 'blocked') {
+                    reviewStatusError.textContent = `Action required: ${reviewStatusMessage}`;
+                } else if (reviewStatus === 'slow') {
+                    reviewStatusError.textContent = `Review timed out: ${reviewStatusMessage}`;
+                } else {
+                    reviewStatusError.textContent = reviewStatusMessage;
+                }
+                reviewContainer.appendChild(reviewStatusError);
+            }
+
             const modeLine = document.createElement('div');
             modeLine.className = 'setup-summary';
             modeLine.textContent = `Build mode: ${state.buildMode.charAt(0).toUpperCase()}${state.buildMode.slice(1)}`;
@@ -104,7 +119,11 @@ export class BuildReviewStepController {
         confirmButton.id = 'setup-confirm';
         confirmButton.className = 'screen-button';
         confirmButton.textContent = state.buildMode === 'replace' ? 'Confirm & Replace' : 'Confirm & Build';
-        confirmButton.disabled = state.isReviewLoading || !state.review || (state.buildMode === 'replace' && !state.replaceConfirm);
+        confirmButton.disabled = state.isReviewLoading
+            || !state.review
+            || reviewStatus === 'blocked'
+            || reviewStatus === 'slow'
+            || (state.buildMode === 'replace' && !state.replaceConfirm);
         confirmButton.addEventListener('click', () => {
             if (confirmButton.disabled) {
                 return;

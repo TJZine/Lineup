@@ -139,6 +139,7 @@ export const createOrchestrator = (
     switchToChannelByNumber: jest.fn(),
     openEPG: jest.fn(),
     requestChannelSetupRerun: jest.fn(),
+    invalidateFacetSnapshot: jest.fn(),
     createChannelsFromSetup: jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT),
     markSetupComplete: jest.fn(),
     getSetupPreview: jest.fn().mockResolvedValue(DEFAULT_PREVIEW),
