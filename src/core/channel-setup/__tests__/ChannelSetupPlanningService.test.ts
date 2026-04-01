@@ -437,6 +437,90 @@ describe('ChannelSetupPlanningService', () => {
         expect(getGenres).toHaveBeenCalledTimes(1);
     });
 
+    it('does not cache a ready snapshot degraded by transient playlist failure', async () => {
+        const getPlaylists = jest.fn()
+            .mockRejectedValueOnce({ name: 'Error', code: 'NETWORK_TIMEOUT', message: 'playlist timed out' })
+            .mockResolvedValueOnce([
+                {
+                    ratingKey: 'pl1',
+                    key: '/playlists/pl1',
+                    title: 'Favorites',
+                    thumb: null,
+                    leafCount: 10,
+                },
+            ]);
+        const plexLibrary = {
+            getLibraries: jest.fn().mockResolvedValue([]),
+            getPlaylists,
+            getCollections: jest.fn(),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn(),
+            getDirectors: jest.fn(),
+            getYears: jest.fn(),
+            getActors: jest.fn(),
+            getStudios: jest.fn(),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            strategyConfig: {
+                playlists: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        }));
+
+        const first = await service.buildSetupPlan(config, [], null, 'preview');
+        const second = await service.buildSetupPlan(config, [], null, 'preview');
+
+        expect(first.plan).not.toBeNull();
+        expect(first.plan?.estimates.playlists).toBe(0);
+        expect(first.warnings.join('\n')).toContain('fetch_playlists failed');
+        expect(second.plan).not.toBeNull();
+        expect(second.plan?.estimates.playlists).toBe(1);
+        expect(second.warnings.join('\n')).not.toContain('fetch_playlists failed');
+        expect(getPlaylists).toHaveBeenCalledTimes(2);
+    });
+
+    it('caches a clean ready snapshot', async () => {
+        const getPlaylists = jest.fn().mockResolvedValue([
+            {
+                ratingKey: 'pl1',
+                key: '/playlists/pl1',
+                title: 'Favorites',
+                thumb: null,
+                leafCount: 10,
+            },
+        ]);
+        const plexLibrary = {
+            getLibraries: jest.fn().mockResolvedValue([]),
+            getPlaylists,
+            getCollections: jest.fn(),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn(),
+            getDirectors: jest.fn(),
+            getYears: jest.fn(),
+            getActors: jest.fn(),
+            getStudios: jest.fn(),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            strategyConfig: {
+                playlists: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        }));
+
+        const first = await service.buildSetupPlan(config, [], null, 'preview');
+        const second = await service.buildSetupPlan(config, [], null, 'preview');
+
+        expect(first.plan?.estimates.playlists).toBe(1);
+        expect(second.plan?.estimates.playlists).toBe(1);
+        expect(getPlaylists).toHaveBeenCalledTimes(1);
+    });
+
     it('lets build cancellation stop waiting on an inflight snapshot started by preview', async () => {
         const libraries = [
             makeLibrary({

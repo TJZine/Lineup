@@ -71,6 +71,7 @@ type ChannelSetupFacetSnapshotData = {
     actorsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
     studiosByLibraryId: Map<string, PlexTagDirectoryItem[]>;
     warnings: string[];
+    hasTransientLoadFailure: boolean;
     errorsTotal: number;
     playlistMs: number;
     collectionsMs: number;
@@ -146,7 +147,7 @@ class ChannelSetupFacetSnapshotLoader {
 
     private _shouldCacheSnapshot(snapshot: ChannelSetupFacetSnapshot): boolean {
         if (snapshot.status === 'ready') {
-            return true;
+            return !snapshot.hasTransientLoadFailure;
         }
         return snapshot.failureReason === 'unsupported' || snapshot.failureReason === 'empty';
     }
@@ -372,7 +373,7 @@ class ChannelSetupFacetSnapshotLoader {
         const actorsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
         const studiosByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
 
-        const snapshotData = (): ChannelSetupFacetSnapshotData => ({
+        const snapshotData = (hasTransientLoadFailure: boolean): ChannelSetupFacetSnapshotData => ({
             playlists,
             collectionsByLibraryId,
             genresByLibraryId,
@@ -381,6 +382,7 @@ class ChannelSetupFacetSnapshotLoader {
             actorsByLibraryId,
             studiosByLibraryId,
             warnings: Array.from(warnings),
+            hasTransientLoadFailure,
             errorsTotal,
             playlistMs,
             collectionsMs,
@@ -432,7 +434,7 @@ class ChannelSetupFacetSnapshotLoader {
                 status,
                 message,
                 failureReason,
-                ...snapshotData(),
+                ...snapshotData(false),
             };
         };
 
@@ -486,7 +488,7 @@ class ChannelSetupFacetSnapshotLoader {
                     if (failureStopRequested()) {
                         return firstFailure ?? {
                             status: 'ready',
-                            ...snapshotData(),
+                            ...snapshotData(errorsTotal > 0),
                         };
                     }
                     console.warn('Failed to fetch playlists:', summarizeErrorForLog(error));
@@ -777,7 +779,7 @@ class ChannelSetupFacetSnapshotLoader {
 
             return {
                 status: 'ready',
-                ...snapshotData(),
+                ...snapshotData(errorsTotal > 0),
             };
         } finally {
             removeSignalForwarder?.();
