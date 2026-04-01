@@ -38,6 +38,7 @@ import {
     type EpgUiStatus,
 } from '../../modules/ui/epg/EPGCoordinator';
 import { readEpgStorageSnapshotForScheduleRange } from '../../modules/ui/epg/EPGCoordinatorPolicies';
+import { withEpgVisibleRangeChangeBinding } from '../../modules/ui/epg/EPGConfigBindings';
 import type {
     IEPGComponent,
     EPGConfig,
@@ -276,7 +277,10 @@ export function createOrchestratorCoordinators(
     });
     if (deps.config?.epgConfig) {
         deps.config.epgConfig =
-            epgCoordinator.withVisibleRangeRefreshPolicy(deps.config.epgConfig) ?? deps.config.epgConfig;
+            withEpgVisibleRangeChangeBinding(
+                deps.config.epgConfig,
+                (range) => epgCoordinator.handleVisibleRangeChange(range)
+            ) ?? deps.config.epgConfig;
     }
 
     const channelSetup = new ChannelSetupCoordinator({

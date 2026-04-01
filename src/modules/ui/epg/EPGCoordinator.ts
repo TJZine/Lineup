@@ -159,21 +159,8 @@ export class EPGCoordinator {
         this._scheduleRefreshRuntime.abortAllInFlightSchedules(reason);
     }
 
-    withVisibleRangeRefreshPolicy(epgConfig: EPGConfig | null | undefined): EPGConfig | null {
-        if (!epgConfig) {
-            return null;
-        }
-
-        const previousOnVisibleRangeChange = epgConfig.onVisibleRangeChange ?? null;
-        return {
-            ...epgConfig,
-            onVisibleRangeChange: (range): void => {
-                if (previousOnVisibleRangeChange) {
-                    previousOnVisibleRangeChange(range);
-                }
-                this._refreshEpgSchedulesForRangeBestEffort(range, { reason: 'visible-range' });
-            },
-        };
+    handleVisibleRangeChange(range: EpgVisibleRange): void {
+        this._refreshEpgSchedulesForRangeBestEffort(range, { reason: 'visible-range' });
     }
 
     handleGuideSettingChange(change: GuideSettingChange): void {
@@ -335,10 +322,6 @@ export class EPGCoordinator {
         if (!initialEpg) return;
         const requestId = ++this._openRequestId;
         const status = this.deps.getEpgUiStatus();
-
-        if (status !== 'ready' && initialEpg.ensureReady) {
-            void initialEpg.ensureReady().catch(() => undefined);
-        }
 
         const showAndRefresh = (epgInstance: IEPGComponent): void => {
             this._preseedCurrentChannelSchedule(epgInstance);
