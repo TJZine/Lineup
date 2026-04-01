@@ -116,6 +116,10 @@ export class ChannelSetupCoordinator {
         return this._planningService.getSetupReview(config, options);
     }
 
+    invalidateFacetSnapshot(): void {
+        this._planningService.invalidateFacetSnapshot();
+    }
+
     async createChannelsFromSetup(
         config: ChannelSetupConfig,
         options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }
