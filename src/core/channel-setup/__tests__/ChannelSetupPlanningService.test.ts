@@ -388,6 +388,67 @@ describe('ChannelSetupPlanningService', () => {
         expect(getGenres).toHaveBeenCalledTimes(2);
     });
 
+    it('aborts the in-flight snapshot signal when invalidating a detached snapshot load', async () => {
+        const libraries = [
+            makeLibrary({ id: 'old-1', title: 'Old 1', type: 'show', contentCount: 1200 }),
+            makeLibrary({ id: 'old-2', title: 'Old 2', type: 'show', contentCount: 1200 }),
+        ];
+        const deferredByLibraryId = new Map(
+            libraries.map((library) => [library.id, createDeferred<PlexTagDirectoryItem[]>()])
+        );
+        const signalByLibraryId = new Map<string, AbortSignal | undefined>();
+        const plexLibrary = {
+            getLibraries: jest.fn().mockResolvedValue(libraries),
+            getPlaylists: jest.fn().mockResolvedValue([]),
+            getCollections: jest.fn().mockResolvedValue([]),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn().mockImplementation((libraryId: string, options?: { signal?: AbortSignal | null }) => {
+                signalByLibraryId.set(libraryId, options?.signal ?? undefined);
+                const deferred = deferredByLibraryId.get(libraryId);
+                if (!deferred) {
+                    throw new Error(`Missing deferred for ${libraryId}`);
+                }
+                return deferred.promise;
+            }),
+            getDirectors: jest.fn().mockResolvedValue([]),
+            getYears: jest.fn().mockResolvedValue([]),
+            getActors: jest.fn().mockResolvedValue([]),
+            getStudios: jest.fn().mockResolvedValue([]),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['old-1', 'old-2'],
+            strategyConfig: {
+                genres: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        }));
+
+        const previewPromise = service.getSetupPreview(config, {
+            signal: new AbortController().signal,
+        });
+        const previewRejected = expect(previewPromise).rejects.toThrow();
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, 0);
+        });
+
+        expect(plexLibrary.getGenres).toHaveBeenCalledTimes(2);
+        expect(signalByLibraryId.get('old-1')?.aborted).toBe(false);
+        expect(signalByLibraryId.get('old-2')?.aborted).toBe(false);
+
+        service.invalidateFacetSnapshot();
+
+        expect(signalByLibraryId.get('old-1')?.aborted).toBe(true);
+        expect(signalByLibraryId.get('old-2')?.aborted).toBe(true);
+
+        deferredByLibraryId.get('old-1')?.resolve([makeTag({ title: 'Comedy', count: 10 })]);
+        deferredByLibraryId.get('old-2')?.resolve([makeTag({ title: 'Drama', count: 8 })]);
+
+        await previewRejected;
+    });
+
     it('caches unsupported snapshots', async () => {
         const libraries = [
             makeLibrary({
@@ -547,7 +608,8 @@ describe('ChannelSetupPlanningService', () => {
             },
         }));
 
-        void service.getSetupPreview(config, { signal: new AbortController().signal });
+        const previewPromise = service.getSetupPreview(config, { signal: new AbortController().signal });
+        void previewPromise.catch(() => undefined);
         await Promise.resolve();
         await Promise.resolve();
         expect(plexLibrary.getGenres).toHaveBeenCalledTimes(1);
@@ -730,6 +792,7 @@ describe('ChannelSetupPlanningService', () => {
         const oldPreviewPromise = service.getSetupPreview(oldConfig, {
             signal: new AbortController().signal,
         });
+        const oldPreviewRejected = expect(oldPreviewPromise).rejects.toThrow();
         await new Promise<void>((resolve) => {
             setTimeout(resolve, 0);
         });
@@ -770,7 +833,7 @@ describe('ChannelSetupPlanningService', () => {
 
         deferredByLibraryId.get('old-2')?.resolve([makeTag({ title: 'Thriller', count: 6 })]);
         deferredByLibraryId.get('old-3')?.resolve([makeTag({ title: 'Mystery', count: 4 })]);
-        await oldPreviewPromise;
+        await oldPreviewRejected;
     });
 
     it('fails fast and aborts slow sibling library work after the first blocked result', async () => {

@@ -8,8 +8,8 @@ import type {
     PlexTagDirectoryUnsupportedReason,
 } from '../../modules/plex/library';
 import {
-    PLEX_MEDIA_TYPES,
     getPlexRequestIntentForChannelSetup,
+    getTagDirectoryMediaTypesForLibraryType,
 } from '../../modules/plex/library';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../modules/scheduler/channel-manager/constants';
 import { redactSensitiveTokens } from '../../utils/redact';
@@ -133,11 +133,14 @@ class ChannelSetupFacetSnapshotLoader {
     private _inflightLoadToken: ChannelSetupFacetSnapshotLoadToken | null = null;
     private _inflightLastTask: ChannelBuildProgress['task'] | undefined;
     private _inflightProgress: ChannelSetupFacetSnapshotProgress | null = null;
+    private _activeSnapshotAbortController: AbortController | null = null;
     private readonly _inflightWaiters = new Set<ChannelSetupFacetSnapshotWaiter>();
 
     constructor(private readonly _deps: ChannelSetupPlanningServiceDeps) {}
 
     invalidate(): void {
+        this._activeSnapshotAbortController?.abort();
+        this._activeSnapshotAbortController = null;
         this._cachedKey = null;
         this._cachedSnapshot = null;
         this._inflightKey = null;
@@ -171,13 +174,16 @@ class ChannelSetupFacetSnapshotLoader {
 
         this.invalidate();
         const loadToken: ChannelSetupFacetSnapshotLoadToken = {};
+        const snapshotAbortController = new AbortController();
         this._inflightKey = key;
         this._inflightLoadToken = loadToken;
+        this._activeSnapshotAbortController = snapshotAbortController;
         const loadPromise = this._loadSnapshotUncached(
             config,
             libraries,
             options.detachFromSignal ? null : options.signal,
             options.requestIntent,
+            snapshotAbortController,
             (task, label, detail, current, total) => {
                 this._emitInflightProgress(loadToken, task, label, detail, current, total);
             }
@@ -203,6 +209,7 @@ class ChannelSetupFacetSnapshotLoader {
                 && this._inflightKey === key
                 && this._inflightLoadToken === loadToken
             ) {
+                this._activeSnapshotAbortController = null;
                 this._inflightPromise = null;
                 this._inflightKey = null;
                 this._inflightLoadToken = null;
@@ -332,6 +339,7 @@ class ChannelSetupFacetSnapshotLoader {
         libraries: PlexLibraryType[],
         signal: AbortSignal | null,
         requestIntent: ChannelSetupPlexRequestIntent,
+        snapshotAbortController: AbortController,
         reportProgress?: (
             task: ChannelBuildProgress['task'],
             label: string,
@@ -350,7 +358,6 @@ class ChannelSetupFacetSnapshotLoader {
         let shouldStop = false;
         let firstFailure: ChannelSetupFacetSnapshot | null = null;
         let failureAbortActive = false;
-        const snapshotAbortController = new AbortController();
         const requestSignal = snapshotAbortController.signal;
         let removeSignalForwarder: (() => void) | null = null;
 
@@ -512,6 +519,9 @@ class ChannelSetupFacetSnapshotLoader {
                     if (callerCanceled()) {
                         throw createAbortError(lastTask);
                     }
+                    if (requestSignal.aborted && !failureAbortActive) {
+                        throw createAbortError(lastTask);
+                    }
                     const entry = selectedLibraryQueue.shift();
                     if (!entry) {
                         return null;
@@ -542,8 +552,7 @@ class ChannelSetupFacetSnapshotLoader {
                         }
                     }
 
-                    const genreType = library.type === 'show' ? PLEX_MEDIA_TYPES.SHOW : PLEX_MEDIA_TYPES.MOVIE;
-                    const detailType = library.type === 'show' ? PLEX_MEDIA_TYPES.EPISODE : PLEX_MEDIA_TYPES.MOVIE;
+                    const { genreType, detailType } = getTagDirectoryMediaTypesForLibraryType(library.type);
                     const plexRequestIntent = requestIntent;
                     // `null` means unknown count, not empty. Keep validation enabled so unsupported
                     // native facet endpoints still surface as blocked instead of silently passing through.
@@ -750,6 +759,9 @@ class ChannelSetupFacetSnapshotLoader {
                                 const settled = await Promise.race(
                                     Array.from(pendingFacetIndexes, (facetIndex) => settledFacetTasks[facetIndex])
                                 );
+                                if (requestSignal.aborted && !failureAbortActive) {
+                                    throw createAbortError(lastTask);
+                                }
                                 if (!settled) {
                                     break;
                                 }
@@ -774,6 +786,9 @@ class ChannelSetupFacetSnapshotLoader {
                 return null;
             });
             const workerResults = await Promise.all(libraryWorkers);
+            if (requestSignal.aborted && !failureAbortActive) {
+                throw createAbortError(lastTask);
+            }
             const libraryFailure = firstFailure
                 ?? workerResults.find((value): value is ChannelSetupFacetSnapshot => value !== null);
             if (libraryFailure) {
