@@ -84,11 +84,46 @@ type ChannelSetupFacetSnapshot =
         failureReason: ChannelSetupPreviewFailureReason;
     } & ChannelSetupFacetSnapshotData);
 
+type ChannelSetupFacetSnapshotWaitOptions = {
+    signal: AbortSignal | null;
+    reportProgress?: (
+        task: ChannelBuildProgress['task'],
+        label: string,
+        detail: string,
+        current: number,
+        total: number | null
+    ) => void;
+    detachFromSignal: boolean;
+};
+
+type ChannelSetupFacetSnapshotProgress = {
+    task: ChannelBuildProgress['task'];
+    label: string;
+    detail: string;
+    current: number;
+    total: number | null;
+};
+
+type ChannelSetupFacetSnapshotWaiter = {
+    reportProgress: (
+        task: ChannelBuildProgress['task'],
+        label: string,
+        detail: string,
+        current: number,
+        total: number | null
+    ) => void;
+};
+
+const MAX_FACET_LIBRARY_CONCURRENCY = 2;
+
 class ChannelSetupFacetSnapshotLoader {
     private _cachedKey: string | null = null;
     private _cachedSnapshot: ChannelSetupFacetSnapshot | null = null;
     private _inflightKey: string | null = null;
     private _inflightPromise: Promise<ChannelSetupFacetSnapshot> | null = null;
+    private _inflightLastTask: ChannelBuildProgress['task'] | undefined;
+    private _inflightProgress: ChannelSetupFacetSnapshotProgress | null = null;
+    private readonly _inflightWaiters = new Set<ChannelSetupFacetSnapshotWaiter>();
 
     constructor(private readonly _deps: ChannelSetupPlanningServiceDeps) {}
 
@@ -97,29 +132,22 @@ class ChannelSetupFacetSnapshotLoader {
         this._cachedSnapshot = null;
         this._inflightKey = null;
         this._inflightPromise = null;
+        this._inflightLastTask = undefined;
+        this._inflightProgress = null;
+        this._inflightWaiters.clear();
     }
 
     async loadSnapshot(
         config: ChannelSetupConfig,
         libraries: PlexLibraryType[],
-        options: {
-            signal: AbortSignal | null;
-            reportProgress?: (
-                task: ChannelBuildProgress['task'],
-                label: string,
-                detail: string,
-                current: number,
-                total: number | null
-            ) => void;
-            detachFromSignal: boolean;
-        }
+        options: ChannelSetupFacetSnapshotWaitOptions
     ): Promise<ChannelSetupFacetSnapshot> {
         const key = this._buildSnapshotKey(config);
         if (this._cachedKey === key && this._cachedSnapshot) {
             return this._cachedSnapshot;
         }
         if (this._inflightKey === key && this._inflightPromise) {
-            return this._awaitSnapshot(this._inflightPromise, options.signal, options.detachFromSignal);
+            return this._awaitSnapshot(this._inflightPromise, options);
         }
 
         this.invalidate();
@@ -127,7 +155,9 @@ class ChannelSetupFacetSnapshotLoader {
             config,
             libraries,
             options.detachFromSignal ? null : options.signal,
-            options.reportProgress
+            (task, label, detail, current, total) => {
+                this._emitInflightProgress(task, label, detail, current, total);
+            }
         );
         this._inflightKey = key;
         this._inflightPromise = loadPromise;
@@ -144,10 +174,13 @@ class ChannelSetupFacetSnapshotLoader {
             if (this._inflightPromise === loadPromise && this._inflightKey === key) {
                 this._inflightPromise = null;
                 this._inflightKey = null;
+                this._inflightLastTask = undefined;
+                this._inflightProgress = null;
+                this._inflightWaiters.clear();
             }
         });
 
-        return this._awaitSnapshot(loadPromise, options.signal, options.detachFromSignal);
+        return this._awaitSnapshot(loadPromise, options);
     }
 
     private _buildSnapshotKey(config: ChannelSetupConfig): string {
@@ -170,31 +203,91 @@ class ChannelSetupFacetSnapshotLoader {
 
     private _awaitSnapshot(
         promise: Promise<ChannelSetupFacetSnapshot>,
-        signal: AbortSignal | null,
-        detachFromSignal: boolean
+        options: ChannelSetupFacetSnapshotWaitOptions
     ): Promise<ChannelSetupFacetSnapshot> {
-        if (!detachFromSignal || !signal) {
-            return promise;
+        const waiter = this._registerWaiter(options.reportProgress);
+        const cleanup = (): void => {
+            if (waiter) {
+                this._inflightWaiters.delete(waiter);
+            }
+        };
+        const signal = options.signal;
+
+        if (!signal) {
+            if (!waiter) {
+                return promise;
+            }
+            return new Promise<ChannelSetupFacetSnapshot>((resolve, reject) => {
+                void promise.then(
+                    (value) => {
+                        cleanup();
+                        resolve(value);
+                    },
+                    (error) => {
+                        cleanup();
+                        reject(error);
+                    }
+                );
+            });
         }
         if (signal.aborted) {
-            return Promise.reject(createAbortError());
+            cleanup();
+            return Promise.reject(createAbortError(this._inflightLastTask));
         }
         return new Promise<ChannelSetupFacetSnapshot>((resolve, reject) => {
             const onAbort = (): void => {
-                reject(createAbortError());
+                cleanup();
+                reject(createAbortError(this._inflightLastTask));
             };
             signal.addEventListener('abort', onAbort, { once: true });
             void promise.then(
                 (value) => {
                     signal.removeEventListener('abort', onAbort);
+                    cleanup();
                     resolve(value);
                 },
                 (error) => {
                     signal.removeEventListener('abort', onAbort);
+                    cleanup();
                     reject(error);
                 }
             );
         });
+    }
+
+    private _registerWaiter(
+        reportProgress?: (
+            task: ChannelBuildProgress['task'],
+            label: string,
+            detail: string,
+            current: number,
+            total: number | null
+        ) => void
+    ): ChannelSetupFacetSnapshotWaiter | null {
+        if (!reportProgress) {
+            return null;
+        }
+        const waiter: ChannelSetupFacetSnapshotWaiter = { reportProgress };
+        this._inflightWaiters.add(waiter);
+        if (this._inflightProgress) {
+            const progress = this._inflightProgress;
+            reportProgress(progress.task, progress.label, progress.detail, progress.current, progress.total);
+        }
+        return waiter;
+    }
+
+    private _emitInflightProgress(
+        task: ChannelBuildProgress['task'],
+        label: string,
+        detail: string,
+        current: number,
+        total: number | null
+    ): void {
+        this._inflightLastTask = task;
+        this._inflightProgress = { task, label, detail, current, total };
+        for (const waiter of this._inflightWaiters) {
+            waiter.reportProgress(task, label, detail, current, total);
+        }
     }
 
     private async _loadSnapshotUncached(
@@ -329,199 +422,217 @@ class ChannelSetupFacetSnapshotLoader {
             }
         }
 
-        for (let libIndex = 0; libIndex < selectedLibraries.length; libIndex++) {
-            const library = selectedLibraries[libIndex];
-            if (!library) {
-                continue;
-            }
-            if (isSignalAborted(signal ?? undefined)) {
-                throw createAbortError(lastTask);
-            }
+        const selectedLibraryQueue = selectedLibraries
+            .map((library, index) => ({ library, index }))
+            .filter((entry): entry is { library: PlexLibraryType; index: number } => entry.library !== undefined);
+        let shouldStop = false;
+        const workerCount = Math.min(MAX_FACET_LIBRARY_CONCURRENCY, selectedLibraryQueue.length);
+        const libraryWorkers = Array.from({ length: workerCount }, async (): Promise<ChannelSetupFacetSnapshot | null> => {
+            while (selectedLibraryQueue.length > 0) {
+                if (shouldStop) {
+                    return null;
+                }
+                if (isSignalAborted(signal ?? undefined)) {
+                    throw createAbortError(lastTask);
+                }
+                const entry = selectedLibraryQueue.shift();
+                if (!entry) {
+                    return null;
+                }
+                const { library, index: libIndex } = entry;
 
-            if (config.strategyConfig.collections.enabled) {
-                reportSnapshotProgress('fetch_collections', 'Fetching collections...', library.title, libIndex, selectedLibraries.length);
-                try {
-                    const collectionsStart = Date.now();
-                    const collections = await this._deps.plexLibrary.getCollections(library.id, {
-                        signal,
-                        requestProfile: 'interactive',
-                    });
-                    collectionsMs += Date.now() - collectionsStart;
-                    collectionsByLibraryId.set(library.id, collections);
-                } catch (error) {
-                    if (isSignalAborted(signal ?? undefined)) {
-                        throw createAbortError(lastTask);
+                if (config.strategyConfig.collections.enabled) {
+                    reportSnapshotProgress('fetch_collections', 'Fetching collections...', library.title, libIndex, selectedLibraries.length);
+                    try {
+                        const collectionsStart = Date.now();
+                        const collections = await this._deps.plexLibrary.getCollections(library.id, {
+                            signal,
+                            requestProfile: 'interactive',
+                        });
+                        collectionsMs += Date.now() - collectionsStart;
+                        collectionsByLibraryId.set(library.id, collections);
+                    } catch (error) {
+                        if (isSignalAborted(signal ?? undefined)) {
+                            throw createAbortError(lastTask);
+                        }
+                        console.warn(`Failed to fetch collections for library ${library.title}:`, summarizeErrorForLog(error));
+                        addPartialWarning('fetch_collections', `fetch_collections failed for ${library.title}`, error);
+                        errorsTotal++;
+                        collectionsByLibraryId.set(library.id, []);
                     }
-                    console.warn(`Failed to fetch collections for library ${library.title}:`, summarizeErrorForLog(error));
-                    addPartialWarning('fetch_collections', `fetch_collections failed for ${library.title}`, error);
-                    errorsTotal++;
-                    collectionsByLibraryId.set(library.id, []);
+                }
+
+                const genreType = library.type === 'show' ? PLEX_MEDIA_TYPES.SHOW : PLEX_MEDIA_TYPES.MOVIE;
+                const detailType = library.type === 'show' ? PLEX_MEDIA_TYPES.EPISODE : PLEX_MEDIA_TYPES.MOVIE;
+                const requireEntries = library.contentCount !== 0;
+                const nativeFacetTasks: Array<Promise<ChannelSetupFacetSnapshot | null>> = [];
+
+                if (config.strategyConfig.genres.enabled) {
+                    nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
+                        try {
+                            const tagStart = Date.now();
+                            let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
+                            const genres = await this._deps.plexLibrary.getGenres(library.id, {
+                                type: genreType,
+                                signal,
+                                requireEntries,
+                                requestProfile: 'interactive',
+                                onUnsupported: (reason) => {
+                                    unsupportedReason = reason;
+                                },
+                            });
+                            libraryQueryMs += Date.now() - tagStart;
+                            if (unsupportedReason) {
+                                return buildRequiredTagDirectoryFailure('Genres', library.title, genreType, unsupportedReason);
+                            }
+                            genresByLibraryId.set(library.id, genres);
+                            return null;
+                        } catch (error) {
+                            if (isSignalAborted(signal ?? undefined)) {
+                                throw createAbortError(lastTask);
+                            }
+                            console.warn(`Failed to fetch genres for ${library.title}:`, summarizeErrorForLog(error));
+                            return buildRequiredTagDirectoryFailure('Genres', library.title, genreType, 'error', error);
+                        }
+                    })());
+                }
+
+                if (config.strategyConfig.directors.enabled) {
+                    nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
+                        try {
+                            const tagStart = Date.now();
+                            let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
+                            const directors = await this._deps.plexLibrary.getDirectors(library.id, {
+                                type: detailType,
+                                signal,
+                                requireEntries,
+                                requestProfile: 'interactive',
+                                onUnsupported: (reason) => {
+                                    unsupportedReason = reason;
+                                },
+                            });
+                            libraryQueryMs += Date.now() - tagStart;
+                            if (unsupportedReason) {
+                                return buildRequiredTagDirectoryFailure('Directors', library.title, detailType, unsupportedReason);
+                            }
+                            directorsByLibraryId.set(library.id, directors);
+                            return null;
+                        } catch (error) {
+                            if (isSignalAborted(signal ?? undefined)) {
+                                throw createAbortError(lastTask);
+                            }
+                            console.warn(`Failed to fetch directors for ${library.title}:`, summarizeErrorForLog(error));
+                            return buildRequiredTagDirectoryFailure('Directors', library.title, detailType, 'error', error);
+                        }
+                    })());
+                }
+
+                if (config.strategyConfig.decades.enabled) {
+                    nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
+                        try {
+                            const tagStart = Date.now();
+                            let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
+                            const years = await this._deps.plexLibrary.getYears(library.id, {
+                                type: detailType,
+                                signal,
+                                requireEntries,
+                                requestProfile: 'interactive',
+                                onUnsupported: (reason) => {
+                                    unsupportedReason = reason;
+                                },
+                            });
+                            libraryQueryMs += Date.now() - tagStart;
+                            if (unsupportedReason) {
+                                return buildRequiredTagDirectoryFailure('Years', library.title, detailType, unsupportedReason);
+                            }
+                            yearsByLibraryId.set(library.id, years);
+                            return null;
+                        } catch (error) {
+                            if (isSignalAborted(signal ?? undefined)) {
+                                throw createAbortError(lastTask);
+                            }
+                            console.warn(`Failed to fetch years for ${library.title}:`, summarizeErrorForLog(error));
+                            return buildRequiredTagDirectoryFailure('Years', library.title, detailType, 'error', error);
+                        }
+                    })());
+                }
+
+                if (config.strategyConfig.studios.enabled) {
+                    nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
+                        try {
+                            const studiosStart = Date.now();
+                            let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
+                            const studios = await this._deps.plexLibrary.getStudios(library.id, {
+                                type: detailType,
+                                signal,
+                                requireEntries,
+                                requestProfile: 'interactive',
+                                onUnsupported: (reason) => {
+                                    unsupportedReason = reason;
+                                },
+                            });
+                            libraryQueryMs += Date.now() - studiosStart;
+                            if (unsupportedReason) {
+                                return buildRequiredTagDirectoryFailure('Studios', library.title, detailType, unsupportedReason);
+                            }
+                            studiosByLibraryId.set(library.id, studios);
+                            return null;
+                        } catch (error) {
+                            if (isSignalAborted(signal ?? undefined)) {
+                                throw createAbortError(lastTask);
+                            }
+                            console.warn(`Failed to fetch studios for ${library.title}:`, summarizeErrorForLog(error));
+                            return buildRequiredTagDirectoryFailure('Studios', library.title, detailType, 'error', error);
+                        }
+                    })());
+                }
+
+                if (config.strategyConfig.actors.enabled) {
+                    nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
+                        try {
+                            const actorsStart = Date.now();
+                            let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
+                            const actors = await this._deps.plexLibrary.getActors(library.id, {
+                                type: detailType,
+                                signal,
+                                requireEntries,
+                                requestProfile: 'interactive',
+                                onUnsupported: (reason) => {
+                                    unsupportedReason = reason;
+                                },
+                            });
+                            libraryQueryMs += Date.now() - actorsStart;
+                            if (unsupportedReason) {
+                                return buildRequiredTagDirectoryFailure('Actors', library.title, detailType, unsupportedReason);
+                            }
+                            actorsByLibraryId.set(library.id, actors);
+                            return null;
+                        } catch (error) {
+                            if (isSignalAborted(signal ?? undefined)) {
+                                throw createAbortError(lastTask);
+                            }
+                            console.warn(`Failed to fetch actors for ${library.title}:`, summarizeErrorForLog(error));
+                            return buildRequiredTagDirectoryFailure('Actors', library.title, detailType, 'error', error);
+                        }
+                    })());
+                }
+
+                if (nativeFacetTasks.length > 0) {
+                    reportSnapshotProgress('scan_library_items', 'Resolving filters...', library.title, libIndex, selectedLibraries.length);
+                    const results = await Promise.all(nativeFacetTasks);
+                    const failure = results.find((value): value is ChannelSetupFacetSnapshot => value !== null);
+                    if (failure) {
+                        shouldStop = true;
+                        return failure;
+                    }
                 }
             }
-
-            const genreType = library.type === 'show' ? PLEX_MEDIA_TYPES.SHOW : PLEX_MEDIA_TYPES.MOVIE;
-            const detailType = library.type === 'show' ? PLEX_MEDIA_TYPES.EPISODE : PLEX_MEDIA_TYPES.MOVIE;
-            const requireEntries = library.contentCount > 0;
-            const nativeFacetTasks: Array<Promise<ChannelSetupFacetSnapshot | null>> = [];
-
-            if (config.strategyConfig.genres.enabled) {
-                nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
-                    try {
-                        const tagStart = Date.now();
-                        let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
-                        const genres = await this._deps.plexLibrary.getGenres(library.id, {
-                            type: genreType,
-                            signal,
-                            requireEntries,
-                            requestProfile: 'interactive',
-                            onUnsupported: (reason) => {
-                                unsupportedReason = reason;
-                            },
-                        });
-                        libraryQueryMs += Date.now() - tagStart;
-                        if (unsupportedReason) {
-                            return buildRequiredTagDirectoryFailure('Genres', library.title, genreType, unsupportedReason);
-                        }
-                        genresByLibraryId.set(library.id, genres);
-                        return null;
-                    } catch (error) {
-                        if (isSignalAborted(signal ?? undefined)) {
-                            throw createAbortError(lastTask);
-                        }
-                        console.warn(`Failed to fetch genres for ${library.title}:`, summarizeErrorForLog(error));
-                        return buildRequiredTagDirectoryFailure('Genres', library.title, genreType, 'error', error);
-                    }
-                })());
-            }
-
-            if (config.strategyConfig.directors.enabled) {
-                nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
-                    try {
-                        const tagStart = Date.now();
-                        let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
-                        const directors = await this._deps.plexLibrary.getDirectors(library.id, {
-                            type: detailType,
-                            signal,
-                            requireEntries,
-                            requestProfile: 'interactive',
-                            onUnsupported: (reason) => {
-                                unsupportedReason = reason;
-                            },
-                        });
-                        libraryQueryMs += Date.now() - tagStart;
-                        if (unsupportedReason) {
-                            return buildRequiredTagDirectoryFailure('Directors', library.title, detailType, unsupportedReason);
-                        }
-                        directorsByLibraryId.set(library.id, directors);
-                        return null;
-                    } catch (error) {
-                        if (isSignalAborted(signal ?? undefined)) {
-                            throw createAbortError(lastTask);
-                        }
-                        console.warn(`Failed to fetch directors for ${library.title}:`, summarizeErrorForLog(error));
-                        return buildRequiredTagDirectoryFailure('Directors', library.title, detailType, 'error', error);
-                    }
-                })());
-            }
-
-            if (config.strategyConfig.decades.enabled) {
-                nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
-                    try {
-                        const tagStart = Date.now();
-                        let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
-                        const years = await this._deps.plexLibrary.getYears(library.id, {
-                            type: detailType,
-                            signal,
-                            requireEntries,
-                            requestProfile: 'interactive',
-                            onUnsupported: (reason) => {
-                                unsupportedReason = reason;
-                            },
-                        });
-                        libraryQueryMs += Date.now() - tagStart;
-                        if (unsupportedReason) {
-                            return buildRequiredTagDirectoryFailure('Years', library.title, detailType, unsupportedReason);
-                        }
-                        yearsByLibraryId.set(library.id, years);
-                        return null;
-                    } catch (error) {
-                        if (isSignalAborted(signal ?? undefined)) {
-                            throw createAbortError(lastTask);
-                        }
-                        console.warn(`Failed to fetch years for ${library.title}:`, summarizeErrorForLog(error));
-                        return buildRequiredTagDirectoryFailure('Years', library.title, detailType, 'error', error);
-                    }
-                })());
-            }
-
-            if (config.strategyConfig.studios.enabled) {
-                nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
-                    try {
-                        const studiosStart = Date.now();
-                        let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
-                        const studios = await this._deps.plexLibrary.getStudios(library.id, {
-                            type: detailType,
-                            signal,
-                            requireEntries,
-                            requestProfile: 'interactive',
-                            onUnsupported: (reason) => {
-                                unsupportedReason = reason;
-                            },
-                        });
-                        libraryQueryMs += Date.now() - studiosStart;
-                        if (unsupportedReason) {
-                            return buildRequiredTagDirectoryFailure('Studios', library.title, detailType, unsupportedReason);
-                        }
-                        studiosByLibraryId.set(library.id, studios);
-                        return null;
-                    } catch (error) {
-                        if (isSignalAborted(signal ?? undefined)) {
-                            throw createAbortError(lastTask);
-                        }
-                        console.warn(`Failed to fetch studios for ${library.title}:`, summarizeErrorForLog(error));
-                        return buildRequiredTagDirectoryFailure('Studios', library.title, detailType, 'error', error);
-                    }
-                })());
-            }
-
-            if (config.strategyConfig.actors.enabled) {
-                nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
-                    try {
-                        const actorsStart = Date.now();
-                        let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
-                        const actors = await this._deps.plexLibrary.getActors(library.id, {
-                            type: detailType,
-                            signal,
-                            requireEntries,
-                            requestProfile: 'interactive',
-                            onUnsupported: (reason) => {
-                                unsupportedReason = reason;
-                            },
-                        });
-                        libraryQueryMs += Date.now() - actorsStart;
-                        if (unsupportedReason) {
-                            return buildRequiredTagDirectoryFailure('Actors', library.title, detailType, unsupportedReason);
-                        }
-                        actorsByLibraryId.set(library.id, actors);
-                        return null;
-                    } catch (error) {
-                        if (isSignalAborted(signal ?? undefined)) {
-                            throw createAbortError(lastTask);
-                        }
-                        console.warn(`Failed to fetch actors for ${library.title}:`, summarizeErrorForLog(error));
-                        return buildRequiredTagDirectoryFailure('Actors', library.title, detailType, 'error', error);
-                    }
-                })());
-            }
-
-            if (nativeFacetTasks.length > 0) {
-                reportSnapshotProgress('scan_library_items', 'Resolving filters...', library.title, libIndex, selectedLibraries.length);
-                const results = await Promise.all(nativeFacetTasks);
-                const failure = results.find((value): value is ChannelSetupFacetSnapshot => value !== null);
-                if (failure) {
-                    return failure;
-                }
-            }
+            return null;
+        });
+        const workerResults = await Promise.all(libraryWorkers);
+        const libraryFailure = workerResults.find((value): value is ChannelSetupFacetSnapshot => value !== null);
+        if (libraryFailure) {
+            return libraryFailure;
         }
 
         return {

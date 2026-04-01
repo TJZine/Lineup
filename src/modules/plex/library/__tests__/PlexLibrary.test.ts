@@ -270,6 +270,29 @@ describe('PlexLibrary', () => {
             expect(showLib?.episodeCount).toBeUndefined();
         });
 
+        it('preserves unknown contentCount when item-count fetch fails', async () => {
+            mockFetchJson(mockLibrarySectionsResponse);
+            const library = new PlexLibrary(mockConfig);
+
+            const spy = jest.spyOn(library, 'getLibraryItemCount');
+            spy.mockImplementation(async (_libraryId, options) => {
+                const typeFilter = options?.filter?.type;
+                if (typeFilter === 4) {
+                    return 999;
+                }
+                if (_libraryId === '2') {
+                    throw new Error('item count failed');
+                }
+                return 456;
+            });
+
+            const libs = await library.getLibraries({ includeItemCounts: true, itemCountConcurrency: 1 });
+
+            const showLib = libs.find((lib) => lib.id === '2');
+            expect(showLib?.contentCount).toBeNull();
+            expect(showLib?.episodeCount).toBeUndefined();
+        });
+
         it('should sanitize itemCountConcurrency when includeItemCounts is enabled', async () => {
             const oneLibraryResponse = {
                 MediaContainer: {

@@ -235,8 +235,8 @@ export class PlexLibrary implements IPlexLibrary {
                         if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
                             return;
                         }
-                        // Non-fatal: keep the section visible even if counts fail.
-                        lib.contentCount = 0;
+                        // Non-fatal: keep the section visible even if counts fail, but preserve that count is unknown.
+                        lib.contentCount = null;
                         const context = typeof lib.title === 'string' && lib.title ? lib.title : lib.id;
                         this._logger.warn(`[PlexLibrary] Failed to fetch item count for library ${context}:`, summarizeErrorForLog(error));
                     }

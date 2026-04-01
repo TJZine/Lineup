@@ -47,6 +47,7 @@ export interface IPlexLibrary {
         signal?: AbortSignal | null;
         /**
          * When true, fetch and populate `contentCount` for each library section.
+         * Leaves `contentCount` as `null` when the count request fails.
          * Uses a lightweight count query (X-Plex-Container-Size=0) per library.
          */
         includeItemCounts?: boolean;
