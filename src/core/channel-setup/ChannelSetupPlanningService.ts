@@ -296,7 +296,10 @@ class ChannelSetupFacetSnapshotLoader {
             reportProgress?.('fetch_playlists', 'Fetching playlists...', 'Scanning server', 0, null);
             try {
                 const playlistsStart = Date.now();
-                const fetched = await this._deps.plexLibrary.getPlaylists({ signal });
+                const fetched = await this._deps.plexLibrary.getPlaylists({
+                    signal,
+                    requestProfile: 'interactive',
+                });
                 playlistMs += Date.now() - playlistsStart;
                 playlists.push(...fetched);
             } catch (error) {
@@ -322,7 +325,10 @@ class ChannelSetupFacetSnapshotLoader {
                 reportProgress?.('fetch_collections', 'Fetching collections...', library.title, libIndex, selectedLibraries.length);
                 try {
                     const collectionsStart = Date.now();
-                    const collections = await this._deps.plexLibrary.getCollections(library.id, { signal });
+                    const collections = await this._deps.plexLibrary.getCollections(library.id, {
+                        signal,
+                        requestProfile: 'interactive',
+                    });
                     collectionsMs += Date.now() - collectionsStart;
                     collectionsByLibraryId.set(library.id, collections);
                 } catch (error) {
@@ -350,6 +356,7 @@ class ChannelSetupFacetSnapshotLoader {
                             type: genreType,
                             signal,
                             requireEntries,
+                            requestProfile: 'interactive',
                             onUnsupported: (reason) => {
                                 unsupportedReason = reason;
                             },
@@ -379,6 +386,7 @@ class ChannelSetupFacetSnapshotLoader {
                             type: detailType,
                             signal,
                             requireEntries,
+                            requestProfile: 'interactive',
                             onUnsupported: (reason) => {
                                 unsupportedReason = reason;
                             },
@@ -408,6 +416,7 @@ class ChannelSetupFacetSnapshotLoader {
                             type: detailType,
                             signal,
                             requireEntries,
+                            requestProfile: 'interactive',
                             onUnsupported: (reason) => {
                                 unsupportedReason = reason;
                             },
@@ -437,6 +446,7 @@ class ChannelSetupFacetSnapshotLoader {
                             type: detailType,
                             signal,
                             requireEntries,
+                            requestProfile: 'interactive',
                             onUnsupported: (reason) => {
                                 unsupportedReason = reason;
                             },
@@ -466,6 +476,7 @@ class ChannelSetupFacetSnapshotLoader {
                             type: detailType,
                             signal,
                             requireEntries,
+                            requestProfile: 'interactive',
                             onUnsupported: (reason) => {
                                 unsupportedReason = reason;
                             },

@@ -45,6 +45,7 @@ const makeRuntimeFacade = (): AppLazyScreenRegistryRuntimeFacade => ({
         switchToChannelByNumber: jest.fn().mockResolvedValue(undefined),
         openEPG: jest.fn(),
         requestChannelSetupRerun: jest.fn(),
+        invalidateFacetSnapshot: jest.fn(),
         getLibrariesForSetup: jest.fn().mockResolvedValue([]),
         getChannelSetupRecord: jest.fn().mockReturnValue(null),
         getSetupContextForSelectedServer: jest.fn().mockReturnValue('unknown'),

@@ -35,6 +35,7 @@ export const createChannelSetupSessionGateway = (
         deps.switchToChannelByNumber(number, options),
     openEPG: (): void => deps.openEPG(),
     requestChannelSetupRerun: (): void => deps.getChannelSetupCoordinator()?.requestChannelSetupRerun(),
+    invalidateFacetSnapshot: (): void => deps.getChannelSetupCoordinator()?.invalidateFacetSnapshot(),
     getLibrariesForSetup: (signal?: AbortSignal | null): Promise<PlexLibraryType[]> =>
         deps.getChannelSetupCoordinator()?.getLibrariesForSetup(signal ?? null)
         ?? Promise.reject(new Error('Channel setup not initialized')),

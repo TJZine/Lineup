@@ -18,11 +18,14 @@ import type {
 
 export type PlexTagDirectoryUnsupportedReason = 'unavailable' | 'empty';
 
+export type PlexLibraryRequestProfile = 'default' | 'interactive';
+
 export interface PlexTagDirectoryQueryOptions {
     type: number;
     signal?: AbortSignal | null;
     onUnsupported?: (reason: PlexTagDirectoryUnsupportedReason) => void;
     requireEntries?: boolean;
+    requestProfile?: PlexLibraryRequestProfile;
 }
 
 // ============================================
@@ -134,7 +137,10 @@ export interface IPlexLibrary {
      * @param libraryId - Library section ID
      * @returns Promise resolving to list of collections
      */
-    getCollections(libraryId: string, options?: { signal?: AbortSignal | null }): Promise<PlexCollection[]>;
+    getCollections(libraryId: string, options?: {
+        signal?: AbortSignal | null;
+        requestProfile?: PlexLibraryRequestProfile;
+    }): Promise<PlexCollection[]>;
 
     /**
      * Get items in a collection.
@@ -147,7 +153,10 @@ export interface IPlexLibrary {
      * Get user playlists.
      * @returns Promise resolving to list of playlists
      */
-    getPlaylists(options?: { signal?: AbortSignal | null }): Promise<PlexPlaylist[]>;
+    getPlaylists(options?: {
+        signal?: AbortSignal | null;
+        requestProfile?: PlexLibraryRequestProfile;
+    }): Promise<PlexPlaylist[]>;
 
     /**
      * Get items in a playlist.

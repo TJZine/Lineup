@@ -670,7 +670,13 @@ export class StrategyStepController {
         if (state.previewError) {
             const error = document.createElement('div');
             error.className = 'setup-preview-warning';
-            error.textContent = state.previewError;
+            if (state.previewStatus === 'blocked') {
+                error.textContent = `Action required: ${state.previewError}`;
+            } else if (state.previewStatus === 'slow') {
+                error.textContent = `Preview timed out: ${state.previewError}`;
+            } else {
+                error.textContent = state.previewError;
+            }
             previewPanel.appendChild(error);
             return previewPanel;
         }

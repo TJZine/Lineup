@@ -47,6 +47,7 @@ const createOrchestrator = (overrides: OrchestratorOverrides = {}): jest.Mocked<
         switchToChannelByNumber: jest.fn((_number: number) => Promise.resolve()),
         openEPG: jest.fn(),
         requestChannelSetupRerun: jest.fn(),
+        invalidateFacetSnapshot: jest.fn(),
         createChannelsFromSetup: jest.fn((_config, _options) => Promise.resolve(DEFAULT_BUILD_RESULT)),
         markSetupComplete: jest.fn((_serverId: string, _setupConfig) => {}),
         getSetupPreview: jest.fn().mockResolvedValue(DEFAULT_PREVIEW),

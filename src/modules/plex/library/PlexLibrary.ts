@@ -13,6 +13,7 @@ import { redactUrlForLog } from '../../../utils/redact';
 import type {
     IPlexLibrary,
     PlexLibraryConfig,
+    PlexLibraryRequestProfile,
     PlexTagDirectoryQueryOptions,
     PlexTagDirectoryUnsupportedReason,
 } from './interfaces';
@@ -73,6 +74,30 @@ export class PlexLibraryError extends Error {
 
 // Re-export for consumers
 export { PlexLibraryErrorCode };
+
+const INTERACTIVE_REQUEST_POLICY = {
+    timeoutMs: 5000,
+    timeoutRetryDelays: [1000] as const,
+} as const;
+
+const resolveRequestPolicy = (profile: PlexLibraryRequestProfile = 'default'): {
+    timeoutMs: number;
+    timeoutRetryDelays: readonly number[];
+    maxTimeoutRetries: number;
+} => {
+    if (profile === 'interactive') {
+        return {
+            timeoutMs: INTERACTIVE_REQUEST_POLICY.timeoutMs,
+            timeoutRetryDelays: INTERACTIVE_REQUEST_POLICY.timeoutRetryDelays,
+            maxTimeoutRetries: INTERACTIVE_REQUEST_POLICY.timeoutRetryDelays.length,
+        };
+    }
+    return {
+        timeoutMs: PLEX_LIBRARY_CONSTANTS.REQUEST_TIMEOUT_MS,
+        timeoutRetryDelays: PLEX_LIBRARY_CONSTANTS.TIMEOUT_RETRY_DELAYS,
+        maxTimeoutRetries: PLEX_LIBRARY_CONSTANTS.MAX_TIMEOUT_RETRIES,
+    };
+};
 
 // ============================================
 // Main Class
@@ -565,7 +590,10 @@ export class PlexLibrary implements IPlexLibrary {
      * @param libraryId - Library section ID
      * @returns Promise resolving to list of collections
      */
-    async getCollections(libraryId: string, options?: { signal?: AbortSignal | null }): Promise<PlexCollection[]> {
+    async getCollections(
+        libraryId: string,
+        options?: { signal?: AbortSignal | null; requestProfile?: PlexLibraryRequestProfile }
+    ): Promise<PlexCollection[]> {
         // Use type=18 (COLLECTION) filter on the library 'all' endpoint
         const params = {
             type: PLEX_MEDIA_TYPES.COLLECTION,
@@ -573,7 +601,11 @@ export class PlexLibrary implements IPlexLibrary {
             includeMeta: 1,  // Standard metadata
         };
         const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_ALL(libraryId), params);
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawCollection>>(url, { signal: options?.signal ?? null });
+        const response = await this._fetchWithRetry<PlexMediaContainer<RawCollection>>(
+            url,
+            { signal: options?.signal ?? null },
+            options?.requestProfile
+        );
 
         if (!response) {
             return [];
@@ -608,9 +640,15 @@ export class PlexLibrary implements IPlexLibrary {
      * Get user playlists.
      * @returns Promise resolving to list of playlists
      */
-    async getPlaylists(options?: { signal?: AbortSignal | null }): Promise<PlexPlaylist[]> {
+    async getPlaylists(
+        options?: { signal?: AbortSignal | null; requestProfile?: PlexLibraryRequestProfile }
+    ): Promise<PlexPlaylist[]> {
         const url = this._buildUrl(PLEX_ENDPOINTS.PLAYLISTS);
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawPlaylist>>(url, { signal: options?.signal ?? null });
+        const response = await this._fetchWithRetry<PlexMediaContainer<RawPlaylist>>(
+            url,
+            { signal: options?.signal ?? null },
+            options?.requestProfile
+        );
 
         if (!response) {
             return [];
@@ -651,7 +689,7 @@ export class PlexLibrary implements IPlexLibrary {
         const url = this._buildUrl(endpoint(libraryId), params);
         const response = await this._fetchWithRetry<PlexMediaContainer<RawDirectoryTag>>(url, {
             signal: options.signal ?? null,
-        });
+        }, options.requestProfile);
         if (!response) {
             if (options.requireEntries) {
                 this._notifyUnsupportedTagDirectory(options, 'unavailable', label, libraryId);
@@ -858,9 +896,11 @@ export class PlexLibrary implements IPlexLibrary {
      */
     private async _fetchWithRetry<T>(
         url: string,
-        options: RequestInit = {}
+        options: RequestInit = {},
+        requestProfile: PlexLibraryRequestProfile = 'default'
     ): Promise<T | null> {
         const logger = this._logger;
+        const requestPolicy = resolveRequestPolicy(requestProfile);
         let timeoutRetries = 0;
         let serverErrorRetried = false;
         let rateLimitRetries = 0;
@@ -908,7 +948,7 @@ export class PlexLibrary implements IPlexLibrary {
                                 ...options.headers,
                             },
                         },
-                        PLEX_LIBRARY_CONSTANTS.REQUEST_TIMEOUT_MS,
+                        requestPolicy.timeoutMs,
                         externalSignal
                     );
                 } finally {
@@ -939,7 +979,7 @@ export class PlexLibrary implements IPlexLibrary {
 
                 // Handle 429 Rate Limited - backoff per Retry-After
                 if (response.status === 429) {
-                    if (rateLimitRetries >= PLEX_LIBRARY_CONSTANTS.MAX_TIMEOUT_RETRIES) {
+                    if (rateLimitRetries >= requestPolicy.maxTimeoutRetries) {
                         throw new PlexLibraryError(
                             PlexLibraryErrorCode.RATE_LIMITED,
                             'Rate limited after max retries',
@@ -1032,9 +1072,12 @@ export class PlexLibrary implements IPlexLibrary {
                         ? (error as { name: string }).name
                         : '';
                 if (errorName === 'AbortError') {
-                    if (timeoutRetries < PLEX_LIBRARY_CONSTANTS.MAX_TIMEOUT_RETRIES) {
-                        const delay = PLEX_LIBRARY_CONSTANTS.TIMEOUT_RETRY_DELAYS[timeoutRetries] ?? 4000;
-                        logger.warn(`[PlexLibrary] Network timeout, retry ${timeoutRetries + 1}/${PLEX_LIBRARY_CONSTANTS.MAX_TIMEOUT_RETRIES} after ${delay}ms`);
+                    if (timeoutRetries < requestPolicy.maxTimeoutRetries) {
+                        const delay =
+                            requestPolicy.timeoutRetryDelays[timeoutRetries]
+                            ?? requestPolicy.timeoutRetryDelays[requestPolicy.timeoutRetryDelays.length - 1]
+                            ?? 4000;
+                        logger.warn(`[PlexLibrary] Network timeout, retry ${timeoutRetries + 1}/${requestPolicy.maxTimeoutRetries} after ${delay}ms`);
                         timeoutRetries++;
                         await this._delay(delay);
                         continue;
