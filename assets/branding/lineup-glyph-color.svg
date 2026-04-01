@@ -14,6 +14,9 @@
       <feDropShadow dx="4" dy="3.5" stdDeviation="5" flood-color="#000" flood-opacity="0.85"/>
       <feDropShadow dx="1.5" dy="1.5" stdDeviation="1.5" flood-color="#000" flood-opacity="0.95"/>
     </filter>
+    <filter id="rim-blur" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1"/>
+    </filter>
 
     <radialGradient id="gold-face" cx="30%" cy="20%" r="80%" fx="20%" fy="10%">
       <stop offset="0%" stop-color="#ffea90"/>
@@ -76,6 +79,6 @@
     <rect x="19" y="16" width="25" height="36" rx="6.5" fill="none" stroke="url(#amber-rim)" stroke-width="1.6" stroke-opacity="1"/>
 
     <!-- Inner ambient rim to give 3D top bevel look -->
-    <rect x="20.5" y="17.5" width="22" height="33" rx="5" fill="none" stroke="#ffe5a0" stroke-width="0.8" stroke-opacity="0.45" filter="blur(1px)"/>
+    <rect x="20.5" y="17.5" width="22" height="33" rx="5" fill="none" stroke="#ffe5a0" stroke-width="0.8" stroke-opacity="0.45" filter="url(#rim-blur)"/>
   </g>
 </svg>
