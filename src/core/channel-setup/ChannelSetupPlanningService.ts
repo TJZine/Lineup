@@ -751,7 +751,8 @@ class ChannelSetupFacetSnapshotLoader {
                 return null;
             });
             const workerResults = await Promise.all(libraryWorkers);
-            const libraryFailure = workerResults.find((value): value is ChannelSetupFacetSnapshot => value !== null) ?? firstFailure;
+            const libraryFailure = firstFailure
+                ?? workerResults.find((value): value is ChannelSetupFacetSnapshot => value !== null);
             if (libraryFailure) {
                 return libraryFailure;
             }

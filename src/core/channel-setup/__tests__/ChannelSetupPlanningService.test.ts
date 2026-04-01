@@ -700,4 +700,63 @@ describe('ChannelSetupPlanningService', () => {
         expect(slowGenresSignal).toBeDefined();
         expect(slowGenresSignal?.aborted).toBe(true);
     });
+
+    it('returns the first observed library failure instead of worker index order under concurrent failure races', async () => {
+        const libraries = [
+            makeLibrary({ id: 'worker-0', title: 'Worker Zero', type: 'show', contentCount: 1200 }),
+            makeLibrary({ id: 'worker-1', title: 'Worker One', type: 'show', contentCount: 1200 }),
+        ];
+        const workerZeroGenre = createDeferred<PlexTagDirectoryItem[]>();
+        const plexLibrary = {
+            getPlaylists: jest.fn().mockResolvedValue([]),
+            getCollections: jest.fn().mockResolvedValue([]),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn().mockImplementation(
+                async (
+                    libraryId: string,
+                    options: {
+                        onUnsupported?: (reason: PlexTagDirectoryUnsupportedReason) => void;
+                    }
+                ) => {
+                    if (libraryId === 'worker-1') {
+                        throw {
+                            name: 'Error',
+                            code: 'NETWORK_TIMEOUT',
+                            message: 'worker one timed out first',
+                        };
+                    }
+                    const genres = await workerZeroGenre.promise;
+                    options.onUnsupported?.('unavailable');
+                    return genres;
+                }
+            ),
+            getDirectors: jest.fn().mockResolvedValue([]),
+            getYears: jest.fn().mockResolvedValue([]),
+            getActors: jest.fn().mockResolvedValue([]),
+            getStudios: jest.fn().mockResolvedValue([]),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['worker-0', 'worker-1'],
+            strategyConfig: {
+                genres: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        }));
+
+        const resultPromise = service.buildSetupPlan(config, libraries, null);
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, 0);
+        });
+        workerZeroGenre.resolve([]);
+        const result = await resultPromise;
+
+        expect(result.plan).toBeNull();
+        expect(result.failureReason).toBe('timeout');
+        expect(result.previewStatus).toBe('slow');
+        expect(result.blockedMessage).toContain('Worker One');
+        expect(result.blockedMessage).toContain('timed out');
+    });
 });
