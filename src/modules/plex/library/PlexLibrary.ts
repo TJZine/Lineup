@@ -13,7 +13,7 @@ import { redactUrlForLog } from '../../../utils/redact';
 import type {
     IPlexLibrary,
     PlexLibraryConfig,
-    PlexLibraryRequestProfile,
+    PlexLibraryRequestIntent,
     PlexTagDirectoryQueryOptions,
     PlexTagDirectoryUnsupportedReason,
 } from './interfaces';
@@ -80,7 +80,13 @@ const INTERACTIVE_REQUEST_POLICY = {
     timeoutRetryDelays: [1000] as const,
 } as const;
 
-const resolveRequestPolicy = (profile: PlexLibraryRequestProfile = 'default'): {
+type PrivateRequestProfile = 'default' | 'interactive';
+
+const resolveRequestProfileForIntent = (
+    intent: PlexLibraryRequestIntent | undefined
+): PrivateRequestProfile => (intent === 'preview' ? 'interactive' : 'default');
+
+const resolveRequestPolicy = (profile: PrivateRequestProfile = 'default'): {
     timeoutMs: number;
     timeoutRetryDelays: readonly number[];
     maxTimeoutRetries: number;
@@ -215,7 +221,11 @@ export class PlexLibrary implements IPlexLibrary {
                                     signal,
                                     filter: { type: PLEX_MEDIA_TYPES.EPISODE },
                                 });
-                                lib.episodeCount = epCount;
+                                if (epCount !== null) {
+                                    lib.episodeCount = epCount;
+                                } else {
+                                    delete lib.episodeCount;
+                                }
                             } catch (error) {
                                 // Abort is intentional — skip remaining work without logging.
                                 if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
@@ -354,7 +364,7 @@ export class PlexLibrary implements IPlexLibrary {
     async getLibraryItemCount(
         libraryId: string,
         options: LibraryQueryOptions = {}
-    ): Promise<number> {
+    ): Promise<number | null> {
         const params: Record<string, string | number> = {
             'X-Plex-Container-Start': 0,
             'X-Plex-Container-Size': 0,
@@ -375,10 +385,10 @@ export class PlexLibrary implements IPlexLibrary {
         const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_ALL(libraryId), params);
         const response = await this._fetchWithRetry<PlexMediaContainer<RawMediaItem>>(url, { signal: options.signal ?? null });
         if (!response) {
-            return 0;
+            return null;
         }
         const total = response.MediaContainer.totalSize ?? response.MediaContainer.size;
-        return typeof total === 'number' && Number.isFinite(total) ? total : 0;
+        return typeof total === 'number' && Number.isFinite(total) ? total : null;
     }
 
     /**
@@ -592,7 +602,7 @@ export class PlexLibrary implements IPlexLibrary {
      */
     async getCollections(
         libraryId: string,
-        options?: { signal?: AbortSignal | null; requestProfile?: PlexLibraryRequestProfile }
+        options?: { signal?: AbortSignal | null; requestIntent?: PlexLibraryRequestIntent }
     ): Promise<PlexCollection[]> {
         // Use type=18 (COLLECTION) filter on the library 'all' endpoint
         const params = {
@@ -604,7 +614,7 @@ export class PlexLibrary implements IPlexLibrary {
         const response = await this._fetchWithRetry<PlexMediaContainer<RawCollection>>(
             url,
             { signal: options?.signal ?? null },
-            options?.requestProfile
+            resolveRequestProfileForIntent(options?.requestIntent)
         );
 
         if (!response) {
@@ -641,13 +651,13 @@ export class PlexLibrary implements IPlexLibrary {
      * @returns Promise resolving to list of playlists
      */
     async getPlaylists(
-        options?: { signal?: AbortSignal | null; requestProfile?: PlexLibraryRequestProfile }
+        options?: { signal?: AbortSignal | null; requestIntent?: PlexLibraryRequestIntent }
     ): Promise<PlexPlaylist[]> {
         const url = this._buildUrl(PLEX_ENDPOINTS.PLAYLISTS);
         const response = await this._fetchWithRetry<PlexMediaContainer<RawPlaylist>>(
             url,
             { signal: options?.signal ?? null },
-            options?.requestProfile
+            resolveRequestProfileForIntent(options?.requestIntent)
         );
 
         if (!response) {
@@ -689,7 +699,7 @@ export class PlexLibrary implements IPlexLibrary {
         const url = this._buildUrl(endpoint(libraryId), params);
         const response = await this._fetchWithRetry<PlexMediaContainer<RawDirectoryTag>>(url, {
             signal: options.signal ?? null,
-        }, options.requestProfile);
+        }, resolveRequestProfileForIntent(options.requestIntent));
         if (!response) {
             if (options.requireEntries) {
                 this._notifyUnsupportedTagDirectory(options, 'unavailable', label, libraryId);
@@ -897,7 +907,7 @@ export class PlexLibrary implements IPlexLibrary {
     private async _fetchWithRetry<T>(
         url: string,
         options: RequestInit = {},
-        requestProfile: PlexLibraryRequestProfile = 'default'
+        requestProfile: PrivateRequestProfile = 'default'
     ): Promise<T | null> {
         const logger = this._logger;
         const requestPolicy = resolveRequestPolicy(requestProfile);

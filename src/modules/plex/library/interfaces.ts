@@ -18,14 +18,14 @@ import type {
 
 export type PlexTagDirectoryUnsupportedReason = 'unavailable' | 'empty';
 
-export type PlexLibraryRequestProfile = 'default' | 'interactive';
+export type PlexLibraryRequestIntent = 'preview' | 'background';
 
 export interface PlexTagDirectoryQueryOptions {
     type: number;
     signal?: AbortSignal | null;
     onUnsupported?: (reason: PlexTagDirectoryUnsupportedReason) => void;
     requireEntries?: boolean;
-    requestProfile?: PlexLibraryRequestProfile;
+    requestIntent?: PlexLibraryRequestIntent;
 }
 
 // ============================================
@@ -80,9 +80,9 @@ export interface IPlexLibrary {
      * Get total item count for a library without fetching items.
      * @param libraryId - Library section ID
      * @param options - Optional query options (filter/signal)
-     * @returns Promise resolving to item count (0 if unavailable)
+     * @returns Promise resolving to item count, or `null` when unavailable
      */
-    getLibraryItemCount(libraryId: string, options?: LibraryQueryOptions): Promise<number>;
+    getLibraryItemCount(libraryId: string, options?: LibraryQueryOptions): Promise<number | null>;
 
     /**
      * Get a specific media item by rating key.
@@ -140,7 +140,7 @@ export interface IPlexLibrary {
      */
     getCollections(libraryId: string, options?: {
         signal?: AbortSignal | null;
-        requestProfile?: PlexLibraryRequestProfile;
+        requestIntent?: PlexLibraryRequestIntent;
     }): Promise<PlexCollection[]>;
 
     /**
@@ -156,7 +156,7 @@ export interface IPlexLibrary {
      */
     getPlaylists(options?: {
         signal?: AbortSignal | null;
-        requestProfile?: PlexLibraryRequestProfile;
+        requestIntent?: PlexLibraryRequestIntent;
     }): Promise<PlexPlaylist[]>;
 
     /**

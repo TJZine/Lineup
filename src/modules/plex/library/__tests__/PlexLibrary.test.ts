@@ -293,6 +293,25 @@ describe('PlexLibrary', () => {
             expect(showLib?.episodeCount).toBeUndefined();
         });
 
+        it('does not assign null episodeCount when episode count is unavailable', async () => {
+            mockFetchJson(mockLibrarySectionsResponse);
+            const library = new PlexLibrary(mockConfig);
+
+            const spy = jest.spyOn(library, 'getLibraryItemCount');
+            spy.mockImplementation(async (_libraryId, options) => {
+                if (options?.filter?.type === PLEX_MEDIA_TYPES.EPISODE) {
+                    return null;
+                }
+                return 456;
+            });
+
+            const libs = await library.getLibraries({ includeItemCounts: true, itemCountConcurrency: 1 });
+
+            const showLib = libs.find((lib) => lib.type === 'show');
+            expect(showLib?.contentCount).toBe(456);
+            expect(showLib?.episodeCount).toBeUndefined();
+        });
+
         it('should sanitize itemCountConcurrency when includeItemCounts is enabled', async () => {
             const oneLibraryResponse = {
                 MediaContainer: {
@@ -402,6 +421,15 @@ describe('PlexLibrary', () => {
             const lib = await library.getLibrary('999');
 
             expect(lib).toBeNull();
+        });
+    });
+
+    describe('getLibraryItemCount', () => {
+        it('returns null when getLibraryItemCount receives no response', async () => {
+            mockFetchJson({ error: 'Not found' }, 404);
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getLibraryItemCount('1')).resolves.toBeNull();
         });
     });
 
@@ -1127,7 +1155,7 @@ describe('PlexLibrary', () => {
                 const request = library.getGenres('1', {
                     type: PLEX_MEDIA_TYPES.SHOW,
                     requireEntries: true,
-                    requestProfile: 'interactive',
+                    requestIntent: 'preview',
                 } as PlexTagDirectoryQueryOptions);
                 const settled = jest.fn();
                 void request.then(

@@ -9,6 +9,7 @@ export { mapPlexLibraryErrorCodeToAppErrorCode } from './types';
 export type {
     IPlexLibrary,
     PlexLibraryConfig,
+    PlexLibraryRequestIntent,
     PlexTagDirectoryQueryOptions,
     PlexTagDirectoryUnsupportedReason,
 } from './interfaces';
