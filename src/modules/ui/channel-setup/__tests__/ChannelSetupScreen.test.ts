@@ -1223,6 +1223,51 @@ describe('ChannelSetupScreen', () => {
         expect(toggledConfirm?.disabled).toBe(false);
     });
 
+    it.each([
+        {
+            status: 'blocked',
+            message: 'Required genres tag directory (type=2) is unsupported for Shows; stop and re-plan.',
+            expectedPrefix: 'Action required:',
+        },
+        {
+            status: 'slow',
+            message: 'Required directors tag directory (type=4) timed out for Shows; try again after Plex responds.',
+            expectedPrefix: 'Review timed out:',
+        },
+    ] as const)('disables confirm when Step 3 review is %s', async ({ status, message, expectedPrefix }) => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const getSetupReview = jest.fn().mockResolvedValue({
+            ...DEFAULT_REVIEW,
+            preview: {
+                ...DEFAULT_REVIEW.preview,
+                status,
+                message,
+            },
+        });
+        const orchestrator = createOrchestrator({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
+            getSetupReview,
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, orchestrator);
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-next');
+        await flushPromises();
+        await flushPromises();
+
+        const confirm = container.querySelector('#setup-confirm') as HTMLButtonElement | null;
+        expect(confirm?.disabled).toBe(true);
+        expect(container.textContent ?? '').toContain(expectedPrefix);
+        expect(container.textContent ?? '').toContain(message);
+    });
+
     it('shows review loading state before review payload resolves', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
