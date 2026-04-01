@@ -7,12 +7,13 @@
 export { EPGComponent } from './EPGComponent';
 export { DeferredEpgComponent } from './DeferredEpgComponent';
 export { EPGInfoPanel } from './EPGInfoPanel';
+export { withEpgVisibleRangeChangeBinding } from './EPGConfigBindings';
 export { EPGVirtualizer, positionCell } from './EPGVirtualizer';
 export { EPGTimeHeader } from './EPGTimeHeader';
 export { EPGChannelList } from './EPGChannelList';
 export { EPGErrorBoundary } from './EPGErrorBoundary';
 
-export type { IEPGComponent, IEPGInfoPanel } from './interfaces';
+export type { IEPGComponent, IEPGInfoPanel, IEpgReadinessPort } from './interfaces';
 export type {
     EpgChannel,
     EpgItemDetails,
