@@ -1,5 +1,5 @@
 import { PlexLibrary, PlexLibraryError, PlexLibraryErrorCode } from '../PlexLibrary';
-import type { PlexLibraryConfig } from '../interfaces';
+import type { PlexLibraryConfig, PlexTagDirectoryQueryOptions } from '../interfaces';
 import { mockLocalStorage, installMockLocalStorage } from '../../../../__tests__/mocks/localStorage';
 import { PLEX_LIBRARY_CONSTANTS, PLEX_MEDIA_TYPES } from '../constants';
 
@@ -1105,7 +1105,7 @@ describe('PlexLibrary', () => {
                     type: PLEX_MEDIA_TYPES.SHOW,
                     requireEntries: true,
                     requestProfile: 'interactive',
-                } as any);
+                } as PlexTagDirectoryQueryOptions);
                 const settled = jest.fn();
                 void request.then(
                     () => settled('resolved'),

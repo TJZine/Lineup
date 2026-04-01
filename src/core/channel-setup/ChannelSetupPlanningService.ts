@@ -73,6 +73,7 @@ type ChannelSetupFacetSnapshotData = {
     playlistMs: number;
     collectionsMs: number;
     libraryQueryMs: number;
+    lastTask?: ChannelBuildProgress['task'];
 };
 
 type ChannelSetupFacetSnapshot =
@@ -131,12 +132,15 @@ class ChannelSetupFacetSnapshotLoader {
         this._inflightKey = key;
         this._inflightPromise = loadPromise;
 
-        void loadPromise.then((snapshot) => {
-            if (this._inflightPromise === loadPromise && this._inflightKey === key) {
-                this._cachedKey = key;
-                this._cachedSnapshot = snapshot;
-            }
-        }).finally(() => {
+        void loadPromise.then(
+            (snapshot) => {
+                if (this._inflightPromise === loadPromise && this._inflightKey === key) {
+                    this._cachedKey = key;
+                    this._cachedSnapshot = snapshot;
+                }
+            },
+            () => undefined
+        ).finally(() => {
             if (this._inflightPromise === loadPromise && this._inflightKey === key) {
                 this._inflightPromise = null;
                 this._inflightKey = null;
@@ -211,6 +215,7 @@ class ChannelSetupFacetSnapshotLoader {
         let playlistMs = 0;
         let collectionsMs = 0;
         let libraryQueryMs = 0;
+        let lastTask: ChannelBuildProgress['task'] | undefined;
 
         const playlists: PlexPlaylist[] = [];
         const collectionsByLibraryId = new Map<string, PlexCollection[]>();
@@ -233,7 +238,19 @@ class ChannelSetupFacetSnapshotLoader {
             playlistMs,
             collectionsMs,
             libraryQueryMs,
+            ...(lastTask !== undefined ? { lastTask } : {}),
         });
+
+        const reportSnapshotProgress = (
+            task: ChannelBuildProgress['task'],
+            label: string,
+            detail: string,
+            current: number,
+            total: number | null
+        ): void => {
+            lastTask = task;
+            reportProgress?.(task, label, detail, current, total);
+        };
 
         const addPartialWarning = (
             task: ChannelBuildProgress['task'],
@@ -293,7 +310,7 @@ class ChannelSetupFacetSnapshotLoader {
         };
 
         if (config.strategyConfig.playlists.enabled) {
-            reportProgress?.('fetch_playlists', 'Fetching playlists...', 'Scanning server', 0, null);
+            reportSnapshotProgress('fetch_playlists', 'Fetching playlists...', 'Scanning server', 0, null);
             try {
                 const playlistsStart = Date.now();
                 const fetched = await this._deps.plexLibrary.getPlaylists({
@@ -304,7 +321,7 @@ class ChannelSetupFacetSnapshotLoader {
                 playlists.push(...fetched);
             } catch (error) {
                 if (isSignalAborted(signal ?? undefined)) {
-                    throw createAbortError();
+                    throw createAbortError(lastTask);
                 }
                 console.warn('Failed to fetch playlists:', summarizeErrorForLog(error));
                 addPartialWarning('fetch_playlists', 'fetch_playlists failed', error);
@@ -318,11 +335,11 @@ class ChannelSetupFacetSnapshotLoader {
                 continue;
             }
             if (isSignalAborted(signal ?? undefined)) {
-                throw createAbortError();
+                throw createAbortError(lastTask);
             }
 
             if (config.strategyConfig.collections.enabled) {
-                reportProgress?.('fetch_collections', 'Fetching collections...', library.title, libIndex, selectedLibraries.length);
+                reportSnapshotProgress('fetch_collections', 'Fetching collections...', library.title, libIndex, selectedLibraries.length);
                 try {
                     const collectionsStart = Date.now();
                     const collections = await this._deps.plexLibrary.getCollections(library.id, {
@@ -333,7 +350,7 @@ class ChannelSetupFacetSnapshotLoader {
                     collectionsByLibraryId.set(library.id, collections);
                 } catch (error) {
                     if (isSignalAborted(signal ?? undefined)) {
-                        throw createAbortError();
+                        throw createAbortError(lastTask);
                     }
                     console.warn(`Failed to fetch collections for library ${library.title}:`, summarizeErrorForLog(error));
                     addPartialWarning('fetch_collections', `fetch_collections failed for ${library.title}`, error);
@@ -348,7 +365,7 @@ class ChannelSetupFacetSnapshotLoader {
             const nativeFacetTasks: Array<Promise<ChannelSetupFacetSnapshot | null>> = [];
 
             if (config.strategyConfig.genres.enabled) {
-                nativeFacetTasks.push((async () => {
+                nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
                     try {
                         const tagStart = Date.now();
                         let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
@@ -369,7 +386,7 @@ class ChannelSetupFacetSnapshotLoader {
                         return null;
                     } catch (error) {
                         if (isSignalAborted(signal ?? undefined)) {
-                            throw createAbortError();
+                            throw createAbortError(lastTask);
                         }
                         console.warn(`Failed to fetch genres for ${library.title}:`, summarizeErrorForLog(error));
                         return buildRequiredTagDirectoryFailure('Genres', library.title, genreType, 'error', error);
@@ -378,7 +395,7 @@ class ChannelSetupFacetSnapshotLoader {
             }
 
             if (config.strategyConfig.directors.enabled) {
-                nativeFacetTasks.push((async () => {
+                nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
                     try {
                         const tagStart = Date.now();
                         let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
@@ -399,7 +416,7 @@ class ChannelSetupFacetSnapshotLoader {
                         return null;
                     } catch (error) {
                         if (isSignalAborted(signal ?? undefined)) {
-                            throw createAbortError();
+                            throw createAbortError(lastTask);
                         }
                         console.warn(`Failed to fetch directors for ${library.title}:`, summarizeErrorForLog(error));
                         return buildRequiredTagDirectoryFailure('Directors', library.title, detailType, 'error', error);
@@ -408,7 +425,7 @@ class ChannelSetupFacetSnapshotLoader {
             }
 
             if (config.strategyConfig.decades.enabled) {
-                nativeFacetTasks.push((async () => {
+                nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
                     try {
                         const tagStart = Date.now();
                         let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
@@ -429,7 +446,7 @@ class ChannelSetupFacetSnapshotLoader {
                         return null;
                     } catch (error) {
                         if (isSignalAborted(signal ?? undefined)) {
-                            throw createAbortError();
+                            throw createAbortError(lastTask);
                         }
                         console.warn(`Failed to fetch years for ${library.title}:`, summarizeErrorForLog(error));
                         return buildRequiredTagDirectoryFailure('Years', library.title, detailType, 'error', error);
@@ -438,7 +455,7 @@ class ChannelSetupFacetSnapshotLoader {
             }
 
             if (config.strategyConfig.studios.enabled) {
-                nativeFacetTasks.push((async () => {
+                nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
                     try {
                         const studiosStart = Date.now();
                         let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
@@ -459,7 +476,7 @@ class ChannelSetupFacetSnapshotLoader {
                         return null;
                     } catch (error) {
                         if (isSignalAborted(signal ?? undefined)) {
-                            throw createAbortError();
+                            throw createAbortError(lastTask);
                         }
                         console.warn(`Failed to fetch studios for ${library.title}:`, summarizeErrorForLog(error));
                         return buildRequiredTagDirectoryFailure('Studios', library.title, detailType, 'error', error);
@@ -468,7 +485,7 @@ class ChannelSetupFacetSnapshotLoader {
             }
 
             if (config.strategyConfig.actors.enabled) {
-                nativeFacetTasks.push((async () => {
+                nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
                     try {
                         const actorsStart = Date.now();
                         let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
@@ -489,7 +506,7 @@ class ChannelSetupFacetSnapshotLoader {
                         return null;
                     } catch (error) {
                         if (isSignalAborted(signal ?? undefined)) {
-                            throw createAbortError();
+                            throw createAbortError(lastTask);
                         }
                         console.warn(`Failed to fetch actors for ${library.title}:`, summarizeErrorForLog(error));
                         return buildRequiredTagDirectoryFailure('Actors', library.title, detailType, 'error', error);
@@ -498,7 +515,7 @@ class ChannelSetupFacetSnapshotLoader {
             }
 
             if (nativeFacetTasks.length > 0) {
-                reportProgress?.('scan_library_items', 'Resolving filters...', library.title, libIndex, selectedLibraries.length);
+                reportSnapshotProgress('scan_library_items', 'Resolving filters...', library.title, libIndex, selectedLibraries.length);
                 const results = await Promise.all(nativeFacetTasks);
                 const failure = results.find((value): value is ChannelSetupFacetSnapshot => value !== null);
                 if (failure) {
@@ -660,11 +677,12 @@ export class ChannelSetupPlanningService {
                 if (reportProgress === undefined) {
                     throw error;
                 }
+                const abortedTask = getAbortErrorTask(error);
                 return {
                     plan: null,
                     warnings: [],
                     canceled: true,
-                    lastTask: 'scan_library_items',
+                    lastTask: abortedTask ?? 'scan_library_items',
                     errorsTotal: 0,
                     playlistMs: 0,
                     collectionsMs: 0,
@@ -837,6 +855,18 @@ function summarizeErrorForLog(error: unknown): { name?: string; code?: unknown; 
     };
 }
 
-function createAbortError(): DOMException {
-    return new DOMException('Aborted', 'AbortError');
+function createAbortError(lastTask?: ChannelBuildProgress['task']): DOMException & { lastTask?: ChannelBuildProgress['task'] } {
+    const error = new DOMException('Aborted', 'AbortError') as DOMException & { lastTask?: ChannelBuildProgress['task'] };
+    if (lastTask !== undefined) {
+        error.lastTask = lastTask;
+    }
+    return error;
+}
+
+function getAbortErrorTask(error: unknown): ChannelBuildProgress['task'] | undefined {
+    if (!error || typeof error !== 'object' || !('lastTask' in error)) {
+        return undefined;
+    }
+    const { lastTask } = error as { lastTask?: unknown };
+    return typeof lastTask === 'string' ? lastTask as ChannelBuildProgress['task'] : undefined;
 }
