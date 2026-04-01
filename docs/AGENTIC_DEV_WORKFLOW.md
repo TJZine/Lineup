@@ -159,6 +159,8 @@ After cloning the repo or updating repo-local/global mirrored skills, run `scrip
 
 Use the tracked launcher templates in [`docs/agentic/session-prompts/README.md`](./agentic/session-prompts/README.md) to start fresh sessions without copy-pasting large prompt blocks.
 
+If you keep optional local launcher skills installed, invoke them explicitly through `/skills`, `$<skill-name>`, or a first message that names the exact launcher skill. The tracked workflow should not depend on those thin wrappers existing inside the repo.
+
 - Tier 2 planner session: [`cleanup-plan.md`](./agentic/session-prompts/cleanup-plan.md)
 - Tier 2 implementer session: [`cleanup-implement.md`](./agentic/session-prompts/cleanup-implement.md)
 - reusable review session: [`cleanup-review.md`](./agentic/session-prompts/cleanup-review.md)
@@ -204,7 +206,7 @@ Use a fenced text block with this shape:
 
 ```text
 NEXT_SESSION_HANDOFF
-NEXT_PROMPT: <prompt name or "normal repo workflow">
+NEXT_SESSION_LAUNCHER: <launcher skill name or "normal repo workflow">
 TASK: <task id and short title>
 TASK_FAMILY: <cleanup/refactor|feature/design|mixed>
 TIER: <Tier 1|Tier 2|Tier 3>
@@ -219,11 +221,11 @@ MESSAGE:
 
 Rules:
 
-- prefer one exact next step, not multiple possible next prompts
+- prefer one exact next step, not multiple possible next launcher skills
 - if review findings block progress, the handoff should point back to the session type that must resolve them
 - if no further session is needed, say so explicitly instead of emitting a fake handoff
 - keep the handoff block short enough to paste directly into the next fresh session
-- do not require users to reconstruct the next prompt/message from prose paragraphs
+- do not require users to reconstruct the next launcher/message from prose paragraphs
 - keep `TASK`, `PLAN`, and `FILES` concrete enough that the next fresh session can start without extra reconstruction
 
 ## Quality Loop

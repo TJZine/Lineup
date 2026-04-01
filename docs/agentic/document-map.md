@@ -192,7 +192,7 @@ Use for:
 - fresh-session planning expectations
 - authoritative routing split for cleanup/refactor vs feature/design vs mixed tasks (from `session-prompts/README.md`)
 - anti-patterns that tracked plans should avoid
-- the tracked Lineup-specific launcher prompts used to start planner, implementer, reviewer, and controller sessions consistently
+- the tracked Lineup-specific launcher templates plus any optional local launcher-skill naming convention used to start planner, implementer, reviewer, and controller sessions consistently
 
 Do not use for:
 
