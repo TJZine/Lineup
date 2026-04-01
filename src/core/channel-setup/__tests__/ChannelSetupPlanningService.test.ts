@@ -460,4 +460,158 @@ describe('ChannelSetupPlanningService', () => {
 
         expect(result.plan).not.toBeNull();
     });
+
+    it('ignores stale progress from an invalidated detached snapshot load', async () => {
+        const libraries = [
+            makeLibrary({ id: 'old-1', title: 'Old 1', type: 'show', contentCount: 1200 }),
+            makeLibrary({ id: 'old-2', title: 'Old 2', type: 'show', contentCount: 1200 }),
+            makeLibrary({ id: 'old-3', title: 'Old 3', type: 'show', contentCount: 1200 }),
+            makeLibrary({ id: 'new-1', title: 'New 1', type: 'show', contentCount: 1200 }),
+        ];
+        const deferredByLibraryId = new Map(
+            libraries.map((library) => [library.id, createDeferred<PlexTagDirectoryItem[]>()])
+        );
+        const plexLibrary = {
+            getLibraries: jest.fn().mockResolvedValue(libraries),
+            getPlaylists: jest.fn().mockResolvedValue([]),
+            getCollections: jest.fn().mockResolvedValue([]),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn().mockImplementation((libraryId: string) => {
+                const deferred = deferredByLibraryId.get(libraryId);
+                if (!deferred) {
+                    throw new Error(`Missing deferred for ${libraryId}`);
+                }
+                return deferred.promise;
+            }),
+            getDirectors: jest.fn().mockResolvedValue([]),
+            getYears: jest.fn().mockResolvedValue([]),
+            getActors: jest.fn().mockResolvedValue([]),
+            getStudios: jest.fn().mockResolvedValue([]),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const oldConfig = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['old-1', 'old-2', 'old-3'],
+            strategyConfig: {
+                genres: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        }));
+        const newConfig = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['new-1'],
+            strategyConfig: {
+                genres: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        }));
+
+        const oldPreviewPromise = service.getSetupPreview(oldConfig, {
+            signal: new AbortController().signal,
+        });
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, 0);
+        });
+        expect(plexLibrary.getGenres).toHaveBeenCalledTimes(2);
+
+        service.invalidateFacetSnapshot();
+
+        const reportProgress = jest.fn();
+        const newBuildPromise = service.buildSetupPlan(
+            newConfig,
+            libraries,
+            new AbortController().signal,
+            reportProgress
+        );
+        await Promise.resolve();
+
+        expect(reportProgress).toHaveBeenCalledWith(
+            'scan_library_items',
+            'Resolving filters...',
+            'New 1',
+            0,
+            1
+        );
+
+        deferredByLibraryId.get('old-1')?.resolve([makeTag({ title: 'Comedy', count: 10 })]);
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, 0);
+        });
+
+        expect(reportProgress.mock.calls).toEqual([
+            ['scan_library_items', 'Resolving filters...', 'New 1', 0, 1],
+        ]);
+
+        deferredByLibraryId.get('new-1')?.resolve([makeTag({ title: 'Drama', count: 8 })]);
+        const newBuildResult = await newBuildPromise;
+        expect(newBuildResult.plan).not.toBeNull();
+
+        deferredByLibraryId.get('old-2')?.resolve([makeTag({ title: 'Thriller', count: 6 })]);
+        deferredByLibraryId.get('old-3')?.resolve([makeTag({ title: 'Mystery', count: 4 })]);
+        await oldPreviewPromise;
+    });
+
+    it('fails fast and aborts slow sibling library work after the first blocked result', async () => {
+        const libraries = [
+            makeLibrary({ id: 'fast', title: 'Fast Library', type: 'show', contentCount: 1200 }),
+            makeLibrary({ id: 'slow', title: 'Slow Library', type: 'show', contentCount: 1200 }),
+        ];
+        let slowSignal: AbortSignal | undefined;
+        const plexLibrary = {
+            getPlaylists: jest.fn().mockResolvedValue([]),
+            getCollections: jest.fn().mockResolvedValue([]),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn().mockImplementation(
+                async (
+                    libraryId: string,
+                    options: {
+                        signal?: AbortSignal | null;
+                        onUnsupported?: (reason: PlexTagDirectoryUnsupportedReason) => void;
+                    }
+                ) => {
+                    if (libraryId === 'fast') {
+                        options.onUnsupported?.('unavailable');
+                        return [];
+                    }
+                    slowSignal = options.signal ?? undefined;
+                    return new Promise<PlexTagDirectoryItem[]>((_resolve, reject) => {
+                        options.signal?.addEventListener('abort', () => {
+                            reject(new DOMException('Aborted', 'AbortError'));
+                        }, { once: true });
+                    });
+                }
+            ),
+            getDirectors: jest.fn().mockResolvedValue([]),
+            getYears: jest.fn().mockResolvedValue([]),
+            getActors: jest.fn().mockResolvedValue([]),
+            getStudios: jest.fn().mockResolvedValue([]),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['fast', 'slow'],
+            strategyConfig: {
+                genres: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        }));
+
+        const resultPromise = service.buildSetupPlan(config, libraries, null);
+        const result = await Promise.race([
+            resultPromise,
+            new Promise<'pending'>((resolve) => {
+                setTimeout(() => resolve('pending'), 0);
+            }),
+        ]);
+
+        expect(result).not.toBe('pending');
+        expect(result).toEqual(expect.objectContaining({
+            plan: null,
+            canceled: false,
+            blockedMessage: expect.stringContaining('stop and re-plan'),
+            failureReason: 'unsupported',
+        }));
+        expect(slowSignal).toBeDefined();
+        expect(slowSignal?.aborted).toBe(true);
+    });
 });
