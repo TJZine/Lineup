@@ -507,7 +507,7 @@ export class ChannelSetupSessionController {
         }
 
         const key = this.buildPreviewKey(this.buildConfig(serverId));
-        if (key === this._lastPreviewKey && this._preview && !this._isPreviewLoading) {
+        if (this._hasSettledPreviewForKey(key)) {
             return;
         }
         if (this._isPreviewLoading && key === this._pendingPreviewKey) {
@@ -691,7 +691,7 @@ export class ChannelSetupSessionController {
 
         const config = this.buildConfig(serverId);
         const key = this.buildPreviewKey(config);
-        if (key === this._lastPreviewKey && this._preview && !this._isPreviewLoading) {
+        if (this._hasSettledPreviewForKey(key)) {
             return;
         }
         if (this._pendingPreviewKey === key) {
@@ -713,6 +713,7 @@ export class ChannelSetupSessionController {
             if (this._previewAbortController !== previewAbortController) return;
             this._previewAbortController = null;
             this._isPreviewLoading = false;
+            this._lastPreviewKey = key;
             this._preview = null;
             this._previewError = 'Estimating channels is taking too long. Try again in a moment or reduce the selected libraries.';
             this._previewStatus = 'slow';
@@ -762,6 +763,7 @@ export class ChannelSetupSessionController {
                 this._previewRequestTimeoutId = null;
             }
             this._previewError = error instanceof Error ? error.message : 'Unable to estimate channels.';
+            this._lastPreviewKey = key;
             this._preview = null;
             this._previewStatus = 'error';
             this._clearPreviewDeltas();
@@ -777,6 +779,16 @@ export class ChannelSetupSessionController {
                 }
             }
         }
+    }
+
+    private _hasSettledPreviewForKey(key: string): boolean {
+        if (key !== this._lastPreviewKey || this._isPreviewLoading) {
+            return false;
+        }
+        return this._preview !== null
+            || this._previewStatus === 'blocked'
+            || this._previewStatus === 'slow'
+            || this._previewStatus === 'error';
     }
 
     private _resetState(): void {
