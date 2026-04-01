@@ -759,4 +759,104 @@ describe('ChannelSetupPlanningService', () => {
         expect(result.blockedMessage).toContain('Worker One');
         expect(result.blockedMessage).toContain('timed out');
     });
+
+    it('returns the first observed facet failure within one library when multiple facets fail differently', async () => {
+        const libraries = [
+            makeLibrary({ id: 'mixed', title: 'Mixed Library', type: 'show', contentCount: 1200 }),
+        ];
+        const plexLibrary = {
+            getPlaylists: jest.fn().mockResolvedValue([]),
+            getCollections: jest.fn().mockResolvedValue([]),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn().mockImplementation(async (
+                _libraryId: string,
+                options: {
+                    onUnsupported?: (reason: PlexTagDirectoryUnsupportedReason) => void;
+                }
+            ) => {
+                await Promise.resolve();
+                options.onUnsupported?.('unavailable');
+                return [];
+            }),
+            getDirectors: jest.fn().mockResolvedValue([]),
+            getYears: jest.fn().mockResolvedValue([]),
+            getActors: jest.fn().mockImplementation(async () => {
+                throw {
+                    name: 'Error',
+                    code: 'NETWORK_TIMEOUT',
+                    message: 'actors timed out first',
+                };
+            }),
+            getStudios: jest.fn().mockResolvedValue([]),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['mixed'],
+            strategyConfig: {
+                genres: { enabled: true, priority: 1, scope: 'per-library' },
+                actors: { enabled: true, priority: 2, scope: 'per-library' },
+            },
+        }));
+
+        const result = await service.buildSetupPlan(config, libraries, null);
+
+        expect(result.plan).toBeNull();
+        expect(result.failureReason).toBe('timeout');
+        expect(result.previewStatus).toBe('slow');
+        expect(result.blockedMessage).toContain('Mixed Library');
+        expect(result.blockedMessage).toContain('timed out');
+    });
+
+    it('returns the first observed unsupported facet failure within one library even when another facet times out later', async () => {
+        const libraries = [
+            makeLibrary({ id: 'mixed', title: 'Mixed Library', type: 'show', contentCount: 1200 }),
+        ];
+        const plexLibrary = {
+            getPlaylists: jest.fn().mockResolvedValue([]),
+            getCollections: jest.fn().mockResolvedValue([]),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn().mockImplementation(async (
+                _libraryId: string,
+                options: {
+                    onUnsupported?: (reason: PlexTagDirectoryUnsupportedReason) => void;
+                }
+            ) => {
+                options.onUnsupported?.('unavailable');
+                return [];
+            }),
+            getDirectors: jest.fn().mockResolvedValue([]),
+            getYears: jest.fn().mockResolvedValue([]),
+            getActors: jest.fn().mockImplementation(async () => {
+                await Promise.resolve();
+                throw {
+                    name: 'Error',
+                    code: 'NETWORK_TIMEOUT',
+                    message: 'actors timed out second',
+                };
+            }),
+            getStudios: jest.fn().mockResolvedValue([]),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['mixed'],
+            strategyConfig: {
+                genres: { enabled: true, priority: 1, scope: 'per-library' },
+                actors: { enabled: true, priority: 2, scope: 'per-library' },
+            },
+        }));
+
+        const result = await service.buildSetupPlan(config, libraries, null);
+
+        expect(result.plan).toBeNull();
+        expect(result.failureReason).toBe('unsupported');
+        expect(result.previewStatus).toBe('blocked');
+        expect(result.blockedMessage).toContain('Mixed Library');
+        expect(result.blockedMessage).toContain('unsupported');
+    });
 });
