@@ -2315,25 +2315,12 @@ describe('EPGCoordinator', () => {
         expect(refreshSpy).toHaveBeenCalledWith({ reason: 'library-filter', debounceMs: 0 });
     });
 
-    it('withVisibleRangeRefreshPolicy returns a wrapped config without mutating the caller-owned config', () => {
+    it('handleVisibleRangeChange delegates refresh with visible-range reason', async () => {
         const { deps } = makeDeps();
         const coordinator = new EPGCoordinator(deps);
-        const previousOnVisibleRangeChange = jest.fn();
         const refreshSpy = jest
             .spyOn(coordinator, 'refreshEpgSchedulesForRange')
             .mockResolvedValue(undefined);
-        const epgConfig: EPGConfig = {
-            containerId: 'epg',
-            visibleChannels: 5,
-            timeSlotMinutes: 30,
-            visibleHours: 3,
-            totalHours: 24,
-            pixelsPerMinute: 4,
-            rowHeight: 80,
-            showCurrentTimeIndicator: true,
-            autoScrollToNow: false,
-            onVisibleRangeChange: previousOnVisibleRangeChange,
-        };
         const range = {
             channelStart: 1,
             channelEnd: 4,
@@ -2341,15 +2328,9 @@ describe('EPGCoordinator', () => {
             timeEndMs: 2000,
         };
 
-        const wrappedConfig = coordinator.withVisibleRangeRefreshPolicy(epgConfig);
+        coordinator.handleVisibleRangeChange(range);
+        await flushPromises();
 
-        expect(wrappedConfig).not.toBe(epgConfig);
-        expect(wrappedConfig?.onVisibleRangeChange).not.toBe(epgConfig.onVisibleRangeChange);
-        expect(epgConfig.onVisibleRangeChange).toBe(previousOnVisibleRangeChange);
-
-        wrappedConfig?.onVisibleRangeChange?.(range);
-
-        expect(previousOnVisibleRangeChange).toHaveBeenCalledWith(range);
         expect(refreshSpy).toHaveBeenCalledWith(range, { reason: 'visible-range' });
     });
 

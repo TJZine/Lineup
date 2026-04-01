@@ -5,6 +5,7 @@ import { NowPlayingDisplayStore } from '../../../modules/settings/NowPlayingDisp
 import { ProfileSessionStore } from '../../../modules/settings/ProfileSessionStore';
 import { SubtitlePreferencesStore } from '../../../modules/settings/SubtitlePreferencesStore';
 import type { EPGConfig } from '../../../modules/ui/epg';
+import { EPGCoordinator } from '../../../modules/ui/epg/EPGCoordinator';
 import type { StreamDecision } from '../../../modules/plex/stream';
 import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
 import {
@@ -196,6 +197,10 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
         localStorage.clear();
     });
 
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
     it('routes now-playing debug stream text through playbackState accessors', () => {
         const decision = makeDecision();
         const program = makeProgram();
@@ -252,12 +257,24 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
         deps.config = {
             epgConfig: originalEpgConfig,
         } as OrchestratorCoordinatorFactoryDeps['config'];
+        const visibleRange = {
+            channelStart: 0,
+            channelEnd: 2,
+            timeStartMs: 0,
+            timeEndMs: 60_000,
+        };
+        const handleVisibleRangeChangeSpy = jest
+            .spyOn(EPGCoordinator.prototype, 'handleVisibleRangeChange')
+            .mockImplementation(() => undefined);
 
         createOrchestratorCoordinators(deps);
 
         expect(deps.config?.epgConfig).not.toBe(originalEpgConfig);
         expect(originalEpgConfig.onVisibleRangeChange).toBe(previousOnVisibleRangeChange);
         expect(deps.config?.epgConfig.onVisibleRangeChange).not.toBe(previousOnVisibleRangeChange);
+        deps.config?.epgConfig.onVisibleRangeChange?.(visibleRange);
+        expect(previousOnVisibleRangeChange).toHaveBeenCalledWith(visibleRange);
+        expect(handleVisibleRangeChangeSpy).toHaveBeenCalledWith(visibleRange);
     });
 
     it('calls ensureEpgInitialized when openEPG runs before epg-ui status is ready', async () => {
@@ -283,7 +300,6 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
             show,
             focusNow,
             isVisible: jest.fn().mockReturnValue(false),
-            ensureReady: jest.fn().mockResolvedValue(undefined),
             getState: jest.fn().mockReturnValue({
                 viewWindow: {
                     startChannelIndex: 0,
