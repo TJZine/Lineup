@@ -26,10 +26,10 @@ export interface ChannelSetupBuildExecutorDeps {
 export class ChannelSetupBuildExecutor {
     constructor(private readonly _deps: ChannelSetupBuildExecutorDeps) {}
 
-		    async createChannelsFromSetup(
-		        config: ChannelSetupConfig,
-		        options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }
-		    ): Promise<ChannelBuildSummary> {
+    async createChannelsFromSetup(
+        config: ChannelSetupConfig,
+        options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }
+    ): Promise<ChannelBuildSummary> {
         const signal = options?.signal;
         const reportProgress = (
             task: ChannelBuildProgress['task'],
@@ -66,34 +66,35 @@ export class ChannelSetupBuildExecutor {
                 return { created: 0, skipped: 0, reachedMaxChannels: false, errorCount: 0, canceled: true, lastTask: 'fetch_playlists' };
             }
             throw e;
-	        }
+        }
 
-	        const normalizedConfig = this._deps.planningService.normalizeConfig(config);
-	        let planResult: ChannelSetupPlanBuildResult;
-	        try {
-	            planResult = await this._deps.planningService.buildSetupPlan(
-	                normalizedConfig,
-	                libraries,
-	                signal ?? null,
-	                reportProgress
-	            );
-	        } catch (e) {
-	            if (isSignalAborted(signal ?? undefined)) {
-	                reportProgress('build_pending', 'Preparing...', 'Canceled', 0, null);
-	                return { created: 0, skipped: 0, reachedMaxChannels: false, errorCount: 0, canceled: true, lastTask: 'build_pending' };
-	            }
-	            throw e;
-	        }
+        const normalizedConfig = this._deps.planningService.normalizeConfig(config);
+        let planResult: ChannelSetupPlanBuildResult;
+        try {
+            planResult = await this._deps.planningService.buildSetupPlan(
+                normalizedConfig,
+                libraries,
+                signal ?? null,
+                'build',
+                reportProgress
+            );
+        } catch (e) {
+            if (isSignalAborted(signal ?? undefined)) {
+                reportProgress('build_pending', 'Preparing...', 'Canceled', 0, null);
+                return { created: 0, skipped: 0, reachedMaxChannels: false, errorCount: 0, canceled: true, lastTask: 'build_pending' };
+            }
+            throw e;
+        }
 
-	        if (planResult.canceled || !planResult.plan) {
+        if (planResult.canceled || !planResult.plan) {
             const blockedSummary = planResult.blockedMessage !== undefined
                 ? { blockedMessage: planResult.blockedMessage }
                 : {};
-	            return {
-	                created: 0,
-	                skipped: 0,
-	                reachedMaxChannels: false,
-	                errorCount: planResult.errorsTotal,
+            return {
+                created: 0,
+                skipped: 0,
+                reachedMaxChannels: false,
+                errorCount: planResult.errorsTotal,
                 canceled: planResult.canceled,
                 lastTask: planResult.lastTask ?? 'build_pending',
                 ...blockedSummary,
@@ -110,16 +111,16 @@ export class ChannelSetupBuildExecutor {
 
         const existingChannels = this._deps.channelManager.getAllChannels();
         const diff = diffChannelPlans(existingChannels, pending);
-	        const pendingToCreate = this._deps.planningService.getPendingChannelsForMode(normalizedConfig.buildMode, pending, diff);
+        const pendingToCreate = this._deps.planningService.getPendingChannelsForMode(normalizedConfig.buildMode, pending, diff);
 
-	        reportProgress('create_channels', 'Shuffling...', 'Setting up lineup', 0, pendingToCreate.length);
+        reportProgress('create_channels', 'Shuffling...', 'Setting up lineup', 0, pendingToCreate.length);
 
-	        const tempKeyId = `${Date.now()}-${generateUUID()}`;
-	        const tempKey = `lineup_channels_build_tmp_v1:${tempKeyId}`;
-	        const tempCurrentKey = `lineup_current_channel_build_tmp_v1:${tempKeyId}`;
-	        const builder = new ChannelManager({
-	            plexLibrary: this._deps.plexLibrary,
-	            storageKey: tempKey,
+        const tempKeyId = `${Date.now()}-${generateUUID()}`;
+        const tempKey = `lineup_channels_build_tmp_v1:${tempKeyId}`;
+        const tempCurrentKey = `lineup_current_channel_build_tmp_v1:${tempKeyId}`;
+        const builder = new ChannelManager({
+            plexLibrary: this._deps.plexLibrary,
+            storageKey: tempKey,
             currentChannelKey: tempCurrentKey,
             logger: {
                 warn: (msg, ...args): void => console.warn(msg, ...args.map(summarizeErrorForLog)),
@@ -144,15 +145,15 @@ export class ChannelSetupBuildExecutor {
             lastTask: 'create_channels',
         };
 
-	        try {
-	            let pIndex = 0;
-	            let attemptedCount = 0;
-	            const computeSkipped = (): number =>
-	                skippedCount + Math.max(0, pendingToCreate.length - attemptedCount);
-	            const buildMode = normalizedConfig.buildMode ?? 'replace';
-	            const availableNumbers = buildMode === 'replace'
-	                ? []
-	                : this._getAvailableChannelNumbers(existingChannels);
+        try {
+            let pIndex = 0;
+            let attemptedCount = 0;
+            const computeSkipped = (): number =>
+                skippedCount + Math.max(0, pendingToCreate.length - attemptedCount);
+            const buildMode = normalizedConfig.buildMode ?? 'replace';
+            const availableNumbers = buildMode === 'replace'
+                ? []
+                : this._getAvailableChannelNumbers(existingChannels);
 
             if (buildMode !== 'replace' && pendingToCreate.length > availableNumbers.length) {
                 reachedMax = true;
@@ -167,13 +168,13 @@ export class ChannelSetupBuildExecutor {
                     break;
                 }
 
-	                if (checkCanceled()) {
-	                    finalSummary.skipped = computeSkipped();
-	                    finalSummary.reachedMaxChannels = reachedMax;
-	                    finalSummary.canceled = true;
-	                    finalSummary.lastTask = 'create_channels';
-	                    return finalSummary;
-	                }
+                if (checkCanceled()) {
+                    finalSummary.skipped = computeSkipped();
+                    finalSummary.reachedMaxChannels = reachedMax;
+                    finalSummary.canceled = true;
+                    finalSummary.lastTask = 'create_channels';
+                    return finalSummary;
+                }
 
                 if (pIndex % 5 === 0) {
                     reportProgress('create_channels', 'Creating channels...', `Channel ${finalSummary.created + 1}`, pIndex, pendingToCreate.length);

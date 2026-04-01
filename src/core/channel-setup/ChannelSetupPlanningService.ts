@@ -6,6 +6,7 @@ import type {
     PlexPlaylist,
     PlexCollection,
     PlexTagDirectoryUnsupportedReason,
+    PlexLibraryRequestIntent,
 } from '../../modules/plex/library';
 import { PLEX_MEDIA_TYPES } from '../../modules/plex/library';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../modules/scheduler/channel-manager/constants';
@@ -40,6 +41,7 @@ import {
 import { isSignalAborted } from './utils';
 
 const SELECTABLE_STRATEGY_KEYS: SetupStrategyKey[] = [...SETUP_STRATEGY_KEYS];
+type ChannelSetupPlanningIntent = 'preview' | 'build';
 
 export interface ChannelSetupPlanningServiceDeps {
     plexLibrary: IPlexLibrary;
@@ -86,6 +88,7 @@ type ChannelSetupFacetSnapshot =
 
 type ChannelSetupFacetSnapshotWaitOptions = {
     signal: AbortSignal | null;
+    requestIntent: PlexLibraryRequestIntent;
     reportProgress?: (
         task: ChannelBuildProgress['task'],
         label: string,
@@ -141,12 +144,20 @@ class ChannelSetupFacetSnapshotLoader {
         this._inflightWaiters.clear();
     }
 
+    private _shouldCacheSnapshot(snapshot: ChannelSetupFacetSnapshot): boolean {
+        if (snapshot.status === 'ready') {
+            return true;
+        }
+        return snapshot.failureReason === 'unsupported' || snapshot.failureReason === 'empty';
+    }
+
     async loadSnapshot(
         config: ChannelSetupConfig,
         libraries: PlexLibraryType[],
+        intent: ChannelSetupPlanningIntent,
         options: ChannelSetupFacetSnapshotWaitOptions
     ): Promise<ChannelSetupFacetSnapshot> {
-        const key = this._buildSnapshotKey(config);
+        const key = this._buildSnapshotKey(config, intent);
         if (this._cachedKey === key && this._cachedSnapshot) {
             return this._cachedSnapshot;
         }
@@ -162,6 +173,7 @@ class ChannelSetupFacetSnapshotLoader {
             config,
             libraries,
             options.detachFromSignal ? null : options.signal,
+            options.requestIntent,
             (task, label, detail, current, total) => {
                 this._emitInflightProgress(loadToken, task, label, detail, current, total);
             }
@@ -174,6 +186,7 @@ class ChannelSetupFacetSnapshotLoader {
                     this._inflightPromise === loadPromise
                     && this._inflightKey === key
                     && this._inflightLoadToken === loadToken
+                    && this._shouldCacheSnapshot(snapshot)
                 ) {
                     this._cachedKey = key;
                     this._cachedSnapshot = snapshot;
@@ -198,7 +211,7 @@ class ChannelSetupFacetSnapshotLoader {
         return this._awaitSnapshot(loadPromise, options);
     }
 
-    private _buildSnapshotKey(config: ChannelSetupConfig): string {
+    private _buildSnapshotKey(config: ChannelSetupConfig, intent: ChannelSetupPlanningIntent): string {
         const selectedLibraryIds = [...config.selectedLibraryIds].sort();
         const families = ([
             'playlists',
@@ -213,6 +226,7 @@ class ChannelSetupFacetSnapshotLoader {
             serverId: config.serverId,
             selectedLibraryIds,
             families,
+            intent,
         });
     }
 
@@ -313,6 +327,7 @@ class ChannelSetupFacetSnapshotLoader {
         config: ChannelSetupConfig,
         libraries: PlexLibraryType[],
         signal: AbortSignal | null,
+        requestIntent: PlexLibraryRequestIntent,
         reportProgress?: (
             task: ChannelBuildProgress['task'],
             label: string,
@@ -460,7 +475,7 @@ class ChannelSetupFacetSnapshotLoader {
                     const playlistsStart = Date.now();
                     const fetched = await this._deps.plexLibrary.getPlaylists({
                         signal: requestSignal,
-                        requestProfile: 'interactive',
+                        requestIntent,
                     });
                     playlistMs += Date.now() - playlistsStart;
                     playlists.push(...fetched);
@@ -504,7 +519,7 @@ class ChannelSetupFacetSnapshotLoader {
                             const collectionsStart = Date.now();
                             const collections = await this._deps.plexLibrary.getCollections(library.id, {
                                 signal: requestSignal,
-                                requestProfile: 'interactive',
+                                requestIntent,
                             });
                             collectionsMs += Date.now() - collectionsStart;
                             collectionsByLibraryId.set(library.id, collections);
@@ -524,6 +539,9 @@ class ChannelSetupFacetSnapshotLoader {
 
                     const genreType = library.type === 'show' ? PLEX_MEDIA_TYPES.SHOW : PLEX_MEDIA_TYPES.MOVIE;
                     const detailType = library.type === 'show' ? PLEX_MEDIA_TYPES.EPISODE : PLEX_MEDIA_TYPES.MOVIE;
+                    const plexRequestIntent = requestIntent;
+                    // `null` means unknown count, not empty. Keep validation enabled so unsupported
+                    // native facet endpoints still surface as blocked instead of silently passing through.
                     const requireEntries = library.contentCount !== 0;
                     const libraryAbortController = new AbortController();
                     const librarySignal = libraryAbortController.signal;
@@ -560,7 +578,7 @@ class ChannelSetupFacetSnapshotLoader {
                                         type: genreType,
                                         signal: librarySignal,
                                         requireEntries,
-                                        requestProfile: 'interactive',
+                                        requestIntent: plexRequestIntent,
                                         onUnsupported: (reason) => {
                                             unsupportedReason = reason;
                                         },
@@ -593,7 +611,7 @@ class ChannelSetupFacetSnapshotLoader {
                                         type: detailType,
                                         signal: librarySignal,
                                         requireEntries,
-                                        requestProfile: 'interactive',
+                                        requestIntent: plexRequestIntent,
                                         onUnsupported: (reason) => {
                                             unsupportedReason = reason;
                                         },
@@ -626,7 +644,7 @@ class ChannelSetupFacetSnapshotLoader {
                                         type: detailType,
                                         signal: librarySignal,
                                         requireEntries,
-                                        requestProfile: 'interactive',
+                                        requestIntent: plexRequestIntent,
                                         onUnsupported: (reason) => {
                                             unsupportedReason = reason;
                                         },
@@ -659,7 +677,7 @@ class ChannelSetupFacetSnapshotLoader {
                                         type: detailType,
                                         signal: librarySignal,
                                         requireEntries,
-                                        requestProfile: 'interactive',
+                                        requestIntent: plexRequestIntent,
                                         onUnsupported: (reason) => {
                                             unsupportedReason = reason;
                                         },
@@ -692,7 +710,7 @@ class ChannelSetupFacetSnapshotLoader {
                                         type: detailType,
                                         signal: librarySignal,
                                         requireEntries,
-                                        requestProfile: 'interactive',
+                                        requestIntent: plexRequestIntent,
                                         onUnsupported: (reason) => {
                                             unsupportedReason = reason;
                                         },
@@ -824,7 +842,12 @@ export class ChannelSetupPlanningService {
     ): Promise<ChannelSetupPreview> {
         const normalizedConfig = this.normalizeConfig(config);
         const libraries = await this.getLibrariesForSetup(options?.signal ?? null);
-        const planResult = await this.buildSetupPlan(normalizedConfig, libraries, options?.signal ?? null);
+        const planResult = await this.buildSetupPlan(
+            normalizedConfig,
+            libraries,
+            options?.signal ?? null,
+            'preview'
+        );
         if (planResult.canceled || !planResult.plan) {
             return {
                 estimates: this._emptyEstimates(),
@@ -849,7 +872,12 @@ export class ChannelSetupPlanningService {
     ): Promise<ChannelSetupReview> {
         const normalizedConfig = this.normalizeConfig(config);
         const libraries = await this.getLibrariesForSetup(options?.signal ?? null);
-        const planResult = await this.buildSetupPlan(normalizedConfig, libraries, options?.signal ?? null);
+        const planResult = await this.buildSetupPlan(
+            normalizedConfig,
+            libraries,
+            options?.signal ?? null,
+            'build'
+        );
         if (planResult.canceled || !planResult.plan) {
             return {
                 preview: {
@@ -880,6 +908,7 @@ export class ChannelSetupPlanningService {
         config: ChannelSetupConfig,
         libraries: PlexLibraryType[],
         signal: AbortSignal | null,
+        intent: ChannelSetupPlanningIntent,
         reportProgress?: (
             task: ChannelBuildProgress['task'],
             label: string,
@@ -892,6 +921,7 @@ export class ChannelSetupPlanningService {
         try {
             const snapshotOptions: {
                 signal: AbortSignal | null;
+                requestIntent: PlexLibraryRequestIntent;
                 reportProgress?: (
                     task: ChannelBuildProgress['task'],
                     label: string,
@@ -902,12 +932,13 @@ export class ChannelSetupPlanningService {
                 detachFromSignal: boolean;
             } = {
                 signal,
+                requestIntent: this._getPlexRequestIntentProfile(intent),
                 detachFromSignal: reportProgress === undefined,
             };
             if (reportProgress) {
                 snapshotOptions.reportProgress = reportProgress;
             }
-            snapshot = await this._facetSnapshotLoader.loadSnapshot(config, libraries, snapshotOptions);
+            snapshot = await this._facetSnapshotLoader.loadSnapshot(config, libraries, intent, snapshotOptions);
         } catch (error) {
             if (signal?.aborted) {
                 if (reportProgress === undefined) {
@@ -1031,6 +1062,12 @@ export class ChannelSetupPlanningService {
             basePlaybackMode,
             baseBlockSize,
         };
+    }
+
+    private _getPlexRequestIntentProfile(
+        intent: ChannelSetupPlanningIntent
+    ): PlexLibraryRequestIntent {
+        return intent === 'preview' ? 'preview' : 'background';
     }
 
     private _emptyEstimates(): ChannelSetupPreview['estimates'] {

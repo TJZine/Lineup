@@ -122,7 +122,7 @@ describe('ChannelSetupPlanningService', () => {
             type: 'show',
             contentCount: 1200,
         })];
-        const result = await service.buildSetupPlan(config, libraries, null);
+        const result = await service.buildSetupPlan(config, libraries, null, 'preview');
 
         expect(result.canceled).toBe(false);
         expect(result.plan).not.toBeNull();
@@ -186,7 +186,7 @@ describe('ChannelSetupPlanningService', () => {
             contentCount: 1200,
         })];
 
-        const result = await service.buildSetupPlan(config, libraries, null);
+        const result = await service.buildSetupPlan(config, libraries, null, 'preview');
 
         expect(result.canceled).toBe(false);
         expect(result.blockedMessage).toContain('stop and re-plan');
@@ -232,7 +232,7 @@ describe('ChannelSetupPlanningService', () => {
             contentCount: 1200,
         })];
 
-        const result = await service.buildSetupPlan(config, libraries, null);
+        const result = await service.buildSetupPlan(config, libraries, null, 'preview');
 
         expect(result.canceled).toBe(false);
         expect(result.blockedMessage).toContain('stop and re-plan');
@@ -243,7 +243,7 @@ describe('ChannelSetupPlanningService', () => {
         expect(plexLibrary.getLibraryItems).not.toHaveBeenCalled();
     });
 
-    it('reuses the same facet snapshot across preview, review, and build-equivalent planning paths', async () => {
+    it('separates preview and build facet snapshots by intent', async () => {
         const libraries = [
             makeLibrary({
                 id: 'shows',
@@ -289,14 +289,152 @@ describe('ChannelSetupPlanningService', () => {
 
         const preview = await service.getSetupPreview(config);
         const review = await service.getSetupReview(config);
-        const planResult = await service.buildSetupPlan(config, libraries, null);
+        const planResult = await service.buildSetupPlan(config, libraries, null, 'build');
 
         expect(preview.estimates.total).toBeGreaterThan(0);
         expect(review.preview.estimates.total).toBe(planResult.plan?.estimates.total);
         expect(planResult.plan).not.toBeNull();
-        expect(plexLibrary.getGenres).toHaveBeenCalledTimes(1);
-        expect(plexLibrary.getDirectors).toHaveBeenCalledTimes(1);
-        expect(plexLibrary.getYears).toHaveBeenCalledTimes(1);
+        expect(plexLibrary.getGenres).toHaveBeenCalledTimes(2);
+        expect(plexLibrary.getGenres.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
+            requestIntent: 'preview',
+        }));
+        expect(plexLibrary.getGenres.mock.calls[1]?.[1]).toEqual(expect.objectContaining({
+            requestIntent: 'background',
+        }));
+        expect(plexLibrary.getDirectors).toHaveBeenCalledTimes(2);
+        expect(plexLibrary.getYears).toHaveBeenCalledTimes(2);
+    });
+
+    it('uses preview request intent for setup preview and background request intent for builds', async () => {
+        const libraries = [
+            makeLibrary({
+                id: 'shows',
+                title: 'Shows',
+                type: 'show',
+                contentCount: 1200,
+            }),
+        ];
+        const plexLibrary = {
+            getLibraries: jest.fn().mockResolvedValue(libraries),
+            getPlaylists: jest.fn().mockResolvedValue([]),
+            getCollections: jest.fn().mockResolvedValue([]),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn().mockResolvedValue([makeTag({ title: 'Comedy', count: 10 })]),
+            getDirectors: jest.fn().mockResolvedValue([]),
+            getYears: jest.fn().mockResolvedValue([]),
+            getActors: jest.fn().mockResolvedValue([]),
+            getStudios: jest.fn().mockResolvedValue([]),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['shows'],
+            strategyConfig: {
+                genres: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        }));
+
+        await service.getSetupPreview(config);
+        expect(plexLibrary.getGenres).toHaveBeenCalledWith(
+            'shows',
+            expect.objectContaining({ requestIntent: 'preview' })
+        );
+
+        plexLibrary.getGenres.mockClear();
+
+        await service.buildSetupPlan(config, libraries, null, 'build');
+        expect(plexLibrary.getGenres).toHaveBeenCalledWith(
+            'shows',
+            expect.objectContaining({ requestIntent: 'background' })
+        );
+    });
+
+    it('does not cache timeout snapshots', async () => {
+        const libraries = [
+            makeLibrary({
+                id: 'shows',
+                title: 'Shows',
+                type: 'show',
+                contentCount: 1200,
+            }),
+        ];
+        const getGenres = jest.fn()
+            .mockRejectedValueOnce({ name: 'Error', code: 'NETWORK_TIMEOUT', message: 'timed out' })
+            .mockResolvedValueOnce([makeTag({ title: 'Comedy', count: 10 })]);
+        const plexLibrary = {
+            getLibraries: jest.fn().mockResolvedValue(libraries),
+            getPlaylists: jest.fn().mockResolvedValue([]),
+            getCollections: jest.fn().mockResolvedValue([]),
+            getLibraryItems: jest.fn(),
+            getGenres,
+            getDirectors: jest.fn().mockResolvedValue([]),
+            getYears: jest.fn().mockResolvedValue([]),
+            getActors: jest.fn().mockResolvedValue([]),
+            getStudios: jest.fn().mockResolvedValue([]),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['shows'],
+            strategyConfig: {
+                genres: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        }));
+
+        const first = await service.buildSetupPlan(config, libraries, null, 'preview');
+        expect(first.plan).toBeNull();
+        expect(first.failureReason).toBe('timeout');
+
+        const second = await service.buildSetupPlan(config, libraries, null, 'preview');
+        expect(second.plan).not.toBeNull();
+        expect(getGenres).toHaveBeenCalledTimes(2);
+    });
+
+    it('caches unsupported snapshots', async () => {
+        const libraries = [
+            makeLibrary({
+                id: 'shows',
+                title: 'Shows',
+                type: 'show',
+                contentCount: 1200,
+            }),
+        ];
+        const getGenres = jest.fn().mockImplementation(async (_libraryId: string, options: { onUnsupported?: (reason: PlexTagDirectoryUnsupportedReason) => void }) => {
+            options.onUnsupported?.('unavailable');
+            return [];
+        });
+        const plexLibrary = {
+            getLibraries: jest.fn().mockResolvedValue(libraries),
+            getPlaylists: jest.fn().mockResolvedValue([]),
+            getCollections: jest.fn().mockResolvedValue([]),
+            getLibraryItems: jest.fn(),
+            getGenres,
+            getDirectors: jest.fn().mockResolvedValue([]),
+            getYears: jest.fn().mockResolvedValue([]),
+            getActors: jest.fn().mockResolvedValue([]),
+            getStudios: jest.fn().mockResolvedValue([]),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['shows'],
+            strategyConfig: {
+                genres: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        }));
+
+        const first = await service.buildSetupPlan(config, libraries, null, 'preview');
+        const second = await service.buildSetupPlan(config, libraries, null, 'preview');
+
+        expect(first.failureReason).toBe('unsupported');
+        expect(second.failureReason).toBe('unsupported');
+        expect(getGenres).toHaveBeenCalledTimes(1);
     });
 
     it('lets build cancellation stop waiting on an inflight snapshot started by preview', async () => {
@@ -338,7 +476,13 @@ describe('ChannelSetupPlanningService', () => {
 
         const buildAbortController = new AbortController();
         const settled = jest.fn();
-        const buildPromise = service.buildSetupPlan(config, libraries, buildAbortController.signal, jest.fn());
+        const buildPromise = service.buildSetupPlan(
+            config,
+            libraries,
+            buildAbortController.signal,
+            'build',
+            jest.fn()
+        );
         void buildPromise.then(settled);
         await Promise.resolve();
 
@@ -396,7 +540,7 @@ describe('ChannelSetupPlanningService', () => {
             contentCount: null,
         })];
 
-        const result = await service.buildSetupPlan(config, libraries, null);
+        const result = await service.buildSetupPlan(config, libraries, null, 'preview');
 
         expect(result.canceled).toBe(false);
         expect(result.blockedMessage).toContain('stop and re-plan');
@@ -439,7 +583,7 @@ describe('ChannelSetupPlanningService', () => {
             },
         }));
 
-        const pendingPlan = service.buildSetupPlan(config, libraries, null);
+        const pendingPlan = service.buildSetupPlan(config, libraries, null, 'preview');
         await Promise.resolve();
 
         expect(plexLibrary.getGenres).toHaveBeenCalledTimes(2);
@@ -520,6 +664,7 @@ describe('ChannelSetupPlanningService', () => {
             newConfig,
             libraries,
             new AbortController().signal,
+            'build',
             reportProgress
         );
         await Promise.resolve();
@@ -596,7 +741,7 @@ describe('ChannelSetupPlanningService', () => {
             },
         }));
 
-        const resultPromise = service.buildSetupPlan(config, libraries, null);
+        const resultPromise = service.buildSetupPlan(config, libraries, null, 'preview');
         const result = await Promise.race([
             resultPromise,
             new Promise<'pending'>((resolve) => {
@@ -680,7 +825,7 @@ describe('ChannelSetupPlanningService', () => {
             },
         }));
 
-        const resultPromise = service.buildSetupPlan(config, libraries, null);
+        const resultPromise = service.buildSetupPlan(config, libraries, null, 'preview');
         const result = await Promise.race([
             resultPromise,
             new Promise<'pending'>((resolve) => {
@@ -746,7 +891,7 @@ describe('ChannelSetupPlanningService', () => {
             },
         }));
 
-        const resultPromise = service.buildSetupPlan(config, libraries, null);
+        const resultPromise = service.buildSetupPlan(config, libraries, null, 'preview');
         await new Promise<void>((resolve) => {
             setTimeout(resolve, 0);
         });
@@ -801,7 +946,7 @@ describe('ChannelSetupPlanningService', () => {
             },
         }));
 
-        const result = await service.buildSetupPlan(config, libraries, null);
+        const result = await service.buildSetupPlan(config, libraries, null, 'preview');
 
         expect(result.plan).toBeNull();
         expect(result.failureReason).toBe('timeout');
@@ -851,7 +996,7 @@ describe('ChannelSetupPlanningService', () => {
             },
         }));
 
-        const result = await service.buildSetupPlan(config, libraries, null);
+        const result = await service.buildSetupPlan(config, libraries, null, 'preview');
 
         expect(result.plan).toBeNull();
         expect(result.failureReason).toBe('unsupported');
