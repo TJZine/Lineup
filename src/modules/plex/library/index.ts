@@ -13,6 +13,12 @@ export type {
     PlexTagDirectoryQueryOptions,
     PlexTagDirectoryUnsupportedReason,
 } from './interfaces';
+export {
+    getPlexRequestIntentForChannelSetup,
+} from './requestIntent';
+export type {
+    ChannelSetupPlexRequestUseCase,
+} from './requestIntent';
 export type {
     PlexLibrary as PlexLibraryType,
     PlexLibraryType as PlexLibraryTypeEnum,

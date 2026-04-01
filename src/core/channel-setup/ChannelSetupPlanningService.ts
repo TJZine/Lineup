@@ -6,9 +6,11 @@ import type {
     PlexPlaylist,
     PlexCollection,
     PlexTagDirectoryUnsupportedReason,
-    PlexLibraryRequestIntent,
 } from '../../modules/plex/library';
-import { PLEX_MEDIA_TYPES } from '../../modules/plex/library';
+import {
+    PLEX_MEDIA_TYPES,
+    getPlexRequestIntentForChannelSetup,
+} from '../../modules/plex/library';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../modules/scheduler/channel-manager/constants';
 import { redactSensitiveTokens } from '../../utils/redact';
 import type {
@@ -42,6 +44,7 @@ import { isSignalAborted } from './utils';
 
 const SELECTABLE_STRATEGY_KEYS: SetupStrategyKey[] = [...SETUP_STRATEGY_KEYS];
 type ChannelSetupPlanningIntent = 'preview' | 'build';
+type ChannelSetupPlexRequestIntent = ReturnType<typeof getPlexRequestIntentForChannelSetup>;
 
 export interface ChannelSetupPlanningServiceDeps {
     plexLibrary: IPlexLibrary;
@@ -89,7 +92,7 @@ type ChannelSetupFacetSnapshot =
 
 type ChannelSetupFacetSnapshotWaitOptions = {
     signal: AbortSignal | null;
-    requestIntent: PlexLibraryRequestIntent;
+    requestIntent: ChannelSetupPlexRequestIntent;
     reportProgress?: (
         task: ChannelBuildProgress['task'],
         label: string,
@@ -328,7 +331,7 @@ class ChannelSetupFacetSnapshotLoader {
         config: ChannelSetupConfig,
         libraries: PlexLibraryType[],
         signal: AbortSignal | null,
-        requestIntent: PlexLibraryRequestIntent,
+        requestIntent: ChannelSetupPlexRequestIntent,
         reportProgress?: (
             task: ChannelBuildProgress['task'],
             label: string,
@@ -923,7 +926,7 @@ export class ChannelSetupPlanningService {
         try {
             const snapshotOptions: {
                 signal: AbortSignal | null;
-                requestIntent: PlexLibraryRequestIntent;
+                requestIntent: ChannelSetupPlexRequestIntent;
                 reportProgress?: (
                     task: ChannelBuildProgress['task'],
                     label: string,
@@ -934,7 +937,7 @@ export class ChannelSetupPlanningService {
                 detachFromSignal: boolean;
             } = {
                 signal,
-                requestIntent: this._getPlexRequestIntentProfile(intent),
+                requestIntent: getPlexRequestIntentForChannelSetup(intent),
                 detachFromSignal: reportProgress === undefined,
             };
             if (reportProgress) {
@@ -1064,12 +1067,6 @@ export class ChannelSetupPlanningService {
             basePlaybackMode,
             baseBlockSize,
         };
-    }
-
-    private _getPlexRequestIntentProfile(
-        intent: ChannelSetupPlanningIntent
-    ): PlexLibraryRequestIntent {
-        return intent === 'preview' ? 'preview' : 'background';
     }
 
     private _emptyEstimates(): ChannelSetupPreview['estimates'] {

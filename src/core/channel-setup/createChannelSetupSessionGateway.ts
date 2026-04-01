@@ -45,27 +45,35 @@ export const createChannelSetupSessionGateway = (
         openEPG: (): void => deps.openEPG(),
         requestChannelSetupRerun: (): void => requireChannelSetupCoordinator().requestChannelSetupRerun(),
         invalidateFacetSnapshot: (): void => requireChannelSetupCoordinator().invalidateFacetSnapshot(),
-        getLibrariesForSetup: (signal?: AbortSignal | null): Promise<PlexLibraryType[]> =>
-            requireChannelSetupCoordinator().getLibrariesForSetup(signal ?? null),
+        getLibrariesForSetup: async (signal?: AbortSignal | null): Promise<PlexLibraryType[]> => {
+            const coordinator = requireChannelSetupCoordinator();
+            return coordinator.getLibrariesForSetup(signal ?? null);
+        },
         getChannelSetupRecord: (serverId: string): ChannelSetupRecord | null =>
             deps.getChannelSetupCoordinator()?.getSetupRecord(serverId) ?? null,
         getSetupContextForSelectedServer: (): ChannelSetupContext =>
             deps.getChannelSetupCoordinator()?.getSetupContextForSelectedServer() ?? 'unknown',
-        getSetupPreview: (
+        getSetupPreview: async (
             config: ChannelSetupConfig,
             options?: { signal?: AbortSignal }
-        ): Promise<ChannelSetupPreview> =>
-            requireChannelSetupCoordinator().getSetupPreview(config, options),
-        getSetupReview: (
+        ): Promise<ChannelSetupPreview> => {
+            const coordinator = requireChannelSetupCoordinator();
+            return coordinator.getSetupPreview(config, options);
+        },
+        getSetupReview: async (
             config: ChannelSetupConfig,
             options?: { signal?: AbortSignal }
-        ): Promise<ChannelSetupReview> =>
-            requireChannelSetupCoordinator().getSetupReview(config, options),
-        createChannelsFromSetup: (
+        ): Promise<ChannelSetupReview> => {
+            const coordinator = requireChannelSetupCoordinator();
+            return coordinator.getSetupReview(config, options);
+        },
+        createChannelsFromSetup: async (
             config: ChannelSetupConfig,
             options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }
-        ): Promise<ChannelBuildSummary> =>
-            requireChannelSetupCoordinator().createChannelsFromSetup(config, options),
+        ): Promise<ChannelBuildSummary> => {
+            const coordinator = requireChannelSetupCoordinator();
+            return coordinator.createChannelsFromSetup(config, options);
+        },
         markSetupComplete: (serverId: string, setupConfig: ChannelSetupConfig): void =>
             requireChannelSetupCoordinator().markSetupComplete(serverId, setupConfig),
     };
