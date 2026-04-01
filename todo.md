@@ -74,6 +74,34 @@ Rationale:
 - [ ] Remove branches without real-world value or supporting evidence.
 - [ ] Keep only paths with explicit current justification.
 
+### Unsupported Channel Content Guardrail (`track` / `clip`)
+
+- [ ] Define the supported scheduled-channel content contract explicitly as `movie` and `episode` only.
+- [ ] Add a scheduler/channel-manager guard so unsupported resolved items (`track`, `clip`, and any future non-EPG media types) cannot survive into channel schedules.
+- [ ] Cover all known ingress paths with tests:
+  - collections
+  - playlists
+  - manual content
+- [ ] Decide product behavior for unsupported items:
+  - fail fast and block channel creation, or
+  - filter them out with a clear warning
+- [ ] Document the single-path pre-MVP rule for unsupported media:
+  - do not expand EPG/UI behavior to accommodate music tracks or miscellaneous video types
+  - treat those as a separate future feature if ever supported
+
+Verified findings already collected:
+- Auto-setup currently limits library-backed channel planning to movie/show libraries in `src/core/channel-setup/ChannelSetupPlanningService.ts` and `src/core/channel-setup/ChannelSetupPlanner.ts`.
+- `library` content-source validation already limits `libraryType` to `movie | show` in `src/modules/scheduler/channel-manager/ChannelContentSourceValidator.ts`.
+- The remaining gap is downstream in scheduler/channel resolution:
+  - collections, playlists, and manual sources can still introduce unsupported item types
+  - `ContentResolver` currently preserves item types via `type: item.type as PlexMediaType`
+  - the final defensive filter only removes `show`, not `track` / `clip`
+
+Rationale:
+- The current EPG contract and focused-cell work assume series/movies only.
+- Music tracks and non-series/non-movie video would require separate product/design/runtime treatment and should not leak into the current EPG path.
+- This should be solved at the scheduler/channel-content boundary, not by teaching EPG to render unsupported media types.
+
 ---
 
 ## Priority 2 (Deferred / Scoped)

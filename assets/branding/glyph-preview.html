@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lineup Glyph — Preview</title>
+<style>
+  body {
+    margin: 0; background: #0e0e0e; color: #e8e0d4;
+    font-family: -apple-system, "Helvetica Neue", sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 40px 20px; gap: 56px;
+  }
+  h1 { font-size: 22px; opacity: 0.8; font-weight: 500; }
+  .row { display: flex; align-items: flex-end; gap: 40px; flex-wrap: wrap; justify-content: center; }
+  .sample { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .sample label { font-size: 12px; opacity: 0.45; }
+  section { text-align: center; max-width: 960px; }
+  section h2 { font-size: 15px; opacity: 0.5; margin-bottom: 24px; font-weight: 400; text-transform: uppercase; letter-spacing: 0.08em; }
+  .divider { width: 60px; height: 1px; background: rgba(255,255,255,0.1); }
+  .comparison { display: flex; gap: 50px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .comparison img { border-radius: 16px; object-fit: contain; }
+  .vs { opacity: 0.2; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>Lineup Glyph — Production Grade</h1>
+
+<!-- FULL COLOR -->
+<section>
+  <h2>Full-Color (Splash · Hero · About)</h2>
+  <div class="row">
+    <div class="sample"><div class="svg-host-color" data-size="24"></div><label>24px</label></div>
+    <div class="sample"><div class="svg-host-color" data-size="48"></div><label>48px</label></div>
+    <div class="sample"><div class="svg-host-color" data-size="96"></div><label>96px</label></div>
+    <div class="sample"><div class="svg-host-color" data-size="220"></div><label>220px</label></div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- MONOCHROME -->
+<section>
+  <h2>Monochrome (Badge · Watermark · UI)</h2>
+  <div class="row">
+    <div class="sample"><div class="svg-host-mono" data-size="24"></div><label>24px</label></div>
+    <div class="sample"><div class="svg-host-mono" data-size="48"></div><label>48px</label></div>
+    <div class="sample"><div class="svg-host-mono" data-size="96"></div><label>96px</label></div>
+    <div class="sample"><div class="svg-host-mono" data-size="220"></div><label>220px</label></div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- COMPARISON -->
+<section>
+  <h2>Full-Color Glyph vs Original 3D Icon</h2>
+  <div class="comparison">
+    <div class="sample">
+      <div class="svg-host-color" data-size="180"></div>
+      <label>Flat glyph</label>
+    </div>
+    <span class="vs">vs</span>
+    <div class="sample">
+      <img src="Lineup Icon.png" width="180" height="180" alt="Original 3D icon" style="border-radius:20px;">
+      <label>Original 3D icon</label>
+    </div>
+  </div>
+</section>
+
+<script>
+  // Dynamically load the SVGs from disk so preview updates automatically.
+  // We namespace IDs on the fly to prevent filter collisions between duplicate SVGs.
+  let seed = 0;
+  function injectSvg(url, selector) {
+    fetch(url)
+      .then(r => r.text())
+      .then(svgText => {
+        document.querySelectorAll(selector).forEach(host => {
+          let size = host.getAttribute('data-size');
+          host.style.width = size + 'px';
+          host.style.height = size + 'px';
+          host.style.display = 'flex';
+          host.style.alignItems = 'center';
+          host.style.justifyContent = 'center';
+          
+          let idSuffix = '-' + (++seed);
+          let processedSvg = svgText.replace(/(id=")([^"]+)(")/g, `$1$2${idSuffix}$3`)
+                                    .replace(/(url\()#([^)]+)(\))/g, `$1#$2${idSuffix}$3`);
+          
+          host.innerHTML = processedSvg;
+          let svgElem = host.querySelector('svg');
+          if (svgElem) {
+            svgElem.setAttribute('width', size);
+            svgElem.setAttribute('height', size);
+          }
+        });
+      })
+      .catch(err => console.error("Could not load " + url, err));
+  }
+
+  // Load from equivalent directory structure
+  injectSvg('lineup-glyph-color.svg', '.svg-host-color');
+  injectSvg('lineup-glyph.svg', '.svg-host-mono');
+</script>
+
+</body>
+</html>

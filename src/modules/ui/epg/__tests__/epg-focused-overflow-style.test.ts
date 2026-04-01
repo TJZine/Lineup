@@ -1,9 +1,12 @@
+/** @jest-environment jsdom */
+
 import fs from 'node:fs';
 import path from 'node:path';
 
 describe('focused EPG overflow style contract', () => {
     const cssPath = path.resolve(__dirname, '..', 'styles.css');
     const css = fs.readFileSync(cssPath, 'utf8');
+    let injectedStyle: HTMLStyleElement | null = null;
     const getBlockFromIndex = (start: number): string => {
         const open = css.indexOf('{', start);
         expect(open).toBeGreaterThanOrEqual(0);
@@ -36,6 +39,21 @@ describe('focused EPG overflow style contract', () => {
         return blocks;
     };
 
+    beforeAll(() => {
+        injectedStyle = document.createElement('style');
+        injectedStyle.textContent = css;
+        document.head.appendChild(injectedStyle);
+    });
+
+    afterAll(() => {
+        injectedStyle?.remove();
+        injectedStyle = null;
+    });
+
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
     it('keeps tiny focused ticker titles unclamped', () => {
         const block = getBlock(
             '.epg-cell-tier-tiny.focused .epg-cell-title.epg-cell-title-ticker-ready,\n' +
@@ -53,18 +71,133 @@ describe('focused EPG overflow style contract', () => {
         expect(block).toContain('display: none');
     });
 
-    it('keeps focused normal narrow/tiny rail selectors', () => {
-        const layoutBlock = getBlock(
-            '.epg-cell.focused:not(.epg-cell-focused-compact).epg-cell-tier-narrow,\n' +
-            '.epg-cell.focused:not(.epg-cell-focused-compact).epg-cell-tier-tiny'
-        );
-        expect(layoutBlock).toContain('grid-template-columns: 1fr auto');
+    it('keeps focused compact selector contract for overlay rail semantics', () => {
+        const layoutBlock = getBlock('.epg-cell.focused.epg-cell-focused-compact');
+        expect(layoutBlock).toContain('grid-template-columns: 1fr');
 
         const railBlock = getBlock(
-            '.epg-cell.focused:not(.epg-cell-focused-compact).epg-cell-tier-narrow .epg-cell-rail,\n' +
-            '.epg-cell.focused:not(.epg-cell-focused-compact).epg-cell-tier-tiny .epg-cell-rail'
+            '.epg-cell.focused.epg-cell-focused-compact .epg-cell-rail'
         );
-        expect(railBlock).toContain('position: static');
+        expect(railBlock).toContain('position: absolute');
+        expect(railBlock).toContain('top: 8px');
+        expect(railBlock).toContain('right: 10px');
+    });
+
+    it('keeps focused movie overlay selector contract for non-compact narrow/tiny cells', () => {
+        const layoutBlock = getBlock(
+            '.epg-cell.focused.epg-cell-focused-movie-overlay.epg-cell-tier-narrow,\n' +
+            '.epg-cell.focused.epg-cell-focused-movie-overlay.epg-cell-tier-tiny'
+        );
+        expect(layoutBlock).toContain('grid-template-columns: 1fr');
+
+        const railBlock = getBlock(
+            '.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-rail'
+        );
+        expect(railBlock).toContain('position: absolute');
+        expect(railBlock).toContain('top: 8px');
+        expect(railBlock).toContain('right: 10px');
+    });
+
+    it('keeps focused movie rail anchoring stable across badge visibility in tiny and medium tiers', () => {
+        const timeBlock = getBlock(
+            '.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-time'
+        );
+        expect(timeBlock).toContain('display: block');
+        expect(timeBlock).toContain('align-self: flex-end');
+        expect(timeBlock).toContain('margin-top: auto');
+
+        const container = document.createElement('div');
+        container.className = 'epg-container';
+        document.body.appendChild(container);
+
+        for (const tier of ['epg-cell-tier-tiny', 'epg-cell-tier-medium']) {
+            for (const badgeHidden of [true, false]) {
+                const cell = document.createElement('div');
+                cell.className = `epg-cell focused epg-cell-focused-movie-overlay ${tier}`;
+
+                const rail = document.createElement('div');
+                rail.className = 'epg-cell-rail';
+
+                const badge = document.createElement('span');
+                badge.className = 'epg-live-badge';
+                badge.hidden = badgeHidden;
+                if (!badgeHidden) {
+                    badge.classList.add('epg-live-badge-compact');
+                }
+
+                const time = document.createElement('div');
+                time.className = 'epg-cell-time';
+                time.textContent = '1:00 PM';
+
+                rail.append(badge, time);
+                cell.appendChild(rail);
+                container.appendChild(cell);
+
+                const railStyle = getComputedStyle(rail);
+                const timeStyle = getComputedStyle(time);
+
+                expect(railStyle.position).toBe('absolute');
+                expect(railStyle.top).toBe('8px');
+                expect(railStyle.right).toBe('10px');
+                expect(railStyle.bottom).toBe('8px');
+                expect(railStyle.alignItems).toBe('flex-end');
+                expect(railStyle.justifyContent).toBe('space-between');
+                expect(timeStyle.alignSelf).toBe('flex-end');
+                expect(timeStyle.marginTop).toBe('auto');
+                if (tier === 'epg-cell-tier-medium') {
+                    expect(timeStyle.display).toBe('block');
+                }
+                if (badgeHidden) {
+                    expect(getComputedStyle(badge).display).toBe('none');
+                }
+            }
+        }
+    });
+
+    it('keeps generic focused narrow/tiny selectors from matching focused movie overlays', () => {
+        expect(css).toContain(
+            '.epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-narrow,\n' +
+            '.epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-tiny'
+        );
+        expect(css).toContain(
+            '.epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-narrow .epg-cell-rail,\n' +
+            '.epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-tiny .epg-cell-rail'
+        );
+    });
+
+    it('resolves focused tiny movie overlays to single-column + absolute rail in computed styles', () => {
+        const cell = document.createElement('div');
+        cell.className = 'epg-cell focused epg-cell-focused-movie-overlay epg-cell-tier-tiny';
+        const rail = document.createElement('div');
+        rail.className = 'epg-cell-rail';
+        cell.appendChild(rail);
+        document.body.appendChild(cell);
+
+        const cellStyle = getComputedStyle(cell);
+        const railStyle = getComputedStyle(rail);
+
+        expect(cellStyle.gridTemplateColumns).toBe('1fr');
+        expect(railStyle.position).toBe('absolute');
+        expect(railStyle.pointerEvents).toBe('none');
+    });
+
+    it('keeps overlay rails corner-anchored when text-shifted', () => {
+        const compact = document.createElement('div');
+        compact.className = 'epg-cell focused text-shifted epg-cell-focused-compact';
+        const compactRail = document.createElement('div');
+        compactRail.className = 'epg-cell-rail';
+        compact.appendChild(compactRail);
+        document.body.appendChild(compact);
+
+        const movie = document.createElement('div');
+        movie.className = 'epg-cell focused text-shifted epg-cell-focused-movie-overlay epg-cell-tier-tiny';
+        const movieRail = document.createElement('div');
+        movieRail.className = 'epg-cell-rail';
+        movie.appendChild(movieRail);
+        document.body.appendChild(movie);
+
+        expect(getComputedStyle(compactRail).transform).toBe('none');
+        expect(getComputedStyle(movieRail).transform).toBe('none');
     });
 
     it('keeps reduced-motion ticker suppression selectors', () => {

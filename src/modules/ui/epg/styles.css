@@ -81,8 +81,8 @@
 }
 
 .epg-container.layout-classic .epg-classic-header-glyph {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   flex: 0 0 auto;
   color: var(--color-primary);
   opacity: 0.85;
@@ -153,8 +153,8 @@
   position: absolute;
   right: 16px;
   bottom: 12px;
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   color: rgba(255, 255, 255, 0.55);
   opacity: 0.18;
   pointer-events: none;
@@ -934,15 +934,15 @@
 }
 
 .epg-cell.focused.epg-cell-focused-compact {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 1fr;
   gap: 6px;
 }
 
 .epg-cell.focused.epg-cell-focused-compact .epg-cell-rail {
-  position: static;
-  top: auto;
-  right: auto;
-  align-self: stretch;
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  align-self: auto;
   pointer-events: none;
 }
 
@@ -950,9 +950,39 @@
   display: none;
 }
 
+.epg-cell.focused.epg-cell-focused-movie-overlay {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.epg-cell.focused.epg-cell-focused-movie-overlay.epg-cell-tier-narrow,
+.epg-cell.focused.epg-cell-focused-movie-overlay.epg-cell-tier-tiny {
+  grid-template-columns: 1fr;
+}
+
+.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-rail {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  bottom: 8px;
+  align-self: auto;
+  pointer-events: none;
+}
+
+.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-time {
+  display: block;
+  align-self: flex-end;
+  margin-top: auto;
+}
+
 .epg-cell.text-shifted .epg-cell-content,
 .epg-cell.text-shifted .epg-cell-rail {
   transform: translateX(var(--epg-cell-text-shift-px));
+}
+
+.epg-cell.focused.epg-cell-focused-compact .epg-cell-rail,
+.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-rail {
+  transform: none;
 }
 
 .epg-cell-tier-narrow,
@@ -970,14 +1000,14 @@
   pointer-events: none;
 }
 
-.epg-cell.focused:not(.epg-cell-focused-compact).epg-cell-tier-narrow,
-.epg-cell.focused:not(.epg-cell-focused-compact).epg-cell-tier-tiny {
+.epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-narrow,
+.epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-tiny {
   grid-template-columns: 1fr auto;
   gap: 12px;
 }
 
-.epg-cell.focused:not(.epg-cell-focused-compact).epg-cell-tier-narrow .epg-cell-rail,
-.epg-cell.focused:not(.epg-cell-focused-compact).epg-cell-tier-tiny .epg-cell-rail {
+.epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-narrow .epg-cell-rail,
+.epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-tiny .epg-cell-rail {
   position: static;
   top: auto;
   right: auto;

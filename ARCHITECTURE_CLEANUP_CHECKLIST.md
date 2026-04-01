@@ -348,7 +348,7 @@ These are the required repo-local boundary skills for the new wave. Load them be
 
 ### Work Units
 
-- [ ] `P2-W1` choose one top-level EPG owner surface and one readiness contract
+- [ ] `P2-W1` choose one top-level EPG owner surface and one readiness contract (pref Highest ROI)
   - Imported review issues: `review::.::holistic::high_level_elegance::epg_top_level_owner_blur`, `review::.::holistic::api_surface_coherence::epg_readiness_split_contract`
   - Primary files: `src/modules/ui/epg/EPGCoordinator.ts`, `src/modules/ui/epg/interfaces.ts`, `src/modules/ui/epg/DeferredEpgComponent.ts`, `src/core/orchestrator/OrchestratorCoordinatorFactory.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids

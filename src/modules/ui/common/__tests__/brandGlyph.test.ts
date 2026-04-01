@@ -55,6 +55,22 @@ describe('createLineupBrandGlyph', () => {
         expect(refsA.some((value) => /url\(#lineup-glyph-\d+-gold-face\)/.test(value))).toBe(true);
     });
 
+    it('uses a scoped SVG filter reference for the ambient rim blur instead of invalid inline blur syntax', () => {
+        expect(LINEUP_GLYPH_SOURCE_BY_VARIANT.color).toContain('<filter id="rim-blur"');
+        expect(LINEUP_GLYPH_SOURCE_BY_VARIANT.color).toContain('filter="url(#rim-blur)"');
+        expect(LINEUP_GLYPH_SOURCE_BY_VARIANT.color).not.toContain('filter="blur(1px)"');
+
+        const host = createLineupBrandGlyph({ variant: 'color', className: 'probe-glyph-filter' });
+        const svg = host.querySelector('svg');
+        expect(svg).not.toBeNull();
+
+        const filteredRect = Array.from(svg!.querySelectorAll('rect'))
+            .find((element) => element.getAttribute('stroke') === '#ffe5a0');
+
+        expect(filteredRect).toBeDefined();
+        expect(filteredRect?.getAttribute('filter')).toMatch(/^url\(#lineup-glyph-\d+-rim-blur\)$/);
+    });
+
     it('keeps branding asset files synchronized to the canonical source module', () => {
         const repoRoot = path.resolve(__dirname, '../../../../..');
         const monoAssetPath = path.join(repoRoot, 'assets/branding/lineup-glyph.svg');

@@ -53,6 +53,7 @@ const FOCUSED_TICKER_MIN_OVERFLOW_PX = 4;
 const TIER_WIDE_MIN_PX = 220;
 const TIER_MEDIUM_MIN_PX = 140;
 const TIER_NARROW_MIN_PX = 88;
+const FOCUSED_MOVIE_OVERLAY_CLASS = 'epg-cell-focused-movie-overlay';
 
 type CellWidthTier = 'wide' | 'medium' | 'narrow' | 'tiny';
 type FocusedLayoutMode = 'normal' | 'compact';
@@ -744,6 +745,7 @@ export class EPGVirtualizer {
             EPG_CLASSES.CELL_PAST,
             EPG_CLASSES.CELL_LOADING,
             EPG_CLASSES.CELL_TEXT_SHIFTED,
+            FOCUSED_MOVIE_OVERLAY_CLASS,
             EPG_CLASSES.CELL_TIER_WIDE,
             EPG_CLASSES.CELL_TIER_MEDIUM,
             EPG_CLASSES.CELL_TIER_NARROW,
@@ -1030,7 +1032,12 @@ export class EPGVirtualizer {
         const hasSubtitleContent = (subtitleText?.textContent ?? '').trim().length > 0;
         const isFocused = cellData.isFocused;
         const usesFocusedCompactLayout = isFocused && textLayout.focusedLayoutMode === 'compact';
+        const usesFocusedMovieOverlay = isFocused &&
+            !usesFocusedCompactLayout &&
+            cellData.kind === 'program' &&
+            cellData.program.item.type === 'movie';
         element.classList.toggle(EPG_CLASSES.CELL_FOCUSED_COMPACT, usesFocusedCompactLayout);
+        element.classList.toggle(FOCUSED_MOVIE_OVERLAY_CLASS, usesFocusedMovieOverlay);
 
         if (tier === 'wide') {
             element.classList.add(EPG_CLASSES.CELL_TIER_WIDE);
@@ -1221,9 +1228,6 @@ export class EPGVirtualizer {
     }
 
     updateTemporalClasses(nowMs: number): void {
-        const focusedKey = this.focusedVisibleCellKey;
-        let shouldResyncFocusedTicker = false;
-
         for (const cellData of this.visibleCells.values()) {
             const element = cellData.cellElement;
             if (cellData.kind === 'program') {
@@ -1252,14 +1256,6 @@ export class EPGVirtualizer {
                     }
                     this.updateLiveBadge(element, isCurrent);
                     this.updateProgressPresentation(this.getCellChildren(element), cellData, nowMs);
-                    if (
-                        cellData.key === focusedKey &&
-                        cellData.isFocused &&
-                        element.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT) &&
-                        wasCurrent !== isCurrent
-                    ) {
-                        shouldResyncFocusedTicker = true;
-                    }
                 }
             } else if (element) {
                 cellData.isCurrent = false;
@@ -1268,10 +1264,6 @@ export class EPGVirtualizer {
                 this.updateLiveBadge(element, false);
                 this.updateProgressPresentation(this.getCellChildren(element), cellData, nowMs);
             }
-        }
-
-        if (shouldResyncFocusedTicker) {
-            this._syncFocusedTitleTickerForVisibleFocus();
         }
     }
 
@@ -1290,7 +1282,10 @@ export class EPGVirtualizer {
         const isNarrowOrTiny =
             element.classList.contains(EPG_CLASSES.CELL_TIER_NARROW) ||
             element.classList.contains(EPG_CLASSES.CELL_TIER_TINY);
-        const shouldCompact = isNarrowOrTiny;
+        const shouldCompact =
+            isNarrowOrTiny ||
+            element.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT) ||
+            element.classList.contains(FOCUSED_MOVIE_OVERLAY_CLASS);
 
         badge.classList.toggle(EPG_CLASSES.CELL_LIVE_COMPACT, shouldCompact);
         badge.textContent = shouldCompact ? '' : 'LIVE';
@@ -1462,6 +1457,7 @@ export class EPGVirtualizer {
         }
         this.updateEpisodePresentation(children, cellData, textLayout);
         this.applyWidthTierPresentation(element, children, tier, cellData, textLayout);
+        this.updateLiveBadge(element, cellData.isCurrent);
         this.updateProgressPresentation(children, cellData, nowMs);
     }
 
