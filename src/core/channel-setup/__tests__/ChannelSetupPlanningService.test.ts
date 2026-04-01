@@ -299,6 +299,52 @@ describe('ChannelSetupPlanningService', () => {
         expect(plexLibrary.getYears).toHaveBeenCalledTimes(2);
     });
 
+    it('forwards distinct Plex request intents for preview and build flows', async () => {
+        const libraries = [
+            makeLibrary({
+                id: 'shows',
+                title: 'Shows',
+                type: 'show',
+                contentCount: 1200,
+            }),
+        ];
+        const plexLibrary = {
+            getLibraries: jest.fn().mockResolvedValue(libraries),
+            getPlaylists: jest.fn().mockResolvedValue([]),
+            getCollections: jest.fn().mockResolvedValue([]),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn().mockResolvedValue([makeTag({ title: 'Comedy', count: 10 })]),
+            getDirectors: jest.fn().mockResolvedValue([]),
+            getYears: jest.fn().mockResolvedValue([]),
+            getActors: jest.fn().mockResolvedValue([]),
+            getStudios: jest.fn().mockResolvedValue([]),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['shows'],
+            strategyConfig: {
+                genres: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        }));
+
+        await service.getSetupPreview(config);
+        expect(plexLibrary.getGenres).toHaveBeenCalledWith(
+            'shows',
+            expect.objectContaining({ requestIntent: 'preview' })
+        );
+
+        plexLibrary.getGenres.mockClear();
+
+        await service.buildSetupPlan(config, libraries, null, 'build');
+        expect(plexLibrary.getGenres).toHaveBeenCalledWith(
+            'shows',
+            expect.objectContaining({ requestIntent: 'background' })
+        );
+    });
+
     it('does not cache timeout snapshots', async () => {
         const libraries = [
             makeLibrary({
