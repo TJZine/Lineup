@@ -247,7 +247,8 @@ export function createOrchestratorCoordinators(
         ensureEpgInitialized: (): Promise<void> => deps.ensureEpgInitialized(),
         getEpgConfig: (): EPGConfig | null => deps.config?.epgConfig ?? null,
         getLocalMidnightMs: (t: number): number => deps.getLocalMidnightMs(t),
-        getEpgScheduleRangeSnapshot: () => deps.epgPreferencesStore.readScheduleRangeSnapshot(),
+        getEpgScheduleRangeSnapshot: (): ReturnType<EpgPreferencesStore['readScheduleRangeSnapshot']> =>
+            deps.epgPreferencesStore.readScheduleRangeSnapshot(),
         buildDailyScheduleConfig: (
             channel: ChannelConfig,
             items: ResolvedChannelContent['items'],

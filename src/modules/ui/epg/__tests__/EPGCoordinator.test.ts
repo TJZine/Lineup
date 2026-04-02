@@ -1617,10 +1617,14 @@ describe('EPGCoordinator', () => {
         try {
             const { deps } = makeDeps();
             const coordinator = new EPGCoordinator(deps);
-            const refreshSpy = jest.spyOn(
-                coordinator as unknown as { _refreshEpgSchedulesForRange: (range: unknown, reason: string) => Promise<void> },
-                '_refreshEpgSchedulesForRange'
-            );
+            const refreshRuntime = (
+                coordinator as unknown as {
+                    _refreshController: {
+                        debugGetScheduleRefreshRuntime: () => { refreshForRange: (range: unknown, reason: string) => Promise<void> };
+                    };
+                }
+            )._refreshController.debugGetScheduleRefreshRuntime();
+            const refreshSpy = jest.spyOn(refreshRuntime, 'refreshForRange');
 
             const debouncedPromise = coordinator.refreshEpgSchedulesForRange(
                 { channelStart: 0, channelEnd: 1, timeStartMs: 0, timeEndMs: 0 },
@@ -2360,17 +2364,11 @@ describe('EPGCoordinator', () => {
         const { deps, epg } = makeDeps();
         const coordinator = new EPGCoordinator(deps);
         (epg.isVisible as jest.Mock).mockReturnValue(true);
-        const queueCancelSpy = jest.spyOn(
+        const cancelSpy = jest.spyOn(
             (coordinator as unknown as {
-                _visibleRangeRefreshQueue: { cancelPendingRefresh: () => void };
-            })._visibleRangeRefreshQueue,
-            'cancelPendingRefresh'
-        );
-        const abortSpy = jest.spyOn(
-            (coordinator as unknown as {
-                _scheduleRefreshRuntime: { abortAllInFlightSchedules: (reason?: string) => void };
-            })._scheduleRefreshRuntime,
-            'abortAllInFlightSchedules'
+                _refreshController: { cancelScheduledRefreshWork: (reason: string) => void };
+            })._refreshController,
+            'cancelScheduledRefreshWork'
         );
         const refreshSpy = jest
             .spyOn(coordinator, 'refreshEpgSchedules')
@@ -2378,8 +2376,7 @@ describe('EPGCoordinator', () => {
 
         coordinator.handleGuideSettingChange({ key: 'aggressivePreload', enabled: true });
 
-        expect(queueCancelSpy).toHaveBeenCalledTimes(1);
-        expect(abortSpy).toHaveBeenCalledWith('guide-settings');
+        expect(cancelSpy).toHaveBeenCalledWith('guide-settings');
         expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
     });
 
@@ -2388,17 +2385,11 @@ describe('EPGCoordinator', () => {
         const coordinator = new EPGCoordinator(deps);
         (epg.isVisible as jest.Mock).mockReturnValue(true);
         const clearSpy = jest.spyOn(coordinator, 'clearScheduleCaches');
-        const queueCancelSpy = jest.spyOn(
+        const cancelSpy = jest.spyOn(
             (coordinator as unknown as {
-                _visibleRangeRefreshQueue: { cancelPendingRefresh: () => void };
-            })._visibleRangeRefreshQueue,
-            'cancelPendingRefresh'
-        );
-        const abortSpy = jest.spyOn(
-            (coordinator as unknown as {
-                _scheduleRefreshRuntime: { abortAllInFlightSchedules: (reason?: string) => void };
-            })._scheduleRefreshRuntime,
-            'abortAllInFlightSchedules'
+                _refreshController: { cancelScheduledRefreshWork: (reason: string) => void };
+            })._refreshController,
+            'cancelScheduledRefreshWork'
         );
         const refreshSpy = jest
             .spyOn(coordinator, 'refreshEpgSchedules')
@@ -2406,8 +2397,7 @@ describe('EPGCoordinator', () => {
 
         coordinator.handleGuideSettingChange({ key: 'guideDensity', density: 'wide' });
 
-        expect(queueCancelSpy).toHaveBeenCalledTimes(1);
-        expect(abortSpy).toHaveBeenCalledWith('guide-settings');
+        expect(cancelSpy).toHaveBeenCalledWith('guide-settings');
         expect(clearSpy).toHaveBeenCalledTimes(1);
         expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
         expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
@@ -2436,24 +2426,17 @@ describe('EPGCoordinator', () => {
                 getEpg: () => null,
             });
             const coordinator = new EPGCoordinator(deps);
-            const queueCancelSpy = jest.spyOn(
+            const cancelSpy = jest.spyOn(
                 (coordinator as unknown as {
-                    _visibleRangeRefreshQueue: { cancelPendingRefresh: () => void };
-                })._visibleRangeRefreshQueue,
-                'cancelPendingRefresh'
-            );
-            const abortSpy = jest.spyOn(
-                (coordinator as unknown as {
-                    _scheduleRefreshRuntime: { abortAllInFlightSchedules: (reason?: string) => void };
-                })._scheduleRefreshRuntime,
-                'abortAllInFlightSchedules'
+                    _refreshController: { cancelScheduledRefreshWork: (reason: string) => void };
+                })._refreshController,
+                'cancelScheduledRefreshWork'
             );
             const clearSpy = jest.spyOn(coordinator, 'clearScheduleCaches');
 
             coordinator.handleGuideSettingChange({ key: 'aggressivePreload', enabled: true });
 
-            expect(queueCancelSpy).toHaveBeenCalledTimes(1);
-            expect(abortSpy).toHaveBeenCalledWith('guide-settings');
+            expect(cancelSpy).toHaveBeenCalledWith('guide-settings');
             expect(clearSpy).toHaveBeenCalledTimes(1);
             expect(epg.clearSchedules).not.toHaveBeenCalled();
         });

@@ -96,8 +96,8 @@ describe('EPGCoordinatorPolicies', () => {
                     showCurrentTimeIndicator: true,
                     autoScrollToNow: false,
                 }),
-                getChannelManager: () => ({ getAllChannels: () => channels }),
-                getLocalMidnightMs: () => 0,
+                getChannelManager: (): { getAllChannels: () => ChannelConfig[] } => ({ getAllChannels: (): ChannelConfig[] => channels }),
+                getLocalMidnightMs: (): number => 0,
             },
             nowMs,
             storage

@@ -25,9 +25,8 @@ import {
     type EpgStorageSnapshotForScheduleRange,
 } from './EPGCoordinatorPolicies';
 import { countLibraryTypeVotes } from './epgLibraryUtils';
-import { EPGVisibleRangeRefreshQueue } from './EPGVisibleRangeRefreshQueue';
-import { EPGScheduleRefreshRuntime } from './EPGScheduleRefreshRuntime';
-import { toEpgChannels, toEpgScheduleWindow } from './adapters';
+import { EPGRefreshController } from './EPGRefreshController';
+import { toEpgChannels } from './adapters';
 import type { ChannelSwitchOptions, GuideSelectionSnapshot } from '../../../core/channel-tuning';
 
 type EpgChannelSwitchOptions = Pick<ChannelSwitchOptions, 'guideSelectionSnapshot'>;
@@ -76,8 +75,7 @@ const issueDiagnosticsStore = new IssueDiagnosticsStore();
 
 export class EPGCoordinator {
     private readonly _epgPreferencesStore: EpgPreferencesStore;
-    private _visibleRangeRefreshQueue: EPGVisibleRangeRefreshQueue;
-    private readonly _scheduleRefreshRuntime: EPGScheduleRefreshRuntime;
+    private readonly _refreshController: EPGRefreshController;
     private _openRequestId = 0;
     private _lastReportedVisibility: boolean | null = null;
     private _guideSelectionRequestId = 0;
@@ -85,13 +83,12 @@ export class EPGCoordinator {
 
     constructor(private readonly deps: EPGCoordinatorDeps) {
         this._epgPreferencesStore = deps.epgPreferencesStore ?? new EpgPreferencesStore();
-        this._scheduleRefreshRuntime = new EPGScheduleRefreshRuntime({
+        this._refreshController = new EPGRefreshController({
             getEpg: (): IEPGComponent | null => this.deps.getEpg(),
             getChannelManager: (): IChannelManager | null => this.deps.getChannelManager(),
             getScheduler: (): IChannelScheduler | null => this.deps.getScheduler(),
             getEpgUiStatus: (): EpgUiStatus => this.deps.getEpgUiStatus(),
-            getEpgScheduleRangeMs: (): { startTime: number; endTime: number } | null =>
-                this._getEpgScheduleRangeMs(),
+            getEpgScheduleRangeMs: (): { startTime: number; endTime: number } | null => this._getEpgScheduleRangeMs(),
             getLibraryFilterState: (allChannels: SchedulerChannelConfig[]): { selectedId: string | null; shouldFilter: boolean } => {
                 const { selectedId, shouldFilter } = this._getLibraryFilterState(allChannels);
                 return { selectedId, shouldFilter };
@@ -119,10 +116,9 @@ export class EPGCoordinator {
             appendDebugLog: (event: string, payload: Record<string, unknown>): void => {
                 appendEpgDebugLog(event, payload);
             },
+            primeEpgChannels: (): void => this.primeEpgChannels(),
+            onGuideSettingInvalidation: (): void => this._invalidateGuideSelection('guide-settings'),
         });
-        this._visibleRangeRefreshQueue = new EPGVisibleRangeRefreshQueue(
-            (range: EpgVisibleRange, reason: string) => this._refreshEpgSchedulesForRange(range, reason)
-        );
     }
 
     private _refreshEpgSchedulesBestEffort(options?: { reason?: string; debounceMs?: number }): void {
@@ -148,16 +144,11 @@ export class EPGCoordinator {
      * to avoid cache/UI mismatches where the coordinator believes data is loaded.
      */
     clearScheduleCaches(): void {
-        this._scheduleRefreshRuntime.clearScheduleCaches();
+        this._refreshController.clearScheduleCaches();
     }
 
     clearSelectedChannelScheduleSnapshot(): void {
-        this._scheduleRefreshRuntime.clearSelectedChannelScheduleSnapshot();
-    }
-
-    private _cancelScheduledRefreshWork(reason: string): void {
-        this._visibleRangeRefreshQueue.cancelPendingRefresh();
-        this._scheduleRefreshRuntime.abortAllInFlightSchedules(reason);
+        this._refreshController.clearSelectedChannelScheduleSnapshot();
     }
 
     handleVisibleRangeChange(range: EpgVisibleRange): void {
@@ -170,10 +161,9 @@ export class EPGCoordinator {
             change.key === 'guideDensity' ||
             change.key === 'aggressivePreload' ||
             change.key === 'pastItemsWindow';
-
         if (shouldInvalidateSchedules) {
             this._invalidateGuideSelection('guide-settings');
-            this._cancelScheduledRefreshWork('guide-settings');
+            this._refreshController.cancelScheduledRefreshWork('guide-settings');
             this.clearScheduleCaches();
             this.clearSelectedChannelScheduleSnapshot();
         }
@@ -201,13 +191,8 @@ export class EPGCoordinator {
             return;
         }
 
-        this.primeEpgChannels();
-        if (
-            change.key === 'libraryTabs' ||
-            change.key === 'guideDensity' ||
-            change.key === 'aggressivePreload' ||
-            change.key === 'pastItemsWindow'
-        ) {
+        if (shouldInvalidateSchedules) {
+            this.primeEpgChannels();
             this._refreshEpgSchedulesBestEffort({ reason: 'guide-settings', debounceMs: 0 });
         }
     }
@@ -292,7 +277,7 @@ export class EPGCoordinator {
         const status = this.deps.getEpgUiStatus();
 
         const showAndRefresh = (epgInstance: IEPGComponent): void => {
-            this._preseedCurrentChannelSchedule(epgInstance);
+            this._refreshController.preseedCurrentChannelSchedule(epgInstance);
             const preserveFocus = this.deps.getPreserveFocusOnOpen();
             epgInstance.show({ preserveFocus });
             this._reportVisibilityIfChanged(epgInstance);
@@ -310,7 +295,7 @@ export class EPGCoordinator {
         }
 
         const preserveFocus = this.deps.getPreserveFocusOnOpen();
-        this._preseedCurrentChannelSchedule(initialEpg);
+        this._refreshController.preseedCurrentChannelSchedule(initialEpg);
         initialEpg.show({ preserveFocus });
         this._reportVisibilityIfChanged(initialEpg);
         if (!preserveFocus) {
@@ -350,7 +335,7 @@ export class EPGCoordinator {
         if (invalidateGuideSelection) {
             this._invalidateGuideSelection('close-epg');
         }
-        this._cancelScheduledRefreshWork('close-epg');
+        this._refreshController.cancelScheduledRefreshWork('close-epg');
         const epg = this.deps.getEpg();
         epg?.hide();
         this._reportVisibilityIfChanged(epg);
@@ -414,102 +399,7 @@ export class EPGCoordinator {
     }
 
     refreshEpgScheduleForLiveChannel(): void {
-        const epg = this.deps.getEpg();
-        const channelManager = this.deps.getChannelManager();
-        const scheduler = this.deps.getScheduler();
-        if (!epg || !channelManager || !scheduler) return;
-        if (this.deps.getEpgUiStatus() !== 'ready') return;
-        if (!epg.isVisible()) return;
-
-        const range = this._getEpgScheduleRangeMs();
-        if (!range) return;
-
-        const current = channelManager.getCurrentChannel();
-        if (!current) return;
-
-        const all = channelManager.getAllChannels();
-        const { selectedId, shouldFilter } = this._getLibraryFilterState(all);
-        const visible = this._getVisibleChannels(all, selectedId, shouldFilter);
-        if (!visible.some((c) => c.id === current.id)) return;
-
-        const state = scheduler.getState();
-        if (!state.isActive || state.channelId !== current.id) {
-            return;
-        }
-
-        try {
-            const window = scheduler.getScheduleWindow(range.startTime, range.endTime);
-            const schedule = this._cloneScheduleWindow(window);
-            const now = Date.now();
-            const currentProgram =
-                schedule.programs.find((program) => now >= program.scheduledStartTime && now < program.scheduledEndTime) ??
-                null;
-            issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'epg.liveRowOverwrite', {
-                channelId: current.id,
-                source: 'live-scheduler',
-                rangeStartTime: range.startTime,
-                rangeEndTime: range.endTime,
-                currentRatingKey: currentProgram?.item.ratingKey ?? null,
-                currentScheduledStartTime: currentProgram?.scheduledStartTime ?? null,
-                currentScheduledEndTime: currentProgram?.scheduledEndTime ?? null,
-                programCount: schedule.programs.length,
-            });
-            epg.loadScheduleForChannel(current.id, toEpgScheduleWindow(schedule));
-            this._scheduleRefreshRuntime.cacheScheduleForRange(
-                current.id,
-                range.startTime,
-                range.endTime,
-                schedule
-            );
-        } catch (error) {
-            if (this._isDebugEnabled()) {
-                appendEpgDebugLog('EPG.refreshEpgScheduleForLiveChannel.error', {
-                    error: summarizeErrorForLog(error),
-                });
-            }
-        }
-    }
-
-    private _preseedCurrentChannelSchedule(epgOverride?: IEPGComponent): void {
-        const epg = epgOverride ?? this.deps.getEpg();
-        const channelManager = this.deps.getChannelManager();
-        const scheduler = this.deps.getScheduler();
-        if (!epg || !channelManager || !scheduler) return;
-        if (this.deps.getEpgUiStatus() !== 'ready') return;
-
-        const range = this._getEpgScheduleRangeMs();
-        if (!range) return;
-
-        const current = channelManager.getCurrentChannel();
-        if (!current) return;
-
-        const all = channelManager.getAllChannels();
-        const { selectedId, shouldFilter } = this._getLibraryFilterState(all);
-        const visible = this._getVisibleChannels(all, selectedId, shouldFilter);
-        if (!visible.some((c) => c.id === current.id)) return;
-
-        const state = scheduler.getState();
-        if (!state.isActive || state.channelId !== current.id) {
-            return;
-        }
-
-        try {
-            const window = scheduler.getScheduleWindow(range.startTime, range.endTime);
-            const schedule = this._cloneScheduleWindow(window);
-            epg.loadScheduleForChannel(current.id, toEpgScheduleWindow(schedule));
-            this._scheduleRefreshRuntime.cacheScheduleForRange(
-                current.id,
-                range.startTime,
-                range.endTime,
-                schedule
-            );
-        } catch (error) {
-            if (this._isDebugEnabled()) {
-                appendEpgDebugLog('EPG._preseedCurrentChannelSchedule.error', {
-                    error: summarizeErrorForLog(error),
-                });
-            }
-        }
+        this._refreshController.refreshEpgScheduleForLiveChannel();
     }
 
     async refreshEpgSchedulesForRange(range: {
@@ -518,7 +408,7 @@ export class EPGCoordinator {
         timeStartMs: number;
         timeEndMs: number;
     }, options?: { reason?: string; debounceMs?: number }): Promise<void> {
-        return this._visibleRangeRefreshQueue.request(range, options);
+        return this._refreshController.refreshEpgSchedulesForRange(range, options);
     }
 
     wireEpgEvents(): Array<() => void> {
@@ -563,18 +453,15 @@ export class EPGCoordinator {
             this._epgPreferencesStore.writeSelectedLibraryId(payload.libraryId ?? null);
 
             this._invalidateGuideSelection('library-filter');
-            this._cancelScheduledRefreshWork('library-filter');
+            this._refreshController.cancelScheduledRefreshWork('library-filter');
             this.clearSelectedChannelScheduleSnapshot();
-            this._scheduleRefreshRuntime.clearLoadedScheduleMarkers();
+            this._refreshController.clearLoadedScheduleMarkers();
 
             epg.clearSchedules();
-
             this.primeEpgChannels();
 
-            // Reset to top to avoid scroll offsets pointing past end after filtering
             epg.scrollToChannel(0);
             epg.focusChannel(0);
-
             this._refreshEpgSchedulesBestEffort({ reason: 'library-filter', debounceMs: 0 });
         };
 
@@ -658,7 +545,7 @@ export class EPGCoordinator {
         range: { channelStart: number; channelEnd: number; timeStartMs: number; timeEndMs: number },
         reason: string
     ): Promise<void> {
-        await this._scheduleRefreshRuntime.refreshForRange(range, reason);
+        await this._refreshController.refreshEpgSchedulesForRangeNow(range, reason);
     }
 
     private _focusEpgOnCurrentChannel(epgOverride?: IEPGComponent): void {
@@ -704,7 +591,7 @@ export class EPGCoordinator {
         const { requestId, controller } = this._startGuideSelectionRequest();
         let snapshot: GuideSelectionSnapshot | null = null;
         try {
-            snapshot = await this._scheduleRefreshRuntime.buildGuideSelectionSnapshot({
+            snapshot = await this._refreshController.buildGuideSelectionSnapshot({
                 channelId,
                 ratingKey: program.item.ratingKey,
                 scheduledStartTime: program.scheduledStartTime,
