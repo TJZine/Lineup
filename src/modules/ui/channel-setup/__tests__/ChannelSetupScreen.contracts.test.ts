@@ -46,7 +46,10 @@ describe('ChannelSetupScreen contracts', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
+        const screen = new ChannelSetupScreen(container, createScreenDeps({
+            workflowPort: orchestrator,
+            screenPorts: orchestrator,
+        }));
         activeScreen = screen;
         screen.show();
         await flushPromises();

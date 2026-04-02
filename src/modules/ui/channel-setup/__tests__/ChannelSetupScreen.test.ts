@@ -53,7 +53,10 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn(() => librariesPromise),
         });
 
-        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
+        const screen = new ChannelSetupScreen(container, createScreenDeps({
+            workflowPort: orchestrator,
+            screenPorts: orchestrator,
+        }));
         screen.show();
 
         expect(container.textContent ?? '').toContain('Loading libraries');

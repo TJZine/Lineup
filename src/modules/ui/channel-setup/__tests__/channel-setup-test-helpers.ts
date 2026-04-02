@@ -130,16 +130,16 @@ export const createNavigationMock = (): NavigationMock => {
 export const createOrchestrator = (
     overrides: Partial<ChannelSetupWorkflowPort & ChannelSetupScreenPorts> = {}
 ): ChannelSetupWorkflowPort & ChannelSetupScreenPorts => ({
-    getNavigation: jest.fn(() => null),
+    ...createWorkflowPort(overrides),
+    ...createScreenPorts(overrides),
+});
+
+export const createWorkflowPort = (
+    overrides: Partial<ChannelSetupWorkflowPort> = {}
+): ChannelSetupWorkflowPort => ({
     getLibrariesForSetup: jest.fn().mockResolvedValue([]),
     getChannelSetupRecord: jest.fn(() => null),
     getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
-    getSelectedServerStorageKey: jest.fn(() => PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY),
-    getServerHealthStorageKey: jest.fn(() => PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY),
-    getSelectedServerId: jest.fn(() => null),
-    openServerSelect: jest.fn(),
-    switchToChannelByNumber: jest.fn(),
-    openEPG: jest.fn(),
     invalidateFacetSnapshot: jest.fn(),
     createChannelsFromSetup: jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT),
     markSetupComplete: jest.fn(),
@@ -152,13 +152,39 @@ export const createOrchestrator = (
         reachedMaxChannels: false,
     }),
     ...overrides,
-} satisfies ChannelSetupWorkflowPort & ChannelSetupScreenPorts);
+});
+
+export const createScreenPorts = (
+    overrides: Partial<ChannelSetupScreenPorts> = {}
+): ChannelSetupScreenPorts => ({
+    getNavigation: jest.fn(() => null),
+    getSelectedServerStorageKey: jest.fn(() => PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY),
+    getServerHealthStorageKey: jest.fn(() => PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY),
+    getSelectedServerId: jest.fn(() => null),
+    openServerSelect: jest.fn(),
+    switchToChannelByNumber: jest.fn(),
+    openEPG: jest.fn(),
+    ...overrides,
+});
+
+type ScreenDepsOverrides = {
+    workflowPort?: Partial<ChannelSetupWorkflowPort>;
+    screenPorts?: Partial<ChannelSetupScreenPorts>;
+};
+
+const hasSplitOverrides = (
+    input: ScreenDepsOverrides | Partial<ChannelSetupWorkflowPort & ChannelSetupScreenPorts>
+): input is ScreenDepsOverrides => 'workflowPort' in input || 'screenPorts' in input;
 
 export const createScreenDeps = (
-    combined: ChannelSetupWorkflowPort & ChannelSetupScreenPorts
+    input: ScreenDepsOverrides | Partial<ChannelSetupWorkflowPort & ChannelSetupScreenPorts> = {}
 ): ConstructorParameters<typeof ChannelSetupScreen>[1] => ({
-    workflowPort: combined,
-    screenPorts: combined,
+    workflowPort: createWorkflowPort(
+        hasSplitOverrides(input) ? (input.workflowPort ?? {}) : input
+    ),
+    screenPorts: createScreenPorts(
+        hasSplitOverrides(input) ? (input.screenPorts ?? {}) : input
+    ),
 });
 
 // Intentionally button-only to enforce accessible remote-first UI semantics.
