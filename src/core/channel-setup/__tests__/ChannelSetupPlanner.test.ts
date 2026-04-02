@@ -213,11 +213,11 @@ describe('ChannelSetupPlanner', () => {
             libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 25 }] as PlexLibraryType[],
             playlists: [],
             collectionsByLibraryId: new Map(),
-            genresByLibraryId: new Map([['s1', [{ key: 'action', title: 'Action', count: null as unknown as number }]]]),
+            genresByLibraryId: new Map([['s1', [{ key: 'action', title: 'Action', count: null }]]]),
             directorsByLibraryId: new Map(),
             yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map(),
-            studiosByLibraryId: new Map([['s1', [{ key: 'studio-a', title: 'Studio A', count: null as unknown as number }]]]),
+            studiosByLibraryId: new Map([['s1', [{ key: 'studio-a', title: 'Studio A', count: null }]]]),
             warnings: [],
             seedFor,
         });
@@ -541,8 +541,8 @@ describe('ChannelSetupPlanner', () => {
             directorsByLibraryId: new Map(),
             yearsByLibraryId: new Map([
                 ['s1', [
-                    { key: '1981', title: '1981', count: null as unknown as number },
-                    { key: '1988', title: '1988', count: null as unknown as number },
+                    { key: '1981', title: '1981', count: null },
+                    { key: '1988', title: '1988', count: null },
                 ]],
             ]),
             actorsByLibraryId: new Map(),
@@ -552,6 +552,62 @@ describe('ChannelSetupPlanner', () => {
         });
 
         expect(plan.pendingChannels.map((channel) => channel.name)).toContain('Shows - 1980s');
+    });
+
+    it('counts min-item-rejected native facet candidates in plan.skipped', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['m1'],
+                minItemsPerChannel: 5,
+                strategyConfig: createStrategyConfig({
+                    genres: { enabled: true },
+                    directors: { enabled: true },
+                    decades: { enabled: true },
+                    studios: { enabled: true },
+                    actors: { enabled: true },
+                }),
+                channelExpansion: {
+                    addAlternateLineups: false,
+                    alternateLineupCopies: 1,
+                    variantType: 'none',
+                    variantBlockSize: 3,
+                },
+            }),
+            libraries: [{ id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 }] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map([['m1', [
+                { key: 'genre-a', title: 'Action', count: 8 },
+                { key: 'genre-b', title: 'Drama', count: 2 },
+            ]]]),
+            directorsByLibraryId: new Map([['m1', [
+                { key: 'dir-a', title: 'Jane Doe', count: 6 },
+                { key: 'dir-b', title: 'John Roe', count: 4 },
+            ]]]),
+            yearsByLibraryId: new Map([['m1', [
+                { key: '1981', title: '1981', count: 2 },
+                { key: '1994', title: '1994', count: 8 },
+            ]]]),
+            actorsByLibraryId: new Map([['m1', [
+                { key: 'actor-a', title: 'Alex Star', count: 10 },
+                { key: 'actor-b', title: 'Blake Star', count: 1 },
+            ]]]),
+            studiosByLibraryId: new Map([['m1', [
+                { key: 'studio-a', title: 'Studio A', count: 7 },
+                { key: 'studio-b', title: 'Studio B', count: 3 },
+            ]]]),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(plan.skipped).toBe(5);
+        expect(plan.pendingChannels.map((channel) => channel.name)).toEqual(expect.arrayContaining([
+            'Movies - Action',
+            'Movies - Jane Doe',
+            'Movies - 1990s',
+            'Studio A - Movies',
+            'Alex Star - Movies',
+        ]));
     });
 
     it('reports fetched-tag and candidate counts for native facet families', () => {
@@ -572,7 +628,7 @@ describe('ChannelSetupPlanner', () => {
             genresByLibraryId: new Map([['m1', [
                 { key: 'genre-a', title: 'Action', count: 8 },
                 { key: 'genre-b', title: 'Drama', count: 2 },
-                { key: 'genre-c', title: 'Mystery', count: null as unknown as number },
+                { key: 'genre-c', title: 'Mystery', count: null },
             ]]]),
             directorsByLibraryId: new Map([['m1', [
                 { key: 'dir-a', title: 'Jane Doe', count: 6 },
@@ -582,7 +638,7 @@ describe('ChannelSetupPlanner', () => {
             actorsByLibraryId: new Map([['m1', [
                 { key: 'actor-a', title: 'Alex Star', count: 10 },
                 { key: 'actor-b', title: 'Blake Star', count: 1 },
-                { key: 'actor-c', title: 'Casey Star', count: null as unknown as number },
+                { key: 'actor-c', title: 'Casey Star', count: null },
             ]]]),
             studiosByLibraryId: new Map([['m1', [
                 { key: 'studio-a', title: 'Studio A', count: 7 },

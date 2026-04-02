@@ -248,6 +248,10 @@ describe('ChannelSetupBuildCommitter', () => {
         const [appendArgs] = channelManager.replaceAllChannels.mock.calls[0] ?? [];
         expect(appendArgs?.map((channel: ChannelConfig) => channel.number)).toEqual([1, 2, 3, 4]);
 
+        builtChannels = [];
+        mockBuilder.createChannel.mockClear();
+        mockBuilder.getAllChannels.mockImplementation(() => builtChannels);
+
         const mergeDiff: ChannelDiffResult = {
             ...emptyDiff(),
             matchedPairs: [
