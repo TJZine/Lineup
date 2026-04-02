@@ -34,7 +34,8 @@ import {
     type StrategyStepMutableState,
     strategySupportsMixedScope,
 } from './ChannelSetupSessionController';
-import type { ChannelSetupSessionGateway } from '../../../core/channel-setup/ChannelSetupSessionGateway';
+import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/ChannelSetupWorkflowPort';
+import type { ChannelSetupScreenPorts } from './ChannelSetupScreenPorts';
 
 const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
 
@@ -59,7 +60,7 @@ const SHOW_SVG = `
 
 export class ChannelSetupScreen {
     private _container: HTMLElement;
-    private _sessionGateway: ChannelSetupSessionGateway;
+    private _screenPorts: ChannelSetupScreenPorts;
     private readonly _serverSelectionStore: ServerSelectionStore;
     private readonly _focus: ChannelSetupFocusCoordinator;
     private _destroyScreenShell: (() => void) | null = null;
@@ -157,18 +158,24 @@ export class ChannelSetupScreen {
         }
     }
 
-    constructor(container: HTMLElement, sessionGateway: ChannelSetupSessionGateway) {
+    constructor(
+        container: HTMLElement,
+        deps: { workflowPort: ChannelSetupWorkflowPort; screenPorts: ChannelSetupScreenPorts }
+            | (ChannelSetupWorkflowPort & ChannelSetupScreenPorts)
+    ) {
+        const workflowPort = 'workflowPort' in deps ? deps.workflowPort : deps;
+        const screenPorts = 'screenPorts' in deps ? deps.screenPorts : deps;
         this._container = container;
-        this._sessionGateway = sessionGateway;
+        this._screenPorts = screenPorts;
         this._serverSelectionStore = new ServerSelectionStore(() => ({
-            selectedServerKey: this._sessionGateway.getSelectedServerStorageKey(),
-            serverHealthKey: this._sessionGateway.getServerHealthStorageKey(),
+            selectedServerKey: this._screenPorts.getSelectedServerStorageKey(),
+            serverHealthKey: this._screenPorts.getServerHealthStorageKey(),
         }));
         this._focus = new ChannelSetupFocusCoordinator({
-            getNavigation: (): ReturnType<ChannelSetupSessionGateway['getNavigation']> => this._sessionGateway.getNavigation(),
+            getNavigation: (): ReturnType<ChannelSetupScreenPorts['getNavigation']> => this._screenPorts.getNavigation(),
         });
         this._session = new ChannelSetupSessionController({
-            orchestrator: this._sessionGateway,
+            workflowPort,
             getSelectedServerId: (): string | null => this._getSelectedServerId(),
         });
 
@@ -223,7 +230,7 @@ export class ChannelSetupScreen {
         const token = this._visibilityToken;
         this._container.style.display = 'flex';
         this._container.classList.add('visible');
-        const nav = this._sessionGateway.getNavigation();
+        const nav = this._screenPorts.getNavigation();
         if (nav && !this._navKeyHandler) {
             this._navKeyHandler = (event: KeyEvent): void => {
                 const session = this._session.getSnapshot();
@@ -388,7 +395,7 @@ export class ChannelSetupScreen {
         this._closeDropdown();
         this._session.endSession();
         if (this._navKeyHandler) {
-            const nav = this._sessionGateway.getNavigation();
+            const nav = this._screenPorts.getNavigation();
             nav?.off('keyPress', this._navKeyHandler);
             this._navKeyHandler = null;
         }
@@ -399,7 +406,7 @@ export class ChannelSetupScreen {
 
     private _renderStep(): void {
         const token = this._visibilityToken;
-        const nav = this._sessionGateway.getNavigation();
+        const nav = this._screenPorts.getNavigation();
         const focusedId = nav?.getFocusedElement()?.id ?? null;
         if (focusedId && this._preferredFocusId === null) {
             this._preferredFocusId = focusedId;
@@ -475,7 +482,7 @@ export class ChannelSetupScreen {
                 this._renderStep();
             },
             onBack: () => {
-                this._sessionGateway.openServerSelect();
+                this._screenPorts.openServerSelect();
             },
             onNext: () => {
                 this._session.setStep(2);
@@ -499,7 +506,7 @@ export class ChannelSetupScreen {
         clearAllButton: HTMLButtonElement,
         listButtons: HTMLButtonElement[]
     ): void {
-        const nav = this._sessionGateway.getNavigation();
+        const nav = this._screenPorts.getNavigation();
         if (!nav) {
             return;
         }
@@ -636,7 +643,7 @@ export class ChannelSetupScreen {
                 if (!(anchor instanceof HTMLElement)) {
                     return;
                 }
-                const nav = this._sessionGateway.getNavigation();
+                const nav = this._screenPorts.getNavigation();
                 this._activeDropdown = createDropdownPopover({
                     anchor,
                     container: this._contentEl,
@@ -956,12 +963,12 @@ export class ChannelSetupScreen {
                 this._renderStep();
             },
             onDone: () => {
-                const nav = this._sessionGateway.getNavigation();
+                const nav = this._screenPorts.getNavigation();
                 if (nav) {
                     nav.replaceScreen('player');
                 }
-                this._sessionGateway.switchToChannelByNumber(1)
-                    .then(() => this._sessionGateway.openEPG())
+                this._screenPorts.switchToChannelByNumber(1)
+                    .then(() => this._screenPorts.openEPG())
                     .catch((error: unknown) => {
                         if (isAbortLikeError(error)) return;
                         console.error('[ChannelSetup] Switch to channel 1 failed:', summarizeErrorForLog(error));
@@ -1109,7 +1116,7 @@ export class ChannelSetupScreen {
             this._preferredFocusId = null;
         }
 
-        const nav = this._sessionGateway.getNavigation();
+        const nav = this._screenPorts.getNavigation();
         if (nav && !doneButton.disabled) {
             nav.setFocus(doneButton.id);
         } else {
@@ -1149,6 +1156,6 @@ export class ChannelSetupScreen {
         if (stored) {
             return stored;
         }
-        return this._sessionGateway.getSelectedServerId();
+        return this._screenPorts.getSelectedServerId();
     }
 }

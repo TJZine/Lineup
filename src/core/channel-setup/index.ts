@@ -3,10 +3,10 @@ export { ChannelSetupPlanningService } from './ChannelSetupPlanningService';
 export { ChannelSetupBuildExecutor } from './ChannelSetupBuildExecutor';
 export { ChannelSetupRecordStore } from './ChannelSetupRecordStore';
 export { ChannelSetupRerunController } from './ChannelSetupRerunController';
-export { createChannelSetupSessionGateway } from './createChannelSetupSessionGateway';
-export type { ChannelSetupSessionGateway } from './ChannelSetupSessionGateway';
+export { createChannelSetupWorkflowPort } from './createChannelSetupWorkflowPort';
+export type { ChannelSetupWorkflowPort } from './ChannelSetupWorkflowPort';
 export type { ChannelSetupCoordinatorDeps } from './ChannelSetupCoordinator';
-export type { CreateChannelSetupSessionGatewayDeps } from './createChannelSetupSessionGateway';
+export type { CreateChannelSetupWorkflowPortDeps } from './createChannelSetupWorkflowPort';
 export type {
     ChannelSetupConfig,
     ChannelBuildSummary,

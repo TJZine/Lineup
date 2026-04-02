@@ -110,8 +110,8 @@ import type {
 import type { OrchestratorPlaybackStateAccessors } from './core/orchestrator/OrchestratorPlaybackStateAccessors';
 import {
     ChannelSetupCoordinator,
-    createChannelSetupSessionGateway,
-    type ChannelSetupSessionGateway,
+    createChannelSetupWorkflowPort,
+    type ChannelSetupWorkflowPort,
 } from './core/channel-setup';
 import { NowPlayingDebugManager } from './modules/debug/NowPlayingDebugManager';
 import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
@@ -298,7 +298,7 @@ export class AppOrchestrator {
     private readonly _debugOverridesStore = new DebugOverridesStore();
     private _epgDebugRuntime: IEpgDebugRuntime | null = null;
     private readonly _playbackStateAccessors: OrchestratorPlaybackStateAccessors;
-    private readonly _channelSetupSessionGateway: ChannelSetupSessionGateway;
+    private readonly _channelSetupWorkflowPort: ChannelSetupWorkflowPort;
 
     private _throwModuleInitPreconditionError(
         message: string,
@@ -346,18 +346,7 @@ export class AppOrchestrator {
                 this._shouldAutoShowInfoBannerOnNextPlay = value;
             },
         };
-        this._channelSetupSessionGateway = createChannelSetupSessionGateway({
-            getNavigation: (): INavigationManager | null => this._navigation,
-            getSelectedServerStorageKey: (): string => this._storageContext.getSelectedServerStorageKey(),
-            getServerHealthStorageKey: (): string => this._storageContext.getServerHealthStorageKey(),
-            getSelectedServerId: (): string | null => this._getSelectedServerId(),
-            openServerSelect: (): void => {
-                this._navigation?.goTo('server-select', { allowAutoConnect: false });
-            },
-            switchToChannelByNumber: (number: number, options?: { signal?: AbortSignal }): Promise<void> =>
-                this._channelTuning?.switchToChannelByNumber(number, options).then((): void => undefined)
-                ?? Promise.resolve(),
-            openEPG: (): void => this._epgCoordinator?.openEPG(),
+        this._channelSetupWorkflowPort = createChannelSetupWorkflowPort({
             getChannelSetupCoordinator: (): ChannelSetupCoordinator | null => this._channelSetup,
         });
         this._initializeModuleStatus();
@@ -1293,8 +1282,12 @@ export class AppOrchestrator {
         await this._plexDiscovery.initialize();
     }
 
-    getChannelSetupSessionGateway(): ChannelSetupSessionGateway {
-        return this._channelSetupSessionGateway;
+    getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort {
+        return this._channelSetupWorkflowPort;
+    }
+
+    requestChannelSetupRerun(): void {
+        this._requireChannelSetupCoordinator().requestChannelSetupRerun();
     }
 
     /**
@@ -1910,6 +1903,13 @@ export class AppOrchestrator {
             throw new Error('PlaybackRuntimeController not initialized');
         }
         return this._playbackRuntimeController;
+    }
+
+    private _requireChannelSetupCoordinator(): ChannelSetupCoordinator {
+        if (!this._channelSetup) {
+            throw new Error('Channel setup not initialized');
+        }
+        return this._channelSetup;
     }
 
     private _stopPlayback(): void {

@@ -1,9 +1,10 @@
-import type { ChannelSetupSessionGateway } from '../channel-setup/ChannelSetupSessionGateway';
+import type { ChannelSetupWorkflowPort } from '../channel-setup/ChannelSetupWorkflowPort';
 import type { PlexHomeUser, PlexPinRequest } from '../../modules/plex/auth/interfaces';
 import type { PlexServer } from '../../modules/plex/discovery/types';
 import type { AuthScreen, AuthScreenPorts } from '../../modules/ui/auth/AuthScreen';
 import type { AudioSetupScreen } from '../../modules/ui/audio-setup/AudioSetupScreen';
 import type { ChannelSetupScreen } from '../../modules/ui/channel-setup/ChannelSetupScreen';
+import type { ChannelSetupScreenPorts } from '../../modules/ui/channel-setup/ChannelSetupScreenPorts';
 import type { INavigationManager } from '../../modules/navigation';
 import type { ProfileSelectScreen, ProfileSelectScreenPorts } from '../../modules/ui/profile-select/ProfileSelectScreen';
 import type { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
@@ -44,7 +45,9 @@ export interface AppLazyScreenRegistryRuntimeFacade {
     clearSelectedServer(): void;
     getSelectedServerStorageKey(): string;
     getServerHealthStorageKey(): string;
-    getChannelSetupSessionGateway(): ChannelSetupSessionGateway;
+    getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort;
+    createChannelSetupScreenPorts(): ChannelSetupScreenPorts;
+    requestChannelSetupRerun(): void;
     setSubtitleTrack(trackId: string | null): Promise<void>;
     onGuideSettingChange(change: GuideSettingChange): void;
     getActiveUsername(): string | null;
@@ -283,7 +286,7 @@ export class AppLazyScreenRegistry {
                         clearSelectedServer: () => latestRuntimeFacade.clearSelectedServer(),
                         getSelectedServerStorageKey: () => latestRuntimeFacade.getSelectedServerStorageKey(),
                         getServerHealthStorageKey: () => latestRuntimeFacade.getServerHealthStorageKey(),
-                        requestChannelSetupRerun: () => latestRuntimeFacade.getChannelSetupSessionGateway().requestChannelSetupRerun(),
+                        requestChannelSetupRerun: () => latestRuntimeFacade.requestChannelSetupRerun(),
                         getNavigation: () => this._getRuntimeFacade()?.getNavigation() ?? null,
                     };
 
@@ -356,9 +359,13 @@ export class AppLazyScreenRegistry {
                     const latestRuntimeFacade = this._getRuntimeFacade();
                     if (!latestRuntimeFacade) return null;
 
+                    const screenPorts = latestRuntimeFacade.createChannelSetupScreenPorts();
                     const screen = new ChannelSetupScreen(
                         container,
-                        latestRuntimeFacade.getChannelSetupSessionGateway()
+                        {
+                            workflowPort: latestRuntimeFacade.getChannelSetupWorkflowPort(),
+                            screenPorts,
+                        }
                     );
 
                     if (this._destroyed) {

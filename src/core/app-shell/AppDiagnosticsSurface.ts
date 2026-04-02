@@ -1,6 +1,5 @@
 import type { AppOrchestrator } from '../../Orchestrator';
 import type { ChannelSetupPlanDiagnosticsResult } from '../channel-setup/ChannelSetupPlanDiagnostics';
-import type { ChannelSetupSessionGateway } from '../channel-setup/ChannelSetupSessionGateway';
 import type { ChannelSetupConfig, ChannelSetupRecord } from '../channel-setup/types';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import { AudioSettingsStore } from '../../modules/settings/AudioSettingsStore';
@@ -30,7 +29,7 @@ interface ChannelSetupPlannerDiagnosticsDump {
 
 export type DiagnosticsOrchestrator = Pick<
     AppOrchestrator,
-    'getChannelSetupSessionGateway' | 'refreshPlaybackInfoSnapshot'
+    'getChannelSetupWorkflowPort' | 'getSelectedServerId' | 'getSelectedServerStorageKey' | 'refreshPlaybackInfoSnapshot'
 > & {
     toggleServerSelect: () => void;
 };
@@ -124,13 +123,13 @@ export class AppDiagnosticsSurface {
             throw new Error('Diagnostics orchestrator is unavailable');
         }
 
-        const gateway = orchestrator.getChannelSetupSessionGateway();
-        const selectedServerId = gateway.getSelectedServerId();
+        const workflowPort = orchestrator.getChannelSetupWorkflowPort();
+        const selectedServerId = orchestrator.getSelectedServerId();
         if (!selectedServerId) {
             throw new Error('No Plex server is currently selected');
         }
 
-        const savedRecord = gateway.getChannelSetupRecord(selectedServerId);
+        const savedRecord = workflowPort.getChannelSetupRecord(selectedServerId);
         const config = configOverride ?? savedRecord;
         if (!config) {
             throw new Error(
@@ -138,7 +137,7 @@ export class AppDiagnosticsSurface {
             );
         }
 
-        const result = await gateway.getSetupPlanDiagnostics(config);
+        const result = await workflowPort.getSetupPlanDiagnostics(config);
         const dump: ChannelSetupPlannerDiagnosticsDump = {
             selectedServerId,
             recordSource: configOverride ? 'override' : 'saved-record',
@@ -147,18 +146,18 @@ export class AppDiagnosticsSurface {
             result,
         };
 
-        this._logChannelSetupPlannerDiagnostics(gateway, dump);
+        this._logChannelSetupPlannerDiagnostics(orchestrator.getSelectedServerStorageKey(), dump);
         return dump;
     }
 
     /* eslint-disable no-console */
     private _logChannelSetupPlannerDiagnostics(
-        gateway: ChannelSetupSessionGateway,
+        selectedServerStorageKey: string,
         dump: ChannelSetupPlannerDiagnosticsDump
     ): void {
         console.groupCollapsed('[lineup] Channel setup planner diagnostics');
         console.info('Selected server:', dump.selectedServerId);
-        console.info('Selected server storage key:', gateway.getSelectedServerStorageKey());
+        console.info('Selected server storage key:', selectedServerStorageKey);
         console.info('Record source:', dump.recordSource);
         console.info('Diagnostics payload:', dump);
         if (dump.result.diagnostics) {

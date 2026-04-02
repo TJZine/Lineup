@@ -34,6 +34,7 @@ import { createDefaultPlexAuthConfig } from './modules/plex/auth';
 import { SplashScreen } from './modules/ui/splash';
 import { ThemeManager } from './modules/ui/theme';
 import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';
+import type { ChannelSetupScreenPorts } from './modules/ui/channel-setup/ChannelSetupScreenPorts';
 import { summarizeErrorForLog } from './utils/errors';
 
 // ============================================
@@ -381,7 +382,17 @@ export class App {
             clearSelectedServer: () => orchestrator.clearSelectedServer(),
             getSelectedServerStorageKey: () => orchestrator.getSelectedServerStorageKey(),
             getServerHealthStorageKey: () => orchestrator.getServerHealthStorageKey(),
-            getChannelSetupSessionGateway: () => orchestrator.getChannelSetupSessionGateway(),
+            getChannelSetupWorkflowPort: () => orchestrator.getChannelSetupWorkflowPort(),
+            createChannelSetupScreenPorts: (): ChannelSetupScreenPorts => ({
+                getNavigation: () => orchestrator.getNavigation(),
+                getSelectedServerStorageKey: () => orchestrator.getSelectedServerStorageKey(),
+                getServerHealthStorageKey: () => orchestrator.getServerHealthStorageKey(),
+                getSelectedServerId: () => orchestrator.getSelectedServerId(),
+                openServerSelect: () => orchestrator.openServerSelect(),
+                switchToChannelByNumber: (number, options) => orchestrator.switchToChannelByNumber(number, options),
+                openEPG: () => orchestrator.openEPG(),
+            }),
+            requestChannelSetupRerun: () => orchestrator.requestChannelSetupRerun(),
             setSubtitleTrack: (trackId: string | null) => orchestrator.setSubtitleTrack(trackId),
             onGuideSettingChange: (change) => orchestrator.onGuideSettingChange(change),
             getActiveUsername: () => orchestrator.getActiveUsername(),
