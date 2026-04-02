@@ -512,10 +512,27 @@ These are the required repo-local boundary skills for the new wave. Load them be
     - `rg -n "ChannelSetupSessionGateway|getChannelSetupSessionGateway" src`
   - Issue dispositions (2026-04-02 source audit + detector refresh):
     - `review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur` -> `resolved` -> owner `P3-W1`; proof: `rg -n "ChannelSetupSessionGateway|getChannelSetupSessionGateway" src` now returns no matches, `ChannelSetupScreen` requires explicit `{ workflowPort, screenPorts }` construction, `ChannelSetupSessionController` consumes `ChannelSetupWorkflowPort` as the session/async owner, diagnostics now depend on `getChannelSetupWorkflowPort()` plus direct selected-server accessors, and `requestChannelSetupRerun()` remains a direct runtime action on `AppOrchestrator`; command: `desloppify show "review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur" --status open --no-budget` still reports deleted gateway files and pre-split coordinator evidence, treated as stale detector residue.
-- [ ] `P3-W2` split overloaded build execution and deduplicate error-summary policy inside channel setup
+- [x] `P3-W2` split overloaded build execution and deduplicate error-summary policy inside channel setup
   - Imported review issues: `review::.::holistic::design_coherence::channel_setup_build_execution_is_overloaded`, `review::.::holistic::design_coherence::channel_setup_error_summary_logic_is_duplicated`
   - Primary files: `src/core/channel-setup/ChannelSetupBuildExecutor.ts`, `src/core/channel-setup/ChannelSetupPlanningService.ts`, `src/modules/ui/channel-setup/`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
+  - Execution (2026-04-02): extracted `ChannelSetupBuildCommitter` as the commit/apply/refresh owner, narrowed `ChannelSetupBuildExecutor` to planning/progress/cancel orchestration, rewired `ChannelSetupCoordinator` assembly to inject the new collaborator, added direct `ChannelSetupBuildCommitter` tests for cancellation/reached-max/cleanup-order/EPG-refresh behavior, and removed channel-setup-local `summarizeErrorForLog` helpers so both core channel-setup files now use `src/utils/errors.ts`.
+  - Verification (2026-04-02):
+    - `npm test -- --runInBand src/core/channel-setup/__tests__/ChannelSetupBuildCommitter.test.ts src/core/channel-setup/__tests__/ChannelSetupCoordinator.test.ts`
+    - `npm test -- --runInBand src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts src/utils/__tests__/errors.test.ts`
+    - `npm run verify`
+    - `desloppify status`
+    - `desloppify show review --status open --no-budget --top 100`
+    - `desloppify show security --status open --no-budget --top 50`
+    - `desloppify show "review::.::holistic::design_coherence::channel_setup_build_execution_is_overloaded" --status open --no-budget`
+    - `desloppify show "review::.::holistic::design_coherence::channel_setup_error_summary_logic_is_duplicated" --status open --no-budget`
+    - `rg -n "function summarizeErrorForLog|summarizeErrorForLog\\(" src/core/channel-setup src/utils/errors.ts`
+  - Issue dispositions (2026-04-02 source audit + detector refresh):
+    - `review::.::holistic::design_coherence::channel_setup_build_execution_is_overloaded` -> `resolved` -> owner `P3-W2`; proof: `ChannelSetupBuildExecutor` now delegates temp-builder lifecycle, create/apply, and post-commit EPG refresh to `ChannelSetupBuildCommitter`, while executor owns preflight planning/progress/cancel orchestration only; direct collaborator coverage now exists in `ChannelSetupBuildCommitter.test.ts`; exact issue-id `desloppify` command still reports pre-extraction wording and is treated as stale detector residue.
+    - `review::.::holistic::design_coherence::channel_setup_error_summary_logic_is_duplicated` -> `resolved` -> owner `P3-W2`; proof: `rg -n "function summarizeErrorForLog|summarizeErrorForLog\\(" src/core/channel-setup src/utils/errors.ts` now shows a single shared helper definition in `src/utils/errors.ts` with channel-setup files only importing/calling it; exact issue-id `desloppify` command still reports removed local helper copies and is treated as stale detector residue.
+  - Security triage (2026-04-02 disposition record):
+    - `desloppify show security --status open --no-budget --top 50` -> `No open issues for Security. Detectors: cycles, security`.
+    - `P0` impact: none intersects channel setup; no `P0` blocker recorded for `P3-W2` or `P3-EXIT`.
 - [ ] `P3-W3` align channel-setup names and UI state types to the domain contracts they already mirror
   - Imported review issues: `review::.::holistic::naming_quality::playback_variant_flag_name_drift`, `review::.::holistic::naming_quality::scroll_to_nearest_fallback_mismatch`, `review::.::holistic::type_safety::channel_setup_ui_redefines_core_unions`
   - Primary files: `src/core/channel-setup/ChannelSetupPlanner.ts`, `src/core/channel-setup/types.ts`, `src/modules/ui/channel-setup/ChannelSetupSessionController.ts`, `src/modules/ui/channel-setup/steps/types.ts`, `src/modules/ui/channel-setup/focus/scrollToNearest.ts`, `src/modules/scheduler/channel-manager/types.ts`
