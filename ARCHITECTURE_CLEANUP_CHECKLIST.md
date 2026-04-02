@@ -470,6 +470,13 @@ These are the required repo-local boundary skills for the new wave. Load them be
     - `desloppify show "review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion" --status open --no-budget`
     - `desloppify show "review::.::holistic::package_organization::epg_flat_directory_overload" --status open --no-budget`
     - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`
+    - `desloppify detect cycles --json`
+    - `desloppify detect cycles --file src/modules/ui/epg/EPGCoordinator.ts --json`
+    - `desloppify detect cycles --file src/modules/ui/epg/EPGRefreshController.ts --json`
+    - `desloppify plan reorder "cycles::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGRefreshController.ts" top`
+    - `desloppify plan resolve "cycles::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGRefreshController.ts" --note "Detector reconciliation: desloppify detect cycles returns zero cycles for both EPGCoordinator.ts and EPGRefreshController.ts; source import audit shows one-way import (EPGCoordinator -> EPGRefreshController) with no reverse import. Clearing stale persisted cycle work item." --attest "I have actually rerun the cycle detector and audited imports, and I am not gaming the score."`
+    - `desloppify show "cycles::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGRefreshController.ts" --status open --no-budget`
+    - `desloppify show security --status open --no-budget --top 50`
   - Mapped imported issues (2026-04-02 disposition record):
     - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur` -> `deferred`; owner: `P2-EXIT`; reason: still open on current detector output and not addressed by the narrow cycle-fix scope; revisit trigger: rerun the exact issue-id command plus `npm run verify` before any `P3` item is opened.
     - `review::.::holistic::api_surface_coherence::epg_readiness_split_contract` -> `deferred`; owner: `P2-EXIT`; reason: still open on current detector output and requires a dedicated readiness-contract consolidation decision outside this blocker pass; revisit trigger: rerun the exact issue-id command plus `npm run verify` before any `P3` item is opened.
@@ -481,10 +488,10 @@ These are the required repo-local boundary skills for the new wave. Load them be
     - `review::.::holistic::package_organization::epg_flat_directory_overload` -> `deferred`; owner: `P2-EXIT`; reason: detector still reports pre-move flat-folder evidence and requires explicit stale-vs-live reconciliation before exit closeout; revisit trigger: rerun exact issue-id command and source audit against `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/` before any `P3` item is opened.
   - Security triage (2026-04-02 disposition record):
     - issue: `cycles::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGRefreshController.ts`
-    - disposition: `deferred`
+    - disposition: `resolved`
     - owner: `P2-EXIT`
-    - reason: source audit and refactor moved `EpgUiStatus` out of `EPGCoordinator` (`EPGRefreshController` no longer imports from `./EPGCoordinator`), but `desloppify show security --status open --no-budget --top 50` still reports the cycle after a forced rescan.
-    - revisit trigger: before any `P3` work, rerun `desloppify show security --status open --no-budget --top 50`; if still open, either clear via a detector-backed proof of no reverse import or keep explicit deferral with a newly assigned implementation owner in `P2-EXIT`.
+    - reason: source audit confirms one-way import (`EPGCoordinator -> EPGRefreshController`) and no reverse import remains, while `desloppify detect cycles --json` returns zero cycles. The open security finding persisted as stale plan/work-item state after forced-rescan mid-cycle scans, so `desloppify plan resolve` was used (with attested detector + source proof) to reconcile the stale cycle id.
+    - revisit trigger: before any `P3` work (or if either file’s import surface changes), rerun `desloppify detect cycles --json` and `desloppify show security --status open --no-budget --top 50`; reopen triage immediately if either command reports a cycle again.
 
 ## Priority 3: Realign Channel-Setup Ownership And Remove Duplicated Flow Contracts
 
