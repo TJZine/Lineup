@@ -449,11 +449,11 @@ These are the required repo-local boundary skills for the new wave. Load them be
   - Issue dispositions (2026-04-02 source audit + detector check):
     - `review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion` -> `resolved` (slice-owned rationale retired on current source) -> final owner for residual reconciliation: `P2-EXIT`; proof: `renderVisibleCells(...)` is now a thin coordinator over explicit class-private phase helpers in `src/modules/ui/epg/view/EPGVirtualizer.ts`; detector output still cites removed single-pass structure and pre-move file path (`src/modules/ui/epg/EPGVirtualizer.ts`), treated as stale detector residue pending broader queue reconciliation.
     - `review::.::holistic::package_organization::epg_flat_directory_overload` -> `resolved` (slice-owned rationale retired on current source) -> final owner for residual reconciliation: `P2-EXIT`; proof: moved view/runtime/model leaf collaborators out of the flat EPG root and retained only root-owner + shared contract surfaces in `src/modules/ui/epg/`; detector output still cites pre-move flat-path evidence (`src/modules/ui/epg/EPGChannelList.ts`, `src/modules/ui/epg/EPGTimeHeader.ts`, `src/modules/ui/epg/EPGScheduleCacheStore.ts`, `src/modules/ui/epg/EPGVisibleRangeRefreshQueue.ts`, `src/modules/ui/epg/adapters.ts`), treated as stale detector residue.
-- [ ] `P2-EXIT` run the priority-exit review before moving to `P3`
+- [x] `P2-EXIT` run the priority-exit review before moving to `P3`
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P3` plan, code, or checklist progress starts until every `P2` mapped id has an explicit disposition record
   - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all eight exact `P2` issue-id checks; `npm run verify`
-  - Priority-exit review status (2026-04-02): `ready-for-review` (later-owner reassignment and destination mirroring complete; do not open `P3` work until cleanup-review confirms exit-format compliance)
+  - Priority-exit review status (2026-04-02): `complete` (cleanup-review confirmed later-owner reassignment, destination mirroring, and security-gate clearance on current evidence; `P3` may proceed)
   - Verified commands (2026-04-02 refresh):
     - `npm run typecheck`
     - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGCoordinator.test.ts src/modules/ui/epg/__tests__/EPGRefreshController.test.ts src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts`
