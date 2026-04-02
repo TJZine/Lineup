@@ -14,7 +14,6 @@ import type {
 } from '../../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig } from '../../../scheduler/scheduler';
 import type { EPGConfig } from '../types';
-import * as epgUtils from '../utils';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import {
     computeBackgroundWarmQueueCaps,
@@ -28,7 +27,7 @@ const makeChannel = (id: string, number: number): ChannelConfig => ({
     name: `Channel ${number}`,
     number,
     contentSource: { type: 'manual', items: [] },
-    playbackMode: 'loop' as PlaybackMode,
+    playbackMode: 'sequential' as PlaybackMode,
     startTimeAnchor: 0,
     skipIntros: false,
     skipCredits: false,
@@ -252,27 +251,31 @@ describe('EPGCoordinator', () => {
         jest.clearAllMocks();
     });
 
-    it('logs debug error using shared helper when live schedule refresh fails', () => {
+    it('logs debug error using injected runtime when live schedule refresh fails', () => {
         const scheduler: IChannelScheduler = {
             getState: () => ({ isActive: true, channelId: 'c0' }),
             getScheduleWindow: jest.fn(() => {
                 throw new Error('schedule window failed');
             }),
         } as unknown as IChannelScheduler;
+        const debugRuntime = {
+            isEnabled: jest.fn().mockReturnValue(true),
+            append: jest.fn(),
+            destroy: jest.fn(),
+        };
 
         const { deps, epg } = makeDeps({
             getScheduler: () => scheduler,
+            debugRuntime,
         });
         const coordinator = new EPGCoordinator(deps);
-        const helperSpy = jest.spyOn(epgUtils, 'isEpgDebugLoggingEnabled').mockReturnValue(true);
-        const debugLogSpy = jest.spyOn(epgUtils, 'appendEpgDebugLog').mockImplementation(() => undefined);
         (epg.isVisible as jest.Mock).mockReturnValue(true);
 
         coordinator.refreshEpgScheduleForLiveChannel();
 
         expect(scheduler.getScheduleWindow).toHaveBeenCalled();
-        expect(helperSpy).toHaveBeenCalledTimes(1);
-        expect(debugLogSpy).toHaveBeenCalledWith(
+        expect(debugRuntime.isEnabled).toHaveBeenCalledTimes(1);
+        expect(debugRuntime.append).toHaveBeenCalledWith(
             'EPG.refreshEpgScheduleForLiveChannel.error',
             expect.objectContaining({
                 error: expect.objectContaining({

@@ -3,6 +3,8 @@
  * @module modules/ui/epg/domainTypes
  */
 
+import type { ChannelConfig as SchedulerChannelConfig } from '../../scheduler/channel-manager';
+
 export interface EpgItemDetailsStream {
     streamType?: number;
     title?: string | null;
@@ -86,22 +88,19 @@ export interface EpgScheduleWindow {
     programs: EpgScheduledProgram[];
 }
 
-export interface EpgChannel {
-    id: string;
-    number: number;
-    name: string;
-    icon?: string;
-    color?: string;
-    buildStrategy?: string;
-    sourceLibraryId?: string;
-    sourceLibraryName?: string;
-    contentSource: {
-        type: string;
-        libraryId?: string;
-        libraryType?: 'movie' | 'show';
-        [key: string]: unknown;
-    };
-    playbackMode: string;
-    startTimeAnchor: number;
+export type EpgChannel = Pick<
+    SchedulerChannelConfig,
+    | 'id'
+    | 'number'
+    | 'name'
+    | 'icon'
+    | 'color'
+    | 'buildStrategy'
+    | 'sourceLibraryId'
+    | 'sourceLibraryName'
+    | 'contentSource'
+    | 'playbackMode'
+    | 'startTimeAnchor'
+> & {
     [key: string]: unknown;
-}
+};

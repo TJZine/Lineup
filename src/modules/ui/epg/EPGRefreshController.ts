@@ -25,7 +25,7 @@ import {
 import { toEpgScheduleWindow } from './adapters';
 import type { GuideSelectionSnapshot } from '../../../core/channel-tuning';
 import type { EPGConfig } from './types';
-import { appendEpgDebugLog, isEpgDebugLoggingEnabled } from './utils';
+import type { IEpgDebugRuntime } from './EPGDebugRuntime';
 
 const EPG_SCHEDULE_CACHE_MIN_ENTRIES = 60;
 const EPG_SCHEDULE_CACHE_MAX_ENTRIES = 240;
@@ -42,6 +42,7 @@ export interface EPGRefreshControllerDeps {
     getEpgUiStatus: () => EpgUiStatus;
     getEpgConfig: () => EPGConfig | null;
     getLocalMidnightMs: (timeMs: number) => number;
+    debugRuntime?: IEpgDebugRuntime | null;
     buildDailyScheduleConfig: (
         channel: SchedulerChannelConfig,
         items: ResolvedChannelContent['items'],
@@ -145,11 +146,11 @@ export class EPGRefreshController {
     }
 
     private _isDebugEnabled(): boolean {
-        return isEpgDebugLoggingEnabled();
+        return this._deps.debugRuntime?.isEnabled() ?? false;
     }
 
     private _appendDebugLog(event: string, payload: Record<string, unknown>): void {
-        appendEpgDebugLog(event, payload);
+        this._deps.debugRuntime?.append(event, payload);
     }
 
     clearScheduleCaches(): void {

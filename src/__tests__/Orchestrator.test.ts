@@ -555,9 +555,20 @@ const mockEpg = {
     off: jest.fn(),
 };
 
+const createMockEpgDebugRuntime = (): {
+    isEnabled: jest.Mock<boolean, []>;
+    append: jest.Mock<void, [string, unknown?]>;
+    destroy: jest.Mock<void, []>;
+} => ({
+    isEnabled: jest.fn().mockReturnValue(false),
+    append: jest.fn(),
+    destroy: jest.fn(),
+});
+
 jest.mock('../modules/ui/epg', () => ({
     EPGComponent: jest.fn(() => mockEpg),
     DeferredEpgComponent: jest.fn(() => mockEpg),
+    EPGDebugRuntime: jest.fn(() => createMockEpgDebugRuntime()),
 }));
 
 jest.mock('../modules/ui/epg/DeferredEpgComponent', () => ({

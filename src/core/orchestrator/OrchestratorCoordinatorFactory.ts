@@ -41,6 +41,7 @@ import { withEpgVisibleRangeChangeBinding } from '../../modules/ui/epg/EPGConfig
 import type {
     IEPGComponent,
     EPGConfig,
+    IEpgDebugRuntime,
 } from '../../modules/ui/epg';
 import {
     NOW_PLAYING_INFO_MODAL_ID,
@@ -93,6 +94,7 @@ import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackS
 import type { ChannelNumberOverlayRuntimePort } from './OverlayPorts';
 
 export interface OrchestratorCoordinatorFactoryDeps {
+    epgDebugRuntime: IEpgDebugRuntime | null;
     config: OrchestratorConfig | null;
     moduleStatus: Map<string, ModuleStatus>;
     init: {
@@ -237,6 +239,7 @@ export function createOrchestratorCoordinators(
         onOverlayVisibilityChange: input.actions.onOverlayVisibilityChange,
         toggleNowPlayingInfoOverlay: input.actions.toggleNowPlayingInfoOverlay,
         nowPlayingHandler: input.nowPlaying.handler,
+        epgDebugRuntime: input.epgDebugRuntime,
     } as const;
 
     const epgCoordinator = new EPGCoordinator({
@@ -247,6 +250,7 @@ export function createOrchestratorCoordinators(
         ensureEpgInitialized: (): Promise<void> => deps.ensureEpgInitialized(),
         getEpgConfig: (): EPGConfig | null => deps.config?.epgConfig ?? null,
         getLocalMidnightMs: (t: number): number => deps.getLocalMidnightMs(t),
+        debugRuntime: deps.epgDebugRuntime,
         buildDailyScheduleConfig: (
             channel: ChannelConfig,
             items: ResolvedChannelContent['items'],

@@ -57,6 +57,8 @@ import {
 } from './modules/player';
 import { PlaybackRecoveryManager } from './modules/player/PlaybackRecoveryManager';
 import {
+    EPGDebugRuntime,
+    type IEpgDebugRuntime,
     type IEPGComponent,
 } from './modules/ui/epg';
 import { EPGCoordinator } from './modules/ui/epg/EPGCoordinator';
@@ -294,6 +296,7 @@ export class AppOrchestrator {
     private readonly _platformServices: PlatformServices;
     private readonly _storageContext: OrchestratorStorageContext;
     private readonly _debugOverridesStore = new DebugOverridesStore();
+    private _epgDebugRuntime: IEpgDebugRuntime | null = null;
     private readonly _playbackStateAccessors: OrchestratorPlaybackStateAccessors;
     private readonly _channelSetupSessionGateway: ChannelSetupSessionGateway;
 
@@ -407,6 +410,8 @@ export class AppOrchestrator {
         this._playbackOptionsModal = modules.playbackOptionsModal;
         this._exitConfirmModal = modules.exitConfirmModal;
         this._sleepTimer = modules.sleepTimer;
+        this._epgDebugRuntime?.destroy();
+        this._epgDebugRuntime = new EPGDebugRuntime();
 
         this._configureDiscoveryStorageKeysForActiveUser();
 
@@ -455,6 +460,7 @@ export class AppOrchestrator {
                     channelTransition: this._channelTransitionOverlay,
                 },
                 uiInitializer: initializationUiInitializer,
+                epgDebugRuntime: this._epgDebugRuntime,
                 stores: {
                     epgPreferencesStore: this._epgPreferencesStore,
                     profileSessionStore: this._profileSessionStore,
@@ -545,6 +551,7 @@ export class AppOrchestrator {
         }
 
         const coordinators = createOrchestratorCoordinators({
+            epgDebugRuntime: this._epgDebugRuntime,
             config: this._config,
             moduleStatus: this._moduleStatus,
             init: {
@@ -784,6 +791,14 @@ export class AppOrchestrator {
             } catch (error) {
                 recordTeardownFailure('epg.destroy', error);
             }
+        }
+        if (this._epgDebugRuntime) {
+            try {
+                this._epgDebugRuntime.destroy();
+            } catch (error) {
+                recordTeardownFailure('epgDebugRuntime.destroy', error);
+            }
+            this._epgDebugRuntime = null;
         }
         try {
             this._nowPlayingInfoCoordinator?.dispose();

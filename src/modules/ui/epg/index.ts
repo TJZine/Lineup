@@ -5,6 +5,7 @@
  */
 
 export { EPGComponent } from './EPGComponent';
+export { EPGDebugRuntime } from './EPGDebugRuntime';
 export { DeferredEpgComponent } from './DeferredEpgComponent';
 export { EPGInfoPanel } from './EPGInfoPanel';
 export { withEpgVisibleRangeChangeBinding } from './EPGConfigBindings';
@@ -14,6 +15,7 @@ export { EPGChannelList } from './EPGChannelList';
 export { EPGErrorBoundary } from './EPGErrorBoundary';
 
 export type { IEPGComponent, IEPGInfoPanel, IEpgReadinessPort } from './interfaces';
+export type { IEpgDebugRuntime } from './EPGDebugRuntime';
 export type {
     EpgChannel,
     EpgItemDetails,

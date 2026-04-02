@@ -25,6 +25,7 @@ import { countLibraryTypeVotes } from './epgLibraryUtils';
 import { EPGRefreshController } from './EPGRefreshController';
 import { toEpgChannels } from './adapters';
 import type { ChannelSwitchOptions, GuideSelectionSnapshot } from '../../../core/channel-tuning';
+import type { IEpgDebugRuntime } from './EPGDebugRuntime';
 
 type EpgChannelSwitchOptions = Pick<ChannelSwitchOptions, 'guideSelectionSnapshot'>;
 
@@ -40,6 +41,7 @@ export interface EPGCoordinatorDeps {
 
     getEpgConfig: () => EPGConfig | null;
     getLocalMidnightMs: (timeMs: number) => number;
+    debugRuntime?: IEpgDebugRuntime | null;
 
     buildDailyScheduleConfig: (
         channel: SchedulerChannelConfig,
@@ -82,6 +84,7 @@ export class EPGCoordinator {
             getEpgUiStatus: (): EpgUiStatus => this.deps.getEpgUiStatus(),
             getEpgConfig: (): EPGConfig | null => this.deps.getEpgConfig(),
             getLocalMidnightMs: (timeMs: number): number => this.deps.getLocalMidnightMs(timeMs),
+            debugRuntime: this.deps.debugRuntime ?? null,
             buildDailyScheduleConfig: (
                 channel: SchedulerChannelConfig,
                 items: ResolvedChannelContent['items'],

@@ -11,7 +11,7 @@ const makeChannel = (
     name,
     number,
     contentSource: { type: 'manual', items: [] },
-    playbackMode: 'loop' as PlaybackMode,
+    playbackMode: 'sequential' as PlaybackMode,
     startTimeAnchor: 0,
     skipIntros: false,
     skipCredits: false,
@@ -60,4 +60,3 @@ describe('buildLibraries', () => {
         expect(libs).toEqual([{ id: 'lib-shows', name: 'Shows' }]);
     });
 });
-

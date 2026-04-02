@@ -94,6 +94,7 @@ const makeDeps = (
     moduleStatus.set('epg-ui', { status: 'ready' });
 
     return {
+        epgDebugRuntime: null,
         config: null,
         moduleStatus: moduleStatus as OrchestratorCoordinatorFactoryDeps['moduleStatus'],
         init: {

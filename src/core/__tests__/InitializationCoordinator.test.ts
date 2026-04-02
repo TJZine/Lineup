@@ -169,6 +169,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
                 channelTransition: legacyDeps.channelTransition,
             },
             uiInitializer: legacyDeps.uiInitializer,
+            epgDebugRuntime: null,
             stores: {
                 epgPreferencesStore: legacyDeps.epgPreferencesStore,
                 profileSessionStore: legacyDeps.profileSessionStore,

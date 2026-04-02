@@ -10,6 +10,7 @@ import type {
     EpgScheduleWindow,
     EpgScheduledProgram,
 } from './domainTypes';
+import type { IEpgDebugRuntime } from './EPGDebugRuntime';
 
 // Re-export EPG-owned aliases for UI contracts.
 export type ScheduledProgram = EpgScheduledProgram;
@@ -72,12 +73,8 @@ export interface EPGConfig {
     } | null;
     /** Optional callback when layout mode changes */
     onLayoutModeChange?: (mode: EpgLayoutMode) => void;
-    /**
-     * Debug flag refresh interval for same-tab devtools toggles.
-     * StorageEvent does not fire in the same document that calls localStorage.setItem(),
-     * so we periodically refresh the cached debug flag.
-     */
-    debugStorageRefreshIntervalMs?: number;
+    /** Optional explicit debug runtime shared by EPG UI and runtime collaborators. */
+    debugRuntime?: IEpgDebugRuntime | null;
     /**
      * Debug render log rate limit (ms). When debug is enabled we avoid writing to storage on every RAF.
      * Set to 0 to log every render (not recommended).

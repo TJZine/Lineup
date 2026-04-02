@@ -8,7 +8,6 @@
 
 import { EPGComponent } from '../EPGComponent';
 import { EPG_CLASSES } from '../constants';
-import { DebugOverridesStore } from '../../../debug/DebugOverridesStore';
 import type { ScheduledProgram, ScheduleWindow, ChannelConfig, EPGConfig } from '../types';
 
 describe('EPGComponent', () => {
@@ -300,49 +299,26 @@ describe('EPGComponent', () => {
         }
     });
 
-    it('respects configurable debug refresh interval for same-tab storage toggles', () => {
-        const readDebugSpy = jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabled');
-        const nowSpy = jest.spyOn(Date, 'now');
-        let throwOnRead = false;
-        let debugEnabled = false;
-
-        readDebugSpy.mockImplementation(() => {
-            if (throwOnRead) {
-                throw new Error('blocked storage');
-            }
-            return debugEnabled;
-        });
-
+    it('uses injected debug runtime for debug log gating', () => {
+        const debugRuntime = {
+            isEnabled: jest.fn().mockReturnValue(true),
+            append: jest.fn(),
+            destroy: jest.fn(),
+        };
         const { epg: localEpg, container: localContainer } = createEpgInstance({
-            containerId: 'epg-container-debug-refresh-interval',
-            debugStorageRefreshIntervalMs: 50,
+            containerId: 'epg-container-debug-runtime',
+            debugRuntime,
         });
 
         try {
-            const debugProbe = localEpg as unknown as { isDebugEnabled: () => boolean };
-            const baselineReadCalls = readDebugSpy.mock.calls.length;
+            const channel = createMockChannel(0);
+            localEpg.loadChannels([channel]);
+            localEpg.loadScheduleForChannel(channel.id, createMockSchedule(channel.id, 2));
+            localEpg.show();
 
-            nowSpy.mockReturnValue(9_999_999_999_999);
-            expect(() => debugProbe.isDebugEnabled()).not.toThrow();
-            expect(debugProbe.isDebugEnabled()).toBe(false);
-            expect(readDebugSpy.mock.calls.length).toBe(baselineReadCalls + 1);
-
-            debugEnabled = true;
-            nowSpy.mockReturnValue(9_999_999_999_999 + 40);
-            expect(debugProbe.isDebugEnabled()).toBe(false);
-            expect(readDebugSpy.mock.calls.length).toBe(baselineReadCalls + 1);
-
-            nowSpy.mockReturnValue(9_999_999_999_999 + 51);
-            expect(debugProbe.isDebugEnabled()).toBe(true);
-            expect(readDebugSpy.mock.calls.length).toBe(baselineReadCalls + 2);
-
-            throwOnRead = true;
-            nowSpy.mockReturnValue(9_999_999_999_999 + 120);
-            expect(() => debugProbe.isDebugEnabled()).not.toThrow();
-            expect(debugProbe.isDebugEnabled()).toBe(false);
+            expect(debugRuntime.isEnabled).toHaveBeenCalled();
+            expect(debugRuntime.append).toHaveBeenCalledWith('EPG.show', expect.any(Object));
         } finally {
-            nowSpy.mockRestore();
-            readDebugSpy.mockRestore();
             localEpg.destroy();
             localContainer.remove();
         }
