@@ -6,7 +6,7 @@ import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { flushPromises } from '../../../__tests__/helpers';
 import { DebugOverridesStore } from '../../../modules/debug/DebugOverridesStore';
 import { AppDiagnosticsSurface, type DiagnosticsOrchestrator } from '../AppDiagnosticsSurface';
-import type { ChannelSetupSessionGateway } from '../../channel-setup/ChannelSetupSessionGateway';
+import type { ChannelSetupWorkflowPort } from '../../channel-setup/ChannelSetupWorkflowPort';
 
 const createContainer = (): HTMLDivElement => {
     const el = document.createElement('div');
@@ -21,17 +21,9 @@ const createSnapshot = (): { channel: null; program: null; stream: null } => ({
     stream: null,
 });
 
-const createGateway = (
-    overrides: Partial<jest.Mocked<ChannelSetupSessionGateway>> = {}
-): jest.Mocked<ChannelSetupSessionGateway> => ({
-    getNavigation: jest.fn().mockReturnValue(null),
-    getSelectedServerStorageKey: jest.fn().mockReturnValue('selected-server'),
-    getServerHealthStorageKey: jest.fn().mockReturnValue('server-health'),
-    getSelectedServerId: jest.fn().mockReturnValue('server-1'),
-    openServerSelect: jest.fn(),
-    switchToChannelByNumber: jest.fn().mockResolvedValue(undefined),
-    openEPG: jest.fn(),
-    requestChannelSetupRerun: jest.fn(),
+const createWorkflowPort = (
+    overrides: Partial<jest.Mocked<ChannelSetupWorkflowPort>> = {}
+): jest.Mocked<ChannelSetupWorkflowPort> => ({
     invalidateFacetSnapshot: jest.fn(),
     getLibrariesForSetup: jest.fn().mockResolvedValue([]),
     getChannelSetupRecord: jest.fn().mockReturnValue(null),
@@ -95,7 +87,9 @@ const createOrchestrator = (
 ): DiagnosticsOrchestrator => ({
     toggleServerSelect: jest.fn(),
     refreshPlaybackInfoSnapshot: jest.fn().mockResolvedValue(createSnapshot()),
-    getChannelSetupSessionGateway: jest.fn().mockReturnValue(createGateway()),
+    getSelectedServerId: jest.fn().mockReturnValue('server-1'),
+    getSelectedServerStorageKey: jest.fn().mockReturnValue('selected-server'),
+    getChannelSetupWorkflowPort: jest.fn().mockReturnValue(createWorkflowPort()),
     ...overrides,
 });
 
@@ -308,7 +302,7 @@ describe('AppDiagnosticsSurface', () => {
             warnings: [],
             reachedMaxChannels: true,
         });
-        const gateway = createGateway({
+        const workflowPort = createWorkflowPort({
             getChannelSetupRecord: jest.fn().mockReturnValue({
                 serverId: 'server-1',
                 selectedLibraryIds: ['lib-1'],
@@ -340,7 +334,7 @@ describe('AppDiagnosticsSurface', () => {
 
         surface = new AppDiagnosticsSurface({
             getOrchestrator: (): DiagnosticsOrchestrator =>
-                createOrchestrator({ getChannelSetupSessionGateway: jest.fn().mockReturnValue(gateway) }),
+                createOrchestrator({ getChannelSetupWorkflowPort: jest.fn().mockReturnValue(workflowPort) }),
             showToast: jest.fn(),
             debugOverridesStore: new DebugOverridesStore(),
         });

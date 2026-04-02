@@ -1,8 +1,9 @@
 import type { PlexLibrary as PlexLibraryModel } from '../../../plex/library/types';
 import type { FocusableElement, KeyEvent } from '../../../navigation/interfaces';
 import { PLEX_DISCOVERY_CONSTANTS } from '../../../plex/discovery/constants';
-import type { ChannelSetupSessionGateway } from '../../../../core/channel-setup/ChannelSetupSessionGateway';
+import type { ChannelSetupWorkflowPort } from '../../../../core/channel-setup/ChannelSetupWorkflowPort';
 import type { ChannelBuildSummary } from '../../../../core/channel-setup/types';
+import type { ChannelSetupScreenPorts } from '../ChannelSetupScreenPorts';
 
 type Focusable = Pick<FocusableElement, 'id' | 'neighbors'>;
 
@@ -126,8 +127,8 @@ export const createNavigationMock = (): NavigationMock => {
 };
 
 export const createOrchestrator = (
-    overrides: Partial<ChannelSetupSessionGateway> = {}
-): ChannelSetupSessionGateway => ({
+    overrides: Partial<ChannelSetupWorkflowPort & ChannelSetupScreenPorts> = {}
+): ChannelSetupWorkflowPort & ChannelSetupScreenPorts => ({
     getNavigation: jest.fn(() => null),
     getLibrariesForSetup: jest.fn().mockResolvedValue([]),
     getChannelSetupRecord: jest.fn(() => null),
@@ -138,7 +139,6 @@ export const createOrchestrator = (
     openServerSelect: jest.fn(),
     switchToChannelByNumber: jest.fn(),
     openEPG: jest.fn(),
-    requestChannelSetupRerun: jest.fn(),
     invalidateFacetSnapshot: jest.fn(),
     createChannelsFromSetup: jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT),
     markSetupComplete: jest.fn(),
@@ -151,7 +151,7 @@ export const createOrchestrator = (
         reachedMaxChannels: false,
     }),
     ...overrides,
-} satisfies ChannelSetupSessionGateway);
+} satisfies ChannelSetupWorkflowPort & ChannelSetupScreenPorts);
 
 // Intentionally button-only to enforce accessible remote-first UI semantics.
 export const clickButton = (container: HTMLElement, selector: string): void => {

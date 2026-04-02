@@ -1909,16 +1909,14 @@ describe('AppOrchestrator', () => {
         });
     });
 
-    describe('channel setup gateway rerun', () => {
+    describe('channel setup rerun', () => {
         beforeEach(async () => {
             await orchestrator.initialize(mockConfig);
         });
 
         it('should clear setup record and navigate to channel-setup', () => {
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-3' });
-            const gateway = orchestrator.getChannelSetupSessionGateway();
-
-            gateway.requestChannelSetupRerun();
+            orchestrator.requestChannelSetupRerun();
 
             expect(mockLocalStorage.removeItem).toHaveBeenCalledWith(
                 'lineup_channel_setup_v2:server-3'
@@ -1935,24 +1933,24 @@ describe('AppOrchestrator', () => {
         it('returns first-time when selected server has no channels', () => {
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-4' });
             mockChannelManager.getAllChannels.mockReturnValue([]);
-            const gateway = orchestrator.getChannelSetupSessionGateway();
+            const workflowPort = orchestrator.getChannelSetupWorkflowPort();
 
-            expect(gateway.getSetupContextForSelectedServer()).toBe('first-time');
+            expect(workflowPort.getSetupContextForSelectedServer()).toBe('first-time');
         });
 
         it('returns existing when selected server has channels', () => {
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-4' });
             mockChannelManager.getAllChannels.mockReturnValue([{ ...mockChannel, id: 'channel-1' }]);
-            const gateway = orchestrator.getChannelSetupSessionGateway();
+            const workflowPort = orchestrator.getChannelSetupWorkflowPort();
 
-            expect(gateway.getSetupContextForSelectedServer()).toBe('existing');
+            expect(workflowPort.getSetupContextForSelectedServer()).toBe('existing');
         });
 
         it('returns unknown when selected server is unavailable', () => {
             mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
-            const gateway = orchestrator.getChannelSetupSessionGateway();
+            const workflowPort = orchestrator.getChannelSetupWorkflowPort();
 
-            expect(gateway.getSetupContextForSelectedServer()).toBe('unknown');
+            expect(workflowPort.getSetupContextForSelectedServer()).toBe('unknown');
         });
     });
 
