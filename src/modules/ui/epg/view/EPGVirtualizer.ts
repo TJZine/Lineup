@@ -377,7 +377,7 @@ export class EPGVirtualizer {
                 if (newVisibleCells.size >= maxDomElements) {
                     return;
                 }
-                if (cellData.isBufferOnly && currentRowCount >= perRowLimit) {
+                if (currentRowCount >= perRowLimit) {
                     return;
                 }
             }
@@ -403,13 +403,58 @@ export class EPGVirtualizer {
             target.set(cellData.rowIndex, queue);
         };
 
-        const flushQueue = (rowIndex: number, queued: Map<number, CellRenderData[]>): void => {
+        const selectVisibleQueueCells = (queue: CellRenderData[]): CellRenderData[] => {
+            if (queue.length <= perRowLimit) {
+                return queue;
+            }
+
+            const selected = new Map<number, CellRenderData>();
+            const maxIndex = queue.length - 1;
+            const sampleCount = Math.min(perRowLimit, queue.length);
+            const seedIndices = [
+                0,
+                Math.round(maxIndex / 3),
+                Math.round((maxIndex * 2) / 3),
+                maxIndex,
+            ];
+
+            for (const index of seedIndices) {
+                if (index >= 0 && index <= maxIndex) {
+                    selected.set(index, queue[index]!);
+                }
+            }
+
+            for (let i = 0; i < sampleCount; i += 1) {
+                const index = Math.round((i * maxIndex) / Math.max(1, sampleCount - 1));
+                selected.set(index, queue[index]!);
+            }
+
+            if (selected.size < sampleCount) {
+                for (let index = 0; index < queue.length && selected.size < sampleCount; index += 1) {
+                    if (!selected.has(index)) {
+                        selected.set(index, queue[index]!);
+                    }
+                }
+            }
+
+            return Array.from(selected.entries())
+                .sort(([a], [b]) => a - b)
+                .map(([, cell]) => cell);
+        };
+
+        const flushQueue = (
+            rowIndex: number,
+            queued: Map<number, CellRenderData[]>,
+            isVisibleQueue: boolean
+        ): void => {
             const queue = queued.get(rowIndex);
             if (!queue || queue.length === 0) {
                 return;
             }
 
-            for (const cellData of queue) {
+            const cellsToCommit = isVisibleQueue ? selectVisibleQueueCells(queue) : queue;
+
+            for (const cellData of cellsToCommit) {
                 tryAddCommittedCell(cellData, false);
             }
 
@@ -417,8 +462,8 @@ export class EPGVirtualizer {
         };
 
         const finalizeRow = (rowIndex: number): void => {
-            flushQueue(rowIndex, queuedVisibleByRow);
-            flushQueue(rowIndex, queuedBufferByRow);
+            flushQueue(rowIndex, queuedVisibleByRow, true);
+            flushQueue(rowIndex, queuedBufferByRow, false);
         };
 
         const finalizeAllRows = (): void => {

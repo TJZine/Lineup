@@ -1204,6 +1204,9 @@ describe('EPGVirtualizer', () => {
             expect(container.querySelector(`[data-key="row-0-${gridAnchorTime + (119 * 60_000)}"]`)).toBeNull();
             expect(container.querySelector(`[data-key="row-0-${gridAnchorTime + (120 * 60_000)}"]`)).not.toBeNull();
             expect(container.querySelector(`[data-key="row-0-${gridAnchorTime + (180 * 60_000)}"]`)).not.toBeNull();
+            expect(container.querySelector(`[data-key="row-6-${gridAnchorTime + (120 * 60_000)}"]`)).not.toBeNull();
+            expect(container.querySelector(`[data-key="row-6-${gridAnchorTime + (180 * 60_000)}"]`)).not.toBeNull();
+            expect(container.querySelector(`[data-key="row-6-${gridAnchorTime}"]`)).toBeNull();
         });
 
         it('should maintain DOM element count under 200 during virtualized render', () => {
