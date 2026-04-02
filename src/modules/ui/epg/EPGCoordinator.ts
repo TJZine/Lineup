@@ -16,7 +16,6 @@ import type {
 import { IssueDiagnosticsStore } from '../../debug/IssueDiagnosticsStore';
 import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
-import type { ModuleRuntimeStatus } from '../../../core/module-status';
 import {
     readAppliedLibraryFilterState,
     selectVisibleChannelsForLibraryFilter,
@@ -26,10 +25,9 @@ import { EPGRefreshController } from './EPGRefreshController';
 import { toEpgChannels } from './model/adapters';
 import type { ChannelSwitchOptions, GuideSelectionSnapshot } from '../../../core/channel-tuning';
 import type { IEpgDebugRuntime } from './EPGDebugRuntime';
+import type { EpgUiStatus } from './types';
 
 type EpgChannelSwitchOptions = Pick<ChannelSwitchOptions, 'guideSelectionSnapshot'>;
-
-export type EpgUiStatus = ModuleRuntimeStatus | undefined;
 
 export interface EPGCoordinatorDeps {
     getEpg: () => IEPGComponent | null;

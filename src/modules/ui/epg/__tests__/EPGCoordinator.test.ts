@@ -1,4 +1,5 @@
-import { EPGCoordinator, type EPGCoordinatorDeps, type EpgUiStatus } from '../EPGCoordinator';
+import { EPGCoordinator, type EPGCoordinatorDeps } from '../EPGCoordinator';
+import type { EpgUiStatus } from '../types';
 import type { IEPGComponent } from '../interfaces';
 import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
 import {

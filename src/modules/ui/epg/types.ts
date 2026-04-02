@@ -4,6 +4,7 @@
  */
 
 import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
+import type { ModuleRuntimeStatus } from '../../../core/module-status';
 import type {
     EpgChannel,
     EpgItemDetails,
@@ -16,6 +17,7 @@ import type { IEpgDebugRuntime } from './EPGDebugRuntime';
 export type ScheduledProgram = EpgScheduledProgram;
 export type ScheduleWindow = EpgScheduleWindow;
 export type ChannelConfig = EpgChannel;
+export type EpgUiStatus = ModuleRuntimeStatus | undefined;
 
 // ============================================
 // EPG Configuration & State

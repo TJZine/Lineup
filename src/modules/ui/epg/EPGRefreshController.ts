@@ -13,8 +13,7 @@ import type { GuideSettingChange } from '../settings/types';
 import { IssueDiagnosticsStore } from '../../debug/IssueDiagnosticsStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import type { IEPGComponent } from './interfaces';
-import type { EpgUiStatus } from './EPGCoordinator';
-import type { EpgVisibleRange } from './types';
+import type { EpgUiStatus, EpgVisibleRange } from './types';
 import { EPGVisibleRangeRefreshQueue } from './runtime/EPGVisibleRangeRefreshQueue';
 import { EPGScheduleRefreshRuntime } from './runtime/EPGScheduleRefreshRuntime';
 import {

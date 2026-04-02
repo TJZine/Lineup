@@ -35,7 +35,6 @@ import type {
 import { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryManager';
 import {
     EPGCoordinator,
-    type EpgUiStatus,
 } from '../../modules/ui/epg/EPGCoordinator';
 import { withEpgVisibleRangeChangeBinding } from '../../modules/ui/epg/EPGConfigBindings';
 import type {
@@ -43,6 +42,7 @@ import type {
     EPGConfig,
     IEpgDebugRuntime,
 } from '../../modules/ui/epg';
+import type { EpgUiStatus } from '../../modules/ui/epg/types';
 import {
     NOW_PLAYING_INFO_MODAL_ID,
     type INowPlayingInfoOverlay,
