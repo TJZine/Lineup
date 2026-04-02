@@ -12,7 +12,7 @@ import {
     getTagDirectoryMediaTypesForLibraryType,
 } from '../../modules/plex/library';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../modules/scheduler/channel-manager/constants';
-import { redactSensitiveTokens } from '../../utils/redact';
+import { summarizeErrorForLog } from '../../utils/errors';
 import type {
     ChannelSetupConfig,
     ChannelBuildProgress,
@@ -428,7 +428,14 @@ class ChannelSetupFacetSnapshotLoader {
             error: unknown
         ): void => {
             const summary = summarizeErrorForLog(error);
-            const message = summary.message ?? (summary.code !== undefined ? String(summary.code) : 'unknown error');
+            const summaryObject = typeof summary === 'object' && summary !== null
+                ? summary as { message?: unknown; code?: unknown }
+                : {};
+            const message = typeof summaryObject.message === 'string'
+                ? summaryObject.message
+                : summaryObject.code !== undefined
+                    ? String(summaryObject.code)
+                    : 'unknown error';
             warnings.add(`Partial setup plan (${task}): ${detail} (${message})`);
         };
 
@@ -469,8 +476,15 @@ class ChannelSetupFacetSnapshotLoader {
             const baseLabel = label.toLowerCase();
             if (reason === 'error') {
                 const summary = summarizeErrorForLog(error);
-                const detail = summary.message ?? (summary.code !== undefined ? String(summary.code) : 'unknown error');
-                if (summary.code === 'NETWORK_TIMEOUT') {
+                const summaryObject = typeof summary === 'object' && summary !== null
+                    ? summary as { message?: unknown; code?: unknown }
+                    : {};
+                const detail = typeof summaryObject.message === 'string'
+                    ? summaryObject.message
+                    : summaryObject.code !== undefined
+                        ? String(summaryObject.code)
+                        : 'unknown error';
+                if (summaryObject.code === 'NETWORK_TIMEOUT') {
                     return buildFailureSnapshot(
                         'slow',
                         `Required ${baseLabel} tag directory (type=${type}) timed out for ${libraryTitle}; try again after Plex responds.`,
@@ -1266,16 +1280,6 @@ export class ChannelSetupPlanningService {
         }
         return hash >>> 0;
     }
-}
-
-function summarizeErrorForLog(error: unknown): { name?: string; code?: unknown; message?: string } {
-    if (!error || typeof error !== 'object') return {};
-    const e = error as { name?: unknown; code?: unknown; message?: unknown };
-    return {
-        ...(typeof e.name === 'string' ? { name: e.name } : {}),
-        ...('code' in e ? { code: e.code } : {}),
-        ...(typeof e.message === 'string' ? { message: redactSensitiveTokens(e.message) } : {}),
-    };
 }
 
 function createAbortError(lastTask?: ChannelBuildProgress['task']): DOMException & { lastTask?: ChannelBuildProgress['task'] } {
