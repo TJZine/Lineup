@@ -501,10 +501,17 @@ These are the required repo-local boundary skills for the new wave. Load them be
 
 ### Work Units
 
-- [ ] `P3-W1` choose one owner for channel-setup workflow and reduce the gateway seam to thin assembly
+- [x] `P3-W1` choose one owner for channel-setup workflow and reduce the gateway seam to thin assembly
   - Imported review issues: `review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur`
   - Primary files: `src/core/channel-setup/ChannelSetupCoordinator.ts`, `src/core/channel-setup/ChannelSetupSessionGateway.ts`, `src/core/channel-setup/createChannelSetupSessionGateway.ts`, `src/modules/ui/channel-setup/ChannelSetupSessionController.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` command for the mapped id
+  - Execution (2026-04-02): replaced the mixed `ChannelSetupSessionGateway` seam with explicit workflow and screen ports, kept `ChannelSetupSessionController` as the channel-setup workflow/session owner, rewired app-shell assembly to use `getChannelSetupWorkflowPort()` plus `createChannelSetupScreenPorts()`, kept `requestChannelSetupRerun()` as a direct runtime action, kept diagnostics on workflow plus direct selected-server accessors, and tightened `ChannelSetupScreen` tests/contracts so they construct split workflow and screen test ports explicitly.
+  - Verification (2026-04-02):
+    - `npm run verify`
+    - `desloppify show "review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur" --status open --no-budget`
+    - `rg -n "ChannelSetupSessionGateway|getChannelSetupSessionGateway" src`
+  - Issue dispositions (2026-04-02 source audit + detector refresh):
+    - `review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur` -> `resolved` -> owner `P3-W1`; proof: `rg -n "ChannelSetupSessionGateway|getChannelSetupSessionGateway" src` now returns no matches, `ChannelSetupScreen` requires explicit `{ workflowPort, screenPorts }` construction, `ChannelSetupSessionController` consumes `ChannelSetupWorkflowPort` as the session/async owner, diagnostics now depend on `getChannelSetupWorkflowPort()` plus direct selected-server accessors, and `requestChannelSetupRerun()` remains a direct runtime action on `AppOrchestrator`; command: `desloppify show "review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur" --status open --no-budget` still reports deleted gateway files and pre-split coordinator evidence, treated as stale detector residue.
 - [ ] `P3-W2` split overloaded build execution and deduplicate error-summary policy inside channel setup
   - Imported review issues: `review::.::holistic::design_coherence::channel_setup_build_execution_is_overloaded`, `review::.::holistic::design_coherence::channel_setup_error_summary_logic_is_duplicated`
   - Primary files: `src/core/channel-setup/ChannelSetupBuildExecutor.ts`, `src/core/channel-setup/ChannelSetupPlanningService.ts`, `src/modules/ui/channel-setup/`
