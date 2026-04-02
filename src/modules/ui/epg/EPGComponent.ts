@@ -1,4 +1,4 @@
-/** EPG component that orchestrates the Electronic Program Guide. */
+/** EPG component that renders the Electronic Program Guide surface. */
 
 import { EventEmitter } from '../../../utils/EventEmitter';
 import { EPG_CONSTANTS, EPG_CLASSES, EPG_ERRORS, DEFAULT_EPG_CONFIG } from './constants';
@@ -30,7 +30,7 @@ import type {
 
 /**
  * EPG Component class.
- * Main orchestrator for the Electronic Program Guide grid.
+ * Render/focus/event surface for the Electronic Program Guide grid.
  * Implements virtualized rendering for 60fps performance on TV hardware.
  */
 export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGComponent {

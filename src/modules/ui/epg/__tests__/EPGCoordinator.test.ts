@@ -200,7 +200,6 @@ const makeDeps = (
 	        ensureEpgInitialized: jest.fn().mockResolvedValue(undefined),
 	        getEpgConfig: () => ({ totalHours: 6, timeSlotMinutes: 30 } as EPGConfig),
 	        getLocalMidnightMs: (t: number) => t - (t % (24 * 60 * 60 * 1000)),
-	        getEpgScheduleRangeSnapshot: () => epgPreferencesStore.readScheduleRangeSnapshot(),
 	        buildDailyScheduleConfig: (
 	            channel: ChannelConfig,
 	            items: ResolvedChannelContent['items']

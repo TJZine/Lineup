@@ -4,6 +4,7 @@ import type {
     EpgPastItemsWindow,
     EpgScheduleRangeSnapshot,
 } from '../../settings/EpgPreferencesStore';
+import type { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
 import {
     buildLibraries,
     countLibraryTypeVotes,
@@ -59,6 +60,30 @@ export const computeNormalizedLibraryFilterState = (
         libraries,
         shouldClearPersistedSelection,
     };
+};
+
+export const readAppliedLibraryFilterState = (
+    all: ChannelConfig[],
+    epgPreferencesStore: Pick<EpgPreferencesStore, 'readScheduleRangeSnapshot' | 'writeSelectedLibraryId'>
+): NormalizedLibraryFilterState => {
+    const normalized = computeNormalizedLibraryFilterState(all, epgPreferencesStore.readScheduleRangeSnapshot());
+    if (normalized.shouldClearPersistedSelection) {
+        epgPreferencesStore.writeSelectedLibraryId(null);
+    }
+    return normalized;
+};
+
+export const selectVisibleChannelsForLibraryFilter = (
+    all: ChannelConfig[],
+    selectedId: string | null,
+    shouldFilter: boolean
+): ChannelConfig[] => {
+    if (!shouldFilter || !selectedId) return all;
+    return all.filter((channel) => {
+        if (channel.sourceLibraryId === selectedId) return true;
+        if (channel.contentSource.type === 'library' && channel.contentSource.libraryId === selectedId) return true;
+        return false;
+    });
 };
 
 export const computeEffectivePastWindowMinutes = (

@@ -1,7 +1,9 @@
 import { EPGRefreshController, type EPGRefreshControllerDeps } from '../EPGRefreshController';
 import type { IEPGComponent } from '../interfaces';
 import type { ChannelConfig, IChannelManager, PlaybackMode, ResolvedChannelContent } from '../../../scheduler/channel-manager';
-import type { IChannelScheduler, ScheduleConfig, ScheduleWindow } from '../../../scheduler/scheduler';
+import type { IChannelScheduler, ScheduleConfig } from '../../../scheduler/scheduler';
+import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
+import type { EPGConfig } from '../types';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,
@@ -71,9 +73,18 @@ const makeDeps = (): {
         getChannelManager: () => channelManager,
         getScheduler: () => scheduler,
         getEpgUiStatus: () => 'ready',
-        getEpgScheduleRangeMs: () => ({ startTime: 0, endTime: 60_000 }),
-        getLibraryFilterState: () => ({ selectedId: null, shouldFilter: false }),
-        getVisibleChannels: (all) => all,
+        getEpgConfig: (): EPGConfig => ({
+            containerId: 'epg',
+            visibleChannels: 5,
+            visibleHours: 3,
+            totalHours: 6,
+            timeSlotMinutes: 30,
+            pixelsPerMinute: 4,
+            rowHeight: 80,
+            showCurrentTimeIndicator: true,
+            autoScrollToNow: true,
+        }),
+        getLocalMidnightMs: () => 0,
         buildDailyScheduleConfig: (
             channel: ChannelConfig,
             items: ResolvedChannelContent['items']
@@ -86,12 +97,7 @@ const makeDeps = (): {
                 shuffleSeed: 1,
                 loopSchedule: true,
             } satisfies ScheduleConfig),
-        computeScheduleCacheLimit: () => 64,
-        getScheduleLoadConcurrency: () => 1,
-        cloneScheduleWindow: (window: ScheduleWindow) => ({ ...window, programs: [...window.programs] }),
-        isAggressivePreloadEnabled: () => false,
-        isDebugEnabled: () => false,
-        appendDebugLog: jest.fn(),
+        epgPreferencesStore: new EpgPreferencesStore(),
         primeEpgChannels: jest.fn(),
     };
 
@@ -117,7 +123,7 @@ describe('EPGRefreshController', () => {
         const controller = new EPGRefreshController(deps);
         const refreshSpy = jest.spyOn(controller, 'refreshEpgSchedules').mockResolvedValue(undefined);
 
-        controller.handleLibraryFilterRefreshChange('lib-a');
+        controller.handleLibraryFilterRefreshChange();
         await Promise.resolve();
 
         expect(epg.clearSchedules).toHaveBeenCalledTimes(1);

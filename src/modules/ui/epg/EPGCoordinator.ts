@@ -5,7 +5,6 @@
  */
 
 import type { EpgGuideDensity } from '../../settings/EpgPreferencesStore';
-import { appendEpgDebugLog, isEpgDebugLoggingEnabled } from './utils';
 import type { IEPGComponent } from './interfaces';
 import type { ChannelConfig as EpgChannel, EPGConfig, EpgVisibleRange, ScheduledProgram as EpgScheduledProgram } from './types';
 import type { GuideSettingChange } from '../settings/types';
@@ -13,16 +12,14 @@ import type { IChannelManager, ChannelConfig as SchedulerChannelConfig, Resolved
 import type {
     IChannelScheduler,
     ScheduleConfig,
-    ScheduleWindow as SchedulerScheduleWindow,
 } from '../../scheduler/scheduler';
 import { IssueDiagnosticsStore } from '../../debug/IssueDiagnosticsStore';
 import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import type { ModuleRuntimeStatus } from '../../../core/module-status';
 import {
-    computeEpgScheduleRangeMs,
-    computeNormalizedLibraryFilterState,
-    type EpgStorageSnapshotForScheduleRange,
+    readAppliedLibraryFilterState,
+    selectVisibleChannelsForLibraryFilter,
 } from './EPGCoordinatorPolicies';
 import { countLibraryTypeVotes } from './epgLibraryUtils';
 import { EPGRefreshController } from './EPGRefreshController';
@@ -43,7 +40,6 @@ export interface EPGCoordinatorDeps {
 
     getEpgConfig: () => EPGConfig | null;
     getLocalMidnightMs: (timeMs: number) => number;
-    getEpgScheduleRangeSnapshot: () => EpgStorageSnapshotForScheduleRange;
 
     buildDailyScheduleConfig: (
         channel: SchedulerChannelConfig,
@@ -63,10 +59,6 @@ export interface EPGCoordinatorDeps {
     epgPreferencesStore?: EpgPreferencesStore;
 }
 
-const EPG_SCHEDULE_CACHE_MIN_ENTRIES = 60;
-const EPG_SCHEDULE_CACHE_MAX_ENTRIES = 240;
-const EPG_SCHEDULE_CACHE_MIN_ENTRIES_AGGRESSIVE = 120;
-const EPG_SCHEDULE_CACHE_MAX_ENTRIES_AGGRESSIVE = 360;
 const DEFAULT_GUIDE_DENSITY: EpgGuideDensity = 'detailed';
 const DETAILED_VISIBLE_HOURS = 2;
 const WIDE_VISIBLE_HOURS = 3;
@@ -88,34 +80,14 @@ export class EPGCoordinator {
             getChannelManager: (): IChannelManager | null => this.deps.getChannelManager(),
             getScheduler: (): IChannelScheduler | null => this.deps.getScheduler(),
             getEpgUiStatus: (): EpgUiStatus => this.deps.getEpgUiStatus(),
-            getEpgScheduleRangeMs: (): { startTime: number; endTime: number } | null => this._getEpgScheduleRangeMs(),
-            getLibraryFilterState: (allChannels: SchedulerChannelConfig[]): { selectedId: string | null; shouldFilter: boolean } => {
-                const { selectedId, shouldFilter } = this._getLibraryFilterState(allChannels);
-                return { selectedId, shouldFilter };
-            },
-            getVisibleChannels: (
-                allChannels: SchedulerChannelConfig[],
-                selectedId: string | null,
-                shouldFilter: boolean
-            ): SchedulerChannelConfig[] => this._getVisibleChannels(allChannels, selectedId, shouldFilter),
+            getEpgConfig: (): EPGConfig | null => this.deps.getEpgConfig(),
+            getLocalMidnightMs: (timeMs: number): number => this.deps.getLocalMidnightMs(timeMs),
             buildDailyScheduleConfig: (
                 channel: SchedulerChannelConfig,
                 items: ResolvedChannelContent['items'],
                 referenceTimeMs: number
             ): ScheduleConfig => this.deps.buildDailyScheduleConfig(channel, items, referenceTimeMs),
-            computeScheduleCacheLimit: (channelCount: number, aggressive: boolean): number =>
-                this._computeScheduleCacheLimit(channelCount, aggressive),
-            getScheduleLoadConcurrency: (
-                channelCount: number,
-                prefetchCount: number,
-                aggressive: boolean
-            ): number => this._getScheduleLoadConcurrency(channelCount, prefetchCount, aggressive),
-            cloneScheduleWindow: (window: SchedulerScheduleWindow): SchedulerScheduleWindow => this._cloneScheduleWindow(window),
-            isAggressivePreloadEnabled: (): boolean => this._isAggressivePreloadEnabled(),
-            isDebugEnabled: (): boolean => this._isDebugEnabled(),
-            appendDebugLog: (event: string, payload: Record<string, unknown>): void => {
-                appendEpgDebugLog(event, payload);
-            },
+            epgPreferencesStore: this._epgPreferencesStore,
             primeEpgChannels: (): void => this.primeEpgChannels(),
         });
     }
@@ -185,10 +157,6 @@ export class EPGCoordinator {
         }
     }
 
-    private _isAggressivePreloadEnabled(): boolean {
-        return this._epgPreferencesStore.readAggressivePreloadEnabled(false);
-    }
-
     private _readGuideDensity(): EpgGuideDensity {
         return this._epgPreferencesStore.readGuideDensity(DEFAULT_GUIDE_DENSITY);
     }
@@ -229,33 +197,6 @@ export class EPGCoordinator {
             return DETAILED_VISIBLE_HOURS;
         }
         return this._getBaseVisibleHours();
-    }
-
-    private _getVisibleChannels(
-        all: SchedulerChannelConfig[],
-        selectedId: string | null,
-        shouldFilter: boolean
-    ): SchedulerChannelConfig[] {
-        if (!shouldFilter || !selectedId) return all;
-        return all.filter((c) => {
-            if (c.sourceLibraryId === selectedId) return true;
-            // Include manual library channels if they match
-            if (c.contentSource.type === 'library' && c.contentSource.libraryId === selectedId) return true;
-            return false;
-        });
-    }
-
-    private _getLibraryFilterState(all: SchedulerChannelConfig[]): {
-        selectedId: string | null;
-        tabsEnabled: boolean;
-        shouldFilter: boolean;
-        libraries: Array<{ id: string; name: string }>;
-    } {
-        const normalized = computeNormalizedLibraryFilterState(all, this._epgPreferencesStore.readScheduleRangeSnapshot());
-        if (normalized.shouldClearPersistedSelection) {
-            this._epgPreferencesStore.writeSelectedLibraryId(null);
-        }
-        return normalized;
     }
 
     openEPG(): void {
@@ -345,7 +286,7 @@ export class EPGCoordinator {
         if (!epg || !channelManager) return;
         if (this.deps.getEpgUiStatus() !== 'ready') return;
         const all = channelManager.getAllChannels();
-        const { selectedId, tabsEnabled, shouldFilter, libraries } = this._getLibraryFilterState(all);
+        const { selectedId, tabsEnabled, shouldFilter, libraries } = readAppliedLibraryFilterState(all, this._epgPreferencesStore);
 
         // Category colors
         const categoryColorsEnabled = this._epgPreferencesStore.readGuideCategoryColorsEnabled(true);
@@ -364,7 +305,7 @@ export class EPGCoordinator {
         epg.setNowWatchingBannerEnabled(nowWatchingEnabled);
         epg.setVisibleHours(this._getVisibleHoursForCurrentFilter(all, selectedId, shouldFilter));
 
-        const visible = this._getVisibleChannels(all, selectedId, shouldFilter);
+        const visible = selectVisibleChannelsForLibraryFilter(all, selectedId, shouldFilter);
         epg.loadChannels(toEpgChannels(visible));
     }
 
@@ -441,7 +382,7 @@ export class EPGCoordinator {
             this._epgPreferencesStore.writeSelectedLibraryId(payload.libraryId ?? null);
 
             this._invalidateGuideSelection('library-filter');
-            this._refreshController.handleLibraryFilterRefreshChange(payload.libraryId ?? null);
+            this._refreshController.handleLibraryFilterRefreshChange();
         };
 
         epg.on('libraryFilterChanged', onFilter);
@@ -485,41 +426,6 @@ export class EPGCoordinator {
         this._focusEpgOnCurrentChannel();
     }
 
-    private _getEpgScheduleRangeMs(): { startTime: number; endTime: number } | null {
-        const storage = this.deps.getEpgScheduleRangeSnapshot();
-        return computeEpgScheduleRangeMs(this.deps, Date.now(), storage);
-    }
-
-    private _cloneScheduleWindow(window: SchedulerScheduleWindow): SchedulerScheduleWindow {
-        return { ...window, programs: [...window.programs] };
-    }
-
-    private _computeScheduleCacheLimit(channelCount: number, aggressive: boolean): number {
-        const scaled = Math.ceil(channelCount * (aggressive ? 1.6 : 1.25));
-        const minEntries = aggressive ? EPG_SCHEDULE_CACHE_MIN_ENTRIES_AGGRESSIVE : EPG_SCHEDULE_CACHE_MIN_ENTRIES;
-        const maxEntries = aggressive ? EPG_SCHEDULE_CACHE_MAX_ENTRIES_AGGRESSIVE : EPG_SCHEDULE_CACHE_MAX_ENTRIES;
-        const clamped = Math.min(
-            maxEntries,
-            Math.max(minEntries, scaled)
-        );
-        return clamped;
-    }
-
-    private _getScheduleLoadConcurrency(
-        channelCount: number,
-        prefetchCount: number,
-        aggressive: boolean
-    ): number {
-        if (prefetchCount <= 0) {
-            return 1;
-        }
-        let target = aggressive ? 5 : 4;
-        if (channelCount >= 180) target = aggressive ? 10 : 8;
-        else if (channelCount >= 120) target = aggressive ? 8 : 7;
-        else if (channelCount >= 80) target = aggressive ? 7 : 6;
-        return Math.max(1, Math.min(target, prefetchCount));
-    }
-
     private async _refreshEpgSchedulesForRange(
         range: { channelStart: number; channelEnd: number; timeStartMs: number; timeEndMs: number },
         reason: string
@@ -534,16 +440,12 @@ export class EPGCoordinator {
         const current = channelManager.getCurrentChannel();
         if (!current) return;
         const all = channelManager.getAllChannels();
-        const { selectedId, shouldFilter } = this._getLibraryFilterState(all);
-        const channels = this._getVisibleChannels(all, selectedId, shouldFilter);
+        const { selectedId, shouldFilter } = readAppliedLibraryFilterState(all, this._epgPreferencesStore);
+        const channels = selectVisibleChannelsForLibraryFilter(all, selectedId, shouldFilter);
         const index = channels.findIndex((channel) => channel.id === current.id);
         if (index >= 0) {
             epg.focusChannel(index);
         }
-    }
-
-    private _isDebugEnabled(): boolean {
-        return isEpgDebugLoggingEnabled();
     }
 
     private _invalidateGuideSelection(reason: string): void {
