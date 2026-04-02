@@ -22,6 +22,7 @@ import type { ChannelSetupPlanDiagnosticsResult } from './ChannelSetupPlanDiagno
 import { ChannelSetupRecordStore } from './ChannelSetupRecordStore';
 import { ChannelSetupRerunController } from './ChannelSetupRerunController';
 import { ChannelSetupPlanningService } from './ChannelSetupPlanningService';
+import { ChannelSetupBuildCommitter } from './ChannelSetupBuildCommitter';
 import { ChannelSetupBuildExecutor } from './ChannelSetupBuildExecutor';
 
 export interface ChannelSetupCoordinatorDeps {
@@ -51,6 +52,7 @@ export interface ChannelSetupCoordinatorDeps {
 
 export class ChannelSetupCoordinator {
     private readonly _planningService: ChannelSetupPlanningService;
+    private readonly _buildCommitter: ChannelSetupBuildCommitter;
     private readonly _buildExecutor: ChannelSetupBuildExecutor;
     private readonly _recordStore: ChannelSetupRecordStore;
     private readonly _rerunController: ChannelSetupRerunController;
@@ -60,7 +62,7 @@ export class ChannelSetupCoordinator {
             plexLibrary: this.deps.plexLibrary,
             channelManager: this.deps.channelManager,
         });
-        this._buildExecutor = new ChannelSetupBuildExecutor({
+        this._buildCommitter = new ChannelSetupBuildCommitter({
             plexLibrary: this.deps.plexLibrary,
             channelManager: this.deps.channelManager,
             storageRemove: (key: string): void => this.deps.storageRemove(key),
@@ -69,7 +71,11 @@ export class ChannelSetupCoordinator {
             primeEpgChannels: (): void => this.deps.primeEpgChannels(),
             refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }): Promise<void> =>
                 this.deps.refreshEpgSchedules(options),
+        });
+        this._buildExecutor = new ChannelSetupBuildExecutor({
+            channelManager: this.deps.channelManager,
             planningService: this._planningService,
+            buildCommitter: this._buildCommitter,
         });
         this._recordStore = new ChannelSetupRecordStore({
             storageGet: (key: string): string | null => this.deps.storageGet(key),
