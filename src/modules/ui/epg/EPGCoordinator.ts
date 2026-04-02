@@ -56,7 +56,7 @@ export interface EPGCoordinatorDeps {
     ) => Promise<void>;
     onVisibilityChange?: (visible: boolean) => void;
     reportEpgInitWarning: (error: unknown) => void;
-    epgPreferencesStore?: EpgPreferencesStore;
+    epgPreferencesStore: EpgPreferencesStore;
 }
 
 const DEFAULT_GUIDE_DENSITY: EpgGuideDensity = 'detailed';
@@ -74,7 +74,7 @@ export class EPGCoordinator {
     private _guideSelectionController: AbortController | null = null;
 
     constructor(private readonly deps: EPGCoordinatorDeps) {
-        this._epgPreferencesStore = deps.epgPreferencesStore ?? new EpgPreferencesStore();
+        this._epgPreferencesStore = deps.epgPreferencesStore;
         this._refreshController = new EPGRefreshController({
             getEpg: (): IEPGComponent | null => this.deps.getEpg(),
             getChannelManager: (): IChannelManager | null => this.deps.getChannelManager(),
