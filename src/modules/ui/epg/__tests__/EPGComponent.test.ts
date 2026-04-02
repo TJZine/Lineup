@@ -7,8 +7,11 @@
  */
 
 import { EPGComponent } from '../EPGComponent';
+import { EPGDebugRuntime } from '../EPGDebugRuntime';
 import { EPG_CLASSES } from '../constants';
 import type { ScheduledProgram, ScheduleWindow, ChannelConfig, EPGConfig } from '../types';
+import { DebugOverridesStore } from '../../../debug/DebugOverridesStore';
+import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 
 describe('EPGComponent', () => {
     let epg: EPGComponent;
@@ -321,6 +324,43 @@ describe('EPGComponent', () => {
         } finally {
             localEpg.destroy();
             localContainer.remove();
+        }
+    });
+
+    it('updates debug log gating immediately after cross-tab storage events through injected runtime', () => {
+        let debugEnabled = false;
+        const readDebugSpy = jest
+            .spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabled')
+            .mockImplementation(() => debugEnabled);
+        const debugRuntime = new EPGDebugRuntime();
+        const appendSpy = jest.spyOn(debugRuntime, 'append');
+        const { epg: localEpg, container: localContainer } = createEpgInstance({
+            containerId: 'epg-container-debug-runtime-storage-event',
+            debugRuntime,
+        });
+
+        try {
+            const channel = createMockChannel(0);
+            localEpg.loadChannels([channel]);
+            localEpg.loadScheduleForChannel(channel.id, createMockSchedule(channel.id, 2));
+
+            localEpg.show();
+            expect(appendSpy).not.toHaveBeenCalled();
+
+            window.dispatchEvent(new StorageEvent('storage', {
+                key: LINEUP_STORAGE_KEYS.EPG_DEBUG,
+                newValue: '1',
+            }));
+
+            localEpg.hide();
+            localEpg.show();
+
+            expect(appendSpy).toHaveBeenCalledWith('EPG.show', expect.any(Object));
+        } finally {
+            localEpg.destroy();
+            localContainer.remove();
+            debugRuntime.destroy();
+            readDebugSpy.mockRestore();
         }
     });
 

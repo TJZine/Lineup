@@ -5,6 +5,7 @@ import { DebugOverridesStore } from '../../debug/DebugOverridesStore';
 type EpgDebugEntry = { ts: number; event: string; data: unknown };
 
 const EPG_DEBUG_LOG_STORAGE_KEY = LINEUP_STORAGE_KEYS.EPG_DEBUG_LOG;
+const EPG_DEBUG_FLAG_STORAGE_KEY = LINEUP_STORAGE_KEYS.EPG_DEBUG;
 const EPG_DEBUG_LOG_MAX_ENTRIES = 200;
 const EPG_DEBUG_LOG_FLUSH_DELAY_MS = 250;
 const EPG_DEBUG_FLAG_REFRESH_MS = 500;
@@ -21,9 +22,23 @@ export class EPGDebugRuntime implements IEpgDebugRuntime {
     private _flushTimer: ReturnType<typeof setTimeout> | null = null;
     private _enabledCache: boolean | null = null;
     private _enabledCacheReadMs = 0;
+    private readonly _onStorage = (event: StorageEvent): void => {
+        if (event.key !== EPG_DEBUG_FLAG_STORAGE_KEY) {
+            return;
+        }
+        this._enabledCache = event.newValue === '1';
+        this._enabledCacheReadMs = Date.now();
+    };
 
     constructor(debugOverridesStore: DebugOverridesStore = new DebugOverridesStore()) {
         this._debugOverridesStore = debugOverridesStore;
+        if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+            try {
+                window.addEventListener('storage', this._onStorage);
+            } catch {
+                // ignore
+            }
+        }
     }
 
     isEnabled(): boolean {
@@ -56,6 +71,13 @@ export class EPGDebugRuntime implements IEpgDebugRuntime {
     }
 
     destroy(): void {
+        if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
+            try {
+                window.removeEventListener('storage', this._onStorage);
+            } catch {
+                // ignore
+            }
+        }
         if (this._flushTimer) {
             clearTimeout(this._flushTimer);
             this._flushTimer = null;

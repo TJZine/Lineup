@@ -39,6 +39,58 @@ describe('EPGDebugRuntime', () => {
         expect(readEpgDebugSpy).toHaveBeenCalledTimes(1);
     });
 
+    it('updates cached debug flag immediately on EPG debug storage events', () => {
+        const readEpgDebugSpy = jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabled').mockReturnValue(false);
+        const runtime = new EPGDebugRuntime();
+
+        expect(runtime.isEnabled()).toBe(false);
+        expect(readEpgDebugSpy).toHaveBeenCalledTimes(1);
+
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: LINEUP_STORAGE_KEYS.EPG_DEBUG,
+            newValue: '1',
+        }));
+
+        expect(runtime.isEnabled()).toBe(true);
+        expect(readEpgDebugSpy).toHaveBeenCalledTimes(1);
+
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: LINEUP_STORAGE_KEYS.EPG_DEBUG,
+            newValue: '0',
+        }));
+
+        expect(runtime.isEnabled()).toBe(false);
+        expect(readEpgDebugSpy).toHaveBeenCalledTimes(1);
+        runtime.destroy();
+    });
+
+    it('keeps same-tab debug toggles behind bounded refresh when no storage event is fired', () => {
+        let debugEnabled = false;
+        const readEpgDebugSpy = jest
+            .spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabled')
+            .mockImplementation(() => debugEnabled);
+        const nowSpy = jest.spyOn(Date, 'now');
+        const runtime = new EPGDebugRuntime();
+
+        try {
+            nowSpy.mockReturnValue(2_000);
+            expect(runtime.isEnabled()).toBe(false);
+            expect(readEpgDebugSpy).toHaveBeenCalledTimes(1);
+
+            debugEnabled = true;
+            nowSpy.mockReturnValue(2_400);
+            expect(runtime.isEnabled()).toBe(false);
+            expect(readEpgDebugSpy).toHaveBeenCalledTimes(1);
+
+            nowSpy.mockReturnValue(2_501);
+            expect(runtime.isEnabled()).toBe(true);
+            expect(readEpgDebugSpy).toHaveBeenCalledTimes(2);
+        } finally {
+            nowSpy.mockRestore();
+            runtime.destroy();
+        }
+    });
+
     it('normalizes non-array stored debug log payloads to an empty list before append', () => {
         jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabled').mockReturnValue(true);
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_DEBUG_LOG, '{"bad":true}');
