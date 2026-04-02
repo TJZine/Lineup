@@ -1009,6 +1009,31 @@ describe('EPGVirtualizer', () => {
             expect(focused?.classList.contains('focused')).toBe(true);
         });
 
+        it('retains focused placeholder styling after rerendering the same placeholder window', () => {
+            const channelIds = ['ch0'];
+            const schedules = new Map<string, ScheduleWindow>();
+
+            virtualizer.setChannelCount(1);
+            const range = virtualizer.calculateVisibleRange({
+                channelOffset: 0,
+                timeOffset: 0,
+            });
+
+            virtualizer.renderVisibleCells(channelIds, schedules, range);
+
+            const focusTimeMs = gridAnchorTime + (30 * 60000);
+            const focusedElement = virtualizer.setFocusedCell('ch0', focusTimeMs, focusTimeMs);
+            expect(focusedElement).not.toBeNull();
+            expect(focusedElement?.classList.contains(EPG_CLASSES.CELL_FOCUSED)).toBe(true);
+
+            const focusedKey = `ch0-placeholder-${gridAnchorTime}`;
+            virtualizer.renderVisibleCells(channelIds, schedules, range, focusedKey);
+
+            const rerenderedCell = container.querySelector(`[data-key="${focusedKey}"]`) as HTMLElement | null;
+            expect(rerenderedCell).not.toBeNull();
+            expect(rerenderedCell?.classList.contains(EPG_CLASSES.CELL_FOCUSED)).toBe(true);
+        });
+
         it('applies horizontal scroll transform to the content wrapper', () => {
             const channelIds = ['ch0'];
             const schedules = new Map<string, ScheduleWindow>();
