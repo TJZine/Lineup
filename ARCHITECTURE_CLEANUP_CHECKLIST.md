@@ -367,10 +367,27 @@ These are the required repo-local boundary skills for the new wave. Load them be
     - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur` -> `split follow-up` -> final owner `P2-W2`; reason: after the readiness/config-binding split, one broader live owner-envelope remains around top-level EPG surface clarity (`EPGComponent` vs coordinator/orchestrator delegation surface) that aligns with `P2-W2` runtime-seam follow-through; revisit trigger: rerun `desloppify show "review::.::holistic::high_level_elegance::epg_top_level_owner_blur" --status open --no-budget` plus `npm run verify` during `P2-W2` and retire there or reassign once if source audit finds a better final owner.
 - [ ] `P2-W2` move refresh orchestration and library-filter normalization behind one explicit EPG runtime seam
   - Imported review issues: `review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam`, `review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams`
-  - Primary files: `src/modules/ui/epg/EPGCoordinator.ts`, `src/modules/ui/epg/EPGScheduleRefreshRuntime.ts`, `src/modules/ui/epg/EPGCoordinatorPolicies.ts`
+  - Primary files: `src/modules/ui/epg/EPGCoordinator.ts`, `src/modules/ui/epg/EPGRefreshController.ts`, `src/modules/ui/epg/EPGScheduleRefreshRuntime.ts`, `src/modules/ui/epg/EPGCoordinatorPolicies.ts`, `src/modules/settings/EpgPreferencesStore.ts`, `src/core/orchestrator/OrchestratorCoordinatorFactory.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
   - Inherited follow-ups:
     - Source `P2-W1` disposition `split follow-up`: `review::.::holistic::high_level_elegance::epg_top_level_owner_blur`; required verification commands: `desloppify show "review::.::holistic::high_level_elegance::epg_top_level_owner_blur" --status open --no-budget`; `npm run verify`
+  - Execution (2026-04-01): extracted internal `EPGRefreshController` seam to own refresh queue/runtime orchestration, kept `EPGCoordinator` as top-level owner with guide-selection abort state, moved schedule-range snapshot ownership to `EpgPreferencesStore.readScheduleRangeSnapshot()`, centralized library-filter normalization in `computeNormalizedLibraryFilterState(...)`, and added seam coverage (`EPGRefreshController.test.ts`, `EPGCoordinatorPolicies.test.ts`) plus updated coordinator/runtime/store/factory tests.
+  - Verification (2026-04-01):
+    - `npm test -- --runInBand src/modules/settings/__tests__/EpgPreferencesStore.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGCoordinatorPolicies.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGRefreshController.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`
+    - `npm test -- --runInBand src/core/orchestrator/__tests__/OrchestratorCoordinatorFactory.playbackState.test.ts`
+    - `npm test -- --runInBand src/__tests__/Orchestrator.test.ts`
+    - `rg -n "openEPG|closeEPG|toggleEPG|onGuideSettingChange|_epgCoordinator" src/Orchestrator.ts`
+    - `rg -n "Main orchestrator for the Electronic Program Guide|channelSelected|libraryFilterChanged|show\\(|hide\\(|isVisible\\(|focusNow\\(" src/modules/ui/epg/EPGComponent.ts`
+    - `rg -n "EPGRefreshController" src` (explicit repo-wide caller/import guard)
+    - `npm run verify`
+  - Issue dispositions (2026-04-01 source audit + detector refresh):
+    - `review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam` -> `deferred` -> owner `P2-W2`; reason: detector still reports live refresh seam blur because `EPGCoordinator` continues to define runtime callbacks and mixes lifecycle/event policy with refresh-adjacent orchestration; revisit trigger: after tightening the controller dependency contract, rerun `desloppify show "review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam" --status open --no-budget` plus `npm run verify`.
+    - `review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams` -> `deferred` -> owner `P2-W2`; reason: shared normalization helper now exists and is consumed by range policy/coordinator, but detector still finds split authority due coordinator-level filter-state wrappers and mutation path coupling; revisit trigger: rerun `desloppify show "review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams" --status open --no-budget` plus `npm run verify` after the remaining seam narrowing.
+    - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur` -> `deferred` -> owner `P2-W2`; reason: source audit confirms `Orchestrator` remains delegation-only and `EPGRefreshController` is internal-only, but `EPGComponent` still advertises “Main orchestrator” wording and detector evidence remains open; revisit trigger: rerun `desloppify show "review::.::holistic::high_level_elegance::epg_top_level_owner_blur" --status open --no-budget` plus `npm run verify` once owner-surface wording/contract cleanup is finalized.
 - [ ] `P2-W3` replace hidden EPG runtime globals with explicit owner state and restore narrow shared types at the boundary
   - Imported review issues: `review::.::holistic::initialization_coupling::epg_debug_module_global_runtime`, `review::.::holistic::type_safety::epg_channel_boundary_widens_known_types`
   - Primary files: `src/modules/ui/epg/utils.ts`, `src/modules/ui/epg/EPGCoordinator.ts`, `src/modules/ui/epg/domainTypes.ts`, `src/modules/ui/epg/adapters.ts`, `src/modules/scheduler/channel-manager/types.ts`
