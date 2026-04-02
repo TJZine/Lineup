@@ -82,6 +82,13 @@ export class EPGDebugRuntime implements IEpgDebugRuntime {
             clearTimeout(this._flushTimer);
             this._flushTimer = null;
         }
+        if (this._entries && this._entries.length > 0) {
+            try {
+                this._flushEntries();
+            } catch {
+                // ignore
+            }
+        }
         this._entries = null;
         this._enabledCache = null;
         this._enabledCacheReadMs = 0;
@@ -102,18 +109,22 @@ export class EPGDebugRuntime implements IEpgDebugRuntime {
         }
     }
 
+    private _flushEntries(): void {
+        try {
+            const serialized = JSON.stringify(this._entries ?? []);
+            safeLocalStorageSet(EPG_DEBUG_LOG_STORAGE_KEY, serialized);
+        } catch {
+            safeLocalStorageSet(EPG_DEBUG_LOG_STORAGE_KEY, '[]');
+        }
+    }
+
     private _scheduleFlush(): void {
         if (this._flushTimer) {
             return;
         }
         this._flushTimer = setTimeout(() => {
             this._flushTimer = null;
-            try {
-                const serialized = JSON.stringify(this._entries ?? []);
-                safeLocalStorageSet(EPG_DEBUG_LOG_STORAGE_KEY, serialized);
-            } catch {
-                safeLocalStorageSet(EPG_DEBUG_LOG_STORAGE_KEY, '[]');
-            }
+            this._flushEntries();
         }, EPG_DEBUG_LOG_FLUSH_DELAY_MS);
     }
 }

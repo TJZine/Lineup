@@ -130,7 +130,7 @@ describe('EPGDebugRuntime', () => {
         expect(setSpy).toHaveBeenCalled();
     });
 
-    it('clears pending flush timer on destroy', () => {
+    it('flushes pending entries immediately on destroy and cancels the timer', () => {
         jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabled').mockReturnValue(true);
         const setSpy = jest.spyOn(storageHelpers, 'safeLocalStorageSet');
         const runtime = createRuntime();
@@ -139,7 +139,24 @@ describe('EPGDebugRuntime', () => {
         runtime.destroy();
         jest.advanceTimersByTime(300);
 
-        expect(setSpy).not.toHaveBeenCalled();
+        expect(setSpy).toHaveBeenCalledTimes(1);
+        const stored = localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG_LOG);
+        expect(stored).toBeTruthy();
+        const parsed = JSON.parse(stored as string) as Array<{ event: string }>;
+        expect(parsed).toHaveLength(1);
+        expect(parsed[0]?.event).toBe('event:destroy');
+    });
+
+    it('keeps destroy non-throwing and idempotent after a pending flush', () => {
+        jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabled').mockReturnValue(true);
+        const runtime = createRuntime();
+
+        runtime.append('event:destroy-safe', { ok: true });
+
+        expect(() => {
+            runtime.destroy();
+            runtime.destroy();
+        }).not.toThrow();
     });
 
     it('falls back to an empty persisted log when entry serialization throws', () => {

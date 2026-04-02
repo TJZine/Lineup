@@ -109,7 +109,13 @@ type RenderPassContext = {
     maxDomElements: number;
     visibleWindowStartMinutes: number;
     visibleWindowEndMinutes: number;
-    addCell: (cellData: CellRenderData, isFocusedCell: boolean) => void;
+    stageCell: (
+        cellData: CellRenderData,
+        isFocusedCell: boolean,
+        overlapsVisibleWindow: boolean
+    ) => void;
+    finalizeRow: (rowIndex: number) => void;
+    finalizeAllRows: () => void;
 };
 
 /**
@@ -282,7 +288,11 @@ export class EPGVirtualizer {
         startMinutes: number,
         endMinutes: number,
         label: string,
-        addCell: (cellData: CellRenderData, isFocusedCell: boolean) => void
+        stageCell: (
+            cellData: CellRenderData,
+            isFocusedCell: boolean,
+            overlapsVisibleWindow: boolean
+        ) => void
     ): void {
         if (!this.config) return;
 
@@ -295,7 +305,7 @@ export class EPGVirtualizer {
         const cellKey = `${channelId}-placeholder-${scheduledStartTime}`;
         const left = normalizedStart * this.config.pixelsPerMinute;
         const width = Math.max((normalizedEnd - normalizedStart) * this.config.pixelsPerMinute, 20);
-        addCell({
+        stageCell({
             kind: 'placeholder',
             key: cellKey,
             channelId,
@@ -313,7 +323,7 @@ export class EPGVirtualizer {
             isFocused: false,
             textShiftPx: 0,
             cellElement: null,
-        }, false);
+        }, false, true);
     }
 
     /**
@@ -337,6 +347,7 @@ export class EPGVirtualizer {
 
         const context = this.createRenderPassContext(range);
         this.collectVisibleCells(channelIds, schedules, range, context, focusedCellKey, nowMs);
+        context.finalizeAllRows();
         this.pruneToDomBudget(context.newVisibleCells, context.maxDomElements, focusedCellKey);
         this.reconcileVisibleCells(context.newVisibleCells, context.channelOffsetChanged, nowMs);
         this.finishRenderPass(context.newVisibleCells, focusedCellKey, range);
@@ -354,7 +365,10 @@ export class EPGVirtualizer {
         const timeBuffer = EPG_CONSTANTS.TIME_BUFFER_MINUTES;
         const visibleWindowStartMinutes = range.visibleTimeRange.start + timeBuffer;
         const visibleWindowEndMinutes = range.visibleTimeRange.end - timeBuffer;
-        const addCell = (cellData: CellRenderData, isFocusedCell: boolean): void => {
+        const queuedVisibleByRow = new Map<number, CellRenderData[]>();
+        const queuedBufferByRow = new Map<number, CellRenderData[]>();
+
+        const tryAddCommittedCell = (cellData: CellRenderData, isFocusedCell: boolean): void => {
             const currentRowCount = perRowCounts.get(cellData.rowIndex) ?? 0;
             if (!isFocusedCell) {
                 if (newVisibleCells.size >= maxDomElements) {
@@ -369,13 +383,56 @@ export class EPGVirtualizer {
                 perRowCounts.set(cellData.rowIndex, currentRowCount + 1);
             }
         };
+
+        const stageCell = (
+            cellData: CellRenderData,
+            isFocusedCell: boolean,
+            overlapsVisibleWindow: boolean
+        ): void => {
+            if (isFocusedCell) {
+                tryAddCommittedCell(cellData, true);
+                return;
+            }
+
+            const target = overlapsVisibleWindow ? queuedVisibleByRow : queuedBufferByRow;
+            const queue = target.get(cellData.rowIndex) ?? [];
+            queue.push(cellData);
+            target.set(cellData.rowIndex, queue);
+        };
+
+        const flushQueue = (rowIndex: number, queued: Map<number, CellRenderData[]>): void => {
+            const queue = queued.get(rowIndex);
+            if (!queue || queue.length === 0) {
+                return;
+            }
+
+            for (const cellData of queue) {
+                tryAddCommittedCell(cellData, false);
+            }
+
+            queued.delete(rowIndex);
+        };
+
+        const finalizeRow = (rowIndex: number): void => {
+            flushQueue(rowIndex, queuedVisibleByRow);
+            flushQueue(rowIndex, queuedBufferByRow);
+        };
+
+        const finalizeAllRows = (): void => {
+            for (const rowIndex of range.visibleRows) {
+                finalizeRow(rowIndex);
+            }
+        };
+
         return {
             newVisibleCells,
             channelOffsetChanged,
             maxDomElements,
             visibleWindowStartMinutes,
             visibleWindowEndMinutes,
-            addCell,
+            stageCell,
+            finalizeRow,
+            finalizeAllRows,
         };
     }
 
@@ -399,11 +456,13 @@ export class EPGVirtualizer {
                     Math.max(0, context.visibleWindowStartMinutes),
                     Math.max(0, context.visibleWindowEndMinutes),
                     'Loading...',
-                    context.addCell
+                    context.stageCell
                 );
+                context.finalizeRow(rowIndex);
                 continue;
             }
             this.collectCellsForScheduledRow(channelId, rowIndex, schedule, range, context, focusedCellKey, nowMs);
+            context.finalizeRow(rowIndex);
         }
     }
 
@@ -462,7 +521,7 @@ export class EPGVirtualizer {
             });
             const textShiftPx = textMetrics.safeTextShiftPx;
 
-            context.addCell({
+            context.stageCell({
                 kind: 'program',
                 key: cellKey,
                 channelId,
@@ -476,7 +535,7 @@ export class EPGVirtualizer {
                 isFocused: isFocusedCell,
                 textShiftPx,
                 cellElement: null,
-            }, isFocusedCell);
+            }, isFocusedCell, overlapsVisibleWindow);
 
             if (overlapsVisibleWindow && program.scheduledStartTime > lastCoveredTimeMs) {
                 const gapEndMs = Math.min(program.scheduledStartTime, visibleWindowEndMs);
@@ -487,7 +546,7 @@ export class EPGVirtualizer {
                         (lastCoveredTimeMs - this.gridAnchorTime) / 60000,
                         (gapEndMs - this.gridAnchorTime) / 60000,
                         'No Program',
-                        context.addCell
+                        context.stageCell
                     );
                 }
             }
@@ -504,7 +563,7 @@ export class EPGVirtualizer {
                 Math.max(0, context.visibleWindowStartMinutes),
                 Math.max(0, context.visibleWindowEndMinutes),
                 'No Program',
-                context.addCell
+                context.stageCell
             );
         } else if (lastCoveredTimeMs < visibleWindowEndMs) {
             this.addPlaceholderCell(
@@ -513,7 +572,7 @@ export class EPGVirtualizer {
                 (lastCoveredTimeMs - this.gridAnchorTime) / 60000,
                 Math.max(0, context.visibleWindowEndMinutes),
                 'No Program',
-                context.addCell
+                context.stageCell
             );
         }
     }

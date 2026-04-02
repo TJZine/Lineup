@@ -1075,6 +1075,58 @@ describe('EPGVirtualizer', () => {
             expect(titles).toContain('No Program');
         });
 
+        it('prioritizes visible-window cells over buffer-only cells when a row has many short programs', () => {
+            const channelId = 'dense-row';
+            const channelIds = [channelId];
+            const programs: ScheduledProgram[] = [];
+
+            for (let minute = 0; minute < 120; minute += 5) {
+                programs.push({
+                    item: {
+                        ratingKey: `${channelId}-${minute}`,
+                        type: 'movie',
+                        title: `Program ${minute}`,
+                        fullTitle: `Program ${minute}`,
+                        durationMs: 5 * 60_000,
+                        thumb: null,
+                        year: 2026,
+                        scheduledIndex: minute / 5,
+                    },
+                    scheduledStartTime: gridAnchorTime + (minute * 60_000),
+                    scheduledEndTime: gridAnchorTime + ((minute + 5) * 60_000),
+                    elapsedMs: 0,
+                    remainingMs: 5 * 60_000,
+                    scheduleIndex: minute / 5,
+                    loopNumber: 0,
+                    streamDescriptor: null,
+                    isCurrent: false,
+                });
+            }
+
+            const schedules = new Map<string, ScheduleWindow>([
+                [channelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + (24 * 60 * 60_000),
+                    programs,
+                }],
+            ]);
+
+            virtualizer.setChannelCount(1);
+            const range = virtualizer.calculateVisibleRange({
+                channelOffset: 0,
+                timeOffset: 60,
+            });
+
+            virtualizer.renderVisibleCells(channelIds, schedules, range);
+
+            const titles = Array.from(container.querySelectorAll('.epg-cell-title'))
+                .map((el) => el.textContent);
+
+            expect(titles).toContain('Program 60');
+            expect(titles).toContain('Program 65');
+            expect(titles).toContain('Program 70');
+        });
+
         it('should maintain DOM element count under 200 during virtualized render', () => {
             // Load 50 channels with many programs
             const channelIds = Array.from({ length: 50 }, (_, i) => `ch${i}`);

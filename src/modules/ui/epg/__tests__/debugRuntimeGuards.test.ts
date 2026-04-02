@@ -50,4 +50,16 @@ describe('debugRuntimeGuards', () => {
 
         expect(append).toHaveBeenCalledWith('event:test', { ok: true });
     });
+
+    it('returns false for null and undefined debug runtimes', () => {
+        expect(isDebugRuntimeEnabled(null)).toBe(false);
+        expect(isDebugRuntimeEnabled(undefined)).toBe(false);
+    });
+
+    it('ignores append calls for null and undefined debug runtimes', () => {
+        expect(() => {
+            appendDebugRuntimeLog(null, 'event:test', { ok: true });
+            appendDebugRuntimeLog(undefined, 'event:test', { ok: true });
+        }).not.toThrow();
+    });
 });

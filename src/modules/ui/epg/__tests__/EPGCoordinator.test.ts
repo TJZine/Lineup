@@ -929,7 +929,7 @@ describe('EPGCoordinator', () => {
         expectPastWindowMinutes(range30, now, 30, 30);
     });
 
-    it('primeEpgChannels clears filter when tabs are disabled', () => {
+    it('primeEpgChannels preserves a valid persisted filter when tabs are disabled', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '0');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
 
@@ -949,17 +949,41 @@ describe('EPGCoordinator', () => {
 
         coordinator.primeEpgChannels();
 
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBe('lib1');
         expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
     });
 
-    it('primeEpgChannels clears persisted filter when only one library remains', () => {
+    it('primeEpgChannels preserves a valid persisted filter when only one library remains', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
 
         const allChannels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
             { ...makeChannel('c2', 2), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
+        ];
+
+        const { deps, epg } = makeDeps({
+            getChannelManager: () =>
+            ({
+                ...makeDeps().channelManager,
+                getAllChannels: () => allChannels,
+            } as IChannelManager),
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.primeEpgChannels();
+
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBe('lib1');
+        expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
+    });
+
+    it('primeEpgChannels clears an invalid persisted filter through the normalization helper', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'missing-lib');
+
+        const allChannels: ChannelConfig[] = [
+            { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
+            { ...makeChannel('c2', 2), sourceLibraryId: 'lib2', sourceLibraryName: 'TV' },
         ];
 
         const { deps, epg } = makeDeps({
