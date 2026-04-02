@@ -167,24 +167,29 @@ export const createScreenPorts = (
     ...overrides,
 });
 
-type ScreenDepsOverrides = {
-    workflowPort?: Partial<ChannelSetupWorkflowPort>;
-    screenPorts?: Partial<ChannelSetupScreenPorts>;
+export type SplitScreenTestPorts = {
+    workflowPort: ChannelSetupWorkflowPort;
+    screenPorts: ChannelSetupScreenPorts;
+    orchestrator: ChannelSetupWorkflowPort & ChannelSetupScreenPorts;
 };
 
-const hasSplitOverrides = (
-    input: ScreenDepsOverrides | Partial<ChannelSetupWorkflowPort & ChannelSetupScreenPorts>
-): input is ScreenDepsOverrides => 'workflowPort' in input || 'screenPorts' in input;
+export const createSplitScreenPorts = (
+    overrides: Partial<ChannelSetupWorkflowPort & ChannelSetupScreenPorts> = {}
+): SplitScreenTestPorts => {
+    const workflowPort = createWorkflowPort(overrides);
+    const screenPorts = createScreenPorts(overrides);
+    return {
+        workflowPort,
+        screenPorts,
+        orchestrator: { ...workflowPort, ...screenPorts } satisfies ChannelSetupWorkflowPort & ChannelSetupScreenPorts,
+    };
+};
 
 export const createScreenDeps = (
-    input: ScreenDepsOverrides | Partial<ChannelSetupWorkflowPort & ChannelSetupScreenPorts> = {}
+    input: { workflowPort: ChannelSetupWorkflowPort; screenPorts: ChannelSetupScreenPorts }
 ): ConstructorParameters<typeof ChannelSetupScreen>[1] => ({
-    workflowPort: createWorkflowPort(
-        hasSplitOverrides(input) ? (input.workflowPort ?? {}) : input
-    ),
-    screenPorts: createScreenPorts(
-        hasSplitOverrides(input) ? (input.screenPorts ?? {}) : input
-    ),
+    workflowPort: input.workflowPort,
+    screenPorts: input.screenPorts,
 });
 
 // Intentionally button-only to enforce accessible remote-first UI semantics.
