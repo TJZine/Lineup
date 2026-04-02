@@ -433,14 +433,44 @@ These are the required repo-local boundary skills for the new wave. Load them be
   - Issue dispositions (2026-04-02 closeout):
     - `review::.::holistic::initialization_coupling::epg_debug_module_global_runtime` -> `resolved` -> owner `P2-W3`; proof: mutable debug state moved out of `utils.ts` into one explicit `EPGDebugRuntime` owner, one runtime is assembled in `Orchestrator.initialize(...)`, coordinator/runtime owners receive it directly through `createOrchestratorCoordinators(...)`, and UI-only consumers receive it through `EPGConfig.debugRuntime` via `InitializationCoordinator` startup config wiring; tracker closeout: after a forced stale-state rescan and `desloppify plan resolve ...`, `desloppify show "review::.::holistic::initialization_coupling::epg_debug_module_global_runtime" --status open --no-budget` now returns no open issues.
     - `review::.::holistic::type_safety::epg_channel_boundary_widens_known_types` -> `resolved` -> owner `P2-W3`; proof: `EpgChannel` now derives from `Pick<ChannelConfig, ...>` and preserves scheduler-owned `contentSource`/`playbackMode` unions at compile time while adapter/fixture updates align with the narrowed boundary; tracker closeout: after a forced stale-state rescan and `desloppify plan resolve ...`, `desloppify show "review::.::holistic::type_safety::epg_channel_boundary_widens_known_types" --status open --no-budget` now returns no open issues.
-- [ ] `P2-W4` split the EPG render/data package surface so view, runtime, and model owners stop accreting together
+- [x] `P2-W4` split the EPG render/data package surface so view, runtime, and model owners stop accreting together
   - Imported review issues: `review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion`, `review::.::holistic::package_organization::epg_flat_directory_overload`
-  - Primary files: `src/modules/ui/epg/EPGVirtualizer.ts`, `src/modules/ui/epg/`
+  - Primary files: `src/modules/ui/epg/view/EPGVirtualizer.ts`, `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, `src/modules/ui/epg/model/`, `src/modules/ui/epg/index.ts`, `src/core/initialization/InitializationStartupPolicy.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
+  - Execution (2026-04-02): moved leaf EPG collaborators into staged subfolders (`view/`, `runtime/`, `model/`) without forwarding shims, added subfolder barrels, rewired direct imports (including `InitializationStartupPolicy.ts` to `src/modules/ui/epg/model/adapters`), kept the root EPG barrel stable for previously-public surface exports only, and refactored `renderVisibleCells(...)` into explicit private phases (`createRenderPassContext`, `collectVisibleCells`, `collectCellsForScheduledRow`, `pruneToDomBudget`, `reconcileVisibleCells`, `finishRenderPass`) while preserving the existing public `EPGVirtualizer` API.
+  - Verification (2026-04-02):
+    - `npm run typecheck`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/index.test.ts src/modules/ui/epg/__tests__/EPGTimeHeader.test.ts src/modules/ui/epg/__tests__/EPGChannelList.test.ts src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts src/modules/ui/epg/__tests__/EPGVisibleRangeRefreshQueue.test.ts src/modules/ui/epg/__tests__/EPGRefreshController.test.ts src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts src/modules/ui/epg/__tests__/EPGComponent.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts src/modules/ui/epg/__tests__/EPGComponent.test.ts src/modules/ui/epg/__tests__/EPGRefreshController.test.ts src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts src/modules/ui/epg/__tests__/EPGTimeHeader.test.ts src/modules/ui/epg/__tests__/EPGChannelList.test.ts src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts src/modules/ui/epg/__tests__/EPGVisibleRangeRefreshQueue.test.ts`
+    - `npm run verify`
+    - `desloppify show "review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion" --status open --no-budget`
+    - `desloppify show "review::.::holistic::package_organization::epg_flat_directory_overload" --status open --no-budget`
+  - Issue dispositions (2026-04-02 source audit + detector check):
+    - `review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion` -> `resolved` (slice-owned rationale retired on current source) -> final owner for residual reconciliation: `P2-EXIT`; proof: `renderVisibleCells(...)` is now a thin coordinator over explicit class-private phase helpers in `src/modules/ui/epg/view/EPGVirtualizer.ts`; detector output still cites removed single-pass structure and pre-move file path (`src/modules/ui/epg/EPGVirtualizer.ts`), treated as stale detector residue pending broader queue reconciliation.
+    - `review::.::holistic::package_organization::epg_flat_directory_overload` -> `resolved` (slice-owned rationale retired on current source) -> final owner for residual reconciliation: `P2-EXIT`; proof: moved view/runtime/model leaf collaborators out of the flat EPG root and retained only root-owner + shared contract surfaces in `src/modules/ui/epg/`; detector output still cites pre-move flat-path evidence (`src/modules/ui/epg/EPGChannelList.ts`, `src/modules/ui/epg/EPGTimeHeader.ts`, `src/modules/ui/epg/EPGScheduleCacheStore.ts`, `src/modules/ui/epg/EPGVisibleRangeRefreshQueue.ts`, `src/modules/ui/epg/adapters.ts`), treated as stale detector residue.
 - [ ] `P2-EXIT` run the priority-exit review before moving to `P3`
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P3` plan, code, or checklist progress starts until every `P2` mapped id has an explicit disposition record
   - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all eight exact `P2` issue-id checks; `npm run verify`
+  - Priority-exit review status (2026-04-02): `blocked` (do not open `P3` work)
+  - Verified commands (2026-04-02):
+    - `desloppify status`
+    - `desloppify show review --status open --no-budget --top 100`
+    - `desloppify show security --status open --no-budget --top 50`
+    - `desloppify show "review::.::holistic::high_level_elegance::epg_top_level_owner_blur" --status open --no-budget`
+    - `desloppify show "review::.::holistic::api_surface_coherence::epg_readiness_split_contract" --status open --no-budget`
+    - `desloppify show "review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam" --status open --no-budget`
+    - `desloppify show "review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams" --status open --no-budget`
+    - `desloppify show "review::.::holistic::initialization_coupling::epg_debug_module_global_runtime" --status open --no-budget`
+    - `desloppify show "review::.::holistic::type_safety::epg_channel_boundary_widens_known_types" --status open --no-budget`
+    - `desloppify show "review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion" --status open --no-budget`
+    - `desloppify show "review::.::holistic::package_organization::epg_flat_directory_overload" --status open --no-budget`
+    - `npm run verify`
+  - Outstanding gate blockers (2026-04-02):
+    - Open mapped `P2` review ids still reported by detector output: `review::.::holistic::high_level_elegance::epg_top_level_owner_blur`, `review::.::holistic::api_surface_coherence::epg_readiness_split_contract`, `review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam`, `review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams`, `review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion`, `review::.::holistic::package_organization::epg_flat_directory_overload`
+    - Mapped `P2` ids currently clear: `review::.::holistic::initialization_coupling::epg_debug_module_global_runtime`, `review::.::holistic::type_safety::epg_channel_boundary_widens_known_types`
+    - Security triage gate is not clear yet (`desloppify show security --status open --no-budget --top 50` reports `cycles::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGRefreshController.ts`)
 
 ## Priority 3: Realign Channel-Setup Ownership And Remove Duplicated Flow Contracts
 
