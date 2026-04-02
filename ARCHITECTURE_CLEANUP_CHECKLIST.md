@@ -454,7 +454,10 @@ These are the required repo-local boundary skills for the new wave. Load them be
   - Gate: no `P3` plan, code, or checklist progress starts until every `P2` mapped id has an explicit disposition record
   - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all eight exact `P2` issue-id checks; `npm run verify`
   - Priority-exit review status (2026-04-02): `blocked` (do not open `P3` work)
-  - Verified commands (2026-04-02):
+  - Verified commands (2026-04-02 refresh):
+    - `npm run typecheck`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGCoordinator.test.ts src/modules/ui/epg/__tests__/EPGRefreshController.test.ts src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts`
+    - `npm run verify`
     - `desloppify status`
     - `desloppify show review --status open --no-budget --top 100`
     - `desloppify show security --status open --no-budget --top 50`
@@ -466,11 +469,22 @@ These are the required repo-local boundary skills for the new wave. Load them be
     - `desloppify show "review::.::holistic::type_safety::epg_channel_boundary_widens_known_types" --status open --no-budget`
     - `desloppify show "review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion" --status open --no-budget`
     - `desloppify show "review::.::holistic::package_organization::epg_flat_directory_overload" --status open --no-budget`
-    - `npm run verify`
-  - Outstanding gate blockers (2026-04-02):
-    - Open mapped `P2` review ids still reported by detector output: `review::.::holistic::high_level_elegance::epg_top_level_owner_blur`, `review::.::holistic::api_surface_coherence::epg_readiness_split_contract`, `review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam`, `review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams`, `review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion`, `review::.::holistic::package_organization::epg_flat_directory_overload`
-    - Mapped `P2` ids currently clear: `review::.::holistic::initialization_coupling::epg_debug_module_global_runtime`, `review::.::holistic::type_safety::epg_channel_boundary_widens_known_types`
-    - Security triage gate is not clear yet (`desloppify show security --status open --no-budget --top 50` reports `cycles::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGRefreshController.ts`)
+    - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`
+  - Mapped imported issues (2026-04-02 disposition record):
+    - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur` -> `deferred`; owner: `P2-EXIT`; reason: still open on current detector output and not addressed by the narrow cycle-fix scope; revisit trigger: rerun the exact issue-id command plus `npm run verify` before any `P3` item is opened.
+    - `review::.::holistic::api_surface_coherence::epg_readiness_split_contract` -> `deferred`; owner: `P2-EXIT`; reason: still open on current detector output and requires a dedicated readiness-contract consolidation decision outside this blocker pass; revisit trigger: rerun the exact issue-id command plus `npm run verify` before any `P3` item is opened.
+    - `review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam` -> `deferred`; owner: `P2-EXIT`; reason: still open on current detector output and requires deeper seam extraction than this blocker pass; revisit trigger: rerun the exact issue-id command plus `npm run verify` before any `P3` item is opened.
+    - `review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams` -> `deferred`; owner: `P2-EXIT`; reason: still open on current detector output and needs a single-library-filter boundary extraction not attempted in this blocker pass; revisit trigger: rerun the exact issue-id command plus `npm run verify` before any `P3` item is opened.
+    - `review::.::holistic::initialization_coupling::epg_debug_module_global_runtime` -> `resolved`; owner: `P2-W3`; reason: exact issue-id command returns `No open issues matching`; revisit trigger: rerun exact issue-id command during next `P2-EXIT` refresh if EPG runtime debug ownership changes.
+    - `review::.::holistic::type_safety::epg_channel_boundary_widens_known_types` -> `resolved`; owner: `P2-W3`; reason: exact issue-id command returns `No open issues matching`; revisit trigger: rerun exact issue-id command during next `P2-EXIT` refresh if channel-domain boundary types are widened again.
+    - `review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion` -> `deferred`; owner: `P2-EXIT`; reason: detector still reports the issue after the `P2-W4` render-phase split and requires explicit stale-vs-live reconciliation before exit closeout; revisit trigger: rerun exact issue-id command and source audit against `src/modules/ui/epg/view/EPGVirtualizer.ts` before any `P3` item is opened.
+    - `review::.::holistic::package_organization::epg_flat_directory_overload` -> `deferred`; owner: `P2-EXIT`; reason: detector still reports pre-move flat-folder evidence and requires explicit stale-vs-live reconciliation before exit closeout; revisit trigger: rerun exact issue-id command and source audit against `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/` before any `P3` item is opened.
+  - Security triage (2026-04-02 disposition record):
+    - issue: `cycles::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGRefreshController.ts`
+    - disposition: `deferred`
+    - owner: `P2-EXIT`
+    - reason: source audit and refactor moved `EpgUiStatus` out of `EPGCoordinator` (`EPGRefreshController` no longer imports from `./EPGCoordinator`), but `desloppify show security --status open --no-budget --top 50` still reports the cycle after a forced rescan.
+    - revisit trigger: before any `P3` work, rerun `desloppify show security --status open --no-budget --top 50`; if still open, either clear via a detector-backed proof of no reverse import or keep explicit deferral with a newly assigned implementation owner in `P2-EXIT`.
 
 ## Priority 3: Realign Channel-Setup Ownership And Remove Duplicated Flow Contracts
 
