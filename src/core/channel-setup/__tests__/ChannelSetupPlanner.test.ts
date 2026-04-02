@@ -610,6 +610,35 @@ describe('ChannelSetupPlanner', () => {
         ]));
     });
 
+    it('counts rejected decade candidates once while preserving diagnostics totals', () => {
+        const diagnostics = buildChannelSetupPlanDiagnostics({
+            config: createConfig({
+                selectedLibraryIds: ['m1'],
+                minItemsPerChannel: 5,
+                strategyConfig: createStrategyConfig({
+                    decades: { enabled: true },
+                }),
+            }),
+            libraries: [{ id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 }] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map([['m1', [
+                { key: '1981', title: '1981', count: 2 },
+                { key: '1988', title: '1988', count: 1 },
+                { key: '1994', title: '1994', count: 8 },
+            ]]]),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(diagnostics.candidatesBeforeMinItems.decades).toBe(2);
+        expect(diagnostics.candidatesAfterMinItems.decades).toBe(1);
+    });
+
     it('reports fetched-tag and candidate counts for native facet families', () => {
         const diagnostics = buildChannelSetupPlanDiagnostics({
             config: createConfig({
