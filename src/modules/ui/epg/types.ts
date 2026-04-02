@@ -281,6 +281,8 @@ export type CellRenderData =
         isPast: boolean;
         /** Has focus */
         isFocused: boolean;
+        /** Whether cell is a buffer-only entry outside the visible window */
+        isBufferOnly: boolean;
         /**
          * Horizontal text shift (pixels) applied to title/show/time so labels remain readable
          * when the cell is partially clipped on the left due to time scrolling.
@@ -314,6 +316,8 @@ export type CellRenderData =
         isPast: boolean;
         /** Has focus */
         isFocused: boolean;
+        /** Placeholders are visible-window cells, not buffer-only entries */
+        isBufferOnly: boolean;
         /** See `program.textShiftPx` (placeholders usually 0). */
         textShiftPx: number;
         /** DOM element reference */

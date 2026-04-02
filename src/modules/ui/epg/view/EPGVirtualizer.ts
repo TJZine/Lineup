@@ -288,6 +288,7 @@ export class EPGVirtualizer {
         startMinutes: number,
         endMinutes: number,
         label: string,
+        focusedCellKey: string | undefined,
         stageCell: (
             cellData: CellRenderData,
             isFocusedCell: boolean,
@@ -305,6 +306,7 @@ export class EPGVirtualizer {
         const cellKey = `${channelId}-placeholder-${scheduledStartTime}`;
         const left = normalizedStart * this.config.pixelsPerMinute;
         const width = Math.max((normalizedEnd - normalizedStart) * this.config.pixelsPerMinute, 20);
+        const isFocusedCell = cellKey === focusedCellKey;
         stageCell({
             kind: 'placeholder',
             key: cellKey,
@@ -320,10 +322,11 @@ export class EPGVirtualizer {
             isPartial: false,
             isCurrent: false,
             isPast: false,
-            isFocused: false,
+            isFocused: isFocusedCell,
+            isBufferOnly: false,
             textShiftPx: 0,
             cellElement: null,
-        }, false, true);
+        }, isFocusedCell, true);
     }
 
     /**
@@ -374,7 +377,7 @@ export class EPGVirtualizer {
                 if (newVisibleCells.size >= maxDomElements) {
                     return;
                 }
-                if (currentRowCount >= perRowLimit) {
+                if (cellData.isBufferOnly && currentRowCount >= perRowLimit) {
                     return;
                 }
             }
@@ -456,6 +459,7 @@ export class EPGVirtualizer {
                     Math.max(0, context.visibleWindowStartMinutes),
                     Math.max(0, context.visibleWindowEndMinutes),
                     'Loading...',
+                    focusedCellKey,
                     context.stageCell
                 );
                 context.finalizeRow(rowIndex);
@@ -533,6 +537,7 @@ export class EPGVirtualizer {
                 isCurrent,
                 isPast,
                 isFocused: isFocusedCell,
+                isBufferOnly: !overlapsVisibleWindow,
                 textShiftPx,
                 cellElement: null,
             }, isFocusedCell, overlapsVisibleWindow);
@@ -546,6 +551,7 @@ export class EPGVirtualizer {
                         (lastCoveredTimeMs - this.gridAnchorTime) / 60000,
                         (gapEndMs - this.gridAnchorTime) / 60000,
                         'No Program',
+                        focusedCellKey,
                         context.stageCell
                     );
                 }
@@ -563,6 +569,7 @@ export class EPGVirtualizer {
                 Math.max(0, context.visibleWindowStartMinutes),
                 Math.max(0, context.visibleWindowEndMinutes),
                 'No Program',
+                focusedCellKey,
                 context.stageCell
             );
         } else if (lastCoveredTimeMs < visibleWindowEndMs) {
@@ -572,6 +579,7 @@ export class EPGVirtualizer {
                 (lastCoveredTimeMs - this.gridAnchorTime) / 60000,
                 Math.max(0, context.visibleWindowEndMinutes),
                 'No Program',
+                focusedCellKey,
                 context.stageCell
             );
         }
@@ -582,19 +590,24 @@ export class EPGVirtualizer {
         maxDomElements: number,
         focusedCellKey?: string
     ): void {
-        while (newVisibleCells.size > maxDomElements) {
-            let removed = false;
-            for (const key of newVisibleCells.keys()) {
-                if (key !== focusedCellKey) {
-                    newVisibleCells.delete(key);
-                    removed = true;
-                    break;
+        const removeUntilWithinBudget = (entries: Array<[string, CellRenderData]>): void => {
+            for (const [key] of entries) {
+                if (newVisibleCells.size <= maxDomElements) {
+                    return;
                 }
+                if (key === focusedCellKey) {
+                    continue;
+                }
+                newVisibleCells.delete(key);
             }
-            if (!removed) {
-                break;
-            }
-        }
+        };
+
+        removeUntilWithinBudget(
+            Array.from(newVisibleCells.entries()).filter(([key, cell]) => key !== focusedCellKey && cell.isBufferOnly)
+        );
+        removeUntilWithinBudget(
+            Array.from(newVisibleCells.entries()).reverse().filter(([key]) => key !== focusedCellKey)
+        );
     }
 
     private reconcileVisibleCells(

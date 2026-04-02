@@ -470,16 +470,11 @@ function buildChannelSetupPlanInternal(
                     .filter((decade) => decadesWithUnknownCounts.has(decade) || (decadeCounts.get(decade) ?? 0) >= minItems);
                 const allDecades = new Set<number>([...decadeCounts.keys(), ...decadesWithUnknownCounts.values()]);
 
-                if (diagnostics) {
-                    for (const decade of allDecades) {
-                        const passesMinItems = decadesWithUnknownCounts.has(decade) || (decadeCounts.get(decade) ?? 0) >= minItems;
-                        recordCandidate('decades', passesMinItems);
-                    }
-                }
-
-                const rejectedDecadeCount = allDecades.size - sortedDecades.length;
-                if (rejectedDecadeCount > 0) {
-                    skipped += rejectedDecadeCount;
+                for (const decade of allDecades) {
+                    const passesMinItems =
+                        decadesWithUnknownCounts.has(decade) ||
+                        (decadeCounts.get(decade) ?? 0) >= minItems;
+                    recordMinItemOutcome('decades', passesMinItems);
                 }
 
                 for (const decade of sortedDecades) {
