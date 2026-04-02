@@ -953,6 +953,56 @@ describe('EPGCoordinator', () => {
         expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
     });
 
+    it('primeEpgChannels clears persisted filter when only one library remains', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+
+        const allChannels: ChannelConfig[] = [
+            { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
+            { ...makeChannel('c2', 2), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
+        ];
+
+        const { deps, epg } = makeDeps({
+            getChannelManager: () =>
+            ({
+                ...makeDeps().channelManager,
+                getAllChannels: () => allChannels,
+            } as IChannelManager),
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.primeEpgChannels();
+
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
+        expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
+    });
+
+    it('primeEpgChannels preserves a valid persisted filter when tabs are enabled and multiple libraries remain', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+
+        const allChannels: ChannelConfig[] = [
+            { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
+            { ...makeChannel('c2', 2), sourceLibraryId: 'lib2', sourceLibraryName: 'TV' },
+        ];
+
+        const { deps, epg } = makeDeps({
+            getChannelManager: () =>
+            ({
+                ...makeDeps().channelManager,
+                getAllChannels: () => allChannels,
+            } as IChannelManager),
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.primeEpgChannels();
+
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBe('lib1');
+        expect(epg.loadChannels).toHaveBeenCalledWith([
+            expect.objectContaining({ id: 'c1' }),
+        ]);
+    });
+
     it('does not clear stored library filter during schedule range computations', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, 'auto');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '0');
