@@ -22,6 +22,7 @@ import {
     getBackgroundWarmQueueAction,
     partitionPrefetchChannels,
 } from '../EPGCoordinatorPolicies';
+import * as EPGCoordinatorPolicies from '../EPGCoordinatorPolicies';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,
@@ -993,10 +994,16 @@ describe('EPGCoordinator', () => {
                 getAllChannels: () => allChannels,
             } as IChannelManager),
         });
+        const readAppliedLibraryFilterStateSpy = jest.spyOn(EPGCoordinatorPolicies, 'readAppliedLibraryFilterState');
+        const epgPreferencesStore = deps.epgPreferencesStore as EpgPreferencesStore;
+        const writeSelectedLibraryIdSpy = jest.spyOn(epgPreferencesStore, 'writeSelectedLibraryId');
         const coordinator = new EPGCoordinator(deps);
 
         coordinator.primeEpgChannels();
 
+        expect(readAppliedLibraryFilterStateSpy).toHaveBeenCalledWith(allChannels, epgPreferencesStore);
+        expect(writeSelectedLibraryIdSpy).toHaveBeenCalledTimes(1);
+        expect(writeSelectedLibraryIdSpy).toHaveBeenCalledWith(null);
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
         expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
     });

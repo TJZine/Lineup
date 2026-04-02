@@ -1080,23 +1080,23 @@ describe('EPGVirtualizer', () => {
             const channelIds = [channelId];
             const programs: ScheduledProgram[] = [];
 
-            for (let minute = 0; minute < 120; minute += 5) {
+            for (let minute = 0; minute < 300; minute += 1) {
                 programs.push({
                     item: {
                         ratingKey: `${channelId}-${minute}`,
                         type: 'movie',
                         title: `Program ${minute}`,
                         fullTitle: `Program ${minute}`,
-                        durationMs: 5 * 60_000,
+                        durationMs: 60_000,
                         thumb: null,
                         year: 2026,
-                        scheduledIndex: minute / 5,
+                        scheduledIndex: minute,
                     },
                     scheduledStartTime: gridAnchorTime + (minute * 60_000),
-                    scheduledEndTime: gridAnchorTime + ((minute + 5) * 60_000),
+                    scheduledEndTime: gridAnchorTime + ((minute + 1) * 60_000),
                     elapsedMs: 0,
-                    remainingMs: 5 * 60_000,
-                    scheduleIndex: minute / 5,
+                    remainingMs: 60_000,
+                    scheduleIndex: minute,
                     loopNumber: 0,
                     streamDescriptor: null,
                     isCurrent: false,
@@ -1123,8 +1123,11 @@ describe('EPGVirtualizer', () => {
                 .map((el) => el.textContent);
 
             expect(titles).toContain('Program 60');
-            expect(titles).toContain('Program 65');
-            expect(titles).toContain('Program 70');
+            expect(titles).toContain('Program 180');
+            expect(titles).toContain('Program 239');
+            expect(titles).toContain('Program 0');
+            expect(titles).toContain('Program 19');
+            expect(titles).not.toContain('Program 20');
         });
 
         it('should maintain DOM element count under 200 during virtualized render', () => {
