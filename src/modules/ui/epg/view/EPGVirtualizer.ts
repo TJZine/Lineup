@@ -323,6 +323,7 @@ export class EPGVirtualizer {
             isCurrent: false,
             isPast: false,
             isFocused: isFocusedCell,
+            isBufferOnly: false,
             textShiftPx: 0,
             cellElement: null,
         }, isFocusedCell, true);
@@ -376,7 +377,7 @@ export class EPGVirtualizer {
                 if (newVisibleCells.size >= maxDomElements) {
                     return;
                 }
-                if (currentRowCount >= perRowLimit) {
+                if (cellData.isBufferOnly && currentRowCount >= perRowLimit) {
                     return;
                 }
             }
@@ -536,6 +537,7 @@ export class EPGVirtualizer {
                 isCurrent,
                 isPast,
                 isFocused: isFocusedCell,
+                isBufferOnly: !overlapsVisibleWindow,
                 textShiftPx,
                 cellElement: null,
             }, isFocusedCell, overlapsVisibleWindow);
@@ -588,19 +590,24 @@ export class EPGVirtualizer {
         maxDomElements: number,
         focusedCellKey?: string
     ): void {
-        while (newVisibleCells.size > maxDomElements) {
-            let removed = false;
-            for (const key of newVisibleCells.keys()) {
-                if (key !== focusedCellKey) {
-                    newVisibleCells.delete(key);
-                    removed = true;
-                    break;
+        const removeUntilWithinBudget = (entries: Array<[string, CellRenderData]>): void => {
+            for (const [key] of entries) {
+                if (newVisibleCells.size <= maxDomElements) {
+                    return;
                 }
+                if (key === focusedCellKey) {
+                    continue;
+                }
+                newVisibleCells.delete(key);
             }
-            if (!removed) {
-                break;
-            }
-        }
+        };
+
+        removeUntilWithinBudget(
+            Array.from(newVisibleCells.entries()).filter(([key, cell]) => key !== focusedCellKey && cell.isBufferOnly)
+        );
+        removeUntilWithinBudget(
+            Array.from(newVisibleCells.entries()).reverse().filter(([key]) => key !== focusedCellKey)
+        );
     }
 
     private reconcileVisibleCells(
