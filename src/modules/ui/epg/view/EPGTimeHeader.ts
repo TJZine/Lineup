@@ -5,6 +5,7 @@
  */
 
 import { EPG_CLASSES } from '../constants';
+import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debugRuntimeGuards';
 import type { EPGConfig, TimeSlot } from '../types';
 
 /**
@@ -166,8 +167,8 @@ export class EPGTimeHeader {
         this.updateStickyLabel(timeOffset);
         this._syncSlotsOcclusionWidth();
 
-        if (this.config.debugRuntime?.isEnabled()) {
-            this.config.debugRuntime.append('EPGTimeHeader.scroll', {
+        if (isDebugRuntimeEnabled(this.config.debugRuntime)) {
+            appendDebugRuntimeLog(this.config.debugRuntime, 'EPGTimeHeader.scroll', {
                 timeOffset,
                 transform: this.slotsElement.style.transform,
             });

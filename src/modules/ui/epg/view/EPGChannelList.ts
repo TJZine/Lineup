@@ -5,6 +5,7 @@
  */
 
 import { EPG_CLASSES, EPG_CONSTANTS } from '../constants';
+import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debugRuntimeGuards';
 import type { EPGConfig, ChannelConfig } from '../types';
 import { getChannelNameForDisplay } from '../../channelDisplay';
 import { getChannelBrandingIcon } from '../../common/channelBrandingIcons';
@@ -452,7 +453,7 @@ export class EPGChannelList {
 
     private logDebugState(channelOffset: number): void {
         const debugRuntime = this.config?.debugRuntime;
-        const shouldLog = debugRuntime?.isEnabled() ?? false;
+        const shouldLog = isDebugRuntimeEnabled(debugRuntime);
 
         if (!shouldLog || !this.contentElement) return;
 
@@ -461,6 +462,6 @@ export class EPGChannelList {
             transform: this.contentElement.style.transform,
             renderedRows: this.rowElements.length,
         };
-        debugRuntime?.append('EPGChannelList.scroll', payload);
+        appendDebugRuntimeLog(debugRuntime, 'EPGChannelList.scroll', payload);
     }
 }

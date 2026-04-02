@@ -287,7 +287,12 @@ export class EPGCoordinator {
         if (!epg || !channelManager) return;
         if (this.deps.getEpgUiStatus() !== 'ready') return;
         const all = channelManager.getAllChannels();
+        const persistedSelectedLibraryId = this._epgPreferencesStore.readSelectedLibraryId();
         const { selectedId, tabsEnabled, shouldFilter, libraries } = readAppliedLibraryFilterState(all, this._epgPreferencesStore);
+
+        if (persistedSelectedLibraryId && (!tabsEnabled || libraries.length <= 1)) {
+            this._epgPreferencesStore.writeSelectedLibraryId(null);
+        }
 
         // Category colors
         const categoryColorsEnabled = this._epgPreferencesStore.readGuideCategoryColorsEnabled(true);

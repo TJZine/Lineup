@@ -540,7 +540,7 @@ function buildChannelSetupPlanInternal(
                 categoryKey,
                 categoryLabel: entry.label,
                 baseSource,
-            }, entry.hasUnknownCount ? undefined : entry.totalCount));
+            }, entry.totalCount > 0 ? entry.totalCount : undefined));
         }
         for (const candidate of sortCategoryCandidates(candidates)) {
             addStrategyChannel('genres', {
@@ -598,7 +598,7 @@ function buildChannelSetupPlanInternal(
                 categoryKey,
                 categoryLabel: entry.label,
                 baseSource,
-            }, entry.hasUnknownCount ? undefined : entry.totalCount));
+            }, entry.totalCount > 0 ? entry.totalCount : undefined));
         }
         for (const candidate of sortCategoryCandidates(candidates)) {
             addStrategyChannel('directors', {

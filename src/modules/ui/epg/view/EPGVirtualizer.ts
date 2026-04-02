@@ -9,6 +9,7 @@
 
 import { EPG_CONSTANTS, EPG_CLASSES } from '../constants';
 import { formatCellTimeLabel } from '../utils';
+import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debugRuntimeGuards';
 import type {
     ScheduledProgram,
     ScheduleWindow,
@@ -137,7 +138,7 @@ export class EPGVirtualizer {
     private _focusedTickerTimer: ReturnType<typeof setTimeout> | null = null;
     private _focusedTickerTargets: TickerTarget[] = [];
     private isDebugEnabled(): boolean {
-        return this.config?.debugRuntime?.isEnabled() ?? false;
+        return isDebugRuntimeEnabled(this.config?.debugRuntime);
     }
 
     /**
@@ -586,7 +587,7 @@ export class EPGVirtualizer {
                 visibleRows: range.visibleRows.length,
                 timeOffset: range.visibleTimeRange.start + EPG_CONSTANTS.TIME_BUFFER_MINUTES,
             };
-            this.config?.debugRuntime?.append('EPGVirtualizer.render', payload);
+            appendDebugRuntimeLog(this.config?.debugRuntime, 'EPGVirtualizer.render', payload);
         }
     }
 

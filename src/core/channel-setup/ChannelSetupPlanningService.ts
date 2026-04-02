@@ -126,6 +126,12 @@ type ChannelSetupFacetSnapshotWaiter = {
 type ChannelSetupFacetSnapshotLoadToken = object;
 type ChannelSetupRequiredTagDirectoryLabel = 'Genres' | 'Directors' | 'Years' | 'Actors' | 'Studios';
 type ChannelSetupNativeFacetFamily = 'genres' | 'directors' | 'decades' | 'actors' | 'studios';
+type DeferredEmptyTagDirectoryFailure = {
+    family: ChannelSetupNativeFacetFamily;
+    label: ChannelSetupRequiredTagDirectoryLabel;
+    libraryTitle: string;
+    type: number;
+};
 
 const MAX_FACET_LIBRARY_CONCURRENCY = 2;
 
@@ -387,12 +393,7 @@ class ChannelSetupFacetSnapshotLoader {
         const actorsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
         const studiosByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
         const facetFamiliesWithEntries = new Set<ChannelSetupNativeFacetFamily>();
-        const deferredEmptyTagDirectoryFailures: Array<{
-            family: ChannelSetupNativeFacetFamily;
-            label: ChannelSetupRequiredTagDirectoryLabel;
-            libraryTitle: string;
-            type: number;
-        }> = [];
+        const deferredEmptyTagDirectoryFailures: DeferredEmptyTagDirectoryFailure[] = [];
 
         const snapshotData = (hasTransientLoadFailure: boolean): ChannelSetupFacetSnapshotData => ({
             playlists,
@@ -523,8 +524,26 @@ class ChannelSetupFacetSnapshotLoader {
             deferredEmptyTagDirectoryFailures.push({ family, label, libraryTitle, type });
         };
 
+        const compareDeferredEmptyTagDirectoryFailures = (
+            left: DeferredEmptyTagDirectoryFailure,
+            right: DeferredEmptyTagDirectoryFailure
+        ): number => {
+            const familyDiff = left.family.localeCompare(right.family);
+            if (familyDiff !== 0) return familyDiff;
+
+            const labelDiff = left.label.localeCompare(right.label);
+            if (labelDiff !== 0) return labelDiff;
+
+            const titleDiff = left.libraryTitle.localeCompare(right.libraryTitle);
+            if (titleDiff !== 0) return titleDiff;
+
+            return left.type - right.type;
+        };
+
         const resolveDeferredEmptyTagDirectoryFailure = (): ChannelSetupFacetSnapshot | null => {
-            for (const failure of deferredEmptyTagDirectoryFailures) {
+            const orderedFailures = [...deferredEmptyTagDirectoryFailures].sort(compareDeferredEmptyTagDirectoryFailures);
+
+            for (const failure of orderedFailures) {
                 if (!facetFamiliesWithEntries.has(failure.family)) {
                     return buildRequiredTagDirectoryFailure(
                         failure.label,

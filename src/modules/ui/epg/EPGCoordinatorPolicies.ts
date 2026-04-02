@@ -51,7 +51,10 @@ export const computeNormalizedLibraryFilterState = (
     }
 
     const shouldFilter = tabsEnabled && hasMultipleLibraries && Boolean(selectedId);
-    const shouldClearPersistedSelection = Boolean(requestedSelectionId) && selectedId === null;
+    const shouldClearPersistedSelection =
+        Boolean(requestedSelectionId) &&
+        selectedId === null &&
+        (hasInvalidSelectedLibrary || (tabsEnabled && hasMultipleLibraries));
 
     return {
         selectedId,

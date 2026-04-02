@@ -362,6 +362,45 @@ describe('ChannelSetupPlanner', () => {
         expect(sequentialVariant?.isSequentialVariant).toBe(true);
     });
 
+    it('preserves known cross-library subtotals for ordering when another source omits counts', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['s1', 's2'],
+                minItemsPerChannel: 5,
+                strategyConfig: createStrategyConfig({
+                    genres: { enabled: true, scope: 'cross-library' },
+                }),
+                channelExpansion: {
+                    addAlternateLineups: false,
+                    alternateLineupCopies: 1,
+                    variantType: 'none',
+                    variantBlockSize: 3,
+                },
+            }),
+            libraries: [
+                { id: 's1', title: 'Shows A', type: 'show', contentCount: 10 },
+                { id: 's2', title: 'Shows B', type: 'show', contentCount: 10 },
+            ] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map([
+                ['s1', [{ key: 'genre-action-a', title: 'Action', count: 9 }]],
+                ['s2', [
+                    { key: 'genre-action-b', title: 'Action', count: null },
+                    { key: 'genre-drama-b', title: 'Drama', count: 8 },
+                ]],
+            ]),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(plan.pendingChannels.map((channel) => channel.name)).toEqual(['Action', 'Drama']);
+    });
+
     it('sanitizes non-finite/invalid baseBlockSize for base series ordering', () => {
         const plan = buildChannelSetupPlan({
             config: createConfig({

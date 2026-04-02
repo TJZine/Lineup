@@ -73,7 +73,7 @@ describe('EPGCoordinatorPolicies', () => {
         expect(epgPreferencesStore.writeSelectedLibraryId).toHaveBeenCalledWith(null);
     });
 
-    it('clears filtering when tabs are disabled and reports persistence cleanup', () => {
+    it('clears active filtering when tabs are disabled without clearing persisted selection', () => {
         const channels = [
             makeChannel('c1', 1, 'lib-a'),
             makeChannel('c2', 2, 'lib-b'),
@@ -86,7 +86,20 @@ describe('EPGCoordinatorPolicies', () => {
 
         expect(result.selectedId).toBeNull();
         expect(result.shouldFilter).toBe(false);
-        expect(result.shouldClearPersistedSelection).toBe(true);
+        expect(result.shouldClearPersistedSelection).toBe(false);
+    });
+
+    it('does not clear persisted selection when only one library is available', () => {
+        const channels = [makeChannel('c1', 1, 'lib-a')];
+        const result = computeNormalizedLibraryFilterState(channels, {
+            pastItemsWindowSetting: 'auto',
+            tabsEnabled: true,
+            selectedLibraryId: 'lib-a',
+        });
+
+        expect(result.selectedId).toBeNull();
+        expect(result.shouldFilter).toBe(false);
+        expect(result.shouldClearPersistedSelection).toBe(false);
     });
 
     it('keeps auto past-window schedule policy aligned with normalized filter state', () => {

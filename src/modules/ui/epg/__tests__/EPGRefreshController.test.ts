@@ -4,6 +4,7 @@ import type { ChannelConfig, IChannelManager, PlaybackMode, ResolvedChannelConte
 import type { IChannelScheduler, ScheduleConfig } from '../../../scheduler/scheduler';
 import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
 import type { EPGConfig } from '../types';
+import { flushPromises } from '../../../../__tests__/helpers';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,
@@ -111,7 +112,7 @@ describe('EPGRefreshController', () => {
         const refreshSpy = jest.spyOn(controller, 'refreshEpgSchedules').mockResolvedValue(undefined);
 
         controller.handleGuideSettingRefreshChange({ key: 'guideDensity', density: 'wide' });
-        await Promise.resolve();
+        await flushPromises();
 
         expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
         expect(deps.primeEpgChannels).toHaveBeenCalledTimes(1);
@@ -124,13 +125,46 @@ describe('EPGRefreshController', () => {
         const refreshSpy = jest.spyOn(controller, 'refreshEpgSchedules').mockResolvedValue(undefined);
 
         controller.handleLibraryFilterRefreshChange();
-        await Promise.resolve();
+        await flushPromises();
 
         expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
         expect(deps.primeEpgChannels).toHaveBeenCalledTimes(1);
         expect(epg.scrollToChannel).toHaveBeenCalledWith(0);
         expect(epg.focusChannel).toHaveBeenCalledWith(0);
         expect(refreshSpy).toHaveBeenCalledWith({ reason: 'library-filter', debounceMs: 0 });
+    });
+
+    it('cancels pending library-filter work even when no epg instance is available', () => {
+        const { deps } = makeDeps();
+        deps.getEpg = (): IEPGComponent | null => null;
+
+        const controller = new EPGRefreshController(deps);
+        const cancelSpy = jest.spyOn(controller, 'cancelScheduledRefreshWork');
+        const clearSnapshotSpy = jest.spyOn(controller, 'clearSelectedChannelScheduleSnapshot');
+        const clearMarkersSpy = jest.spyOn(controller, 'clearLoadedScheduleMarkers');
+
+        controller.handleLibraryFilterRefreshChange();
+
+        expect(cancelSpy).toHaveBeenCalledWith('library-filter');
+        expect(clearSnapshotSpy).toHaveBeenCalledTimes(1);
+        expect(clearMarkersSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not prime, refocus, or refresh when library-filter changes while epg is hidden', async () => {
+        const { deps, epg } = makeDeps();
+        (epg.isVisible as jest.Mock).mockReturnValue(false);
+
+        const controller = new EPGRefreshController(deps);
+        const refreshSpy = jest.spyOn(controller, 'refreshEpgSchedules').mockResolvedValue(undefined);
+
+        controller.handleLibraryFilterRefreshChange();
+        await flushPromises();
+
+        expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
+        expect(deps.primeEpgChannels).not.toHaveBeenCalled();
+        expect(epg.scrollToChannel).not.toHaveBeenCalled();
+        expect(epg.focusChannel).not.toHaveBeenCalled();
+        expect(refreshSpy).not.toHaveBeenCalled();
     });
 
     it('keeps guide-selection abort ownership outside the refresh seam API', () => {

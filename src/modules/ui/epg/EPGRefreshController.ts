@@ -21,6 +21,7 @@ import {
     readAppliedLibraryFilterState,
     selectVisibleChannelsForLibraryFilter,
 } from './EPGCoordinatorPolicies';
+import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from './debugRuntimeGuards';
 import { toEpgScheduleWindow } from './model/adapters';
 import type { GuideSelectionSnapshot } from '../../../core/channel-tuning';
 import type { EPGConfig } from './types';
@@ -145,11 +146,11 @@ export class EPGRefreshController {
     }
 
     private _isDebugEnabled(): boolean {
-        return this._deps.debugRuntime?.isEnabled() ?? false;
+        return isDebugRuntimeEnabled(this._deps.debugRuntime);
     }
 
     private _appendDebugLog(event: string, payload: Record<string, unknown>): void {
-        this._deps.debugRuntime?.append(event, payload);
+        appendDebugRuntimeLog(this._deps.debugRuntime, event, payload);
     }
 
     clearScheduleCaches(): void {
@@ -343,19 +344,19 @@ export class EPGRefreshController {
     }
 
     handleLibraryFilterRefreshChange(): void {
+        this.cancelScheduledRefreshWork('library-filter');
+        this.clearSelectedChannelScheduleSnapshot();
+        this.clearLoadedScheduleMarkers();
+
         const epg = this._deps.getEpg();
         if (!epg) return;
 
-        this.cancelScheduledRefreshWork('library-filter');
-        this.clearSelectedChannelScheduleSnapshot();
-        this._scheduleRefreshRuntime.clearLoadedScheduleMarkers();
-
         epg.clearSchedules();
-        this._deps.primeEpgChannels();
+        if (!epg.isVisible()) return;
 
+        this._deps.primeEpgChannels();
         epg.scrollToChannel(0);
         epg.focusChannel(0);
-
         this.refreshEpgSchedulesBestEffort({ reason: 'library-filter', debounceMs: 0 });
     }
 

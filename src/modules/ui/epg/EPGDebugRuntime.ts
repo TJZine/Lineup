@@ -108,7 +108,12 @@ export class EPGDebugRuntime implements IEpgDebugRuntime {
         }
         this._flushTimer = setTimeout(() => {
             this._flushTimer = null;
-            safeLocalStorageSet(EPG_DEBUG_LOG_STORAGE_KEY, JSON.stringify(this._entries ?? []));
+            try {
+                const serialized = JSON.stringify(this._entries ?? []);
+                safeLocalStorageSet(EPG_DEBUG_LOG_STORAGE_KEY, serialized);
+            } catch {
+                safeLocalStorageSet(EPG_DEBUG_LOG_STORAGE_KEY, '[]');
+            }
         }, EPG_DEBUG_LOG_FLUSH_DELAY_MS);
     }
 }

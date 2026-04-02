@@ -11,6 +11,7 @@ import { EPGErrorBoundary } from './EPGErrorBoundary';
 import { EPGLibraryTabs } from './EPGLibraryTabs';
 import { EPGVisibleRangeEmitter } from './EPGVisibleRangeEmitter';
 import { rafThrottle } from './utils';
+import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from './debugRuntimeGuards';
 import { createLineupBrandGlyph } from '../common/brandGlyph';
 import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
 import type { IEPGComponent } from './interfaces';
@@ -176,11 +177,11 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     }
 
     private _isDebugEnabled(): boolean {
-        return this.config.debugRuntime?.isEnabled() ?? false;
+        return isDebugRuntimeEnabled(this.config.debugRuntime);
     }
 
     private _appendDebugLog(event: string, payload: Record<string, unknown>): void {
-        this.config.debugRuntime?.append(event, payload);
+        appendDebugRuntimeLog(this.config.debugRuntime, event, payload);
     }
 
     /**
