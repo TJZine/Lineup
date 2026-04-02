@@ -93,14 +93,13 @@ const makeDeps = (): {
         isDebugEnabled: () => false,
         appendDebugLog: jest.fn(),
         primeEpgChannels: jest.fn(),
-        onGuideSettingInvalidation: jest.fn(),
     };
 
     return { deps, epg, channelManager };
 };
 
 describe('EPGRefreshController', () => {
-    it('runs guide-setting invalidation through refresh-owned cancellation and refresh follow-through', async () => {
+    it('runs guide-setting refresh follow-through without owning guide-selection invalidation', async () => {
         const { deps, epg } = makeDeps();
         const controller = new EPGRefreshController(deps);
         const refreshSpy = jest.spyOn(controller, 'refreshEpgSchedules').mockResolvedValue(undefined);
@@ -108,7 +107,6 @@ describe('EPGRefreshController', () => {
         controller.handleGuideSettingRefreshChange({ key: 'guideDensity', density: 'wide' });
         await Promise.resolve();
 
-        expect(deps.onGuideSettingInvalidation).toHaveBeenCalledTimes(1);
         expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
         expect(deps.primeEpgChannels).toHaveBeenCalledTimes(1);
         expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });

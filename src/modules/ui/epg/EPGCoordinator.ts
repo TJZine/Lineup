@@ -117,7 +117,6 @@ export class EPGCoordinator {
                 appendEpgDebugLog(event, payload);
             },
             primeEpgChannels: (): void => this.primeEpgChannels(),
-            onGuideSettingInvalidation: (): void => this._invalidateGuideSelection('guide-settings'),
         });
     }
 

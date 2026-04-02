@@ -46,7 +46,6 @@ export interface EPGRefreshControllerDeps {
     isDebugEnabled: () => boolean;
     appendDebugLog: (event: string, payload: Record<string, unknown>) => void;
     primeEpgChannels: () => void;
-    onGuideSettingInvalidation: () => void;
 }
 
 export class EPGRefreshController {
@@ -272,7 +271,6 @@ export class EPGRefreshController {
         this.cancelScheduledRefreshWork('guide-settings');
         this.clearScheduleCaches();
         this.clearSelectedChannelScheduleSnapshot();
-        this._deps.onGuideSettingInvalidation();
 
         const epg = this._deps.getEpg();
         if (!epg) return;
