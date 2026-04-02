@@ -27,11 +27,13 @@ import type {
 } from './types';
 import {
     buildChannelSetupPlan,
+    buildChannelSetupPlanDiagnostics,
     diffChannelPlans,
     createChannelIdentityKey,
     type PendingChannel,
     type ChannelDiffResult,
 } from './ChannelSetupPlanner';
+import type { ChannelSetupPlanDiagnosticsResult } from './ChannelSetupPlanDiagnostics';
 import {
     DEFAULT_CHANNEL_EXPANSION,
     DEFAULT_MIN_ITEMS_PER_CHANNEL,
@@ -996,6 +998,65 @@ export class ChannelSetupPlanningService {
                 reachedMaxChannels: planResult.plan.reachedMaxChannels,
             },
             diff: normalizedDiff,
+        };
+    }
+
+    async getSetupPlanDiagnostics(
+        config: ChannelSetupConfig,
+        options?: { signal?: AbortSignal }
+    ): Promise<ChannelSetupPlanDiagnosticsResult> {
+        const normalizedConfig = this.normalizeConfig(config);
+        const libraries = await this.getLibrariesForSetup(options?.signal ?? null);
+
+        let snapshot: ChannelSetupFacetSnapshot;
+        try {
+            snapshot = await this._facetSnapshotLoader.loadSnapshot(
+                normalizedConfig,
+                libraries,
+                'build',
+                {
+                    signal: options?.signal ?? null,
+                    requestIntent: getPlexRequestIntentForChannelSetup('build'),
+                    detachFromSignal: true,
+                }
+            );
+        } catch (error) {
+            if (options?.signal?.aborted) {
+                throw error;
+            }
+            throw error;
+        }
+
+        if (snapshot.status !== 'ready') {
+            return {
+                status: snapshot.status,
+                diagnostics: null,
+                warnings: [...snapshot.warnings],
+                reachedMaxChannels: false,
+                message: snapshot.message,
+                failureReason: snapshot.failureReason,
+            };
+        }
+
+        const diagnostics = buildChannelSetupPlanDiagnostics({
+            config: normalizedConfig,
+            libraries,
+            playlists: snapshot.playlists,
+            collectionsByLibraryId: snapshot.collectionsByLibraryId,
+            genresByLibraryId: snapshot.genresByLibraryId,
+            directorsByLibraryId: snapshot.directorsByLibraryId,
+            yearsByLibraryId: snapshot.yearsByLibraryId,
+            actorsByLibraryId: snapshot.actorsByLibraryId,
+            studiosByLibraryId: snapshot.studiosByLibraryId,
+            warnings: snapshot.warnings,
+            seedFor: (value: string): number => this._hashSeed(value),
+        });
+
+        return {
+            status: 'ready',
+            diagnostics,
+            warnings: [...snapshot.warnings],
+            reachedMaxChannels: diagnostics.lostToMaxChannels.total > 0,
         };
     }
 

@@ -144,6 +144,12 @@ export const createOrchestrator = (
     markSetupComplete: jest.fn(),
     getSetupPreview: jest.fn().mockResolvedValue(DEFAULT_PREVIEW),
     getSetupReview: jest.fn().mockResolvedValue(DEFAULT_REVIEW),
+    getSetupPlanDiagnostics: jest.fn().mockResolvedValue({
+        status: 'ready',
+        diagnostics: null,
+        warnings: [],
+        reachedMaxChannels: false,
+    }),
     ...overrides,
 } satisfies ChannelSetupSessionGateway);
 

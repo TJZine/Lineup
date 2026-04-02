@@ -1,4 +1,7 @@
 import type { AppOrchestrator } from '../../Orchestrator';
+import type { ChannelSetupPlanDiagnosticsResult } from '../channel-setup/ChannelSetupPlanDiagnostics';
+import type { ChannelSetupSessionGateway } from '../channel-setup/ChannelSetupSessionGateway';
+import type { ChannelSetupConfig, ChannelSetupRecord } from '../channel-setup/types';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import { AudioSettingsStore } from '../../modules/settings/AudioSettingsStore';
 import { DeveloperSettingsStore } from '../../modules/settings/DeveloperSettingsStore';
@@ -11,12 +14,23 @@ import { STORAGE_KEYS } from '../../types';
 type DiagnosticsWindow = Window & {
     lineup?: {
         toggleDevMenu: () => void;
+        dumpChannelSetupPlannerDiagnostics: (
+            configOverride?: ChannelSetupConfig
+        ) => Promise<ChannelSetupPlannerDiagnosticsDump>;
     };
 };
 
+interface ChannelSetupPlannerDiagnosticsDump {
+    selectedServerId: string;
+    recordSource: 'saved-record' | 'override';
+    config: ChannelSetupConfig;
+    savedRecord: ChannelSetupRecord | null;
+    result: ChannelSetupPlanDiagnosticsResult;
+}
+
 export type DiagnosticsOrchestrator = Pick<
     AppOrchestrator,
-    'refreshPlaybackInfoSnapshot'
+    'getChannelSetupSessionGateway' | 'refreshPlaybackInfoSnapshot'
 > & {
     toggleServerSelect: () => void;
 };
@@ -63,6 +77,9 @@ export class AppDiagnosticsSurface {
         if (this._isDebugSurfaceEnabled()) {
             (window as DiagnosticsWindow).lineup = {
                 toggleDevMenu: (): void => this._toggleDevMenu(),
+                dumpChannelSetupPlannerDiagnostics: async (
+                    configOverride?: ChannelSetupConfig
+                ): Promise<ChannelSetupPlannerDiagnosticsDump> => this._dumpChannelSetupPlannerDiagnostics(configOverride),
             };
         }
         if (!this._isDebugSurfaceEnabled()) {
@@ -98,6 +115,61 @@ export class AppDiagnosticsSurface {
             return false;
         }
     }
+
+    private async _dumpChannelSetupPlannerDiagnostics(
+        configOverride?: ChannelSetupConfig
+    ): Promise<ChannelSetupPlannerDiagnosticsDump> {
+        const orchestrator = this._getOrchestrator();
+        if (!orchestrator) {
+            throw new Error('Diagnostics orchestrator is unavailable');
+        }
+
+        const gateway = orchestrator.getChannelSetupSessionGateway();
+        const selectedServerId = gateway.getSelectedServerId();
+        if (!selectedServerId) {
+            throw new Error('No Plex server is currently selected');
+        }
+
+        const savedRecord = gateway.getChannelSetupRecord(selectedServerId);
+        const config = configOverride ?? savedRecord;
+        if (!config) {
+            throw new Error(
+                'No saved channel setup record exists for the selected server. Complete setup once or pass a config override.'
+            );
+        }
+
+        const result = await gateway.getSetupPlanDiagnostics(config);
+        const dump: ChannelSetupPlannerDiagnosticsDump = {
+            selectedServerId,
+            recordSource: configOverride ? 'override' : 'saved-record',
+            config,
+            savedRecord,
+            result,
+        };
+
+        this._logChannelSetupPlannerDiagnostics(gateway, dump);
+        return dump;
+    }
+
+    /* eslint-disable no-console */
+    private _logChannelSetupPlannerDiagnostics(
+        gateway: ChannelSetupSessionGateway,
+        dump: ChannelSetupPlannerDiagnosticsDump
+    ): void {
+        console.groupCollapsed('[lineup] Channel setup planner diagnostics');
+        console.info('Selected server:', dump.selectedServerId);
+        console.info('Selected server storage key:', gateway.getSelectedServerStorageKey());
+        console.info('Record source:', dump.recordSource);
+        console.info('Diagnostics payload:', dump);
+        if (dump.result.diagnostics) {
+            console.table(dump.result.diagnostics.fetchedTagsByFamily.genres);
+            console.table(dump.result.diagnostics.fetchedTagsByFamily.directors);
+            console.table(dump.result.diagnostics.fetchedTagsByFamily.studios);
+            console.table(dump.result.diagnostics.fetchedTagsByFamily.actors);
+        }
+        console.groupEnd();
+    }
+    /* eslint-enable no-console */
 
     private _isDebugSurfaceEnabled(): boolean {
         if (__LINEUP_DEV_BUILD__) {

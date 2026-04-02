@@ -30,6 +30,7 @@ describe('createChannelSetupSessionGateway', () => {
         await expect(gateway.getLibrariesForSetup()).rejects.toThrow('Channel setup not initialized');
         await expect(gateway.getSetupPreview(config)).rejects.toThrow('Channel setup not initialized');
         await expect(gateway.getSetupReview(config)).rejects.toThrow('Channel setup not initialized');
+        await expect(gateway.getSetupPlanDiagnostics(config)).rejects.toThrow('Channel setup not initialized');
         await expect(gateway.createChannelsFromSetup(config)).rejects.toThrow('Channel setup not initialized');
     });
 });

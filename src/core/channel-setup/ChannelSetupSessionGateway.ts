@@ -1,5 +1,6 @@
 import type { INavigationManager } from '../../modules/navigation';
 import type { PlexLibraryType } from '../../modules/plex/library';
+import type { ChannelSetupPlanDiagnosticsResult } from './ChannelSetupPlanDiagnostics';
 import type {
     ChannelBuildProgress,
     ChannelBuildSummary,
@@ -25,6 +26,10 @@ export interface ChannelSetupSessionGateway {
     getSetupContextForSelectedServer(): ChannelSetupContext;
     getSetupPreview(config: ChannelSetupConfig, options?: { signal?: AbortSignal }): Promise<ChannelSetupPreview>;
     getSetupReview(config: ChannelSetupConfig, options?: { signal?: AbortSignal }): Promise<ChannelSetupReview>;
+    getSetupPlanDiagnostics(
+        config: ChannelSetupConfig,
+        options?: { signal?: AbortSignal }
+    ): Promise<ChannelSetupPlanDiagnosticsResult>;
     createChannelsFromSetup(
         config: ChannelSetupConfig,
         options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }

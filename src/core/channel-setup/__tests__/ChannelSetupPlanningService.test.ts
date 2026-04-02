@@ -500,6 +500,67 @@ describe('ChannelSetupPlanningService', () => {
         );
     });
 
+    it('returns planner diagnostics for a saved setup config without changing the fetch path', async () => {
+        const libraries = [
+            makeLibrary({
+                id: 'shows',
+                title: 'Shows',
+                type: 'show',
+                contentCount: 1200,
+            }),
+        ];
+        const plexLibrary = {
+            getLibraries: jest.fn().mockResolvedValue(libraries),
+            getPlaylists: jest.fn().mockResolvedValue([]),
+            getCollections: jest.fn().mockResolvedValue([]),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn().mockResolvedValue([makeTag({ title: 'Comedy', count: 10 })]),
+            getDirectors: jest.fn().mockResolvedValue([makeTag({ title: 'Jane Doe', count: 6 })]),
+            getYears: jest.fn().mockResolvedValue([]),
+            getActors: jest.fn().mockResolvedValue([makeTag({ key: 'actor-1', title: 'Alex Star', count: 7 })]),
+            getStudios: jest.fn().mockResolvedValue([makeTag({ key: 'studio-1', title: 'Studio A', count: 8 })]),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['shows'],
+            strategyConfig: {
+                genres: { enabled: true, priority: 1, scope: 'per-library' },
+                directors: { enabled: true, priority: 2, scope: 'per-library' },
+                studios: { enabled: true, priority: 3, scope: 'per-library' },
+                actors: { enabled: true, priority: 4, scope: 'per-library' },
+            },
+        }));
+
+        const result = await service.getSetupPlanDiagnostics(config);
+
+        expect(result).toEqual(expect.objectContaining({
+            status: 'ready',
+            reachedMaxChannels: false,
+            diagnostics: expect.objectContaining({
+                fetchedTagsByFamily: expect.objectContaining({
+                    genres: [{ libraryId: 'shows', libraryName: 'Shows', count: 1 }],
+                    directors: [{ libraryId: 'shows', libraryName: 'Shows', count: 1 }],
+                    studios: [{ libraryId: 'shows', libraryName: 'Shows', count: 1 }],
+                    actors: [{ libraryId: 'shows', libraryName: 'Shows', count: 1 }],
+                }),
+                candidatesBeforeMinItems: expect.objectContaining({
+                    total: 4,
+                    genres: 1,
+                    directors: 1,
+                    studios: 1,
+                    actors: 1,
+                }),
+            }),
+        }));
+        expect(plexLibrary.getGenres).toHaveBeenCalledWith(
+            'shows',
+            expect.objectContaining({ requestIntent: 'background' })
+        );
+    });
+
     it('does not cache timeout snapshots', async () => {
         const libraries = [
             makeLibrary({

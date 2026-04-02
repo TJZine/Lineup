@@ -18,6 +18,7 @@ import type {
     ChannelSetupPreview,
     ChannelSetupReview,
 } from './types';
+import type { ChannelSetupPlanDiagnosticsResult } from './ChannelSetupPlanDiagnostics';
 import { ChannelSetupRecordStore } from './ChannelSetupRecordStore';
 import { ChannelSetupRerunController } from './ChannelSetupRerunController';
 import { ChannelSetupPlanningService } from './ChannelSetupPlanningService';
@@ -114,6 +115,13 @@ export class ChannelSetupCoordinator {
         options?: { signal?: AbortSignal }
     ): Promise<ChannelSetupReview> {
         return this._planningService.getSetupReview(config, options);
+    }
+
+    async getSetupPlanDiagnostics(
+        config: ChannelSetupConfig,
+        options?: { signal?: AbortSignal }
+    ): Promise<ChannelSetupPlanDiagnosticsResult> {
+        return this._planningService.getSetupPlanDiagnostics(config, options);
     }
 
     invalidateFacetSnapshot(): void {

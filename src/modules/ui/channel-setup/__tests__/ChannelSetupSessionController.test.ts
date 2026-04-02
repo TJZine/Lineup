@@ -52,6 +52,12 @@ const createOrchestrator = (overrides: OrchestratorOverrides = {}): jest.Mocked<
         markSetupComplete: jest.fn((_serverId: string, _setupConfig) => {}),
         getSetupPreview: jest.fn().mockResolvedValue(DEFAULT_PREVIEW),
         getSetupReview: jest.fn().mockResolvedValue(DEFAULT_REVIEW),
+        getSetupPlanDiagnostics: jest.fn().mockResolvedValue({
+            status: 'ready',
+            diagnostics: null,
+            warnings: [],
+            reachedMaxChannels: false,
+        }),
     };
 
     return { ...base, ...overrides };

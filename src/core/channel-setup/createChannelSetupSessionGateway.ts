@@ -67,6 +67,13 @@ export const createChannelSetupSessionGateway = (
             const coordinator = requireChannelSetupCoordinator();
             return coordinator.getSetupReview(config, options);
         },
+        getSetupPlanDiagnostics: async (
+            config: ChannelSetupConfig,
+            options?: { signal?: AbortSignal }
+        ): ReturnType<ChannelSetupSessionGateway['getSetupPlanDiagnostics']> => {
+            const coordinator = requireChannelSetupCoordinator();
+            return coordinator.getSetupPlanDiagnostics(config, options);
+        },
         createChannelsFromSetup: async (
             config: ChannelSetupConfig,
             options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }
