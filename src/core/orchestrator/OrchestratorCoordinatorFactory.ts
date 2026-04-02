@@ -37,7 +37,6 @@ import {
     EPGCoordinator,
     type EpgUiStatus,
 } from '../../modules/ui/epg/EPGCoordinator';
-import { readEpgStorageSnapshotForScheduleRange } from '../../modules/ui/epg/EPGCoordinatorPolicies';
 import { withEpgVisibleRangeChangeBinding } from '../../modules/ui/epg/EPGConfigBindings';
 import type {
     IEPGComponent,
@@ -248,8 +247,7 @@ export function createOrchestratorCoordinators(
         ensureEpgInitialized: (): Promise<void> => deps.ensureEpgInitialized(),
         getEpgConfig: (): EPGConfig | null => deps.config?.epgConfig ?? null,
         getLocalMidnightMs: (t: number): number => deps.getLocalMidnightMs(t),
-        getEpgScheduleRangeSnapshot: (): ReturnType<typeof readEpgStorageSnapshotForScheduleRange> =>
-            readEpgStorageSnapshotForScheduleRange(),
+        getEpgScheduleRangeSnapshot: () => deps.epgPreferencesStore.readScheduleRangeSnapshot(),
         buildDailyScheduleConfig: (
             channel: ChannelConfig,
             items: ResolvedChannelContent['items'],

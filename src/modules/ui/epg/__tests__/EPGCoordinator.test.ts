@@ -1,5 +1,6 @@
 import { EPGCoordinator, type EPGCoordinatorDeps, type EpgUiStatus } from '../EPGCoordinator';
 import type { IEPGComponent } from '../interfaces';
+import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
 import {
     OverlayRuntimePolicyController,
     type OverlayRuntimePolicyControllerDeps,
@@ -20,7 +21,6 @@ import {
     computeEpgScheduleRangeMs,
     getBackgroundWarmQueueAction,
     partitionPrefetchChannels,
-    readEpgStorageSnapshotForScheduleRange,
 } from '../EPGCoordinatorPolicies';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
@@ -76,7 +76,11 @@ const flushPromises = async (): Promise<void> => {
 };
 
 const readScheduleRange = (deps: EPGCoordinatorDeps): { startTime: number; endTime: number } | null =>
-    computeEpgScheduleRangeMs(deps, Date.now(), readEpgStorageSnapshotForScheduleRange());
+    computeEpgScheduleRangeMs(
+        deps,
+        Date.now(),
+        (deps.epgPreferencesStore ?? new EpgPreferencesStore()).readScheduleRangeSnapshot()
+    );
 
 const FIXED_FAKE_NOW = new Date('2026-01-01T12:00:00.000Z');
 
@@ -131,6 +135,7 @@ const withIdleCallbackDisabled = async (run: () => Promise<void>): Promise<void>
 const makeDeps = (
     overrides: Partial<EPGCoordinatorDeps> = {}
 ): { deps: EPGCoordinatorDeps; epg: IEPGComponent; channelManager: IChannelManager; scheduler: IChannelScheduler } => {
+    const epgPreferencesStore = new EpgPreferencesStore();
     const epg: IEPGComponent = {
         show: jest.fn(),
         hide: jest.fn(),
@@ -195,7 +200,7 @@ const makeDeps = (
 	        ensureEpgInitialized: jest.fn().mockResolvedValue(undefined),
 	        getEpgConfig: () => ({ totalHours: 6, timeSlotMinutes: 30 } as EPGConfig),
 	        getLocalMidnightMs: (t: number) => t - (t % (24 * 60 * 60 * 1000)),
-	        getEpgScheduleRangeSnapshot: () => readEpgStorageSnapshotForScheduleRange(),
+	        getEpgScheduleRangeSnapshot: () => epgPreferencesStore.readScheduleRangeSnapshot(),
 	        buildDailyScheduleConfig: (
 	            channel: ChannelConfig,
 	            items: ResolvedChannelContent['items']
@@ -213,6 +218,7 @@ const makeDeps = (
         switchToChannel: jest.fn().mockResolvedValue(undefined),
         onVisibilityChange: jest.fn(),
         reportEpgInitWarning: jest.fn(),
+        epgPreferencesStore,
         ...overrides,
     };
     return { deps, epg, channelManager, scheduler };

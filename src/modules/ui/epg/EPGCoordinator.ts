@@ -21,9 +21,10 @@ import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import type { ModuleRuntimeStatus } from '../../../core/module-status';
 import {
     computeEpgScheduleRangeMs,
+    computeNormalizedLibraryFilterState,
     type EpgStorageSnapshotForScheduleRange,
 } from './EPGCoordinatorPolicies';
-import { buildLibraries, countLibraryTypeVotes } from './epgLibraryUtils';
+import { countLibraryTypeVotes } from './epgLibraryUtils';
 import { EPGVisibleRangeRefreshQueue } from './EPGVisibleRangeRefreshQueue';
 import { EPGScheduleRefreshRuntime } from './EPGScheduleRefreshRuntime';
 import { toEpgChannels, toEpgScheduleWindow } from './adapters';
@@ -211,16 +212,8 @@ export class EPGCoordinator {
         }
     }
 
-    private _isLibraryTabsEnabled(): boolean {
-        return this._epgPreferencesStore.readLibraryTabsEnabled(true);
-    }
-
     private _isAggressivePreloadEnabled(): boolean {
         return this._epgPreferencesStore.readAggressivePreloadEnabled(false);
-    }
-
-    private _readSelectedLibraryId(): string | null {
-        return this._epgPreferencesStore.readSelectedLibraryId();
     }
 
     private _readGuideDensity(): EpgGuideDensity {
@@ -279,42 +272,17 @@ export class EPGCoordinator {
         });
     }
 
-    private _computeLibraryFilterState(all: SchedulerChannelConfig[], options: { mutateStorage: boolean }): {
-        selectedId: string | null;
-        tabsEnabled: boolean;
-        shouldFilter: boolean;
-        libraries: Array<{ id: string; name: string }>;
-    } {
-        const tabsEnabled = this._isLibraryTabsEnabled();
-        let selectedId = this._readSelectedLibraryId();
-        const libraries = buildLibraries(all);
-        const hasMultipleLibraries = libraries.length > 1;
-        const hasSelectedMatch = selectedId
-            ? libraries.some((lib) => lib.id === selectedId) ||
-            all.some((c) =>
-                c.sourceLibraryId === selectedId ||
-                (c.contentSource.type === 'library' && c.contentSource.libraryId === selectedId)
-            )
-            : false;
-
-        if (!tabsEnabled || !hasMultipleLibraries || (selectedId && !hasSelectedMatch)) {
-            if (options.mutateStorage && selectedId) {
-                this._epgPreferencesStore.writeSelectedLibraryId(null);
-            }
-            selectedId = null;
-        }
-
-        const shouldFilter = tabsEnabled && hasMultipleLibraries && Boolean(selectedId);
-        return { selectedId, tabsEnabled, shouldFilter, libraries };
-    }
-
     private _getLibraryFilterState(all: SchedulerChannelConfig[]): {
         selectedId: string | null;
         tabsEnabled: boolean;
         shouldFilter: boolean;
         libraries: Array<{ id: string; name: string }>;
     } {
-        return this._computeLibraryFilterState(all, { mutateStorage: true });
+        const normalized = computeNormalizedLibraryFilterState(all, this._epgPreferencesStore.readScheduleRangeSnapshot());
+        if (normalized.shouldClearPersistedSelection) {
+            this._epgPreferencesStore.writeSelectedLibraryId(null);
+        }
+        return normalized;
     }
 
     openEPG(): void {

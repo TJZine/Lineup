@@ -61,4 +61,18 @@ describe('EpgPreferencesStore', () => {
         expect(store.readSelectedLibraryId()).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
     });
+
+    it('returns normalized schedule-range snapshots from storage-backed preferences', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, 'bad-value');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '0');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, '   ');
+
+        expect(store.readScheduleRangeSnapshot()).toEqual({
+            pastItemsWindowSetting: 'auto',
+            tabsEnabled: false,
+            selectedLibraryId: null,
+        });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW)).toBeNull();
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
+    });
 });
