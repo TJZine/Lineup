@@ -17,6 +17,7 @@ import {
     clickButton,
     createNavigationMock,
     createOrchestrator,
+    createScreenDeps,
     makeLibrary,
 } from './channel-setup-test-helpers';
 
@@ -45,7 +46,7 @@ describe('ChannelSetupScreen contracts', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         activeScreen = screen;
         screen.show();
         await flushPromises();
@@ -124,7 +125,7 @@ describe('ChannelSetupScreen contracts', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         activeScreen = screen;
         screen.show();
         await flushPromises();
@@ -147,7 +148,7 @@ describe('ChannelSetupScreen contracts', () => {
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         activeScreen = screen;
         screen.show();
         await flushPromises();
@@ -166,7 +167,7 @@ describe('ChannelSetupScreen contracts', () => {
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         activeScreen = screen;
         screen.show();
         await flushPromises();

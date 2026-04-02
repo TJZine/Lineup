@@ -4,6 +4,7 @@ import { PLEX_DISCOVERY_CONSTANTS } from '../../../plex/discovery/constants';
 import type { ChannelSetupWorkflowPort } from '../../../../core/channel-setup/ChannelSetupWorkflowPort';
 import type { ChannelBuildSummary } from '../../../../core/channel-setup/types';
 import type { ChannelSetupScreenPorts } from '../ChannelSetupScreenPorts';
+import type { ChannelSetupScreen } from '../ChannelSetupScreen';
 
 type Focusable = Pick<FocusableElement, 'id' | 'neighbors'>;
 
@@ -152,6 +153,13 @@ export const createOrchestrator = (
     }),
     ...overrides,
 } satisfies ChannelSetupWorkflowPort & ChannelSetupScreenPorts);
+
+export const createScreenDeps = (
+    combined: ChannelSetupWorkflowPort & ChannelSetupScreenPorts
+): ConstructorParameters<typeof ChannelSetupScreen>[1] => ({
+    workflowPort: combined,
+    screenPorts: combined,
+});
 
 // Intentionally button-only to enforce accessible remote-first UI semantics.
 export const clickButton = (container: HTMLElement, selector: string): void => {

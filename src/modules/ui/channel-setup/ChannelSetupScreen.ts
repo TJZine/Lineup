@@ -161,12 +161,9 @@ export class ChannelSetupScreen {
     constructor(
         container: HTMLElement,
         deps: { workflowPort: ChannelSetupWorkflowPort; screenPorts: ChannelSetupScreenPorts }
-            | (ChannelSetupWorkflowPort & ChannelSetupScreenPorts)
     ) {
-        const workflowPort = 'workflowPort' in deps ? deps.workflowPort : deps;
-        const screenPorts = 'screenPorts' in deps ? deps.screenPorts : deps;
         this._container = container;
-        this._screenPorts = screenPorts;
+        this._screenPorts = deps.screenPorts;
         this._serverSelectionStore = new ServerSelectionStore(() => ({
             selectedServerKey: this._screenPorts.getSelectedServerStorageKey(),
             serverHealthKey: this._screenPorts.getServerHealthStorageKey(),
@@ -175,7 +172,7 @@ export class ChannelSetupScreen {
             getNavigation: (): ReturnType<ChannelSetupScreenPorts['getNavigation']> => this._screenPorts.getNavigation(),
         });
         this._session = new ChannelSetupSessionController({
-            workflowPort,
+            workflowPort: deps.workflowPort,
             getSelectedServerId: (): string | null => this._getSelectedServerId(),
         });
 

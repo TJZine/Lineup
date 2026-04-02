@@ -14,6 +14,7 @@ import {
     clickButton,
     createNavigationMock,
     createOrchestrator,
+    createScreenDeps,
     DEFAULT_BUILD_RESULT,
     DEFAULT_PREVIEW,
     DEFAULT_REVIEW,
@@ -52,7 +53,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn(() => librariesPromise),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
 
         expect(container.textContent ?? '').toContain('Loading libraries');
@@ -72,7 +73,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn().mockRejectedValue(new Error('library load failed')),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
 
@@ -92,7 +93,7 @@ describe('ChannelSetupScreen', () => {
             ]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
 
@@ -123,7 +124,7 @@ describe('ChannelSetupScreen', () => {
             ]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
 
@@ -145,7 +146,7 @@ describe('ChannelSetupScreen', () => {
             ]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
 
@@ -168,7 +169,7 @@ describe('ChannelSetupScreen', () => {
             ]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
 
@@ -196,7 +197,7 @@ describe('ChannelSetupScreen', () => {
             ]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
 
@@ -219,7 +220,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
 
@@ -258,7 +259,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn(() => librariesPromise),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         screen.hide();
 
@@ -287,7 +288,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn(() => librariesPromise),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         screen.hide();
 
@@ -310,7 +311,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -339,7 +340,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -362,7 +363,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -389,7 +390,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -419,7 +420,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -443,7 +444,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -476,7 +477,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -498,7 +499,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -525,7 +526,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -562,7 +563,7 @@ describe('ChannelSetupScreen', () => {
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -583,7 +584,7 @@ describe('ChannelSetupScreen', () => {
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -602,7 +603,7 @@ describe('ChannelSetupScreen', () => {
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -626,7 +627,7 @@ describe('ChannelSetupScreen', () => {
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -650,7 +651,7 @@ describe('ChannelSetupScreen', () => {
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -673,7 +674,7 @@ describe('ChannelSetupScreen', () => {
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -696,7 +697,7 @@ describe('ChannelSetupScreen', () => {
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -724,7 +725,7 @@ describe('ChannelSetupScreen', () => {
                 getSelectedServerId: jest.fn(() => 'server-1'),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -766,7 +767,7 @@ describe('ChannelSetupScreen', () => {
                 getSelectedServerId: jest.fn(() => 'server-1'),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -805,7 +806,7 @@ describe('ChannelSetupScreen', () => {
                 getSelectedServerId: jest.fn(() => 'server-1'),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -829,7 +830,7 @@ describe('ChannelSetupScreen', () => {
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -853,7 +854,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -883,7 +884,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -915,7 +916,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -944,7 +945,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -972,7 +973,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1003,7 +1004,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1033,7 +1034,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1061,7 +1062,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1093,7 +1094,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1125,7 +1126,7 @@ describe('ChannelSetupScreen', () => {
             getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1146,7 +1147,7 @@ describe('ChannelSetupScreen', () => {
             createChannelsFromSetup,
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1178,7 +1179,7 @@ describe('ChannelSetupScreen', () => {
             createChannelsFromSetup,
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1206,7 +1207,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1253,7 +1254,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1284,7 +1285,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1316,7 +1317,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1350,7 +1351,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1376,7 +1377,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1411,7 +1412,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1449,7 +1450,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1479,7 +1480,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1513,7 +1514,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1559,7 +1560,7 @@ describe('ChannelSetupScreen', () => {
             getSetupPreview,
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1586,7 +1587,7 @@ describe('ChannelSetupScreen', () => {
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1629,7 +1630,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1680,7 +1681,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1724,7 +1725,7 @@ describe('ChannelSetupScreen', () => {
             markSetupComplete,
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1760,7 +1761,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1787,7 +1788,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => null),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1808,7 +1809,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => null),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps(orchestrator));
         screen.show();
         await flushPromises();
         await enterStep2(container);
