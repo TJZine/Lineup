@@ -8,12 +8,13 @@ describe('summarizeErrorForLog', () => {
         expect(summary).not.toContain('abc123');
     });
 
-    it('returns redacted Error summaries without code', () => {
+    it('returns redacted Error summaries and preserves code when present', () => {
         const err = new Error('token=abc') as Error & { code?: unknown };
         err.code = 'E_BOOM';
 
         expect(summarizeErrorForLog(err)).toEqual({
             name: 'Error',
+            code: 'E_BOOM',
             message: 'token=REDACTED',
         });
     });
@@ -32,12 +33,13 @@ describe('summarizeErrorForLog', () => {
         });
     });
 
-    it('distinguishes Error instances from plain-object error payloads with code', () => {
+    it('preserves Error and plain-object code payloads', () => {
         const err = new Error('boom') as Error & { code?: unknown };
         err.code = 'E_BOOM';
 
         expect(summarizeErrorForLog(err)).toEqual({
             name: 'Error',
+            code: 'E_BOOM',
             message: 'boom',
         });
 

@@ -725,6 +725,30 @@ describe('ChannelSetupCoordinator', () => {
         expect(summary.reachedMaxChannels).toBe(true);
     });
 
+    it('logs terminal channel build failure from a single owner when commit fails', async () => {
+        const { coordinator, plexLibrary, channelManager } = createCoordinator();
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+        channelManager.replaceAllChannels.mockRejectedValueOnce(new Error('replace failed'));
+        plexLibrary.getLibraries.mockResolvedValue([] as PlexLibraryType[]);
+        plexLibrary.getPlaylists.mockResolvedValue([
+            { ratingKey: 'pl1', key: '/playlists/pl1', title: 'Favorites', thumb: null, duration: 0, leafCount: 10 },
+        ]);
+
+        await expect(
+            coordinator.createChannelsFromSetup(createConfig({
+                strategyConfig: createStrategyConfig({ playlists: { enabled: true } }),
+            }))
+        ).rejects.toThrow('replace failed');
+
+        expect(errorSpy).toHaveBeenCalledTimes(1);
+        expect(errorSpy).toHaveBeenCalledWith(
+            '[ChannelSetup] Channel build failed:',
+            expect.objectContaining({ message: 'replace failed' })
+        );
+
+        errorSpy.mockRestore();
+    });
+
     it('disposes the temporary builder before removing temp storage keys', async () => {
         const { coordinator, plexLibrary, storageRemove } = createCoordinator();
         plexLibrary.getLibraries.mockResolvedValue([] as PlexLibraryType[]);

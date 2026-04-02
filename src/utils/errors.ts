@@ -11,8 +11,10 @@ export function summarizeErrorForLog(value: unknown): unknown {
         return redactSensitiveTokens(value);
     }
     if (value instanceof Error) {
+        const maybeWithCode = value as Error & { code?: unknown };
         return {
             name: value.name,
+            ...('code' in maybeWithCode ? { code: maybeWithCode.code } : {}),
             message: redactSensitiveTokens(value.message),
         };
     }
@@ -40,4 +42,3 @@ export function isAbortLikeError(error: unknown, signal?: AbortSignal): boolean 
     }
     return false;
 }
-

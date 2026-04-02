@@ -604,6 +604,46 @@ describe('ChannelSetupPlanningService', () => {
         expect(getGenres).toHaveBeenCalledTimes(2);
     });
 
+    it('classifies Error instances with NETWORK_TIMEOUT code as timeout failures', async () => {
+        const libraries = [
+            makeLibrary({
+                id: 'shows',
+                title: 'Shows',
+                type: 'show',
+                contentCount: 1200,
+            }),
+        ];
+        const timeoutError = new Error('timed out') as Error & { code?: unknown };
+        timeoutError.code = 'NETWORK_TIMEOUT';
+        const plexLibrary = {
+            getLibraries: jest.fn().mockResolvedValue(libraries),
+            getPlaylists: jest.fn().mockResolvedValue([]),
+            getCollections: jest.fn().mockResolvedValue([]),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn().mockRejectedValue(timeoutError),
+            getDirectors: jest.fn().mockResolvedValue([]),
+            getYears: jest.fn().mockResolvedValue([]),
+            getActors: jest.fn().mockResolvedValue([]),
+            getStudios: jest.fn().mockResolvedValue([]),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['shows'],
+            strategyConfig: {
+                genres: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        }));
+
+        const result = await service.buildSetupPlan(config, libraries, null, 'preview');
+
+        expect(result.plan).toBeNull();
+        expect(result.failureReason).toBe('timeout');
+        expect(result.blockedMessage).toContain('timed out');
+    });
+
     it('aborts the in-flight snapshot signal when invalidating a detached snapshot load', async () => {
         const libraries = [
             makeLibrary({ id: 'old-1', title: 'Old 1', type: 'show', contentCount: 1200 }),

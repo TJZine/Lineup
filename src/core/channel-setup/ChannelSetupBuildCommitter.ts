@@ -218,7 +218,6 @@ export class ChannelSetupBuildCommitter {
                 reportProgress('refresh_epg', 'Refreshing guide...', 'Guide refresh failed (channels saved)', 0, null);
             }
         } catch (error) {
-            console.error('[ChannelSetup] Channel build failed:', summarizeErrorForLog(error));
             throw error;
         } finally {
             safeCleanup('builder.dispose', () => builder.dispose());
