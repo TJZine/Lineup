@@ -23,7 +23,7 @@ import {
 } from './EPGCoordinatorPolicies';
 import { countLibraryTypeVotes } from './epgLibraryUtils';
 import { EPGRefreshController } from './EPGRefreshController';
-import { toEpgChannels } from './adapters';
+import { toEpgChannels } from './model/adapters';
 import type { ChannelSwitchOptions, GuideSelectionSnapshot } from '../../../core/channel-tuning';
 import type { IEpgDebugRuntime } from './EPGDebugRuntime';
 

@@ -6,7 +6,7 @@
  * @module modules/ui/epg/__tests__/EPGChannelList.test
  */
 
-import { EPGChannelList } from '../EPGChannelList';
+import { EPGChannelList } from '../view/EPGChannelList';
 import type { ChannelConfig, EPGConfig } from '../types';
 import type { BuildStrategy } from '../../../scheduler/channel-manager/types';
 

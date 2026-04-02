@@ -15,14 +15,14 @@ import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import type { IEPGComponent } from './interfaces';
 import type { EpgUiStatus } from './EPGCoordinator';
 import type { EpgVisibleRange } from './types';
-import { EPGVisibleRangeRefreshQueue } from './EPGVisibleRangeRefreshQueue';
-import { EPGScheduleRefreshRuntime } from './EPGScheduleRefreshRuntime';
+import { EPGVisibleRangeRefreshQueue } from './runtime/EPGVisibleRangeRefreshQueue';
+import { EPGScheduleRefreshRuntime } from './runtime/EPGScheduleRefreshRuntime';
 import {
     computeEpgScheduleRangeMs,
     readAppliedLibraryFilterState,
     selectVisibleChannelsForLibraryFilter,
 } from './EPGCoordinatorPolicies';
-import { toEpgScheduleWindow } from './adapters';
+import { toEpgScheduleWindow } from './model/adapters';
 import type { GuideSelectionSnapshot } from '../../../core/channel-tuning';
 import type { EPGConfig } from './types';
 import type { IEpgDebugRuntime } from './EPGDebugRuntime';

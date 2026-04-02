@@ -2,11 +2,11 @@
 
 import { EventEmitter } from '../../../utils/EventEmitter';
 import { EPG_CONSTANTS, EPG_CLASSES, EPG_ERRORS, DEFAULT_EPG_CONFIG } from './constants';
-import { EPGVirtualizer } from './EPGVirtualizer';
+import { EPGVirtualizer } from './view/EPGVirtualizer';
 import { EPGInfoPanel } from './EPGInfoPanel';
 import { EPGInfoPanelCoordinator } from './EPGInfoPanelCoordinator';
-import { EPGTimeHeader } from './EPGTimeHeader';
-import { EPGChannelList } from './EPGChannelList';
+import { EPGTimeHeader } from './view/EPGTimeHeader';
+import { EPGChannelList } from './view/EPGChannelList';
 import { EPGErrorBoundary } from './EPGErrorBoundary';
 import { EPGLibraryTabs } from './EPGLibraryTabs';
 import { EPGVisibleRangeEmitter } from './EPGVisibleRangeEmitter';

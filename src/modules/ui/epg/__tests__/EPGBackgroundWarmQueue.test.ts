@@ -1,7 +1,7 @@
 import {
     EPGBackgroundWarmQueue,
     type EPGBackgroundWarmQueueDeps,
-} from '../EPGBackgroundWarmQueue';
+} from '../runtime/EPGBackgroundWarmQueue';
 import type { ChannelConfig, PlaybackMode } from '../../../scheduler/channel-manager';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({

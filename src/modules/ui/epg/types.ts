@@ -9,7 +9,7 @@ import type {
     EpgItemDetails,
     EpgScheduleWindow,
     EpgScheduledProgram,
-} from './domainTypes';
+} from './model/domainTypes';
 import type { IEpgDebugRuntime } from './EPGDebugRuntime';
 
 // Re-export EPG-owned aliases for UI contracts.

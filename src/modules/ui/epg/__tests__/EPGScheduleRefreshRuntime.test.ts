@@ -1,4 +1,4 @@
-import { EPGScheduleRefreshRuntime, type EPGScheduleRefreshRuntimeDeps } from '../EPGScheduleRefreshRuntime';
+import { EPGScheduleRefreshRuntime, type EPGScheduleRefreshRuntimeDeps } from '../runtime/EPGScheduleRefreshRuntime';
 import type {
     ChannelConfig,
     IChannelManager,

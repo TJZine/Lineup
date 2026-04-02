@@ -9,9 +9,8 @@ export { EPGDebugRuntime } from './EPGDebugRuntime';
 export { DeferredEpgComponent } from './DeferredEpgComponent';
 export { EPGInfoPanel } from './EPGInfoPanel';
 export { withEpgVisibleRangeChangeBinding } from './EPGConfigBindings';
-export { EPGVirtualizer, positionCell } from './EPGVirtualizer';
-export { EPGTimeHeader } from './EPGTimeHeader';
-export { EPGChannelList } from './EPGChannelList';
+export { EPGVirtualizer, positionCell } from './view';
+export { EPGTimeHeader, EPGChannelList } from './view';
 export { EPGErrorBoundary } from './EPGErrorBoundary';
 
 export type { IEPGComponent, IEPGInfoPanel, IEpgReadinessPort } from './interfaces';
@@ -22,7 +21,7 @@ export type {
     EpgProgramItem,
     EpgScheduleWindow,
     EpgScheduledProgram,
-} from './domainTypes';
+} from './model';
 export type {
     EPGConfig,
     EPGState,

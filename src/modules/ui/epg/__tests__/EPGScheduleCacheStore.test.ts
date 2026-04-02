@@ -2,7 +2,7 @@ import {
     EPGScheduleCacheStore,
     EPG_SCHEDULE_CACHE_STALE_TTL_MS,
     EPG_SCHEDULE_CACHE_TTL_MS,
-} from '../EPGScheduleCacheStore';
+} from '../runtime/EPGScheduleCacheStore';
 import type { ScheduleWindow } from '../../../scheduler/scheduler';
 
 const createWindow = (channelId: string): ScheduleWindow => ({

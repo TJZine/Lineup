@@ -1,6 +1,6 @@
-import type { ChannelConfig } from '../../scheduler/channel-manager';
-import { getBackgroundWarmQueueAction } from './EPGCoordinatorPolicies';
-import { summarizeErrorForLog } from '../../../utils/errors';
+import type { ChannelConfig } from '../../../scheduler/channel-manager';
+import { getBackgroundWarmQueueAction } from '../EPGCoordinatorPolicies';
+import { summarizeErrorForLog } from '../../../../utils/errors';
 
 export const EPG_BACKGROUND_WARM_IDLE_TIMEOUT_MS = 120;
 export const EPG_BACKGROUND_WARM_TIMER_DELAY_MS = 24;

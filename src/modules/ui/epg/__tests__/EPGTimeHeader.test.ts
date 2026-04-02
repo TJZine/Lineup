@@ -6,7 +6,7 @@
  * @module modules/ui/epg/__tests__/EPGTimeHeader.test
  */
 
-import { EPGTimeHeader } from '../EPGTimeHeader';
+import { EPGTimeHeader } from '../view/EPGTimeHeader';
 import { EPG_CLASSES } from '../constants';
 import type { EPGConfig } from '../types';
 

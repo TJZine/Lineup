@@ -10,7 +10,7 @@ import type { IVideoPlayer } from '../../modules/player';
 import type { EpgLayoutMode } from '../../modules/settings/EpgPreferencesStore';
 import { formatTimeRange } from '../../modules/ui/epg';
 import type { IEpgDebugRuntime } from '../../modules/ui/epg';
-import { toEpgItemDetails } from '../../modules/ui/epg/adapters';
+import { toEpgItemDetails } from '../../modules/ui/epg/model/adapters';
 import type { OrchestratorConfig, ModuleStatus } from '../orchestrator/OrchestratorTypes';
 import { summarizeErrorForLog } from '../../utils/errors';
 

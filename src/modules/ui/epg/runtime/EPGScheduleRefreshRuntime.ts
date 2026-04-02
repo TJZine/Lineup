@@ -2,26 +2,26 @@ import {
     ShuffleGenerator,
     buildScheduleIndex,
     generateScheduleWindow,
-} from '../../scheduler/scheduler';
+} from '../../../scheduler/scheduler';
 import type {
     ChannelConfig,
     IChannelManager,
     ResolvedChannelContent,
-} from '../../scheduler/channel-manager';
+} from '../../../scheduler/channel-manager';
 import type {
     IChannelScheduler,
     ScheduleConfig,
     ScheduleWindow,
-} from '../../scheduler/scheduler';
-import { IssueDiagnosticsStore } from '../../debug/IssueDiagnosticsStore';
-import type { IEPGComponent } from './interfaces';
-import { computeBackgroundWarmQueueCaps, partitionPrefetchChannels } from './EPGCoordinatorPolicies';
-import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
-import type { ModuleRuntimeStatus } from '../../../core/module-status';
+} from '../../../scheduler/scheduler';
+import { IssueDiagnosticsStore } from '../../../debug/IssueDiagnosticsStore';
+import type { IEPGComponent } from '../interfaces';
+import { computeBackgroundWarmQueueCaps, partitionPrefetchChannels } from '../EPGCoordinatorPolicies';
+import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
+import type { ModuleRuntimeStatus } from '../../../../core/module-status';
 import { EPGBackgroundWarmQueue } from './EPGBackgroundWarmQueue';
 import { EPGScheduleCacheStore } from './EPGScheduleCacheStore';
-import { toEpgScheduleWindow } from './adapters';
-import type { GuideSelectionSnapshot } from '../../../core/channel-tuning';
+import { toEpgScheduleWindow } from '../model/adapters';
+import type { GuideSelectionSnapshot } from '../../../../core/channel-tuning';
 
 const EPG_BACKGROUND_DEBUG_LOG_EVERY_N = 20;
 const QA_003B_ISSUE_ID = 'QA-003b';

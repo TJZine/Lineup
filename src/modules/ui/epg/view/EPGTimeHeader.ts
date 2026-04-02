@@ -4,8 +4,8 @@
  * @version 1.0.0
  */
 
-import { EPG_CLASSES } from './constants';
-import type { EPGConfig, TimeSlot } from './types';
+import { EPG_CLASSES } from '../constants';
+import type { EPGConfig, TimeSlot } from '../types';
 
 /**
  * Format time for display.

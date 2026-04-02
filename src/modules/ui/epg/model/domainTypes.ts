@@ -3,7 +3,7 @@
  * @module modules/ui/epg/domainTypes
  */
 
-import type { ChannelConfig as SchedulerChannelConfig } from '../../scheduler/channel-manager';
+import type { ChannelConfig as SchedulerChannelConfig } from '../../../scheduler/channel-manager';
 
 export interface EpgItemDetailsStream {
     streamType?: number;

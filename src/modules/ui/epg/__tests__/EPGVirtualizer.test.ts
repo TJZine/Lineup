@@ -6,7 +6,7 @@
  * @module modules/ui/epg/__tests__/EPGVirtualizer.test
  */
 
-import { EPGVirtualizer, positionCell } from '../EPGVirtualizer';
+import { EPGVirtualizer, positionCell } from '../view/EPGVirtualizer';
 import { EPG_CONSTANTS, EPG_CLASSES } from '../constants';
 import type { ScheduledProgram, ScheduleWindow, EPGConfig } from '../types';
 

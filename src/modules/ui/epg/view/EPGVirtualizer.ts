@@ -7,8 +7,8 @@
  * regardless of channel/program count. See ADR-003 for rationale.
  */
 
-import { EPG_CONSTANTS, EPG_CLASSES } from './constants';
-import { formatCellTimeLabel } from './utils';
+import { EPG_CONSTANTS, EPG_CLASSES } from '../constants';
+import { formatCellTimeLabel } from '../utils';
 import type {
     ScheduledProgram,
     ScheduleWindow,
@@ -16,7 +16,7 @@ import type {
     EPGProgramCell,
     VirtualizedGridState,
     CellRenderData,
-} from './types';
+} from '../types';
 
 /**
  * Calculates cell position from program timing.
@@ -100,6 +100,15 @@ type TickerTarget = {
 
 type FocusedCellOptions = {
     syncTicker?: boolean;
+};
+
+type RenderPassContext = {
+    newVisibleCells: Map<string, CellRenderData>;
+    channelOffsetChanged: boolean;
+    maxDomElements: number;
+    visibleWindowStartMinutes: number;
+    visibleWindowEndMinutes: number;
+    addCell: (cellData: CellRenderData, isFocusedCell: boolean) => void;
 };
 
 /**
@@ -325,10 +334,17 @@ export class EPGVirtualizer {
     ): void {
         if (!this.contentElement || !this.config) return;
 
+        const context = this.createRenderPassContext(range);
+        this.collectVisibleCells(channelIds, schedules, range, context, focusedCellKey, nowMs);
+        this.pruneToDomBudget(context.newVisibleCells, context.maxDomElements, focusedCellKey);
+        this.reconcileVisibleCells(context.newVisibleCells, context.channelOffsetChanged, nowMs);
+        this.finishRenderPass(context.newVisibleCells, focusedCellKey, range);
+    }
+
+    private createRenderPassContext(range: VirtualizedGridState): RenderPassContext {
         const previousChannelOffset = this.channelOffset;
         this.channelOffset = range.channelOffset;
         const channelOffsetChanged = previousChannelOffset !== this.channelOffset;
-
         const newVisibleCells = new Map<string, CellRenderData>();
         const maxDomElements = EPG_CONSTANTS.MAX_DOM_ELEMENTS;
         const visibleRowCount = Math.max(1, range.visibleRows.length);
@@ -337,10 +353,8 @@ export class EPGVirtualizer {
         const timeBuffer = EPG_CONSTANTS.TIME_BUFFER_MINUTES;
         const visibleWindowStartMinutes = range.visibleTimeRange.start + timeBuffer;
         const visibleWindowEndMinutes = range.visibleTimeRange.end - timeBuffer;
-
         const addCell = (cellData: CellRenderData, isFocusedCell: boolean): void => {
             const currentRowCount = perRowCounts.get(cellData.rowIndex) ?? 0;
-
             if (!isFocusedCell) {
                 if (newVisibleCells.size >= maxDomElements) {
                     return;
@@ -349,17 +363,31 @@ export class EPGVirtualizer {
                     return;
                 }
             }
-
             newVisibleCells.set(cellData.key, cellData);
             if (!isFocusedCell) {
                 perRowCounts.set(cellData.rowIndex, currentRowCount + 1);
             }
         };
+        return {
+            newVisibleCells,
+            channelOffsetChanged,
+            maxDomElements,
+            visibleWindowStartMinutes,
+            visibleWindowEndMinutes,
+            addCell,
+        };
+    }
 
-        // Determine needed cells
+    private collectVisibleCells(
+        channelIds: string[],
+        schedules: Map<string, ScheduleWindow>,
+        range: VirtualizedGridState,
+        context: RenderPassContext,
+        focusedCellKey: string | undefined,
+        nowMs: number
+    ): void {
         for (const rowIndex of range.visibleRows) {
             if (rowIndex >= channelIds.length) continue;
-
             const channelId = channelIds[rowIndex];
             if (channelId === undefined) continue;
             const schedule = schedules.get(channelId);
@@ -367,115 +395,133 @@ export class EPGVirtualizer {
                 this.addPlaceholderCell(
                     channelId,
                     rowIndex,
-                    Math.max(0, visibleWindowStartMinutes),
-                    Math.max(0, visibleWindowEndMinutes),
+                    Math.max(0, context.visibleWindowStartMinutes),
+                    Math.max(0, context.visibleWindowEndMinutes),
                     'Loading...',
-                    addCell
+                    context.addCell
                 );
                 continue;
             }
+            this.collectCellsForScheduledRow(channelId, rowIndex, schedule, range, context, focusedCellKey, nowMs);
+        }
+    }
 
-            let hadVisibleOverlap = false;
-            const visibleWindowStartMs = this.gridAnchorTime + (Math.max(0, visibleWindowStartMinutes) * 60000);
-            const visibleWindowEndMs = this.gridAnchorTime + (Math.max(0, visibleWindowEndMinutes) * 60000);
-            let lastCoveredTimeMs = visibleWindowStartMs;
+    private collectCellsForScheduledRow(
+        channelId: string,
+        rowIndex: number,
+        schedule: ScheduleWindow,
+        range: VirtualizedGridState,
+        context: RenderPassContext,
+        focusedCellKey: string | undefined,
+        nowMs: number
+    ): void {
+        const config = this.config;
+        if (!config) return;
 
-            for (const program of schedule.programs) {
-                if (this.overlapsTimeRange(program, range.visibleTimeRange)) {
-                    const cellKey = `${channelId}-${program.scheduledStartTime}`;
-                    const isFocusedCell = focusedCellKey === cellKey;
-                    const overlapsVisibleWindow = program.scheduledEndTime > visibleWindowStartMs &&
-                        program.scheduledStartTime < visibleWindowEndMs;
-                    if (overlapsVisibleWindow) {
-                        hadVisibleOverlap = true;
-                    }
+        let hadVisibleOverlap = false;
+        const visibleWindowStartMs = this.gridAnchorTime + (Math.max(0, context.visibleWindowStartMinutes) * 60000);
+        const visibleWindowEndMs = this.gridAnchorTime + (Math.max(0, context.visibleWindowEndMinutes) * 60000);
+        let lastCoveredTimeMs = visibleWindowStartMs;
 
-                    const cell = positionCell(program, this.gridAnchorTime, this.config.pixelsPerMinute, nowMs);
-                    const isCurrent = cell.isCurrent;
-                    const isPast = nowMs >= program.scheduledEndTime;
-                    const rawLeft = cell.left;
-                    // If the program started before the visible guide window, clip to the left edge (no past).
-                    let left = rawLeft;
-                    let width = cell.width;
-                    const wasLeftClipped = rawLeft < 0;
-                    if (wasLeftClipped) {
-                        width = Math.max(20, width + left);
-                        left = 0;
-                    }
+        for (const program of schedule.programs) {
+            if (!this.overlapsTimeRange(program, range.visibleTimeRange)) {
+                continue;
+            }
 
-                    // Compute isPartial: true if program is clipped by visible window
-                    const programStartMinutes = (program.scheduledStartTime - this.gridAnchorTime) / 60000;
-                    const programEndMinutes = (program.scheduledEndTime - this.gridAnchorTime) / 60000;
-                    const isPartial =
-                        programStartMinutes < visibleWindowStartMinutes ||
-                        programEndMinutes > visibleWindowEndMinutes;
-                    const textMetrics = this.computeVisibleTextMetrics({
-                        rawLeftPx: rawLeft,
-                        clippedLeftPx: left,
-                        clippedWidthPx: width,
-                        visibleWindowStartMinutes,
-                        visibleWindowEndMinutes,
-                    });
-                    const textShiftPx = textMetrics.safeTextShiftPx;
+            const cellKey = `${channelId}-${program.scheduledStartTime}`;
+            const isFocusedCell = focusedCellKey === cellKey;
+            const overlapsVisibleWindow = program.scheduledEndTime > visibleWindowStartMs &&
+                program.scheduledStartTime < visibleWindowEndMs;
+            if (overlapsVisibleWindow) {
+                hadVisibleOverlap = true;
+            }
 
-                    addCell({
-                        kind: 'program',
-                        key: cellKey,
+            const cell = positionCell(program, this.gridAnchorTime, config.pixelsPerMinute, nowMs);
+            const isCurrent = cell.isCurrent;
+            const isPast = nowMs >= program.scheduledEndTime;
+            const rawLeft = cell.left;
+            let left = rawLeft;
+            let width = cell.width;
+            if (rawLeft < 0) {
+                width = Math.max(20, width + left);
+                left = 0;
+            }
+
+            const programStartMinutes = (program.scheduledStartTime - this.gridAnchorTime) / 60000;
+            const programEndMinutes = (program.scheduledEndTime - this.gridAnchorTime) / 60000;
+            const isPartial =
+                programStartMinutes < context.visibleWindowStartMinutes ||
+                programEndMinutes > context.visibleWindowEndMinutes;
+            const textMetrics = this.computeVisibleTextMetrics({
+                rawLeftPx: rawLeft,
+                clippedLeftPx: left,
+                clippedWidthPx: width,
+                visibleWindowStartMinutes: context.visibleWindowStartMinutes,
+                visibleWindowEndMinutes: context.visibleWindowEndMinutes,
+            });
+            const textShiftPx = textMetrics.safeTextShiftPx;
+
+            context.addCell({
+                kind: 'program',
+                key: cellKey,
+                channelId,
+                rowIndex,
+                program,
+                left,
+                width,
+                isPartial,
+                isCurrent,
+                isPast,
+                isFocused: isFocusedCell,
+                textShiftPx,
+                cellElement: null,
+            }, isFocusedCell);
+
+            if (overlapsVisibleWindow && program.scheduledStartTime > lastCoveredTimeMs) {
+                const gapEndMs = Math.min(program.scheduledStartTime, visibleWindowEndMs);
+                if (gapEndMs > lastCoveredTimeMs) {
+                    this.addPlaceholderCell(
                         channelId,
                         rowIndex,
-                        program,
-                        left,
-                        width,
-                        isPartial,
-                        isCurrent,
-                        isPast,
-                        isFocused: isFocusedCell,
-                        textShiftPx,
-                        cellElement: null,
-                    }, isFocusedCell);
-
-                    if (overlapsVisibleWindow && program.scheduledStartTime > lastCoveredTimeMs) {
-                        const gapEndMs = Math.min(program.scheduledStartTime, visibleWindowEndMs);
-                        if (gapEndMs > lastCoveredTimeMs) {
-                            this.addPlaceholderCell(
-                                channelId,
-                                rowIndex,
-                                (lastCoveredTimeMs - this.gridAnchorTime) / 60000,
-                                (gapEndMs - this.gridAnchorTime) / 60000,
-                                'No Program',
-                                addCell
-                            );
-                        }
-                    }
-
-                    if (overlapsVisibleWindow) {
-                        lastCoveredTimeMs = Math.max(lastCoveredTimeMs, program.scheduledEndTime);
-                    }
+                        (lastCoveredTimeMs - this.gridAnchorTime) / 60000,
+                        (gapEndMs - this.gridAnchorTime) / 60000,
+                        'No Program',
+                        context.addCell
+                    );
                 }
             }
 
-            if (!hadVisibleOverlap) {
-                this.addPlaceholderCell(
-                    channelId,
-                    rowIndex,
-                    Math.max(0, visibleWindowStartMinutes),
-                    Math.max(0, visibleWindowEndMinutes),
-                    'No Program',
-                    addCell
-                );
-            } else if (lastCoveredTimeMs < visibleWindowEndMs) {
-                this.addPlaceholderCell(
-                    channelId,
-                    rowIndex,
-                    (lastCoveredTimeMs - this.gridAnchorTime) / 60000,
-                    Math.max(0, visibleWindowEndMinutes),
-                    'No Program',
-                    addCell
-                );
+            if (overlapsVisibleWindow) {
+                lastCoveredTimeMs = Math.max(lastCoveredTimeMs, program.scheduledEndTime);
             }
         }
 
-        // Ensure we never exceed the DOM cap; preferentially keep focused cell if present.
+        if (!hadVisibleOverlap) {
+            this.addPlaceholderCell(
+                channelId,
+                rowIndex,
+                Math.max(0, context.visibleWindowStartMinutes),
+                Math.max(0, context.visibleWindowEndMinutes),
+                'No Program',
+                context.addCell
+            );
+        } else if (lastCoveredTimeMs < visibleWindowEndMs) {
+            this.addPlaceholderCell(
+                channelId,
+                rowIndex,
+                (lastCoveredTimeMs - this.gridAnchorTime) / 60000,
+                Math.max(0, context.visibleWindowEndMinutes),
+                'No Program',
+                context.addCell
+            );
+        }
+    }
+
+    private pruneToDomBudget(
+        newVisibleCells: Map<string, CellRenderData>,
+        maxDomElements: number,
+        focusedCellKey?: string
+    ): void {
         while (newVisibleCells.size > maxDomElements) {
             let removed = false;
             for (const key of newVisibleCells.keys()) {
@@ -489,19 +535,22 @@ export class EPGVirtualizer {
                 break;
             }
         }
+    }
 
-        // Recycle cells no longer visible
+    private reconcileVisibleCells(
+        newVisibleCells: Map<string, CellRenderData>,
+        channelOffsetChanged: boolean,
+        nowMs: number
+    ): void {
         for (const [key, cellData] of this.visibleCells) {
             if (!newVisibleCells.has(key)) {
                 this.recycleElement(key, cellData);
             }
         }
 
-        // Render new cells
         for (const [key, cellData] of newVisibleCells) {
             const existing = this.visibleCells.get(key);
             if (existing && existing.cellElement) {
-                // Reuse existing element, update position and content
                 cellData.cellElement = existing.cellElement;
                 if (channelOffsetChanged || this.hasCellPositionDelta(existing, cellData)) {
                     this.updateCellPosition(cellData);
@@ -510,11 +559,16 @@ export class EPGVirtualizer {
                     this.updateCellContent(cellData, nowMs);
                 }
             } else {
-                // Render new cell
                 this.renderCell(key, cellData, nowMs);
             }
         }
+    }
 
+    private finishRenderPass(
+        newVisibleCells: Map<string, CellRenderData>,
+        focusedCellKey: string | undefined,
+        range: VirtualizedGridState
+    ): void {
         this.visibleCells = newVisibleCells;
         this.focusedVisibleCellKey = this.resolveFocusedVisibleCellKey(newVisibleCells, focusedCellKey);
         this._syncFocusedTitleTickerForVisibleFocus();

@@ -4,10 +4,10 @@
  * @version 1.0.0
  */
 
-import { EPG_CLASSES, EPG_CONSTANTS } from './constants';
-import type { EPGConfig, ChannelConfig } from './types';
-import { getChannelNameForDisplay } from '../channelDisplay';
-import { getChannelBrandingIcon } from '../common/channelBrandingIcons';
+import { EPG_CLASSES, EPG_CONSTANTS } from '../constants';
+import type { EPGConfig, ChannelConfig } from '../types';
+import { getChannelNameForDisplay } from '../../channelDisplay';
+import { getChannelBrandingIcon } from '../../common/channelBrandingIcons';
 
 /**
  * EPG Channel List class.

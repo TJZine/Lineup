@@ -1,4 +1,4 @@
-import { EPGVisibleRangeRefreshQueue } from '../EPGVisibleRangeRefreshQueue';
+import { EPGVisibleRangeRefreshQueue } from '../runtime/EPGVisibleRangeRefreshQueue';
 import type { EpgVisibleRange } from '../types';
 
 describe('EPGVisibleRangeRefreshQueue', () => {
