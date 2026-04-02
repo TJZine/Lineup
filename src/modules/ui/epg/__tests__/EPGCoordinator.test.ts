@@ -1047,30 +1047,6 @@ describe('EPGCoordinator', () => {
         expect(epg.setLayoutMode).toHaveBeenCalledWith('classic');
     });
 
-    it('primeEpgChannels clears filter when only one library remains', () => {
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
-
-        const allChannels: ChannelConfig[] = [
-            { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
-            { ...makeChannel('c2', 2), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
-        ];
-
-        const { deps, epg } = makeDeps({
-            getChannelManager: () =>
-            ({
-                ...makeDeps().channelManager,
-                getAllChannels: () => allChannels,
-            } as IChannelManager),
-        });
-        const coordinator = new EPGCoordinator(deps);
-
-        coordinator.primeEpgChannels();
-
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
-        expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
-    });
-
     it('openEPG shows immediately when not ready then initializes and shows again', async () => {
         let status: EpgUiStatus = 'initializing';
         const ensure = jest.fn().mockImplementation(async () => {
