@@ -453,7 +453,7 @@ These are the required repo-local boundary skills for the new wave. Load them be
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P3` plan, code, or checklist progress starts until every `P2` mapped id has an explicit disposition record
   - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all eight exact `P2` issue-id checks; `npm run verify`
-  - Priority-exit review status (2026-04-02): `blocked` (do not open `P3` work)
+  - Priority-exit review status (2026-04-02): `ready-for-review` (later-owner reassignment and destination mirroring complete; do not open `P3` work until cleanup-review confirms exit-format compliance)
   - Verified commands (2026-04-02 refresh):
     - `npm run typecheck`
     - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGCoordinator.test.ts src/modules/ui/epg/__tests__/EPGRefreshController.test.ts src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts`
