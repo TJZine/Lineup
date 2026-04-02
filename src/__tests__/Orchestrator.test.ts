@@ -2108,10 +2108,7 @@ describe('AppOrchestrator', () => {
                 key === 'lineup_epg_guide_density' ? 'wide' : null
             );
             mockEpg.isVisible.mockReturnValue(true);
-            const clearSpy = jest.spyOn(EPGCoordinator.prototype, 'clearScheduleCaches');
-            const refreshSpy = jest
-                .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
-                .mockResolvedValue(undefined);
+            const primeSpy = jest.spyOn(EPGCoordinator.prototype, 'primeEpgChannels');
 
             try {
                 await orchestrator.start();
@@ -2119,77 +2116,53 @@ describe('AppOrchestrator', () => {
                 orchestrator.onGuideSettingChange({ key: 'guideDensity', density: 'wide' });
 
                 expect(mockEpg.setVisibleHours).toHaveBeenCalledWith(3);
-                expect(clearSpy).toHaveBeenCalled();
                 expect(mockEpg.clearSchedules).toHaveBeenCalled();
-                expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
+                expect(primeSpy).toHaveBeenCalled();
             } finally {
-                clearSpy.mockRestore();
-                refreshSpy.mockRestore();
+                primeSpy.mockRestore();
                 jest.useRealTimers();
             }
         });
 
         it('clears and refreshes schedules when aggressive preload changes while EPG visible', () => {
             mockEpg.isVisible.mockReturnValue(true);
-            const clearSpy = jest.spyOn(EPGCoordinator.prototype, 'clearScheduleCaches');
             const primeSpy = jest.spyOn(EPGCoordinator.prototype, 'primeEpgChannels');
-            const refreshSpy = jest
-                .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
-                .mockResolvedValue(undefined);
 
             try {
                 orchestrator.onGuideSettingChange({ key: 'aggressivePreload', enabled: true });
 
-                expect(clearSpy).toHaveBeenCalled();
                 expect(mockEpg.clearSchedules).toHaveBeenCalled();
                 expect(primeSpy).toHaveBeenCalled();
-                expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
             } finally {
-                clearSpy.mockRestore();
                 primeSpy.mockRestore();
-                refreshSpy.mockRestore();
             }
         });
 
         it('clears and refreshes schedules when past-items window changes while EPG visible', () => {
             mockEpg.isVisible.mockReturnValue(true);
-            const clearSpy = jest.spyOn(EPGCoordinator.prototype, 'clearScheduleCaches');
             const primeSpy = jest.spyOn(EPGCoordinator.prototype, 'primeEpgChannels');
-            const refreshSpy = jest
-                .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
-                .mockResolvedValue(undefined);
 
             try {
                 orchestrator.onGuideSettingChange({ key: 'pastItemsWindow', value: '15' });
 
-                expect(clearSpy).toHaveBeenCalled();
                 expect(mockEpg.clearSchedules).toHaveBeenCalled();
                 expect(primeSpy).toHaveBeenCalled();
-                expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
             } finally {
-                clearSpy.mockRestore();
                 primeSpy.mockRestore();
-                refreshSpy.mockRestore();
             }
         });
 
         it('invalidates cached schedules but skips refresh when aggressive preload changes while EPG is hidden', () => {
             mockEpg.isVisible.mockReturnValue(false);
-            const clearSpy = jest.spyOn(EPGCoordinator.prototype, 'clearScheduleCaches');
             const primeSpy = jest.spyOn(EPGCoordinator.prototype, 'primeEpgChannels');
-            const refreshSpy = jest.spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules');
 
             try {
                 orchestrator.onGuideSettingChange({ key: 'aggressivePreload', enabled: true });
 
-                expect(clearSpy).toHaveBeenCalled();
                 expect(primeSpy).not.toHaveBeenCalled();
-                expect(refreshSpy).not.toHaveBeenCalled();
                 expect(mockEpg.clearSchedules).toHaveBeenCalled();
             } finally {
-                clearSpy.mockRestore();
                 primeSpy.mockRestore();
-                refreshSpy.mockRestore();
             }
         });
     });

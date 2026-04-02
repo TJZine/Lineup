@@ -156,6 +156,7 @@ export class EPGCoordinator {
     }
 
     handleGuideSettingChange(change: GuideSettingChange): void {
+        const epg = this.deps.getEpg();
         const shouldInvalidateSchedules =
             change.key === 'libraryTabs' ||
             change.key === 'guideDensity' ||
@@ -163,17 +164,10 @@ export class EPGCoordinator {
             change.key === 'pastItemsWindow';
         if (shouldInvalidateSchedules) {
             this._invalidateGuideSelection('guide-settings');
-            this._refreshController.cancelScheduledRefreshWork('guide-settings');
-            this.clearScheduleCaches();
-            this.clearSelectedChannelScheduleSnapshot();
+            this._refreshController.handleGuideSettingRefreshChange(change);
+            return;
         }
-
-        const epg = this.deps.getEpg();
         if (!epg) return;
-
-        if (shouldInvalidateSchedules) {
-            epg.clearSchedules();
-        }
 
         if (!epg.isVisible()) return;
 
@@ -189,11 +183,6 @@ export class EPGCoordinator {
 
         if (change.key === 'infoBackgroundMode') {
             return;
-        }
-
-        if (shouldInvalidateSchedules) {
-            this.primeEpgChannels();
-            this._refreshEpgSchedulesBestEffort({ reason: 'guide-settings', debounceMs: 0 });
         }
     }
 
@@ -453,16 +442,7 @@ export class EPGCoordinator {
             this._epgPreferencesStore.writeSelectedLibraryId(payload.libraryId ?? null);
 
             this._invalidateGuideSelection('library-filter');
-            this._refreshController.cancelScheduledRefreshWork('library-filter');
-            this.clearSelectedChannelScheduleSnapshot();
-            this._refreshController.clearLoadedScheduleMarkers();
-
-            epg.clearSchedules();
-            this.primeEpgChannels();
-
-            epg.scrollToChannel(0);
-            epg.focusChannel(0);
-            this._refreshEpgSchedulesBestEffort({ reason: 'library-filter', debounceMs: 0 });
+            this._refreshController.handleLibraryFilterRefreshChange(payload.libraryId ?? null);
         };
 
         epg.on('libraryFilterChanged', onFilter);

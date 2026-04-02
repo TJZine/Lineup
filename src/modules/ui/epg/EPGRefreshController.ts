@@ -92,14 +92,6 @@ export class EPGRefreshController {
         );
     }
 
-    debugGetVisibleRangeRefreshQueue(): EPGVisibleRangeRefreshQueue {
-        return this._visibleRangeRefreshQueue;
-    }
-
-    debugGetScheduleRefreshRuntime(): EPGScheduleRefreshRuntime {
-        return this._scheduleRefreshRuntime;
-    }
-
     clearScheduleCaches(): void {
         this._scheduleRefreshRuntime.clearScheduleCaches();
     }
