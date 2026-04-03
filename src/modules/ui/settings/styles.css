@@ -482,6 +482,8 @@
 }
 
 @media (max-width: 980px) {
+  .theme-glass .settings-categories,
+  .theme-swiss .settings-categories,
   .theme-slate-pine .settings-categories,
   .theme-directv .settings-categories,
   .theme-ember-steel .settings-categories {
