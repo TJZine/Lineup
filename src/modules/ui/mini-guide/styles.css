@@ -274,7 +274,7 @@
   --mini-guide-stop-1: 66%;
   --mini-guide-stop-2: 54%;
   --mini-guide-stop-3: 26%;
-  --mini-guide-border-alpha: 34%;
+  --mini-guide-border-alpha: 8%;
 }
 
 .theme-directv .mini-guide-row.focused {
@@ -296,7 +296,7 @@
   --mini-guide-stop-1: 60%;
   --mini-guide-stop-2: 48%;
   --mini-guide-stop-3: 24%;
-  --mini-guide-border-alpha: 10%;
+  --mini-guide-border-alpha: 8%;
 }
 
 .theme-ember-steel .mini-guide-row.focused {

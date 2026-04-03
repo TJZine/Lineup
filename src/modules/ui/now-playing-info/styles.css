@@ -428,7 +428,7 @@
   --npi-scrim-fallback-rgb: 0, 24, 48;
   --npi-start-alpha: 50%;
   --npi-end-alpha: 72%;
-  --npi-border-alpha: 36%;
+  --npi-border-alpha: 8%;
 }
 
 .theme-directv .now-playing-info-title {
@@ -439,7 +439,7 @@
   --npi-scrim-fallback-rgb: 20, 20, 20;
   --npi-start-alpha: 44%;
   --npi-end-alpha: 66%;
-  --npi-border-alpha: 10%;
+  --npi-border-alpha: 8%;
 }
 
 .theme-ember-steel .now-playing-info-title {
