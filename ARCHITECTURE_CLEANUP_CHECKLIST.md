@@ -533,10 +533,27 @@ These are the required repo-local boundary skills for the new wave. Load them be
   - Security triage (2026-04-02 disposition record):
     - `desloppify show security --status open --no-budget --top 50` -> `No open issues for Security. Detectors: cycles, security`.
     - `P0` impact: none intersects channel setup; no `P0` blocker recorded for `P3-W2` or `P3-EXIT`.
-- [ ] `P3-W3` align channel-setup names and UI state types to the domain contracts they already mirror
+- [x] `P3-W3` align channel-setup names and UI state types to the domain contracts they already mirror
   - Imported review issues: `review::.::holistic::naming_quality::playback_variant_flag_name_drift`, `review::.::holistic::naming_quality::scroll_to_nearest_fallback_mismatch`, `review::.::holistic::type_safety::channel_setup_ui_redefines_core_unions`
   - Primary files: `src/core/channel-setup/ChannelSetupPlanner.ts`, `src/core/channel-setup/types.ts`, `src/modules/ui/channel-setup/ChannelSetupSessionController.ts`, `src/modules/ui/channel-setup/steps/types.ts`, `src/modules/ui/channel-setup/focus/scrollToNearest.ts`, `src/modules/scheduler/channel-manager/types.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the three mapped ids
+  - Execution (2026-04-03): renamed setup variant flag usage from `isSequentialVariant` to `isPlaybackModeVariant` across scheduler + channel-setup planner/commit paths, added one-time migration in `ChannelRepository.loadNormalized()` to move persisted legacy records and persist via the existing normalized-save path, expanded `ChannelSetupBuildCommitter` merge/apply-path test coverage for the renamed flag, aligned channel-setup UI state types to core/domain contracts (`SetupStrategyConfig`, `ChannelExpansionConfig`, `SeriesOrderingConfig`) instead of re-stated local unions, and replaced `scrollToNearest` fallback behavior with nearest-edge approximation (`true` above viewport, `false` below viewport, no-op when already visible) plus focused unit tests.
+  - Verification (2026-04-03):
+    - `npm test -- --runInBand src/modules/scheduler/channel-manager/__tests__/ChannelRepository.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts`
+    - `npm test -- --runInBand src/core/channel-setup/__tests__/ChannelSetupPlanner.test.ts src/core/channel-setup/__tests__/ChannelSetupCoordinator.test.ts src/core/channel-setup/__tests__/ChannelSetupBuildCommitter.test.ts`
+    - `npm test -- --runInBand src/modules/ui/channel-setup/focus/__tests__/scrollToNearest.test.ts`
+    - `npm run typecheck`
+    - `npm run verify`
+    - `desloppify show "review::.::holistic::naming_quality::playback_variant_flag_name_drift" --status open --no-budget`
+    - `desloppify show "review::.::holistic::naming_quality::scroll_to_nearest_fallback_mismatch" --status open --no-budget`
+    - `desloppify show "review::.::holistic::type_safety::channel_setup_ui_redefines_core_unions" --status open --no-budget`
+    - `rg -n "isSequentialVariant|isPlaybackModeVariant" src/core/channel-setup src/modules/scheduler/channel-manager src/modules/ui/channel-setup`
+    - `rg -n "scrollToNearest\\(|scrollIntoView\\(" src/modules/ui/channel-setup`
+    - `rg -n "'per-library'|'cross-library'|'none'\\s*\\|\\s*'sequential'\\s*\\|\\s*'block'|'shuffle'\\s*\\|\\s*'sequential'\\s*\\|\\s*'block'" src/modules/ui/channel-setup`
+  - Issue dispositions (2026-04-03 source audit + detector refresh):
+    - `review::.::holistic::naming_quality::playback_variant_flag_name_drift` -> `resolved` -> owner `P3-W3`; proof: planner/build/scheduler now use `isPlaybackModeVariant`, and legacy `isSequentialVariant` appears only in `ChannelRepository` migration logic and migration-specific tests; exact issue-id `desloppify` command still reports pre-rename evidence and is treated as stale detector residue.
+    - `review::.::holistic::naming_quality::scroll_to_nearest_fallback_mismatch` -> `resolved` -> owner `P3-W3`; proof: `scrollToNearest` now attempts `{ block: 'nearest', inline: 'nearest' }`, then falls back to nearest-edge approximation for above/below cases with explicit unit coverage in `focus/__tests__/scrollToNearest.test.ts`; exact issue-id `desloppify` command still reports old fallback wording and is treated as stale detector residue.
+    - `review::.::holistic::type_safety::channel_setup_ui_redefines_core_unions` -> `resolved` -> owner `P3-W3`; proof: `ChannelSetupSessionController` and `steps/types` now reference core contracts (`SetupStrategyConfig['scope']`, `ChannelExpansionConfig['variantType']`, `SeriesOrderingConfig['basePlaybackMode']`) instead of local duplicate unions; exact issue-id `desloppify` command still reports pre-refactor evidence and is treated as stale detector residue.
 - [ ] `P3-EXIT` run the priority-exit review before moving to `P4`
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P4` plan, code, or checklist progress starts until every `P3` mapped id has an explicit disposition record
