@@ -716,6 +716,8 @@ describe('ChannelSetupPlanner', () => {
             seedFor,
         });
 
+        expect(diagnostics.minItems).toBe(5);
+        expect(diagnostics.effectiveMaxChannels).toBeGreaterThan(0);
         expect(diagnostics.fetchedTagsByFamily.genres).toEqual([
             { libraryId: 'm1', libraryName: 'Movies', count: 3 },
         ]);
