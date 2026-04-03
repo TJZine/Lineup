@@ -1209,6 +1209,64 @@ describe('EPGVirtualizer', () => {
             expect(container.querySelector(`[data-key="row-6-${gridAnchorTime}"]`)).toBeNull();
         });
 
+        it('caps sampled visible queue cells to the per-row limit when seed indices add extra entries', () => {
+            const rowCount = 40;
+            const channelIds = Array.from({ length: rowCount }, (_, index) => `row-${index}`);
+            const schedules = new Map<string, ScheduleWindow>();
+            config = {
+                ...config,
+                visibleChannels: 38,
+            };
+            virtualizer.initialize(container, config, gridAnchorTime);
+
+            for (const channelId of channelIds) {
+                const programs: ScheduledProgram[] = [];
+                for (let minute = 0; minute < 10; minute += 1) {
+                    programs.push({
+                        item: {
+                            ratingKey: `${channelId}-${minute}`,
+                            type: 'movie',
+                            title: `Program ${minute}`,
+                            fullTitle: `Program ${minute}`,
+                            durationMs: 60_000,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: minute,
+                        },
+                        scheduledStartTime: gridAnchorTime + (minute * 60_000),
+                        scheduledEndTime: gridAnchorTime + ((minute + 1) * 60_000),
+                        elapsedMs: 0,
+                        remainingMs: 60_000,
+                        scheduleIndex: minute,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    });
+                }
+
+                schedules.set(channelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + (24 * 60 * 60_000),
+                    programs,
+                });
+            }
+
+            virtualizer.setChannelCount(channelIds.length);
+
+            const range = virtualizer.calculateVisibleRange({
+                channelOffset: 0,
+                timeOffset: 0,
+            });
+
+            virtualizer.renderVisibleCells(channelIds, schedules, range);
+
+            const rowZeroCells = Array.from(
+                container.querySelectorAll('[data-key^="row-0-"]')
+            ) as HTMLElement[];
+
+            expect(rowZeroCells).toHaveLength(5);
+        });
+
         it('should maintain DOM element count under 200 during virtualized render', () => {
             // Load 50 channels with many programs
             const channelIds = Array.from({ length: 50 }, (_, i) => `ch${i}`);

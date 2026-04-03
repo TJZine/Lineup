@@ -439,6 +439,7 @@ export class EPGVirtualizer {
 
             return Array.from(selected.entries())
                 .sort(([a], [b]) => a - b)
+                .slice(0, sampleCount)
                 .map(([, cell]) => cell);
         };
 
