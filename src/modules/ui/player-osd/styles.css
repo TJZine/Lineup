@@ -18,15 +18,26 @@
 
 .player-osd-panel {
   --osd-safe-margin: 5%;
+  --player-osd-scrim-fallback-rgb: 0, 0, 0;
+  --player-osd-stop-1: 8%;
+  --player-osd-stop-2: 30%;
+  --player-osd-stop-3: 45%;
   width: 100%;
   margin: 0;
   padding: 0;
   background: linear-gradient(
     to bottom,
     transparent 0%,
-    rgba(0, 0, 0, 0.08) 20%,
-    rgba(0, 0, 0, 0.30) 60%,
-    rgba(0, 0, 0, 0.45) 100%
+    rgba(var(--player-osd-scrim-fallback-rgb), 0.08) 20%,
+    rgba(var(--player-osd-scrim-fallback-rgb), 0.30) 60%,
+    rgba(var(--player-osd-scrim-fallback-rgb), 0.45) 100%
+  );
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgb(var(--scrim-tint-rgb) / var(--player-osd-stop-1)) 20%,
+    rgb(var(--scrim-tint-rgb) / var(--player-osd-stop-2)) 60%,
+    rgb(var(--scrim-tint-rgb) / var(--player-osd-stop-3)) 100%
   );
   border: none;
   border-radius: 0;
@@ -336,20 +347,58 @@
 }
 
 .theme-glass .player-osd-panel {
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(0, 0, 0, 0.06) 20%,
-    rgba(0, 0, 0, 0.25) 60%,
-    rgba(0, 0, 0, 0.40) 100%
-  );
+  --player-osd-scrim-fallback-rgb: 8, 11, 15;
+  --player-osd-stop-1: 6%;
+  --player-osd-stop-2: 25%;
+  --player-osd-stop-3: 40%;
   border: none;
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
+.theme-slate-pine .player-osd-panel {
+  --player-osd-scrim-fallback-rgb: 22, 24, 22;
+  --player-osd-stop-1: 10%;
+  --player-osd-stop-2: 34%;
+  --player-osd-stop-3: 50%;
+}
+
+.theme-swiss .player-osd-panel {
+  --player-osd-scrim-fallback-rgb: 0, 0, 0;
+  --player-osd-stop-1: 10%;
+  --player-osd-stop-2: 34%;
+  --player-osd-stop-3: 50%;
+}
+
+.theme-directv .player-osd-panel {
+  --player-osd-scrim-fallback-rgb: 0, 24, 48;
+  --player-osd-stop-1: 16%;
+  --player-osd-stop-2: 44%;
+  --player-osd-stop-3: 62%;
+}
+
+.theme-ember-steel .player-osd-panel {
+  --player-osd-scrim-fallback-rgb: 20, 20, 20;
+  --player-osd-stop-1: 14%;
+  --player-osd-stop-2: 38%;
+  --player-osd-stop-3: 56%;
+}
+
 .theme-glass .player-osd-status,
-.theme-glass .player-osd-title {
+.theme-glass .player-osd-title,
+.theme-swiss .player-osd-status,
+.theme-swiss .player-osd-title,
+.theme-directv .player-osd-status,
+.theme-directv .player-osd-title,
+.theme-ember-steel .player-osd-status,
+.theme-ember-steel .player-osd-title {
   font-family: var(--font-family-display);
+}
+
+.theme-directv .player-osd-action.focused {
+  background: var(--directv-focus-fill);
+  border-color: var(--directv-focus-border);
+  color: var(--directv-focus-text);
+  box-shadow: none;
 }
