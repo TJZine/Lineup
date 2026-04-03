@@ -1095,6 +1095,8 @@ describe('EPGCoordinator', () => {
         await Promise.resolve();
 
         expect(epg.show).toHaveBeenCalledTimes(2);
+        expect(epg.focusNow).toHaveBeenCalledTimes(1);
+        expect(epg.focusChannel).toHaveBeenCalledTimes(1);
         expect(ensure).toHaveBeenCalled();
         expect(epg.loadChannels).toHaveBeenCalled();
     });

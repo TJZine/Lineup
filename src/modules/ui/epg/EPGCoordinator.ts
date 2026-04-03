@@ -207,12 +207,15 @@ export class EPGCoordinator {
         const requestId = ++this._openRequestId;
         const status = this.deps.getEpgUiStatus();
 
-        const showAndRefresh = (epgInstance: IEPGComponent): void => {
+        const showAndRefresh = (
+            epgInstance: IEPGComponent,
+            options?: { skipRefocus?: boolean }
+        ): void => {
             this._refreshController.preseedCurrentChannelSchedule(epgInstance);
             const preserveFocus = this.deps.getPreserveFocusOnOpen();
             epgInstance.show({ preserveFocus });
             this._reportVisibilityIfChanged(epgInstance);
-            if (!preserveFocus) {
+            if (!preserveFocus && !options?.skipRefocus) {
                 this._focusEpgOnCurrentChannel(epgInstance);
                 epgInstance.focusNow();
             }
@@ -243,7 +246,7 @@ export class EPGCoordinator {
                     return;
                 }
                 this.primeEpgChannels();
-                showAndRefresh(epgAfterInit);
+                showAndRefresh(epgAfterInit, { skipRefocus: true });
             })
             .catch((error: unknown) => {
                 if (requestId !== this._openRequestId) {
