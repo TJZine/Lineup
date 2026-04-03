@@ -260,6 +260,7 @@ describe('ChannelSetupBuildCommitter', () => {
                     planned: {
                         ...makePending('Existing 1 Updated'),
                         playbackMode: 'sequential',
+                        isPlaybackModeVariant: true,
                     },
                 },
             ],
@@ -280,6 +281,7 @@ describe('ChannelSetupBuildCommitter', () => {
         const [mergeArgs] = channelManager.replaceAllChannels.mock.calls[1] ?? [];
         const mergedExisting = mergeArgs?.find((channel: ChannelConfig) => channel.id === 'existing-1');
         expect(mergedExisting?.playbackMode).toBe('sequential');
+        expect(mergedExisting?.isPlaybackModeVariant).toBe(true);
     });
 
     it('keeps final done detail when EPG refresh fails after commit', async () => {

@@ -77,8 +77,8 @@ const makeExistingChannel = (planned: PendingChannel, index: number): ChannelCon
     if (planned.lineupReplicaIndex !== undefined) {
         existing.lineupReplicaIndex = planned.lineupReplicaIndex;
     }
-    if (planned.isSequentialVariant !== undefined) {
-        existing.isSequentialVariant = planned.isSequentialVariant;
+    if (planned.isPlaybackModeVariant !== undefined) {
+        existing.isPlaybackModeVariant = planned.isPlaybackModeVariant;
     }
     if (planned.blockSize !== undefined) {
         existing.blockSize = planned.blockSize;
@@ -305,7 +305,7 @@ describe('ChannelSetupPlanner', () => {
         expect(blockVariant).toBeDefined();
         expect(blockVariant?.playbackMode).toBe('block');
         expect(blockVariant?.blockSize).toBe(4);
-        expect(blockVariant?.isSequentialVariant).toBe(true);
+        expect(blockVariant?.isPlaybackModeVariant).toBe(true);
 
         const sequentialVariantCandidate: PendingChannel = {
             ...(blockVariant as PendingChannel),
@@ -359,7 +359,7 @@ describe('ChannelSetupPlanner', () => {
         const sequentialVariant = plan.pendingChannels.find((channel) => channel.name === 'Jane Doe • Sequential');
         expect(sequentialVariant).toBeDefined();
         expect(sequentialVariant?.playbackMode).toBe('sequential');
-        expect(sequentialVariant?.isSequentialVariant).toBe(true);
+        expect(sequentialVariant?.isPlaybackModeVariant).toBe(true);
     });
 
     it('preserves known cross-library subtotals for ordering when another source omits counts', () => {

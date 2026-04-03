@@ -426,8 +426,8 @@ export class ChannelManager implements IChannelManager {
         if (typeof config.lineupReplicaIndex === 'number' && Number.isFinite(config.lineupReplicaIndex)) {
             channel.lineupReplicaIndex = Math.max(0, Math.floor(config.lineupReplicaIndex));
         }
-        if (typeof config.isSequentialVariant === 'boolean') {
-            channel.isSequentialVariant = config.isSequentialVariant;
+        if (typeof config.isPlaybackModeVariant === 'boolean') {
+            channel.isPlaybackModeVariant = config.isPlaybackModeVariant;
         }
         if (typeof config.shuffleSeed === 'number' && Number.isFinite(config.shuffleSeed)) {
             channel.shuffleSeed = config.shuffleSeed;

@@ -153,13 +153,13 @@ describe('ChannelManager', () => {
                 playbackMode: 'block',
                 blockSize: 4,
                 lineupReplicaIndex: 2,
-                isSequentialVariant: true,
+                isPlaybackModeVariant: true,
             });
 
             expect(channel.playbackMode).toBe('block');
             expect(channel.blockSize).toBe(4);
             expect(channel.lineupReplicaIndex).toBe(2);
-            expect(channel.isSequentialVariant).toBe(true);
+            expect(channel.isPlaybackModeVariant).toBe(true);
         });
 
         it('should assign next available channel number', async () => {
